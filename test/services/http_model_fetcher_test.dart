@@ -518,4 +518,106 @@ void main() {
       expect(progress.etaSeconds, isNull);
     });
   });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Connection dropped mid-body (Sentry 138737241)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  group('fetch — connection closed while receiving data', () {
+    ResponseBody droppingBody(List<int> first, {int? contentLength}) {
+      Stream<Uint8List> body() async* {
+        yield Uint8List.fromList(first);
+        throw const HttpException('Connection closed while receiving data');
+      }
+
+      return ResponseBody(
+        body(),
+        200,
+        headers: {
+          if (contentLength != null) 'content-length': ['$contentLength'],
+        },
+      );
+    }
+
+    test('resumes from the received bytes and completes', () async {
+      final bytes = List<int>.generate(8, (i) => i);
+      final adapter = _FakeAdapter(
+        defaultHandler: (_) async => _bodyFor(bytes.sublist(3)),
+      )..enqueue((_) async => droppingBody(bytes.sublist(0, 3)));
+      final fetcher = HttpModelFetcher(
+        dio: _dioWith(adapter),
+        retryBackoff: const [Duration.zero, Duration.zero],
+      );
+      final destPath = p.join(tempDir.path, 'model.bin');
+
+      await fetcher.fetch(
+        url: 'https://example.com/model.bin',
+        destPath: destPath,
+        expectedSize: bytes.length,
+      );
+
+      expect(adapter.records, hasLength(2));
+      expect(adapter.records.last.options.headers['Range'], 'bytes=3-');
+      expect(await File(destPath).readAsBytes(), bytes);
+    });
+
+    test('a persistent drop surfaces as a connection-error DioException '
+        'and keeps the partial file for a later resume', () async {
+      final adapter = _FakeAdapter(
+        defaultHandler: (_) async => droppingBody([1]),
+      );
+      final fetcher = HttpModelFetcher(
+        dio: _dioWith(adapter),
+        retryBackoff: const [Duration.zero, Duration.zero],
+      );
+      final destPath = p.join(tempDir.path, 'model.bin');
+
+      await expectLater(
+        fetcher.fetch(
+          url: 'https://example.com/model.bin',
+          destPath: destPath,
+          expectedSize: 100,
+        ),
+        throwsA(
+          isA<DioException>()
+              .having((e) => e.type, 'type', DioExceptionType.connectionError)
+              .having((e) => e.error, 'error', isA<HttpException>()),
+        ),
+      );
+      expect(adapter.records, hasLength(3), reason: '1 attempt + 2 resumes');
+      expect(File('$destPath.tmp').lengthSync(), 3);
+    });
+
+    test('cancel during the resume backoff stops the download', () async {
+      final adapter = _FakeAdapter(
+        defaultHandler: (_) async => _bodyFor([9, 9]),
+      )..enqueue((_) async => droppingBody([1]));
+      late HttpModelFetcher fetcher;
+      fetcher = HttpModelFetcher(
+        dio: _dioWith(adapter),
+        retryBackoff: const [Duration(milliseconds: 50)],
+      );
+      final destPath = p.join(tempDir.path, 'model.bin');
+
+      final future = fetcher.fetch(
+        url: 'https://example.com/model.bin',
+        destPath: destPath,
+        expectedSize: 3,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      fetcher.cancel('user cancelled');
+
+      await expectLater(
+        future,
+        throwsA(
+          isA<DioException>().having(
+            (e) => e.type,
+            'type',
+            DioExceptionType.cancel,
+          ),
+        ),
+      );
+      expect(adapter.records, hasLength(1));
+    });
+  });
 }

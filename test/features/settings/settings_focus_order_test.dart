@@ -51,10 +51,16 @@ void main() {
         if (context != null) {
           final ro = context.findRenderObject();
           if (ro is RenderBox && ro.hasSize && columnRO.hasSize) {
+            // Vertical centre, not top edge: the search field and the section
+            // picker share one header row, but a text field's focus box sits
+            // inside its frame, so their top edges differ while both controls
+            // are on the same line. Comparing centres keeps a sideways step
+            // from counting as an upward jump.
             final dy =
                 (ro.localToGlobal(Offset.zero) -
                         columnRO.localToGlobal(Offset.zero))
-                    .dy;
+                    .dy +
+                ro.size.height / 2;
             dyValues.add(dy);
           }
         }

@@ -21,8 +21,8 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/stt/stt_bundle.dart';
+import '../../../services/stt/whisper/cuda_pack.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
-import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/wp_stt_model_manager.dart';
 import '../../../widgets/section.dart';
@@ -30,6 +30,7 @@ import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../settings_widgets.dart';
+import 'cuda_pack_row.dart';
 
 // ---------------------------------------------------------------------------
 // Speech Recognition section
@@ -201,6 +202,13 @@ class _SpeechRecognitionSectionState
                       ),
                 ),
               ),
+            // Optional NVIDIA CUDA pack — only for Turing+ NVIDIA cards
+            // outside the Store build, and moot when "CPU only" is chosen.
+            if (settings.onDeviceEngine == OnDeviceEngine.whisper &&
+                settings.behavior.gpuAcceleration !=
+                    GpuAcceleration.disabled.value &&
+                ref.watch(cudaPackOfferedProvider))
+              const CudaPackRow(),
             settingsInlineBreak,
           ],
 
@@ -288,6 +296,48 @@ class _SpeechRecognitionSectionState
                   .updateSettings(
                     (s) => s.copyWithSections(
                       stt: s.stt.copyWith(numericOnlyMode: v),
+                    ),
+                  ),
+            ),
+          ),
+
+          // Filler word removal — same engine/provider-independent text
+          // transform path as the two rows above (handy-catchup ticket 16),
+          // so it stays visible for every engine. Default off.
+          SettingRow(
+            icon: LucideIcons.messageSquareOff,
+            label: l10n.settingsRemoveFillerWords,
+            subtitle: l10n.settingsRemoveFillerWordsSubtitle,
+            semanticToggledValue: settings.stt.removeFillerWords,
+            trailing: settingsToggle(
+              key: const Key('removeFillerWordsToggle'),
+              value: settings.stt.removeFillerWords,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      stt: s.stt.copyWith(removeFillerWords: v),
+                    ),
+                  ),
+            ),
+          ),
+
+          // Spoken line breaks ("new paragraph" → blank line). Same
+          // engine-independent text transform path as filler removal above.
+          // Default on: the Dragon-style behaviour is the point of it.
+          SettingRow(
+            icon: LucideIcons.cornerDownLeft,
+            label: l10n.settingsVoiceLineBreaks,
+            subtitle: l10n.settingsVoiceLineBreaksSubtitle,
+            semanticToggledValue: settings.stt.voiceLineBreaks,
+            trailing: settingsToggle(
+              key: const Key('voiceLineBreaksToggle'),
+              value: settings.stt.voiceLineBreaks,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      stt: s.stt.copyWith(voiceLineBreaks: v),
                     ),
                   ),
             ),
@@ -488,7 +538,10 @@ class _ParakeetModelRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dl = ref.watch(parakeetDownloadProvider);
-    final sizeLabel = '${(parakeetModelTotalBytes / (1024 * 1024)).round()} MB';
+    final gpuWanted = parakeetGpuWantedForSetting(
+      ref.watch(settingsProvider).value?.behavior.gpuAcceleration,
+    );
+    final sizeLabel = parakeetDownloadSizeLabel(gpuWanted: gpuWanted);
 
     Widget trailing;
     if (dl.installed && !dl.isBusy) {
@@ -566,7 +619,8 @@ class _ParakeetModelRow extends ConsumerWidget {
 
     return SettingRow(
       icon: LucideIcons.cpu,
-      label: '${l10n.parakeetModelTitle} ($sizeLabel)',
+      label: l10n.parakeetModelTitle,
+      subtitle: l10n.parakeetModelSubtitle(sizeLabel),
       trailing: trailing,
     );
   }

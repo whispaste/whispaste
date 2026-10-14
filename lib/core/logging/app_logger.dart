@@ -205,6 +205,21 @@ _LogFileSink? _fileSink;
 /// Returns the path to the current log file, or null if not initialized.
 String? get logFilePath => _fileSink?._file?.path;
 
+/// Runs [body] with the persistent log file closed and reopens it
+/// afterwards. Deleting the logs directory (factory reset) while our own
+/// handle is open fails on Windows with a sharing violation (errno 32,
+/// Sentry 123406956). Lines logged meanwhile are not written to the file.
+Future<void> withLogFileReleased(Future<void> Function() body) async {
+  final sink = _fileSink;
+  if (sink == null) return body();
+  await sink.close();
+  try {
+    await body();
+  } finally {
+    await sink.init();
+  }
+}
+
 /// Closes the open file handle so a temp directory used via
 /// [paths.appDataDirOverride] can be deleted afterwards — on Windows,
 /// deleting a directory while one of its files is still open throws.

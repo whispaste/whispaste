@@ -186,6 +186,22 @@ class L10nRu extends L10n {
   String get historyReadingTimeUnder1 => '< 1 мин чтения';
 
   @override
+  String historyListWordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'около $count слов',
+      many: 'около $count слов',
+      few: 'около $count слова',
+      one: 'около $count слово',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historyToolsMenu => 'Вид и выбор';
+
+  @override
   String get historyEditing => 'Редактирование';
 
   @override
@@ -416,6 +432,13 @@ class L10nRu extends L10n {
   String get pushToTalkUnavailableTooltip => 'Недоступно на этой платформе';
 
   @override
+  String get pushToTalkUnavailableLinuxTooltip =>
+      'Ваш рабочий стол здесь не сообщает об отпускании клавиш. Вместо этого назначьте «whispaste --toggle» сочетанию клавиш в настройках системы.';
+
+  @override
+  String get settingsExperimentalBadge => 'Экспериментально';
+
+  @override
   String get settingsHoldOrTap => 'Нажатие или удержание';
 
   @override
@@ -559,63 +582,66 @@ class L10nRu extends L10n {
   String get pasteFailureOpenSettings => 'Открыть настройки';
 
   @override
-  String get pasteNotificationNoTargetTitle => 'WhisPaste: Auto-Paste Skipped';
+  String get pasteNotificationNoTargetTitle =>
+      'WhisPaste: автовставка пропущена';
 
   @override
   String get pasteNotificationNoTargetBody =>
-      'No target app detected. Focus the destination app first, then start recording. The text is on the clipboard.';
+      'Целевое приложение не найдено. Сначала переключитесь в нужное приложение, затем начните запись. Текст находится в буфере обмена.';
 
   @override
-  String get pasteNotificationNoTargetTray => 'Auto-Paste: Target App Missing';
+  String get pasteNotificationNoTargetTray =>
+      'Автовставка: нет целевого приложения';
 
   @override
-  String get pasteNotificationRestartNeededTitle => 'WhisPaste: Restart Needed';
+  String get pasteNotificationRestartNeededTitle =>
+      'WhisPaste: требуется перезапуск';
 
   @override
   String get pasteNotificationRestartNeededBody =>
-      'The permission was granted, but WhisPaste is still running the old state. Click here to restart WhisPaste.';
+      'Разрешение предоставлено, но WhisPaste всё ещё работает со старым состоянием. Нажмите здесь, чтобы перезапустить WhisPaste.';
 
   @override
   String get pasteNotificationRestartNeededTray =>
-      'Auto-Paste Blocked — Restart Needed';
+      'Автовставка заблокирована — требуется перезапуск';
 
   @override
   String get pasteNotificationPermissionBlockedTitle =>
-      'WhisPaste: Auto-Paste Blocked';
+      'WhisPaste: автовставка заблокирована';
 
   @override
   String get pasteNotificationPermissionResetEntryBody =>
-      'WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'. Click here: WhisPaste will clear a possibly stale entry and let macOS ask again.';
+      'WhisPaste требуется разрешение на вставку текста в другие приложения — в macOS оно называется «Универсальный доступ». Нажмите здесь: WhisPaste удалит возможно устаревшую запись, и macOS запросит разрешение заново.';
 
   @override
   String get pasteNotificationPermissionOpenSettingsBody =>
-      'WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'. Click here or the tray icon to open System Settings.';
+      'WhisPaste требуется разрешение на вставку текста в другие приложения — в macOS оно называется «Универсальный доступ». Нажмите здесь или на значок в трее, чтобы открыть Системные настройки.';
 
   @override
   String get pasteNotificationPermissionBlockedTray =>
-      'Auto-Paste Blocked — Open System Settings';
+      'Автовставка заблокирована — откройте Системные настройки';
 
   @override
   String get pasteNotificationElevationBlockedTitle =>
-      'WhisPaste: Auto-Paste Blocked';
+      'WhisPaste: автовставка заблокирована';
 
   @override
   String get pasteNotificationElevationBlockedBody =>
-      'The target app is running with administrator rights. Restart WhisPaste as an administrator too, to paste into that app.';
+      'Целевое приложение запущено с правами администратора. Чтобы вставлять в него текст, перезапустите WhisPaste тоже от имени администратора.';
 
   @override
   String get pasteNotificationElevationBlockedTray =>
-      'Auto-Paste Blocked — Administrator Needed';
+      'Автовставка заблокирована — нужны права администратора';
 
   @override
-  String get pasteNotificationFailedTitle => 'WhisPaste: Auto-Paste Failed';
+  String get pasteNotificationFailedTitle => 'WhisPaste: ошибка автовставки';
 
   @override
   String get pasteNotificationFailedBody =>
-      'The system rejected the paste. The text is on the clipboard — paste it manually with ⌘V / Ctrl+V.';
+      'Система отклонила вставку. Текст находится в буфере обмена — вставьте его вручную (⌘V / Ctrl+V).';
 
   @override
-  String get pasteNotificationFailedTray => 'Auto-Paste Failed';
+  String get pasteNotificationFailedTray => 'Ошибка автовставки';
 
   @override
   String get pasteCapabilityCheckTitle => 'Минуточку…';
@@ -676,14 +702,24 @@ class L10nRu extends L10n {
   String get pasteRestartAlertConfirm => 'Перезапустить';
 
   @override
-  String get pasteManualGrantAlertTitle => 'Перезапуск не помог';
+  String get pasteStaleEntryGuideTitle => 'Удалите старую запись WhisPaste';
 
   @override
-  String get pasteManualGrantAlertBody =>
-      'WhisPaste перезапустился, но разрешение так и не заработало. Пожалуйста, проверьте Системные настройки → Конфиденциальность и безопасность → Универсальный доступ.';
+  String get pasteStaleEntryGuideBody =>
+      'macOS всё ещё хранит разрешение на автовставку от предыдущей версии WhisPaste. Эту запись нельзя включить — её нужно один раз удалить:\n\n1. Выберите «WhisPaste» в списке.\n2. Нажмите «−» под списком.\n3. Вернитесь в WhisPaste.\n\nПосле перезапуска macOS спросит снова — просто разрешите.';
 
   @override
-  String get pasteManualGrantAlertConfirm => 'Открыть Системные настройки';
+  String get pasteStaleEntryGuideConfirm => 'Открыть Системные настройки';
+
+  @override
+  String get pasteStaleEntryRestartTitle => 'Перезапустить WhisPaste';
+
+  @override
+  String get pasteStaleEntryRestartBody =>
+      'Когда старая запись удалена, перезапустите WhisPaste. macOS снова запросит разрешение — подтвердите его и включите WhisPaste.';
+
+  @override
+  String get pasteStaleEntryRestartConfirm => 'Перезапустить WhisPaste';
 
   @override
   String get permissionAlertLaterButton => 'Не сейчас';
@@ -937,6 +973,20 @@ class L10nRu extends L10n {
       'Преобразует произнесенные числа в цифры, например \'пять\' в \'5\'.';
 
   @override
+  String get settingsRemoveFillerWords => 'Удалять слова-паразиты';
+
+  @override
+  String get settingsRemoveFillerWordsSubtitle =>
+      'Удаляет звуки-заминки вроде «uh», «um» и «äh» перед сохранением или вставкой транскрипции. Только однозначные английские и немецкие паразиты; слова со смыслом не затрагиваются.';
+
+  @override
+  String get settingsVoiceLineBreaks => 'Голосовые переносы строк';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'Превращает голосовые команды вроде «новый абзац» и «новая строка» в настоящие переносы строк. Действует для языка транскрипции, а при автоопределении — для всех поддерживаемых языков.';
+
+  @override
   String get settingsAppLanguage => 'Язык приложения';
 
   @override
@@ -1128,10 +1178,6 @@ class L10nRu extends L10n {
       'STT Groq был удален. Провайдер сброшен на устройство.';
 
   @override
-  String get tccResetAfterUpdateToast =>
-      'macOS сбросила ваше разрешение во время обновления.';
-
-  @override
   String migrationComplete(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -1164,6 +1210,9 @@ class L10nRu extends L10n {
 
   @override
   String get statusTranscriptionDone => 'Транскрипция завершена';
+
+  @override
+  String get statusSelectionEdited => 'Выделение отредактировано';
 
   @override
   String get statusCopied => 'Скопировано!';
@@ -1454,6 +1503,10 @@ class L10nRu extends L10n {
   String get replacementsReplacementHint => 'напр. кстати';
 
   @override
+  String get replacementsReplacementHelper =>
+      'Используйте \\n для переноса строки и \\n\\n для пустой строки. Чтобы оставить обратный слеш и n как текст, напишите \\\\n.';
+
+  @override
   String get replacementsDeleteTitle => 'Удалить замену';
 
   @override
@@ -1500,7 +1553,7 @@ class L10nRu extends L10n {
 
   @override
   String get correctionLearningHowTo =>
-      'While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.';
+      'При записи заметки в Истории скажите «correct: …» (или «korrektur: …»), а затем исправленный текст, чтобы перезаписать её. Исправьте одно и то же дважды, и WhisPaste предложит здесь автоматическую замену.';
 
   @override
   String get correctionCandidatesCardTitle =>
@@ -1515,11 +1568,20 @@ class L10nRu extends L10n {
   String get correctionCandidatesReviewButton => 'Проверить';
 
   @override
-  String get correctionCandidatesReviewTitle => 'Review learned corrections';
+  String get correctionCandidatesReviewTitle =>
+      'Проверить выученные исправления';
 
   @override
   String correctionCandidatesReviewSubtitle(int count) {
-    return '$count correction(s) you repeated — accept the ones WhisPaste should apply automatically from now on. Nothing changes until you confirm.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count повторённых исправления',
+      many: '$count повторённых исправлений',
+      few: '$count повторённых исправления',
+      one: '$count повторённое исправление',
+    );
+    return '$_temp0 — примите те, которые WhisPaste должен впредь применять автоматически. Ничего не изменится, пока вы не подтвердите.';
   }
 
   @override
@@ -1844,7 +1906,14 @@ class L10nRu extends L10n {
 
   @override
   String get aboutParakeetDesc =>
-      'Локальное распознавание, настроенное на скорость без GPU (~25 языков).';
+      'Локальное распознавание речи: ускорение на GPU, где доступно (Metal, Vulkan, CUDA), иначе на CPU (~25 языков).';
+
+  @override
+  String get aboutParakeetModelCredit =>
+      'Модель: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0';
+
+  @override
+  String get aboutParakeetGgufCredit => 'GGUF-конвертация: ggml-org, MIT';
 
   @override
   String get aboutPrivacyFirst => 'Конфиденциальность превыше всего';
@@ -2100,21 +2169,21 @@ class L10nRu extends L10n {
   }
 
   @override
-  String get statusBarAutomationApiChipLabelError => 'API: error';
+  String get statusBarAutomationApiChipLabelError => 'API: ошибка';
 
   @override
   String statusBarAutomationApiTooltip(int port) {
-    return 'Automation API active on port $port';
+    return 'API автоматизации активен на порту $port';
   }
 
   @override
   String statusBarAutomationApiTooltipFallback(int port, int requestedPort) {
-    return 'Automation API active on port $port (port $requestedPort was in use)';
+    return 'API автоматизации активен на порту $port (порт $requestedPort был занят)';
   }
 
   @override
   String get statusBarAutomationApiTooltipError =>
-      'Automation API: no free port found';
+      'API автоматизации: не найден свободный порт';
 
   @override
   String get modifierCtrl => 'Ctrl';
@@ -2326,6 +2395,28 @@ class L10nRu extends L10n {
   String get infoModelMissing => 'Сначала скачайте модель речи в Настройках.';
 
   @override
+  String infoModelMissingSelected(String size) {
+    return 'Выбранная модель речи ($size) ещё не скачана.';
+  }
+
+  @override
+  String get infoModelMissingDownload => 'Скачать сейчас';
+
+  @override
+  String get statusBarModelMissing => 'Модель не скачана';
+
+  @override
+  String statusBarModelDownloading(int percent) {
+    return 'Загрузка модели… $percent %';
+  }
+
+  @override
+  String get modelDownloadAction => 'Скачать';
+
+  @override
+  String get modelMissingDownloadAction => 'Нет — скачать';
+
+  @override
   String get infoPipelineBusy => 'WhisPaste все еще занят предыдущей записью.';
 
   @override
@@ -2488,12 +2579,20 @@ class L10nRu extends L10n {
       'Не удалось начать запись. Пожалуйста, попробуйте еще раз.';
 
   @override
+  String get errorNoMicrophone =>
+      'Микрофон не найден. Подключите микрофон и попробуйте еще раз.';
+
+  @override
   String get errorGeneric =>
       'Что-то пошло не так. Пожалуйста, попробуйте еще раз.';
 
   @override
   String get modelDownloadFailed =>
       'Сбой скачивания. Проверьте ваше подключение к интернету.';
+
+  @override
+  String get modelDeleteInUse =>
+      'Файл модели используется другой программой и не может быть удален. Закройте ее и попробуйте еще раз.';
 
   @override
   String get statusSttLoading => 'Загрузка модели…';
@@ -2548,7 +2647,7 @@ class L10nRu extends L10n {
 
   @override
   String get historyVoiceNoteHint =>
-      'Подсказка: скажите «тег: имя» или «исправить: текст» во время записи.';
+      'Подсказка: скажите «tag: имя» или «correct: текст» во время записи.';
 
   @override
   String get historyNoteAdded => 'Примечание добавлено';
@@ -2916,7 +3015,11 @@ class L10nRu extends L10n {
 
   @override
   String get settingsErrorReportingSubtitle =>
-      'Помогите улучшить WhisPaste, отправляя анонимные отчеты о сбоях';
+      'Отправляет отчёты о сбоях и ошибках с хешированным ID устройства, но никогда — ваше аудио или текст';
+
+  @override
+  String get settingsErrorReportingRestartHint =>
+      'Вступит в силу после перезапуска WhisPaste.';
 
   @override
   String get settingsAutoPasteDelay => 'Задержка авто-вставки';
@@ -2941,7 +3044,7 @@ class L10nRu extends L10n {
 
   @override
   String get settingsCheckUpdatesSubtitle =>
-      'Автоматически проверять наличие новых версий при запуске';
+      'Проверять наличие новых версий при запуске и каждые 24 часа';
 
   @override
   String get settingsCheckForUpdatesNow => 'Проверить обновления сейчас';
@@ -3375,7 +3478,7 @@ class L10nRu extends L10n {
   String get voiceCorrectionApplied => 'Транскрипция исправлена голосом';
 
   @override
-  String get voiceCorrectionUndone => 'Correction undone';
+  String get voiceCorrectionUndone => 'Исправление отменено';
 
   @override
   String get voiceNoteEmpty => 'Речь не распознана';
@@ -3385,7 +3488,7 @@ class L10nRu extends L10n {
 
   @override
   String get historyVoiceNoteButtonTooltip =>
-      'Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript';
+      'Голосовое примечание — скажите «tag: …», чтобы добавить тег, или «correct: …», чтобы переписать эту расшифровку';
 
   @override
   String updateAvailable(String version) {
@@ -3866,7 +3969,7 @@ class L10nRu extends L10n {
 
   @override
   String get settingsSttEngineSubtitle =>
-      'Whisper поддерживает 99 языков и любой GPU; Parakeet работает намного быстрее на CPU, но поддерживает ~25 языков и пока не имеет поддержки GPU';
+      'Whisper поддерживает 99 языков и любой GPU; Parakeet работает намного быстрее и поддерживает ~25 языков, на GPU там, где она доступна';
 
   @override
   String get settingsSttEngineWhisper => 'Whisper';
@@ -3879,8 +3982,9 @@ class L10nRu extends L10n {
   String get parakeetModelTitle => 'Модель Parakeet TDT';
 
   @override
-  String get parakeetModelSubtitle =>
-      'Единоразовая загрузка (~640 МБ), работает полностью офлайн';
+  String parakeetModelSubtitle(String size) {
+    return 'Единоразовая загрузка ($size), работает полностью офлайн';
+  }
 
   @override
   String get parakeetModelDownload => 'Скачать';
@@ -3935,7 +4039,7 @@ class L10nRu extends L10n {
 
   @override
   String get settingsShareUsageStatsSubtitle =>
-      'Отправляется без куки и идентификаторов, чтобы помочь нам понять, как используется WhisPaste';
+      'Без cookie, со случайным ID сеанса и еженедельно меняющимся псевдонимом — помогает понять, как используется WhisPaste';
 
   @override
   String get settingsRetainRecentAudio => 'Сохранять недавние аудио';
@@ -3943,22 +4047,6 @@ class L10nRu extends L10n {
   @override
   String get settingsRetainRecentAudioSubtitle =>
       'Сохраняет аудио ваших последних 20 диктовок на устройстве для отладки или восстановления транскрипции; старые записи удаляются автоматически';
-
-  @override
-  String get storeThankYouTitle => 'Спасибо за поддержку!';
-
-  @override
-  String get storeThankYouBody =>
-      'Мы очень рады, что вы с нами. Если WhisPaste делает ваш день немного проще, ваш отзыв будет много значить для нас.';
-
-  @override
-  String get storeThankYouCtaStore => '★ Оценить в магазине';
-
-  @override
-  String get storeThankYouCtaGitHub => '⭐ Поставить звезду на GitHub';
-
-  @override
-  String get storeThankYouDismiss => 'Закрыть';
 
   @override
   String get featureSpotlightHeading => 'Новое в WhisPaste';
@@ -4001,6 +4089,14 @@ class L10nRu extends L10n {
   @override
   String get featureSpotlightHistoryPinDescription =>
       'Защитите свои транскрипции PIN-кодом — в том числе в боковой панели и меню плавающей кнопки, — с автоблокировкой после бездействия. Настройки → История.';
+
+  @override
+  String get featureSpotlightEditSelectionTitle =>
+      'Редактирование выделенного текста голосом';
+
+  @override
+  String get featureSpotlightEditSelectionDescription =>
+      'Выделите текст в любом приложении, нажмите горячую клавишу редактирования выделения и скажите, что изменить, — или просто «короче», «улучши» или «переведи». Использует движок Умного режима. По умолчанию выключено: включите в Настройках → Умный режим.';
 
   @override
   String get featureSpotlightChangelogLink => 'Полный список изменений';
@@ -4314,6 +4410,10 @@ class L10nRu extends L10n {
       'Пример: обработка типичной диктовки из 50 слов занимает около 1–6 секунд, в зависимости от устройства.';
 
   @override
+  String get smartModeLocalUnavailable =>
+      'Локальный Умный режим не входит в эту сборку. Переключитесь на OpenAI или установите официальный релиз WhisPaste.';
+
+  @override
   String get settingsHotkeyActionSmartMode => 'Умный режим';
 
   @override
@@ -4346,18 +4446,19 @@ class L10nRu extends L10n {
       'Умный режим может автоматически очищать, сокращать или переводить текст — прямо на устройстве. Скачайте модель сейчас или настройте позже.';
 
   @override
-  String get smartModeOnboardingHintExampleBeforeLabel => 'Raw dictation';
+  String get smartModeOnboardingHintExampleBeforeLabel => 'Сырая диктовка';
 
   @override
   String get smartModeOnboardingHintExampleBefore =>
-      'so um the client meeting got moved to thursday at three pm and uh we still need the updated slides from marketing';
+      'так э встречу с клиентом перенесли на четверг на три часа дня и ну нам всё ещё нужны обновлённые слайды от маркетинга';
 
   @override
-  String get smartModeOnboardingHintExampleAfterLabel => 'Smart Mode result';
+  String get smartModeOnboardingHintExampleAfterLabel =>
+      'Результат Умного режима';
 
   @override
   String get smartModeOnboardingHintExampleAfter =>
-      'So, the client meeting got moved to Thursday at three PM, and we still need the updated slides from Marketing.';
+      'Итак, встречу с клиентом перенесли на четверг на три часа дня, и нам всё ещё нужны обновлённые слайды от маркетинга.';
 
   @override
   String get smartModeOnboardingHintDownloadCta => 'Скачать';
@@ -4379,22 +4480,23 @@ class L10nRu extends L10n {
   String get smartModeUsageHintDismiss => 'Не сейчас';
 
   @override
-  String get settingsAutomationApi => 'Local Automation API';
+  String get settingsAutomationApi => 'Локальный API автоматизации';
 
   @override
   String get settingsAutomationApiSubtitle =>
-      'Trigger dictation from your own scripts over a loopback-only HTTP API';
+      'Запускайте диктовку из своих скриптов через HTTP API, доступный только через loopback';
 
   @override
-  String get settingsAutomationApiEnable => 'Enable local automation API';
+  String get settingsAutomationApiEnable =>
+      'Включить локальный API автоматизации';
 
   @override
   String get settingsAutomationApiEnableSubtitle =>
-      'Binds only to 127.0.0.1/::1 — never reachable from the network';
+      'Слушает только 127.0.0.1/::1 — из сети никогда не доступен';
 
   @override
   String settingsAutomationApiStatusRunning(int port) {
-    return 'Running on port $port';
+    return 'Работает на порту $port';
   }
 
   @override
@@ -4402,63 +4504,65 @@ class L10nRu extends L10n {
     int port,
     int requestedPort,
   ) {
-    return 'Running on port $port (port $requestedPort was in use)';
+    return 'Работает на порту $port (порт $requestedPort был занят)';
   }
 
   @override
-  String get settingsAutomationApiStatusStopped => 'Not running';
+  String get settingsAutomationApiStatusStopped => 'Не запущен';
 
   @override
   String settingsAutomationApiStatusError(int start, int end) {
-    return 'No free port found in range $start–$end';
+    return 'Не найден свободный порт в диапазоне $start–$end';
   }
 
   @override
-  String get settingsAutomationApiCustomPortLabel => 'Custom port';
+  String get settingsAutomationApiCustomPortLabel => 'Свой порт';
 
   @override
   String get settingsAutomationApiCustomPortSubtitle =>
-      'Leave empty for automatic port selection — falls back automatically if it\'s taken';
+      'Оставьте пустым для автоматического выбора — если порт занят, будет выбран другой';
 
   @override
-  String get settingsAutomationApiCustomPortHint => 'Automatic';
+  String get settingsAutomationApiCustomPortHint => 'Автоматически';
 
   @override
   String get settingsAutomationApiCustomPortInvalid =>
-      'Enter a port between 1024 and 65535';
+      'Введите порт от 1024 до 65535';
 
   @override
-  String get settingsAutomationApiToken => 'Bearer token';
+  String get settingsAutomationApiToken => 'Bearer-токен';
 
   @override
   String get settingsAutomationApiTokenSubtitle =>
-      'Send it as \"Authorization: Bearer <token>\" — every request without it is rejected';
+      'Передавайте его как \"Authorization: Bearer <token>\" — любой запрос без него отклоняется';
 
   @override
-  String get settingsAutomationApiRegenerate => 'Regenerate';
+  String get settingsAutomationApiRegenerate => 'Сгенерировать заново';
 
   @override
-  String get settingsAutomationApiRegenerateConfirmTitle => 'Regenerate token?';
+  String get settingsAutomationApiRegenerateConfirmTitle =>
+      'Сгенерировать новый токен?';
 
   @override
   String get settingsAutomationApiRegenerateConfirmMessage =>
-      'The current token stops working immediately. Any script using it will need the new one.';
+      'Текущий токен сразу перестанет работать. Всем скриптам, которые его используют, понадобится новый.';
 
   @override
-  String get settingsAutomationApiCopyToken => 'Copy token';
+  String get settingsAutomationApiCopyToken => 'Копировать токен';
 
   @override
-  String get settingsAutomationApiTokenCopied => 'Token copied to clipboard';
+  String get settingsAutomationApiTokenCopied =>
+      'Токен скопирован в буфер обмена';
 
   @override
-  String get settingsAutomationApiDocumentation => 'Documentation';
+  String get settingsAutomationApiDocumentation => 'Документация';
 
   @override
   String get settingsAutomationApiDocumentationSubtitle =>
-      'Endpoint reference and curl examples';
+      'Справочник по эндпоинтам и примеры curl';
 
   @override
-  String get settingsAutomationApiDocumentationAction => 'Open';
+  String get settingsAutomationApiDocumentationAction => 'Открыть';
 
   @override
   String historyCharacterCount(int count) {
@@ -4533,4 +4637,241 @@ class L10nRu extends L10n {
   @override
   String get errorSelectionEditPasteFailed =>
       'Не удалось заменить выделение — ваш текст не изменён';
+
+  @override
+  String get settingsCudaPackTitle => 'Ускорение NVIDIA CUDA';
+
+  @override
+  String settingsCudaPackSubtitle(String size) {
+    return 'Более быстрая диктовка на видеокартах GeForce RTX и GTX 16. Однократная загрузка, $size.';
+  }
+
+  @override
+  String get settingsCudaPackInstalledSubtitle =>
+      'Установлено. Если драйвер видеокарты слишком старый, WhisPaste продолжит использовать Vulkan.';
+
+  @override
+  String get settingsCudaPackDownload => 'Загрузить';
+
+  @override
+  String settingsCudaPackDownloading(int percent) {
+    return 'Загрузка: $percent %';
+  }
+
+  @override
+  String get settingsCudaPackInstalling => 'Установка …';
+
+  @override
+  String get settingsCudaPackCancel => 'Отменить загрузку';
+
+  @override
+  String get settingsCudaPackRemove => 'Удалить пакет CUDA';
+
+  @override
+  String get settingsCudaPackToggle => 'Использовать CUDA';
+
+  @override
+  String get settingsCudaPackErrorNetwork =>
+      'Не удалось загрузить. Проверьте подключение и попробуйте снова.';
+
+  @override
+  String get settingsCudaPackErrorVerification =>
+      'Загруженный файл повреждён. Попробуйте ещё раз.';
+
+  @override
+  String get settingsCudaPackErrorStorage =>
+      'Не удалось сохранить пакет. Проверьте свободное место на диске.';
+
+  @override
+  String get recoveryCudaDisabledToast =>
+      'Ускорение CUDA отключено из-за проблемы при последнем запуске. WhisPaste теперь использует Vulkan, диктовка работает как обычно.';
+
+  @override
+  String get supportPromptSnooze => 'Не спрашивать 90 дней';
+
+  @override
+  String get supportPayPalLabel => 'PayPal';
+
+  @override
+  String get supportStoreThankYouLine =>
+      'Спасибо, что купили WhisPaste в магазине. Любая дополнительная поддержка добровольна.';
+
+  @override
+  String get supportShareText =>
+      'Я использую WhisPaste, чтобы диктовать текст прямо в приложения. Работает локально на компьютере и с открытым кодом:';
+
+  @override
+  String get supportPageTitle => 'Поддержать WhisPaste';
+
+  @override
+  String get supportPageOpenAction => 'Все способы поддержки';
+
+  @override
+  String get supportIntroDirect =>
+      'WhisPaste бесплатный и с открытым исходным кодом. Вклад или рекомендация помогают проекту.';
+
+  @override
+  String get supportCostsNote =>
+      'Взносы помогают покрывать разработку и текущие расходы на публикацию, хостинг и домен.';
+
+  @override
+  String get supportSectionOnce => 'Разовая поддержка';
+
+  @override
+  String get supportSectionOthers => 'Другие способы поддержки';
+
+  @override
+  String get supportSectionReach => 'Рекомендовать WhisPaste';
+
+  @override
+  String get supportStoreTitleWindows => 'WhisPaste в Microsoft Store';
+
+  @override
+  String get supportStoreTitleMac => 'WhisPaste в Mac App Store';
+
+  @override
+  String get supportStoreFactManaged =>
+      'Установку и обновления выполняет магазин.';
+
+  @override
+  String get supportStoreFactPurchase =>
+      'Ваша разовая покупка поддерживает WhisPaste.';
+
+  @override
+  String get supportStoreFactSameFeatures =>
+      'Те же функции. Прямая версия остаётся бесплатной.';
+
+  @override
+  String get supportStoreCtaWindows => 'Открыть в Microsoft Store';
+
+  @override
+  String get supportStoreCtaMac => 'Открыть в Mac App Store';
+
+  @override
+  String get supportStorePriceNote => 'Цена в магазине';
+
+  @override
+  String get supportStoreCoffeeNote =>
+      'Разовая покупка примерно за цену чашки кофе. Актуальную цену показывает магазин.';
+
+  @override
+  String get supportStoreDismiss => 'Скрыть вариант с магазином';
+
+  @override
+  String get supportStoreShowAgain => 'Показать вариант с магазином';
+
+  @override
+  String get supportSponsorsCta => 'Открыть GitHub Sponsors';
+
+  @override
+  String get supportSponsorsNote =>
+      'Ежемесячно или на сумму по вашему выбору. Сумму и периодичность выбираете там.';
+
+  @override
+  String get supportKofiCta => 'Открыть Ko-fi';
+
+  @override
+  String get supportPayPalCta => 'Поддержать через PayPal';
+
+  @override
+  String get supportNativeTitle => 'Разовая поддержка в магазине';
+
+  @override
+  String get supportNativeDescription =>
+      'Разовая сумма, которую списывает магазин. Те же функции, без подписки.';
+
+  @override
+  String get supportNativeCta => 'Поддержать один раз';
+
+  @override
+  String get supportSheetChoose => 'Выберите сумму';
+
+  @override
+  String get supportSheetLoading => 'Загружаем суммы …';
+
+  @override
+  String supportSheetBuy(String price) {
+    return 'Поддержать за $price';
+  }
+
+  @override
+  String get supportSheetPurchasing => 'Магазин подтверждает покупку …';
+
+  @override
+  String get supportSheetThanks => 'Спасибо за поддержку!';
+
+  @override
+  String get supportSheetThanksDetail =>
+      'Значок поддержки уже активен. Все функции остаются доступны всем.';
+
+  @override
+  String get supportSheetPending => 'Покупка ожидает подтверждения.';
+
+  @override
+  String get supportSheetPurchaseError =>
+      'Не удалось завершить покупку. Попробуйте позже.';
+
+  @override
+  String get supportSheetPricesError =>
+      'Не удалось загрузить суммы. Попробуйте позже.';
+
+  @override
+  String get supportSheetUnavailable => 'Сейчас в магазине нет доступных сумм.';
+
+  @override
+  String get supportSheetRetry => 'Повторить';
+
+  @override
+  String get supportSheetClose => 'Закрыть';
+
+  @override
+  String get supportSelfDeclareCta => 'Я уже поддерживаю WhisPaste';
+
+  @override
+  String get supportSelfDeclareNote =>
+      'Просто отметка на этом устройстве, ничего не проверяется. Кнопка поддержки в строке состояния скрывается.';
+
+  @override
+  String get supportSelfDeclareHint =>
+      'Ничего не проверяется. Используйте, если вы уже вносили вклад.';
+
+  @override
+  String get supportSupporterLine => 'Вы поддерживаете WhisPaste. Спасибо!';
+
+  @override
+  String get supportSupporterBadge => 'Сторонник';
+
+  @override
+  String get supportRateCta => 'Оценить в магазине';
+
+  @override
+  String get supportShareCopy => 'Копировать ссылку';
+
+  @override
+  String get supportShareCopied => 'Ссылка скопирована';
+
+  @override
+  String get supportShareEmail => 'Эл. почта';
+
+  @override
+  String get supportChipLabel => 'Спонсор';
+
+  @override
+  String get supportChipTooltip => 'Поддержать WhisPaste';
+
+  @override
+  String get supportChipThanksLabel => 'Спасибо';
+
+  @override
+  String get supportChipThanksTooltip => 'Спасибо за поддержку';
+
+  @override
+  String get supportChipHide => 'Скрыть';
+
+  @override
+  String get settingsSponsorChip => 'Кнопка поддержки в строке состояния';
+
+  @override
+  String get settingsSponsorChipSubtitle =>
+      'Показывает путь к странице поддержки. Скрыть можно, когда вы поддержали проект в магазине или подтвердили это здесь.';
 }

@@ -1,64 +1,206 @@
 ---
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
+const detailsHref = pathForSlug(lang, 'privacy-speech-recognition');
 
-const cards = [
+// Two honest audio paths: local is the default, cloud only when the user picks
+// a provider. Each path is a plain ordered list, so the "graphic" reads the
+// same for screen readers.
+const paths = [
   {
-    key: 'offline',
-    icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/></svg>`,
+    key: 'local',
+    titleKey: 'privacy.offline.title',
+    descKey: 'privacy.offline.desc',
+    badgeKey: 'privacy.badge.default',
+    steps: ['privacy.flow.mic', 'privacy.flow.localEngine', 'privacy.flow.localResult'],
   },
   {
-    key: 'telemetry',
-    icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>`,
+    key: 'cloud',
+    titleKey: 'privacy.directapi.title',
+    descKey: 'privacy.directapi.desc',
+    badgeKey: 'privacy.badge.optional',
+    steps: ['privacy.flow.mic', 'privacy.flow.cloudProvider', 'privacy.flow.cloudResult'],
   },
-  {
-    key: 'directapi',
-    icon: `<svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>`,
-  },
-];
+] as const;
 ---
 
-<!-- Privacy Section (dark block) -->
-<section class="band band-spotlight py-24 sm:py-32 relative">
-  <div class="relative wp-container">
-    <!-- Header row: trust emblem beside the copy — shield + voice waveform +
-         amber padlock, line-art in the same instrument/precision vocabulary as
-         the Support and MarketingMoment emblems (the pastel cut-out register
-         was retired across the redesign; this was its last holdout). -->
-    <div class="grid items-center gap-8 md:gap-12 md:grid-cols-[0.72fr_1fr] mb-14">
-      <div class="illo-float wp-clip-reveal privacy-emblem mx-auto md:mx-0 w-44 sm:w-52 md:w-full max-w-[15rem]" aria-hidden="true">
-        <svg class="privacy-emblem__svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M100 178c-3-2-62-30-62-88V54l62-24 62 24v36c0 58-59 86-62 88Z" stroke="var(--color-brand-cyan)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
-          <path d="M64 96h6M82 82v28M100 68v56M118 78v36M136 92h6" stroke="var(--color-brand-cyan)" stroke-width="4" stroke-linecap="round" />
-          <rect x="140" y="34" width="36" height="30" rx="7" fill="#F59E0B" />
-          <path d="M147 34v-7a11 11 0 0 1 22 0v7" stroke="#F59E0B" stroke-width="6" stroke-linecap="round" />
-        </svg>
-      </div>
-      <div class="text-center md:text-left">
-        <SectionEyebrow key="privacy.label" class="reveal-up" />
-        <h2 class="section-title wp-kinetic-line"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="text-gradient-brand" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
-        <p class="mt-4 text-ink-muted text-lg reveal-up" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
-      </div>
+<!-- Privacy: where the audio goes (local default vs. optional cloud), plus
+     one line on telemetry. No blanket "no network" claim: model downloads,
+     updates and opt-out telemetry exist. -->
+<section id="privacy" class="band band-spotlight relative wp-section scroll-mt-20" data-testid="privacy">
+  <div class="relative wp-container privacy-layout">
+    <div class="wp-section-head privacy-head">
+      <svg class="privacy-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="M9 12h1M12 9v6M15 11v2"/></svg>
+      <SectionEyebrow key="privacy.label" />
+      <h2 class="section-title"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="text-gradient-brand" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
+      <p class="wp-lead mt-4" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 stagger-children">
-      {cards.map(({ key, icon }) => (
-        <div class="text-center stagger-item">
-          <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-cyan/10 text-brand-cyan mb-4" set:html={icon} />
-          <h3 class="text-white font-semibold mb-1.5" data-i18n={`privacy.${key}.title`}>{t(lang, `privacy.${key}.title`)}</h3>
-          <p class="text-ink-muted text-sm leading-relaxed" data-i18n={`privacy.${key}.desc`}>{t(lang, `privacy.${key}.desc`)}</p>
-        </div>
+
+    <div class="privacy-paths">
+      {paths.map((p) => (
+        <article class={`privacy-path privacy-path--${p.key}`} data-testid={`privacy-path-${p.key}`}>
+          <span class="privacy-badge" data-i18n={p.badgeKey}>{t(lang, p.badgeKey)}</span>
+          <h3 class="privacy-path__title" data-i18n={p.titleKey}>{t(lang, p.titleKey)}</h3>
+          <ol class="privacy-flow">
+            {p.steps.map((s) => (
+              <li><span data-i18n={s}>{t(lang, s)}</span></li>
+            ))}
+          </ol>
+          <p class="privacy-path__desc" data-i18n={p.descKey}>{t(lang, p.descKey)}</p>
+        </article>
       ))}
+    </div>
+
+    <div class="privacy-telemetry">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>
+      <div>
+        <h3 class="privacy-telemetry__title" data-i18n="privacy.telemetry.title">{t(lang, "privacy.telemetry.title")}</h3>
+        <p class="privacy-telemetry__desc" data-i18n="privacy.telemetry.desc">{t(lang, "privacy.telemetry.desc")}</p>
+        <a href={detailsHref} class="privacy-details" data-testid="privacy-details">
+          <span data-i18n="privacy.details">{t(lang, "privacy.details")}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+        </a>
+      </div>
     </div>
   </div>
 </section>
 
 <style>
-  .privacy-emblem__svg {
-    display: block;
-    width: 100%;
-    height: auto;
-    filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.28));
+  .privacy-layout {
+    display: grid;
+    gap: 2rem;
+  }
+  .privacy-head {
+    margin-bottom: 0;
+  }
+  .privacy-mark {
+    width: 2rem;
+    height: 2rem;
+    color: var(--color-brand-cyan);
+    margin-bottom: 0.75rem;
+  }
+
+  .privacy-paths {
+    display: grid;
+    gap: 1rem;
+  }
+  @media (min-width: 768px) {
+    .privacy-paths {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .privacy-path {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border-radius: var(--radius-card);
+    border: 1px solid rgb(255 255 255 / 0.12);
+    background: var(--color-brand-card);
+    box-shadow: var(--shadow-card);
+  }
+  /* The default route gets a subtle cyan edge; cloud stays neutral. */
+  .privacy-path--local {
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
+  }
+  .privacy-badge {
+    align-self: flex-start;
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--color-ink-muted);
+    border: 1px solid rgb(255 255 255 / 0.16);
+  }
+  .privacy-path--local .privacy-badge {
+    color: var(--color-brand-darker);
+    background: var(--color-brand-cyan);
+    border-color: var(--color-brand-cyan);
+  }
+  .privacy-path__title {
+    font-size: var(--type-card-title);
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--color-ink);
+  }
+  .privacy-path__desc {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+  }
+
+  /* Flow: vertical with down arrows; each step is a small chip. */
+  .privacy-flow {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 1.25rem;
+  }
+  .privacy-flow li {
+    position: relative;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--radius-control);
+    background: rgb(255 255 255 / 0.04);
+    border: 1px solid rgb(255 255 255 / 0.08);
+    font-size: 1rem;
+    color: var(--color-ink);
+  }
+  .privacy-flow li + li::before {
+    content: "↓";
+    position: absolute;
+    left: 0.875rem;
+    top: -1.25rem;
+    line-height: 1.25rem;
+    font-size: 0.875rem;
+    color: var(--color-brand-cyan);
+  }
+  .privacy-path--cloud .privacy-flow li + li::before {
+    color: var(--color-ink-subtle);
+  }
+
+  .privacy-telemetry {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    gap: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgb(255 255 255 / 0.1);
+  }
+  .privacy-telemetry > svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--color-brand-cyan);
+    margin-top: 0.125rem;
+  }
+  .privacy-telemetry__title {
+    font-weight: 600;
+    color: var(--color-ink);
+    margin-bottom: 0.25rem;
+  }
+  .privacy-telemetry__desc {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+    max-width: var(--measure-lead);
+  }
+  .privacy-details {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 44px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-brand-cyan);
+    text-decoration: none;
+  }
+  .privacy-details svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  .privacy-details:hover span {
+    text-decoration: underline;
   }
 </style>

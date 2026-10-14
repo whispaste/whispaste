@@ -62,6 +62,7 @@ import 'package:path/path.dart' as p;
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
 import '../../core/logging/crash_reporter.dart';
+import '../../core/utils/sharing_violation_retry.dart';
 
 final _log = AppLogger('FactoryResetCoordinator');
 
@@ -120,6 +121,10 @@ abstract class SubprocessController {
 /// directory deletion. The injected variant in tests typically calls
 /// `Directory.deleteSync(recursive: true)` against the in-memory FS.
 typedef DirectoryDeleter = Future<void> Function(String path);
+
+/// Runs its argument while the app's own log file handle is closed — see
+/// [withLogFileReleased].
+typedef LogFileRelease = Future<void> Function(Future<void> Function() body);
 
 /// Signature for the database-deletion step. The production wiring
 /// deletes the Drift database file plus its WAL/SHM siblings; tests
@@ -184,9 +189,12 @@ class FactoryResetCoordinator {
     this._stopSubprocessTimeout = kDefaultStopSubprocessTimeout,
     FileSystem? fileSystem,
     DirectoryDeleter? directoryDeleter,
+    LogFileRelease? releaseLogFile,
+    this._retryWait,
     CrashCaptureSink? captureSink,
   }) : _fileSystem = fileSystem ?? const LocalFileSystem(),
        _directoryDeleter = directoryDeleter ?? _isolateDirectoryDeleter,
+       _releaseLogFile = releaseLogFile ?? withLogFileReleased,
        _capture = captureSink ?? _defaultCaptureSink;
 
   // ---------------------------------------------------------------------------
@@ -197,6 +205,8 @@ class FactoryResetCoordinator {
   final Duration _stopSubprocessTimeout;
   final FileSystem _fileSystem;
   final DirectoryDeleter _directoryDeleter;
+  final LogFileRelease _releaseLogFile;
+  final Future<void> Function(Duration delay)? _retryWait;
   final DatabaseEraser _eraseDatabase;
   final SecureStoreEraser _eraseSecureStore;
   final SettingsReset _resetSettings;
@@ -261,7 +271,9 @@ class FactoryResetCoordinator {
     yield ResetPhase.deletingModels;
     await runPhase(() async {
       await _deleteIfExists(modelDirPath);
-      await _deleteIfExists(logsDirPath);
+      // Our own log file sits in this directory and stays open for the
+      // whole process lifetime — release it for the delete.
+      await _releaseLogFile(() => _deleteIfExists(logsDirPath));
     });
 
     // Phase 3 — drop the history database file.
@@ -301,7 +313,12 @@ class FactoryResetCoordinator {
   Future<void> _deleteIfExists(String path) async {
     final dir = _fileSystem.directory(path);
     if (!await dir.exists()) return;
-    await _directoryDeleter(path);
+    // A just-killed whisper-server or a virus scanner can hold a file for a
+    // moment longer (Windows sharing violation) — retry before failing.
+    await retryOnSharingViolation(
+      () => _directoryDeleter(path),
+      wait: _retryWait,
+    );
   }
 }
 

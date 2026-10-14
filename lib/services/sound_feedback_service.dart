@@ -22,7 +22,10 @@ final _log = AppLogger('SoundFeedback');
 
 class SoundFeedbackService extends Notifier<void> {
   bool _initialized = false;
-  bool _initializing = false;
+
+  /// The init in flight; concurrent callers await it instead of returning
+  /// before the sources are loaded (a cue during prewarm was dropped).
+  Future<void>? _initFuture;
 
   /// Preloaded audio sources keyed by asset name.
   final Map<String, AudioSource> _sources = {};
@@ -113,8 +116,18 @@ class SoundFeedbackService extends Notifier<void> {
 
   Future<void> _ensureInit() async {
     if (_initialized && _sources.isNotEmpty) return;
-    if (_initializing) return; // prevent re-entrant init
-    _initializing = true;
+    final inFlight = _initFuture;
+    if (inFlight != null) return inFlight;
+    final init = _init();
+    _initFuture = init;
+    try {
+      await init;
+    } finally {
+      _initFuture = null;
+    }
+  }
+
+  Future<void> _init() async {
     try {
       if (!_engine.isInitialized) {
         await _engine.init(bufferSize: 1024, channels: Channels.mono);
@@ -160,8 +173,6 @@ class SoundFeedbackService extends Notifier<void> {
       if (_initialized) _armIdleTimer();
     } catch (e) {
       _log.warning('SoLoud init failed: $e');
-    } finally {
-      _initializing = false;
     }
   }
 
@@ -169,6 +180,11 @@ class SoundFeedbackService extends Notifier<void> {
     if (_volume <= 0) return;
     if (!enabled) return;
     try {
+      // Opening the audio device is a synchronous FFI call (~30 ms). Cues
+      // fire from inside recording-state transitions, so yield first: the
+      // init must not run ahead of the mic start on the hotkey's critical
+      // path.
+      if (!_initialized) await Future<void>.delayed(Duration.zero);
       await _ensureInit();
       final source = _sources[assetName];
       if (source == null) {

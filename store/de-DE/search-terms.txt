@@ -1,6 +1,6 @@
 Spracherkennung
 Spracheingabe
-Diktiersoftware
+Sprache zu Text
 Diktieren
 Transkription
 Whisper Desktop

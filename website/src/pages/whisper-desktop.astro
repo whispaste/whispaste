@@ -93,7 +93,6 @@ const faqQuestions = [
   },
 ];
 
-const alternateSlugs = { de: "whisper-desktop", en: "whisper-desktop" };
 
 const relatedPages = [
   { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
@@ -109,7 +108,6 @@ const relatedPages = [
   breadcrumbs={breadcrumbs}
   hero={hero}
   cta={cta}
-  alternateSlugs={alternateSlugs}
   relatedPages={relatedPages}
 >
   {/* Benefit-Leiste: kurzer "Warum WhisPaste" Dreiklang direkt nach dem
@@ -244,7 +242,7 @@ const relatedPages = [
 
   <section>
     {/* Two-column at lg+: the chart is a paired visual for the paragraph's
-        own 1x/5x claim, not separate content, so on wide screens it sits
+        own 1x/2.6x claim, not separate content, so on wide screens it sits
         beside the text instead of stacking below it and leaving the second
         half of the row empty. Stays a single stacked column below lg. */}
     <div class="perf-section-grid">
@@ -263,7 +261,7 @@ const relatedPages = [
         <div class="perf-row" aria-hidden="true">
           <div class="perf-row__head">
             <span class="perf-row__label perf-row__label--brand">{t(lang, "explainer.whisperDesktop.section.performance.chart.gpu")}</span>
-            <span class="perf-row__value perf-row__value--brand wp-nums">~5×</span>
+            <span class="perf-row__value perf-row__value--brand wp-nums">~2,6×</span>
           </div>
           <div class="perf-track"><div class="perf-fill perf-fill--gpu"></div></div>
         </div>
@@ -454,7 +452,7 @@ const relatedPages = [
     }
   }
 
-  /* Performance visual: CPU vs. GPU as two proportional bars (1x / 5x),
+  /* Performance visual: CPU vs. GPU as two proportional bars (1x / 2.6x),
      the same track+fill language as the homepage's typing-vs-speaking
      comparison (SpeedComparison.astro) — same material, this page's own
      numbers. Decorative restatement of the paragraph's own claim, hence
@@ -510,7 +508,8 @@ const relatedPages = [
     transform-origin: left center;
   }
   .perf-fill--cpu {
-    width: 20%;
+    /* 1 / 2.6 — Metal vs CPU, compact model (data/engine-benchmarks.json) */
+    width: 38%;
     background: color-mix(in srgb, var(--color-ink-subtle) 55%, transparent);
   }
   .perf-fill--gpu {

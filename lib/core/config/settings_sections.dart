@@ -358,6 +358,8 @@ class SttSettings {
     this.stripPunctuation = false,
     this.vadEnabled = true,
     this.numericOnlyMode = false,
+    this.removeFillerWords = false,
+    this.voiceLineBreaks = true,
   });
 
   final String provider;
@@ -420,6 +422,21 @@ class SttSettings {
   /// nothing: a transcript that isn't fully convertible is left unchanged.
   final bool numericOnlyMode;
 
+  /// Whether unambiguous hesitation fillers ("äh", "ähm", "uh", "um", ...)
+  /// are removed from the final transcript before Smart Mode and text
+  /// replacements run — see `removeFillerWords` in `text_transforms.dart`.
+  /// Same engine-independent post-processing path as [stripPunctuation].
+  /// Default off (maintainer decision 4b, `.scratch/handy-catchup/` ticket
+  /// 16): a dictation stays verbatim unless the user opts in.
+  final bool removeFillerWords;
+
+  /// Whether spoken line-break commands ("new paragraph", "neue Zeile", ...)
+  /// are turned into real line breaks, after filler removal and before Smart
+  /// Mode and text replacements — see `applyVoiceLineBreaks` in
+  /// `voice_line_breaks.dart`. Default on: the Dragon-style behaviour is the
+  /// point of the feature, and a dictation without those phrases is untouched.
+  final bool voiceLineBreaks;
+
   static const SttSettings defaults = SttSettings();
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
@@ -449,6 +466,16 @@ class SttSettings {
       'stt_numeric_only_mode',
       defaults.numericOnlyMode,
     ),
+    removeFillerWords: _readBool(
+      v,
+      'stt_remove_filler_words',
+      defaults.removeFillerWords,
+    ),
+    voiceLineBreaks: _readBool(
+      v,
+      'stt_voice_line_breaks',
+      defaults.voiceLineBreaks,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -462,6 +489,8 @@ class SttSettings {
     'stt_strip_punctuation': '$stripPunctuation',
     'stt_vad_enabled': '$vadEnabled',
     'stt_numeric_only_mode': '$numericOnlyMode',
+    'stt_remove_filler_words': '$removeFillerWords',
+    'stt_voice_line_breaks': '$voiceLineBreaks',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -479,6 +508,8 @@ class SttSettings {
     bool? stripPunctuation,
     bool? vadEnabled,
     bool? numericOnlyMode,
+    bool? removeFillerWords,
+    bool? voiceLineBreaks,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
@@ -490,6 +521,8 @@ class SttSettings {
     stripPunctuation: stripPunctuation ?? this.stripPunctuation,
     vadEnabled: vadEnabled ?? this.vadEnabled,
     numericOnlyMode: numericOnlyMode ?? this.numericOnlyMode,
+    removeFillerWords: removeFillerWords ?? this.removeFillerWords,
+    voiceLineBreaks: voiceLineBreaks ?? this.voiceLineBreaks,
   );
 
   // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
@@ -508,7 +541,9 @@ class SttSettings {
           punctuationPriming == other.punctuationPriming &&
           stripPunctuation == other.stripPunctuation &&
           vadEnabled == other.vadEnabled &&
-          numericOnlyMode == other.numericOnlyMode;
+          numericOnlyMode == other.numericOnlyMode &&
+          removeFillerWords == other.removeFillerWords &&
+          voiceLineBreaks == other.voiceLineBreaks;
 
   @override
   int get hashCode => Object.hash(
@@ -522,6 +557,8 @@ class SttSettings {
     stripPunctuation,
     vadEnabled,
     numericOnlyMode,
+    removeFillerWords,
+    voiceLineBreaks,
   );
 }
 
@@ -848,6 +885,7 @@ class BehaviorSettings {
     this.textReplacementsEnabled = false,
     this.snippetPickerTrigger = '',
     this.correctionLearningEnabled = true,
+    this.cudaAcceleration = true,
   });
 
   final int maxRecordDuration;
@@ -878,6 +916,13 @@ class BehaviorSettings {
   /// entries or pending candidates.
   final bool correctionLearningEnabled;
 
+  /// Whether an installed optional CUDA pack (see `cuda_pack.dart`) is used
+  /// for on-device Whisper. Default on: installing the pack is the opt-in,
+  /// this switch lets the user (or the GPU-load crash recovery) fall back to
+  /// Vulkan without deleting the download. No effect without an installed
+  /// pack or with `gpuAcceleration` set to CPU only.
+  final bool cudaAcceleration;
+
   static const BehaviorSettings defaults = BehaviorSettings();
 
   factory BehaviorSettings.fromMap(Map<String, String> v) => BehaviorSettings(
@@ -904,6 +949,11 @@ class BehaviorSettings {
       'correction_learning_enabled',
       defaults.correctionLearningEnabled,
     ),
+    cudaAcceleration: _readBool(
+      v,
+      'cuda_acceleration',
+      defaults.cudaAcceleration,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -916,6 +966,7 @@ class BehaviorSettings {
     'text_replacements_enabled': '$textReplacementsEnabled',
     'snippet_picker_trigger': snippetPickerTrigger,
     'correction_learning_enabled': '$correctionLearningEnabled',
+    'cuda_acceleration': '$cudaAcceleration',
   };
 
   BehaviorSettings copyWith({
@@ -928,6 +979,7 @@ class BehaviorSettings {
     bool? textReplacementsEnabled,
     String? snippetPickerTrigger,
     bool? correctionLearningEnabled,
+    bool? cudaAcceleration,
   }) => BehaviorSettings(
     maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
     closeToTray: closeToTray ?? this.closeToTray,
@@ -940,6 +992,7 @@ class BehaviorSettings {
     snippetPickerTrigger: snippetPickerTrigger ?? this.snippetPickerTrigger,
     correctionLearningEnabled:
         correctionLearningEnabled ?? this.correctionLearningEnabled,
+    cudaAcceleration: cudaAcceleration ?? this.cudaAcceleration,
   );
 
   @override
@@ -954,7 +1007,8 @@ class BehaviorSettings {
         autoPasteBlocklist == other.autoPasteBlocklist &&
         textReplacementsEnabled == other.textReplacementsEnabled &&
         snippetPickerTrigger == other.snippetPickerTrigger &&
-        correctionLearningEnabled == other.correctionLearningEnabled;
+        correctionLearningEnabled == other.correctionLearningEnabled &&
+        cudaAcceleration == other.cudaAcceleration;
   }
 
   @override
@@ -968,6 +1022,7 @@ class BehaviorSettings {
     textReplacementsEnabled,
     snippetPickerTrigger,
     correctionLearningEnabled,
+    cudaAcceleration,
   );
 }
 
@@ -1189,7 +1244,8 @@ class HotkeySettings {
     hotkeyEnabled: _readBool(v, 'hotkey_enabled', defaults.hotkeyEnabled),
     hotkeyKey: v['hotkey_key'] ?? defaults.hotkeyKey,
     hotkeyKeyDisplay: v['hotkey_key_display'] ?? defaults.hotkeyKeyDisplay,
-    hotkeyModifiers: v['hotkey_modifiers'] ?? defaults.hotkeyModifiers,
+    hotkeyModifiers:
+        v['hotkey_modifiers'] ?? buildDefaultHotkeySettings().hotkeyModifiers,
   );
 
   Map<String, String> toMap() => {
@@ -1273,7 +1329,7 @@ class QuickNoteHotkeySettings {
             defaults.quickNoteHotkeyKeyDisplay,
         quickNoteHotkeyModifiers:
             v['quick_note_hotkey_modifiers'] ??
-            defaults.quickNoteHotkeyModifiers,
+            buildDefaultQuickNoteHotkeySettings().quickNoteHotkeyModifiers,
       );
 
   Map<String, String> toMap() => {
@@ -1358,22 +1414,23 @@ class SnippetPickerHotkeySettings {
   static const SnippetPickerHotkeySettings defaults =
       SnippetPickerHotkeySettings();
 
-  factory SnippetPickerHotkeySettings.fromMap(Map<String, String> v) =>
-      SnippetPickerHotkeySettings(
-        snippetPickerHotkeyEnabled: _readBool(
-          v,
-          'snippet_picker_hotkey_enabled',
-          defaults.snippetPickerHotkeyEnabled,
-        ),
-        snippetPickerHotkeyKey:
-            v['snippet_picker_hotkey_key'] ?? defaults.snippetPickerHotkeyKey,
-        snippetPickerHotkeyKeyDisplay:
-            v['snippet_picker_hotkey_key_display'] ??
-            defaults.snippetPickerHotkeyKeyDisplay,
-        snippetPickerHotkeyModifiers:
-            v['snippet_picker_hotkey_modifiers'] ??
-            defaults.snippetPickerHotkeyModifiers,
-      );
+  factory SnippetPickerHotkeySettings.fromMap(
+    Map<String, String> v,
+  ) => SnippetPickerHotkeySettings(
+    snippetPickerHotkeyEnabled: _readBool(
+      v,
+      'snippet_picker_hotkey_enabled',
+      defaults.snippetPickerHotkeyEnabled,
+    ),
+    snippetPickerHotkeyKey:
+        v['snippet_picker_hotkey_key'] ?? defaults.snippetPickerHotkeyKey,
+    snippetPickerHotkeyKeyDisplay:
+        v['snippet_picker_hotkey_key_display'] ??
+        defaults.snippetPickerHotkeyKeyDisplay,
+    snippetPickerHotkeyModifiers:
+        v['snippet_picker_hotkey_modifiers'] ??
+        buildDefaultSnippetPickerHotkeySettings().snippetPickerHotkeyModifiers,
+  );
 
   Map<String, String> toMap() => {
     'snippet_picker_hotkey_enabled': '$snippetPickerHotkeyEnabled',
@@ -2188,7 +2245,7 @@ class SmartModeHotkeySettings {
             defaults.smartModeHotkeyKeyDisplay,
         smartModeHotkeyModifiers:
             v['smart_mode_hotkey_modifiers'] ??
-            defaults.smartModeHotkeyModifiers,
+            buildDefaultSmartModeHotkeySettings().smartModeHotkeyModifiers,
         smartModeHotkeyPreset:
             v['smart_mode_hotkey_preset'] ?? defaults.smartModeHotkeyPreset,
         smartModeHotkeyTargetLanguage:
@@ -2285,22 +2342,23 @@ class SelectionEditHotkeySettings {
   static const SelectionEditHotkeySettings defaults =
       SelectionEditHotkeySettings();
 
-  factory SelectionEditHotkeySettings.fromMap(Map<String, String> v) =>
-      SelectionEditHotkeySettings(
-        selectionEditHotkeyEnabled: _readBool(
-          v,
-          'selection_edit_hotkey_enabled',
-          defaults.selectionEditHotkeyEnabled,
-        ),
-        selectionEditHotkeyKey:
-            v['selection_edit_hotkey_key'] ?? defaults.selectionEditHotkeyKey,
-        selectionEditHotkeyKeyDisplay:
-            v['selection_edit_hotkey_key_display'] ??
-            defaults.selectionEditHotkeyKeyDisplay,
-        selectionEditHotkeyModifiers:
-            v['selection_edit_hotkey_modifiers'] ??
-            defaults.selectionEditHotkeyModifiers,
-      );
+  factory SelectionEditHotkeySettings.fromMap(
+    Map<String, String> v,
+  ) => SelectionEditHotkeySettings(
+    selectionEditHotkeyEnabled: _readBool(
+      v,
+      'selection_edit_hotkey_enabled',
+      defaults.selectionEditHotkeyEnabled,
+    ),
+    selectionEditHotkeyKey:
+        v['selection_edit_hotkey_key'] ?? defaults.selectionEditHotkeyKey,
+    selectionEditHotkeyKeyDisplay:
+        v['selection_edit_hotkey_key_display'] ??
+        defaults.selectionEditHotkeyKeyDisplay,
+    selectionEditHotkeyModifiers:
+        v['selection_edit_hotkey_modifiers'] ??
+        buildDefaultSelectionEditHotkeySettings().selectionEditHotkeyModifiers,
+  );
 
   Map<String, String> toMap() => {
     'selection_edit_hotkey_enabled': '$selectionEditHotkeyEnabled',

@@ -9,12 +9,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:record/record.dart';
 
 import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
+import '../core/logging/mic_start_trace.dart';
 import 'audio/amplitude_from_pcm.dart';
 import 'audio/pcm_gain_processor.dart';
 import 'audio/recording_start_stop_arbiter.dart';
@@ -30,6 +32,35 @@ final _log = AppLogger('AudioService');
 
 /// Lifecycle of the audio capture.
 enum AudioCaptureState { idle, recording, error }
+
+/// Why `AudioRecorder.startStream` failed, as far as the user is concerned.
+enum RecordingStartFailure {
+  /// The machine has no input device at all — an expected user condition
+  /// (Sentry 123116227), surfaced as "no microphone" and not escalated.
+  noMicrophone('no_microphone'),
+
+  /// Any other start failure — a genuine defect worth reporting.
+  startFailed('recording_start_failed');
+
+  const RecordingStartFailure(this.errorCode);
+
+  /// Error key consumed by `localizeRecordingError`.
+  final String errorCode;
+}
+
+/// Classifies a [startStream] failure. The recorder's error text is
+/// localized by the OS, so the decision rests on the device enumeration
+/// ([inputDeviceCount], `null` when it could not be obtained) and the error
+/// type, never on the message.
+RecordingStartFailure classifyRecordingStartFailure(
+  Object error, {
+  required int? inputDeviceCount,
+}) {
+  if (error is PlatformException && inputDeviceCount == 0) {
+    return RecordingStartFailure.noMicrophone;
+  }
+  return RecordingStartFailure.startFailed;
+}
 
 /// Polling interval at which the `record` plugin emits amplitude samples.
 ///
@@ -166,6 +197,14 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// the samples themselves.
   Stream<Uint8List>? get pcmChunkStream => _pcmChunkController?.stream;
 
+  /// Completes when the current recording delivers its first non-silent PCM
+  /// chunk — the moment the microphone is really live, as opposed to
+  /// [startRecording] returning. Feeds the mic-start trace (debug log only).
+  /// `null` before the first [startRecording]; never completes for a
+  /// recording that stays digitally silent.
+  Future<void>? get firstSampleArrived => _firstSample?.future;
+  Completer<void>? _firstSample;
+
   @override
   AudioStatus build() {
     ref.onDispose(_cleanup);
@@ -300,7 +339,15 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
           _whisperConfig(device: selectedDevice, autoGain: libraryAutoGain),
         );
       } on Exception catch (e) {
-        _log.error('startStream failed: $e', e);
+        final failure = classifyRecordingStartFailure(
+          e,
+          inputDeviceCount: await _countInputDevices(recorder),
+        );
+        if (failure == RecordingStartFailure.noMicrophone) {
+          _log.warning('startStream failed — no input device present: $e');
+        } else {
+          _log.error('startStream failed: $e', e);
+        }
         await _ampSub?.cancel();
         _ampSub = null;
         await _amplitudeFromPcm?.dispose();
@@ -320,9 +367,9 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
         _amplitudeController = null;
         await _pcmChunkController?.close();
         _pcmChunkController = null;
-        state = const AudioStatus(
+        state = AudioStatus(
           captureState: AudioCaptureState.error,
-          errorMessage: 'recording_start_failed',
+          errorMessage: failure.errorCode,
         );
         return;
       }
@@ -333,8 +380,11 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       // explicit gain, the chunk passes through [PcmGainProcessor] first so
       // both downstream branches see the scaled samples.
       final gainProcessor = _gainProcessor;
+      final firstSample = _firstSample = Completer<void>();
+      final firstSampleDetector = FirstSampleDetector();
       _pcmSub = pcmStream.listen(
         (chunk) {
+          if (firstSampleDetector.observe(chunk)) firstSample.complete();
           final scaled = gainProcessor == null
               ? chunk
               : gainProcessor.process(chunk);
@@ -430,6 +480,17 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     await _restoreDefaultInputRouting();
 
     state = const AudioStatus();
+  }
+
+  /// Number of input devices the recorder can see, or `null` when the
+  /// enumeration itself fails.
+  Future<int?> _countInputDevices(AudioRecorder recorder) async {
+    try {
+      return (await recorder.listInputDevices()).length;
+    } on Exception catch (e) {
+      _log.warning('Failed to enumerate input devices: $e');
+      return null;
+    }
   }
 
   /// Resolves the configured microphone label to an [InputDevice] by

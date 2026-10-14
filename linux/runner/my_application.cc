@@ -9,6 +9,7 @@
 #include "desktop_paste_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
+#include "keyboard_monitor_host.h"
 #include "side_panel_host.h"
 #include "snippet_picker_host.h"
 
@@ -35,6 +36,9 @@ struct _MyApplication {
   // snapshot-on-open channel, and lazily manages the panel's 2nd-engine
   // window (issue 06). Same lifecycle as the hosts above.
   SidePanelHost* side_panel_host;
+  // Owns com.whispaste.keyboard_monitor — push-to-talk key-up via XInput2 or
+  // the GlobalShortcuts portal (handy-catchup/09). Same lifecycle as above.
+  KeyboardMonitorHost* keyboard_monitor_host;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -120,6 +124,7 @@ static void my_application_activate(GApplication* application) {
   self->desktop_paste_host = new DesktopPasteHost(main_messenger);
   self->snippet_picker_host = new SnippetPickerHost(main_messenger);
   self->side_panel_host = new SidePanelHost(main_messenger);
+  self->keyboard_monitor_host = new KeyboardMonitorHost(main_messenger);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
@@ -177,6 +182,8 @@ static void my_application_dispose(GObject* object) {
   self->snippet_picker_host = nullptr;
   delete self->side_panel_host;
   self->side_panel_host = nullptr;
+  delete self->keyboard_monitor_host;
+  self->keyboard_monitor_host = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 

@@ -42,6 +42,7 @@ import '../../core/recording/recording_state.dart'
 import '../../features/history/data/history_detail_provider.dart';
 import '../snippet_picker/snippet_picker_service.dart';
 import 'automation_api_auth_middleware.dart';
+import 'automation_api_host_guard.dart';
 import 'automation_api_dictation_status_routes.dart';
 import 'automation_api_history_routes.dart';
 import 'automation_api_router.dart';
@@ -219,6 +220,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       snippetInsertRoutes(insertSnippetByName: _insertSnippetByName),
     ]);
     final handler = const Pipeline()
+        .addMiddleware(loopbackHostGuard())
         .addMiddleware(bearerTokenAuth(currentToken: tokenStore.readToken))
         .addHandler(router.handler);
 

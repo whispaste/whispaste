@@ -14,6 +14,7 @@
 #include "keyboard_monitor_host.h"
 #include "side_panel_host.h"
 #include "snippet_picker_host.h"
+#include "support_store_channel.h"
 #include "win32_window.h"
 
 // A window that does nothing but host a Flutter view.
@@ -74,6 +75,10 @@ class FlutterWindow : public Win32Window {
   // RawInput key-up source for global hotkeys, enabling push-to-talk on
   // Windows (RegisterHotKey is key-down only). See keyboard_monitor_host.h.
   std::unique_ptr<KeyboardMonitorHost> keyboard_monitor_host_;
+
+  // Microsoft Store sponsoring channel (runner-owned, destroyed before engine
+  // teardown). Replies are posted back to this window's message loop.
+  std::unique_ptr<SupportStoreChannel> support_store_channel_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

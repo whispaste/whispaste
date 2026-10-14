@@ -26,6 +26,8 @@ import '../core/data/database.dart';
 import '../core/logging/app_logger.dart';
 import 'review_prompt_service.dart';
 import 'shared_prefs_safe_read.dart';
+import 'support/support_capabilities.dart';
+import 'support/support_state.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -156,6 +158,14 @@ class SupportPromptNotifier extends Notifier<SupportPromptState> {
     try {
       final prefs = await SharedPreferences.getInstance();
 
+      // Verified supporters and self-declared supporters are never asked again.
+      final status = await loadSupportStatus(
+        prefs: prefs,
+        bridge: ref.read(supportStoreBridgeProvider),
+      );
+      if (status.suppressesPrompts) return;
+      if (!_offersExternalSupport()) return;
+
       final impressions = prefs.getInt(_keyImpressionCount) ?? 0;
       if (impressions >= _impressionCap) return;
 
@@ -179,33 +189,18 @@ class SupportPromptNotifier extends Notifier<SupportPromptState> {
       // Sentry FLUTTER_WHISPASTE-BP before this fix.
       final reviewLastShownMs =
           readIntPrefSafe(prefs, _reviewKeyLastShownMs) ?? 0;
-      if (reviewLastShownMs > 0 &&
-          now
-                  .difference(
-                    DateTime.fromMillisecondsSinceEpoch(reviewLastShownMs),
-                  )
-                  .inDays <
-              _coordinationWindowDays) {
+      if (_isWithinDays(reviewLastShownMs, _coordinationWindowDays, now)) {
         return;
       }
       final reviewLastSnoozeMs = prefs.getInt(_reviewKeyLastSnoozeMs) ?? 0;
-      if (reviewLastSnoozeMs > 0 &&
-          now
-                  .difference(
-                    DateTime.fromMillisecondsSinceEpoch(reviewLastSnoozeMs),
-                  )
-                  .inDays <
-              _coordinationWindowDays) {
+      if (_isWithinDays(reviewLastSnoozeMs, _coordinationWindowDays, now)) {
         return;
       }
 
       if (prefs.getBool(_keyLinkClicked) == true) {
         final postLinkMs = prefs.getInt(_keyPostLinkMs) ?? 0;
         if (postLinkMs == 0 ||
-            now
-                    .difference(DateTime.fromMillisecondsSinceEpoch(postLinkMs))
-                    .inDays <
-                _postLinkQuietDays) {
+            _isWithinDays(postLinkMs, _postLinkQuietDays, now)) {
           return;
         }
         _log.info('recurring follow-up eligible (recordings=$count)');
@@ -217,11 +212,7 @@ class SupportPromptNotifier extends Notifier<SupportPromptState> {
       }
 
       final snoozeMs = prefs.getInt(_keySnoozeMs) ?? 0;
-      if (snoozeMs > 0 &&
-          now.difference(DateTime.fromMillisecondsSinceEpoch(snoozeMs)).inDays <
-              _snoozeDays) {
-        return;
-      }
+      if (_isWithinDays(snoozeMs, _snoozeDays, now)) return;
 
       _log.info('conditions met (recordings=$count)');
       state = state.copyWith(
@@ -233,17 +224,38 @@ class SupportPromptNotifier extends Notifier<SupportPromptState> {
     }
   }
 
-  /// Records an explicit dismiss ("never ask again" / "no thanks").
-  ///
-  /// For the initial ask, this starts a [_snoozeDays] snooze — not a
+  /// Whether [ms] (epoch milliseconds, 0 = never) lies less than [days] full
+  /// days before [now].
+  static bool _isWithinDays(int ms, int days, DateTime now) =>
+      ms > 0 &&
+      now.difference(DateTime.fromMillisecondsSinceEpoch(ms)).inDays < days;
+
+  /// Counts an impression. Call when the dialog is actually on screen, not
+  /// when the prompt becomes due, so the [_impressionCap] reflects what the
+  /// user saw.
+  Future<void> markPresented() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await _recordImpression(prefs);
+    } on Exception catch (e) {
+      _log.error('markPresented failed: $e', e);
+    }
+  }
+
+  /// Ends a due prompt without recording anything, for example when another
+  /// nudge owns the display window or a hotkey closed the dialog.
+  void cancelPresentation() {
+    state = state.copyWith(shouldShowPrompt: false);
+  }
+
+  /// Records an explicit dismiss: the close button, Escape, or a click
+  /// outside the dialog. This is a "90 Tage nicht fragen" snooze, not a
   /// permanent flag. For the recurring follow-up, there is nothing left to
-  /// offer afterward, so it marks the follow-up as shown. Either way, this
-  /// counts toward the hard [_impressionCap].
+  /// offer afterward, so it marks the follow-up as shown.
   Future<void> dismiss() async {
     final kind = state.kind;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await _recordImpression(prefs);
       if (kind == SupportPromptKind.recurringFollowUp) {
         await prefs.setBool(_keyFollowUpShown, true);
       } else {
@@ -256,18 +268,18 @@ class SupportPromptNotifier extends Notifier<SupportPromptState> {
     }
   }
 
-  /// Records that a sponsoring link (GitHub Sponsors/Ko-fi) was opened.
+  /// Records that a sponsoring link (GitHub Sponsors/Ko-fi) opened in the
+  /// browser. Call only after the launch succeeded.
   ///
   /// For the initial ask, this starts the [_postLinkQuietDays] quiet period
   /// after which the one-time recurring follow-up becomes eligible. For the
   /// recurring follow-up itself, there is nothing left to offer afterward, so
-  /// it marks the follow-up as shown. Either way, this counts toward the hard
-  /// [_impressionCap].
+  /// it marks the follow-up as shown. A browser click never counts as a
+  /// payment.
   Future<void> markLinkOpened() async {
     final kind = state.kind;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await _recordImpression(prefs);
       if (kind == SupportPromptKind.recurringFollowUp) {
         await prefs.setBool(_keyFollowUpShown, true);
       } else {
@@ -284,8 +296,21 @@ class SupportPromptNotifier extends Notifier<SupportPromptState> {
     }
   }
 
-  /// Increments the total impression counter — called by every resolution
-  /// path ([dismiss], [markLinkOpened]), regardless of variant.
+  /// Whether this build has an external route the prompt can open. Builds
+  /// without one (Mac App Store, fail-closed Linux) get no prompt until a
+  /// native purchase sheet exists.
+  bool _offersExternalSupport() {
+    return ref
+        .read(supportCapabilitiesProvider)
+        .any(
+          (ask) =>
+              ask == SupportAsk.githubSponsors ||
+              ask == SupportAsk.kofi ||
+              ask == SupportAsk.paypal,
+        );
+  }
+
+  /// Increments the total impression counter. Called from [markPresented].
   Future<void> _recordImpression(SharedPreferences prefs) async {
     final impressions = (prefs.getInt(_keyImpressionCount) ?? 0) + 1;
     await prefs.setInt(_keyImpressionCount, impressions);

@@ -70,7 +70,7 @@ typedef FeatureSpotlightRegistry = List<FeatureSpotlightEntry>;
 /// behaviour tweaks or extra options on an existing feature, new languages,
 /// developer-facing features (automation API), internal work. Every entry
 /// interrupts every existing user once — when in doubt, leave it out.
-const kFeatureSpotlightReviewedVersion = '1.3.0';
+const kFeatureSpotlightReviewedVersion = '1.4.0';
 
 /// Maintainer note: append new entries at the END of this list. There is no
 /// version field (unlike the onboarding revision registry) — declaration
@@ -115,15 +115,14 @@ final FeatureSpotlightRegistry kFeatureSpotlightRegistry = [
   ),
   // Smart Mode v2 (`.scratch/smart-mode-v2/PRODUCT-SPEC.md`): local
   // post-processing presets (Cleanup/Concise/Translate) with a dedicated
-  // second hotkey and per-hotkey target language. The local engine is only
-  // bundled for macOS and Windows (`smartModeLibraryPathFor` throws
-  // elsewhere), so the entry stays off Linux like the settings surface it
-  // points to. No mini-screenshot captured yet — text-only, same as above.
+  // second hotkey and per-hotkey target language. Originally macos+windows
+  // only; opened up to all platforms once the local engine shipped in the
+  // Linux bundle too (`scripts/build-libllama-linux.sh`). No mini-screenshot
+  // captured yet — text-only, same as above.
   FeatureSpotlightEntry(
     id: 'smart_mode',
     title: (l10n) => l10n.featureSpotlightSmartModeTitle,
     description: (l10n) => l10n.featureSpotlightSmartModeDescription,
-    platforms: const {OnboardingPlatform.macos, OnboardingPlatform.windows},
   ),
   // 1.3.0: the history PIN lock (`.scratch/history-pin-lock/`) — a new
   // privacy capability the target audience would not go looking for.
@@ -131,6 +130,14 @@ final FeatureSpotlightRegistry kFeatureSpotlightRegistry = [
     id: 'history_pin_lock',
     title: (l10n) => l10n.featureSpotlightHistoryPinTitle,
     description: (l10n) => l10n.featureSpotlightHistoryPinDescription,
+  ),
+  // 1.4.0: edit the selected text by voice (`feat(recording): edit the
+  // selected text by voice`). Its hotkey is off by default, so the target
+  // audience would not find it without a pointer to Settings → Smart Mode.
+  FeatureSpotlightEntry(
+    id: 'edit_selection_voice',
+    title: (l10n) => l10n.featureSpotlightEditSelectionTitle,
+    description: (l10n) => l10n.featureSpotlightEditSelectionDescription,
   ),
 ];
 

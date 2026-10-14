@@ -232,12 +232,12 @@ const LLMS_TXT_SECTIONS = Object.freeze([
       {
         label: "Download (Deutsch)",
         url: "https://whispaste.de/download/",
-        note: "Microsoft Store, DMG für macOS, oder kostenlos von GitHub",
+        note: "Microsoft Store, Mac App Store oder kostenlos von GitHub (DMG für macOS sowie Windows- und Linux-Builds)",
       },
       {
         label: "Download (English)",
         url: "https://whispaste.de/en/download/",
-        note: "Microsoft Store, macOS DMG, or free from GitHub",
+        note: "Microsoft Store, Mac App Store, or free from GitHub (macOS DMG, Windows and Linux builds)",
       },
     ],
   },
@@ -330,6 +330,31 @@ const LLMS_TXT_SECTIONS = Object.freeze([
     title: "Comparisons",
     links: [
       {
+        label: "Diktiersoftware-Alternativen (Deutsch)",
+        url: "https://whispaste.de/vergleich/diktiersoftware-alternativen/",
+        note: "WhisPaste im Vergleich zu anderen Spracheingabe-Tools: offline, ohne Konto, Einfügen am Cursor",
+      },
+      {
+        label: "Voice-input tool alternatives (English)",
+        url: "https://whispaste.de/en/comparison/voice-input-tool-alternatives/",
+        note: "How WhisPaste compares with other voice-input tools: offline, no account, pastes at the cursor",
+      },
+      {
+        label: "WhisPaste vs. Systemspracheingabe (Deutsch)",
+        url: "https://whispaste.de/vergleich/whispaste-vs-system-spracheingabe/",
+        note: "Unterschiede zur eingebauten Spracheingabe von Windows und macOS",
+      },
+      {
+        label: "WhisPaste vs. built-in speech to text (English)",
+        url: "https://whispaste.de/en/comparison/whispaste-vs-system-speech-to-text/",
+        note: "How WhisPaste differs from the speech to text built into Windows and macOS",
+      },
+    ],
+  },
+  {
+    title: "Screenshots",
+    links: [
+      {
         label: "Screenshots (Deutsch)",
         url: "https://whispaste.de/screenshots/",
         note: "Visueller Einblick in die App-Oberfläche",
@@ -369,7 +394,7 @@ const LLMS_TXT_SECTIONS = Object.freeze([
  */
 const LLMS_TXT_TITLE = "WhisPaste";
 const LLMS_TXT_DESCRIPTION =
-  "WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally and inserts the transcript at the cursor position of the active application on Windows and macOS (Linux copies it to the clipboard for a manual paste). Two on-device engines are available: whisper.cpp (99 languages, GPU-accelerated) and Parakeet via sherpa-onnx (~25 languages, CPU-only but several times faster than whisper.cpp on the same hardware). It is a desktop-only app; iOS and Android are not planned.";
+  "WhisPaste is an MIT-licensed voice-input tool for Windows, macOS, and Linux that transcribes speech locally and copies the transcript to the clipboard or, with Auto-Paste switched on, inserts it at the cursor position of the active application (on Linux through a virtual uinput keyboard). Two on-device engines are available: whisper.cpp (99 languages, GPU-accelerated) and Parakeet (~25 languages, GPU-accelerated on Metal, Vulkan or CUDA with a CPU fallback via sherpa-onnx; several times faster than the compact whisper.cpp model on the same CPU in our Apple M5 benchmark). It is a desktop-only app; iOS and Android are not planned.";
 
 /**
  * Liefert die default-Section-Liste, die `main()` für den Production-Build

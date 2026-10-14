@@ -97,6 +97,10 @@ String backendUtilizationChipLabel(String backendKind, double? percent) =>
 /// Shows only essential runtime state: STT engine status.
 /// Static configuration (overlay mode, hotkey, after-action)
 /// belongs in Settings, not the status bar.
+/// Look of the sponsor chip: the call to support, or the thank-you state for
+/// supporters (decisions 4, 6 and S2 of `.scratch/support-donations/PRD.md`).
+enum WpSupportChipMode { sponsor, thanks }
+
 class WpStatusBar extends StatelessWidget {
   const WpStatusBar({
     super.key,
@@ -105,6 +109,8 @@ class WpStatusBar extends StatelessWidget {
     this.backendKind,
     this.backendUtilizationPercent,
     this.sttStartingSince,
+    this.sttModelMissing = false,
+    this.sttModelDownloadPercent,
     this.recordingPhase = RecordingPhase.idle,
     this.afterActionLabel,
     this.afterAction,
@@ -127,6 +133,9 @@ class WpStatusBar extends StatelessWidget {
     this.onAutoPasteOffHintTap,
     this.onAutoPasteOffHintDismiss,
     this.onAutomationApiTap,
+    this.supportChipMode,
+    this.onSupportTap,
+    this.onSupportHide,
   });
 
   /// Active STT mode, e.g. "On device" or "OpenAI".
@@ -217,6 +226,13 @@ class WpStatusBar extends StatelessWidget {
   /// Callback when user taps the STT chip (navigate to settings).
   final VoidCallback? onSttTap;
 
+  /// The selected on-device model is not on disk — idle "Standby" would
+  /// read as "all set" although the next dictation cannot run.
+  final bool sttModelMissing;
+
+  /// Progress of a running speech-model download, `null` when none runs.
+  final int? sttModelDownloadPercent;
+
   /// Callback when user selects a different after-transcription action.
   final ValueChanged<AfterTranscriptionAction>? onAfterActionChanged;
 
@@ -245,6 +261,16 @@ class WpStatusBar extends StatelessWidget {
   /// Callback when user taps the Automation API chip (navigate to
   /// settings).
   final VoidCallback? onAutomationApiTap;
+
+  /// Sponsor chip look, or `null` to hide the chip.
+  final WpSupportChipMode? supportChipMode;
+
+  /// Callback when user taps the sponsor chip (opens the support page).
+  final VoidCallback? onSupportTap;
+
+  /// Callback for the chip's "Hide" menu. `null` while hiding is not allowed
+  /// (only a verified purchase or a self-declaration unlocks it).
+  final VoidCallback? onSupportHide;
 
   @override
   Widget build(BuildContext context) {
@@ -327,6 +353,8 @@ class WpStatusBar extends StatelessWidget {
                               modeLabel: sttModeLabel,
                               state: sttState,
                               startingSince: sttStartingSince,
+                              modelMissing: sttModelMissing,
+                              modelDownloadPercent: sttModelDownloadPercent,
                               recordingPhase: recordingPhase,
                               textStyle: textStyle,
                               l10n: l10n,
@@ -439,6 +467,28 @@ class WpStatusBar extends StatelessWidget {
                                 onTap: onAutomationApiTap,
                               ),
                             ],
+                            if (supportChipMode != null) ...[
+                              const SizedBox(width: WpSpacing.xs),
+                              _StatusChip(
+                                key: const ValueKey('status-bar-sponsor-chip'),
+                                icon: Icons.favorite_rounded,
+                                iconColor: WpSharedColors.supportHeart,
+                                label:
+                                    supportChipMode == WpSupportChipMode.thanks
+                                    ? l10n.supportChipThanksLabel
+                                    : l10n.supportChipLabel,
+                                textStyle: textStyle,
+                                tooltip:
+                                    supportChipMode == WpSupportChipMode.thanks
+                                    ? l10n.supportChipThanksTooltip
+                                    : l10n.supportChipTooltip,
+                                onTap: onSupportTap,
+                                hideLabel: onSupportHide == null
+                                    ? null
+                                    : l10n.supportChipHide,
+                                onHide: onSupportHide,
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -485,7 +535,7 @@ class WpStatusBar extends StatelessWidget {
 ///   🟢 On Device — Done           (RecordingPhase.done)
 ///   🔴 On Device — Error          (RecordingPhase.error)
 ///   — falls back to SttServerState when idle —
-///   🟢 On Device — Ready
+///   ⚪ On Device — Ready          (neutral: resting state, not an action result)
 ///   🟡 On Device — Starting…
 ///   🔴 On Device — Error
 ///   ⚪ On Device — Standby
@@ -494,6 +544,8 @@ class _SttChip extends StatefulWidget {
     required this.modeLabel,
     required this.state,
     this.startingSince,
+    this.modelMissing = false,
+    this.modelDownloadPercent,
     this.recordingPhase = RecordingPhase.idle,
     required this.textStyle,
     required this.l10n,
@@ -503,6 +555,8 @@ class _SttChip extends StatefulWidget {
   final String modeLabel;
   final SttServerState state;
   final DateTime? startingSince;
+  final bool modelMissing;
+  final int? modelDownloadPercent;
   final RecordingPhase recordingPhase;
   final TextStyle textStyle;
   final L10n l10n;
@@ -530,7 +584,8 @@ class _SttChipState extends State<_SttChip> {
       _syncTicker();
     }
     if (old.recordingPhase != widget.recordingPhase ||
-        old.state != widget.state) {
+        old.state != widget.state ||
+        old.modelMissing != widget.modelMissing) {
       final (_, stateLabel, _) = _resolveDisplay();
       SemanticsService.sendAnnouncement(
         View.of(context),
@@ -670,6 +725,20 @@ class _SttChipState extends State<_SttChip> {
         break;
     }
 
+    // Idle — a missing or downloading model outranks the subprocess state:
+    // "Standby" would promise a dictation that cannot run yet.
+    final downloadPercent = widget.modelDownloadPercent;
+    if (downloadPercent != null) {
+      return (
+        WpColors.accent,
+        widget.l10n.statusBarModelDownloading(downloadPercent),
+        true,
+      );
+    }
+    if (widget.modelMissing) {
+      return (WpColors.warning, widget.l10n.statusBarModelMissing, false);
+    }
+
     // Idle — show STT subprocess state.
     return switch (widget.state) {
       SttServerState.stopped => (
@@ -678,8 +747,10 @@ class _SttChipState extends State<_SttChip> {
         false,
       ),
       SttServerState.starting => (WpColors.accent, _startingLabel(), true),
+      // Resting readiness is neutral: green is reserved for the transient
+      // `RecordingPhase.done` completion above (Earned-Green).
       SttServerState.ready => (
-        WpColors.success,
+        WpColors.textMuted,
         widget.l10n.sttStatusReady,
         false,
       ),
@@ -703,20 +774,31 @@ class _SttChipState extends State<_SttChip> {
 
 class _StatusChip extends StatefulWidget {
   const _StatusChip({
+    super.key,
     required this.label,
     required this.textStyle,
     this.icon,
+    this.iconColor,
     this.tooltip,
     this.onTap,
     this.dimmed = false,
+    this.hideLabel,
+    this.onHide,
   });
 
   final IconData? icon;
+
+  /// Glyph colour; defaults to the theme's secondary colour.
+  final Color? iconColor;
   final String label;
   final TextStyle textStyle;
   final String? tooltip;
   final VoidCallback? onTap;
   final bool dimmed;
+
+  /// Label of the right-click "hide" entry. Shown only when [onHide] is set.
+  final String? hideLabel;
+  final VoidCallback? onHide;
 
   @override
   State<_StatusChip> createState() => _StatusChipState();
@@ -757,7 +839,11 @@ class _StatusChipState extends State<_StatusChip> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (widget.icon != null) ...[
-              Icon(widget.icon, size: WpIconSize.xs, color: cs.secondary),
+              Icon(
+                widget.icon,
+                size: WpIconSize.xs,
+                color: widget.iconColor ?? cs.secondary,
+              ),
               const SizedBox(width: WpSpacing.xxs),
             ],
             Text(widget.label, style: widget.textStyle),
@@ -787,6 +873,14 @@ class _StatusChipState extends State<_StatusChip> {
     // status, yet every one of them claimed a button role, inviting the user
     // to activate something inert.
     final dimmable = Opacity(opacity: widget.dimmed ? 0.5 : 1.0, child: body);
+    final hideable = widget.onHide != null && widget.hideLabel != null
+        ? GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onSecondaryTapUp: (details) =>
+                _showHideMenu(details.globalPosition),
+            child: dimmable,
+          )
+        : dimmable;
 
     // Tooltip *inside* the MergeSemantics, as in `_SttChipState` — outside it
     // the tooltip would sit on its own ancestor node instead of folding into
@@ -795,10 +889,30 @@ class _StatusChipState extends State<_StatusChip> {
       child: Semantics(
         button: widget.onTap != null,
         child: widget.tooltip != null
-            ? Tooltip(message: widget.tooltip!, child: dimmable)
-            : dimmable,
+            ? Tooltip(message: widget.tooltip!, child: hideable)
+            : hideable,
       ),
     );
+  }
+
+  Future<void> _showHideMenu(Offset position) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final selected = await showMenu<bool>(
+      context: context,
+      position: RelativeRect.fromRect(
+        position & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem<bool>(
+          key: const ValueKey('status-bar-sponsor-chip-hide'),
+          value: true,
+          child: Text(widget.hideLabel!),
+        ),
+      ],
+    );
+    if (selected == true) widget.onHide?.call();
   }
 }
 

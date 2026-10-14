@@ -28,20 +28,30 @@ REPO_ROOT="${SRCROOT}/.."
 STAGE_DIR="${REPO_ROOT}/.build/libllama/macos"
 DEST_DIR="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
 
+# Debug builds may skip the embed with a warning so a fresh checkout still
+# compiles. Release/Profile/MAS builds must not: a warn-and-skip here is how
+# every macOS release up to v1.3.0 silently shipped without Smart Mode.
+skip_embed() {
+  if [[ "${CONFIGURATION:-}" == "Debug" ]]; then
+    echo "warning: $1 Smart Mode will be unavailable in this build."
+    exit 0
+  fi
+  echo "error: $1 Refusing to build ${CONFIGURATION:-unknown} without Smart Mode."
+  exit 1
+}
+
 if [[ ! -d "$STAGE_DIR" ]]; then
   echo "note: libllama staging dir not found ($STAGE_DIR) — attempting to build it now."
   # bash-invoked (not exec'd) for the same reason as embed_libwhisper.sh: a
   # lost +x bit must never silently degrade to "skip embed" without at least
   # running the script.
   if ! bash "${REPO_ROOT}/scripts/build-libllama-macos.sh" || ! bash "${REPO_ROOT}/scripts/build-smartmode-shim-macos.sh"; then
-    echo "warning: libllama/smartmode-shim auto-build failed — see log above. Skipping embed; run scripts/build-libllama-macos.sh && scripts/build-smartmode-shim-macos.sh manually. Smart Mode will be unavailable in this build."
-    exit 0
+    skip_embed "libllama/smartmode-shim auto-build failed — see log above; run scripts/build-libllama-macos.sh && scripts/build-smartmode-shim-macos.sh manually."
   fi
 fi
 
 if [[ ! -d "$STAGE_DIR" ]]; then
-  echo "warning: libllama staging dir still not found after auto-build attempt — skipping embed. Smart Mode will be unavailable in this build."
-  exit 0
+  skip_embed "libllama staging dir still not found after auto-build attempt."
 fi
 
 # The shim is WhisPaste's own code and changes independently of the pinned
@@ -57,12 +67,14 @@ if [[ ! -f "$SHIM_DYLIB" || "$SHIM_SRC_DIR/smart_mode_shim.cpp" -nt "$SHIM_DYLIB
     echo "warning: smartmode-shim rebuild failed — see log above. Smart Mode may be unavailable in this build."
   fi
 fi
+if [[ ! -f "$SHIM_DYLIB" ]]; then
+  skip_embed "libsmartmode_shim.dylib missing from $STAGE_DIR."
+fi
 
 shopt -s nullglob
 dylibs=("$STAGE_DIR"/*.dylib)
 if [[ ${#dylibs[@]} -eq 0 ]]; then
-  echo "warning: no dylibs in $STAGE_DIR — skipping libllama embed."
-  exit 0
+  skip_embed "no dylibs in $STAGE_DIR."
 fi
 
 mkdir -p "$DEST_DIR"

@@ -57,7 +57,7 @@ const vendorOptions = [
 // `parakeetModelFiles`, jeweils auf MB (1024er) gerundet.
 const tierRows = [
   {
-    tier: "Kompakt",
+    tier: "Schnell & Kompakt",
     model: "whisper-small (q5_1)",
     download: "181 MB",
     vram: "~900 MB",
@@ -69,7 +69,7 @@ const tierRows = [
     vram: "~1,5 GB",
   },
   {
-    tier: "Premium",
+    tier: "Beste Qualität",
     model: "whisper-large-v3-turbo (q5_0)",
     download: "547 MB",
     vram: "~2,6 GB",
@@ -115,7 +115,6 @@ const faqQuestions = [
   },
 ];
 
-const alternateSlugs = { de: "whisper-modellgroesse", en: "whisper-model-size" };
 
 const relatedPages = [
   { label: t(lang, "gpuCheck.breadcrumb"), href: localePath(lang, "gpu-kompatibilitaet") },
@@ -131,7 +130,6 @@ const relatedPages = [
   breadcrumbs={breadcrumbs}
   hero={hero}
   cta={cta}
-  alternateSlugs={alternateSlugs}
   relatedPages={relatedPages}
 >
   <p class="tldr">{t(lang, "modelSize.tldr")}</p>

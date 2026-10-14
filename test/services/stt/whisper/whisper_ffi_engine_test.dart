@@ -238,10 +238,15 @@ void main() {
         return;
       }
       final dylib = ffi.DynamicLibrary.open(path);
-      expect(
-        confirmBackendForTesting(dylib, path, WhisperBackend.metal),
+      final (backend, device) = confirmBackendForTesting(
+        dylib,
+        path,
         WhisperBackend.metal,
       );
+      expect(backend, WhisperBackend.metal);
+      // The device whisper.cpp actually runs on — what the headless
+      // benchmark reports to tell CUDA from Vulkan runs apart.
+      expect(device, startsWith('MTL'));
     });
 
     test('CPU is never downgraded (no registry probe needed)', () {
@@ -251,10 +256,10 @@ void main() {
         return;
       }
       final dylib = ffi.DynamicLibrary.open(path);
-      expect(
-        confirmBackendForTesting(dylib, path, WhisperBackend.cpu),
+      expect(confirmBackendForTesting(dylib, path, WhisperBackend.cpu), (
         WhisperBackend.cpu,
-      );
+        null,
+      ));
     });
   });
 
@@ -328,6 +333,41 @@ void main() {
         2, // clamped to min 2, never zero/negative
       );
       expect(WhisperFfiEngine.computeThreadCount(6, reducedThreads: true), 2);
+    });
+  });
+
+  group('pickBestCpuModule (CPU-only backend load)', () {
+    test('picks the highest-scoring CPU variant', () {
+      expect(
+        pickBestCpuModule({
+          '/app/ggml-cpu-haswell.dll': 2,
+          '/app/ggml-cpu-skylakex.dll': 3,
+          '/app/ggml-cpu-x64.dll': 1,
+        }),
+        '/app/ggml-cpu-skylakex.dll',
+      );
+    });
+
+    test('skips variants the CPU does not support (score 0)', () {
+      expect(
+        pickBestCpuModule({
+          '/app/libggml-cpu-zen4.so': 0,
+          '/app/libggml-cpu-generic.so': 1,
+        }),
+        '/app/libggml-cpu-generic.so',
+      );
+    });
+
+    test('returns null when no module reports support', () {
+      expect(pickBestCpuModule({'/app/ggml-cpu-x.dll': 0}), isNull);
+      expect(pickBestCpuModule(const {}), isNull);
+    });
+
+    test('ties resolve to the lexicographically first path', () {
+      expect(
+        pickBestCpuModule({'/app/ggml-cpu-b.dll': 1, '/app/ggml-cpu-a.dll': 1}),
+        '/app/ggml-cpu-a.dll',
+      );
     });
   });
 

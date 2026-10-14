@@ -33,18 +33,15 @@ class AutomationApiServer {
     if (_v4 != null) {
       throw StateError('AutomationApiServer is already running');
     }
-    // `shared: true` sets SO_REUSEADDR (SO_REUSEPORT on some platforms) —
-    // without it, a port this same app just released (e.g. WhisPaste's own
-    // relaunch-after-permission-grant flow, or repeated manual restarts
-    // during local testing) can sit unrebindable in TIME_WAIT for a minute
-    // or more, pushing every subsequent restart one fallback port further
-    // along until the whole range is exhausted for no real reason — the
-    // ports are free, the kernel just hasn't let go of the old listener yet.
+    // Deliberately NOT `shared: true`: shared sockets let other sockets bind
+    // the same port, which widens the attack surface of a loopback API for no
+    // gain here. A port this app just released rebinds fine without it
+    // (verified on macOS, see the port-reuse test in
+    // automation_api_server_test.dart).
     final v4 = await shelf_io.serve(
       handler,
       InternetAddress.loopbackIPv4,
       port,
-      shared: true,
     );
     v4.autoCompress = false;
     _v4 = v4;
@@ -54,7 +51,6 @@ class AutomationApiServer {
         handler,
         InternetAddress.loopbackIPv6,
         v4.port,
-        shared: true,
       );
       v6.autoCompress = false;
       _v6 = v6;

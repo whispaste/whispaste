@@ -25,6 +25,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_helpers.dart';
 import '../core/recording/recording_state.dart';
+import '../services/model_download_service.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/paste/paste_failure_notifier.dart';
 import '../services/paste/paster.dart';
@@ -69,6 +70,8 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorSelectionEditNoSelection;
     case 'selection_edit_no_engine':
       return l10n.errorSelectionEditNoEngine;
+    case 'selection_edit_local_unavailable':
+      return l10n.smartModeLocalUnavailable;
     case 'selection_edit_unsupported':
       return l10n.errorSelectionEditUnsupported;
     case 'selection_edit_copy_failed':
@@ -103,6 +106,8 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorMicPermissionDenied;
     case 'recording_start_failed':
       return l10n.errorRecordingStartFailed;
+    case 'no_microphone':
+      return l10n.errorNoMicrophone;
     case 'cloud_auth_error':
       return l10n.errorCloudAuth;
     case 'cloud_quota_exceeded':
@@ -137,6 +142,15 @@ String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
 // ---------------------------------------------------------------------------
 // Widget
 // ---------------------------------------------------------------------------
+
+/// Label of the success toast shown when a run finishes. An edit-selection
+/// run replaces text rather than transcribing it, so it gets its own label
+/// (the recording target is kept after the run, see `startRecording`).
+@visibleForTesting
+String doneToastLabel(L10n l10n, RecordingTarget target) =>
+    target == RecordingTarget.selectionEdit
+    ? l10n.statusSelectionEdited
+    : l10n.statusTranscriptionDone;
 
 /// Invisible wrapper that reacts to [RecordingState] transitions.
 class WpRecordingBehavior extends ConsumerStatefulWidget {
@@ -185,10 +199,15 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     // listener exists).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (ref.read(gpuLoadCrashGuardProvider).consumePendingUserNotice()) {
+      final guard = ref.read(gpuLoadCrashGuardProvider);
+      if (guard.consumePendingUserNotice()) {
         ref
             .read(recoveryToastNotifierProvider.notifier)
             .report(RecoveryToastKind.gpuLoadCrashDisabled);
+      } else if (guard.consumePendingCudaNotice()) {
+        ref
+            .read(recoveryToastNotifierProvider.notifier)
+            .report(RecoveryToastKind.cudaLoadCrashDisabled);
       }
     });
   }
@@ -357,7 +376,7 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     WpToast.show(
       context,
       message:
-          '${l10n.statusTranscriptionDone} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
+          '${doneToastLabel(l10n, ref.read(recordingTargetProvider))} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
       type: WpToastType.success,
     );
     // Auto-reset after a short delay so the FAB returns to idle.
@@ -412,6 +431,12 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
 
   void _onRecordingInfoChanged(BuildContext context, L10n l10n, String? next) {
     if (next == null) return;
+    // A known model that is merely not on disk gets the download itself as
+    // the action — the detour through Settings only remains for the cases
+    // where there is nothing concrete to download.
+    final missingModel = next == 'info_model_missing'
+        ? ref.read(missingSttModelProvider)
+        : null;
     // Info codes that leave the user with an obvious open question must
     // carry the last logical step as a one-tap action instead of leaving
     // them to hunt for it: "download in Settings" jumps to the STT section,
@@ -421,6 +446,19 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
       Duration duration,
       WpToastAction? action,
     ) = switch (next) {
+      'info_model_missing' when missingModel != null => (
+        WpToastType.warning,
+        const Duration(seconds: 10),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
+        WpToastAction(
+          label: l10n.infoModelMissingDownload,
+          onPressed: () => unawaited(
+            ref
+                .read(modelDownloadProvider.notifier)
+                .downloadModel(missingModel.id),
+          ),
+        ),
+      ),
       'info_model_missing' => (
         WpToastType.info,
         const Duration(seconds: 6),
@@ -447,7 +485,9 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     };
     WpToast.show(
       context,
-      message: localizeRecordingInfo(l10n, next),
+      message: missingModel != null
+          ? l10n.infoModelMissingSelected(missingModel.sizeLabel)
+          : localizeRecordingInfo(l10n, next),
       type: type,
       duration: duration,
       action: action,
@@ -779,6 +819,18 @@ void showRecoveryToast({
       WpToast.show(
         context,
         message: l10n.recoveryGpuDisabledToast,
+        type: WpToastType.warning,
+        duration: const Duration(seconds: 8),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
+        action: WpToastAction(
+          label: l10n.recoveryExhaustedAction,
+          onPressed: () => openSettings('stt'),
+        ),
+      );
+    case RecoveryToastKind.cudaLoadCrashDisabled:
+      WpToast.show(
+        context,
+        message: l10n.recoveryCudaDisabledToast,
         type: WpToastType.warning,
         duration: const Duration(seconds: 8),
         // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text

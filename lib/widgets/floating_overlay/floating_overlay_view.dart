@@ -165,6 +165,10 @@ class WpFloatingOverlayView extends StatefulWidget {
       glassPhase: glassPhase,
       liquidMotion: liquidMotion,
       liquidLevel: liquidLevel,
+      tailFirstText:
+          (snapshot.liveTranscript ?? '').trim().isNotEmpty &&
+          (snapshot.state == OverlayVisualState.recording ||
+              snapshot.state == OverlayVisualState.transcribing),
     );
   }
 
@@ -498,7 +502,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   ///
   /// - **into done/error**: runs slightly longer so the stroke-first
   ///   status-icon draw-on (driven off this controller's fraction) has room to
-  ///   land — the done check is the product's pay-off moment (impeccable pass).
+  ///   land — the done check is the product's pay-off moment (design pass).
   /// - **recording → transcribing** (the release-out): the service keeps
   ///   feeding the pipeline decaying samples for
   ///   [OverlayDesignSpec.waveformReleaseOutMs], and the outgoing (recording)

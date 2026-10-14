@@ -1,180 +1,130 @@
 ---
-import { Picture } from 'astro:assets';
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 import { STORES } from '../data/platforms.ts';
-import heroDeviceDe from '../assets/hero-device/hero-device-clean-de.png';
-import heroDeviceEn from '../assets/hero-device/hero-device-clean-en.png';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 const msReviewUrl = STORES.windows.reviewUrl;
 const macosReviewUrl = STORES.macos.reviewUrl;
-const heroDevice = lang === 'en' ? heroDeviceEn : heroDeviceDe;
 ---
-<!-- Support Section -->
-<section id="support" class="band band-deep py-16 sm:py-20 relative scroll-mt-20">
-  <!-- Atmospheric photo layer (dark theme only, pure background). Low opacity,
-       dissolved top and bottom into the page tone so it joins the band system
-       seamlessly. The centre zone (illustration + glass card) is re-darkened
-       by the veil's radial so the photo only reads in the section's outer
-       margins — the illustration never sits directly on photography (material
-       conflict), it keeps its own calm tonal ground. -->
-  <div class="support-photo" aria-hidden="true">
-    <Picture
-      src={heroDevice}
-      formats={['avif', 'webp']}
-      fallbackFormat="jpg"
-      widths={[768, 1280, 1920]}
-      sizes="100vw"
-      alt=""
-      loading="lazy"
-      decoding="async"
-      class="support-photo__img"
-    />
-    <div class="support-photo__veil"></div>
-  </div>
-  <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_color-mix(in_srgb,var(--color-brand-teal)_5%,transparent)_0%,_transparent_50%)]"></div>
-  <div class="relative wp-container max-w-4xl">
-    <div class="grid items-center gap-8 md:gap-10 md:grid-cols-[1fr_0.6fr]">
-      <!-- Support motif (heart + voice waveform + star), line-art in the same
-           instrument/precision vocabulary as the rest of the page — not a
-           pastel cut-out illustration (the exact register the redesign moved
-           away from, see MarketingMoment.astro / DESIGN-CONTRACT.md). Soft
-           brand halo instead of a boxed tile. On md+ it moves to the RIGHT
-           column (md:order-2): the photo's device sits right of centre (~62%
-           focus axis), so the opaque card covers the photo's empty left half
-           while the emblem + laptop share the photogenic right. -->
-      <div class="illo-float wp-clip-reveal support-emblem mx-auto md:mx-0 md:order-2 w-40 sm:w-48 md:w-full max-w-[14rem]" aria-hidden="true">
-        <svg class="support-emblem__svg" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M100 172c-4-3-70-46-70-96A42 42 0 0 1 100 44a42 42 0 0 1 70 32c0 50-66 93-70 96Z" stroke="var(--color-brand-cyan)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
-          <path d="M64 98h6M82 86v24M100 68v56M118 80v32M136 94v10" stroke="var(--color-brand-cyan)" stroke-width="4" stroke-linecap="round" />
-          <polygon points="151 26 157.5 40.5 173 42.5 161.5 53 164.5 68.5 151 60.5 137.5 68.5 140.5 53 129 42.5 144.5 40.5" fill="#F59E0B" stroke="#F59E0B" stroke-width="3" stroke-linejoin="round" />
-        </svg>
-      </div>
-      <div class="md:order-1 p-8 sm:p-10 rounded-3xl border border-white/[0.06] bg-brand-card text-center scroll-reveal support-card">
-      <h2 class="text-2xl sm:text-3xl font-bold text-ink" data-i18n="support.title">{t(lang, "support.title")}</h2>
-      <p class="mt-4 text-ink-muted text-sm sm:text-base max-w-md mx-auto" data-i18n="support.desc">{t(lang, "support.desc")}</p>
-      <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-        <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/[0.04] text-ink font-medium rounded-xl border border-white/10 hover:bg-pink-500/10 hover:border-pink-500/30 hover:text-pink-400 transition-all text-sm">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-          <span data-i18n="support.sponsor">{t(lang, "support.sponsor")}</span>
-        </a>
-        <a href="https://ko-fi.com/silviol" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/[0.04] text-ink font-medium rounded-xl border border-white/10 hover:bg-orange-500/10 hover:border-orange-500/30 hover:text-orange-400 transition-all text-sm">
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><line x1="6" x2="6" y1="2" y2="4"/><line x1="10" x2="10" y1="2" y2="4"/><line x1="14" x2="14" y1="2" y2="4"/></svg>
-          <span data-i18n="support.coffee">{t(lang, "support.coffee")}</span>
-        </a>
-      </div>
-      <div class="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2">
-        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-ink-muted hover:text-amber-400 transition-colors text-sm group">
-          <svg class="w-4 h-4 text-amber-500/60 group-hover:text-amber-400 transition-colors" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          <span data-i18n="support.star">{t(lang, "support.star")}</span>
-        </a>
-        <a href="https://app.votepit.com/silvio-und-maik/whispaste" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-ink-muted hover:text-brand-cyan transition-colors text-sm group">
-          <svg class="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5.6.6 1.35 1.5 1.5 2.5"/></svg>
-          <span data-i18n="support.ideas">{t(lang, "support.ideas")}</span>
-        </a>
-      </div>
-      <!-- Review CTAs -->
-      <div class="mt-6 pt-5 border-t border-white/[0.06]">
-        <p class="text-xs text-ink-muted mb-3" data-i18n="support.reviewHeading">{t(lang, "support.reviewHeading")}</p>
-        <div class="flex flex-wrap justify-center gap-2">
-          <!-- MS Store review (Windows only) -->
-          <div data-platform-btn="windows">
-            <a href={msReviewUrl}
-               target="_blank" rel="noopener"
-               class="inline-flex items-center gap-1.5 px-4 py-2 text-xs text-ink-muted hover:text-ink rounded-xl border border-white/[0.06] hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
-              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              <span data-i18n="support.rateMsStore">{t(lang, "support.rateMsStore")}</span>
-            </a>
-          </div>
-          <!-- Mac App Store review (macOS only) -->
-          <div data-platform-btn="macos">
-            <a href={macosReviewUrl}
-               target="_blank" rel="noopener"
-               class="inline-flex items-center gap-1.5 px-4 py-2 text-xs text-ink-muted hover:text-ink rounded-xl border border-white/[0.06] hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
-              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              <span data-i18n="support.rateAppStore">{t(lang, "support.rateAppStore")}</span>
-            </a>
-          </div>
-        </div>
-      </div>
+<!-- Support: a compact, flat zone above the footer. One outline action
+     (sponsoring), everything else as quiet links in one wrapping row. No
+     payment UI of our own; all targets are external and open in a new tab. -->
+<section id="support" class="band band-deep relative support-zone scroll-mt-20" data-testid="support">
+  <div class="relative wp-container support-layout">
+    <div class="support-copy">
+      <svg class="support-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7.5-4.6-7.5-10.6A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 7.5 2.8C19.5 16.4 12 21 12 21Z"/><path d="M9 12h1M12 10v5M15 12h0"/></svg>
+      <h2 class="support-title" data-i18n="support.title">{t(lang, "support.title")}</h2>
+      <p class="support-desc" data-i18n="support.desc">{t(lang, "support.desc")}</p>
     </div>
+    <div class="support-actions">
+      <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="support-sponsor" data-testid="support-sponsor">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+        <span data-i18n="support.sponsor">{t(lang, "support.sponsor")}</span>
+      </a>
+      <ul class="support-links">
+        <li><a href="https://ko-fi.com/silviol" target="_blank" rel="noopener" data-testid="support-coffee"><span data-i18n="support.coffee">{t(lang, "support.coffee")}</span></a></li>
+        <li><a href="https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY" target="_blank" rel="noopener" data-testid="support-paypal"><span data-i18n="support.paypal">{t(lang, "support.paypal")}</span></a></li>
+        <li><a href="https://app.votepit.com/silvio-und-maik/whispaste" target="_blank" rel="noopener" data-testid="support-roadmap"><span data-i18n="support.ideas">{t(lang, "support.ideas")}</span></a></li>
+        <li><a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" data-testid="support-star"><span data-i18n="support.star">{t(lang, "support.star")}</span></a></li>
+        <li data-platform-btn="windows"><a href={msReviewUrl} target="_blank" rel="noopener" data-testid="support-rate-ms-store"><span data-i18n="support.rateMsStore">{t(lang, "support.rateMsStore")}</span></a></li>
+        <li data-platform-btn="macos"><a href={macosReviewUrl} target="_blank" rel="noopener" data-testid="support-rate-app-store"><span data-i18n="support.rateAppStore">{t(lang, "support.rateAppStore")}</span></a></li>
+      </ul>
     </div>
   </div>
 </section>
 
 <style>
-  /* Atmospheric photo background for the support section — dark theme only.
-   * Deliberately quieter than the download-page header band (~35% opacity):
-   * here the photo is atmosphere, not message. The veil dissolves it into
-   * the page tone (brand-darker) at the top and bottom edges (seamless with
-   * the testimonial band above and the footer below) and re-darkens the
-   * centre so the illustration + glass card keep an almost-solid tonal
-   * ground — the photo stays in the margins, never directly behind the
-   * illustration (two visual languages must not stack). Static, no parallax. */
-  .support-photo {
-    position: absolute;
-    inset: 0;
-    overflow: hidden;
-    pointer-events: none;
-    /* Edge dissolve for the WHOLE photo layer (img + veil together), same
-       feather as .band::after: at the boundary pixel nothing of this layer
-       paints, so the section hands off into the shared wash with no tonal
-       step. The veil used to try this with an opaque gradient strip instead,
-       which painted its own colour at the seam — a new hard edge, just in a
-       different colour (viewport sweep 2026-08-26). */
-    --band-fade: clamp(80px, 12vh, 220px);
-    mask-image: linear-gradient(
-      180deg,
-      transparent 0,
-      black var(--band-fade),
-      black calc(100% - var(--band-fade)),
-      transparent 100%
-    );
-    -webkit-mask-image: linear-gradient(
-      180deg,
-      transparent 0,
-      black var(--band-fade),
-      black calc(100% - var(--band-fade)),
-      transparent 100%
-    );
+  .support-zone {
+    padding-block: clamp(3rem, 2rem + 3vw, 4.5rem);
   }
-  .support-photo :global(.support-photo__img) {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    /* 62% horizontal focus axis of the approved render (laptop right of
-       centre) — keeps the device visible when narrow viewports crop. */
-    object-position: 62% 42%;
-    opacity: 0.35;
-    filter: saturate(0.7);
+  .support-layout {
+    display: grid;
+    gap: 1.5rem;
   }
-  .support-card {
-    box-shadow: var(--shadow-card);
+  @media (min-width: 1024px) {
+    .support-layout {
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      column-gap: 3rem;
+      align-items: center;
+    }
   }
-  .support-emblem__svg {
-    position: relative;
-    z-index: 1;
-    display: block;
-    width: 100%;
-    height: auto;
-    filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.28));
+  .support-mark {
+    width: 1.75rem;
+    height: 1.75rem;
+    color: var(--color-brand-cyan);
+    margin-bottom: 0.75rem;
   }
-  .support-photo__veil {
-    position: absolute;
-    inset: 0;
-    /* Calm zone sits over the LEFT half, under the content card (the photo's
-       own quiet area); the right stays lighter so the device and the heart
-       motif share the visible photo side. */
-    /* Only the calm zone remains here — the edge dissolve moved onto
-       .support-photo as a mask (see above), which fades img + veil as one
-       layer instead of painting an opaque strip over the seam. */
-    background: radial-gradient(
-      ellipse 58% 85% at 30% 52%,
-      color-mix(in srgb, var(--surface-deep-start) 80%, black) 0%,
-      color-mix(in srgb, var(--surface-deep-start) 45%, transparent) 55%,
-      transparent 100%
-    );
+  .support-title {
+    font-size: clamp(1.375rem, 1.1rem + 1vw, 1.75rem);
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--color-ink);
+  }
+  .support-desc {
+    margin-top: 0.75rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+    max-width: var(--measure-lead);
+  }
+  .support-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .support-sponsor {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
+    color: var(--color-ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .support-sponsor svg {
+    width: 1rem;
+    height: 1rem;
+    color: #f472b6;
+  }
+  .support-sponsor:hover {
+    background: color-mix(in srgb, var(--color-brand-cyan) 10%, transparent);
+    border-color: var(--color-brand-cyan);
+  }
+  .support-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 1.25rem;
+  }
+  .support-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-size: 0.9375rem;
+    color: var(--color-ink-muted);
+    text-decoration: underline;
+    text-decoration-color: rgb(255 255 255 / 0.25);
+    text-underline-offset: 0.2em;
+  }
+  .support-links a:hover {
+    color: var(--color-ink);
+    text-decoration-color: currentColor;
+  }
+  .support-sponsor:focus-visible,
+  .support-links a:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+    border-radius: var(--radius-chip);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .support-sponsor { transition: none; }
   }
 </style>

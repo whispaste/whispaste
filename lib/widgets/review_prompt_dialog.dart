@@ -4,6 +4,7 @@
 /// For portable/installer builds: shows links to GitHub star and Store review.
 library;
 
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
@@ -16,6 +17,7 @@ import '../core/navigation/page_state.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/deploy_channel_service.dart';
+import '../services/prompt_display_arbiter.dart';
 import '../services/review_prompt_service.dart';
 import 'animated_prompt_dialog.dart';
 import 'wp_button.dart';
@@ -62,20 +64,49 @@ class _WpReviewPromptWatcherState extends ConsumerState<WpReviewPromptWatcher>
   }
 
   Future<void> _showDialog(BuildContext context, DeployChannel channel) async {
-    await showWpAnimatedPromptDialog<void>(
-      context: context,
-      contentBuilder: (ctx, animation) => _ReviewPromptDialog(
-        channel: channel,
-        isWindows: _isWindows,
-        animation: animation,
-        onResult: (action) async {
-          Navigator.of(ctx).pop();
-          markPromptDialogClosed();
-          await _handleAction(action, channel);
-        },
-      ),
+    final arbiter = ref.read(promptDisplayArbiterProvider);
+    final notifier = ref.read(reviewPromptProvider.notifier);
+    var closedByHotkey = false;
+    final claimed = arbiter.tryClaim(
+      PromptOwner.review,
+      close: () {
+        closedByHotkey = true;
+        unawaited(Navigator.of(context, rootNavigator: true).maybePop());
+      },
     );
-    markPromptDialogClosed();
+    if (!claimed) {
+      notifier.deferPrompt();
+      markPromptDialogClosed();
+      return;
+    }
+    _ReviewAction? chosen;
+    try {
+      await showWpAnimatedPromptDialog<void>(
+        context: context,
+        contentBuilder: (ctx, animation) => _ReviewPromptDialog(
+          channel: channel,
+          isWindows: _isWindows,
+          animation: animation,
+          onResult: (action) {
+            chosen = action;
+            Navigator.of(ctx).pop();
+          },
+        ),
+      );
+      // Escape and a click outside share the "not now" snooze, like the
+      // support prompt. A hotkey close records nothing.
+      final action = chosen;
+      if (action != null) {
+        await _handleAction(action, channel);
+      } else if (closedByHotkey) {
+        notifier.deferPrompt();
+      } else {
+        await notifier.dismiss(permanent: false);
+      }
+    } finally {
+      arbiter.release(PromptOwner.review);
+      markPromptDialogClosed();
+    }
   }
 
   Future<void> _handleAction(

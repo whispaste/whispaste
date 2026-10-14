@@ -24,16 +24,21 @@ cask "whispaste" do
     strategy :github_latest
   end
 
-  depends_on macos: ">= :catalina"
+  depends_on macos: ">= :monterey"
   depends_on arch: :arm64
 
   app "WhisPaste.app"
 
-  # Bundle-ID seit v1.2.58 de.whispaste.app (zuvor com.whispaste.whispaste).
-  # Alte Pfade bleiben gelistet, da die App-seitige Migration bestehende
-  # Nutzerdaten kopiert statt verschiebt — sie können also unter der alten
-  # Identität liegen bleiben, bis ein Zap sie entfernt.
+  # Bundle-ID seit v1.4.0 de.whispaste.direct (de.whispaste.app gehört seitdem
+  # allein dem Mac-App-Store-Build; davor seit v1.2.58 auch dem DMG, zuvor
+  # com.whispaste.whispaste). Alte Pfade bleiben gelistet, da die App-seitige
+  # Migration bestehende Nutzerdaten kopiert statt verschiebt — sie können
+  # also unter der alten Identität liegen bleiben, bis ein Zap sie entfernt.
   zap trash: [
+    "~/Library/Application Support/de.whispaste.direct",
+    "~/Library/Caches/de.whispaste.direct",
+    "~/Library/Preferences/de.whispaste.direct.plist",
+    "~/Library/HTTPStorages/de.whispaste.direct",
     "~/Library/Application Support/de.whispaste.app",
     "~/Library/Caches/de.whispaste.app",
     "~/Library/Preferences/de.whispaste.app.plist",

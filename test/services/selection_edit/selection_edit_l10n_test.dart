@@ -14,6 +14,7 @@ void main() {
       test('every error code has its own overlay message', () {
         final codes = [
           'selection_edit_no_engine',
+          'selection_edit_local_unavailable',
           'selection_edit_unsupported',
           ...SelectionEditFailure.values.map((f) => f.errorCode),
         ];
@@ -22,6 +23,13 @@ void main() {
           expect(message, isNot(l10n.errorGeneric), reason: code);
           expect(message.trim(), isNotEmpty, reason: code);
         }
+      });
+
+      test('missing local engine library reuses the settings hint', () {
+        expect(
+          localizeRecordingError(l10n, 'selection_edit_local_unavailable'),
+          l10n.smartModeLocalUnavailable,
+        );
       });
 
       test('done message names the replacement', () {

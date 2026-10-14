@@ -58,7 +58,7 @@ class _GateHarness {
       return autoPasteGrantAlertConfirmed;
     },
     startGrantFlow: () async => calls.add('ap.startGrantFlow'),
-    showManualGrantAlert: () async => calls.add('ap.manualAlert'),
+    guideStaleEntryRemoval: () async => calls.add('ap.staleGuide'),
   );
 
   StartupPermissionGate gate({bool withAutoPaste = true}) =>
@@ -217,16 +217,15 @@ void main() {
       expect(h.calls, isNot(contains('ap.grantAlert')));
     });
 
-    test('still missing after an ineffective restart → honest manual alert, '
-        'no new grant flow (no restart loop)', () async {
+    test('stale entry → only the removal guide, no grant flow and no grant '
+        'alert (a request cannot fix an existing entry)', () async {
       final h = _GateHarness()
         ..statusReads = [true]
-        ..autoPasteStatus = AutoPasteGateStatus.missingAfterIneffectiveRestart;
+        ..autoPasteStatus = AutoPasteGateStatus.staleEntry;
       final result = await h.gate().run();
 
-      expect(result.autoPaste, AutoPasteGateOutcome.manualAlertShown);
-      expect(h.calls, contains('ap.manualAlert'));
-      expect(h.calls, isNot(contains('ap.startGrantFlow')));
+      expect(result.autoPaste, AutoPasteGateOutcome.staleEntryGuideShown);
+      expect(h.calls, ['mic.status', 'ap.readStatus', 'ap.staleGuide']);
     });
 
     test('declining the grant alert never starts the grant flow', () async {

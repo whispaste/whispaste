@@ -79,6 +79,11 @@ class _WpSplitViewState<T> extends State<WpSplitView<T>>
   static const _dividerHitWidth = 8.0;
   static const _dividerVisualWidth = 1.0;
 
+  /// Narrowest window that still shows the list and the detail side by side.
+  /// Below it the detail takes the full width (focused detail).
+  static const _splitMinWidth =
+      _minListWidth + _dividerHitWidth + WpLayout.minReadableDetailWidth;
+
   /// Minimum pixel width before the detail column actually renders its
   /// content. Below this threshold, the column shows nothing to prevent
   /// RenderFlex overflows during the open/close animation.
@@ -146,106 +151,123 @@ class _WpSplitViewState<T> extends State<WpSplitView<T>>
   Widget build(BuildContext context) {
     final showDetail = widget.selectedItem != null || _displayedItem != null;
 
-    if (!showDetail) {
-      return widget.listBuilder(context, null);
-    }
-
+    // One Stack with the same three Positioned children in every state: the
+    // list is always child 0, so its element — and with it its scroll offset
+    // and its own state — survives opening, closing and resizing the detail.
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
-        final isCompact = totalWidth < WpLayout.breakpointMobile;
+        final isSplit = totalWidth >= _splitMinWidth;
+        // Narrow window with a selection: the detail takes the full width
+        // and the list is kept mounted but hidden.
+        final isFocusedDetail = !isSplit && widget.selectedItem != null;
 
-        // ── Compact: full-screen detail overlay ──
-        if (isCompact) {
-          final item = widget.selectedItem ?? _displayedItem;
-          if (item != null && widget.selectedItem != null) {
-            return _buildDetail(context, item);
-          }
-          return widget.listBuilder(context, _visibleId);
-        }
-
-        // ── Desktop: side-by-side list + detail ──
-        // When detail is open, cap the list column so the detail gets at
-        // least _minDetailRenderWidth. If there's not enough total space for
-        // both columns, fall back to compact/fullscreen detail.
-        final roomForDetail = totalWidth - _minListWidth - _dividerHitWidth;
-        if (roomForDetail < _minDetailRenderWidth &&
-            widget.selectedItem != null) {
-          // Not enough room for split — show full-screen detail.
-          return _buildDetail(
-            context,
-            widget.selectedItem ?? _displayedItem as T,
-          );
-        }
-
-        final maxListW = totalWidth * _maxListFraction;
-        // Ensure the list column never eats so much that detail can't render.
-        final maxListForDetail =
-            totalWidth - _dividerHitWidth - _minDetailRenderWidth;
         return AnimatedBuilder(
           animation: _detailWidth,
           builder: (context, _) {
-            final detailFraction = _detailWidth.value;
-            final effectiveList = _listWidth.clamp(
-              _minListWidth,
-              detailFraction > 0.05
-                  ? maxListForDetail.clamp(_minListWidth, maxListW)
-                  : maxListW,
-            );
-            final detailW =
-                (totalWidth - effectiveList - _dividerHitWidth) *
-                detailFraction;
-            final listW = totalWidth - detailW - _dividerHitWidth;
+            final detailFraction = isSplit ? _detailWidth.value : 0.0;
+            // The list column is capped so the detail keeps at least
+            // WpLayout.minReadableDetailWidth while it is open.
+            final maxListW = totalWidth * _maxListFraction;
+            final maxListForDetail =
+                totalWidth - _dividerHitWidth - WpLayout.minReadableDetailWidth;
+            final dragMax = detailFraction > 0.05
+                ? maxListForDetail.clamp(_minListWidth, maxListW)
+                : maxListW;
 
-            return Row(
+            final double listW;
+            final double dividerW;
+            final double detailW;
+            if (isFocusedDetail) {
+              listW = totalWidth;
+              dividerW = 0;
+              detailW = totalWidth;
+            } else if (!isSplit) {
+              listW = totalWidth;
+              dividerW = 0;
+              detailW = 0;
+            } else {
+              // ── Desktop: side-by-side list + detail ──
+              final effectiveList = _listWidth.clamp(_minListWidth, dragMax);
+              dividerW = showDetail ? _dividerHitWidth : 0;
+              detailW =
+                  (totalWidth - effectiveList - dividerW) * detailFraction;
+              listW = (totalWidth - detailW - dividerW).clamp(
+                effectiveList,
+                totalWidth,
+              );
+            }
+            final detailBoxW = detailW.clamp(0.0, totalWidth - _minListWidth);
+            final detailLeft = listW + dividerW;
+
+            final Widget detail;
+            if (isFocusedDetail) {
+              detail = _buildDetail(context, widget.selectedItem as T);
+            } else if (isSplit &&
+                detailFraction > 0.05 &&
+                detailW >= _minDetailRenderWidth) {
+              detail = ClipRect(
+                child: Opacity(
+                  opacity: detailFraction.clamp(0.0, 1.0),
+                  child: AnimatedSwitcher(
+                    duration: WpMotion.durationFor(context, WpMotion.fast),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeIn,
+                    transitionBuilder: (child, animation) {
+                      return FadeTransition(opacity: animation, child: child);
+                    },
+                    child: _buildDetail(
+                      context,
+                      widget.selectedItem ?? _displayedItem as T,
+                    ),
+                  ),
+                ),
+              );
+            } else {
+              detail = const SizedBox.shrink();
+            }
+
+            return Stack(
               children: [
-                SizedBox(
-                  width: listW.clamp(effectiveList, totalWidth),
-                  child: widget.listBuilder(context, _visibleId),
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: listW,
+                  child: Offstage(
+                    offstage: isFocusedDetail,
+                    child: ExcludeFocus(
+                      excluding: isFocusedDetail,
+                      child: widget.listBuilder(context, _visibleId),
+                    ),
+                  ),
                 ),
-                // Draggable divider
-                _SplitViewDivider(
-                  isDragging: _isDragging,
-                  hitWidth: _dividerHitWidth,
-                  visualWidth: _dividerVisualWidth,
-                  dragMax: detailFraction > 0.05
-                      ? maxListForDetail.clamp(_minListWidth, maxListW)
-                      : maxListW,
-                  minListWidth: _minListWidth,
-                  currentListWidth: _listWidth,
-                  onDragStart: () => setState(() => _isDragging = true),
-                  onDragUpdate: (newWidth) =>
-                      setState(() => _listWidth = newWidth),
-                  onDragEnd: () => setState(() => _isDragging = false),
-                ),
-                SizedBox(
-                  width: detailW.clamp(0.0, totalWidth - _minListWidth),
-                  child:
-                      detailFraction > 0.05 && detailW >= _minDetailRenderWidth
-                      ? ClipRect(
-                          child: Opacity(
-                            opacity: detailFraction.clamp(0.0, 1.0),
-                            child: AnimatedSwitcher(
-                              duration: WpMotion.durationFor(
-                                context,
-                                WpMotion.fast,
-                              ),
-                              switchInCurve: Curves.easeOut,
-                              switchOutCurve: Curves.easeIn,
-                              transitionBuilder: (child, animation) {
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: child,
-                                );
-                              },
-                              child: _buildDetail(
-                                context,
-                                widget.selectedItem ?? _displayedItem as T,
-                              ),
-                            ),
-                          ),
+                Positioned(
+                  left: listW,
+                  top: 0,
+                  bottom: 0,
+                  width: dividerW,
+                  child: dividerW > 0
+                      ? _SplitViewDivider(
+                          isDragging: _isDragging,
+                          hitWidth: _dividerHitWidth,
+                          visualWidth: _dividerVisualWidth,
+                          dragMax: dragMax,
+                          minListWidth: _minListWidth,
+                          currentListWidth: _listWidth,
+                          onDragStart: () => setState(() => _isDragging = true),
+                          onDragUpdate: (newWidth) =>
+                              setState(() => _listWidth = newWidth),
+                          onDragEnd: () => setState(() => _isDragging = false),
                         )
                       : const SizedBox.shrink(),
+                ),
+                Positioned(
+                  left: detailLeft,
+                  top: 0,
+                  bottom: 0,
+                  width: detailBoxW,
+                  child: detail,
                 ),
               ],
             );

@@ -15,7 +15,7 @@
  * des Default-Slots — verschiedene Pages wählen unterschiedliche Formate.
  *
  * Props-Vertrag (Issue 10 / PRD §E):
- *   - `lang`: `'de' | 'en'` — explizit, damit der Layout-Wrapper für
+ *   - `lang`: `Locale` — explizit, damit der Layout-Wrapper für
  *     hreflang-Alternates die korrekte Locale durchreicht.
  *   - `seo`: `{ title, description }` — gehen 1:1 in `<Layout>`.
  *   - `breadcrumbs`: `readonly { name, item }[]` — wird sowohl visuell
@@ -23,8 +23,8 @@
  *   - `hero`: `{ heading, lead }` — H1 plus erster Absatz (beantwortet
  *     den `docs/zielgruppe.md`-Lackmustest).
  *   - `cta`: `{ label, href }` — Download-CTA-Block.
- *   - optional `alternateSlugs`: divergierende DE/EN-Slugs (z. B.
- *     `programmierer` ↔ `programmer`), durchgereicht an `<Layout>`.
+ *   - divergierende DE/EN-Slugs (z. B.
+ *     `programmierer` ↔ `programmer`) löst `Layout` zentral über `DE_SLUGS` auf.
  *
  * Die Sections rendern Konsumenten über den Default-Slot. Style-Konventionen:
  * dieselben Tailwind-Tokens wie auf `download.astro` / `sponsor.astro`
@@ -76,20 +76,18 @@ interface Props {
       lassen die Prop weg und behalten den reinen Text-Hero. */
   readonly heroImage?: HeroImageProps;
   readonly cta: CtaProps;
-  readonly alternateSlugs?: { de: string; en: string };
   /** Optionale Querverlinkung zu thematisch verwandten Long-Tail-Pages —
       hält den Content-Cluster intern verlinkt statt als Sitemap-Waisen. */
   readonly relatedPages?: readonly RelatedPageLink[];
 }
 
-const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPages } = Astro.props;
+const { lang, seo, breadcrumbs, hero, heroImage, cta, relatedPages } = Astro.props;
 ---
 
 <Layout
   title={seo.title}
   description={seo.description}
   lang={lang}
-  alternateSlugs={alternateSlugs}
 >
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />
@@ -225,7 +223,7 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, alternateSlugs, relatedPag
     anderen Subpages.
   */}
   <script>
-    import { applyLang } from '../scripts/i18n';
+    import { applyLang } from '../scripts/lang-switch';
     applyLang();
 
     // Engagement-Event „Inhalt gelesen" (cookieless, einmalig): feuert, sobald der

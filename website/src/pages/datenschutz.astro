@@ -7,7 +7,7 @@ import { t, localePath } from "../scripts/i18n.ts";
 
 // Diese Page ist die deutsche Datenschutz-Variante. Die i18n-Routing-
 // Aufteilung (Issue 03) trennt EN nach `/en/privacy/`; daher liefern wir hier
-// hart `lang = 'de'` und setzen den entsprechenden `alternateSlugs`-Mapping
+// hart `lang = 'de'` und setzen den entsprechenden `DE_SLUGS` (scripts/locales.ts)-Mapping
 // für das `<link rel="alternate">`-Pair (DE: `/datenschutz/`, EN: `/en/privacy/`).
 const lang = 'de' as const;
 const breadcrumbItems = [
@@ -20,7 +20,6 @@ const breadcrumbItems = [
   title={t(lang, "meta.title.privacy")}
   description={t(lang, "meta.description.privacy")}
   lang={lang}
-  alternateSlugs={{ de: 'datenschutz', en: 'privacy' }}
 >
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />
@@ -114,7 +113,7 @@ const breadcrumbItems = [
               </p>
               <ul class="list-disc list-inside space-y-2 ml-4">
                 <li>
-                  <strong class="text-white">Lokale/Offline-Transkription:</strong> Das Audio wird vollständig auf deinem Gerät verarbeitet, mit einem lokalen KI-Modell: Whisper (über whisper.cpp) oder Parakeet (über sherpa-onnx), je nach Einstellung. Es verlässt kein Audio deinen Rechner.
+                  <strong class="text-white">Lokale/Offline-Transkription:</strong> Das Audio wird vollständig auf deinem Gerät verarbeitet, mit einem lokalen KI-Modell: Whisper (über whisper.cpp) oder Parakeet (über sherpa-onnx bzw. whisper.cpp-Backends), je nach Einstellung. Es verlässt kein Audio deinen Rechner.
                 </li>
                 <li>
                   <strong class="text-white">Cloud-Transkription (OpenAI oder Deepgram):</strong> Das Audio wird zur Transkription an die Server des gewählten Anbieters gesendet. Dafür benötigst du einen eigenen API-Schlüssel des jeweiligen Anbieters. Die Übertragung erfolgt direkt von deinem Gerät zum Anbieter; WhisPaste leitet die Aufnahme über keinen eigenen Server weiter, speichert oder verarbeitet sie dort auch nicht.
@@ -200,10 +199,10 @@ const breadcrumbItems = [
             <section>
               <h2 class="text-2xl font-semibold text-white mb-3">15. Anonyme Nutzungsstatistik &amp; Absturzberichte</h2>
               <p>
-                Zur bedarfsgerechten Weiterentwicklung erhebt die App standardmäßig <strong class="text-white">anonyme, aggregierte Nutzungsstatistiken</strong> über einen selbst betriebenen Matomo-Server sowie <strong class="text-white">Absturzberichte</strong> über Sentry (Datenregion EU). Beides ist standardmäßig aktiv (Opt-out) — darauf weist auch der Datenschutz-Schritt der Einrichtung hin. Beide Datenströme sind cookiefrei und ohne Konto-Identifikator. Bei Matomo wird die IP-Adresse serverseitig vollständig anonymisiert; ist die Umgebungsvariable <code class="text-brand-cyan">DNT=1</code> gesetzt, sendet die App keine Nutzungsstatistik. Für wochenbasierte Auswertungen (z.&nbsp;B. wiederkehrende Nutzung innerhalb derselben Woche) wird zusätzlich ein rein lokal erzeugtes, pseudonymes Kennzeichen übertragen: ein Hash-Wert aus einem zufälligen, nie übertragenen Gerätewert und der aktuellen Kalenderwoche. Dieser Wert ändert sich automatisch jede Woche und lässt keine Zuordnung über eine Woche hinaus zu — er ist damit kein dauerhafter Geräte-Identifikator.
+                Zur bedarfsgerechten Weiterentwicklung erhebt die App standardmäßig <strong class="text-white">anonyme, aggregierte Nutzungsstatistiken</strong> über einen selbst betriebenen Matomo-Server sowie <strong class="text-white">Absturzberichte</strong> über Sentry (Datenregion EU). Beides ist standardmäßig aktiv (Opt-out) — darauf weist auch der Datenschutz-Schritt der Einrichtung hin. Beide Datenströme sind cookiefrei und ohne Konto-Identifikator. Bei Matomo wird die IP-Adresse serverseitig vollständig anonymisiert; ist die Umgebungsvariable <code class="text-brand-cyan">DNT=1</code> gesetzt, sendet die App keine Nutzungsstatistik. Für wochenbasierte Auswertungen (z.&nbsp;B. wiederkehrende Nutzung innerhalb derselben Woche) wird zusätzlich ein rein lokal erzeugtes, pseudonymes Kennzeichen übertragen: ein Hash-Wert aus einem zufälligen, nie übertragenen Gerätewert und der aktuellen Kalenderwoche. Dieser Wert ändert sich automatisch jede Woche und lässt keine Zuordnung über eine Woche hinaus zu — er ist damit kein dauerhafter Geräte-Identifikator. Außerdem erhält jeder App-Start eine zufällige Besucher-Kennung, die nie gespeichert wird und nur Ereignisse desselben Programmlaufs verbindet.
               </p>
               <p>
-                <strong class="text-white">Absturzberichte (Sentry)</strong> enthalten technische Fehlerdaten: Fehlermeldung und Stacktrace, App-Version, Betriebssystem und Prozessorarchitektur, Installationskanal sowie die letzten App-Protokollzeilen (diese enthalten nie transkribierten Text, können aber lokale Dateipfade enthalten). Zur Erkennung, ob ein Fehler wiederholt auf demselben Gerät auftritt, wird ein gekürzter Hash-Wert des Gerätenamens mitgesendet. Ereignisse, die Geheimnisse wie API-Schlüssel enthalten, werden verworfen; Bildschirmfotos und Bildschirminhalte werden nie übertragen. Zusätzlich wird ein kleiner Teil der App-Vorgänge (0,5&nbsp;%) als Leistungsmessung übertragen: nur Zeitmessungen, Datenbankabfrage-Vorlagen ohne Werte und die Adressen von Modell- und Update-Downloads.
+                <strong class="text-white">Absturzberichte (Sentry)</strong> enthalten technische Fehlerdaten: Fehlermeldung und Stacktrace, App-Version, Betriebssystem und Prozessorarchitektur, Installationskanal sowie die letzten App-Protokollzeilen (diese enthalten nie transkribierten Text; der Benutzername in lokalen Dateipfaden wird vor dem Senden durch einen Platzhalter ersetzt). Zur Erkennung, ob ein Fehler wiederholt auf demselben Gerät auftritt, wird ein gekürzter Hash-Wert des Gerätenamens mitgesendet. Ereignisse, die Geheimnisse wie API-Schlüssel enthalten, werden verworfen; Bildschirmfotos und Bildschirminhalte werden nie übertragen. Zusätzlich wird ein kleiner Teil der App-Vorgänge (0,5&nbsp;%) als Leistungsmessung übertragen: nur Zeitmessungen, Datenbankabfrage-Vorlagen ohne Werte und die Adressen von Modell- und Update-Downloads. Schaltest du die Fehlerberichte ab, wird Sentry sofort beendet, einschließlich nativer Absturz- und Hänger-Berichte, und bei späteren Starts gar nicht erst gestartet.
               </p>
               <p>
                 <strong class="text-white">Niemals</strong> übertragen werden (in beiden Datenströmen): dein Audio, transkribierter Text, Verlauf, Textbausteine, Tags, Notizen oder API-Schlüssel. Die Nutzungsstatistik enthält darüber hinaus keine konkreten Tastenkürzel, Dateipfade, Cursor-Position oder die Ziel-Anwendung; erhoben werden dort ausschließlich aggregierte Ereigniszähler und Kategorien (App-Version, Plattform, gewählter Anbieter, Installationskanal, Sprache, das oben beschriebene wöchentlich rotierende Kohorten-Kennzeichen). Rechtsgrundlage: Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO (berechtigtes Interesse). Du kannst beide Datenströme jederzeit getrennt unter <strong class="text-white">Einstellungen → Datenschutz</strong> („Fehlerberichte“ bzw. „Anonyme Nutzungsstatistiken senden“) abschalten (Widerspruch nach Art. 21 DSGVO); ist die Nutzungsstatistik abgeschaltet, wird auch kein Kohorten-Kennzeichen erzeugt oder übertragen.
@@ -274,14 +273,8 @@ const breadcrumbItems = [
   </div>
 
   <script>
-    import { applyLang } from '../scripts/i18n';
+    import { applyLang } from '../scripts/lang-switch';
 
-    // Language switch on this DE-only page routes to the EN-counterpart
-    // instead of toggling inline content. The server-rendered HTML is
-    // already locale-correct.
-    (window as any).toggleLang = function () {
-      window.location.assign('/en/privacy/');
-    };
 
     applyLang();
   </script>

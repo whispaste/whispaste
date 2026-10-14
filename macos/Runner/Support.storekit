@@ -1,0 +1,152 @@
+{
+  "identifier": "WHISPASTE-SUPPORT-LOCAL",
+  "nonRenewingSubscriptions": [],
+  "products": [
+    {
+      "adHocOffers": [],
+      "codeOffers": [],
+      "familyShareable": false,
+      "internalID": "6000000001",
+      "localizations": [
+        {
+          "description": "Einmaliges Sponsoring für WhisPaste (1.99 €). Schaltet keine Funktion frei.",
+          "displayName": "Sponsoring 1",
+          "locale": "de_DE"
+        },
+        {
+          "description": "One-time sponsorship for WhisPaste (1.99 EUR). Unlocks no feature.",
+          "displayName": "Sponsorship 1",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "whispaste.support.once.1",
+      "referenceName": "Support Once 1",
+      "type": "Consumable",
+      "price": 1.99
+    },
+    {
+      "adHocOffers": [],
+      "codeOffers": [],
+      "familyShareable": false,
+      "internalID": "6000000002",
+      "localizations": [
+        {
+          "description": "Einmaliges Sponsoring für WhisPaste (4.99 €). Schaltet keine Funktion frei.",
+          "displayName": "Sponsoring 2",
+          "locale": "de_DE"
+        },
+        {
+          "description": "One-time sponsorship for WhisPaste (4.99 EUR). Unlocks no feature.",
+          "displayName": "Sponsorship 2",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "whispaste.support.once.2",
+      "referenceName": "Support Once 2",
+      "type": "Consumable",
+      "price": 4.99
+    },
+    {
+      "adHocOffers": [],
+      "codeOffers": [],
+      "familyShareable": false,
+      "internalID": "6000000003",
+      "localizations": [
+        {
+          "description": "Einmaliges Sponsoring für WhisPaste (9.99 €). Schaltet keine Funktion frei.",
+          "displayName": "Sponsoring 3",
+          "locale": "de_DE"
+        },
+        {
+          "description": "One-time sponsorship for WhisPaste (9.99 EUR). Unlocks no feature.",
+          "displayName": "Sponsorship 3",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "whispaste.support.once.3",
+      "referenceName": "Support Once 3",
+      "type": "Consumable",
+      "price": 9.99
+    },
+    {
+      "adHocOffers": [],
+      "codeOffers": [],
+      "familyShareable": false,
+      "internalID": "6000000004",
+      "localizations": [
+        {
+          "description": "Einmaliges Sponsoring für WhisPaste (19.99 €). Schaltet keine Funktion frei.",
+          "displayName": "Sponsoring 4",
+          "locale": "de_DE"
+        },
+        {
+          "description": "One-time sponsorship for WhisPaste (19.99 EUR). Unlocks no feature.",
+          "displayName": "Sponsorship 4",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "whispaste.support.once.4",
+      "referenceName": "Support Once 4",
+      "type": "Consumable",
+      "price": 19.99
+    },
+    {
+      "adHocOffers": [],
+      "codeOffers": [],
+      "familyShareable": false,
+      "internalID": "6000000005",
+      "localizations": [
+        {
+          "description": "Einmaliges Sponsoring für WhisPaste (49.99 €). Schaltet keine Funktion frei.",
+          "displayName": "Sponsoring 5",
+          "locale": "de_DE"
+        },
+        {
+          "description": "One-time sponsorship for WhisPaste (49.99 EUR). Unlocks no feature.",
+          "displayName": "Sponsorship 5",
+          "locale": "en_US"
+        }
+      ],
+      "productID": "whispaste.support.once.5",
+      "referenceName": "Support Once 5",
+      "type": "Consumable",
+      "price": 49.99
+    }
+  ],
+  "settings": {
+    "_applicationInternalID": "6000000000",
+    "_developerTeamID": "",
+    "_failTransactionsEnabled": false,
+    "_lastSynchronizedDate": 0,
+    "_locale": "de_DE",
+    "_storefront": "DEU",
+    "_storeKitErrors": [
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Load Products"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Purchase"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Verification"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "App Store Sync"
+      }
+    ],
+    "_timeRate": 1
+  },
+  "subscriptionGroups": [],
+  "version": {
+    "major": 3,
+    "minor": 0
+  }
+}

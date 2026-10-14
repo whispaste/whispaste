@@ -96,6 +96,7 @@ class SelectionReader {
     required this._clipboard,
     this.pollInterval = const Duration(milliseconds: 40),
     this.pollTimeout = const Duration(milliseconds: 600),
+    this.lateCopyGrace = const Duration(milliseconds: 300),
     String Function()? sentinelFactory,
   }) : _sentinelFactory = sentinelFactory ?? _defaultSentinel;
 
@@ -103,6 +104,11 @@ class SelectionReader {
   final SelectionClipboard _clipboard;
   final Duration pollInterval;
   final Duration pollTimeout;
+
+  /// Extra window after [pollTimeout] for a busy target app that copies late.
+  /// A copy that lands after this window is not read and is overwritten by
+  /// the snapshot restore — a residual risk, since restoring is immediate.
+  final Duration lateCopyGrace;
   final String Function() _sentinelFactory;
 
   static final _random = math.Random();
@@ -139,6 +145,9 @@ class SelectionReader {
       _log.warning('Selection read failed', e);
       return const SelectionReadFailed(NativePasteStatus.unknown);
     } finally {
+      // A `null` snapshot (read failed, or no plain text) is written back as
+      // `''`, so the internal sentinel does not stay on the clipboard. Non-text
+      // content is already overwritten by the sentinel write at this point.
       try {
         await _clipboard.writeTransient(snapshot ?? '');
       } on Exception catch (e) {
@@ -149,13 +158,16 @@ class SelectionReader {
 
   /// The target app copies asynchronously after the key event — poll until
   /// the clipboard no longer holds [sentinel], or give up (= no selection).
+  /// The window is [pollTimeout] plus [lateCopyGrace], so an app that answers
+  /// a little late is still read before the snapshot is restored.
   Future<String?> _waitForChange(String sentinel) async {
     final watch = Stopwatch()..start();
+    final deadline = pollTimeout + lateCopyGrace;
     while (true) {
       await Future<void>.delayed(pollInterval);
       final text = await _clipboard.readText();
       if (text != null && text != sentinel) return text;
-      if (watch.elapsed >= pollTimeout) return null;
+      if (watch.elapsed >= deadline) return null;
     }
   }
 }

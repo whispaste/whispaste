@@ -1,0 +1,22 @@
+La dictée vocale pour votre Mac : appuyez sur un raccourci, parlez, et WhisPaste écrit vos mots exactement là où se trouve votre curseur, dans n’importe quelle app : Mail, Notes, Slack, VS Code ou partout ailleurs où vous tapez.
+
+VOTRE AUDIO RESTE SUR VOTRE MAC
+Deux moteurs sur l’appareil font le travail : Whisper (Small, Medium ou Large v3 Turbo, jusqu’à 99 langues, accéléré par Metal sur Apple Silicon) et Parakeet, particulièrement rapide. Après un téléchargement unique du modèle, la transcription fonctionne hors ligne et votre audio ne quitte jamais votre Mac. La transcription cloud via OpenAI ou Deepgram est facultative, utilise votre propre clé API et va directement chez le fournisseur, jamais via des serveurs WhisPaste. Aucun compte requis.
+
+MODE INTELLIGENT
+Faites nettoyer, raccourcir ou traduire votre texte avant qu’il ne soit collé, sur votre Mac ou via OpenAI. Vous pouvez aussi l’appliquer plus tard à une transcription passée.
+
+MODIFIER UN TEXTE SÉLECTIONNÉ À LA VOIX
+Sélectionnez une phrase dans n’importe quelle app, appuyez sur le raccourci de sélection et dites ce qui doit changer, par exemple « rends-le plus aimable ». WhisPaste réécrit la sélection sur place. Désactivé par défaut.
+
+SNIPPETS VOCAUX
+Prononcez un court déclencheur et WhisPaste insère le texte complet : signatures, formules de politesse, phrases récurrentes ou modèles interactifs à plusieurs champs.
+
+HISTORIQUE ET EXPORT
+Chaque transcription est enregistrée sur votre Mac. Recherchez, étiquetez, épinglez, archivez et fusionnez des entrées, protégez l’historique par un code PIN et exportez en TXT, Markdown, JSON, CSV ou Word. Les notes et les notes rapides rassemblent vos idées plus longues au même endroit.
+
+ACHAT UNIQUE, PAS D’ABONNEMENT
+Pas d’abonnement, pas de limite de durée, pas de frais récurrents. WhisPaste est open source (licence MIT) et développé publiquement sur GitHub. Votre achat soutient directement son développement.
+
+CONÇU POUR LE TRAVAIL QUOTIDIEN
+Mode bascule ou push-to-talk · overlay en direct pendant que vous parlez · bouton d’enregistrement flottant · panneau latéral de collage rapide au bord de l’écran · vocabulaire personnalisé et remplacements · barre des menus · lancement à l’ouverture de session · interface en anglais, allemand, hébreu, russe, espagnol et portugais (Brésil)

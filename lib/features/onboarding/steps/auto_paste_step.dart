@@ -48,6 +48,7 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/desktop_paste/desktop_paste_controller.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paster.dart';
+import '../../../services/permissions/stale_entry_removal_guide.dart';
 import '../../../widgets/paste_capability_restart_banner.dart';
 import '../../../widgets/wp_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
@@ -137,6 +138,16 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
   /// the user retry or skip.
   Future<void> _onRepairPressed() async {
     if (_repairInFlight) return;
+    final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    // The sandboxed build cannot reset its own entry — the guided removal
+    // (ending in a relaunch) is its repair.
+    if (capNotifier.requiresManualEntryRemoval) {
+      await runStaleEntryRemovalGuide(
+        l10n: L10n.of(context),
+        notifier: capNotifier,
+      );
+      return;
+    }
     setState(() {
       _repairInFlight = true;
       _lastRepairResult = null;

@@ -13,6 +13,15 @@ class DesktopPasteHost {
   private var channel: FlutterMethodChannel
   private var targetApp: NSRunningApplication?
 
+  /// nspasteboard.org markers: clipboard managers (Maccy, Raycast, Alfred,
+  /// WhisPaste's own history monitor, ...) skip items carrying them, so a
+  /// dictation or its restore never lands in anyone's clipboard history.
+  static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
+  static let concealedType = NSPasteboard.PasteboardType("org.nspasteboard.ConcealedType")
+
+  /// The armed receipt write (see `writeClipboardTextWithReceipt`), or nil.
+  private var receipt: PasteReceipt?
+
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "com.whispaste.desktop_paste",
@@ -51,6 +60,17 @@ class DesktopPasteHost {
       }
       typeText(text: text, delayMs: delayMs, result: result)
 
+    case "writeClipboardTextWithReceipt":
+      let text = (call.arguments as? [String: Any])?["text"] as? String ?? ""
+      result(writeClipboardTextWithReceipt(text))
+
+    case "waitForClipboardRead":
+      waitForClipboardRead(result: result)
+
+    case "restoreClipboardTextIfOwner":
+      let text = (call.arguments as? [String: Any])?["text"] as? String ?? ""
+      result(["status": restoreClipboardTextIfOwner(text)])
+
     case "checkCapability":
       let prompt = (call.arguments as? [String: Any])?["prompt"] as? Bool ?? false
       result(checkCapability(prompt: prompt))
@@ -81,6 +101,8 @@ class DesktopPasteHost {
 
     case "destroy":
       targetApp = nil
+      receipt?.resolvePending("superseded")
+      receipt = nil
       channel.setMethodCallHandler(nil)
       result(nil)
 
@@ -163,6 +185,10 @@ class DesktopPasteHost {
     // Clamp delay to a reasonable range (0–5 seconds).
     let clampedDelay = max(0, min(delayMs, 5000))
 
+    // The overlay never takes focus, so in the common dictation case the
+    // target is still frontmost and has nothing to settle.
+    let alreadyFrontmost = app.isActive
+
     // Activate the target app. macOS 14 deprecated the no-arg form in
     // favour of the options-taking variant; on older systems both exist
     // and behave identically.
@@ -172,11 +198,17 @@ class DesktopPasteHost {
       app.activate(options: [.activateIgnoringOtherApps])
     }
 
-    // Brief delay to allow the target window to come to front before we
-    // post the keystroke, then report the real outcome to Dart.
+    // A target that had to be brought forward gets the full delay to
+    // come to front. A target that already is frontmost only waits until
+    // the hotkey's modifiers are up (bounded by the same delay), so a
+    // still-held Shift/Option can't turn the posted ⌘V into another
+    // shortcut. Then report the real outcome to Dart.
     let bundle = app.bundleIdentifier ?? "<unknown>"
     let deadline: DispatchTime = .now() + .milliseconds(clampedDelay)
-    DispatchQueue.main.asyncAfter(deadline: deadline) {
+    let postPaste: () -> Void = {
+      // From here on, a read of an armed receipt counts as the target's
+      // paste (reads before this point are clipboard monitors).
+      self.receipt?.keystrokePosted = true
       // Channel A: CGEvent — needs the permission canPostSyntheticEvents()
       // checks. The post() call is void and CG never reports delivery
       // failure, so the only signal we have for "the OS dropped it
@@ -199,7 +231,7 @@ class DesktopPasteHost {
       let appleScriptResult = cgLanded ? "skipped" : self.sendCmdVViaAppleScript()
 #endif
 
-      let detail = "trusted=\(trusted) cg=\(cgOk) as=\(appleScriptResult) target=\(bundle)"
+      let detail = "trusted=\(trusted) cg=\(cgOk) as=\(appleScriptResult) target=\(bundle) front=\(alreadyFrontmost)"
       os_log("pasteClipboard: %{public}@", log: Self.logger, type: .info, detail)
 
       // AppleScript "ok" is trustworthy because System Events propagates a
@@ -237,6 +269,97 @@ class DesktopPasteHost {
 #endif
       result(["status": "post_failed", "detail": detail])
     }
+    if alreadyFrontmost {
+      waitForModifierRelease(until: deadline, then: postPaste)
+    } else {
+      DispatchQueue.main.asyncAfter(deadline: deadline, execute: postPaste)
+    }
+  }
+
+  /// Runs [action] once no modifier key is held, or at [deadline] at the
+  /// latest. Polls on the main queue, the queue [action] expects.
+  private func waitForModifierRelease(
+    until deadline: DispatchTime,
+    then action: @escaping () -> Void
+  ) {
+    let modifiers: CGEventFlags = [.maskShift, .maskControl, .maskAlternate, .maskCommand]
+    let held = CGEventSource.flagsState(.combinedSessionState).intersection(modifiers)
+    if held.isEmpty || DispatchTime.now() >= deadline {
+      action()
+      return
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) {
+      self.waitForModifierRelease(until: deadline, then: action)
+    }
+  }
+
+  // MARK: - Receipt-based clipboard restore
+
+  /// Puts [text] on the pasteboard as a *promised* item: the actual string
+  /// is only handed over when a reader asks for it, which is the receipt
+  /// that the target app pasted. Marked transient + concealed so clipboard
+  /// managers ignore the dictation. Returns false when the item can't be
+  /// written — Dart then falls back to its classic write + fixed delay.
+  private func writeClipboardTextWithReceipt(_ text: String) -> Bool {
+    receipt?.resolvePending("superseded")
+    receipt = nil
+
+    let provider = PasteReceiptProvider(text: text)
+    let item = NSPasteboardItem()
+    guard item.setDataProvider(provider, forTypes: [.string]) else { return false }
+    item.setData(Data(), forType: Self.transientType)
+    item.setData(Data(), forType: Self.concealedType)
+
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    guard pasteboard.writeObjects([item]) else {
+      os_log("writeClipboardTextWithReceipt: writeObjects failed", log: Self.logger, type: .error)
+      return false
+    }
+    let armed = PasteReceipt(provider: provider, changeCount: pasteboard.changeCount)
+    provider.onRead = { [weak self, weak armed] in
+      guard let self, let armed, self.receipt === armed else { return }
+      armed.handleRead()
+    }
+    receipt = armed
+    return true
+  }
+
+  /// Answers once the armed receipt was read after the paste keystroke
+  /// (`read`) or the pasteboard changed hands (`lost`). Otherwise the result
+  /// is held until one of those happens or the receipt is superseded — Dart
+  /// bounds the wait with its own timeout.
+  private func waitForClipboardRead(result: @escaping FlutterResult) {
+    guard let armed = receipt else {
+      result(["status": "no_receipt"])
+      return
+    }
+    if NSPasteboard.general.changeCount != armed.changeCount {
+      result(["status": "lost"])
+      return
+    }
+    armed.wait(result)
+  }
+
+  /// Restores [text] only while the pasteboard still holds our receipt
+  /// write (unchanged `changeCount`) — never clobbers content another
+  /// process copied in the meantime. The restore is marked transient so
+  /// clipboard managers don't record WhisPaste's housekeeping either.
+  private func restoreClipboardTextIfOwner(_ text: String) -> String {
+    guard let armed = receipt else { return "not_owner" }
+    receipt = nil
+    let pasteboard = NSPasteboard.general
+    guard pasteboard.changeCount == armed.changeCount else {
+      armed.resolvePending("lost")
+      os_log("restoreClipboardTextIfOwner: pasteboard changed — skipping", log: Self.logger, type: .info)
+      return "not_owner"
+    }
+    armed.resolvePending("superseded")
+    pasteboard.clearContents()
+    let item = NSPasteboardItem()
+    item.setString(text, forType: .string)
+    item.setData(Data(), forType: Self.transientType)
+    return pasteboard.writeObjects([item]) ? "restored" : "failed"
   }
 
   /// Re-activates the captured target app and sends Cmd+C so the target
@@ -684,5 +807,61 @@ class DesktopPasteHost {
       index = end
     }
     return true
+  }
+}
+
+/// State of one receipt write — lives on the main thread only (method
+/// channel handler and pasteboard provider callbacks both run there).
+private final class PasteReceipt {
+  let provider: PasteReceiptProvider
+  let changeCount: Int
+  var keystrokePosted = false
+  private var read = false
+  private var pending: FlutterResult?
+
+  init(provider: PasteReceiptProvider, changeCount: Int) {
+    self.provider = provider
+    self.changeCount = changeCount
+  }
+
+  /// Only reads after the paste keystroke count — an earlier read is a
+  /// clipboard monitor, and since the provider is consulted once, the real
+  /// paste then yields no receipt and Dart falls back to its fixed delay.
+  func handleRead() {
+    guard keystrokePosted else { return }
+    read = true
+    resolvePending("read")
+  }
+
+  func wait(_ result: @escaping FlutterResult) {
+    if read {
+      result(["status": "read"])
+      return
+    }
+    resolvePending("superseded")
+    pending = result
+  }
+
+  func resolvePending(_ status: String) {
+    pending?(["status": status])
+    pending = nil
+  }
+}
+
+/// Lazily hands the transcript to whichever process reads the pasteboard
+/// and reports that read.
+private final class PasteReceiptProvider: NSObject, NSPasteboardItemDataProvider {
+  let text: String
+  var onRead: (() -> Void)?
+
+  init(text: String) {
+    self.text = text
+  }
+
+  func pasteboard(_ pasteboard: NSPasteboard?, item: NSPasteboardItem,
+                  provideDataForType type: NSPasteboard.PasteboardType) {
+    guard type == .string else { return }
+    item.setString(text, forType: .string)
+    onRead?()
   }
 }

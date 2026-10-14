@@ -117,6 +117,9 @@ class _FaultInjectingWhisperEngine implements WhisperEngine {
   /// notifier made for one armed scenario.
   int armedCallCount = 0;
 
+  /// Total `transcribe()` calls, armed or not.
+  int transcribeCallCount = 0;
+
   /// Fails the next [count] `transcribe()` calls with [kind], then reverts
   /// to returning [transcript] successfully.
   void armFailures(WhisperFailureKind kind, int count) {
@@ -142,6 +145,7 @@ class _FaultInjectingWhisperEngine implements WhisperEngine {
     bool vadEnabled = false,
     bool reducedThreads = false,
   }) async {
+    transcribeCallCount++;
     if (_armedKind != null && _remainingFailures > 0) {
       armedCallCount++;
       _remainingFailures--;
@@ -256,6 +260,7 @@ void main() {
       ProviderContainer container,
       RecordingOrchestrator orchestrator,
       _FaultInjectingWhisperEngine engine,
+      _FaultInjectingWhisperEngine cpuEngine,
       List<RecordingPhase> observedPhases,
     )
   >
@@ -283,6 +288,9 @@ void main() {
     }
 
     final engine = _FaultInjectingWhisperEngine();
+    // The notifier swaps to a dedicated CPU engine after a GPU crash; without
+    // this override it would load the real CPU isolate engine.
+    final cpuEngine = _FaultInjectingWhisperEngine();
     final db = HistoryDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
 
@@ -295,6 +303,7 @@ void main() {
           () => FixtureAudioService(fixtureWav),
         ),
         whisperEngineProvider.overrideWithValue(engine),
+        whisperCpuFallbackEngineProvider.overrideWithValue(cpuEngine),
         modelDownloadProvider.overrideWith(
           () =>
               _FixedModelDownloadNotifier({_balancedModelId, _compactModelId}),
@@ -317,7 +326,7 @@ void main() {
     }, fireImmediately: true);
 
     final orchestrator = container.read(recordingOrchestratorProvider.notifier);
-    return (container, orchestrator, engine, observedPhases);
+    return (container, orchestrator, engine, cpuEngine, observedPhases);
   }
 
   /// Runs one full hotkey-press → release cycle through the real
@@ -335,6 +344,7 @@ void main() {
         container,
         orchestrator,
         engine,
+        _,
         observedPhases,
       ) = await buildHarness(
         settings: _baseSettings(modelId: _balancedModelId),
@@ -379,6 +389,7 @@ void main() {
         container,
         orchestrator,
         engine,
+        cpuEngine,
         observedPhases,
       ) = await buildHarness(
         settings: _baseSettings(modelId: _balancedModelId),
@@ -401,8 +412,13 @@ void main() {
       expect((finalState.transcript ?? '').toLowerCase(), contains('hello'));
       expect(
         engine.armedCallCount,
-        2,
-        reason: 'one crashing GPU attempt + one successful CPU retry',
+        1,
+        reason: 'exactly one crashing GPU attempt',
+      );
+      expect(
+        cpuEngine.transcribeCallCount,
+        1,
+        reason: 'one successful retry on the dedicated CPU engine',
       );
       expect(
         container.read(localSttBundleProvider).cpuFallbackActive,
@@ -425,6 +441,7 @@ void main() {
         container,
         orchestrator,
         engine,
+        _,
         observedPhases,
       ) = await buildHarness(
         settings: _baseSettings(modelId: _balancedModelId),

@@ -17,6 +17,9 @@ SPONSORS.md
 LOGGING.md
 CODE_OF_CONDUCT.md
 CONTRIBUTING.md
+CONTRIBUTING_TRANSLATIONS.md
+BUILD.md
+ARCHITECTURE.md
 
 # Build-/Paket-Metadaten
 pubspec.yaml
@@ -92,10 +95,12 @@ supabase/
 # und nur diese Ausnahmen sind öffentlich erlaubt)
 scripts/GITHUB-SECRETS-SETUP.md
 scripts/docs-attest.sh
+scripts/approve-release.sh
 scripts/docs-drift.sh
 scripts/check-workflow-hygiene.sh
 scripts/ci/detect-changes.sh
 scripts/ci/flutter-test.sh
+scripts/smoke/
 scripts/extract-cumulative-changelog.mjs
 scripts/generate-release-notes.mjs
 scripts/generate-screenshots.py
@@ -107,12 +112,20 @@ scripts/build-store-trailer.sh
 scripts/generate-whisper-server-manifest.sh
 scripts/build-libwhisper-macos.sh
 scripts/build-libwhisper-linux.sh
+scripts/split-debug-linux.sh
 scripts/bundle-libwhisper-windows.ps1
 scripts/build-libllama-macos.sh
+scripts/build-libllama-linux.sh
 scripts/build-smartmode-shim-macos.sh
+scripts/ensure-libllama-macos.sh
 scripts/build-libllama-windows.ps1
 scripts/build-smartmode-shim-windows.ps1
 scripts/bundle-libllama-windows.ps1
+scripts/collect-pdbs-windows.ps1
+scripts/fetch-cuda-redist.py
+scripts/build-cuda-pack-linux.sh
+scripts/build-cuda-pack-windows.ps1
+scripts/cuda-pack-NOTICE.template.txt
 
 # Smart-Mode-v2 native shim (llama.cpp FFI wrapper, mirrors the libwhisper pattern)
 native/

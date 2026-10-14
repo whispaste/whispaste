@@ -4,9 +4,9 @@ import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 import BreadcrumbListSchema from "../components/schema/BreadcrumbListSchema.astro";
 import releasesFile from "../data/releases.json";
-import { t, localePath } from "../scripts/i18n.ts";
+import { t, localePath, currentLocale } from "../scripts/i18n.ts";
 
-const pageLang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
+const pageLang = currentLocale(Astro.currentLocale);
 const breadcrumbItems = [
   { name: t(pageLang, "breadcrumb.home"), item: localePath(pageLang, "") },
   { name: t(pageLang, "breadcrumb.changelog"), item: localePath(pageLang, "changelog") },
@@ -123,7 +123,7 @@ type Lang = (typeof LANGS)[number];
   </div>
 
   <script>
-    import { applyLang } from '../scripts/i18n';
+    import { applyLang } from '../scripts/lang-switch';
     applyLang();
 
     // Scroll reveal for release cards
@@ -177,7 +177,7 @@ type Lang = (typeof LANGS)[number];
      * AC's "Default-Sprache" path, and the inactive language remains in the
      * DOM (still readable in the HTML source).
      */
-    html[lang="en"] .release-card-body[data-lang="de"],
+    html:not([lang="de"]) .release-card-body[data-lang="de"],
     html[lang="de"] .release-card-body[data-lang="en"] {
       display: none;
     }

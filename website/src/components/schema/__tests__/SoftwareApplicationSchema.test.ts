@@ -15,6 +15,7 @@
 import { describe, expect, it } from "vitest";
 import {
   APPLICATION_ID,
+  DEFAULT_FEATURE_KEYS,
   buildSoftwareApplicationSchema,
   DEFAULT_OPERATING_SYSTEMS,
   SCHEMA_CONTEXT,
@@ -41,9 +42,9 @@ describe("buildSoftwareApplicationSchema", () => {
     expect((schema.offers as Record<string, unknown>).priceCurrency).toBeUndefined();
     expect(schema.license).toBe("https://opensource.org/licenses/MIT");
     expect(Array.isArray(schema.screenshot)).toBe(true);
-    // Nine motifs: five Flutter goldens plus the four real Windows-box
-    // captures (06 Smart Mode … 09 side panel) added to the gallery.
-    expect(schema.screenshot).toHaveLength(9);
+    // Ten motifs: six Flutter goldens (01–05, 10 Notizen) plus the four real
+    // Windows-box captures (06 Smart Mode … 09 side panel) in the gallery.
+    expect(schema.screenshot).toHaveLength(10);
     // DE screenshots must reference the `/de/` directory so the visible UI
     // language in the screenshot matches the locale-specific landing page.
     for (const url of schema.screenshot as readonly string[]) {
@@ -57,7 +58,7 @@ describe("buildSoftwareApplicationSchema", () => {
     expect(schema.description as string).toMatch(/Cursor/i);
     // featureList mirrors the visible FeatureHighlights cards (localized).
     expect(Array.isArray(schema.featureList)).toBe(true);
-    expect(schema.featureList).toHaveLength(10);
+    expect(schema.featureList).toHaveLength(DEFAULT_FEATURE_KEYS.length);
     expect(schema.featureList as readonly string[]).toContain(
       "Smart Mode: bereinigen, kürzen, übersetzen",
     );

@@ -29,13 +29,25 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 }
 
 class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
-  _FakeModelDownloadNotifier(this._downloadedModels);
+  _FakeModelDownloadNotifier(
+    this._downloadedModels, {
+    this.scanned = true,
+    this.downloadingModelId,
+  });
 
   final Set<String> _downloadedModels;
+  final bool scanned;
+  final String? downloadingModelId;
 
   @override
-  ModelDownloadState build() =>
-      ModelDownloadState(downloadedModels: _downloadedModels);
+  ModelDownloadState build() => ModelDownloadState(
+    downloadedModels: _downloadedModels,
+    scanned: scanned,
+    activeModelId: downloadingModelId,
+    phase: downloadingModelId != null
+        ? DownloadPhase.downloading
+        : DownloadPhase.idle,
+  );
 }
 
 void main() {
@@ -444,6 +456,80 @@ void main() {
       expect(
         c.read(recordingReadinessProvider),
         RecordingReadiness.modelMissing,
+      );
+    });
+  });
+
+  group('missingSttModelProvider', () {
+    Future<SttModelInfo?> read({
+      SttSettings stt = const SttSettings(model: 'whisper-large-v3-turbo'),
+      Set<String> downloaded = const {},
+      bool scanned = true,
+      String? downloadingModelId,
+    }) async {
+      final c = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(
+              AppSettings(
+                onboarding: const OnboardingSettings(onboardingCompleted: true),
+                stt: stt,
+              ),
+            ),
+          ),
+          modelDownloadProvider.overrideWith(
+            () => _FakeModelDownloadNotifier(
+              downloaded,
+              scanned: scanned,
+              downloadingModelId: downloadingModelId,
+            ),
+          ),
+        ],
+      );
+      addTearDown(c.dispose);
+      await c.read(settingsProvider.future);
+      return c.read(missingSttModelProvider);
+    }
+
+    test('names the selected Whisper model when its file is missing', () async {
+      final missing = await read();
+      expect(missing?.id, 'whisper-large-v3-turbo');
+    });
+
+    test('nothing is missing before the initial disk scan has landed — the '
+        'empty pre-scan set must not read as "missing"', () async {
+      expect(await read(scanned: false), isNull);
+    });
+
+    test('nothing is missing once the model is on disk', () async {
+      expect(await read(downloaded: {'whisper-large-v3-turbo'}), isNull);
+    });
+
+    test('nothing is missing while that model is downloading', () async {
+      expect(await read(downloadingModelId: 'whisper-large-v3-turbo'), isNull);
+    });
+
+    test('cloud providers need no local model', () async {
+      expect(
+        await read(
+          stt: const SttSettings(
+            provider: 'OpenAI',
+            model: 'whisper-large-v3-turbo',
+          ),
+        ),
+        isNull,
+      );
+    });
+
+    test('Parakeet has its own bundle and is not judged here', () async {
+      expect(
+        await read(
+          stt: const SttSettings(
+            engine: 'parakeet',
+            model: 'whisper-large-v3-turbo',
+          ),
+        ),
+        isNull,
       );
     });
   });

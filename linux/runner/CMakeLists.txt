@@ -18,6 +18,7 @@ add_executable(${BINARY_NAME}
   "snippet_picker_host.cc"
   "side_panel_window.cc"
   "side_panel_host.cc"
+  "keyboard_monitor_host.cc"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
 )
 
@@ -32,5 +33,6 @@ add_definitions(-DAPPLICATION_ID="${APPLICATION_ID}")
 target_link_libraries(${BINARY_NAME} PRIVATE flutter)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::X11)
+target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::XI)
 
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")

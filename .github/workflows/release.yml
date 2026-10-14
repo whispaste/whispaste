@@ -141,11 +141,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libwhisper/windows
-          key: libwhisper-windows-v1.8.4-9386f23-${{ hashFiles('scripts/bundle-libwhisper-windows.ps1') }}
+          key: libwhisper-windows-v1.9.5-d1be6fd-${{ hashFiles('scripts/bundle-libwhisper-windows.ps1', 'scripts/collect-pdbs-windows.ps1', 'native/ffi_guard/**') }}
 
       - name: Clone pinned whisper.cpp source
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
-        run: git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+        run: git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
 
       # ilammy/msvc-dev-cmd puts cl.exe/link.exe on PATH (equivalent to a
       # Developer Command Prompt) so the Ninja generator below can find the
@@ -167,14 +167,28 @@ jobs:
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
         shell: pwsh
         run: |
-          cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-build `
+          # /Z7 + /DEBUG: PDBs for Sentry, see scripts/build-libllama-windows.ps1.
+          $env:CFLAGS = '/Z7'
+          $env:CXXFLAGS = '/Z7'
+          $env:LDFLAGS = '/DEBUG /OPT:REF /OPT:ICF'
+          cmake -S .build/deps/whisper.cpp/v1.9.5 -B .build/libwhisper/windows-build `
             -G Ninja `
             -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
-            -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON `
+            -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON `
             -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
           cmake --build .build/libwhisper/windows-build --config Release -j
+          # wp_ffi_guard (native/ffi_guard): catches C++ exceptions before
+          # they unwind into Dart FFI frames; bundled next to whisper.dll.
+          cmake -S native/ffi_guard -B .build/libwhisper/windows-build/ffi_guard `
+            -G Ninja -DCMAKE_BUILD_TYPE=Release `
+            -DWHISPER_SOURCE_DIR="$PWD/.build/deps/whisper.cpp/v1.9.5"
+          cmake --build .build/libwhisper/windows-build/ffi_guard --config Release
           New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
+          # v1.9.5 also builds parakeet.dll: the GPU Parakeet engine (libparakeet).
           Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
+          Copy-Item .build/libwhisper/windows-build/ffi_guard/wp_ffi_guard.dll .build/libwhisper/windows/ -Force
+          pwsh scripts/collect-pdbs-windows.ps1 -DllDir .build/libwhisper/windows -OutDir .build/libwhisper/windows/pdb
+          if ($LASTEXITCODE -ne 0) { throw "collect-pdbs-windows.ps1 failed" }
 
       - name: Stage libwhisper next to whispaste.exe
         shell: pwsh
@@ -204,7 +218,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libllama/windows
-          key: libllama-windows-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-windows.ps1', 'scripts/build-smartmode-shim-windows.ps1', 'native/smart_mode/**') }}
+          key: libllama-windows-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-windows.ps1', 'scripts/build-smartmode-shim-windows.ps1', 'scripts/collect-pdbs-windows.ps1', 'native/smart_mode/**') }}
 
       - name: Clone pinned llama.cpp source
         if: steps.libllama_cache.outputs.cache-hit != 'true'
@@ -261,6 +275,15 @@ jobs:
           # the action-release step at the end of this workflow.
           $env:SENTRY_RELEASE = "whispaste@$version"
           dart run sentry_dart_plugin
+          # The plugin only scans the Flutter Release dir, where no PDB may
+          # go (it is packaged as-is). Upload the runner (whispaste.exe) and
+          # whisper/ggml/llama/shim PDBs from their staging dirs with the
+          # sentry-cli the plugin just downloaded and checksum-verified. A
+          # failed upload must not block the release, so it only warns.
+          & .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli.exe --url https://de.sentry.io `
+            debug-files upload --org silvio-lindstedt-und-maik-g-y2 --project flutter_whispaste `
+            build/windows/x64/symbols .build/libwhisper/windows/pdb .build/libllama/windows/pdb
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Native PDB upload to Sentry failed -- crash frames in whispaste.exe/whisper/ggml/llama stay unsymbolicated for this release." }
 
       - name: Install NSIS
         run: choco install nsis -y --no-progress
@@ -438,7 +461,7 @@ jobs:
         run: |
           # AC-5 / Q2 (PRD §6.3): Beta tags build NO MSIX and trigger NO Store
           # submission. Setting skip=true here short-circuits every downstream
-          # MSIX step in this job (Build MSIX, Upload MSIX, .appxupload, symbol
+          # MSIX step in this job (Build MSIX, Upload MSIX, .msixupload, symbol
           # upload) AND flips the `msix-built` job output to false, which in
           # turn skips wack-gate and the MSIX download in create-release.
           $refName = "${{ github.ref_name }}"
@@ -484,55 +507,82 @@ jobs:
           name: msix-release
           path: build/windows/x64/runner/Release/*.msix
 
-      # Build a Store symbol package (.appxupload) so the Partner Center can
-      # resolve failureHash/Stack-Signaturen for native crashes. .appxsym ist
-      # schlicht ein ZIP der PDBs (kein MakeAppx nötig); .appxupload ist ein
-      # ZIP aus MSIX + .appxsym, das der Partner Center beim Submission-Upload
-      # automatisch in App + Symbole zerlegt.
-      # Fault-tolerant: ein Fehlschlag blockiert niemals den Release — Sentry
-      # bleibt die kanonische Crash-Quelle (Issue 04). Ergänzt MS für
-      # failureHash-Trending pro Signatur + early-boot-Native-Crashes die
-      # Sentry nie erreicht. Beim manuellen Submission das .appxupload statt
-      # der nackten .msix hochladen.
-      - name: Build Store symbol package (.appxupload)
+      # Build the Store upload package (.msixupload = ZIP of MSIX + .appxsym,
+      # .appxsym = ZIP of public PDBs), which submit-ms-store submits instead
+      # of the bare .msix. Without it Partner Center cannot symbolicate native
+      # crashes: failure names end in `!unknown` and the Health report shows
+      # rising crash rates with no usable cause. Up to v1.3.0 this step looked
+      # for PDBs only in the Release bundle dir, where none may live, so it
+      # always logged "No PDBs (0)" and was skipped silently.
+      # PDB sources: the runner (windows/runner/CMakeLists.txt) plus the
+      # whisper/ggml/llama/shim staging dirs. ggml backend DLLs exist in both
+      # the whisper and the llama tree under the same name; the .appxsym is
+      # flat, so for those names the whisper PDB (dictation hot path) wins.
+      # Fails the job on purpose: a release without symbols is what hid the
+      # v1.3.0 crash causes.
+      - name: Build Store upload package (.msixupload)
         if: steps.msix_config.outputs.skip != 'true'
-        id: appxupload
-        continue-on-error: true
+        id: msixupload
         shell: pwsh
         run: |
           $buildDir = "build\windows\x64\runner\Release"
-          $pdbs = Get-ChildItem -Path $buildDir -Filter *.pdb -Recurse -ErrorAction SilentlyContinue
           $msix = Get-ChildItem "$buildDir\*.msix" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $pdbs -or $pdbs.Count -eq 0 -or -not $msix) {
-            Write-Warning "No PDBs ($($pdbs.Count)) or MSIX ($msix) — skipping .appxupload"
-            echo "built=false" >> $env:GITHUB_OUTPUT
-            exit 0
-          }
-          $symStaging = "$buildDir\appxsym-staging"
+          if (-not $msix) { throw "No MSIX in $buildDir -- cannot build .msixupload" }
+          $runnerPdb = "build\windows\x64\symbols\whispaste.pdb"
+          if (-not (Test-Path $runnerPdb)) { throw "$runnerPdb missing -- check /DEBUG + /PDB in windows/runner/CMakeLists.txt" }
+          $symStaging = "build\windows\x64\appxsym-staging"
+          if (Test-Path $symStaging) { Remove-Item -Recurse -Force $symStaging }
           New-Item -ItemType Directory -Path $symStaging -Force | Out-Null
-          $pdbs | Copy-Item -Destination $symStaging -Force
-          $appxsym = "$buildDir\WhisPaste.appxsym"
+          # Order matters for name collisions: later copies win (see above).
+          foreach ($dir in @("build\windows\x64\symbols", ".build\libllama\windows\pdb", ".build\libwhisper\windows\pdb")) {
+            if (-not (Test-Path $dir)) { throw "PDB dir $dir missing" }
+            Get-ChildItem -Path $dir -Filter *.pdb | ForEach-Object {
+              if (Test-Path (Join-Path $symStaging $_.Name)) { Write-Host "PDB name collision, $dir wins: $($_.Name)" }
+              Copy-Item $_.FullName $symStaging -Force
+            }
+          }
+          $pdbCount = (Get-ChildItem $symStaging -Filter *.pdb).Count
+          $appxsym = "build\windows\x64\WhisPaste.appxsym"
           Compress-Archive -Path "$symStaging\*.pdb" -DestinationPath $appxsym -Force
           Remove-Item -Recurse -Force $symStaging
-          if (-not (Test-Path release-artifacts)) { New-Item -ItemType Directory -Path release-artifacts -Force | Out-Null }
-          $upStaging = "$buildDir\appxupload-staging"
+          $upStaging = "build\windows\x64\msixupload-staging"
+          if (Test-Path $upStaging) { Remove-Item -Recurse -Force $upStaging }
           New-Item -ItemType Directory -Path $upStaging -Force | Out-Null
           Copy-Item $msix.FullName $upStaging
           Copy-Item $appxsym $upStaging
-          $appxupload = "release-artifacts\WhisPaste.appxupload"
-          Compress-Archive -Path "$upStaging\*" -DestinationPath $appxupload -Force
+          New-Item -ItemType Directory -Path store-upload -Force | Out-Null
+          # Compress-Archive only writes .zip; rename to the extension Partner Center expects.
+          $zip = "store-upload\WhisPaste.zip"
+          Compress-Archive -Path "$upStaging\*" -DestinationPath $zip -Force
+          Move-Item $zip "store-upload\WhisPaste.msixupload" -Force
           Remove-Item -Recurse -Force $upStaging
-          $sizeMB = [math]::Round((Get-Item $appxupload).Length / 1MB, 1)
-          Write-Host "Built .appxupload with $($pdbs.Count) PDBs ($sizeMB MB)"
-          echo "built=true" >> $env:GITHUB_OUTPUT
+          $sizeMB = [math]::Round((Get-Item "store-upload\WhisPaste.msixupload").Length / 1MB, 1)
+          Write-Host "Built .msixupload with $pdbCount PDBs ($sizeMB MB)"
 
-      - name: Upload MSIX symbol package
-        if: steps.appxupload.outputs.built == 'true'
-        continue-on-error: true
+      - name: Upload Store upload package
+        if: steps.msix_config.outputs.skip != 'true'
         uses: actions/upload-artifact@v7
         with:
           name: msix-symbol-package
-          path: release-artifacts/*.appxupload
+          path: store-upload/WhisPaste.msixupload
+          if-no-files-found: error
+
+      # Package smoke test (handy-catchup ticket 11): silent NSIS install +
+      # MSIX side-load (throwaway test certificate, the uploaded MSIX stays
+      # untouched), each started once with `whispaste.exe --diagnose`. Runs
+      # before mark_success, so a failure keeps create-release and the Store
+      # submission from publishing. Windows PowerShell: Add-AppxPackage is
+      # unreliable under pwsh 7.
+      - name: Smoke-test Windows packages
+        shell: powershell
+        run: |
+          $msix = Get-ChildItem "build\windows\x64\runner\Release\*.msix" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $smokeArgs = @{ ArtifactDir = "release-artifacts"; InstallDir = (Join-Path $env:RUNNER_TEMP "whispaste-smoke-install") }
+          if ("${{ steps.msix_config.outputs.skip }}" -ne "true") {
+            if (-not $msix) { throw "MSIX was configured but not built" }
+            $smokeArgs.MsixPath = $msix.FullName
+          }
+          & .\scripts\smoke\smoke-windows.ps1 @smokeArgs
 
       - name: Mark build succeeded
         id: mark_success
@@ -699,6 +749,16 @@ jobs:
           name: msix-release
           path: msix
 
+      # .msixupload (MSIX + public PDBs) built in build-windows; submitted in
+      # place of the bare .msix so Partner Center can symbolicate crashes.
+      - name: Download Store upload package
+        if: steps.store_check.outputs.skip != 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: msix-symbol-package
+          path: msixupload
+
       # Generates the Microsoft Store screenshot set (tools/appstore-screens/
       # output/<lang>/microsoft/*.png) that submit-ms-store.ps1 uploads below.
       # Reads from the Flutter-golden PNGs already committed under
@@ -751,7 +811,13 @@ jobs:
         if: steps.store_check.outputs.skip != 'true'
         shell: pwsh
         run: |
-          $msix = Get-ChildItem -Path msix -Filter *.msix -Recurse | Select-Object -First 1
+          # Prefer the .msixupload (symbols); the bare .msix is only a fallback
+          # and leaves Partner Center crash reports unsymbolicated.
+          $msix = Get-ChildItem -Path msixupload -Filter *.msixupload -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $msix) {
+            Write-Host "::warning::No .msixupload found — submitting the bare .msix; Partner Center crash reports will lack symbols."
+            $msix = Get-ChildItem -Path msix -Filter *.msix -Recurse | Select-Object -First 1
+          }
           if (-not $msix) {
             Write-Host "::warning::No .msix file found in the msix-release artifact — skipping Store submission."
             exit 0
@@ -825,16 +891,39 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libwhisper/macos
-          key: libwhisper-macos-v1.8.4-9386f23-${{ hashFiles('scripts/build-libwhisper-macos.sh') }}
+          key: libwhisper-macos-v1.9.5-d1be6fd-${{ hashFiles('scripts/build-libwhisper-macos.sh', 'native/ffi_guard/**') }}
 
       - name: Clone pinned whisper.cpp source
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
         run: |
-          git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+          git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
 
       - name: Build + stage libwhisper (macOS)
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
         run: bash scripts/build-libwhisper-macos.sh
+
+      # ── Build libllama + libsmartmode_shim (Smart Mode's on-device engine) ──
+      # macos/embed_libllama.sh embeds these from .build/libllama/macos, but
+      # nothing in this job ever fetched the llama.cpp source, so the embed
+      # phase's self-heal build failed and it warned-and-skipped: every macOS
+      # release up to v1.3.0 shipped without on-device Smart Mode. Same pin +
+      # cache pattern as the Windows/Linux libllama steps.
+      - name: Cache libllama build (macOS)
+        id: libllama_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libllama/macos
+          key: libllama-macos-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-macos.sh', 'scripts/build-smartmode-shim-macos.sh', 'native/smart_mode/**') }}
+
+      - name: Clone pinned llama.cpp source
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch b10150 https://github.com/ggml-org/llama.cpp .build/deps/llama.cpp/b10150
+
+      - name: Build + stage libllama + smartmode_shim (macOS)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: |
+          bash scripts/build-libllama-macos.sh
+          bash scripts/build-smartmode-shim-macos.sh
 
       - name: Build macOS release
         env:
@@ -879,6 +968,16 @@ jobs:
             exit 1
           fi
           echo "libwhisper.dylib present: $(ls -la "$FW")"
+
+      # Same hard-fail for Smart Mode: embed_libllama.sh warns-and-skips too.
+      - name: Verify smartmode_shim is embedded
+        run: |
+          FW="build/macos/Build/Products/Release/WhisPaste.app/Contents/Frameworks/libsmartmode_shim.dylib"
+          if [[ ! -f "$FW" ]]; then
+            echo "::error::libsmartmode_shim.dylib missing from $FW — on-device Smart Mode would be disabled in this build."
+            exit 1
+          fi
+          echo "libsmartmode_shim.dylib present: $(ls -la "$FW")"
 
       # Upload .dSYM debug symbols for native crash symbolication.
       # See the Windows job for rationale and Free-Tier accounting.
@@ -1071,6 +1170,21 @@ jobs:
           echo "Release artifacts:"
           ls -lh "$ARTIFACT_DIR"
 
+      # Package smoke test (handy-catchup ticket 11): mounts the DMG, checks
+      # the signature and that every linked dylib resolves inside the bundle
+      # or the system (otool), then starts the app once with `--diagnose`.
+      # The DMG step above is best-effort, so fall back to the built .app
+      # rather than skipping the test.
+      - name: Smoke-test macOS package
+        run: |
+          DMG="release-artifacts/WhisPaste-macos-arm64.dmg"
+          if [[ -f "$DMG" ]]; then
+            bash scripts/smoke/smoke-macos.sh "$DMG"
+          else
+            echo "::warning::$DMG was not built — smoke-testing the .app instead."
+            bash scripts/smoke/smoke-macos.sh build/macos/Build/Products/Release/WhisPaste.app
+          fi
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -1084,8 +1198,11 @@ jobs:
   build-linux:
     name: Build Linux x86_64
     runs-on: ubuntu-latest
-    # See build-windows' timeout-minutes comment. Observed ~8-11min.
-    timeout-minutes: 30
+    # See build-windows' timeout-minutes comment. Observed ~8-11min with a
+    # warm libllama cache; a cold libllama build (Vulkan shaders + one CPU
+    # backend per x86-64 level, see build-libllama-linux.sh) adds a long
+    # compile on top, same order as the Windows job's 60-minute budget.
+    timeout-minutes: 60
     # See build-windows: skip on a Promote dispatch (no rebuild).
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == 'true') }}
     outputs:
@@ -1126,7 +1243,8 @@ jobs:
             libcurl4-openssl-dev zlib1g-dev \
             libflac-dev libogg-dev libopus-dev libvorbis-dev \
             default-jdk \
-            g++ patchelf libvulkan-dev glslang-tools glslc
+            g++ patchelf libvulkan-dev glslang-tools glslc spirv-headers \
+            xvfb
 
       # jni-Plugin: JAVA_HOME muss gesetzt sein (§3.1)
       - name: Set JAVA_HOME
@@ -1192,11 +1310,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .build/libwhisper/linux
-          key: libwhisper-linux-v1.8.4-9386f23-${{ hashFiles('scripts/build-libwhisper-linux.sh') }}
+          key: libwhisper-linux-v1.9.5-d1be6fd-${{ hashFiles('scripts/build-libwhisper-linux.sh', 'scripts/split-debug-linux.sh', 'native/ffi_guard/**') }}
 
       - name: Clone pinned whisper.cpp source
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
-        run: git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+        run: git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
 
       - name: Build + stage libwhisper (Linux)
         if: steps.libwhisper_cache.outputs.cache-hit != 'true'
@@ -1215,6 +1333,71 @@ jobs:
             exit 1
           fi
           echo "libwhisper.so present: $(ls -la "$SO")"
+
+      # ── Bundle libllama + libsmartmode_shim (Smart Mode's on-device engine) ──
+      # Linux counterpart of the Windows libllama steps above: without it the
+      # on-device Smart Mode option is disabled in Settings (the app probes
+      # lib/smart_mode/libsmartmode_shim.so, see smart_mode_ffi_engine.dart).
+      # Staged under bundle/lib/smart_mode/, so the tarball, .deb, AppImage
+      # and the tarball-based Flatpak/Snap recipes all carry it unchanged.
+      # Same pin + cache pattern as libwhisper; vulkan/glslc/patchelf come
+      # from the dependency step at the top of this job.
+      - name: Cache libllama build (Linux)
+        id: libllama_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libllama/linux
+          key: libllama-linux-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-linux.sh', 'scripts/split-debug-linux.sh', 'native/smart_mode/**') }}
+
+      - name: Clone pinned llama.cpp source
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch b10150 https://github.com/ggml-org/llama.cpp .build/deps/llama.cpp/b10150
+
+      - name: Build + stage libllama + smartmode_shim (Linux)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-libllama-linux.sh
+
+      - name: Copy libllama into the Flutter bundle
+        run: |
+          mkdir -p build/linux/x64/release/bundle/lib/smart_mode
+          cp .build/libllama/linux/*.so* build/linux/x64/release/bundle/lib/smart_mode/
+
+      - name: Verify smartmode_shim is embedded
+        run: |
+          SO="build/linux/x64/release/bundle/lib/smart_mode/libsmartmode_shim.so"
+          if [[ ! -f "$SO" ]]; then
+            echo "::error::libsmartmode_shim.so missing from $SO — on-device Smart Mode would be disabled in this build."
+            exit 1
+          fi
+          # Unresolved dependencies are caught by "Smoke-test Linux packages"
+          # below, which runs ldd over every ELF file of the installed .deb
+          # and the extracted AppImage (scripts/smoke/smoke-linux.sh).
+          echo "libsmartmode_shim.so present: $(ls -la "$SO")"
+
+      # Linux counterpart of the Windows/macOS "Upload debug symbols to
+      # Sentry" steps. The plugin uploads the bundle (Dart AOT libapp.so,
+      # plugin .so files); the native engines ship stripped, so their split
+      # DWARF (debug/*.debug, see scripts/split-debug-linux.sh) goes up
+      # separately with the sentry-cli the plugin downloaded. Symbol uploads
+      # do not count against Sentry's event quota.
+      - name: Upload debug symbols to Sentry
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          # Must match `sentryRelease` in lib/core/app_info.dart.
+          SENTRY_RELEASE="whispaste@$VERSION" dart run sentry_dart_plugin
+          if ! .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli --url https://de.sentry.io \
+            debug-files upload --org silvio-lindstedt-und-maik-g-y2 --project flutter_whispaste \
+            .build/libwhisper/linux/debug .build/libllama/linux/debug; then
+            echo "::warning::Native debug-file upload to Sentry failed — crash frames in whisper/ggml/llama stay unsymbolicated for this release."
+          fi
 
       # §3.1: crashpad_handler braucht chmod +x (kann nach dem Flutter-Build fehlen)
       - name: Ensure crashpad_handler is executable
@@ -1245,7 +1428,10 @@ jobs:
           fi
 
           ZIP_NAME="WhisPaste-${VERSION}-linux-x64.tar.gz"
-          tar -czf "$ARTIFACT_DIR/$ZIP_NAME" -C "$BUNDLE_DIR" .
+          # Ship the uinput udev rule + installer so Auto-Paste can be enabled
+          # with one sudo call (the .deb applies it automatically).
+          tar -czf "$ARTIFACT_DIR/$ZIP_NAME" -C "$BUNDLE_DIR" . \
+            -C "$GITHUB_WORKSPACE/packaging/linux" 71-whispaste-uinput.rules install-uinput-rule.sh
 
           echo "Release artifacts:"
           ls -lh "$ARTIFACT_DIR"
@@ -1289,6 +1475,13 @@ jobs:
             build/linux/x64/release/bundle "$VERSION" release-artifacts
           echo "All Linux release artifacts:"
           ls -lh release-artifacts
+
+      # Package smoke test (handy-catchup ticket 11): installs the .deb,
+      # extracts the AppImage, runs ldd over every bundled ELF file and starts
+      # each once with `whispaste --diagnose` under Xvfb. Fails the job before
+      # upload/mark_success, so nothing broken gets published.
+      - name: Smoke-test Linux packages
+        run: bash scripts/smoke/smoke-linux.sh release-artifacts
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v7

@@ -1,1 +1,1 @@
-Press a hotkey, speak, and your text appears right at your cursor, in any app. Fully offline, no subscription, open source.
+Press a hotkey, speak, and your text appears at your cursor in any app. Runs on your Mac, offline after a one-time model download. No subscription, open source.

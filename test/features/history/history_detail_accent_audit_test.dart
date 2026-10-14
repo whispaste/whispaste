@@ -169,7 +169,16 @@ void main() {
     addTearDown(db.close);
     await _seed(db);
 
+    // Lay the screen out at the full window it documents. The test view
+    // defaults to 800 dp, which is below the width where the toolbar keeps its
+    // view-mode segment inline, so the audit would then measure a collapsed
+    // toolbar rather than the screen it describes.
+    tester.view.physicalSize =
+        const Size(1280, 800) * tester.view.devicePixelRatio;
+    addTearDown(tester.view.resetPhysicalSize);
+
     await tester.pumpWidget(_harness(db));
+    await tester.pump();
     await tester.pumpAndSettle();
 
     // Open the detail panel on the entry that carries the tag, so the tag

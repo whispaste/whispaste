@@ -7,7 +7,6 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:window_manager/window_manager.dart';
-import 'core/app_info.dart';
 import 'core/config/settings_labels.dart';
 import 'core/config/settings_provider.dart';
 import 'core/navigation/page_state.dart';
@@ -36,6 +35,8 @@ import 'features/replacements/replacements_page.dart';
 import 'features/snippets/snippets_page.dart';
 import 'features/analytics/analytics_page.dart';
 import 'features/about/about_page.dart';
+import 'features/about/support_page.dart';
+import 'services/support/support_state.dart';
 import 'features/feedback/feedback_page.dart';
 import 'features/onboarding/onboarding_overlay.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
@@ -50,9 +51,10 @@ import 'features/onboarding/mic_probe.dart'
 import 'services/paste/paste_capability_notifier.dart';
 import 'services/paste/paste_policy.dart';
 import 'services/paste/paster.dart' show PasteCapabilityStatus;
-import 'services/paste/tcc_reset_notice.dart';
 import 'services/permissions/mic_permission_notifier.dart';
+import 'services/model_download_service.dart';
 import 'services/permissions/startup_permission_gate.dart';
+import 'services/permissions/stale_entry_removal_guide.dart';
 import 'services/audio_service.dart' show audioInputDevicesProvider;
 import 'services/automation_api/automation_api_controller.dart';
 import 'services/microphone_selection_service.dart';
@@ -75,7 +77,6 @@ import 'widgets/toast.dart';
 import 'widgets/feature_spotlight_notice.dart';
 import 'features/onboarding/smart_mode_usage_hint.dart';
 import 'widgets/review_prompt_dialog.dart';
-import 'widgets/store_thank_you_dialog.dart';
 import 'widgets/support_prompt_dialog.dart';
 
 // activePageProvider and settingsScrollTargetProvider are defined in
@@ -183,6 +184,7 @@ String wpPageTitle(String pageId, List<WpNavItem> navItems, L10n l10n) {
     if (item.id == pageId) return item.label;
   }
   if (pageId == 'settings') return l10n.navSettings;
+  if (pageId == 'support') return l10n.supportPageTitle;
   return '';
 }
 
@@ -218,6 +220,7 @@ const wpPageWidgets = <String, Widget>{
   'analytics': AnalyticsPage(),
   'about': AboutPage(),
   'feedback': FeedbackPage(),
+  'support': SupportPage(),
 };
 
 /// Pure decision for whether the startup permission gate should run,
@@ -541,14 +544,14 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// Strictly ordered startup sequence for everything permission-shaped:
   /// an onboarding revision run starts first — before any of the checks
   /// below read `onboardingRevisionRunning`, so none of them can race a
-  /// native dialog onto the onboarding surface — then the TCC-reset notice
-  /// hydrates the restart marker and runs the first capability probe, the
+  /// native dialog onto the onboarding surface — then the first capability
+  /// probe hydrates the cross-process recovery state, the
   /// restart watch must be armed before any grant flow can trigger a
   /// restart, and the proactive gate runs last so it reads a settled
   /// capability state.
   Future<void> _runStartupPermissionFlows() async {
     await _maybeStartOnboardingRevisionRun();
-    await _maybeShowTccResetNotice();
+    await _probeAutoPasteCapability();
     _setupAutoPasteRestartWatch();
     await _runStartupPermissionGate();
   }
@@ -613,15 +616,13 @@ class _AppShellState extends ConsumerState<_AppShell>
       }
       _restartModalActive = true;
       // Second-attempt awareness: if a grant-driven restart ALREADY happened
-      // (the cross-process marker is set) and we're back in "restart needed",
-      // a plain restart demonstrably isn't taking — auto-restarting again just
-      // loops the backgrounded user forever. Break out with an actionable
-      // manual alert (opens System Settings) instead of the forced restart.
-      final alreadyRestarted = ref
-          .read(pasteCapabilityNotifierProvider)
-          .restartAttempted;
-      if (alreadyRestarted) {
-        unawaited(_showManualGrantAlert());
+      // (the cross-process marker is set), or the grant was bound to another
+      // signature, another plain restart cannot help — the entry the user
+      // switched on is stale. Guide its removal instead; that guide ends in
+      // the one relaunch that does work.
+      final capState = ref.read(pasteCapabilityNotifierProvider);
+      if (capState.restartAttempted || capState.signatureChanged) {
+        unawaited(_guideStaleEntryRemoval());
       } else {
         unawaited(_showForcedRestartModal(notifier));
       }
@@ -643,77 +644,28 @@ class _AppShellState extends ConsumerState<_AppShell>
     );
   }
 
-  /// The loop exit: a plain restart already ran and the permission is STILL
-  /// missing, so instead of forcing yet another relaunch this native alert
-  /// tells the user plainly and — on confirm — opens System Settings →
-  /// Accessibility so they can verify/re-toggle WhisPaste themselves. Surfaces
-  /// even when backgrounded, so the honest dead-end is never buried on a
-  /// settings page the user doesn't have open.
-  Future<void> _showManualGrantAlert() async {
+  /// Guides the removal of a stale Auto-Paste entry and relaunches on
+  /// confirm — see `stale_entry_removal_guide.dart`. Native and always on top,
+  /// so it reaches the tray-only user too.
+  Future<void> _guideStaleEntryRemoval() async {
     if (!mounted) return;
-    final l10n = L10n.of(context);
-    await MacOSLifecycleChannel.showManualGrantAlert(
-      title: l10n.pasteManualGrantAlertTitle,
-      body: l10n.pasteManualGrantAlertBody,
-      confirmLabel: l10n.pasteManualGrantAlertConfirm,
+    await runStaleEntryRemovalGuide(
+      l10n: L10n.of(context),
+      notifier: ref.read(pasteCapabilityNotifierProvider.notifier),
     );
   }
 
-  /// Proactive, one-time-per-version nudge when macOS reset the Auto-Paste
-  /// (Accessibility) permission as a side effect of an app update — see
-  /// tcc_reset_notice.dart. Previously the only way to discover a reset
-  /// permission was to stumble into Settings → After Transcription; this
-  /// surfaces it right after the update that caused it, with a one-tap fix.
-  Future<void> _maybeShowTccResetNotice() async {
+  /// Settles the Auto-Paste capability state before any permission surface
+  /// reads it. Hydrating BEFORE the first probe matters twice: the cold-start
+  /// `capability.probed` breadcrumb carries the restart marker, and the
+  /// signature comparison is what tells a stale entry apart from a missing
+  /// toggle. Deliberately no UI here — the startup gate is the single
+  /// surface that acts on the result, so a launch never stacks two dialogs.
+  Future<void> _probeAutoPasteCapability() async {
     if (!Platform.isMacOS) return;
     final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-    // Hydrate the cross-process restart marker BEFORE the first probe so the
-    // cold-start `capability.probed` breadcrumb carries it — that single trace
-    // is what tells "the grant never persisted" apart from "the restart never
-    // produced a fresh process" on the next live test.
     await capNotifier.hydrateRestartMarker();
     await capNotifier.check();
-    if (!mounted) return;
-    // The probe above stays (it settles the capability state the startup
-    // gate reads), but the notice itself is an Auto-Paste surface — never
-    // show it to users whose after-transcription action doesn't paste.
-    if (!_userPastesAfterTranscription()) return;
-    final capability = ref.read(pasteCapabilityNotifierProvider).capability;
-    final onboarding = ref.read(settingsProvider).value?.onboarding;
-    final shouldShow = await maybeMarkTccResetNoticeVersion(
-      currentVersion: appVersion,
-      onboardingCompleted: onboarding?.onboardingCompleted ?? false,
-      onboardingManuallyOpen: ref.read(onboardingManuallyOpenProvider),
-      onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
-      isMacOS: true,
-      capabilityStatus: capability?.status,
-    );
-    if (!shouldShow || !mounted) return;
-    final l10n = L10n.of(context);
-    WpToast.show(
-      context,
-      message: l10n.tccResetAfterUpdateToast,
-      type: WpToastType.warning,
-      duration: const Duration(seconds: 12),
-      // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; the WpButton in _ToastCard.build derives its accessible label from `label`
-      action: WpToastAction(
-        label: l10n.pasteCapabilityGrantButton,
-        onPressed: () => unawaited(_grantAccessibilityFromNotice(capNotifier)),
-      ),
-    );
-  }
-
-  Future<void> _grantAccessibilityFromNotice(
-    PasteCapabilityNotifier capNotifier,
-  ) async {
-    // This notice only fires when a signature change was just detected (see
-    // shouldShowTccResetNotice) — the entry is bound to the old code-signing
-    // hash, so unlike the general requestGrant() flow (which assumes a
-    // possibly-still-good grant and tries a non-destructive restart before
-    // ever wiping anything), repair() here is the correct first step, not an
-    // escalation: a plain re-request would just re-hit the same stale entry.
-    await capNotifier.repair();
-    await capNotifier.requestGrant();
   }
 
   /// Proactive permission gate: on EVERY start (after onboarding has been
@@ -751,7 +703,7 @@ class _AppShellState extends ConsumerState<_AppShell>
               readStatus: _readAutoPasteGateStatus,
               showGrantAlert: _showAutoPasteGateGrantAlert,
               startGrantFlow: _startAutoPasteGateGrantFlow,
-              showManualGrantAlert: _showManualGrantAlert,
+              guideStaleEntryRemoval: _guideStaleEntryRemoval,
             )
           : null,
     );
@@ -830,9 +782,8 @@ class _AppShellState extends ConsumerState<_AppShell>
   }
 
   /// Whether the current user's resolved after-transcription action
-  /// actually injects keystrokes. The one predicate all three proactive
-  /// Auto-Paste surfaces (startup gate, restart watch, TCC-reset notice)
-  /// share — see [afterTranscriptionActionPastes]. Unloaded settings count
+  /// actually injects keystrokes. The one predicate both proactive
+  /// Auto-Paste surfaces (startup gate, restart watch) share — see [afterTranscriptionActionPastes]. Unloaded settings count
   /// as "doesn't paste": the factory default is clipboard-only, and a
   /// permission dialog must never fire on a guess.
   bool _userPastesAfterTranscription() {
@@ -850,7 +801,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
     var capability = ref.read(pasteCapabilityNotifierProvider).capability;
     if (capability == null) {
-      // Normally _maybeShowTccResetNotice has already probed; this is the
+      // Normally _probeAutoPasteCapability has already probed; this is the
       // fallback for an early-failed probe.
       await notifier.hydrateRestartMarker();
       await notifier.check();
@@ -859,9 +810,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     if (capability?.status != PasteCapabilityStatus.permissionMissing) {
       return AutoPasteGateStatus.notNeeded;
     }
-    if (notifier.restartWasIneffective) {
-      return AutoPasteGateStatus.missingAfterIneffectiveRestart;
-    }
+    if (notifier.staleEntrySuspected) return AutoPasteGateStatus.staleEntry;
     // `grantRequiresEntryReset` is the live-probe (Developer-ID / ad-hoc)
     // build — the one where the grant handoff calls
     // `AXIsProcessTrustedWithOptions(prompt:)` and macOS therefore raises its
@@ -897,7 +846,7 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// "how do we hand off" decision can never drift apart:
   ///
   /// * live-probe build (Developer-ID / ad-hoc) → [repairAndRequestGrant], the
-  ///   repair-aware pendant of [_grantAccessibilityFromNotice]. A bare
+  ///   repair-aware grant flow. A bare
   ///   `requestGrant()` would send the user to a Settings row that is already
   ///   switched on (live-reported dead end, verified: `repairTccEntries` never
   ///   appeared in the native log).
@@ -1102,9 +1051,14 @@ class _AppShellState extends ConsumerState<_AppShell>
     final statusBarSttState = parakeetStatus != null
         ? _sttServerStateFor(parakeetStatus.state)
         : sttStatus.serverState;
-    // Parakeet has no GPU backend at all (CPU-only, see its `aboutParakeetDesc`
-    // copy) — the indicator only earns its keep for the local Whisper engine,
-    // where "GPU or CPU?" is an actual question with two possible answers.
+    final sttModelMissing = ref.watch(missingSttModelProvider) != null;
+    final modelDownload = ref.watch(modelDownloadProvider);
+    final sttModelDownloadPercent = modelDownload.isBusy
+        ? modelDownload.progressPercent
+        : null;
+    // The indicator only earns its keep for the local Whisper engine, where
+    // "GPU or CPU?" is an actual question with two possible answers. Parakeet
+    // picks its own backend (GPU with a CPU fallback) and does not surface it.
     //
     // A live GPU→CPU fallback (`cpuFallbackActive`) always earns this chip
     // regardless of `showBackendUtilization` — that setting is about
@@ -1163,326 +1117,336 @@ class _AppShellState extends ConsumerState<_AppShell>
       },
       child: WpReviewPromptWatcher(
         child: WpSupportPromptWatcher(
-          child: WpStoreThankYouWatcher(
-            child: WpFeatureSpotlightWatcher(
-              child: SmartModeUsageHintWatcher(
-                child: WpServiceBootstrap(
-                  child: WpRecordingBehavior(
-                    child: Scaffold(
-                      backgroundColor: Colors.transparent,
-                      body: Stack(
-                        children: [
-                          // The frame — one diagonal ambient for title bar, nav
-                          // rail and status bar together, painted here and
-                          // nowhere else. None of the three bars carries a ground
-                          // of its own (gated in frame_single_paint_test.dart):
-                          // a flat fill on one strip would cut a seam across a
-                          // gradient that has to read as a single light source.
-                          // Any future depth belongs *inside* this DecoratedBox,
-                          // never as a second layer above it — see *The
-                          // One-Atmosphere Rule*.
-                          const DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: WpColors.frameGradient,
-                            ),
-                            child: SizedBox.expand(),
+          child: WpFeatureSpotlightWatcher(
+            child: SmartModeUsageHintWatcher(
+              child: WpServiceBootstrap(
+                child: WpRecordingBehavior(
+                  child: Scaffold(
+                    backgroundColor: Colors.transparent,
+                    body: Stack(
+                      children: [
+                        // The frame — one diagonal ambient for title bar, nav
+                        // rail and status bar together, painted here and
+                        // nowhere else. None of the three bars carries a ground
+                        // of its own (gated in frame_single_paint_test.dart):
+                        // a flat fill on one strip would cut a seam across a
+                        // gradient that has to read as a single light source.
+                        // Any future depth belongs *inside* this DecoratedBox,
+                        // never as a second layer above it — see *The
+                        // One-Atmosphere Rule*.
+                        const DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: WpColors.frameGradient,
                           ),
-                          // Main layout
-                          Column(
-                            children: [
-                              const WpTitleBar(),
-                              Expanded(
-                                child: Row(
-                                  children: [
-                                    WpSidebar(
-                                      items: navItems,
-                                      dividerAfterIds: wpNavDividerAfterIds,
-                                      activeId: activePage,
-                                      onItemTap: (id) {
-                                        ref
-                                            .read(activePageProvider.notifier)
-                                            .setPage(id);
-                                      },
-                                      bottomItems: [
-                                        // Attention dot on the gear whenever a
-                                        // newer version is waiting — reuses the
-                                        // existing `updateProvider` phase rather
-                                        // than tracking a second "seen" state,
-                                        // and reuses the sentence the status bar
-                                        // already shows so the dot is never a
-                                        // bare, unexplained mark.
-                                        wpSettingsNavItem(
-                                          l10n,
-                                          badgeHint:
-                                              updateState.phase ==
-                                                  UpdatePhase.available
-                                              ? l10n.updateAvailable(
-                                                  updateState.latestVersion ??
-                                                      '',
-                                                )
-                                              : null,
-                                        ),
-                                      ],
-                                    ),
-                                    // Content area — rounded panel with warm gradient
-                                    Expanded(
-                                      child: Container(
-                                        decoration: contentDecoration,
-                                        clipBehavior: Clip.antiAlias,
-                                        child: Column(
-                                          children: [
-                                            // Recording indicator — thin pulsing bar
-                                            WpRecordingIndicatorBar(
-                                              phase: recordingPhase,
+                          child: SizedBox.expand(),
+                        ),
+                        // Main layout
+                        Column(
+                          children: [
+                            const WpTitleBar(),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  WpSidebar(
+                                    items: navItems,
+                                    dividerAfterIds: wpNavDividerAfterIds,
+                                    activeId: activePage,
+                                    onItemTap: (id) {
+                                      ref
+                                          .read(activePageProvider.notifier)
+                                          .setPage(id);
+                                    },
+                                    bottomItems: [
+                                      // Attention dot on the gear whenever a
+                                      // newer version is waiting — reuses the
+                                      // existing `updateProvider` phase rather
+                                      // than tracking a second "seen" state,
+                                      // and reuses the sentence the status bar
+                                      // already shows so the dot is never a
+                                      // bare, unexplained mark.
+                                      wpSettingsNavItem(
+                                        l10n,
+                                        badgeHint:
+                                            updateState.phase ==
+                                                UpdatePhase.available
+                                            ? l10n.updateAvailable(
+                                                updateState.latestVersion ?? '',
+                                              )
+                                            : null,
+                                      ),
+                                    ],
+                                  ),
+                                  // Content area — rounded panel with warm gradient
+                                  Expanded(
+                                    child: Container(
+                                      decoration: contentDecoration,
+                                      clipBehavior: Clip.antiAlias,
+                                      child: Column(
+                                        children: [
+                                          // Recording indicator — thin pulsing bar
+                                          WpRecordingIndicatorBar(
+                                            phase: recordingPhase,
+                                          ),
+                                          // Page header with smooth title transition
+                                          AnimatedSwitcher(
+                                            duration: WpMotion.durationFor(
+                                              context,
+                                              WpMotion.fast,
                                             ),
-                                            // Page header with smooth title transition
-                                            AnimatedSwitcher(
+                                            child: _PageHeader(
+                                              key: ValueKey(
+                                                'header-$activePage',
+                                              ),
+                                              title: wpPageTitle(
+                                                activePage,
+                                                navItems,
+                                                l10n,
+                                              ),
+                                            ),
+                                          ),
+                                          // Content with page transition animation
+                                          Expanded(
+                                            child: AnimatedSwitcher(
                                               duration: WpMotion.durationFor(
                                                 context,
-                                                WpMotion.fast,
+                                                WpMotion.normal,
                                               ),
-                                              child: _PageHeader(
-                                                key: ValueKey(
-                                                  'header-$activePage',
-                                                ),
-                                                title: wpPageTitle(
-                                                  activePage,
-                                                  navItems,
-                                                  l10n,
-                                                ),
-                                              ),
-                                            ),
-                                            // Content with page transition animation
-                                            Expanded(
-                                              child: AnimatedSwitcher(
-                                                duration: WpMotion.durationFor(
-                                                  context,
-                                                  WpMotion.normal,
-                                                ),
-                                                switchInCurve:
-                                                    WpMotion.defaultCurve,
-                                                switchOutCurve:
-                                                    WpMotion.defaultCurve,
-                                                transitionBuilder:
-                                                    (child, animation) {
-                                                      return FadeTransition(
-                                                        opacity: animation,
-                                                        child: SlideTransition(
-                                                          position:
-                                                              Tween<Offset>(
-                                                                begin:
-                                                                    const Offset(
-                                                                      0.0,
-                                                                      0.015,
-                                                                    ),
-                                                                end:
-                                                                    Offset.zero,
-                                                              ).animate(
-                                                                animation,
-                                                              ),
-                                                          child: child,
-                                                        ),
-                                                      );
-                                                    },
-                                                child: KeyedSubtree(
-                                                  key: ValueKey(activePage),
-                                                  child:
-                                                      wpPageWidgets[activePage] ??
-                                                      const SizedBox.shrink(),
-                                                ),
+                                              switchInCurve:
+                                                  WpMotion.defaultCurve,
+                                              switchOutCurve:
+                                                  WpMotion.defaultCurve,
+                                              transitionBuilder:
+                                                  (child, animation) {
+                                                    return FadeTransition(
+                                                      opacity: animation,
+                                                      child: SlideTransition(
+                                                        position: Tween<Offset>(
+                                                          begin: const Offset(
+                                                            0.0,
+                                                            0.015,
+                                                          ),
+                                                          end: Offset.zero,
+                                                        ).animate(animation),
+                                                        child: child,
+                                                      ),
+                                                    );
+                                                  },
+                                              child: KeyedSubtree(
+                                                key: ValueKey(activePage),
+                                                child:
+                                                    wpPageWidgets[activePage] ??
+                                                    const SizedBox.shrink(),
                                               ),
                                             ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                              // Status bar — sits on the frame, full width.
-                              //
-                              // `backendUtilizationPercent` alone is wrapped in a
-                              // `Consumer`: `backendUtilizationProvider` ticks
-                              // every ~3 s (see backend_utilization_notifier.dart),
-                              // and watching it directly in this method's `build`
-                              // would rebuild the entire app shell — nav rail,
-                              // active page, animations — on every tick for a
-                              // value only this one status-bar chip renders. The
-                              // `.select` narrows it further to just the field
-                              // this chip actually reads, so only this `Consumer`
-                              // rebuilds each tick.
-                              Consumer(
-                                builder: (context, ref, child) {
-                                  final backendUtilizationPercent = ref.watch(
-                                    backendUtilizationProvider.select(
-                                      (s) => s.cpuPercent,
-                                    ),
-                                  );
-                                  final automationApiState = ref.watch(
-                                    automationApiControllerProvider,
-                                  );
-                                  return WpStatusBar(
-                                    sttModeLabel: statusBarModel.sttModeLabel,
-                                    sttState: statusBarSttState,
-                                    backendKind: sttBackendKind,
-                                    backendUtilizationPercent:
-                                        backendUtilizationPercent,
-                                    // Parakeet has no starting-since timestamp (no
-                                    // "warming up" phase to time) — the status bar
-                                    // simply shows no elapsed-time hint for it.
-                                    sttStartingSince: parakeetStatus != null
-                                        ? null
-                                        : sttStatus.startingSince,
-                                    recordingPhase: recordingPhase,
-                                    afterActionLabel:
-                                        afterTranscriptionStatusLabel(
-                                          resolvedAfterAction,
-                                          l10n,
-                                        ),
-                                    afterAction: resolvedAfterAction,
-                                    microphoneLabel: currentMic,
-                                    microphoneOptions: micOptions,
-                                    onMicrophoneChanged: (label) {
-                                      unawaited(
-                                        ref
-                                            .read(
-                                              microphoneSelectionServiceProvider,
-                                            )
-                                            .select(label),
-                                      );
-                                    },
-                                    onMicrophoneMenuOpened: () => ref
-                                        .invalidate(audioInputDevicesProvider),
-                                    hotkeyLabel: formatHotkeyShortcut(
-                                      settings.hotkeyModifiers,
-                                      settings.hotkeyKey,
-                                      l10n: l10n,
-                                      displayOverride:
-                                          settings.hotkey.hotkeyKeyDisplay,
-                                    ),
-                                    hotkeyEnabled: settings.hotkeyEnabled,
-                                    updateVersion:
-                                        updateState.phase ==
-                                            UpdatePhase.available
-                                        ? updateState.latestVersion
-                                        : null,
-                                    updateReadyToInstall:
-                                        updateState.phase ==
-                                        UpdatePhase.readyToInstall,
-                                    showAutoPasteOffHint:
-                                        shouldShowAutoPasteOffHint(
-                                          afterAction: resolvedAfterAction,
-                                          onboardingCompleted: settings
-                                              .onboarding
-                                              .onboardingCompleted,
-                                          autoPasteOffHintDismissed: settings
-                                              .onboarding
-                                              .autoPasteOffHintDismissed,
-                                        ),
-                                    onAutoPasteOffHintTap: () {
-                                      ref
-                                          .read(
-                                            settingsScrollTargetProvider
-                                                .notifier,
-                                          )
-                                          .set('afterTranscription');
-                                      ref
-                                          .read(activePageProvider.notifier)
-                                          .setPage('settings');
-                                    },
-                                    onAutoPasteOffHintDismiss: () {
-                                      ref
-                                          .read(settingsProvider.notifier)
-                                          .updateSettings(
-                                            (s) => s.copyWithSections(
-                                              onboarding: s.onboarding.copyWith(
-                                                autoPasteOffHintDismissed: true,
-                                              ),
-                                            ),
-                                          );
-                                    },
-                                    onHotkeyTap: () {
-                                      ref
-                                          .read(
-                                            settingsScrollTargetProvider
-                                                .notifier,
-                                          )
-                                          .set('hotkey');
-                                      ref
-                                          .read(activePageProvider.notifier)
-                                          .setPage('settings');
-                                    },
-                                    onSttTap: () {
-                                      ref
-                                          .read(
-                                            settingsScrollTargetProvider
-                                                .notifier,
-                                          )
-                                          .set('stt');
-                                      ref
-                                          .read(activePageProvider.notifier)
-                                          .setPage('settings');
-                                    },
-                                    onAfterActionChanged: (action) {
-                                      ref
-                                          .read(settingsProvider.notifier)
-                                          .updateSettings(
-                                            (s) => s.copyWith(
-                                              afterTranscription: action.value,
-                                            ),
-                                          );
-                                    },
-                                    onUpdateTap: () => triggerUpdateAction(
-                                      ref: ref,
-                                      updateState: updateState,
-                                      channel: deployChannel,
-                                    ),
-                                    automationApiRunState:
-                                        automationApiState.runState,
-                                    automationApiPort: automationApiState.port,
-                                    automationApiRequestedPort:
-                                        automationApiState.requestedPort,
-                                    onAutomationApiTap: () {
-                                      ref
-                                          .read(
-                                            settingsScrollTargetProvider
-                                                .notifier,
-                                          )
-                                          .set('automationApi');
-                                      ref
-                                          .read(activePageProvider.notifier)
-                                          .setPage('settings');
-                                    },
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                          // Onboarding overlay — the first launch, a review the
-                          // user reopened from Settings, or an onboarding
-                          // revision run (`.scratch/onboarding-revisions/
-                          // issues/03`). `onboardingCompleted` alone no longer
-                          // decides which of the latter two it is — both start
-                          // with setup already done — so the ephemeral revision
-                          // flag breaks the tie; the two are mutually exclusive
-                          // by construction (see `OnboardingOverlay.revisionRun`).
-                          if (ref.watch(onboardingSurfaceActiveProvider))
-                            Positioned.fill(
-                              child: OnboardingOverlay(
-                                manualReview:
-                                    settings.onboarding.onboardingCompleted &&
-                                    !onboardingRevisionRunning,
-                                revisionRun: onboardingRevisionRunning,
+                                  ),
+                                ],
                               ),
                             ),
-                        ],
-                      ),
-                    ), // Scaffold
-                  ), // WpRecordingBehavior
-                ), // WpServiceBootstrap
-              ), // SmartModeUsageHintWatcher
-            ), // WpFeatureSpotlightWatcher
-          ), // WpStoreThankYouWatcher
+                            // Status bar — sits on the frame, full width.
+                            //
+                            // `backendUtilizationPercent` alone is wrapped in a
+                            // `Consumer`: `backendUtilizationProvider` ticks
+                            // every ~3 s (see backend_utilization_notifier.dart),
+                            // and watching it directly in this method's `build`
+                            // would rebuild the entire app shell — nav rail,
+                            // active page, animations — on every tick for a
+                            // value only this one status-bar chip renders. The
+                            // `.select` narrows it further to just the field
+                            // this chip actually reads, so only this `Consumer`
+                            // rebuilds each tick.
+                            Consumer(
+                              builder: (context, ref, child) {
+                                final backendUtilizationPercent = ref.watch(
+                                  backendUtilizationProvider.select(
+                                    (s) => s.cpuPercent,
+                                  ),
+                                );
+                                final automationApiState = ref.watch(
+                                  automationApiControllerProvider,
+                                );
+                                final supportStatus = ref.watch(
+                                  supportStatusProvider,
+                                );
+                                final supportChipMode =
+                                    !supportStatus.showsSponsorChip
+                                    ? null
+                                    : supportStatus.suppressesPrompts
+                                    ? WpSupportChipMode.thanks
+                                    : WpSupportChipMode.sponsor;
+                                return WpStatusBar(
+                                  supportChipMode: supportChipMode,
+                                  onSupportTap: () => ref
+                                      .read(activePageProvider.notifier)
+                                      .setPage('support'),
+                                  onSupportHide: supportStatus.suppressesPrompts
+                                      ? () => ref
+                                            .read(
+                                              supportStatusProvider.notifier,
+                                            )
+                                            .hideChip()
+                                      : null,
+                                  sttModeLabel: statusBarModel.sttModeLabel,
+                                  sttState: statusBarSttState,
+                                  backendKind: sttBackendKind,
+                                  backendUtilizationPercent:
+                                      backendUtilizationPercent,
+                                  // Parakeet has no starting-since timestamp (no
+                                  // "warming up" phase to time) — the status bar
+                                  // simply shows no elapsed-time hint for it.
+                                  sttStartingSince: parakeetStatus != null
+                                      ? null
+                                      : sttStatus.startingSince,
+                                  sttModelMissing: sttModelMissing,
+                                  sttModelDownloadPercent:
+                                      sttModelDownloadPercent,
+                                  recordingPhase: recordingPhase,
+                                  afterActionLabel:
+                                      afterTranscriptionStatusLabel(
+                                        resolvedAfterAction,
+                                        l10n,
+                                      ),
+                                  afterAction: resolvedAfterAction,
+                                  microphoneLabel: currentMic,
+                                  microphoneOptions: micOptions,
+                                  onMicrophoneChanged: (label) {
+                                    unawaited(
+                                      ref
+                                          .read(
+                                            microphoneSelectionServiceProvider,
+                                          )
+                                          .select(label),
+                                    );
+                                  },
+                                  onMicrophoneMenuOpened: () =>
+                                      ref.invalidate(audioInputDevicesProvider),
+                                  hotkeyLabel: formatHotkeyShortcut(
+                                    settings.hotkeyModifiers,
+                                    settings.hotkeyKey,
+                                    l10n: l10n,
+                                    displayOverride:
+                                        settings.hotkey.hotkeyKeyDisplay,
+                                  ),
+                                  hotkeyEnabled: settings.hotkeyEnabled,
+                                  updateVersion:
+                                      updateState.phase == UpdatePhase.available
+                                      ? updateState.latestVersion
+                                      : null,
+                                  updateReadyToInstall:
+                                      updateState.phase ==
+                                      UpdatePhase.readyToInstall,
+                                  showAutoPasteOffHint:
+                                      shouldShowAutoPasteOffHint(
+                                        afterAction: resolvedAfterAction,
+                                        onboardingCompleted: settings
+                                            .onboarding
+                                            .onboardingCompleted,
+                                        autoPasteOffHintDismissed: settings
+                                            .onboarding
+                                            .autoPasteOffHintDismissed,
+                                      ),
+                                  onAutoPasteOffHintTap: () {
+                                    ref
+                                        .read(
+                                          settingsScrollTargetProvider.notifier,
+                                        )
+                                        .set('afterTranscription');
+                                    ref
+                                        .read(activePageProvider.notifier)
+                                        .setPage('settings');
+                                  },
+                                  onAutoPasteOffHintDismiss: () {
+                                    ref
+                                        .read(settingsProvider.notifier)
+                                        .updateSettings(
+                                          (s) => s.copyWithSections(
+                                            onboarding: s.onboarding.copyWith(
+                                              autoPasteOffHintDismissed: true,
+                                            ),
+                                          ),
+                                        );
+                                  },
+                                  onHotkeyTap: () {
+                                    ref
+                                        .read(
+                                          settingsScrollTargetProvider.notifier,
+                                        )
+                                        .set('hotkey');
+                                    ref
+                                        .read(activePageProvider.notifier)
+                                        .setPage('settings');
+                                  },
+                                  onSttTap: () {
+                                    ref
+                                        .read(
+                                          settingsScrollTargetProvider.notifier,
+                                        )
+                                        .set('stt');
+                                    ref
+                                        .read(activePageProvider.notifier)
+                                        .setPage('settings');
+                                  },
+                                  onAfterActionChanged: (action) {
+                                    ref
+                                        .read(settingsProvider.notifier)
+                                        .updateSettings(
+                                          (s) => s.copyWith(
+                                            afterTranscription: action.value,
+                                          ),
+                                        );
+                                  },
+                                  onUpdateTap: () => triggerUpdateAction(
+                                    ref: ref,
+                                    updateState: updateState,
+                                    channel: deployChannel,
+                                  ),
+                                  automationApiRunState:
+                                      automationApiState.runState,
+                                  automationApiPort: automationApiState.port,
+                                  automationApiRequestedPort:
+                                      automationApiState.requestedPort,
+                                  onAutomationApiTap: () {
+                                    ref
+                                        .read(
+                                          settingsScrollTargetProvider.notifier,
+                                        )
+                                        .set('automationApi');
+                                    ref
+                                        .read(activePageProvider.notifier)
+                                        .setPage('settings');
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        // Onboarding overlay — the first launch, a review the
+                        // user reopened from Settings, or an onboarding
+                        // revision run (`.scratch/onboarding-revisions/
+                        // issues/03`). `onboardingCompleted` alone no longer
+                        // decides which of the latter two it is — both start
+                        // with setup already done — so the ephemeral revision
+                        // flag breaks the tie; the two are mutually exclusive
+                        // by construction (see `OnboardingOverlay.revisionRun`).
+                        if (ref.watch(onboardingSurfaceActiveProvider))
+                          Positioned.fill(
+                            child: OnboardingOverlay(
+                              manualReview:
+                                  settings.onboarding.onboardingCompleted &&
+                                  !onboardingRevisionRunning,
+                              revisionRun: onboardingRevisionRunning,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ), // Scaffold
+                ), // WpRecordingBehavior
+              ), // WpServiceBootstrap
+            ), // SmartModeUsageHintWatcher
+          ), // WpFeatureSpotlightWatcher
         ), // WpSupportPromptWatcher
       ), // WpReviewPromptWatcher
     ); // CallbackShortcuts

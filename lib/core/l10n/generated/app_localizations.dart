@@ -7,7 +7,9 @@ import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_de.dart';
 import 'app_localizations_en.dart';
+import 'app_localizations_es.dart';
 import 'app_localizations_he.dart';
+import 'app_localizations_pt.dart';
 import 'app_localizations_ru.dart';
 
 // ignore_for_file: type=lint
@@ -97,7 +99,9 @@ abstract class L10n {
   static const List<Locale> supportedLocales = <Locale>[
     Locale('de'),
     Locale('en'),
+    Locale('es'),
     Locale('he'),
+    Locale('pt'),
     Locale('ru'),
   ];
 
@@ -406,6 +410,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'< 1 min read'**
   String get historyReadingTimeUnder1;
+
+  /// Approximate word count shown in a history list row. Plural-aware: the count selects the form, so a translator can phrase '1 word' differently from 'N words'.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{approx. 1 word} other{approx. {count} words}}'**
+  String historyListWordCount(int count);
+
+  /// Tooltip and label of the single overflow button that replaces the selection, sort and view controls when the History filter row is too narrow for them.
+  ///
+  /// In en, this message translates to:
+  /// **'View and selection'**
+  String get historyToolsMenu;
 
   /// No description provided for @historyEditing.
   ///
@@ -778,6 +794,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Not available on this platform'**
   String get pushToTalkUnavailableTooltip;
+
+  /// Tooltip on the disabled push-to-talk switch on Linux when neither XInput2 nor the GlobalShortcuts portal reports key-up. Keep the CLI command whispaste --toggle untranslated.
+  ///
+  /// In en, this message translates to:
+  /// **'Your desktop doesn\'t report key releases here. Bind “whispaste --toggle” to a shortcut in your system settings instead.'**
+  String get pushToTalkUnavailableLinuxTooltip;
+
+  /// Badge next to a settings option that works but is not yet verified on every desktop (e.g. Linux push-to-talk).
+  ///
+  /// In en, this message translates to:
+  /// **'Experimental'**
+  String get settingsExperimentalBadge;
 
   /// No description provided for @settingsHoldOrTap.
   ///
@@ -1235,23 +1263,41 @@ abstract class L10n {
   /// **'Restart now'**
   String get pasteRestartAlertConfirm;
 
-  /// No description provided for @pasteManualGrantAlertTitle.
+  /// No description provided for @pasteStaleEntryGuideTitle.
   ///
   /// In en, this message translates to:
-  /// **'The restart didn\'t help'**
-  String get pasteManualGrantAlertTitle;
+  /// **'Remove the old WhisPaste entry'**
+  String get pasteStaleEntryGuideTitle;
 
-  /// No description provided for @pasteManualGrantAlertBody.
+  /// No description provided for @pasteStaleEntryGuideBody.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste already restarted, but the Auto-Paste permission still isn\'t taking effect. Please check under System Settings → Privacy & Security → Accessibility whether WhisPaste is switched on there, and re-enable the toggle if needed.'**
-  String get pasteManualGrantAlertBody;
+  /// **'macOS is still holding on to the Auto-Paste permission of an earlier WhisPaste version. That entry can\'t be switched on — it has to be removed once:\n\n1. Select “WhisPaste” in the list.\n2. Click “−” below the list.\n3. Come back to WhisPaste.\n\nAfter a restart, macOS asks you again — just allow it.'**
+  String get pasteStaleEntryGuideBody;
 
-  /// No description provided for @pasteManualGrantAlertConfirm.
+  /// No description provided for @pasteStaleEntryGuideConfirm.
   ///
   /// In en, this message translates to:
   /// **'Open System Settings'**
-  String get pasteManualGrantAlertConfirm;
+  String get pasteStaleEntryGuideConfirm;
+
+  /// No description provided for @pasteStaleEntryRestartTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart WhisPaste'**
+  String get pasteStaleEntryRestartTitle;
+
+  /// No description provided for @pasteStaleEntryRestartBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Once the old entry is gone, restart WhisPaste. macOS then asks for the permission again — confirm it and switch WhisPaste on.'**
+  String get pasteStaleEntryRestartBody;
+
+  /// No description provided for @pasteStaleEntryRestartConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Restart WhisPaste'**
+  String get pasteStaleEntryRestartConfirm;
 
   /// No description provided for @permissionAlertLaterButton.
   ///
@@ -1661,6 +1707,30 @@ abstract class L10n {
   /// **'Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn\'t fully convertible.'**
   String get settingsNumericOnlyModeSubtitle;
 
+  /// No description provided for @settingsRemoveFillerWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove filler words'**
+  String get settingsRemoveFillerWords;
+
+  /// No description provided for @settingsRemoveFillerWordsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.'**
+  String get settingsRemoveFillerWordsSubtitle;
+
+  /// No description provided for @settingsVoiceLineBreaks.
+  ///
+  /// In en, this message translates to:
+  /// **'Spoken line breaks'**
+  String get settingsVoiceLineBreaks;
+
+  /// No description provided for @settingsVoiceLineBreaksSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Turns spoken commands such as \"new paragraph\" and \"new line\" into real line breaks. Uses the transcription language, or all supported languages with auto-detect.'**
+  String get settingsVoiceLineBreaksSubtitle;
+
   /// No description provided for @settingsAppLanguage.
   ///
   /// In en, this message translates to:
@@ -1967,12 +2037,6 @@ abstract class L10n {
   /// **'Groq STT was removed. Provider reset to On-Device.'**
   String get groqRemovedToast;
 
-  /// No description provided for @tccResetAfterUpdateToast.
-  ///
-  /// In en, this message translates to:
-  /// **'macOS reset your Auto-Paste permission during the update.'**
-  String get tccResetAfterUpdateToast;
-
   /// No description provided for @migrationComplete.
   ///
   /// In en, this message translates to:
@@ -2020,6 +2084,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Transcription complete'**
   String get statusTranscriptionDone;
+
+  /// No description provided for @statusSelectionEdited.
+  ///
+  /// In en, this message translates to:
+  /// **'Selection edited'**
+  String get statusSelectionEdited;
 
   /// No description provided for @statusCopied.
   ///
@@ -2554,6 +2624,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'e.g. by the way'**
   String get replacementsReplacementHint;
+
+  /// No description provided for @replacementsReplacementHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Use \\n for a line break and \\n\\n for a blank line. To keep a literal backslash-n, write \\\\n.'**
+  String get replacementsReplacementHelper;
 
   /// No description provided for @replacementsDeleteTitle.
   ///
@@ -3188,8 +3264,20 @@ abstract class L10n {
   /// No description provided for @aboutParakeetDesc.
   ///
   /// In en, this message translates to:
-  /// **'Local speech recognition tuned for speed on plain CPU hardware (~25 languages).'**
+  /// **'Local speech recognition, GPU-accelerated where available (Metal, Vulkan, CUDA) and on the CPU otherwise (~25 languages).'**
   String get aboutParakeetDesc;
+
+  /// No description provided for @aboutParakeetModelCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'Model: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0'**
+  String get aboutParakeetModelCredit;
+
+  /// No description provided for @aboutParakeetGgufCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'GGUF conversion: ggml-org, MIT'**
+  String get aboutParakeetGgufCredit;
 
   /// No description provided for @aboutPrivacyFirst.
   ///
@@ -4061,6 +4149,42 @@ abstract class L10n {
   /// **'Please download a speech model in Settings first.'**
   String get infoModelMissing;
 
+  /// No description provided for @infoModelMissingSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'The selected speech model ({size}) isn\'t downloaded yet.'**
+  String infoModelMissingSelected(String size);
+
+  /// No description provided for @infoModelMissingDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download now'**
+  String get infoModelMissingDownload;
+
+  /// No description provided for @statusBarModelMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Model missing'**
+  String get statusBarModelMissing;
+
+  /// No description provided for @statusBarModelDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading model… {percent} %'**
+  String statusBarModelDownloading(int percent);
+
+  /// No description provided for @modelDownloadAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get modelDownloadAction;
+
+  /// No description provided for @modelMissingDownloadAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing — download'**
+  String get modelMissingDownloadAction;
+
   /// No description provided for @infoPipelineBusy.
   ///
   /// In en, this message translates to:
@@ -4313,6 +4437,12 @@ abstract class L10n {
   /// **'Could not start recording. Please try again.'**
   String get errorRecordingStartFailed;
 
+  /// No description provided for @errorNoMicrophone.
+  ///
+  /// In en, this message translates to:
+  /// **'No microphone found. Connect a microphone and try again.'**
+  String get errorNoMicrophone;
+
   /// No description provided for @errorGeneric.
   ///
   /// In en, this message translates to:
@@ -4324,6 +4454,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Download failed. Please check your internet connection.'**
   String get modelDownloadFailed;
+
+  /// No description provided for @modelDeleteInUse.
+  ///
+  /// In en, this message translates to:
+  /// **'The model file is in use by another program and could not be deleted. Close it and try again.'**
+  String get modelDeleteInUse;
 
   /// No description provided for @statusSttLoading.
   ///
@@ -5000,8 +5136,14 @@ abstract class L10n {
   /// No description provided for @settingsErrorReportingSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Help improve WhisPaste by sending anonymous crash reports'**
+  /// **'Sends crash and error reports with a hashed device ID, never your audio or text'**
   String get settingsErrorReportingSubtitle;
+
+  /// No description provided for @settingsErrorReportingRestartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Takes effect after restarting WhisPaste.'**
+  String get settingsErrorReportingRestartHint;
 
   /// No description provided for @settingsAutoPasteDelay.
   ///
@@ -5042,7 +5184,7 @@ abstract class L10n {
   /// No description provided for @settingsCheckUpdatesSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Automatically check for new versions on startup'**
+  /// **'Check for new versions at startup and every 24 hours'**
   String get settingsCheckUpdatesSubtitle;
 
   /// No description provided for @settingsCheckForUpdatesNow.
@@ -6641,7 +6783,7 @@ abstract class L10n {
   /// No description provided for @settingsSttEngineSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Whisper covers 99 languages and every GPU backend; Parakeet is much faster on CPU-only hardware but covers ~25 languages and has no GPU backend yet'**
+  /// **'Whisper covers 99 languages and every GPU backend; Parakeet is much faster and covers ~25 languages, on the GPU where available'**
   String get settingsSttEngineSubtitle;
 
   /// No description provided for @settingsSttEngineWhisper.
@@ -6665,8 +6807,8 @@ abstract class L10n {
   /// No description provided for @parakeetModelSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'One-time download (~640 MB), then runs fully offline'**
-  String get parakeetModelSubtitle;
+  /// **'One-time download ({size}), then runs fully offline'**
+  String parakeetModelSubtitle(String size);
 
   /// No description provided for @parakeetModelDownload.
   ///
@@ -6749,7 +6891,7 @@ abstract class L10n {
   /// No description provided for @settingsShareUsageStatsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Sent cookieless and without any identifiers, help us understand how WhisPaste is used'**
+  /// **'Cookieless, with a random per-session ID and a weekly changing pseudonym — helps us understand how WhisPaste is used'**
   String get settingsShareUsageStatsSubtitle;
 
   /// No description provided for @settingsRetainRecentAudio.
@@ -6763,36 +6905,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically'**
   String get settingsRetainRecentAudioSubtitle;
-
-  /// No description provided for @storeThankYouTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Thanks for your support!'**
-  String get storeThankYouTitle;
-
-  /// No description provided for @storeThankYouBody.
-  ///
-  /// In en, this message translates to:
-  /// **'We\'re really glad you\'re here. If WhisPaste makes your day a little easier, a short review means a lot to us.'**
-  String get storeThankYouBody;
-
-  /// No description provided for @storeThankYouCtaStore.
-  ///
-  /// In en, this message translates to:
-  /// **'★ Rate on the Store'**
-  String get storeThankYouCtaStore;
-
-  /// No description provided for @storeThankYouCtaGitHub.
-  ///
-  /// In en, this message translates to:
-  /// **'⭐ Star on GitHub'**
-  String get storeThankYouCtaGitHub;
-
-  /// No description provided for @storeThankYouDismiss.
-  ///
-  /// In en, this message translates to:
-  /// **'Close'**
-  String get storeThankYouDismiss;
 
   /// No description provided for @featureSpotlightHeading.
   ///
@@ -6865,6 +6977,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.'**
   String get featureSpotlightHistoryPinDescription;
+
+  /// No description provided for @featureSpotlightEditSelectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit selected text by voice'**
+  String get featureSpotlightEditSelectionTitle;
+
+  /// No description provided for @featureSpotlightEditSelectionDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Select text in any app, press the edit-selection hotkey and say what should change — or just “shorter”, “improve” or “translate”. Uses your Smart Mode engine. Off by default: turn it on under Settings → Smart Mode.'**
+  String get featureSpotlightEditSelectionDescription;
 
   /// No description provided for @featureSpotlightChangelogLink.
   ///
@@ -7418,6 +7542,12 @@ abstract class L10n {
   /// **'Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device\'s hardware.'**
   String get smartModeSpeedExampleInfo;
 
+  /// Shown in Smart Mode settings when the on-device engine library is not bundled in this build (e.g. a Linux dev build); also the tooltip of the disabled on-device option.
+  ///
+  /// In en, this message translates to:
+  /// **'On-device Smart Mode isn\'t included in this build. Switch to OpenAI, or install an official WhisPaste release.'**
+  String get smartModeLocalUnavailable;
+
   /// No description provided for @settingsHotkeyActionSmartMode.
   ///
   /// In en, this message translates to:
@@ -7786,6 +7916,426 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Could not replace the selection — your text was left unchanged'**
   String get errorSelectionEditPasteFailed;
+
+  /// No description provided for @settingsCudaPackTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'NVIDIA CUDA acceleration'**
+  String get settingsCudaPackTitle;
+
+  /// No description provided for @settingsCudaPackSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Faster dictation on GeForce RTX and GTX 16 cards. One-time download of {size}.'**
+  String settingsCudaPackSubtitle(String size);
+
+  /// No description provided for @settingsCudaPackInstalledSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.'**
+  String get settingsCudaPackInstalledSubtitle;
+
+  /// No description provided for @settingsCudaPackDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get settingsCudaPackDownload;
+
+  /// No description provided for @settingsCudaPackDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading {percent} %'**
+  String settingsCudaPackDownloading(int percent);
+
+  /// No description provided for @settingsCudaPackInstalling.
+  ///
+  /// In en, this message translates to:
+  /// **'Installing …'**
+  String get settingsCudaPackInstalling;
+
+  /// No description provided for @settingsCudaPackCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel download'**
+  String get settingsCudaPackCancel;
+
+  /// No description provided for @settingsCudaPackRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove CUDA pack'**
+  String get settingsCudaPackRemove;
+
+  /// No description provided for @settingsCudaPackToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use CUDA'**
+  String get settingsCudaPackToggle;
+
+  /// No description provided for @settingsCudaPackErrorNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed. Check your connection and try again.'**
+  String get settingsCudaPackErrorNetwork;
+
+  /// No description provided for @settingsCudaPackErrorVerification.
+  ///
+  /// In en, this message translates to:
+  /// **'The download was damaged. Please try again.'**
+  String get settingsCudaPackErrorVerification;
+
+  /// No description provided for @settingsCudaPackErrorStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'The pack could not be saved. Check your free disk space.'**
+  String get settingsCudaPackErrorStorage;
+
+  /// No description provided for @recoveryCudaDisabledToast.
+  ///
+  /// In en, this message translates to:
+  /// **'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.'**
+  String get recoveryCudaDisabledToast;
+
+  /// No description provided for @supportPromptSnooze.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t ask for 90 days'**
+  String get supportPromptSnooze;
+
+  /// No description provided for @supportPayPalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'PayPal'**
+  String get supportPayPalLabel;
+
+  /// No description provided for @supportStoreThankYouLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for buying WhisPaste in the store. Any further support is optional.'**
+  String get supportStoreThankYouLine;
+
+  /// No description provided for @supportShareText.
+  ///
+  /// In en, this message translates to:
+  /// **'I use WhisPaste to speak text straight into my apps. Local on my computer and open source:'**
+  String get supportShareText;
+
+  /// No description provided for @supportPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Support WhisPaste'**
+  String get supportPageTitle;
+
+  /// No description provided for @supportPageOpenAction.
+  ///
+  /// In en, this message translates to:
+  /// **'All ways to help'**
+  String get supportPageOpenAction;
+
+  /// No description provided for @supportIntroDirect.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste is free and open source. A contribution or recommendation helps the project.'**
+  String get supportIntroDirect;
+
+  /// No description provided for @supportCostsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Contributions help cover development and the ongoing costs of publishing, hosting and the domain.'**
+  String get supportCostsNote;
+
+  /// No description provided for @supportSectionOnce.
+  ///
+  /// In en, this message translates to:
+  /// **'One-time support'**
+  String get supportSectionOnce;
+
+  /// No description provided for @supportSectionOthers.
+  ///
+  /// In en, this message translates to:
+  /// **'Other ways to support'**
+  String get supportSectionOthers;
+
+  /// No description provided for @supportSectionReach.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommend WhisPaste'**
+  String get supportSectionReach;
+
+  /// No description provided for @supportStoreTitleWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste in the Microsoft Store'**
+  String get supportStoreTitleWindows;
+
+  /// No description provided for @supportStoreTitleMac.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste in the Mac App Store'**
+  String get supportStoreTitleMac;
+
+  /// No description provided for @supportStoreFactManaged.
+  ///
+  /// In en, this message translates to:
+  /// **'Installation and updates are handled by the store.'**
+  String get supportStoreFactManaged;
+
+  /// No description provided for @supportStoreFactPurchase.
+  ///
+  /// In en, this message translates to:
+  /// **'Your one-time purchase supports WhisPaste.'**
+  String get supportStoreFactPurchase;
+
+  /// No description provided for @supportStoreFactSameFeatures.
+  ///
+  /// In en, this message translates to:
+  /// **'Same features. The direct version stays free to use.'**
+  String get supportStoreFactSameFeatures;
+
+  /// No description provided for @supportStoreCtaWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'View in Microsoft Store'**
+  String get supportStoreCtaWindows;
+
+  /// No description provided for @supportStoreCtaMac.
+  ///
+  /// In en, this message translates to:
+  /// **'View in Mac App Store'**
+  String get supportStoreCtaMac;
+
+  /// No description provided for @supportStorePriceNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Price in the store'**
+  String get supportStorePriceNote;
+
+  /// No description provided for @supportStoreCoffeeNote.
+  ///
+  /// In en, this message translates to:
+  /// **'A one-time purchase, roughly the price of a coffee. The store shows the current price.'**
+  String get supportStoreCoffeeNote;
+
+  /// No description provided for @supportStoreDismiss.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide store option'**
+  String get supportStoreDismiss;
+
+  /// No description provided for @supportStoreShowAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Show store option'**
+  String get supportStoreShowAgain;
+
+  /// No description provided for @supportSponsorsCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Open GitHub Sponsors'**
+  String get supportSponsorsCta;
+
+  /// No description provided for @supportSponsorsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly or with an amount you choose. Pick the amount and rhythm there.'**
+  String get supportSponsorsNote;
+
+  /// No description provided for @supportKofiCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Ko-fi'**
+  String get supportKofiCta;
+
+  /// No description provided for @supportPayPalCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Support with PayPal'**
+  String get supportPayPalCta;
+
+  /// No description provided for @supportNativeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Support once in the store'**
+  String get supportNativeTitle;
+
+  /// No description provided for @supportNativeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'A one-time amount, billed by the store. Same features, no subscription.'**
+  String get supportNativeDescription;
+
+  /// No description provided for @supportNativeCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Support once'**
+  String get supportNativeCta;
+
+  /// No description provided for @supportSheetChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an amount'**
+  String get supportSheetChoose;
+
+  /// No description provided for @supportSheetLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading amounts …'**
+  String get supportSheetLoading;
+
+  /// No description provided for @supportSheetBuy.
+  ///
+  /// In en, this message translates to:
+  /// **'Support for {price}'**
+  String supportSheetBuy(String price);
+
+  /// No description provided for @supportSheetPurchasing.
+  ///
+  /// In en, this message translates to:
+  /// **'The store is confirming your purchase …'**
+  String get supportSheetPurchasing;
+
+  /// No description provided for @supportSheetThanks.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for your support!'**
+  String get supportSheetThanks;
+
+  /// No description provided for @supportSheetThanksDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Your supporter badge is active now. All features stay available to everyone.'**
+  String get supportSheetThanksDetail;
+
+  /// No description provided for @supportSheetPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Your purchase is awaiting confirmation.'**
+  String get supportSheetPending;
+
+  /// No description provided for @supportSheetPurchaseError.
+  ///
+  /// In en, this message translates to:
+  /// **'The purchase could not be completed. Please try again later.'**
+  String get supportSheetPurchaseError;
+
+  /// No description provided for @supportSheetPricesError.
+  ///
+  /// In en, this message translates to:
+  /// **'Prices couldn\'t be loaded. Please try again later.'**
+  String get supportSheetPricesError;
+
+  /// No description provided for @supportSheetUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'No amounts are available in the store right now.'**
+  String get supportSheetUnavailable;
+
+  /// No description provided for @supportSheetRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get supportSheetRetry;
+
+  /// No description provided for @supportSheetClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get supportSheetClose;
+
+  /// No description provided for @supportSelfDeclareCta.
+  ///
+  /// In en, this message translates to:
+  /// **'I already support WhisPaste'**
+  String get supportSelfDeclareCta;
+
+  /// No description provided for @supportSelfDeclareNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Just a note on this device, nothing is verified. The sponsor button in the status bar is hidden.'**
+  String get supportSelfDeclareNote;
+
+  /// No description provided for @supportSelfDeclareHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing is verified. Use this if you already contributed.'**
+  String get supportSelfDeclareHint;
+
+  /// No description provided for @supportSupporterLine.
+  ///
+  /// In en, this message translates to:
+  /// **'You support WhisPaste. Thank you!'**
+  String get supportSupporterLine;
+
+  /// No description provided for @supportSupporterBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Supporter'**
+  String get supportSupporterBadge;
+
+  /// No description provided for @supportRateCta.
+  ///
+  /// In en, this message translates to:
+  /// **'Rate in the store'**
+  String get supportRateCta;
+
+  /// No description provided for @supportShareCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy link'**
+  String get supportShareCopy;
+
+  /// No description provided for @supportShareCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Link copied'**
+  String get supportShareCopied;
+
+  /// No description provided for @supportShareEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get supportShareEmail;
+
+  /// No description provided for @supportChipLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sponsor'**
+  String get supportChipLabel;
+
+  /// No description provided for @supportChipTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Support WhisPaste'**
+  String get supportChipTooltip;
+
+  /// No description provided for @supportChipThanksLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Thanks'**
+  String get supportChipThanksLabel;
+
+  /// No description provided for @supportChipThanksTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Thank you for your support'**
+  String get supportChipThanksTooltip;
+
+  /// No description provided for @supportChipHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get supportChipHide;
+
+  /// No description provided for @settingsSponsorChip.
+  ///
+  /// In en, this message translates to:
+  /// **'Sponsor button in the status bar'**
+  String get settingsSponsorChip;
+
+  /// No description provided for @settingsSponsorChipSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shows the way to the support page. You can hide it once you have supported the project in the store or confirmed it here.'**
+  String get settingsSponsorChipSubtitle;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {
@@ -7797,8 +8347,14 @@ class _L10nDelegate extends LocalizationsDelegate<L10n> {
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['de', 'en', 'he', 'ru'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>[
+    'de',
+    'en',
+    'es',
+    'he',
+    'pt',
+    'ru',
+  ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_L10nDelegate old) => false;
@@ -7811,8 +8367,12 @@ L10n lookupL10n(Locale locale) {
       return L10nDe();
     case 'en':
       return L10nEn();
+    case 'es':
+      return L10nEs();
     case 'he':
       return L10nHe();
+    case 'pt':
+      return L10nPt();
     case 'ru':
       return L10nRu();
   }

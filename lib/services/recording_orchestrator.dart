@@ -19,6 +19,7 @@ import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
+import '../core/logging/mic_start_trace.dart';
 import '../core/logging/perf_instrumentation.dart';
 import '../core/recording/recording_state.dart';
 import '../core/data/analytics_provider.dart';
@@ -33,12 +34,12 @@ import 'recording/pipeline_step_runner.dart';
 import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
 import 'review_prompt_service.dart';
-import 'store_thank_you_service.dart';
 import 'snippet_picker/snippet_picker_controller.dart'
     show snippetPickerAvailableOnPlatform;
 import 'snippet_picker/snippet_picker_dispatch.dart';
 import 'snippet_picker/snippet_picker_service.dart';
-import 'smart_mode/smart_mode_ffi_engine.dart' show smartModeEngineProvider;
+import 'smart_mode/smart_mode_ffi_engine.dart'
+    show smartModeEngineProvider, smartModeLocalEngineAvailableProvider;
 import 'smart_mode/smart_mode_model_download_service.dart'
     show smartModeDownloadProvider;
 import 'smart_mode/smart_mode_presets.dart';
@@ -54,6 +55,7 @@ import 'selection_edit/selection_edit_service.dart'
 import 'system_attention_service.dart';
 import 'number_transforms.dart';
 import 'text_transforms.dart';
+import 'voice_line_breaks.dart';
 import 'tray_service.dart';
 import 'recording_store.dart';
 import 'stt/inference_client_rejected.dart';
@@ -107,15 +109,11 @@ class RecordingOrchestrator extends Notifier<void> {
   /// transcription pipelines (e.g. hotkey-stop + auto-stop firing together).
   bool _stopInFlight = false;
 
-  /// Set by [cancelRecording] when it is called during
-  /// `transcribing`/`refining` — the in-flight pipeline launched by
-  /// [stopRecording] keeps running (there is no cancellation token for the
-  /// underlying transcriber call), but [_runTranscriptionPipeline] and
-  /// [_finalizeTranscription] check this flag at their next checkpoint and
-  /// bail out before the result can be saved to history, copied, or pasted.
-  /// Reset at the start of every [startRecording] call so a stale flag from
-  /// an earlier session can never suppress a fresh one.
-  bool _cancelRequested = false;
+  /// The session of the most recent [startRecording] call. A pipeline keeps
+  /// the session it was started with (see [_RecordingSession]), so a newer
+  /// start can never change how an older, still-running pipeline is cancelled
+  /// or finalized.
+  _RecordingSession _session = _RecordingSession();
 
   /// Set by [_reportPasteFailure] when it plays the paste-failure error
   /// tone for the current pipeline run, then read (and reset) right before
@@ -141,6 +139,14 @@ class RecordingOrchestrator extends Notifier<void> {
   /// [startRecording] call always overwrites it before any session that
   /// could read it exists.
   DateTime? _hotkeyPressedAtForLatencyKpi;
+
+  /// Mic-start trace of the most recent start (handy-catchup ticket 19):
+  /// hotkey → phase change → paster primed → capture started → first real
+  /// sample, logged at debug level once the first sample arrives.
+  MicStartTrace? _micStartTrace;
+
+  @visibleForTesting
+  MicStartTrace? get debugLastMicStartTrace => _micStartTrace;
 
   /// Handles OOM retry policy and model-fallback decisions.
   ///
@@ -281,8 +287,8 @@ class RecordingOrchestrator extends Notifier<void> {
   /// From [RecordingPhase.transcribing]/[RecordingPhase.refining]: the
   /// pipeline [stopRecording] already launched keeps running in the
   /// background (there is no cancellation token for the underlying
-  /// transcriber call), but [_cancelRequested] makes
-  /// [_runTranscriptionPipeline]/[_finalizeTranscription] discard the
+  /// transcriber call), but the cancelled session's `cancelRequested` flag
+  /// makes [_runTranscriptionPipeline]/[_finalizeTranscription] discard the
   /// result at their next checkpoint instead of saving it to history,
   /// copying it, or pasting it. The UI itself returns to idle immediately.
   ///
@@ -295,8 +301,7 @@ class RecordingOrchestrator extends Notifier<void> {
         await _cancelDuringRecording();
       case RecordingPhase.transcribing:
       case RecordingPhase.refining:
-        _cancelRequested = true;
-        _log.info('Cancel requested during $phase — result will be discarded');
+        _discardInFlightTranscription(phase);
         _stateMachine.transition(RecordingIntent.reset);
       case RecordingPhase.idle:
       case RecordingPhase.done:
@@ -392,21 +397,9 @@ class RecordingOrchestrator extends Notifier<void> {
     // existing hotkey→overlay latency pairing (PerfMarkers.markOverlayShown,
     // reset separately) is unaffected.
     _hotkeyPressedAtForLatencyKpi = PerfMarkers.instance.pendingHotkeyPressedAt;
-    _cancelRequested = false;
-
-    // Same "next start always overwrites, never reset at exit" pattern as
-    // the latency t₀ above: unconditional, before any await, so a target
-    // left over from an aborted/ignored start is structurally impossible
-    // rather than dependent on covering every abort path.
-    ref.read(recordingTargetProvider.notifier).set(target);
-    ref
-        .read(smartModeHotkeyOverridePresetProvider.notifier)
-        .set(forcedSmartModePreset);
-    ref.read(sttLanguageOverrideProvider.notifier).set(languageOverride);
-    ref
-        .read(autoStopSilenceOverrideProvider.notifier)
-        .set(silenceTimeoutOverride);
-
+    final hotkeyMicros =
+        PerfMarkers.instance.pendingHotkeyPressedMonotonicMicros;
+    final triggerMicros = PerfMarkers.instance.monotonicMicros();
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
       _log.debug('startRecording ignored — already in flight');
@@ -440,13 +433,33 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
 
+    // Written only after this call has won both guards, into a fresh session
+    // that the pipeline keeps. A rejected start (e.g. one made while the
+    // previous pipeline is still transcribing) must not overwrite the target
+    // or overrides that pipeline will finalize with.
+    final session = _session = _RecordingSession(
+      target: target,
+      smartModeHotkeyPreset: forcedSmartModePreset,
+      languageOverride: languageOverride,
+      silenceTimeoutOverride: silenceTimeoutOverride,
+    );
+    // Providers stay in sync for readers outside the pipeline.
+    ref.read(recordingTargetProvider.notifier).set(target);
+    ref
+        .read(smartModeHotkeyOverridePresetProvider.notifier)
+        .set(forcedSmartModePreset);
+    ref.read(sttLanguageOverrideProvider.notifier).set(languageOverride);
+    ref
+        .read(autoStopSilenceOverrideProvider.notifier)
+        .set(silenceTimeoutOverride);
+
     try {
       // ── Edit selection by voice: engine/paste gate ────────────────────
       // Checked before the regular preflight so a missing Smart Mode
       // engine surfaces as a setup hint without recording anything — the
       // instruction would have nowhere to go.
       if (target == RecordingTarget.selectionEdit) {
-        final selectionEditError = _selectionEditPreflight();
+        final selectionEditError = await _selectionEditPreflight();
         if (selectionEditError != null) {
           _log.info('Edit selection unavailable: $selectionEditError');
           _stateMachine.transition(
@@ -481,6 +494,12 @@ class RecordingOrchestrator extends Notifier<void> {
       _stateMachine.transition(RecordingIntent.start);
       final sid = ref.read(recordingProvider).sessionId ?? '?';
       _log.info('[$sid] Recording started');
+      final micTrace = _micStartTrace = MicStartTrace(
+        sessionId: sid,
+        clock: PerfMarkers.instance.monotonicMicros,
+        hotkeyMicros: hotkeyMicros,
+        triggerMicros: triggerMicros,
+      )..mark(MicStartStage.phaseRecording);
 
       // No per-start telemetry: a recording's outcome is captured once at the
       // end via the aggregated pipeline-outcome counter (see
@@ -508,6 +527,7 @@ class RecordingOrchestrator extends Notifier<void> {
       if (target == RecordingTarget.clipboard ||
           target == RecordingTarget.selectionEdit) {
         await ref.read(pasterProvider)?.prime();
+        micTrace.mark(MicStartStage.pasterPrimed);
       }
 
       // Start audio capture. `streamRawPcm` opens the live-transcript-
@@ -533,6 +553,13 @@ class RecordingOrchestrator extends Notifier<void> {
         );
         return;
       }
+      micTrace.mark(MicStartStage.captureStarted);
+      unawaited(
+        audioNotifier.firstSampleArrived?.then((_) {
+          micTrace.mark(MicStartStage.firstSample);
+          _log.debug(micTrace.summary());
+        }),
+      );
 
       // Subscribe to amplitude for level metering + safety guard (also
       // cancels any stale live-preview PCM subscription from a previous
@@ -543,6 +570,7 @@ class RecordingOrchestrator extends Notifier<void> {
         settings: settings,
         livePreviewWanted: livePreviewWanted,
         sid: sid,
+        session: session,
       );
     } on Exception catch (e) {
       ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
@@ -562,6 +590,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required AppSettings settings,
     required bool livePreviewWanted,
     required String sid,
+    required _RecordingSession session,
   }) {
     if (livePreviewWanted) {
       final pcmStream = audioNotifier.pcmChunkStream;
@@ -594,7 +623,7 @@ class RecordingOrchestrator extends Notifier<void> {
     final guardConfig = SafetyGuardConfig(
       deadMicTimeout: settings.recordingSafety.deadMicTimeout,
       autoStopSilence:
-          ref.read(autoStopSilenceOverrideProvider) ??
+          session.silenceTimeoutOverride ??
           settings.recordingSafety.autoStopSilence,
       maxDurationSeconds: settings.behavior.maxRecordDuration,
       samplesPerSecond: amplitudeSamplesPerSecond,
@@ -634,6 +663,7 @@ class RecordingOrchestrator extends Notifier<void> {
     _stopInFlight = true;
 
     final sid = ref.read(recordingProvider).sessionId ?? '?';
+    final session = _session;
     String? wavPath;
 
     // ── Pipeline timing ──────────────────────────────────────────────────
@@ -668,6 +698,7 @@ class RecordingOrchestrator extends Notifier<void> {
             wavPath: path,
             wavBytes: bytes,
             timing: timing,
+            session: session,
           );
           if (!shouldContinue) return;
       }
@@ -701,8 +732,9 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // Release the re-entry guard only after cleanup completes, so a
       // concurrent stop cannot slip into this window and double-clean the
-      // same WAV file.
-      _stopInFlight = false;
+      // same WAV file. A cancelled session already handed the lock back in
+      // cancelRecording, and a newer recording may own it by now.
+      if (!session.cancelRequested) _stopInFlight = false;
     }
   }
 
@@ -818,12 +850,13 @@ class RecordingOrchestrator extends Notifier<void> {
     required String wavPath,
     required List<int> wavBytes,
     required _PipelineTiming timing,
+    required _RecordingSession session,
   }) async {
     _pasteFailureSoundPlayedThisPipeline = false;
 
     // Read settings for language hint and model info.
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final effectiveLang = _resolveEffectiveLang(settings);
+    final effectiveLang = _resolveEffectiveLang(settings, session);
 
     // ── Step 2: STT prepare — ensure backend ready (120 s budget) ──────
     // Large models on integrated GPUs can take 60–90 s to load into
@@ -834,15 +867,9 @@ class RecordingOrchestrator extends Notifier<void> {
       sid,
       transcriber,
       timing,
+      session,
     );
     if (sttBundle == null) return false;
-
-    if (_cancelRequested) {
-      _log.info('[$sid] Cancelled during STT prepare — skipping transcribe');
-      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
-      timing.outcome = 'cancelled';
-      return false;
-    }
 
     // ── Step 3: Transcription (60 s base + 0.8× audio duration) ────────
     // Calculate audio duration for RTF logging
@@ -876,6 +903,7 @@ class RecordingOrchestrator extends Notifier<void> {
       settings: settings,
       runner: runner,
       timing: timing,
+      session: session,
     );
   }
 
@@ -890,6 +918,7 @@ class RecordingOrchestrator extends Notifier<void> {
     String sid,
     Transcriber transcriber,
     _PipelineTiming timing,
+    _RecordingSession session,
   ) async {
     final ensureSw = Stopwatch()..start();
     final prepareResult = await runner.run<void>(
@@ -899,6 +928,10 @@ class RecordingOrchestrator extends Notifier<void> {
     );
     ensureSw.stop();
     timing.sttEnsureMs = ensureSw.elapsedMilliseconds;
+
+    // Cancelled during prepare: whatever prepare returned belongs to a
+    // recording the user discarded, so it must not move the phase.
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return null;
 
     switch (prepareResult) {
       case StepTimeout():
@@ -971,7 +1004,11 @@ class RecordingOrchestrator extends Notifier<void> {
     required AppSettings settings,
     required PipelineStepRunner runner,
     required _PipelineTiming timing,
+    required _RecordingSession session,
   }) async {
+    // Checked before any branch: a failure of a cancelled transcription must
+    // not move the phase of whatever recording was started since.
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
     switch (result) {
       case StepTimeout():
         timing.outcome = 'transcribe_timeout';
@@ -1048,7 +1085,6 @@ class RecordingOrchestrator extends Notifier<void> {
         _log.warning('[$sid] Transcription failed: $error');
         return false;
       case Ok(:final value):
-        if (_bailIfTranscriptionCancelled(sid, timing)) return false;
         return _finalizeTranscription(
           sid: sid,
           transcript: value,
@@ -1057,6 +1093,7 @@ class RecordingOrchestrator extends Notifier<void> {
           settings: settings,
           runner: runner,
           timing: timing,
+          session: session,
         );
     }
   }
@@ -1064,12 +1101,14 @@ class RecordingOrchestrator extends Notifier<void> {
   /// Cancelled while the transcribe call was in flight — the state machine
   /// already returned to idle in [cancelRecording]. Discard the result:
   /// never even enter [_finalizeTranscription], so it never saves to
-  /// history or copies/pastes it. Checked in [_handleTranscribeResult]'s
-  /// `Ok` branch rather than inside `_finalizeTranscription` itself, purely
-  /// to keep that already-long function's cyclomatic complexity from
-  /// creeping past the ratchet's threshold.
-  bool _bailIfTranscriptionCancelled(String sid, _PipelineTiming timing) {
-    if (!_cancelRequested) return false;
+  /// history or copies/pastes it. Each call site passes its own session, so
+  /// cancelling one recording never discards a later one.
+  bool _bailIfTranscriptionCancelled(
+    String sid,
+    _RecordingSession session,
+    _PipelineTiming timing,
+  ) {
+    if (!session.cancelRequested) return false;
     _log.info('[$sid] Cancelled after transcribe — discarding result');
     ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
     timing.outcome = 'cancelled';
@@ -1089,6 +1128,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required AppSettings settings,
     required PipelineStepRunner runner,
     required _PipelineTiming timing,
+    required _RecordingSession session,
   }) async {
     _logRealTimeFactor(sid, timing, audioDurMs);
 
@@ -1113,7 +1153,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // The transcript is an instruction, not text to insert: no Smart Mode
     // preset, snippet picker, history entry (triage decision 3 in
     // `.scratch/voice-selection-edit/PRD.md`) or text transforms.
-    if (ref.read(recordingTargetProvider) == RecordingTarget.selectionEdit) {
+    if (session.target == RecordingTarget.selectionEdit) {
       return _finalizeSelectionEdit(
         sid: sid,
         instruction: finalText,
@@ -1130,6 +1170,22 @@ class RecordingOrchestrator extends Notifier<void> {
     // before this snapshot rather than counting as part of the diff.
     final preTransformText = finalText;
 
+    // ── Filler word removal (opt-in, handy-catchup ticket 16) ──────────
+    // After the snapshot (it is a product-level transform the History
+    // detail panel should show as a diff) but before Smart Mode and the
+    // text-replacement pass inside the history save, so a trigger phrase
+    // interrupted by an "äh" still fires and the LLM gets cleaner input.
+    if (settings.stt.removeFillerWords) {
+      finalText = removeFillerWords(
+        finalText,
+        languageCode: _resolveEffectiveLang(settings, session),
+      );
+    }
+
+    // Spoken line breaks: same position and history contract as filler
+    // removal (after the snapshot, before Smart Mode and replacements).
+    finalText = _applySpokenLineBreaks(finalText, settings, session);
+
     // ── Smart Mode: local Cleanup preset (ticket 02) ──────────────────
     // Runs before history-save/snippet-picker/paste so every downstream
     // consumer of `finalText` sees the same (possibly refined) value — this
@@ -1142,7 +1198,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // whole block never runs for a recording with no active preset.
     // Ticket 04: the Smart-Mode hotkey's bound preset overrides the standard
     // preset for this recording only — see startRecording's doc comment.
-    final hotkeyPreset = ref.read(smartModeHotkeyOverridePresetProvider);
+    final hotkeyPreset = session.smartModeHotkeyPreset;
     final activePreset =
         hotkeyPreset ??
         smartModePresetFromSettingsValue(settings.smartMode.standardPreset);
@@ -1157,6 +1213,10 @@ class RecordingOrchestrator extends Notifier<void> {
       );
     }
 
+    // Cancelled while Smart Mode ran: discard before anything is saved,
+    // dispatched or pasted.
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
+
     // ── Snippet-Picker dispatch (exact-match short-circuit, ticket 06) ────
     // A transcript that matches the picker's trigger word exactly (after
     // normalization) never reaches history/replacements or paste. An empty
@@ -1168,7 +1228,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // focused application, which makes no sense for a note target.
     final snippetPickerDispatched =
         sandboxTranscriptSink == null &&
-        ref.read(recordingTargetProvider) == RecordingTarget.clipboard &&
+        session.target == RecordingTarget.clipboard &&
         await _tryDispatchSnippetPicker(sid, finalText, settings);
 
     if (!snippetPickerDispatched) {
@@ -1189,22 +1249,14 @@ class RecordingOrchestrator extends Notifier<void> {
             (timing.transcribeMs ?? 0) ~/ 1000,
             wavPath,
             originalTranscript: preTransformText,
+            session: session,
           ),
           timeout: const Duration(seconds: 5),
         );
         saveSw.stop();
         timing.saveMs = saveSw.elapsedMilliseconds;
 
-        // Save failures are non-fatal (best-effort) — log and continue.
-        if (saveResult case Ok(:final value)) {
-          if (value != null && value != finalText) {
-            finalText = value;
-          }
-        } else if (saveResult case StepTimeout()) {
-          _log.warning('[$sid] Save to history timed out after 5s');
-        } else if (saveResult case FailedWith(:final error)) {
-          _log.error('[$sid] Save to history failed: $error');
-        }
+        finalText = _historySaveOutcome(sid, saveResult, finalText);
       }
 
       // ── Zahlen-Modus (itn-cad-zahlen, digits-only transform) ────────
@@ -1229,13 +1281,17 @@ class RecordingOrchestrator extends Notifier<void> {
         finalText = stripPunctuation(finalText);
       }
 
+      // Cancelled while the history save ran: skip the paste.
+      if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
+
       // ── Step 5: After-transcription action (10 s budget) ──────────
       // Timeout prevents a locked clipboard or slow paste from
       // hanging the pipeline.
       final clipSw = Stopwatch()..start();
       final clipResult = await runner.run<void>(
         'after_transcription',
-        () async => _handleAfterTranscription(finalText, settings),
+        () async =>
+            _handleAfterTranscription(finalText, settings, session.target),
         timeout: const Duration(seconds: 10),
       );
       clipSw.stop();
@@ -1250,6 +1306,10 @@ class RecordingOrchestrator extends Notifier<void> {
     // outgoing (bucketed) telemetry aggregator.
     await _persistHotkeyLatencyIfPending(sid);
 
+    // Cancelled during the paste step: the phase now belongs to whatever
+    // recording was started next, so never transition it from here.
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
+
     // Transition state: transcribing/processing → done.
     // Uses RecordingIntent.complete (transcribing→done) which the
     // state machine maps to completeTranscription on the notifier.
@@ -1259,21 +1319,10 @@ class RecordingOrchestrator extends Notifier<void> {
       pasteFailed: _pasteFailureSoundPlayedThisPipeline,
     );
     ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
-    // Two independent fire-and-forget checks, mirroring the existing
-    // single-call pattern — the support prompt's coordination check reads
-    // (never mutates) the review prompt's in-session/persisted state, so it
-    // does not need to be awaited after the review check specifically.
+    // Two independent fire-and-forget checks. Each one only sets its own
+    // due flag; the shared display arbiter decides when a dialog opens.
     unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
     unawaited(ref.read(supportPromptProvider.notifier).checkAndMaybePrompt());
-    // Re-evaluate after every real recording (not just at onboarding-complete
-    // time) so the engagement gate in shouldShowStoreThankYou — added after
-    // Apple's Guideline 5.6.3 rejection of v1.2.66 — actually gets to fire
-    // once the user crosses the threshold.
-    unawaited(
-      ref
-          .read(storeThankYouProvider.notifier)
-          .checkAndMaybeShow(onboardingCompleted: settings.onboardingCompleted),
-    );
     _oomHandler.reset();
     timing.outcome = 'ok';
 
@@ -1283,12 +1332,36 @@ class RecordingOrchestrator extends Notifier<void> {
     return true;
   }
 
+  /// Text to continue with after the history save. Save failures are
+  /// non-fatal (best-effort): they are logged, and [current] is kept.
+  String _historySaveOutcome(
+    String sid,
+    StepResult<String?> saveResult,
+    String current,
+  ) {
+    if (saveResult case Ok(:final value)) return value ?? current;
+    if (saveResult case StepTimeout()) {
+      _log.warning('[$sid] Save to history timed out after 5s');
+    } else if (saveResult case FailedWith(:final error)) {
+      _log.error('[$sid] Save to history failed: $error');
+    }
+    return current;
+  }
+
+  /// Upper bound for waiting on the Smart Mode startup disk scan before the
+  /// edit-selection gate gives up and reports a missing engine.
+  static const _selectionEditScanTimeout = Duration(seconds: 10);
+
   /// Gate for [RecordingTarget.selectionEdit]: returns an error code when
   /// the feature cannot run, `null` when it can. Needs the paste path
   /// (`selectionEditServiceProvider` is null without one) and a usable
   /// Smart Mode engine — the downloaded local model, or an OpenAI key for
   /// the cloud provider (strict either-or, ADR 0010).
-  String? _selectionEditPreflight() {
+  ///
+  /// `modelDownloaded` is only known once the startup disk scan has run, so
+  /// a hotkey pressed right after launch waits for that scan instead of
+  /// misreporting an installed model as "not set up".
+  Future<String?> _selectionEditPreflight() async {
     if (ref.read(selectionEditServiceProvider) == null) {
       return 'selection_edit_unsupported';
     }
@@ -1296,9 +1369,26 @@ class RecordingOrchestrator extends Notifier<void> {
     final provider = SmartModeProviderType.fromValue(
       settings.smartMode.provider,
     );
-    final engineReady = provider.isLocal
-        ? ref.read(smartModeDownloadProvider).modelDownloaded
-        : settings.cloudProvider.openAiApiKey.trim().isNotEmpty;
+    // A build without the bundled local engine library (see the Smart Mode
+    // settings, which disable the on-device option then) can never run it,
+    // whatever the model download state says.
+    if (provider.isLocal && !ref.read(smartModeLocalEngineAvailableProvider)) {
+      return 'selection_edit_local_unavailable';
+    }
+    final bool engineReady;
+    if (provider.isLocal) {
+      final download = ref.read(smartModeDownloadProvider.notifier);
+      await download.awaitInitialScan().timeout(
+        _selectionEditScanTimeout,
+        onTimeout: () => _log.warning(
+          'Smart Mode startup scan still pending after '
+          '${_selectionEditScanTimeout.inSeconds}s — treating model as missing',
+        ),
+      );
+      engineReady = ref.read(smartModeDownloadProvider).modelDownloaded;
+    } else {
+      engineReady = settings.cloudProvider.openAiApiKey.trim().isNotEmpty;
+    }
     return engineReady ? null : 'selection_edit_no_engine';
   }
 
@@ -1540,10 +1630,27 @@ class RecordingOrchestrator extends Notifier<void> {
   /// silently forced every auto-detect user onto their UI language — a
   /// Russian speaker on an English UI got English output (store review,
   /// June 2026).
-  String _resolveEffectiveLang(AppSettings settings) {
-    final override = ref.read(sttLanguageOverrideProvider);
-    final language = override ?? settings.sttLanguageCode;
+  String _resolveEffectiveLang(
+    AppSettings settings,
+    _RecordingSession session,
+  ) {
+    final language = session.languageOverride ?? settings.sttLanguageCode;
     return language.isEmpty ? 'auto' : language;
+  }
+
+  /// Turns spoken line-break commands into real line breaks when the setting
+  /// is on. Kept out of [_finalizeTranscription], whose branch count is
+  /// already at the complexity limit.
+  String _applySpokenLineBreaks(
+    String text,
+    AppSettings settings,
+    _RecordingSession session,
+  ) {
+    if (!settings.stt.voiceLineBreaks) return text;
+    return applyVoiceLineBreaks(
+      text,
+      languageCode: _resolveEffectiveLang(settings, session),
+    );
   }
 
   /// Collapses extraneous whitespace from a raw whisper transcript.
@@ -1553,11 +1660,7 @@ class RecordingOrchestrator extends Notifier<void> {
   /// character count changes.
   String _cleanupTranscriptWhitespace(String sid, String transcript) {
     final rawLen = transcript.length;
-    final cleaned = transcript
-        .replaceAll(RegExp(r'\r\n|\r'), '\n')
-        .replaceAll(RegExp(r'\n+'), ' ')
-        .replaceAll(RegExp(r' {2,}'), ' ')
-        .trim();
+    final cleaned = collapseTranscriptWhitespace(transcript);
     if (cleaned.length != rawLen) {
       _log.info('[$sid] Whitespace cleanup: $rawLen→${cleaned.length} chars');
     }
@@ -1612,9 +1715,32 @@ class RecordingOrchestrator extends Notifier<void> {
   }
 
   /// Resets the recording state to idle.
+  ///
+  /// While a transcription is in flight this also discards it, exactly like
+  /// [cancelRecording]: callers such as the snippet controller's abort reset
+  /// the orchestrator while the pipeline keeps running. In `done`/`error` the
+  /// pipeline has already finished, so nothing is marked.
   void reset() {
     _cancelAmplitude();
+    final phase = ref.read(recordingProvider).phase;
+    if (phase == RecordingPhase.transcribing ||
+        phase == RecordingPhase.refining) {
+      _discardInFlightTranscription(phase);
+    }
     _stateMachine.transition(RecordingIntent.reset);
+  }
+
+  /// Marks the active session's in-flight pipeline as cancelled, so its result
+  /// is discarded at the next checkpoint. Shared by [cancelRecording] and
+  /// [reset] so both discard the same way.
+  void _discardInFlightTranscription(RecordingPhase phase) {
+    _session.cancelRequested = true;
+    // The stop lock belongs to the cancelled pipeline, which may still be
+    // inside transcribe(). Hand it back now so the next recording can be
+    // stopped; that pipeline's finally no longer releases it (see
+    // stopRecording).
+    _stopInFlight = false;
+    _log.info('Cancel requested during $phase — result will be discarded');
   }
 
   Future<bool> applyOomModelFallback(String modelId) async {
@@ -2012,6 +2138,7 @@ class RecordingOrchestrator extends Notifier<void> {
     int processingDurationSec,
     String wavPath, {
     String? originalTranscript,
+    required _RecordingSession session,
   }) async {
     try {
       final store = ref.read(recordingStoreProvider);
@@ -2023,7 +2150,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // the final composed result (assembled by
       // `InteractiveSnippetController`) gets its own single history entry,
       // never the individual fields.
-      final target = ref.read(recordingTargetProvider);
+      final target = session.target;
       final isQuickNote = target == RecordingTarget.quickNote;
       final isTemplateField = target == RecordingTarget.templateField;
 
@@ -2042,7 +2169,7 @@ class RecordingOrchestrator extends Notifier<void> {
           audioDuration: audioDuration,
           modelId: settings.transcriptionModelId,
           isLocal: settings.sttProviderType.isLocal,
-          languageCode: _resolveEffectiveLang(settings),
+          languageCode: _resolveEffectiveLang(settings, session),
           applyTextReplacements: settings.textReplacementsEnabled,
           historyMaxEntries: settings.historyMaxEntries,
           wordCount: wordCount,
@@ -2359,6 +2486,7 @@ class RecordingOrchestrator extends Notifier<void> {
   Future<void> _handleAfterTranscription(
     String transcript,
     AppSettings settings,
+    RecordingTarget target,
   ) async {
     // Onboarding's test-recording step redirects the transcript to a local
     // sandbox field instead of the real clipboard/paste path. See
@@ -2369,7 +2497,7 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
 
-    if (ref.read(recordingTargetProvider) == RecordingTarget.quickNote) {
+    if (target == RecordingTarget.quickNote) {
       await _appendToQuickNote(transcript);
       return;
     }
@@ -2379,7 +2507,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // this recording completes — it is neither copied to the clipboard nor
     // pasted anywhere on its own (only the composed, whole-snippet result
     // is, once every field is done).
-    if (ref.read(recordingTargetProvider) == RecordingTarget.templateField) {
+    if (target == RecordingTarget.templateField) {
       return;
     }
 
@@ -2694,6 +2822,30 @@ final recordingOrchestratorProvider =
 /// Mutable container for per-step pipeline timing and outcome, threaded
 /// through [RecordingOrchestrator._runTranscriptionPipeline] and the
 /// summary logger so local variables in [stopRecording] stay minimal.
+/// What one recording was started with, plus its cancel flag.
+///
+/// Created by [RecordingOrchestrator.startRecording] after its guards and
+/// handed to the pipeline that finalizes that recording. Finalization reads
+/// the target and overrides from here, never from the shared providers, which
+/// the next start overwrites.
+class _RecordingSession {
+  _RecordingSession({
+    this.target = RecordingTarget.clipboard,
+    this.smartModeHotkeyPreset,
+    this.languageOverride,
+    this.silenceTimeoutOverride,
+  });
+
+  final RecordingTarget target;
+  final SmartModePreset? smartModeHotkeyPreset;
+  final String? languageOverride;
+  final double? silenceTimeoutOverride;
+
+  /// Set by [RecordingOrchestrator.cancelRecording] while this recording's
+  /// transcription is in flight. The pipeline checks it at each checkpoint.
+  bool cancelRequested = false;
+}
+
 class _PipelineTiming {
   String outcome = 'unknown';
   int? wavReadyMs;

@@ -1,5 +1,5 @@
 /// Real in-process [WhisperEngine] backed by a bundled `libwhisper` via
-/// `dart:ffi` (whisper.cpp v1.8.4). Built on the binding proven in the Issue-01
+/// `dart:ffi` (whisper.cpp v1.9.5). Built on the binding proven in the Issue-01
 /// durchstich (`whisper_bindings.dart`, ffigen-generated).
 ///
 /// Threading note (from whisper.h): `whisper_full` is NOT thread-safe for the
@@ -38,6 +38,7 @@ import 'package:path/path.dart' as p;
 import '../../../core/logging/app_logger.dart';
 import '../../../core/utils/windows_dll_search_path.dart';
 import '../../audio/pcm_wav_codec.dart';
+import '../native_call_guard.dart';
 import 'whisper_bindings.dart';
 import 'whisper_engine.dart';
 
@@ -155,13 +156,23 @@ class WhisperFfiEngine
         PartialTranscriptSource,
         LivePreviewEngine,
         PromptTokenCounter {
-  WhisperFfiEngine({String? libraryPath, WhisperBackend? backend})
-    : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
-      _backend = backend ?? WhisperBackend.cpu,
-      _confirmedBackend = backend ?? WhisperBackend.cpu;
+  WhisperFfiEngine({
+    String? libraryPath,
+    WhisperBackend? backend,
+    this._cudaPackDir,
+  }) : _libraryPath = libraryPath ?? defaultWhisperLibraryPath(),
+       _backend = backend ?? WhisperBackend.cpu,
+       _confirmedBackend = backend ?? WhisperBackend.cpu;
 
   final String _libraryPath;
   final WhisperBackend _backend;
+
+  /// Directory of an installed optional CUDA pack (`ggml-cuda` plus the
+  /// CUDA runtime libraries, see `cuda_pack.dart`), or `null` when none is
+  /// installed or the user switched it off. When set and a GPU backend is
+  /// requested, [load] registers the module with ggml and prefers its
+  /// `CUDA0` device over Vulkan — see [_ensureCudaPackLoaded].
+  final String? _cudaPackDir;
 
   /// [_backend] as actually confirmed against ggml's device registry by
   /// [_confirmBackend] — see its doc comment. Equals [_backend] until the
@@ -170,7 +181,29 @@ class WhisperFfiEngine
 
   WhisperBindings? _bindings;
   ffi.Pointer<whisper_context>? _ctx;
+
+  /// `wp_ffi_guard` next to [_libraryPath], set by [load] — `null` when it
+  /// is missing or built against other struct layouts, in which case the
+  /// throwing entry points are called directly (pre-guard behaviour). See
+  /// `native_call_guard.dart`.
+  NativeCallGuard? _guard;
+
+  /// Raw addresses of the entry points routed through [_guard].
+  ffi.Pointer<ffi.Void> _initStateFn = ffi.nullptr;
+  ffi.Pointer<ffi.Void> _fullFn = ffi.nullptr;
+  ffi.Pointer<ffi.Void> _fullWithStateFn = ffi.nullptr;
+
+  /// Whether [load] routes whisper's throwing entry points through
+  /// `wp_ffi_guard`.
+  @visibleForTesting
+  bool get usesNativeCallGuard => _guard != null;
   String? _errorMessage;
+
+  /// See [WhisperEngineStatus.cpuFeatures]; set by [load].
+  String? _cpuFeatures;
+
+  /// See [WhisperEngineStatus.gpuDevice]; set by [load].
+  String? _gpuDevice;
 
   /// Resolved path to the bundled Silero-VAD ggml model, set by [load].
   /// `null` means VAD is unavailable this session (path not resolved / not
@@ -248,6 +281,8 @@ class WhisperFfiEngine
     isLoaded: _ctx != null,
     backend: _confirmedBackend,
     errorMessage: _errorMessage,
+    cpuFeatures: _cpuFeatures,
+    gpuDevice: _gpuDevice,
   );
 
   @override
@@ -268,19 +303,56 @@ class WhisperFfiEngine
     try {
       ensureWindowsDllSearchPath(_libraryPath);
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
-      _ensureBackendsLoaded(dylib, _libraryPath);
-      _confirmedBackend = _confirmBackend(dylib, _backend);
+      _ensureBackendsLoaded(
+        dylib,
+        _libraryPath,
+        cpuOnly: _backend == WhisperBackend.cpu,
+      );
+      final cudaPackDir = _cudaPackDir;
+      if (cudaPackDir != null && _backend != WhisperBackend.cpu) {
+        _ensureCudaPackLoaded(dylib, cudaPackDir, _libraryPath);
+      }
+      final (backend, gpuDevice, gpuIndex) = _confirmBackend(
+        dylib,
+        _backend,
+        preferCuda: cudaPackDir != null,
+      );
+      _confirmedBackend = backend;
+      _gpuDevice = gpuDevice;
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
       _ensureLogCallbackRegistered(bindings);
+      _cpuFeatures = _readCpuFeatures(bindings);
       _resolveSegmentTimestampLookups(dylib);
+      final guard = NativeCallGuard.nextTo(_libraryPath);
+      _guard = guard != null && guard.supportsWhisperStructs ? guard : null;
+      _initStateFn = dylib.lookup<ffi.Void>('whisper_init_state');
+      _fullFn = dylib.lookup<ffi.Void>('whisper_full');
+      _fullWithStateFn = dylib.lookup<ffi.Void>('whisper_full_with_state');
       final cparams = bindings.whisper_context_default_params();
       cparams.use_gpu = _confirmedBackend != WhisperBackend.cpu;
+      cparams.gpu_device = gpuIndex;
       final pathC = modelPath.toNativeUtf8();
       try {
-        final ctx = bindings.whisper_init_from_file_with_params(
-          pathC.cast<ffi.Char>(),
-          cparams,
-        );
+        final ffi.Pointer<whisper_context> ctx;
+        try {
+          ctx = _guard != null
+              ? _guard!.whisperInitFromFile(
+                  dylib.lookup<ffi.Void>('whisper_init_from_file_with_params'),
+                  pathC.cast<ffi.Char>(),
+                  cparams,
+                )
+              : bindings.whisper_init_from_file_with_params(
+                  pathC.cast<ffi.Char>(),
+                  cparams,
+                );
+        } on NativeCallException catch (e) {
+          // E.g. ggml-vulkan's vk::SystemError while creating the device
+          // (Sentry 140866975/151627808) — previously a process abort. A
+          // StateError lets SttServerStateNotifier retry the load on CPU.
+          _log.warning('whisper_init threw natively: ${e.message}');
+          _errorMessage = 'whisper_init_failed';
+          throw StateError('whisper_init_failed: ${e.message}');
+        }
         if (ctx == ffi.nullptr) {
           _errorMessage = 'whisper_init_failed';
           throw StateError('whisper_init_from_file_with_params returned null');
@@ -296,6 +368,34 @@ class WhisperFfiEngine
     } catch (e) {
       _errorMessage = 'whisper_library_load_failed';
       throw StateError('whisper_library_load_failed: $e');
+    }
+  }
+
+  /// Registers ggml's backends exactly as [load] does and returns the CPU
+  /// backend's features (see [cpuBackendFeaturesFromSystemInfo]) without
+  /// loading a model — `null` when no CPU backend was registered. Used by
+  /// `whispaste --diagnose` to prove a package's backend modules are found.
+  static String? probeCpuBackend(ffi.DynamicLibrary dylib, String libraryPath) {
+    _ensureBackendsLoaded(dylib, libraryPath);
+    return _readCpuFeatures(WhisperBindings.fromLookup(dylib.lookup));
+  }
+
+  /// Reads which CPU backend variant ggml loaded (see
+  /// [cpuBackendFeaturesFromSystemInfo]) and logs it once per load, so
+  /// both the app log and the In-App-Diagnostik show it. Never throws —
+  /// a library without the call just reports nothing.
+  static String? _readCpuFeatures(WhisperBindings bindings) {
+    try {
+      final info = bindings
+          .whisper_print_system_info()
+          .cast<Utf8>()
+          .toDartString();
+      final features = cpuBackendFeaturesFromSystemInfo(info);
+      _log.info('ggml CPU backend features: ${features ?? '(none reported)'}');
+      return features;
+    } on Object catch (e) {
+      _log.warning('whisper_print_system_info failed: $e');
+      return null;
     }
   }
 
@@ -349,11 +449,22 @@ class WhisperFfiEngine
 
   static bool _backendsLoaded = false;
 
-  /// Calls ggml's `ggml_backend_load_all()` exactly once per process — see
-  /// the file doc comment for why this is required at all with
+  /// Registers ggml's dynamically loaded backends exactly once per process —
+  /// see the file doc comment for why this is required at all with
   /// `-DGGML_BACKEND_DL=ON`. Safe/idempotent to skip on repeat [load] calls;
   /// ggml's own registry dedupes by backend name regardless, this guard just
   /// avoids the redundant directory scan.
+  ///
+  /// Scans [libraryPath]'s own directory via
+  /// `ggml_backend_load_all_from_path` — that is where every build script
+  /// stages the backend modules (`ggml-cpu-*.dll`/`libggml-cpu-*.so`,
+  /// `ggml-vulkan`). The argument-less `ggml_backend_load_all()` only scans
+  /// the executable's directory and the CWD: identical to [libraryPath]'s
+  /// directory on Windows, but on Linux the modules live in `<bundle>/lib/`
+  /// next to `libwhisper.so`, one level below the executable — so ggml found
+  /// no backend at all there (not even CPU) and whisper.cpp aborted on its
+  /// null CPU device. `ggml_backend_load_all()` stays as the fallback for an
+  /// older bundled library without the `_from_path` export.
   ///
   /// Usually exported by a separate `ggml` shared library next to
   /// [libraryPath] (confirmed via `dumpbin /exports` against the real
@@ -363,32 +474,146 @@ class WhisperFfiEngine
   /// `ggml_backend_dev_backend_reg`, which is where the crash this fixes
   /// symbolicated via WinDbg) — but some bundles statically link ggml into
   /// the main whisper library instead, so [dylib] itself is tried first.
+  ///
+  /// With [cpuOnly] (the user chose "Nur CPU") only the CPU module is loaded,
+  /// see [_loadBestCpuModule]: loading the GPU modules would initialise GPU
+  /// drivers (Vulkan/CUDA device enumeration) that a CPU-only run never uses.
+  /// A full load still happens later if a GPU engine is needed in the same
+  /// process; a CPU-only load never blocks it.
   static void _ensureBackendsLoaded(
     ffi.DynamicLibrary dylib,
-    String libraryPath,
-  ) {
-    if (_backendsLoaded) return;
-    void Function()? loadAll;
+    String libraryPath, {
+    bool cpuOnly = false,
+  }) {
+    if (_backendsLoadedFull || (_backendsLoaded && cpuOnly)) return;
     var resolved = dylib;
-    try {
-      loadAll = dylib.lookupFunction<ffi.Void Function(), void Function()>(
-        'ggml_backend_load_all',
-      );
-    } on ArgumentError {
+    if (!dylib.providesSymbol('ggml_backend_load_all')) {
       final ggmlName = Platform.isWindows
           ? 'ggml.dll'
           : (Platform.isMacOS ? 'libggml.dylib' : 'libggml.so');
       final ggmlPath = p.join(p.dirname(libraryPath), ggmlName);
       if (!File(ggmlPath).existsSync()) return;
-      final ggml = ffi.DynamicLibrary.open(ggmlPath);
-      resolved = ggml;
-      loadAll = ggml.lookupFunction<ffi.Void Function(), void Function()>(
-        'ggml_backend_load_all',
-      );
+      resolved = ffi.DynamicLibrary.open(ggmlPath);
     }
-    loadAll();
+    final libraryDir = p.dirname(libraryPath);
+    if (cpuOnly && _loadBestCpuModule(resolved, libraryDir)) {
+      // Only the CPU backend is registered; the GPU modules stay unloaded.
+    } else {
+      if (cpuOnly) {
+        // Expected for a static CPU build (no module exists); otherwise it
+        // keeps whisper from aborting on a null CPU device.
+        _log.info(
+          'No ggml CPU backend module in $libraryDir (static CPU build?) — '
+          'loading all backends',
+        );
+      }
+      _loadAllBackends(resolved, libraryDir);
+      _backendsLoadedFull = true;
+    }
     _resolvedGgmlLibrary = resolved;
+    // The per-device accessors (`ggml_backend_dev_type`/`_name`) live in
+    // ggml-base.dll, and unlike dlsym on Linux, GetProcAddress does not
+    // search a DLL's imports — so [_confirmBackend] needs its own handle.
+    final basePath = p.join(p.dirname(libraryPath), 'ggml-base.dll');
+    if (Platform.isWindows && File(basePath).existsSync()) {
+      _ggmlBaseLibrary = ffi.DynamicLibrary.open(basePath);
+    }
     _backendsLoaded = true;
+  }
+
+  /// `ggml-base.dll` on Windows (see [_ensureBackendsLoaded]), else `null`.
+  static ffi.DynamicLibrary? _ggmlBaseLibrary;
+
+  /// Whether [_ensureBackendsLoaded] has registered every backend module, not
+  /// just the CPU one. A full load satisfies any later request.
+  static bool _backendsLoadedFull = false;
+
+  /// `ggml_backend_load_all_from_path(dir)`, or the argument-less
+  /// `ggml_backend_load_all()` for a bundle without the `_from_path` export.
+  static void _loadAllBackends(ffi.DynamicLibrary lib, String dir) {
+    if (lib.providesSymbol('ggml_backend_load_all_from_path')) {
+      final loadAllFromPath = lib
+          .lookupFunction<
+            ffi.Void Function(ffi.Pointer<Utf8>),
+            void Function(ffi.Pointer<Utf8>)
+          >('ggml_backend_load_all_from_path');
+      final dirC = dir.toNativeUtf8();
+      try {
+        loadAllFromPath(dirC);
+      } finally {
+        malloc.free(dirC);
+      }
+    } else {
+      lib.lookupFunction<ffi.Void Function(), void Function()>(
+        'ggml_backend_load_all',
+      )();
+    }
+  }
+
+  /// Loads only the ggml CPU module that ggml itself would pick from [dir],
+  /// returning `false` (nothing loaded) when there is none to load.
+  ///
+  /// ggml's `ggml_backend_load_best` is not part of the public header, so
+  /// this mirrors it: each `ggml-cpu-<level>` module exports
+  /// `ggml_backend_score()` (0 = unsupported by this CPU), and the highest
+  /// score wins. Candidates are only opened for their score here; the chosen
+  /// one is then registered with `ggml_backend_load`.
+  static bool _loadBestCpuModule(ffi.DynamicLibrary lib, String dir) {
+    if (!lib.providesSymbol('ggml_backend_load')) return false;
+    final scores = <String, int>{};
+    try {
+      for (final entity in Directory(dir).listSync()) {
+        if (entity is! File) continue;
+        if (!_isCpuModuleFileName(p.basename(entity.path))) continue;
+        scores[entity.path] = _backendScore(entity.path);
+      }
+    } on FileSystemException catch (e) {
+      _log.warning('Cannot list backend modules in $dir: $e');
+      return false;
+    }
+    final best = pickBestCpuModule(scores);
+    if (best == null) return false;
+    final load = lib
+        .lookupFunction<
+          ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>),
+          ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>)
+        >('ggml_backend_load');
+    final pathC = best.toNativeUtf8();
+    try {
+      final reg = load(pathC);
+      if (reg == ffi.nullptr) return false;
+    } finally {
+      malloc.free(pathC);
+    }
+    _log.info('CPU-only backend load: registered ${p.basename(best)}');
+    return true;
+  }
+
+  /// Whether [name] is a ggml CPU backend module for this platform.
+  static bool _isCpuModuleFileName(String name) {
+    final lower = name.toLowerCase();
+    // ggml names its dynamically loaded backend modules `*.so` on every
+    // non-Windows platform, macOS included (ggml-backend-reg.cpp).
+    final ext = Platform.isWindows ? '.dll' : '.so';
+    final stem =
+        lower.startsWith('libggml-cpu') || lower.startsWith('ggml-cpu');
+    return stem && lower.endsWith(ext);
+  }
+
+  /// `ggml_backend_score()` of the module at [modulePath]. A module without
+  /// the export counts as supported (score 1); one that cannot be opened
+  /// counts as unsupported (0).
+  static int _backendScore(String modulePath) {
+    try {
+      final lib = ffi.DynamicLibrary.open(modulePath);
+      if (!lib.providesSymbol('ggml_backend_score')) return 1;
+      return lib.lookupFunction<ffi.Int32 Function(), int Function()>(
+        'ggml_backend_score',
+      )();
+    } on ArgumentError catch (e) {
+      _log.warning('Cannot open backend module $modulePath: $e');
+      return 0;
+    }
   }
 
   /// The library [_ensureBackendsLoaded] actually found `ggml_backend_load_all`
@@ -398,14 +623,6 @@ class WhisperFfiEngine
   /// exports the registry API, `ggml-base.dll` only lower-level accessors —
   /// see this class's file doc comment) may not export them from `dylib`.
   static ffi.DynamicLibrary? _resolvedGgmlLibrary;
-
-  /// `ggml_backend_dev_type`'s GPU-classifying values (`ggml-backend.h`'s
-  /// `enum ggml_backend_dev_type`, confirmed against the bundled macOS
-  /// dylib: `MTL0`→1, `BLAS`→3, `CPU`→0). CPU and ACCEL (e.g. Apple's BLAS
-  /// backend) are deliberately excluded — an ACCEL device alongside CPU-only
-  /// does not mean GPU acceleration is happening.
-  static const _ggmlBackendDeviceTypeGpu = 1;
-  static const _ggmlBackendDeviceTypeIgpu = 2;
 
   /// Confirms [requested] against ggml's own device registry, downgrading to
   /// [WhisperBackend.cpu] when no matching device is actually registered.
@@ -419,50 +636,220 @@ class WhisperFfiEngine
   /// bundled lib) degrade to trusting [requested] unchanged, matching
   /// [_resolveSegmentTimestampLookups]'s degrade-gracefully contract — this
   /// is a confirmation layer, not a hard requirement.
-  static WhisperBackend _confirmBackend(
+  ///
+  /// Also returns the name of the GPU device whisper.cpp will pick (see
+  /// [WhisperEngineStatus.gpuDevice]), `null` when it runs on CPU or the
+  /// registry cannot be read, and that device's index among the registered
+  /// GPU devices — the value `whisper_context_params.gpu_device` expects.
+  /// [preferCuda] picks the first `CUDA*` device when one is registered (see
+  /// [pickGpuDeviceIndex]): CUDA first, then discrete, then integrated GPUs.
+  /// The GPU and integrated-GPU devices ggml registers in [dylib], in the
+  /// order whisper.cpp's `gpu_device` index counts them. `null` when the
+  /// library predates the registry API.
+  static ({List<String?> names, List<int> types})? _gpuDevices(
     ffi.DynamicLibrary dylib,
-    WhisperBackend requested,
   ) {
-    if (requested == WhisperBackend.cpu) return WhisperBackend.cpu;
+    // A split Windows bundle spreads the registry API over ggml.dll
+    // (count/get) and ggml-base.dll (type/name); each symbol comes from the
+    // first library that exports it.
     final candidates = <ffi.DynamicLibrary>[
       dylib,
-      if (_resolvedGgmlLibrary != null &&
-          !identical(_resolvedGgmlLibrary, dylib))
-        _resolvedGgmlLibrary!,
+      ?_resolvedGgmlLibrary,
+      ?_ggmlBaseLibrary,
     ];
-    for (final lib in candidates) {
-      try {
-        final devCount = lib
-            .lookupFunction<ffi.Size Function(), int Function()>(
-              'ggml_backend_dev_count',
-            );
-        final devGet = lib
-            .lookupFunction<
-              ffi.Pointer<ffi.Void> Function(ffi.Size),
-              ffi.Pointer<ffi.Void> Function(int)
-            >('ggml_backend_dev_get');
-        final devType = lib
-            .lookupFunction<
-              ffi.Int32 Function(ffi.Pointer<ffi.Void>),
-              int Function(ffi.Pointer<ffi.Void>)
-            >('ggml_backend_dev_type');
-        for (var i = 0; i < devCount(); i++) {
-          final type = devType(devGet(i));
-          if (type == _ggmlBackendDeviceTypeGpu ||
-              type == _ggmlBackendDeviceTypeIgpu) {
-            return requested;
-          }
-        }
-        _log.warning(
-          'Requested $requested but no GPU device is registered in the '
-          'ggml backend registry — downgrading to CPU',
+    ffi.DynamicLibrary? providing(String symbol) {
+      for (final lib in candidates) {
+        if (lib.providesSymbol(symbol)) return lib;
+      }
+      return null;
+    }
+
+    final countLib = providing('ggml_backend_dev_count');
+    final getLib = providing('ggml_backend_dev_get');
+    final typeLib = providing('ggml_backend_dev_type');
+    final nameLib = providing('ggml_backend_dev_name');
+    if (countLib == null || getLib == null || typeLib == null) return null;
+    final devCount = countLib
+        .lookupFunction<ffi.Size Function(), int Function()>(
+          'ggml_backend_dev_count',
         );
-        return WhisperBackend.cpu;
-      } on ArgumentError {
-        continue;
+    final devGet = getLib
+        .lookupFunction<
+          ffi.Pointer<ffi.Void> Function(ffi.Size),
+          ffi.Pointer<ffi.Void> Function(int)
+        >('ggml_backend_dev_get');
+    final devType = typeLib
+        .lookupFunction<
+          ffi.Int32 Function(ffi.Pointer<ffi.Void>),
+          int Function(ffi.Pointer<ffi.Void>)
+        >('ggml_backend_dev_type');
+    // Same filter and order as whisper_backend_init_gpu: only GPU and IGPU
+    // devices count, and `gpu_device` indexes into exactly this list.
+    final names = <String?>[];
+    final types = <int>[];
+    for (var i = 0; i < devCount(); i++) {
+      final dev = devGet(i);
+      final type = devType(dev);
+      if (type == ggmlDeviceTypeGpu || type == ggmlDeviceTypeIgpu) {
+        names.add(nameLib == null ? null : _deviceName(nameLib, dev));
+        types.add(type);
       }
     }
-    return requested;
+    return (names: names, types: types);
+  }
+
+  /// Lists the GPU devices in [dylib] for `whispaste --diagnose`, with the
+  /// device [pickGpuDeviceIndex] picks without a CUDA preference
+  /// (`defaultIndex` is `null` when there is no device). `null` when the
+  /// library has no registry API. Loads the ggml backends as [load] does.
+  static ({List<({String? name, int type})> devices, int? defaultIndex})?
+  probeGpuDevices(ffi.DynamicLibrary dylib, String libraryPath) {
+    _ensureBackendsLoaded(dylib, libraryPath);
+    final registry = _gpuDevices(dylib);
+    if (registry == null) return null;
+    final devices = [
+      for (var i = 0; i < registry.names.length; i++)
+        (name: registry.names[i], type: registry.types[i]),
+    ];
+    final defaultIndex = devices.isEmpty
+        ? null
+        : pickGpuDeviceIndex(
+            registry.names,
+            preferCuda: false,
+            gpuTypes: registry.types,
+          );
+    return (devices: devices, defaultIndex: defaultIndex);
+  }
+
+  /// Threads a transcription uses on this machine by default.
+  static int get defaultThreadCount => _threadCount();
+
+  static (WhisperBackend, String?, int) _confirmBackend(
+    ffi.DynamicLibrary dylib,
+    WhisperBackend requested, {
+    bool preferCuda = false,
+  }) {
+    if (requested == WhisperBackend.cpu) return (WhisperBackend.cpu, null, 0);
+    final registry = _gpuDevices(dylib);
+    // Older bundled library without the registry API: trust [requested].
+    if (registry == null) return (requested, null, 0);
+    final gpuNames = registry.names;
+    final gpuTypes = registry.types;
+    if (gpuNames.isEmpty) {
+      _log.warning(
+        'Requested $requested but no GPU device is registered in the '
+        'ggml backend registry — downgrading to CPU',
+      );
+      return (WhisperBackend.cpu, null, 0);
+    }
+    final index = pickGpuDeviceIndex(
+      gpuNames,
+      gpuTypes: gpuTypes,
+      preferCuda: preferCuda,
+    );
+    final described = [
+      for (var i = 0; i < gpuNames.length; i++)
+        '${gpuNames[i]} (${_gpuTypeLabel(gpuTypes[i])})',
+    ].join(', ');
+    _log.info('GPU devices in registry order: $described — using index $index');
+    if (preferCuda && !(gpuNames[index]?.startsWith('CUDA') ?? false)) {
+      _log.warning(
+        'CUDA pack is enabled but no CUDA device is registered '
+        '(driver too old or no supported NVIDIA GPU) — using '
+        '${gpuNames[index]} instead',
+      );
+    }
+    return (
+      backendForDevice(gpuNames[index], requested),
+      gpuNames[index],
+      index,
+    );
+  }
+
+  /// Process-wide: the CUDA pack directory whose module is already
+  /// registered with ggml. ggml's registry cannot unregister a backend, so a
+  /// second pack directory in the same process is ignored (the user would
+  /// only get there by reinstalling a pack, which restarts the engine but
+  /// not the process; the old module keeps working until the next launch).
+  static String? _cudaPackLoadedFrom;
+
+  /// Registers the optional CUDA module from [packDir] with ggml via
+  /// `ggml_backend_load`, once per process. The module lives outside the
+  /// app's own library folder (installed packages are read-only), so
+  /// [_ensureBackendsLoaded]'s directory scan never sees it.
+  ///
+  /// Dependency resolution: on Linux the module's `$ORIGIN` RUNPATH finds
+  /// the CUDA runtime next to it and `libggml-base.so.0` is matched by
+  /// soname against the copy libwhisper already loaded. On Windows ggml calls
+  /// a plain `LoadLibraryW`, whose transitive imports (`cudart64_12.dll`,
+  /// `cublas64_12.dll`) are searched in the `SetDllDirectoryW` folder — so
+  /// that folder points at [packDir] for the call and back at the app's
+  /// library folder afterwards; `ggml-base.dll` is already loaded by name.
+  ///
+  /// Never throws: a missing, corrupt or driver-incompatible pack only means
+  /// no `CUDA*` device gets registered, and [_confirmBackend] then keeps the
+  /// Vulkan device.
+  static void _ensureCudaPackLoaded(
+    ffi.DynamicLibrary dylib,
+    String packDir,
+    String libraryPath,
+  ) {
+    if (_cudaPackLoadedFrom != null) {
+      if (_cudaPackLoadedFrom != packDir) {
+        _log.warning(
+          'CUDA module already loaded from $_cudaPackLoadedFrom; '
+          'ignoring $packDir until the next launch',
+        );
+      }
+      return;
+    }
+    final modulePath = p.join(packDir, cudaModuleFileName());
+    if (!File(modulePath).existsSync()) {
+      _log.warning('CUDA pack has no module at $modulePath');
+      return;
+    }
+    final lib = _resolvedGgmlLibrary ?? dylib;
+    try {
+      final load = lib
+          .lookupFunction<
+            ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>),
+            ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>)
+          >('ggml_backend_load');
+      final pathC = modulePath.toNativeUtf8();
+      try {
+        ensureWindowsDllSearchPath(modulePath);
+        final reg = load(pathC);
+        _cudaPackLoadedFrom = packDir;
+        if (reg == ffi.nullptr) {
+          _log.warning('ggml_backend_load rejected the CUDA module');
+        } else {
+          _log.info('CUDA module registered from $packDir');
+        }
+      } finally {
+        ensureWindowsDllSearchPath(libraryPath);
+        malloc.free(pathC);
+      }
+    } on ArgumentError {
+      _log.warning('ggml_backend_load is not exported — CUDA pack unusable');
+    }
+  }
+
+  /// `ggml_backend_dev_name(dev)`, or `null` if [lib] does not export it.
+  static String? _deviceName(
+    ffi.DynamicLibrary lib,
+    ffi.Pointer<ffi.Void> dev,
+  ) {
+    try {
+      final name = lib
+          .lookupFunction<
+            ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>),
+            ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>)
+          >('ggml_backend_dev_name');
+      final ptr = name(dev);
+      return ptr == ffi.nullptr ? null : ptr.toDartString();
+    } on ArgumentError {
+      return null;
+    }
   }
 
   /// Best-effort lookup of `whisper_full_get_segment_t0/t1`, used only by
@@ -965,7 +1352,7 @@ class WhisperFfiEngine
       //
       // Two settings the app never touched, left at whisper.cpp's
       // built-in defaults, both cross-referenced against the actual
-      // decode source (`.build/deps/whisper.cpp/v1.8.4/src/whisper.cpp`)
+      // decode source (`.build/deps/whisper.cpp/v1.9.5/src/whisper.cpp`)
       // before changing:
       //
       // 1. `suppress_nst` (default `false`) — suppresses a fixed table of
@@ -1114,7 +1501,18 @@ class WhisperFfiEngine
 
       final int rc;
       try {
-        rc = bindings.whisper_full(ctx, params, samplesPtr, samples.length);
+        final guard = _guard;
+        rc = guard != null
+            ? guard.whisperFull(
+                _fullFn,
+                ctx,
+                params,
+                samplesPtr,
+                samples.length,
+              )
+            : bindings.whisper_full(ctx, params, samplesPtr, samples.length);
+      } on NativeCallException catch (e) {
+        throw _nativeInferenceFailure('whisper_full', e);
       } finally {
         segmentCallable.close();
       }
@@ -1185,6 +1583,26 @@ class WhisperFfiEngine
   /// [startLivePreview] has not (yet) been called, or was stopped.
   ffi.Pointer<whisper_state>? _previewState;
 
+  /// Int32 that aborts a running [decodeLivePreview] once non-zero (ticket
+  /// 30). Owned and raised by another isolate ([WhisperIsolateEngine]) so a
+  /// stop does not wait behind a whole preview window; only honoured when
+  /// the guard exports `wpg_abort_flag_cb`, otherwise previews run to the
+  /// end as before.
+  ffi.Pointer<ffi.Int32>? livePreviewAbortFlag;
+
+  /// Maps a C++ exception caught by `wp_ffi_guard` during inference to the
+  /// notifier's resilience taxonomy: on a GPU backend it is treated like a
+  /// GPU fault (ggml-vulkan/Metal throwing mid-decode) so the notifier
+  /// re-runs the transcription on CPU; on CPU there is nothing to degrade
+  /// to, so it is surfaced as [WhisperFailureKind.other].
+  WhisperEngineException _nativeInferenceFailure(
+    String call,
+    NativeCallException e,
+  ) {
+    _log.warning('$call threw natively: ${e.message}');
+    return nativeInferenceFailure(call, e, _confirmedBackend);
+  }
+
   @override
   Future<void> startLivePreview() async {
     if (_previewState != null) return;
@@ -1193,7 +1611,15 @@ class WhisperFfiEngine
     if (bindings == null || ctx == null) {
       throw StateError('whisper_engine_not_loaded');
     }
-    final state = bindings.whisper_init_state(ctx);
+    final ffi.Pointer<whisper_state> state;
+    try {
+      final guard = _guard;
+      state = guard != null
+          ? guard.whisperInitState(_initStateFn, ctx)
+          : bindings.whisper_init_state(ctx);
+    } on NativeCallException catch (e) {
+      throw _nativeInferenceFailure('whisper_init_state', e);
+    }
     if (state == ffi.nullptr) {
       throw StateError('whisper_init_state_failed');
     }
@@ -1240,14 +1666,38 @@ class WhisperFfiEngine
       if (promptC != null) {
         params.initial_prompt = promptC.cast<ffi.Char>();
       }
+      final abortFlag = livePreviewAbortFlag;
+      final abortCallback = _guard?.abortFlagCallback;
+      if (abortFlag != null && abortCallback != null) {
+        params.abort_callback = abortCallback;
+        params.abort_callback_user_data = abortFlag.cast();
+      }
 
-      final rc = bindings.whisper_full_with_state(
-        ctx,
-        state,
-        params,
-        samplesPtr,
-        samples.length,
-      );
+      final int rc;
+      try {
+        final guard = _guard;
+        rc = guard != null
+            ? guard.whisperFullWithState(
+                _fullWithStateFn,
+                ctx,
+                state,
+                params,
+                samplesPtr,
+                samples.length,
+              )
+            : bindings.whisper_full_with_state(
+                ctx,
+                state,
+                params,
+                samplesPtr,
+                samples.length,
+              );
+      } on NativeCallException catch (e) {
+        throw _nativeInferenceFailure('whisper_full_with_state', e);
+      }
+      // Stopped mid-decode: whatever whisper produced is stale, and an
+      // aborted run is not an error.
+      if (abortFlag != null && abortFlag.value != 0) return '';
       if (rc != 0) {
         throw WhisperEngineException(
           WhisperFailureKind.transient,
@@ -1368,11 +1818,112 @@ class WhisperFfiEngine
 /// model or the gitignored durchstich fixtures this file's other tests skip
 /// without.
 @visibleForTesting
-WhisperBackend confirmBackendForTesting(
+(WhisperBackend, String?) confirmBackendForTesting(
   ffi.DynamicLibrary dylib,
   String libraryPath,
   WhisperBackend requested,
 ) {
   WhisperFfiEngine._ensureBackendsLoaded(dylib, libraryPath);
-  return WhisperFfiEngine._confirmBackend(dylib, requested);
+  final (backend, device, _) = WhisperFfiEngine._confirmBackend(
+    dylib,
+    requested,
+  );
+  return (backend, device);
 }
+
+/// Picks the CPU module to load from [scores] (module path to score): the
+/// highest score above 0 wins, ties go to the lexicographically first path so
+/// the choice does not depend on directory listing order. `null` if no module
+/// reports support.
+@visibleForTesting
+String? pickBestCpuModule(Map<String, int> scores) {
+  String? best;
+  var bestScore = 0;
+  for (final path in scores.keys.toList()..sort()) {
+    final score = scores[path]!;
+    if (score > bestScore) {
+      best = path;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/// File name of the ggml CUDA module inside an optional CUDA pack.
+String cudaModuleFileName() =>
+    Platform.isWindows ? 'ggml-cuda.dll' : 'libggml-cuda.so';
+
+/// `enum ggml_backend_dev_type` values for the GPU-classifying devices
+/// (`ggml-backend.h`; confirmed against the vendored v1.9.5 header and the
+/// bundled macOS dylib: `MTL0`→1). CPU (0) and ACCEL (3, e.g. Apple's BLAS
+/// backend) are deliberately not GPU devices — an ACCEL device alongside
+/// CPU-only does not mean GPU acceleration is happening.
+const int ggmlDeviceTypeGpu = 1;
+const int ggmlDeviceTypeIgpu = 2;
+
+String _gpuTypeLabel(int type) => switch (type) {
+  ggmlDeviceTypeGpu => 'discrete',
+  ggmlDeviceTypeIgpu => 'integrated',
+  _ => 'type $type',
+};
+
+/// Index (among the registered GPU devices, in registry order) of the device
+/// whisper.cpp should use — the value for `whisper_context_params.gpu_device`.
+///
+/// whisper.cpp counts only GPU and IGPU devices in registry order and takes
+/// the N-th one. ggml-vulkan registers integrated and discrete adapters in OS
+/// enumeration order without preference, so on a hybrid laptop index 0 can be
+/// the iGPU. Ranking, first match wins:
+///
+/// 1. with [preferCuda], the first `CUDA*` device: the optional CUDA pack is
+///    registered after the bundled backends, so on an NVIDIA machine the same
+///    card usually shows up first as `Vulkan0` and later as `CUDA0`;
+/// 2. the first discrete GPU ([ggmlDeviceTypeGpu]);
+/// 3. the first integrated GPU ([ggmlDeviceTypeIgpu]).
+///
+/// [gpuTypes] is parallel to [gpuNames]. Without it every device is treated
+/// as discrete, which reduces the rule to "first device" (whisper.cpp's
+/// default of `0`).
+int pickGpuDeviceIndex(
+  List<String?> gpuNames, {
+  required bool preferCuda,
+  List<int>? gpuTypes,
+}) {
+  if (preferCuda) {
+    final cuda = gpuNames.indexWhere((n) => n?.startsWith('CUDA') ?? false);
+    if (cuda >= 0) return cuda;
+  }
+  final types = gpuTypes ?? List.filled(gpuNames.length, ggmlDeviceTypeGpu);
+  final discrete = types.indexOf(ggmlDeviceTypeGpu);
+  if (discrete >= 0) return discrete;
+  final integrated = types.indexOf(ggmlDeviceTypeIgpu);
+  return integrated >= 0 ? integrated : 0;
+}
+
+/// Backend that actually runs on the registry device [deviceName] (as chosen
+/// by [pickGpuDeviceIndex]). The requested backend is only a guess: with CUDA
+/// requested but no CUDA device registered, whisper.cpp runs on a Vulkan
+/// device, and the status, diagnostics and crash recovery must say so.
+/// Falls back to [requested] for unknown or missing names.
+@visibleForTesting
+WhisperBackend backendForDevice(String? deviceName, WhisperBackend requested) {
+  final name = deviceName ?? '';
+  if (name.startsWith('CUDA')) return WhisperBackend.cuda;
+  if (name.startsWith('Vulkan')) return WhisperBackend.vulkan;
+  if (name.startsWith('MTL')) return WhisperBackend.metal;
+  return requested;
+}
+
+/// Pure mapping behind [WhisperFfiEngine._nativeInferenceFailure], split out
+/// for unit tests.
+@visibleForTesting
+WhisperEngineException nativeInferenceFailure(
+  String call,
+  NativeCallException e,
+  WhisperBackend backend,
+) => WhisperEngineException(
+  backend == WhisperBackend.cpu
+      ? WhisperFailureKind.other
+      : WhisperFailureKind.gpuCrash,
+  '$call threw a native exception: ${e.message}',
+);

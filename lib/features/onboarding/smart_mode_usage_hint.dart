@@ -35,8 +35,7 @@ const int kSmartModeUsageHintTextPreviewLength = 160;
 
 /// Wraps [child], watching [historyEntriesProvider] for a newly completed
 /// dictation. Renders no visible UI of its own — place it anywhere above the
-/// content layer, same convention as [WpFeatureSpotlightWatcher] and
-/// [WpStoreThankYouWatcher].
+/// content layer, same convention as [WpFeatureSpotlightWatcher].
 class SmartModeUsageHintWatcher extends ConsumerStatefulWidget {
   const SmartModeUsageHintWatcher({super.key, required this.child});
 

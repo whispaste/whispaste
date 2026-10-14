@@ -76,7 +76,19 @@ void main() {
     test('history_pin_lock follows smart_mode and applies to every '
         'platform', () {
       final ids = kFeatureSpotlightRegistry.map((e) => e.id).toList();
-      expect(ids.sublist(ids.indexOf('smart_mode') + 1), ['history_pin_lock']);
+      expect(ids[ids.indexOf('smart_mode') + 1], 'history_pin_lock');
+      final entry = kFeatureSpotlightRegistry.firstWhere(
+        (e) => e.id == 'history_pin_lock',
+      );
+      expect(entry.platforms, isNull);
+    });
+
+    test('edit_selection_voice follows history_pin_lock and applies to every '
+        'platform', () {
+      final ids = kFeatureSpotlightRegistry.map((e) => e.id).toList();
+      expect(ids.sublist(ids.indexOf('history_pin_lock') + 1), [
+        'edit_selection_voice',
+      ]);
       final entry = kFeatureSpotlightRegistry.last;
       expect(entry.platforms, isNull);
     });
@@ -93,15 +105,12 @@ void main() {
       expect(kFeatureSpotlightReviewedVersion, version);
     });
 
-    test('smart_mode is scoped to macos+windows — the local engine is not '
-        'bundled for Linux (smartModeLibraryPathFor throws there)', () {
+    test('smart_mode applies to every platform — the local engine is '
+        'bundled on Linux too since handy-catchup/21', () {
       final entry = kFeatureSpotlightRegistry.firstWhere(
         (e) => e.id == 'smart_mode',
       );
-      expect(entry.platforms, {
-        OnboardingPlatform.macos,
-        OnboardingPlatform.windows,
-      });
+      expect(entry.platforms, isNull);
     });
   });
 

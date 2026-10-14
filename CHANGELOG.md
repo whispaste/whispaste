@@ -1,618 +1,699 @@
 # Changelog
 
-## 1.3.0
+All entries are written in English.
 
-Mit 1.3 bündelt WhisPaste die Funktionen der letzten Wochen zu einem Minor-Release. Die Details zu jeder Version stehen weiter unten.
+## 1.4.0
 
-### Highlights seit 1.2.60
+1.4 adds voice-driven editing of selected text, spoken line breaks, optional filler-word removal, push-to-talk on Linux (experimental) and an interface in Spanish and Brazilian Portuguese. Smart Mode stays loaded between runs, more hardware runs without crashing, and the crash-report opt-out now applies from the first start.
 
-- **Smart Mode:** Diktat vor dem Einfügen bereinigen, kürzen oder übersetzen — lokal auf dem Gerät (macOS/Windows) oder per OpenAI, mit eigenem Hotkey und Zielsprache.
-- **Interaktive Snippets:** Textbausteine mit Lücken, die WhisPaste Feld für Feld per Diktat ausfüllen lässt.
-- **Seitenleiste:** Clipboard-Verlauf am Bildschirmrand — jetzt auch unter Linux und wahlweise links oder rechts.
-- **Live-Transkript:** der erkannte Text erscheint schon während des Sprechens im Aufnahme-Overlay.
-- **Lernt aus Korrekturen:** wiederholte Korrekturen im Verlauf werden als Ersetzung vorgeschlagen.
-- **Aufnahme verwerfen:** Escape oder das X im Overlay verwirft eine Aufnahme, ohne zu transkribieren oder einzufügen.
-- **Verlauf mit PIN schützen:** Sichtsperre für Verlauf, Seitenleiste, Button-Menü und Automation-API, mit automatischer Sperre.
-- **Lokale Automation-API:** WhisPaste per HTTP aus Skripten und Tools steuern (siehe `AUTOMATION_API.md`).
-- **Neue Sprachen:** Russisch sowie vollständiges Hebräisch.
+### Highlights
+
+- **Edit selected text by voice:** select text, press the new hotkey and say what should change. Off by default.
+- **Line breaks by voice:** say "new paragraph" or "new line" to start a new paragraph or line.
+- **Recordings up to 60 minutes:** the recording limit now goes up to 60 minutes, with Unlimited at the far right.
+- **Remove filler words:** optionally drop "um", "äh" and similar from dictation. Off by default.
+- **Push-to-talk on Linux (experimental):** hold a hotkey to dictate, on X11 and on Wayland.
+- **Smart Mode keeps its model loaded:** repeated rewrites no longer reload the local model every time.
+- **More hardware runs cleanly:** CPUs without AVX2 and older NVIDIA cards no longer crash or hang WhisPaste.
+- **Crash-report opt-out from the first start:** turning it off also covers people who opted out in an earlier version.
+- **Start and stop from a desktop shortcut:** `whispaste --toggle` controls the running app.
+- **Spanish and Brazilian Portuguese interface:** the app now speaks six languages.
+- **Calmer, clearer interface:** history and notes rows have a clear hierarchy, long entries keep a readable width, and settings sections are picked from one menu.
+- **Support WhisPaste from the app:** a new Support page collects the ways to help. Store versions offer optional one-time tips through the Microsoft Store and the Mac App Store. Tips unlock nothing; the app stays complete without them.
 
 ### New Features
 
-- **Neu in WhisPaste:** der Hinweis stellt den neuen PIN-Schutz für den Verlauf vor.
-
-- **Verlauf:** optionaler PIN-Schutz (4–8 Ziffern) für den Verlauf. Ist eine PIN gesetzt, zeigt auch das Seitenpanel keine Transkripte mehr, das Kontextmenü des schwebenden Aufnahme-Buttons keine letzten Einträge, und die lokale Automation-API antwortet mit `423 history_locked`, bis der Verlauf entsperrt ist. Der Verlauf sperrt sich beim App-Start, beim Minimieren ins Tray und auf Wunsch nach einstellbarer Inaktivität (1–60 Minuten) automatisch wieder. Mehrere Fehleingaben lösen eine zunehmende Wartezeit aus; „PIN vergessen?" löscht den Verlauf und entfernt die PIN. Die PIN ist eine Sichtsperre, keine Verschlüsselung.
-- **Verlauf:** neue Einstellung „Verlauf beim Öffnen verbergen" — die Verlaufsseite zeigt ihren Inhalt erst nach einem Klick auf „Verlauf anzeigen", z. B. für Bildschirmfreigaben.
+- **Optional CUDA pack for NVIDIA GPUs (Windows and Linux):** on NVIDIA RTX and GTX 16 cards, Speech recognition offers a separate, checksum-verified CUDA download under GPU acceleration. You can cancel, switch off or remove it there. Without a working driver WhisPaste stays on Vulkan, and a crash while loading CUDA switches the option off. Not part of the Microsoft Store version.
+- **Refreshed interface:** history and notes rows show title, preview and details in a clear order, the selected entry stands out, and the history detail keeps a readable line width on wide windows. Settings replace the row of section chips with a section picker. Word counts read "approx. 27 words" instead of "~27 w".
+- **Support page:** About › Support WhisPaste lists every way to help: GitHub Sponsors, Ko-fi and PayPal on direct downloads, native one-time tips on the Microsoft Store and the Mac App Store, plus rating, starring and sharing. A small chip in the status bar leads there and turns into a thank-you once you have supported the project; supporters can hide it, and Settings › Interface brings it back. A verified store purchase earns a small supporter badge. Nothing in the app is locked behind a payment.
+- **Edit selection by voice:** a new hotkey, off by default, copies the current selection, records your spoken instruction and replaces the selection with the result. "Shorter", "improve" and "translate" work as quick actions in all six UI languages; any other sentence is passed on as a free-form instruction. It uses your Smart Mode engine (local or cloud). Nothing is written to history, and your clipboard is always restored.
+- **Spoken line breaks:** say "new paragraph" or "new line" and WhisPaste inserts a real paragraph or line break. Works in all six UI languages (for example "neuer Absatz" / "neue Zeile", "nuevo párrafo" / "nueva línea") and follows the transcription language. On by default; turn it off under Speech recognition.
+- **Line breaks in replacements:** a replacement can now contain `\n` for a line break (`\\n` keeps a literal backslash-n). Existing replacements that contained a literal `\n` now insert a line break.
+- **Filler word removal:** new toggle under Speech recognition, off by default. It removes unambiguous fillers as whole words before Smart Mode and replacements run ("um" only in English). The history keeps the original transcript.
+- **Push-to-talk on Linux (experimental):** key release is read through XInput2 on X11 and through the GlobalShortcuts portal on Wayland (GNOME 48+, Plasma 6+). If the desktop does not report key release, the hotkey stays toggle-only. Settings and onboarding carry an "Experimental" badge until this has been verified on real GNOME and KDE desktops.
+- **Smart Mode on Linux (experimental):** Linux packages include the on-device engine. If its library is missing, the option stays disabled with a hint.
+- **Start and stop from a desktop shortcut:** `whispaste --toggle` starts or stops dictation in the running instance, `whispaste --cancel` discards it. Without a running instance, `--toggle` starts the app and begins dictation after the first frame. SIGUSR2 also toggles on Linux and macOS. The README shows GNOME and KDE setup.
+- **Spanish and Brazilian Portuguese interface:** WhisPaste's interface is now available in Spanish and Brazilian Portuguese alongside English, German, Hebrew and Russian. It follows your system language and can be changed in onboarding and settings. The translations have not yet been reviewed by native speakers; feedback is welcome.
+- **Transcribe files from the command line:** `whispaste --transcribe-file <wav>` runs the app's transcriber on a WAV file and prints the text (`--json`, `--engine`, `--model`, `--replacements`). Meant for scripting and latency checks.
 
 ### Bug Fixes
 
-- **Autostart:** „Minimiert starten" wird jetzt zuverlässig beachtet — WhisPaste startet beim Anmelden im Tray, statt das Hauptfenster zu öffnen.
-- **Seitenpanel:** an der rechten Bildschirmkante angedockt hatte das Panel weiterhin die Form eines links angedockten Panels — Rundungen und Schließen-Kreuz sind jetzt gespiegelt und zeigen zur Bildschirmmitte, auch bei rechts-nach-links-Sprachen.
-- **Linux:** bei gesperrtem System-Schlüsselbund blieb WhisPaste beim Start ohne Fenster, Tray-Icon und Hotkey hängen — die App startet jetzt normal und behandelt gespeicherte API-Schlüssel als vorübergehend nicht verfügbar (#151).
-- **macOS:** lag die App in einem Pfad mit Leerzeichen (z. B. „WhisPaste 2.app"), fehlte das Tray-Icon und das Dock-Icon blieb nach dem Schließen des Fensters stehen — das Tray-Icon lädt jetzt unabhängig vom Installationspfad.
+- **Smart Mode uses all CPU cores.** The local engine ran with 4 threads on every machine and now follows the CPU's core count.
+- **Smart Mode follows the GPU setting** and retries on the CPU when the model fails to load on the GPU. A rewrite that was cut off is reported instead of being pasted.
+- **More reliable GPU detection:** on Windows a slow first detection no longer keeps the app on the CPU until restart, and graphics memory above 4 GB is read correctly. On Linux laptops with two GPUs, name and memory come from the GPU that is actually used.
+- **Windows: quitting no longer crashes.** The native window now cleans up on destruction, and the app ships its own VC++ runtime, so an older system runtime cannot crash a mutex call on exit.
+- **Windows: on-device Smart Mode could fail to load** (error 127) when Whisper had loaded first. The two engines' ggml libraries now have their own names.
+- **Parakeet: recordings shorter than 0.1 seconds no longer crash the engine.** An empty or near-empty recording is treated as silence instead of reaching sherpa-onnx, which could abort the process on Windows.
+- **Parakeet: long recordings no longer fail.** Audio beyond about 35 seconds is split into chunks of up to 25 seconds at the quietest point.
+- **Native engine errors no longer crash the app.** C++ exceptions from Whisper (including Vulkan) and sherpa-onnx become errors instead of aborting the process.
+- **Model downloads resume** after a dropped connection. Remaining failures are reported as retryable network errors.
+- **Windows: deleting or replacing model and log files** no longer fails while a previous handle is still held; short sharing violations are retried.
+- **Windows: dictation reaches the clipboard history less often.** A clipboard that another process holds open for a moment is retried for up to about 100 ms, instead of falling back to a plain write that Win+V records (#146).
+- **Older NVIDIA cards run on the CPU in automatic mode.** GeForce 4xx to 7xx and Quadro, Tesla or GRID K cards crashed or hung on the GPU path. Choosing GPU manually still uses the GPU.
+- **CPUs without AVX2 no longer crash the engine.** Windows and Linux ship several CPU backend variants and pick the best instruction set at runtime. On Linux, a model load no longer aborts when the backend library is missing.
+- **Privacy: the crash-report opt-out takes effect immediately.** Turning it off writes a marker and closes Sentry, so later starts never initialise it, including native crashes. Users who opted out in an earlier version are covered from their first start. Usernames are removed from paths and free text in reports. The app checks for updates on start and every 24 hours only while "Check for updates" is on.
+- **Cancelling a transcription is final.** Starting a new recording right after cancelling no longer lets the cancelled text be pasted, the stop hotkey works again immediately, and an aborted edit-selection or snippet run can no longer paste into the next dictation.
+- **GPU crashes during transcription fall back to the CPU.** The retry now really runs on the CPU engine instead of on the same GPU context.
+- **Clipboard:** an empty or non-text clipboard is no longer overwritten with an empty string after pasting, the previous text is restored when typing had to be used as fallback, and edit selection waits a little longer for slow apps to copy.
+- **macOS: hotkeys added in a later version default to ⌘** instead of Ctrl, matching a fresh install.
+- **Rare crash when the speech engine answered twice** is fixed.
+- **Automation API hardening:** the local API only answers requests addressed to localhost, and its port is no longer opened in shared mode.
+- **Crash reports:** extra diagnostic fields are scrubbed of user paths too, and unrecognised graphics adapters are reported by name so they can be supported.
+- **Mac App Store 1.3.0:** the feedback form and telemetry were inactive, because the build was missing its configuration.
+- **A missing speech model is visible before you dictate.** If the selected on-device model is not downloaded, the status bar says so instead of "Standby", the selected quality tier in Settings offers the download, and the dictation hint downloads it with one click, showing its size.
+- **macOS: Auto-Paste permission recovers on its own after updates.** macOS ties the Accessibility permission to the app's identity and signature. The direct download and the Mac App Store version shared one identity, so switching between them could leave an entry that looked enabled but did nothing. The direct download now has its own identity (`de.whispaste.direct`) and takes over your settings on first start; macOS asks for the permission once. If an entry still goes stale, WhisPaste detects it and walks you through fixing it instead of restarting in a loop.
+- **macOS: on-device Smart Mode is included again.** The macOS download and the Mac App Store build shipped without the Smart Mode engine, so the option stayed disabled. Release builds now fail instead of leaving it out.
+
+### Improvements
+
+- **Faster Whisper transcription:** the bundled whisper.cpp moves from 1.8.4 to 1.9.5. On an Apple M5, local transcription of 18 German dictations took about 44 % less time with identical text (large-v3-turbo q5_0, Metal). On macOS the CPU part now picks the build that fits the Mac's chip at startup, so older Apple Silicon Macs get a matching build instead of one tuned for the newest chips.
+- **Parakeet on the GPU:** Parakeet now runs on the GPU through whisper.cpp's ggml backends (Metal on macOS, Vulkan or CUDA elsewhere) and falls back to the CPU engine when no GPU is available or a GPU run fails. On an Apple M5, 18 German dictations (456 seconds of audio) took 7.0 seconds instead of 38.3 seconds on the CPU engine, with the q8_0 model. On a Windows laptop with Intel Iris Xe graphics (Vulkan), 18 German recordings (276 seconds) took 14.1 seconds instead of 27.1 seconds. German word error rate dropped from 8.5 % to 7.1 % in the same test. The model is downloaded with the Parakeet model and checked by its SHA-256 before every load.
+- **Paste without the fixed wait:** when the app you dictated into is still in front, which is the usual case, WhisPaste pastes as soon as the hotkey's modifier keys are released instead of always waiting the Auto-Paste delay (200 ms by default). Apps that first have to be brought to the front still get the full delay. macOS and Windows.
+- **Snappier first recording:** the sound engine no longer opens the audio device ahead of the microphone on the first hotkey press.
+- **Longer recording limits:** the maximum recording length offers steps from 30 seconds up to 60 minutes, and Unlimited sits at the right end of the slider. Long recordings get a transcription budget that grows with their length instead of a fixed 5 minutes.
+- **Hold-or-tap push-to-talk:** a new option for macOS and Windows (disabled on Linux). A press starts recording. If you hold the key for at least 300 ms and release it, recording stops, as with classic push-to-talk. A shorter press keeps recording until the next press. The option applies to the main and Smart Mode hotkeys.
+- **Live preview shows the newest words:** the one-line overlay keeps the words you just said visible instead of cutting them off at the end.
+- **Dictation stops faster:** stopping cancels a running live-preview decode instead of waiting for it.
+- **Smart Mode keeps its model warm:** the local model stays loaded in a background worker and is unloaded after the speech-recognition idle timeout (5 minutes by default). On machines with less than 12 GB RAM it is unloaded after every run. Timeouts cancel generation.
+- **Clipboard restored sooner:** after pasting, the previous clipboard returns about 150 ms after the target has read the paste, not after a fixed 500 ms, and is left alone if another app copied something in between. Linux is unchanged.
+- **Clearer message when no microphone is found** instead of an error report.
+- **Linux .deb sets up Auto-Paste permissions:** the package loads `uinput` and applies the udev rule during installation, so Auto-Paste works without a reboot or re-login.
+- **Homebrew cask requires macOS 12 or later,** matching the app itself.
+- **Hebrew and Russian translations:** 52 missing strings added.
+
+## 1.3.0
+
+With 1.3, WhisPaste bundles the features of the last few weeks into a single minor release. The details for each version are listed below.
+
+### Highlights since 1.2.60
+
+- **Smart Mode:** clean up, shorten or translate dictation before it is pasted — locally on the device (macOS/Windows) or via OpenAI, with its own hotkey and target language.
+- **Interactive snippets:** text templates with blanks that WhisPaste fills in field by field through dictation.
+- **Side panel:** clipboard history at the screen edge — now also on Linux, and on the left or right edge.
+- **Live transcript:** the recognized text appears in the recording overlay while you are still speaking.
+- **Learns from corrections:** repeated corrections in the history are suggested as replacements.
+- **Discard recording:** Escape or the X in the overlay discards a recording without transcribing or pasting it.
+- **History protected by PIN:** a privacy lock for the history, side panel, button menu and automation API, with automatic locking.
+- **Local automation API:** control WhisPaste over HTTP from scripts and tools (see `AUTOMATION_API.md`).
+- **New languages:** Russian and complete Hebrew.
+
+### New Features
+
+- **New in WhisPaste:** the notice introduces the new PIN protection for the history.
+
+- **History:** optional PIN protection (4–8 digits) for the history. When a PIN is set, the side panel no longer shows transcripts, the context menu of the floating record button no longer shows recent entries, and the local automation API responds with `423 history_locked` until the history is unlocked. The history locks itself again automatically at app start, when minimized to the tray, and optionally after a configurable period of inactivity (1–60 minutes). Repeated wrong entries trigger an increasing wait time; "Forgot PIN?" deletes the history and removes the PIN. The PIN is a visual lock, not encryption.
+- **History:** new setting "Hide history on open" — the history page only shows its content after a click on "Show history", e.g. for screen sharing.
+
+### Bug Fixes
+
+- **Autostart:** "Start Minimized" is now reliably respected — WhisPaste starts in the tray at login instead of opening the main window.
+- **Side panel:** when docked to the right screen edge, the panel still had the shape of a panel docked to the left. Corners and close button are now mirrored and point toward the screen center, including in right-to-left languages.
+- **Linux:** with the system keyring locked, WhisPaste hung at startup without a window, tray icon and hotkey. The app now starts normally and treats stored API keys as temporarily unavailable (#151).
+- **macOS:** if the app was in a path containing spaces (e.g. "WhisPaste 2.app"), the tray icon was missing and the Dock icon stayed visible after closing the window. The tray icon now loads regardless of the install path.
 
 ## 1.2.79
 
 ### New Features
 
-- **Einstellungen:** das Zwischenablage-Schnelleinfügen-Panel kann jetzt wahlweise an der linken oder rechten Bildschirmkante andocken (neue Einstellung „Panel Position"), statt immer links zu erscheinen (#150).
+- **Settings:** the clipboard quick-paste panel can now dock to the left or right screen edge (new setting "Panel Position") instead of always appearing on the left (#150).
 
 ### Bug Fixes
 
-- **Einstellungssuche:** mehrere real vorhandene Zeilen (u. a. „Panel Position", „Deepgram API Key", „Live-Transkript") lieferten trotz exakt passendem Suchwort keine Treffer — fehlende Stichwörter in der Such-Registry ergänzt.
-- **Seitenpanel:** ein einmaliges Aus- und wieder Einschalten der Einstellung konnte das Panel dauerhaft funktionsunfähig machen — es öffnete sich danach nicht mehr beim Bewegen der Maus zum Bildschirmrand. Der Ein-/Aus-Zyklus ist jetzt zuverlässig umkehrbar.
-- **Sound-Feedback:** aktiviertes Sound-Feedback hielt das Audiogerät — auch einen per Bluetooth-Multipoint verbundenen Kopfhörer — bis zum Beenden von WhisPaste dauerhaft geöffnet und blockierte damit andere Apps' Audio. Das Gerät wird jetzt nach 30 Sekunden Inaktivität wieder freigegeben (#148).
+- **Settings search:** several rows that do exist (including "Panel Position", "Deepgram API Key", "Live transcript") returned no results despite an exact search term. Missing keywords were added to the search registry.
+- **Side panel:** toggling the setting off and on once could leave the panel permanently non-functional — it no longer opened when the mouse moved to the screen edge. The on/off cycle is now reliably reversible.
+- **Sound feedback:** with sound feedback enabled, the audio device — including a Bluetooth headphone connected via multipoint — stayed open until WhisPaste quit, blocking other apps' audio. The device is now released after 30 seconds of inactivity (#148).
 
 ## 1.2.78
 
 ### New Features
 
-- **Automation-API:** `dictation/trigger` kann jetzt pro Aufruf ein eigenes Smart-Mode-Preset (`smart_mode_preset`) sowie eine eigene Stille-Timeout-Schwelle (`silence_timeout`, `0` deaktiviert Auto-Stop) angeben, statt immer die global konfigurierten Standardwerte zu verwenden.
-- **Einstellungen:** die Anchor-Chip-Leiste hebt jetzt automatisch die aktuell sichtbare Sektion hervor, während man durch die Seite scrollt, statt nur beim Antippen kurz aufzuleuchten.
-- **Aufnahme:** eine echte „Abbrechen/Verwerfen"-Aktion für eine laufende Diktion — verwirft die Aufnahme, statt sie zu transkribieren.
+- **Automation API:** `dictation/trigger` can now take a per-call Smart Mode preset (`smart_mode_preset`) and its own silence timeout (`silence_timeout`, `0` disables auto-stop), instead of always using the globally configured defaults.
+- **Settings:** the anchor chip bar now highlights the section currently in view while you scroll through the page, instead of only flashing briefly when tapped.
+- **Recording:** a real "Cancel" action for an ongoing dictation — it discards the recording instead of transcribing it.
 
 ### Bug Fixes
 
-- **Windows:** Auto-Paste schreibt Transkripte jetzt über denselben Verlaufs-Ausschluss-Pfad in die Zwischenablage wie der übrige Verlauf — Diktate landeten zuvor trotzdem im Win+V-Zwischenablageverlauf, obwohl das dort deaktiviert war (#146).
-- **STT:** der `initial_prompt` wird jetzt korrekt auf whisper.cpp's tatsächliches Token-Budget gekürzt, statt es zu überschreiten.
+- **Windows:** auto-paste now writes transcripts to the clipboard through the same history-exclusion path as the rest of the history. Dictations previously still landed in the Win+V clipboard history even though it was disabled there (#146).
+- **STT:** the `initial_prompt` is now correctly truncated to whisper.cpp's actual token budget instead of exceeding it.
 
 ## 1.2.77
 
 ### New Features
 
-- **Neue lokale Automation-API** (nur Loopback, HTTP): Diktat per externem Trigger starten/stoppen, letzten Verlaufseintrag abrufen, Textbausteine einfügen — inkl. Port-Fallback, konfigurierbarem Port, Status-Endpoint, Statusleisten-Anzeige und verlinkter Doku in den Einstellungen.
-- **Live-Transkript-Vorschau:** Das Overlay kann den Text jetzt schon während der Aufnahme live anzeigen, statt erst nach dem Stoppen.
-- **Textersetzungen lernen jetzt automatisch aus wiederholten Korrekturen** — per Sprachbefehl („korrektur: …"/„correct: …") oder durch manuelles Bearbeiten eines Verlaufseintrags. Zweimal dieselbe Korrektur, und WhisPaste schlägt sie in einer eigenen Review-Ansicht als automatische Ersetzung vor (inkl. Undo direkt auf dem Bestätigungs-Toast).
-- **Einstellungen:** neue Anchor-Chip-Leiste zur schnellen Abschnitts-Navigation sowie ein visueller Karten-Selector für die Overlay-Größe (statt Dropdown).
-- **Verlauf:** Einträge zeigen jetzt den Original-Transkript-Diff sowie Ziel-App und Zeichenanzahl als Metadaten.
-- **Smart Mode:** der Einführungs-Hinweis zeigt jetzt ein Vorher/Nachher-Beispiel.
+- **New local automation API** (loopback only, HTTP): start/stop dictation via an external trigger, fetch the last history entry, insert text snippets — including port fallback, a configurable port, a status endpoint, a status bar display, and linked documentation in the settings.
+- **Live transcript preview:** the overlay can now show the text live during recording, instead of only after stopping.
+- **Text replacements now learn automatically from repeated corrections** — via a voice command ("korrektur: …" / "correct: …") or by manually editing a history entry. Make the same correction twice and WhisPaste suggests it as an automatic replacement in a dedicated review view, including undo directly on the confirmation toast.
+- **Settings:** new anchor chip bar for quick section navigation, plus a visual card selector for the overlay size (instead of a dropdown).
+- **History:** entries now show the diff against the original transcript, along with target app and character count as metadata.
+- **Smart Mode:** the introduction notice now shows a before/after example.
 
 ### Bug Fixes
 
-- **Tastatur-/Screenreader-Zugänglichkeit nachgerüstet** für Verlaufstitel/-transkript, Notizen-Header, den RAM-Warnbildschirm und die Markdown-Symbolleiste.
-- **CSV-Export:** eine Formel-Injection-Lücke bei führenden Leerzeichen geschlossen (betraf auch die Tags-Spalte).
-- **Verlauf/Notizen im Papierkorb:** Kopieren und Duplizieren sind jetzt konsistent erreichbar bzw. korrekt aus-/eingeblendet.
-- **Diverse Stabilitätsfixes der Automation-API** (Race Conditions bei Sync/Shutdown, hängender Fehlerzustand nach Deaktivieren, Server-Neustart-Rebind, MAS-Sandbox-Entitlement).
-- Der Erfolgston beim Diktieren bleibt jetzt stumm, wenn das automatische Einfügen bereits fehlgeschlagen ist.
+- **Keyboard/screen reader accessibility added** for history titles/transcripts, the notes header, the low-RAM warning screen, and the Markdown toolbar.
+- **CSV export:** closed a formula injection gap with leading whitespace (it also affected the tags column).
+- **History/notes in the trash:** copy and duplicate are now consistently reachable, or correctly shown/hidden.
+- **Various stability fixes in the automation API** (race conditions on sync/shutdown, a stuck error state after disabling, rebind after server restart, MAS sandbox entitlement).
+- The success sound on dictation now stays silent if automatic pasting has already failed.
 
 ## 1.2.76
 
 ### Bug Fixes
 
-- **Globale Hotkeys registrierten auf Nicht-US-Tastaturlayouts (z. B. Deutsch) teils die falsche physische Taste** (z. B. Strg+# wurde als Strg+^ registriert). Die Hotkey-Aufnahme fragt jetzt live beim aktiven Windows-Tastaturlayout nach, statt sich auf eine statische, US-Layout-basierte Zuordnung zu verlassen. (#108)
+- **Global hotkeys sometimes registered the wrong physical key on non-US keyboard layouts (e.g. German)** (e.g. Ctrl+# was registered as Ctrl+^). Hotkey capture now queries the active Windows keyboard layout live, instead of relying on a static US-layout mapping. (#108)
 
 ## 1.2.75
 
 ### Bug Fixes
 
-- **Das Zwischenablage-Schnelleinfüge-Panel erschien weiterhin beim Überfahren mit der Maus, obwohl es in den Einstellungen deaktiviert war.** Das Deaktivieren räumt jetzt auch den zugehörigen nativen Steuerungs-Controller korrekt ab.
-- **Zwischen „Werksreset" und „Einführung" konnte in den Einstellungen eine leere, unbeschriftete Karte erscheinen** — der „Updates"-Bereich ist auf Store-/paketverwalteten Installationen (Mac App Store, Microsoft Store, Paketmanager) jetzt vollständig ausgeblendet statt nur inhaltlich leer.
-- **Der „Bewerten"-Button öffnete auf dem Mac App Store immer GitHub statt der Mac-App-Store-Bewertungsseite.** Bewertungs-Buttons (Einstellungen und Bewertungs-Dialog) berücksichtigen jetzt den tatsächlichen Vertriebskanal: Mac App Store → Mac App Store, Microsoft Store → Microsoft Store, Installer/Portable → GitHub.
+- **The clipboard quick-paste panel kept appearing on mouse hover even though it was disabled in settings.** Disabling it now also properly tears down the associated native control controller.
+- **An empty, unlabeled card could appear in settings between "Factory Reset" and "Introduction"** — the "Updates" section is now completely hidden on store- or package-managed installs (Mac App Store, Microsoft Store, package managers), instead of just being empty.
+- **The "Rate" button on the Mac App Store always opened GitHub instead of the Mac App Store rating page.** Rating buttons (settings and the rating dialog) now respect the actual distribution channel: Mac App Store → Mac App Store, Microsoft Store → Microsoft Store, installer/portable → GitHub.
 
 ## 1.2.74
 
 ### New Features
 
-- **Notizen: neue „Duplizieren"-Aktion direkt in der Symbolleiste des Notiz-Editors**, gleichrangig neben Kopieren und Exportieren.
+- **Notes: new "Duplicate" action directly in the note editor toolbar**, placed alongside copy and export.
 
 ### Bug Fixes
 
-- **Smart Mode „On-Device" (lokale KI-Nachbearbeitung) funktionierte unter Windows in ausgelieferten Builds nie wirklich** — die dafür nötigen Dateien wurden nie mit dem Windows-Build ausgeliefert. Ab sofort behoben.
-- **Die Diagnose meldete unter Windows fälschlich fehlende Spracherkennungs-Dateien**, obwohl die Installation vollständig und funktionsfähig war.
-- **Fenstersteuerung in der Titelleiste** (Minimieren/Maximieren/Schließen) ist jetzt vollständig per Tastatur bedienbar und für Screenreader zugänglich.
+- **Smart Mode "On-device" (local AI post-processing) never really worked on Windows in shipped builds** — the files it needs were never shipped with the Windows build. This is now fixed.
+- **The diagnostics wrongly reported missing speech recognition files on Windows**, even though the installation was complete and working.
+- **Window controls in the title bar** (minimize/maximize/close) are now fully keyboard-operable and accessible to screen readers.
 
 ## 1.2.73
 
 ### New Features
 
-- **Export merkt sich das zuletzt gewählte Format.** Beim nächsten Export von Verlauf oder Notizen ist TXT/MD/CSV/JSON/DOCX bereits vorausgewählt, statt immer wieder auf die erste Option zurückzuspringen.
+- **Export remembers the last chosen format.** On the next export of history or notes, TXT/MD/CSV/JSON/DOCX is already preselected instead of always jumping back to the first option.
 
 ### Bug Fixes
 
-- **Store-Bewertungen auf der Website zeigen jetzt das echte Veröffentlichungsdatum** statt des Zeitpunkts, zu dem wir sie zuletzt synchronisiert haben.
-- **Verlaufstitel blieb nach dem Bearbeiten eines Diktats auf dem alten Stand.** Der Titel wird jetzt bei jeder Textänderung neu abgeleitet — ein von dir vergebener eigener Titel bleibt davon unberührt, und ein versehentlich komplett geleertes Diktat behält seinen letzten Titel statt ihn zu verlieren.
-- **Hinweise bei fehlgeschlagenem Auto-Einfügen (kein Zielfenster, fehlende Berechtigung, blockiert durch Administratorrechte) waren fest auf Deutsch verdrahtet** und erschienen dadurch bei anderssprachigen Nutzer:innen nicht in ihrer eingestellten Sprache.
+- **Store ratings on the website now show the real release date** instead of the time we last synced them.
+- **The history title stayed at its old value after editing a dictation.** The title is now re-derived on every text change. A custom title you set yourself stays untouched, and a dictation that was accidentally cleared completely keeps its last title instead of losing it.
+- **Hints for failed auto-paste (no target window, missing permission, blocked by administrator rights) were hardcoded in German**, so they did not appear in the selected language for non-German users.
 
 ### Maintenance
 
-- **Reihenfolge der Support-Aktionen nach dem Download angepasst:** die Store-Bewertung des jeweiligen Betriebssystems steht jetzt vor dem GitHub-Stern, da sie direkter zur Auffindbarkeit im jeweiligen Store beiträgt.
-- **Anonyme Nutzungsstatistik erweitert** um eine wöchentlich rotierende Kohorten-Kennung für verlässlichere Wiederkehrer-Auswertungen, ohne ein Gerät dauerhaft zu identifizieren — Details in der Datenschutzerklärung (Abschnitt 15).
+- **Order of support actions after download changed:** the store rating for the respective operating system now comes before the GitHub star, since it contributes more directly to discoverability in that store.
+- **Anonymous usage statistics extended** by a weekly rotating cohort identifier for more reliable returning-user analysis, without permanently identifying a device. Details are in the privacy policy (section 15).
 
 ## 1.2.72
 
 ### New Features
 
-- **Русский: WhisPaste ist jetzt auch auf Russisch verfügbar.** Vierte Oberflächensprache neben Deutsch, Englisch und Hebräisch — Beitrag aus der Community.
+- **Russian language: WhisPaste is now also available in Russian.** Fourth interface language alongside German, English and Hebrew — a community contribution.
 
 ### Bug Fixes
 
-- **Hebräische Übersetzung vervollständigt:** 88 zuvor unübersetzte Oberflächentexte (u. a. Smart Mode, Textersetzungen-Import, Side Panel) ergänzt.
-- **Sprachauswahl in Floating-Fenstern** (z. B. Schnelleinfüge-Panel) berücksichtigte neu hinzugefügte Oberflächensprachen nicht automatisch — betraf zuletzt Russisch. Die Auswahl leitet sich jetzt aus der tatsächlich ausgelieferten Sprachliste ab, statt aus einer separat gepflegten Kopie.
+- **Hebrew translation completed:** 88 previously untranslated interface texts (including Smart Mode, text replacement import, side panel) added.
+- **Language selection in floating windows** (e.g. the quick-paste panel) did not automatically pick up newly added interface languages — recently this affected Russian. The selection now derives from the actually shipped language list instead of a separately maintained copy.
 
 ## 1.2.71
 
 ### New Features
 
-- **Smart Mode: optionale, lokale KI-Nachbearbeitung direkt nach der Transkription.** Drei Presets — „Bereinigen" entfernt Füllwörter und korrigiert die Interpunktion, „Kürzen" strafft den Text ohne Fakten zu verlieren, „Übersetzen" überträgt ihn in eine von sieben validierten Zielsprachen (Deutsch, Englisch, Spanisch, Französisch, Portugiesisch, Mandarin, Russisch). Läuft auf macOS und Windows auf einem lokalen KI-Modell — der Text verlässt dein Gerät nicht; optional auch über einen eigenen OpenAI-Cloud-Provider nutzbar. Presets lassen sich am Haupt-Hotkey oder an einem eigenen zweiten Smart-Mode-Hotkey (mit eigener Zielsprache) hinterlegen und nachträglich auch auf bestehende Verlaufseinträge anwenden.
-- **Interaktive Textbausteine:** Vorlagen mit mehreren Feldern, durch die WhisPaste dich Feld für Feld führt (mit Ansage vor jedem Feld), bevor der fertige Text in einem Stück eingefügt wird — eine Erweiterung der bisherigen Textbausteine für mehrteilige, wiederkehrende Diktate.
-- **Vokabular-Import für Textersetzungen:** eigene Begriffslisten importieren, mit unscharfem Abgleich (Fuzzy-Matching) gegen bestehende Ersetzungen und einem Review-Schritt vor der Übernahme.
-- **Linux zieht beim Schnelleinfüge-Panel mit macOS/Windows gleich:** natives Side-Panel-Fenster, inklusive Zwischenablage-Snapshot beim Öffnen. Unter macOS lassen sich Einträge jetzt außerdem per Drag-and-drop direkt aus dem Panel herausziehen.
+- **Smart Mode: optional, local AI post-processing directly after transcription.** Three presets: "Cleanup" removes filler words and corrects punctuation, "Concise" tightens the text without losing facts, "Translate" translates it into one of seven validated target languages (German, English, Spanish, French, Portuguese, Mandarin, Russian). Runs on macOS and Windows on a local AI model — the text never leaves your device. Optionally usable via your own OpenAI cloud provider. Presets can be assigned to the main hotkey or to a separate second Smart Mode hotkey (with its own target language), and can also be applied to existing history entries afterwards.
+- **Interactive snippets:** templates with several fields, through which WhisPaste guides you field by field (with an announcement before each field) before inserting the finished text in one piece. This extends the existing snippets for multi-part, recurring dictations.
+- **Vocabulary import for text replacements:** import your own term lists, with fuzzy matching against existing replacements and a review step before they are adopted.
+- **Linux catches up with macOS/Windows for the quick-paste panel:** native side-panel window, including a clipboard snapshot when it opens. On macOS, entries can now also be dragged directly out of the panel.
 
 ## 1.2.70
 
 ### Bug Fixes
 
-- Diktate über mehreren Sätzen ohne Pause: WhisPaste erkennt jetzt bei erhöhter Systemlast (z. B. laufendem Lüfter) zuverlässiger, wenn Gesagtes durch eine sich endlos wiederholende Phrase ersetzt oder ausgelassen wird, und interpungiert auch bei längeren Diktaten konsistent. Lange Aufnahmen werden dafür intern an echten Sprechpausen in kleinere Stücke zerlegt, bevor sie an die Spracherkennung gehen.
-- Das Schnelleinfüge-Panel schließt jetzt zuverlässig, sobald der Fokus die App verlässt, und kodiert seine Zeilen beim Schließen nicht mehr unnötig neu.
+- Dictation across several sentences without a pause: under increased system load (e.g. a running fan), WhisPaste now detects more reliably when speech is replaced or dropped by an endlessly repeating phrase, and punctuates longer dictations consistently. For this, long recordings are internally split at real speech pauses into smaller chunks before they go to speech recognition.
+- The quick-paste panel now reliably closes as soon as focus leaves the app, and no longer unnecessarily re-encodes its rows when closing.
 
 ## 1.2.69
 
 ### New Features
 
-- **Neues, per Hover am linken Bildschirmrand ausklappbares Schnelleinfüge-Panel** (macOS und Windows): schneller Zugriff auf Transkriptionen, Textbausteine und einen neuen Zwischenablage-Verlauf, ohne die App in den Vordergrund zu holen. Der Zwischenablage-Verlauf läuft rein im Arbeitsspeicher und wird beim Neustart der App gelöscht. Ein neuer Schalter in den Einstellungen deaktiviert das Panel bei Bedarf vollständig.
-- **Neuer Hinweis-Mechanismus „Neu in WhisPaste"**: nach einem Update erscheint einmalig ein Dialog, der neue Funktionen mit Screenshot vorstellt (aktuell: das Schnelleinfüge-Panel und der Textbaustein-Schnellzugriff) — jederzeit über die Einstellungen erneut aufrufbar, inklusive Link zu diesem Änderungsprotokoll.
-- Link zum X-Profil des Maintainers auf der Über-Seite und im Website-Footer ergänzt.
+- **New quick-paste panel that slides out on hover at the left screen edge** (macOS and Windows): quick access to transcriptions, snippets and a new clipboard history, without bringing the app to the foreground. The clipboard history lives purely in memory and is cleared when the app restarts. A new switch in settings disables the panel entirely if needed.
+- **New notice mechanism "New in WhisPaste":** after an update, a one-time dialog appears that presents new features with a screenshot (currently: the quick-paste panel and the snippet quick access). It can be reopened at any time from settings, including a link to this changelog.
+- Added a link to the maintainer's X profile on the About page and in the website footer.
 
 ### Maintenance
 
-- Der „Gemacht mit ♥ von …"-Hinweis auf der Über-Seite ist jetzt an WhisPaste selbst statt an eine einzelne Person adressiert.
+- The "Made with ♥ by …" notice on the About page is now addressed to WhisPaste itself instead of an individual person.
 
 ## 1.2.68
 
 ### New Features
 
-- Textbausteine lassen sich jetzt auch direkt aus der Liste heraus duplizieren und kopieren, analog zu den bereits vorhandenen Aktionen bei Verlaufsnotizen.
+- Snippets can now also be duplicated and copied directly from the list, analogous to the existing actions for history notes.
 
 ### Bug Fixes
 
-- **Windows: die native Fensterleiste erschien seit Kurzem doppelt** (systemeigene Titelleiste zusätzlich zur eigenen App-Titelleiste) — ein interner Zustand wurde beim Programmstart nicht zurückgesetzt und blockierte dadurch dauerhaft die Unterdrückung der Windows-Titelleiste.
-- Windows: ein seltener Absturz beim Schließen des Fensters wurde behoben.
-- Das Beenden einer Sprachaufnahme konnte in seltenen Fällen mit einer noch laufenden Transkription kollidieren — jetzt zuverlässig sequenziert mit kurzer Timeout-Absicherung.
-- Der „Diesen Hinweis nicht mehr anzeigen"-Button war per Tastatur nicht erreichbar.
+- **Windows: the native window title bar had recently started appearing twice** (the system title bar in addition to the app's own title bar). An internal state was not reset at program start, which permanently blocked suppression of the Windows title bar.
+- Windows: a rare crash when closing the window has been fixed.
+- Ending a voice recording could rarely collide with a transcription still running. It is now reliably sequenced, with a short timeout safeguard.
+- The button to stop showing this notice again was not reachable via keyboard.
 
 ### Maintenance
 
-- Performance: Listenfilterung (Einstellungssuche, Textbaustein- und Verlaufslisten) nutzt jetzt vorkompilierte reguläre Ausdrücke statt wiederholter `toLowerCase()`-Aufrufe in der Schleife.
+- Performance: list filtering (settings search, snippet and history lists) now uses precompiled regular expressions instead of repeated `toLowerCase()` calls inside the loop.
 
 ## 1.2.67
 
 ### New Features
 
-- **WhisPaste ist ab sofort offiziell im Mac App Store verfügbar** (signiert, sandboxed, automatische Updates über den Store — analog zum Microsoft Store unter Windows). Die kostenlose GitHub-DMG bleibt als gleichwertige Alternative bestehen, identischer Funktionsumfang, keine Einschränkungen.
-- **Linux zieht beim Textbaustein-Schnellzugriff mit Windows/macOS gleich, und Auto-Einfügen ist jetzt auch unter Linux möglich**: Transkribierter Text kann jetzt auch unter Linux automatisch eingefügt werden (über eine virtuelle Tastatur) — dafür ist einmalig eine udev-Regel manuell einzurichten (`packaging/linux/71-whispaste-uinput.rules`, Anleitung darin), ohne diesen Schritt bleibt es beim bisherigen Zwischenablage-Fallback. Der Textbaustein-Schnellzugriff öffnet sich unter Linux ab sofort als eigenes, systemintegriertes Fenster direkt an der Mausposition.
-- **Neue native Oberfläche für den Textbaustein-Schnellzugriff unter Windows** — öffnet sich jetzt ebenfalls als eigenes kleines Fenster an der Mausposition statt in der Haupt-App.
-- **Der Auto-Einfügen-Schritt in der Windows-Ersteinrichtung ist jetzt eine echte Ein/Aus-Entscheidung** statt einer wirkungslosen Info-Seite — vorher stand dort „Auto-Einfügen ist bereit", obwohl die Funktion standardmäßig aus war und sich in der Ersteinrichtung nirgends aktivieren ließ.
-- Ein Textbaustein lässt sich jetzt direkt aus der Liste heraus duplizieren.
-- Neue Kopieren-Aktion für einzelne Verlaufsnotizen, analog zu Bearbeiten/Löschen.
-- Überarbeitetes visuelles Erscheinungsbild in weiten Teilen der App (Einstellungen, Über-Seite, Verlauf, Aufnahme-Leiste, Ersteinrichtung) — konsistentere Materialsprache und ein aufgeräumteres, fokussierteres Erscheinungsbild.
+- **WhisPaste is now officially available on the Mac App Store** (signed, sandboxed, automatic updates via the store — analogous to the Microsoft Store on Windows). The free GitHub DMG remains an equivalent alternative with an identical feature set and no restrictions.
+- **Linux catches up with Windows/macOS for the snippet quick access, and auto-paste is now possible on Linux too:** transcribed text can now also be pasted automatically on Linux (via a virtual keyboard). This requires a one-time manual setup of a udev rule (`packaging/linux/71-whispaste-uinput.rules`, instructions inside). Without this step, the clipboard fallback remains. The snippet quick access now opens on Linux as its own system-integrated window, directly at the mouse position.
+- **New native interface for the snippet quick access on Windows** — it now also opens as its own small window at the mouse position instead of in the main app.
+- **The auto-paste step in the Windows first-run setup is now a real on/off decision** instead of a non-functional info page. Previously it said that auto-paste was ready, even though the feature was off by default and could not be enabled anywhere in the first-run setup.
+- A snippet can now be duplicated directly from the list.
+- New copy action for individual history notes, analogous to edit/delete.
+- Revised visual appearance across large parts of the app (settings, About page, history, recording bar, first-run setup) — a more consistent material design language and a tidier, more focused look.
 
 ### Bug Fixes
 
-- **Auto-Einfügen erholte sich nach einer fehlenden oder entzogenen Berechtigung in manchen Fällen nicht zuverlässig** — mehrere zusammenhängende Stellen wurden gehärtet: Die Berechtigung wird jetzt direkt am Ort des Fehlschlags repariert statt nur über die Einstellungen, ein bereits behobener Zustand fragt nicht mehr unnötig doppelt nach, und die Mac-App-Store-Variante übergibt den Berechtigungs-Dialog jetzt zuverlässig an den richtigen Folgezustand.
-- Die transkribierende Wellenform im Overlay war teils eingefroren statt zu animieren.
-- Kurzes Aufblitzen des Overlays an der Bildschirmecke beim Öffnen behoben.
-- Overlay-Texte folgen jetzt der in der App eingestellten Sprache statt der Betriebssystem-Spracheinstellung.
-- Die „Schwebender Button"-Karte in den Einstellungen erschien fälschlich auch auf Plattformen, die diese Funktion gar nicht unterstützen.
-- Vereinzelte doppelte Sprachausgabe-Ansage im Verlaufsnotizen-Bereich (Bedienungshilfen) behoben.
-- Diverse Ausrichtungs- und Layout-Korrekturen in der überarbeiteten Ersteinrichtung, inklusive fehlender hebräischer Übersetzungen für den „Los geht's"-Schritt.
+- **Auto-paste did not reliably recover after a missing or revoked permission in some cases.** Several related spots were hardened: the permission is now repaired right at the point of failure instead of only via settings, an already fixed state no longer asks again unnecessarily, and the Mac App Store variant now reliably hands the permission dialog over to the correct follow-up state.
+- The transcribing waveform in the overlay was sometimes frozen instead of animating.
+- A brief flash of the overlay at the screen corner when opening has been fixed.
+- Overlay texts now follow the language set in the app instead of the operating system language setting.
+- The "floating button" card in settings also appeared on platforms that do not support this feature.
+- Occasional duplicate screen reader announcements in the history notes area (accessibility features) have been fixed.
+- Various alignment and layout corrections in the revised first-run setup, including missing Hebrew translations for the "Let's go" step.
 
 ### Maintenance
 
-- Mehrere interne Performance-Audits (Programmlebenszyklus/Speicherlecks, Umfang von UI-Neuaufbauten, Netzwerk/IPC, Ressourcen/Caches, UI-Rendering) haben unnötige Neuberechnungen, Speicher-Allokationen und Datei-Kopien entfernt — unter anderem im Verlauf mit vielen Einträgen, beim Hochladen an die Cloud-Spracherkennung und beim Aufräumen abgebrochener Modell-Downloads.
+- Several internal performance audits (app lifecycle/memory leaks, scope of UI rebuilds, network/IPC, resources/caches, UI rendering) removed unnecessary recalculations, memory allocations and file copies — among others in the history with many entries, when uploading to cloud speech recognition, and when cleaning up aborted model downloads.
 
 ## 1.2.66
 
 ### Bug Fixes
 
-- **Der Maximieren-Knopf in der Titelleiste (Windows/Linux) hatte keine Beschriftung für Screenreader** — er kündigt jetzt je nach Fensterzustand „Fenster maximieren" oder „Fenster wiederherstellen" an, statt stumm zu bleiben.
+- **The maximize button in the title bar (Windows/Linux) had no label for screen readers.** It now announces either maximize or restore, depending on the window state, instead of staying silent.
 
 ### Maintenance
 
-- Interne Store-Compliance-Korrektur (im Rahmen einer noch nicht abgeschlossenen, nicht-live Mac-App-Store-Einreichung — einziger aktueller macOS-Vertriebsweg bleibt die GitHub-DMG): die Mehrfachinstanz-Erkennung lief bislang über einen lokalen Netzwerk-Socket, wofür das dafür nötige Sandbox-Recht (`network.server`) beim App Review als unbegründet abgelehnt wurde. Sie läuft jetzt stattdessen über eine Datei-Sperre, ganz ohne Netzwerk. Zwei weitere, ungenutzte Sandbox-Rechte (`cs.allow-jit`, `files.user-selected.read-write`) wurden bei der Gelegenheit ebenfalls entfernt, und das Datenschutz-Manifest wurde um die bereits an anderer Stelle veröffentlichte Angabe zu optionalen Cloud-Spracherkennungs-Audiodaten ergänzt.
-- Spürbar flüssigere Verlaufsliste bei tausenden Einträgen (unnötige Objekt-Allokationen beim Datums-Gruppieren entfernt) und ein ruckelfreieres Aufnahme-Overlay (Wellenform rendert jetzt in einer eigenen Compositing-Ebene).
-- Weitere Store-Compliance-Korrekturen (zweite Review-Runde derselben, weiterhin nicht-live Mac-App-Store-Einreichung): die Buttons auf den Berechtigungs-Erklärseiten im Onboarding hießen „Zugriff gewähren"/„Jetzt erlauben", was den nachfolgenden echten macOS-Systemdialog vorwegzunehmen schien — heißen jetzt einheitlich „Weiter". Der Hinweistext zur Bedienungshilfen-Berechtigung erklärt jetzt deutlicher, dass WhisPaste diese Berechtigung nur zum Einfügen von Text nutzt, nicht für echte Bedienungshilfen-Funktionen. Der einmalige „Danke für deine Unterstützung"-Hinweis mit der Stores-Bewertungs-Bitte erschien bislang direkt nach der Ersteinrichtung — erscheint jetzt frühestens nach 12 abgeschlossenen Aufnahmen, wenn tatsächlich schon ein Nutzen entstanden ist.
-- Der macOS-App-Bundle-Name im DMG und im ZIP-Download war kleingeschrieben (`whispaste.app` statt `WhisPaste.app`) — betraf nur die Groß-/Kleinschreibung des Icon-Labels im Finder, nicht die Funktion. Heißt jetzt einheitlich „WhisPaste".
+- Internal Store compliance fix (part of a not-yet-completed, not-live Mac App Store submission — the only current macOS distribution channel remains the GitHub DMG): multi-instance detection previously ran over a local network socket, for which the required sandbox entitlement (`network.server`) was rejected at App Review as unjustified. It now runs via a file lock instead, with no network at all. Two further unused sandbox entitlements (`cs.allow-jit`, `files.user-selected.read-write`) were removed at the same time, and the privacy manifest was extended with the disclosure about optional cloud speech recognition audio data that was already published elsewhere.
+- Noticeably smoother history list with thousands of entries (unnecessary object allocations in date grouping removed), and a smoother recording overlay (waveform now renders in its own compositing layer).
+- Further Store compliance corrections (second review round of the same, still not-live Mac App Store submission): the buttons on the permission explanation pages in onboarding used labels that seemed to anticipate the real macOS system dialog that follows. They are now uniformly labeled "Continue". The hint text for the Accessibility permission now explains more clearly that WhisPaste uses this permission only to insert text, not for real Accessibility features. The one-time "Thanks for your support!" notice with the Store rating request previously appeared right after the first-run setup. It now appears no earlier than after 12 completed recordings, once a real benefit has already arisen.
+- The macOS app bundle name in the DMG and in the ZIP download was lowercase (`whispaste.app` instead of `WhisPaste.app`). This only affected the capitalization of the icon label in Finder, not functionality. It is now consistently "WhisPaste".
 
 ## 1.2.65
 
 ### Bug Fixes
 
-- **Ein unterbrochener Modell-Download konnte dauerhaft mit einem HTTP-416-Fehler hängen bleiben**, statt es erneut zu versuchen: War das bereits heruntergeladene Teilstück durch einen früheren Abbruch genauso groß oder größer als die aktuelle Datei auf dem Server, verweigerte der Server jeden weiteren Fortsetzungsversuch. WhisPaste verwirft das alte Teilstück jetzt automatisch und startet den Download einmalig neu von vorn.
+- **An interrupted model download could get stuck permanently with an HTTP 416 error** instead of retrying. If the partial file already downloaded during an earlier abort was as large as or larger than the current file on the server, the server refused every further resume attempt. WhisPaste now discards the old partial file automatically and restarts the download once from scratch.
 
 ### Maintenance
 
-- Interne Build-/Store-Tooling-Korrekturen: der macOS-Build lief zeitweise in einen Berechtigungsfehler beim Einbetten der lokalen Whisper-Engine, und die deutschsprachigen Microsoft-Store-Screenshots landeten in einem falschen, nie angezeigten Store-Eintrag statt im echten deutschen Listing.
+- Internal build/Store tooling fixes: the macOS build temporarily ran into a permission error when embedding the local Whisper engine, and the German Microsoft Store screenshots ended up in a wrong, never-displayed store entry instead of the real German listing.
 
 ## 1.2.64
 
 ### New Features
 
-- **WhisPaste prüft jetzt bei jedem Start proaktiv, ob Mikrofon- und Auto-Einfügen-Berechtigung noch vorhanden sind** — nicht mehr nur einmalig während der Ersteinrichtung. Fehlt eine, führt ein immer sichtbarer Dialog direkt zur richtigen Systemeinstellung, auch wenn WhisPaste gerade nur im Hintergrund läuft. Wer Auto-Einfügen nie nutzt (Zwischenablage-Modus), wird dabei nicht mehr gestört.
-- **Neuer Schalter „Stille am Ende entfernen"** nutzt die eingebaute Spracherkennung von whisper.cpp, um angehängte Stille/Rauschen vor der Transkription herauszuschneiden — reduziert erfundene Wortfetzen am Ende eines Transkripts zusätzlich zur bestehenden Absicherung. Standardmäßig an, abschaltbar, nur bei lokaler Whisper-Engine verfügbar.
+- **WhisPaste now proactively checks on every start whether the microphone and auto-paste permissions are still present** — no longer only once during the first-run setup. If one is missing, an always-visible dialog leads directly to the correct system setting, even when WhisPaste is only running in the background. Anyone who never uses auto-paste (clipboard mode) is no longer bothered by this.
+- **New switch "Trim trailing silence"** uses whisper.cpp's built-in speech detection to cut appended silence/noise out before transcription. This reduces invented word fragments at the end of a transcript, in addition to the existing safeguard. It is enabled by default, can be switched off, and is only available with the local Whisper engine.
 
 ### Bug Fixes
 
-- **Die Auto-Einfügen-Berechtigung konnte in einer Neustart-Schleife hängen bleiben**, aus der es keinen sichtbaren Ausweg gab: Der Erteilen-Dialog und die Systemeinstellungen konnten sich gegenseitig überlagern, ein Neustart landete teils in einem leeren Zustand ganz ohne laufende App, und schlug die Berechtigung nach einem Neustart weiterhin fehl, zeigte WhisPaste erneut nur den ursprünglichen „Erlauben"-Hinweis statt ehrlich zu sagen, dass der Neustart nichts gebracht hat. Alle vier Punkte sind behoben, inklusive eines manuellen Ausstiegs aus der Schleife, falls die Berechtigung sich partout nicht automatisch einrichten lässt.
-- **Musste WhisPaste mitten in der Ersteinrichtung neu starten** (etwa um eine gerade erteilte Berechtigung wirksam werden zu lassen), **begann die Einrichtung danach wieder komplett von vorn** — jetzt wird an der zuletzt erreichten Stelle fortgesetzt.
-- **Vereinzelt angehängte, unpassende Wortfetzen direkt nach einem eigentlich schon vollständigen Transkript** sind seltener geworden — zwei bislang ungenutzte Stellschrauben der lokalen Whisper-Engine unterdrücken jetzt Fantasie-Ergänzungen bei leiser werdendem Audio am Ende einer Aufnahme.
+- **The auto-paste permission could get stuck in a restart loop with no visible way out.** The grant dialog and System Settings could overlap each other, a restart sometimes ended in an empty state with no running app, and if the permission still failed after a restart, WhisPaste again only showed the original permission hint instead of honestly saying that the restart had achieved nothing. All four points are fixed, including a manual exit from the loop in case the permission cannot be set up automatically.
+- **If WhisPaste had to restart in the middle of the first-run setup** (e.g. to make a just-granted permission take effect), **setup began again from the very start**. It now resumes at the last step reached.
+- **Occasional stray word fragments appended directly after an already complete transcript** have become rarer. Two previously unused tuning parameters of the local Whisper engine now suppress invented additions when audio fades at the end of a recording.
 
 ### Maintenance
 
-- Interne Build-/Store-Tooling-Korrekturen: das Silero-VAD-Modell wird jetzt korrekt mitsigniert (verhinderte sonst signierte Builds), der Auto-Update-Plugin bleibt zuverlässig aus Mac-App-Store-Builds ausgeschlossen, und die App-Store-Connect-Automatisierung ordnet neue Builds jetzt zuverlässig der richtigen Version zu.
+- Internal build/Store tooling fixes: the Silero VAD model is now correctly code-signed (signed builds failed otherwise), the auto-update plugin stays reliably excluded from Mac App Store builds, and the App Store Connect automation now reliably assigns new builds to the correct version.
 
 ## 1.2.63
 
 ### Bug Fixes
 
-- **Ein Absturz-Loop konnte auftreten, wenn WhisPaste einmal unter der alten Bundle-ID installiert war**: Die einmalige Datenübernahme auf die neue App-Kennung schrieb Zähler/Zeitstempel intern als Text statt als Zahl, was beim nächsten Prüfen des Bewertungs- bzw. Unterstützungs-Hinweises zu einem harten Absturz führte. Betroffene Installationen heilen sich beim nächsten Start automatisch, ohne erneute Datenübernahme.
-- **Die Auto-Einfügen-Berechtigung musste auf macOS teils zweimal erteilt werden, und ein Klick auf die Systembenachrichtigung führte nicht direkt zur passenden Einstellung.** Beides ist jetzt zuverlässiger: WhisPaste erkennt, wenn eine bereits erteilte Berechtigung nur einen Neustart braucht, um wirksam zu werden, und bietet dafür sowohl in der Benachrichtigung als auch im Hinweistext direkt den Neustart an, statt unnötig erneut nach der Berechtigung zu fragen.
+- **A crash loop could occur if WhisPaste had once been installed under the old bundle ID.** The one-time data migration to the new app identifier wrote counters and timestamps internally as text instead of numbers. This led to a hard crash the next time the rating/support notice was checked. Affected installations heal themselves automatically at the next start, without a new data migration.
+- **On macOS, the auto-paste permission sometimes had to be granted twice, and clicking the system notification did not lead directly to the matching setting.** Both are now more reliable: WhisPaste detects when an already granted permission only needs a restart to take effect, and offers the restart directly in both the notification and the hint text, instead of unnecessarily asking for the permission again.
 
 ## 1.2.62
 
 ### Bug Fixes
 
-- **Wurde der Mikrofonzugriff einmal abgelehnt, blieb die App auf einer Sackgasse stehen** ("Mikrofonzugriff wird benötigt", ohne einen Weg, ihn zu erteilen) — macOS zeigt den Systemdialog nach einer Ablehnung nie wieder von selbst. Die Meldung führt jetzt direkt zu den Systemeinstellungen.
-- **Auf macOS bekam jeder neue Build für dieselbe Version dieselbe interne Build-Nummer** (ein Tippfehler in der Info.plist-Konfiguration) — dadurch konnte App Store Connect neue Builds nicht zuverlässig vom vorherigen unterscheiden. Jeder Build bekommt jetzt wieder seine eigene, korrekt fortlaufende Nummer.
+- **Once microphone access had been denied, the app got stuck in a dead end** ("Microphone access is missing", with no way to grant it). macOS never shows the system dialog again on its own after a denial. The message now leads directly to System Settings.
+- **On macOS, every new build for the same version got the same internal build number** (a typo in the Info.plist configuration). As a result, App Store Connect could not reliably tell new builds apart from the previous one. Each build now gets its own, correctly sequential number again.
 
 ### Maintenance
 
-- **In der (nicht-live) Mac-App-Store-Einreichungsvorbereitung waren teilweise doppelte Screenshots hinterlegt** (ein fehlendes Upload-Flag ließ alte Bilder stehen statt sie zu ersetzen) — jetzt werden Screenshots bei jeder Aktualisierung sauber ersetzt.
-- Interne Vorbereitung für das nächste Microsoft-Store-Update (keine Funktionsänderung an der App).
+- **In the (not-live) Mac App Store submission preparation, duplicate screenshots were sometimes stored.** A missing upload flag left old images in place instead of replacing them. Screenshots are now properly replaced on every update.
+- Internal preparation for the next Microsoft Store update (no functional change to the app).
 
 ## 1.2.61
 
 ### Maintenance
 
-- **Das macOS-App-Icon war nicht auf Apples vorgeschriebene Proportionen zugeschnitten** (zu wenig Rand um das Motiv) — jetzt korrekt an die Vorgabe angepasst.
-- **Ein zweiter PowerShell-Fehler im überarbeiteten Microsoft-Store-Upload aus 1.2.60 ist behoben** (betraf nur den internen Freigabeprozess, keine Funktionsänderung an der App).
+- **The macOS app icon was not cropped to Apple's prescribed proportions** (too little margin around the motif). It is now correctly adjusted to the specification.
+- **A second PowerShell error in the revised Microsoft Store upload from 1.2.60 has been fixed** (it affected only the internal release process, with no functional change to the app).
 
 ## 1.2.60
 
 ### Maintenance
 
-- **Der macOS-Build war seit dem letzten Release durchgehend defekt** (betraf CI, den regulären Download-Build und die Store-Einreichung gleichermaßen) — ein Build-Skript fehlte das Ausführungsrecht. Behoben; alle drei Wege bauen wieder sauber.
-- **Der überarbeitete Microsoft-Store-Upload aus 1.2.59 schlug bei seinem ersten echten Lauf fehl** (ein PowerShell-Kompatibilitätsfehler bei frisch committeten Store-Einträgen ohne offene Einreichung). Behoben.
+- **The macOS build had been continuously broken since the last release** (it affected CI, the regular download build and the Store submission alike). A build script was missing its execute permission. Fixed; all three paths build cleanly again.
+- **The revised Microsoft Store upload from 1.2.59 failed on its first real run** (a PowerShell compatibility error with freshly committed Store entries that had no open submission). Fixed.
 
 ## 1.2.59
 
 ### Maintenance
 
-- **Store-Veröffentlichungs-Automatisierung überarbeitet** (betrifft nur den Bereitstellungsprozess, keine Funktionsänderung an der App selbst): Der Microsoft-Store-Paket-Upload läuft wieder automatisiert, und der Kaufpreis für die (nicht-live) Mac-App-Store-Einreichungsvorbereitung wird jetzt direkt über die App-Store-Connect-API gesetzt statt manuell.
+- **Store publishing automation revised** (affects only the deployment process, with no functional change to the app itself): the Microsoft Store package upload runs automatically again, and the purchase price for the (not-live) Mac App Store submission preparation is now set directly via the App Store Connect API instead of manually.
 
 ## 1.2.58
 
 ### New Features
 
-- **Der Unterstützungs-Hinweis ist jetzt fairer getaktet und ehrlicher formuliert.** Statt eines einzigen Dauer-Ausblendens merkt sich WhisPaste jetzt gestaffelt, wann zuletzt nachgefragt wurde (90 Tage nach bewusstem Wegklicken, 9 Monate nach einem Klick auf den Unterstützen-Link), und zeigt insgesamt höchstens drei Mal einen Hinweis. Der Text nennt jetzt offen, wofür die Kosten anfallen (Apple Developer Program, Microsoft Partner Center, Hosting) — ohne konkrete Summen zu nennen.
+- **The support notice is now timed more fairly and worded more honestly.** Instead of a single permanent dismissal, WhisPaste now remembers in stages when it last asked (90 days after a deliberate dismissal, 9 months after a click on the support link), and shows the notice at most three times in total. The text now openly names what the costs are for (Apple Developer Program, Microsoft Partner Center, hosting), without naming specific amounts.
 
 ### Bug Fixes
 
-- **Windows meldete fälschlich eine neue Version, obwohl bereits die aktuelle installiert war.** Ein Formatierungsunterschied zwischen der App-eigenen Versionsnummer und der Update-Prüfung ließ WhisPaste wiederholt zum erneuten Installieren derselben Version auffordern.
-- **Fehlgeschlagene Modell-Downloads zeigten nur „null" statt einer echten Fehlermeldung** — betraf sowohl Whisper- als auch Parakeet-Downloads. Die Meldung nennt jetzt die tatsächliche Ursache.
-- **Ein seltener Absturz beim Beenden über Cmd+Q oder das Dock unter macOS ist behoben.** Betroffen war nur dieser eine Beendigungsweg — über das Tray-Menü funktionierte das Herunterfahren bereits sauber.
-- **„Bei Anmeldung starten" funktionierte unter macOS gar nicht**, obwohl sich der Schalter aktivieren ließ — jetzt sauber über das native macOS-Autostart-System umgesetzt.
-- **Der „Hinzufügen"-Button bei eigenen Ersetzungsregeln hatte unleserlichen Text** (helles Türkis auf türkisem Grund).
-- **Die Einstellungen-Seite füllte nicht mehr die volle Fensterbreite** wie alle anderen Seiten der App — behoben.
-- **Zahlreiche kleinere Barrierefreiheits- und Bedienbarkeits-Verbesserungen**: bessere Screenreader-Ankündigungen bei Aufnahme-Status und Verlaufseinträgen, mehr Elemente per Tastatur erreichbar, größere Tipp-Flächen bei kleinen Icon-Buttons, konsequentere Beachtung der Einstellung „Bewegung reduzieren", und die schwebende Overlay-/Button-Anzeige bleibt jetzt auch nach dem Ab- oder Umstecken eines Monitors innerhalb des sichtbaren Bildschirmbereichs.
+- **Windows wrongly reported a new version even though the current one was already installed.** A formatting difference between the app's own version number and the update check repeatedly prompted WhisPaste to reinstall the same version.
+- **Failed model downloads showed only "null" instead of a real error message.** This affected both Whisper and Parakeet downloads. The message now states the actual cause.
+- **A rare crash on quit via Cmd+Q or the Dock under macOS is fixed.** Only this one quit path was affected. Shutdown via the tray menu already worked cleanly.
+- **"Launch at Startup" did not work at all on macOS**, although the toggle could be enabled. It is now implemented cleanly via the native macOS autostart system.
+- **The "Add" button for custom replacement rules had unreadable text** (light turquoise on a turquoise background).
+- **The Settings page no longer filled the full window width** like all other pages of the app. Fixed.
+- **Numerous smaller accessibility and usability improvements:** better screen reader announcements for recording status and history entries, more elements reachable by keyboard, larger tap targets on small icon buttons, more consistent respect for the reduce-motion setting, and the floating overlay/button now stays within the visible screen area after a monitor is unplugged or re-plugged.
 
 ### Maintenance
 
-- **macOS-App-Kennung intern umgestellt** (Voraussetzung für die geplante Einreichung im Mac App Store). Bestehende Einstellungen und API-Keys werden beim ersten Start automatisch und ohne Nutzeraktion in die neue Kennung übernommen.
+- **macOS app identifier changed internally** (prerequisite for the planned Mac App Store submission). Existing settings and API keys are migrated automatically to the new identifier at the first start, without any user action.
 
 ## 1.2.57
 
 ### Bug Fixes
 
-- **Kleiner Fehler im Download-Support-Fenster der Webseite behoben:** Auf macOS erschien der „Auf GitHub einen Stern geben"-Eintrag versehentlich doppelt.
+- **Minor fix in the download support window on the web page:** on macOS, the "Star on GitHub" entry appeared accidentally twice.
 
 ### Maintenance
 
-- **Microsoft-Store-Veröffentlichungs-Workflow abgesichert.** Ein plattformspezifischer Fehler verhinderte, dass Preis und Store-Texte bei der automatisierten Einreichung zuverlässig übernommen wurden — behoben und gehärtet.
+- **Microsoft Store publishing workflow hardened.** A platform-specific error prevented price and store texts from being reliably applied during automated submission. This is fixed and hardened.
 
 ## 1.2.56
 
 ### Maintenance
 
-- **Release-Housekeeping.** v1.2.54 und v1.2.55 wurden durch dieses Release ersetzt (identischer Funktionsumfang) — reine Infrastruktur-Bereinigung ohne Auswirkung auf die App selbst.
+- **Release housekeeping.** v1.2.54 and v1.2.55 were replaced by this release (identical feature set) — pure infrastructure cleanup with no effect on the app itself.
 
 ## 1.2.55
 
 ### Bug Fixes
 
-- **Die Interpunktions-Einstellungen sind jetzt übersichtlicher gruppiert** und das Label „Interpunktions-Priming" trägt jetzt einen klareren deutschen Namen („Satzzeichen anregen").
+- **The punctuation settings are now grouped more clearly**, and the punctuation priming setting got a clearer German label ("Satzzeichen anregen").
 
 ## 1.2.54
 
 ### New Features
 
-- **Eigenes Vokabular jetzt auch mit OpenAI-Cloud-Transkription nutzbar.** Bisher wirkte das in den Einstellungen hinterlegte Vokabular (Namen, Fachbegriffe) nur bei der lokalen Whisper-Engine — jetzt wird es auch an OpenAIs Cloud-Transkription übergeben.
-- **Neuer Schalter „Satzzeichen entfernen"** entfernt Punkte, Kommas und andere Satzzeichen zuverlässig aus jedem Transkript — anders als das bestehende „Interpunktions-Priming" funktioniert das bei jeder Engine und jedem Cloud-Anbieter gleich, nicht nur bei lokalem Whisper. Zahlen, Dezimalwerte und Versionsnummern bleiben dabei unangetastet.
-- **Ein Hinweis erscheint jetzt automatisch**, wenn macOS die Auto-Paste-Berechtigung im Rahmen eines Updates zurückgesetzt hat — mit einem Klick direkt zur Freigabe, statt die Ursache erst in den Einstellungen suchen zu müssen.
+- **Custom vocabulary now also works with OpenAI cloud transcription.** Until now, the vocabulary stored in settings (names, technical terms) only took effect with the local Whisper engine. It is now also passed to OpenAI's cloud transcription.
+- **New "Strip punctuation" switch** reliably removes periods, commas and other punctuation marks from every transcript. Unlike the existing "Punctuation priming", this works the same for every engine and every cloud provider, not only for local Whisper. Numbers, decimal values and version numbers are left untouched.
+- **A notice now appears automatically** when macOS reset the auto-paste permission during an update, with one click straight to the grant. You no longer have to look for the cause in settings first.
 
 ### Bug Fixes
 
-- **Der Beta-Kanal bleibt nicht mehr hinter Stable zurück.** Wenn länger kein neuer Beta-Build erschien, zeigte die App fälschlich „aktuell", obwohl längst neuere Stable-Versionen verfügbar waren.
+- **The beta channel no longer falls behind stable.** If no new beta build had appeared for a while, the app wrongly showed "up to date" although newer stable versions were already available.
 
 ## 1.2.53
 
 ### Bug Fixes
 
-- **Ein seltener Absturz beim Beenden der App unter macOS ist behoben.** Die lokale Spracherkennung gab ihre GPU-Ressourcen nicht immer rechtzeitig frei, bevor die App vollständig geschlossen wurde.
-- **Ein hängendes Modell-Laden führt jetzt zuverlässig zu einem automatischen Wechsel auf CPU** statt die Sitzung mit einer unklaren Zeitüberschreitung abzubrechen — betraf seltene Fälle, in denen die GPU-Initialisierung ungewöhnlich lange brauchte.
+- **A rare crash when quitting the app under macOS is fixed.** The local speech recognition did not always release its GPU resources in time before the app closed completely.
+- **A hanging model load now reliably leads to an automatic switch to the CPU** instead of aborting the session with an unclear timeout. This affected rare cases where GPU initialization took unusually long.
 
 ## 1.2.52
 
 ### Bug Fixes
 
-- **Ein Absturz beim App-Start unter Windows ist behoben.** Betraf lokale Transkription über die neue In-App-Whisper-Engine und äußerte sich als sofortiger Absturz — die Ursache war ein fehlender interner Initialisierungsschritt, nicht das System oder die Hardware.
-- **Die GPU-Beschleunigung für die lokale Transkription wird jetzt zuverlässig genutzt.** Sie konnte zuvor dauerhaft auf CPU zurückfallen, selbst wenn eine passende GPU vorhanden war oder „GPU erzwingen" eingestellt war — mit spürbar langsameren Transkriptionen als Folge.
-- **Längere Status-Texte im schwebenden Overlay werden nicht mehr abgeschnitten.** Die Anzeige passt ihre Breite jetzt der tatsächlichen Textlänge an, statt lange Meldungen mit „…" zu kappen.
+- **A crash at app start under Windows is fixed.** It affected local transcription via the new in-app Whisper engine and appeared as an immediate crash. The cause was a missing internal initialization step, not the system or the hardware.
+- **GPU acceleration for local transcription is now reliably used.** It could previously fall back to the CPU permanently, even when a suitable GPU was present or the GPU was forced in settings, with noticeably slower transcriptions as a result.
+- **Longer status texts in the floating overlay are no longer cut off.** The display now adjusts its width to the actual text length, instead of truncating long messages with "…".
 
 ## 1.2.51
 
 ### New Features
 
-- **Parakeet: ein zweiter, deutlich schnellerer lokaler Spracherkennungs-Motor.** Neben Whisper steht jetzt NVIDIA Parakeet als wählbarer On-Device-Motor zur Verfügung — auf CPU-only-Hardware um ein Vielfaches schneller als Whisper, mit Unterstützung für rund 25 Sprachen (inkl. Deutsch). Ein spürbarer Gewinn gerade auf älterer oder schwächerer Hardware.
-- **Die lokale Whisper-Engine läuft jetzt direkt in der App statt als separater Hintergrund-Server.** Kein herunterzuladendes Server-Programm mehr, schnellerer Start, und ein eigener Wiederherstellungspfad mit automatischem Wiederholungsversuch bei GPU-Abstürzen oder Speicherproblemen.
-- **Die GPU-Beschleunigung wird jetzt anhand der echten Hardware erkannt** und automatisch das passende Backend gewählt (NVIDIA → CUDA, Apple → Metal, AMD/Intel → Vulkan, sonst CPU).
-- **Automatische Updates.** WhisPaste hält sich ab jetzt von selbst aktuell: signierte, kryptografisch geprüfte Updates auf macOS (Sparkle) und Windows (WinSparkle, Ed25519) — kein manueller Download mehr. Wer die App einmal installiert hat, bekommt künftige Versionen automatisch zugestellt.
-- **Die Hotkey-zu-Text-Latenz ist jetzt live im Analyse-Dashboard sichtbar** — rein lokal erfasst, ohne jede Übertragung, als greifbarer Beleg dafür, wie schnell der Text tatsächlich ankommt.
-- **Einstellungen lassen sich jetzt als Datei exportieren und importieren** (eigenes Vokabular, Textbausteine, Tastenkürzel) — praktisch für mehrere Geräte, ganz ohne Cloud oder Konto.
-- **Ein neuer, jederzeit überspringbarer Testaufnahme-Schritt im Ersteinrichtungs-Assistenten** lässt neue Nutzer Hotkey → Aufnahme → Text einmal live ausprobieren, bevor es losgeht.
-- **Satzzeichen werden jetzt standardmäßig zuverlässiger gesetzt**, ohne Geschwindigkeitsverlust — bei Bedarf in den Einstellungen abschaltbar.
-- **Ein dezenter Hinweis zeigt jetzt die Notiz- und Such-Syntax** (z. B. `tag:`, `korrektur:`, `#tag`) direkt in Verlauf und Sprachnotizen.
-- **Ein Fehlerton ist jetzt korrekt verdrahtet und hörbar**, wenn das Einfügen fehlschlägt — abschaltbar in den Einstellungen.
-- **Das Feedback-Formular akzeptiert jetzt optional eine Kontakt-E-Mail**, falls eine Rückfrage gewünscht ist — nie vorausgefüllt, immer freiwillig.
+- **Parakeet: a second, significantly faster local speech recognition engine.** Alongside Whisper, NVIDIA Parakeet is now available as a selectable on-device engine. On CPU-only hardware it is many times faster than Whisper, with support for around 25 languages (incl. German). A noticeable gain, especially on older or weaker hardware.
+- **The local Whisper engine now runs directly inside the app instead of as a separate background server.** No server program to download anymore, faster start, and a dedicated recovery path with automatic retry on GPU crashes or memory problems.
+- **GPU acceleration is now detected from the real hardware** and the matching backend is chosen automatically (NVIDIA → CUDA, Apple → Metal, AMD/Intel → Vulkan, otherwise CPU).
+- **Automatic updates.** WhisPaste now keeps itself up to date: signed, cryptographically verified updates on macOS (Sparkle) and Windows (WinSparkle, Ed25519), with no manual download. Anyone who has installed the app once automatically receives future versions.
+- **The hotkey-to-text latency is now visible live in the analytics dashboard.** It is captured purely locally, without any transmission, as tangible evidence of how quickly the text actually arrives.
+- **Settings can now be exported and imported as a file** (custom vocabulary, snippets, keyboard shortcuts). Handy for multiple devices, without any cloud or account.
+- **A new test-recording step in the first-run setup wizard, which can be skipped at any time,** lets new users try hotkey → recording → text live once before getting started.
+- **Punctuation is now set more reliably by default**, without a loss of speed. It can be switched off in settings if needed.
+- **A subtle hint now shows the note and search syntax** (e.g. `tag:`, `korrektur:`, `#tag`) directly in history and voice notes.
+- **An error sound is now correctly wired and audible** when pasting fails. It can be disabled in settings.
+- **The feedback form now optionally accepts a contact email**, in case a follow-up is wanted. It is never prefilled and always optional.
 
 ### Bug Fixes
 
-- **Absturzberichte richtig zugeordnet.** Native Stack-Traces landen nun in der korrekten Sentry-Release (`whispaste@…`), sodass Abstürze zuverlässig entschlüsselt und dem richtigen Build zugeordnet werden.
-- **Ein Wechsel auf CPU-Verarbeitung wird jetzt klar angezeigt** statt still im Hintergrund zu passieren.
-- **Ein durch Rechte-Eskalation blockiertes Einfügen unter Windows wird jetzt klar erklärt** statt mit einer generischen Fehlermeldung.
-- **Autostart zeigt nicht mehr fälschlich „aktiviert" an**, wenn die Registrierung beim Betriebssystem tatsächlich fehlgeschlagen ist.
-- **Das Overlay bleibt beim Wechsel der Spracherkennungs-Engine zuverlässig stabil** — ein robusteres Handshake-Verfahren mit Wiederholungsversuch verhindert hängende Zustände.
-- **Eigenes Vokabular wird jetzt zuverlässig an die lokale Whisper-Engine übergeben.**
+- **Crash reports correctly attributed.** Native stack traces now land in the correct Sentry release (`whispaste@…`), so crashes are reliably decoded and assigned to the correct build.
+- **A switch to CPU processing is now clearly displayed** instead of happening silently in the background.
+- **A paste blocked by privilege escalation under Windows is now clearly explained** instead of showing a generic error message.
+- **Autostart no longer wrongly shows "enabled"** when registration with the operating system actually failed.
+- **The overlay now stays reliably stable when switching the speech recognition engine.** A more robust handshake procedure with retry prevents stuck states.
+- **Custom vocabulary is now reliably passed to the local Whisper engine.**
 
 ## 1.2.43
 
 ### Bug Fixes
 
-- **Datenschutz- und Website-Links zeigen wieder auf die richtige Adresse und in der richtigen Sprache.** Die Links in der App (Über-Seite) führen jetzt sprachabhängig zur deutschen oder englischen Datenschutzerklärung auf whispaste.de — vorher liefen sie teils auf eine veraltete Adresse ins Leere. Die englische Datenschutzseite der Website wurde außerdem um die fehlenden Hosting- und Tracking-Hinweise ergänzt, sodass deutsch- und englischsprachige Besucher dieselbe Aufklärung erhalten.
+- **Privacy and website links point to the correct address and language again.** The links in the app (About page) now lead to the German or English privacy policy at whispaste.de, depending on the language. Previously some of them led to an outdated address and went nowhere. The English privacy page of the website was also extended with the missing hosting and tracking notices, so German- and English-speaking visitors get the same information.
 
 ## 1.2.42
 
 ### Features
 
-- **Push-to-Talk und zuverlässigere Tastenkürzel unter Windows.** Gedrückt halten zum Sprechen, loslassen zum Stoppen funktioniert jetzt sauber. AltGr und layout-spezifische Tasten werden korrekt erkannt und nicht mehr fälschlich als Strg+Alt gewertet — egal welches Tastaturlayout aktiv ist.
-- **Neu gestaltetes Aufnahme-Overlay.** Ein dezenter Frosted-Glass-Look, eine Pille, die je nach Phase ruhig mitwächst, und weiche Übergänge zwischen Aufnahme, Transkription und „Fertig" — plattformübergreifend identisch und in jedem Farbschema stimmig.
-- **Klare Leer-, Lade- und Fehlerzustände** in Verlauf, Statistik und Einstellungen, statt leerer Flächen — du siehst jederzeit, was gerade passiert.
-- **Durchgängige Tastatur- und Barrierefreiheit.** Ein sichtbarer Fokusring erscheint nur bei Tastaturbedienung, Seitenleiste und Einstellungen sind vollständig per Tastatur erreichbar, und „Bewegung reduzieren" wird überall respektiert.
-- **Ruhigere Animationen.** Ein gedämpftes Bewegungssystem ersetzt die früheren federnden Effekte und richtet sich nach der Systemeinstellung „Bewegung reduzieren".
-- **Einheitlicheres Schriftbild.** WhisPaste bringt jetzt die Schriftart Inter mit, für ein konsistentes Erscheinungsbild auf allen Plattformen.
-- **Transparenter Telemetrie-Hinweis im Onboarding.** Die anonyme, jederzeit abschaltbare Nutzungsstatistik wird beim ersten Start erklärt und lässt sich direkt dort deaktivieren; die „Über"-Seite fasst die wichtigsten Punkte zusammen.
+- **Push-to-talk and more reliable keyboard shortcuts on Windows.** Hold to talk, release to stop now works cleanly. AltGr and layout-specific keys are correctly recognized and no longer wrongly treated as Ctrl+Alt, regardless of which keyboard layout is active.
+- **Redesigned recording overlay.** A subtle frosted-glass look, a pill that grows along with the current phase, and smooth transitions between recording, transcription and "Done". It looks identical across platforms and fits every color scheme.
+- **Clear empty, loading and error states** in history, statistics and settings, instead of blank areas. You can always see what is happening.
+- **Consistent keyboard and accessibility support.** A visible focus ring appears only during keyboard use, the sidebar and settings are fully keyboard-operable, and reduce motion is respected everywhere.
+- **Calmer animations.** A dampened motion system replaces the earlier springy effects and follows the system reduce-motion setting.
+- **More consistent typography.** WhisPaste now ships the Inter font for a consistent appearance on all platforms.
+- **Transparent telemetry notice in onboarding.** The anonymous usage statistics, which can be switched off at any time, are explained on first start and can be disabled right there. The About page summarizes the key points.
 
 ### Bug Fixes
 
-- **Die Aufnahme bleibt beim schnellen Stoppen nicht mehr hängen.** Ein zügiges Stoppen kann den Aufnahme-Schritt nicht mehr blockieren — keine Transkription endet mehr in einer Zeitüberschreitung.
-- **Das Overlay bleibt unter Windows zuverlässig über allen Fenstern** und rutscht nicht mehr hinter andere Programme.
-- **Die Wellenform bleibt auch bei der zweiten und jeder weiteren Aufnahme sichtbar** und wird nicht mehr abgeschnitten.
-- **Das Overlay wird unter Windows in voller Bildschirmschärfe gezeichnet** statt leicht verwaschen.
-- **Das Zurücksetzen der Einstellungen (erneutes Onboarding) läuft jetzt immer vollständig durch** — auch wenn ein Teilschritt fehlschlägt.
-- **Kein seltener Absturz mehr beim Beenden**, während der Verlauf noch gespeichert wird.
-- **Eine Layout-Ungenauigkeit in der Transkript-Bearbeitungsleiste ist behoben** — die Wortzahl weicht jetzt sauber aus, statt am Rand minimal abzuschneiden.
-- **Der „Datenschutzerklärung"-Link auf der Über-Seite führt wieder ans Ziel.** Er zeigt jetzt sprachabhängig auf die aktuelle Datenschutzerklärung, statt auf eine veraltete Adresse ins Leere zu laufen.
+- **Recording no longer hangs on a quick stop.** A quick stop can no longer block the recording step, and no transcription ends in a timeout anymore.
+- **The overlay stays reliably above all windows on Windows** and no longer slips behind other programs.
+- **The waveform stays visible from the second recording onward** and is no longer cut off.
+- **The overlay is drawn at full screen sharpness on Windows** instead of looking slightly blurred.
+- **Resetting the settings (re-onboarding) now always runs through completely**, even if one sub-step fails.
+- **No more rare crash on quit** while the history is still being saved.
+- **A layout inaccuracy in the transcript editing toolbar is fixed.** The word count now yields cleanly instead of being clipped slightly at the edge.
+- **The "Privacy policy" link on the About page works again.** It now points to the current privacy policy, depending on the language, instead of leading to an outdated address that went nowhere.
 
 ## 1.2.41
 
 ### Features
 
-- **Anonyme, selbst-gehostete Nutzungsstatistik zur bedarfsgerechten Weiterentwicklung.** Standardmäßig aktiv, jederzeit unter Einstellungen → Datenschutz abschaltbar — cookiefrei, ohne Konto- oder Geräte-Identifikator und niemals mit Inhalten (Text, Audio, Verlauf). Details in der Datenschutzerklärung.
+- **Anonymous, self-hosted usage statistics to guide development.** Active by default, and can be switched off at any time under Settings → Privacy. Cookie-free, without an account or device identifier, and never includes content (text, audio, history). Details are in the privacy policy.
 
 ### Bug Fixes
 
-- **Der lokale Sprachdienst lässt sich unter Windows mit NVIDIA-Grafik wieder zuverlässig herunterladen.** WhisPaste überspringt nun kaputte Download-Einträge, fällt bei Bedarf sauber auf Vulkan oder CPU zurück und verarbeitet die von GitHub ausgelieferten Manifestdateien robust, statt mit „Netzwerkfehler: unknown" hängen zu bleiben.
+- **The local speech service can be downloaded reliably again on Windows with NVIDIA graphics.** WhisPaste now skips broken download entries, falls back cleanly to Vulkan or CPU when needed, and processes the manifest files delivered by GitHub robustly, instead of hanging with "Network error: unknown".
 
 ## 1.2.40
 
 ### Features
 
-- **Die Einstellungen sind jetzt durchsuchbar und vollständig per Tastatur bedienbar.** Ein Suchfeld am oberen Rand filtert die Bereiche live mit, springt zum Treffer und bleibt beim Scrollen sichtbar. Die gesamte Bedienung funktioniert per Tastatur und mit Screenreadern (sinnvolle Fokus-Reihenfolge, Sprungmarken, Vorlese-Beschriftungen).
-- **Die Einstellungen wurden aufgeräumt und verdichtet.** Verwandte Schalter sind zusammengefasst: „Ton an/aus" steckt jetzt im Lautstärkeregler, die Autostart-Optionen in einem einzigen Dropdown, die Verlaufs-Aufbewahrung in einer Voreinstellung (Standard/Benutzerdefiniert), und „Overlay anzeigen" samt Position liegen beieinander. Das Sprach-Dropdown zeigt die Erkennungssprachen jetzt in der Sprache der Oberfläche.
-- **Live-Vorschau für Overlay und Aufnahme-Button direkt in den Einstellungen.** Beide werden in Originalgröße (1:1) und reaktiv dargestellt, sodass eine Änderung sofort so aussieht, wie sie später erscheint.
-- **Die Aufnahme-Anzeige (Overlay und Button) wurde neu gestaltet und ist plattformübergreifend identisch.** Eine gemeinsame Design-Quelle wird nativ auf macOS, Windows und Linux dargestellt — dieselbe Wellenform mit mitlaufender Historie, dasselbe Erscheinungsbild in jedem Farbschema und eine korrekt dimensionierte, sauber positionierte kompakte Variante.
-- **Automatische In-App-Aktualisierung auf macOS.** WhisPaste kann sich auf macOS jetzt selbst aktualisieren (atomarer DMG-Austausch, bei Bedarf mit Rechte-Eskalation); eine laufende Aufnahme verschiebt die Installation, bis sie abgeschlossen ist.
-- **Durchgängige Screenreader-Unterstützung.** Onboarding, Verlauf, die zentralen Bedienelemente, die „Über"-Seite, der Feedback- und der Cloud-Bereich tragen jetzt Vorlese-Beschriftungen; nicht-interaktive Bilder, Formularfelder und Icon-Schaltflächen sind korrekt ausgezeichnet.
+- **Settings are now searchable and fully keyboard-operable.** A search field at the top filters the sections live, jumps to the match and stays visible while scrolling. The entire interface works via keyboard and screen readers (sensible focus order, jump marks, read-out labels).
+- **Settings tidied up and condensed.** Related switches are combined: the sound on/off toggle now sits in the volume slider, the autostart options are in a single dropdown, history retention is a preset (default/custom), and the overlay toggle sits together with its position. The language dropdown now shows the recognition languages in the interface language.
+- **Live preview for the overlay and the record button directly in settings.** Both are shown at original size (1:1) and reactively, so a change looks exactly as it will later appear.
+- **The recording display (overlay and button) was redesigned and is identical across platforms.** A shared design source is rendered natively on macOS, Windows and Linux: the same waveform with a scrolling history, the same appearance in every color scheme, and a correctly sized, cleanly positioned compact variant.
+- **Automatic in-app updates on macOS.** WhisPaste can now update itself on macOS (atomic DMG replacement, with privilege escalation if needed). An ongoing recording postpones the installation until it is complete.
+- **Comprehensive screen reader support.** Onboarding, history, the central controls, the About page, and the feedback and cloud sections now carry read-out labels. Non-interactive images, form fields and icon buttons are correctly annotated.
 
 ### Bug Fixes
 
-- **Ein ausgeblendetes Overlay fängt keine Mausklicks mehr ab.** Ein unsichtbares Overlay konnte zuvor weiterhin Klicks abfangen. Beim Ausblenden — auch bei der automatischen Ausblendung nach „Fertig" — wird das native Fenster jetzt zuverlässig vom Bildschirm genommen, statt unsichtbar liegen zu bleiben.
-- **Diktat geht beim schnellen Stoppen nicht mehr verloren.** Die Stopp-Pfade (manuell, automatisch bei Stille, bei totem Mikrofon) sind konsolidiert: ein totes Mikrofon bricht eine bereits laufende Transkription nicht mehr ab (das war stiller Datenverlust), und gleichzeitige Stopp-Aufrufe laufen sauber zu einem einzigen Durchlauf zusammen.
-- **Eine gehaltene Tastenkombination löst genau einmal aus.** Die Auto-Wiederholung des Betriebssystems wird abgefangen, sodass ein gedrückt gehaltener Hotkey nicht mehrfach feuert.
-- **Kein doppeltes Einfügen mehr auf macOS.** Ist das Einfügen bereits per CGEvent gelandet, wird der AppleScript-Fallback nicht zusätzlich ausgeführt.
-- **Keine Ruckler mehr beim Öffnen durch den Modell-Scan.** Die Prüfung vorhandener Sprachmodelle läuft nicht mehr blockierend auf dem UI-Thread (insbesondere auf virtualisierten Dateisystemen), sodass Wellenform und Zeitanzeige flüssig bleiben.
-- **Eine neue Aufnahme lässt sich sofort starten, während die „Fertig"-/Fehler-Anzeige noch nachläuft** — der Auslöser reagiert nicht mehr verzögert, solange das Overlay noch sichtbar ist.
-- **Das Overlay behält beim Ausblenden seine eingestellte Größe** und blendet sich nach „Fertig" zuverlässig nach 2 Sekunden aus.
-- **Bei einer Neuinstallation zeigt die Verlaufs-Aufbewahrung die Voreinstellung „Standard"** statt fälschlich „Benutzerdefiniert".
-- **Linux-Pakete laufen zuverlässiger.** Das Flatpak startet jetzt auf der GNOME-Runtime mit gebündelten nativen Bibliotheken; der Snap-Build entsteht unter verwalteter LXD und bringt vollständige Store-Metadaten mit.
+- **A hidden overlay no longer catches mouse clicks.** An invisible overlay could previously still intercept clicks. When hiding (including the automatic hide after "Done"), the native window is now reliably removed from the screen instead of lying invisibly.
+- **Dictation is no longer lost on a quick stop.** The stop paths (manual, automatic on silence, dead microphone) are consolidated. A dead microphone no longer aborts an already running transcription (that was silent data loss), and simultaneous stop calls now merge cleanly into a single run.
+- **A held key combination fires exactly once.** The operating system's auto-repeat is intercepted, so a held-down hotkey does not fire multiple times.
+- **No more double pasting on macOS.** If pasting already succeeded via CGEvent, the AppleScript fallback is no longer executed as well.
+- **No more stutters on open caused by the model scan.** The check for existing speech models no longer runs blocking on the UI thread (especially on virtualized file systems), so the waveform and time display stay smooth.
+- **A new recording can start immediately while the "Done" or error display is still running.** The trigger no longer reacts with a delay while the overlay is still visible.
+- **The overlay keeps its set size when hiding** and reliably fades out after 2 seconds once "Done" is shown.
+- **On a fresh install, history retention shows the default preset** instead of wrongly showing "Custom".
+- **Linux packages run more reliably.** The Flatpak now starts on the GNOME runtime with bundled native libraries. The Snap build is produced under managed LXD and includes complete store metadata.
 
 ## 1.2.39
 
 ### Bug Fixes
 
-- **Alle 99 Whisper-Sprachen funktionieren wieder, und die automatische Spracherkennung läuft jetzt tatsächlich.** Die Store-Review meldete „nur 4 Sprachen funktionieren, Russisch kommt als Englisch heraus". Ursache waren drei gestapelte app-seitige Einschränkungen — die ausgelieferten mehrsprachigen Modelle können alle 99 Sprachen: Bei „Automatisch" wurde die Sprache durch die UI-Sprache ersetzt (die Erkennung lief nie), das Sprachfeld wurde bei der Inferenz weggelassen (Server und Deepgram fielen still auf Englisch zurück), und sowohl die Vorab-Prüfliste als auch das Einstellungs-Dropdown waren auf en/de/fr/es festverdrahtet. Jetzt wird „Automatisch" explizit übertragen, Deepgram bekommt `detect_language=true`, und Dropdown wie Whitelist nutzen den vollständigen Sprachkatalog.
-- **Cloud-Transkription (Deepgram/OpenAI) funktioniert jetzt auf macOS.** Der API-Schlüssel wurde in den Einstellungen zwar angenommen, aber jede Aufnahme scheiterte nach ~100 ms mit der generischen Fehlermeldung. Ursache: `flutter_secure_storage` schrieb in den macOS-Data-Protection-Schlüsselbund, der ein Entitlement verlangt, das der nicht-sandboxed Build nicht mitbringt — der Schlüssel landete nie im Schlüsselbund, und die Cloud-Transkriber sahen stets einen leeren Schlüssel. Die Ablage nutzt jetzt den dateibasierten Login-Schlüsselbund; Cloud-Authentifizierungsfehler werden zudem klar gemeldet.
-- **Cloud-Anbieter lassen sich ohne lokales Sprachmodell nutzen.** Die Vorab-Prüfung verlangte fälschlich auch bei Deepgram/OpenAI den lokalen `whisper-server` und ein heruntergeladenes Modell, und der lokale Server wurde bedingungslos hochgefahren — reine Cloud-Nutzer konnten so nie eine Aufnahme starten. Die Cloud-Vorab-Prüfung prüft jetzt den konfigurierten API-Schlüssel (scheitert früh statt erst nach dem Diktat) und überspringt das Hochfahren des lokalen Servers.
-- **Ein beschädigtes oder zu kleines Sprachmodell lädt sich automatisch still neu.** Beim Start wird eine fehlerhafte Modelldatei jetzt — wie schon bei einer SHA-Abweichung — automatisch erneut heruntergeladen, statt nur gelöscht zu werden und auf die Einstellungen zu verweisen.
+- **All 99 Whisper languages work again, and automatic language detection now actually runs.** The Store review reported "only 4 languages work, Russian comes out as English". The cause was three stacked app-side restrictions. The shipped multilingual models can handle all 99 languages, but with "Auto-detect" the language was replaced by the UI language (so detection never ran), the language field was omitted during inference (the server and Deepgram silently fell back to English), and both the pre-flight check and the settings dropdown were hardcoded to en/de/fr/es. "Auto-detect" is now sent explicitly, Deepgram receives `detect_language=true`, and both the dropdown and the allowlist use the full language catalog.
+- **Cloud transcription (Deepgram/OpenAI) now works on macOS.** The API key was accepted in settings, but every recording failed after about 100 ms with the generic error message. Cause: `flutter_secure_storage` wrote to the macOS data-protection keychain, which requires an entitlement that the non-sandboxed build does not carry. The key never reached the keychain, and the cloud transcribers always saw an empty key. Storage now uses the file-based login keychain, and cloud authentication errors are reported clearly.
+- **Cloud providers can be used without a local speech model.** The pre-flight check wrongly also required the local `whisper-server` and a downloaded model for Deepgram/OpenAI, and the local server was started unconditionally, so pure cloud users could never start a recording. The cloud pre-flight check now verifies the configured API key (failing early instead of only after dictation) and skips starting the local server.
+- **A damaged or too-small speech model now re-downloads automatically and silently.** On start, a faulty model file is now re-downloaded automatically, as already happens on a SHA mismatch, instead of only being deleted and pointing to settings.
 
 ### Features
 
-- **Linux-Desktop-Unterstützung: der Sprachserver für Linux x64 wird automatisch beschafft.** Das ausgelieferte Manifest enthält jetzt einen echten `linux/x64/cpu`-Eintrag (statisch gelinkt, läuft auf jeder glibc-Distribution); eine Linux-Installation lädt, entpackt und startet den `whisper-server` über den bestehenden Selbst-Download-Mechanismus — Diktat funktioniert wie unter Windows/macOS. Begleitend stehen Linux-Pakete als Flatpak, Snap, AppImage und `.deb` bereit.
-- **Neuer Einstellungsbereich „Grafikbeschleunigung" (Automatisch / Ein / Aus).** Eine bewusste Nutzer-Vorgabe hat jetzt Vorrang vor der automatischen GPU/CPU-Wahl des Sprachdienstes.
-- **Problematische ältere Grafikkarten gehen schon vor dem Start auf die CPU.** Bekannt heikle GPUs (Kepler/Fermi, alte AMD-GCN) werden proaktiv auf den CPU-Pfad geleitet, statt erst nach einem Absturz zurückzufallen; unpassende Flash-Attention wird aktiv abgeschaltet.
-- **Sanftere Reaktion auf kurze Aussetzer des Sprachdienstes.** Ein vorübergehendes Zucken der Lebendigkeitsprüfung erzwingt keinen vollständigen Neustart mehr (begrenzte Wiederholung mit Karenz); ein echter Hänger löst weiterhin genau einen Neustart aus.
-- **Selbst heruntergeladene `whisper-server`-Binärdateien werden per SHA-256 geprüft.** Bei einer Abweichung wird das Artefakt verworfen und ein sauberer Fehler gemeldet, statt eine beschädigte Binärdatei zu starten.
-- **Eigene Leer-Zustände für die Verlaufsfilter (Favoriten / Heute / Diese Woche).** Ein leerer Filter zeigt jetzt einen passenden Hinweis, statt den Eindruck zu erwecken, der gesamte Verlauf sei verschwunden.
-- **Verwaiste `.tmp`-Fragmente abgebrochener Modell-Downloads werden aufgeräumt.** Beim Start und nach abgeschlossenem Download werden alte Fragmente konservativ entfernt; fortsetzbare Downloads bleiben unangetastet.
+- **Linux desktop support: the speech server for Linux x64 is now fetched automatically.** The shipped manifest now contains a real `linux/x64/cpu` entry (statically linked, runs on every glibc distribution). A Linux installation downloads, extracts and starts `whisper-server` via the existing self-download mechanism, so dictation works like on Windows/macOS. Linux packages are also available as Flatpak, Snap, AppImage and `.deb`.
+- **New "Graphics Acceleration" settings section (Auto / On / Off).** A deliberate user choice now takes precedence over the speech service's automatic GPU/CPU selection.
+- **Problematic older graphics cards fall back to the CPU before startup.** Known problematic GPUs (Kepler/Fermi, older AMD GCN) are proactively routed to the CPU path instead of falling back only after a crash. Unsuitable flash attention is actively disabled.
+- **Gentler reaction to brief speech service hiccups.** A temporary blip in the liveness check no longer forces a full restart (limited retry with a grace period). A real hang still triggers exactly one restart.
+- **Self-downloaded `whisper-server` binaries are verified by SHA-256.** On a mismatch the artifact is discarded and a clean error is reported, instead of starting a corrupted binary.
+- **Dedicated empty states for the history filters (Favorites / Today / This Week).** An empty filter now shows a fitting hint, instead of giving the impression that the entire history has disappeared.
+- **Orphaned `.tmp` fragments of aborted model downloads are cleaned up.** On start and after a completed download, old fragments are conservatively removed. Resumable downloads remain untouched.
 
 ## 1.2.38
 
 ### Bug Fixes
 
-- **Diktat geht nicht mehr verloren, wenn eine Aufnahme schnell wieder gestoppt wird.** Beim Stoppen konnte ein noch laufender, nicht abgewarteter Schreibvorgang den WAV-Header mit Null-Größen zurücklassen; der Sprachdienst lehnte eine solche Datei mit `HTTP 400 „Invalid request"` ab und die Transkription ging verloren (`FLUTTER_WHISPASTE-7X`). Die Aufnahme-Pipeline serialisiert die Schreibvorgänge jetzt und repariert vor der Inferenz fehlerhafte RIFF/data-Größenfelder.
-- **GPU-Sprachserver landet nicht mehr in einer cuda↔vulkan-Endlosschleife, sondern fällt zuverlässig auf die CPU zurück (alte NVIDIA-Karten).** Ein per Recovery installierter Vulkan-Build wurde auf einer cuda-optimalen Karte fälschlich als inkompatibel gelöscht und der abstürzende cuda-Build erneut geladen — die Recovery erschöpfte sich, ohne je den CPU-Build zu versuchen (`FLUTTER_WHISPASTE-A0`). Kompatibilität heißt jetzt „auf dieser Maschine lauffähig", nicht „optimal"; gewollte Downgrades bleiben bestehen.
-- **Der ausgelieferte CPU/BLAS-Fallback wird auf Vulkan-optimalen Maschinen nicht mehr bei jedem Start gelöscht.** Eine DLL-Heuristik stufte einen CPU-Floor-Build ohne `.server-info.json` (unter MSIX beobachtet) als inkompatibel ein und löste denselben Lösch-→-Neudownload-→-Crash-Kreis aus. Die Heuristik unterscheidet jetzt CPU-Floor- von GPU-Builds.
-- **Stille und Hintergrundgeräusche fügen keine Platzhalter mehr in den Text ein.** Tags wie `[Musik]`, `[BLANK_AUDIO]` oder `[Applause]` werden vor dem Einfügen/Speichern entfernt; ein reiner Marker-Text wird korrekt als leere Transkription behandelt. In Klammern diktierter Text bleibt unangetastet.
-- **Hinweise bei fehlendem Sprachmodell oder Sprachdienst sind jetzt anklickbar.** Die zuvor passiven Hinweis-Toasts („in den Einstellungen herunterladen") tragen jetzt eine „Einstellungen öffnen"-Aktion, die direkt zum richtigen Bereich springt.
-- **Einheitliche Bezeichnung „Sprachdienst" in der gesamten Oberfläche.** Die zuvor vermischten Begriffe „Sprach-Engine", „Sprachmodul" und „Sprachdienst" sind vereinheitlicht (EN: „speech service"); der Modell-Schritt im Onboarding spricht korrekt vom „Sprachmodell".
-- **Doppelte Überschrift im Bereich „Nach der Transkription" entfernt.** Die Aktions-Auswahl wiederholte den Sektionstitel wörtlich; sie trägt jetzt ein eigenes „Aktion"-Label.
-- **Toter Apple-Store-Bewertungslink entfernt.** Bewerten-Pfad ist jetzt plattformgerecht (Windows-Store-Link bzw. GitHub-Stern), ohne strukturell ungültige `apps.apple.com`-URL.
+- **Dictation is no longer lost when a recording is stopped quickly again.** On stop, a write still in progress that was not awaited could leave the WAV header with zero sizes. The speech service rejected such a file with `HTTP 400 "Invalid request"`, and the transcription was lost (`FLUTTER_WHISPASTE-7X`). The recording pipeline now serializes writes and repairs faulty RIFF/data size fields before inference.
+- **The GPU speech server no longer ends in an endless cuda↔vulkan loop, but reliably falls back to the CPU (older NVIDIA cards).** A Vulkan build installed via recovery was wrongly deleted as incompatible on a CUDA-optimal card, and the crashing cuda build was loaded again. Recovery exhausted itself without ever trying the CPU build (`FLUTTER_WHISPASTE-A0`). Compatibility now means "runs on this machine", not "optimal". Intentional downgrades remain in place.
+- **The shipped CPU/BLAS fallback is no longer deleted on every start on Vulkan-optimal machines.** A DLL heuristic classified a CPU-floor build without `.server-info.json` (observed under MSIX) as incompatible and triggered the same delete → re-download → crash cycle. The heuristic now distinguishes CPU-floor builds from GPU builds.
+- **Silence and background noise no longer insert placeholders into the text.** Tags such as `[Music]`, `[BLANK_AUDIO]` or `[Applause]` are removed before insertion or saving. A pure marker text is correctly treated as an empty transcription. Text dictated in brackets remains untouched.
+- **Hints for a missing speech model or speech service are now clickable.** The previously passive hint toasts (download in settings) now carry an "Open Settings" action that jumps directly to the right section.
+- **Unified "speech service" naming throughout the interface.** The previously mixed terms "speech engine", "speech module" and "speech service" now all read "speech service" (EN). The model step in onboarding correctly refers to the "speech model".
+- **Duplicate heading removed in the "After transcription" section.** The action selection repeated the section title verbatim. It now has its own "Action" label.
+- **Dead Apple Store rating link removed.** The rating path is now platform-appropriate (Windows Store link or GitHub star), without the structurally invalid `apps.apple.com` URL.
 
 ### Features
 
-- **Neue Installationswege: Scoop, winget und Homebrew.** Zusätzlich zum Installer und der Microsoft-Store-Variante stehen jetzt Paketmanager-Manifeste für Scoop, winget (Windows) und Homebrew-Cask (macOS) bereit; die Download-Seite dokumentiert die Scoop-Installation.
-- **Das eigenständige Diagnose-Werkzeug listet jetzt alle Installations-Datenpfade nebeneinander.** Koexistieren eine EXE-Installation und eine oder mehrere MSIX-`LocalCache`-Installationen, zeigt der Report jeden gefundenen Datenpfad mit Variantenbezeichnung, statt stillschweigend einen auszuwählen.
-- **Einmalige, idempotente Datenmigration für den Bundle-ID-Wechsel.** API-Schlüssel und Einstellungen werden beim ersten Start einmalig übernommen, ohne vorhandene Daten zu überschreiben.
-- **Onboarding passt sich der Auto-Einfügen-Unterstützung an.** Auf Builds ohne automatisches Einfügen entfallen die nicht zutreffenden Auto-Einfügen-/Bedienungshilfen-Schritte.
+- **New installation channels: Scoop, winget and Homebrew.** In addition to the installer and the Microsoft Store variant, package manager manifests for Scoop, winget (Windows) and Homebrew cask (macOS) are now available. The download page documents the Scoop installation.
+- **The standalone diagnostic tool now lists all installation data paths side by side.** When an EXE installation and one or more MSIX `LocalCache` installations coexist, the report shows every data path found, with its variant label, instead of silently picking one.
+- **One-time, idempotent data migration for the bundle ID change.** API keys and settings are carried over once at the first start, without overwriting existing data.
+- **Onboarding adapts to auto-paste support.** On builds without automatic pasting, the non-applicable auto-paste/accessibility steps are omitted.
 
 ## 1.2.37
 
 ### Bug Fixes
 
-- **Der Sprachdienst startet jetzt auch in der Microsoft-Store-Variante (MSIX) zuverlässig — das Sprachmodell wird gefunden, statt mit „kann nicht geöffnet werden" zu scheitern (alte NVIDIA-Karten, z. B. GeForce GTX 650).** In der gepackten Store-Variante schreibt WhisPaste Modell und `whisper-server` nach `%APPDATA%\WhisPaste\models\stt`; die MSIX-Laufzeit leitet diese Schreibzugriffe transparent in den paket-eigenen `LocalCache` um. Der **als Kindprozess gestartete `whisper-server` erbt diese Umleitung jedoch nicht** — er löst denselben Pfad gegen das **un-virtualisierte, leere** echte Roaming-Verzeichnis auf und bricht mit Exit-Code 3 ab (`ggml_backend_load_best: search path … does not exist` / `failed to open`), obwohl die App die Datei als vorhanden und SHA-256-geprüft sieht (`FLUTTER_WHISPASTE-A0`). Neu: Die an den Kindprozess übergebenen Pfade (Modell-Argument, Start-Pfad und Arbeitsverzeichnis) werden vor dem Start auf den **physischen** Paketpfad `%LOCALAPPDATA%\Packages\<Paketname>\LocalCache\Roaming\WhisPaste` umgeschrieben, sodass Eltern- und Kindprozess dieselbe Datei auflösen. Die Ablage bleibt unverändert (kein erneuter Download), die Umschreibung ist außerhalb von Windows/MSIX wirkungslos. Damit war die GTX-650-Odyssee aus v1.2.32–v1.2.36 zuletzt nicht GPU- oder DLL-bedingt, sondern reine MSIX-Pfad-Virtualisierung.
+- **The speech service now also starts reliably in the Microsoft Store variant (MSIX). The speech model is found instead of failing with "cannot be opened" (older NVIDIA cards, e.g. GeForce GTX 650).** In the packaged Store variant, WhisPaste writes the model and `whisper-server` to `%APPDATA%\WhisPaste\models\stt`. The MSIX runtime transparently redirects these writes into the package-private `LocalCache`. However, the **`whisper-server` started as a child process does not inherit this redirection**. It resolves the same path against the **non-virtualized, empty** real roaming directory and aborts with exit code 3 (`ggml_backend_load_best: search path … does not exist` / `failed to open`), even though the app sees the file as present and SHA-256-verified (`FLUTTER_WHISPASTE-A0`). New: the paths passed to the child process (model argument, start path and working directory) are rewritten before launch to the **physical** package path `%LOCALAPPDATA%\Packages\<package name>\LocalCache\Roaming\WhisPaste`, so parent and child process resolve the same file. Storage remains unchanged (no re-download), and the rewriting has no effect outside Windows/MSIX. The GTX 650 odyssey of v1.2.32–v1.2.36 was therefore ultimately caused not by GPU or DLL issues, but by pure MSIX path virtualization.
 
 ### Features
 
-- **Neues plattformübergreifendes Diagnose-Werkzeug (Dart-nativ) löst das alte Skript-basierte Tool ab.** Der eigenständige Sprachdienst-Report wird jetzt aus einer geteilten Pure-Dart-Kernbibliothek erzeugt — unter Windows als `dart compile exe`-Binary, unter macOS als `.app`/DMG — statt aus dem bisherigen Windows-only PowerShell-Skript. Der Report deckt zusätzlich Hardware-, Berechtigungs-, AV-/Quarantäne- und Einstellungs-Proben, eine DLL-Abhängigkeitsanalyse mit Fingerprint-Zuordnung sowie eine automatische Bewertung ab und durchläuft einen durchgängigen Privacy-Sanitizer (Pfade/Benutzernamen). Auslieferung ohne Backend: Der Report wird im Dateimanager angezeigt und eine vorbefüllte Mail geöffnet.
+- **New cross-platform diagnostic tool (native Dart) replaces the old script-based tool.** The standalone speech service report is now generated from a shared pure-Dart core library: as a `dart compile exe` binary on Windows, and as `.app`/DMG on macOS. Previously it came from a Windows-only PowerShell script. The report additionally covers hardware, permission, AV/quarantine and settings probes, a DLL dependency analysis with fingerprint mapping plus an automatic assessment, and runs through an end-to-end privacy sanitizer (paths/usernames). Delivery works without a backend: the report is shown in the file manager and a prefilled email is opened.
 
 ## 1.2.36
 
 ### Bug Fixes
 
-- **GPU-Sprachserver fällt jetzt schon *vor* dem Start auf die CPU zurück, wenn die nötige System-Bibliothek fehlt (alte NVIDIA-Karten, z. B. GeForce GTX 650).** Die GPU-Builds von `whisper-server` linken die GGML-Backends zwar statisch, importieren aber zur *Ladezeit* einen System-Loader, den der Grafiktreiber mitbringt — der Vulkan-Build `vulkan-1.dll`, der CUDA-Build die CUDA-Runtime. Diese liegt nicht im ZIP. Auf einer Maschine, deren Treiber den Loader nie installiert hat und die der Varianten-Router auf Vulkan leitet (Kepler-GTX-6xx), bricht der Prozess deshalb mit `STATUS_DLL_NOT_FOUND` (`0xC0000135`) **ab, bevor `main()` läuft** — `--no-gpu` kann das nicht verhindern, weil der OS-Loader den Import auflöst, bevor das Flag gelesen wird (`FLUTTER_WHISPASTE-A0`). Neu: Ein Pre-Launch-Gate prüft unter Windows die Loader-DLLs der installierten Variante (Binary-Ordner + `System32`, analog zur VC++-Runtime-Prüfung) und übergibt einen fehlenden Loader an `ServerBinaryRecovery`, das **vor** dem Crash auf den abhängigkeitsfreien CPU-Build wechselt — statt erst post-mortem über den Exit-Klassifikator zu recovern. Ein Windows-Smoke-Test hat bestätigt, dass das Arbeitsverzeichnis nie der Blocker war (das Modell lädt auch mit `cwd=System32`).
+- **The GPU speech server now falls back to the CPU before startup if a required system library is missing (older NVIDIA cards, e.g. GeForce GTX 650).** The GPU builds of `whisper-server` link the GGML backends statically, but at *load time* they import a system loader that the graphics driver provides: the Vulkan build needs `vulkan-1.dll`, the CUDA build the CUDA runtime. Neither is in the ZIP. On a machine whose driver never installed the loader, and which the variant router sends to Vulkan (Kepler GTX 6xx), the process therefore aborts with `STATUS_DLL_NOT_FOUND` (`0xC0000135`) **before `main()` runs**. `--no-gpu` cannot prevent this, because the OS loader resolves the import before the flag is read (`FLUTTER_WHISPASTE-A0`). New: a pre-launch gate checks the loader DLLs of the installed variant on Windows (binary folder + `System32`, analogous to the VC++ runtime check). A missing loader is handed to `ServerBinaryRecovery`, which switches to the dependency-free CPU build **before** the crash, instead of recovering only after the fact via the exit classifier. A Windows smoke test confirmed that the working directory was never the blocker (the model loads even with `cwd=System32`).
 
 ### Features
 
-- **In-App-Diagnose („Debug-Infos kopieren") liefert jetzt einen vollständigen Sprachdienst-Dump inklusive echtem Modell-Lade-Test.** Der Dump erfasst den STT-Failure-State und probt den Modell-Load real, statt nur Metadaten zu sammeln — die wichtigste Information, um einen Startfehler aus der Ferne zu diagnostizieren.
-- **Eigenständige Sprachdienst-Diagnose-Tools für Windows und macOS, an jedes Release angehängt.** Nutzer ohne lauffähige App können einen Debug-Report erzeugen: unter Windows als Standalone-`.exe` (plus AV-sicheres Skript-Bundle), unter macOS als doppelklickbares `.command` im DMG.
-- **Diagnose-Anleitung auf der Download-Seite** führt Schritt für Schritt durch das Erstellen und Teilen eines Sprachdienst-Reports.
+- **In-app diagnostics ("Copy Debug Info") now deliver a complete speech service dump, including a real model-load test.** The dump captures the STT failure state and actually probes the model load, instead of only collecting metadata. This is the most important information for diagnosing a startup error remotely.
+- **Standalone speech service diagnostic tools for Windows and macOS, attached to every release.** Users without a working app can create a debug report: on Windows as a standalone `.exe` (plus an AV-safe script bundle), on macOS as a double-clickable `.command` in the DMG.
+- **Diagnostic guide on the download page** walks through creating and sharing a speech service report step by step.
 
 ## 1.2.35
 
 ### Bug Fixes
 
-- **Hängende GPU-Sprachserver fallen jetzt auf die CPU zurück, statt in einer Sackgasse zu enden (alte NVIDIA-/AMD-Karten, z. B. GeForce GTX 650).** Die v1.2.32–v1.2.34-Fixes haben den CPU-Fallback an *Prozess-Exit-Codes* gehängt (`gpuFatal`/`heapCorruption`/abnormaler Exit). Auf einer Kepler-Karte stürzt der Vulkan-Build aber nicht zwingend ab — er **initialisiert vollständig (Modell geladen, alle Compute-Buffer allokiert) und macht dann keinen Fortschritt mehr**. Ein Hang erzeugt keinen Exit-Code, deshalb griff keiner der Exit-Code-Arme, und der `SttServerStateNotifier` lief über den Heartbeat-Timeout (`stt_heartbeat_timeout`) bzw. die Startup-Deadline (`stt_startup_deadline`) direkt in den `error`-State — der funktionierende CPU-Build wurde nie versucht (`FLUTTER_WHISPASTE-9W`). Neu: Beide Stall-Pfade lösen jetzt — wie die Exit-Code-Arme — den einmaligen CPU-Fallback aus und starten den Sprachserver sofort im CPU-Modus neu, abgesichert durch `gpu.hasGpu` (auf reinen CPU-Maschinen bleibt es korrekt beim Fehler, ohne sinnlosen Neustart) und durch `_gpuFallbackActive` gegen Schleifen. Damit erreicht der GTX-650-Fix endlich auch den Hang-Fall, den die bisherigen Exit-Code-Fixes offenließen.
-- **Erwartete Netzwerkfehler bei Update-Check und Server-/Modell-Download erzeugen keine Sentry-Events mehr.** Der Update-Check, der Manifest-Loader und der Download-Client laufen best-effort gegen Drittanbieter-Endpunkte, deren Fehler erwartet und bereits sauber behandelt sind (Fehler-State, Failover-Kette bzw. eigene fingerprinted Captures). Der `addSentry()`-Interceptor hat trotzdem jeden 5xx automatisch als Sentry-Event erfasst (Default-Range 500–599) — nutzloses Rauschen, das Free-Tier-Quota verbrennt und Download-Fehler doppelt meldete, entgegen der dokumentierten Absicht (`FLUTTER_WHISPASTE-72`). `captureFailedRequests` ist auf diesen Clients jetzt deaktiviert; Tracing-Spans und Breadcrumbs bleiben erhalten.
+- **Hanging GPU speech servers now fall back to the CPU instead of ending in a dead end (older NVIDIA/AMD cards, e.g. GeForce GTX 650).** The v1.2.32–v1.2.34 fixes tied the CPU fallback to *process exit codes* (`gpuFatal`/`heapCorruption`/abnormal exit). On a Kepler card, however, the Vulkan build does not necessarily crash. It **initializes fully (model loaded, all compute buffers allocated) and then makes no further progress**. A hang produces no exit code, so none of the exit-code branches triggered. The `SttServerStateNotifier` went through the heartbeat timeout (`stt_heartbeat_timeout`) or the startup deadline (`stt_startup_deadline`) directly into the `error` state, and the working CPU build was never tried (`FLUTTER_WHISPASTE-9W`). New: both stall paths now trigger the one-time CPU fallback, like the exit-code branches, and restart the speech server immediately in CPU mode. This is guarded by `gpu.hasGpu` (on pure CPU machines the error correctly remains, without a pointless restart) and by `_gpuFallbackActive` against loops. This finally covers the hang case that the earlier exit-code fixes left open for the GTX 650.
+- **Expected network errors during update checks and server/model downloads no longer create Sentry events.** The update check, the manifest loader and the download client run best-effort against third-party endpoints whose errors are expected and already handled cleanly (error state, failover chain, or their own fingerprinted captures). The `addSentry()` interceptor nevertheless captured every 5xx automatically as a Sentry event (default range 500–599). That was useless noise that burned the free-tier quota and reported download errors twice, contrary to the documented intent (`FLUTTER_WHISPASTE-72`). `captureFailedRequests` is now disabled on these clients. Tracing spans and breadcrumbs are retained.
 
 ## 1.2.34
 
 ### Bug Fixes
 
-- **Auf alten NVIDIA-Karten (z. B. GeForce GTX 650) sagt die App jetzt klar, was fehlt, statt in einer Sackgasse zu enden.** Der v1.2.33-Fix hat den „Incompatible whisper-server"-Löschloop beendet — die Recovery bleibt nun dauerhaft auf dem CPU-Build. Damit wurde aber ein Folgefall sichtbar: Der ausgelieferte CPU-Build ist das Upstream-Asset `whisper-blas-bin-x64`, dessen Binaries dynamisch gegen die Microsoft-Visual-C++-Runtime linken — `whisper-server.exe` braucht `MSVCP140`/`VCRUNTIME140`/`VCRUNTIME140_1`, und `ggml-cpu.dll` zusätzlich die OpenMP-Runtime `VCOMP140.DLL`. Keine davon liegt im ZIP; sie stammen aus dem Visual C++ Redistributable, das auf vielen älteren/frischen Windows-Installationen fehlt (gerade die OpenMP-DLL). Folge: Der CPU-Server bricht mit `STATUS_DLL_NOT_FOUND` (`0xC0000135`) ab, die Recovery ist erschöpft, der Nutzer hängt fest (`FLUTTER_WHISPASTE-A0`). Neu: `ServerBinaryRecovery` erkennt einen `dllMissing`-Abbruch des CPU-Floors als fehlende VC++-Runtime und zeigt einen **actionable Toast** mit „Installieren"-Button, der den Download des **Visual C++ Redistributable (x64)** öffnet — statt der nutzlosen „App neu starten"-Meldung. Das Sentry-Event trägt jetzt ein `vc_runtime_missing`-Flag für eindeutige Triage.
-- **Der CPU-Fallback wird künftig self-contained ausgeliefert (Vorbereitung).** Ein neuer CI-Job `build-cpu-windows` packt das Upstream-BLAS-Asset zu `whisper-server-cpu-x64.zip` um und bündelt die vier benötigten Runtime-DLLs (`vcomp140`, `vcruntime140`, `vcruntime140_1`, `msvcp140`) app-local mit; das Manifest zeigt den `cpu`-Eintrag dann auf dieses eigene Artefakt statt auf das bare Upstream-ZIP. Wirksam nach dem nächsten `build-whisper-server`-Lauf, der das Manifest neu generiert — danach heilt sich der CPU-Floor auf jeder Maschine ohne separate Redist-Installation.
+- **On older NVIDIA cards (e.g. GeForce GTX 650), the app now clearly states what is missing instead of ending in a dead end.** The v1.2.33 fix ended the "Incompatible whisper-server" delete loop, and the recovery now stays permanently on the CPU build. This exposed a follow-up case: the shipped CPU build is the upstream asset `whisper-blas-bin-x64`, whose binaries link dynamically against the Microsoft Visual C++ runtime. `whisper-server.exe` needs `MSVCP140`/`VCRUNTIME140`/`VCRUNTIME140_1`, and `ggml-cpu.dll` additionally needs the OpenMP runtime `VCOMP140.DLL`. None of these is in the ZIP. They come from the Visual C++ Redistributable, which is missing on many older or fresh Windows installations (especially the OpenMP DLL). As a result, the CPU server aborts with `STATUS_DLL_NOT_FOUND` (`0xC0000135`), recovery is exhausted, and the user is stuck (`FLUTTER_WHISPASTE-A0`). New: `ServerBinaryRecovery` recognizes a `dllMissing` abort of the CPU floor as a missing VC++ runtime and shows an **actionable toast** with an "Install" button. It opens the download of the **Visual C++ Redistributable (x64)**, instead of the useless "restart the app" message. The Sentry event now carries a `vc_runtime_missing` flag for unambiguous triage.
+- **The CPU fallback will in future ship self-contained (preparation).** A new CI job `build-cpu-windows` repackages the upstream BLAS asset as `whisper-server-cpu-x64.zip` and bundles the four required runtime DLLs (`vcomp140`, `vcruntime140`, `vcruntime140_1`, `msvcp140`) app-locally. The manifest then points the `cpu` entry to this own artifact instead of the bare upstream ZIP. It takes effect after the next `build-whisper-server` run that regenerates the manifest. After that, the CPU floor heals on every machine without a separate redistributable installation.
 
 ## 1.2.33
 
 ### Bug Fixes
 
-- **Sprachserver bleibt jetzt dauerhaft auf der CPU-Variante, wenn die GPU-Builds nicht starten (alte NVIDIA-Karten, z. B. GeForce GTX 650).** Der v1.2.32-Fix hat das Backend-Routing korrigiert, aber ein Restfall blieb: Auf einer Kepler-Karte bricht selbst der Vulkan-Build beim Model-Load ab (Exit-Code `3`), woraufhin `ServerBinaryRecovery` korrekt auf den **CPU-Build** zurückfällt und `backend=cpu` in die `.server-info.json` schreibt. Beim nächsten Start meldete der proaktive Kompatibilitäts-Check jedoch „installiert=`cpu`, GPU braucht aber `vulkan`", **löschte genau das eine lauffähige Binary** und warf „Incompatible whisper-server for your GPU" — eine Endlos-Schleife aus Recovery → CPU → Löschen → Re-Download → Crash, die auch durch Neuinstallation + komplettes Onboarding nicht zu beseitigen war (`FLUTTER_WHISPASTE-80`). Ursache war ein Konflikt zweier Subsysteme: Die Recovery wählt CPU bewusst als universellen Fallback, der proaktive Check wertete „CPU auf einer GPU-fähigen Maschine" aber als Fehlkonfiguration. Neu: `isServerBinaryCompatible` behandelt einen CPU-Build als **universell kompatibel** — er läuft auf jeder Hardware und ist der absichtliche Recovery-Endzustand, wird also nicht mehr gelöscht. Damit bricht die Schleife endgültig; betroffene Geräte transkribieren auf der CPU (langsamer, aber funktionsfähig). Wer GPU-Beschleunigung erneut versuchen will, kann den Sprachserver in den Einstellungen neu herunterladen.
-- **Echter Hardware-/Treiber-Wechsel führt jetzt zum stillen Self-Heal statt zur Sackgasse.** Findet der proaktive Check ein wirklich unpassendes GPU-Binary (z. B. der STT-Ordner wurde auf eine Maschine mit anderem GPU-Hersteller verschoben), lädt er die korrekte Variante jetzt im Hintergrund nach (`invalidateServerBinary`), statt mit „re-download in Settings" abzubrechen und ein Sentry-Event zu erzeugen. Scheitert der nachgeladene GPU-Build erneut, greift die nun dauerhafte CPU-Recovery.
+- **The speech server now stays permanently on the CPU variant when the GPU builds do not start (older NVIDIA cards, e.g. GeForce GTX 650).** The v1.2.32 fix corrected the backend routing, but one residual case remained. On a Kepler card even the Vulkan build aborts at model load (exit code `3`), whereupon `ServerBinaryRecovery` correctly falls back to the **CPU build** and writes `backend=cpu` into `.server-info.json`. At the next start, however, the proactive compatibility check reported "installed=`cpu`, but GPU needs `vulkan`", **deleted exactly that one working binary**, and threw "Incompatible whisper-server for your GPU". This was an endless loop of recovery → CPU → delete → re-download → crash. It could not be eliminated even by reinstalling and completing the full onboarding (`FLUTTER_WHISPASTE-80`). The cause was a conflict between two subsystems: recovery deliberately chooses the CPU as the universal fallback, but the proactive check treated "CPU on a GPU-capable machine" as a misconfiguration. New: `isServerBinaryCompatible` treats a CPU build as **universally compatible**. It runs on any hardware and is the intentional recovery end state, so it is no longer deleted. The loop is thus definitively broken. Affected devices transcribe on the CPU (slower, but functional). Anyone who wants to try GPU acceleration again can re-download the speech server in settings.
+- **A genuine hardware or driver change now leads to a silent self-heal instead of a dead end.** If the proactive check finds a truly unsuitable GPU binary (e.g. the STT folder was moved to a machine with a different GPU vendor), it now downloads the correct variant in the background (`invalidateServerBinary`), instead of aborting with "re-download in Settings" and creating a Sentry event. If the re-downloaded GPU build fails again, the now-permanent CPU recovery applies.
 
 ## 1.2.32
 
 ### Bug Fixes
 
-- **Sprachserver startet wieder auf älteren NVIDIA-Karten (Kepler, z. B. GeForce GTX 650).** Die Backend-Auswahl behandelte bisher jede NVIDIA-Karte mit vorhandenem `nvcuda.dll` als CUDA-optimal und lud den `cuda12`-Build. CUDA 12 hat aber Fermi- (sm_2x) und Kepler-Support (sm_3x) komplett fallengelassen — auf einer GTX 6xx/7xx bricht `whisper-server` deshalb beim CUDA-Init ab: in der Praxis sofort mit Exit-Code `-1` und leerem stderr (`FLUTTER_WHISPASTE-6X`/`-39`) oder als Model-Load-Fehler mit Exit `3` (`-6V`/`-6W`). Schlimmer: selbst wenn die Recovery auf den Vulkan-Build zurückfiel, hat der proaktive Kompatibilitäts-Check beim nächsten Start gemeldet, der Vulkan-Build sei ≠ `optimalBackend` (`cuda`), ihn gelöscht und erneut `cuda12` erzwungen — eine Endlos-Schleife, die als „Incompatible whisper-server for your GPU" (`FLUTTER_WHISPASTE-80`) sichtbar wurde. Neu: eine `GpuInfo.supportsCuda12`-Heuristik (analog zu `supportsFlashAttn`) erkennt Kepler/Fermi-Karten an der Modellbezeichnung und routet sie auf den Vulkan-Build. `optimalBackend`, der `serverAssetPatterns`-Fallback und der Manifest-`WhisperBinarySelector` respektieren das jetzt durchgängig, womit die Schleife bricht und der Self-Heal-Download sofort die lauffähige Variante zieht.
-- **Abnormaler Server-Crash fällt jetzt automatisch auf CPU zurück.** Ein unklassifizierter Abbruch mit negativem Exit-Code (Windows-Roh-DWORD wie `-1` oder POSIX-Signal-Kill) bei einem GPU-Start war bisher ein Sackgassen-`error`, weil die `SttGpuFallbackPolicy` nur die bekannten NTSTATUS-GPU-Fatals abdeckte. Genau diese Form trifft alte GPUs, deren GPU-Runtime gar nicht erst initialisiert (`FLUTTER_WHISPASTE-6X`/`-39`). Der `other`-Pfad im `SttServerStateNotifier` aktiviert jetzt — einmalig, abgesichert durch `_gpuFallbackActive` gegen Schleifen, und nur bei negativem Exit-Code — den CPU-Fallback (spiegelt die `gpuFatal`/`heapCorruption`-Arme). Ein sauberer positiver Exit (z. B. `99`) bleibt ein bewusster Server-Exit und surfacet weiterhin als Fehler.
+- **The speech server starts again on older NVIDIA cards (Kepler, e.g. GeForce GTX 650).** The backend selection previously treated every NVIDIA card with an existing `nvcuda.dll` as CUDA-optimal and loaded the `cuda12` build. But CUDA 12 has completely dropped Fermi (sm_2x) and Kepler (sm_3x) support. On a GTX 6xx/7xx, `whisper-server` therefore aborts during CUDA init: in practice immediately with exit code `-1` and empty stderr (`FLUTTER_WHISPASTE-6X`/`-39`), or as a model-load error with exit `3` (`-6V`/`-6W`). Worse: even when recovery fell back to the Vulkan build, the proactive compatibility check reported at the next start that the Vulkan build was ≠ `optimalBackend` (`cuda`), deleted it and forced `cuda12` again. This was an endless loop, surfacing as "Incompatible whisper-server for your GPU" (`FLUTTER_WHISPASTE-80`). New: a `GpuInfo.supportsCuda12` heuristic (analogous to `supportsFlashAttn`) recognizes Kepler/Fermi cards by their model name and routes them to the Vulkan build. `optimalBackend`, the `serverAssetPatterns` fallback and the manifest `WhisperBinarySelector` now respect this consistently. This breaks the loop, and the self-heal download immediately fetches the working variant.
+- **An abnormal server crash now falls back to the CPU automatically.** An unclassified abort with a negative exit code (a raw Windows DWORD such as `-1`, or a POSIX signal kill) during a GPU start used to be a dead-end `error`, because `SttGpuFallbackPolicy` only covered the known NTSTATUS GPU fatals. Exactly this form hits old GPUs whose GPU runtime never initializes (`FLUTTER_WHISPASTE-6X`/`-39`). The `other` path in the `SttServerStateNotifier` now activates the CPU fallback: once, guarded by `_gpuFallbackActive` against loops, and only for a negative exit code. It mirrors the `gpuFatal`/`heapCorruption` branches. A clean positive exit (e.g. `99`) remains a deliberate server exit and still surfaces as an error.
 
 ## 1.2.31
 
 ### Features
 
-- **Mikrofon-Schritt im Onboarding zeigt jetzt live, ob das gewählte Gerät dich hört.** Statt nur die TCC-Berechtigung abzufragen, lässt der neue Schritt eine kurze Probe-Aufnahme laufen, misst den realen Eingangspegel und klassifiziert das Gerät als „funktioniert / zu leise / nichts zu hören". Die Dropdown-Auswahl reicht denselben Geräte-Pool wie der eigentliche Recorder durch — was im Onboarding ausgewählt wird, ist auch das Gerät, das später aufnimmt. Greift Hand in Hand mit dem zweiten Teil: `AVAudioEngine.inputNode.auAudioUnit.setDeviceID()` wird unter macOS 15/26 stillschweigend ignoriert, sodass die User-Auswahl bisher nie beim Recorder ankam und jede Aufnahme auf den System-Default (oft ein Bluetooth-Headset) zurückfiel. Ein direkter Wechsel zu `AVCaptureSession` hätte die HAL exklusiv blockiert und die SoLoud-Aufnahme-Chimes erstickt. Die Lösung folgt dem Logic/Audacity/OBS-Pfad: ein neuer `AudioRoutingHost`-Swift-Bridge flippt unmittelbar vor jeder Aufnahme das CoreAudio-Default-Input-Gerät auf die User-Wahl und stellt beim Stoppen den Originalwert wieder her. Eine Settle-Poll auf der Default-UID-Property garantiert, dass AVAudioEngine an ein live-bereites Device bindet statt an eines, das noch aus dem Power-Save hochfährt.
-- **Auto-Paste-Onboarding-Schritt komplett umgebaut auf One-CTA-pro-Phase.** Der macOS-Schritt rendert bisher bis zu vier Karten gleichzeitig (Status, Polling-Hinweis, TCC-Mismatch-Banner, Repair-Panel) in tech-lastiger Sprache („Bedienungshilfen-Berechtigung erteilen", „TCC-Cache stale", „Reparieren"). Der In-App-Selbsttest mit `TextField` war zusätzlich unzuverlässig, weil Flutter den synthetisierten ⌘V aus dem eigenen Prozess nicht stabil empfing — der „Beweis es funktioniert"-Schritt feuerte manchmal Success, während das Demofeld leer blieb. Die neue Phase-State-Machine (`checking / granted / intro / waiting / troubleshoot`) wird aus dem bestehenden `PasteCapabilityState` abgeleitet und rendert je Phase genau eine primäre Action. Das TCC-Mismatch-Banner bekommt eine eingebettete „WhisPaste neu starten"-CTA, die über einen neuen `restart`-Hook auf dem App-Lifecycle-MethodChannel einen Detached-Shell-Helper anwirft — der wartet den Exit des aktuellen Prozesses ab und öffnet das Bundle neu, sodass macOS den Accessibility-Trust gegen eine frische PID statt gegen den toten Eltern-Prozess auswertet. Die DE/EN/HE-Strings sind auf den Schreibfluss-Audience-Tonfall umgeschrieben („Jetzt freigeben / Eintrag zurücksetzen / WhisPaste hat das Häkchen nicht erkannt"), und das `diagnosticPaste` darf jetzt gegen die echte aktive App testen — der Self-Paste-Guard ist raus, das Pasteboard-Restore-Fenster auf 300 ms verbreitert.
+- **The microphone step in onboarding now shows live whether the selected device can hear you.** Instead of merely querying the TCC permission, the new step runs a short test recording, measures the real input level, and classifies the device as "works", "too quiet" or "nothing to hear". The dropdown selection passes through the same device pool as the actual recorder, so what is chosen in onboarding is also the device that records later. This works hand in hand with the second part: `AVAudioEngine.inputNode.auAudioUnit.setDeviceID()` is silently ignored under macOS 15/26. As a result, the user's selection never reached the recorder, and every recording fell back to the system default (often a Bluetooth headset). A direct switch to `AVCaptureSession` would have blocked the HAL exclusively and suppressed the SoLoud recording chimes. The solution follows the Logic/Audacity/OBS approach: a new `AudioRoutingHost` Swift bridge switches the CoreAudio default input device to the user's choice immediately before each recording, and restores the original value when stopping. A settle poll on the default-UID property ensures that AVAudioEngine binds to a device that is ready for live input, rather than one still waking up from power save.
+- **The auto-paste onboarding step has been completely reworked to one call to action per phase.** The macOS step previously rendered up to four cards at once (status, polling hint, TCC mismatch banner, repair panel), in tech-heavy wording (accessibility permission, TCC cache, repair). The in-app self-test with a `TextField` was also unreliable, because Flutter did not stably receive the synthesized ⌘V from its own process. The "proof it works" step sometimes reported success while the demo field stayed empty. The new phase state machine (`checking / granted / intro / waiting / troubleshoot`) is derived from the existing `PasteCapabilityState` and renders exactly one primary action per phase. The TCC mismatch banner gets an embedded "Restart WhisPaste" call to action, which starts a detached shell helper via a new `restart` hook on the app lifecycle method channel. The helper waits for the current process to exit and reopens the bundle, so macOS evaluates the Accessibility trust against a fresh PID instead of the dead parent process. The DE/EN/HE strings were rewritten to a friendlier tone for the write flow, including the "Reset entry" button. The `diagnosticPaste` may now test against the real active app: the self-paste guard is gone, and the pasteboard restore window was widened to 300 ms.
 
 ### Bug Fixes
 
-- **Sprachserver-Download im Onboarding läuft wieder durch.** Bis v1.2.30 hat der `WhisperServerDownloader` die GitHub-Releases-API mit `per_page=20` befragt und den `whisper-server-*`-Tag per Substring-Match in der Asset-Liste gesucht. Sobald genug eigene `v1.2.x`-App-Releases akkumuliert waren, fiel der whisper-server-Tag aus Seite 1 raus, das Lookup lieferte `null`, und der User sah im Onboarding nur das nichtssagende „Could not download whisper-server.". Der neue Pfad ist Manifest-getrieben: `assets/whisper-server-manifest.json` ist die alleinige Wahrheitsquelle (schema_version, whisper_server_tag, whisper_cpp_release, plus ein Eintrag je platform/arch/backend-Binary). Ein `WhisperServerManifestLoader` läuft eine dreistufige Failover-Kette durch (raw.githubusercontent.com → release-asset-URL aus dem gebündelten Tag → mitgeliefertes Asset), sodass Onboarding offline benutzbar bleibt. Ein deterministischer `WhisperBinarySelector` macht den Platform+Arch+Vendor-Lookup; Lücken (z. B. macOS x64, Linux) werden mit konkretem Grund gemeldet statt generisch zu crashen. `build-whisper-server.yml` regeneriert das Manifest aus den frisch hochgeladenen Release-Assets, hängt es ans Release und committet es nach `main`, damit die Raw-URL stabil aktuell bleibt.
+- **The speech server download in onboarding works reliably again.** Up to v1.2.30, the `WhisperServerDownloader` queried the GitHub Releases API with `per_page=20` and searched for the `whisper-server-*` tag via a substring match in the asset list. As soon as enough of the app's own `v1.2.x` releases had accumulated, the whisper-server tag dropped off page 1. The lookup returned `null`, and the user in onboarding saw only the meaningless "Could not download whisper-server.". The new path is manifest-driven: `assets/whisper-server-manifest.json` is the sole source of truth (schema_version, whisper_server_tag, whisper_cpp_release, plus one entry per platform/arch/backend binary). A `WhisperServerManifestLoader` runs through a three-step failover chain (raw.githubusercontent.com → release asset URL from the bundled tag → the bundled asset), so onboarding stays usable offline. A deterministic `WhisperBinarySelector` performs the platform+arch+vendor lookup. Gaps (e.g. macOS x64, Linux) are reported with a specific reason instead of crashing generically. `build-whisper-server.yml` regenerates the manifest from the freshly uploaded release assets, attaches it to the release and commits it to `main`, so the raw URL stays stable and current.
 
 ### Stability (internal)
 
-- **Windows-CI-Flake im Recovery-Toast endgültig zugedreht.** Der `stt_exit_classifier_test`-Lauf war auf Windows intermittierend rot mit „failed after test completion": die Test-Bodies erreichten grün, aber ~2 s später feuerte ein Async-Leak in den bereits disposed Riverpod-Container. Ursache war `_attemptRecovery` in `SttServerStateNotifier`, das nach mehreren `await`s `ref.read(recoveryToastNotifierProvider.notifier)` aufrief, ohne den `ref.mounted`-Status zu prüfen — der parallel sitzende `ref.invalidate`-Call in `_restartAfterRecovery` hatte den Guard längst, der Toast-Push war die letzte ungeschützte Stelle. Der Push ist jetzt durch das gleiche `if (ref.mounted)` umschlossen. Produktionsverhalten unverändert (disposed Container = UI ist eh weg = Toast unterdrücken ist korrekt), aber der Post-Completion-Callback berührt keinen toten Scope mehr.
-- **Widget-Tests gegen ARB-Reworking immunisiert.** Die 23 Auto-Paste-Failures, die v1.2.30 in CI brockten, lagen daran, dass die Tests UI-Labels als Literal-Strings (`'Allow now'`, `'Reset entry'`, `'Skip — disable Auto-Paste'`, …) hartcodiert hatten — jede ARB-Umformulierung brachte die Suite still zum Bruch. Sechzehn Test-Dateien sind jetzt auf `find.text(l10n.<key>)`-Lookups via geladenen `L10n`-Snapshot umgestellt und pinnen ihre Locale explizit auf `en` (bzw. `de`/`en`-Paare für die multi-locale-Toast-Tests), sodass weder der CI-Runner-Default-Locale noch ARB-Rewordings die Tests stillschweigend brechen können. Ein Key-Rename in der ARB schlägt jetzt als Compile-Fehler durch; ein Value-Rewording bleibt unsichtbar. Test-Daten (Sample-Entry-Titel, Device-Namen, Harness-Strings wie `'Open picker'`) bleiben absichtlich Literal-Strings, weil sie nie durch Lokalisierung laufen.
+- **Windows CI flake in the recovery toast finally fixed.** The `stt_exit_classifier_test` run was intermittently red on Windows with "failed after test completion". The test bodies passed green, but about 2 s later an async leak fired into the already disposed Riverpod container. The cause was `_attemptRecovery` in `SttServerStateNotifier`, which called `ref.read(recoveryToastNotifierProvider.notifier)` after several `await`s without checking the `ref.mounted` status. The parallel `ref.invalidate` call in `_restartAfterRecovery` already had the guard. The toast push was the last unguarded spot. The push is now wrapped in the same `if (ref.mounted)`. Production behavior is unchanged (a disposed container means the UI is gone anyway, so suppressing the toast is correct), but the post-completion callback no longer touches a dead scope.
+- **Widget tests immunized against ARB rewording.** The 23 auto-paste failures that broke CI in v1.2.30 were caused by tests that hardcoded UI labels as literal strings (`'Allow now'`, `'Reset entry'`, `'Skip — disable Auto-Paste'`, …). Every ARB rewording silently broke the suite. Sixteen test files now use `find.text(l10n.<key>)` lookups via a loaded `L10n` snapshot and explicitly pin their locale to `en` (or `de`/`en` pairs for the multi-locale toast tests). Neither the CI runner's default locale nor ARB rewordings can silently break the tests anymore. A key rename in the ARB now surfaces as a compile error, while a value rewording stays invisible. Test data (sample entry titles, device names, harness strings such as `'Open picker'`) intentionally remains literal, because it is never run through localization.
 
 ## 1.2.30
 
 ### Stability (internal)
 
-- **Windows-CI-Flake im STT-Notifier nachhaltig behoben.** Zwei Stellen in `SttServerStateNotifier` (`_start` und `_handleModelLoadFailure`) riefen `hw.detectGpu()` direkt auf und liefen damit am Riverpod-Override für `gpuInfoProvider` vorbei, den alle betroffenen Tests bereits gesetzt hatten. Auf dem Windows-Runner führte das pro Testlauf die echten WMI/PowerShell-GPU-Probes aus — mit zwei Folgen: erstens leakte ein verspätetes `gpuDetectionFailed`-Sentry-Event in die Capture-Count-Assertions von `stt_inference_capture_test`, weil der Detector aus dem „windows-vendor-unclassified"-Pfad noch nach dem `_capturedEvents.clear()` feuerte; zweitens lief der Recovery-Test gegen die 200-ms-Timing-Fenster, weil `clearGpuCache()` + Re-Detect den zweiten `runner.start()`-Spawn nicht mehr rechtzeitig zuließ. Beide Call-Sites gehen jetzt durch `await ref.read(hw.gpuInfoProvider.future)` (gleiches Pattern wie der Benchmark-Pfad in Zeile 767), und `_restartAfterRecovery` invalidiert den Provider parallel zum modul-internen Cache. Produktionsverhalten unverändert — gleiches Caching, gleiche Re-Detection nach Recovery — aber die Tests sehen auf dem Windows-Runner jetzt deterministisch ihr Fake-`GpuInfo` statt der echten Hardware-Probes.
+- **Windows CI flake in the STT notifier fixed for good.** Two places in `SttServerStateNotifier` (`_start` and `_handleModelLoadFailure`) called `hw.detectGpu()` directly, thereby bypassing the Riverpod override for `gpuInfoProvider` that all affected tests had already set. On the Windows runner, this ran the real WMI/PowerShell GPU probes for every test run, with two consequences. First, a delayed `gpuDetectionFailed` Sentry event leaked into the capture count assertions of `stt_inference_capture_test`, because the detector from the "windows-vendor-unclassified" path still fired after `_capturedEvents.clear()`. Second, the recovery test ran into its 200 ms timing window, because `clearGpuCache()` plus re-detection no longer left the second `runner.start()` spawn enough time. Both call sites now go through `await ref.read(hw.gpuInfoProvider.future)` (same pattern as the benchmark path at line 767), and `_restartAfterRecovery` invalidates the provider in parallel with the module-internal cache. Production behavior is unchanged (same caching, same re-detection after recovery), but on the Windows runner the tests now deterministically see their fake `GpuInfo` instead of the real hardware probes.
 
 ## 1.2.29
 
 ### Stability (internal)
 
-- **Hardware-spezifische Crashes sind jetzt im Sentry diagnostizierbar.** Vier Pfade, die bisher entweder gar nicht oder im `appLoggerAutoEscalated`-Catch-all gelandet sind und damit pro Crash unbrauchbare Generika produziert haben, haben jetzt eigene Fingerprints und reichen den vollständigen Hardware-Kontext mit: `sttCudaOom` (CUDA-OOM im whisper-server — mit GPU-Name, VRAM, Modell + Soll-VRAM, stderr-Tail), `sttInferenceConnectionLost` (SocketException/ClientException während Inference — Modell, Port, WAV-Größe, GPU-Modus), `sttStartupDeadline` (absolute Wall-Clock-Deadline im Startup-Loop, fängt die Long-Load-Form ab, die das Heartbeat-Fenster allein nicht beenden kann), und `gpuDetectionFailed` (GPU-Probes liefern beide nichts — typisch corporate AV / gesperrte WMI). Der GPU-Detection-Capture hat einen Once-per-Session-Guard plus Re-Arm via `clearGpuCache`, damit Sentry bei einem Recovery-Restart die Wiederholungsblindheit sieht statt von der Erstdetektion erstickt zu werden.
-- **Architektur-Tag in Sentry zeigt jetzt die echte CPU-Architektur.** Das alte `_currentArch()` war eine Compile-Time-Konstante (`0x7FFFFFFFFFFFFFFF > 0`), die auf jeder Plattform `'x64'` zurückgab — auch auf Apple Silicon. Der neue `currentArchTag()` aus `dart:ffi`-`Abi.current()` liefert `arm64` / `x64` / `x86` / `arm` / `riscv64` / `riscv32` korrekt, was Hardware-Cluster-Filter in Sentry endlich brauchbar macht. Wirkt sowohl auf das `dist`-Feld als auch auf das `arch`-Scope-Tag.
-- **Dedup-Migration der heißen STT-Pfade.** Acht `_log.error`-Stellen in `SttServerStateNotifier` (GPU-Fatal-Capture, Heap-Korruption-Capture, Other-Exit-Capture, Recovery-Exhausted, ABI-Mismatch-Pfad, Modell-Korruption, sub-optimaler Binary-Detect-Check) lagen jeweils unmittelbar vor oder nach einem expliziten `captureError` — die zusätzliche Auto-Eskalation hat denselben Vorfall doppelt nach Sentry geschickt, einmal mit dem richtigen Fingerprint und einmal im Catch-all. Die Stellen sind jetzt auf `_log.warning` heruntergestuft; die Modell-Korruption (zuvor nur via `_log.error`) bekommt ihren eigenen `sttModelCorrupted`-Capture mit Datei-Größe und Modell-ID. Im Schnitt halbiert sich damit das Sentry-Event-Volumen je harter Sprachdienst-Störung, ohne Diagnose-Information zu verlieren.
-- **`SttStartupHeartbeatConfig` als Value-Object statt Record-Type.** Provider-Typ ist jetzt eine Klasse mit Defaults (`window: 60 s`, `maxMissedWindows: 3`, `overallDeadline: 180 s`), damit der hinzugefügte Wall-Clock-Cap nicht jeden Test bricht. Alle 28 Test-Stellen, die das frühere `({Duration window, int maxMissedWindows})`-Record-Literal benutzten, sind 1:1 auf den Konstruktor migriert.
+- **Hardware-specific crashes can now be diagnosed in Sentry.** Four paths that previously either were not reported at all or ended up in the `appLoggerAutoEscalated` catch-all, producing useless generic events per crash, now have their own fingerprints and carry the full hardware context: `sttCudaOom` (CUDA OOM in whisper-server, with GPU name, VRAM, model plus target VRAM, stderr tail), `sttInferenceConnectionLost` (SocketException/ClientException during inference, with model, port, WAV size, GPU mode), `sttStartupDeadline` (absolute wall-clock deadline in the startup loop, catching the long-load form that the heartbeat window alone cannot end), and `gpuDetectionFailed` (the GPU probes return nothing, typically due to corporate AV or blocked WMI). The GPU detection capture has a once-per-session guard with re-arming via `clearGpuCache`, so Sentry sees repeated failures on a recovery restart instead of being starved by the initial detection.
+- **The architecture tag in Sentry now shows the real CPU architecture.** The old `_currentArch()` was a compile-time constant (`0x7FFFFFFFFFFFFFFF > 0`) that returned `'x64'` on every platform, including Apple Silicon. The new `currentArchTag()`, based on `Abi.current()` from `dart:ffi`, correctly returns `arm64` / `x64` / `x86` / `arm` / `riscv64` / `riscv32`. This finally makes hardware cluster filters in Sentry usable. It affects both the `dist` field and the `arch` scope tag.
+- **Dedup migration of the hot STT paths.** Eight `_log.error` call sites in `SttServerStateNotifier` (GPU fatal capture, heap corruption capture, other-exit capture, recovery exhausted, ABI mismatch path, model corruption, sub-optimal binary detect check) each sat immediately before or after an explicit `captureError`. The additional auto-escalation sent the same incident to Sentry twice, once with the correct fingerprint and once in the catch-all. These call sites are now downgraded to `_log.warning`. Model corruption, previously only logged via `_log.error`, gets its own `sttModelCorrupted` capture with file size and model ID. On average, this halves the Sentry event volume per hard speech-service failure without losing diagnostic information.
+- **`SttStartupHeartbeatConfig` as a value object instead of a record type.** The provider type is now a class with defaults (`window: 60 s`, `maxMissedWindows: 3`, `overallDeadline: 180 s`), so the added wall-clock cap does not break every test. All 28 test sites that used the former `({Duration window, int maxMissedWindows})` record literal were migrated 1:1 to the constructor.
 
 ## 1.2.28
 
 ### Bug Fixes
 
-- **Feedback-Funktion läuft wieder durch — Schema-Drift im Supabase-Backend behoben.** Zwischen dem 21. April und 27. Mai schlug jede Feedback-Übermittlung serverseitig fehl: die `locale`-Spalte fehlte im produktiven Schema, und der `enforce_feedback_defaults`-Trigger griff auf ein nie existierendes `user_agent`-Feld zu, sodass PostgREST jeden INSERT mit HTTP 400 abwies, bevor die RLS-Prüfung überhaupt griff. Die ausstehenden Migrations (`20260418_add_feedback_locale`, `20260421_fix_security_advisor_findings`, `20260512_cleanup_edge_function_artifacts`, `20260513_cleanup_legacy_artifacts`) sind jetzt deployed — Feedback aus bereits installierten Clients der Versionen 1.2.0+ kommt sofort wieder durch, ohne dass Nutzer ein App-Update brauchen. End-to-End mit echtem Client-Payload verifiziert: HTTP 201, alle server-seitig erzwungenen Felder (id, received_at, status, ip_hash aus x-forwarded-for) korrekt befüllt, RLS-Constraints + Device-/IP-Rate-Limits unverändert wirksam.
+- **Feedback works again: schema drift in the Supabase backend fixed.** Between April 21 and May 27, every feedback submission failed server-side. The `locale` column was missing from the production schema, and the `enforce_feedback_defaults` trigger accessed a `user_agent` field that never existed. As a result, PostgREST rejected every INSERT with HTTP 400 before the RLS check even ran. The pending migrations (`20260418_add_feedback_locale`, `20260421_fix_security_advisor_findings`, `20260512_cleanup_edge_function_artifacts`, `20260513_cleanup_legacy_artifacts`) are now deployed. Feedback from already installed clients of versions 1.2.0+ gets through again immediately, without users needing an app update. Verified end-to-end with a real client payload: HTTP 201, all server-enforced fields (id, received_at, status, ip_hash from x-forwarded-for) correctly filled, RLS constraints and device/IP rate limits still effective.
 
 ### Stability (internal)
 
-- **Server-Fehler im Feedback-Pfad eskalieren jetzt aktiv nach Sentry.** Bisher hat der `FeedbackSubmissionService` ein Backend-Problem nur als Breadcrumb mit `result: server_error` gemeldet — Breadcrumbs verschwinden mit der Session, wenn der Lauf nicht zusätzlich crasht. So konnte die fünfwöchige Schema-Drift unbemerkt durchlaufen, obwohl jeder Submit ein HTTP 400 produzierte. `FeedbackServerError` löst jetzt zusätzlich `Sentry.captureMessage('feedback_server_error', warning)` mit Status-Code und auf 500 Zeichen gekürztem Response-Body als strukturiertem `feedback_response`-Context aus. Rate-Limit-, Netzwerk- und Not-Configured-Pfade bleiben absichtlich nicht-eskaliert, damit nutzergetriebenes Verhalten den Sentry-Posteingang nicht zumüllt. Die deprecated `scope.setExtra`-API wurde gleich auf `scope.setContexts` migriert (sentry_flutter 9.x).
-- **Supabase-Migrations-History an das tatsächlich angewendete Remote-Schema angeglichen.** Zwei manuelle SQL-Editor-Sessions am 03. Mai hatten `schema_migrations`-Einträge mit voller Sekunden-Timestamp-Präzision (`20260503093151`, `20260503102718`) hinterlassen, während die Repo-Dateien nur den Tagespräfix (`20260503_…`) trugen — `supabase migration list` markierte die Remote-Zeilen als Waisen und `db push` brach mit „Remote migration versions not found in local migrations directory" ab. Die Dateien sind jetzt auf die vollen Timestamps umbenannt; History reconciled ohne destruktiven `migration repair --status reverted`.
+- **Server errors in the feedback path now actively escalate to Sentry.** Previously, `FeedbackSubmissionService` reported a backend problem only as a breadcrumb with `result: server_error`. Breadcrumbs disappear with the session unless the run also crashes. This is how the five-week schema drift could pass unnoticed, even though every submit produced an HTTP 400. `FeedbackServerError` now additionally triggers `Sentry.captureMessage('feedback_server_error', warning)` with the status code and the response body truncated to 500 characters, as a structured `feedback_response` context. Rate-limit, network and not-configured paths deliberately remain non-escalated, so user-driven behavior does not clutter the Sentry inbox. The deprecated `scope.setExtra` API was migrated to `scope.setContexts` at the same time (sentry_flutter 9.x).
+- **Supabase migration history aligned with the remote schema that was actually applied.** Two manual SQL-editor sessions on May 3 had left `schema_migrations` entries with full second-precision timestamps (`20260503093151`, `20260503102718`), while the repo files only carried the day prefix (`20260503_…`). `supabase migration list` flagged the remote rows as orphans, and `db push` aborted with "Remote migration versions not found in local migrations directory". The files are now renamed to the full timestamps, and the history is reconciled without a destructive `migration repair --status reverted`.
 
 ## 1.2.27
 
 ### Features
 
-- **Konkrete Toasts statt „Etwas ist schiefgelaufen" bei untauglichen Aufnahmen**. Offensichtlich nicht-transkribierbare Anfragen (leeres WAV, kaputter Header, nicht-unterstützte Sprache, zu langes Eigenvokabular) werden jetzt vor dem POST an den Sprachserver erkannt und mit dem passenden Klartext-Hinweis abgewiesen — der Nutzer sieht z. B. „Aufnahme leer" oder „Sprache nicht unterstützt", statt die Antwortzeit eines Sprachserver-Rundlaufs samt generischer Fehlermeldung abzuwarten. Sentry erfasst diese Fälle nur noch als Breadcrumb, nicht mehr als Crash-Event.
+- **Concrete toasts instead of "Something went wrong" for unusable recordings.** Obviously non-transcribable requests (empty WAV, broken header, unsupported language, overly long custom vocabulary) are now detected before the POST to the speech server and rejected with a matching plain-language hint. The user sees a specific message (e.g. that no audio was recorded, or that the language is not supported) instead of waiting for a speech server round trip plus a generic error message. Sentry now records these cases only as breadcrumbs, no longer as crash events.
 
 ### Bug Fixes
 
-- **Doppelte Crash-Reports bei fehlgeschlagener Sprachserver-Antwort beseitigt**. Fehlerhafte Inference-Antworten (4xx/5xx vom lokalen whisper-server) wurden bisher sowohl über den expliziten `captureError`-Pfad als auch über die `_log.error`-Auto-Eskalation an Sentry geschickt — pro Inference-Fehler landeten also zwei Events in zwei verschiedenen Issue-Gruppen. Der Orchestrator loggt diesen Pfad jetzt als Warning, und der zentrale Capture (mit stabilem Fingerprint pro Statuscode + PII-bereinigtem Body) sitzt direkt im STT-Notifier. 5xx-Antworten ziehen außerdem nicht mehr die ServerBinary-Recovery in den Pfad — die war für Crash-Exit-Codes gedacht, nicht für HTTP-Fehlerantworten. Im Ergebnis kollabiert die bisherige Sentry-Issue-Streuung pro Inference-Fehler auf genau eine Gruppe je HTTP-Statuscode.
+- **Duplicate crash reports for failed speech server responses eliminated.** Faulty inference responses (4xx/5xx from the local whisper-server) were previously sent to Sentry both via the explicit `captureError` path and via `_log.error` auto-escalation. Each inference error therefore produced two events in two different issue groups. The orchestrator now logs this path as a warning, and the central capture (with a stable fingerprint per status code plus a PII-sanitized body) sits directly in the STT notifier. 5xx responses also no longer pull the ServerBinary recovery into the path. That recovery was meant for crash exit codes, not for HTTP error responses. As a result, the previous Sentry issue scatter per inference error collapses to exactly one group per HTTP status code.
 
 ### Stability (internal)
 
-- **Pre-Flight-Validator + HTTP-Klassifikator für die Inference-Pipeline**. Neuer `InferenceRequestValidator` prüft jede Aufnahme deterministisch (leere Bytes → invalider WAV-Header → nicht-unterstützte Sprache → zu langes Prompt) gegen eine versiegelte Result-Klasse; neuer `InferenceErrorClassifier` mappt whisper-server-HTTP-Antworten auf die zentrale Fingerprint-Tabelle (400 / 413 / 415 / 5xx / unknown) mit PII-bereinigtem Body (Unix-, Windows-, UNC-Pfade → `<path>`) und sechs Request-Kontext-Extras. Beide sind reine, abhängigkeitsfreie Value-Klassen, werfen keine Exceptions und sind zusammen mit der Notifier-Integration durch 1 229 neue Test-Zeilen abgedeckt.
+- **Pre-flight validator and HTTP classifier for the inference pipeline.** A new `InferenceRequestValidator` deterministically checks every recording (empty bytes, then invalid WAV header, then unsupported language, then overly long prompt) against a sealed result class. A new `InferenceErrorClassifier` maps whisper-server HTTP responses to the central fingerprint table (400 / 413 / 415 / 5xx / unknown), with a PII-sanitized body (Unix, Windows and UNC paths → `<path>`) and six request-context extras. Both are pure, dependency-free value classes, throw no exceptions, and together with the notifier integration are covered by 1,229 new lines of tests.
 
 ### Dependencies
 
-- **App-Stack-Patches**: `record` 6.2.0 → 6.2.1 plus die fünf Plattform-Companions (`record_android`, `record_ios`, `record_linux`, `record_macos`, `record_platform_interface`); `flutter_secure_storage` 10.2.0 → 10.3.0 (+ darwin/linux-Begleiter); `lucide_icons_flutter` 3.1.14+1 → 3.1.14+2; sechs transitive Dart-Pakete (`built_value`, `url_launcher_android`/`_web`, `vector_graphics`(`_compiler`), `vm_service`). Alle Bumps reine Patch-/Build-Updates, keine API-Änderungen — volle Test-Suite (1 775) grün, macOS-Debug-Build grün.
-- **Website-Stack-Patches**: `astro` 6.3.3 → 6.3.8, `@astrojs/sitemap` 3.7.2 → 3.7.3, `@sentry/astro` 10.53.1 → 10.54.0 (entfernt 42 OTel-Auto-Instrumentation-Pakete aus dem Build — Free-Tier-positiv, da statische Marketing-Site), `dompurify` 3.4.5 → 3.4.6, `vitest` 4.1.6 → 4.1.7 (+ sieben `@vitest/*`-Companions), `@typescript-eslint/eslint-plugin` und `parser` 8.59.3 → 8.60.0, `@playwright/test` 1.58.2 → 1.60.0. Website-Gate (tsc, eslint, vitest, build, Playwright) grün.
+- **App stack patches:** `record` 6.2.0 → 6.2.1 plus the five platform companions (`record_android`, `record_ios`, `record_linux`, `record_macos`, `record_platform_interface`); `flutter_secure_storage` 10.2.0 → 10.3.0 (+ darwin/linux companions); `lucide_icons_flutter` 3.1.14+1 → 3.1.14+2; six transitive Dart packages (`built_value`, `url_launcher_android`/`_web`, `vector_graphics`(`_compiler`), `vm_service`). All bumps are pure patch/build updates with no API changes. The full test suite (1,775) is green, and the macOS debug build is green.
+- **Website stack patches:** `astro` 6.3.3 → 6.3.8, `@astrojs/sitemap` 3.7.2 → 3.7.3, `@sentry/astro` 10.53.1 → 10.54.0 (removes 42 OTel auto-instrumentation packages from the build, positive for the free tier since it is a static marketing site), `dompurify` 3.4.5 → 3.4.6, `vitest` 4.1.6 → 4.1.7 (+ seven `@vitest/*` companions), `@typescript-eslint/eslint-plugin` and `parser` 8.59.3 → 8.60.0, `@playwright/test` 1.58.2 → 1.60.0. Website gate (tsc, eslint, vitest, build, Playwright) is green.
 
 ## 1.2.26
 
 ### Bug Fixes
 
-- **CI-Build wird wieder grün — `sqlite3`-Version explizit gepinnt**. Der v1.2.25-Build lief lokal sauber durch, aber der CI-Runner auflöste `sqlite3` auf eine ältere Major-Version (2.9.4 statt 3.3.1), weil `sentry_drift 9.20.0` einen veralteten `sqlite3: ^2.1.0`-Constraint mitschleppt, der mit dem `sqlite3: ^3.1.5`-Bedarf von `drift 2.33.0` kollidiert. Lokal blieb das durch das eingecheckte Lock-File auf 3.3.1 stabil, auf CI griff der Resolver am Lock vorbei und kippte auf 2.9.4 — dessen `SqliteException` einen anderen Konstruktor hat und damit die Coordinator-Tests beim `flutter analyze` zerlegt. `dependency_overrides: { sqlite3: ^3.3.0 }` zwingt jetzt beide Seiten auf die gleiche Major-Version. Reine Build-Hygiene — keine Verhaltensänderung an der App selbst gegenüber 1.2.25.
+- **CI build green again: `sqlite3` version explicitly pinned.** The v1.2.25 build ran cleanly locally, but the CI runner resolved `sqlite3` to an older major version (2.9.4 instead of 3.3.1). `sentry_drift 9.20.0` carries an outdated `sqlite3: ^2.1.0` constraint that collides with the `sqlite3: ^3.1.5` requirement of `drift 2.33.0`. Locally, the checked-in lock file kept 3.3.1 stable. On CI the resolver bypassed the lock and fell to 2.9.4, whose `SqliteException` has a different constructor, which broke the coordinator tests during `flutter analyze`. `dependency_overrides: { sqlite3: ^3.3.0 }` now forces both sides onto the same major version. This is pure build hygiene, with no behavior change in the app itself compared to 1.2.25.
 
 ## 1.2.25
 
 ### Features
 
-- **Sprachdienst erholt sich jetzt selbst nach Crashes**. Wenn der whisper-server mit einem DLL-, ABI- oder GPU-Fehler abstürzt, fällt die App jetzt automatisch eine Stufe zurück (CUDA 12 → Vulkan → CPU auf Windows, Metal → CPU auf macOS), lädt die passende Variante nach, validiert sie und fährt den Dienst neu hoch. Pro Aufnahme-Session ist ein Versuch je Variante zulässig, damit Endlosschleifen ausgeschlossen sind. Nur wenn alle Stufen scheitern, sieht der Nutzer einen Toast — sonst läuft die nächste Aufnahme einfach weiter. Auf der Fehler-Endstufe gibt es jetzt einen aktionablen Toast „Einstellungen öffnen", der direkt in den Reset-Bereich navigiert.
+- **The speech service now recovers by itself after crashes.** If the whisper-server crashes with a DLL, ABI or GPU error, the app now automatically falls back one level (CUDA 12 → Vulkan → CPU on Windows, Metal → CPU on macOS), downloads the matching variant, validates it and restarts the service. One attempt per variant is allowed per recording session, which rules out endless loops. Only when all levels fail does the user see a toast. Otherwise the next recording simply continues. On the final error level there is now an actionable "Open settings" toast that navigates directly to the reset section.
 
-- **HTTP-Downloads hängen nicht mehr unbemerkt**. Ein 30-Sekunden-Stall-Detektor überwacht den Byte-Fluss bei Modell- und Server-Binary-Downloads. Wenn der Stream einfriert (kein Fortschritt, aber auch kein Abbruch — der typische schlechte WLAN-Fall), bricht die App den Versuch sauber ab und probiert die nächste Quelle. Bisher konnte der Onboarding-Download im schlimmsten Fall stundenlang stehenbleiben, ohne dass die UI das merkte. Zusätzlich sind die rohen Dio-Fehler jetzt in lesbare deutsche Texte übersetzt („Verbindung zum Server nicht möglich", „Download wurde unterbrochen") statt Stacktrace-Fragmente.
+- **HTTP downloads no longer hang unnoticed.** A 30-second stall detector monitors the byte flow during model and server binary downloads. If the stream freezes (no progress, but no abort either, the typical bad-WLAN case), the app cleanly cancels the attempt and tries the next source. Previously the onboarding download could stand still for hours in the worst case without the UI noticing. In addition, the raw Dio errors are now translated into readable messages instead of stack-trace fragments.
 
-- **Fehler-Toasts haben jetzt eine sinnvolle Aktion**. Sechs typische Fehlerstellen zeigen statt des generischen „Etwas ist schiefgelaufen"-Toasts einen Knopf zur direkten Lösung: „Einstellungen öffnen" bei erschöpfter Sprachdienst-Recovery, „Erneut versuchen" bei fehlgeschlagenem Server-Download, „Diagnose kopieren" bei History-Schreibfehlern, „App schließen" bei Factory-Reset-Fehler, „Accessibility-Berechtigung öffnen" beim macOS-Auto-Paste-Pfad. Wo bisher nur ein lakonischer Hinweis stand, gibt es jetzt einen Klick zur Behebung.
+- **Error toasts now have a useful action.** Six typical error sites now show a button for a direct fix instead of the generic "Something went wrong" toast: "Open settings" when speech service recovery is exhausted, "Try again" when a server download fails, "Copy diagnostics" for history write errors, "Quit app" for factory reset errors, and opening the Accessibility permission on the macOS auto-paste path. Where previously only a terse hint stood, there is now one click to fix the problem.
 
-- **Factory-Reset hängt nicht mehr und friert die UI nicht ein**. Der Reset-Flow wartet jetzt auf das tatsächliche Beenden des Sprachdienstes (PID-File-Polling, 10-Sekunden-Timeout, harter Kill als Fallback) statt auf einen blinden 800-ms-Sleep, und das Löschen mehrerer GB Modelle läuft in einem separaten Isolate, damit die UI flüssig bleibt. Eine modale Fortschrittsanzeige zeigt die einzelnen Phasen („Beende Sprachdienst…", „Lösche Modelle…") an, sodass der Nutzer sieht, dass etwas passiert. Bei Fehler wird die Phase benannt und einmalig in Sentry gemeldet — keine Doppelreports mehr.
+- **Factory reset no longer hangs or freezes the UI.** The reset flow now waits for the speech service to actually stop (PID file polling, 10-second timeout, hard kill as fallback) instead of a blind 800 ms sleep. Deleting several GB of models runs in a separate isolate, so the UI stays smooth. A modal progress indicator shows the individual phases ("Stopping voice service…", "Deleting voice models…"), so the user sees that something is happening. On error, the phase is named and reported to Sentry once, with no more duplicate reports.
 
 ### Bug Fixes
 
-- **GPU-Erkennung hängt das Onboarding nicht mehr fest**. Die parallelen `wmic` / PowerShell-Probes auf Windows haben jetzt ein 8-Sekunden-Timeout pro Probe und laufen im Wettrennen statt seriell. Schlägt die Erkennung komplett fehl (z. B. blockierte WMI-Schnittstelle, fehlende DLL), fällt die App nun explizit auf CPU-Modus zurück und zeigt einen freundlichen Hinweis „Optimierte GPU-Beschleunigung nicht verfügbar — App nutzt CPU" — statt das System fälschlich als inkompatibel zu markieren und das Onboarding zu blockieren.
+- **GPU detection no longer blocks onboarding.** The parallel `wmic` / PowerShell probes on Windows now have an 8-second timeout per probe and run as a race instead of serially. If detection fails completely (e.g. a blocked WMI interface or a missing DLL), the app now explicitly falls back to CPU mode and shows a friendly hint that GPU acceleration is unavailable and the app uses the CPU. Previously it wrongly marked the system as incompatible and blocked onboarding.
 
-- **Doppelte Crash-Reports bei fehlgeschlagenem Server-Download beseitigt**. Der finale Fehlerlog des Modell-Downloaders wurde sowohl über die Auto-Eskalation als auch über den expliziten `captureError`-Aufruf an Sentry geschickt — pro fehlgeschlagenem Download landeten also zwei Events in zwei verschiedenen Issue-Gruppen. Die redundante Log-Eskalation ist jetzt eine Warning, sodass nur noch der explizite, korrekt fingerprintete Capture-Aufruf den Vorgang meldet.
+- **Duplicate crash reports for a failed server download eliminated.** The final error log of the model downloader was sent to Sentry both via auto-escalation and via the explicit `captureError` call, so each failed download produced two events in two different issue groups. The redundant log escalation is now a warning, so only the explicit, correctly fingerprinted capture call reports the event.
 
 ### Stability (internal)
 
-- **Schreibzugriffe auf die History sind jetzt serialisiert**. Alle zwölf Schreib-Methoden der lokalen SQLite-Datenbank laufen durch einen einzelnen Lock und versuchen es bei `SQLITE_BUSY` mit `[50, 100, 200]` ms Backoff erneut, bevor sie aufgeben. Damit verschwindet die Mehrheit der bisherigen „Etwas ist schiefgelaufen"-Toasts bei parallelen Schreibvorgängen (z. B. Aufnahme abschließt, während Nutzer im History-Tab löscht), und der Sentry-Cluster aus WP-7B…7M kollabiert auf ein einzelnes Signal.
+- **History writes are now serialized.** All twelve write methods of the local SQLite database go through a single lock and retry on `SQLITE_BUSY` with `[50, 100, 200]` ms backoff before giving up. This eliminates most of the previous "Something went wrong" toasts during parallel writes (e.g. a recording finishes while the user deletes in the history tab), and the Sentry cluster WP-7B…7M collapses into a single signal.
 
-- **Zentrales Crash-Fingerprint-Inventar**. Alle Sentry-Captures benutzen jetzt verpflichtend Fingerprints aus einer zentralen Inventarliste, sodass thematisch zusammengehörige Fehler sauber in eine Issue-Gruppe fallen und das Free-Tier-Kontingent nicht durch generische `Etwas ist schiefgelaufen`-Events verbrannt wird. Update-Check-Netzwerkfehler eskalieren nicht mehr nach Sentry, sondern bleiben als Breadcrumb erhalten.
+- **Central crash fingerprint inventory.** All Sentry captures now mandatorily use fingerprints from a central inventory list. Thematically related errors fall into one issue group cleanly, and the free-tier quota is not burned by generic `Something went wrong` events. Update-check network errors no longer escalate to Sentry, but remain as breadcrumbs.
 
 ## 1.2.24
 

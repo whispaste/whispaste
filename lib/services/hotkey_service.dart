@@ -19,6 +19,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/perf_instrumentation.dart';
 import 'hotkey_key_resolver.dart';
+import 'prompt_display_arbiter.dart';
 import 'keyboard_up_monitor.dart';
 
 // ---------------------------------------------------------------------------
@@ -339,6 +340,13 @@ class HotkeyService extends Notifier<void> {
   /// available — this is the capability flag the settings toggle reads.
   bool get supportsKeyUp => _registrar.supportsKeyUp || _monitor.supportsKeyUp;
 
+  /// Whether push-to-talk rests solely on the experimental Linux key-up
+  /// monitor (handy-catchup/09) — the settings UI marks the option then.
+  bool get keyUpExperimental =>
+      !_registrar.supportsKeyUp &&
+      _monitor.supportsKeyUp &&
+      _monitor.experimental;
+
   bool _initialized = false;
   bool _quickNoteInitialized = false;
   bool _snippetPickerInitialized = false;
@@ -380,10 +388,10 @@ class HotkeyService extends Notifier<void> {
   HotKeyRegistrar _registrar = const _PackageHotKeyRegistrar();
 
   /// Key-up source for platforms whose registrar is key-down only (Windows
-  /// RawInput; issue #39). On macOS/Linux this is a no-op monitor and the
-  /// registrar (or nothing) provides key-up. Override in tests via
-  /// [injectMonitor].
-  KeyboardUpMonitor _monitor = Platform.isWindows
+  /// RawInput, issue #39; Linux XInput2/GlobalShortcuts portal, experimental,
+  /// handy-catchup/09). On macOS this is a no-op monitor and the registrar
+  /// provides key-up. Override in tests via [injectMonitor].
+  KeyboardUpMonitor _monitor = (Platform.isWindows || Platform.isLinux)
       ? ChannelKeyboardUpMonitor()
       : NoopKeyboardUpMonitor();
 
@@ -393,11 +401,15 @@ class HotkeyService extends Notifier<void> {
   /// honoured. Comfortably larger than typical auto-repeat initial delays.
   static const _autoRepeatWindow = Duration(milliseconds: 1200);
 
+  /// Shared nudge window. Read in [build]; null until the notifier is built.
+  PromptDisplayArbiter? _promptArbiter;
+
   @override
   void build() {
+    _promptArbiter = ref.read(promptDisplayArbiterProvider);
     if (!_isDesktop) return;
 
-    _monitor.onKeyUp = () => _handleKeyUp(_globalActionId, 'Global');
+    _wireMonitor();
 
     ref.listen<AsyncValue<AppSettings>>(settingsProvider, (prev, next) {
       final previous = prev?.value;
@@ -524,7 +536,15 @@ class HotkeyService extends Notifier<void> {
   @visibleForTesting
   void injectMonitor(KeyboardUpMonitor monitor) {
     _monitor = monitor;
+    _wireMonitor();
+  }
+
+  /// Routes the monitor's events into the global action. Key-down only
+  /// arrives from the Linux portal path; a press the X11 grab reports as well
+  /// is deduplicated by [_handleKeyDown]'s held-key guard.
+  void _wireMonitor() {
     _monitor.onKeyUp = () => _handleKeyUp(_globalActionId, 'Global');
+    _monitor.onKeyDown = () => _handleKeyDown(_globalActionId, 'Global');
   }
 
   /// Injects a custom [HotKeyRegistrar] for unit testing.
@@ -1196,6 +1216,9 @@ class HotkeyService extends Notifier<void> {
     }
     state.keyHeld = true;
     _log.info('$label hotkey pressed');
+    // A hotkey press closes an open nudge prompt. The close records nothing,
+    // so it is neither a dismissal nor a snooze.
+    _promptArbiter?.closeOpenPrompt();
     if (actionId == _globalActionId) {
       // Stamp t₀ for hotkey→overlay latency BEFORE dispatching so the mark
       // captures the earliest possible Dart-layer moment of this event.

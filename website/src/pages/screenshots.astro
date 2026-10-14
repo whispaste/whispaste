@@ -5,10 +5,10 @@ import Footer from "../components/Footer.astro";
 import ScreenshotGallery from "../components/ScreenshotGallery.astro";
 import SectionEyebrow from "../components/SectionEyebrow.astro";
 import BreadcrumbListSchema from "../components/schema/BreadcrumbListSchema.astro";
-import { t, localePath } from "../scripts/i18n.ts";
+import { t, localePath, currentLocale } from "../scripts/i18n.ts";
 
-const lang = (Astro.currentLocale === "en" ? "en" : "de") as "de" | "en";
-const downloadHref = lang === "de" ? "/download" : "/en/download";
+const lang = currentLocale(Astro.currentLocale);
+const downloadHref = localePath(lang, "download");
 const breadcrumbItems = [
   { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
   { name: t(lang, "breadcrumb.screenshots"), item: localePath(lang, "screenshots") },
@@ -54,7 +54,7 @@ const breadcrumbItems = [
   <Footer variant="subpage" />
 
   <script>
-    import { applyLang } from '../scripts/i18n';
+    import { applyLang } from '../scripts/lang-switch';
     applyLang();
   </script>
 

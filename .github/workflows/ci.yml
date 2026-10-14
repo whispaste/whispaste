@@ -95,7 +95,7 @@ jobs:
       - name: Logging gate — no dev.log/debugPrint outside AppLogger
         run: |
           echo 'Checking for logging calls that bypass AppLogger...'
-          ALLOWED='lib/core/logging/app_logger.dart|lib/core/logging/app_monitoring.dart|lib/core/logging/crash_reporter.dart|lib/services/floating_overlay/overlay_render_channel.dart|_render_entrypoint\.dart'
+          ALLOWED='lib/core/logging/app_logger.dart|lib/core/logging/app_monitoring.dart|lib/core/logging/crash_reporter.dart|lib/core/logging/crash_reporting_consent.dart|lib/services/floating_overlay/overlay_render_channel.dart|_render_entrypoint\.dart'
           MATCHES=$(grep -rEln 'dev\.log\(|debugPrint\(' --include='*.dart' lib \
             | grep -Ev "$ALLOWED" || true)
           if [ -n "$MATCHES" ]; then
@@ -310,7 +310,7 @@ jobs:
             .build/libwhisper/macos
             .build/libllama/macos
             .build/test-models
-          key: ci-macos-native-${{ hashFiles('scripts/build-libwhisper-macos.sh', 'scripts/build-libllama-macos.sh', 'scripts/build-smartmode-shim-macos.sh', 'native/smart_mode/**') }}
+          key: ci-macos-native-${{ hashFiles('scripts/build-libwhisper-macos.sh', 'scripts/build-libllama-macos.sh', 'scripts/build-smartmode-shim-macos.sh', 'native/smart_mode/**', 'native/ffi_guard/**') }}
 
       - name: Build macOS (debug)
         run: flutter build macos --debug
@@ -431,6 +431,17 @@ jobs:
         # via pub get in CI), which fails on unresolved package: self-imports.
         # Those packages are covered by the loam gate below.
         run: flutter analyze --fatal-infos lib test integration_test tool
+
+      # Every app_<locale>.arb must carry exactly the keys of app_en.arb;
+      # known gaps are frozen in lib/core/l10n/arb_parity_baseline.json
+      # (ratchet, can only shrink). Same command as .githooks/pre-commit.
+      - name: ARB key parity gate
+        run: dart tool/check_arb_parity.dart
+
+      # Pure C++ unit test of the Linux push-to-talk autorepeat filter
+      # (linux/runner/autorepeat_filter.h); no X11 needed.
+      - name: Linux autorepeat filter unit test
+        run: bash test/scripts/autorepeat_filter_test.sh
 
       # loam ratchet gate — fails when any new a11y, anti-AI-slop,
       # code-duplicate, unused-public-export, complexity-hotspot or

@@ -18,6 +18,7 @@ import '../app_info.dart';
 import 'app_logger.dart';
 import 'crash_fingerprints.dart';
 import 'crash_reporter.dart';
+import 'crash_reporting_consent.dart';
 
 /// Sentry DSN — public identifier, safe to embed in client code.
 /// See: https://docs.sentry.io/concepts/key-terms/dsn-explainer/
@@ -34,6 +35,13 @@ const _sentryDsn =
 ///   });
 /// }
 /// ```
+/// Signature of [SentryFlutter.init], injectable for tests.
+typedef SentryInitializer =
+    Future<void> Function(
+      FlutterOptionsConfiguration optionsConfiguration, {
+      AppRunner? appRunner,
+    });
+
 class AppMonitoring {
   AppMonitoring._();
 
@@ -45,6 +53,32 @@ class AppMonitoring {
   }) async {
     // 1. Configure logging (breadcrumbs, dev-tools output, file sink).
     await configureLogging();
+
+    await startMonitoring(appRunner: appRunner);
+  }
+
+  /// Starts Sentry around [appRunner] — unless the user opted out of error
+  /// reporting, in which case Sentry is never initialised: native crash,
+  /// app-hang and session reporting cannot be gated from Dart afterwards.
+  @visibleForTesting
+  static Future<void> startMonitoring({
+    required Future<void> Function() appRunner,
+    CrashReportingConsentMarker? consentMarker,
+    SentryInitializer sentryInit = SentryFlutter.init,
+  }) async {
+    final marker = consentMarker ?? CrashReportingConsentMarker();
+    final deployChannel = detectDeployChannel().name;
+
+    if (marker.resolveOptedOut()) {
+      CrashReporter.init(
+        deployChannel: deployChannel,
+        consentGranted: false,
+        consentMarker: marker,
+      );
+      _log.info('Error reporting opted out — Sentry not started');
+      await appRunner();
+      return;
+    }
 
     // 2. Initialize Sentry — wraps appRunner with error zone + handlers.
     //
@@ -59,11 +93,11 @@ class AppMonitoring {
     //   so we ALSO install `beforeSendTransaction` as a hard per-session
     //   throttle (see CrashReporter.beforeSendTransaction). For a *real*
     //   monthly guarantee, set a Spend Cap in the Sentry dashboard.
-    await SentryFlutter.init(
+    await sentryInit(
       configureSentryOptions,
       appRunner: () async {
         // 3. Initialize crash reporter (configures Sentry scope context).
-        CrashReporter.init(deployChannel: detectDeployChannel().name);
+        CrashReporter.init(deployChannel: deployChannel, consentMarker: marker);
         _log.info('Sentry crash reporting initialized');
 
         // 4. Install cascade guard around Sentry's FlutterError.onError.

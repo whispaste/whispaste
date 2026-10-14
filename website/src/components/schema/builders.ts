@@ -25,7 +25,7 @@
  * Empfehlungen für maximale Lesbarkeit im Rendered-HTML.
  */
 
-import { t, type Locale } from "../../scripts/i18n.ts";
+import { t, localePath, LOCALE_META, type Locale } from "../../scripts/i18n.ts";
 
 // ---------------------------------------------------------------------------
 // Gemeinsame Konstanten
@@ -58,17 +58,17 @@ export const ORGANIZATION_SAME_AS: readonly string[] = [GITHUB_REPO_URL];
  * Sprachcodes; wir nutzen die Region-spezifische Variante, weil Google sie
  * für Locale-Targeting bevorzugt.
  */
-export function inLanguageFor(locale: Locale): "de-DE" | "en-US" {
-  return locale === "de" ? "de-DE" : "en-US";
+export function inLanguageFor(locale: Locale): string {
+  return LOCALE_META[locale].ogLocale.replace("_", "-");
 }
 
 /**
- * Locale-aware Home-URL. Astro liefert DE unter `/`, EN unter `/en/` (siehe
- * Astro-i18n-Routing in `astro.config.mjs`). Beide Endpoints sind kanonisch
- * und mit Trailing-Slash zu adressieren.
+ * Locale-aware Home-URL. Astro liefert DE unter `/`, alle anderen Sprachen
+ * unter `/<locale>/` (siehe Astro-i18n-Routing in `astro.config.mjs`). Alle
+ * Endpoints sind kanonisch und mit Trailing-Slash zu adressieren.
  */
 export function homeUrlFor(locale: Locale): string {
-  return locale === "de" ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/en/`;
+  return `${SITE_ORIGIN}${localePath(locale, "")}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,14 +108,14 @@ export interface SoftwareApplicationOptions {
 /**
  * Default-OS-Liste — `CONTEXT.md` §1 nennt Windows, macOS und Linux als aktiv
  * unterstützte Plattformen. Die konkreten Versions-Hinweise spiegeln den
- * Stand der `download.astro`-Seite (Windows 10/11, macOS 13+) plus Linux als
+ * Stand der `download.astro`-Seite (Windows 10/11, macOS 12+) plus Linux als
  * Generic-Entry. PRD §C verlangt explizit Linux-Deklaration.
  */
 export const DEFAULT_OPERATING_SYSTEMS: readonly string[] = [
   "Windows 10",
   "Windows 11",
-  "macOS 13",
-  "Linux",
+  "macOS 12 (Apple Silicon)",
+  "Linux (x86_64)",
 ];
 
 /**
@@ -124,17 +124,18 @@ export const DEFAULT_OPERATING_SYSTEMS: readonly string[] = [
  * den Screenshots sichtbar ist (DE-Workspace zeigt deutsche UI).
  */
 export function defaultScreenshotsFor(locale: Locale): readonly string[] {
-  const slug = locale === "de" ? "de" : "en";
+  const slug = locale === "de" || locale === "ru" ? locale : "en";
   return [
     `${SITE_ORIGIN}/screenshots/${slug}/dark/01_workspace_overview.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/02_workspace_detail.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/03_voice_shortcuts.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/04_settings.png`,
     `${SITE_ORIGIN}/screenshots/${slug}/dark/05_analytics.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/dark/06_smart_mode.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/dark/07_snippet_picker.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/dark/08_interactive_snippet.png`,
-    `${SITE_ORIGIN}/screenshots/${slug}/dark/09_side_panel.png`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/06_smart_mode.webp`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/07_snippet_picker.webp`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/08_interactive_snippet.webp`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/09_side_panel.webp`,
+    `${SITE_ORIGIN}/screenshots/${slug}/dark/10_notes.webp`,
   ];
 }
 
@@ -155,6 +156,9 @@ export const DEFAULT_FEATURE_KEYS: readonly string[] = [
   "notes",
   "vocabulary",
   "remote",
+  "editSelection",
+  "cloud",
+  "overlay",
 ];
 
 /** Lokalisierte Default-`featureList` aus den `highlights.*.title`-Keys. */
@@ -201,11 +205,11 @@ export function buildSoftwareApplicationSchema(
     offers: {
       "@type": "Offer",
       price: "0",
-      // priceCurrency bewusst weggelassen: WhisPaste ist MIT-lizenziert und
-      // wird kostenlos angeboten. Google Rich Results akzeptiert
-      // `price: "0"` ohne Currency als gültigen Free-Offer-Marker; das
-      // bisherige `USD` war eine Fiktion (keine bezahlte WhisPaste-Variante)
-      // und hätte Locale-Mismatch-Hinweise im Validator ausgelöst.
+      // This offer describes the free MIT-licensed GitHub download that
+      // `downloadUrl` points to; the paid Microsoft Store / Mac App Store
+      // builds are separate channels and intentionally not modelled here.
+      // Google Rich Results accepts `price: "0"` without a currency as a
+      // free-offer marker.
     },
     license: "https://opensource.org/licenses/MIT",
     author: { "@id": ORGANIZATION_ID },
@@ -370,9 +374,8 @@ export interface FAQPageOptions {
   readonly locale: Locale;
   /**
    * Optional explizite Liste von Fragen/Antworten. Default ist die Sequenz
-   * der FAQ-Keys aus `FAQ.astro` (`free`, `offline`, `accuracy`, `sysreq`,
-   * `languages`, `privacy`, `windows`, `smartscreen`, `gatekeeper`), die der
-   * Builder direkt aus dem i18n-Glossar zieht.
+   * der FAQ-Keys aus `FAQ.astro` ([DEFAULT_FAQ_KEYS]), die der Builder direkt
+   * aus dem i18n-Glossar zieht.
    */
   readonly questions?: readonly FAQQuestion[];
   /**
@@ -384,21 +387,20 @@ export interface FAQPageOptions {
 }
 
 /**
- * Default-Fragen für die Landing-Page-FAQ; spiegelt die `FAQ.astro`-Sequenz
- * exakt, damit der Schema-Inhalt mit dem sichtbaren FAQ-Akkordeon
- * korrespondiert (Google-Rich-Results-Anforderung).
+ * Landing-page FAQ topic groups, in visible order (`FAQ.astro`).
  */
-export const DEFAULT_FAQ_KEYS: readonly string[] = [
-  "free",
-  "offline",
-  "accuracy",
-  "sysreq",
-  "languages",
-  "privacy",
-  "windows",
-  "smartscreen",
-  "gatekeeper",
+export const FAQ_GROUPS: readonly { readonly key: string; readonly keys: readonly string[] }[] = [
+  { key: "start", keys: ["free", "windows", "sysreq", "smartscreen", "gatekeeper"] },
+  { key: "local", keys: ["offline", "privacy", "engines", "languages", "accuracy"] },
+  { key: "features", keys: ["smartmode", "snippets"] },
 ];
+
+/**
+ * Default questions for the landing-page FAQ: the groups flattened, so the
+ * schema content matches the visible accordion exactly (Google rich-results
+ * requirement).
+ */
+export const DEFAULT_FAQ_KEYS: readonly string[] = FAQ_GROUPS.flatMap((g) => g.keys);
 
 export function buildFAQPageSchema(
   options: FAQPageOptions,

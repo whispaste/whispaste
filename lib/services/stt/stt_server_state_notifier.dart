@@ -22,7 +22,8 @@ import '../../core/config/whisper_languages.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
 import '../../core/logging/crash_reporter.dart';
-import '../../core/recording/recording_state.dart' show SttServerState;
+import '../../core/recording/recording_state.dart'
+    show SttServerState, transcriptionStuckBudget;
 import '../hardware_info_service.dart' as hw;
 import '../model_download_service.dart';
 import '../path_service.dart';
@@ -32,6 +33,7 @@ import 'live_preview/live_transcript_previewer.dart';
 import 'prompt_token_budget.dart';
 import 'stt_benchmark.dart' show SttBenchmark;
 import 'wav_header_repair.dart';
+import 'whisper/cuda_pack.dart';
 import 'whisper/gpu_load_crash_guard.dart';
 import 'whisper/whisper_engine.dart';
 import 'whisper/whisper_ffi_engine.dart' show defaultWhisperVadModelPath;
@@ -368,6 +370,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   @override
   SttStatus build() {
     _engine = ref.read(whisperEngineProvider);
+    // The provider rebuilds when its GPU inputs change (settings finishing
+    // their async load, the GPU toggle, detection) and its onDispose shuts
+    // the previous engine down. Keeping that instance left `state` ready on
+    // a dead engine, so the next dictation failed with
+    // whisper_engine_not_loaded (Sentry 120963723) — follow the replacement
+    // and reload on next use instead.
+    ref.listen<WhisperEngine>(whisperEngineProvider, (_, next) {
+      if (identical(next, _engine)) return;
+      _log.info('STT engine replaced — reloading on next use');
+      unawaited(stop());
+      _engine = next;
+    });
 
     ref.onDispose(() {
       _idleTimer?.cancel();
@@ -672,6 +686,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     return text;
   }
 
+  /// Unloads the engine if it holds or is loading [modelId], so the model
+  /// file can be deleted — Windows refuses to delete a file that is open.
+  Future<void> releaseModel(String modelId) async {
+    if (_activeModel != modelId && state.modelId != modelId) return;
+    await stop();
+  }
+
   /// Stops the engine. Returns a [Future] that completes once the native
   /// context is actually freed — callers that need the app to stay alive
   /// until then (app quit, see `app.dart`'s `onWindowClose`) must await it;
@@ -818,12 +839,57 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
   }
 
+  /// Moves the active model from the GPU engine onto the always-CPU fallback
+  /// engine after a transcribe-time GPU crash, so the retry does not run on
+  /// the same crashing GPU configuration. Mirrors the load-time fallback in
+  /// [_start]: load the model on the fallback engine, swap [_engine],
+  /// then unload the old engine.
+  ///
+  /// Returns `false` (and leaves [_engine] untouched) when no retry on CPU is
+  /// possible — no active model, already on the fallback engine, or the CPU
+  /// load itself failed. The caller then surfaces the original crash.
+  Future<bool> _swapToCpuEngineForRetry() async {
+    final modelId = _activeModel;
+    final modelPath = modelId == null ? null : sttModelPath(modelId);
+    final gpuEngine = _engine;
+    final cpuEngine = ref.read(whisperCpuFallbackEngineProvider);
+    if (modelPath == null || gpuEngine == null) return false;
+    if (identical(gpuEngine, cpuEngine)) return false;
+    try {
+      await cpuEngine.load(
+        modelPath: modelPath,
+        vadModelPath: defaultWhisperVadModelPath(),
+      );
+    } catch (cpuError) {
+      _log.warning('CPU load after GPU crash failed: $cpuError');
+      return false;
+    }
+    _engine = cpuEngine;
+    unawaited(
+      gpuEngine.unload().catchError((Object e) {
+        _log.warning('Unload of crashed GPU engine failed: $e');
+      }),
+    );
+    if (ref.mounted) {
+      state = state.copyWith(
+        cpuFallbackActive: true,
+        backend: WhisperBackend.cpu,
+      );
+    }
+    _log.warning(
+      'GPU crash during inference — reloaded model on CPU and retrying',
+    );
+    return true;
+  }
+
   /// Runs [WhisperEngine.transcribe] behind the FFI resilience chain
   /// (CONTEXT.md §3.3), reacting to the engine's distinguishable
   /// [WhisperFailureKind] signals:
   ///
-  /// - **Stuck-Guard** — the call is raced against [stuckGuardTimeout]; a hang
-  ///   ends as a clean [WhisperFailureKind.timeout] error, never a deadlock.
+  /// - **Stuck-Guard** — the call is raced against
+  ///   `transcriptionStuckBudget(audio, floor: stuckGuardTimeout)`, so long
+  ///   recordings get a budget that scales with their length; a hang ends as a
+  ///   clean [WhisperFailureKind.timeout] error, never a deadlock.
   /// - **CPU-Fallback** — a [WhisperFailureKind.gpuCrash] degrades to CPU once
   ///   (`cpuFallbackActive` set) and retries.
   /// - **Retry** — a [WhisperFailureKind.transient] failure is retried up to
@@ -866,7 +932,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               vadEnabled: vadEnabled,
               reducedThreads: _isRecordingActive,
             )
-            .timeout(stuckGuardTimeout);
+            .timeout(
+              transcriptionStuckBudget(
+                Duration(milliseconds: audioDurationMs),
+                floor: stuckGuardTimeout,
+              ),
+            );
       } on TimeoutException {
         const failure = WhisperEngineException(
           WhisperFailureKind.timeout,
@@ -883,18 +954,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       } on WhisperEngineException catch (e) {
         switch (e.kind) {
           case WhisperFailureKind.gpuCrash:
-            if (!cpuFallbackTried &&
-                _resiliencePolicy.shouldRetryOnCpu(e.kind)) {
-              cpuFallbackTried = true;
-              if (ref.mounted) {
-                state = state.copyWith(
-                  cpuFallbackActive: true,
-                  backend: WhisperBackend.cpu,
-                );
-              }
-              _log.warning(
-                'GPU crash during inference — degrading to CPU and retrying',
-              );
+            final retryOnCpu =
+                !cpuFallbackTried && _resiliencePolicy.shouldRetryOnCpu(e.kind);
+            cpuFallbackTried = true;
+            if (retryOnCpu && await _swapToCpuEngineForRetry()) {
               continue;
             }
             _captureInferenceFailure(
@@ -1123,7 +1186,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// Best-effort GPU/engine warmup so the first real dictation after a cold
   /// load doesn't pay the one-time kernel-compile/cache-fill penalty.
   /// Failures are non-fatal — mirrors the pre-cutover HTTP warmup's contract.
-  Future<void> _warmupInference() async {
+  /// Returns `false` when the warmup threw: a failed warmup proves nothing
+  /// about the GPU, so the caller must not count it as a surviving GPU path.
+  Future<bool> _warmupInference() async {
     final sw = Stopwatch()..start();
     try {
       final silentWav = _generateSilentWav();
@@ -1132,9 +1197,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _log.info(
         'Engine warmup inference completed in ${sw.elapsedMilliseconds}ms',
       );
+      return true;
     } catch (e) {
       sw.stop();
       _log.debug('Engine warmup skipped: $e');
+      return false;
     }
   }
 
@@ -1371,7 +1438,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // inference, or once the GPU path has been abandoned for CPU.
     final crashGuard = ref.read(gpuLoadCrashGuardProvider);
     final attemptingGpu = _engine!.status.backend != WhisperBackend.cpu;
-    if (attemptingGpu) crashGuard.markAttempt();
+    if (attemptingGpu) {
+      crashGuard.markAttempt(cuda: ref.read(activeCudaPackDirProvider) != null);
+    }
     // Tracks whether the marker set above still needs clearing — a plain
     // bool rather than re-deriving from `attemptingGpu` at each call site,
     // so the catch branch's clear (GPU abandoned for CPU) and the
@@ -1423,16 +1492,17 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _activeModel = modelId;
     _resetIdleTimer();
 
-    await _warmupInference();
+    final warmupOk = await _warmupInference();
     // Reaching here proves the process survived the first GPU compute
     // dispatch, not just the weight load — see the crash-loop-breaker
     // comment above. Only fires if the catch branch above didn't already
-    // clear it (GPU abandoned for CPU before we got this far). Also resets
-    // the consecutive-crash streak: the GPU just proved itself, so any
-    // prior crash(es) toward the two-strike threshold no longer apply.
+    // clear it (GPU abandoned for CPU before we got this far). The in-flight
+    // marker is cleared either way (a Dart-level warmup exception is not a
+    // native crash), but the consecutive-crash streak is only reset when the
+    // warmup actually succeeded: a failed warmup is not proof the GPU works.
     if (gpuAttemptPending) {
       crashGuard.clearAttempt();
-      crashGuard.resetCrashStreak();
+      if (warmupOk) crashGuard.resetCrashStreak();
       gpuAttemptPending = false;
     }
     _scheduleBenchmark(modelId);

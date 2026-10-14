@@ -1,7 +1,7 @@
 name: whispaste
 description: "Cross-platform dictation — hotkey, speak, paste anywhere."
 publish_to: 'none'
-version: 1.3.0+48
+version: 1.4.0+49
 
 environment:
   sdk: ^3.12.0
@@ -23,6 +23,9 @@ dependencies:
   # Database
   drift: ^2.25.0
   sqlite3_flutter_libs: ^0.6.0+eol
+  # Raw read of the stored error-reporting opt-out before Sentry starts
+  # (crash_reporting_consent.dart); same version drift already uses.
+  sqlite3: ^3.3.0
   # Single-writer lock for the SqliteWriteCoordinator. Generic Dart sync
   # primitive (no Firebase, no GCP) — chosen in the reliability-sprint PRD
   # Modul 5 to serialise all history mutations against SQLITE_BUSY.
@@ -202,10 +205,14 @@ msix_config:
   publisher_display_name: silvio_lindstedt
   identity_name: 12342SilvioLindstedt.WhisPaste
   publisher: CN=F08EEF05-5870-4208-B156-E597A1AB80B0
-  msix_version: 1.3.0.0
+  msix_version: 1.4.0.0
   store: true
   logo_path: assets/icons/app_icon.png
   capabilities: microphone, internetClient
+  # UI languages the app actually ships (lib/core/l10n). Store listings in
+  # other languages (it, zh-CN, fr) are listing-only "additional languages",
+  # which Partner Center allows without package support.
+  languages: en-us, de-de, he-il, ru-ru, es-es, pt-br
 
 # sentry_dart_plugin — uploads native debug symbols (.pdb/.dSYM/.so) per
 # Release build. Auth token MUST come from the SENTRY_AUTH_TOKEN env var

@@ -43,5 +43,12 @@ void main() {
       final content = 'a' * 60;
       expect(deriveHistoryTitle(content), content);
     });
+
+    test('line breaks from spoken paragraphs become spaces in the title', () {
+      expect(
+        deriveHistoryTitle('Sehr geehrte Damen,\n\nvielen Dank.'),
+        'Sehr geehrte Damen, vielen Dank.',
+      );
+    });
   });
 }

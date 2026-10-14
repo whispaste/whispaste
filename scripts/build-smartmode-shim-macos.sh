@@ -14,9 +14,8 @@
 # Output: .build/libllama/macos/libsmartmode_shim.dylib (added to the same
 # stage dir + SHA256SUMS the Xcode "[WP] Embed & Sign libllama" phase reads).
 #
-# NOTE: the embed phase is OPT-IN (WHISPASTE_SMART_MODE_PROTOTYPE=1, see
-# macos/embed_libllama.sh). Staging this shim never affects the real app —
-# only the dedicated prototype build embeds it.
+# macos/embed_libllama.sh embeds it into every build; non-Debug builds fail
+# when it is missing.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"

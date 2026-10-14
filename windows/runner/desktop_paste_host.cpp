@@ -64,9 +64,24 @@ struct ClipboardBackup {
   std::wstring text;
 };
 
+// OpenClipboard fails outright while any other process holds the clipboard
+// open -- routinely the case for a few ms right after every clipboard
+// change, when Windows' clipboard-history service, clipboard managers and
+// the paste target read it. A single failed attempt used to send the Dart
+// side to its plain, non-history-excluded fallback write, which Win+V then
+// records (issue #146). Bounded at ~100 ms on the platform thread.
+bool OpenClipboardWithRetry(HWND owner) {
+  constexpr int kAttempts = 10;
+  for (int attempt = 0; attempt < kAttempts; ++attempt) {
+    if (::OpenClipboard(owner)) return true;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  return false;
+}
+
 ClipboardBackup BackupClipboard(HWND owner) {
   ClipboardBackup backup;
-  if (!::OpenClipboard(owner)) return backup;
+  if (!OpenClipboardWithRetry(owner)) return backup;
   HANDLE handle = ::GetClipboardData(CF_UNICODETEXT);
   if (handle != nullptr) {
     auto* locked = static_cast<const wchar_t*>(::GlobalLock(handle));
@@ -86,13 +101,17 @@ ClipboardBackup BackupClipboard(HWND owner) {
 // (https://learn.microsoft.com/windows/win32/dataxchg/clipboard-history):
 // "ExcludeClipboardContentFromMonitorProcessing" hides the write entirely,
 // while "CanIncludeInClipboardHistory"/"CanUploadToCloudClipboard" (DWORD 0)
-// cover clients that only honor the more specific opt-outs. Must be called
-// with the clipboard already open; does not close it.
+// cover clients that only honor the more specific opt-outs.
+// "Clipboard Viewer Ignore" (presence-only) is the older convention that
+// third-party clipboard managers check instead -- Ditto 3.25 records every
+// write without it (issue #146). Must be called with the clipboard already
+// open; does not close it.
 void ExcludeFromClipboardHistory() {
   const wchar_t* const kFormatNames[] = {
       L"ExcludeClipboardContentFromMonitorProcessing",
       L"CanIncludeInClipboardHistory",
       L"CanUploadToCloudClipboard",
+      L"Clipboard Viewer Ignore",
   };
   for (const wchar_t* name : kFormatNames) {
     UINT format = ::RegisterClipboardFormatW(name);
@@ -122,7 +141,7 @@ void ExcludeFromClipboardHistory() {
 // entry, since it's WhisPaste re-writing it, not the user re-copying it).
 bool WriteClipboardText(HWND owner, const std::wstring& text,
                         bool exclude_from_history = true) {
-  if (!::OpenClipboard(owner)) return false;
+  if (!OpenClipboardWithRetry(owner)) return false;
   ::EmptyClipboard();
   const size_t bytes = (text.size() + 1) * sizeof(wchar_t);
   HGLOBAL handle = ::GlobalAlloc(GMEM_MOVEABLE, bytes);
@@ -153,9 +172,26 @@ bool WriteClipboardText(HWND owner, const std::wstring& text,
 void RestoreClipboard(HWND owner, const ClipboardBackup& backup) {
   if (backup.had_text) {
     WriteClipboardText(owner, backup.text, /*exclude_from_history=*/true);
-  } else if (::OpenClipboard(owner)) {
+  } else if (OpenClipboardWithRetry(owner)) {
     ::EmptyClipboard();
     ::CloseClipboard();
+  }
+}
+
+void WaitForModifierRelease(int max_wait_ms) {
+  const auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::milliseconds(max_wait_ms);
+  const int modifiers[] = {VK_SHIFT, VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN};
+  while (std::chrono::steady_clock::now() < deadline) {
+    bool held = false;
+    for (int vk : modifiers) {
+      if ((::GetAsyncKeyState(vk) & 0x8000) != 0) {
+        held = true;
+        break;
+      }
+    }
+    if (!held) return;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
 }
 
@@ -180,6 +216,7 @@ void DesktopPasteHost::Destroy() {
   if (destroyed_) return;
   destroyed_ = true;
   target_window_ = nullptr;
+  ResolvePendingRead("superseded");
 
   if (channel_) {
     channel_->SetMethodCallHandler(nullptr);
@@ -226,6 +263,26 @@ void DesktopPasteHost::HandleMethodCall(
   if (method == "writeClipboardText") {
     const std::string text = map ? GetString(*map, "text") : "";
     result->Success(EncodableValue(WriteClipboardTextExcludingHistory(text)));
+    return;
+  }
+
+  if (method == "writeClipboardTextWithReceipt") {
+    const std::string text = map ? GetString(*map, "text") : "";
+    result->Success(EncodableValue(WriteClipboardTextWithReceipt(text)));
+    return;
+  }
+
+  if (method == "waitForClipboardRead") {
+    WaitForClipboardRead(std::move(result));
+    return;
+  }
+
+  if (method == "restoreClipboardTextIfOwner") {
+    const std::string text = map ? GetString(*map, "text") : "";
+    EncodableMap response;
+    response[EncodableValue("status")] =
+        EncodableValue(RestoreClipboardTextIfOwner(text));
+    result->Success(EncodableValue(std::move(response)));
     return;
   }
 
@@ -280,7 +337,12 @@ EncodableValue DesktopPasteHost::PasteClipboard(int delay_ms) {
     return MakeResultMap("no_target", "no captured target window at paste time");
   }
 
-  if (delay_ms > 0) {
+  // A target that is still in the foreground (the overlay never takes focus)
+  // has nothing to settle; it only waits until the hotkey's modifiers are up,
+  // bounded by the same delay, so a held Shift/Alt can't alter the Ctrl+V.
+  if (::GetForegroundWindow() == target_window_) {
+    WaitForModifierRelease(delay_ms);
+  } else if (delay_ms > 0) {
     std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
   }
 
@@ -291,6 +353,9 @@ EncodableValue DesktopPasteHost::PasteClipboard(int delay_ms) {
   }
 
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  // From here on, a render request for an armed receipt counts as the
+  // target's paste (earlier requests are clipboard monitors).
+  receipt_keystroke_posted_ = receipt_active_;
   if (!SendPasteShortcut()) {
     return MakeResultMap("send_input_failed",
                          "SendInput did not inject all 4 key events");
@@ -417,6 +482,117 @@ bool DesktopPasteHost::BringTargetToForeground() const {
 bool DesktopPasteHost::WriteClipboardTextExcludingHistory(
     const std::string& text) {
   return WriteClipboardText(owner_, Utf8ToWide(text));
+}
+
+// Receipt-based clipboard restore (handy-catchup 06). Puts the transcript
+// on the clipboard via delayed rendering: SetClipboardData(CF_UNICODETEXT,
+// NULL) only *announces* the text, and Windows sends WM_RENDERFORMAT to this
+// owner window the moment a reader actually asks for it -- that request is
+// the receipt that the target pasted. Marked history-excluded like every
+// other transient write here (issue #146). Returns false when the clipboard
+// can't be taken -- Dart then uses its classic write + fixed delay.
+bool DesktopPasteHost::WriteClipboardTextWithReceipt(const std::string& text) {
+  ResolvePendingRead("superseded");
+  receipt_active_ = false;
+  if (!OpenClipboardWithRetry(owner_)) return false;
+  // EmptyClipboard sends WM_DESTROYCLIPBOARD to the previous owner (maybe
+  // us), so the new receipt state is only armed afterwards.
+  ::EmptyClipboard();
+  ::SetClipboardData(CF_UNICODETEXT, nullptr);
+  const bool announced = ::IsClipboardFormatAvailable(CF_UNICODETEXT) != FALSE;
+  if (announced) ExcludeFromClipboardHistory();
+  ::CloseClipboard();
+  if (!announced) return false;
+
+  receipt_text_ = Utf8ToWide(text);
+  receipt_active_ = true;
+  receipt_keystroke_posted_ = false;
+  receipt_read_ = false;
+  return true;
+}
+
+// Answers "read" once the receipt was rendered after the paste keystroke,
+// "lost" once another writer emptied the clipboard; otherwise the result is
+// held until then -- Dart bounds the wait with its own timeout.
+void DesktopPasteHost::WaitForClipboardRead(
+    std::unique_ptr<MethodResult<EncodableValue>> result) {
+  if (receipt_read_) {
+    result->Success(MakeResultMap("read", ""));
+    return;
+  }
+  if (!receipt_active_) {
+    result->Success(MakeResultMap("lost", ""));
+    return;
+  }
+  ResolvePendingRead("superseded");
+  pending_read_ = std::move(result);
+}
+
+// Restores `text` only while this window still owns the receipt write --
+// never clobbers content another process copied in the meantime.
+std::string DesktopPasteHost::RestoreClipboardTextIfOwner(
+    const std::string& text) {
+  const bool owner = receipt_active_ && ::GetClipboardOwner() == owner_;
+  receipt_active_ = false;
+  ResolvePendingRead(owner ? "superseded" : "lost");
+  if (!owner) return "not_owner";
+  return WriteClipboardText(owner_, Utf8ToWide(text)) ? "restored" : "failed";
+}
+
+// Hands the announced text to the clipboard. Called inside WM_RENDERFORMAT
+// (clipboard already opened by the reader -- must not open it again) and
+// inside WM_RENDERALLFORMATS (opened by the caller below).
+bool DesktopPasteHost::RenderReceiptText() {
+  const size_t bytes = (receipt_text_.size() + 1) * sizeof(wchar_t);
+  HGLOBAL handle = ::GlobalAlloc(GMEM_MOVEABLE, bytes);
+  if (handle == nullptr) return false;
+  auto* dst = static_cast<wchar_t*>(::GlobalLock(handle));
+  if (dst == nullptr) {
+    ::GlobalFree(handle);
+    return false;
+  }
+  std::memcpy(dst, receipt_text_.c_str(), bytes);
+  ::GlobalUnlock(handle);
+  if (::SetClipboardData(CF_UNICODETEXT, handle) == nullptr) {
+    ::GlobalFree(handle);
+    return false;
+  }
+  return true;
+}
+
+void DesktopPasteHost::ResolvePendingRead(const std::string& status) {
+  if (!pending_read_) return;
+  pending_read_->Success(MakeResultMap(status, ""));
+  pending_read_.reset();
+}
+
+bool DesktopPasteHost::HandleClipboardOwnerMessage(UINT message,
+                                                   WPARAM wparam) {
+  switch (message) {
+    case WM_RENDERFORMAT:
+      if (wparam != CF_UNICODETEXT) return false;
+      RenderReceiptText();
+      if (receipt_active_ && receipt_keystroke_posted_) {
+        receipt_read_ = true;
+        ResolvePendingRead("read");
+      }
+      return true;
+    case WM_RENDERALLFORMATS:
+      // We are going away while still owning announced-but-unrendered
+      // text -- render it so the clipboard keeps the transcript.
+      if (::OpenClipboard(owner_)) {
+        if (::GetClipboardOwner() == owner_) RenderReceiptText();
+        ::CloseClipboard();
+      }
+      return true;
+    case WM_DESTROYCLIPBOARD:
+      // Someone (another app, or our own next write) emptied the clipboard.
+      receipt_active_ = false;
+      ResolvePendingRead("lost");
+      return false;
+    default:
+      return false;
+  }
 }
 
 // Onboarding "prove Auto-Paste works" probe. Backs up the user clipboard,

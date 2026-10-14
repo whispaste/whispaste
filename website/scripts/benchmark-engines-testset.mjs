@@ -32,8 +32,9 @@
  *     --model-name "small (Compact)"
  *
  * Pass `--no-gpu` to force whisper-cli's `-ng` flag (GPU explicitly
- * disabled), producing the CPU-only row that makes the Parakeet comparison
- * fair — Parakeet has no GPU backend at all, so comparing it against
+ * disabled), producing the CPU-only row that makes the Parakeet CPU row
+ * (sherpa-onnx) a fair comparison. The table measures CPU runs only; Parakeet's
+ * optional GPU path (since 1.4.0) is not part of it. Comparing against
  * GPU-accelerated whisper.cpp alone understates whisper.cpp's CPU cost:
  *   node scripts/benchmark-engines-testset.mjs \
  *     --binary /path/to/whisper-cli --model /path/to/ggml-small-q5_1.bin \

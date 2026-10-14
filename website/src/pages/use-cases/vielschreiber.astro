@@ -17,7 +17,7 @@
  * auf der Seite existiert.
  *
  * Slug-Divergenz DE/EN: DE `vielschreiber`, EN `everyday`. Über
- * `alternateSlugs` an `LandingPageLayout` → `Layout` durchgereicht, damit
+ * `DE_SLUGS` (scripts/locales.ts) an `LandingPageLayout` → `Layout` durchgereicht, damit
  * hreflang-Alternates korrekt zwischen den beiden Routen pendeln.
  */
 import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
@@ -62,7 +62,6 @@ const faqQuestions = [
   },
 ];
 
-const alternateSlugs = { de: "use-cases/vielschreiber", en: "use-cases/everyday" };
 ---
 
 <LandingPageLayout
@@ -72,7 +71,6 @@ const alternateSlugs = { de: "use-cases/vielschreiber", en: "use-cases/everyday"
   hero={hero}
   heroImage={{ src: "/illustrations/use-case-everyday.svg", alt: t(lang, "useCase.everyday.illustrationAlt") }}
   cta={cta}
-  alternateSlugs={alternateSlugs}
 >
   <section>
     <h2>{t(lang, "useCase.everyday.section.email.heading")}</h2>

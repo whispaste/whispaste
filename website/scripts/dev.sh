@@ -30,5 +30,21 @@ fi
 # expects a blocking foreground process (Playwright's webServer, most
 # notably) see an "exited early" false failure. Start it, then always attach
 # via the same logs-follow path as the "already running" branch above.
-npx astro dev
-exec npx astro dev logs --follow
+# "$@" carries the caller's --host/--port (Playwright passes both); without it
+# astro listens on localhost:4321 while Playwright polls 127.0.0.1:<port>.
+# A server this script started is its own to stop: the daemon outlives us, so
+# stop it when the caller ends us (Playwright teardown, Ctrl+C), or every test
+# run leaves one behind. Same pattern as scripts/preview.sh.
+follower=""
+cleanup() {
+  [ -n "$follower" ] && kill "$follower" 2>/dev/null || true
+  npx astro dev stop >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
+npx astro dev "$@"
+npx astro dev logs --follow &
+follower=$!
+wait "$follower"

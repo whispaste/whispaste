@@ -180,6 +180,39 @@
   margin-inline: auto;
 }
 
+/* ---- Section rhythm + type scale ----
+   One vertical rhythm for every landing section and one lead size under every
+   section title, so sections stop picking their own py-20/py-28/py-32 and
+   text-base/lg/xl. Plain :root for the same tree-shaking reason as --dur-*. */
+:root {
+  --section-pad-y: clamp(4.5rem, 3rem + 6vw, 8rem);
+  --section-head-gap: clamp(2.5rem, 2rem + 2vw, 4rem);
+  --type-lead: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  --type-card-title: clamp(1.125rem, 1.05rem + 0.3vw, 1.3125rem);
+  --measure-lead: 40rem;
+}
+.wp-section {
+  padding-block: var(--section-pad-y);
+}
+.wp-section-head {
+  max-width: 48rem;
+  margin-bottom: var(--section-head-gap);
+}
+.wp-section-head.is-centered {
+  margin-inline: auto;
+  text-align: center;
+}
+.wp-lead {
+  font-size: var(--type-lead);
+  line-height: 1.6;
+  color: var(--color-ink-muted);
+  max-width: var(--measure-lead);
+  text-wrap: pretty;
+}
+.wp-section-head.is-centered .wp-lead {
+  margin-inline: auto;
+}
+
 /* Named durations so hand-written CSS stops picking freely between 0.12s and
    0.4s. fast = state flips on small controls, base = the default (matches
    --default-transition-duration), slow = larger surfaces (cards, figures,
@@ -519,7 +552,7 @@
 /* ===========================================================================
    Scroll-Driven Motion Utilities
 
-   Baseline: .scroll-reveal + IntersectionObserver (src/pages/index.astro) —
+   Baseline: .scroll-reveal + IntersectionObserver (src/components/HomePage.astro) —
    universal fade-up fallback, no JS library, all browsers.
 
    Enhancement: Native CSS Scroll-Driven Animations gated in @supports.
@@ -532,7 +565,7 @@
    - .stagger-item         — applied to each child inside .stagger-children
 
    prefers-reduced-motion: reduce — all new animations are stripped; elements
-   render at full opacity immediately. The IO guard in index.astro also fires
+   render at full opacity immediately. The IO guard in HomePage.astro also fires
    independently for .scroll-reveal elements.
    --------------------------------------------------------------------------- */
 
@@ -561,7 +594,7 @@
 @supports (animation-timeline: view()) {
   /* Upgrade .scroll-reveal to CSS scroll-driven animation in capable browsers.
      The animation cascade level is above regular author styles, so the CSS
-     animation owns opacity + translate even where index.astro sets them via
+     animation owns opacity + translate even where HomePage.astro sets them via
      class toggle. The IO still runs and adds .visible — harmless. */
   .scroll-reveal {
     animation: wp-reveal-up linear both;
@@ -606,7 +639,7 @@
 /* Reduced motion — all new animations resolve to immediate full opacity.
    !important overrides the animation cascade so these rules win even in
    @supports-capable browsers when the user prefers reduced motion.
-   The IO guard in index.astro covers .scroll-reveal independently. */
+   The IO guard in HomePage.astro covers .scroll-reveal independently. */
 @media (prefers-reduced-motion: reduce) {
   .scroll-reveal,
   .reveal-up,
@@ -726,28 +759,24 @@
 /* Border strength: Flutter borderSubtle=12% white, borderDefault=19% white */
 /* Upgrade from 5-8% → 12-19% for structural borders */
 .feature-card,
-.pricing-card,
 .faq-item,
 .download-card,
 .release-card,
 .sponsor-card {
   border-color: rgba(255, 255, 255, 0.12);
 }
-.feature-card:hover,
-.pricing-card:hover {
+.feature-card:hover {
   border-color: rgba(255, 255, 255, 0.19);
 }
 
 /* Card shadows matching Flutter WpShadows.card */
 .feature-card,
-.pricing-card,
 .download-card,
 .release-card,
 .sponsor-card {
   box-shadow: var(--shadow-card);
 }
-.feature-card:hover,
-.pricing-card:hover {
+.feature-card:hover {
   box-shadow: var(--shadow-card-hover);
 }
 
@@ -759,7 +788,6 @@
    springen all diese Karten schlagartig auf ihren nominellen Utility-Wert.
    Der Wert selbst kommt jetzt aus dem Token, die Layer-Position nicht. */
 .feature-card,
-.pricing-card,
 .download-card,
 .release-card,
 .sponsor-card,
@@ -796,7 +824,6 @@
   50% { opacity: 1; }
 }
 .feature-card,
-.pricing-card,
 .faq-item,
 .download-card,
 .release-card,
@@ -804,7 +831,6 @@
   position: relative;
 }
 .feature-card::before,
-.pricing-card::before,
 .faq-item::before,
 .download-card::before,
 .release-card::before,
@@ -827,7 +853,6 @@
 @media (prefers-reduced-motion: reduce) {
   /* Verhalten wie vorher: Ring aus, es bleibt die statische 0.12er-Border. */
   .feature-card::before,
-  .pricing-card::before,
   .faq-item::before,
   .download-card::before,
   .release-card::before,
@@ -1233,62 +1258,6 @@
     animation: wp-recede linear both;
     animation-timeline: --wp-parallax-scope;
     animation-range: exit 0% exit 80%;
-  }
-}
-
-/* --- Set-Piece: Pricing-Karte ---------------------------------------------
-   Drei Schläge auf EINER benannten Timeline (der Karte): Wipe der Fläche
-   (.wp-mask-reveal--up, im Markup), Vorhang-Aufzug des Preises, Einfahren
-   der HUD-Arme. Benannte Timeline statt anonymem view() auf dem Preis: der
-   Preis ist zu klein, seine eigene entry-Range wäre ein Snap. Ranges enden
-   bei ≤85 %, damit der Endzustand auch dann sicher erreicht wird, wenn die
-   Karte (Mobile, 390px) fast viewport-hoch ist. */
-.pricing-card {
-  view-timeline-name: --pricing-card;
-  view-timeline-axis: block;
-}
-
-/* Macht --hud-arm interpolierbar (Latch-Animation unten). initial-value
-   == dem in .hud-frame::after gesetzten Wert, für alle anderen hud-frame-
-   Einsatzorte (/download/) ändert sich dadurch nichts. */
-@property --hud-arm {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 12px;
-}
-
-@keyframes wp-hud-arm-in {
-  from { --hud-arm: 0px; }
-  to   { --hud-arm: 12px; }
-}
-
-@supports (animation-timeline: view()) {
-  /* Punchline: Preis steigt, sobald der Karten-Wipe oben ankommt.
-     Reuse von wp-kinetic-rise — gleiche Optik wie alle Headlines-Rises. */
-  .pricing-price-in {
-    animation: wp-kinetic-rise var(--dur-cinematic) var(--ease-flow) both;
-    animation-timeline: --pricing-card;
-    animation-range: entry 30% entry 75%;
-  }
-  /* Latch: HUD-Arme wachsen von 0 auf 12px. Bewusst NUR --hud-arm animiert,
-     nie opacity — die Hover/Focus-Transition auf ::after (global.css ~1085)
-     bleibt vollständig zuständig für Feedback, keine Kollision. */
-  .pricing-card.hud-frame::after {
-    animation: wp-hud-arm-in var(--dur-cinematic) var(--ease-flow) both;
-    animation-timeline: --pricing-card;
-    animation-range: entry 45% entry 85%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pricing-price-in {
-    animation: none !important;
-    clip-path: none !important;
-    filter: none !important;
-    translate: none !important;
-  }
-  .pricing-card.hud-frame::after {
-    animation: none !important;
   }
 }
 

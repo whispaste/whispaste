@@ -4,7 +4,7 @@
 // ignore_for_file: type=lint
 import 'dart:ffi' as ffi;
 
-/// dart:ffi bindings for whisper.cpp v1.8.4 (libwhisper).
+/// dart:ffi bindings for whisper.cpp v1.9.5 (libwhisper).
 /// Generated with package:ffigen against include/whisper.h. Proof-of-concept.
 ///
 class WhisperBindings {
@@ -209,7 +209,7 @@ class WhisperBindings {
   // bindings were added by hand, following the exact same codegen shape
   // (`late final ..Ptr = _lookup<...>(...)`, `.asFunction<...>()`) as every
   // generated binding above. Signatures copied 1:1 from the vendored header
-  // (`.build/deps/whisper.cpp/v1.8.4/include/whisper.h`, around lines
+  // (`.build/deps/whisper.cpp/v1.9.5/include/whisper.h`, around lines
   // 241/268/609). If this file is ever regenerated for real, this block
   // must be re-added afterwards — it will NOT survive a fresh ffigen run.
   //
@@ -324,7 +324,7 @@ class WhisperBindings {
   /// Hand-added (not from the original ffigen pass, same reasoning as the
   /// block above — no ffigen config to regenerate this file). Signature
   /// copied 1:1 from the vendored header
-  /// (`.build/deps/whisper.cpp/v1.8.4/include/whisper.h` line ~347).
+  /// (`.build/deps/whisper.cpp/v1.9.5/include/whisper.h` line ~347).
   ///
   /// Deliberately bound over the more convenient `whisper_token_count`
   /// wrapper (whisper.h line ~360): that wrapper is NOT `WHISPER_API`-marked,

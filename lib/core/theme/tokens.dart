@@ -323,6 +323,12 @@ abstract final class WpLayout {
 
   /// Responsive breakpoints (mobile-first).
   static const double breakpointMobile = 600;
+
+  /// Narrowest detail column that still reads as a document. Below it, a
+  /// master/detail split (list + divider + this detail) is abandoned for the
+  /// focused full-width detail — `WpSplitView` derives its collapse width from
+  /// the list minimum, the divider and this value.
+  static const double minReadableDetailWidth = 440;
 }
 
 // ---------------------------------------------------------------------------

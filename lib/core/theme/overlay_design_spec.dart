@@ -296,7 +296,7 @@ class OverlaySizeSpec {
   /// Primary label/done/error text font size.
   final double primaryFontSize;
 
-  // -- Per-size derived chrome metrics (impeccable layout pass) --------------
+  // -- Per-size derived chrome metrics (design layout pass) ------------------
   //
   // Glass material (fill alpha, sheen alpha) and the waveform alpha ladder
   // are deliberately NOT per-size any more: all three sizes share ONE glass
@@ -377,7 +377,7 @@ class OverlaySizeSpec {
   /// timer, no close glyph, no stop square), so a pure scaling of the normal
   /// metrics has nothing meaningful to scale. Every value here is an explicit
   /// hand-tuned anchor. Glass material and waveform alphas are the SHARED
-  /// ones — one design language across all three sizes (impeccable pass).
+  /// ones — one design language across all three sizes (design pass).
   ///
   /// Geometry sanity (mirrored-bars pass, 2026-07-29): pill raised 28 → 34
   /// so the mirrored bars can show real amplitude (Maintainer: "in der
@@ -647,7 +647,7 @@ class OverlayArcMotion {
   /// this equal to the release-out window.
   final Duration releaseOutDuration;
 
-  /// Duration of the crossfade INTO the done/error end states (impeccable
+  /// Duration of the crossfade INTO the done/error end states (design
   /// pass). The generic 150 ms crossfade left the done check — the emotional
   /// pay-off of the whole product — half-formed; 280 ms gives the stroke-
   /// first draw-on room to land while staying inside the calm soft-cap.
@@ -919,7 +919,7 @@ abstract final class OverlayDesignSpec {
   /// every sheen — never state-tinted (ADR 0002).
   static const double glassBottomSheenFactor = 0.25;
 
-  // -- Dock-glass refinement (impeccable layout pass, 2026-07-28) ------------
+  // -- Dock-glass refinement (design layout pass, 2026-07-28) ----------------
   //
   // The sheen now behaves like light on CURVED glass instead of a flat
   // vertical wash: the top highlight tapers away from the rounded end caps,
@@ -1590,7 +1590,7 @@ abstract final class OverlayDesignSpec {
   /// pass, 2026-08-17 — the earlier fitted text-only pill read as "nur
   /// reiner Text"), so the stage never narrows between the two waveform
   /// states. For the done/error end states the capsule shrinks around the
-  /// single centred status icon (impeccable pass) — a 150 px capsule holding
+  /// single centred status icon (design pass) — a 150 px capsule holding
   /// one 14 px glyph read as an empty shell, and the width-morph spring is
   /// the overlay's most elegant motion; mini shares it there.
   static double miniPillWidthRatio(OverlayDesignState state) => switch (state) {

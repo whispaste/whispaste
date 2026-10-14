@@ -10,7 +10,7 @@
 
 ## 1. Produktkern
 
-**WhisPaste**: Sprach-Eingabe-Tool — nimmt auf Anforderung eine Sprachaufnahme entgegen, fügt transkribierten Text an der Cursor-Position der aktiven Anwendung ein (Auto-Paste: macOS/Windows; Linux legt ihn in die Zwischenablage, manuelles Einfügen per Strg+V).
+**WhisPaste**: Sprach-Eingabe-Tool — nimmt auf Anforderung eine Sprachaufnahme entgegen, fügt transkribierten Text an der Cursor-Position der aktiven Anwendung ein (Auto-Paste auf macOS, Windows und Linux — Linux per virtuellem `/dev/uinput`-Keyboard, braucht udev-Schreibzugriff, §2.7).
 
 - **App:** macOS, Windows, Ubuntu Linux — drei gleichrangige Desktop-Plattformen (Linux-Ziel: Binär-Parität via AppImage). Kein iOS/Android.
 - **Website** (`website/`) ≠ App: muss voll mobil-responsive sein (ab 390px) — „Mobile nicht geplant" gilt nur für die App.
@@ -151,7 +151,7 @@ Code: `DesktopPasteController.repairTccEntries()`, Ergebnis-Typ `TccRepairResult
 Trennung „kann Auto-Paste gerade ausführen?" (Probe, ohne Side-Effekt) vs. „führe Paste aus" (`Paster.paste`):
 
 - **PasteCapability** — Probe-Ergebnis: `status`, `canPrompt` (nur bei `permissionMissing`, macOS one-shot/Prozess), `detail`. Code: `lib/services/paste/paster.dart`.
-- **PasteCapabilityStatus** — `ready` (Paste würde gelingen) / `permissionMissing` (macOS Accessibility, Windows UIPI-Edge) / `unsupported` (Linux, Test-Env).
+- **PasteCapabilityStatus** — `ready` (Paste würde gelingen) / `permissionMissing` (macOS Accessibility, Windows UIPI-Edge, Linux ohne Schreibzugriff auf `/dev/uinput`) / `unsupported` (kein Paste-Controller registriert, z. B. Test-Env).
 - **PasteCapabilityNotifier** — Riverpod-Notifier (`pasteCapabilityNotifierProvider`): Probe-Timer, geteilter `PasteCapability`-State, sticky `hadFailedGrantAttempt` (steuert Lazy-Reveal des TCC-Repair-Buttons), `repair()`-Wrapper → `DesktopPasteController` (§3.5). Settings-Indikator und `AutoPasteStep` (§5.6) teilen sich diesen Notifier statt eigener Timer.
 
 `Paster` = tiefe Abstraktion (`prime`/`paste`/`checkCapability`); `PasteCapabilityNotifier` = Riverpod-Schicht darüber (Polling, Coalescing, Breadcrumbs, `hadFailedGrantAttempt`).
@@ -200,7 +200,7 @@ Code nutzt **`onDevice`**, nie „local".
 | Provider | Engine |
 |---|---|
 | onDevice → Whisper | whisper.cpp (`dart:ffi`/`libwhisper`), 99 Sprachen, GPU-beschleunigt |
-| onDevice → Parakeet | NVIDIA Parakeet-TDT via `sherpa-onnx` (in-process ONNX), ~25 europ. Sprachen, CPU-only, mehrfach schneller als whisper.cpp auf der CPU — reale, reproduzierbare Messwerte in `website/src/data/engine-benchmarks.json` / `/engine-benchmarks/` (2026-08-17, Apple Silicon: Parakeet RTF 0,0288x vs. whisper.cpp Compact-Tier CPU 0,3068x, ≈10,6x) statt hier hartkodierter Zahlen |
+| onDevice → Parakeet | NVIDIA Parakeet-TDT, ~25 europ. Sprachen. Ab 1.4.0 auf der GPU über libparakeet (whisper.cpp v1.9.5, ggml: Metal/Vulkan/CUDA), automatischer Fallback auf `sherpa-onnx` (in-process ONNX, CPU), wenn keine GPU da ist oder ein GPU-Lauf scheitert. Schon auf der CPU mehrfach schneller als whisper.cpp auf der CPU — reale, reproduzierbare Messwerte in `website/src/data/engine-benchmarks.json` / `/engine-benchmarks/` (2026-08-17, Apple Silicon: Parakeet RTF 0,0288x vs. whisper.cpp Compact-Tier CPU 0,3068x, ≈10,6x) statt hier hartkodierter Zahlen |
 | openAI | OpenAI Audio API |
 | deepgram | Deepgram Streaming/Batch API |
 
@@ -208,7 +208,7 @@ Code nutzt **`onDevice`**, nie „local".
 
 | onDevice (Whisper) | tiny/base/small/medium/large-v3 (`ggml-*.bin`, lokaler Cache) |
 |---|---|
-| onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — encoder/decoder/joiner-ONNX + tokens.txt, ~640 MB |
+| onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — encoder/decoder/joiner-ONNX + tokens.txt (CPU-Fallback, 639 MB) plus GGUF q8_0 für die GPU (638 MB, SHA-256-geprüft); zusammen ~1,2 GB |
 | openAI | `whisper-1` (fest im Code, `openai_transcriber.dart`; ADR-0005 plant `gpt-transcribe`, nicht umgesetzt) |
 | deepgram | `nova-3` (fest im Code, `deepgram_transcriber.dart` — nicht wählbar) |
 
@@ -216,7 +216,7 @@ Code nutzt **`onDevice`**, nie „local".
 
 ### 4.4 Backend (nur lokal)
 
-Whisper-Compute-Backends, tatsächlich kompiliert/ausgeliefert (Build-Skripte, `.github/workflows/release.yml`): Vulkan (Windows/Linux, herstellerübergreifend inkl. NVIDIA/AMD/Intel), Metal (macOS), CPU (Fallback). Kein eigenes CUDA-Backend wird gebaut — der `WhisperBackend`-Enum (`whisper_engine.dart`) listet `cuda` als möglichen Wert, aber kein Build produziert dafür ein Binary. `SttStatus.cpuFallbackActive` markiert Degradation nach GPU-Crash. Parakeet: (Stand 2026) kein GPU-Backend, CPU-only, aber schon dort schneller als Whisper auf jedem Backend.
+Whisper-Compute-Backends, tatsächlich kompiliert/ausgeliefert (Build-Skripte, `.github/workflows/release.yml`): Vulkan (Windows/Linux, herstellerübergreifend inkl. NVIDIA/AMD/Intel), Metal (macOS), CPU (Fallback). CUDA kommt seit 1.4.0 als optionaler, prüfsummen-verifizierter CUDA-Pack (Windows/Linux, NVIDIA RTX/GTX 16) per separatem Download, nicht im Installer. `SttStatus.cpuFallbackActive` markiert Degradation nach GPU-Crash. Parakeet: ab 1.4.0 GPU über libparakeet (dieselben ggml-Backends), CPU-Fallback sherpa-onnx. Gemessen 2026-10-14: M5 Metal 7,0 s statt 38,3 s (18 DE-Diktate, 456 s Audio); i5-1145G7/Iris Xe Vulkan 14,1 s statt 27,1 s (18 MLS-DE, 276 s), DE-WER 7,1 % statt 8,5 %.
 
 ### 4.5 Engine-Lebenszyklus (`SttServerState`)
 
@@ -305,7 +305,7 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
   Slot aus derselben Palette, der *gar nichts* sagt — reine dekorative
   Rotation, damit eine lange Liste scannbar bleibt. Die App klassifiziert
   Diktate nicht, also darf aus dieser Farbe auch nichts abgeleitet werden.
-  Dark-only (das Light-Theme und der Theme-Picker wurden 2026-08-11 entfernt), EN/DE/HE.
+  Dark-only (das Light-Theme und der Theme-Picker wurden 2026-08-11 entfernt), EN/DE/HE/RU.
 - **Cross-Platform-Parität** für Windows, macOS und Linux; Mobile ist nicht
   geplant.
 
@@ -315,6 +315,13 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
 - Sprecher-Erkennung, Diarisation oder Mehrsprecher-Szenarien.
 - LLM-Nachbearbeitung, Auto-Tagging, Smart-Mode, Grammatik-Polishing —
   WhisPaste transkribiert, es **schreibt** nicht für den Nutzer.
+  > **Offene Frage (Maintainer-Entscheidung, 2026-10-07):** Diese Zeile
+  > widerspricht dem ausgelieferten Stand — Smart Mode ist seit v2 wieder
+  > aktiv (Settings → Smart Mode, Default aus, lokal per Gemma-Modell oder
+  > optional OpenAI; ADR-0007/ADR-0010, `CONTEXT.md` §7). Bewusst nicht
+  > still aufgelöst: Entweder Smart Mode als schmalen, optionalen
+  > Nachbearbeitungsschritt hier als Ausnahme aufnehmen, oder das Feature
+  > neu bewerten. Quelle: `.scratch/handy-catchup/issues/01`.
 - Voice-Commands oder Sprachsteuerung („öffne Datei", „klicke auf …").
 - Sehr lange Diktate (>30 Minuten Endlos-Aufnahme) — andere Tools sind besser.
 - Geteilte Familien- oder Firmenrechner mit Audio-Restriktionen.

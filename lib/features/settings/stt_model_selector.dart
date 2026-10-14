@@ -108,7 +108,12 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
                       if (downloadState.downloadedModels.contains(m.id)) {
                         ref
                             .read(modelDownloadProvider.notifier)
-                            .deleteModel(m.id);
+                            .deleteModel(
+                              m.id,
+                              releaseEngine: ref
+                                  .read(localSttBundleProvider.notifier)
+                                  .releaseModel,
+                            );
                       }
                     }
                   }
@@ -119,7 +124,9 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
         if (downloadState.isError && downloadState.errorMessage != null) ...[
           const SizedBox(height: WpSpacing.sm),
           _ErrorBanner(
-            message: downloadState.errorMessage!,
+            message: downloadState.errorMessage == modelDeleteInUseError
+                ? l10n.modelDeleteInUse
+                : downloadState.errorMessage!,
             l10n: l10n,
             onRetry: () => ref.invalidate(modelDownloadProvider),
           ),
@@ -450,6 +457,21 @@ class _TierRowState extends State<_TierRow> {
         width: 14,
         height: 14,
         child: CircularProgressIndicator(strokeWidth: 2, color: accent),
+      );
+    }
+
+    // Selected but not on disk: dictation cannot run until it is, so the
+    // row says so and carries the download instead of looking ready.
+    if (widget.isCurrentTier &&
+        widget.downloadState.scanned &&
+        widget.onSelect != null) {
+      // loam-ignore: a11y-interactive-semantics – semantics provided in _ActionChip.build
+      return _ActionChip(
+        key: ValueKey('stt-model-download-${widget.tier.name}'),
+        label: widget.l10n.modelMissingDownloadAction,
+        icon: LucideIcons.download,
+        color: WpColors.warning,
+        onTap: widget.onSelect,
       );
     }
 
@@ -795,6 +817,7 @@ class _DownloadProgressInfo extends StatelessWidget {
 
 class _ActionChip extends StatelessWidget {
   const _ActionChip({
+    super.key,
     required this.label,
     required this.icon,
     required this.color,

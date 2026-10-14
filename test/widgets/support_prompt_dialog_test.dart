@@ -23,6 +23,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/app_urls.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/services/prompt_timing.dart';
+import 'package:whispaste/services/support/support_capabilities.dart';
+import 'package:whispaste/services/support/support_state.dart';
 import 'package:whispaste/services/support_prompt_service.dart';
 import 'package:whispaste/widgets/support_prompt_dialog.dart';
 
@@ -47,6 +49,12 @@ class _FakeSupportPromptNotifier extends SupportPromptNotifier {
   /// post-recording delay.
   void triggerShow({SupportPromptKind kind = SupportPromptKind.initial}) =>
       state = SupportPromptState(shouldShowPrompt: true, kind: kind);
+
+  @override
+  Future<void> markPresented() async {}
+
+  @override
+  void cancelPresentation() {}
 
   @override
   Future<void> dismiss() async {
@@ -80,7 +88,16 @@ Future<_FakeSupportPromptNotifier> _showDialog(
     makeTestable(
       const WpSupportPromptWatcher(child: SizedBox()),
       locale: const Locale('en'),
-      overrides: [supportPromptProvider.overrideWith(() => notifier)],
+      overrides: [
+        supportPromptProvider.overrideWith(() => notifier),
+        // The test host is macOS; a store-channel build would offer no
+        // external links, so the build is pinned to a direct one here.
+        supportCapabilitiesProvider.overrideWithValue(const [
+          SupportAsk.githubSponsors,
+          SupportAsk.kofi,
+          SupportAsk.share,
+        ]),
+      ],
     ),
   );
   await tester.pump(); // initial build, ref.listen registered
@@ -119,7 +136,7 @@ void main() {
     expect(find.text(l10n.aboutSupportDescription), findsOneWidget);
     expect(find.text(l10n.aboutGitHubSponsors), findsOneWidget);
     expect(find.text(l10n.aboutKofi), findsOneWidget);
-    expect(find.text(l10n.reviewPromptNever), findsOneWidget);
+    expect(find.text(l10n.supportPromptSnooze), findsOneWidget);
   });
 
   testWidgets('GitHub Sponsors button launches kGitHubSponsorsUrl and calls '
@@ -177,7 +194,7 @@ void main() {
 
     final notifier = await _showDialog(tester, l10n: l10n);
 
-    await tester.tap(find.text(l10n.reviewPromptNever));
+    await tester.tap(find.text(l10n.supportPromptSnooze));
     await tester.pumpAndSettle();
 
     expect(capturedUrl, isNull);

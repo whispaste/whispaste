@@ -13,6 +13,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart'
     show TargetPlatform, debugDefaultTargetPlatformOverride;
@@ -407,6 +408,8 @@ void main() {
       tester,
     ) async {
       final paste = _FakePasteCapabilityNotifier(
+        // Entry reset is the live-probe (Developer-ID) repair.
+        cachedProbe: false,
         initial: const PasteCapabilityState(
           capability: PasteCapability(
             status: PasteCapabilityStatus.permissionMissing,
@@ -436,9 +439,48 @@ void main() {
       expect(paste.repairCalls, 1);
     });
 
+    testWidgets('on the MAS build the repair button opens the stale-entry '
+        'removal guide instead of an entry reset it cannot perform', (
+      tester,
+    ) async {
+      const channel = MethodChannel('com.whispaste.app_lifecycle');
+      final nativeCalls = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+        call,
+      ) async {
+        nativeCalls.add(call.method);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      final paste = _FakePasteCapabilityNotifier(
+        initial: const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+          sentToOsGrantFlow: true,
+          pollingPhase: PollingPhase.timedOut,
+        ),
+      );
+
+      await _pumpStep(tester, paste: paste);
+      await tester.tap(find.text(l10n.pasteCapabilityRepairButton));
+      await tester.pump();
+
+      expect(paste.repairCalls, 0);
+      expect(nativeCalls, contains('showStaleEntryRemovalGuide'));
+    }, skip: !Platform.isMacOS); // the guide's native channel is macOS-only
+
     testWidgets('successful repair triggers the follow-on grant flow '
         '(prompted check + polling start)', (tester) async {
       final paste = _FakePasteCapabilityNotifier(
+        // Entry reset is the live-probe (Developer-ID) repair.
+        cachedProbe: false,
         initial: const PasteCapabilityState(
           capability: PasteCapability(
             status: PasteCapabilityStatus.permissionMissing,
@@ -491,6 +533,8 @@ void main() {
       '(no advance, repair stays clickable)',
       (tester) async {
         final paste = _FakePasteCapabilityNotifier(
+          // Entry reset is the live-probe (Developer-ID) repair.
+          cachedProbe: false,
           initial: const PasteCapabilityState(
             capability: PasteCapability(
               status: PasteCapabilityStatus.permissionMissing,
@@ -648,6 +692,8 @@ void main() {
       'both cleared counters are 0 and error is null',
       (tester) async {
         final paste = _FakePasteCapabilityNotifier(
+          // Entry reset is the live-probe (Developer-ID) repair.
+          cachedProbe: false,
           initial: const PasteCapabilityState(
             capability: PasteCapability(
               status: PasteCapabilityStatus.permissionMissing,

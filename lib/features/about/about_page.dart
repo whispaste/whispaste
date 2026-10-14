@@ -14,6 +14,7 @@ import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/sponsors.dart';
 import '../../core/l10n/locale_provider.dart';
 import '../../core/theme/colors.dart';
+import '../../core/navigation/page_state.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/deploy_channel_service.dart';
 import '../../services/stt/stt_bundle.dart';
@@ -168,6 +169,15 @@ class AboutPage extends ConsumerWidget {
                 runSpacing: WpSpacing.sm,
                 children: [
                   WpButton(
+                    key: const ValueKey('about-support-page-button'),
+                    label: l10n.supportPageOpenAction,
+                    variant: WpButtonVariant.secondary,
+                    icon: LucideIcons.heart,
+                    onPressed: () => ref
+                        .read(activePageProvider.notifier)
+                        .setPage('support'),
+                  ),
+                  WpButton(
                     label: l10n.reviewSupportEntry,
                     variant: WpButtonVariant.secondary,
                     icon: LucideIcons.star,
@@ -234,6 +244,20 @@ class AboutPage extends ConsumerWidget {
                 icon: LucideIcons.gauge,
                 title: l10n.aboutParakeet,
                 description: l10n.aboutParakeetDesc,
+              ),
+              _LinkRow(
+                key: const ValueKey('about-parakeet-model-link'),
+                icon: LucideIcons.scale,
+                label: l10n.aboutParakeetModelCredit,
+                url: 'https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3',
+                displayUrl: 'huggingface.co/nvidia/parakeet-tdt-0.6b-v3',
+              ),
+              _LinkRow(
+                key: const ValueKey('about-parakeet-gguf-link'),
+                icon: LucideIcons.scale,
+                label: l10n.aboutParakeetGgufCredit,
+                url: 'https://huggingface.co/ggml-org/parakeet-GGUF',
+                displayUrl: 'huggingface.co/ggml-org/parakeet-GGUF',
               ),
               _BuiltWithRow(
                 icon: LucideIcons.shield,
@@ -679,6 +703,7 @@ class _ShortcutRow extends StatelessWidget {
 
 class _LinkRow extends StatefulWidget {
   const _LinkRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.url,
@@ -791,16 +816,13 @@ class _CopyDiagnosticsButtonState
         );
       } else {
         final stt = ref.read(localSttBundleProvider);
-        final engineBackend = ref
-            .read(whisperEngineProvider)
-            .status
-            .backend
-            .name;
+        final engineStatus = ref.read(whisperEngineProvider).status;
         report = await gatherDiagnosticsReport(
           engine: OnDeviceEngine.whisper.value,
           sttServerState: stt.serverState.name,
           sttErrorMessage: stt.errorMessage,
-          backend: engineBackend,
+          backend: engineStatus.backend.name,
+          cpuFeatures: engineStatus.cpuFeatures,
           loadedModel: stt.modelId.isEmpty ? null : stt.modelId,
           cpuFallbackActive: stt.cpuFallbackActive,
         );

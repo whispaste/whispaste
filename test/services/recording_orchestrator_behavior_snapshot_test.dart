@@ -40,6 +40,9 @@ class _FakeAudioService extends AudioServiceNotifier {
   String? wavPathToReturn;
   bool errorOnStart = false;
   bool throwOnStop = false;
+
+  /// Simulates a slow microphone start (e.g. a loaded CI/land host).
+  Duration startDelay = Duration.zero;
   StreamController<double>? _ampCtrl;
   int startCallCount = 0;
   int stopCallCount = 0;
@@ -53,6 +56,9 @@ class _FakeAudioService extends AudioServiceNotifier {
   @override
   Future<void> startRecording({bool streamRawPcm = false}) async {
     if (state.isRecording) return;
+    if (startDelay > Duration.zero) {
+      await Future<void>.delayed(startDelay);
+    }
     if (errorOnStart) {
       state = const AudioStatus(
         captureState: AudioCaptureState.error,
@@ -83,6 +89,10 @@ class _FakeAudioService extends AudioServiceNotifier {
 
   /// Emits amplitude samples via the active stream controller.
   void emitLevel(double level) => _ampCtrl?.add(level);
+
+  /// Whether anything (level metering, safety guard) listens to the
+  /// amplitude stream right now.
+  bool get hasAmplitudeListeners => _ampCtrl?.hasListener ?? false;
 }
 
 class _FakeSttService extends SttServerStateNotifier {
@@ -260,6 +270,17 @@ List<File> createFakeStubFiles() {
 // Tests
 // ---------------------------------------------------------------------------
 
+/// Waits until a fire-and-forget `toggleRecording()` reached the recording
+/// phase (audio capture subscribed). Fixed 50–100 ms yields were flaky: a
+/// cold start took over 100 ms on CI (run on 88d77dab).
+Future<void> _untilRecording(ProviderContainer c) async {
+  final waited = Stopwatch()..start();
+  while (c.read(recordingProvider).phase != RecordingPhase.recording &&
+      waited.elapsed < const Duration(seconds: 5)) {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -390,8 +411,7 @@ void main() {
       unawaited(
         c.read(recordingOrchestratorProvider.notifier).toggleRecording(),
       );
-      // Yield to let the orchestrator reach audio capture + subscribe.
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await _untilRecording(c);
       return c;
     }
 
@@ -728,7 +748,7 @@ void main() {
             .read(recordingOrchestratorProvider.notifier)
             .toggleRecording(),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await _untilRecording(guardContainer);
       expect(
         guardContainer.read(recordingProvider).phase,
         RecordingPhase.recording,
@@ -1135,12 +1155,14 @@ void main() {
         addTearDown(c.dispose);
         await c.read(settingsProvider.future);
         await Future<void>.delayed(Duration.zero);
+        // A loaded host starts the mic slowly; the phase is already
+        // `recording` long before the safety guard gets wired.
+        fakeAudio.startDelay = const Duration(milliseconds: 200);
 
-        // Start via full orchestrator path to wire _guardSub.
-        unawaited(
-          c.read(recordingOrchestratorProvider.notifier).toggleRecording(),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Start via full orchestrator path to wire _guardSub. Awaited, not
+        // a fixed sleep: toggleRecording returns once the start (mic +
+        // guard wiring) is complete, however slow the host is.
+        await c.read(recordingOrchestratorProvider.notifier).toggleRecording();
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
         // Advance the state machine to transcribing directly (not via
@@ -1150,6 +1172,10 @@ void main() {
         // tears the stream down) that originally surfaced the bug.
         c.read(recordingProvider.notifier).stopRecording();
         expect(c.read(recordingProvider).phase, RecordingPhase.transcribing);
+
+        // Without a wired guard the samples below go nowhere and the test
+        // would pass without exercising the phase guard at all.
+        expect(fakeAudio.hasAmplitudeListeners, isTrue);
 
         // Emit 25 silent samples — enough to trigger the dead-mic guard.
         for (var i = 0; i < 25; i++) {
@@ -1231,8 +1257,10 @@ void main() {
         await Future<void>.delayed(Duration.zero);
 
         final orch = c.read(recordingOrchestratorProvider.notifier);
-        unawaited(orch.toggleRecording());
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Slow mic start as on a loaded host; awaiting the start (not a
+        // fixed sleep) guarantees the dead-mic guard is wired below.
+        fakeAudio.startDelay = const Duration(milliseconds: 200);
+        await orch.toggleRecording();
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
         // Make the audio-layer stop throw, then let the dead-mic guard fire.

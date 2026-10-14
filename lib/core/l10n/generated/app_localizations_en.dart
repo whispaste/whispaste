@@ -170,6 +170,20 @@ class L10nEn extends L10n {
   String get historyReadingTimeUnder1 => '< 1 min read';
 
   @override
+  String historyListWordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'approx. $count words',
+      one: 'approx. 1 word',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historyToolsMenu => 'View and selection';
+
+  @override
   String get historyEditing => 'Editing';
 
   @override
@@ -386,6 +400,13 @@ class L10nEn extends L10n {
 
   @override
   String get pushToTalkUnavailableTooltip => 'Not available on this platform';
+
+  @override
+  String get pushToTalkUnavailableLinuxTooltip =>
+      'Your desktop doesn\'t report key releases here. Bind “whispaste --toggle” to a shortcut in your system settings instead.';
+
+  @override
+  String get settingsExperimentalBadge => 'Experimental';
 
   @override
   String get settingsHoldOrTap => 'Tap or Hold';
@@ -645,14 +666,24 @@ class L10nEn extends L10n {
   String get pasteRestartAlertConfirm => 'Restart now';
 
   @override
-  String get pasteManualGrantAlertTitle => 'The restart didn\'t help';
+  String get pasteStaleEntryGuideTitle => 'Remove the old WhisPaste entry';
 
   @override
-  String get pasteManualGrantAlertBody =>
-      'WhisPaste already restarted, but the Auto-Paste permission still isn\'t taking effect. Please check under System Settings → Privacy & Security → Accessibility whether WhisPaste is switched on there, and re-enable the toggle if needed.';
+  String get pasteStaleEntryGuideBody =>
+      'macOS is still holding on to the Auto-Paste permission of an earlier WhisPaste version. That entry can\'t be switched on — it has to be removed once:\n\n1. Select “WhisPaste” in the list.\n2. Click “−” below the list.\n3. Come back to WhisPaste.\n\nAfter a restart, macOS asks you again — just allow it.';
 
   @override
-  String get pasteManualGrantAlertConfirm => 'Open System Settings';
+  String get pasteStaleEntryGuideConfirm => 'Open System Settings';
+
+  @override
+  String get pasteStaleEntryRestartTitle => 'Restart WhisPaste';
+
+  @override
+  String get pasteStaleEntryRestartBody =>
+      'Once the old entry is gone, restart WhisPaste. macOS then asks for the permission again — confirm it and switch WhisPaste on.';
+
+  @override
+  String get pasteStaleEntryRestartConfirm => 'Restart WhisPaste';
 
   @override
   String get permissionAlertLaterButton => 'Not now';
@@ -904,6 +935,20 @@ class L10nEn extends L10n {
       'Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn\'t fully convertible.';
 
   @override
+  String get settingsRemoveFillerWords => 'Remove filler words';
+
+  @override
+  String get settingsRemoveFillerWordsSubtitle =>
+      'Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.';
+
+  @override
+  String get settingsVoiceLineBreaks => 'Spoken line breaks';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'Turns spoken commands such as \"new paragraph\" and \"new line\" into real line breaks. Uses the transcription language, or all supported languages with auto-detect.';
+
+  @override
   String get settingsAppLanguage => 'App Language';
 
   @override
@@ -1092,10 +1137,6 @@ class L10nEn extends L10n {
       'Groq STT was removed. Provider reset to On-Device.';
 
   @override
-  String get tccResetAfterUpdateToast =>
-      'macOS reset your Auto-Paste permission during the update.';
-
-  @override
   String migrationComplete(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -1126,6 +1167,9 @@ class L10nEn extends L10n {
 
   @override
   String get statusTranscriptionDone => 'Transcription complete';
+
+  @override
+  String get statusSelectionEdited => 'Selection edited';
 
   @override
   String get statusCopied => 'Copied!';
@@ -1412,6 +1456,10 @@ class L10nEn extends L10n {
 
   @override
   String get replacementsReplacementHint => 'e.g. by the way';
+
+  @override
+  String get replacementsReplacementHelper =>
+      'Use \\n for a line break and \\n\\n for a blank line. To keep a literal backslash-n, write \\\\n.';
 
   @override
   String get replacementsDeleteTitle => 'Delete Replacement';
@@ -1797,7 +1845,14 @@ class L10nEn extends L10n {
 
   @override
   String get aboutParakeetDesc =>
-      'Local speech recognition tuned for speed on plain CPU hardware (~25 languages).';
+      'Local speech recognition, GPU-accelerated where available (Metal, Vulkan, CUDA) and on the CPU otherwise (~25 languages).';
+
+  @override
+  String get aboutParakeetModelCredit =>
+      'Model: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0';
+
+  @override
+  String get aboutParakeetGgufCredit => 'GGUF conversion: ggml-org, MIT';
 
   @override
   String get aboutPrivacyFirst => 'Privacy-first';
@@ -2281,6 +2336,28 @@ class L10nEn extends L10n {
       'Please download a speech model in Settings first.';
 
   @override
+  String infoModelMissingSelected(String size) {
+    return 'The selected speech model ($size) isn\'t downloaded yet.';
+  }
+
+  @override
+  String get infoModelMissingDownload => 'Download now';
+
+  @override
+  String get statusBarModelMissing => 'Model missing';
+
+  @override
+  String statusBarModelDownloading(int percent) {
+    return 'Downloading model… $percent %';
+  }
+
+  @override
+  String get modelDownloadAction => 'Download';
+
+  @override
+  String get modelMissingDownloadAction => 'Missing — download';
+
+  @override
   String get infoPipelineBusy =>
       'WhisPaste is still busy with the previous recording.';
 
@@ -2444,11 +2521,19 @@ class L10nEn extends L10n {
       'Could not start recording. Please try again.';
 
   @override
+  String get errorNoMicrophone =>
+      'No microphone found. Connect a microphone and try again.';
+
+  @override
   String get errorGeneric => 'Something went wrong. Please try again.';
 
   @override
   String get modelDownloadFailed =>
       'Download failed. Please check your internet connection.';
+
+  @override
+  String get modelDeleteInUse =>
+      'The model file is in use by another program and could not be deleted. Close it and try again.';
 
   @override
   String get statusSttLoading => 'Loading model…';
@@ -2858,7 +2943,11 @@ class L10nEn extends L10n {
 
   @override
   String get settingsErrorReportingSubtitle =>
-      'Help improve WhisPaste by sending anonymous crash reports';
+      'Sends crash and error reports with a hashed device ID, never your audio or text';
+
+  @override
+  String get settingsErrorReportingRestartHint =>
+      'Takes effect after restarting WhisPaste.';
 
   @override
   String get settingsAutoPasteDelay => 'Auto-Paste Delay';
@@ -2883,7 +2972,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsCheckUpdatesSubtitle =>
-      'Automatically check for new versions on startup';
+      'Check for new versions at startup and every 24 hours';
 
   @override
   String get settingsCheckForUpdatesNow => 'Check for updates now';
@@ -3799,7 +3888,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsSttEngineSubtitle =>
-      'Whisper covers 99 languages and every GPU backend; Parakeet is much faster on CPU-only hardware but covers ~25 languages and has no GPU backend yet';
+      'Whisper covers 99 languages and every GPU backend; Parakeet is much faster and covers ~25 languages, on the GPU where available';
 
   @override
   String get settingsSttEngineWhisper => 'Whisper';
@@ -3811,8 +3900,9 @@ class L10nEn extends L10n {
   String get parakeetModelTitle => 'Parakeet TDT model';
 
   @override
-  String get parakeetModelSubtitle =>
-      'One-time download (~640 MB), then runs fully offline';
+  String parakeetModelSubtitle(String size) {
+    return 'One-time download ($size), then runs fully offline';
+  }
 
   @override
   String get parakeetModelDownload => 'Download';
@@ -3864,7 +3954,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsShareUsageStatsSubtitle =>
-      'Sent cookieless and without any identifiers, help us understand how WhisPaste is used';
+      'Cookieless, with a random per-session ID and a weekly changing pseudonym — helps us understand how WhisPaste is used';
 
   @override
   String get settingsRetainRecentAudio => 'Keep recent recordings';
@@ -3872,22 +3962,6 @@ class L10nEn extends L10n {
   @override
   String get settingsRetainRecentAudioSubtitle =>
       'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically';
-
-  @override
-  String get storeThankYouTitle => 'Thanks for your support!';
-
-  @override
-  String get storeThankYouBody =>
-      'We\'re really glad you\'re here. If WhisPaste makes your day a little easier, a short review means a lot to us.';
-
-  @override
-  String get storeThankYouCtaStore => '★ Rate on the Store';
-
-  @override
-  String get storeThankYouCtaGitHub => '⭐ Star on GitHub';
-
-  @override
-  String get storeThankYouDismiss => 'Close';
 
   @override
   String get featureSpotlightHeading => 'New in WhisPaste';
@@ -3929,6 +4003,14 @@ class L10nEn extends L10n {
   @override
   String get featureSpotlightHistoryPinDescription =>
       'Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.';
+
+  @override
+  String get featureSpotlightEditSelectionTitle =>
+      'Edit selected text by voice';
+
+  @override
+  String get featureSpotlightEditSelectionDescription =>
+      'Select text in any app, press the edit-selection hotkey and say what should change — or just “shorter”, “improve” or “translate”. Uses your Smart Mode engine. Off by default: turn it on under Settings → Smart Mode.';
 
   @override
   String get featureSpotlightChangelogLink => 'View full changelog';
@@ -4240,6 +4322,10 @@ class L10nEn extends L10n {
       'Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device\'s hardware.';
 
   @override
+  String get smartModeLocalUnavailable =>
+      'On-device Smart Mode isn\'t included in this build. Switch to OpenAI, or install an official WhisPaste release.';
+
+  @override
   String get settingsHotkeyActionSmartMode => 'Smart Mode';
 
   @override
@@ -4458,4 +4544,243 @@ class L10nEn extends L10n {
   @override
   String get errorSelectionEditPasteFailed =>
       'Could not replace the selection — your text was left unchanged';
+
+  @override
+  String get settingsCudaPackTitle => 'NVIDIA CUDA acceleration';
+
+  @override
+  String settingsCudaPackSubtitle(String size) {
+    return 'Faster dictation on GeForce RTX and GTX 16 cards. One-time download of $size.';
+  }
+
+  @override
+  String get settingsCudaPackInstalledSubtitle =>
+      'Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.';
+
+  @override
+  String get settingsCudaPackDownload => 'Download';
+
+  @override
+  String settingsCudaPackDownloading(int percent) {
+    return 'Downloading $percent %';
+  }
+
+  @override
+  String get settingsCudaPackInstalling => 'Installing …';
+
+  @override
+  String get settingsCudaPackCancel => 'Cancel download';
+
+  @override
+  String get settingsCudaPackRemove => 'Remove CUDA pack';
+
+  @override
+  String get settingsCudaPackToggle => 'Use CUDA';
+
+  @override
+  String get settingsCudaPackErrorNetwork =>
+      'Download failed. Check your connection and try again.';
+
+  @override
+  String get settingsCudaPackErrorVerification =>
+      'The download was damaged. Please try again.';
+
+  @override
+  String get settingsCudaPackErrorStorage =>
+      'The pack could not be saved. Check your free disk space.';
+
+  @override
+  String get recoveryCudaDisabledToast =>
+      'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.';
+
+  @override
+  String get supportPromptSnooze => 'Don\'t ask for 90 days';
+
+  @override
+  String get supportPayPalLabel => 'PayPal';
+
+  @override
+  String get supportStoreThankYouLine =>
+      'Thank you for buying WhisPaste in the store. Any further support is optional.';
+
+  @override
+  String get supportShareText =>
+      'I use WhisPaste to speak text straight into my apps. Local on my computer and open source:';
+
+  @override
+  String get supportPageTitle => 'Support WhisPaste';
+
+  @override
+  String get supportPageOpenAction => 'All ways to help';
+
+  @override
+  String get supportIntroDirect =>
+      'WhisPaste is free and open source. A contribution or recommendation helps the project.';
+
+  @override
+  String get supportCostsNote =>
+      'Contributions help cover development and the ongoing costs of publishing, hosting and the domain.';
+
+  @override
+  String get supportSectionOnce => 'One-time support';
+
+  @override
+  String get supportSectionOthers => 'Other ways to support';
+
+  @override
+  String get supportSectionReach => 'Recommend WhisPaste';
+
+  @override
+  String get supportStoreTitleWindows => 'WhisPaste in the Microsoft Store';
+
+  @override
+  String get supportStoreTitleMac => 'WhisPaste in the Mac App Store';
+
+  @override
+  String get supportStoreFactManaged =>
+      'Installation and updates are handled by the store.';
+
+  @override
+  String get supportStoreFactPurchase =>
+      'Your one-time purchase supports WhisPaste.';
+
+  @override
+  String get supportStoreFactSameFeatures =>
+      'Same features. The direct version stays free to use.';
+
+  @override
+  String get supportStoreCtaWindows => 'View in Microsoft Store';
+
+  @override
+  String get supportStoreCtaMac => 'View in Mac App Store';
+
+  @override
+  String get supportStorePriceNote => 'Price in the store';
+
+  @override
+  String get supportStoreCoffeeNote =>
+      'A one-time purchase, roughly the price of a coffee. The store shows the current price.';
+
+  @override
+  String get supportStoreDismiss => 'Hide store option';
+
+  @override
+  String get supportStoreShowAgain => 'Show store option';
+
+  @override
+  String get supportSponsorsCta => 'Open GitHub Sponsors';
+
+  @override
+  String get supportSponsorsNote =>
+      'Monthly or with an amount you choose. Pick the amount and rhythm there.';
+
+  @override
+  String get supportKofiCta => 'Open Ko-fi';
+
+  @override
+  String get supportPayPalCta => 'Support with PayPal';
+
+  @override
+  String get supportNativeTitle => 'Support once in the store';
+
+  @override
+  String get supportNativeDescription =>
+      'A one-time amount, billed by the store. Same features, no subscription.';
+
+  @override
+  String get supportNativeCta => 'Support once';
+
+  @override
+  String get supportSheetChoose => 'Choose an amount';
+
+  @override
+  String get supportSheetLoading => 'Loading amounts …';
+
+  @override
+  String supportSheetBuy(String price) {
+    return 'Support for $price';
+  }
+
+  @override
+  String get supportSheetPurchasing =>
+      'The store is confirming your purchase …';
+
+  @override
+  String get supportSheetThanks => 'Thank you for your support!';
+
+  @override
+  String get supportSheetThanksDetail =>
+      'Your supporter badge is active now. All features stay available to everyone.';
+
+  @override
+  String get supportSheetPending => 'Your purchase is awaiting confirmation.';
+
+  @override
+  String get supportSheetPurchaseError =>
+      'The purchase could not be completed. Please try again later.';
+
+  @override
+  String get supportSheetPricesError =>
+      'Prices couldn\'t be loaded. Please try again later.';
+
+  @override
+  String get supportSheetUnavailable =>
+      'No amounts are available in the store right now.';
+
+  @override
+  String get supportSheetRetry => 'Try again';
+
+  @override
+  String get supportSheetClose => 'Close';
+
+  @override
+  String get supportSelfDeclareCta => 'I already support WhisPaste';
+
+  @override
+  String get supportSelfDeclareNote =>
+      'Just a note on this device, nothing is verified. The sponsor button in the status bar is hidden.';
+
+  @override
+  String get supportSelfDeclareHint =>
+      'Nothing is verified. Use this if you already contributed.';
+
+  @override
+  String get supportSupporterLine => 'You support WhisPaste. Thank you!';
+
+  @override
+  String get supportSupporterBadge => 'Supporter';
+
+  @override
+  String get supportRateCta => 'Rate in the store';
+
+  @override
+  String get supportShareCopy => 'Copy link';
+
+  @override
+  String get supportShareCopied => 'Link copied';
+
+  @override
+  String get supportShareEmail => 'Email';
+
+  @override
+  String get supportChipLabel => 'Sponsor';
+
+  @override
+  String get supportChipTooltip => 'Support WhisPaste';
+
+  @override
+  String get supportChipThanksLabel => 'Thanks';
+
+  @override
+  String get supportChipThanksTooltip => 'Thank you for your support';
+
+  @override
+  String get supportChipHide => 'Hide';
+
+  @override
+  String get settingsSponsorChip => 'Sponsor button in the status bar';
+
+  @override
+  String get settingsSponsorChipSubtitle =>
+      'Shows the way to the support page. You can hide it once you have supported the project in the store or confirmed it here.';
 }

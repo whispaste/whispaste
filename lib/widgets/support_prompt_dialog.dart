@@ -2,12 +2,12 @@
 /// structure of `review_prompt_dialog.dart`, but fully independent of it
 /// (own provider, own watcher, own dismissal semantics).
 ///
-/// Reuses the About page's existing support copy (`aboutSupportTitle` /
-/// `aboutSupportDescription` / `aboutGitHubSponsors` / `aboutKofi`) for the
-/// initial ask, and its own distinct copy for the one-time recurring
-/// follow-up (`supportPromptRecurringTitle` / `supportPromptRecurringDescription`).
-/// Reuses `reviewPromptNever` for the dismiss action — dismissing here starts
-/// a snooze rather than a permanent block; see `support_prompt_service.dart`.
+/// The offered links follow [supportCapabilities] for this build, so the Mac
+/// App Store build never shows an external payment link (guideline 3.1.1).
+/// Every close path (button, Escape, click outside) ends in one resolution
+/// step: a link launch records its link only after the launch succeeded, the
+/// snooze button and the outside/Escape close both start the 90-day snooze,
+/// and a hotkey press cancels without recording anything.
 library;
 
 import 'dart:async';
@@ -18,11 +18,18 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_urls.dart';
 import '../core/l10n/generated/app_localizations.dart';
+import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/prompt_display_arbiter.dart';
 import '../services/prompt_timing.dart';
+import '../services/support/support_capabilities.dart';
+import '../services/support/support_state.dart';
 import '../services/support_prompt_service.dart';
+import '../services/telemetry_service.dart';
 import 'wp_button.dart';
+
+final _log = AppLogger('SupportPromptDialog');
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -63,64 +70,157 @@ class _WpSupportPromptWatcherState
         _dialogShowing = false;
         return;
       }
-      _showDialog(context, state.kind);
+      unawaited(_present(context, state.kind));
     });
   }
 
-  Future<void> _showDialog(BuildContext context, SupportPromptKind kind) async {
-    await showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-      barrierColor: Colors.transparent,
-      transitionDuration: WpMotion.durationFor(context, WpMotion.smooth),
-      pageBuilder: (_, p1, p2) => const SizedBox.shrink(),
-      transitionBuilder: (ctx, animation, p1, p2) {
-        final opacity = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOut,
-        );
+  /// Claims the shared display window, shows the dialog, and resolves it.
+  /// The impression is counted only once the dialog is on screen.
+  Future<void> _present(BuildContext context, SupportPromptKind kind) async {
+    final notifier = ref.read(supportPromptProvider.notifier);
+    final arbiter = ref.read(promptDisplayArbiterProvider);
+    final telemetry = ref.read(telemetryProvider);
+    final actions = _offeredActions(ref.read(supportCapabilitiesProvider));
+    final barrierLabel = MaterialLocalizations.of(
+      context,
+    ).modalBarrierDismissLabel;
+    final transitionDuration = WpMotion.durationFor(context, WpMotion.smooth);
+    var closedByHotkey = false;
 
-        return FadeTransition(
-          opacity: opacity,
-          child: Stack(
-            children: [
-              Positioned.fill(child: ColoredBox(color: wpDialogBarrierColor())),
-              _SupportPromptDialog(
-                animation: animation,
-                kind: kind,
-                onResult: (action) async {
-                  Navigator.of(ctx).pop();
-                  _dialogShowing = false;
-                  await _handleAction(action);
-                },
-              ),
-            ],
-          ),
-        );
+    final claimed = arbiter.tryClaim(
+      PromptOwner.support,
+      close: () {
+        closedByHotkey = true;
+        unawaited(Navigator.of(context, rootNavigator: true).maybePop());
       },
     );
-    _dialogShowing = false;
-  }
+    if (!claimed || actions.isEmpty) {
+      notifier.cancelPresentation();
+      _dialogShowing = false;
+      return;
+    }
 
-  Future<void> _handleAction(_SupportAction action) async {
-    final notifier = ref.read(supportPromptProvider.notifier);
-    switch (action) {
-      case _SupportAction.gitHubSponsors:
-        await notifier.markLinkOpened();
-        await _launchUrl(kGitHubSponsorsUrl);
-      case _SupportAction.kofi:
-        await notifier.markLinkOpened();
-        await _launchUrl(kKofiUrl);
-      case _SupportAction.dismiss:
-        await notifier.dismiss();
+    _SupportAction? chosen;
+    try {
+      await notifier.markPresented();
+      recordSupportEvent(
+        telemetry,
+        SupportTelemetryEvent.promptShown,
+        name: kind.name,
+      );
+      if (!context.mounted) return;
+      await showGeneralDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: barrierLabel,
+        barrierColor: Colors.transparent,
+        transitionDuration: transitionDuration,
+        pageBuilder: (_, _, _) => const SizedBox.shrink(),
+        transitionBuilder: (ctx, animation, _, _) {
+          final opacity = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOut,
+          );
+
+          return FadeTransition(
+            opacity: opacity,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ColoredBox(color: wpDialogBarrierColor()),
+                ),
+                _SupportPromptDialog(
+                  animation: animation,
+                  kind: kind,
+                  actions: actions,
+                  onResult: (action) {
+                    chosen = action;
+                    Navigator.of(ctx).pop();
+                  },
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      await _resolve(
+        chosen,
+        closedByHotkey: closedByHotkey,
+        notifier: notifier,
+        telemetry: telemetry,
+      );
+    } finally {
+      arbiter.release(PromptOwner.support);
+      _dialogShowing = false;
     }
   }
 
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+  /// The single resolution step for every close path.
+  Future<void> _resolve(
+    _SupportAction? action, {
+    required bool closedByHotkey,
+    required SupportPromptNotifier notifier,
+    required TelemetryService telemetry,
+  }) async {
+    switch (action) {
+      case null when closedByHotkey:
+        notifier.cancelPresentation();
+      case null || _SupportAction.dismiss:
+        recordSupportEvent(telemetry, SupportTelemetryEvent.promptDismissed);
+        await notifier.dismiss();
+      case _SupportAction.gitHubSponsors:
+        await _openLink(
+          kGitHubSponsorsUrl,
+          target: 'github',
+          notifier: notifier,
+          telemetry: telemetry,
+        );
+      case _SupportAction.kofi:
+        await _openLink(
+          kKofiUrl,
+          target: 'kofi',
+          notifier: notifier,
+          telemetry: telemetry,
+        );
+      case _SupportAction.paypal:
+        await _openLink(
+          kPayPalUrl,
+          target: 'paypal',
+          notifier: notifier,
+          telemetry: telemetry,
+        );
+    }
+  }
+
+  /// Records the link only after the browser launch succeeded. A failed
+  /// launch counts as a dismissal, so the prompt does not come back at once.
+  Future<void> _openLink(
+    String url, {
+    required String target,
+    required SupportPromptNotifier notifier,
+    required TelemetryService telemetry,
+  }) async {
+    if (await _launch(url)) {
+      recordSupportEvent(
+        telemetry,
+        SupportTelemetryEvent.linkOpened,
+        name: target,
+      );
+      await notifier.markLinkOpened();
+    } else {
+      await notifier.dismiss();
+    }
+  }
+
+  Future<bool> _launch(String url) async {
+    try {
+      return await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+    } on Exception catch (e) {
+      _log.error('launch failed: $e', e);
+      return false;
     }
   }
 
@@ -133,11 +233,27 @@ class _WpSupportPromptWatcherState
   }
 }
 
+/// Offered actions in display order. Only links the build allows appear.
+List<_SupportAction> _offeredActions(List<SupportAsk> asks) => [
+  if (asks.contains(SupportAsk.githubSponsors)) _SupportAction.gitHubSponsors,
+  if (asks.contains(SupportAsk.kofi)) _SupportAction.kofi,
+  if (asks.contains(SupportAsk.paypal)) _SupportAction.paypal,
+];
+
 // ---------------------------------------------------------------------------
 // Action enum
 // ---------------------------------------------------------------------------
 
-enum _SupportAction { gitHubSponsors, kofi, dismiss }
+enum _SupportAction {
+  gitHubSponsors('supportPromptGitHubButton'),
+  kofi('supportPromptKofiButton'),
+  paypal('supportPromptPayPalButton'),
+  dismiss('supportPromptSnoozeButton');
+
+  const _SupportAction(this.testId);
+
+  final String testId;
+}
 
 // ---------------------------------------------------------------------------
 // Dialog widget
@@ -147,11 +263,13 @@ class _SupportPromptDialog extends StatelessWidget {
   const _SupportPromptDialog({
     required this.animation,
     required this.kind,
+    required this.actions,
     required this.onResult,
   });
 
   final Animation<double> animation;
   final SupportPromptKind kind;
+  final List<_SupportAction> actions;
   final void Function(_SupportAction) onResult;
 
   @override
@@ -204,21 +322,22 @@ class _SupportPromptDialog extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WpSpacing.lg),
-                WpButton(
-                  label: l10n.aboutGitHubSponsors,
-                  variant: WpButtonVariant.primary,
-                  autofocus: true,
-                  onPressed: () => onResult(_SupportAction.gitHubSponsors),
-                ),
-                const SizedBox(height: WpSpacing.xs),
-                WpButton(
-                  label: l10n.aboutKofi,
-                  variant: WpButtonVariant.secondary,
-                  onPressed: () => onResult(_SupportAction.kofi),
-                ),
+                for (final (index, action) in actions.indexed) ...[
+                  if (index > 0) const SizedBox(height: WpSpacing.xs),
+                  WpButton(
+                    key: ValueKey(action.testId),
+                    label: _label(l10n, action),
+                    variant: index == 0
+                        ? WpButtonVariant.primary
+                        : WpButtonVariant.secondary,
+                    autofocus: index == 0,
+                    onPressed: () => onResult(action),
+                  ),
+                ],
                 const SizedBox(height: WpSpacing.sm),
                 WpButton(
-                  label: l10n.reviewPromptNever,
+                  key: ValueKey(_SupportAction.dismiss.testId),
+                  label: l10n.supportPromptSnooze,
                   variant: WpButtonVariant.ghost,
                   tone: WpButtonTone.neutral,
                   onPressed: () => onResult(_SupportAction.dismiss),
@@ -230,4 +349,11 @@ class _SupportPromptDialog extends StatelessWidget {
       ),
     );
   }
+
+  static String _label(L10n l10n, _SupportAction action) => switch (action) {
+    _SupportAction.gitHubSponsors => l10n.aboutGitHubSponsors,
+    _SupportAction.kofi => l10n.aboutKofi,
+    _SupportAction.paypal => l10n.supportPayPalLabel,
+    _SupportAction.dismiss => l10n.supportPromptSnooze,
+  };
 }

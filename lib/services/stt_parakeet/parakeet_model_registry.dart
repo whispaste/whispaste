@@ -104,18 +104,6 @@ List<ParakeetModelFile> effectiveParakeetModelFiles() =>
 int get parakeetModelTotalBytes =>
     parakeetModelFiles.fold(0, (sum, f) => sum + f.sizeBytes);
 
-/// Human-readable total bundle size (e.g. `"631 MB"`), formatted with the
-/// same 1024-based rule as `SttModelInfo.sizeLabel` in
-/// `model_download_service.dart` so whisper and Parakeet size labels never
-/// look inconsistent side by side.
-String get parakeetModelSizeLabel {
-  final bytes = parakeetModelTotalBytes;
-  if (bytes >= 1024 * 1024 * 1024) {
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-  return '${(bytes / (1024 * 1024)).round()} MB';
-}
-
 /// ISO 639-1 codes for the 25 European languages `parakeet-tdt-0.6b-v3`
 /// supports, per the NVIDIA model card (huggingface.co/nvidia/parakeet-tdt-0.6b-v3,
 /// verified 2026-07-28). Used by [recommendEngine] (`engine_recommendation.dart`)

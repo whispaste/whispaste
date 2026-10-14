@@ -5,7 +5,7 @@ import 'package:whispaste/features/settings/search/settings_search_provider.dart
 // Helpers
 // ---------------------------------------------------------------------------
 
-const _all = kSettingsSearchTable;
+final _all = kSettingsSearchTable;
 
 List<String> _sectionKeysFor(String query, {String locale = 'en'}) =>
     matchSettingsEntries(_all, query, locale).map((e) => e.sectionKey).toList();

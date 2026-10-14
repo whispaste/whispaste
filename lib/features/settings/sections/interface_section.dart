@@ -10,6 +10,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../services/autostart_service.dart';
+import '../../../services/support/support_state.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/language_selector.dart';
 import '../../../widgets/section.dart';
@@ -25,6 +26,7 @@ class InterfaceSection extends ConsumerWidget {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final autostartSyncError = ref.watch(autostartSyncFailureProvider);
+    final support = ref.watch(supportStatusProvider);
 
     return WpSection(
       title: l10n.settingsInterface,
@@ -126,6 +128,25 @@ class InterfaceSection extends ConsumerWidget {
                       ),
                     ),
                   ),
+            ),
+          ),
+          SettingRow(
+            icon: LucideIcons.heart,
+            label: l10n.settingsSponsorChip,
+            subtitle: l10n.settingsSponsorChipSubtitle,
+            semanticToggledValue: support.showsSponsorChip,
+            trailing: settingsToggle(
+              key: const ValueKey('settings-sponsor-chip-restore'),
+              value: support.showsSponsorChip,
+              // Showing the chip again is always allowed. Hiding it needs a
+              // verified purchase or a self-declaration, so the switch is
+              // inert until then.
+              onChanged: !support.showsSponsorChip
+                  ? (_) =>
+                        ref.read(supportStatusProvider.notifier).restoreChip()
+                  : support.suppressesPrompts
+                  ? (_) => ref.read(supportStatusProvider.notifier).hideChip()
+                  : null,
             ),
           ),
           SettingRow(

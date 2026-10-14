@@ -377,4 +377,83 @@ void main() {
       expect(capture.events.single.error, isA<FileSystemException>());
     });
   });
+
+  group('FactoryResetCoordinator — Windows file locks', () {
+    const sharingViolation = FileSystemException(
+      'Deletion failed',
+      logsDir,
+      OSError('Процесс не может получить доступ к файлу', 32),
+    );
+
+    test(
+      'deletes the logs dir only while the app log file is released '
+      '(Sentry 123406956: our own open log handle blocked the delete)',
+      () async {
+        await _seedDirectories(fs, modelDir: modelDir, logsDir: logsDir);
+        var logFileReleased = false;
+        bool? releasedDuringLogsDelete;
+        final coordinator = FactoryResetCoordinator(
+          subprocess: _FakeSubprocessController(),
+          modelDirPath: modelDir,
+          logsDirPath: logsDir,
+          fileSystem: fs,
+          directoryDeleter: (path) async {
+            if (path == logsDir) releasedDuringLogsDelete = logFileReleased;
+            await fs.directory(path).delete(recursive: true);
+          },
+          releaseLogFile: (body) async {
+            logFileReleased = true;
+            try {
+              await body();
+            } finally {
+              logFileReleased = false;
+            }
+          },
+          eraseDatabase: () async {},
+          eraseSecureStore: () async {},
+          resetSettings: () async {},
+        );
+
+        final phases = await coordinator.run().toList();
+
+        expect(releasedDuringLogsDelete, isTrue);
+        expect(
+          logFileReleased,
+          isFalse,
+          reason: 'log file reopened afterwards',
+        );
+        expect(phases.last, ResetPhase.done);
+      },
+    );
+
+    test('a short-lived sharing violation is retried, not reported', () async {
+      await _seedDirectories(fs, modelDir: modelDir, logsDir: logsDir);
+      final capture = _RecordingCaptureSink();
+      var lockedAttemptsLeft = 2;
+      final coordinator = FactoryResetCoordinator(
+        subprocess: _FakeSubprocessController(),
+        modelDirPath: modelDir,
+        logsDirPath: logsDir,
+        fileSystem: fs,
+        directoryDeleter: (path) async {
+          if (path == modelDir && lockedAttemptsLeft-- > 0) {
+            throw sharingViolation;
+          }
+          await fs.directory(path).delete(recursive: true);
+        },
+        releaseLogFile: (body) => body(),
+        retryWait: (_) async {},
+        eraseDatabase: () async {},
+        eraseSecureStore: () async {},
+        resetSettings: () async {},
+        captureSink: capture.call,
+      );
+
+      final phases = await coordinator.run().toList();
+
+      expect(phases.last, ResetPhase.done);
+      expect(capture.events, isEmpty);
+      expect(fs.directory(modelDir).existsSync(), isFalse);
+    });
+  });
 }

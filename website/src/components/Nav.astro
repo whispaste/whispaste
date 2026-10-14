@@ -1,5 +1,6 @@
 ---
-import { t } from '../scripts/i18n.ts';
+import { t, localePath, isLocale, DEFAULT_LOCALE } from '../scripts/i18n.ts';
+import LanguageSwitcher from './LanguageSwitcher.astro';
 // Inline-tintable OS glyphs for the platform-adaptive Download CTA. Raw-imported
 // so `fill="currentColor"` inherits the button's text color — an <img>-embedded
 // SVG cannot do this. Same source/provenance as the hero badges
@@ -13,12 +14,7 @@ interface Props {
 }
 const { variant = "landing" } = Astro.props;
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
-
-// Locale-correct toggle target: clicking the language switch jumps the user
-// from the DE-default URL to the matching `/en/...` URL (and vice versa).
-// The toggle label also flips so the button reads the OTHER language.
-const langToggleLabel = lang === 'de' ? 'EN' : 'DE';
+const lang = isLocale(Astro.currentLocale) ? Astro.currentLocale : DEFAULT_LOCALE;
 
 // Top-nav anchors point at the canonical (in-page) IDs which exist on both
 // the DE landing page (`/`) and the EN landing page (`/en/`). They're
@@ -30,8 +26,8 @@ const langToggleLabel = lang === 'de' ? 'EN' : 'DE';
 // the seo-overhaul sprint): Google was promoting `/sponsor/` as the most
 // prominent brand sitelink even though only a tiny fraction of brand
 // searchers actually intend to sponsor. The link is kept in the footer.
-const downloadHref = lang === 'de' ? '/download/' : '/en/download/';
-const backHref = lang === 'de' ? '/' : '/en/';
+const downloadHref = localePath(lang, 'download');
+const backHref = localePath(lang, '');
 
 // Subpages don't own the landing page's in-page anchors, so the same nav
 // row links back to the homepage section instead of scrolling nowhere —
@@ -74,24 +70,17 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
         Anker — vorher hatten Unterseiten nur "Zurück" + Sprache, was dünn
         und wenig konversionsstark wirkte. */}
     <div class="hidden lg:flex flex-1 items-center justify-center gap-7 xl:gap-8 text-sm text-ink-muted">
-      <a href={anchor("app-paste-demo")} class="hover:text-white transition-colors" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
-      <a href={anchor("engines")} class="hover:text-white transition-colors" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
-      <a href={anchor("languages")} class="hover:text-white transition-colors" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
-      <a href={anchor("faq")} class="hover:text-white transition-colors" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
-      <a href={anchor("support")} class="hover:text-white transition-colors" data-i18n="nav.support">{t(lang, "nav.support")}</a>
+      <a href={anchor("app-paste-demo")} class="hover:text-white transition-colors" data-testid="nav-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+      <a href={anchor("features")} class="hover:text-white transition-colors" data-testid="nav-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
+      <a href={anchor("privacy")} class="hover:text-white transition-colors" data-testid="nav-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
+      <a href={anchor("faq")} class="hover:text-white transition-colors" data-testid="nav-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
     </div>
     {/* Rechte Aktionsgruppe: Utilities (Sprache/Theme/GitHub) nur ab lg,
         der Download-CTA schon ab sm (640–1023px behält so die eine primäre
         Aktion sichtbar in der Pill), Hamburger bis unter lg. */}
     <div class="flex shrink-0 items-center gap-3 lg:gap-5 text-sm text-ink-muted">
       <div class="hidden lg:flex shrink-0 items-center gap-5 text-sm text-ink-muted">
-        <button
-          id="langToggle"
-          data-testid="lang-toggle"
-          aria-label={t(lang, "nav.switchLanguageAria")}
-          data-i18n-aria="nav.switchLanguageAria"
-          class="lang-toggle-btn text-ink-muted hover:text-white transition-colors text-sm font-medium"
-        >{langToggleLabel}</button>
+        <LanguageSwitcher lang={lang} />
         <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-ink-muted hover:text-white transition-colors" aria-label="GitHub" title="GitHub">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3"/></svg>
         </a>
@@ -141,13 +130,12 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
   </div>
   <div id="mobileMenu" class="wp-container lg:hidden hidden pointer-events-auto mt-2 rounded-2xl border border-white/[0.08] overflow-hidden">
       <div class="px-5 py-3 flex flex-col">
-        <a href={anchor("app-paste-demo")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px]" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
-        <a href={anchor("engines")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.engines">{t(lang, "nav.engines")}</a>
-        <a href={anchor("languages")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.languages">{t(lang, "nav.languages")}</a>
-        <a href={anchor("faq")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
-        <a href={anchor("support")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-i18n="nav.support">{t(lang, "nav.support")}</a>
+        <a href={anchor("app-paste-demo")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px]" data-testid="nav-menu-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href={anchor("features")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
+        <a href={anchor("privacy")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
+        <a href={anchor("faq")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
         <div class="flex items-center gap-5 py-3 border-t border-white/[0.04]">
-          <button id="mobileLangToggle" class="lang-toggle-btn text-ink-muted hover:text-white transition-colors text-sm font-medium" aria-label={t(lang, "nav.switchLanguageAria")} data-i18n-aria="nav.switchLanguageAria">{langToggleLabel}</button>
+          <LanguageSwitcher lang={lang} variant="inline" />
           <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-ink-muted hover:text-white transition-colors" aria-label="GitHub">
             <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3"/></svg>
           </a>
@@ -190,12 +178,6 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
         requestAnimationFrame(onNavScroll);
       }, { passive: true });
     }
-    document.getElementById('langToggle')?.addEventListener('click', function () {
-      if (typeof toggleLang === 'function') toggleLang();
-    });
-    document.getElementById('mobileLangToggle')?.addEventListener('click', function () {
-      if (typeof toggleLang === 'function') toggleLang();
-    });
     var menuBtn = document.getElementById('mobileMenuBtn');
     var mobileMenu = document.getElementById('mobileMenu');
     var menuIcon = document.getElementById('menuBtnIcon');

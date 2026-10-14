@@ -12,9 +12,10 @@
 # Fedora/Arch/most current distros). GROUP="input" is kept as a fallback for
 # systems without systemd-logind ACLs.
 #
-# Manual install (no packaging-postinst wiring yet — this file is not
-# referenced by packaging/deb/build-deb.sh, packaging/appimage/,
-# packaging/flatpak/, or packaging/snap/ — see ticket 30's open ACs):
+# The .deb installs this rule to /usr/lib/udev/rules.d/ and applies it in its
+# postinst (packaging/deb/build-deb.sh). The tarball ships it next to
+# install-uinput-rule.sh (run once with sudo). AppImage, Flatpak and Snap do not
+# ship it yet; for those, install it by hand:
 #   sudo cp packaging/linux/71-whispaste-uinput.rules /etc/udev/rules.d/
 #   sudo udevadm control --reload-rules && sudo udevadm trigger
 #   sudo usermod -aG input "$USER"   # only needed as the GROUP= fallback

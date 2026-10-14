@@ -189,4 +189,80 @@ void main() {
     expect(engine.status.backend, WhisperBackend.metal);
     expect(engine.status.isLoaded, isFalse);
   });
+
+  // Regression FLUTTER_WHISPASTE-148613655: a shared `_unloadCompleter` field
+  // was overwritten by a second unload()/shutdown(), so the first waiter was
+  // orphaned and a second `_UnloadAck` completed the same Future twice
+  // ("Future already completed"). Host-independent: no worker is needed.
+  group('WorkerAckQueue (unload/shutdown acks)', () {
+    test('two unload requests each get their own ack, in order', () async {
+      final acks = WorkerAckQueue();
+      final first = acks.enqueue();
+      final second = acks.enqueue();
+
+      acks.onAck();
+      await expectLater(first.future, completes);
+      expect(second.isCompleted, isFalse);
+
+      acks.onAck();
+      await expectLater(second.future, completes);
+      expect(acks.length, 0);
+    });
+
+    test('a duplicate ack does not throw and does not complete a later '
+        'waiter early', () async {
+      final acks = WorkerAckQueue();
+      final first = acks.enqueue();
+      final second = acks.enqueue();
+
+      acks.onAck();
+      acks.onAck();
+      acks.onAck(); // Surplus ack without a waiter: ignored.
+
+      await expectLater(first.future, completes);
+      await expectLater(second.future, completes);
+    });
+
+    test('a cancelled waiter does not consume the next ack', () async {
+      final acks = WorkerAckQueue();
+      final unsent = acks.enqueue();
+      final sent = acks.enqueue();
+
+      acks.cancel(unsent);
+      acks.onAck();
+
+      expect(unsent.isCompleted, isFalse);
+      await expectLater(sent.future, completes);
+    });
+
+    test('completeAll releases every remaining waiter', () async {
+      final acks = WorkerAckQueue();
+      final a = acks.enqueue();
+      final b = acks.enqueue();
+
+      acks.completeAll();
+
+      await expectLater(a.future, completes);
+      await expectLater(b.future, completes);
+      expect(acks.length, 0);
+    });
+  });
+
+  test(
+    'concurrent load() calls share one attempt and both fail cleanly '
+    '(regression: the second call overwrote the first call\'s completer)',
+    () async {
+      final engine = WhisperIsolateEngine(
+        libraryPath: '/nonexistent/libwhisper',
+      );
+      addTearDown(engine.shutdown);
+
+      final first = engine.load(modelPath: '/nonexistent/model.bin');
+      final second = engine.load(modelPath: '/nonexistent/model.bin');
+
+      await expectLater(first, throwsA(isA<StateError>()));
+      await expectLater(second, throwsA(isA<StateError>()));
+      expect(engine.status.isLoaded, isFalse);
+    },
+  );
 }

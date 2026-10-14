@@ -60,6 +60,72 @@ void main() {
     });
   });
 
+  group('SttSettings.voiceLineBreaks', () {
+    test('defaults to true', () {
+      expect(SttSettings.defaults.voiceLineBreaks, isTrue);
+    });
+
+    test('toMap -> fromMap round-trip preserves false', () {
+      const settings = SttSettings(voiceLineBreaks: false);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.voiceLineBreaks, isFalse);
+    });
+
+    test('is persisted under stt_voice_line_breaks', () {
+      const settings = SttSettings(voiceLineBreaks: false);
+      expect(settings.toMap()['stt_voice_line_breaks'], 'false');
+    });
+
+    test('missing key in map falls back to the default (true)', () {
+      final map = Map<String, String>.from(SttSettings.defaults.toMap())
+        ..remove('stt_voice_line_breaks');
+      expect(SttSettings.fromMap(map).voiceLineBreaks, isTrue);
+    });
+
+    test('two instances differing only in voiceLineBreaks are unequal', () {
+      const a = SttSettings(voiceLineBreaks: false);
+      const b = SttSettings();
+      expect(a == b, isFalse);
+    });
+  });
+
+  group('SttSettings.removeFillerWords', () {
+    test('defaults to false', () {
+      expect(SttSettings.defaults.removeFillerWords, isFalse);
+    });
+
+    test('toMap -> fromMap round-trip preserves true', () {
+      const settings = SttSettings(removeFillerWords: true);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.removeFillerWords, isTrue);
+    });
+
+    test('is persisted under stt_remove_filler_words', () {
+      const settings = SttSettings(removeFillerWords: true);
+      expect(settings.toMap()['stt_remove_filler_words'], 'true');
+    });
+
+    test('missing key in map falls back to the default (false)', () {
+      final map = Map<String, String>.from(SttSettings.defaults.toMap())
+        ..remove('stt_remove_filler_words');
+      expect(SttSettings.fromMap(map).removeFillerWords, isFalse);
+    });
+
+    test('copyWith(removeFillerWords: true) changes no other field', () {
+      const original = SttSettings();
+      final updated = original.copyWith(removeFillerWords: true);
+      expect(updated.removeFillerWords, isTrue);
+      expect(updated.copyWith(removeFillerWords: false), original);
+    });
+
+    test('two instances differing only in removeFillerWords are unequal', () {
+      const a = SttSettings(removeFillerWords: true);
+      const b = SttSettings();
+      expect(a == b, isFalse);
+      expect(a.hashCode == b.hashCode, isFalse);
+    });
+  });
+
   group('OnboardingSettings.seenFeatureSpotlightIds', () {
     test('defaults to the empty string', () {
       expect(OnboardingSettings.defaults.seenFeatureSpotlightIds, '');

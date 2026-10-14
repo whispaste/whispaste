@@ -1,50 +1,47 @@
 {
   "schemaVersion": 1,
-  "fetchedAt": "2026-05-13T12:00:00.000Z",
+  "fetchedAt": "2026-10-13T16:02:34.597Z",
   "releases": [
     {
-      "tag": "v1.2.13",
-      "name": "v1.2.13",
-      "publishedAt": "2026-05-13T12:00:00.000Z",
-      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.13",
+      "tag": "v1.3.0",
+      "name": "WhisPaste v1.3.0",
+      "publishedAt": "2026-09-30T14:03:52Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.3.0",
       "en": {
-        "bodyMarkdown": "### Highlights\n- Four crash fixes: model-failure exit-code classifier triggers a clear re-download prompt, heartbeat startup timeout prevents indefinite hangs, recording idempotency guard blocks duplicate sessions on rapid hotkey presses, and a hotkey TypeError fallback prevents crashes on unsupported key tokens\n- Groq STT removed — existing Groq users automatically fall back to On-Device STT on first launch; no data is lost\n- Deepgram Nova-2 is now a fully supported, production-ready cloud STT alternative (free tier: 45 h/month)\n- Settings shows inline signup links for Deepgram and OpenAI so new users never have to leave the app to get started\n\n### Improvements\n- Sentry fingerprints now include recording phase and STT status for better issue grouping\n- Safety-guard activations (OOM, CPU fallback, idempotency) are captured as Sentry breadcrumbs for easier support triage\n- Smart-Mode dead code fully removed — smaller bundle, cleaner settings diff\n- README and website feature list updated to accurately reflect the shipped feature set (Post-Processing, LLM auto-tagging, and Groq references removed)\n- AppSettings split into focused section classes; STT subsystem split into independent modules; recording orchestrator decomposed into SafetyGuard, OomRecoveryHandler, and RecordingStateMachine; floating UI shares a single platform host",
+        "bodyMarkdown": "### What's new in v1.3.0\n- WhisPaste introduced an optional PIN protection feature for the clipboard history, enhancing privacy and security.\n- Users can now hide the clipboard history upon opening, revealing its contents only after a click.\n- The app now reliably starts minimized in the system tray upon login, improving user experience.\n\n### 1.3.x Highlights\n- Smart Mode allows users to clean, shorten, or translate dictations before insertion, either locally or via OpenAI.\n- Interactive Snippets enable the filling of text blocks field by field through dictation.\n- The sidebar now supports clipboard history on Linux and can be docked on either side of the screen.\n- Live transcription displays recognized text in real-time during recording.\n- The app learns from corrections, suggesting replacements for frequently corrected phrases.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "What's new in v1.3.0",
               "items": [
                 {
-                  "body": "Four crash fixes: model-failure exit-code classifier triggers a clear re-download prompt, heartbeat startup timeout prevents indefinite hangs, recording idempotency guard blocks duplicate sessions on rapid hotkey presses, and a hotkey TypeError fallback prevents crashes on unsupported key tokens"
+                  "body": "WhisPaste introduced an optional PIN protection feature for the clipboard history, enhancing privacy and security."
                 },
                 {
-                  "body": "Groq STT removed — existing Groq users automatically fall back to On-Device STT on first launch; no data is lost"
+                  "body": "Users can now hide the clipboard history upon opening, revealing its contents only after a click."
                 },
                 {
-                  "body": "Deepgram Nova-2 is now a fully supported, production-ready cloud STT alternative (free tier: 45 h/month)"
-                },
-                {
-                  "body": "Settings shows inline signup links for Deepgram and OpenAI so new users never have to leave the app to get started"
+                  "body": "The app now reliably starts minimized in the system tray upon login, improving user experience."
                 }
               ]
             },
             {
-              "heading": "Improvements",
+              "heading": "1.3.x Highlights",
               "items": [
                 {
-                  "body": "Sentry fingerprints now include recording phase and STT status for better issue grouping"
+                  "body": "Smart Mode allows users to clean, shorten, or translate dictations before insertion, either locally or via OpenAI."
                 },
                 {
-                  "body": "Safety-guard activations (OOM, CPU fallback, idempotency) are captured as Sentry breadcrumbs for easier support triage"
+                  "body": "Interactive Snippets enable the filling of text blocks field by field through dictation."
                 },
                 {
-                  "body": "Smart-Mode dead code fully removed — smaller bundle, cleaner settings diff"
+                  "body": "The sidebar now supports clipboard history on Linux and can be docked on either side of the screen."
                 },
                 {
-                  "body": "README and website feature list updated to accurately reflect the shipped feature set (Post-Processing, LLM auto-tagging, and Groq references removed)"
+                  "body": "Live transcription displays recognized text in real-time during recording."
                 },
                 {
-                  "body": "AppSettings split into focused section classes; STT subsystem split into independent modules; recording orchestrator decomposed into SafetyGuard, OomRecoveryHandler, and RecordingStateMachine; floating UI shares a single platform host"
+                  "body": "The app learns from corrections, suggesting replacements for frequently corrected phrases."
                 }
               ]
             }
@@ -52,71 +49,91 @@
         }
       },
       "de": {
-        "bodyMarkdown": "### Highlights\n- Vier Crash-Fixes: Exit-Code-Klassifikator löst bei Modellfehler einen klaren Re-Download-Hinweis aus, Heartbeat-Timeout verhindert endloses Hängen, Aufnahme-Idempotenz blockiert doppelte Sitzungen bei schnellen Hotkey-Drücken, und ein TypeError-Fallback verhindert Abstürze bei nicht unterstützten Tastentokens\n- Groq STT entfernt — bestehende Groq-Nutzer wechseln beim ersten Start automatisch zu On-Device STT; keine Daten gehen verloren\n- Deepgram Nova-2 ist jetzt ein vollständig unterstütztes, produktionsreifes Cloud-STT (kostenloses Kontingent: 45 Std./Monat)\n- Einstellungen zeigt direkte Anmelde-Links für Deepgram und OpenAI — neue Nutzer müssen die App nicht mehr verlassen\n\n### Improvements\n- Sentry-Fingerprints enthalten jetzt Aufnahme-Phase und STT-Status für bessere Fehlergruppierung\n- Safety-Guard-Aktivierungen (OOM, CPU-Fallback, Idempotenz) werden als Sentry-Breadcrumbs erfasst\n- Smart-Mode-Toter-Code vollständig entfernt — kleineres Bundle, saubereres Einstellungs-Diff\n- README und Website-Featureliste auf tatsächlich ausgelieferte Funktionen aktualisiert (Post-Processing, LLM-Auto-Tagging und Groq-Hinweise entfernt)\n- AppSettings in fokussierte Sektionsklassen aufgeteilt; STT-Subsystem in unabhängige Module aufgeteilt; Recording-Orchestrator in SafetyGuard, OomRecoveryHandler und RecordingStateMachine zerlegt; Floating-UI teilt einen gemeinsamen Platform-Host",
+        "bodyMarkdown": "### Neu in v1.3.0\n- WhisPaste hat eine optionale PIN-Schutzfunktion für den Verlauf eingeführt, die die Privatsphäre und Sicherheit verbessert.\n- Nutzer können nun den Verlauf beim Öffnen verbergen, sodass der Inhalt erst nach einem Klick sichtbar wird.\n- Die App startet jetzt zuverlässig minimiert im System-Tray beim Anmelden, was die Benutzererfahrung verbessert.\n\n### 1.3.x im Überblick\n- Der Smart Mode ermöglicht es Nutzern, Diktate vor dem Einfügen zu bereinigen, zu kürzen oder zu übersetzen, entweder lokal oder über OpenAI.\n- Interaktive Snippets erlauben das Ausfüllen von Textbausteinen Feld für Feld per Diktat.\n- Die Seitenleiste unterstützt jetzt den Clipboard-Verlauf unter Linux und kann wahlweise links oder rechts angedockt werden.\n- Live-Transkription zeigt den erkannten Text in Echtzeit während der Aufnahme an.\n- Die App lernt aus Korrekturen und schlägt Ersetzungen für häufig korrigierte Phrasen vor.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "Neu in v1.3.0",
               "items": [
                 {
-                  "body": "Vier Crash-Fixes: Exit-Code-Klassifikator löst bei Modellfehler einen klaren Re-Download-Hinweis aus, Heartbeat-Timeout verhindert endloses Hängen, Aufnahme-Idempotenz blockiert doppelte Sitzungen bei schnellen Hotkey-Drücken, und ein TypeError-Fallback verhindert Abstürze bei nicht unterstützten Tastentokens"
+                  "body": "WhisPaste hat eine optionale PIN-Schutzfunktion für den Verlauf eingeführt, die die Privatsphäre und Sicherheit verbessert."
                 },
                 {
-                  "body": "Groq STT entfernt — bestehende Groq-Nutzer wechseln beim ersten Start automatisch zu On-Device STT; keine Daten gehen verloren"
+                  "body": "Nutzer können nun den Verlauf beim Öffnen verbergen, sodass der Inhalt erst nach einem Klick sichtbar wird."
                 },
                 {
-                  "body": "Deepgram Nova-2 ist jetzt ein vollständig unterstütztes, produktionsreifes Cloud-STT (kostenloses Kontingent: 45 Std./Monat)"
-                },
-                {
-                  "body": "Einstellungen zeigt direkte Anmelde-Links für Deepgram und OpenAI — neue Nutzer müssen die App nicht mehr verlassen"
+                  "body": "Die App startet jetzt zuverlässig minimiert im System-Tray beim Anmelden, was die Benutzererfahrung verbessert."
                 }
               ]
             },
             {
-              "heading": "Improvements",
+              "heading": "1.3.x im Überblick",
               "items": [
                 {
-                  "body": "Sentry-Fingerprints enthalten jetzt Aufnahme-Phase und STT-Status für bessere Fehlergruppierung"
+                  "body": "Der Smart Mode ermöglicht es Nutzern, Diktate vor dem Einfügen zu bereinigen, zu kürzen oder zu übersetzen, entweder lokal oder über OpenAI."
                 },
                 {
-                  "body": "Safety-Guard-Aktivierungen (OOM, CPU-Fallback, Idempotenz) werden als Sentry-Breadcrumbs erfasst"
+                  "body": "Interaktive Snippets erlauben das Ausfüllen von Textbausteinen Feld für Feld per Diktat."
                 },
                 {
-                  "body": "Smart-Mode-Toter-Code vollständig entfernt — kleineres Bundle, saubereres Einstellungs-Diff"
+                  "body": "Die Seitenleiste unterstützt jetzt den Clipboard-Verlauf unter Linux und kann wahlweise links oder rechts angedockt werden."
                 },
                 {
-                  "body": "README und Website-Featureliste auf tatsächlich ausgelieferte Funktionen aktualisiert (Post-Processing, LLM-Auto-Tagging und Groq-Hinweise entfernt)"
+                  "body": "Live-Transkription zeigt den erkannten Text in Echtzeit während der Aufnahme an."
                 },
                 {
-                  "body": "AppSettings in fokussierte Sektionsklassen aufgeteilt; STT-Subsystem in unabhängige Module aufgeteilt; Recording-Orchestrator in SafetyGuard, OomRecoveryHandler und RecordingStateMachine zerlegt; Floating-UI teilt einen gemeinsamen Platform-Host"
+                  "body": "Die App lernt aus Korrekturen und schlägt Ersetzungen für häufig korrigierte Phrasen vor."
                 }
               ]
             }
           ]
         },
-        "translatedAt": "2026-05-13T12:00:00.000Z"
+        "translatedAt": "2026-10-13T16:02:34.594Z"
       }
     },
     {
-      "tag": "v1.2.9",
-      "name": "v1.2.9",
-      "publishedAt": "2026-04-22T12:00:00.000Z",
-      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.9",
+      "tag": "v1.2.79",
+      "name": "WhisPaste v1.2.79",
+      "publishedAt": "2026-09-27T17:00:52Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.79",
       "en": {
-        "bodyMarkdown": "### Highlights\n- Model load failures (code 3) no longer cause an infinite retry loop — WhisPaste now fails fast with a clear re-download prompt\n- Duplicate 'Something went wrong' toast eliminated after corrupted model detection\n- Recording pipeline abort now shows the correct STT error instead of a misleading 'Could not save audio file' message",
+        "bodyMarkdown": "### What's new in v1.2.79\n- Users can now dock the clipboard quick-insert panel to either the left or right edge of the screen, providing more flexibility in settings.\n- The settings search has been improved to return results for previously unfindable entries, enhancing usability.\n- A bug that rendered the side panel non-functional after toggling it off and on has been fixed, ensuring reliable operation.\n- Sound feedback now releases the audio device after 30 seconds of inactivity, allowing other applications to access audio without interruption.\n\n### 1.2.x Highlights\n- WhisPaste has undergone a complete rewrite, becoming a native Flutter application for improved performance and cross-platform compatibility.\n- The app now features a unified design system, enhancing the overall user experience with consistent themes and notifications.\n- Users can enjoy a streamlined dictation process with a floating button for easy access and a recording pill overlay for real-time feedback.\n- The introduction of Deepgram STT as a production-ready option allows for real-time streaming transcription and automatic language detection.\n- A new multi-format export feature enables users to easily save their history in various file formats, including TXT, MD, and DOCX.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "What's new in v1.2.79",
               "items": [
                 {
-                  "body": "Model load failures (code 3) no longer cause an infinite retry loop — WhisPaste now fails fast with a clear re-download prompt"
+                  "body": "Users can now dock the clipboard quick-insert panel to either the left or right edge of the screen, providing more flexibility in settings."
                 },
                 {
-                  "body": "Duplicate 'Something went wrong' toast eliminated after corrupted model detection"
+                  "body": "The settings search has been improved to return results for previously unfindable entries, enhancing usability."
                 },
                 {
-                  "body": "Recording pipeline abort now shows the correct STT error instead of a misleading 'Could not save audio file' message"
+                  "body": "A bug that rendered the side panel non-functional after toggling it off and on has been fixed, ensuring reliable operation."
+                },
+                {
+                  "body": "Sound feedback now releases the audio device after 30 seconds of inactivity, allowing other applications to access audio without interruption."
+                }
+              ]
+            },
+            {
+              "heading": "1.2.x Highlights",
+              "items": [
+                {
+                  "body": "WhisPaste has undergone a complete rewrite, becoming a native Flutter application for improved performance and cross-platform compatibility."
+                },
+                {
+                  "body": "The app now features a unified design system, enhancing the overall user experience with consistent themes and notifications."
+                },
+                {
+                  "body": "Users can enjoy a streamlined dictation process with a floating button for easy access and a recording pill overlay for real-time feedback."
+                },
+                {
+                  "body": "The introduction of Deepgram STT as a production-ready option allows for real-time streaming transcription and automatic language detection."
+                },
+                {
+                  "body": "A new multi-format export feature enables users to easily save their history in various file formats, including TXT, MD, and DOCX."
                 }
               ]
             }
@@ -124,77 +141,91 @@
         }
       },
       "de": {
-        "bodyMarkdown": "### Highlights\n- Fehler beim Laden von Modellen (Code 3) führen nicht mehr zu einer endlosen Wiederholungsschleife — WhisPaste bricht jetzt mit einer klaren Meldung ab\n- Doppelter 'Etwas ist schiefgelaufen'-Toast nach korrupter Modellerkennung entfernt\n- Pipeline-Abbruch zeigt jetzt die korrekte STT-Fehlermeldung statt der irreführenden 'Audio-Datei konnte nicht gespeichert werden'-Meldung",
+        "bodyMarkdown": "### Neu in v1.2.79\n- Das Zwischenablage-Schnelleinfügen-Panel kann jetzt wahlweise an der linken oder rechten Bildschirmkante andocken, was mehr Flexibilität in den Einstellungen bietet.\n- Die Einstellungssuche wurde verbessert, um Ergebnisse für zuvor nicht auffindbare Einträge zurückzugeben, was die Benutzerfreundlichkeit erhöht.\n- Ein Fehler, der das Seitenpanel nach dem Aus- und Wiedereinschalten funktionsunfähig machte, wurde behoben, sodass es zuverlässig funktioniert.\n- Das aktivierte Sound-Feedback gibt das Audiogerät jetzt nach 30 Sekunden Inaktivität wieder frei, sodass andere Anwendungen auf Audio zugreifen können, ohne unterbrochen zu werden.\n\n### 1.2.x im Überblick\n- WhisPaste hat eine komplette Neuentwicklung durchlaufen und ist jetzt eine native Flutter-Anwendung für verbesserte Leistung und plattformübergreifende Kompatibilität.\n- Die App verfügt jetzt über ein einheitliches Designsystem, das die Benutzererfahrung mit konsistenten Themen und Benachrichtigungen verbessert.\n- Benutzer können einen optimierten Diktationsprozess mit einem schwebenden Button für einfachen Zugriff und einer Aufnahme-Pill-Überlagerung für Echtzeit-Feedback genießen.\n- Die Einführung von Deepgram STT als produktionsbereite Option ermöglicht Echtzeit-Streaming-Transkription und automatische Spracherkennung.\n- Eine neue Multi-Format-Exportfunktion ermöglicht es Benutzern, ihre Historie einfach in verschiedenen Dateiformaten, einschließlich TXT, MD und DOCX, zu speichern.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "Neu in v1.2.79",
               "items": [
                 {
-                  "body": "Fehler beim Laden von Modellen (Code 3) führen nicht mehr zu einer endlosen Wiederholungsschleife — WhisPaste bricht jetzt mit einer klaren Meldung ab"
+                  "body": "Das Zwischenablage-Schnelleinfügen-Panel kann jetzt wahlweise an der linken oder rechten Bildschirmkante andocken, was mehr Flexibilität in den Einstellungen bietet."
                 },
                 {
-                  "body": "Doppelter 'Etwas ist schiefgelaufen'-Toast nach korrupter Modellerkennung entfernt"
+                  "body": "Die Einstellungssuche wurde verbessert, um Ergebnisse für zuvor nicht auffindbare Einträge zurückzugeben, was die Benutzerfreundlichkeit erhöht."
                 },
                 {
-                  "body": "Pipeline-Abbruch zeigt jetzt die korrekte STT-Fehlermeldung statt der irreführenden 'Audio-Datei konnte nicht gespeichert werden'-Meldung"
+                  "body": "Ein Fehler, der das Seitenpanel nach dem Aus- und Wiedereinschalten funktionsunfähig machte, wurde behoben, sodass es zuverlässig funktioniert."
+                },
+                {
+                  "body": "Das aktivierte Sound-Feedback gibt das Audiogerät jetzt nach 30 Sekunden Inaktivität wieder frei, sodass andere Anwendungen auf Audio zugreifen können, ohne unterbrochen zu werden."
+                }
+              ]
+            },
+            {
+              "heading": "1.2.x im Überblick",
+              "items": [
+                {
+                  "body": "WhisPaste hat eine komplette Neuentwicklung durchlaufen und ist jetzt eine native Flutter-Anwendung für verbesserte Leistung und plattformübergreifende Kompatibilität."
+                },
+                {
+                  "body": "Die App verfügt jetzt über ein einheitliches Designsystem, das die Benutzererfahrung mit konsistenten Themen und Benachrichtigungen verbessert."
+                },
+                {
+                  "body": "Benutzer können einen optimierten Diktationsprozess mit einem schwebenden Button für einfachen Zugriff und einer Aufnahme-Pill-Überlagerung für Echtzeit-Feedback genießen."
+                },
+                {
+                  "body": "Die Einführung von Deepgram STT als produktionsbereite Option ermöglicht Echtzeit-Streaming-Transkription und automatische Spracherkennung."
+                },
+                {
+                  "body": "Eine neue Multi-Format-Exportfunktion ermöglicht es Benutzern, ihre Historie einfach in verschiedenen Dateiformaten, einschließlich TXT, MD und DOCX, zu speichern."
                 }
               ]
             }
           ]
         },
-        "translatedAt": "2026-05-13T12:00:00.000Z"
+        "translatedAt": "2026-10-13T16:02:34.594Z"
       }
     },
     {
-      "tag": "v1.2.x",
-      "name": "v1.2.x",
-      "publishedAt": "2026-04-21T12:00:00.000Z",
-      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.x",
+      "tag": "v1.2.78",
+      "name": "WhisPaste v1.2.78",
+      "publishedAt": "2026-09-25T17:46:52Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.78",
       "en": {
-        "bodyMarkdown": "### Highlights\n- Complete rewrite as a native Flutter app — truly cross-platform (Windows and macOS)\n- All transcript history stored locally in SQLite — no shared config files, no data loss\n- New slim recording pill overlay with live waveform and progress indicator\n- Always-on-top floating button for instant voice input from any app, with expanded context menu (open, record, history, settings, quit)\n- Premium UI with warm gradients, frosted glass effects, and micro-animations\n- macOS app ships as a native ARM64 DMG with every release\n- History transcript editor now fully supports all text editing keys — Enter, Backspace, Delete, and cursor navigation work correctly when focused\n\n### Improvements\n- All Go backend code removed — zero external dependencies\n- Riverpod state management for reactive, testable architecture\n- 469+ automated tests with over 90 percent feature coverage\n- macOS menu bar icon resolves correctly across all bundle layouts",
+        "bodyMarkdown": "### What's new in v1.2.78\n- The Automation API now allows custom Smart Mode presets and silence timeout thresholds for each dictation trigger, enhancing flexibility.\n- The settings page now highlights the currently visible section while scrolling, improving navigation.\n- A new \"Cancel/Discard\" action has been added for ongoing dictations, allowing users to discard recordings instead of transcribing them.\n\n### 1.2.x Highlights\n- WhisPaste is now a native Flutter application, ensuring a truly cross-platform experience.\n- The app features a unified design system with consistent themes and elegant UI elements.\n- A new recording pill overlay provides a sleek status bar during dictation, enhancing user experience.\n- The floating button allows easy access to recording controls and supports multi-monitor setups.\n- The app now supports a variety of export formats for history entries, making sharing and saving easier.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "What's new in v1.2.78",
               "items": [
                 {
-                  "body": "Complete rewrite as a native Flutter app — truly cross-platform (Windows and macOS)"
+                  "body": "The Automation API now allows custom Smart Mode presets and silence timeout thresholds for each dictation trigger, enhancing flexibility."
                 },
                 {
-                  "body": "All transcript history stored locally in SQLite — no shared config files, no data loss"
+                  "body": "The settings page now highlights the currently visible section while scrolling, improving navigation."
                 },
                 {
-                  "body": "New slim recording pill overlay with live waveform and progress indicator"
-                },
-                {
-                  "body": "Always-on-top floating button for instant voice input from any app, with expanded context menu (open, record, history, settings, quit)"
-                },
-                {
-                  "body": "Premium UI with warm gradients, frosted glass effects, and micro-animations"
-                },
-                {
-                  "body": "macOS app ships as a native ARM64 DMG with every release"
-                },
-                {
-                  "body": "History transcript editor now fully supports all text editing keys — Enter, Backspace, Delete, and cursor navigation work correctly when focused"
+                  "body": "A new \"Cancel/Discard\" action has been added for ongoing dictations, allowing users to discard recordings instead of transcribing them."
                 }
               ]
             },
             {
-              "heading": "Improvements",
+              "heading": "1.2.x Highlights",
               "items": [
                 {
-                  "body": "All Go backend code removed — zero external dependencies"
+                  "body": "WhisPaste is now a native Flutter application, ensuring a truly cross-platform experience."
                 },
                 {
-                  "body": "Riverpod state management for reactive, testable architecture"
+                  "body": "The app features a unified design system with consistent themes and elegant UI elements."
                 },
                 {
-                  "body": "469+ automated tests with over 90 percent feature coverage"
+                  "body": "A new recording pill overlay provides a sleek status bar during dictation, enhancing user experience."
                 },
                 {
-                  "body": "macOS menu bar icon resolves correctly across all bundle layouts"
+                  "body": "The floating button allows easy access to recording controls and supports multi-monitor setups."
+                },
+                {
+                  "body": "The app now supports a variety of export formats for history entries, making sharing and saving easier."
                 }
               ]
             }
@@ -202,109 +233,91 @@
         }
       },
       "de": {
-        "bodyMarkdown": "### Highlights\n- Kompletter Neuschrieb als native Flutter-App — wirklich plattformübergreifend (Windows und macOS)\n- Gesamter Transkript-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust\n- Neue schlanke Aufnahme-Pille mit Live-Wellenform und Fortschrittsanzeige\n- Schwebende Schaltfläche immer im Vordergrund für sofortige Spracheingabe aus jeder App, mit erweitertem Kontextmenü (öffnen, aufnehmen, Verlauf, Einstellungen, beenden)\n- Premium-UI mit warmen Verläufen, Milchglas-Effekten und Micro-Animationen\n- macOS-App wird mit jedem Release als nativer ARM64-DMG ausgeliefert\n- Transkript-Editor im Verlauf unterstützt jetzt alle Texteingabe-Tasten vollständig — Enter, Backspace, Entfernen und Cursor-Navigation funktionieren korrekt im Fokus\n\n### Improvements\n- Gesamter Go-Backend-Code entfernt — keine externen Abhängigkeiten mehr\n- Riverpod State Management für reaktive, testbare Architektur\n- 469+ automatisierte Tests mit über 90 Prozent Funktionsabdeckung\n- macOS-Menüleisten-Icon wird jetzt in allen Bundle-Layouts korrekt aufgelöst",
+        "bodyMarkdown": "### Neu in v1.2.78\n- Die Automation-API ermöglicht jetzt individuelle Smart-Mode-Presets und Stille-Timeout-Schwellen für jeden Diktat-Trigger, was die Flexibilität erhöht.\n- Die Einstellungsseite hebt jetzt automatisch die aktuell sichtbare Sektion hervor, während du durch die Seite scrollst, was die Navigation verbessert.\n- Eine neue „Abbrechen/Verwerfen\"-Aktion wurde für laufende Diktate hinzugefügt, die es den Nutzern ermöglicht, Aufnahmen zu verwerfen, anstatt sie zu transkribieren.\n\n### 1.2.x im Überblick\n- WhisPaste ist jetzt eine native Flutter-Anwendung, die ein wirklich plattformübergreifendes Erlebnis bietet.\n- Die App verfügt über ein einheitliches Designsystem mit konsistenten Themen und eleganten UI-Elementen.\n- Ein neues Aufnahme-Pill-Overlay bietet eine schlanke Statusleiste während des Diktats und verbessert die Benutzererfahrung.\n- Der schwebende Button ermöglicht einfachen Zugriff auf die Aufnahme-Steuerung und unterstützt Multi-Monitor-Setups.\n- Die App unterstützt jetzt eine Vielzahl von Exportformaten für Verlaufs-Einträge, was das Teilen und Speichern erleichtert.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "Neu in v1.2.78",
               "items": [
                 {
-                  "body": "Kompletter Neuschrieb als native Flutter-App — wirklich plattformübergreifend (Windows und macOS)"
+                  "body": "Die Automation-API ermöglicht jetzt individuelle Smart-Mode-Presets und Stille-Timeout-Schwellen für jeden Diktat-Trigger, was die Flexibilität erhöht."
                 },
                 {
-                  "body": "Gesamter Transkript-Verlauf lokal in SQLite gespeichert — keine geteilten Konfigdateien, kein Datenverlust"
+                  "body": "Die Einstellungsseite hebt jetzt automatisch die aktuell sichtbare Sektion hervor, während du durch die Seite scrollst, was die Navigation verbessert."
                 },
                 {
-                  "body": "Neue schlanke Aufnahme-Pille mit Live-Wellenform und Fortschrittsanzeige"
-                },
-                {
-                  "body": "Schwebende Schaltfläche immer im Vordergrund für sofortige Spracheingabe aus jeder App, mit erweitertem Kontextmenü (öffnen, aufnehmen, Verlauf, Einstellungen, beenden)"
-                },
-                {
-                  "body": "Premium-UI mit warmen Verläufen, Milchglas-Effekten und Micro-Animationen"
-                },
-                {
-                  "body": "macOS-App wird mit jedem Release als nativer ARM64-DMG ausgeliefert"
-                },
-                {
-                  "body": "Transkript-Editor im Verlauf unterstützt jetzt alle Texteingabe-Tasten vollständig — Enter, Backspace, Entfernen und Cursor-Navigation funktionieren korrekt im Fokus"
+                  "body": "Eine neue „Abbrechen/Verwerfen\"-Aktion wurde für laufende Diktate hinzugefügt, die es den Nutzern ermöglicht, Aufnahmen zu verwerfen, anstatt sie zu transkribieren."
                 }
               ]
             },
             {
-              "heading": "Improvements",
+              "heading": "1.2.x im Überblick",
               "items": [
                 {
-                  "body": "Gesamter Go-Backend-Code entfernt — keine externen Abhängigkeiten mehr"
+                  "body": "WhisPaste ist jetzt eine native Flutter-Anwendung, die ein wirklich plattformübergreifendes Erlebnis bietet."
                 },
                 {
-                  "body": "Riverpod State Management für reaktive, testbare Architektur"
+                  "body": "Die App verfügt über ein einheitliches Designsystem mit konsistenten Themen und eleganten UI-Elementen."
                 },
                 {
-                  "body": "469+ automatisierte Tests mit über 90 Prozent Funktionsabdeckung"
+                  "body": "Ein neues Aufnahme-Pill-Overlay bietet eine schlanke Statusleiste während des Diktats und verbessert die Benutzererfahrung."
                 },
                 {
-                  "body": "macOS-Menüleisten-Icon wird jetzt in allen Bundle-Layouts korrekt aufgelöst"
+                  "body": "Der schwebende Button ermöglicht einfachen Zugriff auf die Aufnahme-Steuerung und unterstützt Multi-Monitor-Setups."
+                },
+                {
+                  "body": "Die App unterstützt jetzt eine Vielzahl von Exportformaten für Verlaufs-Einträge, was das Teilen und Speichern erleichtert."
                 }
               ]
             }
           ]
         },
-        "translatedAt": "2026-05-13T12:00:00.000Z"
+        "translatedAt": "2026-10-13T16:02:34.594Z"
       }
     },
     {
-      "tag": "v1.1.x",
-      "name": "v1.1.x",
-      "publishedAt": "2026-04-01T12:00:00.000Z",
-      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.1.x",
+      "tag": "v1.2.77",
+      "name": "WhisPaste v1.2.77",
+      "publishedAt": "2026-09-24T12:18:11Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.77",
       "en": {
-        "bodyMarkdown": "### Highlights\n- Smart Mode: AI-powered post-processing transforms raw transcripts into polished, context-aware text\n- Voice Snippets: save and recall frequently used phrases with a single command\n- GPU acceleration for NVIDIA, AMD, and Intel graphics cards — faster local transcription\n- Multiple cloud providers available: choose between local, OpenAI, Groq, or Deepgram\n- Redesigned dashboard, Smart Mode, and Voice Snippets with a cleaner layout and smooth animations\n- Auto-generated tags now use Title Case and filter out system labels\n- Transcripts paste correctly into the new Outlook app on Windows 11\n\n### Improvements\n- New onboarding wizard guides you through setup in just a few steps\n- Unified silence removal setting — one smart toggle instead of two confusing options\n- Settings reorganized with clearer sections and everyday language throughout\n- Faster model downloads with resume support for interrupted connections\n- Fixed a race condition when switching pages quickly",
+        "bodyMarkdown": "### What's new in v1.2.77\n- WhisPaste introduced a new local automation API, allowing users to start/stop dictation with external triggers and access recent history entries.\n- The live transcription preview feature now displays text during recording, enhancing the user experience.\n- Text replacements can now learn automatically from repeated corrections, making dictation more efficient.\n- The settings have been improved with a new anchor chip bar for quick section navigation and a visual card selector for overlay size.\n\n### 1.2.x Highlights\n- WhisPaste is now a native Flutter application, ensuring a truly cross-platform experience across Windows, macOS, and more.\n- The app features a premium user interface with warm gradients, frosted glass effects, and smooth animations.\n- Users can now export history entries in multiple formats, including TXT, MD, CSV, JSON, and DOCX.\n- The Deepgram STT backend is fully functional, providing real-time transcription and automatic language detection.\n- Enhanced accessibility features ensure that the app is usable for everyone, including keyboard navigation and screen reader support.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "What's new in v1.2.77",
               "items": [
                 {
-                  "body": "Smart Mode: AI-powered post-processing transforms raw transcripts into polished, context-aware text"
+                  "body": "WhisPaste introduced a new local automation API, allowing users to start/stop dictation with external triggers and access recent history entries."
                 },
                 {
-                  "body": "Voice Snippets: save and recall frequently used phrases with a single command"
+                  "body": "The live transcription preview feature now displays text during recording, enhancing the user experience."
                 },
                 {
-                  "body": "GPU acceleration for NVIDIA, AMD, and Intel graphics cards — faster local transcription"
+                  "body": "Text replacements can now learn automatically from repeated corrections, making dictation more efficient."
                 },
                 {
-                  "body": "Multiple cloud providers available: choose between local, OpenAI, Groq, or Deepgram"
-                },
-                {
-                  "body": "Redesigned dashboard, Smart Mode, and Voice Snippets with a cleaner layout and smooth animations"
-                },
-                {
-                  "body": "Auto-generated tags now use Title Case and filter out system labels"
-                },
-                {
-                  "body": "Transcripts paste correctly into the new Outlook app on Windows 11"
+                  "body": "The settings have been improved with a new anchor chip bar for quick section navigation and a visual card selector for overlay size."
                 }
               ]
             },
             {
-              "heading": "Improvements",
+              "heading": "1.2.x Highlights",
               "items": [
                 {
-                  "body": "New onboarding wizard guides you through setup in just a few steps"
+                  "body": "WhisPaste is now a native Flutter application, ensuring a truly cross-platform experience across Windows, macOS, and more."
                 },
                 {
-                  "body": "Unified silence removal setting — one smart toggle instead of two confusing options"
+                  "body": "The app features a premium user interface with warm gradients, frosted glass effects, and smooth animations."
                 },
                 {
-                  "body": "Settings reorganized with clearer sections and everyday language throughout"
+                  "body": "Users can now export history entries in multiple formats, including TXT, MD, CSV, JSON, and DOCX."
                 },
                 {
-                  "body": "Faster model downloads with resume support for interrupted connections"
+                  "body": "The Deepgram STT backend is fully functional, providing real-time transcription and automatic language detection."
                 },
                 {
-                  "body": "Fixed a race condition when switching pages quickly"
+                  "body": "Enhanced accessibility features ensure that the app is usable for everyone, including keyboard navigation and screen reader support."
                 }
               ]
             }
@@ -312,94 +325,88 @@
         }
       },
       "de": {
-        "bodyMarkdown": "### Highlights\n- Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Transkripte in polierten, kontextbewussten Text\n- Sprach-Snippets: häufig genutzte Phrasen speichern und mit einem Befehl abrufen\n- GPU-Beschleunigung für NVIDIA-, AMD- und Intel-Grafikkarten — schnellere lokale Transkription\n- Mehrere Cloud-Anbieter verfügbar: wähle zwischen lokal, OpenAI, Groq oder Deepgram\n- Dashboard, Smart Mode und Sprach-Snippets mit aufgeräumterem Layout und sanften Animationen überarbeitet\n- Automatisch generierte Tags nutzen jetzt Großschreibung und filtern System-Labels heraus\n- Transkripte werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt\n\n### Improvements\n- Neuer Einrichtungsassistent führt dich in wenigen Schritten durch das Setup\n- Stille-Erkennung vereinfacht — ein smarter Schalter statt zwei verwirrender Optionen\n- Einstellungen in klarere Bereiche mit alltagstauglicher Sprache aufgeteilt\n- Schnellere Modell-Downloads mit Fortsetzung bei unterbrochenen Verbindungen\n- Race-Condition beim schnellen Seitenwechsel behoben",
+        "bodyMarkdown": "### Neu in v1.2.77\n- WhisPaste hat eine neue lokale Automation-API eingeführt, die es Nutzern ermöglicht, Diktate mit externen Triggern zu starten/stoppen und auf letzte Verlaufseinträge zuzugreifen.\n- Die Live-Transkript-Vorschau zeigt jetzt den Text während der Aufnahme an, was die Benutzererfahrung verbessert.\n- Textersetzungen lernen jetzt automatisch aus wiederholten Korrekturen, was das Diktieren effizienter macht.\n- Die Einstellungen wurden mit einer neuen Anchor-Chip-Leiste zur schnellen Abschnitts-Navigation und einem visuellen Karten-Selector für die Overlay-Größe verbessert.\n\n### 1.2.x im Überblick\n- WhisPaste ist jetzt eine native Flutter-Anwendung, die ein wirklich plattformübergreifendes Erlebnis auf Windows, macOS und mehr bietet.\n- Die App bietet eine Premium-Benutzeroberfläche mit warmen Farbverläufen, frosted Glass-Effekten und sanften Animationen.\n- Nutzer können Verlaufseinträge jetzt in mehreren Formaten exportieren, darunter TXT, MD, CSV, JSON und DOCX.\n- Das Deepgram STT-Backend ist voll funktionsfähig und bietet Echtzeit-Transkription und automatische Spracherkennung.\n- Verbesserte Barrierefreiheit stellt sicher, dass die App für alle nutzbar ist, einschließlich Tastaturnavigation und Unterstützung für Screenreader.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "Neu in v1.2.77",
               "items": [
                 {
-                  "body": "Smart Mode: KI-gestützte Nachbearbeitung verwandelt rohe Transkripte in polierten, kontextbewussten Text"
+                  "body": "WhisPaste hat eine neue lokale Automation-API eingeführt, die es Nutzern ermöglicht, Diktate mit externen Triggern zu starten/stoppen und auf letzte Verlaufseinträge zuzugreifen."
                 },
                 {
-                  "body": "Sprach-Snippets: häufig genutzte Phrasen speichern und mit einem Befehl abrufen"
+                  "body": "Die Live-Transkript-Vorschau zeigt jetzt den Text während der Aufnahme an, was die Benutzererfahrung verbessert."
                 },
                 {
-                  "body": "GPU-Beschleunigung für NVIDIA-, AMD- und Intel-Grafikkarten — schnellere lokale Transkription"
+                  "body": "Textersetzungen lernen jetzt automatisch aus wiederholten Korrekturen, was das Diktieren effizienter macht."
                 },
                 {
-                  "body": "Mehrere Cloud-Anbieter verfügbar: wähle zwischen lokal, OpenAI, Groq oder Deepgram"
-                },
-                {
-                  "body": "Dashboard, Smart Mode und Sprach-Snippets mit aufgeräumterem Layout und sanften Animationen überarbeitet"
-                },
-                {
-                  "body": "Automatisch generierte Tags nutzen jetzt Großschreibung und filtern System-Labels heraus"
-                },
-                {
-                  "body": "Transkripte werden jetzt korrekt in das neue Outlook unter Windows 11 eingefügt"
+                  "body": "Die Einstellungen wurden mit einer neuen Anchor-Chip-Leiste zur schnellen Abschnitts-Navigation und einem visuellen Karten-Selector für die Overlay-Größe verbessert."
                 }
               ]
             },
             {
-              "heading": "Improvements",
+              "heading": "1.2.x im Überblick",
               "items": [
                 {
-                  "body": "Neuer Einrichtungsassistent führt dich in wenigen Schritten durch das Setup"
+                  "body": "WhisPaste ist jetzt eine native Flutter-Anwendung, die ein wirklich plattformübergreifendes Erlebnis auf Windows, macOS und mehr bietet."
                 },
                 {
-                  "body": "Stille-Erkennung vereinfacht — ein smarter Schalter statt zwei verwirrender Optionen"
+                  "body": "Die App bietet eine Premium-Benutzeroberfläche mit warmen Farbverläufen, frosted Glass-Effekten und sanften Animationen."
                 },
                 {
-                  "body": "Einstellungen in klarere Bereiche mit alltagstauglicher Sprache aufgeteilt"
+                  "body": "Nutzer können Verlaufseinträge jetzt in mehreren Formaten exportieren, darunter TXT, MD, CSV, JSON und DOCX."
                 },
                 {
-                  "body": "Schnellere Modell-Downloads mit Fortsetzung bei unterbrochenen Verbindungen"
+                  "body": "Das Deepgram STT-Backend ist voll funktionsfähig und bietet Echtzeit-Transkription und automatische Spracherkennung."
                 },
                 {
-                  "body": "Race-Condition beim schnellen Seitenwechsel behoben"
+                  "body": "Verbesserte Barrierefreiheit stellt sicher, dass die App für alle nutzbar ist, einschließlich Tastaturnavigation und Unterstützung für Screenreader."
                 }
               ]
             }
           ]
         },
-        "translatedAt": "2026-05-13T12:00:00.000Z"
+        "translatedAt": "2026-10-13T16:02:34.594Z"
       }
     },
     {
-      "tag": "v1.0.x",
-      "name": "v1.0.x",
-      "publishedAt": "2026-03-01T12:00:00.000Z",
-      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.0.x",
+      "tag": "v1.2.76",
+      "name": "WhisPaste v1.2.76",
+      "publishedAt": "2026-09-08T11:26:11Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.76",
       "en": {
-        "bodyMarkdown": "### Highlights\n- Available on the Microsoft Store for easy installation and auto-updates\n- Full transcript history with search — find any past transcript instantly\n- New premium design throughout the app\n\n### Improvements\n- Stronger privacy protections and security hardening\n- The app icon displays cleanly in the Windows taskbar\n- Local AI processing is more stable and recovers gracefully from errors",
+        "bodyMarkdown": "### What's new in v1.2.76\n- Global hotkeys now correctly register on non-US keyboard layouts, ensuring that the right physical keys are recognized during use.\n- The hotkey recording feature now queries the active Windows keyboard layout live, rather than relying on a static US layout mapping.\n\n### 1.2.x Highlights\n- WhisPaste has undergone a complete rewrite, now functioning as a native Flutter application for enhanced performance and usability.\n- The app features a unified design system, providing a consistent look and feel across platforms.\n- Users can now enjoy a recording pill overlay that provides a sleek status bar during dictation, enhancing the user experience.\n- The introduction of multi-format export allows for easy sharing of notes and transcripts in various file formats.\n- A new review prompt gently invites users to rate WhisPaste after successful recordings, fostering community feedback.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "What's new in v1.2.76",
               "items": [
                 {
-                  "body": "Available on the Microsoft Store for easy installation and auto-updates"
+                  "body": "Global hotkeys now correctly register on non-US keyboard layouts, ensuring that the right physical keys are recognized during use."
                 },
                 {
-                  "body": "Full transcript history with search — find any past transcript instantly"
-                },
-                {
-                  "body": "New premium design throughout the app"
+                  "body": "The hotkey recording feature now queries the active Windows keyboard layout live, rather than relying on a static US layout mapping."
                 }
               ]
             },
             {
-              "heading": "Improvements",
+              "heading": "1.2.x Highlights",
               "items": [
                 {
-                  "body": "Stronger privacy protections and security hardening"
+                  "body": "WhisPaste has undergone a complete rewrite, now functioning as a native Flutter application for enhanced performance and usability."
                 },
                 {
-                  "body": "The app icon displays cleanly in the Windows taskbar"
+                  "body": "The app features a unified design system, providing a consistent look and feel across platforms."
                 },
                 {
-                  "body": "Local AI processing is more stable and recovers gracefully from errors"
+                  "body": "Users can now enjoy a recording pill overlay that provides a sleek status bar during dictation, enhancing the user experience."
+                },
+                {
+                  "body": "The introduction of multi-format export allows for easy sharing of notes and transcripts in various file formats."
+                },
+                {
+                  "body": "A new review prompt gently invites users to rate WhisPaste after successful recordings, fostering community feedback."
                 }
               ]
             }
@@ -407,40 +414,43 @@
         }
       },
       "de": {
-        "bodyMarkdown": "### Highlights\n- Im Microsoft Store verfügbar für einfache Installation und automatische Updates\n- Vollständiger Transkript-Verlauf mit Suche — jedes vergangene Transkript sofort finden\n- Neues Premium-Design in der gesamten App\n\n### Improvements\n- Stärkerer Datenschutz und Sicherheitshärtung\n- Das App-Icon wird sauber in der Windows-Taskleiste angezeigt\n- Lokale KI-Verarbeitung ist stabiler und erholt sich besser von Fehlern",
+        "bodyMarkdown": "### Neu in v1.2.76\n- Globale Hotkeys registrierten auf Nicht-US-Tastaturlayouts jetzt die richtigen physischen Tasten, was die Nutzung erleichtert.\n- Die Hotkey-Aufnahme fragt jetzt live beim aktiven Windows-Tastaturlayout nach, anstatt sich auf eine statische US-Layout-basierte Zuordnung zu verlassen.\n\n### 1.2.x im Überblick\n- WhisPaste hat eine vollständige Neuentwicklung durchlaufen und funktioniert jetzt als native Flutter-Anwendung, was die Leistung und Benutzerfreundlichkeit verbessert.\n- Die App bietet ein einheitliches Designsystem, das ein konsistentes Erscheinungsbild auf allen Plattformen gewährleistet.\n- Nutzer können nun eine Aufnahme-Pille genießen, die während des Diktats eine elegante Statusleiste anzeigt und das Benutzererlebnis verbessert.\n- Die Einführung des Exports in mehreren Formaten ermöglicht das einfache Teilen von Notizen und Transkripten in verschiedenen Dateiformaten.\n- Eine neue Bewertungsaufforderung lädt die Nutzer ein, WhisPaste nach erfolgreichen Aufnahmen zu bewerten und fördert so das Feedback der Community.",
         "blocks": {
           "sections": [
             {
-              "heading": "Highlights",
+              "heading": "Neu in v1.2.76",
               "items": [
                 {
-                  "body": "Im Microsoft Store verfügbar für einfache Installation und automatische Updates"
+                  "body": "Globale Hotkeys registrierten auf Nicht-US-Tastaturlayouts jetzt die richtigen physischen Tasten, was die Nutzung erleichtert."
                 },
                 {
-                  "body": "Vollständiger Transkript-Verlauf mit Suche — jedes vergangene Transkript sofort finden"
-                },
-                {
-                  "body": "Neues Premium-Design in der gesamten App"
+                  "body": "Die Hotkey-Aufnahme fragt jetzt live beim aktiven Windows-Tastaturlayout nach, anstatt sich auf eine statische US-Layout-basierte Zuordnung zu verlassen."
                 }
               ]
             },
             {
-              "heading": "Improvements",
+              "heading": "1.2.x im Überblick",
               "items": [
                 {
-                  "body": "Stärkerer Datenschutz und Sicherheitshärtung"
+                  "body": "WhisPaste hat eine vollständige Neuentwicklung durchlaufen und funktioniert jetzt als native Flutter-Anwendung, was die Leistung und Benutzerfreundlichkeit verbessert."
                 },
                 {
-                  "body": "Das App-Icon wird sauber in der Windows-Taskleiste angezeigt"
+                  "body": "Die App bietet ein einheitliches Designsystem, das ein konsistentes Erscheinungsbild auf allen Plattformen gewährleistet."
                 },
                 {
-                  "body": "Lokale KI-Verarbeitung ist stabiler und erholt sich besser von Fehlern"
+                  "body": "Nutzer können nun eine Aufnahme-Pille genießen, die während des Diktats eine elegante Statusleiste anzeigt und das Benutzererlebnis verbessert."
+                },
+                {
+                  "body": "Die Einführung des Exports in mehreren Formaten ermöglicht das einfache Teilen von Notizen und Transkripten in verschiedenen Dateiformaten."
+                },
+                {
+                  "body": "Eine neue Bewertungsaufforderung lädt die Nutzer ein, WhisPaste nach erfolgreichen Aufnahmen zu bewerten und fördert so das Feedback der Community."
                 }
               ]
             }
           ]
         },
-        "translatedAt": "2026-05-13T12:00:00.000Z"
+        "translatedAt": "2026-10-13T16:02:34.594Z"
       }
     }
   ]

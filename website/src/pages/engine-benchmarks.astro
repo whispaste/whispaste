@@ -39,7 +39,6 @@ const cta = {
   href: localePath(lang, "download"),
 };
 
-const alternateSlugs = { de: "engine-benchmarks", en: "engine-benchmarks" };
 
 const relatedPages = [
   { label: t(lang, "explainer.engines.breadcrumb"), href: localePath(lang, "engines") },
@@ -56,7 +55,7 @@ const rows = matrix.map((cell) => {
   const measured = benchmarkData.rows.find(
     (r) => r.engine === cell.engine && r.model === cell.model && r.hardwareClass === cell.hardwareClass,
   );
-  const speedMultiplier = measured ? Math.round(1 / measured.rtf) : null;
+  const speedMultiplier = measured ? Number((1 / measured.rtf).toFixed(1)) : null;
   const accuracyPercent = measured ? (100 - measured.wer * 100).toFixed(1) : null;
   return { ...cell, measured, speedMultiplier, accuracyPercent };
 });
@@ -68,7 +67,6 @@ const rows = matrix.map((cell) => {
   breadcrumbs={breadcrumbs}
   hero={hero}
   cta={cta}
-  alternateSlugs={alternateSlugs}
   relatedPages={relatedPages}
 >
   <section>

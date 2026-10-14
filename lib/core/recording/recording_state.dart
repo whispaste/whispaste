@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../config/settings_enums.dart';
 import '../config/settings_provider.dart';
 import '../logging/app_logger.dart';
 import '../../services/model_download_service.dart';
@@ -143,6 +144,28 @@ class RecordingState {
 }
 
 // ---------------------------------------------------------------------------
+// Transcription budget
+// ---------------------------------------------------------------------------
+
+/// Budget per second of audio for the transcribing stuck-guards. A CPU-only
+/// Whisper run has to finish within this many times the recording's length
+/// before it counts as stuck. Not measured on CPU-only hardware; chosen so a
+/// 60-minute recording gets three hours before it is abandoned.
+const double kTranscriptionBudgetFactor = 3.0;
+
+/// The stuck-guard budget for transcribing [audio]:
+/// `max(floor, factor × audio)`.
+///
+/// Shared by the Whisper inference guard (`SttServerStateNotifier`) and the
+/// transcribing guard in [RecordingNotifier]. [floor] is the minimum budget
+/// (5 min in production), so short recordings keep their previous timeout.
+/// Non-positive durations return [floor].
+Duration transcriptionStuckBudget(Duration audio, {required Duration floor}) {
+  final scaled = audio * kTranscriptionBudgetFactor;
+  return scaled > floor ? scaled : floor;
+}
+
+// ---------------------------------------------------------------------------
 // Notifier
 // ---------------------------------------------------------------------------
 
@@ -152,8 +175,8 @@ class RecordingNotifier extends Notifier<RecordingState> {
 
   Timer? _elapsedTimer;
 
-  /// Safety-net timer: if the state machine stays in transcribing
-  /// for longer than this, auto-fail to unblock the UI.
+  /// Safety-net timer: if the state machine stays in transcribing for longer
+  /// than its budget (at least [_stuckTimeout]), auto-fail to unblock the UI.
   Timer? _stuckGuard;
   static const _stuckTimeout = Duration(minutes: 5);
 
@@ -288,11 +311,17 @@ class RecordingNotifier extends Notifier<RecordingState> {
   /// Safety net: auto-fail if stuck in transcribing too long.
   void _startStuckGuard() {
     _stuckGuard?.cancel();
-    _stuckGuard = Timer(_stuckTimeout, () {
+    // The budget scales with the recording's length (`state.elapsed`), with
+    // [_stuckTimeout] as the floor for short recordings.
+    final budget = transcriptionStuckBudget(
+      state.elapsed,
+      floor: _stuckTimeout,
+    );
+    _stuckGuard = Timer(budget, () {
       if (state.phase == RecordingPhase.transcribing) {
         _log.error(
           'State machine stuck in ${state.phase} for '
-          '${_stuckTimeout.inMinutes} min — auto-failing '
+          '${budget.inMinutes} min — auto-failing '
           '(session=${state.sessionId})',
         );
         fail('pipeline_timeout');
@@ -376,23 +405,33 @@ enum RecordingReadiness {
   modelMissing,
 }
 
-/// Computed readiness state — watches download state + settings.
-final recordingReadinessProvider = Provider<RecordingReadiness>((ref) {
+/// The selected on-device Whisper model when its file is not on disk.
+///
+/// `null` whenever nothing is known to be missing: before onboarding is done
+/// (onboarding downloads the model itself), before the initial disk scan has
+/// landed, for cloud providers, for Parakeet (its own bundle and downloader)
+/// and while that very model is downloading.
+final missingSttModelProvider = Provider<SttModelInfo?>((ref) {
   final dl = ref.watch(modelDownloadProvider);
   final settings = ref.watch(settingsProvider).value;
-
-  // While settings are loading or onboarding isn't done, report ready
-  // and let the orchestrator's hard preflight catch those cases.
-  if (settings == null || !settings.onboardingCompleted) {
-    return RecordingReadiness.ready;
+  if (settings == null || !settings.onboardingCompleted || !dl.scanned) {
+    return null;
   }
-
+  if (settings.sttProviderType != SttProviderType.onDevice ||
+      settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+    return null;
+  }
   final modelId = settings.effectiveModelId;
-  if (!dl.downloadedModels.contains(modelId)) {
-    return RecordingReadiness.modelMissing;
-  }
+  if (dl.downloadedModels.contains(modelId)) return null;
+  if (dl.isBusy && dl.activeModelId == modelId) return null;
+  return findSttModel(modelId);
+});
 
-  return RecordingReadiness.ready;
+/// Computed readiness state — watches download state + settings.
+final recordingReadinessProvider = Provider<RecordingReadiness>((ref) {
+  return ref.watch(missingSttModelProvider) == null
+      ? RecordingReadiness.ready
+      : RecordingReadiness.modelMissing;
 });
 
 /// Lightweight info notification channel for the recording pipeline.

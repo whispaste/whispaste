@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "smart_mode_shim.h"
@@ -22,6 +23,8 @@
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#elif defined(__linux__)
+#include <dlfcn.h>
 #endif
 
 namespace {
@@ -63,9 +66,40 @@ void ensure_backends_loaded() {
       }
     }
   }
+#elif defined(__linux__)
+  // Same problem on Linux: ggml_backend_load_all() searches the directory of
+  // /proc/self/exe (the Flutter bundle root) and the CWD, but the backend
+  // modules (libggml-cpu-*.so, libggml-vulkan.so) ship next to this shim in
+  // <bundle>/lib/smart_mode/ (see scripts/build-libllama-linux.sh). Scanning
+  // exactly this directory also keeps ggml from ever picking up libwhisper's
+  // own backend modules one level up in <bundle>/lib/.
+  Dl_info info;
+  if (dladdr(reinterpret_cast<void*>(&ensure_backends_loaded), &info) != 0 &&
+      info.dli_fname != nullptr) {
+    std::string path(info.dli_fname);
+    auto last_slash = path.find_last_of('/');
+    if (last_slash != std::string::npos) {
+      ggml_backend_load_all_from_path(path.substr(0, last_slash).c_str());
+      g_backends_loaded = true;
+      return;
+    }
+  }
 #endif
   ggml_backend_load_all();
   g_backends_loaded = true;
+}
+
+// Threads for prompt processing and decoding. llama.cpp's own default is
+// GGML_DEFAULT_N_THREADS (4) and would be used on every machine, so the shim
+// sets it explicitly. Same policy as Dart's WhisperFfiEngine.computeThreadCount:
+// logical cores minus one, clamped to 2..8.
+int default_thread_count() {
+  unsigned int cores = std::thread::hardware_concurrency();
+  if (cores == 0) cores = 4;
+  int n = static_cast<int>(cores) - 1;
+  if (n < 2) n = 2;
+  if (n > 8) n = 8;
+  return n;
 }
 
 char* dup_cstr(const std::string& s) {
@@ -91,6 +125,9 @@ struct smart_mode_session {
   llama_model* model = nullptr;
   llama_context* ctx = nullptr;
   common_chat_templates_ptr tmpls;
+  // Set by smart_mode_generate: the last response may be cut off (token
+  // limit, context overflow, decode failure) rather than ending with EOS.
+  bool last_output_incomplete = false;
 };
 
 extern "C" smart_mode_session* smart_mode_load(
@@ -122,6 +159,9 @@ extern "C" smart_mode_session* smart_mode_load(
   llama_context_params ctx_params = llama_context_default_params();
   ctx_params.n_ctx = n_ctx;
   ctx_params.n_batch = n_ctx;
+  const int n_threads = default_thread_count();
+  ctx_params.n_threads = n_threads;
+  ctx_params.n_threads_batch = n_threads;
 
   llama_context* ctx = llama_init_from_model(model, ctx_params);
   if (ctx == nullptr) {
@@ -148,6 +188,7 @@ extern "C" char* smart_mode_generate(
 ) {
   if (session == nullptr || user_text == nullptr) return nullptr;
   if (is_aborted(abort_flag)) return nullptr;
+  session->last_output_incomplete = false;
 
   llama_context* ctx = session->ctx;
   const llama_vocab* vocab = llama_model_get_vocab(session->model);
@@ -202,6 +243,9 @@ extern "C" char* smart_mode_generate(
   const int max_new_tokens = 512;
   int n_generated = 0;
   bool aborted = false;
+  // Every early exit below that is not EOS sets this, so the caller can keep
+  // the original text instead of pasting a silently truncated response.
+  bool incomplete = false;
 
   while (true) {
     if (is_aborted(abort_flag)) {
@@ -213,12 +257,16 @@ extern "C" char* smart_mode_generate(
     const int n_ctx_used = llama_memory_seq_pos_max(llama_get_memory(ctx), 0) + 1;
     if (n_ctx_used + batch.n_tokens > ctx_size) {
       std::fprintf(stderr, "[smart_mode_shim] context size exceeded\n");
+      incomplete = true;
       break;
     }
 
     if (llama_decode(ctx, batch) != 0) {
       aborted = is_aborted(abort_flag);
-      if (!aborted) std::fprintf(stderr, "[smart_mode_shim] decode failed\n");
+      if (!aborted) {
+        std::fprintf(stderr, "[smart_mode_shim] decode failed\n");
+        incomplete = true;
+      }
       break;
     }
 
@@ -229,11 +277,17 @@ extern "C" char* smart_mode_generate(
     const int n = llama_token_to_piece(vocab, new_token_id, piece, sizeof(piece), 0, true);
     if (n < 0) {
       std::fprintf(stderr, "[smart_mode_shim] token_to_piece failed\n");
+      incomplete = true;
       break;
     }
     response.append(piece, n);
 
-    if (++n_generated >= max_new_tokens) break;
+    if (++n_generated >= max_new_tokens) {
+      std::fprintf(stderr, "[smart_mode_shim] output reached %d tokens; response may be cut off\n",
+                   max_new_tokens);
+      incomplete = true;
+      break;
+    }
 
     batch = llama_batch_get_one(&new_token_id, 1);
   }
@@ -242,6 +296,7 @@ extern "C" char* smart_mode_generate(
   llama_set_abort_callback(ctx, nullptr, nullptr);
 
   if (aborted) return nullptr;
+  session->last_output_incomplete = incomplete;
   return dup_cstr(response);
 }
 
@@ -270,6 +325,15 @@ extern "C" char* smart_mode_run(
       session, system_prompt, user_text, temperature, top_p, top_k, nullptr);
   smart_mode_unload(session);
   return result;
+}
+
+extern "C" const char* smart_mode_system_info(void) {
+  ensure_backends_loaded();
+  return llama_print_system_info();
+}
+
+extern "C" int smart_mode_last_output_incomplete(const smart_mode_session* session) {
+  return session != nullptr && session->last_output_incomplete ? 1 : 0;
 }
 
 extern "C" void smart_mode_free_result(char* result) {

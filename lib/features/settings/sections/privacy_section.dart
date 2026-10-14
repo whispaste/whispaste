@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
+import '../../../core/logging/crash_reporter.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
@@ -18,6 +19,13 @@ class PrivacySection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
+    // Re-enabling cannot start Sentry mid-session; say so instead of
+    // pretending the toggle already took effect.
+    final errorReportingSubtitle =
+        CrashReporter.instance?.restartRequired ?? false
+        ? '${l10n.settingsErrorReportingSubtitle} '
+              '${l10n.settingsErrorReportingRestartHint}'
+        : l10n.settingsErrorReportingSubtitle;
 
     return WpSection(
       title: l10n.settingsPrivacy,
@@ -28,11 +36,13 @@ class PrivacySection extends ConsumerWidget {
           SettingRow(
             icon: LucideIcons.shieldCheck,
             label: l10n.settingsErrorReporting,
-            subtitle: l10n.settingsErrorReportingSubtitle,
+            subtitle: errorReportingSubtitle,
             semanticToggledValue: settings.errorReporting,
             trailing: settingsToggle(
               value: settings.errorReporting,
               onChanged: (v) {
+                // Before the settings rebuild, so the subtitle sees it.
+                CrashReporter.instance?.consentGranted = v;
                 ref
                     .read(settingsProvider.notifier)
                     .updateSettings((s) => s.copyWith(errorReporting: v));

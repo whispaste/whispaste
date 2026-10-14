@@ -662,4 +662,79 @@ void main() {
       );
     });
   });
+
+  group('live-transcript tail-first text (live-preview spike)', () {
+    const longText =
+        'eins zwei drei vier fünf sechs sieben acht neun zehn elf zwölf '
+        'dreizehn vierzehn fünfzehn sechzehn siebzehn achtzehn neunzehn';
+
+    FloatingOverlaySnapshot liveSnap(OverlayVisualState state) =>
+        FloatingOverlaySnapshot(
+          visible: true,
+          state: state,
+          size: OverlaySizeVariant.normal,
+          label: 'Transcribing…',
+          elapsed: state == OverlayVisualState.recording ? longText : '',
+          liveTranscript: longText,
+        );
+
+    test('painterFor enables tail-first text only for live transcripts', () {
+      expect(
+        WpFloatingOverlayView.painterFor(
+          snapshot: liveSnap(OverlayVisualState.recording),
+        ).tailFirstText,
+        isTrue,
+      );
+      expect(
+        WpFloatingOverlayView.painterFor(
+          snapshot: liveSnap(OverlayVisualState.transcribing),
+        ).tailFirstText,
+        isTrue,
+      );
+      expect(
+        WpFloatingOverlayView.painterFor(
+          snapshot: _snap(OverlayVisualState.recording),
+        ).tailFirstText,
+        isFalse,
+      );
+      expect(
+        WpFloatingOverlayView.painterFor(
+          snapshot: _snap(OverlayVisualState.transcribing),
+        ).tailFirstText,
+        isFalse,
+      );
+    });
+
+    test('overflowing live text keeps the newest words, not the oldest', () {
+      final painter = WpFloatingOverlayView.painterFor(
+        snapshot: liveSnap(OverlayVisualState.recording),
+      );
+      final shown = painter.fittedTextFor(longText, 400);
+      expect(shown, startsWith('…'));
+      expect(shown, endsWith(' neunzehn'));
+      expect(shown, isNot(contains('eins')));
+    });
+
+    test('classic text is passed through untouched (trailing ellipsis '
+        'stays with TextPainter)', () {
+      final painter = WpFloatingOverlayView.painterFor(
+        snapshot: _snap(OverlayVisualState.transcribing),
+      );
+      expect(painter.fittedTextFor(longText, 120), longText);
+    });
+
+    test('recording text never runs under the stop square', () {
+      final painter = WpFloatingOverlayView.painterFor(
+        snapshot: liveSnap(OverlayVisualState.recording),
+      );
+      const pill = Rect.fromLTWH(0, 0, 300, 40);
+      const textLeft = 40.0;
+      final stopLeft =
+          pill.right - painter.layout.padH - painter.layout.stopSize;
+      expect(
+        textLeft + painter.recordingTextMaxWidth(pill, textLeft),
+        lessThanOrEqualTo(stopLeft),
+      );
+    });
+  });
 }

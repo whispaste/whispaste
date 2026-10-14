@@ -1,0 +1,139 @@
+---
+/**
+ * The landing page, shared by `pages/index.astro` (default locale) and
+ * `pages/[lang]/index.astro` (prefixed locales) so both stay in lockstep.
+ */
+import Layout from "../layouts/Layout.astro";
+import Nav from "./Nav.astro";
+import Hero from "./Hero.astro";
+import AppPasteDemo from "./AppPasteDemo.astro";
+import FeatureHighlights from "./FeatureHighlights.astro";
+import AppScreenshots from "./AppScreenshots.astro";
+import UseCaseCards from "./UseCaseCards.astro";
+import Privacy from "./Privacy.astro";
+import Engines from "./Engines.astro";
+import Pricing from "./Pricing.astro";
+import FAQ from "./FAQ.astro";
+import Testimonials from "./Testimonials.astro";
+import Support from "./Support.astro";
+import Footer from "./Footer.astro";
+import DownloadSupportModal from "./DownloadSupportModal.astro";
+import MobileCta from "./MobileCta.astro";
+import SoftwareApplicationSchema from "./schema/SoftwareApplicationSchema.astro";
+import FAQPageSchema from "./schema/FAQPageSchema.astro";
+import HowToSchema from "./schema/HowToSchema.astro";
+import { t } from "../scripts/i18n.ts";
+import type { Locale } from "../scripts/locales.ts";
+
+interface Props {
+  lang: Locale;
+}
+
+const { lang } = Astro.props;
+---
+
+<Layout
+  title={t(lang, "meta.title.home")}
+  description={t(lang, "meta.description.home")}
+>
+  <Nav variant="landing" />
+  <main id="main-content">
+    {/*
+      Story order: what it does (Hero) → how it works (AppPasteDemo, the one
+      explanation arc incl. the real overlay renderer) → what it can do
+      (FeatureHighlights, AppScreenshots) → who it is for (UseCaseCards) →
+      trust (Privacy, Engines incl. languages) → decision (Pricing, FAQ) →
+      social proof before the support ask (Testimonials, Support).
+      Each section sets its own band class; none is duplicated here.
+    */}
+    <Hero />
+    <AppPasteDemo />
+    <FeatureHighlights />
+    <AppScreenshots />
+    <UseCaseCards />
+    <Privacy />
+    <Engines />
+    <Pricing />
+    <FAQ />
+    <Testimonials />
+    <Support />
+  </main>
+  <Footer variant="landing" />
+  <DownloadSupportModal />
+  <MobileCta />
+
+  {/* Schema builders are covered by `src/components/schema/__tests__/`. */}
+  <SoftwareApplicationSchema locale={lang} />
+  <FAQPageSchema locale={lang} />
+  <HowToSchema locale={lang} />
+
+  <style is:global>
+    /* Content is visible by default; the hidden start state only applies once
+       the reveal script has run, so no-JS visitors and crawlers see everything. */
+    .wp-reveal-ready .scroll-reveal:not(.visible) {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    .scroll-reveal {
+      transition: opacity 0.7s var(--ease-flow), transform 0.7s var(--ease-flow);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .wp-reveal-ready .scroll-reveal:not(.visible) {
+        opacity: 1;
+        transform: none;
+      }
+      .scroll-reveal { transition: none; }
+    }
+  </style>
+
+  <script>
+    import { applyLang } from '../scripts/lang-switch';
+
+    const reveal = (el: Element) => el.classList.add('visible');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            reveal(entry.target);
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+    );
+    document.querySelectorAll('.scroll-reveal').forEach((el) => {
+      if (el.getBoundingClientRect().top < window.innerHeight + 40) reveal(el);
+      else observer.observe(el);
+    });
+    document.documentElement.classList.add('wp-reveal-ready');
+
+    // Fetch GitHub stars (cached in sessionStorage)
+    (async () => {
+      try {
+        const cacheKey = 'wp-gh-stars';
+        const cached = sessionStorage.getItem(cacheKey);
+        let count: number | null = cached ? parseInt(cached, 10) : null;
+
+        if (count === null || isNaN(count)) {
+          const res = await fetch('https://api.github.com/repos/whispaste/whispaste');
+          if (res.ok) {
+            const data = await res.json();
+            count = data.stargazers_count;
+            if (typeof count === 'number') sessionStorage.setItem(cacheKey, String(count));
+          }
+        }
+
+        if (typeof count === 'number' && count > 0) {
+          const badge = document.getElementById('github-stars-badge');
+          const span = document.getElementById('github-stars-count');
+          if (badge && span) {
+            span.textContent = (span.dataset.template ?? '{count}').replace('{count}', String(count));
+            badge.style.display = '';
+          }
+        }
+      } catch { /* silent — badge stays hidden */ }
+    })();
+
+    applyLang();
+  </script>
+</Layout>

@@ -1,0 +1,192 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Nav from "../../components/Nav.astro";
+import Footer from "../../components/Footer.astro";
+import BreadcrumbListSchema from "../../components/schema/BreadcrumbListSchema.astro";
+import releasesFile from "../../data/releases.json";
+import { t, localePath, currentLocale, prefixedLocalePaths } from "../../scripts/i18n.ts";
+
+export function getStaticPaths() {
+  return prefixedLocalePaths();
+}
+
+const pageLang = currentLocale(Astro.params.lang);
+const breadcrumbItems = [
+  { name: t(pageLang, "breadcrumb.home"), item: localePath(pageLang, "") },
+  { name: t(pageLang, "breadcrumb.changelog"), item: localePath(pageLang, "changelog") },
+];
+
+// `releases.json` follows the `ReleasesFile` schema produced by
+// `website/scripts/release-store.ts`. We render the top 5 (already the file
+// content for now — issue 07 caps the deploy pipeline at the same number).
+const releases = releasesFile.releases.slice(0, 5);
+
+// Render-time formatter for the `publishedAt` ISO timestamp. We keep the
+// same short `YYYY-MM-DD` form the legacy `changelog.json` carried so the
+// visual diff stays at zero.
+const formatDate = (iso: string): string => iso.slice(0, 10);
+
+const LANGS = ["en", "de"] as const;
+type Lang = (typeof LANGS)[number];
+---
+
+<Layout title={t(pageLang, "meta.title.changelog")} description={t(pageLang, "meta.description.changelog")}>
+  <div class="min-h-screen flex flex-col">
+    <Nav variant="subpage" />
+
+    <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
+      <div class="max-w-3xl mx-auto">
+
+        <!-- Header -->
+        <div class="text-center mb-14">
+          <div class="mb-5">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-cyan/10 border border-brand-cyan/20">
+              <svg class="w-8 h-8 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 8v4l3 3"/>
+                <circle cx="12" cy="12" r="10"/>
+              </svg>
+            </div>
+          </div>
+          <h1 class="text-[clamp(1.875rem,1.33rem+2.31vw,2.25rem)] font-bold text-white mb-3" data-i18n="changelog.title">{t(pageLang, "changelog.title")}</h1>
+          <p class="text-ink-muted text-lg max-w-xl mx-auto leading-relaxed" data-i18n="changelog.desc">{t(pageLang, "changelog.desc")}</p>
+          {pageLang !== "en" && <p class="mt-2 text-ink-subtle text-sm" data-testid="changelog-english-note">{t(pageLang, "changelog.notesInEnglish")}</p>}
+        </div>
+
+        <!-- Release timeline -->
+        <div id="changelog-list" class="space-y-8" data-top-version={releases[0]?.tag ?? ''}>
+          {releases.map((release, index) => (
+            <article class="release-card rounded-2xl border border-white/[0.06] p-6 sm:p-8 scroll-reveal">
+              <!-- Version header — h2 für saubere Heading-Hierarchie (h1 → h2 → h3-Sektionen) -->
+              <h2 class="flex items-center gap-3 mb-5">
+                <span class={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${index === 0 ? 'bg-brand-cyan/15 text-brand-cyan border border-brand-cyan/20' : 'bg-white/[0.06] text-ink-muted border border-white/[0.08]'}`}>
+                  {index === 0 && (
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  )}
+                  {release.tag}
+                </span>
+                <time class="text-sm text-ink-subtle" datetime={release.publishedAt}>{formatDate(release.publishedAt)}</time>
+                {index === 0 && (
+                  <span class="text-xs font-medium text-brand-cyan/70 uppercase tracking-wider" data-i18n="changelog.latest">{t(pageLang, "changelog.latest")}</span>
+                )}
+              </h2>
+
+              {/*
+                Per-card body: we emit BOTH languages so the static HTML carries
+                every release in every language (SEO + JS-disabled readability).
+                A CSS rule (`html[lang="…"] [data-lang="…"]`) hides whichever
+                language is not the current document language. The existing
+                `applyLang()` in `scripts/i18n.ts` already maintains
+                `documentElement.lang`, so the toggle Just Works without a
+                bespoke listener.
+              */}
+              {LANGS.map((lang: Lang) => (
+                <div data-lang={lang} class="release-card-body">
+                  {/* `de` is optional (no-translation pipeline); fall back to
+                      the English blocks so a release without a German asset
+                      still renders rather than crashing the build. */}
+                  {(release[lang] ?? release.en).blocks.sections.map((section) => (
+                    <div class="mb-4 last:mb-0">
+                      <h3 class="text-sm font-semibold text-white/70 uppercase tracking-wider mb-3">
+                        {section.heading}
+                      </h3>
+                      {section.items.length > 0 && (
+                        <ul class="space-y-2">
+                          {section.items.map((item) => (
+                            <li class="flex items-start gap-2.5 text-ink-muted text-sm leading-relaxed">
+                              <svg class="w-4 h-4 text-brand-cyan shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                              <span>
+                                {item.title !== undefined && item.title.length > 0 && (
+                                  <strong class="text-white/90">{item.title}: </strong>
+                                )}
+                                {item.body}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </article>
+          ))}
+        </div>
+
+        <!-- GitHub link -->
+        <div class="mt-10 text-center">
+          <a href="https://github.com/whispaste/whispaste/releases" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-2 text-sm text-ink-muted hover:text-brand-cyan transition-colors">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+            <span data-i18n="changelog.allreleases">{t(pageLang, "changelog.allreleases")}</span>
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+        </div>
+
+      </div>
+    </main>
+    <Footer variant="subpage" />
+  </div>
+
+  <script>
+    import { applyLang } from '../../scripts/lang-switch';
+    applyLang();
+
+    // Scroll reveal for release cards
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+    document.querySelectorAll('.scroll-reveal').forEach(el => {
+      observer.observe(el);
+      if (el.getBoundingClientRect().top < window.innerHeight) {
+        el.classList.add('visible');
+      }
+    });
+  </script>
+
+  {/* Dynamic Changelog hydrator: re-fetches the GitHub Releases API after the
+      static page has rendered and prepends any release newer than the build-time
+      snapshot. The build-time top version is passed via a `data-top-version`
+      attribute so we don't have to re-ship `releases.json` into the script
+      bundle. Silent fail on every failure mode — the static cards are always
+      authoritative. See website/src/scripts/changelog-hydrator.ts. */}
+  <script>
+    import { hydrate, defaultCardRenderer } from '../../scripts/changelog-hydrator';
+
+    const mount = document.getElementById('changelog-list');
+    const currentTopVersion = mount?.getAttribute('data-top-version') ?? '';
+    if (currentTopVersion.length > 0) {
+      hydrate({
+        mountSelector: '#changelog-list',
+        owner: 'whispaste',
+        repo: 'whispaste',
+        cardRenderer: defaultCardRenderer,
+        currentTopVersion,
+      });
+    }
+  </script>
+
+  <style>
+    .release-card {
+      background: var(--color-brand-card);
+    }
+    /*
+     * Static language toggle: render both EN and DE per card and let the
+     * existing `applyLang()` flow (which keeps `documentElement.lang` in sync
+     * with the user's choice) decide which one is visible. With JS disabled
+     * the document falls back to `lang="en"` from Layout.astro — that's the
+     * AC's "Default-Sprache" path, and the inactive language remains in the
+     * DOM (still readable in the HTML source).
+     */
+    html:not([lang="de"]) .release-card-body[data-lang="de"],
+    html[lang="de"] .release-card-body[data-lang="en"] {
+      display: none;
+    }
+  </style>
+
+  <BreadcrumbListSchema items={breadcrumbItems} />
+</Layout>

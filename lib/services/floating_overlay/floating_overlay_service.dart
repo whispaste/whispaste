@@ -714,7 +714,9 @@ class FloatingOverlayService
           : null,
       progress: progress,
       liveTranscript:
-          phase == RecordingPhase.transcribing && s.overlayShowLiveTranscript
+          (phase == RecordingPhase.recording ||
+                  phase == RecordingPhase.transcribing) &&
+              s.overlayShowLiveTranscript
           ? _liveTranscript
           : null,
     );

@@ -24,14 +24,12 @@ void main() {
     setUp(() {
       SharedPreferences.setMockInitialValues({});
       setFeedUrlFn = (_) async {};
-      setIntervalFn = (_) async {};
       checkForUpdatesFn = ({inBackground}) async {};
     });
 
     tearDown(() {
       platformSupportsSparkle = () => false;
       setFeedUrlFn = (_) async {};
-      setIntervalFn = (_) async {};
       checkForUpdatesFn = ({inBackground}) async {};
     });
 
@@ -147,6 +145,31 @@ void main() {
       expect(find.text(l10n.reviewSupportEntry), findsOneWidget);
       // The existing GitHub-Stern link is preserved.
       expect(find.text(l10n.aboutStarOnGitHub), findsOneWidget);
+    });
+  });
+
+  // NVIDIA's model is CC-BY-4.0, which requires attribution where the model
+  // is credited. Both credits (NVIDIA model, ggml-org conversion) must render
+  // as links in the "Built with" card.
+  group('Parakeet credits', () {
+    testWidgets('names the NVIDIA model and the ggml-org conversion as links', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const AboutPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('about-parakeet-model-link')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('about-parakeet-gguf-link')),
+        findsOneWidget,
+      );
+      expect(find.text(l10n.aboutParakeetModelCredit), findsOneWidget);
+      expect(find.text(l10n.aboutParakeetGgufCredit), findsOneWidget);
     });
   });
 

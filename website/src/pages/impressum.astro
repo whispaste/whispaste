@@ -127,12 +127,8 @@ const breadcrumbItems = [
   </div>
 
   <script>
-    import { applyLang } from '../scripts/i18n';
+    import { applyLang } from '../scripts/lang-switch';
 
-    // Language switch on this DE-only page routes to the EN-counterpart.
-    (window as any).toggleLang = function () {
-      window.location.assign('/en/impressum/');
-    };
 
     applyLang();
   </script>

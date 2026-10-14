@@ -4,7 +4,7 @@
 // row, so all three desktop platforms get an equal-rank primary CTA
 // (PRODUCT.md: "Plattform-Parität zuerst").
 // URL sourced exclusively from the central platform config.
-import { t } from '../scripts/i18n.ts';
+import { t, currentLocale } from '../scripts/i18n.ts';
 import { LINUX_APPIMAGE_URL } from '../data/platforms.ts';
 // Raw-imported so `fill="currentColor"` inherits the button's text color — an
 // <img>-embedded SVG cannot do this. Same source/provenance as the hero badges
@@ -21,7 +21,7 @@ const APPIMAGE_URL = LINUX_APPIMAGE_URL;
 const { size = 'default', class: className = '' } = Astro.props;
 const isLarge = size === 'lg';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
 ---
 
 <a

@@ -109,13 +109,22 @@ cmd/
 scripts/*
 !scripts/build-libwhisper-macos.sh
 !scripts/build-libwhisper-linux.sh
+!scripts/split-debug-linux.sh
 !scripts/bundle-libwhisper-windows.ps1
 !scripts/build-libllama-macos.sh
+!scripts/build-libllama-linux.sh
 !scripts/build-smartmode-shim-macos.sh
+!scripts/ensure-libllama-macos.sh
 !scripts/build-libllama-windows.ps1
 !scripts/build-smartmode-shim-windows.ps1
 !scripts/bundle-libllama-windows.ps1
+!scripts/collect-pdbs-windows.ps1
+!scripts/fetch-cuda-redist.py
+!scripts/build-cuda-pack-linux.sh
+!scripts/build-cuda-pack-windows.ps1
+!scripts/cuda-pack-NOTICE.template.txt
 !scripts/git-hooks/
+!scripts/smoke/
 !scripts/generate-release-notes.mjs
 !scripts/generate-release-notes.ps1
 !scripts/extract-cumulative-changelog.mjs
@@ -139,6 +148,7 @@ scripts/*
 !scripts/verify-ms-store-listing.ps1
 !scripts/generate-whisper-server-manifest.sh
 !scripts/docs-attest.sh
+!scripts/approve-release.sh
 !scripts/docs-drift.sh
 !scripts/probe-packaging-validate.sh
 !scripts/check-workflow-hygiene.sh
@@ -214,12 +224,9 @@ __pycache__/
 # Web-Review-Screenshot-Cache eines lokalen Tools (nicht Produktcode)
 .asc/
 
-# Impeccable design-system docs for the Flutter app surface (internal
-# design-process artifacts, not application source — parallels the already-
-# protected website/design-system/ entry above; live at lib/ specifically
-# because Impeccable's context resolver requires PRODUCT.md/DESIGN.md to sit
-# in an actual ancestor directory of the files it's asked to design, so they
-# can't move into .scratch/ the way the website's docs did).
+# Design-system docs for the Flutter app surface (internal design-process
+# artifacts, not application source — parallels the already-protected
+# website/design-system/ entry above).
 /lib/DESIGN.md
 /lib/PRODUCT.md
 *.pyc

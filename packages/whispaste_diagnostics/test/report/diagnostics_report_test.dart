@@ -126,6 +126,26 @@ void main() {
       expect(report, contains('CPU-Fallback aktiv: ja'));
     });
 
+    test('renders the loaded CPU backend variant when supplied', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'windows',
+        osVersion: 'windows 11',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: r'C:\Program Files\WhisPaste\whispaste.exe',
+        serverPath: r'C:\x\whisper-server.exe',
+        serverExists: false,
+        backend: 'cpu',
+        cpuFeatures: 'AVX AVX2 F16C FMA BMI2',
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, contains('CPU-Backend: AVX AVX2 F16C FMA BMI2'));
+    });
+
     test('omits loadedModel/cpuFallbackActive lines when null', () {
       final report = formatDiagnosticsReport(
         version: '1.3.0',

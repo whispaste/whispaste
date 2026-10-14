@@ -8,6 +8,7 @@ import '../../core/config/settings_labels.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_dropdown.dart';
 import '../../widgets/wp_text_field.dart';
@@ -21,6 +22,18 @@ import '../../widgets/wp_text_field.dart';
 /// put it on the same start edge instead of guessing the value.
 const double kSettingRowInset = WpSpacing.sm;
 
+/// Width of the leading icon column plus the gap after it, measured from the
+/// row's own inset. [SettingRow] draws its label on this offset.
+const double kSettingRowContentOffset = WpIconSize.sm + WpSpacing.sm;
+
+/// Start edge of a [SettingRow]'s label, measured from the section's left edge
+/// (inset + icon column + gap = 40). Dependent content that is not a SettingRow
+/// (a model's info copy, a key-combination line, an inline notice) starts on
+/// this edge rather than on its own indent: the dependency reads from its
+/// position under the row that controls it, and a nested indent on top of the
+/// row's inset put the text on a third edge.
+const double kSettingRowTextInset = kSettingRowInset + kSettingRowContentOffset;
+
 class SettingRow extends StatefulWidget {
   const SettingRow({
     super.key,
@@ -33,10 +46,19 @@ class SettingRow extends StatefulWidget {
     this.semanticToggledValue,
     this.trailingHugsLabel = false,
     this.iconSize = WpIconSize.sm,
+    this.badge,
+    this.badgeKey,
   });
 
   final IconData icon;
   final String label;
+
+  /// Short status word shown as a [WpAccentBadge] after [label] (e.g.
+  /// "Experimental"); also appended to the row's semantics label.
+  final String? badge;
+
+  /// Key for the badge, so tests and agents can address it by ID.
+  final Key? badgeKey;
   final Widget trailing;
   final String? subtitle;
 
@@ -102,8 +124,9 @@ class _SettingRowState extends State<SettingRow> {
     // belongs to. Excluding only the text keeps the row a named group *and*
     // every trailing control independently reachable — verified across all
     // four trailing shapes.
+    final badge = widget.badge;
     return Semantics(
-      label: widget.label,
+      label: badge == null ? widget.label : '${widget.label}, $badge',
       hint: widget.subtitle,
       toggled: widget.semanticToggledValue,
       child: MouseRegion(
@@ -138,7 +161,18 @@ class _SettingRowState extends State<SettingRow> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(widget.label, style: tt.bodyLarge),
+                        if (badge == null)
+                          Text(widget.label, style: tt.bodyLarge)
+                        else
+                          Wrap(
+                            spacing: WpSpacing.xs,
+                            runSpacing: WpSpacing.xxs,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              Text(widget.label, style: tt.bodyLarge),
+                              WpAccentBadge(key: widget.badgeKey, label: badge),
+                            ],
+                          ),
                         if (widget.subtitle != null)
                           Padding(
                             // 2px title-subtitle gap: tighter than
@@ -282,8 +316,8 @@ class HotkeyComboLine extends StatelessWidget {
     required this.hotkeyKeyDisplay,
     required this.onChange,
     this.changeButtonKey,
-    this.padding = const EdgeInsets.fromLTRB(
-      kSettingRowInset,
+    this.padding = const EdgeInsetsDirectional.fromSTEB(
+      kSettingRowTextInset,
       WpSpacing.xxs,
       kSettingRowInset,
       WpSpacing.xs,
@@ -690,4 +724,59 @@ void syncController(TextEditingController controller, String value) {
     selection: TextSelection.collapsed(offset: value.length),
     composing: TextRange.empty,
   );
+}
+
+/// Unobtrusive inline notice under a hotkey combination line.
+///
+/// Colour and icon follow the conflict warning of the recording dialog, but
+/// without border or fill: there the warning is the dialog's centrepiece,
+/// here it is a footnote on one of many setting rows. A boxed notice in the
+/// settings column would draw more attention than the hotkey itself.
+class HotkeyNotice extends StatelessWidget {
+  const HotkeyNotice({
+    super.key,
+    required this.noticeKey,
+    required this.icon,
+    required this.color,
+    required this.text,
+  });
+
+  final Key noticeKey;
+  final IconData icon;
+  final Color color;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      key: noticeKey,
+      padding: const EdgeInsetsDirectional.fromSTEB(
+        kSettingRowTextInset,
+        0,
+        kSettingRowInset,
+        WpSpacing.xs,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            // Aligned to the first text line's baseline so the icon does not
+            // float beside a multi-line paragraph.
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: WpIconSize.sm, color: color),
+          ),
+          const SizedBox(width: WpSpacing.xs),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: WpTypography.caption,
+                height: 1.4,
+              ).copyWith(color: color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

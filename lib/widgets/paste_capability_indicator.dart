@@ -16,6 +16,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/paste/paste_capability_notifier.dart';
+import '../services/permissions/stale_entry_removal_guide.dart';
 import '../services/paste/paster.dart';
 import 'paste_capability_restart_banner.dart';
 import 'toast.dart';
@@ -56,6 +57,15 @@ class _WpPasteCapabilityIndicatorState
   Future<void> _repair() async {
     if (!Platform.isMacOS) return;
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    // The sandboxed build cannot reset its own entry — the guided removal
+    // is its repair.
+    if (notifier.requiresManualEntryRemoval) {
+      await runStaleEntryRemovalGuide(
+        l10n: L10n.of(context),
+        notifier: notifier,
+      );
+      return;
+    }
     await _run(() async {
       final result = await notifier.repair();
       if (!mounted) return;

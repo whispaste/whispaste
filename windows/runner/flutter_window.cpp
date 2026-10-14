@@ -8,7 +8,17 @@
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
-FlutterWindow::~FlutterWindow() {}
+FlutterWindow::~FlutterWindow() {
+  // Quitting via PostQuitMessage (window_manager's destroy()) ends the message
+  // loop while the main HWND is still alive, so WM_DESTROY never reaches
+  // OnDestroy() and ~Win32Window()'s Destroy() only dispatches to the no-op
+  // base OnDestroy(). Without this call the members would be torn down
+  // implicitly: ~unique_ptr does not null flutter_controller_ before deleting
+  // it and is_destroying_ is still false, so WM_PARENTNOTIFY from the Flutter
+  // child's DestroyWindow() is forwarded into the half-destroyed controller
+  // (Sentry 121115654/127954786, misattributed to sh::TFunctionLookup).
+  OnDestroy();
+}
 
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
@@ -69,6 +79,9 @@ bool FlutterWindow::OnCreate() {
   // registered (issue 05 Windows port).
   clipboard_monitor_host_ = std::make_unique<ClipboardMonitorHost>(
       flutter_controller_->engine(), GetHandle());
+
+  support_store_channel_ = std::make_unique<SupportStoreChannel>(
+      flutter_controller_->engine()->messenger(), GetHandle());
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
@@ -131,6 +144,8 @@ void FlutterWindow::OnDestroy() {
     clipboard_monitor_host_.reset();
   }
 
+  support_store_channel_.reset();
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -175,6 +190,21 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   // the message.
   if (message == WM_CLIPBOARDUPDATE && clipboard_monitor_host_) {
     clipboard_monitor_host_->HandleClipboardUpdate();
+  }
+
+  // Clipboard-owner messages for the receipt-based paste (delayed
+  // rendering). WM_RENDERFORMAT must be answered by the owner window itself.
+  if ((message == WM_RENDERFORMAT || message == WM_RENDERALLFORMATS ||
+       message == WM_DESTROYCLIPBOARD) &&
+      desktop_paste_host_ &&
+      desktop_paste_host_->HandleClipboardOwnerMessage(message, wparam)) {
+    return 0;
+  }
+
+  // Store purchase replies are posted here (see SupportStoreChannel).
+  if (support_store_channel_ &&
+      support_store_channel_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
   }
 
   // Give Flutter, including plugins, an opportunity to handle window messages.

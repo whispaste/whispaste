@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/features/settings/sections/smart_mode_section.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
+    show smartModeLocalEngineAvailableProvider;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
 
 import '../../../fixtures/test_helpers.dart';
@@ -36,9 +38,13 @@ class _FakeDownloadNotifier extends SmartModeDownloadNotifier {
 List<Object> _overrides({
   required _FakeSettingsNotifier settings,
   SmartModeDownloadState download = const SmartModeDownloadState(),
+  bool localEngineAvailable = true,
 }) {
   return [
     settingsProvider.overrideWith(() => settings),
+    smartModeLocalEngineAvailableProvider.overrideWithValue(
+      localEngineAvailable,
+    ),
     smartModeDownloadProvider.overrideWith(
       () => _FakeDownloadNotifier(download),
     ),
@@ -123,6 +129,80 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(notifier.state.value!.smartMode.standardPreset, 'cleanup');
+    });
+
+    // Ticket handy-catchup/21: a build without the bundled local engine
+    // (Linux before libllama shipped, any dev build that skipped the
+    // bundling step) must not offer a local option that can only fail.
+    testWidgets('local engine missing: shows the unavailable hint instead of '
+        'the model download row', (tester) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(
+            settings: notifier,
+            localEngineAvailable: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('smartModeLocalUnavailableHint')),
+        findsOneWidget,
+      );
+      expect(find.text('Download'), findsNothing);
+      expect(find.textContaining(smartModeModel.label), findsNothing);
+    });
+
+    testWidgets('local engine missing: the on-device option cannot be '
+        'selected', (tester) async {
+      final notifier = _FakeSettingsNotifier(
+        AppSettings.defaults.copyWithSections(
+          smartMode: AppSettings.defaults.smartMode.copyWith(
+            provider: 'openai',
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(
+            settings: notifier,
+            localEngineAvailable: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('OpenAI'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Locally on Device').last);
+      await tester.pumpAndSettle();
+
+      expect(notifier.state.value!.smartMode.provider, 'openai');
+      // OpenAI is a working choice — no hint needed while it is selected.
+      expect(
+        find.byKey(const Key('smartModeLocalUnavailableHint')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('local engine present: no unavailable hint', (tester) async {
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: SmartModeSection()),
+          overrides: _overrides(settings: notifier),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('smartModeLocalUnavailableHint')),
+        findsNothing,
+      );
     });
 
     testWidgets('shows Download action when model is not downloaded', (

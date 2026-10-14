@@ -65,10 +65,13 @@ class FloatingOverlaySnapshot {
   /// never paints it.
   final String? secondaryLabel;
 
-  /// Live/partial recognized text, shown instead of the waveform while
-  /// [state] is [OverlayVisualState.transcribing], only when the user has
-  /// opted into the live-transcript overlay setting (ticket 11). Null/empty
-  /// keeps the classic waveform-only composition — the default.
+  /// Live/partial recognized text, only when the user has opted into the
+  /// live-transcript overlay setting (ticket 11). While
+  /// [OverlayVisualState.transcribing] it replaces the status label; while
+  /// [OverlayVisualState.recording] the same text is already in [elapsed]
+  /// and this field only marks it as live text, so the painter keeps the
+  /// newest words on overflow. Null/empty keeps the classic composition —
+  /// the default.
   final String? liveTranscript;
 
   Map<String, dynamic> toMap() => {

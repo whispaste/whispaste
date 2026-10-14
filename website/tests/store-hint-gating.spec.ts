@@ -141,3 +141,14 @@ test.describe('"Warum zwei Wege" / "Why two ways" section order', () => {
     await assertDocumentOrder(page, 'why-two-ways', 'download-primary-group');
   });
 });
+
+// The store perks (support, reviewed, auto-updates) sit inside the "two ways"
+// card so the reasons to pick the store build are next to the decision.
+test('download page lists the three store perks inside "why two ways"', async ({ page }) => {
+  await page.goto('/en/download/');
+  const card = page.getByTestId('why-two-ways');
+  for (const key of ['support', 'safe', 'updates']) {
+    await expect(card.getByTestId(`download-store-perks-${key}`)).toBeVisible();
+  }
+  await expect(card.getByTestId('download-store-perks-updates')).toContainText('automatically');
+});

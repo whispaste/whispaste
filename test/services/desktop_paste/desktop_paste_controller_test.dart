@@ -340,4 +340,95 @@ void main() {
       expect(result.canPrompt, isFalse);
     });
   });
+
+  group('ClipboardReceiptBridge (receipt-based clipboard restore)', () {
+    test('macOS and Windows controllers offer the receipt bridge; Linux '
+        'deliberately does not (its uinput path stays unchanged)', () {
+      expect(MacOSDesktopPasteController(), isA<ClipboardReceiptBridge>());
+      expect(WindowsDesktopPasteController(), isA<ClipboardReceiptBridge>());
+      expect(
+        LinuxDesktopPasteController(),
+        isNot(isA<ClipboardReceiptBridge>()),
+      );
+    });
+
+    test('writeClipboardTextWithReceipt forwards the text and returns the '
+        'native success flag', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async => true, recordedCalls: calls);
+
+      final ok = await MacOSDesktopPasteController()
+          .writeClipboardTextWithReceipt('hello');
+
+      expect(ok, isTrue);
+      expect(calls.single.method, 'writeClipboardTextWithReceipt');
+      expect((calls.single.arguments as Map)['text'], 'hello');
+    });
+
+    test('writeClipboardTextWithReceipt degrades to false when the native '
+        'side has no handler', () async {
+      // No mock handler -> MissingPluginException.
+      final ok = await WindowsDesktopPasteController()
+          .writeClipboardTextWithReceipt('hello');
+      expect(ok, isFalse);
+    });
+
+    test('waitForClipboardRead parses read / lost / unknown', () async {
+      final controller = MacOSDesktopPasteController();
+
+      setHandler((call) async => {'status': 'read'});
+      expect(
+        await controller.waitForClipboardRead(),
+        ClipboardReadReceipt.read,
+      );
+
+      setHandler((call) async => {'status': 'lost'});
+      expect(
+        await controller.waitForClipboardRead(),
+        ClipboardReadReceipt.ownershipLost,
+      );
+
+      setHandler((call) async => {'status': 'superseded'});
+      expect(
+        await controller.waitForClipboardRead(),
+        ClipboardReadReceipt.unknown,
+      );
+    });
+
+    test(
+      'waitForClipboardRead maps a missing native handler to unknown',
+      () async {
+        expect(
+          await WindowsDesktopPasteController().waitForClipboardRead(),
+          ClipboardReadReceipt.unknown,
+        );
+      },
+    );
+
+    test('restoreClipboardTextIfOwner forwards the text and parses the '
+        'outcome', () async {
+      final calls = <MethodCall>[];
+      final controller = WindowsDesktopPasteController();
+
+      setHandler((call) async => {'status': 'restored'}, recordedCalls: calls);
+      expect(
+        await controller.restoreClipboardTextIfOwner('previous'),
+        ClipboardRestoreOutcome.restored,
+      );
+      expect(calls.single.method, 'restoreClipboardTextIfOwner');
+      expect((calls.single.arguments as Map)['text'], 'previous');
+
+      setHandler((call) async => {'status': 'not_owner'});
+      expect(
+        await controller.restoreClipboardTextIfOwner('previous'),
+        ClipboardRestoreOutcome.notOwner,
+      );
+
+      setHandler((call) async => {'status': 'banana'});
+      expect(
+        await controller.restoreClipboardTextIfOwner('previous'),
+        ClipboardRestoreOutcome.failed,
+      );
+    });
+  });
 }

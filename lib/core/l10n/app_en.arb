@@ -67,6 +67,17 @@
     }
   },
   "historyReadingTimeUnder1": "< 1 min read",
+  "historyListWordCount": "{count, plural, =1{approx. 1 word} other{approx. {count} words}}",
+  "@historyListWordCount": {
+    "description": "Approximate word count shown in a history list row. Plural-aware: the count selects the form, so a translator can phrase '1 word' differently from 'N words'.",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "historyToolsMenu": "View and selection",
+  "@historyToolsMenu": {
+    "description": "Tooltip and label of the single overflow button that replaces the selection, sort and view controls when the History filter row is too narrow for them."
+  },
   "historyEditing": "Editing",
   "historySearchTranscriptions": "Search transcriptions…",
   "historySearchFieldLabel": "Search transcriptions",
@@ -151,6 +162,14 @@
   "settingsClippingDismiss": "Dismiss",
   "settingsHoldToRecord": "Hold to Record",
   "pushToTalkUnavailableTooltip": "Not available on this platform",
+  "pushToTalkUnavailableLinuxTooltip": "Your desktop doesn't report key releases here. Bind “whispaste --toggle” to a shortcut in your system settings instead.",
+  "@pushToTalkUnavailableLinuxTooltip": {
+    "description": "Tooltip on the disabled push-to-talk switch on Linux when neither XInput2 nor the GlobalShortcuts portal reports key-up. Keep the CLI command whispaste --toggle untranslated."
+  },
+  "settingsExperimentalBadge": "Experimental",
+  "@settingsExperimentalBadge": {
+    "description": "Badge next to a settings option that works but is not yet verified on every desktop (e.g. Linux push-to-talk)."
+  },
   "settingsHoldOrTap": "Tap or Hold",
   "settingsHoldOrTapHint": "A short tap starts and stops recording; holding records until you let go.",
   "settingsSpeechRecognition": "Speech Recognition",
@@ -227,9 +246,12 @@
   "pasteRestartAlertTitle": "Restart WhisPaste now",
   "pasteRestartAlertBody": "The Auto-Paste permission is set, but macOS only applies it after a restart. WhisPaste will quit and come right back.",
   "pasteRestartAlertConfirm": "Restart now",
-  "pasteManualGrantAlertTitle": "The restart didn't help",
-  "pasteManualGrantAlertBody": "WhisPaste already restarted, but the Auto-Paste permission still isn't taking effect. Please check under System Settings → Privacy & Security → Accessibility whether WhisPaste is switched on there, and re-enable the toggle if needed.",
-  "pasteManualGrantAlertConfirm": "Open System Settings",
+  "pasteStaleEntryGuideTitle": "Remove the old WhisPaste entry",
+  "pasteStaleEntryGuideBody": "macOS is still holding on to the Auto-Paste permission of an earlier WhisPaste version. That entry can't be switched on — it has to be removed once:\n\n1. Select “WhisPaste” in the list.\n2. Click “−” below the list.\n3. Come back to WhisPaste.\n\nAfter a restart, macOS asks you again — just allow it.",
+  "pasteStaleEntryGuideConfirm": "Open System Settings",
+  "pasteStaleEntryRestartTitle": "Restart WhisPaste",
+  "pasteStaleEntryRestartBody": "Once the old entry is gone, restart WhisPaste. macOS then asks for the permission again — confirm it and switch WhisPaste on.",
+  "pasteStaleEntryRestartConfirm": "Restart WhisPaste",
   "permissionAlertLaterButton": "Not now",
   "micGateAlertTitle": "Microphone access is missing",
   "micGateAlertBody": "WhisPaste can't record without microphone access. Confirm to open System Settings → Privacy & Security → Microphone — enable the switch for WhisPaste there. WhisPaste detects your approval automatically.",
@@ -314,6 +336,10 @@
   "settingsStripPunctuationSubtitle": "Removes periods, commas, and other sentence punctuation from every transcript before it's saved or pasted. Works the same way for every engine and provider, not just Whisper.",
   "settingsNumericOnlyMode": "Numbers only",
   "settingsNumericOnlyModeSubtitle": "Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn't fully convertible.",
+  "settingsRemoveFillerWords": "Remove filler words",
+  "settingsRemoveFillerWordsSubtitle": "Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.",
+  "settingsVoiceLineBreaks": "Spoken line breaks",
+  "settingsVoiceLineBreaksSubtitle": "Turns spoken commands such as \"new paragraph\" and \"new line\" into real line breaks. Uses the transcription language, or all supported languages with auto-detect.",
   "settingsAppLanguage": "App Language",
   "settingsSttModels": "Speech Recognition Models",
   "settingsOpenAiApiKey": "OpenAI API Key",
@@ -414,7 +440,6 @@
     }
   },
   "groqRemovedToast": "Groq STT was removed. Provider reset to On-Device.",
-  "tccResetAfterUpdateToast": "macOS reset your Auto-Paste permission during the update.",
   "migrationComplete": "{count, plural, one{1 recording migrated from WhisPaste 1.x} other{{count} recordings migrated from WhisPaste 1.x}}",
   "@migrationComplete": {
     "placeholders": {
@@ -431,6 +456,7 @@
   "statusTranscribing": "Transcribing…",
   "statusProcessing": "Processing…",
   "statusTranscriptionDone": "Transcription complete",
+  "statusSelectionEdited": "Selection edited",
   "statusCopied": "Copied!",
   "statusLocal": "Local",
   "statusCloud": "Cloud",
@@ -558,6 +584,7 @@
   "replacementsRemoveTrigger": "Remove trigger phrase",
   "replacementsReplacementLabel": "Replacement text",
   "replacementsReplacementHint": "e.g. by the way",
+  "replacementsReplacementHelper": "Use \\n for a line break and \\n\\n for a blank line. To keep a literal backslash-n, write \\\\n.",
   "replacementsDeleteTitle": "Delete Replacement",
   "replacementsDeleteMessage": "Remove the replacement \"{trigger}\"? This cannot be undone.",
   "@replacementsDeleteMessage": {
@@ -752,7 +779,9 @@
   "aboutWhisper": "whisper.cpp & OpenAI Whisper",
   "aboutWhisperDesc": "Local and cloud speech recognition: fast, accurate, multilingual (99 languages).",
   "aboutParakeet": "NVIDIA Parakeet & sherpa-onnx",
-  "aboutParakeetDesc": "Local speech recognition tuned for speed on plain CPU hardware (~25 languages).",
+  "aboutParakeetDesc": "Local speech recognition, GPU-accelerated where available (Metal, Vulkan, CUDA) and on the CPU otherwise (~25 languages).",
+  "aboutParakeetModelCredit": "Model: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0",
+  "aboutParakeetGgufCredit": "GGUF conversion: ggml-org, MIT",
   "aboutPrivacyFirst": "Privacy-first",
   "aboutPrivacyFirstDesc": "Local speech recognition by default: your voice never leaves your device unless you choose a cloud provider.",
   "aboutPrivacy": "Privacy & Data",
@@ -933,6 +962,22 @@
 
   "infoEngineDownloading": "Speech service is being prepared. Please wait a moment.",
   "infoModelMissing": "Please download a speech model in Settings first.",
+  "infoModelMissingSelected": "The selected speech model ({size}) isn't downloaded yet.",
+  "@infoModelMissingSelected": {
+    "placeholders": {
+      "size": { "type": "String" }
+    }
+  },
+  "infoModelMissingDownload": "Download now",
+  "statusBarModelMissing": "Model missing",
+  "statusBarModelDownloading": "Downloading model… {percent} %",
+  "@statusBarModelDownloading": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "modelDownloadAction": "Download",
+  "modelMissingDownloadAction": "Missing — download",
   "infoPipelineBusy": "WhisPaste is still busy with the previous recording.",
   "infoSnippetPickerEmpty": "Trigger word recognized, but you have no snippets yet — the text was inserted as usual.",
   "infoSnippetPickerEmptyAction": "Open Snippets",
@@ -991,8 +1036,10 @@
   "errorTranscriptionTimeout": "Transcription took too long. Please try a shorter recording.",
   "errorMicPermissionDenied": "Microphone access is needed. Please allow it in your system settings.",
   "errorRecordingStartFailed": "Could not start recording. Please try again.",
+  "errorNoMicrophone": "No microphone found. Connect a microphone and try again.",
   "errorGeneric": "Something went wrong. Please try again.",
   "modelDownloadFailed": "Download failed. Please check your internet connection.",
+  "modelDeleteInUse": "The model file is in use by another program and could not be deleted. Close it and try again.",
 
   "statusSttLoading": "Loading model…",
   "statusSttReady": "Model ready",
@@ -1150,14 +1197,15 @@
   "settingsSidePanelEdgeLeft": "Left edge",
   "settingsSidePanelEdgeRight": "Right edge",
   "settingsErrorReporting": "Error Reporting",
-  "settingsErrorReportingSubtitle": "Help improve WhisPaste by sending anonymous crash reports",
+  "settingsErrorReportingSubtitle": "Sends crash and error reports with a hashed device ID, never your audio or text",
+  "settingsErrorReportingRestartHint": "Takes effect after restarting WhisPaste.",
   "settingsAutoPasteDelay": "Auto-Paste Delay",
   "settingsAutoPasteDelaySubtitle": "Wait time before pasting into the active window",
   "settingsAutoPasteBlocklist": "Auto-Paste Blocklist",
   "settingsAutoPasteBlocklistSubtitle": "Comma-separated app identifiers where auto-paste is disabled",
   "settingsAutoPasteBlocklistPlaceholder": "e.g. com.apple.Terminal, com.1password",
   "settingsCheckUpdates": "Check for Updates",
-  "settingsCheckUpdatesSubtitle": "Automatically check for new versions on startup",
+  "settingsCheckUpdatesSubtitle": "Check for new versions at startup and every 24 hours",
   "settingsCheckForUpdatesNow": "Check for updates now",
   "settingsUpdates": "Updates",
   "settingsUpdatesSubtitle": "Release channel and update checks",
@@ -1536,11 +1584,14 @@
   "settingsGpuAccelerationEnabled": "GPU (force)",
   "settingsGpuAccelerationDisabled": "CPU only",
   "settingsSttEngine": "Engine",
-  "settingsSttEngineSubtitle": "Whisper covers 99 languages and every GPU backend; Parakeet is much faster on CPU-only hardware but covers ~25 languages and has no GPU backend yet",
+  "settingsSttEngineSubtitle": "Whisper covers 99 languages and every GPU backend; Parakeet is much faster and covers ~25 languages, on the GPU where available",
   "settingsSttEngineWhisper": "Whisper",
   "settingsSttEngineParakeet": "Parakeet (fastest, ~25 languages)",
   "parakeetModelTitle": "Parakeet TDT model",
-  "parakeetModelSubtitle": "One-time download (~640 MB), then runs fully offline",
+  "parakeetModelSubtitle": "One-time download ({size}), then runs fully offline",
+  "@parakeetModelSubtitle": {
+    "placeholders": { "size": { "type": "String" } }
+  },
   "parakeetModelDownload": "Download",
   "parakeetModelDownloading": "Downloading…",
   "parakeetModelInstalled": "Installed",
@@ -1561,15 +1612,10 @@
   "settingsPrivacy": "Privacy",
   "settingsPrivacySubtitle": "Control what data WhisPaste shares",
   "settingsShareUsageStats": "Share anonymous usage statistics",
-  "settingsShareUsageStatsSubtitle": "Sent cookieless and without any identifiers, help us understand how WhisPaste is used",
+  "settingsShareUsageStatsSubtitle": "Cookieless, with a random per-session ID and a weekly changing pseudonym — helps us understand how WhisPaste is used",
   "settingsRetainRecentAudio": "Keep recent recordings",
   "settingsRetainRecentAudioSubtitle": "Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically",
 
-  "storeThankYouTitle": "Thanks for your support!",
-  "storeThankYouBody": "We're really glad you're here. If WhisPaste makes your day a little easier, a short review means a lot to us.",
-  "storeThankYouCtaStore": "★ Rate on the Store",
-  "storeThankYouCtaGitHub": "⭐ Star on GitHub",
-  "storeThankYouDismiss": "Close",
   "featureSpotlightHeading": "New in WhisPaste",
   "featureSpotlightDismiss": "Got it",
   "featureSpotlightSnippetPickerTitle": "Snippet Picker",
@@ -1582,6 +1628,8 @@
   "featureSpotlightSmartModeDescription": "Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.",
   "featureSpotlightHistoryPinTitle": "Lock your history with a PIN",
   "featureSpotlightHistoryPinDescription": "Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.",
+  "featureSpotlightEditSelectionTitle": "Edit selected text by voice",
+  "featureSpotlightEditSelectionDescription": "Select text in any app, press the edit-selection hotkey and say what should change — or just “shorter”, “improve” or “translate”. Uses your Smart Mode engine. Off by default: turn it on under Settings → Smart Mode.",
   "featureSpotlightChangelogLink": "View full changelog",
   "featureSpotlightReviewLabel": "Review the new features",
   "featureSpotlightReviewAction": "Show",
@@ -1722,6 +1770,10 @@
   "smartModeRamWarningCancel": "Cancel",
   "smartModeMemoryFootprintInfo": "Runs fully on-device. While active, it uses about 4–5 GB of RAM in addition to disk space — shared with the transcription model, so total memory use depends on which STT model you also have loaded.",
   "smartModeSpeedExampleInfo": "Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device's hardware.",
+  "smartModeLocalUnavailable": "On-device Smart Mode isn't included in this build. Switch to OpenAI, or install an official WhisPaste release.",
+  "@smartModeLocalUnavailable": {
+    "description": "Shown in Smart Mode settings when the on-device engine library is not bundled in this build (e.g. a Linux dev build); also the tooltip of the disabled on-device option."
+  },
 
   "settingsHotkeyActionSmartMode": "Smart Mode",
   "settingsSmartModeHotkeyEnabled": "Smart-Mode hotkey",
@@ -1867,5 +1919,86 @@
   "errorSelectionEditPasteFailed": "Could not replace the selection — your text was left unchanged",
   "@errorSelectionEditPasteFailed": {
     "description": "Overlay error: the edited text could not be pasted; nothing was replaced"
-  }
+  },
+  "settingsCudaPackTitle": "NVIDIA CUDA acceleration",
+  "settingsCudaPackSubtitle": "Faster dictation on GeForce RTX and GTX 16 cards. One-time download of {size}.",
+  "@settingsCudaPackSubtitle": {
+    "placeholders": {
+      "size": { "type": "String" }
+    }
+  },
+  "settingsCudaPackInstalledSubtitle": "Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.",
+  "settingsCudaPackDownload": "Download",
+  "settingsCudaPackDownloading": "Downloading {percent} %",
+  "@settingsCudaPackDownloading": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "settingsCudaPackInstalling": "Installing …",
+  "settingsCudaPackCancel": "Cancel download",
+  "settingsCudaPackRemove": "Remove CUDA pack",
+  "settingsCudaPackToggle": "Use CUDA",
+  "settingsCudaPackErrorNetwork": "Download failed. Check your connection and try again.",
+  "settingsCudaPackErrorVerification": "The download was damaged. Please try again.",
+  "settingsCudaPackErrorStorage": "The pack could not be saved. Check your free disk space.",
+  "recoveryCudaDisabledToast": "CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.",
+  "supportPromptSnooze": "Don't ask for 90 days",
+  "supportPayPalLabel": "PayPal",
+  "supportStoreThankYouLine": "Thank you for buying WhisPaste in the store. Any further support is optional.",
+  "supportShareText": "I use WhisPaste to speak text straight into my apps. Local on my computer and open source:",
+  "supportPageTitle": "Support WhisPaste",
+  "supportPageOpenAction": "All ways to help",
+  "supportIntroDirect": "WhisPaste is free and open source. A contribution or recommendation helps the project.",
+  "supportCostsNote": "Contributions help cover development and the ongoing costs of publishing, hosting and the domain.",
+  "supportSectionOnce": "One-time support",
+  "supportSectionOthers": "Other ways to support",
+  "supportSectionReach": "Recommend WhisPaste",
+  "supportStoreTitleWindows": "WhisPaste in the Microsoft Store",
+  "supportStoreTitleMac": "WhisPaste in the Mac App Store",
+  "supportStoreFactManaged": "Installation and updates are handled by the store.",
+  "supportStoreFactPurchase": "Your one-time purchase supports WhisPaste.",
+  "supportStoreFactSameFeatures": "Same features. The direct version stays free to use.",
+  "supportStoreCtaWindows": "View in Microsoft Store",
+  "supportStoreCtaMac": "View in Mac App Store",
+  "supportStorePriceNote": "Price in the store",
+  "supportStoreCoffeeNote": "A one-time purchase, roughly the price of a coffee. The store shows the current price.",
+  "supportStoreDismiss": "Hide store option",
+  "supportStoreShowAgain": "Show store option",
+  "supportSponsorsCta": "Open GitHub Sponsors",
+  "supportSponsorsNote": "Monthly or with an amount you choose. Pick the amount and rhythm there.",
+  "supportKofiCta": "Open Ko-fi",
+  "supportPayPalCta": "Support with PayPal",
+  "supportNativeTitle": "Support once in the store",
+  "supportNativeDescription": "A one-time amount, billed by the store. Same features, no subscription.",
+  "supportNativeCta": "Support once",
+  "supportSheetChoose": "Choose an amount",
+  "supportSheetLoading": "Loading amounts …",
+  "supportSheetBuy": "Support for {price}",
+  "@supportSheetBuy": {"placeholders": {"price": {"type": "String"}}},
+  "supportSheetPurchasing": "The store is confirming your purchase …",
+  "supportSheetThanks": "Thank you for your support!",
+  "supportSheetThanksDetail": "Your supporter badge is active now. All features stay available to everyone.",
+  "supportSheetPending": "Your purchase is awaiting confirmation.",
+  "supportSheetPurchaseError": "The purchase could not be completed. Please try again later.",
+  "supportSheetPricesError": "Prices couldn't be loaded. Please try again later.",
+  "supportSheetUnavailable": "No amounts are available in the store right now.",
+  "supportSheetRetry": "Try again",
+  "supportSheetClose": "Close",
+  "supportSelfDeclareCta": "I already support WhisPaste",
+  "supportSelfDeclareNote": "Just a note on this device, nothing is verified. The sponsor button in the status bar is hidden.",
+  "supportSelfDeclareHint": "Nothing is verified. Use this if you already contributed.",
+  "supportSupporterLine": "You support WhisPaste. Thank you!",
+  "supportSupporterBadge": "Supporter",
+  "supportRateCta": "Rate in the store",
+  "supportShareCopy": "Copy link",
+  "supportShareCopied": "Link copied",
+  "supportShareEmail": "Email",
+  "supportChipLabel": "Sponsor",
+  "supportChipTooltip": "Support WhisPaste",
+  "supportChipThanksLabel": "Thanks",
+  "supportChipThanksTooltip": "Thank you for your support",
+  "supportChipHide": "Hide",
+  "settingsSponsorChip": "Sponsor button in the status bar",
+  "settingsSponsorChipSubtitle": "Shows the way to the support page. You can hide it once you have supported the project in the store or confirmed it here."
 }

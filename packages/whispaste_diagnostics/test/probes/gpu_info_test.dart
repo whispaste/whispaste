@@ -135,6 +135,20 @@ void main() {
       expect(shouldUseGpu(gpu), isFalse);
     });
 
+    test('Kepler GT 730 without CUDA runtime → false', () {
+      expect(shouldUseGpu(_nvidiaNoCuda), isFalse);
+    });
+
+    test('Modern NVIDIA without CUDA runtime stays on GPU (Vulkan)', () {
+      const gpu = GpuInfo(
+        vendor: GpuVendor.nvidia,
+        name: 'NVIDIA GeForce RTX 3060',
+        vulkanAvailable: true,
+      );
+      expect(shouldUseGpu(gpu), isTrue);
+      expect(gpu.optimalBackend, 'vulkan');
+    });
+
     // Modern NVIDIA → true
     test('RTX 4090 (CUDA) → true', () {
       expect(shouldUseGpu(_nvidiaWithCuda), isTrue);
@@ -292,6 +306,238 @@ void main() {
 
       expect(gpu.vendor, GpuVendor.apple);
       expect(gpu.optimalBackend, 'metal');
+    });
+  });
+
+  // Windows vendor classification, driven through the real wmic parser with
+  // a fake ProcessRunner (the classifier itself is private).
+  group('Windows vendor classification (_classifyVendor via wmic)', () {
+    void fakeWindowsAdapters(List<String> adapterNames) {
+      setProcessRunnerForTesting((executable, arguments) async {
+        if (executable == 'wmic') {
+          return ProcessResult(
+            0,
+            0,
+            adapterNames
+                .map((n) => 'Name=$n\nAdapterRAM=1073741824\n\n')
+                .join(),
+            '',
+          );
+        }
+        return ProcessResult(0, 1, '', ''); // powershell: no answer
+      });
+    }
+
+    setUp(() {
+      clearGpuCache();
+    });
+
+    tearDown(() {
+      setProcessRunnerForTesting(null);
+      setGpuDetectionFailureCallback(null);
+      clearGpuCache();
+    });
+
+    final cases = <String, GpuVendor>{
+      // Newly recognised vendor strings.
+      'ATI Technologies Inc. Radeon HD 5770': GpuVendor.amd,
+      'ATI Technologies Inc.': GpuVendor.amd,
+      'GTX 1060 6GB': GpuVendor.nvidia,
+      'Arc A380': GpuVendor.intel,
+      // Already recognised; pinned so a later edit cannot drop them.
+      'Radeon(TM) 780M Graphics': GpuVendor.amd,
+      'NVIDIA GeForce GTX 1650': GpuVendor.nvidia,
+      'Intel(R) Arc(TM) A770 Graphics': GpuVendor.intel,
+      'Intel(R) UHD Graphics 770': GpuVendor.intel,
+      'Intel(R) Iris(R) Xe Graphics': GpuVendor.intel,
+      // Word-boundary guard: substrings inside ordinary words stay unknown.
+      'Marcus Virtual Display': GpuVendor.none,
+      // Virtual, software and ARM adapters stay on the CPU path.
+      'Microsoft Basic Display Adapter': GpuVendor.none,
+      'Parallels Display Adapter (WDDM)': GpuVendor.none,
+      'VMware SVGA 3D': GpuVendor.none,
+      'VirtualBox Graphics Adapter (WDDM)': GpuVendor.none,
+      'Qualcomm(R) Adreno(TM) 690 GPU': GpuVendor.none,
+      'Snapdragon X Adreno GPU': GpuVendor.none,
+    };
+
+    for (final entry in cases.entries) {
+      test('"${entry.key}" classifies as ${entry.value.name}', () async {
+        fakeWindowsAdapters([entry.key]);
+        final gpu = await detectGpuWindowsForTesting();
+        expect(gpu.vendor, entry.value);
+      });
+    }
+
+    test('an unclassified adapter reports every raw adapter name to the '
+        'failure callback', () async {
+      fakeWindowsAdapters([
+        'Qualcomm(R) Adreno(TM) 690 GPU',
+        'Microsoft Basic Display Adapter',
+      ]);
+      List<String>? reported;
+      setGpuDetectionFailureCallback(({
+        required String reason,
+        bool cudaAvailable = false,
+        List<String> adapterNames = const [],
+      }) {
+        reported = adapterNames;
+      });
+
+      final gpu = await detectGpuWindowsForTesting();
+
+      expect(gpu.vendor, GpuVendor.none);
+      expect(reported, [
+        'Qualcomm(R) Adreno(TM) 690 GPU',
+        'Microsoft Basic Display Adapter',
+      ]);
+    });
+
+    test(
+      'a recognised adapter does not trigger the failure callback',
+      () async {
+        fakeWindowsAdapters(['Radeon(TM) 780M Graphics']);
+        var calls = 0;
+        setGpuDetectionFailureCallback(({
+          required String reason,
+          bool cudaAvailable = false,
+          List<String> adapterNames = const [],
+        }) {
+          calls++;
+        });
+
+        final gpu = await detectGpuWindowsForTesting();
+
+        expect(gpu.vendor, GpuVendor.amd);
+        expect(calls, 0);
+      },
+    );
+  });
+
+  group('Windows VRAM (64-bit registry value over uint32 AdapterRAM)', () {
+    test(
+      'a 24 GB card reports 24 GB from the registry, not the wrapped uint32',
+      () {
+        // AdapterRAM is uint32: a 24 GB card wraps to 0 there.
+        expect(
+          windowsVramMB(
+            qwMemoryBytes: 24 * 1024 * 1024 * 1024,
+            adapterRamBytes: 0,
+          ),
+          24 * 1024,
+        );
+      },
+    );
+
+    test('falls back to AdapterRAM when the registry value is missing', () {
+      expect(windowsVramMB(adapterRamBytes: 1024 * 1024 * 1024), 1024);
+    });
+
+    test('no usable value yields null', () {
+      expect(windowsVramMB(adapterRamBytes: 0), isNull);
+      expect(windowsVramMB(qwMemoryBytes: 0, adapterRamBytes: null), isNull);
+    });
+  });
+
+  group('Windows detection is not cached when every probe fails', () {
+    setUp(() {
+      clearGpuCache();
+    });
+
+    tearDown(() {
+      setProcessRunnerForTesting(null);
+      setGpuDetectionFailureCallback(null);
+      clearGpuCache();
+    });
+
+    test('a timed-out / empty probe pair is reported as not settled', () async {
+      setProcessRunnerForTesting((executable, arguments) async {
+        return ProcessResult(0, 1, '', '');
+      });
+      expect(await windowsDetectionSettledForTesting(), isFalse);
+    });
+
+    test('an answer from a probe is settled and may be cached', () async {
+      setProcessRunnerForTesting((executable, arguments) async {
+        if (executable == 'wmic') {
+          return ProcessResult(
+            0,
+            0,
+            'Name=NVIDIA GeForce RTX 3060\nAdapterRAM=4293918720\n\n',
+            '',
+          );
+        }
+        return ProcessResult(0, 1, '', '');
+      });
+      expect(await windowsDetectionSettledForTesting(), isTrue);
+    });
+  });
+
+  group('pickLspciGpuName (name from the same card as the vendor)', () {
+    const hybrid = '''
+0000:00:02.0 VGA compatible controller: Intel Corporation Alder Lake-P Integrated Graphics Controller (rev 0c)
+0000:01:00.0 3D controller: NVIDIA Corporation GA107M [GeForce RTX 3050 Mobile] (rev a1)
+0000:00:14.0 USB controller: Intel Corporation Alder Lake USB 3.2 Controller
+''';
+
+    test('picks the dGPU by its full PCI address, not the first VGA line', () {
+      expect(
+        pickLspciGpuName(
+          hybrid,
+          pciAddress: '0000:01:00.0',
+          vendor: GpuVendor.nvidia,
+        ),
+        'NVIDIA Corporation GA107M [GeForce RTX 3050 Mobile] (rev a1)',
+      );
+    });
+
+    test('matches a short bus address as well', () {
+      expect(
+        pickLspciGpuName(hybrid, pciAddress: '01:00.0'),
+        contains('GeForce RTX 3050'),
+      );
+    });
+
+    test('without an address, the first GPU of the vendor wins', () {
+      expect(
+        pickLspciGpuName(hybrid, vendor: GpuVendor.intel),
+        'Intel Corporation Alder Lake-P Integrated Graphics Controller (rev 0c)',
+      );
+    });
+
+    test('non-GPU lines and empty output yield null when no GPU is listed', () {
+      expect(
+        pickLspciGpuName(
+          '0000:00:14.0 USB controller: Intel Corporation USB 3.2\n',
+        ),
+        isNull,
+      );
+      expect(pickLspciGpuName(''), isNull);
+    });
+  });
+
+  group('preferDiscreteVendor', () {
+    test('NVIDIA beats an integrated Intel GPU regardless of card order', () {
+      expect(
+        preferDiscreteVendor([GpuVendor.intel, GpuVendor.nvidia]),
+        GpuVendor.nvidia,
+      );
+      expect(
+        preferDiscreteVendor([GpuVendor.nvidia, GpuVendor.intel]),
+        GpuVendor.nvidia,
+      );
+    });
+
+    test('AMD beats Intel, and non-GPU entries are ignored', () {
+      expect(
+        preferDiscreteVendor([GpuVendor.none, GpuVendor.intel, GpuVendor.amd]),
+        GpuVendor.amd,
+      );
+    });
+
+    test('no GPU vendor yields null', () {
+      expect(preferDiscreteVendor(const []), isNull);
+      expect(preferDiscreteVendor([GpuVendor.none]), isNull);
     });
   });
 }

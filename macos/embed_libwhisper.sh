@@ -24,6 +24,19 @@ DEST_DIR="${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}"
 # until someone noticed at runtime), build it now if the pinned whisper.cpp
 # source is already present. Only skip-with-warning if even that is missing,
 # so CI/lint-only checkouts without the source tree still compile.
+# Dylibs staged from an older whisper.cpp pin would silently ship the old
+# engine, so they are rebuilt too. The build script only replaces the
+# staging dir after a successful compile, so a failed rebuild still embeds
+# the previous dylibs.
+BUILD_SCRIPT="${REPO_ROOT}/scripts/build-libwhisper-macos.sh"
+WANTED_PIN="$(sed -n 's/^WHISPER_TAG="\(.*\)"$/\1/p' "$BUILD_SCRIPT")@$(sed -n 's/^WHISPER_PINNED_COMMIT="\(.*\)"$/\1/p' "$BUILD_SCRIPT")"
+if [[ -d "$STAGE_DIR" && "$(cat "$STAGE_DIR/WHISPER_PIN" 2>/dev/null)" != "$WANTED_PIN" ]]; then
+  echo "note: staged libwhisper is not $WANTED_PIN — rebuilding."
+  if ! bash "$BUILD_SCRIPT"; then
+    echo "warning: libwhisper rebuild failed — embedding the previously staged dylibs."
+  fi
+fi
+
 if [[ ! -d "$STAGE_DIR" ]]; then
   echo "note: libwhisper staging dir not found ($STAGE_DIR) — attempting to build it now."
   # Invoked via `bash` (not exec'd directly) so a lost +x bit on the script
@@ -43,7 +56,7 @@ if [[ ! -d "$STAGE_DIR" ]]; then
 fi
 
 shopt -s nullglob
-dylibs=("$STAGE_DIR"/*.dylib)
+dylibs=("$STAGE_DIR"/*.dylib "$STAGE_DIR"/*.so)
 if [[ ${#dylibs[@]} -eq 0 ]]; then
   echo "warning: no dylibs in $STAGE_DIR — skipping libwhisper embed."
   exit 0

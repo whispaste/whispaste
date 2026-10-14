@@ -147,6 +147,70 @@ class NativeCapabilityResult {
   }
 }
 
+/// What [ClipboardReceiptBridge.waitForClipboardRead] observed.
+enum ClipboardReadReceipt {
+  /// A reader pulled the transcript off the clipboard after the paste
+  /// shortcut was posted — the target app has the text.
+  read,
+
+  /// Another writer replaced the clipboard — WhisPaste no longer owns it, so
+  /// restoring would clobber someone else's content.
+  ownershipLost,
+
+  /// No usable signal (superseded, no receipt armed, channel unavailable) —
+  /// the caller keeps waiting for its fixed fallback buffer.
+  unknown;
+
+  static ClipboardReadReceipt fromCode(String? code) => switch (code) {
+    'read' => ClipboardReadReceipt.read,
+    'lost' => ClipboardReadReceipt.ownershipLost,
+    _ => ClipboardReadReceipt.unknown,
+  };
+}
+
+/// Outcome of [ClipboardReceiptBridge.restoreClipboardTextIfOwner].
+enum ClipboardRestoreOutcome {
+  restored,
+
+  /// Skipped: another process changed the clipboard in the meantime.
+  notOwner,
+  failed;
+
+  static ClipboardRestoreOutcome fromCode(String? code) => switch (code) {
+    'restored' => ClipboardRestoreOutcome.restored,
+    'not_owner' => ClipboardRestoreOutcome.notOwner,
+    _ => ClipboardRestoreOutcome.failed,
+  };
+}
+
+/// Receipt-based clipboard restore (macOS/Windows only — Linux keeps its
+/// fixed-delay uinput path).
+///
+/// Instead of "write transcript → paste → wait a fixed buffer → restore",
+/// the transcript is put on the clipboard *lazily* (macOS
+/// `NSPasteboardItemDataProvider`, Windows delayed rendering via
+/// `SetClipboardData(fmt, NULL)` + `WM_RENDERFORMAT`), so the native host
+/// learns the moment the target app actually reads it. The restore then
+/// happens right after that read, and only while WhisPaste still owns the
+/// clipboard (macOS `changeCount`, Windows `WM_DESTROYCLIPBOARD`/
+/// `GetClipboardOwner`).
+abstract interface class ClipboardReceiptBridge {
+  /// Writes [text] as a lazily rendered, history-excluded clipboard item
+  /// (macOS: marked `org.nspasteboard.TransientType` + `ConcealedType`).
+  /// Returns `false` when the platform can't arm a receipt — the caller then
+  /// uses the classic write + fixed-delay restore.
+  Future<bool> writeClipboardTextWithReceipt(String text);
+
+  /// Completes once the receipt written by [writeClipboardTextWithReceipt]
+  /// was read after the paste shortcut went out, or ownership was lost.
+  /// Never times out on its own — the caller bounds it.
+  Future<ClipboardReadReceipt> waitForClipboardRead();
+
+  /// Writes [text] back (history-excluded) only if WhisPaste is still the
+  /// clipboard owner since the receipt write.
+  Future<ClipboardRestoreOutcome> restoreClipboardTextIfOwner(String text);
+}
+
 /// Platform-agnostic interface for desktop clipboard pasting.
 ///
 /// The controller captures the current paste target before recording starts and

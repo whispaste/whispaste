@@ -1,5 +1,7 @@
 import Cocoa
 import FlutterMacOS
+import Security
+import Sentry
 
 @main
 class AppDelegate: FlutterAppDelegate {
@@ -14,6 +16,7 @@ class AppDelegate: FlutterAppDelegate {
   private var bundleIdMigrationHost: BundleIdMigrationHost?
   private var autostartHost: AutostartHost?
   private var secureBookmarkHost: SecureBookmarkHost?
+  private var supportStoreHost: SupportStoreHost?
   private var lifecycleChannel: FlutterMethodChannel?
 
   /// Whether macOS launched this process as a login item. Captured once at
@@ -59,6 +62,10 @@ class AppDelegate: FlutterAppDelegate {
   /// second modal on top of the one the user is already looking at.
   private var restartAlertShowing = false
 
+  /// One-shot observer for the stale-entry removal guide: fires the follow-up
+  /// restart alert the moment the user comes back from System Settings.
+  private var staleRemovalReturnObserver: NSObjectProtocol?
+
   /// Native Cmd+Q / Dock "Quit" call `NSApplication.terminate()` directly,
   /// bypassing the Dart-level `onWindowClose` handler entirely — without
   /// this override, the process could start tearing down while the
@@ -86,6 +93,12 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   override func applicationDidFinishLaunching(_ notification: Notification) {
+    // Before anything else: the run loop has not delivered a single platform
+    // message yet, so Dart's first SharedPreferences read already sees the
+    // adopted legacy preferences.
+    #if !MAS_BUILD
+    BundleIdMigrationHost.adoptLegacyIdentityIfNeeded()
+    #endif
     launchedAsLoginItem = Self.isLoginItemLaunch(
       NSAppleEventManager.shared().currentAppleEvent
     )
@@ -108,6 +121,7 @@ class AppDelegate: FlutterAppDelegate {
     bundleIdMigrationHost = BundleIdMigrationHost(messenger: messenger)
     autostartHost = AutostartHost(messenger: messenger)
     secureBookmarkHost = SecureBookmarkHost(messenger: messenger)
+    supportStoreHost = SupportStoreHost(messenger: messenger)
 
     // Lifecycle channel: activation policy toggle for close-to-tray.
     lifecycleChannel = FlutterMethodChannel(
@@ -234,30 +248,108 @@ class AppDelegate: FlutterAppDelegate {
         )
       }
 
-    case "showManualGrantAlert":
-      // Loop exit for the "restart already ran but permission still missing"
-      // case: instead of relaunching yet again, confirming opens System
-      // Settings → Privacy & Security → Accessibility so the user can verify
-      // or re-toggle WhisPaste. Opening a `x-apple.systempreferences:` URL is
-      // sandbox-legal (no subprocess, no private API).
-      let manualArgs = call.arguments as? [String: Any]
+    case "signingRequirement":
+      // The designated requirement TCC binds every grant to. Dart persists it
+      // once the permission works; a different value on a later start proves
+      // the existing entry belongs to another signature (stale, cannot be
+      // switched on). Security-framework reads of our own code are
+      // sandbox-legal.
+      result(currentDesignatedRequirement())
+
+    case "showStaleEntryRemovalGuide":
+      // Mac App Store build only: a sandboxed app cannot delete its own TCC
+      // entry (no tccutil, Guideline 2.5.2), and toggling a stale row never
+      // rebinds it — only removing it with "−" and relaunching does. Step 1
+      // explains that and opens the Accessibility pane; step 2 appears when
+      // the user returns to WhisPaste and offers the relaunch. The relaunch
+      // itself stays in Dart (it persists the recovery marker first), so only
+      // the final choice is reported back via `permissionAlertConfirmed`.
+      let guideArgs = call.arguments as? [String: Any]
+      let guideId = guideArgs?["id"] as? String ?? ""
       result(nil)
       presentAlwaysOnTopAlert(
-        title: manualArgs?["title"] as? String ?? "Check System Settings",
-        body: manualArgs?["body"] as? String ?? "",
-        confirmLabel: manualArgs?["confirmLabel"] as? String ?? "Open System Settings"
-      ) { _ in
-        if let url = URL(
-          string:
-            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-        ) {
-          NSWorkspace.shared.open(url)
+        title: guideArgs?["title"] as? String ?? "",
+        body: guideArgs?["body"] as? String ?? "",
+        confirmLabel: guideArgs?["confirmLabel"] as? String ?? "OK",
+        cancelLabel: guideArgs?["cancelLabel"] as? String
+      ) { [weak self] confirmed in
+        guard let self else { return }
+        guard confirmed else {
+          self.reportPermissionAlert(id: guideId, confirmed: false)
+          return
         }
+        self.awaitReturnFromSettings {
+          self.presentAlwaysOnTopAlert(
+            title: guideArgs?["restartTitle"] as? String ?? "",
+            body: guideArgs?["restartBody"] as? String ?? "",
+            confirmLabel: guideArgs?["restartConfirmLabel"] as? String ?? "OK",
+            cancelLabel: guideArgs?["restartCancelLabel"] as? String
+          ) { restart in
+            self.reportPermissionAlert(id: guideId, confirmed: restart)
+          }
+        }
+        self.openAccessibilityPane()
       }
 
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  private func reportPermissionAlert(id: String, confirmed: Bool) {
+    lifecycleChannel?.invokeMethod(
+      "permissionAlertConfirmed",
+      arguments: ["id": id, "confirmed": confirmed]
+    )
+  }
+
+  private func openAccessibilityPane() {
+    if let url = URL(
+      string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+    ) {
+      NSWorkspace.shared.open(url)
+    }
+  }
+
+  /// Runs [action] once, the next time WhisPaste becomes the active app —
+  /// i.e. after the user switched to System Settings and came back. Armed
+  /// before the pane opens, so the activation switch is never missed.
+  private func awaitReturnFromSettings(_ action: @escaping () -> Void) {
+    if let previous = staleRemovalReturnObserver {
+      NotificationCenter.default.removeObserver(previous)
+    }
+    staleRemovalReturnObserver = NotificationCenter.default.addObserver(
+      forName: NSApplication.didBecomeActiveNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] _ in
+      guard let self else { return }
+      if let observer = self.staleRemovalReturnObserver {
+        NotificationCenter.default.removeObserver(observer)
+        self.staleRemovalReturnObserver = nil
+      }
+      action()
+    }
+  }
+
+  /// Designated requirement of the running code as text, or `nil` when it
+  /// cannot be read (unsigned build).
+  private func currentDesignatedRequirement() -> String? {
+    var code: SecCode?
+    guard SecCodeCopySelf([], &code) == errSecSuccess, let code else { return nil }
+    var staticCode: SecStaticCode?
+    guard SecCodeCopyStaticCode(code, [], &staticCode) == errSecSuccess,
+      let staticCode
+    else { return nil }
+    var requirement: SecRequirement?
+    guard SecCodeCopyDesignatedRequirement(staticCode, [], &requirement) == errSecSuccess,
+      let requirement
+    else { return nil }
+    var text: CFString?
+    guard SecRequirementCopyString(requirement, [], &text) == errSecSuccess,
+      let text
+    else { return nil }
+    return text as String
   }
 
   /// Shows an app-level, always-on-top alert and reports the user's choice
@@ -266,8 +358,8 @@ class AppDelegate: FlutterAppDelegate {
   /// already-visible modal, so a re-derived "restart needed" can't stack a
   /// second copy.
   ///
-  /// [cancelLabel] is optional: the forced-restart and manual-grant alerts
-  /// stay deliberately single-action (they repair a state the user already
+  /// [cancelLabel] is optional: the forced-restart alert
+  /// stays deliberately single-action (it repairs a state the user already
   /// opted into), while the permission-grant dialogs always pass a decline
   /// button — a permission surface the user cannot dismiss violates the HIG.
   private func presentAlwaysOnTopAlert(
@@ -305,7 +397,12 @@ class AppDelegate: FlutterAppDelegate {
       alert.window.level = .floating
       alert.window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
+      // runModal blocks the main thread until the user answers, which
+      // Sentry's watchdog reports as an "App Hanging" event every time the
+      // alert stays open for 2 s -- noise on the shared error quota.
+      SentrySDK.pauseAppHangTracking()
       let response = alert.runModal()
+      SentrySDK.resumeAppHangTracking()
       self.restartAlertShowing = false
       onDismiss(response == .alertFirstButtonReturn)
     }

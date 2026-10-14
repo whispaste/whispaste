@@ -152,6 +152,12 @@ class ReviewPromptNotifier extends Notifier<ReviewPromptState> {
     }
   }
 
+  /// Ends a due prompt without recording anything, for example when another
+  /// nudge owns the display window or a hotkey closed the dialog.
+  void deferPrompt() {
+    state = state.copyWith(shouldShowPrompt: false);
+  }
+
   /// Records that the prompt was shown and resets [shouldShowPrompt].
   Future<void> markShown() async {
     try {

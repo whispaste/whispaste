@@ -18,6 +18,7 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/logging/mic_start_trace.dart';
 import 'package:whispaste/core/logging/perf_instrumentation.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
@@ -39,7 +40,10 @@ import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_engine.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
-    show smartModeEngineProvider;
+    show
+        smartModeEngineProvider,
+        smartModeLocalEngineAvailableProvider,
+        smartModeModelDirOverride;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/snippets/interactive_snippet_composer.dart'
@@ -115,6 +119,12 @@ class FakeAudioService extends AudioServiceNotifier {
 
   @override
   Stream<double>? get amplitudeStream => _ampCtrl?.stream;
+
+  /// Completed by tests to simulate the microphone's first non-silent chunk.
+  Completer<void>? firstSampleCompleter;
+
+  @override
+  Future<void>? get firstSampleArrived => firstSampleCompleter?.future;
 
   @override
   Future<void> startRecording({bool streamRawPcm = false}) async {
@@ -615,6 +625,20 @@ void ensureFakeLocalSttFilesExist({String modelId = 'whisper-small'}) {
   }
 }
 
+/// Runs [body] with the fake model file present, then removes it again: the
+/// scratch directory is shared, and other tests rely on the model being absent.
+Future<T> withFakeSttModel<T>(Future<T> Function() body) async {
+  ensureFakeLocalSttFilesExist();
+  try {
+    return await body();
+  } finally {
+    final modelPath = sttModelPath('whisper-small');
+    if (modelPath != null && File(modelPath).existsSync()) {
+      File(modelPath).deleteSync();
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -630,16 +654,19 @@ void main() {
   late File wavFile;
   String? clipboardText;
 
-  /// Waits for DesktopPaster's clipboard restore after a snippet-picker
-  /// paste. The picker pastes fire-and-forget, and the restore lands
-  /// >= 500 ms later — without this, its '' write hits whichever test runs
-  /// next (run 36733764290: the cancel-from-transcribing test saw '' instead
-  /// of an untouched clipboard).
-  Future<void> waitForClipboardRestore() async {
-    for (var i = 0; i < 300 && clipboardText != ''; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-    }
-    expect(clipboardText, '', reason: 'the paste never restored the clipboard');
+  /// Lets a snippet-picker paste's deferred clipboard work finish. The picker
+  /// pastes fire-and-forget, and any restore lands >= 500 ms later, so this
+  /// waits past that window — otherwise a late write would hit whichever test
+  /// runs next (run 36733764290). The clipboard was empty before the paste, so
+  /// there is no snapshot to restore: the transcript stays and no blank write
+  /// may follow it.
+  Future<void> waitForDeferredClipboardWork() async {
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    expect(
+      clipboardText,
+      isNot(''),
+      reason: 'no blank restore when the clipboard had no prior text',
+    );
   }
 
   ProviderContainer buildContainer(AppSettings settings) {
@@ -747,6 +774,26 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     container.read(recordingProvider.notifier).startRecording();
+    expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+    return orch;
+  }
+
+  /// Like [startRecordingPhase], but starts through the orchestrator the way
+  /// production does, so the target and overrides are captured in that
+  /// recording's session instead of being set on the shared providers.
+  Future<RecordingOrchestrator> startRecordingPhaseWithTarget({
+    required RecordingTarget target,
+    SmartModePreset? smartModeHotkeyPreset,
+  }) async {
+    final orch = container.read(recordingOrchestratorProvider.notifier);
+    await Future<void>.delayed(Duration.zero);
+
+    await withFakeSttModel(
+      () => orch.startRecording(
+        target: target,
+        forcedSmartModePreset: smartModeHotkeyPreset,
+      ),
+    );
     expect(container.read(recordingProvider).phase, RecordingPhase.recording);
     return orch;
   }
@@ -1173,6 +1220,145 @@ void main() {
     });
   });
 
+  group('Filler word removal (removeFillerWords)', () {
+    Future<void> runCase({
+      required SttSettings stt,
+      BehaviorSettings behavior = const BehaviorSettings(),
+      required String transcript,
+    }) async {
+      container.dispose();
+      container = buildContainer(
+        AppSettings(
+          stt: stt,
+          behavior: behavior,
+          afterTranscriptionSection: const AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = transcript;
+      await orch.stopRecording();
+    }
+
+    test('off by default: fillers stay in the transcript', () async {
+      await runCase(
+        stt: const SttSettings(model: 'whisper-small', language: 'German'),
+        transcript: 'Ich habe, äh, keine Zeit.',
+      );
+
+      expect(clipboardText, 'Ich habe, äh, keine Zeit.');
+    });
+
+    test('on: fillers are removed before paste, history keeps the original '
+        'dictation for the detail panel', () async {
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          removeFillerWords: true,
+        ),
+        transcript: 'Ich habe, äh, keine Zeit.',
+      );
+
+      expect(clipboardText, 'Ich habe keine Zeit.');
+      final entries = await db.allEntries();
+      expect(entries.first.content, 'Ich habe keine Zeit.');
+      expect(entries.first.originalTranscript, 'Ich habe, äh, keine Zeit.');
+    });
+
+    test('runs before text replacements, so a trigger split by a filler '
+        'still fires', () async {
+      await db.upsertReplacementWithTriggers(
+        id: 'r1',
+        triggers: ['mfg'],
+        replacement: 'Mit freundlichen Grüßen',
+        createdAt: DateTime.now(),
+      );
+
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          removeFillerWords: true,
+        ),
+        behavior: const BehaviorSettings(textReplacementsEnabled: true),
+        transcript: 'Ähm, mfg',
+      );
+
+      expect(clipboardText, 'Mit freundlichen Grüßen');
+    });
+
+    test('uses the transcription language: German keeps "um"', () async {
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          removeFillerWords: true,
+        ),
+        transcript: 'Wir treffen uns, äh, um 8 Uhr.',
+      );
+
+      expect(clipboardText, 'Wir treffen uns um 8 Uhr.');
+    });
+  });
+
+  group('Spoken line breaks (voiceLineBreaks)', () {
+    Future<void> runCase({
+      required SttSettings stt,
+      required String transcript,
+    }) async {
+      container.dispose();
+      container = buildContainer(
+        AppSettings(
+          stt: stt,
+          afterTranscriptionSection: const AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = transcript;
+      await orch.stopRecording();
+    }
+
+    test('on by default: "neuer Absatz" becomes a blank line in the paste, '
+        'history keeps the spoken original', () async {
+      await runCase(
+        stt: const SttSettings(model: 'whisper-small', language: 'German'),
+        transcript: 'Sehr geehrte Damen und Herren, neuer Absatz. Vielen Dank.',
+      );
+
+      expect(clipboardText, 'Sehr geehrte Damen und Herren,\n\nVielen Dank.');
+      final entries = await db.allEntries();
+      expect(
+        entries.first.content,
+        'Sehr geehrte Damen und Herren,\n\nVielen Dank.',
+      );
+      expect(
+        entries.first.originalTranscript,
+        'Sehr geehrte Damen und Herren, neuer Absatz. Vielen Dank.',
+      );
+    });
+
+    test('off: the command stays in the transcript', () async {
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          voiceLineBreaks: false,
+        ),
+        transcript: 'Hallo neue Zeile du',
+      );
+
+      expect(clipboardText, 'Hallo neue Zeile du');
+    });
+  });
+
   // =========================================================================
   // Snippet-Picker dispatch (exact-match short-circuit, dictation-automations
   // ticket 06)
@@ -1275,7 +1461,7 @@ void main() {
         expect(clipboardText, 'Hello there!');
         expect(fakeDesktopPaste.typeCalls, 0);
         expect(fakeDesktopPaste.captureCalls, 0);
-        await waitForClipboardRestore();
+        await waitForDeferredClipboardWork();
       },
     );
 
@@ -1449,10 +1635,9 @@ void main() {
       await db.setQuickNote(note.id);
 
       fakeStt.transcriptToReturn = 'Snippets.';
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -1675,7 +1860,7 @@ void main() {
           expect(fakeDesktopPaste.captureCalls, 1);
           expect(fakeDesktopPaste.pasteCalls, 1);
           expect(clipboardText, 'Hello there!');
-          await waitForClipboardRestore();
+          await waitForDeferredClipboardWork();
         },
       );
 
@@ -1961,6 +2146,151 @@ void main() {
       await orch.cancelRecording();
 
       expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+    });
+  });
+
+  // =========================================================================
+  // Session isolation: a cancelled transcription must not leak into, or
+  // block, the recording that was started after it (cancel/stop-lock/F5).
+  // =========================================================================
+
+  group('Session isolation across cancel and a newer recording', () {
+    Future<void> waitForPhase(RecordingPhase phase) async {
+      for (
+        var i = 0;
+        i < 200 && container.read(recordingProvider).phase != phase;
+        i++
+      ) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(container.read(recordingProvider).phase, phase);
+    }
+
+    test('a cancelled transcription never inserts its result into a newer '
+        'recording (session-scoped cancel)', () async {
+      final gate = Completer<String>();
+      fakeStt.transcribeGate = gate;
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.clipboard,
+      );
+      final stopFuture = orch.stopRecording();
+      await waitForPhase(RecordingPhase.transcribing);
+
+      await orch.cancelRecording();
+      // A newer recording starts while the cancelled transcription is still
+      // in flight.
+      await withFakeSttModel(orch.startRecording);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      gate.complete('stale transcript');
+      await stopFuture;
+
+      // The stale result is discarded; the newer recording is untouched.
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      expect(await db.allEntries(), isEmpty);
+      expect(clipboardText, isNull);
+    });
+
+    test(
+      'cancelling a transcription frees the stop lock, so the next '
+      'recording can be stopped while the old pipeline is still running',
+      () async {
+        final gate = Completer<String>();
+        fakeStt.transcribeGate = gate;
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.clipboard,
+        );
+        final firstStop = orch.stopRecording();
+        await waitForPhase(RecordingPhase.transcribing);
+
+        await orch.cancelRecording();
+        await withFakeSttModel(orch.startRecording);
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.recording,
+        );
+
+        final callsBefore = fakeStt.transcribeCallCount;
+        final secondStop = orch.stopRecording();
+        await waitForPhase(RecordingPhase.transcribing);
+        expect(fakeStt.transcribeCallCount, callsBefore + 1);
+
+        gate.complete('second transcript');
+        await Future.wait([firstStop, secondStop]);
+
+        // Only the second recording is saved; the cancelled one never is.
+        final entries = await db.allEntries();
+        expect(entries, hasLength(1));
+        expect(entries.single.content, 'second transcript');
+      },
+    );
+
+    test(
+      'a start rejected while a transcription is in flight does not '
+      'overwrite the target or overrides that transcription finalizes with',
+      () async {
+        final gate = Completer<String>();
+        fakeStt.transcribeGate = gate;
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.clipboard,
+        );
+        final stopFuture = orch.stopRecording();
+        await waitForPhase(RecordingPhase.transcribing);
+
+        // Rejected: the pipeline above is still busy.
+        await orch.startRecording(
+          target: RecordingTarget.quickNote,
+          forcedSmartModePreset: SmartModePreset.translate,
+          languageOverride: 'fr',
+          silenceTimeoutOverride: 42,
+        );
+        expect(
+          container.read(recordingProvider).phase,
+          RecordingPhase.transcribing,
+        );
+        expect(
+          container.read(recordingTargetProvider),
+          RecordingTarget.clipboard,
+        );
+        expect(container.read(smartModeHotkeyOverridePresetProvider), isNull);
+        expect(container.read(sttLanguageOverrideProvider), isNull);
+        expect(container.read(autoStopSilenceOverrideProvider), isNull);
+
+        gate.complete('Hello there');
+        await stopFuture;
+
+        // The original recording (clipboard target, no overrides) is finalized
+        // as usual: saved to history, not treated as a quick note.
+        final entries = await db.allEntries();
+        expect(entries, hasLength(1));
+        expect(entries.single.content, 'Hello there');
+      },
+    );
+    test('reset() during transcribing (snippet abort) discards the in-flight '
+        'transcription: a newer recording is untouched and the stale result is '
+        'never saved or pasted', () async {
+      final gate = Completer<String>();
+      fakeStt.transcribeGate = gate;
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.clipboard,
+      );
+      final stopFuture = orch.stopRecording();
+      await waitForPhase(RecordingPhase.transcribing);
+
+      // The snippet controller aborts by resetting the orchestrator while
+      // the pipeline keeps running.
+      orch.reset();
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+
+      await withFakeSttModel(orch.startRecording);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      gate.complete('stale transcript');
+      await stopFuture;
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      expect(await db.allEntries(), isEmpty);
+      expect(clipboardText, isNull);
     });
   });
 
@@ -3023,10 +3353,9 @@ void main() {
       clipboardText = 'Untouched clipboard';
       fakeStt.transcriptToReturn = 'First thought';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -3043,10 +3372,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Second thought';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -3061,10 +3389,9 @@ void main() {
       () async {
         fakeStt.transcriptToReturn = 'No note marked yet';
 
-        final orch = await startRecordingPhase();
-        container
-            .read(recordingTargetProvider.notifier)
-            .set(RecordingTarget.quickNote);
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.quickNote,
+        );
 
         await orch.stopRecording();
 
@@ -3082,10 +3409,9 @@ void main() {
         await db.softDeleteNote(trashed.id);
         fakeStt.transcriptToReturn = 'Marked note was trashed';
 
-        final orch = await startRecordingPhase();
-        container
-            .read(recordingTargetProvider.notifier)
-            .set(RecordingTarget.quickNote);
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.quickNote,
+        );
 
         await orch.stopRecording();
 
@@ -3105,10 +3431,9 @@ void main() {
       await db.permanentDeleteNote(deleted.id);
       fakeStt.transcriptToReturn = 'Marked note was deleted';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -3127,10 +3452,9 @@ void main() {
         await db.setQuickNote(note.id);
         fakeStt.transcriptToReturn = 'Only for the note';
 
-        final orch = await startRecordingPhase();
-        container
-            .read(recordingTargetProvider.notifier)
-            .set(RecordingTarget.quickNote);
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.quickNote,
+        );
 
         await orch.stopRecording();
 
@@ -3146,10 +3470,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Direct write';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
       expect(orch.quickNoteLiveEditorOverride, isNull);
 
       await orch.stopRecording();
@@ -3164,10 +3487,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Handled by the editor';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       String? overrideNoteId;
       String? overrideContent;
@@ -3191,10 +3513,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Not handled';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
       orch.quickNoteLiveEditorOverride = (_, _) => false;
 
       await orch.stopRecording();
@@ -3209,10 +3530,9 @@ void main() {
         await db.setQuickNote(note.id);
         fakeStt.transcriptToReturn = 'Observable completion';
 
-        final orch = await startRecordingPhase();
-        container
-            .read(recordingTargetProvider.notifier)
-            .set(RecordingTarget.quickNote);
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.quickNote,
+        );
 
         String? appendedNoteId;
         orch.onQuickNoteAppended = (noteId) => appendedNoteId = noteId;
@@ -3229,10 +3549,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = '';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       var fired = false;
       orch.onQuickNoteAppended = (_) => fired = true;
@@ -3251,10 +3570,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Appended';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       final order = <String>[];
       // Stands in for NotesPage's autosave flush: it writes the keystrokes
@@ -3289,10 +3607,9 @@ void main() {
       await db.updateNoteContent(note.id, 'Start');
       await db.setQuickNote(note.id);
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       // Miniature of the editor: a live buffer plus a pending (debounced)
       // write that only lands on flush — exactly NotesPage's arrangement.
@@ -3316,10 +3633,7 @@ void main() {
       // so drive it the way a real re-trigger does (preempting reset)
       // instead of forcing the phase again.
       container.read(recordingProvider.notifier).reset();
-      container.read(recordingProvider.notifier).startRecording();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      await orch.startRecording(target: RecordingTarget.quickNote);
       fakeStt.transcriptToReturn = 'Second';
       await orch.stopRecording();
 
@@ -3336,10 +3650,9 @@ void main() {
       await db.setQuickNote(note.id);
       fakeStt.transcriptToReturn = 'Appended';
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       // What NotesPage's override does when a *different* note is open.
       const openNoteId = 'some-other-note';
@@ -3375,10 +3688,9 @@ void main() {
       );
       await container.read(settingsProvider.future);
 
-      final orch = await startRecordingPhase();
-      container
-          .read(recordingTargetProvider.notifier)
-          .set(RecordingTarget.quickNote);
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.quickNote,
+      );
 
       await orch.stopRecording();
 
@@ -3873,6 +4185,68 @@ void main() {
             reason: 'History content field leaked into telemetry payload',
           );
         }
+      },
+    );
+  });
+
+  // =========================================================================
+  // Mic-start trace (handy-catchup ticket 19): hotkey → first real sample,
+  // split into the startRecording steps. Debug log only.
+  // =========================================================================
+
+  group('Mic-start trace', () {
+    setUp(() {
+      PerfMarkers.instance.reset();
+      ensureFakeLocalSttFilesExist();
+    });
+    tearDown(() => PerfMarkers.instance.reset());
+
+    test('stamps every start step and completes on the first sample, '
+        'measured from the hotkey press', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      fakeAudio.firstSampleCompleter = Completer<void>();
+
+      PerfMarkers.instance.markHotkeyPressed();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await orch.startRecording();
+
+      final trace = orch.debugLastMicStartTrace!;
+      expect(trace.isComplete, isFalse);
+      expect(
+        trace.elapsedMs(MicStartStage.phaseRecording),
+        greaterThanOrEqualTo(20),
+      );
+      expect(trace.elapsedMs(MicStartStage.captureStarted), isNotNull);
+
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      fakeAudio.firstSampleCompleter!.complete();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(trace.isComplete, isTrue);
+      expect(
+        trace.elapsedMs(MicStartStage.firstSample)! -
+            trace.elapsedMs(MicStartStage.captureStarted)!,
+        greaterThanOrEqualTo(30),
+      );
+      await orch.stopRecording();
+    });
+
+    test(
+      'never stamps a first sample when the capture fails to start',
+      () async {
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+        fakeAudio.errorOnStart = true;
+        fakeAudio.firstSampleCompleter = Completer<void>()..complete();
+
+        await orch.startRecording();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(container.read(recordingProvider).phase, RecordingPhase.error);
+        final trace = orch.debugLastMicStartTrace!;
+        expect(trace.elapsedMs(MicStartStage.captureStarted), isNull);
+        expect(trace.isComplete, isFalse);
       },
     );
   });
@@ -5136,6 +5510,8 @@ void main() {
       bool modelDownloaded = true,
       String provider = 'local',
       bool pasteAvailable = true,
+      bool localEngineAvailable = true,
+      Future<bool> Function(String path)? scanHook,
     }) async {
       ensureFakeLocalSttFilesExist();
       container.dispose();
@@ -5174,10 +5550,18 @@ void main() {
             }),
           ),
           smartModeDownloadProvider.overrideWith(
-            () =>
-                FakeSmartModeDownloadNotifier(modelDownloaded: modelDownloaded),
+            () => scanHook != null
+                // Real notifier: its startup disk scan runs through the hook,
+                // so the test controls when the scan finishes.
+                ? (SmartModeDownloadNotifier()..existsHookOverride = scanHook)
+                : FakeSmartModeDownloadNotifier(
+                    modelDownloaded: modelDownloaded,
+                  ),
           ),
           smartModeEngineProvider.overrideWith((ref) => engine),
+          smartModeLocalEngineAvailableProvider.overrideWithValue(
+            localEngineAvailable,
+          ),
         ],
       );
       await container.read(settingsProvider.future);
@@ -5261,6 +5645,50 @@ void main() {
       expect(fakeAudio.startCallCount, 0);
       expect(fakeDesktopPaste.copyCalls, 0);
       expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+
+    test('startup race: Smart Mode disk scan still pending → the edit waits '
+        'for it instead of reporting "no engine"', () async {
+      final modelDir = await Directory.systemTemp.createTemp(
+        'wp_sel_edit_scan_',
+      );
+      smartModeModelDirOverride = modelDir.path;
+      addTearDown(() {
+        smartModeModelDirOverride = null;
+        modelDir.deleteSync(recursive: true);
+      });
+      final scan = Completer<bool>();
+      final orch = await setUpSelectionEdit(scanHook: (_) => scan.future);
+      fakeDesktopPaste.onCopySelection = () => clipboardText = 'Ein Absatz.';
+      fakeStt.transcriptToReturn = 'shorter';
+
+      // Hotkey pressed while the startup scan is still in flight (the
+      // model file exists on disk, the scan just has not reported yet).
+      final starting = orch.startRecording(
+        target: RecordingTarget.selectionEdit,
+      );
+      scan.complete(true);
+      await starting;
+
+      expect(container.read(recordingProvider).errorMessage, isNull);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+
+      await orch.stopRecording();
+      expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      expect(engine.runCalls, 1);
+    });
+
+    test('local engine library missing from this build: same hint as the '
+        'settings, nothing recorded', () async {
+      final orch = await setUpSelectionEdit(localEngineAvailable: false);
+
+      await orch.startRecording(target: RecordingTarget.selectionEdit);
+
+      final state = container.read(recordingProvider);
+      expect(state.phase, RecordingPhase.error);
+      expect(state.errorMessage, 'selection_edit_local_unavailable');
+      expect(fakeAudio.startCallCount, 0);
+      expect(fakeDesktopPaste.copyCalls, 0);
     });
 
     test('no engine (cloud provider without OpenAI key): setup hint', () async {
@@ -5667,12 +6095,12 @@ void main() {
       );
       await container.read(settingsProvider.future);
       container.read(systemAttentionServiceProvider);
-      container
-          .read(smartModeHotkeyOverridePresetProvider.notifier)
-          .set(SmartModePreset.translate);
       fakeSmartModeEngine.resultToReturn = 'Texte traduit.';
 
-      final orch = await startRecordingPhase();
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.clipboard,
+        smartModeHotkeyPreset: SmartModePreset.translate,
+      );
       fakeStt.transcriptToReturn = 'raw text in some language';
       await orch.stopRecording();
 

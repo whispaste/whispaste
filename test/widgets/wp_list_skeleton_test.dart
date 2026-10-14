@@ -19,10 +19,10 @@ import 'package:whispaste/widgets/wp_list_skeleton.dart';
 import '../fixtures/test_helpers.dart';
 
 /// Mirrors `_historySkeletonRowHeight` in `lib/features/history/history_page.dart`.
-const _historySkeletonRowHeight = 128.0;
+const _historySkeletonRowHeight = 112.0;
 
 /// Mirrors `_notesSkeletonRowHeight` in `lib/features/notes/notes_page.dart`.
-const _notesSkeletonRowHeight = 104.0;
+const _notesSkeletonRowHeight = 139.0;
 
 /// Width of the list column at its default split-view size.
 const _listWidth = 340.0;

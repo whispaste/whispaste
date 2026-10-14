@@ -28,7 +28,8 @@ parallelen Logging-Weg — `print()` ist per Lint (`avoid_print`,
 `AppLogger` selbst sind seit diesem Commit per CI-Gate
 (`.github/workflows/ci.yml`, Job „Secret scan“ → Step „Logging gate“)
 verboten. Ausnahmen (dokumentiert im Gate-Script): `app_logger.dart` /
-`app_monitoring.dart` / `crash_reporter.dart` selbst (vermeiden rekursive
+`app_monitoring.dart` / `crash_reporter.dart` / `crash_reporting_consent.dart`
+selbst (vermeiden rekursive
 Logger-Aufrufe) sowie die sekundären Flutter-Engine-Entrypoints
 (`*_render_entrypoint.dart`, `overlay_render_channel.dart`), die vor dem
 regulären App-Bootstrap laufen können.

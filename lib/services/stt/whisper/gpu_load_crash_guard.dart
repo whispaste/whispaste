@@ -66,20 +66,43 @@ class GpuLoadCrashGuard {
   static const _markerFileName = '.gpu_load_attempt';
   static const _noticeFileName = '.gpu_load_crash_notice_pending';
   static const _strikesFileName = '.gpu_load_crash_strikes';
+  static const _cudaNoticeFileName = '.cuda_load_crash_notice_pending';
+
+  /// Marker content prefix for an attempt that loaded the optional CUDA
+  /// pack — see [crashedLastAttemptWithCuda].
+  static const _cudaMarkerPrefix = 'cuda ';
 
   File get _markerFile => File(p.join(_dataDir, _markerFileName));
   File get _noticeFile => File(p.join(_dataDir, _noticeFileName));
   File get _strikesFile => File(p.join(_dataDir, _strikesFileName));
+  File get _cudaNoticeFile => File(p.join(_dataDir, _cudaNoticeFileName));
 
   /// True if a previous session marked a GPU load attempt and never cleared
   /// it — i.e. the process died before the load call returned.
   bool get crashedLastAttempt => _markerFile.existsSync();
 
-  /// Call immediately before a GPU-backed `WhisperEngine.load()`.
-  void markAttempt() {
+  /// True if the crashed attempt (see [crashedLastAttempt]) had the
+  /// optional CUDA pack enabled. Such a crash is blamed on the pack, not on
+  /// GPU acceleration as a whole: recovery switches only CUDA off and keeps
+  /// the Vulkan path.
+  bool get crashedLastAttemptWithCuda {
+    try {
+      return _markerFile.existsSync() &&
+          _markerFile.readAsStringSync().startsWith(_cudaMarkerPrefix);
+    } catch (e) {
+      _log.error('Failed to read GPU-load crash marker: $e', e);
+      return false;
+    }
+  }
+
+  /// Call immediately before a GPU-backed `WhisperEngine.load()`; [cuda]
+  /// records that the optional CUDA pack is part of this attempt.
+  void markAttempt({bool cuda = false}) {
     try {
       _markerFile.parent.createSync(recursive: true);
-      _markerFile.writeAsStringSync(DateTime.now().toIso8601String());
+      _markerFile.writeAsStringSync(
+        '${cuda ? _cudaMarkerPrefix : ''}${DateTime.now().toIso8601String()}',
+      );
     } catch (e) {
       // Best-effort: if the marker can't be written, this launch simply
       // loses crash-loop protection — never let this block the real load.
@@ -122,6 +145,29 @@ class GpuLoadCrashGuard {
       return true;
     } catch (e) {
       _log.error('Failed to consume GPU-disabled notice marker: $e', e);
+      return false;
+    }
+  }
+
+  /// Records that recovery switched the CUDA pack off — the UI owes the
+  /// user a one-time notice ([consumePendingCudaNotice]).
+  void markPendingCudaNotice() {
+    try {
+      _cudaNoticeFile.parent.createSync(recursive: true);
+      _cudaNoticeFile.writeAsStringSync('');
+    } catch (e) {
+      _log.error('Failed to write CUDA-disabled notice marker: $e', e);
+    }
+  }
+
+  /// One-shot read, like [consumePendingUserNotice].
+  bool consumePendingCudaNotice() {
+    try {
+      if (!_cudaNoticeFile.existsSync()) return false;
+      _cudaNoticeFile.deleteSync();
+      return true;
+    } catch (e) {
+      _log.error('Failed to consume CUDA-disabled notice marker: $e', e);
       return false;
     }
   }
@@ -195,6 +241,43 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
   final guard = container.read(gpuLoadCrashGuardProvider);
   if (!guard.crashedLastAttempt) return;
 
+  // The optional CUDA pack is the newest, least proven part of the GPU path:
+  // one crash with it switches only the pack off (Vulkan stays), without
+  // touching the GPU strike count.
+  if (guard.crashedLastAttemptWithCuda) {
+    CrashReporter.instance?.captureError(
+      message:
+          'STT model load crashed with the CUDA pack enabled — '
+          'switching CUDA off, keeping Vulkan',
+      severity: 'warning',
+      fingerprint: const [sttCudaLoadCrashRecovered],
+    );
+    try {
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              behavior: s.behavior.copyWith(cudaAcceleration: false),
+            ),
+          );
+      // Clear the marker only once the override is persisted. If the write
+      // failed, fall through and count the crash like any GPU crash below:
+      // otherwise every launch would re-enable CUDA and crash again without
+      // the strike count ever escalating.
+      guard.clearAttempt();
+      guard.markPendingCudaNotice();
+      return;
+    } catch (e, st) {
+      CrashReporter.instance?.captureError(
+        message: 'Failed to persist the CUDA-off override: $e',
+        severity: 'error',
+        fingerprint: const [sttCudaLoadCrashRecovered],
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
   // Always clear the in-flight marker: reaching this point already proves
   // last session's crash has been accounted for (via recordCrash below),
   // independent of whether the streak has hit the threshold yet.
@@ -204,13 +287,14 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
   if (strikes < kGpuCrashStrikeThreshold) {
     // Below threshold: retry GPU silently on this very launch. No settings
     // change, no user-facing notice — a single crash must not cost the
-    // user their GPU over what may well be an unrelated fluke.
-    CrashReporter.instance?.captureError(
-      message:
-          'STT GPU model load crashed ($strikes/$kGpuCrashStrikeThreshold) '
-          '— retrying GPU once more before switching to CPU-only',
-      severity: 'warning',
-      fingerprint: const [sttGpuLoadCrashRecovered],
+    // user their GPU over what may well be an unrelated fluke. Logged as a
+    // warning (a Sentry breadcrumb, not an event): the crash itself is
+    // already reported natively, and a Sentry event per first strike was
+    // ~65 events/month of noise on the shared quota. The escalation below
+    // still captures one event.
+    _log.warning(
+      'STT GPU model load crashed ($strikes/$kGpuCrashStrikeThreshold) '
+      '— retrying GPU once more before switching to CPU-only',
     );
     return;
   }

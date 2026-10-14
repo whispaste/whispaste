@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:whispaste/app.dart';
+import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/theme/colors.dart';
@@ -100,9 +101,18 @@ class WpScreenshotShell extends StatelessWidget {
                     ],
                   ),
                 ),
-                const WpStatusBar(
-                  sttModeLabel: 'Whisper Large v3',
-                  hotkeyLabel: 'Ctrl+Shift+D',
+                // Same labels the real status bar builds from the default
+                // settings (local provider, Ctrl+Shift+D or Cmd+Shift+D on
+                // macOS), localized per locale.
+                WpStatusBar(
+                  sttModeLabel: L10n.of(context).statusBarOnDevice,
+                  hotkeyLabel: formatHotkeyShortcut(
+                    Theme.of(context).platform == TargetPlatform.macOS
+                        ? 'meta+shift'
+                        : 'ctrl+shift',
+                    'D',
+                    l10n: L10n.of(context),
+                  ),
                   hotkeyEnabled: true,
                 ),
               ],

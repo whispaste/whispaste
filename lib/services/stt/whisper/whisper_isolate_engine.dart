@@ -10,9 +10,12 @@
 library;
 
 import 'dart:async';
+import 'dart:collection';
+import 'dart:ffi' as ffi;
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:ffi/ffi.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/settings_enums.dart' show GpuAcceleration;
@@ -20,6 +23,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../hardware_info_service.dart';
 import '../isolate_shutdown_helper.dart';
+import 'cuda_pack.dart';
 import 'whisper_engine.dart';
 import 'whisper_ffi_engine.dart';
 
@@ -31,9 +35,14 @@ final _log = AppLogger('WhisperIsolateEngine');
 // ---------------------------------------------------------------------------
 
 class _EngineConfig {
-  const _EngineConfig({this.libraryPath, required this.backend});
+  const _EngineConfig({
+    this.libraryPath,
+    required this.backend,
+    this.cudaPackDir,
+  });
   final String? libraryPath;
   final WhisperBackend backend;
+  final String? cudaPackDir;
 }
 
 class _LoadRequest {
@@ -48,9 +57,16 @@ class _LoadRequest {
 }
 
 class _LoadResult {
-  const _LoadResult({required this.ok, this.error});
+  const _LoadResult({
+    required this.ok,
+    this.error,
+    this.cpuFeatures,
+    this.gpuDevice,
+  });
   final bool ok;
   final String? error;
+  final String? cpuFeatures;
+  final String? gpuDevice;
 }
 
 class _TranscribeRequest {
@@ -100,7 +116,10 @@ class _PartialTranscriptUpdate {
 /// isolate boundary the same way [_TranscribeRequest]/[_TranscribeResult] do
 /// for [WhisperEngine.transcribe].
 class _StartLivePreviewRequest {
-  const _StartLivePreviewRequest();
+  const _StartLivePreviewRequest(this.abortFlagAddress);
+
+  /// Address of [WhisperIsolateEngine._previewAbortFlag] (ticket 30).
+  final int abortFlagAddress;
 }
 
 class _StartLivePreviewResult {
@@ -171,6 +190,56 @@ class _ShutdownRequest {
   const _ShutdownRequest();
 }
 
+/// Completes [completer] with [value] unless it is already completed.
+///
+/// Worker replies can outlive the call that asked for them (a duplicate ack,
+/// or a reply to a call that already timed out), and a second `complete()`
+/// throws "Future already completed" from inside the message handler
+/// (FLUTTER_WHISPASTE-148613655).
+void _completeIfPending<T>(Completer<T>? completer, [T? value]) {
+  if (completer != null && !completer.isCompleted) {
+    completer.complete(value);
+  }
+}
+
+/// FIFO of waiters for the worker's [_UnloadAck]s.
+///
+/// The worker answers every [_UnloadRequest] and [_ShutdownRequest] with
+/// exactly one [_UnloadAck], in order. Each waiter therefore takes the next
+/// ack, instead of sharing one overwritten field: with a single field, a
+/// second unload()/shutdown() orphaned the first caller's awaiter (it hung
+/// until its timeout) and let the second ack complete the same completer twice.
+class WorkerAckQueue {
+  final Queue<Completer<void>> _waiters = Queue<Completer<void>>();
+
+  /// Number of waiters still waiting for an ack.
+  int get length => _waiters.length;
+
+  /// Registers a waiter for the next ack and returns it.
+  Completer<void> enqueue() {
+    final completer = Completer<void>();
+    _waiters.add(completer);
+    return completer;
+  }
+
+  /// Drops a waiter whose request was never sent, so no ack will match it.
+  void cancel(Completer<void> completer) => _waiters.remove(completer);
+
+  /// Completes the oldest waiter. An ack without a waiter is ignored.
+  void onAck() {
+    if (_waiters.isEmpty) return;
+    _completeIfPending(_waiters.removeFirst());
+  }
+
+  /// Completes every remaining waiter, e.g. once the worker has exited and
+  /// no further acks can arrive.
+  void completeAll() {
+    while (_waiters.isNotEmpty) {
+      _completeIfPending(_waiters.removeFirst());
+    }
+  }
+}
+
 /// Isolate entry point. Must be a top-level/static function (Dart isolate
 /// requirement) — receives the main isolate's [SendPort] and spawns its own
 /// [ReceivePort], sending its own [SendPort] back as the first message so the
@@ -195,6 +264,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           engine ??= WhisperFfiEngine(
             libraryPath: req.config.libraryPath,
             backend: req.config.backend,
+            cudaPackDir: req.config.cudaPackDir,
           );
           await engine!.load(
             modelPath: req.modelPath,
@@ -205,7 +275,13 @@ void _whisperIsolateMain(SendPort mainSendPort) {
               mainSendPort.send(_PartialTranscriptUpdate(text));
             });
           }
-          mainSendPort.send(const _LoadResult(ok: true));
+          mainSendPort.send(
+            _LoadResult(
+              ok: true,
+              cpuFeatures: engine!.status.cpuFeatures,
+              gpuDevice: engine!.status.gpuDevice,
+            ),
+          );
         } catch (e) {
           mainSendPort.send(_LoadResult(ok: false, error: '$e'));
         }
@@ -246,7 +322,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           );
         }
 
-      case _StartLivePreviewRequest():
+      case final _StartLivePreviewRequest req:
         final e = engine;
         if (e == null) {
           mainSendPort.send(
@@ -257,6 +333,13 @@ void _whisperIsolateMain(SendPort mainSendPort) {
           );
           return;
         }
+        // Cleared here, in queue order, rather than by the main isolate:
+        // preview decodes still queued from the previous recording must
+        // keep seeing the flag its stop raised.
+        final abortFlag = ffi.Pointer<ffi.Int32>.fromAddress(
+          req.abortFlagAddress,
+        )..value = 0;
+        e.livePreviewAbortFlag = abortFlag;
         try {
           await e.startLivePreview();
           mainSendPort.send(const _StartLivePreviewResult(ok: true));
@@ -360,11 +443,15 @@ class WhisperIsolateEngine
         PartialTranscriptSource,
         LivePreviewEngine,
         PromptTokenCounter {
-  WhisperIsolateEngine({String? libraryPath, WhisperBackend? backend})
-    : _config = _EngineConfig(
-        libraryPath: libraryPath,
-        backend: backend ?? WhisperBackend.cpu,
-      );
+  WhisperIsolateEngine({
+    String? libraryPath,
+    WhisperBackend? backend,
+    String? cudaPackDir,
+  }) : _config = _EngineConfig(
+         libraryPath: libraryPath,
+         backend: backend ?? WhisperBackend.cpu,
+         cudaPackDir: cudaPackDir,
+       );
 
   final _EngineConfig _config;
 
@@ -372,12 +459,14 @@ class WhisperIsolateEngine
   SendPort? _workerPort;
   StreamSubscription<dynamic>? _sub;
   Completer<_LoadResult>? _loadCompleter;
-  Completer<void>? _unloadCompleter;
+  final WorkerAckQueue _unloadAcks = WorkerAckQueue();
   final Map<int, Completer<_TranscribeResult>> _pending = {};
   int _nextRequestId = 0;
 
   bool _isLoaded = false;
   String? _errorMessage;
+  String? _cpuFeatures;
+  String? _gpuDevice;
 
   /// Re-broadcasts [_PartialTranscriptUpdate] messages relayed from the
   /// worker isolate's [WhisperFfiEngine.partialTranscript] (ticket 11). See
@@ -393,12 +482,28 @@ class WhisperIsolateEngine
     isLoaded: _isLoaded,
     backend: _config.backend,
     errorMessage: _errorMessage,
+    cpuFeatures: _cpuFeatures,
+    gpuDevice: _gpuDevice,
   );
 
-  @override
-  Future<void> load({required String modelPath, String? vadModelPath}) async {
-    if (_isLoaded) return;
+  /// Shared while a load is in flight: a concurrent second call used to
+  /// overwrite [_loadCompleter], orphaning the first caller until its 60 s
+  /// timeout.
+  Future<void>? _loadInFlight;
 
+  @override
+  Future<void> load({required String modelPath, String? vadModelPath}) {
+    if (_isLoaded) return Future<void>.value();
+    return _loadInFlight ??= _loadOnce(
+      modelPath: modelPath,
+      vadModelPath: vadModelPath,
+    ).whenComplete(() => _loadInFlight = null);
+  }
+
+  Future<void> _loadOnce({
+    required String modelPath,
+    String? vadModelPath,
+  }) async {
     if (_isolate == null) {
       final mainReceivePort = ReceivePort();
       final isolate = await Isolate.spawn(
@@ -448,6 +553,8 @@ class WhisperIsolateEngine
     }
     _isLoaded = true;
     _errorMessage = null;
+    _cpuFeatures = result.cpuFeatures;
+    _gpuDevice = result.gpuDevice;
   }
 
   @override
@@ -494,6 +601,13 @@ class WhisperIsolateEngine
   // ticket) — proxies [LivePreviewEngine] to the worker isolate the same way
   // [transcribe] proxies [WhisperEngine.transcribe] above. ──────────────────
 
+  /// Raised by [stopLivePreview] so the worker's in-flight preview decode
+  /// aborts instead of delaying the final transcription queued behind it
+  /// (ticket 30); the worker clears it on the next start. Allocated here
+  /// and freed only once the worker has exited, as a native call there may
+  /// still read it.
+  ffi.Pointer<ffi.Int32>? _previewAbortFlag;
+
   Completer<_StartLivePreviewResult>? _startPreviewCompleter;
   Completer<_StopLivePreviewAck>? _stopPreviewCompleter;
   final Map<int, Completer<_LivePreviewDecodeResult>> _pendingPreview = {};
@@ -521,14 +635,26 @@ class WhisperIsolateEngine
     return result.count ?? 0;
   }
 
+  /// Shared while a start is in flight, for the same reason as [_loadInFlight]:
+  /// an overwritten [_startPreviewCompleter] would leave the first caller
+  /// awaiting a reply that never arrives.
+  Future<void>? _startPreviewInFlight;
+
   @override
-  Future<void> startLivePreview() async {
+  Future<void> startLivePreview() {
+    return _startPreviewInFlight ??= _startLivePreviewOnce().whenComplete(
+      () => _startPreviewInFlight = null,
+    );
+  }
+
+  Future<void> _startLivePreviewOnce() async {
     if (!_isLoaded || _workerPort == null) {
       throw StateError('whisper_engine_not_loaded');
     }
     final completer = Completer<_StartLivePreviewResult>();
     _startPreviewCompleter = completer;
-    _workerPort!.send(const _StartLivePreviewRequest());
+    final abortFlag = _previewAbortFlag ??= calloc<ffi.Int32>();
+    _workerPort!.send(_StartLivePreviewRequest(abortFlag.address));
     final result = await completer.future;
     if (!result.ok) {
       throw StateError(result.error ?? 'whisper_init_state_failed');
@@ -563,6 +689,7 @@ class WhisperIsolateEngine
   @override
   Future<void> stopLivePreview() async {
     if (_isolate == null || _workerPort == null) return;
+    _previewAbortFlag?.value = 1;
     final completer = Completer<_StopLivePreviewAck>();
     _stopPreviewCompleter = completer;
     try {
@@ -613,11 +740,11 @@ class WhisperIsolateEngine
     // down Metal/GGML before whisper_free() ran, ggml_metal_rsets_free's
     // "resources still allocated" assertion aborts the whole app
     // (FLUTTER_WHISPASTE-BC, reproduced live on macOS at quit time).
-    final completer = Completer<void>();
-    _unloadCompleter = completer;
+    final completer = _unloadAcks.enqueue();
     try {
       _workerPort!.send(const _UnloadRequest());
     } catch (e) {
+      _unloadAcks.cancel(completer);
       _log.warning('Failed to signal worker unload: $e');
       _isLoaded = false;
       return;
@@ -668,13 +795,13 @@ class WhisperIsolateEngine
     final isolate = _isolate;
     if (isolate == null) return;
 
-    final completer = Completer<void>();
-    _unloadCompleter = completer;
+    final completer = _unloadAcks.enqueue();
     try {
       _workerPort?.send(const _ShutdownRequest());
     } catch (e) {
       _log.warning('Failed to signal worker shutdown: $e');
     }
+    var killed = false;
     await awaitGracefulShutdown(
       completer: completer,
       timeout: const Duration(seconds: 10),
@@ -682,8 +809,19 @@ class WhisperIsolateEngine
       timeoutMessage:
           'Worker shutdown did not complete within 10s — force-killing '
           '(native resources may leak)',
-      onTimeout: () => isolate.kill(priority: Isolate.immediate),
+      onTimeout: () {
+        killed = true;
+        isolate.kill(priority: Isolate.immediate);
+      },
     );
+    // The worker is gone (acked or killed), so no earlier unload ack can
+    // arrive either: release any unload() still waiting on one.
+    _unloadAcks.completeAll();
+    // A killed worker's native decode may still be running and reading the
+    // flag — leak four bytes rather than risk a use-after-free.
+    final abortFlag = _previewAbortFlag;
+    _previewAbortFlag = null;
+    if (abortFlag != null && !killed) calloc.free(abortFlag);
     _sub?.cancel();
     _sub = null;
     _isolate = null;
@@ -698,23 +836,45 @@ class WhisperIsolateEngine
   void _handleWorkerMessage(dynamic message) {
     switch (message) {
       case final _LoadResult r:
-        _loadCompleter?.complete(r);
+        _completeIfPending(_loadCompleter, r);
       case final _TranscribeResult r:
-        _pending.remove(r.requestId)?.complete(r);
+        _completeIfPending(_pending.remove(r.requestId), r);
       case final _PartialTranscriptUpdate u:
         _partialController.add(u.text);
       case final _StartLivePreviewResult r:
-        _startPreviewCompleter?.complete(r);
+        _completeIfPending(_startPreviewCompleter, r);
       case final _LivePreviewDecodeResult r:
-        _pendingPreview.remove(r.requestId)?.complete(r);
+        _completeIfPending(_pendingPreview.remove(r.requestId), r);
       case _StopLivePreviewAck():
-        _stopPreviewCompleter?.complete(const _StopLivePreviewAck());
+        _completeIfPending(_stopPreviewCompleter, const _StopLivePreviewAck());
       case final _TokenCountResult r:
-        _pendingTokenCount.remove(r.requestId)?.complete(r);
+        _completeIfPending(_pendingTokenCount.remove(r.requestId), r);
       case _UnloadAck():
-        _unloadCompleter?.complete();
+        _unloadAcks.onAck();
     }
   }
+}
+
+/// Picks the whisper.cpp backend from the user's "Grafikbeschleunigung"
+/// setting and the detected [gpu].
+///
+/// `disabled` always forces CPU and `enabled` always uses the detected
+/// backend. `auto` additionally routes known-problematic GPUs (Kepler/Fermi,
+/// old AMD GCN — see [shouldUseGpu]) to CPU up front instead of waiting for
+/// the reactive load-timeout fallback.
+WhisperBackend selectWhisperBackend({
+  required String? gpuPreference,
+  required GpuInfo? gpu,
+}) {
+  if (gpuPreference == GpuAcceleration.disabled.value) {
+    return WhisperBackend.cpu;
+  }
+  if (gpu != null &&
+      gpuPreference != GpuAcceleration.enabled.value &&
+      !shouldUseGpu(gpu)) {
+    return WhisperBackend.cpu;
+  }
+  return whisperBackendFromName(gpu?.optimalBackend);
 }
 
 /// Overrideable [WhisperEngine] for the on-device whisper path.
@@ -733,12 +893,16 @@ final whisperEngineProvider = Provider<WhisperEngine>((ref) {
   final gpuPreference = ref.watch(
     settingsProvider.select((s) => s.value?.behavior.gpuAcceleration),
   );
-  final backend = gpuPreference == GpuAcceleration.disabled.value
-      ? WhisperBackend.cpu
-      : whisperBackendFromName(
-          ref.watch(gpuInfoProvider).value?.optimalBackend,
-        );
-  final engine = WhisperIsolateEngine(backend: backend);
+  final backend = selectWhisperBackend(
+    gpuPreference: gpuPreference,
+    gpu: ref.watch(gpuInfoProvider).value,
+  );
+  final engine = WhisperIsolateEngine(
+    backend: backend,
+    cudaPackDir: backend == WhisperBackend.cpu
+        ? null
+        : ref.watch(activeCudaPackDirProvider),
+  );
   ref.onDispose(engine.shutdown);
   return engine;
 });

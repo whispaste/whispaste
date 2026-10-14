@@ -171,9 +171,9 @@ echo "== T7: production Ek8FS/ pubkey wiring present (AC-3 committed-pubkey path
 grep -q 'Ek8FS/' "$REPO_ROOT/macos/Runner/Info.plist" \
   && check "Info.plist carries committed SUPublicEDKey (Ek8FS/)" 0 \
   || bad "Info.plist carries committed SUPublicEDKey (Ek8FS/)"
-grep -q 'Ek8FS/' "$REPO_ROOT/packages/auto_updater_windows/windows/auto_updater.cpp" \
-  && check "auto_updater.cpp carries committed kWhisPasteEdDSAPublicKey (Ek8FS/)" 0 \
-  || bad "auto_updater.cpp carries committed kWhisPasteEdDSAPublicKey (Ek8FS/)"
+grep -q 'Ek8FS/' "$REPO_ROOT/packages/auto_updater_windows/windows/auto_updater.h" \
+  && check "auto_updater.h carries committed kWhisPasteEdDSAPublicKey (Ek8FS/)" 0 \
+  || bad "auto_updater.h carries committed kWhisPasteEdDSAPublicKey (Ek8FS/)"
 
 echo "== T8: tampered edSignature fails verification (AC-4) =="
 TAMPERED="$WORK/appcast-beta.tampered.xml"

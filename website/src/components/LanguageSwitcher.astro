@@ -1,0 +1,85 @@
+---
+/**
+ * Language menu: links to the current page in every locale. Server-rendered
+ * links (no JS needed); `<details>` provides the open/close behaviour.
+ * `variant="inline"` renders the plain link row used in the mobile menu.
+ */
+import { t, alternatePaths, LOCALE_META, SUPPORTED_LOCALES, type Locale } from '../scripts/i18n.ts';
+
+interface Props {
+  lang: Locale;
+  variant?: 'menu' | 'inline';
+}
+const { lang, variant = 'menu' } = Astro.props;
+const paths = alternatePaths(Astro.url.pathname);
+const idPrefix = variant === 'menu' ? 'lang-switch' : 'mobile-lang-switch';
+---
+
+{variant === 'menu' ? (
+  <details class="lang-switch relative" data-testid="lang-switch">
+    <summary
+      class="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-white transition-colors"
+      aria-label={t(lang, 'nav.switchLanguageAria')}
+    >
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      <span>{LOCALE_META[lang].short}</span>
+    </summary>
+    <ul class="lang-switch-menu absolute right-0 top-full mt-3 min-w-44 rounded-xl border border-white/[0.08] py-1.5 shadow-xl">
+      {SUPPORTED_LOCALES.map((l) => (
+        <li>
+          <a
+            href={paths[l]}
+            data-lang-choice={l}
+            hreflang={LOCALE_META[l].tag}
+            lang={LOCALE_META[l].tag}
+            data-testid={`${idPrefix}-${l}`}
+            aria-current={l === lang ? 'true' : undefined}
+            class:list={[
+              'block px-4 py-2 text-sm transition-colors hover:bg-white/[0.06] hover:text-white',
+              l === lang ? 'text-white font-semibold' : 'text-ink-muted',
+            ]}
+          >{LOCALE_META[l].nativeName}</a>
+        </li>
+      ))}
+    </ul>
+  </details>
+) : (
+  <nav aria-label={t(lang, 'nav.switchLanguageAria')} class="flex flex-wrap gap-x-4 gap-y-2" data-testid="mobile-lang-switch">
+    {SUPPORTED_LOCALES.map((l) => (
+      <a
+        href={paths[l]}
+        data-lang-choice={l}
+        hreflang={LOCALE_META[l].tag}
+        lang={LOCALE_META[l].tag}
+        data-testid={`${idPrefix}-${l}`}
+        aria-current={l === lang ? 'true' : undefined}
+        class:list={['text-sm transition-colors hover:text-white', l === lang ? 'text-white font-semibold' : 'text-ink-muted']}
+      >{LOCALE_META[l].short}</a>
+    ))}
+  </nav>
+)}
+
+<style>
+  .lang-switch summary::-webkit-details-marker { display: none; }
+  .lang-switch-menu { background: var(--color-brand-darker, #0b122a); }
+</style>
+
+<script is:inline>
+  // Remember an explicit language choice; the browser-language redirect in
+  // Layout.astro honours it over navigator.languages.
+  document.addEventListener('click', function (e) {
+    var a = e.target instanceof Element ? e.target.closest('a[data-lang-choice]') : null;
+    if (!a) return;
+    try { localStorage.setItem('wp-lang', a.getAttribute('data-lang-choice')); } catch (err) {}
+  });
+  // Close the language menu on outside click / Escape.
+  document.addEventListener('click', function (e) {
+    document.querySelectorAll('details.lang-switch[open]').forEach(function (d) {
+      if (!d.contains(e.target)) d.removeAttribute('open');
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('details.lang-switch[open]').forEach(function (d) { d.removeAttribute('open'); });
+  });
+</script>

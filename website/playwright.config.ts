@@ -38,6 +38,9 @@ export default defineConfig({
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
+    // SIGTERM instead of the default SIGKILL so scripts/preview.sh can stop
+    // the self-daemonized astro preview server on teardown.
+    gracefulShutdown: { signal: 'SIGTERM', timeout: 10000 },
   },
   projects: [
     {

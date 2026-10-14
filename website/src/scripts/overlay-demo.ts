@@ -9,8 +9,9 @@
  *   appear spring (scale 0.88 → 1.0 + fade, easeOutCubic 300 ms)
  *     → recording (live waveform, timer, progress timeline, liquid wobble)
  *     → transcribing (150 ms content crossfade + pill-width spring)
- *     → done — or, every 4th episode, error (280 ms status reveal:
- *       check draws on stroke-first / error icon settles in)
+ *     → done (280 ms status reveal: check draws on stroke-first). The
+ *       marketing demo never ends in the error state: on a product page a
+ *       red "Error" reads as a broken app, not as an honest state.
  *     → brief fade-out, short rest, next episode.
  *
  * One episode ≈ 9.7 s — a quiet, legible narrative, not a strobe. The 8 s
@@ -45,12 +46,12 @@ import {
   type OverlayTheme,
 } from './overlay-mockup';
 
-/** Demo languages — mirrors the site's two locales. */
-export type OverlayDemoLang = 'de' | 'en';
+/** Demo languages — the app UI languages the site also ships (others show English, like the app). */
+export type OverlayDemoLang = 'de' | 'en' | 'ru';
 
 /**
  * Status texts per state, verbatim from the app's own localisations
- * (`app_localizations_{en,de}.dart`: overlayTranscribing / overlayDonePasted /
+ * (`app_{en,de,ru}.arb`: overlayTranscribing / overlayDonePasted /
  * overlayError) — the demo shows exactly what the real overlay says.
  */
 const LABELS: Readonly<
@@ -58,6 +59,7 @@ const LABELS: Readonly<
 > = {
   en: { transcribing: 'Transcribing…', done: 'Pasted', error: 'Error' },
   de: { transcribing: 'Wird transkribiert…', done: 'Eingefügt', error: 'Fehler' },
+  ru: { transcribing: 'Транскрипция…', done: 'Вставлено', error: 'Ошибка' },
 };
 
 export interface OverlayDemoOptions {
@@ -94,9 +96,6 @@ const PHASE_ORDER: readonly DemoPhase[] = [
   'fadeout',
   'gap',
 ];
-
-/** Every Nth episode ends in the error state instead of done. */
-const ERROR_EVERY_NTH_EPISODE = 4;
 
 /**
  * Speech-like envelope with periodic pauses so the release smoothing visibly
@@ -234,9 +233,7 @@ export class OverlayDemo {
   }
 
   private get endState(): OverlayState {
-    return this.episode % ERROR_EVERY_NTH_EPISODE === ERROR_EVERY_NTH_EPISODE - 1
-      ? 'error'
-      : 'done';
+    return 'done';
   }
 
   private currentState(): OverlayState {
@@ -251,7 +248,7 @@ export class OverlayDemo {
   }
 
   private labels(): Readonly<Record<'transcribing' | 'done' | 'error', string>> {
-    return this.opts.getLang() === 'de' ? LABELS.de : LABELS.en;
+    return LABELS[this.opts.getLang()];
   }
 
   private textFor(state: OverlayState): string {

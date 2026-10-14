@@ -38,11 +38,11 @@ typedef HistoryPageExportFn =
     Future<void> Function(BuildContext context, List<HistoryEntry> entries);
 
 /// Placeholder-bar height of the loading skeleton, matched to the real
-/// [HistoryEntryRow]. Measured at a 340 dp list column: 108 dp for an entry
-/// whose content is one short line, 127 dp with the usual two-line preview.
-/// 128 tracks the populated case — the one a skeleton has to reserve for —
+/// [HistoryEntryRow]. Measured at a 340 dp list column: 110 dp with the
+/// usual two-line preview since the metadata collapsed into one line.
+/// 112 tracks the populated case — the one a skeleton has to reserve for —
 /// on the repo's 8 dp rhythm. The former 52 reserved less than half a row.
-const _historySkeletonRowHeight = 128.0;
+const _historySkeletonRowHeight = 112.0;
 
 /// Key of the privacy gate the page shows instead of entries while
 /// `HistorySettings.historyHideOnOpen` is on and the user has not revealed

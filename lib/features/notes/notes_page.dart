@@ -36,13 +36,13 @@ typedef NotesPageExportFn =
     Future<void> Function(BuildContext context, Note note, List<Tag> tags);
 
 /// Placeholder-bar height of the loading skeleton, matched to the real
-/// [NotesListTile]. Measured at a 340 dp list column: 65 dp for a note that
-/// is nothing but a title, 106 dp once it carries the usual two-line preview.
-/// 104 tracks the populated case — the one a skeleton has to reserve for —
-/// on the repo's 8 dp rhythm. It stays below the history bar because a note
-/// tile really is shorter (no avatar column, no metadata line); the residual
-/// step when switching areas mid-load is the step the loaded lists have too.
-const _notesSkeletonRowHeight = 104.0;
+/// [NotesListTile]. Measured at a 340 dp list column with the populated
+/// fixture: two-line title, two-line preview and the update time on its own
+/// metadata line. That is taller than the earlier single-line-title layout,
+/// so the value moved from 104 to 139 when the tile was aligned with history.
+/// The residual step when switching areas mid-load is the step the loaded
+/// lists have too.
+const _notesSkeletonRowHeight = 139.0;
 
 /// Notes page — standalone sidebar area for free-form notes.
 ///

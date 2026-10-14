@@ -1,0 +1,11 @@
+#!/bin/sh
+# Reloads udev rules after the WhisPaste uinput rule was removed.
+set -e
+
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+  if command -v udevadm >/dev/null 2>&1; then
+    udevadm control --reload-rules 2>/dev/null || true
+  fi
+fi
+
+exit 0

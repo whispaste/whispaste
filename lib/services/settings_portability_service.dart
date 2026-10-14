@@ -152,6 +152,9 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // vocab-learning-corrections/`) — a behavior preference like the other
   // 'text_replacements_enabled'/'snippet_picker_trigger' toggles nearby.
   'correction_learning_enabled',
+  // Optional CUDA pack switch — a preference like 'gpu_acceleration'; on a
+  // machine without the pack installed it simply has no effect.
+  'cuda_acceleration',
   'custom_vocabulary',
   'dead_mic_timeout',
   'duration_warning_sound',
@@ -256,8 +259,10 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'stt_numeric_only_mode',
   'stt_provider',
   'stt_punctuation_priming',
+  'stt_remove_filler_words',
   'stt_strip_punctuation',
   'stt_vad_enabled',
+  'stt_voice_line_breaks',
   'text_replacements_enabled',
   // No 'theme_mode' since 2026-08-11. It left this list with the light theme:
   // `toStorageMap()` no longer emits the key, and the assertion that every

@@ -1,0 +1,1 @@
+dictée,transcription,saisie vocale,voix en texte,whisper,hors ligne,raccourci,local,notes vocales

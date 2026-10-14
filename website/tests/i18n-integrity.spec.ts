@@ -132,6 +132,29 @@ test.describe('i18n integrity', () => {
       .map(([k]) => k);
     expect(empty, `Empty DE values: ${empty.join(', ')}`).toEqual([]);
   });
+
+  test('every EN key has a FR translation', () => {
+    const fr = i18n['fr']!;
+    const missingInFr = Object.keys(en).filter((key) => !(key in fr));
+    expect(missingInFr, `Missing FR keys: ${missingInFr.join(', ')}`).toEqual(
+      [],
+    );
+  });
+
+  test('every FR key has an EN translation', () => {
+    const fr = i18n['fr']!;
+    const missingInEn = Object.keys(fr).filter((key) => !(key in en));
+    expect(missingInEn, `Missing EN keys: ${missingInEn.join(', ')}`).toEqual(
+      [],
+    );
+  });
+
+  test('FR translations have no empty values', () => {
+    const empty = Object.entries(i18n['fr']!)
+      .filter(([k, v]) => v.trim() === '' && !isIntentionallyEmpty(k))
+      .map(([k]) => k);
+    expect(empty, `Empty FR values: ${empty.join(', ')}`).toEqual([]);
+  });
 });
 
 test.describe('screenshot section', () => {
@@ -172,10 +195,10 @@ test.describe('screenshot section', () => {
 });
 
 test.describe('gallery page', () => {
-  test('gallery page loads with 9 screenshots', async ({ page }) => {
+  test('gallery page loads with 10 screenshots', async ({ page }) => {
     await page.goto('/screenshots');
     const items = page.locator('.gallery-item');
-    await expect(items).toHaveCount(9);
+    await expect(items).toHaveCount(10);
   });
 
   test('clicking a thumbnail opens the lightbox', async ({ page }) => {
@@ -185,22 +208,22 @@ test.describe('gallery page', () => {
     const lightbox = page.locator('#screenshot-lightbox');
     await expect(lightbox).toHaveAttribute('data-open', '');
     const counter = page.locator('#lightbox-counter');
-    await expect(counter).toHaveText('1 / 9');
+    await expect(counter).toHaveText('1 / 10');
   });
 
-  test('gallery shows all nine screenshots in dark theme', async ({ page }) => {
-    // Theme is fixed per screenshot by the storyboard (goldens 01–05 plus the
-    // real Windows-box captures 06–09). All are dark since the app's light
-    // theme was removed — the page never offered a theme toggle to begin with.
+  test('gallery shows all ten screenshots in dark theme', async ({ page }) => {
+    // Theme is fixed per screenshot by the storyboard (goldens 01–05 and 10
+    // plus the real Windows-box captures 06–09). All are dark since the app's
+    // light theme was removed — the page never offered a theme toggle to begin with.
     await page.goto('/screenshots');
 
     const images = page.locator('.gallery-image');
-    await expect(images).toHaveCount(9);
+    await expect(images).toHaveCount(10);
 
     const themes = await images.evaluateAll((els) =>
       els.map((el) => (el as HTMLImageElement).dataset.galleryTheme),
     );
-    expect(themes).toEqual(Array(9).fill('dark'));
+    expect(themes).toEqual(Array(10).fill('dark'));
 
     await expect(images.nth(0)).toHaveAttribute('src', /\/dark\/01_/);
     await expect(images.nth(1)).toHaveAttribute('src', /\/dark\/02_/);

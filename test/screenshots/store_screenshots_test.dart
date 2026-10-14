@@ -22,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_screenshot/golden_screenshot.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -29,6 +30,7 @@ import 'package:whispaste/core/theme/colors.dart' show WpCategorySlot;
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/history/history_page.dart';
+import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/services/audio_service.dart';
@@ -43,7 +45,7 @@ import 'screenshot_shell.dart';
 // Configuration
 // ---------------------------------------------------------------------------
 
-const _locales = ['en', 'de'];
+const _locales = ['en', 'de', 'ru'];
 
 final _screenshots = <_ScreenDef>[
   _ScreenDef(
@@ -81,6 +83,15 @@ final _screenshots = <_ScreenDef>[
     name: '05_analytics_dark',
     activePageId: 'analytics',
     builder: () => const AnalyticsPage(),
+  ),
+  // Website gallery only (10 has no store-listing slot): the Notizen area with
+  // the quick-note mark, opened on that note.
+  _ScreenDef(
+    name: '10_notes_dark',
+    activePageId: 'notes',
+    builder: () => const NotesPage(),
+    needsNotesData: true,
+    arrange: _openQuickNote,
   ),
 ];
 
@@ -132,6 +143,7 @@ void main() {
     for (final (localeName, entries) in [
       ('en', _demoEntriesEn),
       ('de', _demoEntriesDe),
+      ('ru', _demoEntriesRu),
     ]) {
       test(
         '$localeName: at least 6 of 8 categorical slots are represented',
@@ -201,17 +213,37 @@ void _screenshotTest(_ScreenDef screen, String locale) {
         // grouping render as text, so wall-clock time would move pixels.
         (tester) => withClock(Clock.fixed(_screenshotNow), () async {
           final device = goldenDevice.device;
+          // Show each platform's default hotkey: Cmd on macOS, Ctrl elsewhere.
+          final modifiers = device.platform == TargetPlatform.macOS
+              ? 'meta+shift'
+              : 'ctrl+shift';
           final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-          final settings = AppSettings.defaults.copyWith(
-            locale: locale,
-            textReplacementsEnabled: screen.textReplacementsEnabled,
-            hotkeyEnabled: true,
-            hotkeyKey: 'D',
-            hotkeyModifiers: 'ctrl+shift',
-          );
+          final settings = AppSettings.defaults
+              .copyWith(
+                locale: locale,
+                textReplacementsEnabled: screen.textReplacementsEnabled,
+                hotkeyEnabled: true,
+                hotkeyKey: 'D',
+                hotkeyModifiers: modifiers,
+              )
+              // The quick-note hotkey is off by default. The Notizen shot shows
+              // it active, the way a user who set it up sees the page.
+              .copyWithSections(
+                quickNoteHotkey: screen.needsNotesData
+                    ? QuickNoteHotkeySettings(
+                        quickNoteHotkeyEnabled: true,
+                        quickNoteHotkeyKey: 'N',
+                        quickNoteHotkeyKeyDisplay: 'N',
+                        quickNoteHotkeyModifiers: modifiers,
+                      )
+                    : null,
+              );
 
           if (screen.needsDemoData) {
             await _seedDemoData(db, locale: locale);
+          }
+          if (screen.needsNotesData) {
+            await _seedNotesDemo(db, locale: locale);
           }
 
           final app = _buildScreenshotApp(
@@ -303,17 +335,29 @@ Widget _buildScreenshotApp({
 }
 
 Future<void> _openFirstHistoryEntry(WidgetTester tester, String locale) async {
-  final firstTitle = locale == 'de'
-      ? 'Wöchentliche Standup-Notizen'
-      : 'Weekly standup notes';
+  final firstTitle = switch (locale) {
+    'de' => 'Wöchentliche Standup-Notizen',
+    'ru' => 'Еженедельные заметки по стендапу',
+    _ => 'Weekly standup notes',
+  };
   await tester.tap(find.text(firstTitle).first);
 }
 
+/// Opens the quick note (see [_seedNotesDemo]; it is listed below the pinned
+/// note, so it is selected by its title rather than by position).
+Future<void> _openQuickNote(WidgetTester tester, String locale) async {
+  await tester.tap(find.text(_quickNoteTitle(locale)).first);
+}
+
 Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
-  final sectionTitle = locale == 'de' ? 'Tastenkürzel' : 'Keyboard Shortcut';
-  // Scoped to the scroll content: SettingsAnchorChipBar (Ticket 16) sits in
-  // the sticky header above the scrollable and renders a chip with this
-  // exact section label, so a bare `find.text` now matches both.
+  final sectionTitle = switch (locale) {
+    'de' => 'Tastenkürzel',
+    'ru' => 'Горячая клавиша',
+    _ => 'Keyboard Shortcut',
+  };
+  // Scoped to the scroll content: the section picker sits in the sticky header
+  // above the scrollable and can show this exact section label, so a bare
+  // `find.text` may match both.
   await tester.dragUntilVisible(
     find.descendant(
       of: find.byType(SingleChildScrollView),
@@ -330,6 +374,7 @@ class _ScreenDef {
     required this.activePageId,
     required this.builder,
     this.needsDemoData = false,
+    this.needsNotesData = false,
     this.textReplacementsEnabled = false,
     this.arrange,
   });
@@ -338,6 +383,7 @@ class _ScreenDef {
   final String activePageId;
   final Widget Function() builder;
   final bool needsDemoData;
+  final bool needsNotesData;
   final bool textReplacementsEnabled;
   final Future<void> Function(WidgetTester tester, String locale)? arrange;
 
@@ -351,18 +397,71 @@ class _ScreenDef {
 /// The moment the committed baselines were rendered at.
 final _screenshotNow = DateTime(2026, 9, 30, 14, 54);
 
+/// Demo notes for the Notizen screen. Each note's content is Markdown; the
+/// list title is its first non-blank line (no title column). Index 0 is the
+/// quick note; index 1 is pinned and therefore listed first.
+List<String> _notesFor(String locale) => switch (locale) {
+  'de' => const [
+    'Schnellnotiz: Ideen für den Newsletter\n- Release-Text für Version 1.4\n- Screenshot der Notizen-Ansicht\n- Feedback aus der Community sammeln',
+    'Lesenotizen Kapitel 3\n\nDer Abschnitt zu Gedächtnisprozessen fasst die Kernthesen gut zusammen. Quellen für die Hausarbeit noch prüfen.',
+    'Wochenplan Team\n\nMontag: Designreview. Mittwoch: Release-Check mit dem Backend-Team. Freitag: Retro.',
+    'Ideen für den Urlaub\n\nZugverbindungen nach Wien vergleichen und eine Unterkunft mit Küche suchen.',
+  ],
+  'ru' => const [
+    'Быстрая заметка: идеи для рассылки\n- Текст релиза для версии 1.4\n- Скриншот экрана заметок\n- Собрать отзывы сообщества',
+    'Конспект, глава 3\n\nРаздел о консолидации памяти хорошо суммирует основные аргументы. Проверить источники для реферата.',
+    'План команды на неделю\n\nПонедельник: ревью дизайна. Среда: проверка релиза с командой бэкенда. Пятница: ретро.',
+    'Идеи для поездки\n\nСравнить поезда до Вены и найти жильё с кухней.',
+  ],
+  _ => const [
+    'Quick note: newsletter ideas\n- Release text for version 1.4\n- Screenshot of the notes view\n- Collect community feedback',
+    'Reading notes, chapter 3\n\nThe section on memory consolidation sums up the core arguments well. Check the sources for the essay.',
+    'Team plan for the week\n\nMonday: design review. Wednesday: release check with the backend team. Friday: retro.',
+    'Ideas for the trip\n\nCompare train connections to Vienna and look for accommodation with a kitchen.',
+  ],
+};
+
+String _quickNoteTitle(String locale) =>
+    _notesFor(locale).first.split('\n').first;
+
+Future<void> _seedNotesDemo(
+  HistoryDatabase db, {
+  required String locale,
+}) async {
+  final now = clock.now();
+  final notes = _notesFor(locale);
+  for (var i = 0; i < notes.length; i++) {
+    final updatedAt = now.subtract(Duration(minutes: 5 * (i + 1)));
+    await db
+        .into(db.notes)
+        .insert(
+          NotesCompanion.insert(
+            id: 'note-$locale-$i',
+            content: Value(notes[i]),
+            pinned: Value(i == 1),
+            createdAt: updatedAt.subtract(const Duration(hours: 2)),
+            updatedAt: updatedAt,
+          ),
+        );
+  }
+  await db.setQuickNote('note-$locale-0');
+}
+
 Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
   final now = clock.now();
-  final isGerman = locale == 'de';
 
-  final tagLabels = isGerman
-      ? ['Arbeit', 'Privat', 'Meeting', 'Idee', 'E-Mail']
-      : ['Work', 'Personal', 'Meeting', 'Idea', 'Email'];
+  final tagLabels = switch (locale) {
+    'de' => ['Arbeit', 'Privat', 'Meeting', 'Idee', 'E-Mail'],
+    'ru' => ['Работа', 'Личное', 'Встреча', 'Идея', 'Почта'],
+    _ => ['Work', 'Personal', 'Meeting', 'Idea', 'Email'],
+  };
 
   final tagIds = <String, String>{};
-  for (final tag in tagLabels) {
-    final id =
-        'tag-${tag.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-')}';
+  for (var i = 0; i < tagLabels.length; i++) {
+    final tag = tagLabels[i];
+    // Index-based id: the ASCII-slug formula collapses every Cyrillic tag
+    // name to the same id ('tag--'), which breaks the primary key.
+    final id = 'tag-$locale-$i';
     tagIds[tag] = id;
     await db
         .into(db.tags)
@@ -371,7 +470,11 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
         );
   }
 
-  final entries = isGerman ? _demoEntriesDe : _demoEntriesEn;
+  final entries = switch (locale) {
+    'de' => _demoEntriesDe,
+    'ru' => _demoEntriesRu,
+    _ => _demoEntriesEn,
+  };
   for (final entry in entries) {
     final ts = now.subtract(Duration(minutes: entry.minutesAgo));
     await db
@@ -403,7 +506,11 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
     }
   }
 
-  final replacements = isGerman ? _replacementsDe : _replacementsEn;
+  final replacements = switch (locale) {
+    'de' => _replacementsDe,
+    'ru' => _replacementsRu,
+    _ => _replacementsEn,
+  };
   for (var i = 0; i < replacements.length; i++) {
     final (trigger, replacement) = replacements[i];
     final replacementId = 'repl-$locale-$i';
@@ -440,7 +547,7 @@ const _demoEntriesEn = <_DemoEntry>[
     durationSec: 42.3,
     minutesAgo: 15,
     tags: ['Work', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     pinned: true,
     colorSlot: 5,
   ),
@@ -454,7 +561,7 @@ const _demoEntriesEn = <_DemoEntry>[
     durationSec: 28.7,
     minutesAgo: 45,
     tags: ['Work', 'Email'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 6,
   ),
   _DemoEntry(
@@ -493,7 +600,7 @@ const _demoEntriesEn = <_DemoEntry>[
     durationSec: 55.8,
     minutesAgo: 360,
     tags: ['Work', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 3,
   ),
   _DemoEntry(
@@ -517,7 +624,7 @@ const _demoEntriesEn = <_DemoEntry>[
     durationSec: 61.4,
     minutesAgo: 300,
     tags: ['Work', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 2,
   ),
   _DemoEntry(
@@ -545,7 +652,7 @@ const _demoEntriesDe = <_DemoEntry>[
     durationSec: 42.3,
     minutesAgo: 15,
     tags: ['Arbeit', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     pinned: true,
     colorSlot: 5,
   ),
@@ -559,7 +666,7 @@ const _demoEntriesDe = <_DemoEntry>[
     durationSec: 28.7,
     minutesAgo: 45,
     tags: ['Arbeit', 'E-Mail'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 6,
   ),
   _DemoEntry(
@@ -598,7 +705,7 @@ const _demoEntriesDe = <_DemoEntry>[
     durationSec: 55.8,
     minutesAgo: 360,
     tags: ['Arbeit', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 3,
   ),
   _DemoEntry(
@@ -622,7 +729,7 @@ const _demoEntriesDe = <_DemoEntry>[
     durationSec: 61.4,
     minutesAgo: 300,
     tags: ['Arbeit', 'Meeting'],
-    model: 'Whisper Large v3',
+    model: 'Whisper Large v3 Turbo',
     colorSlot: 2,
   ),
   _DemoEntry(
@@ -651,6 +758,119 @@ const _replacementsDe = <(String, String)>[
   ('meine mail', 'alex@whispaste.dev'),
   ('meeting link', 'https://meet.example.com/team-sync'),
   ('bin gleich zurück', 'Bin gleich wieder da, gib mir bitte einen Moment.'),
+];
+
+const _demoEntriesRu = <_DemoEntry>[
+  _DemoEntry(
+    id: 'demo-1',
+    title: 'Еженедельные заметки по стендапу',
+    content:
+        'Бэкенд-команда выпустила новый процесс входа. Фронтенд успевает к '
+        'дизайн-ревью в четверг. Мобильной команде нужен ещё один день на '
+        'интеграцию push-уведомлений. Блокеров нет.',
+    durationSec: 42.3,
+    minutesAgo: 15,
+    tags: ['Работа', 'Встреча'],
+    model: 'Whisper Large v3 Turbo',
+    pinned: true,
+    colorSlot: 5,
+  ),
+  _DemoEntry(
+    id: 'demo-2',
+    title: 'Письмо клиенту — обновление по проекту',
+    content:
+        'Привет, Sarah! Короткое обновление по проекту. Редизайн дашборда идёт '
+        'раньше графика, новый раздел аналитики будет готов к тестированию '
+        'в понедельник. Ссылку на стейджинг отправлю сразу после этого.',
+    durationSec: 28.7,
+    minutesAgo: 45,
+    tags: ['Работа', 'Почта'],
+    model: 'Whisper Large v3 Turbo',
+    colorSlot: 6,
+  ),
+  _DemoEntry(
+    id: 'demo-3',
+    title: 'Идея для продукта — голосовые ярлыки',
+    content:
+        'Голосовые ярлыки могут раскрываться во целые фразы. Если я скажу '
+        '«подпись», автоматически вставится мой завершающий текст. Это '
+        'экономит время на однотипном наборе.',
+    durationSec: 18.5,
+    minutesAgo: 120,
+    tags: ['Идея'],
+    model: 'Whisper Medium',
+    pinned: true,
+    colorSlot: 0,
+  ),
+  _DemoEntry(
+    id: 'demo-4',
+    title: 'Список покупок на выходные',
+    content:
+        'Авокадо, закваска, черри-томаты, моцарелла, свежий базилик, '
+        'оливковое масло, паста, куриная грудка, чеснок, лук и тёмный шоколад.',
+    durationSec: 12.1,
+    minutesAgo: 180,
+    tags: ['Личное'],
+    model: 'Whisper Medium',
+    colorSlot: 1,
+  ),
+  _DemoEntry(
+    id: 'demo-5',
+    title: 'Итоги встречи — планирование Q2',
+    content:
+        'Главное: цель по выручке — рост на пятнадцать процентов, утверждены '
+        'три новых инженера, дата запуска в сентябре зафиксирована. Нужно '
+        'обсудить с дизайном обновление бренда.',
+    durationSec: 55.8,
+    minutesAgo: 360,
+    tags: ['Работа', 'Встреча'],
+    model: 'Whisper Large v3 Turbo',
+    colorSlot: 3,
+  ),
+  _DemoEntry(
+    id: 'demo-6',
+    title: 'Короткое напоминание — визит к стоматологу',
+    content:
+        'Визит к стоматологу перенесли на пятницу, на девять утра. Уточнить '
+        'на ресепшене, работает ли парковка с валидацией для ранних записей.',
+    durationSec: 8.2,
+    minutesAgo: 25,
+    tags: ['Личное'],
+    model: 'Whisper Medium',
+    colorSlot: 7,
+  ),
+  _DemoEntry(
+    id: 'demo-7',
+    title: 'Итоги интервью — кандидат на бэкенд',
+    content:
+        'Силён в распределённых системах, слабее в работе с фронтендом. '
+        'Склоняюсь к найму, но перед звонком с предложением подключите '
+        'руководителя фронтенда.',
+    durationSec: 61.4,
+    minutesAgo: 300,
+    tags: ['Работа', 'Встреча'],
+    model: 'Whisper Large v3 Turbo',
+    colorSlot: 2,
+  ),
+  _DemoEntry(
+    id: 'demo-8',
+    title: 'Заметка о поездке — конференция в следующем месяце',
+    content:
+        'Забронировать перелёт, пока цены не выросли, и проверить, открыт ли '
+        'ещё блок номеров в отеле для ранней регистрации.',
+    durationSec: 15.0,
+    minutesAgo: 500,
+    tags: ['Идея'],
+    model: 'Whisper Medium',
+    colorSlot: 4,
+  ),
+];
+
+const _replacementsRu = <(String, String)>[
+  ('подпись', 'С уважением,\nAlex'),
+  ('моя почта', 'alex@whispaste.dev'),
+  ('ссылка на встречу', 'https://meet.example.com/team-sync'),
+  ('сейчас вернусь', 'Сейчас вернусь, дай мне минутку.'),
 ];
 
 class _DemoEntry {
@@ -711,7 +931,11 @@ const _sampleAnalytics = AnalyticsData(
   timeSavedMinutes: 846,
   weeklyActivity: [12.4, 18.2, 15.7, 22.1, 19.5, 8.3, 5.0],
   modelUsage: [
-    AnalyticsModelUsage(model: 'Whisper Large v3', count: 612, fraction: 0.72),
+    AnalyticsModelUsage(
+      model: 'Whisper Large v3 Turbo',
+      count: 612,
+      fraction: 0.72,
+    ),
     AnalyticsModelUsage(model: 'Whisper Medium', count: 183, fraction: 0.22),
     AnalyticsModelUsage(model: 'OpenAI API', count: 52, fraction: 0.06),
   ],

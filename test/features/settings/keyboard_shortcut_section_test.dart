@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
+import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
@@ -225,7 +226,7 @@ void main() {
           of: find.byKey(toggleKey),
           matching: find.byWidgetPredicate(
             (w) =>
-                w is Tooltip && w.message == l10n.pushToTalkUnavailableTooltip,
+                w is Tooltip && w.message == pushToTalkUnavailableMessage(l10n),
           ),
         ),
         findsOneWidget,
@@ -290,13 +291,10 @@ void main() {
       expect(quickNoteY, greaterThan(pushToTalkY));
     });
 
-    testWidgets('the indentation follows the reading direction, not the left', (
-      tester,
-    ) async {
-      // Die Einrückung ist das einzige Signal, das die Unterordnung trägt.
-      // Physisch links gesetzt läge sie auf Hebräisch an der *Schlusskante*
-      // und wäre dort keine Einrückung mehr, sondern eine beliebige Lücke —
-      // die Nachordnung ginge in einer von drei Sprachen verloren.
+    testWidgets('the dependent row shares the main row edge in both reading '
+        'directions', (tester) async {
+      // Dependent blocks sit on the same label edge as the rows above them
+      // (no nested indent), so the start edge must match in LTR and RTL.
       Rect rowsFor(WidgetTester t) => t.getRect(find.byType(SettingRow).first);
       Rect quickNoteFor(WidgetTester t) => t.getRect(
         find.ancestor(
@@ -313,7 +311,7 @@ void main() {
         Directionality.of(tester.element(find.byType(SettingRow).first)),
         TextDirection.ltr,
       );
-      expect(ltrQuickNote.left, greaterThan(ltrMain.left));
+      expect(ltrQuickNote.left, closeTo(ltrMain.left, 0.01));
       expect(ltrQuickNote.right, closeTo(ltrMain.right, 0.01));
 
       await tester.pumpWidget(subject(locale: const Locale('he')));
@@ -326,7 +324,7 @@ void main() {
         Directionality.of(tester.element(find.byType(SettingRow).first)),
         TextDirection.rtl,
       );
-      expect(rtlQuickNote.right, lessThan(rtlMain.right));
+      expect(rtlQuickNote.right, closeTo(rtlMain.right, 0.01));
       expect(rtlQuickNote.left, closeTo(rtlMain.left, 0.01));
     });
 
@@ -689,12 +687,10 @@ void main() {
       expect(snippetY, greaterThan(quickNoteY));
     });
 
-    testWidgets('the indentation follows the reading direction, not the left', (
-      tester,
-    ) async {
-      // Wie beim Schnellnotiz-Block: die Einrückung ist das Signal, das die
-      // Unterordnung trägt, und muss deshalb auf Hebräisch an der *Anfangs*-
-      // kante liegen.
+    testWidgets('the dependent row shares the main row edge in both reading '
+        'directions', (tester) async {
+      // Same contract as the quick-note block: no nested indent, so the
+      // start edge matches the main row in LTR and RTL alike.
       Rect rowsFor(WidgetTester t) => t.getRect(find.byType(SettingRow).first);
       Rect snippetFor(WidgetTester t) => t.getRect(
         find.ancestor(
@@ -707,7 +703,7 @@ void main() {
       await tester.pumpAndSettle();
       final ltrMain = rowsFor(tester);
       final ltrSnippet = snippetFor(tester);
-      expect(ltrSnippet.left, greaterThan(ltrMain.left));
+      expect(ltrSnippet.left, closeTo(ltrMain.left, 0.01));
       expect(ltrSnippet.right, closeTo(ltrMain.right, 0.01));
 
       await tester.pumpWidget(subject(locale: const Locale('he')));
@@ -718,7 +714,7 @@ void main() {
       );
       final rtlMain = rowsFor(tester);
       final rtlSnippet = snippetFor(tester);
-      expect(rtlSnippet.right, lessThan(rtlMain.right));
+      expect(rtlSnippet.right, closeTo(rtlMain.right, 0.01));
       expect(rtlSnippet.left, closeTo(rtlMain.left, 0.01));
     });
 

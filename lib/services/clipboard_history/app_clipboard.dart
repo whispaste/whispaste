@@ -50,6 +50,15 @@ class AppClipboard {
   static SelfWriteSignal signal = const MethodChannelSelfWriteSignal();
   static SelfWriteSuppressionRegistry registry = SelfWriteSuppressionRegistry();
 
+  /// Fingerprints of WhisPaste's own *transient* writes (the paste source
+  /// and the restore right after). Kept apart from [registry], whose mark is
+  /// consumed by WhisPaste's own write: a second sighting of the same text
+  /// within the expiry means another app re-copied it as a plain copy --
+  /// which Windows Clipboard History records despite WhisPaste's opt-out
+  /// (issue #146). See `ClipboardHistoryMonitorService`.
+  static SelfWriteSuppressionRegistry transientWrites =
+      SelfWriteSuppressionRegistry();
+
   /// Marks [text] as WhisPaste's own write so the app's internal clipboard-
   /// history panel doesn't record it as a new entry, without performing the
   /// actual OS clipboard write. Split out of [setText] for callers that
@@ -63,6 +72,13 @@ class AppClipboard {
         ClipboardHistoryCapability.rollingHistory) {
       unawaited(signal.markSelfWrite(fingerprint));
     }
+  }
+
+  /// [markSelfWrite] plus a [transientWrites] mark, for writes that only
+  /// exist to drive a paste or to restore the user's prior clipboard.
+  static void markTransientWrite(String text) {
+    markSelfWrite(text);
+    transientWrites.markSelfWrite(ClipboardFingerprint.ofText(text));
   }
 
   static Future<void> setText(String text) async {

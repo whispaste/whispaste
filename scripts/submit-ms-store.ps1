@@ -90,7 +90,9 @@
 .PARAMETER ClientSecret
   Service principal client secret.
 .PARAMETER MsixPath
-  Local path to the .msix file to upload.
+  Local path to the package to upload: preferably the .msixupload (MSIX +
+  .appxsym symbols, lets Partner Center symbolicate crash stacks), or a bare
+  .msix.
 .PARAMETER StoreDir
   Path to the store/ directory containing listing content. Default: 'store'.
 .PARAMETER ScreenshotsDir
@@ -145,10 +147,13 @@ $BASE_URL = 'https://manage.devcenter.microsoft.com/v1.0/my'
 # entry." on the 2026-07-29 run and concluded 'de-de' was therefore new/fake.
 # That log line is real, but the conclusion drawn from it was backwards - see
 # above for what actually determines which locale is live.
-$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de' }
+$LOCALE_MAP = @{ 'en-US' = 'en-us'; 'de-DE' = 'de-de'; 'es-ES' = 'es-es'; 'pt-BR' = 'pt-br'; 'it-IT' = 'it-it'; 'ru-RU' = 'ru-ru'; 'zh-CN' = 'zh-cn'; 'fr-FR' = 'fr-fr' }
 
-# store/ folder name → tools/appstore-screens output lang folder ('en'/'de').
-$SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de' }
+# store/ folder name → tools/appstore-screens output lang folder. Each listing
+# has its own localized composites (copy in its language). The app UI inside
+# them is localized only for en/de/ru; es/pt/it/zh/fr show the English UI, which
+# is what the app actually displays there.
+$SCREENSHOT_LANG_MAP = @{ 'en-US' = 'en'; 'de-DE' = 'de'; 'es-ES' = 'es'; 'pt-BR' = 'pt'; 'it-IT' = 'it'; 'ru-RU' = 'ru'; 'zh-CN' = 'zh'; 'fr-FR' = 'fr' }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -206,12 +211,13 @@ function Read-LineList {
 # Lists the generated Store screenshots for one locale, sorted by their
 # numeric prefix (01_hero.png, 02_workspace-overview.png, …). Returns an
 # array of hashtables: LocalPath (source file), ZipEntry (path inside the
-# upload ZIP, relative to its root), Description (human caption derived from
-# the filename's slug, since tools/appstore-screens doesn't emit one
-# separately). Returns an empty array (not an error) if the directory is
-# missing — the caller decides whether that's fatal.
+# upload ZIP, relative to its root), Description (the localized caption from
+# store/<locale>/screenshot-captions.txt, one line per image in file order;
+# falls back to a caption derived from the filename's slug when the file or
+# the line is missing). Returns an empty array (not an error) if the
+# directory is missing — the caller decides whether that's fatal.
 function Read-LocaleImages {
-  param([string] $ScreenshotsDir, [string] $LangFolder, [string] $Locale)
+  param([string] $ScreenshotsDir, [string] $LangFolder, [string] $Locale, [string[]] $Captions = @())
 
   $dir = Join-Path $ScreenshotsDir (Join-Path $LangFolder 'microsoft')
   if (-not (Test-Path $dir)) { return @() }
@@ -219,13 +225,17 @@ function Read-LocaleImages {
   $files = Get-ChildItem -Path $dir -Filter '*.png' |
     Sort-Object { [int]([regex]::Match($_.Name, '^\d+').Value) }
 
+  $index = 0
   return @($files | ForEach-Object {
-    $slug = $_.BaseName -replace '^\d+_', '' -replace '-', ' '
-    $caption = (Get-Culture).TextInfo.ToTitleCase($slug)
+    $caption = if ($index -lt $Captions.Count -and $Captions[$index]) { $Captions[$index] } else {
+      $slug = $_.BaseName -replace '^\d+_', '' -replace '-', ' '
+      "WhisPaste — $((Get-Culture).TextInfo.ToTitleCase($slug))"
+    }
+    $index++
     @{
       LocalPath   = $_.FullName
       ZipEntry    = "images/$Locale/$($_.Name)"
-      Description = "WhisPaste — $caption"
+      Description = $caption
     }
   })
 }
@@ -335,7 +345,8 @@ foreach ($folder in $LOCALE_MAP.Keys) {
   $images = @()
   if ($ScreenshotsDir) {
     $langFolder = $SCREENSHOT_LANG_MAP[$folder]
-    $images     = Read-LocaleImages -ScreenshotsDir $ScreenshotsDir -LangFolder $langFolder -Locale $locale
+    $captions   = Read-LineList (Join-Path $dir 'screenshot-captions.txt')
+    $images     = Read-LocaleImages -ScreenshotsDir $ScreenshotsDir -LangFolder $langFolder -Locale $locale -Captions $captions
   }
   $managed[$locale] = @{
     title        = $title

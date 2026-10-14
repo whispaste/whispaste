@@ -170,6 +170,20 @@ class L10nHe extends L10n {
   String get historyReadingTimeUnder1 => 'פחות מדקה קריאה';
 
   @override
+  String historyListWordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'כ-$count מילים',
+      one: 'כ-מילה אחת',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historyToolsMenu => 'תצוגה ובחירה';
+
+  @override
   String get historyEditing => 'עריכה';
 
   @override
@@ -385,6 +399,13 @@ class L10nHe extends L10n {
   String get pushToTalkUnavailableTooltip => 'לא זמין בפלטפורמה זו';
 
   @override
+  String get pushToTalkUnavailableLinuxTooltip =>
+      'שולחן העבודה שלך לא מדווח כאן על שחרור מקשים. במקום זאת, הקצה את „whispaste --toggle“ לקיצור מקלדת בהגדרות המערכת.';
+
+  @override
+  String get settingsExperimentalBadge => 'ניסיוני';
+
+  @override
   String get settingsHoldOrTap => 'הקשה או החזקה';
 
   @override
@@ -521,63 +542,67 @@ class L10nHe extends L10n {
   String get pasteFailureOpenSettings => 'פתח הגדרות';
 
   @override
-  String get pasteNotificationNoTargetTitle => 'WhisPaste: Auto-Paste Skipped';
+  String get pasteNotificationNoTargetTitle =>
+      'WhisPaste: ההדבקה האוטומטית דולגה';
 
   @override
   String get pasteNotificationNoTargetBody =>
-      'No target app detected. Focus the destination app first, then start recording. The text is on the clipboard.';
+      'לא זוהתה אפליקציית יעד. עברו קודם לאפליקציית היעד, ואז התחילו להקליט. הטקסט נמצא בלוח.';
 
   @override
-  String get pasteNotificationNoTargetTray => 'Auto-Paste: Target App Missing';
+  String get pasteNotificationNoTargetTray =>
+      'הדבקה אוטומטית: אפליקציית היעד חסרה';
 
   @override
-  String get pasteNotificationRestartNeededTitle => 'WhisPaste: Restart Needed';
+  String get pasteNotificationRestartNeededTitle =>
+      'WhisPaste: נדרשת הפעלה מחדש';
 
   @override
   String get pasteNotificationRestartNeededBody =>
-      'The permission was granted, but WhisPaste is still running the old state. Click here to restart WhisPaste.';
+      'ההרשאה ניתנה, אבל WhisPaste עדיין פועלת עם המצב הישן. לחצו כאן כדי להפעיל מחדש את WhisPaste.';
 
   @override
   String get pasteNotificationRestartNeededTray =>
-      'Auto-Paste Blocked — Restart Needed';
+      'ההדבקה האוטומטית חסומה — נדרשת הפעלה מחדש';
 
   @override
   String get pasteNotificationPermissionBlockedTitle =>
-      'WhisPaste: Auto-Paste Blocked';
+      'WhisPaste: ההדבקה האוטומטית חסומה';
 
   @override
   String get pasteNotificationPermissionResetEntryBody =>
-      'WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'. Click here: WhisPaste will clear a possibly stale entry and let macOS ask again.';
+      'WhisPaste זקוקה להרשאה כדי להכניס טקסט לאפליקציות אחרות — ב-macOS ההרשאה הזו נקראת \"נגישות\". לחצו כאן: WhisPaste תנקה רשומה שאולי אינה עדכנית ותאפשר ל-macOS לבקש שוב.';
 
   @override
   String get pasteNotificationPermissionOpenSettingsBody =>
-      'WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'. Click here or the tray icon to open System Settings.';
+      'WhisPaste זקוקה להרשאה כדי להכניס טקסט לאפליקציות אחרות — ב-macOS ההרשאה הזו נקראת \"נגישות\". לחצו כאן או על סמל המגש כדי לפתוח את הגדרות המערכת.';
 
   @override
   String get pasteNotificationPermissionBlockedTray =>
-      'Auto-Paste Blocked — Open System Settings';
+      'ההדבקה האוטומטית חסומה — פתחו את הגדרות המערכת';
 
   @override
   String get pasteNotificationElevationBlockedTitle =>
-      'WhisPaste: Auto-Paste Blocked';
+      'WhisPaste: ההדבקה האוטומטית חסומה';
 
   @override
   String get pasteNotificationElevationBlockedBody =>
-      'The target app is running with administrator rights. Restart WhisPaste as an administrator too, to paste into that app.';
+      'אפליקציית היעד פועלת עם הרשאות מנהל. כדי להדביק בה, הפעילו מחדש גם את WhisPaste כמנהל.';
 
   @override
   String get pasteNotificationElevationBlockedTray =>
-      'Auto-Paste Blocked — Administrator Needed';
+      'ההדבקה האוטומטית חסומה — נדרשות הרשאות מנהל';
 
   @override
-  String get pasteNotificationFailedTitle => 'WhisPaste: Auto-Paste Failed';
+  String get pasteNotificationFailedTitle =>
+      'WhisPaste: ההדבקה האוטומטית נכשלה';
 
   @override
   String get pasteNotificationFailedBody =>
-      'The system rejected the paste. The text is on the clipboard — paste it manually with ⌘V / Ctrl+V.';
+      'המערכת דחתה את ההדבקה. הטקסט נמצא בלוח — הדביקו אותו ידנית עם ⌘V / Ctrl+V.';
 
   @override
-  String get pasteNotificationFailedTray => 'Auto-Paste Failed';
+  String get pasteNotificationFailedTray => 'ההדבקה האוטומטית נכשלה';
 
   @override
   String get pasteCapabilityCheckTitle => 'רגע…';
@@ -636,14 +661,24 @@ class L10nHe extends L10n {
   String get pasteRestartAlertConfirm => 'הפעל מחדש עכשיו';
 
   @override
-  String get pasteManualGrantAlertTitle => 'ההפעלה מחדש לא עזרה';
+  String get pasteStaleEntryGuideTitle => 'הסר את הרשומה הישנה של WhisPaste';
 
   @override
-  String get pasteManualGrantAlertBody =>
-      'WhisPaste כבר הופעל מחדש, אך הרשאת ההדבקה האוטומטית עדיין אינה נכנסת לתוקף. בדוק תחת הגדרות המערכת → פרטיות ואבטחה → נגישות אם WhisPaste מופעל שם, והפעל מחדש את המתג במידת הצורך.';
+  String get pasteStaleEntryGuideBody =>
+      'macOS עדיין שומר את הרשאת ההדבקה האוטומטית של גרסה קודמת של WhisPaste. אי אפשר להפעיל את הרשומה הזו — יש להסיר אותה פעם אחת:\n\n1. בחר ב-„WhisPaste“ ברשימה.\n2. לחץ על „−“ מתחת לרשימה.\n3. חזור ל-WhisPaste.\n\nלאחר הפעלה מחדש macOS ישאל שוב — פשוט אשר.';
 
   @override
-  String get pasteManualGrantAlertConfirm => 'פתח את הגדרות המערכת';
+  String get pasteStaleEntryGuideConfirm => 'פתח את הגדרות המערכת';
+
+  @override
+  String get pasteStaleEntryRestartTitle => 'הפעל מחדש את WhisPaste';
+
+  @override
+  String get pasteStaleEntryRestartBody =>
+      'לאחר שהרשומה הישנה הוסרה, הפעל מחדש את WhisPaste. macOS יבקש את ההרשאה שוב — אשר אותה והפעל את WhisPaste.';
+
+  @override
+  String get pasteStaleEntryRestartConfirm => 'הפעל מחדש את WhisPaste';
 
   @override
   String get permissionAlertLaterButton => 'לא עכשיו';
@@ -892,6 +927,20 @@ class L10nHe extends L10n {
       'ממיר מספרים מדוברים (בגרמנית ובאנגלית) לספרות, למשל \"חמש פסיק שתיים\" הופך ל-\"5,2\". משאיר את התמלול ללא שינוי אם אינו ניתן להמרה מלאה.';
 
   @override
+  String get settingsRemoveFillerWords => 'הסרת מילות מילוי';
+
+  @override
+  String get settingsRemoveFillerWordsSubtitle =>
+      'מסירה צלילי היסוס כמו \"uh\", \"um\" ו-\"äh\" לפני שהתמלול נשמר או מודבק. רק מילות מילוי חד-משמעיות באנגלית ובגרמנית; מילים שיכולות לשאת משמעות לא משתנות.';
+
+  @override
+  String get settingsVoiceLineBreaks => 'מעברי שורה בקול';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'הופך פקודות קוליות כמו „פסקה חדשה“ ו„שורה חדשה“ למעברי שורה אמיתיים. פועל לפי שפת התמלול, ובזיהוי אוטומטי לפי כל השפות הנתמכות.';
+
+  @override
   String get settingsAppLanguage => 'שפת האפליקציה';
 
   @override
@@ -1079,10 +1128,6 @@ class L10nHe extends L10n {
   String get groqRemovedToast => 'Groq STT הוסר. ספק אופס למקומי.';
 
   @override
-  String get tccResetAfterUpdateToast =>
-      'macOS איפסה את הרשאת ההדבקה האוטומטית במהלך העדכון.';
-
-  @override
   String migrationComplete(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -1113,6 +1158,9 @@ class L10nHe extends L10n {
 
   @override
   String get statusTranscriptionDone => 'תמלול הושלם';
+
+  @override
+  String get statusSelectionEdited => 'הבחירה נערכה';
 
   @override
   String get statusCopied => 'הועתק!';
@@ -1401,6 +1449,10 @@ class L10nHe extends L10n {
   String get replacementsReplacementHint => 'לדוגמה: אגב';
 
   @override
+  String get replacementsReplacementHelper =>
+      'השתמשו ב-\\n למעבר שורה וב-\\n\\n לשורה ריקה. לשמירת backslash-n כטקסט רגיל כתבו \\\\n.';
+
+  @override
   String get replacementsDeleteTitle => 'מחק קיצור';
 
   @override
@@ -1447,7 +1499,7 @@ class L10nHe extends L10n {
 
   @override
   String get correctionLearningHowTo =>
-      'While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.';
+      'בזמן הקלטת הערה בהיסטוריה, אמרו \"correct: …\" (או \"korrektur: …\") ואחריו את הטקסט המתוקן כדי לדרוס אותו. תקנו את אותו הדבר פעמיים, ו-WhisPaste תציע אותו כאן כהחלפה אוטומטית.';
 
   @override
   String get correctionCandidatesCardTitle => 'הצעות מהתיקונים שלך';
@@ -1461,11 +1513,17 @@ class L10nHe extends L10n {
   String get correctionCandidatesReviewButton => 'בדיקה';
 
   @override
-  String get correctionCandidatesReviewTitle => 'Review learned corrections';
+  String get correctionCandidatesReviewTitle => 'סקירת תיקונים שנלמדו';
 
   @override
   String correctionCandidatesReviewSubtitle(int count) {
-    return '$count correction(s) you repeated — accept the ones WhisPaste should apply automatically from now on. Nothing changes until you confirm.';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count תיקונים שחזרתם עליהם',
+      one: 'תיקון אחד שחזרתם עליו',
+    );
+    return '$_temp0 — אשרו את אלה ש-WhisPaste תחיל מעכשיו אוטומטית. שום דבר לא משתנה עד שתאשרו.';
   }
 
   @override
@@ -1778,7 +1836,14 @@ class L10nHe extends L10n {
 
   @override
   String get aboutParakeetDesc =>
-      'זיהוי דיבור מקומי, מותאם למהירות על חומרת CPU רגילה (כ-25 שפות).';
+      'זיהוי דיבור מקומי, מואץ ב-GPU היכן שזמין (Metal, Vulkan, CUDA) ובמעבד אחרת (כ-25 שפות).';
+
+  @override
+  String get aboutParakeetModelCredit =>
+      'מודל: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0';
+
+  @override
+  String get aboutParakeetGgufCredit => 'המרה ל-GGUF: ggml-org, MIT';
 
   @override
   String get aboutPrivacyFirst => 'פרטיות קודמת לכול';
@@ -2028,21 +2093,21 @@ class L10nHe extends L10n {
   }
 
   @override
-  String get statusBarAutomationApiChipLabelError => 'API: error';
+  String get statusBarAutomationApiChipLabelError => 'API: שגיאה';
 
   @override
   String statusBarAutomationApiTooltip(int port) {
-    return 'Automation API active on port $port';
+    return 'ממשק האוטומציה פעיל בפורט $port';
   }
 
   @override
   String statusBarAutomationApiTooltipFallback(int port, int requestedPort) {
-    return 'Automation API active on port $port (port $requestedPort was in use)';
+    return 'ממשק האוטומציה פעיל בפורט $port (פורט $requestedPort היה תפוס)';
   }
 
   @override
   String get statusBarAutomationApiTooltipError =>
-      'Automation API: no free port found';
+      'ממשק האוטומציה: לא נמצא פורט פנוי';
 
   @override
   String get modifierCtrl => 'Ctrl';
@@ -2249,6 +2314,28 @@ class L10nHe extends L10n {
   String get infoModelMissing => 'הורד קודם מודל דיבור בהגדרות.';
 
   @override
+  String infoModelMissingSelected(String size) {
+    return 'מודל הדיבור שנבחר ($size) עדיין לא הורד.';
+  }
+
+  @override
+  String get infoModelMissingDownload => 'הורד עכשיו';
+
+  @override
+  String get statusBarModelMissing => 'המודל חסר';
+
+  @override
+  String statusBarModelDownloading(int percent) {
+    return 'מוריד מודל… $percent%';
+  }
+
+  @override
+  String get modelDownloadAction => 'הורד';
+
+  @override
+  String get modelMissingDownloadAction => 'חסר — הורד';
+
+  @override
   String get infoPipelineBusy => 'WhisPaste עדיין עסוק בהקלטה הקודמת.';
 
   @override
@@ -2397,10 +2484,17 @@ class L10nHe extends L10n {
   String get errorRecordingStartFailed => 'לא הצלחתי להתחיל הקלטה. נסה שוב.';
 
   @override
+  String get errorNoMicrophone => 'לא נמצא מיקרופון. חבר מיקרופון ונסה שוב.';
+
+  @override
   String get errorGeneric => 'משהו השתבש. נסה שוב.';
 
   @override
   String get modelDownloadFailed => 'הורדה נכשלה. בדוק חיבור אינטרנט.';
+
+  @override
+  String get modelDeleteInUse =>
+      'קובץ המודל בשימוש על ידי תוכנה אחרת ולא ניתן היה למחוק אותו. סגור אותה ונסה שוב.';
 
   @override
   String get statusSttLoading => 'טוען מודל…';
@@ -2807,7 +2901,11 @@ class L10nHe extends L10n {
 
   @override
   String get settingsErrorReportingSubtitle =>
-      'עזור לשפר את WhisPaste על ידי שליחת דיווחי קריסה אנונימיים';
+      'שולח דיווחי קריסה ושגיאה עם מזהה מכשיר מגובב, לעולם לא את האודיו או הטקסט שלך';
+
+  @override
+  String get settingsErrorReportingRestartHint =>
+      'ייכנס לתוקף לאחר הפעלה מחדש של WhisPaste.';
 
   @override
   String get settingsAutoPasteDelay => 'השהיית הדבקה אוטומטית';
@@ -2832,7 +2930,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsCheckUpdatesSubtitle =>
-      'בדוק אוטומטית גרסאות חדשות בהפעלה';
+      'בדוק גרסאות חדשות בהפעלה וכל 24 שעות';
 
   @override
   String get settingsCheckForUpdatesNow => 'בדוק עדכונים עכשיו';
@@ -3262,7 +3360,7 @@ class L10nHe extends L10n {
   String get voiceCorrectionApplied => 'תמלול תוקן בקול';
 
   @override
-  String get voiceCorrectionUndone => 'Correction undone';
+  String get voiceCorrectionUndone => 'התיקון בוטל';
 
   @override
   String get voiceNoteEmpty => 'לא זוהה דיבור';
@@ -3272,7 +3370,7 @@ class L10nHe extends L10n {
 
   @override
   String get historyVoiceNoteButtonTooltip =>
-      'Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript';
+      'הערת קול — אמרו \"tag: …\" כדי להוסיף תגית, או \"correct: …\" כדי לכתוב מחדש את התמליל הזה';
 
   @override
   String updateAvailable(String version) {
@@ -3743,7 +3841,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsSttEngineSubtitle =>
-      'Whisper מכסה 99 שפות וכל backend של GPU; Parakeet מהיר בהרבה על חומרת CPU בלבד, אך מכסה כ-25 שפות ועדיין ללא backend של GPU';
+      'Whisper מכסה 99 שפות וכל backend של GPU; Parakeet מהיר בהרבה ומכסה כ-25 שפות, על GPU היכן שזמין';
 
   @override
   String get settingsSttEngineWhisper => 'Whisper';
@@ -3755,8 +3853,9 @@ class L10nHe extends L10n {
   String get parakeetModelTitle => 'מודל Parakeet TDT';
 
   @override
-  String get parakeetModelSubtitle =>
-      'הורדה חד-פעמית (כ-640MB), ולאחר מכן פועל לגמרי במצב לא מקוון';
+  String parakeetModelSubtitle(String size) {
+    return 'הורדה חד-פעמית ($size), ולאחר מכן פועל לגמרי במצב לא מקוון';
+  }
 
   @override
   String get parakeetModelDownload => 'הורד';
@@ -3807,7 +3906,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsShareUsageStatsSubtitle =>
-      'Sent cookieless and without any identifiers, help us understand how WhisPaste is used';
+      'ללא עוגיות, עם מזהה אקראי לכל הפעלה וכינוי מתחלף מדי שבוע — עוזר לנו להבין איך משתמשים ב-WhisPaste';
 
   @override
   String get settingsRetainRecentAudio => 'Keep recent recordings';
@@ -3815,22 +3914,6 @@ class L10nHe extends L10n {
   @override
   String get settingsRetainRecentAudioSubtitle =>
       'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically';
-
-  @override
-  String get storeThankYouTitle => 'תודה על תמיכתך!';
-
-  @override
-  String get storeThankYouBody =>
-      'אנחנו שמחים שאתה איתנו. אם WhisPaste עוזר לך בעבודה, דירוג קצר יעשה עבורנו הבדל גדול.';
-
-  @override
-  String get storeThankYouCtaStore => '★ דרג בחנות';
-
-  @override
-  String get storeThankYouCtaGitHub => '⭐ כוכב ב-GitHub';
-
-  @override
-  String get storeThankYouDismiss => 'סגור';
 
   @override
   String get featureSpotlightHeading => 'חדש ב-WhisPaste';
@@ -3872,6 +3955,13 @@ class L10nHe extends L10n {
   @override
   String get featureSpotlightHistoryPinDescription =>
       'הגן על התמלולים שלך בקוד PIN – גם בסרגל הצד ובתפריט הכפתור הצף – עם נעילה אוטומטית אופציונלית אחרי חוסר פעילות. הגדרות ← היסטוריה.';
+
+  @override
+  String get featureSpotlightEditSelectionTitle => 'עריכת טקסט מסומן בקול';
+
+  @override
+  String get featureSpotlightEditSelectionDescription =>
+      'סמנו טקסט בכל אפליקציה, לחצו על מקש הקיצור לעריכת הבחירה ואמרו מה לשנות – או פשוט „קצר”, „שפר” או „תרגם”. משתמש במנוע Smart Mode שלכם. כבוי כברירת מחדל: הפעילו בהגדרות ← Smart Mode.';
 
   @override
   String get featureSpotlightChangelogLink => 'צפייה ביומן השינויים המלא';
@@ -4180,6 +4270,10 @@ class L10nHe extends L10n {
       'לדוגמה: הכתבה טיפוסית של 50 מילים אורכת כ-1–6 שניות לעיבוד, בהתאם לחומרת המכשיר שלכם.';
 
   @override
+  String get smartModeLocalUnavailable =>
+      'Smart Mode המקומי אינו כלול בגרסה זו. עברו ל-OpenAI או התקינו גרסה רשמית של WhisPaste.';
+
+  @override
   String get settingsHotkeyActionSmartMode => 'Smart Mode';
 
   @override
@@ -4212,18 +4306,18 @@ class L10nHe extends L10n {
       'Smart Mode יכול לנקות, לקצר או לתרגם את הטקסט המוכתב שלך אוטומטית — לגמרי במכשיר שלך. הורד את המודל המקומי עכשיו, או הגדר אותו מאוחר יותר בהגדרות.';
 
   @override
-  String get smartModeOnboardingHintExampleBeforeLabel => 'Raw dictation';
+  String get smartModeOnboardingHintExampleBeforeLabel => 'הכתבה גולמית';
 
   @override
   String get smartModeOnboardingHintExampleBefore =>
-      'so um the client meeting got moved to thursday at three pm and uh we still need the updated slides from marketing';
+      'אז אממ פגישת הלקוח נדחתה ליום חמישי בשלוש אחר הצהריים ו אה אנחנו עדיין צריכים את המצגת המעודכנת מהשיווק';
 
   @override
-  String get smartModeOnboardingHintExampleAfterLabel => 'Smart Mode result';
+  String get smartModeOnboardingHintExampleAfterLabel => 'התוצאה של Smart Mode';
 
   @override
   String get smartModeOnboardingHintExampleAfter =>
-      'So, the client meeting got moved to Thursday at three PM, and we still need the updated slides from Marketing.';
+      'אז, פגישת הלקוח נדחתה ליום חמישי בשלוש אחר הצהריים, ואנחנו עדיין צריכים את המצגת המעודכנת מהשיווק.';
 
   @override
   String get smartModeOnboardingHintDownloadCta => 'הורדה';
@@ -4245,22 +4339,22 @@ class L10nHe extends L10n {
   String get smartModeUsageHintDismiss => 'לא עכשיו';
 
   @override
-  String get settingsAutomationApi => 'Local Automation API';
+  String get settingsAutomationApi => 'ממשק API מקומי לאוטומציה';
 
   @override
   String get settingsAutomationApiSubtitle =>
-      'Trigger dictation from your own scripts over a loopback-only HTTP API';
+      'הפעילו הכתבה מסקריפטים משלכם דרך ממשק HTTP שזמין רק במחשב המקומי (loopback)';
 
   @override
-  String get settingsAutomationApiEnable => 'Enable local automation API';
+  String get settingsAutomationApiEnable => 'הפעלת ממשק האוטומציה המקומי';
 
   @override
   String get settingsAutomationApiEnableSubtitle =>
-      'Binds only to 127.0.0.1/::1 — never reachable from the network';
+      'מאזין רק ל-127.0.0.1/::1 — אף פעם לא נגיש מהרשת';
 
   @override
   String settingsAutomationApiStatusRunning(int port) {
-    return 'Running on port $port';
+    return 'פועל בפורט $port';
   }
 
   @override
@@ -4268,63 +4362,63 @@ class L10nHe extends L10n {
     int port,
     int requestedPort,
   ) {
-    return 'Running on port $port (port $requestedPort was in use)';
+    return 'פועל בפורט $port (פורט $requestedPort היה תפוס)';
   }
 
   @override
-  String get settingsAutomationApiStatusStopped => 'Not running';
+  String get settingsAutomationApiStatusStopped => 'לא פועל';
 
   @override
   String settingsAutomationApiStatusError(int start, int end) {
-    return 'No free port found in range $start–$end';
+    return 'לא נמצא פורט פנוי בטווח $start–$end';
   }
 
   @override
-  String get settingsAutomationApiCustomPortLabel => 'Custom port';
+  String get settingsAutomationApiCustomPortLabel => 'פורט מותאם אישית';
 
   @override
   String get settingsAutomationApiCustomPortSubtitle =>
-      'Leave empty for automatic port selection — falls back automatically if it\'s taken';
+      'השאירו ריק לבחירת פורט אוטומטית — אם הפורט תפוס, ייבחר פורט חלופי אוטומטית';
 
   @override
-  String get settingsAutomationApiCustomPortHint => 'Automatic';
+  String get settingsAutomationApiCustomPortHint => 'אוטומטי';
 
   @override
   String get settingsAutomationApiCustomPortInvalid =>
-      'Enter a port between 1024 and 65535';
+      'הזינו פורט בין 1024 ל-65535';
 
   @override
-  String get settingsAutomationApiToken => 'Bearer token';
+  String get settingsAutomationApiToken => 'טוקן Bearer';
 
   @override
   String get settingsAutomationApiTokenSubtitle =>
-      'Send it as \"Authorization: Bearer <token>\" — every request without it is rejected';
+      'שלחו אותו בכותרת \"Authorization: Bearer <token>\" — כל בקשה בלעדיו נדחית';
 
   @override
-  String get settingsAutomationApiRegenerate => 'Regenerate';
+  String get settingsAutomationApiRegenerate => 'צור מחדש';
 
   @override
-  String get settingsAutomationApiRegenerateConfirmTitle => 'Regenerate token?';
+  String get settingsAutomationApiRegenerateConfirmTitle => 'ליצור טוקן חדש?';
 
   @override
   String get settingsAutomationApiRegenerateConfirmMessage =>
-      'The current token stops working immediately. Any script using it will need the new one.';
+      'הטוקן הנוכחי יפסיק לעבוד מיד. כל סקריפט שמשתמש בו יצטרך את הטוקן החדש.';
 
   @override
-  String get settingsAutomationApiCopyToken => 'Copy token';
+  String get settingsAutomationApiCopyToken => 'העתק טוקן';
 
   @override
-  String get settingsAutomationApiTokenCopied => 'Token copied to clipboard';
+  String get settingsAutomationApiTokenCopied => 'הטוקן הועתק ללוח';
 
   @override
-  String get settingsAutomationApiDocumentation => 'Documentation';
+  String get settingsAutomationApiDocumentation => 'תיעוד';
 
   @override
   String get settingsAutomationApiDocumentationSubtitle =>
-      'Endpoint reference and curl examples';
+      'תיעוד נקודות הקצה ודוגמאות curl';
 
   @override
-  String get settingsAutomationApiDocumentationAction => 'Open';
+  String get settingsAutomationApiDocumentationAction => 'פתח';
 
   @override
   String historyCharacterCount(int count) {
@@ -4396,4 +4490,241 @@ class L10nHe extends L10n {
   @override
   String get errorSelectionEditPasteFailed =>
       'לא ניתן היה להחליף את הבחירה — הטקסט שלכם לא שונה';
+
+  @override
+  String get settingsCudaPackTitle => 'האצת NVIDIA CUDA';
+
+  @override
+  String settingsCudaPackSubtitle(String size) {
+    return 'הכתבה מהירה יותר בכרטיסי GeForce RTX ו-GTX 16. הורדה חד-פעמית של $size.';
+  }
+
+  @override
+  String get settingsCudaPackInstalledSubtitle =>
+      'מותקן. אם מנהל ההתקן הגרפי ישן מדי, WhisPaste ימשיך להשתמש ב-Vulkan.';
+
+  @override
+  String get settingsCudaPackDownload => 'הורדה';
+
+  @override
+  String settingsCudaPackDownloading(int percent) {
+    return 'מוריד $percent %';
+  }
+
+  @override
+  String get settingsCudaPackInstalling => 'מתקין …';
+
+  @override
+  String get settingsCudaPackCancel => 'ביטול ההורדה';
+
+  @override
+  String get settingsCudaPackRemove => 'הסרת חבילת CUDA';
+
+  @override
+  String get settingsCudaPackToggle => 'שימוש ב-CUDA';
+
+  @override
+  String get settingsCudaPackErrorNetwork =>
+      'ההורדה נכשלה. בדקו את החיבור ונסו שוב.';
+
+  @override
+  String get settingsCudaPackErrorVerification =>
+      'ההורדה הגיעה פגומה. נסו שוב.';
+
+  @override
+  String get settingsCudaPackErrorStorage =>
+      'לא ניתן היה לשמור את החבילה. בדקו את שטח הדיסק הפנוי.';
+
+  @override
+  String get recoveryCudaDisabledToast =>
+      'האצת CUDA כובתה בגלל בעיה בהפעלה האחרונה. WhisPaste משתמש כעת ב-Vulkan, וההכתבה פועלת כרגיל.';
+
+  @override
+  String get supportPromptSnooze => 'אל תשאל למשך 90 יום';
+
+  @override
+  String get supportPayPalLabel => 'PayPal';
+
+  @override
+  String get supportStoreThankYouLine =>
+      'תודה שרכשת את WhisPaste בחנות. כל תמיכה נוספת היא מרצון.';
+
+  @override
+  String get supportShareText =>
+      'אני משתמש ב-WhisPaste כדי להכניס טקסט בדיבור ישירות לאפליקציות שלי. מקומי על המחשב ובקוד פתוח:';
+
+  @override
+  String get supportPageTitle => 'לתמוך ב-WhisPaste';
+
+  @override
+  String get supportPageOpenAction => 'כל הדרכים לתמוך';
+
+  @override
+  String get supportIntroDirect =>
+      'WhisPaste חינמי וקוד פתוח. תרומה או המלצה עוזרות לפרויקט.';
+
+  @override
+  String get supportCostsNote =>
+      'תרומות עוזרות לכסות את הפיתוח ואת העלויות השוטפות של פרסום, אירוח ודומיין.';
+
+  @override
+  String get supportSectionOnce => 'תמיכה חד-פעמית';
+
+  @override
+  String get supportSectionOthers => 'דרכים נוספות לתמוך';
+
+  @override
+  String get supportSectionReach => 'להמליץ על WhisPaste';
+
+  @override
+  String get supportStoreTitleWindows => 'WhisPaste ב-Microsoft Store';
+
+  @override
+  String get supportStoreTitleMac => 'WhisPaste ב-Mac App Store';
+
+  @override
+  String get supportStoreFactManaged =>
+      'ההתקנה והעדכונים מנוהלים על ידי החנות.';
+
+  @override
+  String get supportStoreFactPurchase =>
+      'הרכישה החד-פעמית שלך תומכת ב-WhisPaste.';
+
+  @override
+  String get supportStoreFactSameFeatures =>
+      'אותן יכולות. הגרסה הישירה נשארת חינמית לשימוש.';
+
+  @override
+  String get supportStoreCtaWindows => 'הצג ב-Microsoft Store';
+
+  @override
+  String get supportStoreCtaMac => 'הצג ב-Mac App Store';
+
+  @override
+  String get supportStorePriceNote => 'המחיר בחנות';
+
+  @override
+  String get supportStoreCoffeeNote =>
+      'רכישה חד-פעמית, בערך מחיר של קפה. החנות מציגה את המחיר העדכני.';
+
+  @override
+  String get supportStoreDismiss => 'הסתר את אפשרות החנות';
+
+  @override
+  String get supportStoreShowAgain => 'הצג את אפשרות החנות';
+
+  @override
+  String get supportSponsorsCta => 'פתח את GitHub Sponsors';
+
+  @override
+  String get supportSponsorsNote =>
+      'חודשי או בסכום לבחירתך. את הסכום ואת התדירות בוחרים שם.';
+
+  @override
+  String get supportKofiCta => 'פתח את Ko-fi';
+
+  @override
+  String get supportPayPalCta => 'לתמוך דרך PayPal';
+
+  @override
+  String get supportNativeTitle => 'לתמוך פעם אחת בחנות';
+
+  @override
+  String get supportNativeDescription =>
+      'סכום חד-פעמי שהחנות גובה. אותן יכולות, ללא מנוי.';
+
+  @override
+  String get supportNativeCta => 'לתמוך פעם אחת';
+
+  @override
+  String get supportSheetChoose => 'בחר סכום';
+
+  @override
+  String get supportSheetLoading => 'טוען סכומים …';
+
+  @override
+  String supportSheetBuy(String price) {
+    return 'לתמוך ב-$price';
+  }
+
+  @override
+  String get supportSheetPurchasing => 'החנות מאשרת את הרכישה שלך …';
+
+  @override
+  String get supportSheetThanks => 'תודה על התמיכה!';
+
+  @override
+  String get supportSheetThanksDetail =>
+      'תג התומך שלך פעיל עכשיו. כל היכולות נשארות זמינות לכולם.';
+
+  @override
+  String get supportSheetPending => 'הרכישה שלך ממתינה לאישור.';
+
+  @override
+  String get supportSheetPurchaseError =>
+      'לא ניתן היה להשלים את הרכישה. נסה שוב מאוחר יותר.';
+
+  @override
+  String get supportSheetPricesError =>
+      'לא ניתן היה לטעון את הסכומים. נסה שוב מאוחר יותר.';
+
+  @override
+  String get supportSheetUnavailable => 'כרגע אין סכומים זמינים בחנות.';
+
+  @override
+  String get supportSheetRetry => 'נסה שוב';
+
+  @override
+  String get supportSheetClose => 'סגור';
+
+  @override
+  String get supportSelfDeclareCta => 'אני כבר תומך ב-WhisPaste';
+
+  @override
+  String get supportSelfDeclareNote =>
+      'רק הערה במכשיר הזה, שום דבר לא נבדק. כפתור התורם בשורת המצב מוסתר.';
+
+  @override
+  String get supportSelfDeclareHint =>
+      'שום דבר לא נבדק. השתמש באפשרות הזו אם כבר תרמת.';
+
+  @override
+  String get supportSupporterLine => 'אתה תומך ב-WhisPaste. תודה!';
+
+  @override
+  String get supportSupporterBadge => 'תומך';
+
+  @override
+  String get supportRateCta => 'דרג בחנות';
+
+  @override
+  String get supportShareCopy => 'העתק קישור';
+
+  @override
+  String get supportShareCopied => 'הקישור הועתק';
+
+  @override
+  String get supportShareEmail => 'דוא״ל';
+
+  @override
+  String get supportChipLabel => 'תורם';
+
+  @override
+  String get supportChipTooltip => 'לתמוך ב-WhisPaste';
+
+  @override
+  String get supportChipThanksLabel => 'תודה';
+
+  @override
+  String get supportChipThanksTooltip => 'תודה על התמיכה';
+
+  @override
+  String get supportChipHide => 'הסתר';
+
+  @override
+  String get settingsSponsorChip => 'כפתור התורם בשורת המצב';
+
+  @override
+  String get settingsSponsorChipSubtitle =>
+      'מציג את הדרך לעמוד התמיכה. אפשר להסתיר אותו אחרי שתמכת בפרויקט בחנות או אישרת זאת כאן.';
 }

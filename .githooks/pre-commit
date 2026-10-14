@@ -394,6 +394,26 @@ EOF
   echo "  Flutter analyze + Loam: clean"
 fi
 
+# ── 4b. ARB key parity (nur wenn ARB-Dateien/Baseline/Checker gestaged) ──
+# Every app_<locale>.arb must carry exactly the keys of app_en.arb; known
+# gaps live in the ratchet baseline lib/core/l10n/arb_parity_baseline.json.
+# Same command as the CI analyze job (flutter-app, Linux).
+ARB_STAGED=$(echo "$STAGED_FILES" | grep -E '^lib/core/l10n/.*\.(arb|json)$|^tool/check_arb_parity\.dart$' || true)
+if [ -n "$ARB_STAGED" ] && command -v dart >/dev/null 2>&1; then
+  echo ""
+  echo "ARB key parity..."
+  if ! (cd "$ROOT" && dart tool/check_arb_parity.dart); then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: ARB key parity                                  ║
+╚══════════════════════════════════════════════════════════════╝
+Siehe CONTRIBUTING_TRANSLATIONS.md.
+EOF
+    exit 1
+  fi
+fi
+
 # ── 5. ESLint (nur wenn JS/TS-Dateien in website/src/ gestaged sind) ─
 JS_TS_STAGED=$(echo "$STAGED_FILES" | grep -E '^website/src/.*\.(js|mjs|ts|mts)$' || true)
 if [ -n "$JS_TS_STAGED" ]; then

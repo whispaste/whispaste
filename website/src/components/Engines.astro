@@ -1,161 +1,171 @@
 ---
 /**
- * `Engines.astro` — the "which local engine?" gegenüberstellung that the
- * site was missing: WhisPaste ships two on-device STT engines (Whisper via
- * whisper.cpp, Parakeet via sherpa-onnx — see `CONTEXT.md` §4.2), but before
- * this section that fact only lived in one FAQ answer and a Languages
- * sentence. This section makes the trade-off (language breadth + GPU vs.
- * CPU speed) visually explicit on the homepage, then hands off to `/engines/`
- * for the full comparison.
- *
- * Card styling reuses the `.feature-card` glass recipe from the removed
- * `Features.astro` (dead code, deleted); keeping the exact class name means
- * the light-mode remap in `global.css` `.feature-card` still applies here
- * for free.
+ * `Engines.astro` — "which local engine fits you?": the two on-device STT
+ * engines (Whisper via whisper.cpp, Parakeet via sherpa-onnx — see
+ * `CONTEXT.md` §4.2) as two cards with identical rows, followed directly by
+ * the language summary (`#languages`, formerly its own section).
  */
 import SectionEyebrow from './SectionEyebrow.astro';
-import { t, localePath } from '../scripts/i18n.ts';
+import { t, localePath, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
-const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
+const lang = currentLocale(Astro.currentLocale);
+
+// Identical rows on both cards so they compare line by line.
+const engines = [
+  {
+    key: 'whisper',
+    rows: [
+      ['engines.whisper.stat.languages.label', 'engines.whisper.stat.languages.value'],
+      ['engines.whisper.stat.hardware.label', 'engines.whisper.stat.hardware.value'],
+      ['engines.whisper.stat.bestfor.label', 'engines.whisper.stat.bestfor.value'],
+    ],
+  },
+  {
+    key: 'parakeet',
+    rows: [
+      ['engines.whisper.stat.languages.label', 'engines.parakeet.stat.languages.value'],
+      ['engines.whisper.stat.hardware.label', 'engines.parakeet.stat.hardware.value'],
+      ['engines.whisper.stat.bestfor.label', 'engines.parakeet.stat.bestfor.value'],
+    ],
+  },
+] as const;
+
+// Endonyms only, no flags: a language is not a country.
+const sampleLanguages = [
+  'English', 'Deutsch', 'Español', 'Français', 'Italiano', 'Português',
+  '日本語', '中文', '한국어', 'Русский', 'العربية', 'हिन्दी',
+  'Polski', 'Nederlands', 'Türkçe', 'Svenska', 'Čeština', 'Українська',
+  'Bahasa Indonesia', 'Tiếng Việt', 'ไทย', 'Ελληνικά', 'Română', 'Magyar',
+];
 ---
 
-<!-- Engines Section — band-spotlight: alterniert zwischen SpeedComparison
-     (band-raised) und AppScreenshots (band-deep), siehe Band-Rhythmus-Kommentar
-     in pages/index.astro. Die frühere eigene Radial-Gradient-Ebene ist im
-     Spotlight-Glow des Bands aufgegangen (keine doppelte Aura). -->
-<section id="engines" class="band band-spotlight py-24 sm:py-32 relative scroll-mt-20">
+<section id="engines" class="band band-spotlight relative wp-section scroll-mt-20" data-testid="engines">
   <div class="relative wp-container">
-    <div class="text-center mb-14">
-      <SectionEyebrow key="engines.label" class="reveal-up" />
-      <h2 class="section-title wp-kinetic-line">{t(lang, "engines.title")}</h2>
-      <p class="mt-4 text-ink-muted text-lg max-w-2xl mx-auto reveal-up" data-i18n="engines.desc">{t(lang, "engines.desc")}</p>
+    <div class="wp-section-head">
+      <SectionEyebrow key="engines.label" />
+      <h2 class="section-title" data-i18n="engines.title">{t(lang, "engines.title")}</h2>
+      <p class="wp-lead mt-4" data-i18n="engines.desc">{t(lang, "engines.desc")}</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-      <!-- Whisper -->
-      <div class="feature-card group p-6 sm:p-7 rounded-2xl border border-white/[0.06] scroll-reveal">
-        <div class="flex items-start justify-between gap-3 mb-1">
-          <h3 class="text-white text-xl font-bold" data-i18n="engines.whisper.name">{t(lang, "engines.whisper.name")}</h3>
-          <span class="inline-flex items-center rounded-full bg-brand-cyan/10 text-brand-cyan text-[11px] font-semibold px-2.5 py-1 whitespace-nowrap" data-i18n="engines.whisper.tagline">{t(lang, "engines.whisper.tagline")}</span>
-        </div>
-        <p class="text-ink-subtle text-xs font-medium mb-5" data-i18n="engines.whisper.tech">{t(lang, "engines.whisper.tech")}</p>
-        <dl class="engine-stats">
-          <div class="engine-stat">
-            <dt data-i18n="engines.whisper.stat.languages.label">{t(lang, "engines.whisper.stat.languages.label")}</dt>
-            <dd class="wp-nums" data-i18n="engines.whisper.stat.languages.value">{t(lang, "engines.whisper.stat.languages.value")}</dd>
-          </div>
-          <div class="engine-stat">
-            <dt data-i18n="engines.whisper.stat.hardware.label">{t(lang, "engines.whisper.stat.hardware.label")}</dt>
-            <dd class="wp-nums" data-i18n="engines.whisper.stat.hardware.value">{t(lang, "engines.whisper.stat.hardware.value")}</dd>
-          </div>
-          <div class="engine-stat">
-            <dt data-i18n="engines.whisper.stat.bestfor.label">{t(lang, "engines.whisper.stat.bestfor.label")}</dt>
-            <dd class="wp-nums" data-i18n="engines.whisper.stat.bestfor.value">{t(lang, "engines.whisper.stat.bestfor.value")}</dd>
-          </div>
-        </dl>
-        <p class="text-ink-muted text-sm leading-relaxed" data-i18n="engines.whisper.desc">{t(lang, "engines.whisper.desc")}</p>
-      </div>
-
-      <!-- Parakeet -->
-      <div class="feature-card group p-6 sm:p-7 rounded-2xl border border-white/[0.06] scroll-reveal">
-        <div class="flex items-start justify-between gap-3 mb-1">
-          <h3 class="text-white text-xl font-bold" data-i18n="engines.parakeet.name">{t(lang, "engines.parakeet.name")}</h3>
-          <span class="inline-flex items-center rounded-full bg-brand-cyan/10 text-brand-cyan text-[11px] font-semibold px-2.5 py-1 whitespace-nowrap" data-i18n="engines.parakeet.tagline">{t(lang, "engines.parakeet.tagline")}</span>
-        </div>
-        <p class="text-ink-subtle text-xs font-medium mb-5" data-i18n="engines.parakeet.tech">{t(lang, "engines.parakeet.tech")}</p>
-        <dl class="engine-stats">
-          <div class="engine-stat">
-            <dt data-i18n="engines.parakeet.stat.languages.label">{t(lang, "engines.parakeet.stat.languages.label")}</dt>
-            <dd class="wp-nums" data-i18n="engines.parakeet.stat.languages.value">{t(lang, "engines.parakeet.stat.languages.value")}</dd>
-          </div>
-          <div class="engine-stat">
-            <dt data-i18n="engines.parakeet.stat.hardware.label">{t(lang, "engines.parakeet.stat.hardware.label")}</dt>
-            <dd class="wp-nums" data-i18n="engines.parakeet.stat.hardware.value">{t(lang, "engines.parakeet.stat.hardware.value")}</dd>
-          </div>
-          <div class="engine-stat">
-            <dt data-i18n="engines.parakeet.stat.speed.label">{t(lang, "engines.parakeet.stat.speed.label")}</dt>
-            <dd class="wp-nums" data-i18n="engines.parakeet.stat.speed.value">{t(lang, "engines.parakeet.stat.speed.value")}</dd>
-          </div>
-        </dl>
-        <p class="text-ink-muted text-sm leading-relaxed" data-i18n="engines.parakeet.desc">{t(lang, "engines.parakeet.desc")}</p>
-      </div>
+    <div class="engine-grid">
+      {engines.map((e) => (
+        <article class="engine-card" data-testid={`engines-${e.key}`}>
+          <header class="engine-card__head">
+            <h3 class="engine-card__name" data-i18n={`engines.${e.key}.name`}>{t(lang, `engines.${e.key}.name`)}</h3>
+            <span class="engine-card__tagline" data-i18n={`engines.${e.key}.tagline`}>{t(lang, `engines.${e.key}.tagline`)}</span>
+          </header>
+          <p class="engine-card__tech" data-i18n={`engines.${e.key}.tech`}>{t(lang, `engines.${e.key}.tech`)}</p>
+          <dl class="engine-stats">
+            {e.rows.map(([label, value]) => (
+              <div class="engine-stat">
+                <dt data-i18n={label}>{t(lang, label)}</dt>
+                <dd class="wp-nums" data-i18n={value}>{t(lang, value)}</dd>
+              </div>
+            ))}
+          </dl>
+          <p class="engine-card__desc" data-i18n={`engines.${e.key}.desc`}>{t(lang, `engines.${e.key}.desc`)}</p>
+        </article>
+      ))}
     </div>
 
-    <p class="mt-8 text-center text-ink-subtle text-sm max-w-xl mx-auto" data-i18n="engines.footnote">{t(lang, "engines.footnote")}</p>
+    <p class="engine-footnote" data-i18n="engines.footnote">{t(lang, "engines.footnote")}</p>
 
-    <div class="mt-5 text-center">
-      <a
-        href={localePath(lang, "engines")}
-        data-testid="engines-cta-link"
-        class="group/cta inline-flex items-center gap-1.5 text-sm font-semibold text-brand-cyan hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan rounded-sm"
-      >
+    <div class="engine-links">
+      <a href={localePath(lang, "engines")} class="engine-link" data-testid="engines-compare">
         <span data-i18n="engines.cta">{t(lang, "engines.cta")}</span>
-        <svg class="w-4 h-4 transition-transform group-hover/cta:translate-x-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 12h14" />
-          <path d="m12 5 7 7-7 7" />
-        </svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
       </a>
+      <a href={pathForSlug(lang, "engine-benchmarks")} class="engine-link" data-testid="engines-benchmarks">
+        <span data-i18n="engines.benchmarks">{t(lang, "engines.benchmarks")}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+      </a>
+    </div>
+
+    <!-- Languages: summary right under the engine choice (old #languages
+         anchor kept for nav links and external deep links). -->
+    <div id="languages" class="engine-languages scroll-mt-24" data-testid="languages">
+      <h3 class="engine-languages__title" data-i18n="languages.title">{t(lang, "languages.title")}</h3>
+      <p class="engine-languages__desc" data-i18n="languages.desc">{t(lang, "languages.desc")}</p>
+      <ul class="engine-languages__list" aria-label={t(lang, "languages.sampleAria")} data-i18n-aria="languages.sampleAria">
+        {sampleLanguages.map((name) => <li>{name}</li>)}
+        <li class="engine-languages__more" data-i18n="languages.more">{t(lang, "languages.more")}</li>
+      </ul>
     </div>
   </div>
 </section>
 
 <style>
-  /* Flat opaque engine cards — same --color-brand-card material as every
-     other card on the site, no glass. */
-  .feature-card {
-    position: relative;
-    background: var(--color-brand-card);
-    will-change: transform;
-    /* Vorher sprang der Hover-Zustand ohne Übergang an (Lokaldefekt) —
-       jetzt fließt der Lift auf der gemeinsamen Flow-Kurve. */
-    transition:
-      transform 0.35s var(--ease-flow),
-      box-shadow 0.35s var(--ease-flow),
-      border-color 0.35s var(--ease-flow),
-      background 0.35s var(--ease-flow);
+  .engine-grid {
+    display: grid;
+    gap: 1rem;
   }
-  .feature-card:hover {
-    background: color-mix(in srgb, var(--color-brand-card) 90%, var(--color-brand-cyan));
-    box-shadow: var(--shadow-card-hover);
-    transform: translateY(-3px);
-  }
-  .feature-card::after {
-    content: "";
-    position: absolute;
-    inset-inline: 1.25rem;
-    top: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--color-brand-cyan) 55%, transparent), transparent);
-    opacity: 0;
-    transition: opacity 0.3s ease;
-    pointer-events: none;
-  }
-  .feature-card:hover::after {
-    opacity: 1;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .feature-card {
-      transition: none;
-    }
-    .feature-card:hover {
-      transform: none;
+  @media (min-width: 768px) {
+    .engine-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.5rem;
     }
   }
-
-  /* Spec-sheet stat rows inside each card. */
-  .engine-stats {
+  .engine-card {
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
-    margin: 1rem 0 1.25rem;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 1.5rem;
+    border-radius: var(--radius-card);
+    border: 1px solid rgb(255 255 255 / 0.12);
+    background: var(--color-brand-card);
+    box-shadow: var(--shadow-card);
+  }
+  @media (min-width: 1024px) {
+    .engine-card { padding: 1.75rem; }
+  }
+  .engine-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 0.75rem;
+  }
+  .engine-card__name {
+    font-size: 1.375rem;
+    font-weight: 700;
+    color: var(--color-ink);
+  }
+  .engine-card__tagline {
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-pill);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
+  }
+  .engine-card__tech {
+    margin-top: 0.25rem;
+    font-size: 0.8125rem;
+    color: var(--color-ink-subtle);
+  }
+  .engine-card__desc {
+    margin-top: auto;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+  }
+
+  /* Label/value rows: stacked on phones, side by side from sm. */
+  .engine-stats {
+    display: grid;
+    gap: 0.75rem;
+    margin: 1.25rem 0;
+    padding-top: 1.25rem;
+    border-top: 1px solid rgb(255 255 255 / 0.08);
   }
   .engine-stat {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
+    display: grid;
+    gap: 0.125rem;
+  }
+  @media (min-width: 640px) {
+    .engine-stat {
+      grid-template-columns: 7.5rem minmax(0, 1fr);
+      gap: 1rem;
+    }
   }
   .engine-stat dt {
     font-size: 0.8125rem;
@@ -163,9 +173,64 @@ const lang = (Astro.currentLocale === 'en' ? 'en' : 'de') as 'de' | 'en';
   }
   .engine-stat dd {
     margin: 0;
-    font-size: 0.8125rem;
+    font-size: 0.9375rem;
     font-weight: 600;
     color: var(--color-ink);
-    text-align: right;
+  }
+
+  .engine-footnote {
+    margin-top: 1.5rem;
+    font-size: 0.875rem;
+    color: var(--color-ink-subtle);
+    max-width: var(--measure-lead);
+  }
+  .engine-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+    margin-top: 0.5rem;
+  }
+  .engine-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 44px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-brand-cyan);
+    text-decoration: none;
+  }
+  .engine-link svg { width: 1rem; height: 1rem; }
+  .engine-link:hover span { text-decoration: underline; }
+
+  .engine-languages {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgb(255 255 255 / 0.1);
+    max-width: 50rem;
+  }
+  .engine-languages__title {
+    font-size: var(--type-card-title);
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+  .engine-languages__desc {
+    margin-top: 0.5rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+  }
+  .engine-languages__list {
+    list-style: none;
+    margin: 1.25rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1rem;
+    font-size: 0.9375rem;
+    color: var(--color-ink-muted);
+  }
+  .engine-languages__more {
+    color: var(--color-ink-subtle);
   }
 </style>

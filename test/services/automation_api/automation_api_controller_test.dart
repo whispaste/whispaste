@@ -385,16 +385,10 @@ void main() {
         // Occupy the target port and every port the fallback loop would
         // try after it (kAutomationApiPortFallbackAttempts consecutive
         // ports), so every single bind attempt fails.
-        final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
-        final basePort = probe.port;
-        await probe.close();
-
-        final blockers = <ServerSocket>[];
-        for (var i = 0; i < kAutomationApiPortFallbackAttempts; i++) {
-          blockers.add(
-            await ServerSocket.bind(InternetAddress.loopbackIPv4, basePort + i),
-          );
-        }
+        final blockers = await _bindConsecutivePorts(
+          kAutomationApiPortFallbackAttempts,
+        );
+        final basePort = blockers.first.port;
         addTearDown(() async {
           for (final blocker in blockers) {
             await blocker.close();
@@ -1109,4 +1103,27 @@ void main() {
       expect(paster.texts, isEmpty);
     });
   });
+}
+
+/// Binds [count] consecutive loopback ports. Parallel test processes may
+/// already hold any port after a free probe port, so a range with a taken
+/// port is released and another one is tried.
+Future<List<ServerSocket>> _bindConsecutivePorts(int count) async {
+  for (var attempt = 0; attempt < 20; attempt++) {
+    final probe = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    final sockets = [probe];
+    try {
+      for (var i = 1; i < count; i++) {
+        sockets.add(
+          await ServerSocket.bind(InternetAddress.loopbackIPv4, probe.port + i),
+        );
+      }
+      return sockets;
+    } on SocketException {
+      for (final socket in sockets) {
+        await socket.close();
+      }
+    }
+  }
+  throw StateError('no $count consecutive free loopback ports found');
 }

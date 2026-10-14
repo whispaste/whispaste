@@ -9,8 +9,8 @@
 # PATH, drop the .desktop entry + AppStream metainfo + icon, then assemble the
 # control file and call dpkg-deb.
 #
-# Runtime writable paths: the app self-downloads the Sprachdienst (whisper-server)
-# + Sprachmodell at first run into the *user's* config dir
+# Runtime writable paths: the app downloads the speech model during setup
+# into the *user's* config dir
 # ($XDG_CONFIG_HOME/whispaste/models/stt, default ~/.config/whispaste/models/stt
 # — see packages/whispaste_diagnostics/.../path_service.dart appDataDir()/sttDir()).
 # That path is per-user and writable; the system install under /opt is read-only,
@@ -59,10 +59,24 @@ install -Dm644 "$PKG_ROOT/packaging/flatpak/$APP_ID.metainfo.xml" \
 install -Dm644 "$PKG_ROOT/assets/icons/app_icon_512.png" \
   "$STAGE/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
 
+# udev rule granting the active desktop user /dev/uinput access, which
+# Auto-Paste needs to synthesize Ctrl+V (see the rule file's header). Without
+# it Auto-Paste falls back to clipboard-only. The modules-load.d entry makes
+# sure /dev/uinput exists on kernels that build uinput as a module.
+install -Dm644 "$PKG_ROOT/packaging/linux/71-whispaste-uinput.rules" \
+  "$STAGE/usr/lib/udev/rules.d/71-whispaste-uinput.rules"
+install -d "$STAGE/usr/lib/modules-load.d"
+printf 'uinput\n' > "$STAGE/usr/lib/modules-load.d/whispaste-uinput.conf"
+chmod 644 "$STAGE/usr/lib/modules-load.d/whispaste-uinput.conf"
+
 # ── 2. Control metadata ──────────────────────────────────────────────────────
 install -d "$STAGE/DEBIAN"
 sed "s/__VERSION__/$VERSION/" "$SCRIPT_DIR/control.template" \
   > "$STAGE/DEBIAN/control"
+# Maintainer scripts: apply the udev rule right away so Auto-Paste works
+# without a reboot, and drop it again on removal.
+install -m755 "$SCRIPT_DIR/postinst" "$STAGE/DEBIAN/postinst"
+install -m755 "$SCRIPT_DIR/postrm" "$STAGE/DEBIAN/postrm"
 
 # Installed-Size (KiB) — dpkg-deb does not compute it; lintian flags its absence.
 INSTALLED_KB="$(du -sk "$STAGE/opt" "$STAGE/usr" | awk '{s+=$1} END {print s}')"

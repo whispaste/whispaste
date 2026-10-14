@@ -63,6 +63,9 @@ class SingleInstanceService {
   static Timer? _rearmTimer;
   static final Map<InstanceCommand, DateTime> _lastSignalHandled = {};
   static String? _lastSignalContent;
+
+  /// Bumped by [release]; a signal read that started before it is dropped.
+  static int _generation = 0;
   static void Function(InstanceCommand command)? _onRemoteCommand;
   static final List<InstanceCommand> _pendingRemoteCommands = [];
 
@@ -170,6 +173,7 @@ class SingleInstanceService {
   /// so the app closes entirely instead of restarting. Safe to call even if
   /// the lock was never acquired (e.g. this is already a secondary instance).
   static Future<void> release() async {
+    _generation++;
     _rearmTimer?.cancel();
     _rearmTimer = null;
     await _watch?.cancel();
@@ -290,7 +294,11 @@ class SingleInstanceService {
   /// signal: Windows can report a single write as several events, and on a
   /// loaded machine those can land further apart than [_debounce] — they
   /// all read the same content and focus the window only once.
+  @visibleForTesting
+  static Future<void> debugReadSignal(String dir) => _onSignal(dir);
+
   static Future<void> _onSignal(String dir) async {
+    final generation = _generation;
     final String content;
     try {
       content = (await File(
@@ -301,6 +309,7 @@ class SingleInstanceService {
       _log.debug('Focus signal not readable yet: $e');
       return;
     }
+    if (generation != _generation) return;
     // Empty: the event fired between truncate and write.
     if (content.isEmpty || content == _lastSignalContent) return;
     _lastSignalContent = content;

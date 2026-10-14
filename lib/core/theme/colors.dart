@@ -812,6 +812,11 @@ abstract final class WpSharedColors {
   /// Pinned/favorited-item accent (star icon, toggle). Amber reads as
   /// "favorite" cross-platform regardless of theme, like a star rating.
   static const Color pinnedAccent = Color(0xFFFFB300); // Colors.amber.shade600
+
+  /// Sponsor heart glyph (`Icons.favorite_rounded`, website Tailwind
+  /// `pink-400`). Sanctioned exception for the support chip only: the heart
+  /// glyph, never text, a background or a button (decision 4, 2026-10-07).
+  static const Color supportHeart = Color(0xFFF472B6);
 }
 
 // ---------------------------------------------------------------------------

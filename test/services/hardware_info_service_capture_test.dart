@@ -154,5 +154,45 @@ void main() {
       final extras = _capturedEvents.single.contexts['extras'] as Map?;
       expect(extras?['reason'], 'unit-test-reason');
     });
+
+    test('an unclassified adapter name reaches the Sentry extras, with a '
+        'profile path scrubbed', () async {
+      hw.setProcessRunnerForTesting(
+        (executable, arguments) async => executable == 'wmic'
+            ? ProcessResult(
+                0,
+                0,
+                'Name=Adreno GPU C:\\Users\\silvio\\drv\nAdapterRAM=0\n\n',
+                '',
+              )
+            : ProcessResult(0, 1, '', ''),
+      );
+
+      await hw.detectGpuWindowsForTesting();
+      await CrashReporter.instance!.flush();
+
+      expect(_capturedEvents, hasLength(1));
+      final extras = _capturedEvents.single.contexts['extras'] as Map?;
+      expect(extras?['gpu_adapters'], [r'Adreno GPU C:\Users\<user>\drv']);
+    });
+  });
+
+  group('gpuAdapterNamesForTelemetry', () {
+    test('drops empty names, trims, caps the count at four', () {
+      final names = hw.gpuAdapterNamesForTelemetry([
+        '  Adreno 690  ',
+        '',
+        'b',
+        'c',
+        'd',
+        'e',
+      ]);
+      expect(names, ['Adreno 690', 'b', 'c', 'd']);
+    });
+
+    test('cuts an over-long name to 100 characters', () {
+      final names = hw.gpuAdapterNamesForTelemetry(['x' * 150]);
+      expect(names.single, hasLength(100));
+    });
   });
 }

@@ -54,6 +54,36 @@ void main() {
     });
   });
 
+  group('isInGpuVendorTelemetrySample — 5 % per-install sample (pure)', () {
+    test('is deterministic for the same device id', () {
+      for (final id in ['a1b2c3d4e5f6', '000000000000', 'ffffffffffff']) {
+        expect(
+          hw.isInGpuVendorTelemetrySample(id),
+          hw.isInGpuVendorTelemetrySample(id),
+        );
+      }
+    });
+
+    test('selects roughly 5 % of device ids', () {
+      // Device ids are 12-hex-char md5 prefixes (CrashReporter
+      // `_deriveDeviceId`); a counter-based spread is representative.
+      const total = 20000;
+      var sampled = 0;
+      for (var i = 0; i < total; i++) {
+        final id = (i * 2654435761).toUnsigned(48).toRadixString(16);
+        if (hw.isInGpuVendorTelemetrySample(id.padLeft(12, '0'))) sampled++;
+      }
+      final share = sampled / total;
+      expect(share, greaterThan(0.04));
+      expect(share, lessThan(0.06));
+    });
+
+    test('never samples an unknown or empty device id', () {
+      expect(hw.isInGpuVendorTelemetrySample('unknown'), isFalse);
+      expect(hw.isInGpuVendorTelemetrySample(''), isFalse);
+    });
+  });
+
   group('reportGpuVendorTelemetry — capture pipeline', () {
     TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -83,7 +113,11 @@ void main() {
     test(
       'Windows/Linux: exactly one info event with only the documented fields',
       () async {
-        hw.reportGpuVendorTelemetry(_nvidiaGpu, operatingSystem: 'windows');
+        hw.reportGpuVendorTelemetry(
+          _nvidiaGpu,
+          operatingSystem: 'windows',
+          inSample: true,
+        );
         await CrashReporter.instance!.flush();
 
         expect(_capturedEvents, hasLength(1));
@@ -103,7 +137,11 @@ void main() {
     );
 
     test('Linux is also reported (not just Windows)', () async {
-      hw.reportGpuVendorTelemetry(_nvidiaGpu, operatingSystem: 'linux');
+      hw.reportGpuVendorTelemetry(
+        _nvidiaGpu,
+        operatingSystem: 'linux',
+        inSample: true,
+      );
       await CrashReporter.instance!.flush();
 
       expect(_capturedEvents, hasLength(1));
@@ -114,7 +152,11 @@ void main() {
     });
 
     test('macOS: no event is sent at all (OS gate)', () async {
-      hw.reportGpuVendorTelemetry(_nvidiaGpu, operatingSystem: 'macos');
+      hw.reportGpuVendorTelemetry(
+        _nvidiaGpu,
+        operatingSystem: 'macos',
+        inSample: true,
+      );
       await CrashReporter.instance!.flush();
 
       expect(_capturedEvents, isEmpty);
@@ -122,8 +164,16 @@ void main() {
 
     test('once-per-session guard: a second call within the same session does '
         'NOT add a second event', () async {
-      hw.reportGpuVendorTelemetry(_nvidiaGpu, operatingSystem: 'windows');
-      hw.reportGpuVendorTelemetry(_nvidiaGpu, operatingSystem: 'linux');
+      hw.reportGpuVendorTelemetry(
+        _nvidiaGpu,
+        operatingSystem: 'windows',
+        inSample: true,
+      );
+      hw.reportGpuVendorTelemetry(
+        _nvidiaGpu,
+        operatingSystem: 'linux',
+        inSample: true,
+      );
       await CrashReporter.instance!.flush();
 
       expect(_capturedEvents, hasLength(1));
@@ -131,15 +181,34 @@ void main() {
 
     test('resetGpuVendorTelemetryForTesting re-arms the guard for a fresh '
         'session', () async {
-      hw.reportGpuVendorTelemetry(_nvidiaGpu, operatingSystem: 'windows');
+      hw.reportGpuVendorTelemetry(
+        _nvidiaGpu,
+        operatingSystem: 'windows',
+        inSample: true,
+      );
       await CrashReporter.instance!.flush();
       expect(_capturedEvents, hasLength(1));
 
       hw.resetGpuVendorTelemetryForTesting();
-      hw.reportGpuVendorTelemetry(_nvidiaGpu, operatingSystem: 'linux');
+      hw.reportGpuVendorTelemetry(
+        _nvidiaGpu,
+        operatingSystem: 'linux',
+        inSample: true,
+      );
       await CrashReporter.instance!.flush();
 
       expect(_capturedEvents, hasLength(2));
+    });
+
+    test('installs outside the 5 % sample send nothing', () async {
+      hw.reportGpuVendorTelemetry(
+        _nvidiaGpu,
+        operatingSystem: 'windows',
+        inSample: false,
+      );
+      await CrashReporter.instance!.flush();
+
+      expect(_capturedEvents, isEmpty);
     });
 
     test('respects the existing opt-out consent gate — no event when '
@@ -147,7 +216,11 @@ void main() {
       CrashReporter.instance!.consentGranted = false;
       addTearDown(() => CrashReporter.instance!.consentGranted = true);
 
-      hw.reportGpuVendorTelemetry(_nvidiaGpu, operatingSystem: 'windows');
+      hw.reportGpuVendorTelemetry(
+        _nvidiaGpu,
+        operatingSystem: 'windows',
+        inSample: true,
+      );
       await CrashReporter.instance!.flush();
 
       expect(_capturedEvents, isEmpty);

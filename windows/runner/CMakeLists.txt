@@ -22,6 +22,7 @@ add_executable(${BINARY_NAME} WIN32
   "side_panel_window.cpp"
   "snippet_picker_host.cpp"
   "snippet_picker_window.cpp"
+  "support_store_channel.cpp"
   "utils.cpp"
   "win32_window.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
@@ -40,13 +41,37 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_MINOR=${FLUTT
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_PATCH=${FLUTTER_VERSION_PATCH}")
 target_compile_definitions(${BINARY_NAME} PRIVATE "FLUTTER_VERSION_BUILD=${FLUTTER_VERSION_BUILD}")
 
+# Release builds also emit a PDB so Partner Center (.msixupload) and Sentry
+# can symbolicate native crash frames in whispaste.exe. /DEBUG alone would
+# switch the linker to /OPT:NOREF, so REF/ICF are restored explicitly. The PDB
+# goes to symbols/ next to the runner build dir, not into the Release bundle
+# dir: everything there ships as-is (portable ZIP, NSIS, MSIX).
+# /PDBALTPATH records only the file name in the exe instead of the absolute
+# build path. Spelled out instead of the linker's %_PDB% macro: the VS
+# generator escapes % so the exe would name "%%%whispaste.pdb%%%", which
+# symbol servers would never match against the uploaded whispaste.pdb.
+set(WHISPASTE_SYMBOLS_DIR "${CMAKE_BINARY_DIR}/symbols")
+file(MAKE_DIRECTORY "${WHISPASTE_SYMBOLS_DIR}")
+target_compile_options(${BINARY_NAME} PRIVATE "$<$<CONFIG:Release>:/Zi>")
+target_link_options(${BINARY_NAME} PRIVATE
+  "$<$<CONFIG:Release>:/DEBUG>"
+  "$<$<CONFIG:Release>:/OPT:REF>"
+  "$<$<CONFIG:Release>:/OPT:ICF>"
+  "$<$<CONFIG:Release>:/PDB:${WHISPASTE_SYMBOLS_DIR}/${BINARY_NAME}.pdb>"
+  "$<$<CONFIG:Release>:/PDBALTPATH:${BINARY_NAME}.pdb>"
+)
+
 # Disable Windows macros that collide with C++ standard library functions.
 target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
+
+# C++/WinRT (support_store_channel.cpp) needs C++20 coroutines; under C++17 it
+# falls back to <experimental/coroutine>, which current MSVC toolsets reject.
+target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)
 
 # Add dependency libraries and include directories. Add any application-specific
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib" "ole32.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib" "ole32.lib" "windowsapp.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Copy the dedicated tray icon next to the executable for dev runs.

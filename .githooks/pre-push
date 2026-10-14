@@ -188,6 +188,38 @@ EOF
   fi
 done
 
+# ── 2a. Production release approval (main + stable tags) ───────────────
+# Pushing main deploys the website (deploy-pages.yml) and a stable vX.Y.Z
+# tag ships to every store (release.yml). Both are production releases and
+# need the owner's explicit, per-release go: the approval file must contain
+# the full SHA of the commit being released. Only the owner writes it, via
+# `scripts/approve-release.sh` (agents never create or edit it). Beta tags
+# (vX.Y.Z-beta.N) are staging and stay ungated.
+APPROVAL_FILE="${WP_RELEASE_APPROVAL_FILE:-$HOME/.config/whispaste/release-approval}"
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr local_sha rref remote_sha <<<"$_refline" || true
+  [ "$local_sha" = "$ZERO" ] && continue
+  case "$rref" in
+    refs/heads/main) ;;
+    refs/tags/v*-beta.*) continue ;;
+    refs/tags/v*) ;;
+    *) continue ;;
+  esac
+  release_sha="$(git rev-parse "$local_sha^{commit}" 2>/dev/null || echo "$local_sha")"
+  if ! grep -qx "$release_sha" "$APPROVAL_FILE" 2>/dev/null; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Produktions-Release ohne Freigabe
+║  ${rref#refs/*/} → $release_sha
+║  Push auf main bzw. ein stabiler Tag ist ein Produktions-Release.
+║  Freigabe (nur der Owner): bash scripts/approve-release.sh <tag>
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+done
+
 # ── 2b. Branch-/Worktree-Hygiene (nur dev/main dürfen existieren) ──────
 # Silvios feste Vorgabe (2026-09-07, nach einem Vorfall mit ~26 liegen
 # gebliebenen Bot-Suggestion-/PR-Inspection-Branches): sobald dev oder main
@@ -403,7 +435,9 @@ EOF
     fi
     pushed_any=1
     cs="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
-    [ "$cs" = "$attested" ] || {
+    # Same content attested elsewhere on this host (e.g. the RepoBridge landing
+    # squash of an attested feature branch) counts: the tree hash is the content.
+    [ "$cs" = "$attested" ] || bash "$ATTESTSH" attested-tree "$cs" || {
       cat >&2 <<EOF
 
 ╔══════════════════════════════════════════════════════════════╗
@@ -422,7 +456,7 @@ EOF
     : # ausschließlich beta-appcast-pointer im Push -- HEAD-Fallback unten übersprungen
   elif [ "$pushed_any" -eq 0 ]; then
     head="$(git rev-parse HEAD)"
-    [ "$head" = "$attested" ] || {
+    [ "$head" = "$attested" ] || bash "$ATTESTSH" attested-tree "$head" || {
       cat >&2 <<EOF
 
 ╔══════════════════════════════════════════════════════════════╗
@@ -445,7 +479,22 @@ fi
 # Loam ratchet gate (Dart-only)
 if command -v dart >/dev/null 2>&1; then
   echo ""; echo "Loam ratchet gate..."
-  dart pub global activate loam 0.1.14 >/dev/null
+  # Without a resolved package_config, loam cannot follow imports and reports
+  # every public symbol as an unused export (hundreds of bogus findings in a
+  # fresh worktree). Fail with the actual cause instead.
+  if [ ! -f "$ROOT/.dart_tool/package_config.json" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: .dart_tool/package_config.json fehlt        ║
+╚══════════════════════════════════════════════════════════════╝
+Loam braucht aufgelöste Imports: erst \`flutter pub get\` im Repo-Root
+ausführen, dann erneut pushen.
+EOF
+    exit 1
+  fi
+  # Keep in sync with .githooks/pre-commit and .github/workflows/ci.yml.
+  dart pub global activate loam 0.1.15 >/dev/null
   export PATH="$HOME/.pub-cache/bin:$PATH"
   # Resolve Dart SDK path (must follow Homebrew symlinks on macOS)
   if [ -z "${DART_SDK:-}" ]; then

@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 /**
  * hero-platform-badges.spec.ts — Task #10.
  *
- * The Hero's macOS/Windows/Ubuntu Linux platform badges used to be inert
+ * The Hero's macOS/Windows/Linux platform badges used to be inert
  * `<span>` pills. They are now links to the matching anchor on `/download/`
  * — this spec verifies each badge's `href` and that clicking it lands on
  * the correct platform card, for both the DE (`/`) and EN (`/en/`) homepage.
