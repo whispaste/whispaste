@@ -13,6 +13,12 @@ LLAMA_TAG="b10150"  # keep in sync with build-libllama-macos.sh
 LLAMA_SRC="$REPO_ROOT/.build/deps/llama.cpp/$LLAMA_TAG"
 STAGE_DIR="$REPO_ROOT/.build/libllama/macos"
 
+# A stage from before GGML_NATIVE=OFF (no BUILD_FLAVOR stamp) carries
+# M2+-only instructions; rebuild it.
+if [[ "$(cat "$STAGE_DIR/BUILD_FLAVOR" 2>/dev/null)" != "native-off" ]]; then
+  rm -f "$STAGE_DIR/libllama.dylib"
+fi
+
 if [[ -f "$STAGE_DIR/libllama.dylib" && -f "$STAGE_DIR/libsmartmode_shim.dylib" ]]; then
   echo "libllama + smartmode_shim already staged in $STAGE_DIR."
   exit 0

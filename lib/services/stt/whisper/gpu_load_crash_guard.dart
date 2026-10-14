@@ -287,13 +287,14 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
   if (strikes < kGpuCrashStrikeThreshold) {
     // Below threshold: retry GPU silently on this very launch. No settings
     // change, no user-facing notice — a single crash must not cost the
-    // user their GPU over what may well be an unrelated fluke.
-    CrashReporter.instance?.captureError(
-      message:
-          'STT GPU model load crashed ($strikes/$kGpuCrashStrikeThreshold) '
-          '— retrying GPU once more before switching to CPU-only',
-      severity: 'warning',
-      fingerprint: const [sttGpuLoadCrashRecovered],
+    // user their GPU over what may well be an unrelated fluke. Logged as a
+    // warning (a Sentry breadcrumb, not an event): the crash itself is
+    // already reported natively, and a Sentry event per first strike was
+    // ~65 events/month of noise on the shared quota. The escalation below
+    // still captures one event.
+    _log.warning(
+      'STT GPU model load crashed ($strikes/$kGpuCrashStrikeThreshold) '
+      '— retrying GPU once more before switching to CPU-only',
     );
     return;
   }

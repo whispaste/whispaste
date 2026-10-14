@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-libwhisper-linux.sh — reproducible build + bundle of `libwhisper` shared
-# libraries (whisper.cpp v1.8.4, Vulkan + CPU) for the Linux app bundle.
+# libraries (whisper.cpp v1.9.5, Vulkan + CPU) for the Linux app bundle.
 #
 # Mirrors scripts/build-libwhisper-macos.sh: same pinned source, same flat +
 # relocatable staging, but with `$ORIGIN` rpath (the ELF equivalent of macOS
@@ -56,9 +56,9 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-WHISPER_TAG="v1.8.4"
+WHISPER_TAG="v1.9.5"
 WHISPER_SRC="$REPO_ROOT/.build/deps/whisper.cpp/$WHISPER_TAG"
-WHISPER_PINNED_COMMIT="9386f239401074690479731c1e41683fbbeac557"
+WHISPER_PINNED_COMMIT="d1be6fde11ac6e0407606b4e42fe72d34add8037"
 
 BUILD_DIR="$REPO_ROOT/.build/libwhisper/linux-build"
 STAGE_DIR="$REPO_ROOT/.build/libwhisper/linux"
@@ -175,7 +175,7 @@ mkdir -p "$STAGE_DIR"
 while IFS= read -r real; do
   soname="$(patchelf --print-soname "$real" 2>/dev/null || basename "$real")"
   cp "$real" "$STAGE_DIR/$soname"
-done < <(find "$BUILD_DIR" -type f -name '*.so*' ! -type l)
+done < <(find "$BUILD_DIR" -type f -name '*.so*' ! -type l ! -name 'libparakeet*')
 
 if [[ ! -f "$STAGE_DIR/libwhisper.so" ]]; then
   whisper_soname="$(cd "$STAGE_DIR" && ls libwhisper.so* | head -n1)"

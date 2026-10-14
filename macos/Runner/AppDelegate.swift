@@ -1,6 +1,7 @@
 import Cocoa
 import FlutterMacOS
 import Security
+import Sentry
 
 @main
 class AppDelegate: FlutterAppDelegate {
@@ -396,7 +397,12 @@ class AppDelegate: FlutterAppDelegate {
       alert.window.level = .floating
       alert.window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
+      // runModal blocks the main thread until the user answers, which
+      // Sentry's watchdog reports as an "App Hanging" event every time the
+      // alert stays open for 2 s -- noise on the shared error quota.
+      SentrySDK.pauseAppHangTracking()
       let response = alert.runModal()
+      SentrySDK.resumeAppHangTracking()
       self.restartAlertShowing = false
       onDismiss(response == .alertFirstButtonReturn)
     }

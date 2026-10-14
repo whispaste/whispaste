@@ -60,7 +60,7 @@ class CudaPackInfo {
     required this.files,
   });
 
-  /// Folder name below [cudaPackRootDir], e.g. `ggml-v1.8.4-cu12.8-r1`.
+  /// Folder name below [cudaPackRootDir], e.g. `ggml-v1.9.5-cu12.8-r1`.
   final String id;
   final String url;
   final int archiveSizeBytes;
@@ -75,7 +75,7 @@ class CudaPackInfo {
 }
 
 /// Pack id: bundled ggml version, CUDA toolkit, pack revision.
-const kCudaPackId = 'ggml-v1.8.4-cu12.8-r1';
+const kCudaPackId = 'ggml-v1.9.5-cu12.8-r1';
 
 /// Where the packs are published: extra assets on the release that first
 /// shipped this pack id. Later releases keep pointing here until the id
@@ -89,19 +89,19 @@ const _kCudaPackBaseUrl =
 const _windowsPack = CudaPackInfo(
   id: kCudaPackId,
   url: '$_kCudaPackBaseUrl/WhisPaste-CUDA-$kCudaPackId-windows-x64.zip',
-  archiveSizeBytes: 664395874,
+  archiveSizeBytes: 660507255,
   archiveSha256:
-      '540f3152524c41674b6ef441ea9940754b625857c03f2b8a312ecb8dda55b49b',
+      '7f6c760ad90ff1c8dce181b2d8191232b29c484c847d8cdf7718658361a2fbd2',
   files: [
     CudaPackFile(
       'NOTICE.txt',
       2551,
-      '241d54fdef5e23b5fe211083dabfeb5fb1526389051bb347986364ed2d5396bd',
+      'b13494038094500c04516ad5a2591de28c7b5d3081a11b2d3acea4c0fc1be389',
     ),
     CudaPackFile(
       'SHA256SUMS',
       405,
-      '6a419918dc86b862a741188d4d605f81e8f3ea17d153b9cd05b27843479bee03',
+      'e1e2fc37df49abe31c6893806c88c4947fd6d6cf32e2691e885ec84de77bf2ed',
     ),
     CudaPackFile(
       'cublas64_12.dll',
@@ -120,8 +120,8 @@ const _windowsPack = CudaPackInfo(
     ),
     CudaPackFile(
       'ggml-cuda.dll',
-      107288064,
-      '681250a2b03e925723a62581dc2e13bf47fcd996ee281a4a542b61d2bf887ea2',
+      106399744,
+      'fe2c7c4d21e03bc127b77f270ee8e65523a7e6b78b8f0d4cd9dd7af32bb45800',
     ),
   ],
 );
@@ -129,19 +129,19 @@ const _windowsPack = CudaPackInfo(
 const _linuxPack = CudaPackInfo(
   id: kCudaPackId,
   url: '$_kCudaPackBaseUrl/WhisPaste-CUDA-$kCudaPackId-linux-x64.tar.gz',
-  archiveSizeBytes: 690545297,
+  archiveSizeBytes: 686791429,
   archiveSha256:
-      '3e6518020318745967504340f15a7092c93a2858db0c31c91a3b6719f15ca805',
+      '60a9f5cf375729cf348af1f2969fa3b2f90bd816563ecd6116fc82580fdeb880',
   files: [
     CudaPackFile(
       'NOTICE.txt',
       2551,
-      '241d54fdef5e23b5fe211083dabfeb5fb1526389051bb347986364ed2d5396bd',
+      'b13494038094500c04516ad5a2591de28c7b5d3081a11b2d3acea4c0fc1be389',
     ),
     CudaPackFile(
       'SHA256SUMS',
       407,
-      '394365fa72dc56f9db956e6a7f15e8efc10ada77f9e8af9aefe3412affdfa02f',
+      '10a2e84ab373167427430a07f95e074222690bf04ab75a52b5aee7db47262890',
     ),
     CudaPackFile(
       'libcublas.so.12',
@@ -160,8 +160,8 @@ const _linuxPack = CudaPackInfo(
     ),
     CudaPackFile(
       'libggml-cuda.so',
-      111551297,
-      '75de9f1624d3e80b0b7711823afa4738587b0387b6ab9fdb7dd165f3bf15966f',
+      113861401,
+      'cc6542715ac4b321a9bc35345fb86998f226646ae73b585f7a3102085791bfe9',
     ),
   ],
 );

@@ -65,6 +65,9 @@ All entries are written in English.
 
 ### Improvements
 
+- **Faster Whisper transcription:** the bundled whisper.cpp moves from 1.8.4 to 1.9.5. On an Apple M5, local transcription of 18 German dictations took about 44 % less time with identical text (large-v3-turbo q5_0, Metal). On macOS the CPU part now picks the build that fits the Mac's chip at startup, so older Apple Silicon Macs get a matching build instead of one tuned for the newest chips.
+- **Paste without the fixed wait:** when the app you dictated into is still in front, which is the usual case, WhisPaste pastes as soon as the hotkey's modifier keys are released instead of always waiting the Auto-Paste delay (200 ms by default). Apps that first have to be brought to the front still get the full delay. macOS and Windows.
+- **Snappier first recording:** the sound engine no longer opens the audio device ahead of the microphone on the first hotkey press.
 - **Longer recording limits:** the maximum recording length offers steps from 30 seconds up to 60 minutes, and Unlimited sits at the right end of the slider. Long recordings get a transcription budget that grows with their length instead of a fixed 5 minutes.
 - **Hold-or-tap push-to-talk:** a new option for macOS and Windows (disabled on Linux). A press starts recording. If you hold the key for at least 300 ms and release it, recording stops, as with classic push-to-talk. A shorter press keeps recording until the next press. The option applies to the main and Smart Mode hotkeys.
 - **Live preview shows the newest words:** the one-line overlay keeps the words you just said visible instead of cutting them off at the end.

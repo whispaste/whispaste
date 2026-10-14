@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-libwhisper-macos.sh — reproducible build of the bundled `libwhisper`
-# shared libraries (whisper.cpp v1.8.4, Metal + CPU backends) for the macOS
+# shared libraries (whisper.cpp v1.9.5, Metal + CPU backends) for the macOS
 # `.app`. Produces flat, relocatable dylibs (`@loader_path` rpath, no absolute
 # paths) plus a SHA-256 manifest, staged where the Xcode "[WP] Embed & Sign
 # libwhisper" build phase (macos/Runner.xcodeproj) picks them up and copies them
@@ -11,9 +11,19 @@
 # bundle — no runtime code download, Apple Guideline 2.5.2). GGML model files
 # stay separate (data, still downloadable).
 #
+# -DGGML_NATIVE=OFF + -DGGML_BACKEND_DL=ON + -DGGML_CPU_ALL_VARIANTS=ON: the
+# CPU backend ships as one loadable module per Apple core generation
+# (libggml-cpu-{apple_m1,apple_m2_m3,apple_m4}.so) and ggml scores them at
+# load time. A native build instead tunes the single CPU backend to the build
+# machine: built on an M2+ it contains i8mm instructions (smmla) that an M1
+# cannot execute. Metal becomes a module too (libggml-metal.so). ggml names
+# backend modules `.so` on macOS; WhisperFfiEngine points
+# ggml_backend_load_all_from_path at libwhisper's own directory.
+#
 # Usage:  scripts/build-libwhisper-macos.sh
 # Output: .build/libwhisper/macos/{libwhisper.dylib,libggml*.dylib,
-#         libwp_ffi_guard.dylib,SHA256SUMS}
+#         libggml-cpu-*.so,libggml-metal.so,libggml-blas.so,
+#         libwp_ffi_guard.dylib,SHA256SUMS,WHISPER_PIN}
 #
 # Requires: cmake, Xcode command-line tools (clang, otool, install_name_tool,
 # codesign), a checked-out whisper.cpp source tree (see WHISPER_SRC below).
@@ -22,12 +32,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # --- Pinned source provenance (AC3: SHA-256-verified library bezug) ----------
-# whisper.cpp v1.8.4, github.com/ggml-org/whisper.cpp, tag v1.8.4.
+# whisper.cpp v1.9.5, github.com/ggml-org/whisper.cpp, tag v1.9.5.
 # The source tree is fetched by Issue 01 into .build/deps (gitignored); its git
 # HEAD must match this pinned commit before we build against it.
-WHISPER_TAG="v1.8.4"
+WHISPER_TAG="v1.9.5"
 WHISPER_SRC="$REPO_ROOT/.build/deps/whisper.cpp/$WHISPER_TAG"
-WHISPER_PINNED_COMMIT="9386f239401074690479731c1e41683fbbeac557"
+WHISPER_PINNED_COMMIT="d1be6fde11ac6e0407606b4e42fe72d34add8037"
 
 BUILD_DIR="$REPO_ROOT/.build/libwhisper/macos-build"
 STAGE_DIR="$REPO_ROOT/.build/libwhisper/macos"
@@ -62,6 +72,9 @@ cmake -S "$WHISPER_SRC" -B "$BUILD_DIR" \
   -DBUILD_SHARED_LIBS=ON \
   -DGGML_METAL=ON \
   -DGGML_METAL_EMBED_LIBRARY=ON \
+  -DGGML_NATIVE=OFF \
+  -DGGML_BACKEND_DL=ON \
+  -DGGML_CPU_ALL_VARIANTS=ON \
   -DWHISPER_BUILD_EXAMPLES=OFF \
   -DWHISPER_BUILD_TESTS=OFF \
   -DWHISPER_BUILD_SERVER=OFF \
@@ -85,12 +98,19 @@ echo "[3/4] staging relocatable dylibs → $STAGE_DIR"
 rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"
 
-# Real (non-symlink) dylibs from the build tree.
+# Real (non-symlink) dylibs from the build tree. whisper.cpp's own
+# libparakeet is not used by the app (Parakeet runs on sherpa-onnx).
 while IFS= read -r real; do
   install_name="$(otool -D "$real" | sed -n '2p')"          # e.g. @rpath/libggml.0.dylib
   base="$(basename "$install_name")"                          # e.g. libggml.0.dylib
   cp "$real" "$STAGE_DIR/$base"
-done < <(find "$BUILD_DIR/src" "$BUILD_DIR/ggml" "$BUILD_DIR/ffi_guard" -type f -name '*.dylib')
+done < <(find "$BUILD_DIR/bin" "$BUILD_DIR/ffi_guard" -type f -name '*.dylib' ! -name 'libparakeet*')
+
+# Backend modules (MH_BUNDLE, no install name) keep their file names: ggml's
+# registry finds them by the libggml-<backend>[-<variant>].so pattern.
+while IFS= read -r module; do
+  cp "$module" "$STAGE_DIR/"
+done < <(find "$BUILD_DIR/bin" -type f -name 'libggml-*.so')
 
 # The app opens the plain name; ensure it exists (copy of the SONAME file).
 if [[ ! -f "$STAGE_DIR/libwhisper.dylib" ]]; then
@@ -98,18 +118,21 @@ if [[ ! -f "$STAGE_DIR/libwhisper.dylib" ]]; then
   cp "$STAGE_DIR/$whisper_soname" "$STAGE_DIR/libwhisper.dylib"
 fi
 
-# Make each staged dylib relocatable: remove absolute rpaths, add @loader_path.
-for dylib in "$STAGE_DIR"/*.dylib; do
+# Make each staged library relocatable: remove absolute rpaths, add @loader_path.
+for dylib in "$STAGE_DIR"/*.dylib "$STAGE_DIR"/*.so; do
   while IFS= read -r rp; do
     [[ "$rp" == /* ]] && install_name_tool -delete_rpath "$rp" "$dylib" 2>/dev/null || true
   done < <(otool -l "$dylib" | awk '/LC_RPATH/{f=1} f&&/path/{print $2; f=0}')
   install_name_tool -add_rpath "@loader_path" "$dylib" 2>/dev/null || true
 done
-echo "      staged: $(cd "$STAGE_DIR" && ls *.dylib | tr '\n' ' ')"
+echo "      staged: $(cd "$STAGE_DIR" && ls *.dylib *.so | tr '\n' ' ')"
 
 # --- 4. SHA-256 manifest (AC3) ----------------------------------------------
 echo "[4/4] writing SHA256SUMS"
-( cd "$STAGE_DIR" && shasum -a 256 *.dylib > SHA256SUMS )
+( cd "$STAGE_DIR" && shasum -a 256 *.dylib *.so > SHA256SUMS )
+# Pin stamp: lets the Xcode embed phase notice dylibs staged from an older
+# whisper.cpp pin and rebuild them.
+echo "$WHISPER_TAG@$WHISPER_PINNED_COMMIT" > "$STAGE_DIR/WHISPER_PIN"
 cat "$STAGE_DIR/SHA256SUMS"
 
 echo "=== done. Now run: flutter build macos ==="

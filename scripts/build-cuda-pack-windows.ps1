@@ -1,5 +1,5 @@
 # build-cuda-pack-windows.ps1 — builds the optional Windows CUDA backend pack
-# WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1-windows-x64.zip: ggml-cuda.dll plus the
+# WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-windows-x64.zip: ggml-cuda.dll plus the
 # CUDA 12.8.1 runtime DLLs it imports. Runs on SilviosPC under Windows
 # PowerShell 5.1. tool/cuda_pack_build.sh starts it detached and polls the
 # build-windows.done marker in the work directory.
@@ -16,7 +16,7 @@
 #
 # Usage:   powershell -NoProfile -ExecutionPolicy Bypass -File build-cuda-pack-windows.ps1
 #            [-WorkDir C:\wp-cuda-build] [-BuildJobs 4] [-InstallPrereqs]
-# Output:  <WorkDir>\out\WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1-windows-x64.zip
+# Output:  <WorkDir>\out\WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-windows-x64.zip
 #          <WorkDir>\build-windows.log and build-windows.done (DONE_RC=<exit code>)
 [CmdletBinding()]
 param(
@@ -28,15 +28,16 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$PackId = 'WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1-windows-x64'
-$WhisperTag = 'v1.8.4'
-$WhisperPinnedCommit = '9386f239401074690479731c1e41683fbbeac557'
+$PackId = 'WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-windows-x64'
+$WhisperTag = 'v1.9.5'
+$WhisperPinnedCommit = 'd1be6fde11ac6e0407606b4e42fe72d34add8037'
 $CudaVersion = '12.8.1'
 $ScriptDir = $PSScriptRoot
 
-$Src = Join-Path $WorkDir 'src\whisper.cpp'
+# Versioned by tag: an upgrade clones fresh instead of failing the pin check.
+$Src = Join-Path $WorkDir "src\whisper.cpp-$WhisperTag"
 $CudaHome = Join-Path $WorkDir 'cuda'
-$Build = Join-Path $WorkDir 'build'
+$Build = Join-Path $WorkDir "build-$WhisperTag"
 $Stage = Join-Path $WorkDir ('stage\' + $PackId)
 $OutDir = Join-Path $WorkDir 'out'
 $DoneMarker = Join-Path $WorkDir 'build-windows.done'

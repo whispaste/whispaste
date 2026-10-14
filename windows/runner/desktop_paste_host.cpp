@@ -178,6 +178,23 @@ void RestoreClipboard(HWND owner, const ClipboardBackup& backup) {
   }
 }
 
+void WaitForModifierRelease(int max_wait_ms) {
+  const auto deadline = std::chrono::steady_clock::now() +
+                        std::chrono::milliseconds(max_wait_ms);
+  const int modifiers[] = {VK_SHIFT, VK_CONTROL, VK_MENU, VK_LWIN, VK_RWIN};
+  while (std::chrono::steady_clock::now() < deadline) {
+    bool held = false;
+    for (int vk : modifiers) {
+      if ((::GetAsyncKeyState(vk) & 0x8000) != 0) {
+        held = true;
+        break;
+      }
+    }
+    if (!held) return;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+}
+
 }  // namespace
 
 DesktopPasteHost::DesktopPasteHost(flutter::FlutterEngine* engine, HWND owner)
@@ -320,7 +337,12 @@ EncodableValue DesktopPasteHost::PasteClipboard(int delay_ms) {
     return MakeResultMap("no_target", "no captured target window at paste time");
   }
 
-  if (delay_ms > 0) {
+  // A target that is still in the foreground (the overlay never takes focus)
+  // has nothing to settle; it only waits until the hotkey's modifiers are up,
+  // bounded by the same delay, so a held Shift/Alt can't alter the Ctrl+V.
+  if (::GetForegroundWindow() == target_window_) {
+    WaitForModifierRelease(delay_ms);
+  } else if (delay_ms > 0) {
     std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
   }
 

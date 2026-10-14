@@ -65,9 +65,12 @@ echo "[1/5] source verified: $LLAMA_TAG @ $LLAMA_PINNED_COMMIT"
 
 # --- 2. Configure + build shared libs (Metal + CPU) -------------------------
 echo "[2/5] cmake configure + build (Metal + CPU, shared) …"
+# GGML_NATIVE=OFF: a native build on an M2+ host emits i8mm (smmla) with no
+# runtime check, which raises SIGILL on M1 the first time the CPU path runs.
 cmake -S "$LLAMA_SRC" -B "$BUILD_DIR" \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_SHARED_LIBS=ON \
+  -DGGML_NATIVE=OFF \
   -DGGML_METAL=ON \
   -DGGML_METAL_EMBED_LIBRARY=ON \
   -DLLAMA_BUILD_EXAMPLES=OFF \
@@ -153,6 +156,8 @@ echo "      staged: $(cd "$STAGE_DIR" && ls *.dylib | tr '\n' ' ')"
 # --- 5. SHA-256 manifest -----------------------------------------------------
 echo "[5/5] writing SHA256SUMS"
 ( cd "$STAGE_DIR" && shasum -a 256 *.dylib > SHA256SUMS )
+# Build-flavor stamp: ensure-libllama-macos.sh rebuilds a stage without it.
+echo "native-off" > "$STAGE_DIR/BUILD_FLAVOR"
 cat "$STAGE_DIR/SHA256SUMS"
 
 echo "=== done. libllama staged at $STAGE_DIR ==="

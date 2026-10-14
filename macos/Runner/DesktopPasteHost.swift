@@ -185,6 +185,10 @@ class DesktopPasteHost {
     // Clamp delay to a reasonable range (0–5 seconds).
     let clampedDelay = max(0, min(delayMs, 5000))
 
+    // The overlay never takes focus, so in the common dictation case the
+    // target is still frontmost and has nothing to settle.
+    let alreadyFrontmost = app.isActive
+
     // Activate the target app. macOS 14 deprecated the no-arg form in
     // favour of the options-taking variant; on older systems both exist
     // and behave identically.
@@ -194,11 +198,14 @@ class DesktopPasteHost {
       app.activate(options: [.activateIgnoringOtherApps])
     }
 
-    // Brief delay to allow the target window to come to front before we
-    // post the keystroke, then report the real outcome to Dart.
+    // A target that had to be brought forward gets the full delay to
+    // come to front. A target that already is frontmost only waits until
+    // the hotkey's modifiers are up (bounded by the same delay), so a
+    // still-held Shift/Option can't turn the posted ⌘V into another
+    // shortcut. Then report the real outcome to Dart.
     let bundle = app.bundleIdentifier ?? "<unknown>"
     let deadline: DispatchTime = .now() + .milliseconds(clampedDelay)
-    DispatchQueue.main.asyncAfter(deadline: deadline) {
+    let postPaste: () -> Void = {
       // From here on, a read of an armed receipt counts as the target's
       // paste (reads before this point are clipboard monitors).
       self.receipt?.keystrokePosted = true
@@ -224,7 +231,7 @@ class DesktopPasteHost {
       let appleScriptResult = cgLanded ? "skipped" : self.sendCmdVViaAppleScript()
 #endif
 
-      let detail = "trusted=\(trusted) cg=\(cgOk) as=\(appleScriptResult) target=\(bundle)"
+      let detail = "trusted=\(trusted) cg=\(cgOk) as=\(appleScriptResult) target=\(bundle) front=\(alreadyFrontmost)"
       os_log("pasteClipboard: %{public}@", log: Self.logger, type: .info, detail)
 
       // AppleScript "ok" is trustworthy because System Events propagates a
@@ -261,6 +268,28 @@ class DesktopPasteHost {
       }
 #endif
       result(["status": "post_failed", "detail": detail])
+    }
+    if alreadyFrontmost {
+      waitForModifierRelease(until: deadline, then: postPaste)
+    } else {
+      DispatchQueue.main.asyncAfter(deadline: deadline, execute: postPaste)
+    }
+  }
+
+  /// Runs [action] once no modifier key is held, or at [deadline] at the
+  /// latest. Polls on the main queue, the queue [action] expects.
+  private func waitForModifierRelease(
+    until deadline: DispatchTime,
+    then action: @escaping () -> Void
+  ) {
+    let modifiers: CGEventFlags = [.maskShift, .maskControl, .maskAlternate, .maskCommand]
+    let held = CGEventSource.flagsState(.combinedSessionState).intersection(modifiers)
+    if held.isEmpty || DispatchTime.now() >= deadline {
+      action()
+      return
+    }
+    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(10)) {
+      self.waitForModifierRelease(until: deadline, then: action)
     }
   }
 

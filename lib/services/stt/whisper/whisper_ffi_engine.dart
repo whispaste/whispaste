@@ -1,5 +1,5 @@
 /// Real in-process [WhisperEngine] backed by a bundled `libwhisper` via
-/// `dart:ffi` (whisper.cpp v1.8.4). Built on the binding proven in the Issue-01
+/// `dart:ffi` (whisper.cpp v1.9.5). Built on the binding proven in the Issue-01
 /// durchstich (`whisper_bindings.dart`, ffigen-generated).
 ///
 /// Threading note (from whisper.h): `whisper_full` is NOT thread-safe for the
@@ -500,9 +500,8 @@ class WhisperFfiEngine
       // Only the CPU backend is registered; the GPU modules stay unloaded.
     } else {
       if (cpuOnly) {
-        // Expected on macOS, where the CPU backend is linked statically and
-        // no module exists; elsewhere it keeps whisper from aborting on a
-        // null CPU device.
+        // Expected for a static CPU build (no module exists); otherwise it
+        // keeps whisper from aborting on a null CPU device.
         _log.info(
           'No ggml CPU backend module in $libraryDir (static CPU build?) — '
           'loading all backends',
@@ -593,9 +592,9 @@ class WhisperFfiEngine
   /// Whether [name] is a ggml CPU backend module for this platform.
   static bool _isCpuModuleFileName(String name) {
     final lower = name.toLowerCase();
-    final ext = Platform.isWindows
-        ? '.dll'
-        : (Platform.isMacOS ? '.dylib' : '.so');
+    // ggml names its dynamically loaded backend modules `*.so` on every
+    // non-Windows platform, macOS included (ggml-backend-reg.cpp).
+    final ext = Platform.isWindows ? '.dll' : '.so';
     final stem =
         lower.startsWith('libggml-cpu') || lower.startsWith('ggml-cpu');
     return stem && lower.endsWith(ext);
@@ -1353,7 +1352,7 @@ class WhisperFfiEngine
       //
       // Two settings the app never touched, left at whisper.cpp's
       // built-in defaults, both cross-referenced against the actual
-      // decode source (`.build/deps/whisper.cpp/v1.8.4/src/whisper.cpp`)
+      // decode source (`.build/deps/whisper.cpp/v1.9.5/src/whisper.cpp`)
       // before changing:
       //
       // 1. `suppress_nst` (default `false`) — suppresses a fixed table of
@@ -1855,7 +1854,7 @@ String cudaModuleFileName() =>
     Platform.isWindows ? 'ggml-cuda.dll' : 'libggml-cuda.so';
 
 /// `enum ggml_backend_dev_type` values for the GPU-classifying devices
-/// (`ggml-backend.h`; confirmed against the vendored v1.8.4 header and the
+/// (`ggml-backend.h`; confirmed against the vendored v1.9.5 header and the
 /// bundled macOS dylib: `MTL0`→1). CPU (0) and ACCEL (3, e.g. Apple's BLAS
 /// backend) are deliberately not GPU devices — an ACCEL device alongside
 /// CPU-only does not mean GPU acceleration is happening.

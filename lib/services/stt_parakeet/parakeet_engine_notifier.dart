@@ -486,12 +486,17 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   // loam-ignore: code-duplicates – see comment above
   void _handleWorkerMessage(dynamic message) {
     switch (message) {
+      // isCompleted guards: a reply that arrives after its waiter already
+      // timed out must be dropped, never throw "Future already completed".
       case final _InitResult r:
-        _initCompleter?.complete(r);
+        final c = _initCompleter;
+        if (c != null && !c.isCompleted) c.complete(r);
       case final _TranscribeResult r:
-        _pending.remove(r.requestId)?.complete(r);
+        final c = _pending.remove(r.requestId);
+        if (c != null && !c.isCompleted) c.complete(r);
       case _ShutdownAck():
-        _shutdownCompleter?.complete();
+        final c = _shutdownCompleter;
+        if (c != null && !c.isCompleted) c.complete();
     }
   }
 

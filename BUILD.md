@@ -7,7 +7,7 @@ This guide shows how to build the desktop app and its bundled on-device engines 
 | Part | Source | Needed for |
 |---|---|---|
 | Flutter app | this repo | everything |
-| `libwhisper` + ggml backends | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) `v1.8.4` | on-device Whisper transcription |
+| `libwhisper` + ggml backends | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) `v1.9.5` | on-device Whisper transcription |
 | `libllama` + Smart Mode shim | [llama.cpp](https://github.com/ggml-org/llama.cpp) `b10150` + `native/smart_mode/` | on-device Smart Mode (optional) |
 
 The app builds and runs without the native libraries. Cloud transcription and Parakeet (bundled through the `sherpa_onnx` package) work regardless. Without `libwhisper`, on-device Whisper is unavailable. Without `libllama`, the on-device Smart Mode option is disabled in Settings.
@@ -42,6 +42,8 @@ bash scripts/build-libllama-macos.sh
 bash scripts/build-smartmode-shim-macos.sh
 ```
 
+Both scripts build with `-DGGML_NATIVE=OFF`, so the libraries never contain instructions the oldest supported Mac (M1) lacks. `libwhisper` additionally uses `-DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON`: Metal and one CPU module per Apple Silicon generation (`libggml-cpu-apple_m1.so`, `-apple_m2_m3.so`, `-apple_m4.so`) are staged next to `libwhisper.dylib`, and ggml loads the best CPU module at runtime. `macos/embed_libwhisper.sh` rebuilds automatically when the staged `WHISPER_PIN` no longer matches the pinned whisper.cpp version.
+
 ## Windows (x64)
 
 **Toolchain:** Visual Studio 2022 with the "Desktop development with C++" workload (MSVC, Windows SDK), CMake, Ninja, PowerShell 7 (`pwsh`). For the Vulkan GPU backend, install the [Vulkan SDK](https://vulkan.lunarg.com/).
@@ -55,15 +57,15 @@ flutter build windows --release --no-tree-shake-icons
 `libwhisper` (run from a Developer PowerShell for VS 2022, so `cl.exe` is on `PATH`):
 
 ```powershell
-git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
-cmake -S .build/deps/whisper.cpp/v1.8.4 -B .build/libwhisper/windows-build `
+git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
+cmake -S .build/deps/whisper.cpp/v1.9.5 -B .build/libwhisper/windows-build `
   -G Ninja `
   -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
   -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON `
   -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
 cmake --build .build/libwhisper/windows-build --config Release -j
 cmake -S native/ffi_guard -B .build/libwhisper/windows-build/ffi_guard -G Ninja `
-  -DCMAKE_BUILD_TYPE=Release -DWHISPER_SOURCE_DIR="$PWD/.build/deps/whisper.cpp/v1.8.4"
+  -DCMAKE_BUILD_TYPE=Release -DWHISPER_SOURCE_DIR="$PWD/.build/deps/whisper.cpp/v1.9.5"
 cmake --build .build/libwhisper/windows-build/ffi_guard --config Release
 New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
 Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
@@ -110,7 +112,7 @@ flutter build linux --release --no-tree-shake-icons
 `libwhisper` (Vulkan + one CPU backend per x86-64 feature level via `-DGGML_CPU_ALL_VARIANTS=ON`, `$ORIGIN` rpath). The `libggml-cpu-*.so` modules must stay next to `libwhisper.so` in `bundle/lib/`, where the app tells ggml to look for them. Set `BUILD_JOBS=N` to cap parallelism on machines with little RAM:
 
 ```bash
-git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
 bash scripts/build-libwhisper-linux.sh
 mkdir -p build/linux/x64/release/bundle/lib
 cp .build/libwhisper/linux/*.so* build/linux/x64/release/bundle/lib/

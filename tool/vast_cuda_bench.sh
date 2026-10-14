@@ -478,8 +478,8 @@ STEP
 
     remote_step libwhisper_cpu_vulkan <<'STEP'
 cd /opt/wp-src
-if [ ! -d .build/deps/whisper.cpp/v1.8.4 ]; then
-  git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+if [ ! -d .build/deps/whisper.cpp/v1.9.5 ]; then
+  git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
 fi
 BUILD_JOBS="$(nproc)" bash scripts/build-libwhisper-linux.sh
 mkdir -p build/linux/x64/release/bundle/lib
@@ -522,8 +522,8 @@ export CUDA_HOME=/usr/local/cuda CUDACXX=/usr/local/cuda/bin/nvcc
 export PATH=/usr/local/cuda/bin:$PATH
 nvcc --version | tail -n 1
 # The source is missing when the bundle came from the build cache.
-if [ ! -d .build/deps/whisper.cpp/v1.8.4 ]; then
-  git clone --depth 1 --branch v1.8.4 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.8.4
+if [ ! -d .build/deps/whisper.cpp/v1.9.5 ]; then
+  git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
 fi
 jobs="$(nproc)"; if [ "$jobs" -gt 8 ]; then jobs=8; fi
 BUILD_JOBS="$jobs" bash scripts/build-libwhisper-linux.sh --cuda

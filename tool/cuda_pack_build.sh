@@ -26,8 +26,8 @@ WSL_DISTRO="${WSL_DISTRO:-Ubuntu-24.04}"
 BUILD_JOBS="${BUILD_JOBS:-4}"
 KEY="$HOME/.ssh/whispaste-winbox"
 PACK_ROOT="$HOME/whispaste-cuda-packs"
-WIN_PACK_ID="WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1-windows-x64"
-LINUX_PACK_ID="WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1-linux-x64"
+WIN_PACK_ID="WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-windows-x64"
+LINUX_PACK_ID="WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64"
 FETCH_ONLY=0
 if [[ "${1:-}" == "--fetch-only" ]]; then FETCH_ONLY=1; fi
 

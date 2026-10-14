@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # build-cuda-pack-linux.sh — builds the optional Linux CUDA backend pack
-# WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1-linux-x64.tar.gz: libggml-cuda.so plus
+# WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64.tar.gz: libggml-cuda.so plus
 # the CUDA 12.8.1 runtime libraries it links. Runs inside WSL2 Ubuntu 24.04 on
 # SilviosPC; tool/cuda_pack_build.sh drives it from the Mac.
 #
@@ -14,12 +14,12 @@
 # Usage:   bash build-cuda-pack-linux.sh --install-deps   (once, as root)
 #          [BUILD_JOBS=N] [CUDA_ARCHS=...] [WORK_DIR=...] [OUT_DIR=...] \
 #            bash build-cuda-pack-linux.sh
-# Output:  $OUT_DIR/WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1-linux-x64.tar.gz
+# Output:  $OUT_DIR/WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64.tar.gz
 set -euo pipefail
 
-PACK_ID="WhisPaste-CUDA-ggml-v1.8.4-cu12.8-r1-linux-x64"
-WHISPER_TAG="v1.8.4"
-WHISPER_PINNED_COMMIT="9386f239401074690479731c1e41683fbbeac557"
+PACK_ID="WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64"
+WHISPER_TAG="v1.9.5"
+WHISPER_PINNED_COMMIT="d1be6fde11ac6e0407606b4e42fe72d34add8037"
 CUDA_VERSION="12.8.1"
 # Turing+ only: real SASS for RTX 20/30/40/50, sm_75 PTX for JIT on anything newer.
 CUDA_ARCHS="${CUDA_ARCHS:-75;86-real;89-real;120-real}"
@@ -27,9 +27,10 @@ CUDA_ARCHS="${CUDA_ARCHS:-75;86-real;89-real;120-real}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WORK_DIR="${WORK_DIR:-$HOME/wp-cuda-build}"
 OUT_DIR="${OUT_DIR:-$WORK_DIR/out}"
-SRC="$WORK_DIR/src/whisper.cpp"
+# Versioned by tag: an upgrade clones fresh instead of failing the pin check.
+SRC="$WORK_DIR/src/whisper.cpp-$WHISPER_TAG"
 CUDA_HOME="$WORK_DIR/cuda"
-BUILD="$WORK_DIR/build"
+BUILD="$WORK_DIR/build-$WHISPER_TAG"
 STAGE="$WORK_DIR/stage"
 NUM_CPUS="$(nproc)"
 # At most ~8 parallel jobs: nvcc is memory-hungry per translation unit.

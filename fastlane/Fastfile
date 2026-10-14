@@ -237,18 +237,9 @@ platform :mac do
     dedupe_mas_screenshots(expect: 6)
   end
 
-  desc "Build + upload the Mac App Store build (sandboxed, no auto-paste)"
-  lane :mas_release do
-    load_asc_api_key
-    # precheck (metadata hygiene against App Review Guidelines) is disabled
-    # below via run_precheck_before_submit: false: fastlane 2.237.0's precheck
-    # crashes with `undefined method 'copyright' for nil:NilClass`
-    # (Precheck::RuleProcessor.generate_version_items_to_check). deliver runs
-    # it by default on every upload_to_app_store call regardless of
-    # submit_for_review, so without the explicit flag it still fires (and
-    # fails, non-fatally) even though this lane never submits for review.
-    # Re-add once confirmed fixed upstream.
-
+  # Builds the signed MAS .pkg into build/fastlane/ (shared by mas_release
+  # and mas_validate).
+  private_lane :mas_build do
     # This first build only populates Flutter's ephemeral DART_DEFINES state
     # (kIsMasBuild) for the "Flutter Assemble" step that build_mac_app's own
     # xcodebuild invocation runs internally — its own .app output (built
@@ -344,6 +335,30 @@ platform :mac do
         provisioningProfiles: { "de.whispaste.app" => "de.whispaste.app AppStore" }
       }
     )
+  end
+
+  desc "Build the Mac App Store .pkg and run Apple's validation on it — no upload"
+  lane :mas_validate do
+    load_asc_api_key
+    mas_build
+    pkg = lane_context[SharedValues::PKG_OUTPUT_PATH]
+    sh("xcrun", "altool", "--validate-app", "-f", pkg, "-t", "macos",
+       "--apiKey", ASC_KEY_ID, "--apiIssuer", ASC_ISSUER_ID)
+  end
+
+  desc "Build + upload the Mac App Store build (sandboxed, no auto-paste)"
+  lane :mas_release do
+    load_asc_api_key
+    # precheck (metadata hygiene against App Review Guidelines) is disabled
+    # below via run_precheck_before_submit: false: fastlane 2.237.0's precheck
+    # crashes with `undefined method 'copyright' for nil:NilClass`
+    # (Precheck::RuleProcessor.generate_version_items_to_check). deliver runs
+    # it by default on every upload_to_app_store call regardless of
+    # submit_for_review, so without the explicit flag it still fires (and
+    # fails, non-fatally) even though this lane never submits for review.
+    # Re-add once confirmed fixed upstream.
+
+    mas_build
 
     upload_mas_dsyms(lane_context[SharedValues::DSYM_OUTPUT_PATH])
 

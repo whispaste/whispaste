@@ -169,6 +169,11 @@ class SoundFeedbackService extends Notifier<void> {
     if (_volume <= 0) return;
     if (!enabled) return;
     try {
+      // Opening the audio device is a synchronous FFI call (~30 ms). Cues
+      // fire from inside recording-state transitions, so yield first: the
+      // init must not run ahead of the mic start on the hotkey's critical
+      // path.
+      if (!_initialized) await Future<void>.delayed(Duration.zero);
       await _ensureInit();
       final source = _sources[assetName];
       if (source == null) {

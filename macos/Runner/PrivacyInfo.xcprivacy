@@ -30,6 +30,15 @@
       category; the FileTimestamp/DiskSpace/UserDefaults codes below remain
       justified only by the app's own first-party usage, not by libwhisper.
   => No reason code added or removed on account of libwhisper.
+
+  Re-audited 2026-10-13 for the whisper.cpp v1.9.5 upgrade (ggml 0.26.0, now
+  built with GGML_BACKEND_DL=ON + GGML_CPU_ALL_VARIANTS=ON): clock_gettime is
+  unchanged (ggml.c:564,570, SystemBootTime 35F9.1). New on macOS: the backend
+  module scan in ggml-backend-reg.cpp (std::filesystem exists/directory_iterator
+  over Contents/Frameworks, i.e. stat() on files inside the app's own bundle) --
+  covered by the already-declared FileTimestamp C617.1. The stat() calls in
+  ggml-cpu/ggml-cpu.c are NUMA sysfs probes under __gnu_linux__ only.
+  => Still no reason code added or removed on account of libwhisper.
 -->
 <plist version="1.0">
 <dict>

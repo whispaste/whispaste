@@ -15,9 +15,18 @@ import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/logging/crash_reporter.dart';
 import 'package:whispaste/services/stt/whisper/gpu_load_crash_guard.dart';
+
+final _capturedEvents = <SentryEvent>[];
+
+SentryEvent? _spyBeforeSend(SentryEvent event, Hint hint) {
+  _capturedEvents.add(event);
+  return null;
+}
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier(this._settings);
@@ -143,8 +152,25 @@ void main() {
   group('recoverFromGpuLoadCrash', () {
     late Directory tempDir;
 
+    setUpAll(() async {
+      await SentryFlutter.init((options) {
+        options.dsn = 'https://abc123@sentry.example.invalid/0';
+        options.environment = 'test';
+        options.beforeSend = _spyBeforeSend;
+      });
+      CrashReporter.init();
+      CrashReporter.instance!.consentGranted = true;
+    });
+
+    tearDownAll(() async {
+      await CrashReporter.instance?.dispose();
+    });
+
     setUp(() async {
       tempDir = await Directory.systemTemp.createTemp('gpu_load_crash_guard_');
+      // Drain captures still in flight from the previous test first.
+      await CrashReporter.instance!.flush();
+      _capturedEvents.clear();
     });
 
     tearDown(() async {
@@ -259,6 +285,30 @@ void main() {
         1,
         reason: 'the streak must be recorded so a second crash escalates',
       );
+    });
+
+    test('only the escalating strike reaches Sentry — the first crash is a '
+        'log breadcrumb, not an event on the shared quota', () async {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path)..markAttempt();
+      final container = ProviderContainer(
+        overrides: [
+          gpuLoadCrashGuardProvider.overrideWithValue(guard),
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(AppSettings.defaults),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+
+      await recoverFromGpuLoadCrash(container);
+      await CrashReporter.instance!.flush();
+      expect(_capturedEvents, isEmpty, reason: 'strike 1/2 sends no event');
+
+      guard.markAttempt();
+      await recoverFromGpuLoadCrash(container);
+      await CrashReporter.instance!.flush();
+      expect(_capturedEvents, hasLength(1), reason: 'strike 2/2 escalates');
     });
 
     test('a second consecutive crash reaches the two-strike threshold — '
