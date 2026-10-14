@@ -184,8 +184,8 @@ jobs:
             -DWHISPER_SOURCE_DIR="$PWD/.build/deps/whisper.cpp/v1.9.5"
           cmake --build .build/libwhisper/windows-build/ffi_guard --config Release
           New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
-          # v1.9.5 also builds parakeet.dll (separate ASR model family) -- not used.
-          Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Exclude parakeet.dll -Force
+          # v1.9.5 also builds parakeet.dll: the GPU Parakeet engine (libparakeet).
+          Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
           Copy-Item .build/libwhisper/windows-build/ffi_guard/wp_ffi_guard.dll .build/libwhisper/windows/ -Force
           pwsh scripts/collect-pdbs-windows.ps1 -DllDir .build/libwhisper/windows -OutDir .build/libwhisper/windows/pdb
           if ($LASTEXITCODE -ne 0) { throw "collect-pdbs-windows.ps1 failed" }

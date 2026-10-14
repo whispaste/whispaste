@@ -10,14 +10,16 @@
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ffi' as ffi;
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 
+import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
 import '../audio/pcm_wav_codec.dart';
 import '../stt/isolate_shutdown_helper.dart';
@@ -25,7 +27,11 @@ import '../stt/native_call_guard.dart';
 import '../stt/stt_benchmark.dart';
 import '../stt/whisper/whisper_ffi_engine.dart' show defaultWhisperLibraryPath;
 import 'parakeet_audio_chunker.dart';
+import 'parakeet_gguf_model.dart';
+import 'parakeet_gpu_engine.dart';
+import 'parakeet_gpu_policy.dart';
 import 'parakeet_model_registry.dart';
+import 'parakeet_speech_gate.dart';
 
 final _log = AppLogger('ParakeetEngine');
 
@@ -247,6 +253,7 @@ class ParakeetStatus {
     this.state = ParakeetEngineState.stopped,
     this.errorMessage,
     this.benchmarkRtf,
+    this.backend = ParakeetBackend.sherpaCpu,
   });
   final ParakeetEngineState state;
   final String? errorMessage;
@@ -256,16 +263,22 @@ class ParakeetStatus {
   /// whisper's `tierBenchmarkRtf`. `null` until a benchmark has run.
   final double? benchmarkRtf;
 
+  /// Which engine serves requests while [state] is ready: GPU libparakeet or
+  /// the sherpa-onnx CPU fallback.
+  final ParakeetBackend backend;
+
   bool get isReady => state == ParakeetEngineState.ready;
 
   ParakeetStatus copyWith({
     ParakeetEngineState? state,
     String? errorMessage,
     double? benchmarkRtf,
+    ParakeetBackend? backend,
   }) => ParakeetStatus(
     state: state ?? this.state,
     errorMessage: errorMessage,
     benchmarkRtf: benchmarkRtf ?? this.benchmarkRtf,
+    backend: backend ?? this.backend,
   );
 }
 
@@ -280,6 +293,21 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   Completer<void>? _startCompleter;
   final Map<int, Completer<_TranscribeResult>> _pending = {};
   int _nextRequestId = 0;
+
+  /// GPU libparakeet engine, when the GPU backend was chosen and healthy.
+  ParakeetGpuEngine? _gpu;
+
+  /// Speech check in front of both backends; fail-open (see parakeet_speech_gate.dart).
+  final ParakeetSpeechGate _speechGate = ParakeetSpeechGate.bundled();
+
+  /// Crash marker for GPU loads; checked once per app session.
+  ParakeetGpuCrashMarker? _marker;
+  bool _crashChecked = false;
+  bool _crashedLastLaunch = false;
+
+  /// Set after a GPU runtime failure: the rest of the session stays on
+  /// sherpa-onnx instead of retrying a GPU path that just failed.
+  bool _gpuDisabledForSession = false;
 
   @override
   ParakeetStatus build() {
@@ -323,6 +351,8 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   }
 
   Future<void> _startOnce() async {
+    if (await _tryStartGpu()) return;
+
     if (!parakeetModelFilesExistSync()) {
       state = state.copyWith(
         state: ParakeetEngineState.error,
@@ -439,6 +469,32 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
     }
     final samples = _pcm16WavBytesToFloat32(wavBytes);
     if (samples.isEmpty) return '';
+    // No speech found: the same empty transcript as for empty audio.
+    if (!await _speechGate.hasSpeech(samples)) {
+      _log.info('no speech detected, skipping Parakeet transcription');
+      return '';
+    }
+
+    final gpu = _gpu;
+    if (gpu != null) {
+      try {
+        return await gpu.transcribe(
+          samples,
+          timeout: parakeetTranscribeTimeout(
+            Duration(
+              microseconds:
+                  samples.length * Duration.microsecondsPerSecond ~/ 16000,
+            ),
+          ),
+        );
+      } on ParakeetGpuException catch (e) {
+        // Runtime failure on the GPU: this request is retried on sherpa-onnx,
+        // and the GPU engine stays off for the rest of the session.
+        _log.warning('GPU Parakeet failed, using sherpa-onnx: $e');
+        await _dropGpu();
+        await ensureRunning();
+      }
+    }
 
     final requestId = _nextRequestId++;
     final completer = Completer<_TranscribeResult>();
@@ -480,6 +536,94 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
     state = const ParakeetStatus();
   }
 
+  /// Chooses the GPU backend and starts it. Returns `true` when the GPU engine
+  /// is ready; `false` leaves the sherpa-onnx path to run.
+  ///
+  /// The GPU path is attempted only when [parakeetBackendReason] allows it and
+  /// the GGUF passes SHA-256 verification (a truncated file aborts Metal, so
+  /// the hash check is not optional). A warm-up pass on silence confirms the
+  /// encoder runs before the crash marker is cleared.
+  Future<bool> _tryStartGpu() async {
+    if (_gpuDisabledForSession) return false;
+    final marker = _marker ??= ParakeetGpuCrashMarker(dir: parakeetModelDir());
+    if (!_crashChecked) {
+      _crashChecked = true;
+      _crashedLastLaunch = marker.recoverFromPreviousLaunch();
+      if (_crashedLastLaunch) {
+        _log.warning('Previous launch died during a GPU Parakeet load');
+      }
+    }
+    final reason = parakeetBackendReason(
+      platformEnabled: parakeetGpuPlatformEnabled(),
+      gpuAccelerationAllowed: _gpuAccelerationAllowed(),
+      libraryPresent: File(parakeetGpuLibraryPath()).existsSync(),
+      crashedLastLaunch: _crashedLastLaunch,
+      crashStrikes: marker.readStrikes(),
+    );
+    if (parakeetBackendFor(reason) != ParakeetBackend.gpu) {
+      _log.info('Parakeet GPU backend off: ${reason.name}');
+      return false;
+    }
+
+    final file = parakeetGgufActive;
+    final check = await verifyParakeetGguf(parakeetGgufPath(file), file);
+    if (check != ParakeetGgufCheck.ok) {
+      _log.warning('Parakeet GGUF unusable (${check.name}); using sherpa-onnx');
+      return false;
+    }
+
+    state = state.copyWith(
+      state: ParakeetEngineState.starting,
+      errorMessage: null,
+    );
+    try {
+      marker.markAttempt();
+      final engine = await ParakeetGpuEngine.open(
+        libraryPath: parakeetGpuLibraryPath(),
+        modelPath: parakeetGgufPath(file),
+        threads: _threadCount(),
+      );
+      // Warm-up on one second of quiet noise (not digital silence, which the
+      // encoder rejects). Output is discarded; it proves the encoder and
+      // decoder run on this device before the attempt is confirmed.
+      final rng = math.Random(1);
+      final warmup = Float32List.fromList([
+        for (var i = 0; i < 16000; i++) (rng.nextDouble() - 0.5) * 0.02,
+      ]);
+      await engine.transcribe(warmup, timeout: const Duration(seconds: 60));
+      marker.confirmHealthy();
+      _gpu = engine;
+      state = state.copyWith(
+        state: ParakeetEngineState.ready,
+        errorMessage: null,
+        backend: ParakeetBackend.gpu,
+      );
+      _log.info('Parakeet GPU engine ready on ${engine.device}');
+      return true;
+    } on Object catch (e) {
+      marker.abandonAttempt();
+      _gpuDisabledForSession = true;
+      _log.warning('GPU Parakeet unavailable, using sherpa-onnx: $e');
+      state = state.copyWith(state: ParakeetEngineState.stopped);
+      return false;
+    }
+  }
+
+  bool _gpuAccelerationAllowed() =>
+      (ref.read(settingsProvider).value?.behavior.gpuAcceleration ?? 'auto') !=
+      'disabled';
+
+  Future<void> _dropGpu() async {
+    _gpuDisabledForSession = true;
+    final gpu = _gpu;
+    _gpu = null;
+    state = state.copyWith(
+      state: ParakeetEngineState.stopped,
+      backend: ParakeetBackend.sherpaCpu,
+    );
+    await gpu?.close();
+  }
+
   // Structurally similar to WhisperIsolateEngine._handleWorkerMessage, but
   // switches over a distinct sealed message hierarchy for an independent
   // isolate worker; a shared dispatcher would couple the two STT engines.
@@ -501,6 +645,10 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   }
 
   Future<void> _shutdown() async {
+    final gpu = _gpu;
+    _gpu = null;
+    await gpu?.close();
+
     final isolate = _isolate;
     if (isolate == null) return;
 

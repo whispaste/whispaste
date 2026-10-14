@@ -1845,7 +1845,14 @@ class L10nEn extends L10n {
 
   @override
   String get aboutParakeetDesc =>
-      'Local speech recognition tuned for speed on plain CPU hardware (~25 languages).';
+      'Local speech recognition, GPU-accelerated where available (Metal, Vulkan, CUDA) and on the CPU otherwise (~25 languages).';
+
+  @override
+  String get aboutParakeetModelCredit =>
+      'Model: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0';
+
+  @override
+  String get aboutParakeetGgufCredit => 'GGUF conversion: ggml-org, MIT';
 
   @override
   String get aboutPrivacyFirst => 'Privacy-first';
@@ -3881,7 +3888,7 @@ class L10nEn extends L10n {
 
   @override
   String get settingsSttEngineSubtitle =>
-      'Whisper covers 99 languages and every GPU backend; Parakeet is much faster on CPU-only hardware but covers ~25 languages and has no GPU backend yet';
+      'Whisper covers 99 languages and every GPU backend; Parakeet is much faster and covers ~25 languages, on the GPU where available';
 
   @override
   String get settingsSttEngineWhisper => 'Whisper';
@@ -3893,8 +3900,9 @@ class L10nEn extends L10n {
   String get parakeetModelTitle => 'Parakeet TDT model';
 
   @override
-  String get parakeetModelSubtitle =>
-      'One-time download (~640 MB), then runs fully offline';
+  String parakeetModelSubtitle(String size) {
+    return 'One-time download ($size), then runs fully offline';
+  }
 
   @override
   String get parakeetModelDownload => 'Download';

@@ -22,6 +22,9 @@ import '../model_download_service.dart' show findSttModel;
 import '../replacements/text_replacement_matcher.dart';
 import '../stt_engine_lifecycle_provider.dart';
 import '../stt/whisper/whisper_isolate_engine.dart' show whisperEngineProvider;
+import '../stt_parakeet/parakeet_engine_notifier.dart'
+    show parakeetEngineProvider;
+import '../stt_parakeet/parakeet_gpu_policy.dart' show ParakeetBackend;
 import '../stt_parakeet/parakeet_model_registry.dart' show parakeetModelId;
 import '../text_transforms.dart';
 import '../transcription/transcriber.dart';
@@ -364,12 +367,16 @@ Future<HeadlessTranscriptionReport> runHeadlessTranscription(
   }
   lifecycle.notifyTranscriptionCompleted();
 
-  // Parakeet is CPU-only. A whisper engine that is not loaded means the
-  // GPU load failed and the CPU fallback engine did the work.
+  // A whisper engine that is not loaded means the GPU load failed and the
+  // CPU fallback engine did the work. Parakeet reports which of its two
+  // engines (libparakeet GPU or the sherpa-onnx CPU fallback) served.
   final whisper = options.engine == OnDeviceEngine.whisper
       ? container.read(whisperEngineProvider).status
       : null;
   final onGpu = whisper != null && whisper.isLoaded;
+  final parakeetOnGpu =
+      options.engine == OnDeviceEngine.parakeet &&
+      container.read(parakeetEngineProvider).backend == ParakeetBackend.gpu;
 
   return HeadlessTranscriptionReport(
     engine: options.engine.value,
@@ -382,7 +389,7 @@ Future<HeadlessTranscriptionReport> runHeadlessTranscription(
     runs: runs,
     totalMs: now() - start,
     transcript: transcript,
-    backend: onGpu ? whisper.backend.name : 'cpu',
+    backend: onGpu ? whisper.backend.name : (parakeetOnGpu ? 'gpu' : 'cpu'),
     gpuDevice: onGpu ? whisper.gpuDevice : null,
   );
 }

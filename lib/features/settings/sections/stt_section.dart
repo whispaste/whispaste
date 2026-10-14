@@ -23,7 +23,6 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/stt/stt_bundle.dart';
 import '../../../services/stt/whisper/cuda_pack.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
-import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/wp_stt_model_manager.dart';
 import '../../../widgets/section.dart';
@@ -539,7 +538,10 @@ class _ParakeetModelRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dl = ref.watch(parakeetDownloadProvider);
-    final sizeLabel = '${(parakeetModelTotalBytes / (1024 * 1024)).round()} MB';
+    final gpuWanted = parakeetGpuWantedForSetting(
+      ref.watch(settingsProvider).value?.behavior.gpuAcceleration,
+    );
+    final sizeLabel = parakeetDownloadSizeLabel(gpuWanted: gpuWanted);
 
     Widget trailing;
     if (dl.installed && !dl.isBusy) {
@@ -617,7 +619,8 @@ class _ParakeetModelRow extends ConsumerWidget {
 
     return SettingRow(
       icon: LucideIcons.cpu,
-      label: '${l10n.parakeetModelTitle} ($sizeLabel)',
+      label: l10n.parakeetModelTitle,
+      subtitle: l10n.parakeetModelSubtitle(sizeLabel),
       trailing: trailing,
     );
   }

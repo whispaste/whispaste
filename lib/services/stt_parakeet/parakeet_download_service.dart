@@ -16,12 +16,32 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/settings_provider.dart';
 import '../../core/logging/app_logger.dart';
 import '../http_model_fetcher.dart';
+import '../model_download_service.dart' show formatModelSizeLabel;
 import '../tmp_reaper.dart';
+import 'parakeet_gguf_model.dart';
+import 'parakeet_gpu_policy.dart';
 import 'parakeet_model_registry.dart';
 
 final _log = AppLogger('ParakeetDownload');
+
+/// Whether the GPU engine, and with it the GGUF download, applies for this
+/// `behavior.gpuAcceleration` value. Used by the size labels in the UI.
+bool parakeetGpuWantedForSetting(String? gpuAcceleration) => parakeetGpuWanted(
+  gpuAccelerationAllowed: (gpuAcceleration ?? 'auto') != 'disabled',
+);
+
+/// Bytes the Parakeet download puts on disk. The sherpa bundle is always
+/// fetched, because it is the fallback when the GPU fails, so a GPU machine
+/// stores both files: the sherpa bundle plus the GGUF model.
+int parakeetDownloadBytes({required bool gpuWanted}) =>
+    parakeetModelTotalBytes + (gpuWanted ? parakeetGgufActive.sizeBytes : 0);
+
+/// Human-readable [parakeetDownloadBytes], e.g. `"639 MB"` or `"1.2 GB"`.
+String parakeetDownloadSizeLabel({required bool gpuWanted}) =>
+    formatModelSizeLabel(parakeetDownloadBytes(gpuWanted: gpuWanted));
 
 /// Progress/phase state for the Parakeet bundle download — deliberately the
 /// same shape as `DownloadPhase`/`ModelDownloadState` in
@@ -91,7 +111,7 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
   /// installed or a download is already in flight.
   Future<void> downloadBundle() async {
     if (state.isBusy) return;
-    if (parakeetModelFilesExistSync()) {
+    if (parakeetModelFilesExistSync() && (!_gpuWanted() || _ggufPresent())) {
       state = state.copyWith(
         phase: ParakeetDownloadPhase.done,
         installed: true,
@@ -185,6 +205,11 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
       }
     }
 
+    // GPU engine model: fetched only where the GPU backend is wanted.
+    if (_gpuWanted() && !_ggufPresent()) {
+      if (!await _downloadGguf(slot: files.length)) return;
+    }
+
     state = state.copyWith(
       phase: ParakeetDownloadPhase.done,
       progressPercent: 100,
@@ -196,6 +221,77 @@ class ParakeetDownloadNotifier extends Notifier<ParakeetDownloadState> {
     // (e.g. from an earlier abandoned attempt) now that this download
     // finished cleanly (fire-and-forget).
     unawaited(sweepOrphanedTmpFiles(directory: parakeetModelDir()));
+  }
+
+  /// Downloads and verifies the GGUF for the GPU engine. Returns `false` when
+  /// the download was cancelled or failed; [state] then carries the outcome.
+  /// The SHA-256 check runs right after download, so a corrupt file is caught
+  /// here and not on the first dictation.
+  Future<bool> _downloadGguf({required int slot}) async {
+    final gguf = parakeetGgufActive;
+    state = state.copyWith(
+      phase: ParakeetDownloadPhase.downloading,
+      currentFileIndex: slot,
+      progressPercent: 0,
+      bytesDownloaded: 0,
+      totalBytes: gguf.sizeBytes,
+    );
+    try {
+      await downloadParakeetGguf(
+        fetcher: _fetcher,
+        file: gguf,
+        onProgress: (prog) => state = state.copyWith(
+          progressPercent: prog.progressPercent,
+          bytesDownloaded: prog.bytesReceived,
+          totalBytes: prog.totalBytes,
+        ),
+      );
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        state = state.copyWith(phase: ParakeetDownloadPhase.idle);
+        return false;
+      }
+      final description = _describeDioError(e);
+      _log.warning('GGUF download failed: $description');
+      state = state.copyWith(
+        phase: ParakeetDownloadPhase.error,
+        errorMessage: 'Download failed: $description',
+      );
+      return false;
+    } on Exception catch (e) {
+      _log.error('GGUF download failed: $e');
+      state = state.copyWith(
+        phase: ParakeetDownloadPhase.error,
+        errorMessage: 'Download failed: $e',
+      );
+      return false;
+    }
+    state = state.copyWith(phase: ParakeetDownloadPhase.verifying);
+    final check = await verifyParakeetGguf(parakeetGgufPath(gguf), gguf);
+    if (check != ParakeetGgufCheck.ok) {
+      final file = File(parakeetGgufPath(gguf));
+      if (file.existsSync()) file.deleteSync();
+      _log.warning('GGUF verification failed: ${check.name} — deleted');
+      state = state.copyWith(
+        phase: ParakeetDownloadPhase.error,
+        errorMessage: 'Downloaded model failed verification (${check.name})',
+      );
+      return false;
+    }
+    return true;
+  }
+
+  bool _gpuAccelerationAllowed() =>
+      (ref.read(settingsProvider).value?.behavior.gpuAcceleration ?? 'auto') !=
+      'disabled';
+
+  bool _gpuWanted() =>
+      parakeetGpuWanted(gpuAccelerationAllowed: _gpuAccelerationAllowed());
+
+  bool _ggufPresent() {
+    final file = File(parakeetGgufPath());
+    return file.existsSync() &&
+        file.lengthSync() == parakeetGgufActive.sizeBytes;
   }
 
   void cancelDownload() {

@@ -98,13 +98,13 @@ echo "[3/4] staging relocatable dylibs → $STAGE_DIR"
 rm -rf "$STAGE_DIR"
 mkdir -p "$STAGE_DIR"
 
-# Real (non-symlink) dylibs from the build tree. whisper.cpp's own
-# libparakeet is not used by the app (Parakeet runs on sherpa-onnx).
+# Real (non-symlink) dylibs from the build tree, including libparakeet (the
+# GPU Parakeet engine, same ggml backends as libwhisper).
 while IFS= read -r real; do
   install_name="$(otool -D "$real" | sed -n '2p')"          # e.g. @rpath/libggml.0.dylib
   base="$(basename "$install_name")"                          # e.g. libggml.0.dylib
   cp "$real" "$STAGE_DIR/$base"
-done < <(find "$BUILD_DIR/bin" "$BUILD_DIR/ffi_guard" -type f -name '*.dylib' ! -name 'libparakeet*')
+done < <(find "$BUILD_DIR/bin" "$BUILD_DIR/ffi_guard" -type f -name '*.dylib')
 
 # Backend modules (MH_BUNDLE, no install name) keep their file names: ggml's
 # registry finds them by the libggml-<backend>[-<variant>].so pattern.
@@ -116,6 +116,13 @@ done < <(find "$BUILD_DIR/bin" -type f -name 'libggml-*.so')
 if [[ ! -f "$STAGE_DIR/libwhisper.dylib" ]]; then
   whisper_soname="$(cd "$STAGE_DIR" && ls libwhisper*.dylib | head -n1)"
   cp "$STAGE_DIR/$whisper_soname" "$STAGE_DIR/libwhisper.dylib"
+fi
+
+# Same plain-name alias for the GPU Parakeet engine (libparakeet.1.dylib ->
+# libparakeet.dylib), which the Dart side opens next to libwhisper.
+if [[ ! -f "$STAGE_DIR/libparakeet.dylib" ]]; then
+  parakeet_soname="$(cd "$STAGE_DIR" && ls libparakeet*.dylib | head -n1)"
+  cp "$STAGE_DIR/$parakeet_soname" "$STAGE_DIR/libparakeet.dylib"
 fi
 
 # Make each staged library relocatable: remove absolute rpaths, add @loader_path.

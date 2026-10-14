@@ -1863,7 +1863,14 @@ class L10nDe extends L10n {
 
   @override
   String get aboutParakeetDesc =>
-      'Lokale Spracherkennung, optimiert für Geschwindigkeit auf reiner CPU-Hardware (~25 Sprachen).';
+      'Lokale Spracherkennung, auf der GPU beschleunigt, wo verfügbar (Metal, Vulkan, CUDA), sonst auf der CPU (~25 Sprachen).';
+
+  @override
+  String get aboutParakeetModelCredit =>
+      'Modell: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0';
+
+  @override
+  String get aboutParakeetGgufCredit => 'GGUF-Konvertierung: ggml-org, MIT';
 
   @override
   String get aboutPrivacyFirst => 'Privatsphäre zuerst';
@@ -3914,7 +3921,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsSttEngineSubtitle =>
-      'Whisper deckt 99 Sprachen und jedes GPU-Backend ab; Parakeet ist auf reiner CPU-Hardware deutlich schneller, deckt aber nur ~25 Sprachen ab und hat noch kein GPU-Backend';
+      'Whisper deckt 99 Sprachen und jedes GPU-Backend ab; Parakeet ist deutlich schneller und deckt ~25 Sprachen ab, auf der GPU wo verfügbar';
 
   @override
   String get settingsSttEngineWhisper => 'Whisper';
@@ -3927,8 +3934,9 @@ class L10nDe extends L10n {
   String get parakeetModelTitle => 'Parakeet-TDT-Modell';
 
   @override
-  String get parakeetModelSubtitle =>
-      'Einmaliger Download (~640 MB), läuft danach vollständig offline';
+  String parakeetModelSubtitle(String size) {
+    return 'Einmaliger Download ($size), läuft danach vollständig offline';
+  }
 
   @override
   String get parakeetModelDownload => 'Herunterladen';

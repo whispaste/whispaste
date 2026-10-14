@@ -8,9 +8,11 @@ This guide shows how to build the desktop app and its bundled on-device engines 
 |---|---|---|
 | Flutter app | this repo | everything |
 | `libwhisper` + ggml backends | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) `v1.9.5` | on-device Whisper transcription |
+| `libparakeet` (GPU Parakeet, built from the same whisper.cpp tree) | [whisper.cpp](https://github.com/ggml-org/whisper.cpp) `v1.9.5` (`src/parakeet.cpp`, `include/parakeet.h`, MIT) | GPU Parakeet on Metal, Vulkan or CUDA; sherpa-onnx CPU is the fallback |
+| Parakeet GGUF model | [ggml-org/parakeet-GGUF](https://huggingface.co/ggml-org/parakeet-GGUF) at revision `35156454d1a39de06863303dd209fd2bed6ee079`, q8_0 | downloaded on demand with the Parakeet model; SHA-256 pinned in `parakeet_gguf_model.dart`. Licence MIT (conversion) of NVIDIA `parakeet-tdt-0.6b-v3`, CC-BY-4.0 |
 | `libllama` + Smart Mode shim | [llama.cpp](https://github.com/ggml-org/llama.cpp) `b10150` + `native/smart_mode/` | on-device Smart Mode (optional) |
 
-The app builds and runs without the native libraries. Cloud transcription and Parakeet (bundled through the `sherpa_onnx` package) work regardless. Without `libwhisper`, on-device Whisper is unavailable. Without `libllama`, the on-device Smart Mode option is disabled in Settings.
+The app builds and runs without the native libraries. Cloud transcription and Parakeet on the CPU (through the `sherpa_onnx` package) work regardless. Parakeet on the GPU needs `libparakeet` and the GGUF model; without them it falls back to sherpa-onnx. Without `libwhisper`, on-device Whisper is unavailable. Without `libllama`, the on-device Smart Mode option is disabled in Settings.
 
 Pinned sources are cloned into `.build/deps/` and staged under `.build/libwhisper/<os>` and `.build/libllama/<os>`. `.build/` is gitignored. The build scripts check that the pinned commit is checked out and refuse to build anything else.
 

@@ -11,7 +11,6 @@ import '../../../services/engine_recommendation.dart';
 import '../../../services/hardware_info_service.dart' as hw;
 import '../../../services/model_download_service.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
-import '../../../services/stt_parakeet/parakeet_model_registry.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
@@ -314,7 +313,11 @@ class _ModelStepState extends ConsumerState<ModelStep> {
     };
     final selectedSizeLabel = switch (_selectedEngine) {
       OnDeviceEngine.whisper => whisperModel.sizeLabel,
-      OnDeviceEngine.parakeet => parakeetModelSizeLabel,
+      OnDeviceEngine.parakeet => parakeetDownloadSizeLabel(
+        gpuWanted: parakeetGpuWantedForSetting(
+          ref.watch(settingsProvider).value?.behavior.gpuAcceleration,
+        ),
+      ),
       null => '',
     };
 
@@ -376,7 +379,15 @@ class _ModelStepState extends ConsumerState<ModelStep> {
                       icon: LucideIcons.zap,
                       label: l10n.onboardingModelEngineParakeetLabel,
                       description: l10n.onboardingModelEngineParakeetDesc,
-                      sizeLabel: parakeetModelSizeLabel,
+                      sizeLabel: parakeetDownloadSizeLabel(
+                        gpuWanted: parakeetGpuWantedForSetting(
+                          ref
+                              .watch(settingsProvider)
+                              .value
+                              ?.behavior
+                              .gpuAcceleration,
+                        ),
+                      ),
                       isRecommended:
                           _recommendation?.engine == OnDeviceEngine.parakeet,
                       isSelected: _selectedEngine == OnDeviceEngine.parakeet,

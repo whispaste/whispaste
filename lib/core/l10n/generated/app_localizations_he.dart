@@ -1836,7 +1836,14 @@ class L10nHe extends L10n {
 
   @override
   String get aboutParakeetDesc =>
-      'זיהוי דיבור מקומי, מותאם למהירות על חומרת CPU רגילה (כ-25 שפות).';
+      'זיהוי דיבור מקומי, מואץ ב-GPU היכן שזמין (Metal, Vulkan, CUDA) ובמעבד אחרת (כ-25 שפות).';
+
+  @override
+  String get aboutParakeetModelCredit =>
+      'מודל: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0';
+
+  @override
+  String get aboutParakeetGgufCredit => 'המרה ל-GGUF: ggml-org, MIT';
 
   @override
   String get aboutPrivacyFirst => 'פרטיות קודמת לכול';
@@ -3834,7 +3841,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsSttEngineSubtitle =>
-      'Whisper מכסה 99 שפות וכל backend של GPU; Parakeet מהיר בהרבה על חומרת CPU בלבד, אך מכסה כ-25 שפות ועדיין ללא backend של GPU';
+      'Whisper מכסה 99 שפות וכל backend של GPU; Parakeet מהיר בהרבה ומכסה כ-25 שפות, על GPU היכן שזמין';
 
   @override
   String get settingsSttEngineWhisper => 'Whisper';
@@ -3846,8 +3853,9 @@ class L10nHe extends L10n {
   String get parakeetModelTitle => 'מודל Parakeet TDT';
 
   @override
-  String get parakeetModelSubtitle =>
-      'הורדה חד-פעמית (כ-640MB), ולאחר מכן פועל לגמרי במצב לא מקוון';
+  String parakeetModelSubtitle(String size) {
+    return 'הורדה חד-פעמית ($size), ולאחר מכן פועל לגמרי במצב לא מקוון';
+  }
 
   @override
   String get parakeetModelDownload => 'הורד';

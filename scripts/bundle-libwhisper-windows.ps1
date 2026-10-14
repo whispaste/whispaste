@@ -67,11 +67,12 @@ $ErrorActionPreference = "Stop"
 if (-not (Test-Path $Source)) { throw "Source dir not found: $Source" }
 if (-not (Test-Path $ReleaseDir)) { throw "Flutter Release dir not found: $ReleaseDir (run 'flutter build windows' first)" }
 
-# whisper.dll plus its ggml* backend DLLs, wp_ffi_guard.dll (native/ffi_guard,
-# catches C++ exceptions before they reach Dart) and, for the CPU build,
-# bundled VC++ runtime DLLs staged alongside them by the CI job.
+# whisper.dll plus its ggml* backend DLLs, parakeet.dll (GPU Parakeet engine,
+# shares the ggml backends), wp_ffi_guard.dll (native/ffi_guard, catches C++
+# exceptions before they reach Dart) and, for the CPU build, bundled VC++
+# runtime DLLs staged alongside them by the CI job.
 $dlls = Get-ChildItem -Path $Source -Filter *.dll | Where-Object {
-  $_.Name -match '^(whisper|ggml|wp_ffi_guard)' -or $_.Name -match '^(msvcp|vcruntime|concrt)'
+  $_.Name -match '^(whisper|parakeet|ggml|wp_ffi_guard)' -or $_.Name -match '^(msvcp|vcruntime|concrt)'
 }
 if ($dlls.Count -eq 0) { throw "No whisper/ggml DLLs found in $Source" }
 # A pre-variants build (single ggml-cpu.dll) would silently fall back to a

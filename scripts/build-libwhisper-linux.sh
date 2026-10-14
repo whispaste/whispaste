@@ -175,11 +175,17 @@ mkdir -p "$STAGE_DIR"
 while IFS= read -r real; do
   soname="$(patchelf --print-soname "$real" 2>/dev/null || basename "$real")"
   cp "$real" "$STAGE_DIR/$soname"
-done < <(find "$BUILD_DIR" -type f -name '*.so*' ! -type l ! -name 'libparakeet*')
+done < <(find "$BUILD_DIR" -type f -name '*.so*' ! -type l)
 
 if [[ ! -f "$STAGE_DIR/libwhisper.so" ]]; then
   whisper_soname="$(cd "$STAGE_DIR" && ls libwhisper.so* | head -n1)"
   cp "$STAGE_DIR/$whisper_soname" "$STAGE_DIR/libwhisper.so"
+fi
+
+# Plain-name alias for the GPU Parakeet engine (libparakeet.so.1 -> libparakeet.so).
+if [[ ! -f "$STAGE_DIR/libparakeet.so" ]]; then
+  parakeet_soname="$(cd "$STAGE_DIR" && ls libparakeet.so* | head -n1)"
+  cp "$STAGE_DIR/$parakeet_soname" "$STAGE_DIR/libparakeet.so"
 fi
 
 for so in "$STAGE_DIR"/*.so*; do

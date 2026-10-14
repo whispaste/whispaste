@@ -1056,9 +1056,9 @@ class _AppShellState extends ConsumerState<_AppShell>
     final sttModelDownloadPercent = modelDownload.isBusy
         ? modelDownload.progressPercent
         : null;
-    // Parakeet has no GPU backend at all (CPU-only, see its `aboutParakeetDesc`
-    // copy) — the indicator only earns its keep for the local Whisper engine,
-    // where "GPU or CPU?" is an actual question with two possible answers.
+    // The indicator only earns its keep for the local Whisper engine, where
+    // "GPU or CPU?" is an actual question with two possible answers. Parakeet
+    // picks its own backend (GPU with a CPU fallback) and does not surface it.
     //
     // A live GPU→CPU fallback (`cpuFallbackActive`) always earns this chip
     // regardless of `showBackendUtilization` — that setting is about

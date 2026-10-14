@@ -1906,7 +1906,14 @@ class L10nRu extends L10n {
 
   @override
   String get aboutParakeetDesc =>
-      'Локальное распознавание, настроенное на скорость без GPU (~25 языков).';
+      'Локальное распознавание речи: ускорение на GPU, где доступно (Metal, Vulkan, CUDA), иначе на CPU (~25 языков).';
+
+  @override
+  String get aboutParakeetModelCredit =>
+      'Модель: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0';
+
+  @override
+  String get aboutParakeetGgufCredit => 'GGUF-конвертация: ggml-org, MIT';
 
   @override
   String get aboutPrivacyFirst => 'Конфиденциальность превыше всего';
@@ -3962,7 +3969,7 @@ class L10nRu extends L10n {
 
   @override
   String get settingsSttEngineSubtitle =>
-      'Whisper поддерживает 99 языков и любой GPU; Parakeet работает намного быстрее на CPU, но поддерживает ~25 языков и пока не имеет поддержки GPU';
+      'Whisper поддерживает 99 языков и любой GPU; Parakeet работает намного быстрее и поддерживает ~25 языков, на GPU там, где она доступна';
 
   @override
   String get settingsSttEngineWhisper => 'Whisper';
@@ -3975,8 +3982,9 @@ class L10nRu extends L10n {
   String get parakeetModelTitle => 'Модель Parakeet TDT';
 
   @override
-  String get parakeetModelSubtitle =>
-      'Единоразовая загрузка (~640 МБ), работает полностью офлайн';
+  String parakeetModelSubtitle(String size) {
+    return 'Единоразовая загрузка ($size), работает полностью офлайн';
+  }
 
   @override
   String get parakeetModelDownload => 'Скачать';

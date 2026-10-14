@@ -3264,8 +3264,20 @@ abstract class L10n {
   /// No description provided for @aboutParakeetDesc.
   ///
   /// In en, this message translates to:
-  /// **'Local speech recognition tuned for speed on plain CPU hardware (~25 languages).'**
+  /// **'Local speech recognition, GPU-accelerated where available (Metal, Vulkan, CUDA) and on the CPU otherwise (~25 languages).'**
   String get aboutParakeetDesc;
+
+  /// No description provided for @aboutParakeetModelCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'Model: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0'**
+  String get aboutParakeetModelCredit;
+
+  /// No description provided for @aboutParakeetGgufCredit.
+  ///
+  /// In en, this message translates to:
+  /// **'GGUF conversion: ggml-org, MIT'**
+  String get aboutParakeetGgufCredit;
 
   /// No description provided for @aboutPrivacyFirst.
   ///
@@ -6771,7 +6783,7 @@ abstract class L10n {
   /// No description provided for @settingsSttEngineSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Whisper covers 99 languages and every GPU backend; Parakeet is much faster on CPU-only hardware but covers ~25 languages and has no GPU backend yet'**
+  /// **'Whisper covers 99 languages and every GPU backend; Parakeet is much faster and covers ~25 languages, on the GPU where available'**
   String get settingsSttEngineSubtitle;
 
   /// No description provided for @settingsSttEngineWhisper.
@@ -6795,8 +6807,8 @@ abstract class L10n {
   /// No description provided for @parakeetModelSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'One-time download (~640 MB), then runs fully offline'**
-  String get parakeetModelSubtitle;
+  /// **'One-time download ({size}), then runs fully offline'**
+  String parakeetModelSubtitle(String size);
 
   /// No description provided for @parakeetModelDownload.
   ///

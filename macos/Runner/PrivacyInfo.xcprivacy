@@ -35,10 +35,22 @@
   built with GGML_BACKEND_DL=ON + GGML_CPU_ALL_VARIANTS=ON): clock_gettime is
   unchanged (ggml.c:564,570, SystemBootTime 35F9.1). New on macOS: the backend
   module scan in ggml-backend-reg.cpp (std::filesystem exists/directory_iterator
-  over Contents/Frameworks, i.e. stat() on files inside the app's own bundle) --
+  over Contents/Frameworks, i.e. stat() on files inside the app's own bundle) -
   covered by the already-declared FileTimestamp C617.1. The stat() calls in
   ggml-cpu/ggml-cpu.c are NUMA sysfs probes under __gnu_linux__ only.
   => Still no reason code added or removed on account of libwhisper.
+
+  Audited 2026-10-14 for libparakeet (GPU Parakeet, whisper.cpp v1.9.5 target
+  `parakeet`: src/parakeet.cpp + parakeet-arch.h, linked against the same ggml
+  as libwhisper). parakeet.cpp has no clock, stat, sysctl or filesystem calls of
+  its own. It reads the GGUF with std::ifstream (plain open/read, no Required
+  Reason API) and ggml's gguf loader with ggml_fopen. The shared ggml pieces
+  are unchanged from the 2026-10-13 audit. On the Dart side the GPU engine uses
+  File.existsSync/lengthSync (stat) on the model and library paths, plus the
+  GGUF SHA-256 check. That is the FileTimestamp category already declared
+  (C617.1), with no new category needed. No UserDefaults, disk-space or new
+  boot-time call.
+  => Still no reason code added or removed on account of libparakeet.
 -->
 <plist version="1.0">
 <dict>

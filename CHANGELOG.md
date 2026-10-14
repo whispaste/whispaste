@@ -43,6 +43,7 @@ All entries are written in English.
 - **More reliable GPU detection:** on Windows a slow first detection no longer keeps the app on the CPU until restart, and graphics memory above 4 GB is read correctly. On Linux laptops with two GPUs, name and memory come from the GPU that is actually used.
 - **Windows: quitting no longer crashes.** The native window now cleans up on destruction, and the app ships its own VC++ runtime, so an older system runtime cannot crash a mutex call on exit.
 - **Windows: on-device Smart Mode could fail to load** (error 127) when Whisper had loaded first. The two engines' ggml libraries now have their own names.
+- **Parakeet: recordings shorter than 0.1 seconds no longer crash the engine.** An empty or near-empty recording is treated as silence instead of reaching sherpa-onnx, which could abort the process on Windows.
 - **Parakeet: long recordings no longer fail.** Audio beyond about 35 seconds is split into chunks of up to 25 seconds at the quietest point.
 - **Native engine errors no longer crash the app.** C++ exceptions from Whisper (including Vulkan) and sherpa-onnx become errors instead of aborting the process.
 - **Model downloads resume** after a dropped connection. Remaining failures are reported as retryable network errors.
@@ -66,6 +67,7 @@ All entries are written in English.
 ### Improvements
 
 - **Faster Whisper transcription:** the bundled whisper.cpp moves from 1.8.4 to 1.9.5. On an Apple M5, local transcription of 18 German dictations took about 44 % less time with identical text (large-v3-turbo q5_0, Metal). On macOS the CPU part now picks the build that fits the Mac's chip at startup, so older Apple Silicon Macs get a matching build instead of one tuned for the newest chips.
+- **Parakeet on the GPU:** Parakeet now runs on the GPU through whisper.cpp's ggml backends (Metal on macOS, Vulkan or CUDA elsewhere) and falls back to the CPU engine when no GPU is available or a GPU run fails. On an Apple M5, 18 German dictations (456 seconds of audio) took 7.0 seconds instead of 38.3 seconds on the CPU engine, with the q8_0 model. On a Windows laptop with Intel Iris Xe graphics (Vulkan), 18 German recordings (276 seconds) took 14.1 seconds instead of 27.1 seconds. German word error rate dropped from 8.5 % to 7.1 % in the same test. The model is downloaded with the Parakeet model and checked by its SHA-256 before every load.
 - **Paste without the fixed wait:** when the app you dictated into is still in front, which is the usual case, WhisPaste pastes as soon as the hotkey's modifier keys are released instead of always waiting the Auto-Paste delay (200 ms by default). Apps that first have to be brought to the front still get the full delay. macOS and Windows.
 - **Snappier first recording:** the sound engine no longer opens the audio device ahead of the microphone on the first hotkey press.
 - **Longer recording limits:** the maximum recording length offers steps from 30 seconds up to 60 minutes, and Unlimited sits at the right end of the slider. Long recordings get a transcription budget that grows with their length instead of a fixed 5 minutes.

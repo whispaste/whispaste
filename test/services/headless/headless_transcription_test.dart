@@ -13,6 +13,8 @@ import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
 import 'package:whispaste/services/stt/whisper/whisper_isolate_engine.dart'
     show whisperEngineProvider;
 import 'package:whispaste/services/stt_engine_lifecycle_provider.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_engine_notifier.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_gpu_policy.dart';
 import 'package:whispaste/services/transcription/transcriber.dart';
 
 /// Builds a 16 kHz mono 16-bit PCM WAV with [extraChunk] (e.g. an ffmpeg
@@ -468,6 +470,29 @@ void main() {
       expect(parakeet.toJson()['backend'], 'cpu');
     });
 
+    test('reports gpu when libparakeet served the parakeet run', () async {
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _FixedSettingsNotifier(AppSettings.defaults),
+          ),
+          transcriberProvider.overrideWithValue(_FakeTranscriber(clock)),
+          onDeviceEngineLifecycleProvider.overrideWithValue(lifecycle),
+          parakeetEngineProvider.overrideWith(_GpuParakeetEngine.new),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final report = await runHeadlessTranscription(
+        container,
+        options(['--engine', 'parakeet']),
+        _wav(),
+        clockMs: () => clock.nowMs,
+      );
+
+      expect(report.toJson()['backend'], 'gpu');
+    });
+
     test('fails with the engine error when prepare leaves it not ready', () {
       lifecycle = _FakeLifecycle(ready: false, error: 'model file not found');
       final container = containerWith(_FakeTranscriber(clock));
@@ -541,4 +566,10 @@ void main() {
       expect(jsonDecode(jsonEncode(json)), json);
     });
   });
+}
+
+/// Parakeet engine state as if libparakeet's GPU engine served the run.
+class _GpuParakeetEngine extends ParakeetEngineNotifier {
+  @override
+  ParakeetStatus build() => const ParakeetStatus(backend: ParakeetBackend.gpu);
 }

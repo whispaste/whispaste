@@ -245,6 +245,20 @@ class AboutPage extends ConsumerWidget {
                 title: l10n.aboutParakeet,
                 description: l10n.aboutParakeetDesc,
               ),
+              _LinkRow(
+                key: const ValueKey('about-parakeet-model-link'),
+                icon: LucideIcons.scale,
+                label: l10n.aboutParakeetModelCredit,
+                url: 'https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3',
+                displayUrl: 'huggingface.co/nvidia/parakeet-tdt-0.6b-v3',
+              ),
+              _LinkRow(
+                key: const ValueKey('about-parakeet-gguf-link'),
+                icon: LucideIcons.scale,
+                label: l10n.aboutParakeetGgufCredit,
+                url: 'https://huggingface.co/ggml-org/parakeet-GGUF',
+                displayUrl: 'huggingface.co/ggml-org/parakeet-GGUF',
+              ),
               _BuiltWithRow(
                 icon: LucideIcons.shield,
                 title: l10n.aboutPrivacyFirst,
@@ -689,6 +703,7 @@ class _ShortcutRow extends StatelessWidget {
 
 class _LinkRow extends StatefulWidget {
   const _LinkRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.url,
