@@ -32,9 +32,15 @@ bool parakeetGpuPlatformEnabled() {
   return false;
 }
 
-/// Consecutive GPU-load crashes after which GPU Parakeet stays off until a
-/// GPU run is confirmed healthy again (see [ParakeetGpuCrashMarker]).
+/// Consecutive GPU-load crashes after which GPU Parakeet stays off (see
+/// [ParakeetGpuCrashMarker]) until the strikes expire.
 const int parakeetGpuCrashStrikeThreshold = 2;
+
+/// How long recorded crash strikes keep GPU Parakeet off. Without an expiry
+/// the strikes could never reset: a healthy GPU run resets them, but no GPU
+/// run is attempted while they are exhausted. After this period one more
+/// attempt runs, still guarded by the crash marker.
+const Duration parakeetGpuCrashStrikeExpiry = Duration(days: 14);
 
 enum ParakeetBackend {
   /// libparakeet on a ggml GPU backend (Metal, Vulkan or CUDA).
@@ -88,13 +94,17 @@ ParakeetBackend parakeetBackendFor(ParakeetBackendReason reason) =>
 /// and removed once the load and one warm-up transcription have returned. A
 /// marker still present at the next launch means that attempt never returned:
 /// the launch skips GPU (see [parakeetBackendReason]) and the strike count
-/// grows. A confirmed-healthy GPU run resets the strikes.
+/// grows. A confirmed-healthy GPU run resets the strikes, and so does
+/// [parakeetGpuCrashStrikeExpiry] passing since the last strike.
 ///
-/// Pure file I/O on an injected [dir], so tests run on a temp directory.
+/// Pure file I/O on an injected [dir] and clock, so tests run on a temp
+/// directory.
 class ParakeetGpuCrashMarker {
-  ParakeetGpuCrashMarker({required this.dir});
+  ParakeetGpuCrashMarker({required this.dir, DateTime Function()? now})
+    : _now = now ?? DateTime.now;
 
   final String dir;
+  final DateTime Function() _now;
 
   static const _attemptFile = '.parakeet_gpu_attempt';
   static const _strikesFile = '.parakeet_gpu_strikes';
@@ -130,14 +140,28 @@ class ParakeetGpuCrashMarker {
     if (_attempt.existsSync()) _attempt.deleteSync();
   }
 
+  /// Strikes recorded within [parakeetGpuCrashStrikeExpiry]; older strikes
+  /// are dropped. The file holds `<count> <last strike, ms since epoch>`.
   int readStrikes() {
     if (!_strikes.existsSync()) return 0;
-    return int.tryParse(_strikes.readAsStringSync().trim()) ?? 0;
+    final parts = _strikes.readAsStringSync().trim().split(' ');
+    final count = int.tryParse(parts.first) ?? 0;
+    final at = parts.length > 1 ? int.tryParse(parts[1]) : null;
+    if (at == null) return count;
+    final age = _now().difference(DateTime.fromMillisecondsSinceEpoch(at));
+    if (age >= parakeetGpuCrashStrikeExpiry) {
+      _strikes.deleteSync();
+      return 0;
+    }
+    return count;
   }
 
   void _writeStrikes(int n) {
     Directory(dir).createSync(recursive: true);
-    _strikes.writeAsStringSync('$n', flush: true);
+    _strikes.writeAsStringSync(
+      '$n ${_now().millisecondsSinceEpoch}',
+      flush: true,
+    );
   }
 }
 

@@ -392,9 +392,13 @@ class ParakeetGpuEngine {
 
   /// Transcribes 16 kHz mono float samples. On [timeout] the native abort flag
   /// is set; ggml then stops at its next graph boundary and the call throws.
+  /// If the worker still has not answered [abortGrace] later (a hung driver,
+  /// or no graph boundary reached), the call throws `transcribe_timeout`
+  /// anyway, so a caller never waits forever on the GPU.
   Future<String> transcribe(
     Float32List samples, {
     required Duration timeout,
+    Duration abortGrace = const Duration(seconds: 10),
   }) async {
     if (_closed) throw ParakeetGpuException('engine_closed');
     final id = _nextId++;
@@ -406,7 +410,10 @@ class ParakeetGpuEngine {
       _abortFlag.value = 1;
     });
     try {
-      final reply = await completer.future;
+      final reply = await completer.future.timeout(
+        timeout + abortGrace,
+        onTimeout: () => throw ParakeetGpuException('transcribe_timeout'),
+      );
       if (reply.error != null) throw ParakeetGpuException(reply.error!);
       return reply.text ?? '';
     } finally {

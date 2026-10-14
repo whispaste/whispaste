@@ -148,9 +148,12 @@ void main() {
     expect(fetcher.requestedUrls, hasLength(_fakeFiles.length));
 
     // The sweep added to downloadBundle()'s success path is fire-and-forget
-    // (unawaited) — give its microtask/async I/O a turn to complete before
-    // asserting.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // (unawaited) — poll until its async I/O has run; a fixed short delay
+    // flaked on a heavily loaded machine.
+    final deadline = DateTime.now().add(const Duration(seconds: 5));
+    while (orphan.existsSync() && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
 
     expect(
       orphan.existsSync(),

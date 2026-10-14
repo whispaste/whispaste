@@ -294,6 +294,10 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   final Map<int, Completer<_TranscribeResult>> _pending = {};
   int _nextRequestId = 0;
 
+  /// Bumped by [stop]; a request that started before a stop must not bring
+  /// the engine back up behind the caller's back.
+  int _stopGeneration = 0;
+
   /// GPU libparakeet engine, when the GPU backend was chosen and healthy.
   ParakeetGpuEngine? _gpu;
 
@@ -351,7 +355,7 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   }
 
   Future<void> _startOnce() async {
-    if (await _tryStartGpu()) return;
+    if (await _tryStartGpuSafely()) return;
 
     if (!parakeetModelFilesExistSync()) {
       state = state.copyWith(
@@ -467,6 +471,7 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
     if (!state.isReady) {
       throw StateError(state.errorMessage ?? 'parakeet_not_ready');
     }
+    final generation = _stopGeneration;
     final samples = _pcm16WavBytesToFloat32(wavBytes);
     if (samples.isEmpty) return '';
     // No speech found: the same empty transcript as for empty audio.
@@ -474,6 +479,7 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
       _log.info('no speech detected, skipping Parakeet transcription');
       return '';
     }
+    if (generation != _stopGeneration) throw StateError('parakeet_not_ready');
 
     final gpu = _gpu;
     if (gpu != null) {
@@ -492,14 +498,19 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
         // and the GPU engine stays off for the rest of the session.
         _log.warning('GPU Parakeet failed, using sherpa-onnx: $e');
         await _dropGpu();
+        if (generation != _stopGeneration) {
+          throw StateError('parakeet_not_ready');
+        }
         await ensureRunning();
       }
     }
 
+    final port = _workerPort;
+    if (port == null) throw StateError('parakeet_not_ready');
     final requestId = _nextRequestId++;
     final completer = Completer<_TranscribeResult>();
     _pending[requestId] = completer;
-    _workerPort!.send(
+    port.send(
       _TranscribeRequest(
         requestId: requestId,
         samples: samples,
@@ -532,6 +543,7 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   /// allocated (same class of bug as FLUTTER_WHISPASTE-BC on the whisper
   /// engine — reproduced there via ggml_metal_rsets_free's teardown assert).
   Future<void> stop() async {
+    _stopGeneration++;
     await _shutdown();
     state = const ParakeetStatus();
   }
@@ -543,6 +555,19 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
   /// the GGUF passes SHA-256 verification (a truncated file aborts Metal, so
   /// the hash check is not optional). A warm-up pass on silence confirms the
   /// encoder runs before the crash marker is cleared.
+  /// [_tryStartGpu] with every failure mapped to the sherpa-onnx path: the
+  /// crash-marker I/O and the GGUF hash run before its own `try`, and an
+  /// unreadable model file must not keep Parakeet from starting at all.
+  Future<bool> _tryStartGpuSafely() async {
+    try {
+      return await _tryStartGpu();
+    } on Object catch (e) {
+      _gpuDisabledForSession = true;
+      _log.warning('GPU Parakeet start failed, using sherpa-onnx: $e');
+      return false;
+    }
+  }
+
   Future<bool> _tryStartGpu() async {
     if (_gpuDisabledForSession) return false;
     final marker = _marker ??= ParakeetGpuCrashMarker(dir: parakeetModelDir());
@@ -576,9 +601,10 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
       state: ParakeetEngineState.starting,
       errorMessage: null,
     );
+    ParakeetGpuEngine? engine;
     try {
       marker.markAttempt();
-      final engine = await ParakeetGpuEngine.open(
+      engine = await ParakeetGpuEngine.open(
         libraryPath: parakeetGpuLibraryPath(),
         modelPath: parakeetGgufPath(file),
         threads: _threadCount(),
@@ -601,6 +627,9 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
       _log.info('Parakeet GPU engine ready on ${engine.device}');
       return true;
     } on Object catch (e) {
+      // A failed warm-up leaves an open engine: free its native context
+      // instead of keeping it next to the sherpa-onnx engine.
+      if (engine != null) unawaited(engine.close());
       marker.abandonAttempt();
       _gpuDisabledForSession = true;
       _log.warning('GPU Parakeet unavailable, using sherpa-onnx: $e');

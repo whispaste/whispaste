@@ -89,6 +89,34 @@ void main() {
       expect(m.recoverFromPreviousLaunch(), isFalse);
     });
 
+    test('strikes expire, so an exhausted GPU gets another attempt', () {
+      var now = DateTime(2026, 10, 1);
+      ParakeetGpuCrashMarker crashOnce() {
+        final m = ParakeetGpuCrashMarker(dir: dir.path, now: () => now)
+          ..markAttempt();
+        ParakeetGpuCrashMarker(
+          dir: dir.path,
+          now: () => now,
+        ).recoverFromPreviousLaunch();
+        return m;
+      }
+
+      crashOnce();
+      final m = crashOnce();
+      expect(m.readStrikes(), parakeetGpuCrashStrikeThreshold);
+
+      now = now.add(parakeetGpuCrashStrikeExpiry - const Duration(minutes: 1));
+      expect(m.readStrikes(), parakeetGpuCrashStrikeThreshold);
+
+      now = now.add(const Duration(minutes: 1));
+      expect(m.readStrikes(), 0);
+    });
+
+    test('a strike file without a timestamp still counts', () {
+      File('${dir.path}/.parakeet_gpu_strikes').writeAsStringSync('2');
+      expect(ParakeetGpuCrashMarker(dir: dir.path).readStrikes(), 2);
+    });
+
     test('a catchable load failure leaves no strike', () {
       final m = ParakeetGpuCrashMarker(dir: dir.path)
         ..markAttempt()
