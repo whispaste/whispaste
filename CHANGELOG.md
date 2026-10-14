@@ -2,6 +2,12 @@
 
 All entries are written in English.
 
+## 1.4.1
+
+### Fixes
+
+- **CUDA pack download works:** the optional CUDA pack for NVIDIA GPUs (Windows and Linux, Speech recognition → GPU acceleration) failed with a network error in 1.4.0 because the pack was not available at its download address. It now downloads from its own release. Not part of the Microsoft Store version.
+
 ## 1.4.0
 
 1.4 adds voice-driven editing of selected text, spoken line breaks, optional filler-word removal, push-to-talk on Linux (experimental) and an interface in Spanish and Brazilian Portuguese. Smart Mode stays loaded between runs, more hardware runs without crashing, and the crash-report opt-out now applies from the first start.

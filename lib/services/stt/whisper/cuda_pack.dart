@@ -77,12 +77,13 @@ class CudaPackInfo {
 /// Pack id: bundled ggml version, CUDA toolkit, pack revision.
 const kCudaPackId = 'ggml-v1.9.5-cu12.8-r1';
 
-/// Where the packs are published: extra assets on the release that first
-/// shipped this pack id. Later releases keep pointing here until the id
-/// changes; the updater and installers match their own assets by exact name,
-/// so they never pick these up.
+/// Where the packs are published: a dedicated prerelease tagged
+/// `cuda-<pack id>`, never marked latest. App releases are immutable once
+/// published, so the packs cannot be attached to them afterwards; a pack
+/// release is immutable too, which suits a pinned, checksummed download. A
+/// new pack id gets a new tag.
 const _kCudaPackBaseUrl =
-    'https://github.com/whispaste/whispaste/releases/download/v1.4.0';
+    'https://github.com/whispaste/whispaste/releases/download/cuda-$kCudaPackId';
 
 // Filled from the `manifest.json` that `tool/cuda_pack_build.sh` writes next
 // to each built archive.

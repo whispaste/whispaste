@@ -228,18 +228,20 @@ class UpdateNotifier extends Notifier<UpdateState> {
       Map<String, dynamic>? data;
       if (updateChannel == UpdateChannel.beta) {
         // `/releases/latest` structurally excludes prereleases — the list
-        // endpoint is newest-first and includes them, so the newest entry
-        // is exactly what a beta-channel user opted into.
+        // endpoint is newest-first and includes them, so the newest app
+        // release is exactly what a beta-channel user opted into. Non-app
+        // releases (e.g. the `cuda-…` pack prereleases) are skipped: only
+        // `v`-prefixed tags are app versions.
         final response = await _dio.get<List<dynamic>>(
           _releasesListApiUrl,
           options: Options(
             headers: {'Accept': 'application/vnd.github.v3+json'},
           ),
         );
-        final list = response.data;
-        data = (list != null && list.isNotEmpty)
-            ? list.first as Map<String, dynamic>
-            : null;
+        data = response.data
+            ?.cast<Map<String, dynamic>>()
+            .where((r) => (r['tag_name'] as String?)?.startsWith('v') ?? false)
+            .firstOrNull;
       } else {
         final response = await _dio.get<Map<String, dynamic>>(
           _releasesApiUrl,
