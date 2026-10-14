@@ -860,8 +860,10 @@ jobs:
   build-macos:
     name: Build macOS
     runs-on: macos-latest
-    # See build-windows' timeout-minutes comment. Observed ~12-16min.
-    timeout-minutes: 45
+    # See build-windows' timeout-minutes comment. Observed ~12-16min with a
+    # warm libllama cache; a cold libllama build adds a large chunk on top
+    # (v1.4.0's first cold run hit the old 45-minute cap).
+    timeout-minutes: 75
     # See build-windows: skip on a Promote dispatch (no rebuild).
     if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == 'true') }}
     outputs:

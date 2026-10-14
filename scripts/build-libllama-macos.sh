@@ -80,7 +80,9 @@ cmake -S "$LLAMA_SRC" -B "$BUILD_DIR" \
   -DLLAMA_BUILD_APP=OFF \
   -DLLAMA_OPENSSL=OFF \
   >/dev/null
-cmake --build "$BUILD_DIR" --config Release -j >/dev/null
+# Bounded -j: a bare -j with the Makefile generator spawns every compile job at
+# once, which thrashes the 7 GB hosted macOS runner past the job timeout.
+cmake --build "$BUILD_DIR" --config Release -j "${BUILD_JOBS:-$(sysctl -n hw.ncpu)}" >/dev/null
 echo "      built."
 
 # --- 3. Stage flat, relocatable, namespaced dylibs --------------------------
