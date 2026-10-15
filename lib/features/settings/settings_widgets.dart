@@ -450,13 +450,22 @@ Widget settingsSlider({
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
           ),
-          child: Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: divisions,
-            onChanged: onChanged,
-            onChangeEnd: onChangeEnd,
+          // `Slider` always builds an `OverlayPortal`; inside a pushed route
+          // or dialog its portal child serializes a semantics node no parent
+          // claims, which crashes the Windows engine while an accessibility
+          // client listens (issue #153, flutter/flutter#190357). A local
+          // overlay keeps the portal child inside the slider's own subtree.
+          child: Overlay.wrap(
+            alwaysSizeToContent: true,
+            clipBehavior: Clip.none,
+            child: Slider(
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              onChanged: onChanged,
+              onChangeEnd: onChangeEnd,
+            ),
           ),
         ),
       ),

@@ -365,12 +365,22 @@ class _WpSearchFieldState extends State<WpSearchField> {
           )
         : null;
 
-    final Widget? suffixIcon = clearButton == null && widget.suffix == null
+    Widget? suffixIcon = clearButton == null && widget.suffix == null
         ? null
         : Row(
             mainAxisSize: MainAxisSize.min,
             children: [?clearButton, ?widget.suffix],
           );
+    // With a [semanticsLabel] the field is wrapped in `MergeSemantics` below,
+    // which folds these buttons into the field's node anyway — a reader never
+    // reaches them as separate elements. Worse, an `IconButton(tooltip:)`
+    // inside that merge makes the framework send a semantics node no parent
+    // claims, and the Windows engine dereferences its null parent and crashes
+    // while an accessibility client listens (issue #153, flutter/flutter#190357,
+    // #175041). Excluding them keeps the merged node to the field itself.
+    if (suffixIcon != null && widget.semanticsLabel != null) {
+      suffixIcon = ExcludeSemantics(child: suffixIcon);
+    }
 
     Widget field = TextField(
       controller: widget.controller,
