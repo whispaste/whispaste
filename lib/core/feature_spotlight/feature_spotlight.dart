@@ -70,7 +70,7 @@ typedef FeatureSpotlightRegistry = List<FeatureSpotlightEntry>;
 /// behaviour tweaks or extra options on an existing feature, new languages,
 /// developer-facing features (automation API), internal work. Every entry
 /// interrupts every existing user once — when in doubt, leave it out.
-const kFeatureSpotlightReviewedVersion = '1.4.0';
+const kFeatureSpotlightReviewedVersion = '1.4.2';
 
 /// Maintainer note: append new entries at the END of this list. There is no
 /// version field (unlike the onboarding revision registry) — declaration
