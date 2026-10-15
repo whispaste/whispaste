@@ -2,6 +2,12 @@
 
 All entries are written in English.
 
+## 1.4.2
+
+### Fixes
+
+- **No more crashes with accessibility tools on Windows:** while a screen reader or another accessibility tool was running, resizing the window or typing into the History search could close WhisPaste. Thanks to the user who reported it in detail.
+
 ## 1.4.1
 
 ### Fixes

@@ -209,8 +209,12 @@ void main() {
     );
   });
 
+  // The labelled search field is one merged semantics node; its trailing
+  // buttons are excluded from it (issue #153 — a tooltip button inside the
+  // merge crashed the Windows engine). Mouse users still get the tooltip; the
+  // field's own label is pinned in wp_search_field_test.dart (AC9).
   group('NotesSearchBar — clear button semantics', () {
-    testWidgets('exposes its tooltip as a semantics label, not just a hint', (
+    testWidgets('keeps the tooltip but stays out of the merged field node', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -229,7 +233,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel(l10n.actionClearSearch), findsOneWidget);
+      expect(find.byTooltip(l10n.actionClearSearch), findsOneWidget);
+      expect(find.bySemanticsLabel(l10n.actionClearSearch), findsNothing);
     });
   });
 }
