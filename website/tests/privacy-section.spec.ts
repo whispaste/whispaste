@@ -20,7 +20,7 @@ for (const key of ['local', 'cloud'] as const) {
     await page.goto('/');
     const video = page.getByTestId(`privacy-video-${key}`);
     await expect(video).toHaveAttribute('poster', `/motion/privacy-${key}.webp`);
-    await expect(video).toHaveAttribute('data-privacy-video', `/motion/privacy-${key}`);
+    await expect(video).toHaveAttribute('data-motion-loop', `/motion/privacy-${key}`);
     await expect(page.getByTestId(`privacy-path-${key}`).locator('figure')).toHaveAttribute('aria-hidden', 'true');
     for (const file of [`privacy-${key}.webp`, `privacy-${key}.webm`, `privacy-${key}.mov`]) {
       expect((await request.get(`/motion/${file}`)).ok()).toBe(true);

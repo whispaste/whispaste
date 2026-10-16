@@ -18,6 +18,25 @@
 [data-surface="light"].wp-band--alt {
   background: var(--wp-surface-band-alt);
 }
+/* Two light bands in a row read as one sheet: the inner corners go square
+   (two rounded ends met in a notch) and a thin rule sits exactly on the seam,
+   halfway between the sections' paddings. */
+[data-surface="light"].wp-band:has(+ [data-surface="light"].wp-band) {
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+[data-surface="light"].wp-band + [data-surface="light"].wp-band {
+  border-start-start-radius: 0;
+  border-start-end-radius: 0;
+}
+[data-surface="light"].wp-band + [data-surface="light"].wp-band > .wp-container::before {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: calc(var(--section-pad-y) * -1);
+  margin-bottom: var(--section-pad-y);
+  background: var(--wp-border-subtle);
+}
 
 /* ---- Marker: the warm accent behind one word ---- */
 /* One solid amber block behind a key phrase (Ditto-style), identical on dark

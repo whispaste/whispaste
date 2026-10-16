@@ -1,4 +1,4 @@
-// Shared building blocks for the privacy motion graphics. Text-free on
+// Shared building blocks for the site's motion loops. Text-free on
 // purpose: one render serves all eight site languages, the HTML legend under
 // each video carries the words.
 import React from 'react';
@@ -52,8 +52,46 @@ export const loopFade = (frame: number) => interpolate(frame, [LOOP - 18, LOOP -
 
 export const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 
-type IconName = 'mic' | 'cpu' | 'cloud' | 'laptop' | 'shield';
+export type IconName = 'mic' | 'cpu' | 'cloud' | 'laptop' | 'shield' | 'issue' | 'pull' | 'idea' | 'languages' | 'wave' | 'tag';
 const ICONS: Record<IconName, React.ReactNode> = {
+  issue: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="1.5" />
+    </>
+  ),
+  pull: (
+    <>
+      <circle cx="18" cy="18" r="3" />
+      <circle cx="6" cy="6" r="3" />
+      <path d="M13 6h3a2 2 0 0 1 2 2v7" />
+      <path d="M6 9v12" />
+    </>
+  ),
+  idea: (
+    <>
+      <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+    </>
+  ),
+  languages: (
+    <>
+      <path d="m5 8 6 6" />
+      <path d="m4 14 6-6 2-3" />
+      <path d="M2 5h12" />
+      <path d="M7 2h1" />
+      <path d="m22 22-5-10-5 10" />
+      <path d="M14 18h6" />
+    </>
+  ),
+  wave: <path d="M2 10v3M6 6v11M10 3v18M14 8v7M18 5v13M22 10v3" />,
+  tag: (
+    <>
+      <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />
+      <circle cx="7.5" cy="7.5" r="1" />
+    </>
+  ),
   mic: (
     <>
       <path d="M12 19v3" />

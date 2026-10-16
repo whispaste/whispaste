@@ -46,7 +46,7 @@ const paths = [
           <span class="privacy-badge" data-i18n={p.badgeKey}>{t(lang, p.badgeKey)}</span>
           <h3 class="privacy-path__title" data-i18n={p.titleKey}>{t(lang, p.titleKey)}</h3>
           <figure class="privacy-motion" aria-hidden="true">
-            <video muted loop playsinline preload="none" poster={`/motion/${p.video}.webp`} width="720" height="426" data-privacy-video={`/motion/${p.video}`} data-testid={`privacy-video-${p.key}`}></video>
+            <video muted loop playsinline preload="none" poster={`/motion/${p.video}.webp`} width="720" height="426" data-motion-loop={`/motion/${p.video}`} data-testid={`privacy-video-${p.key}`}></video>
           </figure>
           <ol class="privacy-flow">
             {p.steps.map((s, i) => (
@@ -73,33 +73,9 @@ const paths = [
 </section>
 
 <script>
-  // Plays the privacy loops only while on screen and only when the visitor
-  // has not asked for reduced motion; otherwise the poster frame stays (it
-  // already shows the finished route).
-  const videos = document.querySelectorAll<HTMLVideoElement>('[data-privacy-video]');
-  if (videos.length && !matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
-    // Transparent loops: WebKit only keeps alpha in HEVC (.mov), everyone
-    // else in VP9 WebM. Picked here because <source> order can't express it.
-    const ext = navigator.vendor.startsWith('Apple') ? 'mov' : 'webm';
-    videos.forEach((v) => {
-      v.src = `${v.dataset.privacyVideo}.${ext}`;
-    });
-    const io = new IntersectionObserver(
-      (entries) => {
-        for (const e of entries) {
-          const v = e.target as HTMLVideoElement;
-          if (e.isIntersecting) {
-            v.preload = 'auto';
-            void v.play().catch(() => {});
-          } else {
-            v.pause();
-          }
-        }
-      },
-      { threshold: 0.35 },
-    );
-    videos.forEach((v) => io.observe(v));
-  }
+  import { initMotionLoops } from '../scripts/motion-loops';
+
+  initMotionLoops();
 </script>
 
 <style>

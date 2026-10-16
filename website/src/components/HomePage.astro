@@ -9,6 +9,7 @@ import Hero from "./Hero.astro";
 import FeatureHighlights from "./FeatureHighlights.astro";
 import AppScreenshots from "./AppScreenshots.astro";
 import UseCaseCards from "./UseCaseCards.astro";
+import OpenSource from "./OpenSource.astro";
 import TextKindsMarquee from "./TextKindsMarquee.astro";
 import Privacy from "./Privacy.astro";
 import Engines from "./Engines.astro";
@@ -40,7 +41,8 @@ const { lang } = Astro.props;
     {/*
       Story order (docs/landingpage-story.md): what it is (Hero) → how it
       gets my sentence into the field (the hero's step player) → which of my texts it
-      helps with (TextKindsMarquee band, UseCaseCards) → what helps me keep working (FeatureHighlights,
+      helps with (TextKindsMarquee band, UseCaseCards) → join in, it is open
+      source (OpenSource) → what helps me keep working (FeatureHighlights,
       AppScreenshots) → trust (Privacy, Engines incl. languages) → open
       questions (FAQ) → social proof (Testimonials) → the one next step
       (Pricing) → project support (Support).
@@ -49,6 +51,7 @@ const { lang } = Astro.props;
     <Hero />
     <TextKindsMarquee />
     <UseCaseCards />
+    <OpenSource />
     <FeatureHighlights />
     <AppScreenshots />
     <Privacy />
