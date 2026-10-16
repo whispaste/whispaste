@@ -102,6 +102,12 @@ component (`src/styles/components.css`: `.wp-btn`, `.wp-chip`, `.wp-tag`,
 `.wp-prose`, `.wp-marker`, `.wp-band`) on a dark and a light surface. The
 route exists only in the dev server.
 
+## Reference capture
+
+`reference/landingpage-de-2026-10-17.webp` is a full-page capture of the
+German landing page (1425 px wide, header to footer) after every section was
+moved onto this system. Compare later redesigns against it.
+
 ## Rules for new code
 
 1. Read `--wp-<component>-*` tokens; add a component group before inventing a value.
