@@ -1,6 +1,9 @@
 ---
 import { getCollection, render } from "astro:content";
 import BlogLayout from "../layouts/BlogLayout.astro";
+import BlogCard from "./BlogCard.astro";
+import BlogCover from "./BlogCover.astro";
+import BlogCrumbs from "./BlogCrumbs.astro";
 import TranslateLink from "./TranslateLink.astro";
 import BreadcrumbListSchema from "./schema/BreadcrumbListSchema.astro";
 import { readingMinutes } from "../scripts/blog.ts";
@@ -12,9 +15,14 @@ interface Props {
 }
 const { lang, slug } = Astro.props;
 
-const entry = (await getCollection("blog")).find((post) => post.id === `${lang}/${slug}`);
+const posts = (await getCollection("blog"))
+  .filter((post) => post.id.startsWith(`${lang}/`))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+const entry = posts.find((post) => post.id === `${lang}/${slug}`);
 if (!entry) throw new Error(`Blog post not found: ${lang}/${slug}`);
-const { Content } = await render(entry);
+const { Content, headings } = await render(entry);
+const toc = headings.filter((h) => h.depth === 2);
+const more = posts.filter((post) => post !== entry).slice(0, 3);
 
 const formatDate = new Intl.DateTimeFormat(lang, { dateStyle: "long", timeZone: "UTC" });
 const blogHref = localePath(lang, "blog");
@@ -35,36 +43,55 @@ const articleSchema = {
 ---
 
 <BlogLayout lang={lang} title={entry.data.title} description={entry.data.description}>
-  <nav aria-label="Breadcrumb" class="mb-8 text-sm text-ink-subtle">
-    <ol class="flex flex-wrap items-center gap-2">
-      {breadcrumbs.map((crumb, index) => (
-        <li class="flex items-center gap-2">
-          {index === breadcrumbs.length - 1 ? (
-            <span class="text-ink-muted" aria-current="page">{crumb.name}</span>
-          ) : (
-            <a href={crumb.item} class="hover:text-ink-muted transition-colors">{crumb.name}</a>
-          )}
-          {index < breadcrumbs.length - 1 && <span class="text-ink-subtle/60" aria-hidden="true">/</span>}
-        </li>
-      ))}
-    </ol>
-  </nav>
+  <BlogCrumbs items={breadcrumbs} />
 
   <article data-testid="blog-article">
-    <header class="mb-10">
-      <time class="text-xs uppercase tracking-wider text-ink-subtle" datetime={entry.data.date.toISOString()}>{formatDate.format(entry.data.date)}</time>
-      <span class="text-xs text-ink-subtle"> · {t(lang, "blog.readTime").replace("{n}", String(readingMinutes(entry.body ?? "")))}</span>
-      <h1 class="post-title text-3xl sm:text-4xl mt-2 leading-tight">{entry.data.title}</h1>
+    <header class="post-head">
+      <p class="post-meta">
+        <time datetime={entry.data.date.toISOString()}>{formatDate.format(entry.data.date)}</time>
+        <span aria-hidden="true">·</span>
+        <span>{t(lang, "blog.readTime").replace("{n}", String(readingMinutes(entry.body ?? "")))}</span>
+      </p>
+      <h1 class="post-title">{entry.data.title}</h1>
+      <p class="post-lead">{entry.data.description}</p>
     </header>
-    <div class="post-body">
-      <Content />
+
+    <BlogCover seed={slug} variant="hero" />
+
+    <div class="post-layout">
+      {toc.length > 1 && (
+        <nav class="post-toc" aria-labelledby="post-toc-title" data-testid="blog-toc">
+          <p id="post-toc-title" class="post-toc-title">{t(lang, "blog.toc")}</p>
+          <ol>
+            {toc.map((h) => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}
+          </ol>
+        </nav>
+      )}
+      <div class="post-body">
+        <Content />
+      </div>
+      <aside class="post-aside">
+        <div class="post-cta" data-testid="blog-cta">
+          <p class="post-cta-title">{t(lang, "blog.cta.title")}</p>
+          <p class="post-cta-text">{t(lang, "blog.cta.text")}</p>
+          <a href={localePath(lang, "download")} class="post-cta-btn" data-testid="blog-cta-download">{t(lang, "blog.cta.button")} <span aria-hidden="true">→</span></a>
+        </div>
+        <TranslateLink lang={lang} />
+      </aside>
     </div>
   </article>
 
-  <TranslateLink lang={lang} />
+  {more.length > 0 && (
+    <section class="post-more" aria-labelledby="post-more-title" data-testid="blog-more">
+      <h2 id="post-more-title" class="post-more-title">{t(lang, "blog.more")}</h2>
+      <ul class="post-more-grid" style={`--n:${more.length}`}>
+        {more.map((post) => <li><BlogCard lang={lang} post={post} level={3} /></li>)}
+      </ul>
+    </section>
+  )}
 
-  <p class="mt-12 pt-6 border-t border-white/5 text-sm">
-    <a href={blogHref} class="text-ink-muted hover:text-white transition-colors">← {t(lang, "blog.back")}</a>
+  <p class="post-back">
+    <a href={blogHref} data-testid="blog-back">← {t(lang, "blog.back")}</a>
   </p>
 
   <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
@@ -72,32 +99,139 @@ const articleSchema = {
 </BlogLayout>
 
 <style>
-  .post-title {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.015em;
-    color: var(--color-ink);
+  /* ---- Header: editorial, wide title, measured lead ---- */
+  .post-head {
+    max-width: 64rem;
+    margin-bottom: clamp(2rem, 1.5rem + 2vw, 3.5rem);
   }
+  .post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-brand-cyan);
+  }
+  .post-title {
+    margin-top: 1rem;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(2.25rem, 1.4rem + 3.4vw, 4.75rem);
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+  .post-lead {
+    margin-top: 1.5rem;
+    max-width: var(--measure-lead);
+    font-size: var(--type-lead);
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+    text-wrap: pretty;
+  }
+
+  /* ---- Body: one reading column; on wide screens TOC | text | aside ---- */
+  .post-layout {
+    display: grid;
+    gap: clamp(2.5rem, 2rem + 2vw, 4rem);
+    margin-top: clamp(2.5rem, 2rem + 2vw, 4.5rem);
+  }
+  .post-body {
+    max-width: 46rem;
+    min-width: 0;
+  }
+  .post-toc {
+    display: none;
+  }
+  @media (min-width: 1280px) {
+    .post-layout {
+      grid-template-columns: minmax(12rem, 1fr) minmax(0, 46rem) minmax(16rem, 1fr);
+      align-items: start;
+      gap: clamp(3rem, 4vw, 6rem);
+    }
+    .post-toc {
+      display: block;
+      position: sticky;
+      top: 7.5rem;
+    }
+    .post-aside {
+      position: sticky;
+      top: 7.5rem;
+    }
+    /* No TOC (single-section post): keep the text in the middle column. */
+    .post-body:first-child {
+      grid-column: 2;
+    }
+  }
+  .post-toc-title {
+    margin-bottom: 0.875rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+  }
+  .post-toc ol {
+    display: grid;
+    gap: 0.25rem;
+    border-left: 1px solid rgb(255 255 255 / 0.08);
+  }
+  .post-toc a {
+    display: block;
+    margin-left: -1px;
+    padding: 0.35rem 0 0.35rem 1rem;
+    border-left: 1px solid transparent;
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    color: var(--color-ink-muted);
+    transition: color var(--dur-base) var(--ease-flow), border-color var(--dur-base) var(--ease-flow);
+  }
+  .post-toc a:hover {
+    color: var(--color-ink);
+    border-left-color: var(--color-brand-cyan);
+  }
+
   .post-body :global(h2) {
+    scroll-margin-top: 7.5rem;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 1.5rem;
-    letter-spacing: -0.01em;
+    font-size: clamp(1.5rem, 1.3rem + 0.7vw, 2rem);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
     color: var(--color-ink);
-    margin: 2.25rem 0 0.75rem;
+    margin: 2.75rem 0 0.875rem;
+    text-wrap: balance;
+  }
+  .post-body > :global(:first-child) {
+    margin-top: 0;
   }
   .post-body :global(p),
   .post-body :global(li) {
+    font-size: 1.0625rem;
     color: var(--color-ink-muted);
-    line-height: 1.7;
+    line-height: 1.75;
+    text-wrap: pretty;
   }
   .post-body :global(p + p) {
-    margin-top: 0.85rem;
+    margin-top: 1rem;
+  }
+  .post-body :global(ul),
+  .post-body :global(ol) {
+    margin-top: 1rem;
+    padding-left: 1.35rem;
   }
   .post-body :global(ul) {
-    margin-top: 0.85rem;
-    padding-left: 1.35rem;
     list-style: disc;
+  }
+  .post-body :global(ol) {
+    list-style: decimal;
+  }
+  .post-body :global(li::marker) {
+    color: var(--color-brand-cyan);
   }
   .post-body :global(li + li) {
     margin-top: 0.5rem;
@@ -105,9 +239,125 @@ const articleSchema = {
   .post-body :global(strong) {
     color: var(--color-ink);
   }
+  .post-body :global(code) {
+    padding: 0.1em 0.35em;
+    border-radius: 0.375rem;
+    background: rgb(255 255 255 / 0.06);
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    color: var(--color-ink);
+  }
   .post-body :global(a) {
     color: var(--color-brand-cyan);
     text-decoration: underline;
+    text-decoration-thickness: 1px;
     text-underline-offset: 3px;
+  }
+  .post-body :global(a:hover) {
+    text-decoration-thickness: 2px;
+  }
+
+  /* ---- Aside: download CTA + translate hand-off ---- */
+  .post-aside {
+    display: grid;
+    gap: 1.25rem;
+  }
+  .post-aside :global(.translate-form) {
+    margin-top: 0;
+  }
+  .post-cta {
+    padding: 1.5rem;
+    border-radius: var(--radius-surface);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 25%, transparent);
+    background:
+      radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--color-brand-cyan) 12%, transparent), transparent 70%),
+      rgb(255 255 255 / 0.02);
+  }
+  .post-cta-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.25rem;
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+  }
+  .post-cta-text {
+    margin-top: 0.5rem;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+  }
+  .post-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    margin-top: 1.125rem;
+    padding: 0.625rem 1.25rem;
+    border-radius: var(--radius-pill);
+    background: linear-gradient(135deg, var(--color-brand-cyan), color-mix(in srgb, var(--color-brand-cyan) 60%, #6366f1));
+    color: #04121f;
+    font-weight: 700;
+    font-size: 0.9375rem;
+    box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--color-brand-cyan) 70%, transparent);
+    transition: transform var(--dur-base) var(--ease-flow);
+  }
+  .post-cta-btn:hover {
+    transform: translateY(-2px);
+  }
+  .post-cta-btn:active {
+    transform: scale(0.97);
+  }
+  .post-cta-btn:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 3px;
+  }
+
+  /* ---- More posts + back link ---- */
+  .post-more {
+    margin-top: var(--section-pad-y);
+    padding-top: clamp(2.5rem, 2rem + 2vw, 4rem);
+    border-top: 1px solid rgb(255 255 255 / 0.06);
+  }
+  .post-more-title {
+    margin-bottom: clamp(1.5rem, 1rem + 1.5vw, 2.5rem);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(1.75rem, 1.3rem + 1.6vw, 3rem);
+    letter-spacing: -0.025em;
+    color: var(--color-ink);
+  }
+  .post-more-grid {
+    display: grid;
+    gap: clamp(1rem, 0.5rem + 1.25vw, 2rem);
+  }
+  @media (min-width: 768px) {
+    .post-more-grid {
+      grid-template-columns: repeat(min(var(--n), 2), minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1280px) {
+    .post-more-grid {
+      grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+    }
+  }
+  .post-back {
+    margin-top: clamp(2.5rem, 2rem + 2vw, 4rem);
+    font-size: 0.9375rem;
+  }
+  .post-back a {
+    color: var(--color-ink-muted);
+    transition: color var(--dur-base) var(--ease-flow);
+  }
+  .post-back a:hover {
+    color: var(--color-ink);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .post-cta-btn {
+      transition: none;
+    }
+    .post-cta-btn:hover,
+    .post-cta-btn:active {
+      transform: none;
+    }
   }
 </style>

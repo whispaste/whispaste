@@ -1,0 +1,124 @@
+---
+/**
+ * TextKindsMarquee — a full-bleed kinetic band between the paste demo and the
+ * use-case cards: the kinds of text the audience writes every day, in two
+ * rows drifting in opposite directions. It bridges "how my sentence gets into
+ * the field" (demo) and "which of my texts it helps with" (use cases).
+ *
+ * Each row renders its items twice so a -50% translate loops seamlessly; the
+ * second copy is aria-hidden, so screen readers hear every item exactly once.
+ * Motion stops on hover/focus and under prefers-reduced-motion (rows then
+ * wrap statically).
+ */
+import { t, currentLocale } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+const rows = [
+  [1, 2, 3, 4, 5],
+  [6, 7, 8, 9, 10],
+].map((row) => row.map((n) => `useCaseCards.marquee.${n}`));
+---
+
+<div class="tk" role="region" aria-label={t(lang, 'useCaseCards.marquee.aria')} data-testid="text-kinds-marquee">
+  <div class="tk-inner">
+  {rows.map((keys, r) => (
+    <div class:list={['tk-row', r === 1 && 'tk-row--reverse']}>
+      {[0, 1].map((copy) => (
+        <ul class="tk-track" aria-hidden={copy === 1 ? 'true' : undefined}>
+          {keys.map((key) => (
+            <li class="tk-item">
+              <span data-i18n={key}>{t(lang, key)}</span>
+              <svg class="tk-sep" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="9" width="3" height="6" rx="1.5" /><rect x="10.5" y="4" width="3" height="16" rx="1.5" /><rect x="18" y="8" width="3" height="8" rx="1.5" /></svg>
+            </li>
+          ))}
+        </ul>
+      ))}
+    </div>
+  ))}
+  </div>
+</div>
+
+<style>
+  .tk {
+    position: relative;
+    overflow: hidden;
+    padding-block: clamp(2.5rem, 1.5rem + 3vw, 4.5rem);
+    border-block: 1px solid rgb(255 255 255 / 0.08);
+    background: linear-gradient(180deg, var(--color-brand-darker), color-mix(in srgb, var(--color-brand-darker) 75%, var(--color-brand-card)));
+  }
+  /* Soft edge fade so items enter and leave instead of being cut; on the
+     inner wrapper so the band's own background stays full-bleed. */
+  .tk-inner {
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+  .tk-row {
+    display: flex;
+    width: max-content;
+    animation: tk-drift 60s linear infinite;
+  }
+  .tk-row + .tk-row {
+    margin-top: clamp(0.5rem, 0.25rem + 0.75vw, 1rem);
+  }
+  .tk-row--reverse {
+    animation-direction: reverse;
+    animation-duration: 75s;
+  }
+  .tk:hover .tk-row,
+  .tk:focus-within .tk-row {
+    animation-play-state: paused;
+  }
+  .tk-track {
+    display: flex;
+    flex: none;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .tk-item {
+    display: inline-flex;
+    align-items: center;
+    gap: clamp(1rem, 0.5rem + 1.5vw, 2.25rem);
+    padding-right: clamp(1rem, 0.5rem + 1.5vw, 2.25rem);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(2rem, 1.1rem + 3.6vw, 5.5rem);
+    line-height: 1.1;
+    letter-spacing: -0.035em;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+  /* Second row: outlined type in the brand cyan, quieter than row one. */
+  .tk-row--reverse .tk-item {
+    color: transparent;
+    -webkit-text-stroke: 1.5px color-mix(in srgb, var(--color-brand-cyan) 70%, transparent);
+  }
+  .tk-sep {
+    width: 0.55em;
+    height: 0.55em;
+    flex: none;
+    fill: var(--color-brand-cyan);
+    opacity: 0.85;
+  }
+  .tk-row--reverse .tk-sep {
+    fill: color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
+  }
+  @keyframes tk-drift {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tk-row {
+      animation: none;
+      width: auto;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .tk-track[aria-hidden='true'] {
+      display: none;
+    }
+    .tk-track {
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+  }
+</style>

@@ -10,6 +10,7 @@ import AppPasteDemo from "./AppPasteDemo.astro";
 import FeatureHighlights from "./FeatureHighlights.astro";
 import AppScreenshots from "./AppScreenshots.astro";
 import UseCaseCards from "./UseCaseCards.astro";
+import TextKindsMarquee from "./TextKindsMarquee.astro";
 import Privacy from "./Privacy.astro";
 import Engines from "./Engines.astro";
 import Pricing from "./Pricing.astro";
@@ -41,7 +42,7 @@ const { lang } = Astro.props;
     {/*
       Story order (docs/landingpage-story.md): what it is (Hero) → how it
       gets my sentence into the field (AppPasteDemo) → which of my texts it
-      helps with (UseCaseCards) → what helps me keep working (FeatureHighlights,
+      helps with (TextKindsMarquee band, UseCaseCards) → what helps me keep working (FeatureHighlights,
       AppScreenshots) → trust (Privacy, Engines incl. languages) → open
       questions (FAQ) → social proof (Testimonials) → the one next step
       (Pricing) → project support (Support).
@@ -49,6 +50,7 @@ const { lang } = Astro.props;
     */}
     <Hero />
     <AppPasteDemo />
+    <TextKindsMarquee />
     <UseCaseCards />
     <FeatureHighlights />
     <AppScreenshots />
@@ -107,6 +109,21 @@ const { lang } = Astro.props;
       else observer.observe(el);
     });
     document.documentElement.classList.add('wp-reveal-ready');
+
+    // Card spotlight (global.css `.wp-spot`): tag the landing cards and feed
+    // the pointer position in as --mx/--my. One delegated listener, rAF-free
+    // because it only writes two custom properties on the hovered card.
+    const SPOT_CARDS = '.use-case-card, .fh-card, .engine-card, .privacy-path, .price-core, .price-get';
+    if (matchMedia('(hover: hover)').matches) {
+      document.querySelectorAll<HTMLElement>(SPOT_CARDS).forEach((el) => el.classList.add('wp-spot'));
+      document.addEventListener('pointermove', (e) => {
+        const card = (e.target as Element | null)?.closest<HTMLElement>('.wp-spot');
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        card.style.setProperty('--my', `${e.clientY - r.top}px`);
+      }, { passive: true });
+    }
 
     // Fetch GitHub stars (cached in sessionStorage)
     (async () => {

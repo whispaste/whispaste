@@ -165,10 +165,11 @@
    sections may add a narrower max-width on top (they stay centred inside the
    same frame), but nothing may exceed it. The cap (1920px) only bites on
    ultrawide screens, where the gutter grows fluidly so the page never sits
-   in a narrow column with dead margins. Uses 100% of the containing block
+   in a narrow column with dead margins; above 1920px the frame grows with
+   the root font size (see the ultrawide rule below). Uses 100% of the containing block
    (not 100vw) so a classic scrollbar never causes horizontal overflow. */
 :root {
-  --site-max: 1920px;
+  --site-max: 120rem;
   --site-gutter: 16px;
 }
 @media (min-width: 640px) {
@@ -178,10 +179,30 @@
   :root { --site-gutter: 32px; }
 }
 @media (min-width: 1536px) {
-  :root { --site-gutter: clamp(48px, 3vw, 80px); }
+  :root { --site-gutter: clamp(3rem, 3vw, 5rem); }
+}
+/* Ultrawide: instead of stretching cards and lines across 2500px+, the whole
+   rem-based system (type, spacing, radii, the frame cap itself) scales up
+   proportionally from 1920px, so the composition keeps its proportions and
+   still fills the screen. Percent-based, so a user's own default font size
+   keeps acting as the base; capped at 131.25% (21px at the default 16px). */
+@media (min-width: 1921px) {
+  html { font-size: min(131.25%, calc(100% + (100vw - 1920px) * 0.004)); }
+}
+/* The floating nav pill is always the widest element: it uses the full
+   frame (.wp-frame), while section content (.wp-container) is inset on both
+   sides by --nav-overhang, about the pill's corner radius. The rounded nav
+   ends then overhang the content instead of ending flush with it, which
+   reads calmer than two edges of equal width with only one of them rounded. */
+:root {
+  --nav-overhang: clamp(0.5rem, 1vw, 1rem);
+}
+.wp-frame {
+  width: min(var(--site-max), calc(100% - 2 * var(--site-gutter)));
+  margin-inline: auto;
 }
 .wp-container {
-  width: min(var(--site-max), calc(100% - 2 * var(--site-gutter)));
+  width: calc(min(var(--site-max), calc(100% - 2 * var(--site-gutter))) - 2 * var(--nav-overhang));
   margin-inline: auto;
 }
 
@@ -1346,4 +1367,39 @@
 .support-sponsor:active,
 [data-testid="hero-primary-cta"]:active {
   transform: scale(0.97);
+}
+
+/* ---- Card spotlight ----
+   A soft cyan light that follows the pointer across landing cards (the
+   "recording LED" glow of the app, used as a hover cue). Only the
+   background-image layer is set, so each card keeps its own background
+   colour; the tripled class wins over the cards' scoped `background`
+   shorthand without !important. Coordinates come from HomePage's pointer
+   script (--mx/--my); touch and reduced-motion users get no effect. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .wp-spot.wp-spot.wp-spot {
+    background-image: radial-gradient(
+      26rem circle at var(--mx, 50%) var(--my, -30%),
+      color-mix(in srgb, var(--color-brand-cyan) calc(var(--spot, 0) * 10%), transparent),
+      transparent 65%
+    );
+    transition: --spot var(--dur-slow) var(--ease-flow);
+  }
+  .wp-spot:hover {
+    --spot: 1;
+  }
+}
+@property --spot {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* ---- Reading measure inside wide cards ----
+   Cards grow with the fluid frame, their prose must not: long lines are the
+   real "stretched" look on wide screens. Cap card copy at a comfortable
+   measure; the card itself still fills its grid track. */
+:is(.use-case-card, .fh-card, .engine-card, .privacy-path, .price-core, .price-get, .testimonial-card) p {
+  max-width: 68ch;
+  text-wrap: pretty;
 }

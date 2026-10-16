@@ -1,0 +1,53 @@
+---
+/** Visible breadcrumb trail for blog pages; the last item is the current page. */
+interface Props {
+  items: { name: string; item: string }[];
+}
+const { items } = Astro.props;
+---
+
+<nav aria-label="Breadcrumb" class="blog-crumbs">
+  <ol>
+    {items.map((crumb, index) => (
+      <li>
+        {index === items.length - 1 ? (
+          <span aria-current="page">{crumb.name}</span>
+        ) : (
+          <>
+            <a href={crumb.item}>{crumb.name}</a>
+            <span aria-hidden="true">/</span>
+          </>
+        )}
+      </li>
+    ))}
+  </ol>
+</nav>
+
+<style>
+  .blog-crumbs {
+    margin-bottom: clamp(2rem, 1.5rem + 2vw, 3.5rem);
+    font-size: 0.875rem;
+    color: var(--color-ink-subtle);
+  }
+  ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+  }
+  a {
+    transition: color var(--dur-base) var(--ease-flow);
+  }
+  a:hover {
+    color: var(--color-ink-muted);
+  }
+  [aria-current] {
+    color: var(--color-ink-muted);
+  }
+</style>

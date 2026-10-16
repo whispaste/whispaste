@@ -45,7 +45,7 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
   class="fixed top-0 inset-x-0 z-50 pt-3 sm:pt-4 pointer-events-none"
 >
   <div
-    class={`nav-pill wp-container pointer-events-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4 rounded-2xl border border-white/[0.08]`}
+    class={`nav-pill wp-frame pointer-events-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4 rounded-2xl border border-white/[0.08]`}
   >
     <a
       href={variant === "subpage" ? backHref : "#"}
@@ -130,7 +130,7 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
       </button>
       </div>
   </div>
-  <div id="mobileMenu" class="wp-container lg:hidden hidden pointer-events-auto mt-2 rounded-2xl border border-white/[0.08] overflow-hidden">
+  <div id="mobileMenu" class="wp-frame lg:hidden hidden pointer-events-auto mt-2 rounded-2xl border border-white/[0.08] overflow-hidden">
       <div class="px-5 py-3 flex flex-col">
         <a href={anchor("app-paste-demo")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px]" data-testid="nav-menu-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
         <a href={anchor("features")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>

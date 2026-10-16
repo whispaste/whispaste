@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
 
-// One shared container (`.wp-container`, global.css) frames the floating nav
-// pill and every section: the nav must never be narrower than the content,
-// the content never wider than the nav, and nothing may scroll sideways.
+// One shared frame (global.css): the floating nav pill uses the full frame
+// (`.wp-frame`) and is always the widest element; section content
+// (`.wp-container`) is inset symmetrically by --nav-overhang so the pill's
+// rounded ends overhang it. Nothing may scroll sideways.
 const WIDTHS = [390, 768, 1024, 1440, 1920] as const;
 
 for (const path of ['/', '/en/']) {
@@ -17,11 +18,15 @@ for (const path of ['/', '/en/']) {
       const nav = await page.locator('#site-nav .nav-pill').boundingBox();
       expect(nav).not.toBeNull();
 
-      // The hero frame matches the nav pill edge for edge.
+      // The hero frame is centred under the nav pill and inset on both sides
+      // by the same small overhang (8-16 px), never flush and never wider.
       const hero = await page.getByTestId('hero').locator(':scope > .wp-container').boundingBox();
       expect(hero).not.toBeNull();
-      expect(Math.abs(hero!.x - nav!.x)).toBeLessThanOrEqual(1);
-      expect(Math.abs(hero!.width - nav!.width)).toBeLessThanOrEqual(1);
+      const insetLeft = hero!.x - nav!.x;
+      const insetRight = nav!.x + nav!.width - (hero!.x + hero!.width);
+      expect(insetLeft).toBeGreaterThanOrEqual(7);
+      expect(insetLeft).toBeLessThanOrEqual(17);
+      expect(Math.abs(insetLeft - insetRight)).toBeLessThanOrEqual(1);
 
       // No section content box pokes out past the nav's outer edges.
       const boxes = await page.locator('main .wp-container').evaluateAll((els) =>

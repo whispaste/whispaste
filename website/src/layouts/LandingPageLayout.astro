@@ -93,14 +93,9 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, relatedPages } = Astro.pro
     <Nav variant="subpage" />
 
     <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
-      {/* Matches the nav pill's own max-w-6xl exactly (Nav.astro), and adds
-          the same px-5 sm:px-6 the pill applies to ITS OWN content (see
-          .nav-pill in Nav.astro) — the pill's outer rounded edge sits at
-          the same x-position as this div's outer edge (both max-w-6xl,
-          centered under the same viewport), so without this inner padding
-          the page content started flush with — or even past — the pill's
-          corner instead of lining up with the wordmark/nav-links text
-          inside it. */}
+      {/* A centered reading column for long-tail explainers. The nav pill
+          uses the full site frame (.wp-frame in global.css), so it stays
+          the widest element above this narrower column on every width. */}
       <div class="max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-5 sm:px-6">
         {/*
           Visuelle Breadcrumb-Leiste — dieselben Items wie das

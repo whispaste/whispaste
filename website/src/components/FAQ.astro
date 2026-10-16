@@ -75,6 +75,16 @@ const lang = currentLocale(Astro.currentLocale);
     gap: 2.5rem;
     max-width: 50rem;
   }
+  /* Wide screens: the groups sit side by side instead of one 50rem column
+     with an empty right half; each column stays at a readable width. */
+  @media (min-width: 1536px) {
+    .faq-groups {
+      max-width: none;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: clamp(2.5rem, 4vw, 5rem);
+      align-items: start;
+    }
+  }
   .faq-group__title {
     margin-bottom: 0.5rem;
     font-size: 0.8125rem;

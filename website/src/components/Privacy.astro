@@ -175,6 +175,20 @@ const paths = [
     color: var(--color-brand-cyan);
     margin-top: 0.125rem;
   }
+  /* Wide screens: copy left, details link anchored right, so the row spans
+     the frame like the two path cards above it. */
+  @media (min-width: 1280px) {
+    .privacy-telemetry > div {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: 3rem;
+      align-items: center;
+    }
+    .privacy-telemetry > div > .privacy-details {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+    }
+  }
   .privacy-telemetry__title {
     font-weight: 600;
     color: var(--color-ink);

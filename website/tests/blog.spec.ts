@@ -16,6 +16,36 @@ test('blog index lists a post that opens', async ({ page }) => {
   await expect(page.getByTestId('blog-article').getByRole('heading', { level: 1 })).toBeVisible();
 });
 
+test('blog index leads with the newest post and uses the full landing footer', async ({ page }) => {
+  await page.goto('/blog/');
+  const cards = page.getByTestId('blog-list').getByRole('link');
+  await expect(cards.first()).toContainText('Neuester Beitrag');
+  expect(await cards.count()).toBeGreaterThan(1);
+  await expect(page.getByTestId('footer-resources')).toBeVisible();
+  await expect(page.getByTestId('footer-link-impressum')).toBeVisible();
+});
+
+test('blog post has a table of contents, a download CTA and more posts', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/blog/lokal-diktieren-ohne-nvidia-pflicht/');
+  const toc = page.getByTestId('blog-toc');
+  await expect(toc).toBeVisible();
+  const firstTarget = await toc.getByRole('link').first().getAttribute('href');
+  await expect(page.locator(`[data-testid="blog-article"] ${firstTarget}`)).toHaveCount(1);
+  await expect(page.getByTestId('blog-cta-download')).toHaveAttribute('href', '/download/');
+  await expect(page.getByTestId('blog-more').getByRole('link')).not.toHaveCount(0);
+  await expect(page.getByTestId('blog-more')).not.toContainText('Brauche ich eine NVIDIA');
+});
+
+test('blog pages cause no horizontal overflow at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const path of ['/blog/', '/en/blog/', '/blog/vom-hotkey-zum-text-im-aktiven-fenster/']) {
+    await page.goto(path);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow, path).toBeLessThanOrEqual(0);
+  }
+});
+
 test('English blog index renders English posts', async ({ page }) => {
   await page.goto('/en/blog/');
   await expect(page.getByTestId('blog-list')).toContainText(/model size/i);
