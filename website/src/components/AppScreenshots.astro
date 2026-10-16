@@ -13,92 +13,68 @@ const views = [
   { id: 'detail', file: '02_workspace_detail', label: 'screenshots.view.detail', caption: 'screenshots.detail', aria: 'screenshots.teaser.detail.aria', alt: 'screenshots.teaser.detail.alt' },
 ] as const;
 ---
-<!-- Screenshot teaser: one large real screenshot, no device frame, with a
-     switch between history and detail editor. Full view opens the shared
-     lightbox; the full gallery lives on /screenshots/. -->
+<!-- Screenshot teaser: a large dark panel rises out of the light band while
+     scrolling; the real app window sits in it and runs off its lower edge.
+     A switch flips between history and detail editor; full view opens the
+     shared lightbox; the full gallery lives on /screenshots/. No device
+     frame — the app looks the same on macOS, Windows and Linux. -->
 <section id="app-screenshots" class="wp-band relative wp-section scroll-mt-20" data-surface="light">
   <div class="relative wp-container">
     <div class="shots-head">
       <div class="wp-section-head">
         <SectionEyebrow key="screenshots.label" />
-        <h2 class="section-title"><span data-i18n="screenshots.titleLead">{t(lang, "screenshots.titleLead")}</span><span class="text-gradient-brand" data-i18n="screenshots.titleAccent">{t(lang, "screenshots.titleAccent")}</span><span data-i18n="screenshots.titleTail">{t(lang, "screenshots.titleTail")}</span></h2>
+        <h2 class="section-title"><span data-i18n="screenshots.titleLead">{t(lang, "screenshots.titleLead")}</span><span class="wp-marker" data-i18n="screenshots.titleAccent">{t(lang, "screenshots.titleAccent")}</span><span data-i18n="screenshots.titleTail">{t(lang, "screenshots.titleTail")}</span></h2>
         <p class="wp-lead mt-4" data-i18n="screenshots.desc">{t(lang, "screenshots.desc")}</p>
       </div>
     </div>
 
     <div class="shots-stage" data-view="history" data-testid="screenshots">
-      <div class="shots-controls">
-        <div class="shots-switch" role="group" aria-label={t(lang, "screenshots.viewsAria")} data-i18n-aria="screenshots.viewsAria">
-          {views.map((v, i) => (
+      <div class="shots-panel" data-surface="dark">
+        <div class="shots-controls">
+          <div class="shots-switch" role="group" aria-label={t(lang, "screenshots.viewsAria")} data-i18n-aria="screenshots.viewsAria">
+            {views.map((v, i) => (
+              <button
+                type="button"
+                class="shots-switch-btn"
+                data-view-btn={v.id}
+                aria-pressed={i === 0 ? 'true' : 'false'}
+                data-testid={`screenshots-view-${v.id}`}
+              ><span data-i18n={v.label}>{t(lang, v.label)}</span></button>
+            ))}
+          </div>
+          <button type="button" class="shots-open" data-testid="screenshots-open">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+            <span data-i18n="screenshots.openFull">{t(lang, "screenshots.openFull")}</span>
+          </button>
+        </div>
+
+        {views.map((v, i) => (
+          <div class="shots-window" data-view-only={v.id}>
             <button
               type="button"
-              class="shots-switch-btn"
-              data-view-btn={v.id}
-              aria-pressed={i === 0 ? 'true' : 'false'}
-              data-testid={`screenshots-view-${v.id}`}
-            ><span data-i18n={v.label}>{t(lang, v.label)}</span></button>
-          ))}
-        </div>
-        <button type="button" class="shots-open" data-testid="screenshots-open">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
-          <span data-i18n="screenshots.openFull">{t(lang, "screenshots.openFull")}</span>
-        </button>
-      </div>
-
-      {/* Pure-CSS MacBook Pro: aluminium lid, black bezel with notch, a macOS
-          desktop (wallpaper + menu bar) and the app as a window on it. The
-          frame is decoration; the screenshot buttons inside keep the
-          lightbox wiring and the lang/os sync. */}
-      <div class="mbp">
-        <div class="mbp-lid">
-          <div class="mbp-screen">
-            <div class="mbp-display">
-              <div class="mbp-wallpaper" aria-hidden="true"></div>
-              <div class="mbp-notch" aria-hidden="true"></div>
-              <div class="mbp-menubar" aria-hidden="true">
-                <div class="mbp-mb-left">
-                  <svg class="mbp-apple" viewBox="0 0 24 24" fill="currentColor"><path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z"/></svg>
-                  <span class="mbp-mb-app">WhisPaste</span>
-                  <span class="mbp-mb-menus mbp-lang-de">Ablage&nbsp;&nbsp;Bearbeiten&nbsp;&nbsp;Darstellung&nbsp;&nbsp;Fenster&nbsp;&nbsp;Hilfe</span>
-                  <span class="mbp-mb-menus mbp-lang-en">File&nbsp;&nbsp;Edit&nbsp;&nbsp;View&nbsp;&nbsp;Window&nbsp;&nbsp;Help</span>
-                </div>
-                <div class="mbp-mb-right">
-                  <svg class="mbp-mb-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5a11 11 0 0 1 16 0"/><path d="M7.5 15a6 6 0 0 1 9 0"/><circle cx="12" cy="18.5" r="1" fill="currentColor" stroke="none"/></svg>
-                  <svg class="mbp-mb-glyph mbp-mb-battery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="8" width="17" height="8" rx="2.5"/><rect x="4" y="10" width="11" height="4" rx="1" fill="currentColor" stroke="none"/><path d="M21.5 11.5v3"/></svg>
-                  <span class="mbp-clock">9:41</span>
-                </div>
-              </div>
-              {views.map((v, i) => (
-                <div class="mbp-window" data-view-only={v.id}>
-                  <button
-                    type="button"
-                    class="teaser-thumb-btn"
-                    data-teaser-idx={i}
-                    aria-label={t(lang, v.aria)}
-                    data-i18n-aria={v.aria}
-                  >
-                    <img
-                      class="teaser-img"
-                      src={`/screenshots/${shotLang}/dark/${v.file}.webp`}
-                      data-screenshot-en={`/screenshots/en/dark/${v.file}.webp`}
-                      data-screenshot-de={`/screenshots/de/dark/${v.file}.webp`}
-                      data-screenshot-ru={`/screenshots/ru/dark/${v.file}.webp`}
-                      data-screenshot-mac-en={`/screenshots/mac/en/dark/${v.file}.webp`}
-                      data-screenshot-mac-de={`/screenshots/mac/de/dark/${v.file}.webp`}
-                      data-screenshot-mac-ru={`/screenshots/mac/ru/dark/${v.file}.webp`}
-                      alt={t(lang, v.alt)}
-                      width="1920"
-                      height="1080"
-                      loading={i === 0 ? 'eager' : 'lazy'}
-                      decoding="async"
-                    />
-                  </button>
-                </div>
-              ))}
-            </div>
+              class="teaser-thumb-btn"
+              data-teaser-idx={i}
+              aria-label={t(lang, v.aria)}
+              data-i18n-aria={v.aria}
+            >
+              <img
+                class="teaser-img"
+                src={`/screenshots/${shotLang}/dark/${v.file}.webp`}
+                data-screenshot-en={`/screenshots/en/dark/${v.file}.webp`}
+                data-screenshot-de={`/screenshots/de/dark/${v.file}.webp`}
+                data-screenshot-ru={`/screenshots/ru/dark/${v.file}.webp`}
+                data-screenshot-mac-en={`/screenshots/mac/en/dark/${v.file}.webp`}
+                data-screenshot-mac-de={`/screenshots/mac/de/dark/${v.file}.webp`}
+                data-screenshot-mac-ru={`/screenshots/mac/ru/dark/${v.file}.webp`}
+                alt={t(lang, v.alt)}
+                width="1920"
+                height="1080"
+                loading={i === 0 ? 'eager' : 'lazy'}
+                decoding="async"
+              />
+            </button>
           </div>
-        </div>
-        <div class="mbp-base" aria-hidden="true"><span class="mbp-groove"></span></div>
+        ))}
       </div>
 
       {views.map((v) => (
@@ -143,17 +119,17 @@ const views = [
   .shots-open {
     min-height: 44px;
     padding: var(--wp-space-2) var(--wp-space-5);
-    border-radius: var(--radius-pill);
+    border-radius: var(--wp-radius-pill);
     border: 1px solid var(--wp-border-control);
-    background: transparent;
-    color: var(--color-ink-muted);
+    background: var(--wp-surface-control);
+    color: var(--wp-text-secondary);
     font-size: var(--wp-font-size-md);
     font-weight: 600;
     cursor: pointer;
     transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
   }
   .shots-switch-btn:hover,
-  .shots-open:hover { color: var(--color-ink); }
+  .shots-open:hover { color: var(--wp-text-primary); }
   .shots-switch-btn[aria-pressed="true"] {
     color: var(--wp-accent-on-fill);
     background: var(--wp-accent-fill);
@@ -175,126 +151,109 @@ const views = [
     outline: 2px solid var(--wp-focus-ring);
     outline-offset: 3px;
   }
-  /* mockup-colours:start: macOS/MacBook chrome imitates the real device, literal colours by design */
-  /* ---- MacBook Pro frame (pure CSS, space-gray aluminium) ---- */
-  .mbp {
-    width: 100%;
-    max-width: 66rem;
-    margin: var(--wp-space-4) auto 0;
-    filter: drop-shadow(0 40px 60px rgb(0 0 0 / 0.45)) drop-shadow(0 0 80px color-mix(in srgb, var(--color-brand-cyan) 14%, transparent));
-  }
-  .mbp-lid {
-    width: 88%;
-    margin-inline: auto;
-    padding: 0.6%;
-    border-radius: 2.2% 2.2% 0.6% 0.6% / 3.4% 3.4% 0.9% 0.9%;
-    background: linear-gradient(180deg, #5a5e66 0%, #33363c 6%, #2a2c31 100%);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.22),
-      inset 0 0 0 1px rgb(255 255 255 / 0.06);
-  }
-  .mbp-screen {
+  /* ---- The panel: dark, rounded, rising out of the light band ---- */
+  .shots-panel {
     position: relative;
-    padding: 1.6%;
-    border-radius: 1.8% 1.8% 0.4% 0.4% / 2.8% 2.8% 0.6% 0.6%;
-    background: #060607;
-    container-type: inline-size;
+    isolation: isolate;
     overflow: hidden;
-  }
-  /* Glass reflection across the panel */
-  .mbp-screen::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 6;
-    pointer-events: none;
-    background: linear-gradient(115deg, rgb(255 255 255 / 0.07) 0%, rgb(255 255 255 / 0.02) 28%, transparent 42%);
-  }
-  .mbp-display {
-    position: relative;
-    aspect-ratio: 16 / 10.4;
-    border-radius: 0.6cqw;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    background: #0c1a33;
-  }
-  .mbp-wallpaper {
-    position: absolute;
-    inset: 0;
+    display: grid;
+    gap: var(--wp-space-6);
+    padding: var(--wp-space-6) var(--wp-space-4) 0;
+    border-radius: var(--wp-panel-radius);
     background:
-      radial-gradient(90% 80% at 80% 0%, rgb(34 211 238 / 0.55) 0%, transparent 55%),
-      radial-gradient(80% 90% at 0% 100%, rgb(99 102 241 / 0.55) 0%, transparent 60%),
-      radial-gradient(60% 60% at 55% 60%, rgb(14 165 233 / 0.35) 0%, transparent 70%),
-      linear-gradient(160deg, #0b1d3a 0%, #13305a 45%, #0e2347 100%);
+      radial-gradient(70% 60% at 50% 100%, color-mix(in srgb, var(--wp-accent-default) 22%, transparent), transparent 70%),
+      var(--wp-surface-band);
+    box-shadow: var(--wp-panel-shadow);
+    color: var(--wp-text-primary);
   }
-  .mbp-notch {
+  /* Amber halftone grain in the upper corner — the section's one accent. */
+  .shots-panel::before {
+    content: "";
     position: absolute;
-    top: 0;
-    left: 50%;
-    translate: -50% 0;
-    width: 13cqw;
-    height: 2.9cqw;
-    background: #060607;
-    border-radius: 0 0 1.1cqw 1.1cqw;
-    z-index: 5;
+    inset: 0 0 auto auto;
+    width: 45%;
+    height: 60%;
+    z-index: -1;
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--wp-highlight-marker) 28%, transparent) 1.4px, transparent 1.8px);
+    background-size: var(--wp-space-2) var(--wp-space-2);
+    mask-image: radial-gradient(ellipse at 100% 0%, currentColor, transparent 70%);
+    pointer-events: none;
   }
-  .mbp-menubar {
-    position: relative;
-    z-index: 4;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 2.9cqw;
-    padding: 0 1.8cqw;
-    background: rgb(0 0 0 / 0.22);
-    color: rgb(255 255 255 / 0.92);
-    font-size: 1.25cqw;
-    font-weight: 500;
-    line-height: 1;
-    white-space: nowrap;
+  @media (max-width: 639px) {
+    .shots-panel {
+      gap: var(--wp-space-4);
+    }
+    .shots-controls {
+      gap: var(--wp-space-2);
+    }
+    .shots-switch-btn,
+    .shots-open {
+      padding-inline: var(--wp-space-4);
+      font-size: var(--wp-font-size-sm);
+    }
+    /* Icon-only on phones so the controls fit one row; the label stays
+       readable for assistive tech. */
+    .shots-open {
+      width: 44px;
+      justify-content: center;
+      padding-inline: 0;
+    }
+    .shots-open span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
-  .mbp-mb-left {
-    display: flex;
-    align-items: center;
-    gap: 1.5cqw;
-    min-width: 0;
-    max-width: 40%;
-    overflow: hidden;
+  @media (min-width: 768px) {
+    .shots-panel {
+      padding: var(--wp-space-10) var(--wp-space-12) 0;
+    }
+    .shots-window {
+      margin-bottom: calc(-1 * var(--wp-space-12));
+    }
   }
-  .mbp-apple { width: 1.6cqw; height: 1.6cqw; flex-shrink: 0; }
-  .mbp-mb-app { font-weight: 700; color: #fff; }
-  .mbp-mb-menus { color: rgb(255 255 255 / 0.82); overflow: hidden; text-overflow: ellipsis; }
-  .mbp-mb-right { display: flex; align-items: center; gap: 1.3cqw; }
-  .mbp-mb-glyph { width: 1.7cqw; height: 1.7cqw; }
-  .mbp-mb-battery { width: 2.2cqw; height: 2.2cqw; }
-  .mbp-clock { font-variant-numeric: tabular-nums; }
-  .mbp-lang-de { display: none; }
-  :global(html[lang="de"]) .mbp-lang-de { display: inline; }
-  :global(html[lang="de"]) .mbp-lang-en { display: none; }
-  @container (max-width: 420px) {
-    .mbp-mb-menus { display: none; }
-    :global(html[lang]) .mbp-mb-menus { display: none; }
+  /* Scroll-linked rise where supported (Chrome/Edge); elsewhere the panel
+     simply stands — no observer, nothing that can leave it hidden. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .shots-panel {
+        animation: shots-rise linear both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 40%;
+      }
+    }
   }
-  /* App window floating on the desktop */
-  .mbp-window {
-    position: relative;
-    z-index: 2;
-    margin: auto 3.2cqw;
-    border-radius: 1cqw;
+  @keyframes shots-rise {
+    from {
+      transform: translateY(var(--wp-space-16)) scale(0.94);
+    }
+  }
+  /* The app window runs off the panel's lower edge. */
+  .shots-window {
+    width: min(100%, 60rem);
+    margin-inline: auto;
+    margin-bottom: calc(-1 * var(--wp-space-4));
+    border-radius: var(--wp-radius-card) var(--wp-radius-card) 0 0;
     overflow: hidden;
     box-shadow:
-      0 2.4cqw 5cqw rgb(0 0 0 / 0.5),
-      0 0 0 1px rgb(255 255 255 / 0.1);
+      0 0 0 1px var(--wp-border-strong),
+      var(--shadow-overlay);
+    transition: translate var(--dur-slow) var(--ease-flow);
   }
-  .mbp-window:last-child { margin-bottom: auto; }
-  /* mockup-colours:end */
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .shots-panel:hover .shots-window {
+      translate: 0 calc(-1 * var(--wp-space-2));
+    }
+  }
   .teaser-thumb-btn {
     display: block;
     width: 100%;
     padding: 0;
     border: 0;
-    background: var(--color-brand-darker);
+    background: var(--wp-surface-sunken);
     cursor: zoom-in;
   }
   .teaser-img {
@@ -305,37 +264,11 @@ const views = [
     object-fit: cover;
     object-position: top center;
   }
-  /* mockup-colours:start: device base and thumb groove imitate the real hardware */
-  /* Base: wider than the lid, bevelled front edge and the thumb groove. */
-  .mbp-base {
-    position: relative;
-    width: 100%;
-    height: 0;
-    padding-bottom: 2.6%;
-    border-radius: 0 0 46% 46% / 0 0 100% 100%;
-    background: linear-gradient(180deg, #6b6f77 0%, #3b3e44 38%, #1f2125 100%);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28);
-  }
-  .mbp-groove {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    translate: -50% 0;
-    width: 14%;
-    height: 38%;
-    border-radius: 0 0 var(--wp-radius-control) var(--wp-radius-control);
-    background: linear-gradient(180deg, #24262a, #44474e);
-  }
-  /* mockup-colours:end */
-  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-    .mbp { transition: transform 0.5s var(--ease-flow); }
-    .mbp:hover { transform: translateY(-4px); }
-  }
   .shots-caption {
     margin-top: var(--wp-space-2);
     text-align: center;
     font-size: var(--wp-font-size-md);
-    color: var(--color-ink-muted);
+    color: var(--wp-text-secondary);
   }
   .shots-more {
     margin-top: var(--wp-space-6);
@@ -348,12 +281,13 @@ const views = [
     font-weight: 600;
     color: var(--wp-text-link);
     text-decoration: none;
-    border-radius: var(--radius-chip);
+    border-radius: var(--wp-radius-chip);
   }
   .shots-more-link:hover { text-decoration: underline; }
   @media (prefers-reduced-motion: reduce) {
     .shots-switch-btn,
-    .shots-open { transition: none; }
+    .shots-open,
+    .shots-window { transition: none; }
   }
 </style>
 
