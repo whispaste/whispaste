@@ -6,9 +6,9 @@ const lang = currentLocale(Astro.currentLocale);
 const detailsHref = pathForSlug(lang, 'privacy-speech-recognition');
 
 // Two honest audio paths: local is the default, cloud only when the user picks
-// a provider. Each path is one ordered list drawn inside a "your computer"
-// boundary; on the cloud path the provider step sits outside it. The list
-// order stays mic → engine/provider → text for screen readers.
+// a provider. Each path shows a text-free motion loop (rendered from
+// website/motion/, one file for all languages) and, below it, the same route
+// as a numbered list — that list is what screen readers get.
 const paths = [
   {
     key: 'local',
@@ -16,6 +16,7 @@ const paths = [
     descKey: 'privacy.offline.desc',
     badgeKey: 'privacy.badge.default',
     steps: ['privacy.flow.mic', 'privacy.flow.localEngine', 'privacy.flow.localResult'],
+    video: 'privacy-local',
   },
   {
     key: 'cloud',
@@ -23,6 +24,7 @@ const paths = [
     descKey: 'privacy.directapi.desc',
     badgeKey: 'privacy.badge.optional',
     steps: ['privacy.flow.mic', 'privacy.flow.cloudProvider', 'privacy.flow.cloudResult'],
+    video: 'privacy-cloud',
   },
 ] as const;
 ---
@@ -43,7 +45,10 @@ const paths = [
         <article class={`privacy-path privacy-path--${p.key}`} data-testid={`privacy-path-${p.key}`}>
           <span class="privacy-badge" data-i18n={p.badgeKey}>{t(lang, p.badgeKey)}</span>
           <h3 class="privacy-path__title" data-i18n={p.titleKey}>{t(lang, p.titleKey)}</h3>
-          <ol class="privacy-flow" data-device-label={t(lang, 'privacy.flow.device')}>
+          <figure class="privacy-motion" aria-hidden="true">
+            <video muted loop playsinline preload="none" poster={`/motion/${p.video}.webp`} width="720" height="426" data-privacy-video={`/motion/${p.video}`} data-testid={`privacy-video-${p.key}`}></video>
+          </figure>
+          <ol class="privacy-flow">
             {p.steps.map((s, i) => (
               <li class={i === 1 ? 'privacy-step privacy-step--engine' : 'privacy-step'}><span data-i18n={s}>{t(lang, s)}</span></li>
             ))}
@@ -66,6 +71,36 @@ const paths = [
     </div>
   </div>
 </section>
+
+<script>
+  // Plays the privacy loops only while on screen and only when the visitor
+  // has not asked for reduced motion; otherwise the poster frame stays (it
+  // already shows the finished route).
+  const videos = document.querySelectorAll<HTMLVideoElement>('[data-privacy-video]');
+  if (videos.length && !matchMedia('(prefers-reduced-motion: reduce)').matches && 'IntersectionObserver' in window) {
+    // Transparent loops: WebKit only keeps alpha in HEVC (.mov), everyone
+    // else in VP9 WebM. Picked here because <source> order can't express it.
+    const ext = navigator.vendor.startsWith('Apple') ? 'mov' : 'webm';
+    videos.forEach((v) => {
+      v.src = `${v.dataset.privacyVideo}.${ext}`;
+    });
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          const v = e.target as HTMLVideoElement;
+          if (e.isIntersecting) {
+            v.preload = 'auto';
+            void v.play().catch(() => {});
+          } else {
+            v.pause();
+          }
+        }
+      },
+      { threshold: 0.35 },
+    );
+    videos.forEach((v) => io.observe(v));
+  }
+</script>
 
 <style>
   .privacy-layout {
@@ -130,84 +165,64 @@ const paths = [
     color: var(--wp-card-text);
   }
 
-  /* ---- Route: steps inside the dashed "your computer" boundary ---- */
+  /* ---- Motion stage: a pre-rendered, transparent loop (website/motion/) ---- */
+  .privacy-motion {
+    margin: 0;
+    /* No own backdrop: the loop is transparent and lies on the card. */
+    aspect-ratio: 720 / 426;
+  }
+  .privacy-motion video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* ---- Legend: the same route in words, numbered like the loop's order ---- */
   .privacy-flow {
     list-style: none;
-    margin: var(--wp-space-8) var(--wp-space-3) var(--wp-space-3);
+    margin: 0;
     padding: 0;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    /* Explicit rows, so the boundary's `1 / -1` spans every step. */
-    grid-template-rows: repeat(3, auto);
-    gap: var(--wp-space-5);
-  }
-  /* The boundary is the list's own grid item, spanning the device column,
-     so it needs no extra markup and the list order stays untouched. */
-  .privacy-flow::before {
-    content: attr(data-device-label);
-    grid-column: 1;
-    grid-row: 1 / -1;
-    align-self: stretch;
-    margin: calc(-1 * var(--wp-space-8)) calc(-1 * var(--wp-space-3)) calc(-1 * var(--wp-space-3));
-    padding: var(--wp-space-2) var(--wp-space-3);
-    border: 2px dashed color-mix(in srgb, var(--wp-accent-default) 55%, transparent);
-    border-radius: var(--wp-radius-control);
-    font-family: var(--font-mono);
-    font-size: var(--wp-font-size-2xs);
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--wp-text-link);
-    pointer-events: none;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wp-space-2);
+    counter-reset: step;
   }
   .privacy-step {
-    position: relative;
-    grid-column: 1;
-    padding: var(--wp-space-2) var(--wp-space-3);
-    border-radius: var(--wp-radius-control);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    padding: var(--wp-space-1) var(--wp-space-3) var(--wp-space-1) var(--wp-space-1);
+    border-radius: var(--wp-radius-pill);
     background: var(--wp-surface-control);
     border: 1px solid var(--wp-border-default);
-    font-size: var(--wp-font-size-md);
-    color: var(--wp-card-title);
-  }
-  .privacy-step:nth-child(1) { grid-row: 1; }
-  .privacy-step:nth-child(2) { grid-row: 2; }
-  .privacy-step:nth-child(3) { grid-row: 3; }
-  .privacy-path--local .privacy-step + .privacy-step::before {
-    content: "↓";
-    position: absolute;
-    left: var(--wp-space-4);
-    top: calc(-1 * var(--wp-space-5));
-    line-height: var(--wp-space-5);
     font-size: var(--wp-font-size-sm);
-    color: var(--wp-text-link);
+    color: var(--wp-card-title);
+    counter-increment: step;
   }
-  /* Cloud: mic and text stay inside the boundary, the provider sits outside
-     to the right — audio leaves the computer and the text comes back. */
-  .privacy-path--cloud .privacy-flow {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-rows: repeat(2, auto);
-    column-gap: var(--wp-space-10);
-    align-items: center;
+  .privacy-step::before {
+    content: counter(step);
+    display: inline-grid;
+    place-items: center;
+    width: var(--wp-space-6);
+    height: var(--wp-space-6);
+    border-radius: var(--wp-radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    color: var(--wp-color-navy-950);
+    background: var(--wp-accent-default);
   }
-  .privacy-path--cloud .privacy-step:nth-child(3) { grid-row: 2; }
+  /* Cloud: the provider is the one step outside the computer — dashed and
+     amber, like the crossing point in the loop. */
   .privacy-path--cloud .privacy-step--engine {
-    grid-column: 2;
-    grid-row: 1 / span 2;
     border-style: dashed;
     border-color: var(--wp-border-strong);
     background: transparent;
   }
   .privacy-path--cloud .privacy-step--engine::before {
-    content: "⇄";
-    position: absolute;
-    right: 100%;
-    top: 50%;
-    width: var(--wp-space-10);
-    translate: 0 -50%;
-    text-align: center;
-    font-size: var(--wp-font-size-md);
-    color: var(--wp-card-meta);
+    background: var(--wp-marker-stroke);
   }
 
   /* ---- Telemetry row ---- */

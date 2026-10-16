@@ -12,18 +12,38 @@ test('privacy section shows both audio paths and the details link', async ({ pag
   await expect(page.getByTestId('privacy-details')).toHaveAttribute('href', '/en/privacy-speech-recognition/');
 });
 
-// The routes draw a "your computer" boundary: on the local path every step is
-// inside it, on the cloud path the provider sits outside (second column).
-test('cloud provider sits outside the device boundary, local steps inside', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
-  const localOl = page.getByTestId('privacy-path-local').locator('ol');
-  await expect(localOl).toHaveAttribute('data-device-label', 'Dein Rechner');
-  const cloud = page.getByTestId('privacy-path-cloud').locator('ol li');
-  const [mic, provider] = await Promise.all([cloud.nth(0).boundingBox(), cloud.nth(1).boundingBox()]);
-  expect(mic && provider).toBeTruthy();
-  if (!mic || !provider) return;
-  expect(provider.x).toBeGreaterThan(mic.x + mic.width);
+// Each path has a transparent, text-free motion loop (VP9 WebM, HEVC .mov for
+// WebKit, poster as the still) that assistive tech skips; the numbered list
+// carries the words.
+for (const key of ['local', 'cloud'] as const) {
+  test(`${key} path shows its motion loop with poster and source files`, async ({ page, request }) => {
+    await page.goto('/');
+    const video = page.getByTestId(`privacy-video-${key}`);
+    await expect(video).toHaveAttribute('poster', `/motion/privacy-${key}.webp`);
+    await expect(video).toHaveAttribute('data-privacy-video', `/motion/privacy-${key}`);
+    await expect(page.getByTestId(`privacy-path-${key}`).locator('figure')).toHaveAttribute('aria-hidden', 'true');
+    for (const file of [`privacy-${key}.webp`, `privacy-${key}.webm`, `privacy-${key}.mov`]) {
+      expect((await request.get(`/motion/${file}`)).ok()).toBe(true);
+    }
+  });
+}
+
+test('loops play on screen, but not with reduced motion', async ({ browser }) => {
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    const page = await browser.newPage({ reducedMotion });
+    await page.goto('/');
+    await page.getByTestId('privacy-video-local').scrollIntoViewIfNeeded();
+    const paused = () => page.getByTestId('privacy-video-local').evaluate((v: HTMLVideoElement) => v.paused);
+    if (reducedMotion === 'reduce') {
+      await page.waitForTimeout(800);
+      expect(await paused()).toBe(true);
+    } else {
+      await expect.poll(paused).toBe(false);
+      // Chromium gets the VP9 file (alpha); WebKit would get the HEVC .mov.
+      expect(await page.getByTestId('privacy-video-local').evaluate((v: HTMLVideoElement) => v.currentSrc)).toMatch(/privacy-local\.webm$/);
+    }
+    await page.close();
+  }
 });
 
 test('privacy routes fit without sideways scroll at 390px', async ({ page }) => {

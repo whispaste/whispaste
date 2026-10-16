@@ -841,7 +841,6 @@ const dict: Record<string, string> = {
   'screenshots.openFull': 'Ampliar',
   'privacy.badge.default': 'Padrão',
   'privacy.badge.optional': 'Só se você escolher',
-  'privacy.flow.device': 'Seu computador',
   'privacy.flow.mic': 'Microfone',
   'privacy.flow.localEngine': 'Whisper ou Parakeet',
   'privacy.flow.localResult': 'Texto no seu computador',

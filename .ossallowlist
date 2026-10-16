@@ -90,6 +90,8 @@ website/src/
 website/public/
 website/tests/
 website/scripts/
+# Remotion sources for the pre-rendered website motion loops
+website/motion/
 
 # Store-Listings (öffentliche Marketing-Texte, MS-Store-Partner-Center)
 store/
