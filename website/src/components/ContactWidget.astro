@@ -318,6 +318,20 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   @keyframes cw-in {
     from { opacity: 0; transform: translateY(0.5rem) scale(0.98); }
   }
+  /* After opening, a short wiggle from the anchored corner draws the eye:
+     the FAQ "ask" button opens the panel on the far side of the screen. */
+  .cw-panel.is-nudged {
+    animation:
+      cw-in var(--dur-base) var(--ease-flow),
+      cw-nudge var(--dur-cinematic) var(--ease-flow) var(--dur-base);
+  }
+  @keyframes cw-nudge {
+    0%, 100% { rotate: 0deg; }
+    15% { rotate: -2.5deg; }
+    35% { rotate: 2deg; }
+    55% { rotate: -1.25deg; }
+    75% { rotate: 0.5deg; }
+  }
   .cw-head {
     display: flex;
     align-items: center;
@@ -511,6 +525,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
       transition: none;
     }
     .cw-panel,
+    .cw-panel.is-nudged,
     .cw-teaser,
     .cw-badge {
       animation: none;
@@ -582,6 +597,10 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
       markSeen();
       panel.hidden = false;
       launcher.setAttribute('aria-expanded', 'true');
+      // Restart the wiggle on every open, also when the panel is already open.
+      panel.classList.remove('is-nudged');
+      void panel.offsetWidth;
+      panel.classList.add('is-nudged');
       title.focus();
     };
     const close = () => {

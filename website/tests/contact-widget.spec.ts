@@ -57,6 +57,23 @@ test.describe('desktop', () => {
     await expect(launcher).toHaveAttribute('aria-expanded', 'false');
   });
 
+  test('panel wiggles after opening from the FAQ, not with reduced motion', async ({ page }) => {
+    await page.goto('/en/');
+    const panel = page.getByTestId('contact-panel');
+    const names = () =>
+      panel.evaluate((el) => el.getAnimations().map((a) => (a as CSSAnimation).animationName));
+    await page.getByTestId('faq-ask-open').click();
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveClass(/is-nudged/);
+    await expect.poll(names).toContain('cw-nudge');
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.getByTestId('contact-close').click();
+    await page.getByTestId('faq-ask-open').click();
+    await expect(panel).toBeVisible();
+    expect(await names()).toEqual([]);
+  });
+
   test('ideas go to the public board, problems get the FAQ hint', async ({ page }) => {
     await page.goto('/en/');
     await page.getByTestId('contact-launcher').click();
