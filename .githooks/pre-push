@@ -238,6 +238,21 @@ EOF
   fi
 done
 
+# ── 2a'. Website needs its API live first ─────────────────────────────
+# The website calls api.whispaste.de (contact form, star count). The API is
+# released first by the private release script; a main push while the API
+# is down would ship a site with a broken contact form.
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr local_sha rref remote_sha <<<"$_refline" || true
+  [ "$local_sha" = "$ZERO" ] && continue
+  [ "$rref" = "refs/heads/main" ] || continue
+  _api_status="$(curl -s -o /dev/null -m 15 -w '%{http_code}' https://api.whispaste.de/v1/health || true)"
+  if [ "$_api_status" != "200" ]; then
+    echo "pre-push: BLOCKED — https://api.whispaste.de/v1/health answers '$_api_status'; release the API before the website." >&2
+    exit 1
+  fi
+done
+
 # ── 2b. Branch-/Worktree-Hygiene (nur dev/main dürfen existieren) ──────
 # Silvios feste Vorgabe (2026-09-07, nach einem Vorfall mit ~26 liegen
 # gebliebenen Bot-Suggestion-/PR-Inspection-Branches): sobald dev oder main
