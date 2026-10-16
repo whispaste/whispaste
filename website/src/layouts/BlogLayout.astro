@@ -2,11 +2,12 @@
 /**
  * Shared frame for the blog index and posts. Built on SubpageLayout (nav,
  * full footer, language switch, pointer spotlight) like every other page
- * outside the landing; adds the RSS alternate link and the band surface.
- * Reading measure is set by the pages themselves (the blog renders its own
- * editorial header instead of PageHero).
+ * outside the landing; adds the RSS alternate link. The editorial header
+ * (slot "hero": crumbs, title, lead) sits on the dark stage like PageHero,
+ * the content in the light PageSheet below, as on every other subpage.
  */
 import SubpageLayout from "./SubpageLayout.astro";
+import PageSheet from "../components/PageSheet.astro";
 import { feedPath } from "../scripts/blog.ts";
 import { t, type Locale } from "../scripts/i18n.ts";
 
@@ -21,9 +22,12 @@ const { lang, title, description } = Astro.props;
 
 <SubpageLayout lang={lang} title={title} description={description}>
   <link slot="head" rel="alternate" type="application/rss+xml" title={t(lang, "blog.seoTitle")} href={feedPath(lang)} />
-  <div class="band band-spotlight pt-28 sm:pt-32 pb-20 sm:pb-28">
+  <header class="page-hero band band-spotlight" data-testid="blog-hero">
     <div class="wp-container">
-      <slot />
+      <slot name="hero" />
     </div>
-  </div>
+  </header>
+  <PageSheet>
+    <slot />
+  </PageSheet>
 </SubpageLayout>

@@ -13,8 +13,21 @@ test('blog index lists a post that opens', async ({ page }) => {
   await page.goto('/blog/');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Blog');
   await page.getByTestId('blog-list').getByRole('link').first().click();
-  await expect(page.getByTestId('blog-article').getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByTestId('blog-hero').getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByTestId('blog-article')).toHaveAttribute('aria-labelledby', 'post-title');
 });
+
+// Same frame as every other subpage: head on the dark stage, content in
+// the light page sheet.
+for (const path of ['/blog/', '/blog/vom-hotkey-zum-text-im-aktiven-fenster/']) {
+  test(`${path}: head on the stage, content in the light sheet`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.getByTestId('blog-hero').getByRole('heading', { level: 1 })).toBeVisible();
+    const sheet = page.getByTestId('page-sheet');
+    await expect(sheet).toHaveAttribute('data-surface', 'light');
+    await expect(sheet.getByTestId(path === '/blog/' ? 'blog-list' : 'blog-article')).toBeVisible();
+  });
+}
 
 test('blog index leads with the newest post and uses the full landing footer', async ({ page }) => {
   await page.goto('/blog/');

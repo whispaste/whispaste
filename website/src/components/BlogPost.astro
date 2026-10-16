@@ -43,19 +43,21 @@ const articleSchema = {
 ---
 
 <BlogLayout lang={lang} title={entry.data.title} description={entry.data.description}>
-  <BlogCrumbs items={breadcrumbs} />
 
-  <article data-testid="blog-article">
-    <header class="post-head">
-      <p class="post-meta">
-        <time datetime={entry.data.date.toISOString()}>{formatDate.format(entry.data.date)}</time>
-        <span aria-hidden="true">·</span>
-        <span>{t(lang, "blog.readTime").replace("{n}", String(readingMinutes(entry.body ?? "")))}</span>
-      </p>
-      <h1 class="post-title">{entry.data.title}</h1>
-      <p class="post-lead">{entry.data.description}</p>
-    </header>
+  <!-- Head on the dark stage (layout slot "hero"); the article body sits in
+       the light sheet and points back to the title. -->
+  <div slot="hero" class="post-head">
+    <BlogCrumbs items={breadcrumbs} />
+    <p class="post-meta">
+      <time datetime={entry.data.date.toISOString()}>{formatDate.format(entry.data.date)}</time>
+      <span aria-hidden="true">·</span>
+      <span>{t(lang, "blog.readTime").replace("{n}", String(readingMinutes(entry.body ?? "")))}</span>
+    </p>
+    <h1 class="post-title" id="post-title">{entry.data.title}</h1>
+    <p class="post-lead">{entry.data.description}</p>
+  </div>
 
+  <article data-testid="blog-article" aria-labelledby="post-title">
     <BlogCover seed={slug} variant="hero" />
 
     <div class="post-layout">
@@ -102,7 +104,6 @@ const articleSchema = {
   /* ---- Header: editorial, wide title, measured lead ---- */
   .post-head {
     max-width: 64rem;
-    margin-bottom: clamp(var(--wp-space-8), var(--wp-space-6) + 2vw, 3.5rem);
   }
   .post-meta {
     display: flex;

@@ -23,13 +23,14 @@ const breadcrumbs = [
 ---
 
 <BlogLayout lang={lang} title={t(lang, "blog.seoTitle")} description={t(lang, "blog.seoDescription")}>
-  <BlogCrumbs items={breadcrumbs} />
-
-  <header class="wp-section-head">
-    <p class="wp-eyebrow">{t(lang, "blog.label")}</p>
-    <h1 class="section-title">{t(lang, "blog.heading")}</h1>
-    <p class="wp-lead">{t(lang, "blog.lead")}</p>
-  </header>
+  <Fragment slot="hero">
+    <BlogCrumbs items={breadcrumbs} />
+    <div class="wp-section-head blog-index-head">
+      <p class="wp-eyebrow">{t(lang, "blog.label")}</p>
+      <h1 class="section-title">{t(lang, "blog.heading")}</h1>
+      <p class="wp-lead">{t(lang, "blog.lead")}</p>
+    </div>
+  </Fragment>
 
   {latest === undefined ? (
     <p class="text-ink-muted" data-testid="blog-empty">{t(lang, "blog.empty")}</p>
@@ -64,5 +65,9 @@ const breadcrumbs = [
   }
   .blog-grid-lead {
     grid-column: 1 / -1;
+  }
+  /* The head sits alone on the stage; the sheet below takes the gap. */
+  .blog-index-head {
+    margin-bottom: 0;
   }
 </style>
