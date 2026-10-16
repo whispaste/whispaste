@@ -86,6 +86,16 @@ function avatarFor(text: string, index: number) {
   };
 }
 
+// Pangram principle (tone, not motif): a few big quote tiles in different
+// tones instead of a uniform card wall. The longest quote leads as a dark
+// panel spanning two columns and rows; every third other tile is tinted.
+const featured = testimonials.reduce(
+  (best, item, i) => (item.text.length > testimonials[best].text.length ? i : best),
+  0,
+);
+const tone = (i: number) =>
+  i === featured ? 'feature' : (i - (i > featured ? 1 : 0)) % 3 === 1 ? 'tint' : 'plain';
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -105,15 +115,19 @@ function escapeHtml(s: string): string {
         <p class="wp-lead mt-4" data-i18n="testimonials.subtitle">{t(lang, "testimonials.subtitle")}</p>
       </div>
 
-      <div class="testimonial-grid">
+      <div class="testimonial-grid" data-testid="testimonials-grid">
         {testimonials.map((item, i) => {
           const r = Math.max(0, Math.min(5, Math.round(item.rating) || 0));
           const av = avatarFor(item.text, i);
           const id = `tm-av-${i}`;
           return (
-            <figure class="testimonial-card" data-testid={`testimonials-card-${i}`}>
-              <span class="testimonial-mark" aria-hidden="true">“</span>
-              <svg class="testimonial-avatar" viewBox="0 0 48 48" aria-hidden="true" style={`--tm-tone: ${av.face}`}>
+            <figure
+              class={`testimonial-card testimonial-card--${tone(i)}`}
+              data-surface={i === featured ? 'dark' : undefined}
+              data-testid={`testimonials-card-${i}`}
+            >
+              <div class="testimonial-head" aria-hidden="true">
+              <svg class="testimonial-avatar" viewBox="0 0 48 48" style={`--tm-tone: ${av.face}`}>
                 <defs>
                   <clipPath id={`${id}-c`}><circle cx="24" cy="24" r="24" /></clipPath>
                 </defs>
@@ -129,11 +143,11 @@ function escapeHtml(s: string): string {
                   </g>
                 </g>
               </svg>
-              <div class="testimonial-body">
-                <div class="testimonial-stars" role="img" aria-label={`${r}/5`}>
-                  <span aria-hidden="true">{'★'.repeat(r)}<span class="testimonial-stars__off">{'★'.repeat(5 - r)}</span></span>
-                </div>
-                <blockquote class="testimonial-text" set:html={escapeHtml(item.text)} />
+              <svg class="testimonial-glyph" viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5H3v8h4c0 3-1 5-4 5zm11 0c3 0 7-1 7-8V5h-7v8h4c0 3-1 5-4 5z" fill="currentColor" /></svg>
+              </div>
+              <blockquote class="testimonial-text" set:html={escapeHtml(item.text)} />
+              <div class="testimonial-stars" role="img" aria-label={`${r}/5`}>
+                <span aria-hidden="true">{'★'.repeat(r)}<span class="testimonial-stars__off">{'★'.repeat(5 - r)}</span></span>
               </div>
             </figure>
           );
@@ -144,67 +158,84 @@ function escapeHtml(s: string): string {
 )}
 
 <style>
+  /* Bento: the featured quote spans 2 × 2 cells, `dense` fills the rest, so
+     six quotes close a 3 × 3 grid with no gaps. */
   .testimonial-grid {
     display: grid;
     gap: var(--wp-space-4);
   }
   @media (min-width: 640px) {
-    .testimonial-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+    .testimonial-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-flow: dense;
+      gap: var(--wp-space-5);
+    }
+    .testimonial-card--feature { grid-column: span 2; }
   }
   @media (min-width: 1024px) {
     .testimonial-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .testimonial-card--feature { grid-row: span 2; }
   }
-  /* Avatar + quote read as one message: the face sits beside the stars and
-     the text, a large faint quote mark anchors the card's corner. */
+
   .testimonial-card {
-    position: relative;
     margin: 0;
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: start;
+    display: flex;
+    flex-direction: column;
     gap: var(--wp-space-4);
-    padding: var(--wp-space-6) var(--wp-space-6) 1.75rem;
-    overflow: hidden;
-    border-radius: var(--radius-card);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius);
     border: 1px solid var(--wp-card-border);
-    background:
-      radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--tm-glow, var(--color-brand-cyan)) 9%, transparent), transparent 60%),
-      var(--color-brand-card);
-    box-shadow: var(--shadow-card);
-    transition: border-color var(--wp-duration-slow) var(--ease-flow), transform var(--wp-duration-slow) var(--ease-flow), box-shadow var(--wp-duration-slow) var(--ease-flow);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
+    color: var(--wp-card-title);
   }
-  .testimonial-card:hover {
-    border-color: color-mix(in srgb, var(--color-brand-cyan) 24%, transparent);
-    box-shadow: var(--shadow-card-hover);
-    transform: translateY(-2px);
+  .testimonial-card--tint {
+    border-color: transparent;
+    background: var(--wp-accent-soft);
+    box-shadow: none;
   }
-  .testimonial-mark {
-    position: absolute;
-    top: 0.5rem;
-    right: 1.25rem;
-    font-family: var(--font-display, inherit);
-    font-size: var(--wp-font-size-display);
-    line-height: 1;
-    font-weight: 700;
-    color: var(--color-brand-cyan);
-    opacity: 0.1;
-    pointer-events: none;
-    user-select: none;
+  /* The dark panel rises from the light band (data-surface="dark" swaps the
+     semantic tokens); one large corner marks it as the lead quote. */
+  .testimonial-card--feature {
+    justify-content: space-between;
+    border-radius: var(--wp-card-radius-lg);
+    border-top-right-radius: calc(var(--wp-card-radius-lg) * 3);
+    background: var(--wp-surface-band);
+  }
+
+  .testimonial-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
   }
   .testimonial-avatar {
-    width: 3rem;
-    height: 3rem;
-    border-radius: 50%;
-    box-shadow:
-      0 0 0 3px var(--color-brand-card),
-      0 0 0 4px color-mix(in srgb, var(--tm-tone) 55%, transparent),
-      0 6px 18px -6px color-mix(in srgb, var(--tm-tone) 60%, transparent);
+    width: var(--wp-space-10);
+    height: var(--wp-space-10);
+    border-radius: var(--wp-radius-pill);
+    box-shadow: 0 0 0 2px var(--wp-card-fill), 0 0 0 3px var(--tm-tone);
   }
-  .testimonial-body {
-    position: relative;
-    min-width: 0;
+  .testimonial-glyph {
+    width: var(--wp-space-6);
+    height: var(--wp-space-6);
+    color: var(--wp-accent-default);
+  }
+  .testimonial-text {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-xl);
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: var(--wp-text-primary);
+    text-wrap: pretty;
+  }
+  .testimonial-card--feature .testimonial-text {
+    font-size: var(--wp-font-size-title);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
   }
   .testimonial-stars {
+    margin-top: auto;
     color: var(--wp-highlight-text);
     font-size: var(--wp-font-size-sm);
     letter-spacing: 0.12em;
@@ -212,15 +243,5 @@ function escapeHtml(s: string): string {
   }
   .testimonial-stars__off {
     color: var(--wp-border-strong);
-  }
-  .testimonial-text {
-    margin: var(--wp-space-2) 0 0;
-    color: var(--color-ink);
-    font-size: var(--wp-font-size-md);
-    line-height: 1.65;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .testimonial-card { transition: none; }
-    .testimonial-card:hover { transform: none; }
   }
 </style>
