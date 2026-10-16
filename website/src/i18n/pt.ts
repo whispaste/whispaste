@@ -866,6 +866,7 @@ const dict: Record<string, string> = {
   'footer.resourcesMore': 'Mais recursos',
   'nav.features': 'Recursos',
   'nav.privacy': 'Local e privado',
+  'nav.blog': 'Blog',
   'mobileCta.label': 'Ver downloads para desktop',
   'support.paypal': 'Doar via PayPal',
   'sponsor.paypal.title': 'PayPal',

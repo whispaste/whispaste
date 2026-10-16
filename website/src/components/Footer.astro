@@ -26,6 +26,7 @@ const offlineSttHref = pathForSlug(lang, 'offline-speech-to-text');
 const privacyExplainerHref = pathForSlug(lang, 'privacy-speech-recognition');
 const dictationAlternativesHref = pathForSlug(lang, 'comparison/voice-input-tool-alternatives');
 const osDictationHref = pathForSlug(lang, 'comparison/whispaste-vs-system-speech-to-text');
+const blogHref = pathForSlug(lang, 'blog');
 const gpuCheckHref = pathForSlug(lang, 'gpu-compatibility');
 const modelSizeHref = pathForSlug(lang, 'whisper-model-size');
 const linuxSttHref = pathForSlug(lang, 'linux-speech-to-text');
@@ -37,6 +38,7 @@ const productLinks = [
 ];
 // First three stay visible, the rest sits in the "more resources" disclosure.
 const resourceLinks = [
+  { id: 'blog', href: blogHref, key: 'nav.blog' },
   { id: 'engines', href: enginesHref, key: 'explainer.engines.breadcrumb' },
   { id: 'offline-stt', href: offlineSttHref, key: 'explainer.offlineStt.breadcrumb' },
   { id: 'privacy-explainer', href: privacyExplainerHref, key: 'explainer.privacy.breadcrumb' },

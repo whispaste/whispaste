@@ -79,6 +79,13 @@ const EN_SLUGS: Record<string, string> = Object.fromEntries(
  */
 const LEGAL_SLUGS: ReadonlySet<string> = new Set(['impressum', 'privacy']);
 
+/**
+ * The blog is written in German and English only, with identical post slugs
+ * in both. Other locales link to the English blog, like the legal pages.
+ */
+const isBlogSlug = (slug: string): boolean => slug === 'blog' || slug.startsWith('blog/');
+const isGermanEnglishOnly = (slug: string): boolean => LEGAL_SLUGS.has(slug) || isBlogSlug(slug);
+
 /** Splits a root-relative pathname into its locale and the English slug. */
 export function parsePath(pathname: string): { locale: Locale; slug: string } {
   const trimmed = pathname.replace(/^\/+|\/+$/g, '');
@@ -91,13 +98,13 @@ export function parsePath(pathname: string): { locale: Locale; slug: string } {
 
 /** Locales a page (given by its English slug) is published in. */
 export function localesForSlug(slug: string): readonly Locale[] {
-  return LEGAL_SLUGS.has(slug) ? ['de', 'en'] : SUPPORTED_LOCALES;
+  return isGermanEnglishOnly(slug) ? ['de', 'en'] : SUPPORTED_LOCALES;
 }
 
 /** URL of the page with English slug `slug` in `locale`. */
 export function pathForSlug(locale: Locale, slug: string): string {
   if (locale === DEFAULT_LOCALE) return localePath(locale, DE_SLUGS[slug] ?? slug);
-  if (LEGAL_SLUGS.has(slug)) return localePath('en', slug);
+  if (isGermanEnglishOnly(slug)) return localePath('en', slug);
   return localePath(locale, slug);
 }
 

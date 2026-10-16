@@ -1,0 +1,34 @@
+---
+/**
+ * Shared frame for the blog index and posts: global Layout + subpage Nav and
+ * Footer + a reading column that matches the nav pill's width.
+ */
+import Layout from "./Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import type { Locale } from "../scripts/i18n.ts";
+
+interface Props {
+  readonly lang: Locale;
+  readonly title: string;
+  readonly description: string;
+}
+
+const { lang, title, description } = Astro.props;
+---
+
+<Layout title={title} description={description} lang={lang}>
+  <div class="min-h-screen flex flex-col">
+    <Nav variant="subpage" />
+    <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
+      <div class="max-w-3xl mx-auto px-5 sm:px-6">
+        <slot />
+      </div>
+    </main>
+    <Footer variant="subpage" />
+  </div>
+  <script>
+    import { applyLang } from '../scripts/lang-switch';
+    applyLang();
+  </script>
+</Layout>

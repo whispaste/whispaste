@@ -1,5 +1,5 @@
 ---
-import { t, localePath, isLocale, DEFAULT_LOCALE } from '../scripts/i18n.ts';
+import { t, localePath, pathForSlug, isLocale, DEFAULT_LOCALE } from '../scripts/i18n.ts';
 import LanguageSwitcher from './LanguageSwitcher.astro';
 // Inline-tintable OS glyphs for the platform-adaptive Download CTA. Raw-imported
 // so `fill="currentColor"` inherits the button's text color — an <img>-embedded
@@ -28,6 +28,7 @@ const lang = isLocale(Astro.currentLocale) ? Astro.currentLocale : DEFAULT_LOCAL
 // searchers actually intend to sponsor. The link is kept in the footer.
 const downloadHref = localePath(lang, 'download');
 const backHref = localePath(lang, '');
+const blogHref = pathForSlug(lang, 'blog');
 
 // Subpages don't own the landing page's in-page anchors, so the same nav
 // row links back to the homepage section instead of scrolling nowhere —
@@ -74,6 +75,7 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
       <a href={anchor("features")} class="hover:text-white transition-colors" data-testid="nav-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
       <a href={anchor("privacy")} class="hover:text-white transition-colors" data-testid="nav-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
       <a href={anchor("faq")} class="hover:text-white transition-colors" data-testid="nav-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
+      <a href={blogHref} class="hover:text-white transition-colors" data-testid="nav-link-blog" data-i18n="nav.blog">{t(lang, "nav.blog")}</a>
     </div>
     {/* Rechte Aktionsgruppe: Utilities (Sprache/Theme/GitHub) nur ab lg,
         der Download-CTA schon ab sm (640–1023px behält so die eine primäre
@@ -134,6 +136,7 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
         <a href={anchor("features")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
         <a href={anchor("privacy")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
         <a href={anchor("faq")} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
+        <a href={blogHref} class="mobile-nav-link block py-3 text-ink-muted hover:text-white transition-colors text-[15px] border-t border-white/[0.04]" data-testid="nav-menu-link-blog" data-i18n="nav.blog">{t(lang, "nav.blog")}</a>
         <div class="flex items-center gap-5 py-3 border-t border-white/[0.04]">
           <LanguageSwitcher lang={lang} variant="inline" />
           <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-ink-muted hover:text-white transition-colors" aria-label="GitHub">

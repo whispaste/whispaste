@@ -1,0 +1,73 @@
+---
+import { getCollection } from "astro:content";
+import BlogLayout from "../layouts/BlogLayout.astro";
+import BreadcrumbListSchema from "./schema/BreadcrumbListSchema.astro";
+import { t, localePath, type Locale } from "../scripts/i18n.ts";
+
+interface Props {
+  lang: Locale;
+}
+const { lang } = Astro.props;
+
+const posts = (await getCollection("blog"))
+  .filter((post) => post.id.startsWith(`${lang}/`))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+
+const formatDate = new Intl.DateTimeFormat(lang, { dateStyle: "long", timeZone: "UTC" });
+const slugOf = (id: string) => id.slice(id.indexOf("/") + 1);
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "nav.blog"), item: localePath(lang, "blog") },
+];
+---
+
+<BlogLayout lang={lang} title={t(lang, "blog.seoTitle")} description={t(lang, "blog.seoDescription")}>
+  <nav aria-label="Breadcrumb" class="mb-8 text-sm text-ink-subtle">
+    <ol class="flex flex-wrap items-center gap-2">
+      <li class="flex items-center gap-2">
+        <a href={breadcrumbs[0].item} class="hover:text-ink-muted transition-colors">{breadcrumbs[0].name}</a>
+        <span class="text-ink-subtle/60" aria-hidden="true">/</span>
+      </li>
+      <li><span class="text-ink-muted" aria-current="page">{breadcrumbs[1].name}</span></li>
+    </ol>
+  </nav>
+
+  <header class="mb-10">
+    <h1 class="blog-title text-3xl sm:text-4xl mb-4 leading-tight">{t(lang, "blog.heading")}</h1>
+    <p class="text-lg leading-relaxed text-ink-muted">{t(lang, "blog.lead")}</p>
+  </header>
+
+  {posts.length === 0 ? (
+    <p class="text-ink-muted" data-testid="blog-empty">{t(lang, "blog.empty")}</p>
+  ) : (
+    <ul class="flex flex-col gap-4" data-testid="blog-list">
+      {posts.map((post) => (
+        <li>
+          <a
+            href={localePath(lang, `blog/${slugOf(post.id)}`)}
+            class="blog-card block rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6 transition-colors hover:border-brand-cyan/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+            data-testid={`blog-post-${slugOf(post.id)}`}
+          >
+            <time class="text-xs uppercase tracking-wider text-ink-subtle" datetime={post.data.date.toISOString()}>{formatDate.format(post.data.date)}</time>
+            <h2 class="blog-card-title mt-2 text-xl font-semibold">{post.data.title}</h2>
+            <p class="mt-2 text-ink-muted leading-relaxed">{post.data.description}</p>
+          </a>
+        </li>
+      ))}
+    </ul>
+  )}
+
+  <BreadcrumbListSchema items={breadcrumbs} />
+</BlogLayout>
+
+<style>
+  .blog-title,
+  .blog-card-title {
+    font-family: var(--font-display);
+    color: var(--color-ink);
+  }
+  .blog-title {
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+</style>

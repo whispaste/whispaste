@@ -869,6 +869,7 @@ const dict: Record<string, string> = {
   'footer.resourcesMore': '更多资源',
   'nav.features': '功能',
   'nav.privacy': '本地与隐私',
+  'nav.blog': '博客',
   'mobileCta.label': '查看桌面版下载',
   'support.paypal': '通过 PayPal 捐助',
   'sponsor.paypal.title': 'PayPal',

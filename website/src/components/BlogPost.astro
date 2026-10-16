@@ -1,0 +1,108 @@
+---
+import { getCollection, render } from "astro:content";
+import BlogLayout from "../layouts/BlogLayout.astro";
+import BreadcrumbListSchema from "./schema/BreadcrumbListSchema.astro";
+import { t, localePath, SITE_ORIGIN_FALLBACK, type Locale } from "../scripts/i18n.ts";
+
+interface Props {
+  lang: Locale;
+  slug: string;
+}
+const { lang, slug } = Astro.props;
+
+const entry = (await getCollection("blog")).find((post) => post.id === `${lang}/${slug}`);
+if (!entry) throw new Error(`Blog post not found: ${lang}/${slug}`);
+const { Content } = await render(entry);
+
+const formatDate = new Intl.DateTimeFormat(lang, { dateStyle: "long", timeZone: "UTC" });
+const blogHref = localePath(lang, "blog");
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "nav.blog"), item: blogHref },
+  { name: entry.data.title, item: localePath(lang, `blog/${slug}`) },
+];
+const articleSchema = {
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  headline: entry.data.title,
+  description: entry.data.description,
+  datePublished: entry.data.date.toISOString(),
+  inLanguage: lang,
+  author: { "@type": "Organization", name: "WhisPaste" },
+};
+---
+
+<BlogLayout lang={lang} title={entry.data.title} description={entry.data.description}>
+  <nav aria-label="Breadcrumb" class="mb-8 text-sm text-ink-subtle">
+    <ol class="flex flex-wrap items-center gap-2">
+      {breadcrumbs.map((crumb, index) => (
+        <li class="flex items-center gap-2">
+          {index === breadcrumbs.length - 1 ? (
+            <span class="text-ink-muted" aria-current="page">{crumb.name}</span>
+          ) : (
+            <a href={crumb.item} class="hover:text-ink-muted transition-colors">{crumb.name}</a>
+          )}
+          {index < breadcrumbs.length - 1 && <span class="text-ink-subtle/60" aria-hidden="true">/</span>}
+        </li>
+      ))}
+    </ol>
+  </nav>
+
+  <article data-testid="blog-article">
+    <header class="mb-10">
+      <time class="text-xs uppercase tracking-wider text-ink-subtle" datetime={entry.data.date.toISOString()}>{formatDate.format(entry.data.date)}</time>
+      <h1 class="post-title text-3xl sm:text-4xl mt-2 leading-tight">{entry.data.title}</h1>
+    </header>
+    <div class="post-body">
+      <Content />
+    </div>
+  </article>
+
+  <p class="mt-12 pt-6 border-t border-white/5 text-sm">
+    <a href={blogHref} class="text-ink-muted hover:text-white transition-colors">← {t(lang, "blog.back")}</a>
+  </p>
+
+  <script type="application/ld+json" set:html={JSON.stringify(articleSchema)} />
+  <BreadcrumbListSchema items={breadcrumbs} />
+</BlogLayout>
+
+<style>
+  .post-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+  }
+  .post-body :global(h2) {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
+    color: var(--color-ink);
+    margin: 2.25rem 0 0.75rem;
+  }
+  .post-body :global(p),
+  .post-body :global(li) {
+    color: var(--color-ink-muted);
+    line-height: 1.7;
+  }
+  .post-body :global(p + p) {
+    margin-top: 0.85rem;
+  }
+  .post-body :global(ul) {
+    margin-top: 0.85rem;
+    padding-left: 1.35rem;
+    list-style: disc;
+  }
+  .post-body :global(li + li) {
+    margin-top: 0.5rem;
+  }
+  .post-body :global(strong) {
+    color: var(--color-ink);
+  }
+  .post-body :global(a) {
+    color: var(--color-brand-cyan);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>
