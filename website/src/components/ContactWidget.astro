@@ -591,6 +591,10 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     };
 
     launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
+    // Page elements can open the widget too (e.g. the FAQ "ask" button).
+    document.addEventListener('click', (e) => {
+      if ((e.target as Element | null)?.closest('[data-contact-open]')) open();
+    });
     root.querySelector('[data-cw-close]')!.addEventListener('click', close);
     root.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && !panel.hidden) close();

@@ -1,0 +1,76 @@
+---
+/**
+ * Motion illustration: hardware inclusivity. One model chip routes work
+ * over three lanes (CUDA, Vulkan, CPU); packets travel every lane, so every
+ * machine gets a path. Inline SVG + CSS, transform/opacity only; static
+ * under prefers-reduced-motion. Decorative.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+const lanes = [
+  { y: 96, label: 'CUDA' },
+  { y: 160, label: 'VULKAN' },
+  { y: 224, label: 'CPU' },
+];
+---
+
+<svg
+  class:list={['motion-hw', className]}
+  viewBox="0 0 480 320"
+  fill="none"
+  aria-hidden="true"
+  focusable="false"
+  data-testid="motion-hardware"
+>
+  <defs>
+    <linearGradient id="hw-accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6FDDF0" />
+      <stop offset="1" stop-color="#0BAACC" />
+    </linearGradient>
+  </defs>
+
+  <!-- chip -->
+  <g class="chip">
+    {[0, 1, 2, 3, 4].map((i) => (
+      <>
+        <rect x={52 + i * 16} y="96" width="4" height="12" rx="2" fill="rgba(111,221,240,.45)" />
+        <rect x={52 + i * 16} y="212" width="4" height="12" rx="2" fill="rgba(111,221,240,.45)" />
+      </>
+    ))}
+    <rect x="36" y="106" width="108" height="108" rx="18" fill="#171D53" stroke="url(#hw-accent)" stroke-width="2" />
+    <rect class="core" x="62" y="132" width="56" height="56" rx="10" fill="url(#hw-accent)" />
+  </g>
+
+  {lanes.map((lane, i) => (
+    <g style={`--i:${i}`}>
+      <path d={`M144 160 C 200 160, 200 ${lane.y}, 256 ${lane.y} L 340 ${lane.y}`} stroke="rgba(171,184,204,.28)" stroke-width="2" />
+      <rect x="340" y={lane.y - 22} width="112" height="44" rx="12" fill="#0D1936" stroke="rgba(171,184,204,.22)" />
+      <text x="396" y={lane.y + 5} text-anchor="middle" fill="#ABB8CC" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="1.5">{lane.label}</text>
+      <circle class="led" cx="356" cy={lane.y} r="4" fill="#6FDDF0" />
+      <circle class="packet" cx="256" cy={lane.y} r="5" fill="#6FDDF0" />
+    </g>
+  ))}
+</svg>
+
+<style>
+  .motion-hw { display: block; width: 100%; height: auto; }
+  .motion-hw .core,
+  .motion-hw .packet,
+  .motion-hw .led { transform-box: fill-box; transform-origin: center; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-hw .core { animation: hw-core 3s ease-in-out infinite; }
+    .motion-hw .packet { animation: hw-packet 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite; animation-delay: calc(var(--i) * 0.8s); }
+    .motion-hw .led { animation: hw-led 2.4s ease-in-out infinite; animation-delay: calc(var(--i) * 0.8s + 0.9s); }
+  }
+  @keyframes hw-core { 0%, 100% { opacity: 0.75; transform: scale(0.94); } 50% { opacity: 1; transform: scale(1); } }
+  @keyframes hw-packet {
+    0% { transform: translateX(0); opacity: 0; }
+    10% { opacity: 1; }
+    45% { transform: translateX(80px); opacity: 1; }
+    55%, 100% { transform: translateX(84px); opacity: 0; }
+  }
+  @keyframes hw-led { 0%, 100% { opacity: 0.35; } 15% { opacity: 1; } 40% { opacity: 0.35; } }
+</style>

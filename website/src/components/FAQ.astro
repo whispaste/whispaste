@@ -15,6 +15,14 @@ const lang = currentLocale(Astro.currentLocale);
     <div class="wp-section-head faq-head">
       <SectionEyebrow key="faq.label" />
       <h2 class="section-title"><span data-i18n="faq.titleLead">{t(lang, "faq.titleLead")}</span><span class="text-gradient-brand" data-i18n="faq.titleAccent">{t(lang, "faq.titleAccent")}</span><span data-i18n="faq.titleTail">{t(lang, "faq.titleTail")}</span></h2>
+      <div class="faq-ask" data-testid="faq-ask">
+        <p class="faq-ask__title" data-i18n="faq.ask.title">{t(lang, "faq.ask.title")}</p>
+        <p class="faq-ask__desc" data-i18n="faq.ask.desc">{t(lang, "faq.ask.desc")}</p>
+        <button type="button" class="wp-cta-ghost faq-ask__cta" data-contact-open data-testid="faq-ask-open">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span data-i18n="faq.ask.cta">{t(lang, "faq.ask.cta")}</span>
+        </button>
+      </div>
     </div>
 
     <div class="faq-groups" id="faq-accordion">
@@ -69,6 +77,32 @@ const lang = currentLocale(Astro.currentLocale);
   }
   .faq-head {
     margin-bottom: 0;
+  }
+  /* Escape hatch from the FAQ into the contact widget (data-contact-open). */
+  .faq-ask {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
+    max-width: 24rem;
+  }
+  .faq-ask__title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--color-ink);
+  }
+  .faq-ask__desc {
+    margin-top: 0.35rem;
+    color: var(--color-ink-muted);
+    line-height: 1.6;
+  }
+  .faq-ask__cta {
+    margin-top: 1.25rem;
+    cursor: pointer;
+  }
+  .faq-ask__cta svg {
+    width: 1.1rem;
+    height: 1.1rem;
   }
   .faq-groups {
     display: grid;

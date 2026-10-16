@@ -1,11 +1,6 @@
 ---
 import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
-interface Props {
-  variant?: 'landing' | 'subpage';
-}
-const { variant = 'landing' } = Astro.props;
-
 const lang = currentLocale(Astro.currentLocale);
 
 const impressumHref = pathForSlug(lang, 'impressum');
@@ -54,8 +49,7 @@ const resourceLinks = [
 
 {/* pb-28 unter 640px: die fixe MobileCta-Leiste (~75px hoch) verdeckte sonst
     am Seitenende dauerhaft die letzte Footer-Zeile. */}
-{variant === 'landing' ? (
-  <footer class="footer-flow pt-14 pb-28 md:pb-8 border-t border-white/5" data-testid="footer">
+<footer class="footer-flow pt-14 pb-28 md:pb-8 border-t border-white/5" data-testid="footer">
     <div class="wp-container">
       <div class="footer-grid">
         <!-- Brand + tagline -->
@@ -115,16 +109,14 @@ const resourceLinks = [
         </nav>
         <p>© {year} WhisPaste · <span data-i18n="footer.rights">{t(lang, "footer.rights")}</span></p>
       </div>
+
+      <!-- Closing statement: the wordmark across the full frame width,
+           sized with container units so it always fits exactly. -->
+      <div class="footer-wordmark" aria-hidden="true" data-testid="footer-wordmark">
+        <span>WhisPaste</span>
+      </div>
     </div>
   </footer>
-) : (
-  <footer class="py-6 border-t border-white/5" role="contentinfo">
-    <div class="wp-container max-w-4xl text-center text-sm text-ink-subtle flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-      <a href={downloadHref} class="hover:text-white transition-colors" data-i18n="footer.download">{t(lang, "footer.download")}</a>
-      <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="hover:text-white transition-colors" data-i18n="footer.license">{t(lang, "footer.license")}</a>
-    </div>
-  </footer>
-)}
 
 <style>
   .footer-grid {
@@ -218,6 +210,30 @@ const resourceLinks = [
      das brand-cyan-Token. */
   .footer-flow {
     position: relative;
+  }
+  .footer-wordmark {
+    container-type: inline-size;
+    margin-top: 2.5rem;
+    overflow: hidden;
+    pointer-events: none;
+    user-select: none;
+  }
+  .footer-wordmark span {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 18.6cqi;
+    line-height: 0.78;
+    /* Outlined glyphs must not overlap, so only light tracking. */
+    letter-spacing: 0;
+    white-space: nowrap;
+    color: transparent;
+    -webkit-text-stroke: 1px color-mix(in srgb, var(--color-brand-cyan) 38%, transparent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--color-brand-cyan) 16%, transparent), transparent 85%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    /* Cut the descender-free baseline flush with the page end. */
+    margin-bottom: -0.06em;
   }
   .footer-flow::before {
     content: '';

@@ -1,0 +1,45 @@
+---
+/**
+ * Shared frame for every page outside the landing: global Layout, subpage
+ * Nav (anchors point back into the landing) and the full landing footer on
+ * the same full-width frame. Pages put a PageHero first, then their body.
+ */
+import Layout from "./Layout.astro";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+import type { Locale } from "../scripts/i18n.ts";
+
+interface Props {
+  readonly lang: Locale;
+  readonly title: string;
+  readonly description: string;
+}
+
+const { lang, title, description } = Astro.props;
+---
+
+<Layout title={title} description={description} lang={lang}>
+  <slot name="head" slot="head" />
+  <div class="min-h-screen flex flex-col">
+    <Nav variant="subpage" />
+    <main id="main-content" class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+  </div>
+  <script>
+    import { applyLang } from '../scripts/lang-switch';
+    applyLang();
+
+    // Same pointer spotlight as the landing cards (global.css `.wp-spot`).
+    if (matchMedia('(hover: hover)').matches) {
+      document.addEventListener('pointermove', (e) => {
+        const card = (e.target as Element | null)?.closest<HTMLElement>('.wp-spot');
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        card.style.setProperty('--my', `${e.clientY - r.top}px`);
+      }, { passive: true });
+    }
+  </script>
+</Layout>

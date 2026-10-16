@@ -1,4 +1,5 @@
 ---
+import MotionVoiceToText from './motion/MotionVoiceToText.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
@@ -37,6 +38,7 @@ const workflows = [
         --><span class="text-gradient-brand" data-i18n="useCaseCards.titleAccent">{t(lang, 'useCaseCards.titleAccent')}</span><!--
         --><span data-i18n="useCaseCards.titleTail">{t(lang, 'useCaseCards.titleTail')}</span>
       </h2>
+      <div class="wp-head-art" aria-hidden="true"><MotionVoiceToText /></div>
     </div>
 
     <div class="use-case-grid">

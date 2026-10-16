@@ -46,6 +46,13 @@ test('overlay mockup renders identically in WebKit and Chromium', async ({ page 
     el.style.width = `${el.width / 2}px`;
     el.style.height = `${el.height / 2}px`;
     el.style.maxWidth = 'none';
+    // Section spacing can also leave the box at a fractional page offset,
+    // which the engines round to different heights (80 vs 81px). Shift it
+    // onto whole CSS pixels so the snapshot box is identical in both.
+    const r = el.getBoundingClientRect();
+    const dx = Math.round(r.left + window.scrollX) - (r.left + window.scrollX);
+    const dy = Math.round(r.top + window.scrollY) - (r.top + window.scrollY);
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
   });
   // Give the frozen frame a beat to paint before snapshotting.
   await page.waitForTimeout(300);

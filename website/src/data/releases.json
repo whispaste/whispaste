@@ -1,7 +1,268 @@
 {
   "schemaVersion": 1,
-  "fetchedAt": "2026-10-13T16:02:34.597Z",
+  "fetchedAt": "2026-10-16T16:38:33.244Z",
   "releases": [
+    {
+      "tag": "v1.4.2",
+      "name": "WhisPaste v1.4.2",
+      "publishedAt": "2026-10-15T21:43:37Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.4.2",
+      "en": {
+        "bodyMarkdown": "### What's new in v1.4.2\n- WhisPaste no longer crashes when accessibility tools are in use on Windows, ensuring a smoother experience while resizing the window or searching through history.\n\n### 1.4.x Highlights\n- Users can now edit selected text by voice, making it easier to make changes without typing.\n- The app supports voice commands for line breaks, allowing for seamless dictation of paragraphs and new lines.\n- Recordings can now be up to 60 minutes long, providing greater flexibility for longer dictations.\n- An optional feature removes filler words from dictation, helping to create cleaner transcriptions.\n- The interface now includes support for Spanish and Brazilian Portuguese, expanding accessibility for more users.",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "What's new in v1.4.2",
+              "items": [
+                {
+                  "body": "WhisPaste no longer crashes when accessibility tools are in use on Windows, ensuring a smoother experience while resizing the window or searching through history."
+                }
+              ]
+            },
+            {
+              "heading": "1.4.x Highlights",
+              "items": [
+                {
+                  "body": "Users can now edit selected text by voice, making it easier to make changes without typing."
+                },
+                {
+                  "body": "The app supports voice commands for line breaks, allowing for seamless dictation of paragraphs and new lines."
+                },
+                {
+                  "body": "Recordings can now be up to 60 minutes long, providing greater flexibility for longer dictations."
+                },
+                {
+                  "body": "An optional feature removes filler words from dictation, helping to create cleaner transcriptions."
+                },
+                {
+                  "body": "The interface now includes support for Spanish and Brazilian Portuguese, expanding accessibility for more users."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "de": {
+        "bodyMarkdown": "### Neu in v1.4.2\n- WhisPaste stürzt nicht mehr ab, wenn Hilfstools unter Windows verwendet werden, was ein reibungsloseres Erlebnis beim Ändern der Fenstergröße oder beim Durchsuchen der Historie gewährleistet.\n\n### 1.4.x im Überblick\n- Nutzer können jetzt ausgewählten Text per Sprache bearbeiten, was das Ändern ohne Tippen erleichtert.\n- Die App unterstützt Sprachbefehle für Zeilenumbrüche, sodass das Diktieren von Absätzen und neuen Zeilen nahtlos möglich ist.\n- Aufnahmen können jetzt bis zu 60 Minuten lang sein, was mehr Flexibilität für längere Diktate bietet.\n- Eine optionale Funktion entfernt Füllwörter aus dem Diktat und sorgt so für sauberere Transkripte.\n- Die Benutzeroberfläche unterstützt jetzt Spanisch und Brasilianisches Portugiesisch, was die Zugänglichkeit für mehr Nutzer erweitert.",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Neu in v1.4.2",
+              "items": [
+                {
+                  "body": "WhisPaste stürzt nicht mehr ab, wenn Hilfstools unter Windows verwendet werden, was ein reibungsloseres Erlebnis beim Ändern der Fenstergröße oder beim Durchsuchen der Historie gewährleistet."
+                }
+              ]
+            },
+            {
+              "heading": "1.4.x im Überblick",
+              "items": [
+                {
+                  "body": "Nutzer können jetzt ausgewählten Text per Sprache bearbeiten, was das Ändern ohne Tippen erleichtert."
+                },
+                {
+                  "body": "Die App unterstützt Sprachbefehle für Zeilenumbrüche, sodass das Diktieren von Absätzen und neuen Zeilen nahtlos möglich ist."
+                },
+                {
+                  "body": "Aufnahmen können jetzt bis zu 60 Minuten lang sein, was mehr Flexibilität für längere Diktate bietet."
+                },
+                {
+                  "body": "Eine optionale Funktion entfernt Füllwörter aus dem Diktat und sorgt so für sauberere Transkripte."
+                },
+                {
+                  "body": "Die Benutzeroberfläche unterstützt jetzt Spanisch und Brasilianisches Portugiesisch, was die Zugänglichkeit für mehr Nutzer erweitert."
+                }
+              ]
+            }
+          ]
+        },
+        "translatedAt": "2026-10-16T16:38:33.241Z"
+      }
+    },
+    {
+      "tag": "v1.4.1",
+      "name": "WhisPaste v1.4.1",
+      "publishedAt": "2026-10-14T23:42:44Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.4.1",
+      "en": {
+        "bodyMarkdown": "### What's new in v1.4.1\n- The optional CUDA pack for NVIDIA GPUs now downloads successfully, resolving the network error experienced in the previous version.\n- Users can now access the CUDA pack from its own release, enhancing GPU acceleration for speech recognition.\n- This fix applies to Windows and Linux platforms, ensuring a smoother experience for users with compatible NVIDIA hardware.\n\n### 1.4.x Highlights\n- Voice-driven editing of selected text allows users to dictate changes directly, enhancing productivity.\n- Users can now insert line breaks by voice commands, making dictation more natural and fluid.\n- The app supports recordings up to 60 minutes long, accommodating longer dictation sessions.\n- Optional filler-word removal helps create cleaner transcripts by eliminating unnecessary words.\n- An interface in Spanish and Brazilian Portuguese broadens accessibility for non-English speakers.",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "What's new in v1.4.1",
+              "items": [
+                {
+                  "body": "The optional CUDA pack for NVIDIA GPUs now downloads successfully, resolving the network error experienced in the previous version."
+                },
+                {
+                  "body": "Users can now access the CUDA pack from its own release, enhancing GPU acceleration for speech recognition."
+                },
+                {
+                  "body": "This fix applies to Windows and Linux platforms, ensuring a smoother experience for users with compatible NVIDIA hardware."
+                }
+              ]
+            },
+            {
+              "heading": "1.4.x Highlights",
+              "items": [
+                {
+                  "body": "Voice-driven editing of selected text allows users to dictate changes directly, enhancing productivity."
+                },
+                {
+                  "body": "Users can now insert line breaks by voice commands, making dictation more natural and fluid."
+                },
+                {
+                  "body": "The app supports recordings up to 60 minutes long, accommodating longer dictation sessions."
+                },
+                {
+                  "body": "Optional filler-word removal helps create cleaner transcripts by eliminating unnecessary words."
+                },
+                {
+                  "body": "An interface in Spanish and Brazilian Portuguese broadens accessibility for non-English speakers."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "de": {
+        "bodyMarkdown": "### Neu in v1.4.1\n- Der optionale CUDA-Paketdownload für NVIDIA-GPUs funktioniert jetzt einwandfrei und behebt den Netzwerkfehler aus der vorherigen Version.\n- Nutzer können das CUDA-Paket jetzt von seinem eigenen Release herunterladen, was die GPU-Beschleunigung für die Spracherkennung verbessert.\n- Dieser Fix gilt für Windows- und Linux-Plattformen und sorgt für ein reibungsloseres Erlebnis für Nutzer mit kompatibler NVIDIA-Hardware.\n\n### 1.4.x im Überblick\n- Die sprachgesteuerte Bearbeitung ausgewählter Texte ermöglicht es Nutzern, Änderungen direkt zu diktieren und erhöht so die Produktivität.\n- Nutzer können jetzt Zeilenumbrüche per Sprachbefehl einfügen, was das Diktieren natürlicher und flüssiger macht.\n- Die App unterstützt Aufnahmen von bis zu 60 Minuten, um längere Diktatsitzungen zu ermöglichen.\n- Die optionale Entfernung von Füllwörtern hilft, sauberere Transkripte zu erstellen, indem unnötige Wörter eliminiert werden.\n- Eine Benutzeroberfläche in Spanisch und Brasilianischem Portugiesisch erweitert die Zugänglichkeit für nicht-englischsprachige Nutzer.",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Neu in v1.4.1",
+              "items": [
+                {
+                  "body": "Der optionale CUDA-Paketdownload für NVIDIA-GPUs funktioniert jetzt einwandfrei und behebt den Netzwerkfehler aus der vorherigen Version."
+                },
+                {
+                  "body": "Nutzer können das CUDA-Paket jetzt von seinem eigenen Release herunterladen, was die GPU-Beschleunigung für die Spracherkennung verbessert."
+                },
+                {
+                  "body": "Dieser Fix gilt für Windows- und Linux-Plattformen und sorgt für ein reibungsloseres Erlebnis für Nutzer mit kompatibler NVIDIA-Hardware."
+                }
+              ]
+            },
+            {
+              "heading": "1.4.x im Überblick",
+              "items": [
+                {
+                  "body": "Die sprachgesteuerte Bearbeitung ausgewählter Texte ermöglicht es Nutzern, Änderungen direkt zu diktieren und erhöht so die Produktivität."
+                },
+                {
+                  "body": "Nutzer können jetzt Zeilenumbrüche per Sprachbefehl einfügen, was das Diktieren natürlicher und flüssiger macht."
+                },
+                {
+                  "body": "Die App unterstützt Aufnahmen von bis zu 60 Minuten, um längere Diktatsitzungen zu ermöglichen."
+                },
+                {
+                  "body": "Die optionale Entfernung von Füllwörtern hilft, sauberere Transkripte zu erstellen, indem unnötige Wörter eliminiert werden."
+                },
+                {
+                  "body": "Eine Benutzeroberfläche in Spanisch und Brasilianischem Portugiesisch erweitert die Zugänglichkeit für nicht-englischsprachige Nutzer."
+                }
+              ]
+            }
+          ]
+        },
+        "translatedAt": "2026-10-16T16:38:33.241Z"
+      }
+    },
+    {
+      "tag": "v1.4.0",
+      "name": "WhisPaste v1.4.0",
+      "publishedAt": "2026-10-14T21:52:21Z",
+      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.4.0",
+      "en": {
+        "bodyMarkdown": "### What's new in v1.4.0\n- WhisPaste now allows voice-driven editing of selected text, making it easier to modify your dictations.\n- You can insert line breaks by voice, simply by saying \"new paragraph\" or \"new line.\"\n- An optional feature removes filler words like \"um\" and \"äh\" from your dictation for a cleaner output.\n- The app interface is now available in Spanish and Brazilian Portuguese, expanding accessibility for users.\n\n### 1.4.x Highlights\n- Edit selected text by voice with a new hotkey, allowing for quick modifications.\n- Line breaks can be added by voice commands, enhancing dictation flow.\n- Recordings can now last up to 60 minutes, with an option for unlimited recordings.\n- An optional feature removes filler words from your dictation, providing a smoother experience.\n- Push-to-talk functionality is now available on Linux (experimental), allowing for hands-free dictation.",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "What's new in v1.4.0",
+              "items": [
+                {
+                  "body": "WhisPaste now allows voice-driven editing of selected text, making it easier to modify your dictations."
+                },
+                {
+                  "body": "You can insert line breaks by voice, simply by saying \"new paragraph\" or \"new line.\""
+                },
+                {
+                  "body": "An optional feature removes filler words like \"um\" and \"äh\" from your dictation for a cleaner output."
+                },
+                {
+                  "body": "The app interface is now available in Spanish and Brazilian Portuguese, expanding accessibility for users."
+                }
+              ]
+            },
+            {
+              "heading": "1.4.x Highlights",
+              "items": [
+                {
+                  "body": "Edit selected text by voice with a new hotkey, allowing for quick modifications."
+                },
+                {
+                  "body": "Line breaks can be added by voice commands, enhancing dictation flow."
+                },
+                {
+                  "body": "Recordings can now last up to 60 minutes, with an option for unlimited recordings."
+                },
+                {
+                  "body": "An optional feature removes filler words from your dictation, providing a smoother experience."
+                },
+                {
+                  "body": "Push-to-talk functionality is now available on Linux (experimental), allowing for hands-free dictation."
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "de": {
+        "bodyMarkdown": "### Neu in v1.4.0\n- WhisPaste ermöglicht jetzt die sprachgesteuerte Bearbeitung ausgewählter Texte, was das Ändern deiner Diktate erleichtert.\n- Du kannst Zeilenumbrüche durch Sprache einfügen, indem du einfach \"neuer Absatz\" oder \"neue Zeile\" sagst.\n- Eine optionale Funktion entfernt Füllwörter wie \"äh\" und \"um\" aus deinem Diktat für ein klareres Ergebnis.\n- Die Benutzeroberfläche ist jetzt auch in Spanisch und Brasilianisch-Portugiesisch verfügbar, was die Zugänglichkeit für Nutzer erweitert.\n\n### 1.4.x im Überblick\n- Bearbeite ausgewählte Texte per Sprache mit einem neuen Hotkey, der schnelle Änderungen ermöglicht.\n- Zeilenumbrüche können durch Sprachbefehle hinzugefügt werden, was den Diktationsfluss verbessert.\n- Aufnahmen können jetzt bis zu 60 Minuten dauern, mit einer Option für unbegrenzte Aufnahmen.\n- Eine optionale Funktion entfernt Füllwörter aus deinem Diktat und sorgt für ein reibungsloseres Erlebnis.\n- Die Push-to-Talk-Funktionalität ist jetzt auf Linux (experimentell) verfügbar, was freihändiges Diktieren ermöglicht.",
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Neu in v1.4.0",
+              "items": [
+                {
+                  "body": "WhisPaste ermöglicht jetzt die sprachgesteuerte Bearbeitung ausgewählter Texte, was das Ändern deiner Diktate erleichtert."
+                },
+                {
+                  "body": "Du kannst Zeilenumbrüche durch Sprache einfügen, indem du einfach \"neuer Absatz\" oder \"neue Zeile\" sagst."
+                },
+                {
+                  "body": "Eine optionale Funktion entfernt Füllwörter wie \"äh\" und \"um\" aus deinem Diktat für ein klareres Ergebnis."
+                },
+                {
+                  "body": "Die Benutzeroberfläche ist jetzt auch in Spanisch und Brasilianisch-Portugiesisch verfügbar, was die Zugänglichkeit für Nutzer erweitert."
+                }
+              ]
+            },
+            {
+              "heading": "1.4.x im Überblick",
+              "items": [
+                {
+                  "body": "Bearbeite ausgewählte Texte per Sprache mit einem neuen Hotkey, der schnelle Änderungen ermöglicht."
+                },
+                {
+                  "body": "Zeilenumbrüche können durch Sprachbefehle hinzugefügt werden, was den Diktationsfluss verbessert."
+                },
+                {
+                  "body": "Aufnahmen können jetzt bis zu 60 Minuten dauern, mit einer Option für unbegrenzte Aufnahmen."
+                },
+                {
+                  "body": "Eine optionale Funktion entfernt Füllwörter aus deinem Diktat und sorgt für ein reibungsloseres Erlebnis."
+                },
+                {
+                  "body": "Die Push-to-Talk-Funktionalität ist jetzt auf Linux (experimentell) verfügbar, was freihändiges Diktieren ermöglicht."
+                }
+              ]
+            }
+          ]
+        },
+        "translatedAt": "2026-10-16T16:38:33.241Z"
+      }
+    },
     {
       "tag": "v1.3.0",
       "name": "WhisPaste v1.3.0",
@@ -88,7 +349,7 @@
             }
           ]
         },
-        "translatedAt": "2026-10-13T16:02:34.594Z"
+        "translatedAt": "2026-10-16T16:38:33.241Z"
       }
     },
     {
@@ -183,274 +444,7 @@
             }
           ]
         },
-        "translatedAt": "2026-10-13T16:02:34.594Z"
-      }
-    },
-    {
-      "tag": "v1.2.78",
-      "name": "WhisPaste v1.2.78",
-      "publishedAt": "2026-09-25T17:46:52Z",
-      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.78",
-      "en": {
-        "bodyMarkdown": "### What's new in v1.2.78\n- The Automation API now allows custom Smart Mode presets and silence timeout thresholds for each dictation trigger, enhancing flexibility.\n- The settings page now highlights the currently visible section while scrolling, improving navigation.\n- A new \"Cancel/Discard\" action has been added for ongoing dictations, allowing users to discard recordings instead of transcribing them.\n\n### 1.2.x Highlights\n- WhisPaste is now a native Flutter application, ensuring a truly cross-platform experience.\n- The app features a unified design system with consistent themes and elegant UI elements.\n- A new recording pill overlay provides a sleek status bar during dictation, enhancing user experience.\n- The floating button allows easy access to recording controls and supports multi-monitor setups.\n- The app now supports a variety of export formats for history entries, making sharing and saving easier.",
-        "blocks": {
-          "sections": [
-            {
-              "heading": "What's new in v1.2.78",
-              "items": [
-                {
-                  "body": "The Automation API now allows custom Smart Mode presets and silence timeout thresholds for each dictation trigger, enhancing flexibility."
-                },
-                {
-                  "body": "The settings page now highlights the currently visible section while scrolling, improving navigation."
-                },
-                {
-                  "body": "A new \"Cancel/Discard\" action has been added for ongoing dictations, allowing users to discard recordings instead of transcribing them."
-                }
-              ]
-            },
-            {
-              "heading": "1.2.x Highlights",
-              "items": [
-                {
-                  "body": "WhisPaste is now a native Flutter application, ensuring a truly cross-platform experience."
-                },
-                {
-                  "body": "The app features a unified design system with consistent themes and elegant UI elements."
-                },
-                {
-                  "body": "A new recording pill overlay provides a sleek status bar during dictation, enhancing user experience."
-                },
-                {
-                  "body": "The floating button allows easy access to recording controls and supports multi-monitor setups."
-                },
-                {
-                  "body": "The app now supports a variety of export formats for history entries, making sharing and saving easier."
-                }
-              ]
-            }
-          ]
-        }
-      },
-      "de": {
-        "bodyMarkdown": "### Neu in v1.2.78\n- Die Automation-API ermöglicht jetzt individuelle Smart-Mode-Presets und Stille-Timeout-Schwellen für jeden Diktat-Trigger, was die Flexibilität erhöht.\n- Die Einstellungsseite hebt jetzt automatisch die aktuell sichtbare Sektion hervor, während du durch die Seite scrollst, was die Navigation verbessert.\n- Eine neue „Abbrechen/Verwerfen\"-Aktion wurde für laufende Diktate hinzugefügt, die es den Nutzern ermöglicht, Aufnahmen zu verwerfen, anstatt sie zu transkribieren.\n\n### 1.2.x im Überblick\n- WhisPaste ist jetzt eine native Flutter-Anwendung, die ein wirklich plattformübergreifendes Erlebnis bietet.\n- Die App verfügt über ein einheitliches Designsystem mit konsistenten Themen und eleganten UI-Elementen.\n- Ein neues Aufnahme-Pill-Overlay bietet eine schlanke Statusleiste während des Diktats und verbessert die Benutzererfahrung.\n- Der schwebende Button ermöglicht einfachen Zugriff auf die Aufnahme-Steuerung und unterstützt Multi-Monitor-Setups.\n- Die App unterstützt jetzt eine Vielzahl von Exportformaten für Verlaufs-Einträge, was das Teilen und Speichern erleichtert.",
-        "blocks": {
-          "sections": [
-            {
-              "heading": "Neu in v1.2.78",
-              "items": [
-                {
-                  "body": "Die Automation-API ermöglicht jetzt individuelle Smart-Mode-Presets und Stille-Timeout-Schwellen für jeden Diktat-Trigger, was die Flexibilität erhöht."
-                },
-                {
-                  "body": "Die Einstellungsseite hebt jetzt automatisch die aktuell sichtbare Sektion hervor, während du durch die Seite scrollst, was die Navigation verbessert."
-                },
-                {
-                  "body": "Eine neue „Abbrechen/Verwerfen\"-Aktion wurde für laufende Diktate hinzugefügt, die es den Nutzern ermöglicht, Aufnahmen zu verwerfen, anstatt sie zu transkribieren."
-                }
-              ]
-            },
-            {
-              "heading": "1.2.x im Überblick",
-              "items": [
-                {
-                  "body": "WhisPaste ist jetzt eine native Flutter-Anwendung, die ein wirklich plattformübergreifendes Erlebnis bietet."
-                },
-                {
-                  "body": "Die App verfügt über ein einheitliches Designsystem mit konsistenten Themen und eleganten UI-Elementen."
-                },
-                {
-                  "body": "Ein neues Aufnahme-Pill-Overlay bietet eine schlanke Statusleiste während des Diktats und verbessert die Benutzererfahrung."
-                },
-                {
-                  "body": "Der schwebende Button ermöglicht einfachen Zugriff auf die Aufnahme-Steuerung und unterstützt Multi-Monitor-Setups."
-                },
-                {
-                  "body": "Die App unterstützt jetzt eine Vielzahl von Exportformaten für Verlaufs-Einträge, was das Teilen und Speichern erleichtert."
-                }
-              ]
-            }
-          ]
-        },
-        "translatedAt": "2026-10-13T16:02:34.594Z"
-      }
-    },
-    {
-      "tag": "v1.2.77",
-      "name": "WhisPaste v1.2.77",
-      "publishedAt": "2026-09-24T12:18:11Z",
-      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.77",
-      "en": {
-        "bodyMarkdown": "### What's new in v1.2.77\n- WhisPaste introduced a new local automation API, allowing users to start/stop dictation with external triggers and access recent history entries.\n- The live transcription preview feature now displays text during recording, enhancing the user experience.\n- Text replacements can now learn automatically from repeated corrections, making dictation more efficient.\n- The settings have been improved with a new anchor chip bar for quick section navigation and a visual card selector for overlay size.\n\n### 1.2.x Highlights\n- WhisPaste is now a native Flutter application, ensuring a truly cross-platform experience across Windows, macOS, and more.\n- The app features a premium user interface with warm gradients, frosted glass effects, and smooth animations.\n- Users can now export history entries in multiple formats, including TXT, MD, CSV, JSON, and DOCX.\n- The Deepgram STT backend is fully functional, providing real-time transcription and automatic language detection.\n- Enhanced accessibility features ensure that the app is usable for everyone, including keyboard navigation and screen reader support.",
-        "blocks": {
-          "sections": [
-            {
-              "heading": "What's new in v1.2.77",
-              "items": [
-                {
-                  "body": "WhisPaste introduced a new local automation API, allowing users to start/stop dictation with external triggers and access recent history entries."
-                },
-                {
-                  "body": "The live transcription preview feature now displays text during recording, enhancing the user experience."
-                },
-                {
-                  "body": "Text replacements can now learn automatically from repeated corrections, making dictation more efficient."
-                },
-                {
-                  "body": "The settings have been improved with a new anchor chip bar for quick section navigation and a visual card selector for overlay size."
-                }
-              ]
-            },
-            {
-              "heading": "1.2.x Highlights",
-              "items": [
-                {
-                  "body": "WhisPaste is now a native Flutter application, ensuring a truly cross-platform experience across Windows, macOS, and more."
-                },
-                {
-                  "body": "The app features a premium user interface with warm gradients, frosted glass effects, and smooth animations."
-                },
-                {
-                  "body": "Users can now export history entries in multiple formats, including TXT, MD, CSV, JSON, and DOCX."
-                },
-                {
-                  "body": "The Deepgram STT backend is fully functional, providing real-time transcription and automatic language detection."
-                },
-                {
-                  "body": "Enhanced accessibility features ensure that the app is usable for everyone, including keyboard navigation and screen reader support."
-                }
-              ]
-            }
-          ]
-        }
-      },
-      "de": {
-        "bodyMarkdown": "### Neu in v1.2.77\n- WhisPaste hat eine neue lokale Automation-API eingeführt, die es Nutzern ermöglicht, Diktate mit externen Triggern zu starten/stoppen und auf letzte Verlaufseinträge zuzugreifen.\n- Die Live-Transkript-Vorschau zeigt jetzt den Text während der Aufnahme an, was die Benutzererfahrung verbessert.\n- Textersetzungen lernen jetzt automatisch aus wiederholten Korrekturen, was das Diktieren effizienter macht.\n- Die Einstellungen wurden mit einer neuen Anchor-Chip-Leiste zur schnellen Abschnitts-Navigation und einem visuellen Karten-Selector für die Overlay-Größe verbessert.\n\n### 1.2.x im Überblick\n- WhisPaste ist jetzt eine native Flutter-Anwendung, die ein wirklich plattformübergreifendes Erlebnis auf Windows, macOS und mehr bietet.\n- Die App bietet eine Premium-Benutzeroberfläche mit warmen Farbverläufen, frosted Glass-Effekten und sanften Animationen.\n- Nutzer können Verlaufseinträge jetzt in mehreren Formaten exportieren, darunter TXT, MD, CSV, JSON und DOCX.\n- Das Deepgram STT-Backend ist voll funktionsfähig und bietet Echtzeit-Transkription und automatische Spracherkennung.\n- Verbesserte Barrierefreiheit stellt sicher, dass die App für alle nutzbar ist, einschließlich Tastaturnavigation und Unterstützung für Screenreader.",
-        "blocks": {
-          "sections": [
-            {
-              "heading": "Neu in v1.2.77",
-              "items": [
-                {
-                  "body": "WhisPaste hat eine neue lokale Automation-API eingeführt, die es Nutzern ermöglicht, Diktate mit externen Triggern zu starten/stoppen und auf letzte Verlaufseinträge zuzugreifen."
-                },
-                {
-                  "body": "Die Live-Transkript-Vorschau zeigt jetzt den Text während der Aufnahme an, was die Benutzererfahrung verbessert."
-                },
-                {
-                  "body": "Textersetzungen lernen jetzt automatisch aus wiederholten Korrekturen, was das Diktieren effizienter macht."
-                },
-                {
-                  "body": "Die Einstellungen wurden mit einer neuen Anchor-Chip-Leiste zur schnellen Abschnitts-Navigation und einem visuellen Karten-Selector für die Overlay-Größe verbessert."
-                }
-              ]
-            },
-            {
-              "heading": "1.2.x im Überblick",
-              "items": [
-                {
-                  "body": "WhisPaste ist jetzt eine native Flutter-Anwendung, die ein wirklich plattformübergreifendes Erlebnis auf Windows, macOS und mehr bietet."
-                },
-                {
-                  "body": "Die App bietet eine Premium-Benutzeroberfläche mit warmen Farbverläufen, frosted Glass-Effekten und sanften Animationen."
-                },
-                {
-                  "body": "Nutzer können Verlaufseinträge jetzt in mehreren Formaten exportieren, darunter TXT, MD, CSV, JSON und DOCX."
-                },
-                {
-                  "body": "Das Deepgram STT-Backend ist voll funktionsfähig und bietet Echtzeit-Transkription und automatische Spracherkennung."
-                },
-                {
-                  "body": "Verbesserte Barrierefreiheit stellt sicher, dass die App für alle nutzbar ist, einschließlich Tastaturnavigation und Unterstützung für Screenreader."
-                }
-              ]
-            }
-          ]
-        },
-        "translatedAt": "2026-10-13T16:02:34.594Z"
-      }
-    },
-    {
-      "tag": "v1.2.76",
-      "name": "WhisPaste v1.2.76",
-      "publishedAt": "2026-09-08T11:26:11Z",
-      "htmlUrl": "https://github.com/whispaste/whispaste/releases/tag/v1.2.76",
-      "en": {
-        "bodyMarkdown": "### What's new in v1.2.76\n- Global hotkeys now correctly register on non-US keyboard layouts, ensuring that the right physical keys are recognized during use.\n- The hotkey recording feature now queries the active Windows keyboard layout live, rather than relying on a static US layout mapping.\n\n### 1.2.x Highlights\n- WhisPaste has undergone a complete rewrite, now functioning as a native Flutter application for enhanced performance and usability.\n- The app features a unified design system, providing a consistent look and feel across platforms.\n- Users can now enjoy a recording pill overlay that provides a sleek status bar during dictation, enhancing the user experience.\n- The introduction of multi-format export allows for easy sharing of notes and transcripts in various file formats.\n- A new review prompt gently invites users to rate WhisPaste after successful recordings, fostering community feedback.",
-        "blocks": {
-          "sections": [
-            {
-              "heading": "What's new in v1.2.76",
-              "items": [
-                {
-                  "body": "Global hotkeys now correctly register on non-US keyboard layouts, ensuring that the right physical keys are recognized during use."
-                },
-                {
-                  "body": "The hotkey recording feature now queries the active Windows keyboard layout live, rather than relying on a static US layout mapping."
-                }
-              ]
-            },
-            {
-              "heading": "1.2.x Highlights",
-              "items": [
-                {
-                  "body": "WhisPaste has undergone a complete rewrite, now functioning as a native Flutter application for enhanced performance and usability."
-                },
-                {
-                  "body": "The app features a unified design system, providing a consistent look and feel across platforms."
-                },
-                {
-                  "body": "Users can now enjoy a recording pill overlay that provides a sleek status bar during dictation, enhancing the user experience."
-                },
-                {
-                  "body": "The introduction of multi-format export allows for easy sharing of notes and transcripts in various file formats."
-                },
-                {
-                  "body": "A new review prompt gently invites users to rate WhisPaste after successful recordings, fostering community feedback."
-                }
-              ]
-            }
-          ]
-        }
-      },
-      "de": {
-        "bodyMarkdown": "### Neu in v1.2.76\n- Globale Hotkeys registrierten auf Nicht-US-Tastaturlayouts jetzt die richtigen physischen Tasten, was die Nutzung erleichtert.\n- Die Hotkey-Aufnahme fragt jetzt live beim aktiven Windows-Tastaturlayout nach, anstatt sich auf eine statische US-Layout-basierte Zuordnung zu verlassen.\n\n### 1.2.x im Überblick\n- WhisPaste hat eine vollständige Neuentwicklung durchlaufen und funktioniert jetzt als native Flutter-Anwendung, was die Leistung und Benutzerfreundlichkeit verbessert.\n- Die App bietet ein einheitliches Designsystem, das ein konsistentes Erscheinungsbild auf allen Plattformen gewährleistet.\n- Nutzer können nun eine Aufnahme-Pille genießen, die während des Diktats eine elegante Statusleiste anzeigt und das Benutzererlebnis verbessert.\n- Die Einführung des Exports in mehreren Formaten ermöglicht das einfache Teilen von Notizen und Transkripten in verschiedenen Dateiformaten.\n- Eine neue Bewertungsaufforderung lädt die Nutzer ein, WhisPaste nach erfolgreichen Aufnahmen zu bewerten und fördert so das Feedback der Community.",
-        "blocks": {
-          "sections": [
-            {
-              "heading": "Neu in v1.2.76",
-              "items": [
-                {
-                  "body": "Globale Hotkeys registrierten auf Nicht-US-Tastaturlayouts jetzt die richtigen physischen Tasten, was die Nutzung erleichtert."
-                },
-                {
-                  "body": "Die Hotkey-Aufnahme fragt jetzt live beim aktiven Windows-Tastaturlayout nach, anstatt sich auf eine statische US-Layout-basierte Zuordnung zu verlassen."
-                }
-              ]
-            },
-            {
-              "heading": "1.2.x im Überblick",
-              "items": [
-                {
-                  "body": "WhisPaste hat eine vollständige Neuentwicklung durchlaufen und funktioniert jetzt als native Flutter-Anwendung, was die Leistung und Benutzerfreundlichkeit verbessert."
-                },
-                {
-                  "body": "Die App bietet ein einheitliches Designsystem, das ein konsistentes Erscheinungsbild auf allen Plattformen gewährleistet."
-                },
-                {
-                  "body": "Nutzer können nun eine Aufnahme-Pille genießen, die während des Diktats eine elegante Statusleiste anzeigt und das Benutzererlebnis verbessert."
-                },
-                {
-                  "body": "Die Einführung des Exports in mehreren Formaten ermöglicht das einfache Teilen von Notizen und Transkripten in verschiedenen Dateiformaten."
-                },
-                {
-                  "body": "Eine neue Bewertungsaufforderung lädt die Nutzer ein, WhisPaste nach erfolgreichen Aufnahmen zu bewerten und fördert so das Feedback der Community."
-                }
-              ]
-            }
-          ]
-        },
-        "translatedAt": "2026-10-13T16:02:34.594Z"
+        "translatedAt": "2026-10-16T16:38:33.241Z"
       }
     }
   ]

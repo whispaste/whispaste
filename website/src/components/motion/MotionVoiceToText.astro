@@ -1,0 +1,96 @@
+---
+/**
+ * Motion illustration: speech becomes text. A live waveform (the app's
+ * recording pill) feeds a text block that types itself line by line, with
+ * the caret blinking at the end. Pure inline SVG + CSS, transform/opacity
+ * only; static final frame under prefers-reduced-motion. Decorative.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+const bars = [0.35, 0.7, 1, 0.55, 0.85, 0.4, 0.95, 0.6, 0.3];
+---
+
+<svg
+  class:list={['motion-vtt', className]}
+  viewBox="0 0 480 320"
+  fill="none"
+  aria-hidden="true"
+  focusable="false"
+  data-testid="motion-voice-to-text"
+>
+  <defs>
+    <linearGradient id="vtt-accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6FDDF0" />
+      <stop offset="1" stop-color="#0BAACC" />
+    </linearGradient>
+  </defs>
+
+  <!-- recording pill -->
+  <g class="pill">
+    <rect x="24" y="118" width="176" height="84" rx="42" fill="#171D53" stroke="rgba(111,221,240,.35)" />
+    <circle class="rec" cx="64" cy="160" r="9" fill="#6FDDF0" />
+    {bars.map((h, i) => (
+      <rect
+        class="bar"
+        x={92 + i * 11}
+        y={160 - 26 * h}
+        width="6"
+        height={52 * h}
+        rx="3"
+        fill="url(#vtt-accent)"
+        style={`--i:${i}`}
+      />
+    ))}
+  </g>
+
+  <!-- flow -->
+  <g class="flow" stroke="#6FDDF0" stroke-linecap="round">
+    <circle class="dot" cx="222" cy="160" r="3" fill="#6FDDF0" stroke="none" style="--i:0" />
+    <circle class="dot" cx="238" cy="160" r="3" fill="#6FDDF0" stroke="none" style="--i:1" />
+    <circle class="dot" cx="254" cy="160" r="3" fill="#6FDDF0" stroke="none" style="--i:2" />
+  </g>
+
+  <!-- text window -->
+  <g>
+    <rect x="276" y="64" width="184" height="192" rx="18" fill="#0D1936" stroke="rgba(171,184,204,.22)" />
+    <circle cx="298" cy="86" r="4" fill="rgba(171,184,204,.35)" />
+    <circle cx="312" cy="86" r="4" fill="rgba(171,184,204,.35)" />
+    <circle cx="326" cy="86" r="4" fill="rgba(171,184,204,.35)" />
+    <rect class="line" x="298" y="114" width="140" height="10" rx="5" fill="#F0F4FA" style="--i:0" />
+    <rect class="line" x="298" y="138" width="118" height="10" rx="5" fill="#ABB8CC" style="--i:1" />
+    <rect class="line" x="298" y="162" width="132" height="10" rx="5" fill="#ABB8CC" style="--i:2" />
+    <rect class="line" x="298" y="186" width="76" height="10" rx="5" fill="url(#vtt-accent)" style="--i:3" />
+    <rect class="caret" x="380" y="182" width="3" height="18" rx="1.5" fill="#6FDDF0" />
+  </g>
+</svg>
+
+<style>
+  .motion-vtt { display: block; width: 100%; height: auto; }
+  .motion-vtt .bar,
+  .motion-vtt .line,
+  .motion-vtt .dot,
+  .motion-vtt .rec { transform-box: fill-box; }
+  .motion-vtt .bar { transform-origin: center; }
+  .motion-vtt .line { transform-origin: left center; }
+  .motion-vtt .rec { transform-origin: center; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-vtt .bar { animation: vtt-bar 1.1s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -0.13s); }
+    .motion-vtt .rec { animation: vtt-rec 1.6s ease-in-out infinite; }
+    .motion-vtt .dot { animation: vtt-dot 1.2s ease-in-out infinite; animation-delay: calc(var(--i) * 0.15s); }
+    .motion-vtt .line { animation: vtt-line 8s cubic-bezier(0.22, 1, 0.36, 1) infinite; animation-delay: calc(var(--i) * 0.6s); }
+    .motion-vtt .caret { animation: vtt-caret 1s steps(1) infinite; }
+  }
+  @keyframes vtt-bar { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
+  @keyframes vtt-rec { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @keyframes vtt-dot { 0%, 100% { opacity: 0.2; transform: translateX(-4px); } 50% { opacity: 1; transform: translateX(4px); } }
+  @keyframes vtt-line {
+    0% { transform: scaleX(0); opacity: 0; }
+    8% { opacity: 1; }
+    18%, 82% { transform: scaleX(1); opacity: 1; }
+    92%, 100% { transform: scaleX(1); opacity: 0; }
+  }
+  @keyframes vtt-caret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+</style>

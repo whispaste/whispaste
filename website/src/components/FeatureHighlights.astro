@@ -1,4 +1,5 @@
 ---
+import MotionHotkey from './motion/MotionHotkey.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import { t, currentLocale } from '../scripts/i18n.ts';
 
@@ -43,6 +44,7 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
         --><span class="text-gradient-brand" data-i18n="highlights.titleAccent">{t(lang, 'highlights.titleAccent')}</span><!--
         --><span data-i18n="highlights.titleTail">{t(lang, 'highlights.titleTail')}</span>
       </h2>
+      <div class="wp-head-art" aria-hidden="true"><MotionHotkey /></div>
     </div>
 
     <div class="fh-showcase">

@@ -1,40 +1,25 @@
 ---
 /**
- * `LandingPageLayout.astro` — wiederverwendbares Layout für Long-Tail-Content-
- * Pages (Use-Cases, Vergleiche, Erklär-Pages) unter Block E des SEO-Overhauls.
+ * Layout for long-tail content pages (use cases, comparisons, explainers).
  *
- * Ziel: Eine einheitliche Seitenstruktur (Hero → Sections-Slot → CTA) mit
- * konsistenter Schema-Markup-Position. Das globale `Layout.astro` wird
- * gewrappt (nicht ersetzt) — Title, Description, `<html lang>`, canonical,
- * hreflang und OrganizationSchema kommen von dort. Diese Schicht ergänzt
- * den Breadcrumb-Schema-Knoten plus die Page-Struktur.
+ * Built on the shared subpage shell: SubpageLayout (nav, footer, language
+ * switch) plus PageHero (crumbs, display headline, lead, CTA and a motion
+ * illustration picked from the URL, so consumer pages need no art prop).
+ * The body is a full-width split: the article on the left, a sticky rail
+ * with the download CTA and related pages on the right (≥1280px).
  *
- * Schema-Wahl pro Page: `BreadcrumbListSchema` wird hier emittiert, weil
- * jede Long-Tail-Page eine Breadcrumb hat. Page-spezifische Schemas
- * (`HowToSchema` oder `FAQPageSchema`) emittiert der Konsument INNERHALB
- * des Default-Slots — verschiedene Pages wählen unterschiedliche Formate.
- *
- * Props-Vertrag (Issue 10 / PRD §E):
- *   - `lang`: `Locale` — explizit, damit der Layout-Wrapper für
- *     hreflang-Alternates die korrekte Locale durchreicht.
- *   - `seo`: `{ title, description }` — gehen 1:1 in `<Layout>`.
- *   - `breadcrumbs`: `readonly { name, item }[]` — wird sowohl visuell
- *     gerendert als auch als `BreadcrumbList`-JSON-LD emittiert.
- *   - `hero`: `{ heading, lead }` — H1 plus erster Absatz (beantwortet
- *     den `docs/zielgruppe.md`-Lackmustest).
- *   - `cta`: `{ label, href }` — Download-CTA-Block.
- *   - divergierende DE/EN-Slugs (z. B.
- *     `programmierer` ↔ `programmer`) löst `Layout` zentral über `DE_SLUGS` auf.
- *
- * Die Sections rendern Konsumenten über den Default-Slot. Style-Konventionen:
- * dieselben Tailwind-Tokens wie auf `download.astro` / `sponsor.astro`
- * (max-w-3xl mit subpage-Nav/Footer), damit Long-Tail-Pages visuell zur
- * Restseite gehören.
+ * Schema: BreadcrumbListSchema is emitted here with the same items as the
+ * visible crumbs. Page-specific schemas (HowTo, FAQPage) are emitted by the
+ * consumer inside the default slot.
  */
-import Layout from "./Layout.astro";
-import Nav from "../components/Nav.astro";
-import Footer from "../components/Footer.astro";
+import SubpageLayout from "./SubpageLayout.astro";
+import PageHero from "../components/PageHero.astro";
 import BreadcrumbListSchema from "../components/schema/BreadcrumbListSchema.astro";
+import MotionVoiceToText from "../components/motion/MotionVoiceToText.astro";
+import MotionHardware from "../components/motion/MotionHardware.astro";
+import MotionPrivacy from "../components/motion/MotionPrivacy.astro";
+import MotionHotkey from "../components/motion/MotionHotkey.astro";
+import MotionPlatforms from "../components/motion/MotionPlatforms.astro";
 import { t, type Locale } from "../scripts/i18n.ts";
 
 interface SeoProps {
@@ -52,11 +37,6 @@ interface HeroProps {
   readonly lead: string;
 }
 
-interface HeroImageProps {
-  readonly src: string;
-  readonly alt: string;
-}
-
 interface CtaProps {
   readonly label: string;
   readonly href: string;
@@ -72,164 +52,100 @@ interface Props {
   readonly seo: SeoProps;
   readonly breadcrumbs: readonly CrumbItem[];
   readonly hero: HeroProps;
-  /** Optionale Header-Illustration (z. B. Use-Case-Seiten). Andere Pages
-      lassen die Prop weg und behalten den reinen Text-Hero. */
-  readonly heroImage?: HeroImageProps;
   readonly cta: CtaProps;
-  /** Optionale Querverlinkung zu thematisch verwandten Long-Tail-Pages —
-      hält den Content-Cluster intern verlinkt statt als Sitemap-Waisen. */
+  /** Cross-links within the content cluster, so no page is a sitemap orphan. */
   readonly relatedPages?: readonly RelatedPageLink[];
 }
 
-const { lang, seo, breadcrumbs, hero, heroImage, cta, relatedPages } = Astro.props;
+const { lang, seo, breadcrumbs, hero, cta, relatedPages } = Astro.props;
+
+// Topic → illustration. Matched against the URL so all locales (and the
+// diverging DE slugs) resolve without per-page wiring. First match wins.
+const path = Astro.url.pathname;
+const artRules: readonly { readonly match: RegExp; readonly art: string }[] = [
+  { match: /gpu|engine|model|modell/, art: "hardware" },
+  { match: /privacy|privatsphaere|offline/, art: "privacy" },
+  { match: /vergleich|comparison/, art: "hotkey" },
+  { match: /linux|whisper-desktop/, art: "platforms" },
+];
+const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
 ---
 
-<Layout
-  title={seo.title}
-  description={seo.description}
-  lang={lang}
->
-  <div class="min-h-screen flex flex-col">
-    <Nav variant="subpage" />
+<SubpageLayout lang={lang} title={seo.title} description={seo.description}>
+  <PageHero
+    title={hero.heading}
+    lead={hero.lead}
+    crumbs={breadcrumbs}
+    artLabel={art.toUpperCase()}
+    testid="lp-hero"
+  >
+    <a slot="actions" href={cta.href} class="wp-cta" data-testid="lp-hero-cta">
+      <span>{cta.label}</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+      </svg>
+    </a>
+    <div slot="art" class="lp-art">
+      {art === "hardware" && <MotionHardware />}
+      {art === "privacy" && <MotionPrivacy />}
+      {art === "platforms" && <MotionPlatforms />}
+      {art === "hotkey" && <MotionHotkey />}
+      {art === "voice" && <MotionVoiceToText />}
+    </div>
+  </PageHero>
 
-    <main id="main-content" class="flex-1 pt-24 pb-16 px-6">
-      {/* A centered reading column for long-tail explainers. The nav pill
-          uses the full site frame (.wp-frame in global.css), so it stays
-          the widest element above this narrower column on every width. */}
-      <div class="max-w-3xl lg:max-w-5xl xl:max-w-6xl mx-auto px-5 sm:px-6">
-        {/*
-          Visuelle Breadcrumb-Leiste — dieselben Items wie das
-          `BreadcrumbList`-Schema (Google Rich Results verlangt
-          Übereinstimmung zwischen sichtbarem Text und JSON-LD).
-        */}
-        <nav aria-label="Breadcrumb" class="mb-8 text-sm text-ink-subtle">
-          <ol class="flex flex-wrap items-center gap-2">
-            {breadcrumbs.map((crumb, index) => {
-              const isLast = index === breadcrumbs.length - 1;
-              return (
-                <li class="flex items-center gap-2">
-                  {isLast ? (
-                    <span class="text-ink-muted" aria-current="page">{crumb.name}</span>
-                  ) : (
-                    <a href={crumb.item} class="hover:text-ink-muted transition-colors">{crumb.name}</a>
-                  )}
-                  {!isLast && (
-                    <span class="text-ink-subtle/60" aria-hidden="true">/</span>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-        </nav>
+  <div class="wp-container page-body">
+    <div class="page-split">
+      <article class="landing-content" data-testid="lp-content">
+        <slot />
+      </article>
 
-        {/* Hero — H1 + Lackmustest-Antwort im ersten Absatz */}
-        <header class="mb-12">
-          {heroImage && (
-            <div class="illo-float mx-auto mb-8 w-full max-w-[240px] sm:max-w-[280px]">
-              <img
-                src={heroImage.src}
-                alt={heroImage.alt}
-                width="1024"
-                height="1024"
-                loading="eager"
-                decoding="async"
-                class="w-full h-auto lp-hero-illustration"
-              />
-            </div>
-          )}
-          {/* Kein separates Icon/Bildmarke im Hero selbst (versucht und
-              wieder verworfen, 2026-09-04 — Nutzer-Feedback: "wirkt nicht
-              gut", "nicht unsere Wortbildmarke"). Markenpräsenz auf dieser
-              Seite kommt weiter ausschließlich über die feste Nav-Wortmarke
-              (Nav.astro) und, für diese Page, die neue Benefit-Leiste
-              direkt unterhalb des Heros. */}
-          <h1 class="lp-hero-title text-3xl sm:text-4xl mb-4 leading-tight">{hero.heading}</h1>
-          <p class="lp-hero-lead text-lg leading-relaxed">{hero.lead}</p>
-          {/* Echter primärer CTA-Button statt reinem Text-Link — critique.md
-              P0: ein kleiner Scroll-Link wurde von Erstbesuchern leicht als
-              nicht-klickbar übersehen. Gleiche visuelle Sprache wie der
-              CTA-Block am Seitenende (unten), damit "das ist der
-              Download-Button" sofort erkennbar ist, egal wo auf der Seite
-              man ihn zuerst sieht. */}
-          <a
-            href={cta.href}
-            class="mt-6 inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-6 py-3 font-semibold text-brand-darker transition-transform hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
-          >
+      <aside class="page-split__rail" data-testid="lp-rail">
+        <div class="lp-rail-card">
+          <p class="lp-rail-kicker">WhisPaste</p>
+          <a href={cta.href} class="wp-cta lp-rail-cta">
             <span>{cta.label}</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M5 12h14" />
-              <path d="m12 5 7 7-7 7" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
             </svg>
           </a>
-        </header>
-
-        {/* Sections-Slot — Konsumenten füllen mit `<section>`-Blöcken.
-            No gap utility here: each section's own vertical padding plus
-            its edge-feathered band tint (see .landing-content :global(section)
-            below) carries the rhythm, the same way homepage bands sit flush
-            against each other instead of leaving a plain gap between them. */}
-        <div class="landing-content">
-          <slot />
+          <p class="lp-rail-trust">{t(lang, "explainer.cta.trust")}</p>
         </div>
-
-        {/* Related-Pages — hält den Long-Tail-Content-Cluster intern verlinkt,
-            statt dass jede Page nur über die Sitemap erreichbar ist. */}
         {relatedPages && relatedPages.length > 0 && (
-          <nav aria-label={t(lang, "explainer.related.aria")} class="mt-10 pt-8 border-t border-white/5">
-            <p class="text-xs font-semibold uppercase tracking-wider text-ink-subtle mb-3">
-              {t(lang, "explainer.related.heading")}
-            </p>
-            <ul class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+          <nav aria-label={t(lang, "explainer.related.aria")} class="lp-related" data-testid="lp-related">
+            <p class="lp-rail-kicker">{t(lang, "explainer.related.heading")}</p>
+            <ul>
               {relatedPages.map((page) => (
-                <li>
-                  <a href={page.href} class="text-ink-muted hover:text-white transition-colors">
-                    {page.label}
-                  </a>
-                </li>
+                <li><a href={page.href}>{page.label}</a></li>
               ))}
             </ul>
           </nav>
         )}
+      </aside>
+    </div>
 
-        {/* CTA-Block — konsistente Position am Ende jeder Long-Tail-Page.
-            id=lp-cta dient zugleich als Sentinel fürs „Inhalt gelesen"-Event. */}
-        <aside id="lp-cta" class="mt-14 rounded-2xl border border-brand-cyan/20 bg-brand-cyan/[0.03] p-8 text-center">
-          <a
-            href={cta.href}
-            class="inline-flex items-center gap-2 rounded-xl bg-brand-cyan px-6 py-3 font-semibold text-brand-darker transition-transform hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
-          >
-            <span>{cta.label}</span>
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M5 12h14" />
-              <path d="m12 5 7 7-7 7" />
-            </svg>
-          </a>
-          <p class="lp-cta-trust mt-4 text-sm">{t(lang, "explainer.cta.trust")}</p>
-        </aside>
-      </div>
-    </main>
-
-    <Footer variant="subpage" />
+    {/* Closing CTA; id=lp-cta doubles as the "content read" sentinel. */}
+    <aside id="lp-cta" class="lp-end wp-spot" data-testid="lp-cta">
+      <p class="lp-end-title">{hero.heading}</p>
+      <a href={cta.href} class="wp-cta">
+        <span>{cta.label}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+        </svg>
+      </a>
+      <p class="lp-rail-trust">{t(lang, "explainer.cta.trust")}</p>
+    </aside>
   </div>
 
-  {/*
-    Client-side language toggle keeps i18n attributes (`data-i18n`,
-    `data-i18n-aria` …) on Nav/Footer in sync, identisch zu allen
-    anderen Subpages.
-  */}
   <script>
-    import { applyLang } from '../scripts/lang-switch';
-    applyLang();
-
-    // Engagement-Event „Inhalt gelesen" (cookieless, einmalig): feuert, sobald der
-    // CTA-Block am Seitenende sichtbar wird — Beleg, dass die Long-Tail-Seite bis
-    // zum Ende konsumiert wurde. Name = Seitentitel. Guard: _paq nur in Prod.
+    // "Content read" engagement event (cookieless, once): fires when the
+    // closing CTA becomes visible. Name = page title. _paq exists only in prod.
     const sentinel = document.getElementById('lp-cta');
     if (sentinel && 'IntersectionObserver' in window) {
       const obs = new IntersectionObserver((entries) => {
         for (const e of entries) {
           if (e.isIntersecting) {
-            const paq = (window as any)._paq;
+            const paq = (window as unknown as { _paq?: unknown[][] })._paq;
             if (paq) paq.push(['trackEvent', 'Engagement', 'Inhalt gelesen', document.title]);
             obs.disconnect();
             break;
@@ -240,118 +156,116 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, relatedPages } = Astro.pro
     }
   </script>
 
-  {/* BreadcrumbList-JSON-LD — Items 1:1 wie in der sichtbaren Nav oben */}
-  <BreadcrumbListSchema items={breadcrumbs} />
-</Layout>
+  <BreadcrumbListSchema slot="head" items={breadcrumbs} />
+</SubpageLayout>
 
 <style>
-  .lp-hero-illustration {
-    filter: drop-shadow(0 18px 34px rgba(0, 0, 0, 0.28));
+  .lp-art :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
   }
-  .lp-hero-title {
-    font-family: var(--font-display);
-    font-weight: 700;
-    letter-spacing: -0.015em;
-    color: var(--color-ink);
-    /* At the widened xl:max-w-6xl column, an unconstrained h1 gave
-       text-wrap: balance (global.css) a ~1100px box to balance a ~70-char
-       headline into — it still only needs 2 lines, so balance centers the
-       break for even line length and leaves the first line far short of
-       the box edge (a large, odd-looking gap). 43rem is the minimum box
-       width the current DE headline still balances into exactly 2 lines
-       at (measured via Range.getClientRects against the live text) —
-       any narrower and it tips into 3 short lines, any wider just adds
-       unused space back. At this width both lines run to within ~10-30px
-       of the box edge, so the wrap reads as a natural late break instead
-       of an arbitrary early cutoff, without touching the shared
-       text-wrap: balance rule other headings rely on. */
-    max-width: 43rem;
+
+  /* Rail: compact CTA card + related links. Sticky via .page-split__rail. */
+  .lp-rail-card {
+    padding: 1.5rem;
+    border-radius: var(--radius-lg, 1rem);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
+    background: color-mix(in srgb, var(--color-brand-cyan) 5%, transparent);
   }
-  .lp-hero-lead {
-    color: var(--color-ink-muted);
+  .lp-rail-kicker {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+    margin-bottom: 0.9rem;
   }
-  .lp-cta-trust {
+  .lp-rail-cta {
+    width: 100%;
+    justify-content: center;
+  }
+  .lp-rail-trust {
+    margin-top: 0.9rem;
+    font-size: 0.85rem;
     color: var(--color-ink-subtle);
   }
+  .lp-related {
+    margin-top: 2rem;
+  }
+  .lp-related ul {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .lp-related a {
+    display: block;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+    color: var(--color-ink-muted);
+    transition: color var(--dur-base) var(--ease-flow);
+  }
+  .lp-related a:hover {
+    color: var(--color-brand-cyan);
+  }
 
-  /* Long-tail / use-case body: same tonal-band rhythm as the homepage
-     (.band / .band-raised / .band-deep in global.css), not a separate
-     "docs page" language of bordered boxes on a plain background. Each
-     section keeps the reading column's own width/padding (so per-page
-     overrides like the FAQ block's `padding: 0` or the photo block's
-     `overflow: hidden` still apply unchanged) — only the tint bleeds to
-     the full viewport via the ::after pseudo-element, exactly like the
-     homepage bands, so a "card" never floats on a plain background and
-     the width complaint (narrow, boxed) goes away without every consumer
-     page having to restructure its markup.
-
-     The odd/even alternation below is PURELY a rhythm device — it marks
-     "a new section started" the way a page break would, nothing more. It
-     is intentionally NOT tied to content meaning (e.g. "cyan tint =
-     feature/benefit section"): consumer pages add/remove/reorder
-     `<section>`s freely per their own content, and a meaning-carrying
-     tint would silently become wrong the moment a page's section count
-     changes by one. Do not repurpose `nth-of-type(odd)` as a "highlight
-     this section" hook — add an explicit class on that page's section
-     instead. */
-  .landing-content :global(section) {
-    position: relative;
-    isolation: isolate;
-    padding: 2.75rem 0;
+  /* Article: editorial sections separated by hairlines with a mono counter,
+     instead of tinted full-bleed bands. */
+  .landing-content {
+    counter-reset: lp-section;
+    min-width: 0;
   }
-  .landing-content :global(section)::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 50%;
-    width: 100vw;
-    transform: translateX(-50%);
-    z-index: -1;
-    pointer-events: none;
-    --band-fade: clamp(48px, 8vh, 120px);
-    mask-image: linear-gradient(
-      180deg,
-      transparent 0,
-      black var(--band-fade),
-      black calc(100% - var(--band-fade)),
-      transparent 100%
-    );
-    -webkit-mask-image: linear-gradient(
-      180deg,
-      transparent 0,
-      black var(--band-fade),
-      black calc(100% - var(--band-fade)),
-      transparent 100%
-    );
+  .landing-content :global(> section),
+  .landing-content :global(> * > section) {
+    counter-increment: lp-section;
+    padding: 2.5rem 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
   }
-  .landing-content :global(section:nth-of-type(odd))::after {
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--color-brand-cyan) 6%, var(--surface-dark)) 0%,
-      var(--surface-dark) 260px
-    );
+  .landing-content :global(> section:first-child) {
+    border-top: 0;
+    padding-top: 0;
   }
-  .landing-content :global(section:nth-of-type(even))::after {
-    background: linear-gradient(135deg, var(--surface-deep-start) 0%, var(--surface-deep) 100%);
+  /* The TL;DR opener reads as a pull quote above the numbered sections. */
+  .landing-content :global(> .tldr) {
+    font-size: clamp(1.1rem, 1rem + 0.4vw, 1.35rem);
+    line-height: 1.6;
+    color: var(--color-ink);
+    padding-left: 1.25rem;
+    margin-bottom: 2.5rem;
+    border-left: 2px solid var(--color-brand-cyan);
+    max-width: 62ch;
   }
   .landing-content :global(section h2) {
     font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 1.5rem;
-    letter-spacing: -0.01em;
+    font-weight: 750;
+    font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.35rem);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
     color: var(--color-ink);
-    margin-bottom: 0.75rem;
+    margin-bottom: 1rem;
+    max-width: 40ch;
   }
-  /* No ch-cap here: the reading column's own width (max-w-3xl up to
-     xl:52rem/2xl:60rem on the wrapper in the layout markup above) already
-     bounds the line length sensibly per breakpoint. An extra fixed 62ch cap
-     on top of that produced a narrow text column with a large dead-space
-     gutter on wide screens — the opposite of the "use the available width"
-     direction — so paragraphs/lists now fill the section's own width. */
+  .landing-content :global(> section > h2::before),
+  .landing-content :global(> * > section > h2::before) {
+    content: counter(lp-section, decimal-leading-zero);
+    display: block;
+    margin-bottom: 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    color: var(--color-brand-cyan);
+  }
+  .landing-content :global(section h3) {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--color-ink);
+    margin: 1.5rem 0 0.5rem;
+  }
   .landing-content :global(section p) {
     color: var(--color-ink-muted);
     line-height: 1.7;
+    max-width: 72ch;
   }
   .landing-content :global(section p + p) {
     margin-top: 0.85rem;
@@ -362,8 +276,32 @@ const { lang, seo, breadcrumbs, hero, heroImage, cta, relatedPages } = Astro.pro
     margin-top: 0.85rem;
     padding-left: 1.35rem;
     list-style: disc;
+    max-width: 72ch;
   }
   .landing-content :global(section ul li + li) {
     margin-top: 0.4rem;
+  }
+
+  /* Closing CTA: a wide statement band, not a small centered box. */
+  .lp-end {
+    margin-top: 3rem;
+    padding: clamp(2rem, 4vw, 3.5rem);
+    border-radius: var(--radius-xl, 1.5rem);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 20%, transparent);
+    background:
+      radial-gradient(60% 120% at 100% 0%, color-mix(in srgb, var(--color-brand-cyan) 14%, transparent), transparent 70%),
+      var(--surface-deep);
+    display: grid;
+    gap: 1.25rem;
+    justify-items: start;
+  }
+  .lp-end-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(1.6rem, 1.1rem + 1.8vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    color: var(--color-ink);
+    max-width: 28ch;
   }
 </style>

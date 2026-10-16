@@ -1,0 +1,74 @@
+---
+/**
+ * Motion illustration: local processing. Audio packets leave the device,
+ * hit the dashed device boundary and fall back inside — nothing crosses
+ * to the cloud. Inline SVG + CSS, transform/opacity only; static under
+ * prefers-reduced-motion. Decorative.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+const packets = [0, 1, 2, 3, 4, 5];
+---
+
+<svg
+  class:list={['motion-priv', className]}
+  viewBox="0 0 480 320"
+  fill="none"
+  aria-hidden="true"
+  focusable="false"
+  data-testid="motion-privacy"
+>
+  <defs>
+    <linearGradient id="priv-accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6FDDF0" />
+      <stop offset="1" stop-color="#0BAACC" />
+    </linearGradient>
+  </defs>
+
+  <!-- cloud, out of reach -->
+  <g opacity=".4">
+    <path d="M384 70a22 22 0 0 1 42-6 18 18 0 1 1 6 35h-52a16 16 0 0 1 4-29z" stroke="#ABB8CC" stroke-width="2" />
+    <path d="M384 108 l50 -50" stroke="#ABB8CC" stroke-width="2" stroke-linecap="round" />
+  </g>
+
+  <!-- device boundary -->
+  <circle class="ring" cx="200" cy="170" r="120" stroke="url(#priv-accent)" stroke-width="2" stroke-dasharray="6 10" />
+  <circle cx="200" cy="170" r="84" fill="#171D53" stroke="rgba(171,184,204,.22)" />
+
+  <!-- lock -->
+  <g class="lock">
+    <path d="M180 162v-14a20 20 0 0 1 40 0v14" stroke="#6FDDF0" stroke-width="6" stroke-linecap="round" />
+    <rect x="166" y="160" width="68" height="52" rx="12" fill="url(#priv-accent)" />
+    <circle cx="200" cy="184" r="6" fill="#0B122A" />
+    <rect x="197" y="186" width="6" height="12" rx="3" fill="#0B122A" />
+  </g>
+
+  {packets.map((i) => (
+    <g transform={`rotate(${i * 60 - 30} 200 170)`}>
+      <circle class="packet" cx="200" cy="74" r="5" fill="#6FDDF0" style={`--i:${i}`} />
+    </g>
+  ))}
+</svg>
+
+<style>
+  .motion-priv { display: block; width: 100%; height: auto; }
+  .motion-priv .ring { transform-box: fill-box; transform-origin: center; }
+  .motion-priv .packet { transform-box: fill-box; transform-origin: center; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-priv .ring { animation: priv-spin 40s linear infinite; }
+    .motion-priv .packet { animation: priv-bounce 3.6s cubic-bezier(0.22, 1, 0.36, 1) infinite; animation-delay: calc(var(--i) * 0.6s); }
+  }
+  @keyframes priv-spin { to { transform: rotate(360deg); } }
+  /* outward toward the boundary (r 120), bounce back, fade */
+  @keyframes priv-bounce {
+    0% { transform: translateY(24px); opacity: 0; }
+    15% { opacity: 1; }
+    45% { transform: translateY(-40px); opacity: 1; }
+    55% { transform: translateY(-34px) scale(1.4); opacity: 0.9; }
+    85% { transform: translateY(16px) scale(1); opacity: 0.6; }
+    100% { transform: translateY(24px); opacity: 0; }
+  }
+</style>

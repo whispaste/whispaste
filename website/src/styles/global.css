@@ -211,7 +211,7 @@
    section title, so sections stop picking their own py-20/py-28/py-32 and
    text-base/lg/xl. Plain :root for the same tree-shaking reason as --dur-*. */
 :root {
-  --section-pad-y: clamp(4.5rem, 3rem + 6vw, 8rem);
+  --section-pad-y: clamp(3.75rem, 2.5rem + 4.5vw, 6.5rem);
   --section-head-gap: clamp(2.5rem, 2rem + 2vw, 4rem);
   --type-lead: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
   --type-card-title: clamp(1.125rem, 1.05rem + 0.3vw, 1.3125rem);
@@ -229,19 +229,53 @@
    the same full width as the content below instead of leaving a dead right
    half. Centered, privacy and FAQ heads keep their own layouts. */
 @media (min-width: 1280px) {
-  .wp-section-head:has(> .wp-lead):not(.is-centered):not(.privacy-head):not(.faq-head) {
+  .wp-section-head:has(> .wp-lead):not(:has(> .wp-head-art)):not(.is-centered):not(.privacy-head):not(.faq-head) {
     max-width: none;
     display: grid;
     grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
     column-gap: clamp(3rem, 6vw, 8rem);
     align-items: end;
   }
-  .wp-section-head:has(> .wp-lead):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-eyebrow {
+  .wp-section-head:has(> .wp-lead):not(:has(> .wp-head-art)):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-eyebrow {
     grid-column: 1 / -1;
   }
-  .wp-section-head:has(> .wp-lead):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-lead {
+  .wp-section-head:has(> .wp-lead):not(:has(> .wp-head-art)):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-lead {
     margin-top: 0;
     padding-bottom: 0.5rem;
+  }
+}
+
+/* Heads with a motion illustration (.wp-head-art): title and lead on the
+   left, the illustration in the otherwise empty right column. Below 1024px
+   the illustration follows the copy at a capped width. */
+.wp-head-art {
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  margin-top: 2rem;
+}
+.wp-head-art :where(svg) {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media (min-width: 1024px) {
+  .wp-section-head:has(> .wp-head-art) {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: clamp(2rem, 5vw, 6rem);
+    align-items: center;
+  }
+  .wp-section-head:has(> .wp-head-art) > :not(.wp-head-art) {
+    grid-column: 1;
+  }
+  .wp-section-head:has(> .wp-head-art) > .wp-head-art {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    justify-self: end;
+    max-width: 34rem;
+    margin-top: 0;
   }
 }
 
@@ -1402,4 +1436,181 @@
 :is(.use-case-card, .fh-card, .engine-card, .privacy-path, .price-core, .price-get, .testimonial-card) p {
   max-width: 68ch;
   text-wrap: pretty;
+}
+
+/* ===========================================================================
+   Subpage shell (PageHero, SubpageLayout).
+   Every page outside the landing uses the same full-width frame, an editorial
+   hero (copy left, motion illustration right) and the landing footer, so a
+   click from the landing never drops into a narrow "docs column".
+   --------------------------------------------------------------------------- */
+.page-hero {
+  padding-top: calc(var(--nav-clear, 6.5rem) + clamp(1rem, 3vw, 3rem));
+  padding-bottom: clamp(3rem, 2rem + 4vw, 6rem);
+}
+.page-hero__grid {
+  display: grid;
+  gap: clamp(2.5rem, 2rem + 3vw, 5rem);
+  align-items: center;
+}
+@media (min-width: 1024px) {
+  .page-hero__grid.has-art {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+}
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variation-settings: "wght" 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  color: var(--color-ink);
+  font-size: clamp(2.5rem, 1.4rem + 4.6vw, 6.25rem);
+  text-wrap: balance;
+  /* Long German compounds ("Datenschutzerklärung") would otherwise push a
+     390px viewport sideways. */
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+.page-hero__grid > * {
+  min-width: 0;
+}
+.page-hero .wp-lead {
+  margin-top: clamp(1.25rem, 1rem + 1vw, 2rem);
+  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  max-width: 44rem;
+}
+.page-hero__actions:not(:empty) {
+  margin-top: clamp(1.75rem, 1.5rem + 1vw, 2.5rem);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+}
+.page-crumbs {
+  margin-bottom: clamp(1.25rem, 1rem + 1vw, 2rem);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-subtle);
+}
+.page-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.6rem;
+}
+.page-crumbs li + li::before {
+  content: "/";
+  margin-right: 0.6rem;
+  opacity: 0.5;
+}
+.page-crumbs a:hover {
+  color: var(--color-ink);
+}
+/* Instrument panel framing the hero illustration: hairline, faint grid and
+   corner ticks, the same HUD vocabulary as the landing cards. */
+.wp-panel {
+  position: relative;
+  border-radius: 1.5rem;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
+  background:
+    linear-gradient(color-mix(in srgb, var(--color-ink) 4%, transparent) 1px, transparent 1px) 0 0 / 2rem 2rem,
+    linear-gradient(90deg, color-mix(in srgb, var(--color-ink) 4%, transparent) 1px, transparent 1px) 0 0 / 2rem 2rem,
+    radial-gradient(120% 90% at 70% 10%, color-mix(in srgb, var(--color-brand-cyan) 10%, transparent), transparent 60%),
+    color-mix(in srgb, var(--surface-deep) 80%, transparent);
+  padding: clamp(1.25rem, 1rem + 1.5vw, 2.25rem);
+  box-shadow: 0 30px 80px -40px rgb(0 0 0 / 0.6);
+}
+.wp-panel::before {
+  content: attr(data-label);
+  position: absolute;
+  top: 0.85rem;
+  left: 1.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-subtle);
+}
+/* Long reading pages (legal, changelog): a readable column plus a sticky
+   side rail on wide screens instead of one narrow centred column. */
+.page-body {
+  padding-bottom: var(--section-pad-y);
+}
+.page-split {
+  display: grid;
+  gap: clamp(2.5rem, 2rem + 3vw, 5rem);
+}
+@media (min-width: 1280px) {
+  .page-split {
+    /* Reading column and rail stay one unit, flush with the hero title; a
+       1fr column would strand the rail far from the text on ultrawide. */
+    grid-template-columns: minmax(0, 56rem) minmax(16rem, 22rem);
+    justify-content: start;
+    align-items: start;
+  }
+  .page-split__rail {
+    position: sticky;
+    top: calc(var(--nav-clear, 6.5rem) + 1rem);
+  }
+}
+.page-prose {
+  max-width: 50rem;
+}
+/* Primary action outside the store buttons: same pill, gradient and lift as
+   .wp-store-btn, so "download" looks identical wherever it appears. */
+.wp-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 48px;
+  padding: 0.75rem 1.6rem;
+  border-radius: var(--radius-pill);
+  background: var(--gradient-accent-cta);
+  color: var(--color-brand-darker);
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform var(--dur-base) var(--ease-flow), box-shadow var(--dur-base) var(--ease-flow);
+}
+.wp-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-pill);
+}
+.wp-cta:active {
+  transform: translateY(0) scale(0.98);
+}
+.wp-cta svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  transition: transform var(--dur-base) var(--ease-flow);
+}
+.wp-cta:hover svg {
+  transform: translateX(3px);
+}
+.wp-cta-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 48px;
+  padding: 0.75rem 1.4rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+  color: var(--color-ink);
+  font-weight: 600;
+  transition: border-color var(--dur-base) var(--ease-flow), background-color var(--dur-base) var(--ease-flow);
+}
+.wp-cta-ghost:hover {
+  border-color: color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
+  background: color-mix(in srgb, var(--color-brand-cyan) 7%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wp-cta,
+  .wp-cta svg {
+    transition: none;
+  }
+  .wp-cta:hover,
+  .wp-cta:hover svg {
+    transform: none;
+  }
 }

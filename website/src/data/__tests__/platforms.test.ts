@@ -429,38 +429,33 @@ describe("getLivePkgManagersGroupedByPlatform", () => {
 // ---------------------------------------------------------------------------
 
 describe("SSoT: no literal package-manager commands in download pages", () => {
-  // Resolve paths relative to this test file's location (src/data/__tests__/).
+  // Both routes are thin wrappers around one shared component (no drift
+  // between locales); the component holds the actual markup.
   const thisDir = dirname(fileURLToPath(import.meta.url));
-  const deDownload = readFileSync(
-    resolve(thisDir, "../../pages/download.astro"),
-    "utf8"
-  );
-  const enDownload = readFileSync(
-    resolve(thisDir, "../../pages/[lang]/download.astro"),
-    "utf8"
-  );
+  const read = (path: string): string => readFileSync(resolve(thisDir, path), "utf8");
+  const downloadPage = read("../../components/pages/DownloadPage.astro");
+  const deRoute = read("../../pages/download.astro");
+  const langRoute = read("../../pages/[lang]/download.astro");
 
   // The Scoop bucket-add command is the canonical canary for "literals exist".
   const scoopBucketCmd = "scoop bucket add whispaste https://github.com/whispaste/scoop-bucket";
 
-  it("DE download.astro contains no literal Scoop bucket command", () => {
-    expect(deDownload).not.toContain(scoopBucketCmd);
+  it("both download routes render the shared DownloadPage component", () => {
+    expect(deRoute).toContain("DownloadPage");
+    expect(langRoute).toContain("DownloadPage");
   });
 
-  it("EN en/download.astro contains no literal Scoop bucket command", () => {
-    expect(enDownload).not.toContain(scoopBucketCmd);
+  it("DownloadPage.astro contains no literal Scoop bucket command", () => {
+    expect(downloadPage).not.toContain(scoopBucketCmd);
+    expect(deRoute).not.toContain(scoopBucketCmd);
+    expect(langRoute).not.toContain(scoopBucketCmd);
   });
 
-  it("DE download.astro imports getLivePkgManagers from platforms.ts (data-driven)", () => {
-    expect(deDownload).toContain("getLivePkgManagers");
+  it("DownloadPage.astro imports getLivePkgManagers from platforms.ts (data-driven)", () => {
+    expect(downloadPage).toContain("getLivePkgManagers");
   });
 
-  it("EN en/download.astro imports getLivePkgManagers from platforms.ts (data-driven)", () => {
-    expect(enDownload).toContain("getLivePkgManagers");
-  });
-
-  it("both pages render the pkg-managers block (data-testid)", () => {
-    expect(deDownload).toContain('data-testid="pkg-managers"');
-    expect(enDownload).toContain('data-testid="pkg-managers"');
+  it("DownloadPage.astro renders the pkg-managers block (data-testid)", () => {
+    expect(downloadPage).toContain('data-testid="pkg-managers"');
   });
 });

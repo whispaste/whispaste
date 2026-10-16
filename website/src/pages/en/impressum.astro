@@ -1,8 +1,5 @@
 ---
-import Layout from "../../layouts/Layout.astro";
-import Nav from "../../components/Nav.astro";
-import Footer from "../../components/Footer.astro";
-import BreadcrumbListSchema from "../../components/schema/BreadcrumbListSchema.astro";
+import LegalPage from "../../components/pages/LegalPage.astro";
 import { t, localePath } from "../../scripts/i18n.ts";
 
 const lang = 'en' as const;
@@ -12,126 +9,58 @@ const breadcrumbItems = [
 ];
 ---
 
-<Layout
-  title={t(lang, "meta.title.impressum")}
-  description={t(lang, "meta.description.impressum")}
+<LegalPage
   lang={lang}
+  metaTitle={t(lang, "meta.title.impressum")}
+  metaDescription={t(lang, "meta.description.impressum")}
+  title="Legal Notice (Impressum)"
+  crumbs={breadcrumbItems}
+  tocLabel="Contents"
+  testid="legal-imprint"
 >
-  <div class="min-h-screen flex flex-col">
-    <Nav variant="subpage" />
+    <div id="content-en">
+      <section>
+        <h2>Information according to § 5 DDG (German Digital Services Act)</h2>
+        <p>
+          <strong>Silvio Lindstedt und Maik Gräfendorf, GbR</strong><br>
+          Pappelweg 27<br>
+          39576 Stendal<br>
+          Germany
+        </p>
+      </section>
 
-    <!-- Content -->
-    <main class="flex-1 pt-24 pb-16 px-6">
-      <div class="max-w-3xl mx-auto">
-        <h1 class="text-3xl font-bold text-white mb-8" id="pageTitle">Legal Notice (Impressum)</h1>
+      <section>
+        <h2>Contact</h2>
+        <p>
+          Email: contact@whispaste.de
+        </p>
+      </section>
 
-        <div class="prose prose-invert max-w-none space-y-6 text-ink-muted leading-relaxed">
-          <!-- DE content (hidden — language toggle routes to /impressum/) -->
-          <div id="content-de" class="hidden space-y-6">
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Angaben gemäß § 5 DDG</h2>
-              <p>
-                <strong class="text-white">Silvio Lindstedt und Maik Gräfendorf, GbR</strong><br>
-                Pappelweg 27<br>
-                39576 Stendal<br>
-                Deutschland
-              </p>
-            </section>
+      <section>
+        <h2>Responsible for content according to § 18 (2) MStV</h2>
+        <p>
+          Silvio Lindstedt<br>
+          Address as above
+        </p>
+      </section>
 
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Kontakt</h2>
-              <p>
-                E-Mail: kontakt@whispaste.de
-              </p>
-            </section>
+      <section>
+        <h2>Disclaimer</h2>
+        <h3>Liability for content</h3>
+        <p>
+          The contents of this website have been created with the utmost care. However, no guarantee can be given for the accuracy, completeness, or timeliness of the content. As a service provider, I am responsible for my own content on these pages in accordance with general laws pursuant to § 7 (1) DDG. However, pursuant to §§ 8–10 DDG, I am not obligated to monitor transmitted or stored third-party information.
+        </p>
+        <h3>Liability for links</h3>
+        <p>
+          This website contains links to external third-party websites over whose content I have no influence. The respective provider or operator is always responsible for the content of the linked pages. If I become aware of any legal violations, I will remove such links immediately.
+        </p>
+      </section>
 
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
-              <p>
-                Silvio Lindstedt<br>
-                Anschrift wie oben
-              </p>
-            </section>
-
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Haftungsausschluss</h2>
-              <h3 class="text-lg font-medium text-white mb-2">Haftung für Inhalte</h3>
-              <p>
-                Die Inhalte dieser Seite wurden mit größter Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte kann jedoch keine Gewähr übernommen werden. Als Diensteanbieter bin ich gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 DDG bin ich jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen.
-              </p>
-              <h3 class="text-lg font-medium text-white mb-2 mt-4">Haftung für Links</h3>
-              <p>
-                Diese Seite enthält Links zu externen Websites Dritter, auf deren Inhalte ich keinen Einfluss habe. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber verantwortlich. Bei Bekanntwerden von Rechtsverletzungen werde ich derartige Links umgehend entfernen.
-              </p>
-            </section>
-
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Urheberrecht</h2>
-              <p>
-                WhisPaste ist Open-Source-Software, lizenziert unter der <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">MIT-Lizenz</a>. Der Quellcode ist öffentlich auf <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub</a> verfügbar.
-              </p>
-            </section>
-          </div>
-
-          <!-- EN content (server-rendered) -->
-          <div id="content-en" class="space-y-6">
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Information according to § 5 DDG (German Digital Services Act)</h2>
-              <p>
-                <strong class="text-white">Silvio Lindstedt und Maik Gräfendorf, GbR</strong><br>
-                Pappelweg 27<br>
-                39576 Stendal<br>
-                Germany
-              </p>
-            </section>
-
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Contact</h2>
-              <p>
-                Email: contact@whispaste.de
-              </p>
-            </section>
-
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Responsible for content according to § 18 (2) MStV</h2>
-              <p>
-                Silvio Lindstedt<br>
-                Address as above
-              </p>
-            </section>
-
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Disclaimer</h2>
-              <h3 class="text-lg font-medium text-white mb-2">Liability for content</h3>
-              <p>
-                The contents of this website have been created with the utmost care. However, no guarantee can be given for the accuracy, completeness, or timeliness of the content. As a service provider, I am responsible for my own content on these pages in accordance with general laws pursuant to § 7 (1) DDG. However, pursuant to §§ 8–10 DDG, I am not obligated to monitor transmitted or stored third-party information.
-              </p>
-              <h3 class="text-lg font-medium text-white mb-2 mt-4">Liability for links</h3>
-              <p>
-                This website contains links to external third-party websites over whose content I have no influence. The respective provider or operator is always responsible for the content of the linked pages. If I become aware of any legal violations, I will remove such links immediately.
-              </p>
-            </section>
-
-            <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">Copyright</h2>
-              <p>
-                WhisPaste is open-source software, licensed under the <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">MIT License</a>. The source code is publicly available on <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="text-brand-cyan hover:underline">GitHub</a>.
-              </p>
-            </section>
-          </div>
-        </div>
-      </div>
-    </main>
-
-    <Footer variant="subpage" />
-  </div>
-
-  <script>
-    import { applyLang } from '../../scripts/lang-switch';
-
-
-    applyLang();
-  </script>
-
-  <BreadcrumbListSchema items={breadcrumbItems} />
-</Layout>
+      <section>
+        <h2>Copyright</h2>
+        <p>
+          WhisPaste is open-source software, licensed under the <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>. The source code is publicly available on <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener">GitHub</a>.
+        </p>
+      </section>
+    </div>
+</LegalPage>

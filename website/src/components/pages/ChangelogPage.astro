@@ -1,0 +1,281 @@
+---
+/**
+ * Changelog for every locale. Static cards come from `releases.json`
+ * (refreshed by the Pages deploy); the client hydrator prepends anything
+ * newer from the GitHub Releases API. Static and hydrated cards share one
+ * plain structure (article > h2 + body with h3/ul), so all styling lives in
+ * CSS below and both look identical.
+ *
+ * Layout: a vertical timeline. On wide screens each release is a row with
+ * version and date on the left rail and the notes on the right.
+ */
+import SubpageLayout from '../../layouts/SubpageLayout.astro';
+import PageHero from '../PageHero.astro';
+import MotionTimeline from '../motion/MotionTimeline.astro';
+import BreadcrumbListSchema from '../schema/BreadcrumbListSchema.astro';
+import releasesFile from '../../data/releases.json';
+import { t, localePath, type Locale } from '../../scripts/i18n.ts';
+
+interface Props {
+  readonly lang: Locale;
+}
+
+const { lang: pageLang } = Astro.props;
+const breadcrumbItems = [
+  { name: t(pageLang, 'breadcrumb.home'), item: localePath(pageLang, '') },
+  { name: t(pageLang, 'breadcrumb.changelog'), item: localePath(pageLang, 'changelog') },
+];
+
+// Top 5, the same cap the deploy pipeline uses.
+const releases = releasesFile.releases.slice(0, 5);
+const formatDate = (iso: string): string => iso.slice(0, 10);
+
+const LANGS = ['en', 'de'] as const;
+type Lang = (typeof LANGS)[number];
+---
+
+<SubpageLayout lang={pageLang} title={t(pageLang, 'meta.title.changelog')} description={t(pageLang, 'meta.description.changelog')}>
+  <PageHero
+    title={t(pageLang, 'changelog.title')}
+    titleKey="changelog.title"
+    lead={t(pageLang, 'changelog.desc')}
+    leadKey="changelog.desc"
+    crumbs={breadcrumbItems}
+    artLabel="RELEASES"
+    testid="changelog-hero"
+  >
+    {pageLang !== 'en' && pageLang !== 'de' && (
+      <p slot="actions" class="changelog-note" data-testid="changelog-english-note">{t(pageLang, 'changelog.notesInEnglish')}</p>
+    )}
+    <MotionTimeline slot="art" />
+  </PageHero>
+
+  <div class="wp-container page-body">
+    <div id="changelog-list" class="changelog-list" data-top-version={releases[0]?.tag ?? ''}>
+      {releases.map((release, index) => (
+        <article class="release-card">
+          <h2>
+            <span class:list={['release-tag', { 'is-latest': index === 0 }]}>{release.tag}</span>
+            <time datetime={release.publishedAt}>{formatDate(release.publishedAt)}</time>
+            {index === 0 && <span class="release-latest" data-i18n="changelog.latest">{t(pageLang, 'changelog.latest')}</span>}
+          </h2>
+          {/* Both languages ship in the HTML (SEO, no-JS); CSS shows the one
+              matching documentElement.lang, which applyLang() keeps in sync.
+              `de` is optional, so fall back to English. */}
+          {LANGS.map((lang: Lang) => (
+            <div data-lang={lang} class="release-card-body">
+              {(release[lang] ?? release.en).blocks.sections.map((section) => (
+                <>
+                  <h3>{section.heading}</h3>
+                  {section.items.length > 0 && (
+                    <ul>
+                      {section.items.map((item) => (
+                        <li>
+                          {item.title !== undefined && item.title.length > 0 && <strong>{item.title}: </strong>}
+                          {item.body}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              ))}
+            </div>
+          ))}
+        </article>
+      ))}
+    </div>
+
+    <div class="changelog-more">
+      <a href="https://github.com/whispaste/whispaste/releases" target="_blank" rel="noopener" class="wp-cta-ghost" data-testid="changelog-all-releases">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+        <span data-i18n="changelog.allreleases">{t(pageLang, 'changelog.allreleases')}</span>
+      </a>
+    </div>
+  </div>
+
+  {/* Hydrator: fetches newer releases than the build-time snapshot and
+      prepends them. Silent on every failure; static cards stay authoritative. */}
+  <script>
+    import { hydrate, defaultCardRenderer } from '../../scripts/changelog-hydrator';
+
+    const mount = document.getElementById('changelog-list');
+    const currentTopVersion = mount?.getAttribute('data-top-version') ?? '';
+    if (currentTopVersion.length > 0) {
+      hydrate({
+        mountSelector: '#changelog-list',
+        owner: 'whispaste',
+        repo: 'whispaste',
+        cardRenderer: defaultCardRenderer,
+        currentTopVersion,
+      });
+    }
+  </script>
+
+  <BreadcrumbListSchema items={breadcrumbItems} />
+</SubpageLayout>
+
+<style is:global>
+  html:not([lang="de"]) .release-card-body[data-lang="de"],
+  html[lang="de"] .release-card-body[data-lang="en"] {
+    display: none;
+  }
+</style>
+
+<style>
+  .changelog-note {
+    font-size: 0.9rem;
+    color: var(--color-ink-subtle);
+  }
+
+  /* Timeline spine runs down the left edge of the list. */
+  .changelog-list {
+    position: relative;
+    display: grid;
+    gap: clamp(2.5rem, 2rem + 2vw, 4rem);
+    padding-left: 1.75rem;
+  }
+  .changelog-list::before {
+    content: "";
+    position: absolute;
+    left: 0.35rem;
+    top: 0.6rem;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(180deg, var(--color-brand-cyan), color-mix(in srgb, var(--color-ink) 8%, transparent) 40%);
+  }
+
+  /* :global because hydrated cards are created at runtime without the
+     scoped attribute; scoped to the list so nothing else is affected. */
+  .changelog-list :global(.release-card) {
+    position: relative;
+    display: grid;
+    gap: 1rem 3rem;
+    /* Hydrated cards carry Tailwind card classes; neutralise them so both
+       kinds render identically. */
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+  .changelog-list :global(.release-card)::before {
+    content: "";
+    position: absolute;
+    left: -1.75rem;
+    top: 0.45rem;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: var(--color-brand-darker);
+    border: 2px solid color-mix(in srgb, var(--color-brand-cyan) 60%, transparent);
+  }
+  .changelog-list :global(.release-card:first-child)::before {
+    background: var(--color-brand-cyan);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-brand-cyan) 18%, transparent);
+  }
+  @media (min-width: 1024px) {
+    .changelog-list :global(.release-card) {
+      grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+    }
+    .changelog-list :global(.release-card > h2) {
+      grid-column: 1;
+      flex-direction: column;
+      align-items: flex-start;
+      position: sticky;
+      top: calc(var(--nav-clear, 6.5rem) + 1rem);
+      align-self: start;
+    }
+    .changelog-list :global(.release-card > .release-card-body) {
+      grid-column: 2;
+      grid-row: 1;
+    }
+  }
+
+  .changelog-list :global(.release-card > h2) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem 0.9rem;
+    margin: 0;
+  }
+  /* First span in an h2 is the version, static or hydrated. */
+  .changelog-list :global(.release-card > h2 > span:first-child) {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: clamp(1.75rem, 1.3rem + 1.5vw, 2.75rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--color-ink);
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  .changelog-list :global(.release-card:first-child > h2 > span:first-child) {
+    background: var(--gradient-accent-cta);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .changelog-list :global(.release-card > h2 time) {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    color: var(--color-ink-subtle);
+    font-variant-numeric: tabular-nums;
+  }
+  .release-latest {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-brand-cyan);
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
+  }
+
+  .changelog-list :global(.release-card-body) {
+    padding-bottom: clamp(2rem, 1.5rem + 2vw, 3.5rem);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+  }
+  .changelog-list :global(.release-card-body h3) {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+    margin: 1.75rem 0 0.75rem;
+  }
+  .changelog-list :global(.release-card-body h3:first-child) {
+    margin-top: 0;
+  }
+  .changelog-list :global(.release-card-body ul) {
+    display: grid;
+    gap: 0.6rem;
+    max-width: 72ch;
+  }
+  .changelog-list :global(.release-card-body li) {
+    position: relative;
+    padding-left: 1.4rem;
+    color: var(--color-ink-muted);
+    line-height: 1.65;
+  }
+  .changelog-list :global(.release-card-body li)::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.7em;
+    width: 0.6rem;
+    height: 1px;
+    background: var(--color-brand-cyan);
+  }
+  .changelog-list :global(.release-card-body strong) {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  .changelog-more {
+    margin-top: 3rem;
+    padding-left: 1.75rem;
+  }
+</style>

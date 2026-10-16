@@ -5,6 +5,7 @@
  * `CONTEXT.md` §4.2) as two cards with identical rows, followed directly by
  * the language summary (`#languages`, formerly its own section).
  */
+import MotionHardware from './motion/MotionHardware.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import { t, localePath, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
@@ -45,6 +46,7 @@ const sampleLanguages = [
       <SectionEyebrow key="engines.label" />
       <h2 class="section-title" data-i18n="engines.title">{t(lang, "engines.title")}</h2>
       <p class="wp-lead mt-4" data-i18n="engines.desc">{t(lang, "engines.desc")}</p>
+      <div class="wp-head-art" aria-hidden="true"><MotionHardware /></div>
     </div>
 
     <div class="engine-grid">

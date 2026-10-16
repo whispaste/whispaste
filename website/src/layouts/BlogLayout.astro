@@ -1,14 +1,12 @@
 ---
 /**
- * Shared frame for the blog index and posts: global Layout, subpage Nav and
- * the full landing footer (the blog is a front-door page, not a legal
- * subpage), on the same full-width frame (`.wp-container`) and band surface as
- * the landing page, so the blog reads as part of the site, not a separate
- * narrow column. Reading measure is set by the pages themselves.
+ * Shared frame for the blog index and posts. Built on SubpageLayout (nav,
+ * full footer, language switch, pointer spotlight) like every other page
+ * outside the landing; adds the RSS alternate link and the band surface.
+ * Reading measure is set by the pages themselves (the blog renders its own
+ * editorial header instead of PageHero).
  */
-import Layout from "./Layout.astro";
-import Nav from "../components/Nav.astro";
-import Footer from "../components/Footer.astro";
+import SubpageLayout from "./SubpageLayout.astro";
 import { feedPath } from "../scripts/blog.ts";
 import { t, type Locale } from "../scripts/i18n.ts";
 
@@ -21,30 +19,11 @@ interface Props {
 const { lang, title, description } = Astro.props;
 ---
 
-<Layout title={title} description={description} lang={lang}>
+<SubpageLayout lang={lang} title={title} description={description}>
   <link slot="head" rel="alternate" type="application/rss+xml" title={t(lang, "blog.seoTitle")} href={feedPath(lang)} />
-  <div class="min-h-screen flex flex-col">
-    <Nav variant="subpage" />
-    <main id="main-content" class="band band-spotlight flex-1 pt-28 sm:pt-32 pb-20 sm:pb-28">
-      <div class="wp-container">
-        <slot />
-      </div>
-    </main>
-    <Footer variant="landing" />
+  <div class="band band-spotlight pt-28 sm:pt-32 pb-20 sm:pb-28">
+    <div class="wp-container">
+      <slot />
+    </div>
   </div>
-  <script>
-    import { applyLang } from '../scripts/lang-switch';
-    applyLang();
-
-    // Same pointer spotlight as the landing cards (global.css `.wp-spot`).
-    if (matchMedia('(hover: hover)').matches) {
-      document.addEventListener('pointermove', (e) => {
-        const card = (e.target as Element | null)?.closest<HTMLElement>('.wp-spot');
-        if (!card) return;
-        const r = card.getBoundingClientRect();
-        card.style.setProperty('--mx', `${e.clientX - r.left}px`);
-        card.style.setProperty('--my', `${e.clientY - r.top}px`);
-      }, { passive: true });
-    }
-  </script>
-</Layout>
+</SubpageLayout>
