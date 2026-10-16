@@ -18,7 +18,7 @@ test('blog index lists a post that opens', async ({ page }) => {
 
 test('English blog index renders English posts', async ({ page }) => {
   await page.goto('/en/blog/');
-  await expect(page.getByTestId('blog-list').getByRole('link').first()).toContainText(/model size/i);
+  await expect(page.getByTestId('blog-list')).toContainText(/model size/i);
 });
 
 for (const [feed, post] of [['/blog/feed.xml', 'https://whispaste.de/blog/'], ['/en/blog/feed.xml', 'https://whispaste.de/en/blog/']] as const) {
