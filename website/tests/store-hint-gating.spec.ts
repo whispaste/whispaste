@@ -56,43 +56,6 @@ async function assertDocumentOrder(page: Page, beforeTestId: string, afterTestId
 
 const OS_VARIANTS = ['windows', 'macos', 'linux', undefined] as const;
 
-test.describe('Hero store-hint platform gating', () => {
-  for (const os of OS_VARIANTS) {
-    test(`hero store-hint visibility for data-os=${os ?? 'unbekannt'} (DE)`, async ({ page }) => {
-      await page.goto('/');
-      await setOs(page, os);
-      const hint = page.getByTestId('hero-store-hint');
-      if (os === 'windows' || os === 'macos') {
-        // Both have a paid store listing (Microsoft Store / Mac App Store)
-        // the hint refers to.
-        await expect(hint).toBeVisible();
-      } else {
-        // Linux (no store listing) AND "unbekannt" (no data-os =
-        // crawlers/bots/privacy tools): hidden — it never renders in the
-        // ungated all-three-buttons fallback.
-        await expect(hint).toBeHidden();
-      }
-    });
-  }
-
-  test('hero store-hint visibility mirrors on the EN page', async ({ page }) => {
-    await page.goto('/en/');
-    await setOs(page, 'macos');
-    await expect(page.getByTestId('hero-store-hint')).toBeVisible();
-    await setOs(page, 'windows');
-    await expect(page.getByTestId('hero-store-hint')).toBeVisible();
-  });
-
-  test('hero store-hint gating holds at 390px mobile width', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto('/');
-    await setOs(page, 'linux');
-    await expect(page.getByTestId('hero-store-hint')).toBeHidden();
-    await setOs(page, 'windows');
-    await expect(page.getByTestId('hero-store-hint')).toBeVisible();
-  });
-});
-
 test.describe('Pricing store-hint platform gating', () => {
   for (const os of OS_VARIANTS) {
     test(`pricing store-hint visibility for data-os=${os ?? 'unbekannt'} (DE)`, async ({ page }) => {

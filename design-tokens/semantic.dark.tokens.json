@@ -44,7 +44,7 @@
     "$type": "color",
     "default": { "$value": "{color.amber.400}", "$description": "Warm accent for markers, hints and the one highlighted word. Never for buttons." },
     "text": { "$value": "{color.amber.400}", "$description": "Highlighted words on the current surface." },
-    "marker": { "$value": "#FFB5472E", "$description": "Highlighter stroke behind text (on dark the word itself turns amber, the stroke stays faint)." },
+    "marker": { "$value": "{color.amber.400}", "$description": "Solid marker block behind one key phrase, identical in both modes. Opaque on purpose: translucent amber over the blue stage or glacier mixes to beige." },
     "soft": { "$value": "#FFB5471F", "$description": "Background of hint callouts." }
   },
   "focus": {

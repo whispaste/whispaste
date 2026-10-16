@@ -56,7 +56,7 @@
   },
   "marker": {
     "$type": "color",
-    "text": { "$value": "{highlight.text}" },
+    "text": { "$value": "{text.on-highlight}" },
     "stroke": { "$value": "{highlight.marker}" }
   },
   "focus": {

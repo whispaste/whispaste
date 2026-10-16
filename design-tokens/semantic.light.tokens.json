@@ -33,10 +33,10 @@
   },
   "accent": {
     "$type": "color",
-    "default": { "$value": "{color.cyan.700}", "$description": "Cyan as text/icon on light keeps AA; fills use accent.strong." },
+    "default": { "$value": "{color.cyan.700}", "$description": "The one accent step on light: text, icons, links and fills share it (cyan.700 keeps AA as text on every light surface and under white text)." },
     "strong": { "$value": "{color.cyan.500}" },
-    "fill": { "$value": "{color.cyan.400}", "$description": "Same bright cyan as on dark, so filled controls look identical in both modes." },
-    "on-fill": { "$value": "{color.navy.900}" },
+    "fill": { "$value": "{color.cyan.700}", "$description": "Same step as accent.default, so an active tab and an accented headline read as one colour. Bright cyan cannot carry text on light." },
+    "on-fill": { "$value": "{color.white}" },
     "soft": { "$value": "#0BAACC1F" },
     "glow": { "$value": "#0BAACC1A" }
   },
@@ -44,7 +44,7 @@
     "$type": "color",
     "default": { "$value": "{color.amber.400}" },
     "text": { "$value": "{color.amber.800}" },
-    "marker": { "$value": "#FFB54773", "$description": "Highlighter stroke behind dark text." },
+    "marker": { "$value": "{color.amber.400}", "$description": "Solid marker block behind one key phrase, identical in both modes. Opaque on purpose: translucent amber over the blue stage or glacier mixes to beige." },
     "soft": { "$value": "#FFB54729" }
   },
   "focus": {

@@ -77,6 +77,20 @@ describe('design tokens', () => {
     });
   }
 
+  for (const [name, mode] of [['dark', dark], ['light', light]] as const) {
+    // Harmony, not just contrast: an accented word and an active tab next to it
+    // must be the same colour, or the two cyans clash (reported 2026-10-16).
+    it(`${name}: accent text and accent fill are one colour step`, () => {
+      expect(hex('accent.fill', mode)).toBe(hex('accent.default', mode));
+    });
+  }
+
+  for (const [name, mode] of [['dark', dark], ['light', light]] as const) {
+    it(`${name}: marker text on the solid marker meets AA`, () => {
+      expect(contrast(hex('text.on-highlight', mode), hex('highlight.marker', mode))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
   it('no literal colours outside tokens.css and the documented mock-ups', () => {
     const hits = findLiterals().map((h) => `${h.file}:${h.line} ${h.text}`);
     expect(hits).toEqual([]);

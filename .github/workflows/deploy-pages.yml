@@ -58,6 +58,10 @@ jobs:
           # Ohne diese Variable überspringt der Plugin den Upload mit Warnung,
           # der Build selbst läuft trotzdem durch (siehe sentry-vite-plugin).
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          # The nav's star count (src/scripts/github-stars.ts) is fetched at
+          # build time; anonymous calls from shared runner IPs hit the
+          # 60/hour limit, the workflow token lifts it to 5,000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Submit sitemap to IndexNow (Bing, Yandex, Naver, Seznam, Yep)
         run: node scripts/push-indexnow.mjs
         working-directory: website

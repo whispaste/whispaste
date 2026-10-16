@@ -158,7 +158,7 @@
   --wp-accent-glow: #6FDDF029;
   --wp-highlight-default: var(--wp-color-amber-400);
   --wp-highlight-text: var(--wp-color-amber-400);
-  --wp-highlight-marker: #FFB5472E;
+  --wp-highlight-marker: var(--wp-color-amber-400);
   --wp-highlight-soft: #FFB5471F;
   --wp-focus-ring: var(--wp-color-cyan-300);
   --wp-status-success: var(--wp-color-green-400);
@@ -200,13 +200,13 @@
   --wp-border-control: var(--wp-color-glacier-500);
   --wp-accent-default: var(--wp-color-cyan-700);
   --wp-accent-strong: var(--wp-color-cyan-500);
-  --wp-accent-fill: var(--wp-color-cyan-400);
-  --wp-accent-on-fill: var(--wp-color-navy-900);
+  --wp-accent-fill: var(--wp-color-cyan-700);
+  --wp-accent-on-fill: var(--wp-color-white);
   --wp-accent-soft: #0BAACC1F;
   --wp-accent-glow: #0BAACC1A;
   --wp-highlight-default: var(--wp-color-amber-400);
   --wp-highlight-text: var(--wp-color-amber-800);
-  --wp-highlight-marker: #FFB54773;
+  --wp-highlight-marker: var(--wp-color-amber-400);
   --wp-highlight-soft: #FFB54729;
   --wp-focus-ring: var(--wp-color-cyan-700);
   --wp-status-success: var(--wp-color-green-800);
@@ -260,7 +260,7 @@
   --wp-link-text: var(--wp-text-link);
   --wp-link-hover: var(--wp-text-link-hover);
   --wp-link-underline: var(--wp-border-strong);
-  --wp-marker-text: var(--wp-highlight-text);
+  --wp-marker-text: var(--wp-text-on-highlight);
   --wp-marker-stroke: var(--wp-highlight-marker);
   --wp-focus-ring-color: var(--wp-focus-ring);
   --wp-focus-ring-width: 2px;

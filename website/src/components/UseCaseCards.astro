@@ -2,6 +2,9 @@
 import MotionVoiceToText from './motion/MotionVoiceToText.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
+import developerArt from '../assets/use-cases/developer.svg?raw';
+import studentsArt from '../assets/use-cases/students.svg?raw';
+import everydayArt from '../assets/use-cases/everyday.svg?raw';
 
 const lang = currentLocale(Astro.currentLocale);
 
@@ -9,20 +12,17 @@ const workflows = [
   {
     key: 'developer',
     href: pathForSlug(lang, 'use-cases/programmer'),
-    illustration: '/illustrations/use-case-developer.svg',
-    illustrationAltKey: 'useCase.programmer.illustrationAlt',
+    illustration: developerArt,
   },
   {
     key: 'students',
     href: pathForSlug(lang, 'use-cases/students'),
-    illustration: '/illustrations/use-case-students.svg',
-    illustrationAltKey: 'useCase.students.illustrationAlt',
+    illustration: studentsArt,
   },
   {
     key: 'everyday',
     href: pathForSlug(lang, 'use-cases/everyday'),
-    illustration: '/illustrations/use-case-everyday.svg',
-    illustrationAltKey: 'useCase.everyday.illustrationAlt',
+    illustration: everydayArt,
   },
 ] as const;
 ---
@@ -42,7 +42,7 @@ const workflows = [
     </div>
 
     <div class="use-case-grid">
-      {workflows.map(({ key, href, illustration, illustrationAltKey }) => (
+      {workflows.map(({ key, href, illustration }) => (
         <a
           href={href}
           class="use-case-card"
@@ -50,15 +50,7 @@ const workflows = [
           data-i18n-aria={`useCaseCards.${key}.ariaLabel`}
           data-testid={`use-cases-${key}`}
         >
-          <img
-            src={illustration}
-            alt={t(lang, illustrationAltKey)}
-            width="1024"
-            height="1024"
-            loading="lazy"
-            decoding="async"
-            class="use-case-card__illustration"
-          />
+          <span class="use-case-card__illustration" set:html={illustration} />
           <div class="use-case-card__body">
             <h3 class="use-case-card__title"
                 data-i18n={`useCaseCards.${key}.title`}>{t(lang, `useCaseCards.${key}.title`)}</h3>
@@ -113,10 +105,24 @@ const workflows = [
     }
   }
 
+  /* Inline line art: strokes take the accent, the one solid detail the
+     highlight, so the icon matches the CTA link in both modes. */
   .use-case-card__illustration {
+    display: block;
     width: 3rem;
     height: 3rem;
-    object-fit: contain;
+    color: var(--wp-accent-default);
+  }
+  .use-case-card__illustration :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+  .use-case-card__illustration :global(.uc-amber) {
+    fill: var(--wp-highlight-default);
+    stroke: var(--wp-highlight-default);
+  }
+  .use-case-card__illustration :global(.uc-amber-line) {
+    stroke: var(--wp-highlight-default);
   }
   @media (min-width: 1024px) {
     .use-case-card__illustration {
@@ -153,7 +159,7 @@ const workflows = [
     margin-top: var(--wp-space-4);
     font-size: var(--wp-font-size-sm);
     font-weight: 600;
-    color: var(--color-brand-cyan);
+    color: var(--wp-accent-default);
   }
   .use-case-card__cta svg {
     width: 1rem;

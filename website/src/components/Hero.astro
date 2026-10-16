@@ -5,19 +5,8 @@ import StoreButton from './StoreButton.astro';
 import MacStoreButton from './MacStoreButton.astro';
 import LinuxButton from './LinuxButton.astro';
 import { t, localePath, currentLocale } from '../scripts/i18n.ts';
-// Inline-tintable OS glyphs for the platform-badge row (Issue 09). Raw-imported
-// so `fill="currentColor"` inherits the pill's `color` — an <img>-embedded SVG
-// cannot do this. See website/public/os-icons/ATTRIBUTION.txt for provenance.
-import appleIconRaw from '../../public/os-icons/apple.svg?raw';
-import windowsIconRaw from '../../public/os-icons/windows.svg?raw';
-import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
 
 const lang = currentLocale(Astro.currentLocale);
-const platformBadges = [
-  { os: 'macos', icon: appleIconRaw },
-  { os: 'windows', icon: windowsIconRaw },
-  { os: 'linux', icon: ubuntuIconRaw },
-] as const;
 ---
 
 <!-- Hero Section -->
@@ -154,80 +143,17 @@ const platformBadges = [
           </a>
         </div>
 
-        <!-- Store-Hint gilt nur für die Store-Wege (Microsoft Store / Mac App
-             Store) — gegatet über data-requires-os (global.css): sichtbar NUR
-             bei positiv erkanntem Windows/macOS, im ungegateten Fallback
-             (alle drei CTAs sichtbar) bewusst versteckt. -->
-        <div data-requires-os="windows macos">
-          <ul class="hero-perks" data-testid="hero-store-hint" aria-label={t(lang, "hero.store.perksAria")}>
-            <li>
-              <svg class="hero-perks__icon is-heart" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-              <span data-i18n="hero.store.perk.support">{t(lang, "hero.store.perk.support")}</span>
-            </li>
-            <li>
-              <svg class="hero-perks__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-              <span data-i18n="hero.store.perk.safe">{t(lang, "hero.store.perk.safe")}</span>
-            </li>
-            <li>
-              <svg class="hero-perks__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
-              <span data-i18n="hero.store.perk.updates">{t(lang, "hero.store.perk.updates")}</span>
-            </li>
-          </ul>
-        </div>
 
       </div>
 
-      <!-- Trust group under a hairline: the honest privacy claim (local by
-           default, cloud only on opt-in) and the platform row read as one quiet
-           block, set apart from the call to action above. -->
-      <div class="hero-meta hero-fade-rise" style="--wp-rise-delay: 520ms">
-      <p
-        class="flex items-start xl:items-center gap-2 text-left text-sm text-ink-muted"
-      >
-        <svg class="w-4 h-4 mt-0.5 xl:mt-0 shrink-0 text-(--wp-accent-default)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
+      <!-- One line of fine print under the CTA, nothing more: the honest
+           privacy claim (local by default, cloud only on opt-in). Store perks
+           live in Pricing and on /download/, every platform behind the
+           secondary link. -->
+      <p class="hero-fineprint hero-fade-rise" style="--wp-rise-delay: 520ms">
+        <svg class="hero-fineprint__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
         <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
       </p>
-
-      <!-- Platform badges (macOS · Windows · Linux, linked to the
-           matching download anchor) and the GitHub stars count share one quiet
-           row. The OS detected by the data-os head script (Layout.astro) is
-           highlighted via CSS only; unknown OS → all three equal. The stars
-           link stays hidden until HomePage.astro has fetched the count. -->
-      <div
-        class="platform-row mt-4 flex flex-wrap items-center justify-center xl:justify-start gap-2 sm:gap-2.5"
-        aria-label={t(lang, "hero.platforms.claim")}
-        data-i18n-aria="hero.platforms.claim"
-        role="group"
-      >
-        {platformBadges.map(({ os, icon }) => (
-          <a
-            href={`${localePath(lang, "download")}#${os}`}
-            data-testid={`hero-platform-badge-${os}`}
-            aria-label={`${t(lang, `hero.platforms.${os}`)}: ${t(lang, "nav.download")}`}
-            class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-(--wp-border-default) bg-(--wp-surface-card) px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-(--wp-border-strong) transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--wp-focus-ring)"
-            data-platform-badge={os}
-          >
-            <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={icon} />
-            <span data-i18n={`hero.platforms.${os}`}>{t(lang, `hero.platforms.${os}`)}</span>
-            <span class="platform-badge__current">(<span data-i18n="hero.platforms.current">{t(lang, "hero.platforms.current")}</span>)</span>
-          </a>
-        ))}
-        <a
-          id="github-stars-badge"
-          href="https://github.com/whispaste/whispaste"
-          target="_blank"
-          rel="noopener"
-          class="inline-flex items-center gap-1.5 px-2 py-1.5 text-xs sm:text-sm text-ink-muted hover:text-ink transition-colors"
-          style="display:none"
-          aria-label={t(lang, "nav.githubAria")}
-          data-i18n-aria="nav.githubAria"
-          data-testid="hero-github-stars"
-        >
-          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-highlight" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          <span id="github-stars-count" data-template={t(lang, "hero.githubStars")}></span>
-        </a>
-      </div>
-      </div>
     </div>
 
     <!-- Hero visual: no entrance animation on purpose — its text is the
@@ -277,41 +203,26 @@ const platformBadges = [
     }
   }
 
-  /* ---- Platform-badge row (Issue 09): macOS / Windows / Linux ----
-     The base pill look matches the trust chips below (same Tailwind utility
-     classes) for visual consistency; only the highlight state below needs
-     custom CSS, since it must react to the `data-os` attribute set on <html>
-     by the inline head script (Layout.astro) before first paint. */
-  .platform-badge__icon :global(svg) {
-    width: 100%;
-    height: 100%;
-    display: block;
+  /* ---- Fine print under the CTA: one muted line with one icon ---- */
+  .hero-fineprint {
+    margin: var(--wp-space-5) auto 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: var(--wp-space-2);
+    max-width: 36rem;
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-text-muted);
   }
-  .platform-badge__current {
-    display: none;
-    color: var(--wp-text-link);
-    font-weight: 600;
-  }
-  /* Detected OS gets a quiet accent — border/background/icon tint from the
-     accent tokens, plus the "(your system)" qualifier. Everything else
-     (including the unknown/bot fallback) keeps the neutral pill look, so all
-     three platforms read as equally supported by default. */
-  :global([data-os="macos"]) .platform-badge[data-platform-badge="macos"],
-  :global([data-os="windows"]) .platform-badge[data-platform-badge="windows"],
-  :global([data-os="linux"]) .platform-badge[data-platform-badge="linux"] {
-    border-color: color-mix(in srgb, var(--wp-accent-default) 45%, transparent);
-    background: var(--wp-accent-soft);
-    color: var(--color-ink);
-  }
-  :global([data-os="macos"]) .platform-badge[data-platform-badge="macos"] .platform-badge__icon,
-  :global([data-os="windows"]) .platform-badge[data-platform-badge="windows"] .platform-badge__icon,
-  :global([data-os="linux"]) .platform-badge[data-platform-badge="linux"] .platform-badge__icon {
+  .hero-fineprint__icon {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+    align-self: center;
     color: var(--wp-accent-default);
   }
-  :global([data-os="macos"]) .platform-badge[data-platform-badge="macos"] .platform-badge__current,
-  :global([data-os="windows"]) .platform-badge[data-platform-badge="windows"] .platform-badge__current,
-  :global([data-os="linux"]) .platform-badge[data-platform-badge="linux"] .platform-badge__current {
-    display: inline;
+  @media (min-width: 1280px) {
+    .hero-fineprint { margin-inline: 0; justify-content: flex-start; }
   }
 
   /* Hero-specific animations */
@@ -544,45 +455,8 @@ const platformBadges = [
     justify-content: center;
     gap: var(--wp-space-3) var(--wp-space-6);
   }
-  .hero-meta {
-    margin-top: var(--wp-space-8);
-    padding-top: var(--wp-space-6);
-    border-top: 1px solid var(--wp-border-subtle);
-    max-width: 36rem;
-    margin-inline: auto;
-  }
   @media (min-width: 1280px) {
     .hero-cta-row { justify-content: flex-start; }
-    .hero-meta { margin-inline: 0; }
-  }
-  /* Store perks under the primary CTA: why the store build is the better pick. */
-  .hero-perks {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--wp-space-2) var(--wp-space-4);
-    font-size: var(--wp-font-size-sm);
-    color: var(--color-ink-muted);
-  }
-  @media (min-width: 1280px) {
-    .hero-perks { justify-content: flex-start; }
-  }
-  .hero-perks li {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--wp-space-2);
-  }
-  .hero-perks__icon {
-    width: 0.875rem;
-    height: 0.875rem;
-    flex-shrink: 0;
-    color: var(--wp-accent-default);
-  }
-  .hero-perks__icon.is-heart {
-    color: var(--wp-highlight-text);
   }
 </style>
 

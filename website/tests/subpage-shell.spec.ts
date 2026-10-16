@@ -24,7 +24,7 @@ test.describe('subpage shell', () => {
       await page.goto(path);
       await expect(page.locator('main h1')).toHaveCount(1);
       await expect(page.locator('.page-hero')).toBeVisible();
-      await expect(page.getByTestId('footer-wordmark')).toBeAttached();
+      await expect(page.getByTestId('footer-link-license')).toBeAttached();
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
       );

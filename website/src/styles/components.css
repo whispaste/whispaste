@@ -20,15 +20,14 @@
 }
 
 /* ---- Marker: the warm accent behind one word ---- */
+/* One solid amber block behind a key phrase (Ditto-style), identical on dark
+   and light; dark navy text keeps ~11:1 on it. */
 .wp-marker {
   color: var(--wp-marker-text);
-  background: linear-gradient(transparent 58%, var(--wp-marker-stroke) 58%, var(--wp-marker-stroke) 92%, transparent 92%);
-  padding-inline: 0.06em;
+  background: var(--wp-marker-stroke);
+  padding-inline: 0.08em;
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
-}
-[data-surface="light"] :is(.wp-marker, .wp-prose mark) {
-  color: inherit;
 }
 
 /* ---- Buttons ---- */
@@ -382,7 +381,7 @@
 }
 .wp-prose :where(mark) {
   color: var(--wp-marker-text);
-  background: linear-gradient(transparent 58%, var(--wp-marker-stroke) 58%, var(--wp-marker-stroke) 92%, transparent 92%);
+  background: var(--wp-marker-stroke);
 }
 
 @media (prefers-reduced-motion: reduce) {
