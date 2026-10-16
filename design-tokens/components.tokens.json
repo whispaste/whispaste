@@ -137,7 +137,10 @@
     "text": { "$type": "color", "$value": "{text.muted}" },
     "heading": { "$type": "color", "$value": "{text.secondary}" },
     "link-hover": { "$type": "color", "$value": "{text.link}" },
-    "divider": { "$type": "color", "$value": "{border.subtle}" }
+    "divider": { "$type": "color", "$value": "{border.subtle}" },
+    "column-rule": { "$type": "color", "$value": "{border.subtle}", "$description": "Hairline to the left of each link column." },
+    "panel-fill": { "$type": "color", "$value": "{surface.card}", "$description": "Footer panel: one frost step above the stage, never a darker band." },
+    "panel-border": { "$type": "color", "$value": "{border.subtle}" }
   },
   "breadcrumb": {
     "text": { "$type": "color", "$value": "{text.muted}" },

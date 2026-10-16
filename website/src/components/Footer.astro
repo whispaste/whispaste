@@ -49,13 +49,17 @@ const resourceLinks = [
 
 {/* pb-28 unter 640px: die fixe MobileCta-Leiste (~75px hoch) verdeckte sonst
     am Seitenende dauerhaft die letzte Footer-Zeile. */}
-<footer class="footer-flow pt-14 pb-28 md:pb-8 border-t border-[color:var(--wp-footer-divider)]" data-testid="footer">
+<footer class="pt-14 pb-28 md:pb-8" data-testid="footer">
     <div class="wp-container">
+     <!-- One panel a frost step above the stage holds columns and legal
+          line (Pangram principle: the footer as its own rounded panel);
+          the AI note sits quietly below it. -->
+     <div class="footer-panel" data-testid="footer-panel">
       <div class="footer-grid">
         <!-- Brand + tagline -->
         <div class="footer-brand">
           <img src="/wordmark-dark.png" alt="WhisPaste" width="199" height="64" loading="lazy" decoding="async" class="h-6 w-auto mb-3" />
-          <p class="text-ink-muted text-sm leading-relaxed" data-i18n="footer.tagline">{t(lang, "footer.tagline")}</p>
+          <p class="footer-tagline" data-i18n="footer.tagline">{t(lang, "footer.tagline")}</p>
         </div>
 
         <!-- Product -->
@@ -109,6 +113,7 @@ const resourceLinks = [
         </nav>
         <p>© {year} WhisPaste · <span data-i18n="footer.rights">{t(lang, "footer.rights")}</span></p>
       </div>
+     </div>
       <!-- EU AI Act Art. 50(4): explains the "AI-generated" label on photos. -->
       <p class="footer-ai-note" data-testid="footer-ai-note" data-i18n="footer.aiNote">{t(lang, "footer.aiNote")}</p>
     </div>
@@ -127,34 +132,53 @@ const resourceLinks = [
     .footer-grid { grid-template-columns: minmax(0, 4fr) repeat(3, minmax(0, 2.67fr)); }
     .footer-brand { grid-column: auto; }
   }
+  .footer-tagline {
+    font-size: var(--wp-font-size-sm);
+    line-height: 1.6;
+    color: var(--wp-footer-text);
+  }
+  /* Each link column hangs off a hairline on its left edge (Ditto
+     principle), so the columns read as rails instead of loose lists. */
   .footer-col {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+    padding-inline-start: var(--wp-space-5);
+    border-inline-start: 1px solid var(--wp-footer-column-rule);
   }
   .footer-col__title {
     margin-bottom: var(--wp-space-2);
+    font-family: var(--font-mono);
     font-size: var(--wp-font-size-xs);
-    font-weight: 600;
-    letter-spacing: 0.08em;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: var(--color-ink-subtle);
+    color: var(--wp-text-link);
   }
   .footer-link {
     display: inline-flex;
     align-items: center;
     min-height: 40px;
     font-size: var(--wp-font-size-md);
-    color: var(--color-ink-muted);
+    color: var(--wp-footer-heading);
     text-decoration: none;
     transition: color var(--dur-fast) ease;
   }
-  .footer-link:hover { color: var(--color-ink); }
+  .footer-link:hover { color: var(--wp-footer-link-hover); }
   .footer-more__summary {
     cursor: pointer;
     list-style: none;
     gap: var(--wp-space-2);
-    color: var(--color-brand-cyan);
+    color: var(--wp-text-link);
+  }
+  .footer-panel {
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-panel-radius);
+    border: 1px solid var(--wp-footer-panel-border);
+    background: var(--wp-footer-panel-fill);
+  }
+  @media (min-width: 1024px) {
+    .footer-panel { padding: var(--wp-space-12) var(--wp-space-12) var(--wp-space-6); }
   }
   .footer-more__summary::-webkit-details-marker { display: none; }
   .footer-more__summary::after {
@@ -170,21 +194,21 @@ const resourceLinks = [
   .footer-legal {
     margin-top: var(--wp-space-10);
     padding-top: var(--wp-space-6);
-    border-top: 1px solid var(--wp-border-subtle);
+    border-top: 1px solid var(--wp-footer-divider);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: var(--wp-space-2) var(--wp-space-6);
     font-size: var(--wp-font-size-sm);
-    color: var(--color-ink-subtle);
+    color: var(--wp-footer-text);
   }
   .footer-ai-note {
     margin-top: var(--wp-space-4);
     max-width: 70ch;
     font-size: var(--wp-font-size-xs);
     line-height: 1.55;
-    color: var(--color-ink-subtle);
+    color: var(--wp-footer-text);
   }
   .footer-legal__links {
     display: flex;
@@ -195,26 +219,25 @@ const resourceLinks = [
     display: inline-flex;
     align-items: center;
     min-height: 40px;
-    color: var(--color-ink-muted);
+    color: var(--wp-footer-heading);
     text-decoration: none;
   }
-  .footer-legal__link:hover { color: var(--color-ink); }
+  .footer-legal__link:hover { color: var(--wp-footer-link-hover); }
   .footer-link:focus-visible,
   .footer-legal__link:focus-visible {
-    outline: 2px solid var(--color-brand-cyan);
+    outline: 2px solid var(--wp-focus-ring);
     outline-offset: 2px;
     border-radius: var(--radius-chip);
   }
 
-  /* Flow-Glint — ein leiser Cyan-Schimmer wandert langsam über die obere
-     Haarlinie des Landing-Footers, wie Licht auf einer Wasserkante: das
-     Fluss-Motiv klingt am Seitenende aus statt hart abzureißen. Nur
-     background-position, 16s-Tide, kein Layout-Einfluss. Theme-adaptiv über
-     das brand-cyan-Token. */
-  .footer-flow {
+  /* Flow glint: a quiet cyan shimmer drifts along the panel's top edge, so
+     the flow motif fades out at the page end. Only background-position,
+     clipped by the panel's rounded corners. */
+  .footer-panel {
     position: relative;
+    overflow: hidden;
   }
-  .footer-flow::before {
+  .footer-panel::before {
     content: '';
     position: absolute;
     top: 0;
@@ -238,7 +261,7 @@ const resourceLinks = [
     50% { background-position: 100% 0; }
   }
   @media (prefers-reduced-motion: reduce) {
-    .footer-flow::before {
+    .footer-panel::before {
       animation: none;
       opacity: 0;
     }

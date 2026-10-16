@@ -324,6 +324,9 @@
   --wp-footer-heading: var(--wp-text-secondary);
   --wp-footer-link-hover: var(--wp-text-link);
   --wp-footer-divider: var(--wp-border-subtle);
+  --wp-footer-column-rule: var(--wp-border-subtle);
+  --wp-footer-panel-fill: var(--wp-surface-card);
+  --wp-footer-panel-border: var(--wp-border-subtle);
   --wp-breadcrumb-text: var(--wp-text-muted);
   --wp-breadcrumb-current: var(--wp-text-secondary);
   --wp-breadcrumb-hover: var(--wp-text-primary);
