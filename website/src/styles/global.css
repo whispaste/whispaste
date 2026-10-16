@@ -203,6 +203,27 @@
   max-width: min(100%, 64rem);
   margin-bottom: var(--section-head-gap);
 }
+/* Wide screens: heads that carry a lead paragraph split into an editorial
+   two-column row (title left, lead right, baseline-aligned) so the head uses
+   the same full width as the content below instead of leaving a dead right
+   half. Centered, privacy and FAQ heads keep their own layouts. */
+@media (min-width: 1280px) {
+  .wp-section-head:has(> .wp-lead):not(.is-centered):not(.privacy-head):not(.faq-head) {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    column-gap: clamp(3rem, 6vw, 8rem);
+    align-items: end;
+  }
+  .wp-section-head:has(> .wp-lead):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-eyebrow {
+    grid-column: 1 / -1;
+  }
+  .wp-section-head:has(> .wp-lead):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-lead {
+    margin-top: 0;
+    padding-bottom: 0.5rem;
+  }
+}
+
 .wp-section-head.is-centered {
   margin-inline: auto;
   text-align: center;
@@ -1288,4 +1309,41 @@
     opacity: 1 !important;
     translate: none !important;
   }
+}
+
+/* ---- Scroll progress hairline ----
+   A 2px brand-cyan line under the viewport top that fills with page scroll.
+   Pure CSS scroll-driven animation (progressive enhancement: browsers without
+   `animation-timeline` simply don't show it), no JS and no layout cost. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0 0 auto 0;
+      height: 2px;
+      z-index: 60;
+      pointer-events: none;
+      transform-origin: 0 50%;
+      background: linear-gradient(90deg, var(--color-brand-cyan), #818cf8);
+      animation: wp-scroll-progress linear both;
+      animation-timeline: scroll(root block);
+    }
+    @keyframes wp-scroll-progress {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+  }
+}
+
+/* ---- Press feedback on primary actions ---- */
+.nav-download-btn,
+.support-sponsor,
+[data-testid="hero-primary-cta"] {
+  transition: transform var(--dur-fast) var(--ease-flow);
+}
+.nav-download-btn:active,
+.support-sponsor:active,
+[data-testid="hero-primary-cta"]:active {
+  transform: scale(0.97);
 }
