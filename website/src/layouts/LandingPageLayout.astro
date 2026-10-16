@@ -69,6 +69,13 @@ const artRules: readonly { readonly match: RegExp; readonly art: string }[] = [
   { match: /linux|whisper-desktop/, art: "platforms" },
 ];
 const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
+// Use-case pages reuse the scene photo of their card on the home page.
+const photoRules: readonly { readonly match: RegExp; readonly photo: string }[] = [
+  { match: /use-cases\/programm/, photo: "developer" },
+  { match: /use-cases\/(students|studierende)/, photo: "students" },
+  { match: /use-cases\/(everyday|vielschreiber)/, photo: "everyday" },
+];
+const photo = photoRules.find((rule) => rule.match.test(path))?.photo;
 import PageSheet from "../components/PageSheet.astro";
 ---
 
@@ -77,7 +84,7 @@ import PageSheet from "../components/PageSheet.astro";
     title={hero.heading}
     lead={hero.lead}
     crumbs={breadcrumbs}
-    artLabel={art.toUpperCase()}
+    artLabel={photo ? undefined : art.toUpperCase()}
     testid="lp-hero"
   >
     <a slot="actions" href={cta.href} class="wp-cta" data-testid="lp-hero-cta">
@@ -87,11 +94,30 @@ import PageSheet from "../components/PageSheet.astro";
       </svg>
     </a>
     <div slot="art" class="lp-art">
-      {art === "hardware" && <MotionHardware />}
-      {art === "privacy" && <MotionPrivacy />}
-      {art === "platforms" && <MotionPlatforms />}
-      {art === "hotkey" && <MotionHotkey />}
-      {art === "voice" && <MotionVoiceToText />}
+      {photo && (
+        <figure class="lp-photo" data-testid="lp-photo">
+          <picture>
+            <source type="image/avif" srcset={`/images/use-cases/${photo}-640.avif 640w, /images/use-cases/${photo}-1200.avif 1200w`} sizes="(min-width: 1024px) 40vw, 100vw" />
+            <img
+              src={`/images/use-cases/${photo}-1200.webp`}
+              srcset={`/images/use-cases/${photo}-640.webp 640w, /images/use-cases/${photo}-1200.webp 1200w`}
+              sizes="(min-width: 1024px) 40vw, 100vw"
+              alt=""
+              width="1200"
+              height="750"
+              decoding="async"
+              fetchpriority="high"
+            />
+          </picture>
+          {/* EU AI Act Art. 50(4): AI-generated, realistic — labelled. */}
+          <figcaption class="lp-photo__ai">{t(lang, "ai.badge")}</figcaption>
+        </figure>
+      )}
+      {!photo && art === "hardware" && <MotionHardware />}
+      {!photo && art === "privacy" && <MotionPrivacy />}
+      {!photo && art === "platforms" && <MotionPlatforms />}
+      {!photo && art === "hotkey" && <MotionHotkey />}
+      {!photo && art === "voice" && <MotionVoiceToText />}
     </div>
   </PageHero>
 
@@ -161,6 +187,32 @@ import PageSheet from "../components/PageSheet.astro";
 </SubpageLayout>
 
 <style>
+  .lp-photo {
+    position: relative;
+    margin: 0;
+    overflow: hidden;
+    border-radius: var(--wp-photo-radius);
+    background: var(--wp-photo-fill);
+    box-shadow: var(--wp-card-shadow);
+  }
+  .lp-photo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+  }
+  .lp-photo__ai {
+    position: absolute;
+    top: var(--wp-space-3);
+    left: var(--wp-space-3);
+    padding: 2px var(--wp-space-2);
+    border-radius: var(--wp-radius-chip);
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 500;
+    color: var(--wp-color-frost-200);
+    background: var(--wp-overlay-fill);
+  }
   .lp-art :global(svg) {
     display: block;
     width: 100%;

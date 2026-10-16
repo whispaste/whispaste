@@ -81,3 +81,26 @@ test.describe('FAQ hand-off to the contact widget', () => {
     await expect(page.getByTestId('contact-panel')).toBeVisible();
   });
 });
+
+test.describe('use-case pages reuse the home-page scene photos', () => {
+  const PHOTO_PAGES = [
+    ['/use-cases/programmierer/', 'developer'],
+    ['/en/use-cases/students/', 'students'],
+    ['/fr/use-cases/everyday/', 'everyday'],
+  ] as const;
+  for (const [path, photo] of PHOTO_PAGES) {
+    test(`${path}: hero shows the ${photo} photo with an AI label`, async ({ page }) => {
+      await page.goto(path);
+      const figure = page.getByTestId('lp-photo');
+      await expect(figure).toBeVisible();
+      await expect(figure.locator('img')).toHaveAttribute('src', `/images/use-cases/${photo}-1200.webp`);
+      await expect(figure.locator('figcaption')).not.toBeEmpty();
+      expect(await figure.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    });
+  }
+
+  test('other long-tail pages keep their illustration', async ({ page }) => {
+    await page.goto('/gpu-kompatibilitaet/');
+    await expect(page.getByTestId('lp-photo')).toHaveCount(0);
+  });
+});
