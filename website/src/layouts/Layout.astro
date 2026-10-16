@@ -12,6 +12,7 @@ import {
 } from "../scripts/i18n.ts";
 import OrganizationSchema from "../components/schema/OrganizationSchema.astro";
 import WebVitals from "../components/WebVitals.astro";
+import ContactWidget from "../components/ContactWidget.astro";
 
 interface Props {
   title?: string;
@@ -212,5 +213,6 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
       {t(lang, "nav.skip")}
     </a>
     <slot />
+    <ContactWidget />
   </body>
 </html>

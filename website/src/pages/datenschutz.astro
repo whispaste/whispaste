@@ -79,7 +79,7 @@ const breadcrumbItems = [
                 Diese Website nutzt die <strong class="text-white">cookiefreie</strong> Webanalyse-Software <strong class="text-white">Matomo</strong> (Erkennungsadresse: matomo.silvio-und-maik.de), um aggregierte, anonyme Statistiken über die Nutzung zu erstellen. Es werden keine Cookies gesetzt und keine Informationen auf deinem Endgerät gespeichert oder ausgelesen; weil das Tracking cookiefrei und IP-anonymisiert erfolgt, verlangt § 25 TDDDG weder eine Einwilligung noch einen Cookie-Banner. Erfasst werden u.&nbsp;a. die anonymisierte IP-Adresse, Browser- und Gerätetyp, Bildschirmauflösung, Sprache, Herkunftsregion, der Referrer und die besuchten Unterseiten sowie anonyme technische Leistungswerte (Core Web Vitals: Ladezeit, Layout-Stabilität, Reaktionszeit). Es findet <strong class="text-white">keine Profilbildung</strong>, kein geräteübergreifendes Tracking und keine Weitergabe an Dritte statt; die Daten lassen sich nicht mit Einzelpersonen verknüpfen. Externe Schriftarten oder CDN-Dienste werden nicht eingebunden; alle übrigen Ressourcen werden lokal von GitHub Pages ausgeliefert. Rechtsgrundlage: Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO (berechtigtes Interesse an der bedarfsgerechten Weiterentwicklung). Du kannst dieser Verarbeitung jederzeit widersprechen (Art. 21 DSGVO). Aktiviere dazu die Opt-out-Option im folgenden Feld.
               </p>
               <p>
-                Der einzige lokale Speichermechanismus ist <code class="text-brand-cyan">localStorage</code>, der ausschließlich deine Sprach- und Theme-Präferenz auf deinem Gerät speichert. Diese Daten werden nicht an Server übermittelt.
+                Cookies setzt diese Website nicht. Im Browser-Speicher (<code class="text-brand-cyan">localStorage</code>/<code class="text-brand-cyan">sessionStorage</code>) legen wir nur ab, was eine von dir genutzte Funktion braucht: deine gewählte Sprache, ob die automatische Sprachweiterleitung in dieser Sitzung schon erfolgt ist, und ob du den Kontakt-Hinweis bereits geöffnet oder geschlossen hast (damit er nicht erneut erscheint). Diese Angaben bleiben auf deinem Gerät und werden nicht an Server übermittelt; sie sind für die von dir gewünschte Funktion unbedingt erforderlich (§&nbsp;25 Abs.&nbsp;2 Nr.&nbsp;2 TDDDG). Du kannst sie jederzeit über die Browser-Einstellungen löschen.
               </p>
               <div id="matomo-opt-out-de"></div>
               <script is:inline src="https://matomo.silvio-und-maik.de/index.php?module=CoreAdminHome&action=optOutJS&divId=matomo-opt-out-de&language=de&showIntro=1"></script>
@@ -217,28 +217,44 @@ const breadcrumbItems = [
             </section>
 
             <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">17. Kinder</h2>
+              <h2 class="text-2xl font-semibold text-white mb-3">17. Kontaktformular auf der Website</h2>
+              <p>
+                Über das Kontakt-Symbol unten rechts („Schreib uns“) kannst du uns freiwillig eine Nachricht schicken. Dabei verarbeiten wir die gewählte Art des Anliegens, deinen Nachrichtentext, deine E-Mail-Adresse für die Antwort sowie die Sprache und den Pfad der Seite, von der du schreibst. Einen Namen oder ein Konto brauchst du nicht. <strong class="text-white">Zweck</strong> ist ausschließlich, dein Anliegen zu beantworten. Rechtsgrundlage ist Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;b DSGVO, soweit deine Anfrage die Nutzung von WhisPaste betrifft, im Übrigen Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO (unser berechtigtes Interesse, Anfragen zu beantworten).
+              </p>
+              <p>
+                Die Daten werden TLS-verschlüsselt an unsere Schnittstelle <code class="text-brand-cyan">api.whispaste.de</code> übertragen. Sie läuft auf Servern der <strong class="text-white">netcup GmbH</strong> (Daimlerstraße 25, 76185 Karlsruhe, Deutschland), die als Auftragsverarbeiter nach Art.&nbsp;28 DSGVO für uns tätig ist; die Verarbeitung findet in Deutschland statt. Die Schnittstelle leitet deine Nachricht als E-Mail an unser Postfach weiter und speichert den Inhalt selbst nicht. Die E-Mail löschen wir, sobald dein Anliegen erledigt ist, spätestens nach 12&nbsp;Monaten, sofern keine gesetzlichen Aufbewahrungspflichten entgegenstehen.
+              </p>
+              <p>
+                <strong class="text-white">Missbrauchsschutz:</strong> Damit das Formular nicht für Spam missbraucht wird, begrenzen wir die Zahl der Nachrichten pro Absender. Dazu speichern wir deine IP-Adresse und deine E-Mail-Adresse nicht im Klartext, sondern nur als mit einem geheimen Schlüssel gebildeten Hashwert, und nur bis das jeweilige Zeitfenster abgelaufen ist (höchstens 24&nbsp;Stunden, danach wird der Eintrag automatisch gelöscht). Ein unsichtbares Prüffeld und die Ausfülldauer helfen, automatisierte Einsendungen zu erkennen; dafür werden keine weiteren Daten erhoben. Das technische Protokoll der Schnittstelle enthält weder IP-Adresse noch E-Mail-Adresse noch Nachrichtentext, sondern nur Art und Ergebnis der Anfrage, und wird nach 14&nbsp;Tagen gelöscht. Rechtsgrundlage ist Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO (Schutz vor Missbrauch).
+              </p>
+              <p>
+                Ohne Absenden werden keine Formulardaten übertragen. Du kannst der Verarbeitung jederzeit widersprechen (Art.&nbsp;21 DSGVO) und die Löschung deiner Nachricht verlangen; schreib uns dazu an die im <a href="/impressum/" class="text-brand-cyan hover:underline">Impressum</a> genannte Adresse. Der Button „Zum Ideenboard“ führt zu unserem Ideen-Board bei <strong class="text-white">VotePit</strong> (app.votepit.com), einem separat betriebenen Dienst mit eigener Datenschutzerklärung; Daten fließen dorthin erst, wenn du den Link öffnest.
+              </p>
+            </section>
+
+            <section>
+              <h2 class="text-2xl font-semibold text-white mb-3">18. Kinder</h2>
               <p>
                 WhisPaste erhebt wissentlich keine Daten von Kindern. Da die App keine personenbezogenen Daten verlangt und kein Benutzerkonto erfordert, ergeben sich keine altersspezifischen Datenschutzfragen.
               </p>
             </section>
 
             <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">18. Änderungen dieser Erklärung</h2>
+              <h2 class="text-2xl font-semibold text-white mb-3">19. Änderungen dieser Erklärung</h2>
               <p>
                 Diese Datenschutzerklärung kann aktualisiert werden, um Änderungen an der Anwendung widerzuspiegeln. Wesentliche Änderungen werden in den Release Notes der App auf GitHub vermerkt.
               </p>
             </section>
 
             <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">19. Kontakt</h2>
+              <h2 class="text-2xl font-semibold text-white mb-3">20. Kontakt</h2>
               <p>
                 Für Fragen zum Datenschutz wende dich bitte an die im <a href="/impressum/" class="text-brand-cyan hover:underline">Impressum</a> genannten Kontaktdaten.
               </p>
             </section>
 
             <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">20. Deine Rechte</h2>
+              <h2 class="text-2xl font-semibold text-white mb-3">21. Deine Rechte</h2>
               <p>
                 Du hast jederzeit das Recht auf:
               </p>
@@ -259,7 +275,7 @@ const breadcrumbItems = [
             </section>
 
             <section>
-              <h2 class="text-2xl font-semibold text-white mb-3">21. SSL/TLS-Verschlüsselung</h2>
+              <h2 class="text-2xl font-semibold text-white mb-3">22. SSL/TLS-Verschlüsselung</h2>
               <p>
                 Diese Website nutzt aus Sicherheitsgründen eine SSL- bzw. TLS-Verschlüsselung (HTTPS). Eine verschlüsselte Verbindung erkennst du daran, dass die Adresszeile des Browsers von „http://" auf „https://" wechselt.
               </p>

@@ -4,3 +4,5 @@
 # Sentry source-maps-build-plugin: optional dev/CI file with SENTRY_AUTH_TOKEN.
 # Auth-Token darf NIE committed werden.
 .env.sentry-build-plugin
+# Local env overrides (e.g. PUBLIC_CONTACT_ENDPOINT for the local API)
+.env.*.local

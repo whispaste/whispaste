@@ -75,7 +75,7 @@ const breadcrumbItems = [
               This website uses the <strong class="text-white">cookiefree</strong> web analytics software <strong class="text-white">Matomo</strong> (endpoint: matomo.silvio-und-maik.de) to produce aggregated, anonymous usage statistics. No cookies are set and no information is stored on or read from your device; because tracking is cookieless and IP-anonymised, § 25 TDDDG requires neither consent nor a cookie banner. Recorded are, among others, the anonymised IP address, browser and device type, screen resolution, language, region of origin, the referrer and the subpages visited, plus anonymous technical performance metrics (Core Web Vitals: loading time, layout stability, response time). There is <strong class="text-white">no profiling</strong>, no cross-device tracking and no sharing with third parties; the data cannot be linked to individuals. No external fonts or CDN services are loaded; all other resources are served locally from GitHub Pages. Legal basis: Art.&nbsp;6(1)(f) GDPR (legitimate interest in needs-driven improvement). You may object to this processing at any time (Art. 21 GDPR). Tick the opt-out option in the field below.
             </p>
             <p>
-              The only local storage mechanism is <code class="text-brand-cyan">localStorage</code>, which stores your language and theme preference on your device only. This data is never sent to any server.
+              This website sets no cookies. In browser storage (<code class="text-brand-cyan">localStorage</code>/<code class="text-brand-cyan">sessionStorage</code>) we keep only what a feature you use needs: your chosen language, whether the automatic language redirect already happened in this session, and whether you have already opened or closed the contact notice (so it does not appear again). This stays on your device and is never sent to any server; it is strictly necessary for the feature you asked for (Section&nbsp;25(2) no.&nbsp;2 TDDDG). You can delete it at any time in your browser settings.
             </p>
             <div id="matomo-opt-out-en"></div>
             <script is:inline src="https://matomo.silvio-und-maik.de/index.php?module=CoreAdminHome&action=optOutJS&divId=matomo-opt-out-en&language=en&showIntro=1"></script>
@@ -215,21 +215,37 @@ const breadcrumbItems = [
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">17. Children's Privacy</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">17. Website Contact Form</h2>
+            <p>
+              Using the contact button in the bottom right corner (“Write to us”) you can voluntarily send us a message. We then process the type of request you chose, your message, your email address for the reply, and the language and path of the page you write from. No name or account is needed. The <strong class="text-white">sole purpose</strong> is to answer your request. The legal basis is Art.&nbsp;6(1)(b) GDPR where your request concerns your use of WhisPaste, otherwise Art.&nbsp;6(1)(f) GDPR (our legitimate interest in answering requests).
+            </p>
+            <p>
+              The data is sent TLS-encrypted to our interface <code class="text-brand-cyan">api.whispaste.de</code>. It runs on servers of <strong class="text-white">netcup GmbH</strong> (Daimlerstraße 25, 76185 Karlsruhe, Germany), which acts as our processor under Art.&nbsp;28 GDPR; processing takes place in Germany. The interface forwards your message as an email to our mailbox and does not store its content itself. We delete the email once your request is resolved, at the latest after 12&nbsp;months, unless statutory retention obligations apply.
+            </p>
+            <p>
+              <strong class="text-white">Abuse protection:</strong> To keep the form from being used for spam, we limit the number of messages per sender. For this we never store your IP address or email address in plain text, only as a hash keyed with a secret, and only until the respective time window has passed (at most 24&nbsp;hours, after which the entry is deleted automatically). A hidden check field and the time taken to fill in the form help detect automated submissions; no further data is collected for this. The interface's technical log contains no IP address, email address or message text, only the type and outcome of the request, and is deleted after 14&nbsp;days. The legal basis is Art.&nbsp;6(1)(f) GDPR (protection against abuse).
+            </p>
+            <p>
+              No form data is transmitted unless you submit it. You can object to this processing at any time (Art.&nbsp;21 GDPR) and ask us to delete your message; write to the address given in the <a href="/en/impressum/" class="text-brand-cyan hover:underline">imprint</a>. The “Open the idea board” button leads to our idea board on <strong class="text-white">VotePit</strong> (app.votepit.com), a separately operated service with its own privacy policy; no data flows there unless you open the link.
+            </p>
+          </section>
+
+          <section>
+            <h2 class="text-2xl font-semibold text-white mb-3">18. Children's Privacy</h2>
             <p>
               WhisPaste does not knowingly collect data from children. Since the application does not collect any personal data or require account creation, there are no age-related data concerns.
             </p>
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">18. Changes to This Policy</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">19. Changes to This Policy</h2>
             <p>
               This privacy policy may be updated to reflect changes in the application. Significant changes will be noted in the application's release notes on GitHub.
             </p>
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">19. Contact</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">20. Contact</h2>
             <p>
               For privacy-related questions or concerns, please refer to the <a href="/en/impressum/" class="text-brand-cyan hover:underline">Legal Notice (Impressum)</a> page for contact information.
             </p>
@@ -238,7 +254,7 @@ const breadcrumbItems = [
           <!-- Closing sections (20–21) -->
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">20. Your Rights</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">21. Your Rights</h2>
             <p>
               You have the right at any time to:
             </p>
@@ -259,7 +275,7 @@ const breadcrumbItems = [
           </section>
 
           <section>
-            <h2 class="text-2xl font-semibold text-white mb-3">21. SSL/TLS Encryption</h2>
+            <h2 class="text-2xl font-semibold text-white mb-3">22. SSL/TLS Encryption</h2>
             <p>
               This website uses SSL/TLS encryption (HTTPS) for security reasons. An encrypted connection is indicated by the address bar changing from "http://" to "https://".
             </p>
