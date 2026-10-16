@@ -96,9 +96,8 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
     padding: 0 var(--wp-space-5) 0 var(--wp-space-4);
     border-radius: var(--wp-radius-pill);
     background: var(--wp-overlay-fill);
-    box-shadow:
-      inset 0 0 0 1px color-mix(in srgb, var(--wp-overlay-accent) 22%, transparent),
-      var(--shadow-overlay);
+    /* drop-shadow (not box-shadow) so bubble and tail cast one shadow. */
+    filter: drop-shadow(0 10px 18px color-mix(in srgb, var(--wp-color-navy-950) 45%, transparent));
   }
   .tk-pill i {
     display: block;
@@ -114,21 +113,17 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
   .tk-pill i:nth-child(6) { animation-delay: -0.6s; height: 24px; }
   .tk-pill i:nth-child(7) { animation-delay: -0.95s; height: 32px; }
   .tk-pill i:nth-child(8) { animation-delay: -0.3s; height: 16px; }
-  /* The pill speaks into the row: a speech-bubble tail in the pill's own
-     navy points down at the field; it lights up amber with every drop. */
+  /* The pill speaks into the row: a speech-bubble tail grown out of the
+     same navy shape (no seam, no border), its tip right above the field. */
   .tk-pill::after {
     content: "";
     position: absolute;
-    left: 50%;
-    top: calc(100% - 6px);
-    width: 18px;
-    height: 18px;
-    translate: -50% 0;
-    z-index: -1;
-    rotate: 45deg;
-    border-radius: 0 0 var(--wp-radius-chip) 0;
+    left: calc(50% - 10px);
+    top: calc(100% - 1px);
+    width: 30px;
+    height: 20px;
     background: var(--wp-overlay-fill);
-    box-shadow: inset -1px -1px 0 color-mix(in srgb, var(--wp-overlay-accent) 22%, transparent);
+    clip-path: polygon(0 0, 100% 0, 34% 100%);
   }
   /* A drop of text (a small amber text line) falls from the pill into the
      field each time one fills. */
@@ -136,7 +131,7 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
     content: "";
     position: absolute;
     left: 50%;
-    top: calc(100% + 10px);
+    top: calc(100% + 20px);
     width: 30px;
     height: 8px;
     translate: -50% 0;
@@ -147,16 +142,10 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
   .tk-pill.is-dropping::before {
     animation: tk-drop 380ms cubic-bezier(0.55, 0, 1, 0.45) both;
   }
-  .tk-pill.is-dropping::after {
-    animation: tk-stem 520ms var(--ease-flow) both;
-  }
   @keyframes tk-drop {
     0% { opacity: 1; transform: translateY(0) scaleX(0.5); }
     75% { opacity: 1; transform: translateY(var(--wp-space-12)) scaleX(1); }
     100% { opacity: 0; transform: translateY(var(--wp-space-12)) scaleX(2.2) scaleY(0.4); }
-  }
-  @keyframes tk-stem {
-    30%, 60% { background: var(--wp-overlay-wave); }
   }
   .tk-pill .tk-pill__dot {
     width: 10px;
@@ -283,7 +272,7 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
   // Conveyor: the track moves left at a steady pace and wraps by one set of
   // fields (it holds two). A field counts as pasted once its centre has
   // passed the pill; fields re-entering on the right are empty again.
-  const SPEED = 42; // px per second
+  const SPEED = 96; // px per second
   const band = document.querySelector<HTMLElement>('[data-testid="text-kinds-marquee"]');
   const track = band?.querySelector<HTMLElement>('[data-tk-track]');
   const pill = band?.querySelector<HTMLElement>('.tk-pill');
