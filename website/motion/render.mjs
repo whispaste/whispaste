@@ -1,6 +1,6 @@
 // Renders every composition with a transparent background to public/motion/:
 // - <id>.webm  VP9 with alpha (Chrome, Firefox, Edge)
-// - <id>.mov   HEVC with alpha (Safari, incl. iOS) — needs macOS VideoToolbox
+// - <id>.mov   HEVC with alpha (Safari, incl. iOS) — macOS `avconvert`
 // - <id>.webp  poster with alpha, from the frame where the story is told
 // The page picks webm or mov at runtime (Privacy.astro); the loop lies
 // directly on the card, so there is no backdrop baked into any file.
@@ -25,7 +25,13 @@ for (const id of ['privacy-local', 'privacy-cloud']) {
   const master = `${tmp}${id}.mov`;
   run('npx', ['remotion', 'render', 'src/index.ts', id, master, '--codec=prores', '--prores-profile=4444', '--pixel-format=yuva444p10le', '--image-format=png']);
   ff(['-i', master, '-vf', `scale=${WIDTH}:-2`, '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-b:v', '0', '-crf', '38', '-auto-alt-ref', '0', '-row-mt', '1', '-an', `${out}${id}.webm`]);
-  ff(['-i', master, '-vf', `scale=${WIDTH}:-2`, '-pix_fmt', 'bgra', '-c:v', 'hevc_videotoolbox', '-alpha_quality', '0.6', '-q:v', '45', '-tag:v', 'hvc1', '-movflags', '+faststart', '-an', `${out}${id}.mov`]);
+  // Safari: Apple's own encoder. ffmpeg's hevc_videotoolbox writes straight
+  // alpha that Safari composites as premultiplied — translucent fills turn
+  // solid (2026-10-16). avconvert tags the alpha mode correctly.
+  const small = `${tmp}${id}-${WIDTH}.mov`;
+  ff(['-i', master, '-vf', `scale=${WIDTH}:-2`, '-c:v', 'prores_ks', '-profile:v', '4444', '-pix_fmt', 'yuva444p10le', '-an', small]);
+  rmSync(`${out}${id}.mov`, { force: true });
+  run('avconvert', ['--source', small, '--output', `${out}${id}.mov`, '--preset', 'PresetHEVCHighestQualityWithAlpha', '--replace']);
   run('npx', ['remotion', 'still', 'src/index.ts', id, `${tmp}${id}.png`, `--frame=${POSTER_FRAME}`, '--image-format=png']);
   await sharp(`${tmp}${id}.png`).resize({ width: WIDTH }).webp({ quality: 82, alphaQuality: 90 }).toFile(`${out}${id}.webp`);
 }
