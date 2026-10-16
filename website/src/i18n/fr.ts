@@ -923,6 +923,7 @@ const dict: Record<string, string> = {
   'blog.heading': 'Blog',
   'blog.lead': 'Contexte, guides et actualités sur WhisPaste et la dictée sur ordinateur.',
   'blog.back': 'Tous les articles',
+  'blog.readTime': '{n} min de lecture',
   'blog.empty': 'Aucun article pour le moment.',
   'mobileCta.label': 'Voir les téléchargements pour ordinateur',
   'support.paypal': 'Faire un don via PayPal',

@@ -20,3 +20,15 @@ test('English blog index renders English posts', async ({ page }) => {
   await page.goto('/en/blog/');
   await expect(page.getByTestId('blog-list').getByRole('link').first()).toContainText(/model size/i);
 });
+
+for (const [feed, post] of [['/blog/feed.xml', 'https://whispaste.de/blog/'], ['/en/blog/feed.xml', 'https://whispaste.de/en/blog/']] as const) {
+  test(`${feed}: RSS feed lists posts and is advertised on the index`, async ({ page, request }) => {
+    const res = await request.get(feed);
+    expect(res.status()).toBe(200);
+    const xml = await res.text();
+    expect(xml).toContain('<rss version="2.0"');
+    expect(xml).toContain(`<link>${post}`);
+    await page.goto(feed.replace('feed.xml', ''));
+    await expect(page.locator(`link[rel="alternate"][type="application/rss+xml"][href="${feed}"]`)).toHaveCount(1);
+  });
+}

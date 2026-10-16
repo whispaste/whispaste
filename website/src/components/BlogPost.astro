@@ -2,7 +2,8 @@
 import { getCollection, render } from "astro:content";
 import BlogLayout from "../layouts/BlogLayout.astro";
 import BreadcrumbListSchema from "./schema/BreadcrumbListSchema.astro";
-import { t, localePath, SITE_ORIGIN_FALLBACK, type Locale } from "../scripts/i18n.ts";
+import { readingMinutes } from "../scripts/blog.ts";
+import { t, localePath, type Locale } from "../scripts/i18n.ts";
 
 interface Props {
   lang: Locale;
@@ -51,6 +52,7 @@ const articleSchema = {
   <article data-testid="blog-article">
     <header class="mb-10">
       <time class="text-xs uppercase tracking-wider text-ink-subtle" datetime={entry.data.date.toISOString()}>{formatDate.format(entry.data.date)}</time>
+      <span class="text-xs text-ink-subtle"> · {t(lang, "blog.readTime").replace("{n}", String(readingMinutes(entry.body ?? "")))}</span>
       <h1 class="post-title text-3xl sm:text-4xl mt-2 leading-tight">{entry.data.title}</h1>
     </header>
     <div class="post-body">

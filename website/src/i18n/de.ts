@@ -926,6 +926,7 @@ const dict: Record<string, string> = {
   'blog.heading': 'Blog',
   'blog.lead': 'Hintergründe, Anleitungen und Neuigkeiten rund um WhisPaste und das Diktieren am Desktop.',
   'blog.back': 'Alle Beiträge',
+  'blog.readTime': '{n} Min. Lesezeit',
   'blog.empty': 'Noch keine Beiträge.',
   'mobileCta.label': 'Desktop-Downloads ansehen',
   'support.paypal': 'Per PayPal spenden',

@@ -2,6 +2,7 @@
 import { getCollection } from "astro:content";
 import BlogLayout from "../layouts/BlogLayout.astro";
 import BreadcrumbListSchema from "./schema/BreadcrumbListSchema.astro";
+import { readingMinutes } from "../scripts/blog.ts";
 import { t, localePath, type Locale } from "../scripts/i18n.ts";
 
 interface Props {
@@ -49,6 +50,7 @@ const breadcrumbs = [
             data-testid={`blog-post-${slugOf(post.id)}`}
           >
             <time class="text-xs uppercase tracking-wider text-ink-subtle" datetime={post.data.date.toISOString()}>{formatDate.format(post.data.date)}</time>
+            <span class="text-xs text-ink-subtle"> · {t(lang, "blog.readTime").replace("{n}", String(readingMinutes(post.body ?? "")))}</span>
             <h2 class="blog-card-title mt-2 text-xl font-semibold">{post.data.title}</h2>
             <p class="mt-2 text-ink-muted leading-relaxed">{post.data.description}</p>
           </a>
