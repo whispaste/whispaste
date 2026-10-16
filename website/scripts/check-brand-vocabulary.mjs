@@ -120,6 +120,20 @@ export function buildTermRegex(term) {
 }
 
 /**
+ * Blanks the values of `href`/`src`/`action` attributes (same length, so line
+ * and column numbers stay valid). URLs such as `paypal.com/donate` are
+ * addresses, not copy, and must not trip the vocabulary gate.
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+export function blankUrlAttributes(html) {
+  return html.replace(/\b(href|src|action)=("[^"]*"|'[^']*')/gi, (m, name, quoted) => {
+    return `${name}=${quoted[0]}${" ".repeat(quoted.length - 2)}${quoted[0]}`;
+  });
+}
+
+/**
  * Findet alle Verstöße in einem HTML-String. Kontrastive Sektionen werden
  * vorab entfernt; Begriffe mit `contrastiveAllowed: true` bleiben dadurch
  * straflos. Reihenfolge der Findings: per Datei nach Zeile, dann nach Term-
@@ -131,7 +145,7 @@ export function buildTermRegex(term) {
  * @returns {Array<{ line: number, column: number, term: string, match: string, replacement: string, rationale: string }>}
  */
 export function scanHtml(html, vocabulary) {
-  const stripped = stripContrastive(html);
+  const stripped = blankUrlAttributes(stripContrastive(html));
   const lineStarts = computeLineStarts(stripped);
   const findings = [];
   for (const entry of vocabulary) {

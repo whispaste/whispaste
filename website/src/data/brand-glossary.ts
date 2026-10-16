@@ -200,6 +200,134 @@ export const antiVocabulary: readonly AntiVocabularyEntry[] = [
     rationale:
       "CONTEXT.md §7 / §1 — WhisPaste speichert kein dauerhaftes Audio.",
   },
+
+  // --- Unterstützung statt Spende (alle Sprachen, Entscheidung 2026-10-16) ---
+  {
+    term: "Spende",
+    replacement: "Unterstützung / Sponsoring",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "Spenden",
+    replacement: "Unterstützung / Sponsoring",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "donation",
+    replacement: "support / sponsorship",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "donations",
+    replacement: "support / sponsorship",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "donate",
+    replacement: "support / sponsor",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "donación",
+    replacement: "apoyo / patrocinio",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "donaciones",
+    replacement: "apoyo / patrocinio",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "donar",
+    replacement: "apoyar / patrocinar",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "doação",
+    replacement: "apoio / patrocínio",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "doações",
+    replacement: "apoio / patrocínio",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "doar",
+    replacement: "apoiar / patrocinar",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "donazione",
+    replacement: "sostegno / sponsorizzazione",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "donazioni",
+    replacement: "sostegno / sponsorizzazione",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "donare",
+    replacement: "sostenere / sponsorizzare",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "faire un don",
+    replacement: "soutenir / parrainer",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "dons",
+    replacement: "soutien / parrainage",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "пожертвован",
+    replacement: "поддержка / спонсорство",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "пожертвовать через",
+    replacement: "поддержка / спонсорство",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "捐助",
+    replacement: "支持 / 赞助",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "捐款",
+    replacement: "支持 / 赞助",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
+  {
+    term: "捐赠",
+    replacement: "支持 / 赞助",
+    rationale:
+      "CONTEXT.md §7 / §6.8 — Zahlungen von Nutzern heißen Unterstützung/Sponsoring, nie Spende (in allen Sprachen).",
+  },
 ];
 
 // ---------------------------------------------------------------------------
