@@ -1,6 +1,7 @@
 ---
 import { getCollection, render } from "astro:content";
 import BlogLayout from "../layouts/BlogLayout.astro";
+import TranslateLink from "./TranslateLink.astro";
 import BreadcrumbListSchema from "./schema/BreadcrumbListSchema.astro";
 import { readingMinutes } from "../scripts/blog.ts";
 import { t, localePath, type Locale } from "../scripts/i18n.ts";
@@ -59,6 +60,8 @@ const articleSchema = {
       <Content />
     </div>
   </article>
+
+  <TranslateLink lang={lang} />
 
   <p class="mt-12 pt-6 border-t border-white/5 text-sm">
     <a href={blogHref} class="text-ink-muted hover:text-white transition-colors">← {t(lang, "blog.back")}</a>

@@ -32,3 +32,12 @@ for (const [feed, post] of [['/blog/feed.xml', 'https://whispaste.de/blog/'], ['
     await expect(page.locator(`link[rel="alternate"][type="application/rss+xml"][href="${feed}"]`)).toHaveCount(1);
   });
 }
+
+test('blog post offers a Google Translate hand-off that sends nothing until submitted', async ({ page }) => {
+  await page.goto('/blog/welche-modellgroesse-fuer-lokales-diktieren/');
+  const form = page.getByTestId('blog-translate');
+  await expect(form).toHaveAttribute('action', 'https://translate.google.com/translate');
+  await expect(form.locator('input[name="u"]')).toHaveValue('https://whispaste.de/blog/welche-modellgroesse-fuer-lokales-diktieren/');
+  await expect(form.locator('input[name="sl"]')).toHaveValue('de');
+  await expect(page.getByTestId('blog-translate-select')).toHaveValue('es');
+});

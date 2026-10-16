@@ -19,6 +19,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.3",
     "@sentry/astro": "^10.54.0",
     "@tailwindcss/vite": "^4.2.1",
