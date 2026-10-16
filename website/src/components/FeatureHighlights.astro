@@ -1,17 +1,12 @@
 ---
-import MotionHotkey from './motion/MotionHotkey.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import { t, currentLocale } from '../scripts/i18n.ts';
 
 const lang = currentLocale(Astro.currentLocale);
 
-// Row 2: three everyday features as equal cards. Icon paths are Lucide
-// outlines (24×24, stroke), inlined like the site's other SVGs.
-const rowCards = [
-  { key: 'editSelection', icon: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z' },
-  { key: 'history', icon: 'M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8m0-5v5h5m4-1v5l4 2' },
-  { key: 'notes', icon: 'M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Zm0 0v5h5M8 13h8m-8 4h5' },
-] as const;
+// Three everyday features as smaller bento tiles, each with one abstract
+// product fragment (no text, so nothing to translate twice).
+const rowCards = ['editSelection', 'history', 'notes'] as const;
 
 // Everything else stays on the page (crawlable, searchable) in one native
 // disclosure instead of a wall of equal-rank cards.
@@ -31,23 +26,22 @@ const moreKeys = [
 const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.example2', 'highlights.snippets.example3'] as const;
 ---
 
-<!-- FeatureHighlights — what WhisPaste does beyond plain dictation. Smart Mode
-     and Snippets carry the section as two asymmetric showcase cards with a
-     concrete example each; three everyday features follow as a row; the rest
-     sits in one "more" disclosure. Details live in the FAQ and the gallery. -->
+<!-- FeatureHighlights — what WhisPaste does beyond plain dictation, as one
+     bento grid: Smart Mode is the large tile, Snippets and three everyday
+     features follow as smaller tiles, each with one product fragment. The
+     rest sits in one "more" disclosure. Details live in the FAQ and gallery. -->
 <section id="features" class="band band-spotlight wp-section relative scroll-mt-20">
   <div class="relative wp-container">
     <div class="wp-section-head">
       <SectionEyebrow key="highlights.label" class="reveal-up" />
       <h2 class="section-title wp-kinetic-line">
         <span data-i18n="highlights.titleLead">{t(lang, 'highlights.titleLead')}</span><!--
-        --><span class="text-gradient-brand" data-i18n="highlights.titleAccent">{t(lang, 'highlights.titleAccent')}</span><!--
+        --><span class="wp-marker" data-i18n="highlights.titleAccent">{t(lang, 'highlights.titleAccent')}</span><!--
         --><span data-i18n="highlights.titleTail">{t(lang, 'highlights.titleTail')}</span>
       </h2>
-      <div class="wp-head-art" aria-hidden="true"><MotionHotkey /></div>
     </div>
 
-    <div class="fh-showcase">
+    <div class="fh-bento">
       <!-- Smart Mode: spoken vs. cleaned-up text -->
       <article class="fh-card fh-card--smart" data-testid="features-smartmode">
         <div class="fh-card-head">
@@ -80,14 +74,34 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
           ))}
         </ul>
       </article>
-    </div>
 
-    <div class="fh-row">
-      {rowCards.map(({ key, icon }) => (
-        <article class="fh-card fh-card--small">
-          <span class="fh-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d={icon} /></svg>
-          </span>
+      {rowCards.map((key) => (
+        <article class="fh-card fh-card--small" data-testid={`features-${key}`}>
+          <div class="fh-frag" aria-hidden="true">
+            {key === 'editSelection' && (
+              <div class="fh-frag-edit">
+                <span class="fh-line"></span>
+                <span class="fh-line"><i class="fh-sel"></i></span>
+                <span class="fh-line fh-line--short"></span>
+                <span class="fh-mini-pill"><b></b><i></i><i></i><i></i><i></i><i></i></span>
+              </div>
+            )}
+            {key === 'history' && (
+              <div class="fh-frag-history">
+                <span class="fh-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6" /><path d="m20 20-4.5-4.5" /></svg><span class="fh-line fh-line--tiny"></span></span>
+                <span class="fh-hit is-found"><i></i><span class="fh-line"></span></span>
+                <span class="fh-hit"><i></i><span class="fh-line fh-line--short"></span></span>
+              </div>
+            )}
+            {key === 'notes' && (
+              <div class="fh-frag-note">
+                <span class="fh-pin"></span>
+                <span class="fh-line"></span>
+                <span class="fh-line fh-line--short"></span>
+                <span class="fh-line fh-line--new"></span>
+              </div>
+            )}
+          </div>
           <h3 class="fh-title fh-title--small" data-i18n={`highlights.${key}.title`}>{t(lang, `highlights.${key}.title`)}</h3>
           <p class="fh-desc" data-i18n={`highlights.${key}.desc`}>{t(lang, `highlights.${key}.desc`)}</p>
         </article>
@@ -119,26 +133,51 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
 </section>
 
 <style>
-  /* ---- Cards ---- */
+  /* ---- Bento: Smart Mode 4/6 + Snippets 2/6, then three 2/6 tiles ---- */
+  .fh-bento {
+    display: grid;
+    gap: var(--wp-space-5);
+  }
+  @media (min-width: 768px) {
+    .fh-bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .fh-card--smart { grid-column: 1 / -1; }
+  }
+  @media (min-width: 1024px) {
+    .fh-bento { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .fh-card--smart { grid-column: span 4; }
+    .fh-bento > .fh-card:not(.fh-card--smart) { grid-column: span 2; }
+  }
+
+  /* ---- Tiles ---- */
   .fh-card {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     gap: var(--wp-space-3);
-    padding: clamp(var(--wp-space-5), var(--wp-space-4) + 1vw, var(--wp-space-8));
-    border-radius: var(--radius-surface);
-    border: 1px solid var(--wp-border-default);
-    background: color-mix(in srgb, var(--color-brand-card) 80%, transparent);
-    box-shadow: var(--shadow-card);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
     min-width: 0;
   }
-  .fh-card--smart {
-    border-color: color-mix(in srgb, var(--color-brand-cyan) 28%, transparent);
-    background:
-      radial-gradient(ellipse 80% 70% at 0% 0%, color-mix(in srgb, var(--color-brand-cyan) 10%, transparent), transparent 70%),
-      color-mix(in srgb, var(--color-brand-card) 88%, transparent);
+  /* Halftone grain in one corner: printed texture, fading into the tile. */
+  .fh-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto auto;
+    width: 60%;
+    height: 70%;
+    z-index: -1;
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--wp-text-primary) 14%, transparent) 1.2px, transparent 1.6px);
+    background-size: var(--wp-space-2) var(--wp-space-2);
+    mask-image: radial-gradient(ellipse at 100% 0%, currentColor, transparent 70%);
+    pointer-events: none;
   }
-  .fh-card--small {
-    border-radius: var(--radius-card);
+  .fh-card--smart::before {
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--wp-highlight-marker) 30%, transparent) 1.4px, transparent 1.8px);
   }
   .fh-card-head {
     display: flex;
@@ -153,58 +192,24 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
     font-weight: 800;
     letter-spacing: -0.02em;
     line-height: 1.15;
-    color: var(--color-ink);
+    color: var(--wp-card-title);
     text-wrap: balance;
-  }
-  .fh-title--small {
-    font-family: var(--font-sans);
-    font-size: var(--type-card-title);
-    font-weight: 700;
-    letter-spacing: 0;
   }
   .fh-badge {
     padding: var(--wp-space-1) var(--wp-space-3);
-    border-radius: var(--radius-pill);
+    border-radius: var(--wp-radius-pill);
     border: 1px solid var(--wp-border-strong);
     font-size: var(--wp-font-size-sm);
-    color: var(--color-ink-muted);
+    color: var(--wp-card-meta);
   }
   .fh-desc {
     margin: 0;
     font-size: var(--wp-font-size-md);
     line-height: 1.65;
-    color: var(--color-ink-muted);
+    color: var(--wp-card-text);
   }
-  .fh-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: var(--radius-control);
-    color: var(--color-brand-cyan);
-    background: color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
-    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 25%, transparent);
-  }
-  .fh-icon svg {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-
-  /* ---- Layout: 8/4 showcase, then a row of three ---- */
-  .fh-showcase,
-  .fh-row {
-    display: grid;
-    gap: var(--wp-space-5);
-  }
-  .fh-row {
-    margin-top: var(--wp-space-5);
-  }
-  @media (min-width: 768px) {
-    .fh-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  }
-  @media (min-width: 1024px) {
-    .fh-showcase { grid-template-columns: minmax(0, 8fr) minmax(0, 4fr); }
+  .fh-card--small .fh-desc {
+    font-size: var(--wp-font-size-sm);
   }
 
   /* ---- Smart Mode before/after ---- */
@@ -214,30 +219,37 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
     display: grid;
     gap: var(--wp-space-4);
   }
+  @media (min-width: 768px) {
+    .fh-compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
   .fh-compare-row {
     display: grid;
+    align-content: start;
     gap: var(--wp-space-2);
   }
   .fh-compare-label {
     font-size: var(--wp-font-size-sm);
     font-weight: 600;
-    color: var(--color-ink-subtle);
+    color: var(--wp-card-meta);
   }
   .fh-compare-text {
     margin: 0;
-    padding: var(--wp-space-4) var(--wp-space-4);
-    border-radius: var(--radius-control);
+    padding: var(--wp-space-4);
+    border-radius: var(--wp-radius-control);
     border: 1px solid var(--wp-border-default);
     background: var(--wp-surface-inset);
     font-size: var(--wp-font-size-lead);
     line-height: 1.5;
   }
   .fh-compare-text--raw {
-    color: var(--color-ink-muted);
+    color: var(--wp-card-meta);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--wp-card-meta) 45%, transparent);
   }
   .fh-compare-text--clean {
-    color: var(--color-ink);
-    border-color: color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
+    color: var(--wp-card-title);
+    border-color: var(--wp-highlight-marker);
+    box-shadow: inset 4px 0 0 var(--wp-highlight-marker);
   }
 
   /* ---- Snippet picker ---- */
@@ -254,15 +266,15 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
     justify-content: space-between;
     gap: var(--wp-space-3);
     padding: var(--wp-space-3) var(--wp-space-4);
-    border-radius: var(--radius-control);
+    border-radius: var(--wp-radius-control);
     border: 1px solid var(--wp-border-default);
     font-size: var(--wp-font-size-md);
-    color: var(--color-ink-muted);
+    color: var(--wp-card-text);
   }
   .fh-picker-item.is-active {
-    color: var(--color-ink);
-    border-color: color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
-    background: color-mix(in srgb, var(--color-brand-cyan) 8%, transparent);
+    color: var(--wp-card-title);
+    border-color: color-mix(in srgb, var(--wp-accent-default) 55%, transparent);
+    background: color-mix(in srgb, var(--wp-accent-default) 10%, transparent);
   }
   .fh-picker-item svg {
     width: 1rem;
@@ -270,11 +282,136 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
     flex-shrink: 0;
   }
 
+  /* ---- Fragments of the three small tiles (abstract app UI) ---- */
+  .fh-frag {
+    display: grid;
+    place-items: center;
+    height: 7rem;
+    margin-bottom: var(--wp-space-2);
+    border-radius: var(--wp-radius-control);
+    border: 1px solid var(--wp-border-default);
+    background: var(--wp-surface-inset);
+  }
+  .fh-frag > div {
+    display: grid;
+    gap: var(--wp-space-2);
+    width: min(80%, 14rem);
+    transition: translate var(--dur-base) var(--ease-flow);
+  }
+  .fh-line {
+    position: relative;
+    display: block;
+    height: var(--wp-space-2);
+    border-radius: var(--wp-radius-pill);
+    background: color-mix(in srgb, var(--wp-text-primary) 18%, transparent);
+  }
+  .fh-line--short { width: 60%; }
+  .fh-line--tiny { width: 45%; }
+  /* Edit: a marked phrase, the mini pill listening for the command. */
+  .fh-frag-edit { position: relative; }
+  .fh-sel {
+    position: absolute;
+    inset: calc(-1 * var(--wp-space-1)) 18% calc(-1 * var(--wp-space-1)) 30%;
+    border-radius: var(--wp-radius-chip);
+    background: color-mix(in srgb, var(--wp-accent-default) 40%, transparent);
+  }
+  .fh-mini-pill {
+    position: absolute;
+    right: calc(-1 * var(--wp-space-3));
+    bottom: calc(-1 * var(--wp-space-5));
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    height: var(--wp-space-8);
+    padding: 0 var(--wp-space-3);
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-fill);
+    box-shadow: var(--shadow-overlay);
+    rotate: -4deg;
+  }
+  .fh-mini-pill b {
+    width: 6px;
+    height: 6px;
+    margin-right: var(--wp-space-1);
+    border-radius: 50%;
+    background: var(--wp-overlay-accent);
+  }
+  .fh-mini-pill i {
+    width: 3px;
+    height: 14px;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-wave);
+  }
+  .fh-mini-pill i:nth-child(odd) { height: 9px; }
+  /* History: search field and the entry it found. */
+  .fh-search {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    padding: var(--wp-space-1) var(--wp-space-2);
+    border-radius: var(--wp-radius-pill);
+    border: 1px solid var(--wp-border-strong);
+    color: var(--wp-card-meta);
+  }
+  .fh-search svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+  }
+  .fh-hit {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    padding: var(--wp-space-1) var(--wp-space-2);
+    border-radius: var(--wp-radius-chip);
+  }
+  .fh-hit i {
+    width: var(--wp-space-2);
+    height: var(--wp-space-2);
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--wp-text-primary) 30%, transparent);
+  }
+  .fh-hit .fh-line { flex: 1; }
+  .fh-hit.is-found {
+    background: color-mix(in srgb, var(--wp-accent-default) 12%, transparent);
+    box-shadow: inset 3px 0 0 var(--wp-accent-default);
+  }
+  .fh-hit.is-found i { background: var(--wp-accent-default); }
+  /* Note: a pinned sheet, the newest line just appended. */
+  .fh-frag-note {
+    position: relative;
+    padding: var(--wp-space-4) var(--wp-space-3) var(--wp-space-3);
+    border-radius: var(--wp-radius-chip);
+    background: color-mix(in srgb, var(--wp-text-primary) 8%, transparent);
+    rotate: 2deg;
+  }
+  .fh-pin {
+    position: absolute;
+    top: calc(-1 * var(--wp-space-1));
+    left: 50%;
+    width: var(--wp-space-3);
+    height: var(--wp-space-3);
+    translate: -50% 0;
+    border-radius: 50%;
+    background: var(--wp-highlight-marker);
+  }
+  .fh-line--new {
+    width: 75%;
+    background: var(--wp-highlight-marker);
+  }
+
+  @media (hover: hover) {
+    .fh-card--small:hover .fh-frag > div {
+      translate: 0 calc(-1 * var(--wp-space-1));
+    }
+  }
+
   /* ---- More features (native disclosure) ---- */
   .fh-more {
     margin-top: var(--wp-space-5);
-    border-radius: var(--radius-card);
-    border: 1px solid var(--wp-border-default);
+    border-radius: var(--wp-card-radius);
+    border: 1px solid var(--wp-card-border);
   }
   .fh-more-summary {
     display: flex;
@@ -284,20 +421,20 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
     min-height: 44px;
     padding: var(--wp-space-4) var(--wp-space-5);
     font-weight: 600;
-    color: var(--color-ink);
+    color: var(--wp-card-title);
     cursor: pointer;
     list-style: none;
-    border-radius: var(--radius-card);
+    border-radius: var(--wp-card-radius);
   }
   .fh-more-summary::-webkit-details-marker { display: none; }
   .fh-more-summary:focus-visible {
-    outline: 2px solid var(--color-brand-cyan);
+    outline: 2px solid var(--wp-focus-ring);
     outline-offset: 2px;
   }
   .fh-more-summary svg {
     width: 1.25rem;
     height: 1.25rem;
-    color: var(--color-brand-cyan);
+    color: var(--wp-text-link);
     transition: transform var(--dur-base) var(--ease-flow);
   }
   .fh-more[open] .fh-more-summary svg {
@@ -314,14 +451,14 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
   }
   .fh-more-item dt {
     font-weight: 700;
-    color: var(--color-ink);
+    color: var(--wp-card-title);
     margin-bottom: var(--wp-space-1);
   }
   .fh-more-item dd {
     margin: 0;
     font-size: var(--wp-font-size-md);
     line-height: 1.65;
-    color: var(--color-ink-muted);
+    color: var(--wp-card-text);
   }
 
   .fh-gallery {
@@ -333,7 +470,7 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
     gap: var(--wp-space-1);
     min-height: 44px;
     font-weight: 600;
-    color: var(--color-brand-cyan);
+    color: var(--wp-text-link);
     text-decoration: none;
   }
   .fh-gallery-link svg {
@@ -346,6 +483,7 @@ const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.ex
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .fh-frag > div,
     .fh-more-summary svg,
     .fh-gallery-link svg {
       transition: none;
