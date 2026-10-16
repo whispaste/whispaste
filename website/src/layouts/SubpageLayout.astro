@@ -13,12 +13,13 @@ interface Props {
   readonly lang: Locale;
   readonly title: string;
   readonly description: string;
+  readonly ogImage?: string;
 }
 
-const { lang, title, description } = Astro.props;
+const { lang, title, description, ogImage } = Astro.props;
 ---
 
-<Layout title={title} description={description} lang={lang}>
+<Layout title={title} description={description} lang={lang} ogImage={ogImage}>
   <slot name="head" slot="head" />
   <div class="min-h-screen flex flex-col">
     <Nav variant="subpage" />

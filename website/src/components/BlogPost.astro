@@ -42,7 +42,7 @@ const articleSchema = {
 };
 ---
 
-<BlogLayout lang={lang} title={entry.data.title} description={entry.data.description}>
+<BlogLayout lang={lang} title={entry.data.title} description={entry.data.description} ogImage={entry.data.cover?.og}>
 
   <!-- Head on the dark stage (layout slot "hero"); the article body sits in
        the light sheet and points back to the title. -->
@@ -58,7 +58,7 @@ const articleSchema = {
   </div>
 
   <article data-testid="blog-article" aria-labelledby="post-title">
-    <BlogCover seed={slug} variant="hero" />
+    <BlogCover seed={slug} variant="hero" image={entry.data.cover} />
 
     <div class="post-layout">
       {toc.length > 1 && (
@@ -256,6 +256,17 @@ const articleSchema = {
   }
   .post-body :global(a:hover) {
     text-decoration-thickness: 2px;
+  }
+
+  /* Wide settings crops stay legible on phones: the figure scrolls sideways
+     instead of shrinking the screenshot text to a few pixels. */
+  @media (max-width: 767px) {
+    .post-body :global(figure) {
+      overflow-x: auto;
+    }
+    .post-body :global(figure img) {
+      min-width: 40rem;
+    }
   }
 
   /* ---- Aside: download CTA + translate hand-off ---- */

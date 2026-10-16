@@ -29,7 +29,7 @@ const Heading = `h${level}` as "h2" | "h3";
   class:list={["blog-card wp-spot", featured && "blog-card--featured"]}
   data-testid={`blog-post-${slug}`}
 >
-  <BlogCover seed={slug} />
+  <BlogCover seed={slug} image={post.data.cover} />
   <div class="blog-card-body">
     {featured && <p class="wp-eyebrow blog-card-flag">{t(lang, "blog.latest")}</p>}
     <p class="blog-meta">

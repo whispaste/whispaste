@@ -13,6 +13,8 @@ const blog = defineCollection({
     title: z.string(),
     description: z.string(),
     date: z.coerce.date(),
+    /** Optional own cover image; without it the post gets the generated waveform cover. */
+    cover: z.object({ src: z.string(), alt: z.string(), og: z.string().optional() }).optional(),
   }),
 });
 
