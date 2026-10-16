@@ -22,4 +22,22 @@ test.describe('nav GitHub pill', () => {
     await page.waitForLoadState('networkidle');
     expect(calls).toEqual([]);
   });
+
+  test('the live count from our API replaces the build-time value', async ({ page }) => {
+    await page.route('**/v1/github/stars', (route) =>
+      route.fulfill({ json: { count: 1234, fetchedAt: '2026-10-16T12:00:00Z' } }),
+    );
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/en/');
+    await expect(page.getByTestId('nav-github-count')).toHaveText('1.2K');
+    await expect(page.getByTestId('nav-github')).toHaveAttribute('aria-label', /1234/);
+  });
+
+  test('an API failure keeps the build-time count', async ({ page }) => {
+    await page.route('**/v1/github/stars', (route) => route.fulfill({ status: 503, json: { title: 'Star count unavailable' } }));
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/en/');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByTestId('nav-github-count')).toHaveText(/^\s*\d/);
+  });
 });

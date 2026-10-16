@@ -92,7 +92,4 @@ export function githubStars(): Promise<number | null> {
   return pending;
 }
 
-/** 59 → "59", 1234 → "1.2K" / "1,2 Tsd." depending on the locale. */
-export function formatStars(count: number, lang: string): string {
-  return new Intl.NumberFormat(lang, { notation: 'compact', maximumFractionDigits: 1 }).format(count);
-}
+export { formatStars } from './github-stars-format.ts';
