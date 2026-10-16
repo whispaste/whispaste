@@ -60,18 +60,27 @@ test.describe('desktop', () => {
   test('panel wiggles after opening from the FAQ, not with reduced motion', async ({ page }) => {
     await page.goto('/en/');
     const panel = page.getByTestId('contact-panel');
-    const names = () =>
-      panel.evaluate((el) => el.getAnimations().map((a) => (a as CSSAnimation).animationName));
+    // Record animation starts before clicking: under CI load the short
+    // wiggle can be over before getAnimations() is first polled.
+    const started = () => panel.evaluate((el) => (el as HTMLElement & { started: string[] }).started);
+    await panel.evaluate((el) => {
+      const target = el as HTMLElement & { started: string[] };
+      target.started = [];
+      el.addEventListener('animationstart', (e) => target.started.push((e as AnimationEvent).animationName));
+    });
     await page.getByTestId('faq-ask-open').click();
     await expect(panel).toBeVisible();
     await expect(panel).toHaveClass(/is-nudged/);
-    await expect.poll(names).toContain('cw-nudge');
+    await expect.poll(started).toContain('cw-nudge');
 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.getByTestId('contact-close').click();
+    await panel.evaluate((el) => { (el as HTMLElement & { started: string[] }).started = []; });
     await page.getByTestId('faq-ask-open').click();
     await expect(panel).toBeVisible();
-    expect(await names()).toEqual([]);
+    await page.waitForTimeout(300);
+    expect(await started()).toEqual([]);
+    expect(await panel.evaluate((el) => el.getAnimations().length)).toBe(0);
   });
 
   test('ideas go to the public board, problems get the FAQ hint', async ({ page }) => {

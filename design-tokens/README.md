@@ -45,6 +45,11 @@ Everything inside (components, Tailwind `text-ink*` utilities, legacy
 variables) follows that mode. Chrome that must stay dark inside a light band
 sets `data-surface="dark"` on itself.
 
+Two light bands placed directly after each other join into one sheet: the
+inner corners go square and a 1px `--wp-border-subtle` rule sits on the seam
+(`components.css`). Never leave two rounded light sheets touching; they meet
+in a notch.
+
 ## Build
 
 ```bash
