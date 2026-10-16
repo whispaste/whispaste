@@ -29,17 +29,17 @@ test('language menu switches the landing page between locales', async ({ page })
   await page.goto('/');
 
   const heroHeading = page.locator('section h1').first();
-  await expect(heroHeading).toContainText('Sprechen statt');
+  await expect(heroHeading).toContainText('Sprich dort');
   await page.getByTestId('lang-switch').locator('summary').click();
   await page.getByTestId('lang-switch-en').click();
   await page.waitForURL(/\/en\/?$/);
-  await expect(page.locator('section h1').first()).toContainText('Speak instead of');
+  await expect(page.locator('section h1').first()).toContainText('Speak where');
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
 
   await page.getByTestId('lang-switch').locator('summary').click();
   await page.getByTestId('lang-switch-de').click();
   await page.waitForURL(/\/$/);
-  await expect(page.locator('section h1').first()).toContainText('Sprechen statt');
+  await expect(page.locator('section h1').first()).toContainText('Sprich dort');
 });
 
 test('FAQ section is visible and has accordion items', async ({ page }) => {
@@ -345,8 +345,8 @@ test('nav download button keeps its icon after i18n text is applied on load', as
 // directly (the CSS reacts instantly) instead of spoofing the UA, so the test
 // asserts the pure attribute → visible-variant contract for both navs and langs.
 const NAV_DL_LABELS = {
-  de: { macos: 'Für macOS', windows: 'Für Windows', linux: 'Für Ubuntu' },
-  en: { macos: 'For macOS', windows: 'For Windows', linux: 'For Ubuntu' },
+  de: { macos: 'Für macOS', windows: 'Für Windows', linux: 'Für Linux' },
+  en: { macos: 'For macOS', windows: 'For Windows', linux: 'For Linux' },
 } as const;
 
 async function assertNavDownloadAdaptsToOs(
@@ -411,7 +411,6 @@ for (const { path, freeOnGitHub } of [
     await expect(page.locator('#app-paste-demo [data-i18n="appdemo.noAiEdit"]')).toHaveCount(0);
     await expect(page.locator('#app-paste-demo .apd-callout')).toHaveCount(1);
     await expect(page).toHaveTitle(new RegExp(freeOnGitHub, 'i'));
-    await expect(page.getByTestId('hero').locator('[data-i18n="hero.desc"]')).toContainText(/GitHub/);
     await expect(page.getByTestId('hero-secondary-cta')).toContainText(new RegExp(freeOnGitHub, 'i'));
   });
 }

@@ -8,7 +8,7 @@ test('mobile cta appears after the hero and is inert before', async ({ page }) =
   await page.goto('/en/');
   const bar = page.getByTestId('mobile-cta');
   await expect(bar).toHaveAttribute('inert', '');
-  await expect(page.getByTestId('mobile-cta-download')).toHaveText('See desktop downloads');
+  await expect(page.getByTestId('mobile-cta-download')).toHaveText('Downloads for your computer');
 
   await page.locator('#features').scrollIntoViewIfNeeded();
   await expect(bar).not.toHaveAttribute('inert', '');

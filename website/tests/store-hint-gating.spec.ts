@@ -150,5 +150,5 @@ test('download page lists the three store perks inside "why two ways"', async ({
   for (const key of ['support', 'safe', 'updates']) {
     await expect(card.getByTestId(`download-store-perks-${key}`)).toBeVisible();
   }
-  await expect(card.getByTestId('download-store-perks-updates')).toContainText('automatically');
+  await expect(card.getByTestId('download-store-perks-updates')).toContainText('handles app updates');
 });

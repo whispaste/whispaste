@@ -274,6 +274,14 @@ const platformBadges = [
       font-size: clamp(3rem, 0.9rem + 3.4vw, 4.5rem);
     }
   }
+  @media (min-width: 1700px) {
+    .hero-title {
+      font-size: clamp(4.5rem, 1.5rem + 3.2vw, 7rem);
+    }
+    .hero-copy .wp-lead {
+      max-width: 42rem;
+    }
+  }
 
   /* ---- Platform-badge row (Issue 09): macOS / Windows / Linux ----
      The base pill look matches the trust chips below (same Tailwind utility

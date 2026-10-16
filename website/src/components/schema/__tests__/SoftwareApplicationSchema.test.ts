@@ -60,7 +60,7 @@ describe("buildSoftwareApplicationSchema", () => {
     expect(Array.isArray(schema.featureList)).toBe(true);
     expect(schema.featureList).toHaveLength(DEFAULT_FEATURE_KEYS.length);
     expect(schema.featureList as readonly string[]).toContain(
-      "Smart Mode: bereinigen, kürzen, übersetzen",
+      "Text mit Smart Mode überarbeiten",
     );
   });
 
@@ -77,7 +77,7 @@ describe("buildSoftwareApplicationSchema", () => {
       expect(url).toMatch(/\/screenshots\/en\//);
     }
     expect(schema.featureList as readonly string[]).toContain(
-      "Smart Mode: clean up, shorten, translate",
+      "Revise text with Smart Mode",
     );
   });
 

@@ -39,23 +39,24 @@ const { lang } = Astro.props;
   <Nav variant="landing" />
   <main id="main-content">
     {/*
-      Story order: what it does (Hero) → how it works (AppPasteDemo, the one
-      explanation arc incl. the real overlay renderer) → what it can do
-      (FeatureHighlights, AppScreenshots) → who it is for (UseCaseCards) →
-      trust (Privacy, Engines incl. languages) → decision (Pricing, FAQ) →
-      social proof before the support ask (Testimonials, Support).
+      Story order (docs/landingpage-story.md): what it is (Hero) → how it
+      gets my sentence into the field (AppPasteDemo) → which of my texts it
+      helps with (UseCaseCards) → what helps me keep working (FeatureHighlights,
+      AppScreenshots) → trust (Privacy, Engines incl. languages) → open
+      questions (FAQ) → social proof (Testimonials) → the one next step
+      (Pricing) → project support (Support).
       Each section sets its own band class; none is duplicated here.
     */}
     <Hero />
     <AppPasteDemo />
+    <UseCaseCards />
     <FeatureHighlights />
     <AppScreenshots />
-    <UseCaseCards />
     <Privacy />
     <Engines />
-    <Pricing />
     <FAQ />
     <Testimonials />
+    <Pricing />
     <Support />
   </main>
   <Footer variant="landing" />

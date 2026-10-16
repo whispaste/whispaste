@@ -161,12 +161,14 @@
    ONE outer width for the floating nav pill AND every section's content, so
    their outer edges line up at every breakpoint: the nav is never narrower
    than the content and the content never wider than the nav. Gutter 16px on
-   phones, 24px from sm, 32px from lg; capped at 1280px. Reading-width
+   phones, 24px from sm, 32px from lg; capped at 1920px. Reading-width
    sections may add a narrower max-width on top (they stay centred inside the
-   same frame), but nothing may exceed it. Uses 100% of the containing block
+   same frame), but nothing may exceed it. The cap (1920px) only bites on
+   ultrawide screens, where the gutter grows fluidly so the page never sits
+   in a narrow column with dead margins. Uses 100% of the containing block
    (not 100vw) so a classic scrollbar never causes horizontal overflow. */
 :root {
-  --site-max: 1280px;
+  --site-max: 1920px;
   --site-gutter: 16px;
 }
 @media (min-width: 640px) {
@@ -174,6 +176,9 @@
 }
 @media (min-width: 1024px) {
   :root { --site-gutter: 32px; }
+}
+@media (min-width: 1536px) {
+  :root { --site-gutter: clamp(48px, 3vw, 80px); }
 }
 .wp-container {
   width: min(var(--site-max), calc(100% - 2 * var(--site-gutter)));
@@ -195,7 +200,7 @@
   padding-block: var(--section-pad-y);
 }
 .wp-section-head {
-  max-width: 48rem;
+  max-width: min(100%, 64rem);
   margin-bottom: var(--section-head-gap);
 }
 .wp-section-head.is-centered {
@@ -532,7 +537,7 @@
   letter-spacing: -0.03em;
   line-height: 1.03;
   color: var(--color-ink);
-  font-size: clamp(2.25rem, 1.35rem + 3.7vw, 4rem);
+  font-size: clamp(2.25rem, 1.35rem + 3.7vw, 5.25rem);
   text-wrap: balance;
 }
 

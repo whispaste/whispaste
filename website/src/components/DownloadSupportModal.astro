@@ -78,7 +78,7 @@ const macReviewUrl = STORES.macos.reviewUrl;
     padding: 0;
     border: none;
     background: transparent;
-    max-width: min(420px, calc(100vw - 2rem));
+    max-width: min(460px, calc(100vw - 2rem));
     width: 100%;
   }
 
@@ -95,7 +95,7 @@ const macReviewUrl = STORES.macos.reviewUrl;
     box-shadow: var(--shadow-overlay);
     border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: var(--radius-surface);
-    padding: 2rem;
+    padding: 2.25rem 2rem;
     text-align: center;
     /* Ankunft auf der Flow-Kurve (Token in global.css) — der Dialog gleitet
        herein wie die Overlay-Pille, statt generisch zu easen. */
@@ -144,8 +144,10 @@ const macReviewUrl = STORES.macos.reviewUrl;
   }
 
   .dlm-title {
-    font-size: 1.125rem;
-    font-weight: 700;
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    letter-spacing: -0.02em;
+    font-weight: 800;
     color: #fff;
     margin: 0 0 0.5rem;
     line-height: 1.3;
