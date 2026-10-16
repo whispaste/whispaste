@@ -54,28 +54,30 @@ const lang = currentLocale(Astro.currentLocale);
       </p>
 
       <!-- CTA block: the visitor's platform button (global.css reduces the
-           three to the detected OS; unknown OS sees all three) plus one
-           quiet link to every other download route. -->
+           three to the detected OS; unknown OS sees all three). -->
       <div class="hero-fade-rise hero-cta-row" style="--wp-rise-delay: 440ms">
         <div class="flex flex-wrap items-stretch justify-center gap-3">
           <div data-platform-btn="windows"><StoreButton size="lg" /></div>
           <div data-platform-btn="macos"><MacStoreButton size="lg" /></div>
           <div data-platform-btn="linux"><LinuxButton size="lg" /></div>
         </div>
-        <a
-          href={localePath(lang, "download")}
-          class="hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-(--wp-text-link) hover:text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--wp-focus-ring) rounded"
-          data-testid="hero-secondary-cta"
-        >
-          <span data-i18n="hero.cta.secondary">{t(lang, "hero.cta.secondary")}</span>
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-        </a>
       </div>
 
       <p class="hero-fineprint hero-fade-rise" style="--wp-rise-delay: 520ms">
         <svg class="hero-fineprint__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
         <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
       </p>
+      <!-- The free route sits below the trust line: one main button above,
+           every other download route as a quiet link underneath. -->
+      <a
+        href={localePath(lang, "download")}
+        class="hero-secondary-cta hero-fade-rise inline-flex items-center gap-1.5 text-sm font-medium text-(--wp-text-link) hover:text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--wp-focus-ring) rounded"
+        data-testid="hero-secondary-cta"
+        style="--wp-rise-delay: 600ms"
+      >
+        <span data-i18n="hero.cta.secondary">{t(lang, "hero.cta.secondary")}</span>
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+      </a>
     </div>
 
     <!-- The stage: a cinematic evening desk photo. Someone leans back, hands
@@ -220,6 +222,9 @@ const lang = currentLocale(Astro.currentLocale);
     max-width: 36rem;
     font-size: var(--wp-font-size-sm);
     color: var(--wp-text-muted);
+  }
+  .hero-secondary-cta {
+    margin-top: var(--wp-space-3);
   }
   /* Inline so it stays with the first word when the centred line wraps. */
   .hero-fineprint__icon {
