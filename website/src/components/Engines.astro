@@ -3,10 +3,13 @@
  * `Engines.astro` — "which local engine fits you?": the two on-device STT
  * engines (Whisper via whisper.cpp, Parakeet via sherpa-onnx — see
  * `CONTEXT.md` §4.2) as two cards with identical rows, followed directly by
- * the language summary (`#languages`, formerly its own section).
+ * the language grid (`#languages`, formerly its own section): one tile per
+ * Whisper language, the Parakeet ones in colour — data from the app's own
+ * lists via `src/data/stt-languages.ts`.
  */
 import MotionHardware from './motion/MotionHardware.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
+import { PARAKEET_LANGUAGES, WHISPER_LANGUAGES, languageName } from '../data/stt-languages';
 import { t, localePath, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
 const lang = currentLocale(Astro.currentLocale);
@@ -31,13 +34,13 @@ const engines = [
   },
 ] as const;
 
-// Endonyms only, no flags: a language is not a country.
-const sampleLanguages = [
-  'English', 'Deutsch', 'Español', 'Français', 'Italiano', 'Português',
-  '日本語', '中文', '한국어', 'Русский', 'العربية', 'हिन्दी',
-  'Polski', 'Nederlands', 'Türkçe', 'Svenska', 'Čeština', 'Українська',
-  'Bahasa Indonesia', 'Tiếng Việt', 'ไทย', 'Ελληνικά', 'Română', 'Magyar',
-];
+// One tile per Whisper language, named in the page's language (Intl), never
+// with flags: a language is not a country.
+const tiles = WHISPER_LANGUAGES.map((code) => ({
+  code,
+  name: languageName(code, lang),
+  parakeet: PARAKEET_LANGUAGES.has(code),
+}));
 ---
 
 <section id="engines" class="wp-band wp-band--alt relative wp-section scroll-mt-20" data-surface="light" data-testid="engines">
@@ -58,8 +61,8 @@ const sampleLanguages = [
           </header>
           <p class="engine-card__tech" data-i18n={`engines.${e.key}.tech`}>{t(lang, `engines.${e.key}.tech`)}</p>
           <dl class="engine-stats">
-            {e.rows.map(([label, value]) => (
-              <div class="engine-stat">
+            {e.rows.map(([label, value], i) => (
+              <div class={i === 0 ? 'engine-stat engine-stat--big' : 'engine-stat'}>
                 <dt data-i18n={label}>{t(lang, label)}</dt>
                 <dd class="wp-nums" data-i18n={value}>{t(lang, value)}</dd>
               </div>
@@ -83,14 +86,24 @@ const sampleLanguages = [
       </a>
     </div>
 
-    <!-- Languages: summary right under the engine choice (old #languages
+    <!-- Languages: the grid right under the engine choice (old #languages
          anchor kept for nav links and external deep links). -->
     <div id="languages" class="engine-languages scroll-mt-24" data-testid="languages">
-      <h3 class="engine-languages__title" data-i18n="languages.title">{t(lang, "languages.title")}</h3>
-      <p class="engine-languages__desc" data-i18n="languages.desc">{t(lang, "languages.desc")}</p>
-      <ul class="engine-languages__list" aria-label={t(lang, "languages.sampleAria")} data-i18n-aria="languages.sampleAria">
-        {sampleLanguages.map((name) => <li>{name}</li>)}
-        <li class="engine-languages__more" data-i18n="languages.more">{t(lang, "languages.more")}</li>
+      <div class="engine-languages__head">
+        <h3 class="engine-languages__title" data-i18n="languages.title">{t(lang, "languages.title")}</h3>
+        <p class="engine-languages__desc" data-i18n="languages.desc">{t(lang, "languages.desc")}</p>
+        <ul class="lang-legend" data-testid="languages-legend">
+          <li><span class="lang-swatch" aria-hidden="true"></span><b class="wp-nums">{tiles.length}</b> <span data-i18n="screenshots.facts.whisper">{t(lang, "screenshots.facts.whisper")}</span></li>
+          <li class="lang-legend--parakeet"><span class="lang-swatch" aria-hidden="true"></span><b class="wp-nums">{PARAKEET_LANGUAGES.size}</b> <span data-i18n="languages.legendParakeet">{t(lang, "languages.legendParakeet")}</span></li>
+        </ul>
+      </div>
+      <ul class="lang-grid" aria-label={t(lang, "languages.gridAria")} data-i18n-aria="languages.gridAria" data-testid="languages-grid">
+        {tiles.map((l) => (
+          <li class={l.parakeet ? 'lang-tile lang-tile--parakeet' : 'lang-tile'} title={l.name} data-code={l.code}>
+            <span aria-hidden="true">{l.code}</span>
+            <span class="sr-only">{l.parakeet ? `${l.name} · Parakeet` : l.name}</span>
+          </li>
+        ))}
       </ul>
     </div>
   </div>
@@ -110,14 +123,11 @@ const sampleLanguages = [
   .engine-card {
     display: flex;
     flex-direction: column;
-    padding: var(--wp-space-6);
-    border-radius: var(--radius-card);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius-lg);
     border: 1px solid var(--wp-card-border);
-    background: var(--color-brand-card);
-    box-shadow: var(--shadow-card);
-  }
-  @media (min-width: 1024px) {
-    .engine-card { padding: 1.75rem; }
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
   }
   .engine-card__head {
     display: flex;
@@ -127,31 +137,37 @@ const sampleLanguages = [
     gap: var(--wp-space-2) var(--wp-space-3);
   }
   .engine-card__name {
-    font-size: var(--wp-font-size-card-title);
-    font-weight: 700;
-    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--wp-card-title);
   }
   .engine-card__tagline {
-    padding: var(--wp-space-1) var(--wp-space-3);
-    border-radius: var(--radius-pill);
+    padding: var(--wp-chip-pad-y) var(--wp-chip-pad-x);
+    border-radius: var(--wp-chip-radius);
+    font-family: var(--font-mono);
     font-size: var(--wp-font-size-xs);
-    font-weight: 600;
-    color: var(--color-brand-cyan);
-    background: color-mix(in srgb, var(--color-brand-cyan) 12%, transparent);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wp-chip-accent-text);
+    background: var(--wp-chip-accent-fill);
   }
   .engine-card__tech {
     margin-top: var(--wp-space-1);
     font-size: var(--wp-font-size-sm);
-    color: var(--color-ink-subtle);
+    color: var(--wp-card-meta);
   }
   .engine-card__desc {
     margin-top: auto;
     font-size: var(--wp-font-size-md);
     line-height: 1.6;
-    color: var(--color-ink-muted);
+    color: var(--wp-card-text);
   }
 
-  /* Label/value rows: stacked on phones, side by side from sm. */
+  /* Label/value rows: stacked on phones, side by side from sm. The language
+     count leads as a big number, the line both cards are compared on. */
   .engine-stats {
     display: grid;
     gap: var(--wp-space-3);
@@ -161,29 +177,37 @@ const sampleLanguages = [
   }
   .engine-stat {
     display: grid;
-    gap: 0.125rem;
+    gap: var(--wp-space-1);
   }
   @media (min-width: 640px) {
     .engine-stat {
       grid-template-columns: 7.5rem minmax(0, 1fr);
+      align-items: baseline;
       gap: var(--wp-space-4);
     }
   }
   .engine-stat dt {
     font-size: var(--wp-font-size-sm);
-    color: var(--color-ink-subtle);
+    color: var(--wp-card-meta);
   }
   .engine-stat dd {
     margin: 0;
     font-size: var(--wp-font-size-md);
     font-weight: 600;
-    color: var(--color-ink);
+    color: var(--wp-card-title);
+  }
+  .engine-stat--big dd {
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-title);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
   }
 
   .engine-footnote {
     margin-top: var(--wp-space-6);
     font-size: var(--wp-font-size-sm);
-    color: var(--color-ink-subtle);
+    color: var(--wp-text-muted);
     max-width: var(--measure-lead);
   }
   .engine-links {
@@ -199,40 +223,134 @@ const sampleLanguages = [
     min-height: 44px;
     font-size: var(--wp-font-size-md);
     font-weight: 600;
-    color: var(--color-brand-cyan);
+    color: var(--wp-text-link);
     text-decoration: none;
   }
   .engine-link svg { width: 1rem; height: 1rem; }
   .engine-link:hover span { text-decoration: underline; }
 
+  /* ---- Languages: copy + legend beside a 99-tile grid (Ditto principle:
+     the pixel raster carries the data, not decoration) ---- */
   .engine-languages {
+    display: grid;
+    gap: var(--wp-space-8);
     margin-top: var(--wp-space-12);
-    padding-top: var(--wp-space-8);
+    padding-top: var(--wp-space-10);
     border-top: 1px solid var(--wp-border-subtle);
-    max-width: 50rem;
+  }
+  @media (min-width: 1024px) {
+    .engine-languages {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      align-items: start;
+      gap: var(--wp-space-12);
+    }
   }
   .engine-languages__title {
-    font-size: var(--type-card-title);
-    font-weight: 600;
-    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--wp-text-primary);
+    text-wrap: balance;
   }
   .engine-languages__desc {
-    margin-top: var(--wp-space-2);
+    margin-top: var(--wp-space-3);
     font-size: var(--wp-font-size-md);
     line-height: 1.6;
-    color: var(--color-ink-muted);
+    color: var(--wp-text-secondary);
   }
-  .engine-languages__list {
+  .lang-legend {
     list-style: none;
-    margin: var(--wp-space-5) 0 0;
+    margin: var(--wp-space-6) 0 0;
     padding: 0;
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--wp-space-2) var(--wp-space-4);
+    display: grid;
+    gap: var(--wp-space-3);
     font-size: var(--wp-font-size-md);
-    color: var(--color-ink-muted);
+    color: var(--wp-text-secondary);
   }
-  .engine-languages__more {
-    color: var(--color-ink-subtle);
+  .lang-legend li {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+  }
+  .lang-legend b {
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-xl);
+    font-weight: 800;
+    color: var(--wp-text-primary);
+  }
+  .lang-swatch {
+    flex: none;
+    width: var(--wp-space-4);
+    height: var(--wp-space-4);
+    border-radius: var(--wp-radius-chip);
+    border: 1px solid var(--wp-border-strong);
+    background: var(--wp-surface-control);
+  }
+  .lang-legend--parakeet .lang-swatch {
+    border-color: var(--wp-accent-fill);
+    background: var(--wp-accent-fill);
+  }
+
+  /* 99 = 9 × 11 on phones, 11 × 9 from tablets. */
+  .lang-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: var(--wp-space-1);
+  }
+  @media (min-width: 640px) {
+    .lang-grid {
+      grid-template-columns: repeat(11, minmax(0, 1fr));
+      gap: var(--wp-space-2);
+    }
+  }
+  .lang-tile {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border-radius: var(--wp-radius-chip);
+    border: 1px solid var(--wp-border-default);
+    background: var(--wp-surface-control);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--wp-text-secondary);
+    cursor: default;
+    transition: transform var(--dur-base) var(--ease-flow);
+  }
+  @media (min-width: 640px) {
+    .lang-tile { font-size: var(--wp-font-size-xs); }
+  }
+  .lang-tile--parakeet {
+    border-color: var(--wp-accent-fill);
+    background: var(--wp-accent-fill);
+    color: var(--wp-accent-on-fill);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .lang-tile:hover { transform: scale(1.15); }
+  }
+  /* Scroll-driven: the coloured tiles light up as the grid scrolls in.
+     Without support (or with reduced motion) they are simply coloured. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .lang-tile--parakeet {
+        animation: lang-light linear both;
+        animation-timeline: view();
+        animation-range: entry 40% cover 35%;
+      }
+    }
+  }
+  @keyframes lang-light {
+    from {
+      border-color: var(--wp-border-default);
+      background: var(--wp-surface-control);
+      color: var(--wp-text-secondary);
+    }
   }
 </style>

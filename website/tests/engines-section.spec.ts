@@ -16,3 +16,34 @@ test('engines cards share identical rows and #languages resolves', async ({ page
   await expect(languages).toContainText('99');
   await expect(languages.locator('img')).toHaveCount(0);
 });
+
+// The language grid: one tile per Whisper language, the 25 Parakeet ones in
+// colour, names in the page language for hover and screen readers.
+test('language grid shows 99 tiles with the 25 Parakeet languages marked', async ({ page }) => {
+  await page.goto('/');
+  const grid = page.getByTestId('languages-grid');
+  await expect(grid.locator('li')).toHaveCount(99);
+  await expect(grid.locator('li.lang-tile--parakeet')).toHaveCount(25);
+  const de = grid.locator('li[data-code="de"]');
+  await expect(de).toHaveAttribute('title', 'Deutsch');
+  await expect(de).toHaveClass(/lang-tile--parakeet/);
+  await expect(grid.locator('li[data-code="ja"]')).toHaveAttribute('title', 'Japanisch');
+  await expect(grid.locator('li[data-code="ja"]')).not.toHaveClass(/lang-tile--parakeet/);
+  await expect(page.getByTestId('languages-legend')).toContainText('99');
+  await expect(page.getByTestId('languages-legend')).toContainText('25');
+});
+
+test('language names follow the page locale', async ({ page }) => {
+  await page.goto('/fr/');
+  await expect(page.getByTestId('languages-grid').locator('li[data-code="de"]')).toHaveAttribute('title', 'allemand');
+});
+
+test('language grid fits without sideways scroll at 390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByTestId('languages-grid').scrollIntoViewIfNeeded();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+});
