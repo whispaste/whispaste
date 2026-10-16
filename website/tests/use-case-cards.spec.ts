@@ -133,14 +133,13 @@ test.describe('UseCaseCards', () => {
     }
   });
 
-  test('section is placed after the app-paste-demo explanation in DOM', async ({ page }) => {
+  test('section is placed after the hero\'s how-it-works player in DOM', async ({ page }) => {
     await page.goto('/');
 
-    // Verify DOM order: #app-paste-demo (the single mechanic explanation —
-    // the former #how-it-works section was removed) appears before
-    // #use-cases.
+    // Verify DOM order: #how-it-works (the hero's step player, the single
+    // mechanic explanation) appears before #use-cases.
     const order = await page.evaluate(() => {
-      const demo = document.querySelector('#app-paste-demo');
+      const demo = document.querySelector('#how-it-works');
       const selector = document.querySelector('#use-cases');
       if (!demo || !selector) return null;
       const pos = demo.compareDocumentPosition(selector);

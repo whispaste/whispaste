@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 /**
  * AC4 — browser parity for the overlay mockup.
  *
- * The recording overlay in the paste demo (AppPasteDemo, step 2) is drawn on
+ * The recording overlay in the hero's step player (HeroExample) is drawn on
  * a <canvas> by the shared
  * `overlay-mockup` renderer, which mirrors the in-app `OverlayPainter` 1:1.
  * This spec runs under both the `chromium` (Chrome/Edge engine) and `webkit`
@@ -33,9 +33,9 @@ test.use({
 test('overlay mockup renders identically in WebKit and Chromium', async ({ page }) => {
   await page.goto('/');
 
-  // Under reduced motion the paste demo paints its deterministic frozen
-  // frame as soon as the section is on screen.
-  const canvas = page.locator('#app-paste-demo .apd-overlay-canvas');
+  // Under reduced motion the hero's step player shows the pill with its
+  // deterministic frozen frame.
+  const canvas = page.locator('#how-it-works .hx-overlay-canvas');
   await canvas.scrollIntoViewIfNeeded();
   await expect(canvas).toBeVisible();
   // The demo scales the canvas to a fluid CSS width, which leaves a
@@ -46,6 +46,13 @@ test('overlay mockup renders identically in WebKit and Chromium', async ({ page 
     el.style.width = `${el.width / 2}px`;
     el.style.height = `${el.height / 2}px`;
     el.style.maxWidth = 'none';
+    // The hero tilts the pill like a sticker; the parity check compares the
+    // untilted drawing.
+    const pill = el.closest<HTMLElement>('.hx-overlay');
+    if (pill) {
+      pill.style.rotate = 'none';
+      pill.style.transition = 'none';
+    }
     // Section spacing can also leave the box at a fractional page offset,
     // which the engines round to different heights (80 vs 81px). Shift it
     // onto whole CSS pixels so the snapshot box is identical in both.

@@ -57,8 +57,8 @@
   "font": {
     "family": {
       "$type": "fontFamily",
-      "display": { "$value": ["Bricolage Grotesque Variable", "Hanken Grotesk Variable", "ui-sans-serif", "system-ui", "sans-serif"], "$description": "Headlines. Self-hosted variable font." },
-      "body": { "$value": ["Hanken Grotesk Variable", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"], "$description": "Body copy and UI." },
+      "display": { "$value": ["Bricolage Grotesque Variable", "Bricolage Grotesque Fallback", "ui-sans-serif", "system-ui", "sans-serif"], "$description": "Headlines. Self-hosted variable font; the metric-matched local Arial fallback (global.css) keeps headlines from jumping while the font loads." },
+      "body": { "$value": ["Hanken Grotesk Variable", "Hanken Grotesk Fallback", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"], "$description": "Body copy and UI. Metric-matched local Arial fallback, see display." },
       "mono": { "$value": ["ui-monospace", "SFMono-Regular", "SF Mono", "Menlo", "Consolas", "Liberation Mono", "monospace"], "$description": "Labels, keycaps, metrics, code. System stack, no extra request." }
     },
     "weight": {

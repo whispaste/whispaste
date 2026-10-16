@@ -37,8 +37,8 @@
   --wp-color-red-800: #B42318;
   --wp-color-white: #FFFFFF;
   --wp-color-black: #000000;
-  --wp-font-family-display: "Bricolage Grotesque Variable", "Hanken Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
-  --wp-font-family-body: "Hanken Grotesk Variable", ui-sans-serif, system-ui, "-apple-system", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --wp-font-family-display: "Bricolage Grotesque Variable", "Bricolage Grotesque Fallback", ui-sans-serif, system-ui, sans-serif;
+  --wp-font-family-body: "Hanken Grotesk Variable", "Hanken Grotesk Fallback", ui-sans-serif, system-ui, "-apple-system", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --wp-font-family-mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   --wp-font-weight-regular: 400;
   --wp-font-weight-medium: 500;

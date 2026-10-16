@@ -21,10 +21,10 @@ for (const { path, first } of [
   });
 }
 
-test('text-kinds band sits between the paste demo and the use-case cards', async ({ page }) => {
+test('text-kinds band sits between the hero and the use-case cards', async ({ page }) => {
   await page.goto('/');
   const order = await page.evaluate(() => {
-    const ids = ['#app-paste-demo', '[data-testid="text-kinds-marquee"]', '#use-cases'];
+    const ids = ['#how-it-works', '[data-testid="text-kinds-marquee"]', '#use-cases'];
     return ids.map((s) => document.querySelector(s)!.getBoundingClientRect().top + window.scrollY);
   });
   expect(order[0]).toBeLessThan(order[1]);

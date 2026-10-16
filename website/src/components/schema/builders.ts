@@ -314,7 +314,7 @@ export interface HowToOptions {
   /**
    * Optional Override für die Schritte. Default sind die drei Setup-Schritte
    * aus dem i18n-Glossar (`howitworks.step*`); das sichtbare Gegenstück auf
-   * der Seite ist das Drei-Schritt-Storyboard in `AppPasteDemo.astro`
+   * der Seite ist das Drei-Schritt-Player in `HeroExample.astro`
    * (Google-Rich-Results-Anforderung: HowTo-Schema-Inhalt muss visuell
    * existieren).
    */
@@ -330,7 +330,7 @@ export interface HowToOptions {
 /**
  * Default-Schritte des Setup-Flows: Hotkey drücken → sprechen → Text landet
  * am Cursor. Lokalisiert via i18n-Keys `howitworks.stepN.title` /
- * `howitworks.stepN.desc`; sichtbares Gegenstück: `AppPasteDemo.astro`.
+ * `howitworks.stepN.desc`; sichtbares Gegenstück: `HeroExample.astro`.
  */
 export function defaultHowToStepsFor(locale: Locale): readonly HowToStep[] {
   return [1, 2, 3].map((n) => ({

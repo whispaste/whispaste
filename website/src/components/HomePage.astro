@@ -6,7 +6,6 @@
 import Layout from "../layouts/Layout.astro";
 import Nav from "./Nav.astro";
 import Hero from "./Hero.astro";
-import AppPasteDemo from "./AppPasteDemo.astro";
 import FeatureHighlights from "./FeatureHighlights.astro";
 import AppScreenshots from "./AppScreenshots.astro";
 import UseCaseCards from "./UseCaseCards.astro";
@@ -41,7 +40,7 @@ const { lang } = Astro.props;
   <main id="main-content">
     {/*
       Story order (docs/landingpage-story.md): what it is (Hero) → how it
-      gets my sentence into the field (AppPasteDemo) → which of my texts it
+      gets my sentence into the field (the hero's step player) → which of my texts it
       helps with (TextKindsMarquee band, UseCaseCards) → what helps me keep working (FeatureHighlights,
       AppScreenshots) → trust (Privacy, Engines incl. languages) → open
       questions (FAQ) → social proof (Testimonials) → the one next step
@@ -49,7 +48,6 @@ const { lang } = Astro.props;
       Each section sets its own band class; none is duplicated here.
     */}
     <Hero />
-    <AppPasteDemo />
     <TextKindsMarquee />
     <UseCaseCards />
     <FeatureHighlights />

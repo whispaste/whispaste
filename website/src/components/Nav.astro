@@ -82,7 +82,7 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
         Anker — vorher hatten Unterseiten nur "Zurück" + Sprache, was dünn
         und wenig konversionsstark wirkte. */}
     <div class="hidden lg:flex flex-1 items-center justify-center gap-7 xl:gap-8 text-sm text-ink-muted">
-      <a href={anchor("app-paste-demo")} class="hover:text-ink transition-colors" data-testid="nav-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+      <a href={anchor("how-it-works")} class="hover:text-ink transition-colors" data-testid="nav-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
       <a href={anchor("features")} class="hover:text-ink transition-colors" data-testid="nav-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
       <a href={anchor("privacy")} class="hover:text-ink transition-colors" data-testid="nav-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
       <a href={anchor("faq")} class="hover:text-ink transition-colors" data-testid="nav-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
@@ -149,7 +149,7 @@ const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#
   </div>
   <div id="mobileMenu" class="wp-frame lg:hidden hidden pointer-events-auto mt-2 border border-[color:var(--wp-nav-border)] overflow-hidden">
       <div class="px-5 py-3 flex flex-col">
-        <a href={anchor("app-paste-demo")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)]" data-testid="nav-menu-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href={anchor("how-it-works")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)]" data-testid="nav-menu-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
         <a href={anchor("features")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)] border-t border-[color:var(--wp-nav-divider)]" data-testid="nav-menu-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
         <a href={anchor("privacy")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)] border-t border-[color:var(--wp-nav-divider)]" data-testid="nav-menu-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
         <a href={anchor("faq")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)] border-t border-[color:var(--wp-nav-divider)]" data-testid="nav-menu-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>

@@ -49,6 +49,46 @@
     U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
     U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
+/* Metric-matched fallbacks: until the webfonts arrive (font-display: swap)
+   the browser draws local Arial scaled and with overridden line metrics so
+   it takes the same room — no headline that jumps in size on reload.
+   Values measured from the font files (fontTools, Latin sample text). */
+@font-face {
+  font-family: "Bricolage Grotesque Fallback";
+  font-weight: 100 599;
+  src: local("Arial"), local("ArialMT");
+  size-adjust: 102.81%;
+  ascent-override: 90.46%;
+  descent-override: 26.26%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Bricolage Grotesque Fallback";
+  font-weight: 600 900;
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  size-adjust: 102.18%;
+  ascent-override: 91.02%;
+  descent-override: 26.43%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Hanken Grotesk Fallback";
+  font-weight: 100 599;
+  src: local("Arial"), local("ArialMT");
+  size-adjust: 99.24%;
+  ascent-override: 100.77%;
+  descent-override: 30.53%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Hanken Grotesk Fallback";
+  font-weight: 600 900;
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  size-adjust: 94.56%;
+  ascent-override: 105.75%;
+  descent-override: 32.04%;
+  line-gap-override: 0%;
+}
 @theme {
   /* Re-synced to the app's current WpColorsDark accent/accentWarmGradient
      (was #38D9F0/#14B8D4 — see .text-gradient-brand below for the fuller
@@ -138,7 +178,7 @@
      surface  große Flächen: Modals, Bild-Tiles, Longform-Sektionen
 
      Nicht in dieser Leiter: Pills (9999px), Kreise (50%) und die
-     App-/Device-Fidelity-Zonen (AppPasteDemo, AppScreenshots,
+     App-/Device-Fidelity-Zonen (HeroExample, AppScreenshots,
      overlay-mockup.ts) — dort spiegeln die Radien
      echte Flutter-/Geräte-Geometrie und dürfen nicht konsolidiert werden.
 
@@ -570,7 +610,7 @@
   );
 }
 /* spotlight = the brand glow. A soft cyan aura from the top edge, reserved for
-   the emotional / core-message sections (AppPasteDemo, Engines, Privacy,
+   the emotional / core-message sections (Engines, Privacy,
    Testimonials). This is where the cyan accent earns its keep. */
 .band-spotlight::after {
   background: linear-gradient(135deg, var(--surface-deep-start) 0%, var(--surface-deep) 100%);
@@ -976,7 +1016,7 @@
                             Handlungsflächen (Pricing-Karte, OS-Download-Karten)
      2. `.pkg-copy-btn`   — die Copy-Schaltfläche neben den Shell-Befehlen
                             (Styling in download.astro, Utility von hier)
-     3. Hotkey-Chip       — `.wp-bracket-lock` in AppPasteDemo: die Klammern
+     3. Hotkey-Chip       — `.wp-bracket-lock`: die Klammern
                             rasten um den Shortcut ein (Tastendruck als Bild)
 
    Sektions-Labels (`.wp-eyebrow`) tragen stattdessen den Status-Blip, siehe

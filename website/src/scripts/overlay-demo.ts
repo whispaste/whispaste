@@ -1,9 +1,8 @@
 /**
  * Shared marketing-demo driver for the overlay mockup.
  *
- * Both embeds (the hero carousel's scene 2 and the AppPasteDemo storyboard's
- * step 2) run the same calm recording arc through the shared canvas renderer
- * (`overlay-mockup.ts`), mirroring the app's `FloatingOverlayView` controller
+ * The hero's step player (step 2, speaking) runs the calm recording arc
+ * through the shared canvas renderer (`overlay-mockup.ts`), mirroring the app's `FloatingOverlayView` controller
  * stack:
  *
  *   appear spring (scale 0.88 → 1.0 + fade, easeOutCubic 300 ms)
@@ -70,6 +69,8 @@ export interface OverlayDemoOptions {
   readonly getTheme: () => OverlayTheme;
   /** Resolved per frame so the demo follows live language toggles. */
   readonly getLang: () => OverlayDemoLang;
+  /** Per-embed pacing: phase lengths (ms) that override the calm defaults. */
+  readonly phaseMs?: Partial<Readonly<Record<DemoPhase, number>>>;
 }
 
 const FRAME_MS = 1000 / 30; // 30 fps redraw (OverlayMotion cadence)
@@ -78,9 +79,9 @@ const DOT_PERIOD_MS = 900; // OverlayMotion.dotPulsePeriod
 const DEMO_MAX_SECONDS = 8; // mockup pace so the timeline visibly fills
 
 /** Demo episode phases (recording arc + rest between episodes). */
-type DemoPhase = 'recording' | 'transcribing' | 'end' | 'fadeout' | 'gap';
+export type DemoPhase = 'recording' | 'transcribing' | 'end' | 'fadeout' | 'gap';
 
-/** Phase lengths (ms) — demo pacing, deliberately calm. */
+/** Default phase lengths (ms) — demo pacing, deliberately calm. */
 const PHASE_MS: Readonly<Record<DemoPhase, number>> = {
   recording: 4600,
   transcribing: 1600,
@@ -128,6 +129,7 @@ export class OverlayDemo {
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly history = new WaveformHistory();
   private readonly widthSpring = new Spring(OVERLAY_GEOMETRY.width);
+  private readonly phaseMs: Readonly<Record<DemoPhase, number>>;
 
   private phase: DemoPhase = 'recording';
   private phaseElapsed = 0;
@@ -142,6 +144,7 @@ export class OverlayDemo {
 
   constructor(private readonly opts: OverlayDemoOptions) {
     this.ctx = opts.canvas.getContext('2d');
+    this.phaseMs = { ...PHASE_MS, ...opts.phaseMs };
   }
 
   /** Whether the animation loop is currently running. */
@@ -299,7 +302,7 @@ export class OverlayDemo {
   }
 
   private recordingTimerText(): string {
-    return formatTimer(Math.floor(Math.min(this.phaseElapsed, PHASE_MS.recording) / 1000));
+    return formatTimer(Math.floor(Math.min(this.phaseElapsed, this.phaseMs.recording) / 1000));
   }
 
   private recordingProgress(): number {
@@ -339,7 +342,7 @@ export class OverlayDemo {
     if (this.outgoing) this.transitionElapsed += FRAME_MS;
     this.widthSpring.step(FRAME_MS);
 
-    if (this.phaseElapsed >= PHASE_MS[this.phase]) {
+    if (this.phaseElapsed >= this.phaseMs[this.phase]) {
       this.advancePhase();
     }
     this.render();
@@ -362,7 +365,7 @@ export class OverlayDemo {
     let alpha: number;
     let scale: number;
     if (this.phase === 'fadeout') {
-      alpha = Math.max(0, 1 - this.phaseElapsed / PHASE_MS.fadeout);
+      alpha = Math.max(0, 1 - this.phaseElapsed / this.phaseMs.fadeout);
       scale = 1;
     } else {
       const t = easeOutCubic(Math.min(this.episodeElapsed / OVERLAY_ARC.appearMs, 1));

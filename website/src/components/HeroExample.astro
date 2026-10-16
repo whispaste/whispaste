@@ -1,17 +1,28 @@
 ---
 /**
- * Hero visual: an e-mail draft in its finished state, with the real
- * WhisPaste recording overlay (canvas) running its record → paste arc on top. It replaces the promo film —
- * the result is readable on the first frame, needs no media download and is
- * the LCP element as plain text. Purely illustrative: no form controls, no
- * tab stops on decorative window chrome.
+ * Hero visual and the page's one "how it works": an e-mail window that plays
+ * the three steps in a loop — 01 the hotkey (the keycap sticker is pressed,
+ * the field waits), 02 speaking (the app's real recording overlay, canvas),
+ * 03 the text lands in the field. The finished text is the first frame (and
+ * the no-JS / reduced-motion state), so it is readable at once and stays the
+ * LCP element. The step bar under the window shows the progress and lets the
+ * visitor pick a step. The window itself is decorative: no form controls.
  */
 import { t, currentLocale } from '../scripts/i18n.ts';
 
 const lang = currentLocale(Astro.currentLocale);
+
+// Step length (ms): one loop takes ~6.5 s, short enough to watch in full.
+// Step 2 matches the overlay's recording + transcribing phases and step 3
+// its "inserted" phase (HERO_PHASE_MS in the script below).
+const steps = [
+  { n: 1, label: 'appdemo.step1.caption', ms: 1200 },
+  { n: 2, label: 'appdemo.step2.caption', ms: 2900 },
+  { n: 3, label: 'appdemo.step3.caption', ms: 2400 },
+] as const;
 ---
 
-<figure class="hx" data-testid="hero-example">
+<figure class="hx" data-testid="hero-example" data-step="3">
   <div class="hx-frame">
   <div class="hx-window" role="img" aria-labelledby="hero-example-caption">
     <div class="hx-titlebar" aria-hidden="true">
@@ -28,7 +39,7 @@ const lang = currentLocale(Astro.currentLocale);
         <span class="hx-field-value" data-i18n="hero.example.subjectValue">{t(lang, 'hero.example.subjectValue')}</span>
       </div>
       <div class="hx-editor">
-        <p class="hx-text"><span data-i18n="hero.example.body">{t(lang, 'hero.example.body')}</span><span class="hx-caret"></span></p>
+        <p class="hx-text"><span class="hx-body-text" data-i18n="hero.example.body">{t(lang, 'hero.example.body')}</span><span class="hx-caret"></span></p>
 
       </div>
     </div>
@@ -43,10 +54,23 @@ const lang = currentLocale(Astro.currentLocale);
   </div>
   <figcaption class="hx-caption">
     <span id="hero-example-caption" data-i18n="hero.example.caption">{t(lang, 'hero.example.caption')}</span>
-    <a href="#app-paste-demo" class="hx-demo-link" data-testid="hero-demo-link">
-      <span data-i18n="hero.example.demoLink">{t(lang, 'hero.example.demoLink')}</span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></svg>
-    </a>
+    <ol class="hx-steps" aria-label={t(lang, 'appdemo.flowAria')} data-i18n-aria="appdemo.flowAria">
+      {steps.map((s) => (
+        <li style={`--hx-step-ms: ${s.ms}ms`}>
+          <button
+            type="button"
+            class="hx-step"
+            data-step-btn={s.n}
+            aria-pressed={s.n === 3 ? 'true' : 'false'}
+            data-testid={`hero-step-${s.n}`}
+          >
+            <span class="hx-num" aria-hidden="true">{`0${s.n}`}</span>
+            <span class="hx-step-label" data-i18n={s.label}>{t(lang, s.label)}</span>
+            <span class="hx-progress" aria-hidden="true"><i></i></span>
+          </button>
+        </li>
+      ))}
+    </ol>
   </figcaption>
 </figure>
 
@@ -126,6 +150,32 @@ const lang = currentLocale(Astro.currentLocale);
     border: 1px solid rgb(255 255 255 / 0.1);
     background: rgb(11 18 42 / 0.45);
   }
+  /* Steps 1 and 2: the field is empty and the caret blinks at its start
+     (the text keeps its room, so the window never changes height). Step 3:
+     auto-paste drops the whole reply in at once, like the app does, with a
+     short paste highlight that fades out. */
+  .hx-editor {
+    position: relative;
+  }
+  .hx:is([data-step="1"], [data-step="2"]) .hx-body-text {
+    visibility: hidden;
+  }
+  .hx:is([data-step="1"], [data-step="2"]) .hx-caret {
+    position: absolute;
+    top: calc(var(--wp-space-4) + 0.2em);
+    left: var(--wp-space-5);
+    margin: 0;
+  }
+  .hx[data-step="3"][data-js] .hx-body-text {
+    border-radius: var(--wp-radius-chip);
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    animation: hx-paste 1400ms var(--ease-flow) both;
+  }
+  @keyframes hx-paste {
+    0% { background-color: color-mix(in srgb, var(--wp-accent-default) 32%, transparent); }
+    100% { background-color: transparent; }
+  }
   .hx-text {
     margin: 0;
     font-size: var(--wp-font-size-lead);
@@ -149,7 +199,8 @@ const lang = currentLocale(Astro.currentLocale);
     position: relative;
   }
   /* The pill hangs off the bottom-left corner, tilted like a sticker, and
-     slides in once from the left (from the speaker). Transform/opacity only. */
+     slides in from the left (from the speaker) whenever recording starts.
+     Transform/opacity only. */
   .hx-overlay {
     position: absolute;
     left: calc(-1 * var(--wp-space-4));
@@ -157,14 +208,15 @@ const lang = currentLocale(Astro.currentLocale);
     rotate: -4deg;
     transform-origin: left center;
     pointer-events: none;
-    animation: hx-pill-in 900ms var(--ease-flow) 500ms both;
+    transition:
+      opacity var(--dur-slow) var(--ease-flow),
+      translate var(--dur-slow) var(--ease-flow),
+      rotate var(--dur-slow) var(--ease-flow);
   }
-  @keyframes hx-pill-in {
-    from {
-      opacity: 0;
-      translate: calc(-1 * var(--wp-space-12)) 0;
-      rotate: -10deg;
-    }
+  .hx[data-pill="off"] .hx-overlay {
+    opacity: 0;
+    translate: calc(-1 * var(--wp-space-12)) 0;
+    rotate: -10deg;
   }
   /* Fixed 346×80 logical canvas (scaled by dpr in JS); the renderer paints
      the pill's own shadow. */
@@ -194,27 +246,90 @@ const lang = currentLocale(Astro.currentLocale);
     font-size: var(--wp-font-size-sm);
     color: var(--color-ink-subtle);
   }
-  .hx-demo-link {
-    display: inline-flex;
+  /* ---- Step bar: amber numeral on the open step, cyan progress ---- */
+  .hx-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--wp-space-2);
+  }
+  .hx-step {
+    position: relative;
+    display: flex;
     align-items: center;
     gap: var(--wp-space-2);
+    width: 100%;
     min-height: 44px;
+    padding: var(--wp-space-2) 0 var(--wp-space-3);
+    border: 0;
+    background: none;
+    color: var(--wp-text-muted);
+    font-size: var(--wp-font-size-sm);
     font-weight: 600;
-    color: var(--wp-text-link);
-    text-decoration: none;
-    border-radius: var(--radius-chip);
+    text-align: left;
+    cursor: pointer;
     transition: color var(--dur-fast) ease;
   }
-  .hx-demo-link:hover {
-    color: var(--color-ink);
+  .hx-step:hover,
+  .hx-step[aria-pressed="true"] {
+    color: var(--wp-text-primary);
   }
-  .hx-demo-link:focus-visible {
+  .hx-step:focus-visible {
     outline: 2px solid var(--wp-focus-ring);
     outline-offset: 2px;
+    border-radius: var(--wp-radius-chip);
   }
-  .hx-demo-link svg {
-    width: 1rem;
-    height: 1rem;
+  .hx-num {
+    flex-shrink: 0;
+    padding: 0 var(--wp-space-1);
+    border-radius: var(--wp-radius-chip);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    border: 1px solid var(--wp-border-default);
+    transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .hx-step[aria-pressed="true"] .hx-num {
+    color: var(--wp-marker-text);
+    background: var(--wp-marker-stroke);
+    border-color: var(--wp-marker-stroke);
+  }
+  .hx-step-label {
+    min-width: 0;
+    line-height: 1.25;
+  }
+  .hx-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-border-default);
+    overflow: hidden;
+  }
+  .hx-progress i {
+    display: block;
+    height: 100%;
+    background: var(--wp-accent-default);
+    transform: scaleX(0);
+    transform-origin: left;
+  }
+  .hx-step[aria-pressed="true"] .hx-progress i {
+    transform: scaleX(1);
+  }
+  .hx[data-autoplay] .hx-step[aria-pressed="true"] .hx-progress i {
+    animation: hx-progress var(--hx-step-ms) linear both;
+  }
+  /* Off screen the story waits, so nobody misses the start. */
+  .hx[data-autoplay][data-paused] .hx-step[aria-pressed="true"] .hx-progress i {
+    animation-play-state: paused;
+  }
+  @keyframes hx-progress {
+    from { transform: scaleX(0); }
   }
   @media (max-width: 479px) {
     .hx-field {
@@ -227,10 +342,18 @@ const lang = currentLocale(Astro.currentLocale);
       min-height: 11rem;
     }
   }
+  @media (max-width: 479px) {
+    .hx-step-label {
+      font-size: var(--wp-font-size-xs);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     .hx-caret,
+    .hx-body-text {
+      animation: none !important;
+    }
     .hx-overlay {
-      animation: none;
+      transition: none;
     }
   }
 </style>
@@ -239,11 +362,14 @@ const lang = currentLocale(Astro.currentLocale);
   import { OverlayDemo, type OverlayDemoLang } from '../scripts/overlay-demo';
   import type { OverlayTheme } from '../scripts/overlay-mockup';
 
-  // Same driver as the demo section: animates only while the hero is on
-  // screen, follows theme + language, frozen frame under reduced motion.
+  // Step player: 3 (the finished text) → 1 → 2 → 3 … while on screen. The
+  // open step's progress bar times it; its end opens the next step. A click
+  // hands control to the visitor. The overlay only runs during speaking.
   const figure = document.querySelector<HTMLElement>('[data-testid="hero-example"]');
   const canvas = figure?.querySelector<HTMLCanvasElement>('.hx-overlay-canvas');
   if (figure && canvas) {
+    const stage = figure.closest<HTMLElement>('[data-testid="hero-stage"]');
+    const buttons = [...figure.querySelectorAll<HTMLButtonElement>('[data-step-btn]')];
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const getTheme = (): OverlayTheme =>
       document.documentElement.classList.contains('light') ? 'light' : 'dark';
@@ -251,19 +377,61 @@ const lang = currentLocale(Astro.currentLocale);
       const htmlLang = document.documentElement.lang;
       return htmlLang === 'de' || htmlLang === 'ru' ? htmlLang : 'en';
     };
-    const demo = new OverlayDemo({ canvas, reducedMotion, getTheme, getLang });
+    // Quick pace for the hero loop: speak 2 s, transcribe 0.9 s, then the
+    // pill says "inserted" for the whole of step 3.
+    const HERO_PHASE_MS = { recording: 2000, transcribing: 900, end: 2400 };
+    const demo = new OverlayDemo({ canvas, reducedMotion, getTheme, getLang, phaseMs: HERO_PHASE_MS });
     demo.resize();
     demo.drawFrozen();
     window.addEventListener('resize', () => {
       demo.resize();
       if (!demo.running) demo.drawFrozen();
     });
+
+    let step = 3;
+    let inView = false;
+    const autoplay = (): boolean => figure.dataset.autoplay !== undefined;
+
+    const syncPill = (): void => {
+      // Reduced motion keeps the still pill next to the finished text.
+      const show = reducedMotion || (inView && (step === 2 || (step === 3 && autoplay() && demo.running)));
+      if (show && step === 2 && !demo.running) demo.start();
+      if (!show && demo.running) demo.stop();
+      figure.dataset.pill = show ? 'on' : 'off';
+    };
+
+    const activate = (n: number): void => {
+      step = n;
+      figure.dataset.step = String(n);
+      if (stage) stage.dataset.step = String(n);
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.stepBtn) === n)));
+      // Every entry into speaking starts a fresh recording episode; step 3
+      // keeps the running episode so the pill can say "inserted".
+      if (n !== 3 && demo.running) demo.stop();
+      syncPill();
+    };
+
+    figure.dataset.js = '';
+    if (!reducedMotion) figure.dataset.autoplay = '';
+    activate(3);
+
+    figure.addEventListener('animationend', (e) => {
+      if (!autoplay() || !(e.target instanceof HTMLElement) || !e.target.closest('.hx-progress')) return;
+      activate((step % 3) + 1);
+    });
+    for (const b of buttons) {
+      b.addEventListener('click', () => {
+        delete figure.dataset.autoplay;
+        activate(Number(b.dataset.stepBtn));
+      });
+    }
+
     new IntersectionObserver(
       (entries) => {
-        for (const e of entries) {
-          if (e.isIntersecting) demo.start();
-          else demo.stop();
-        }
+        for (const e of entries) inView = e.isIntersecting;
+        if (inView) delete figure.dataset.paused;
+        else figure.dataset.paused = '';
+        syncPill();
       },
       { threshold: 0.2 },
     ).observe(figure);

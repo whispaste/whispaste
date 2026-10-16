@@ -32,9 +32,12 @@ const lang = currentLocale(Astro.currentLocale);
       <h1 class="hero-title text-ink">
         <span
           class="wp-rise-in hero-title-line"
-          data-i18n="hero.title1"
           style="--wp-rise-delay: 120ms"
-          >{t(lang, "hero.title1")}</span
+          ><span data-i18n="hero.title1">{t(lang, "hero.title1")}</span>{" "}<!-- A live voice "word": the app's recording pill in miniature (flat
+               navy, cyan dot, amber bars), listening to the headline. -->
+          <span class="hero-voice" aria-hidden="true" data-testid="hero-voice"
+            ><i class="hero-voice__dot"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span
+          ></span
         >
         <span
           class="wp-rise-in hero-title-line"
@@ -80,7 +83,7 @@ const lang = currentLocale(Astro.currentLocale);
          reply landing in the mail field. Scene left, product right (stacked on
          phones: scene on top). The art is decoration; the card's caption
          carries the meaning. -->
-    <div class="hero-stage" data-testid="hero-stage">
+    <div class="hero-stage" id="how-it-works" data-testid="hero-stage">
       <picture class="hero-stage__art" aria-hidden="true">
         <source type="image/avif" srcset="/images/hero/desk-960.avif 960w, /images/hero/desk-1600.avif 1600w" sizes="(min-width: 1280px) 90vw, 100vw" />
         <img src="/images/hero/desk-1600.webp" srcset="/images/hero/desk-960.webp 960w, /images/hero/desk-1600.webp 1600w" sizes="(min-width: 1280px) 90vw, 100vw" alt="" width="1600" height="900" decoding="async" fetchpriority="low" />
@@ -137,6 +140,66 @@ const lang = currentLocale(Astro.currentLocale);
     margin-top: 0.08em;
     padding: 0 0.14em 0.06em;
     rotate: -1.5deg;
+  }
+  /* The marker is drawn on once, left to right, after the line has risen:
+     a highlighter stroke rather than a block that is simply there. */
+  .hero-marker {
+    background: linear-gradient(var(--wp-marker-stroke), var(--wp-marker-stroke)) no-repeat 0 0 / 100% 100%;
+    animation: hero-marker-sweep var(--dur-cinematic) var(--ease-flow) 620ms both;
+  }
+  @keyframes hero-marker-sweep {
+    from {
+      background-size: 0% 100%;
+      color: var(--wp-text-primary);
+    }
+    45% { color: var(--wp-text-primary); }
+    60% { color: var(--wp-marker-text); }
+  }
+
+  /* Mini recording pill as a word of the headline. Bars move like a voice
+     (staggered, endless — the motion budget pauses them off screen). */
+  .hero-voice {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.055em;
+    height: 0.68em;
+    padding: 0 0.2em 0 0.16em;
+    margin-left: 0.12em;
+    vertical-align: 0.04em;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-fill);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wp-overlay-accent) 22%, transparent);
+    rotate: 3deg;
+  }
+  .hero-voice i {
+    display: block;
+    width: 0.06em;
+    height: 62%;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-wave);
+    transform-origin: center;
+    animation: hero-voice-bar 1.1s ease-in-out infinite alternate;
+  }
+  .hero-voice i:nth-child(3) { animation-delay: -0.35s; height: 80%; }
+  .hero-voice i:nth-child(4) { animation-delay: -0.7s; height: 48%; }
+  .hero-voice i:nth-child(5) { animation-delay: -0.15s; height: 90%; }
+  .hero-voice i:nth-child(6) { animation-delay: -0.55s; height: 58%; }
+  .hero-voice i:nth-child(7) { animation-delay: -0.9s; height: 74%; }
+  .hero-voice i:nth-child(8) { animation-delay: -0.25s; height: 44%; }
+  .hero-voice .hero-voice__dot {
+    width: 0.12em;
+    height: 0.12em;
+    margin-right: 0.06em;
+    border-radius: 50%;
+    background: var(--wp-overlay-accent);
+    animation: hero-voice-dot 1.6s ease-in-out infinite;
+  }
+  @keyframes hero-voice-bar {
+    from { transform: scaleY(0.3); }
+    to { transform: scaleY(1); }
+  }
+  @keyframes hero-voice-dot {
+    50% { opacity: 0.35; }
   }
   .hero-desc {
     margin-top: var(--wp-space-6);
@@ -306,6 +369,27 @@ const lang = currentLocale(Astro.currentLocale);
     font-size: var(--wp-font-size-sm);
     font-weight: 700;
     text-align: center;
+    transition:
+      translate var(--dur-fast) var(--ease-flow),
+      border-bottom-width var(--dur-fast) var(--ease-flow),
+      background-color var(--dur-fast) ease;
+  }
+  /* Step 01 of the hero story (HeroExample sets data-step on the stage): the
+     three keys go down one after another and light up cyan — the hotkey. */
+  .hero-stage[data-step="1"] .hero-sticker--keys kbd {
+    animation: hero-key-press 1200ms var(--ease-flow) both;
+  }
+  .hero-stage[data-step="1"] .hero-sticker--keys kbd:nth-child(2) { animation-delay: 80ms; }
+  .hero-stage[data-step="1"] .hero-sticker--keys kbd:nth-child(3) { animation-delay: 160ms; }
+  @keyframes hero-key-press {
+    0%, 8% { translate: 0 0; border-bottom-width: 3px; background-color: var(--wp-color-white); }
+    16%, 70% {
+      translate: 0 2px;
+      border-bottom-width: 1px;
+      border-color: var(--wp-color-cyan-300);
+      background-color: var(--wp-color-cyan-200);
+    }
+    82%, 100% { translate: 0 0; border-bottom-width: 3px; background-color: var(--wp-color-white); }
   }
   .hero-sticker--local {
     right: var(--wp-space-3);
@@ -371,7 +455,10 @@ const lang = currentLocale(Astro.currentLocale);
 
   @media (prefers-reduced-motion: reduce) {
     .hero-fade-rise,
-    .hero-sticker {
+    .hero-marker,
+    .hero-voice i,
+    .hero-sticker,
+    .hero-sticker--keys kbd {
       animation: none !important;
     }
     .hero-sticker { transition: none; }
