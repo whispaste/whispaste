@@ -62,6 +62,9 @@ macos/
 linux/
 windows/
 
+# Server API (PHP/Slim, deployed to netcup; vendor/ and var/ via services/api/.gitignore)
+services/api/
+
 # Installer + Packaging
 installer/
 packaging/
