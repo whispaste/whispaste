@@ -95,11 +95,11 @@ function escapeHtml(s: string): string {
 ---
 
 {testimonials.length > 0 && (
-  <section id="testimonials" class="band band-spotlight relative wp-section scroll-mt-20" data-testid="testimonials">
+  <section id="testimonials" class="wp-band relative wp-section scroll-mt-20" data-surface="light" data-testid="testimonials">
     <div class="wp-container">
       <div class="wp-section-head">
         <SectionEyebrow key="testimonials.label" />
-        <h2 class="section-title"><span data-i18n="testimonials.titleLead">{t(lang, "testimonials.titleLead")}</span><span class="text-gradient-brand" data-i18n="testimonials.titleAccent">{t(lang, "testimonials.titleAccent")}</span><span data-i18n="testimonials.titleTail">{t(lang, "testimonials.titleTail")}</span></h2>
+        <h2 class="section-title"><span data-i18n="testimonials.titleLead">{t(lang, "testimonials.titleLead")}</span><span class="wp-marker" data-i18n="testimonials.titleAccent">{t(lang, "testimonials.titleAccent")}</span><span data-i18n="testimonials.titleTail">{t(lang, "testimonials.titleTail")}</span></h2>
         <p class="wp-lead mt-4" data-i18n="testimonials.subtitle">{t(lang, "testimonials.subtitle")}</p>
       </div>
 
@@ -164,7 +164,7 @@ function escapeHtml(s: string): string {
     padding: 1.5rem 1.5rem 1.75rem;
     overflow: hidden;
     border-radius: var(--radius-card);
-    border: 1px solid rgb(255 255 255 / 0.1);
+    border: 1px solid var(--wp-card-border);
     background:
       radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--tm-glow, var(--color-brand-cyan)) 9%, transparent), transparent 60%),
       var(--color-brand-card);
@@ -203,13 +203,13 @@ function escapeHtml(s: string): string {
     min-width: 0;
   }
   .testimonial-stars {
-    color: #fbbf24;
+    color: var(--wp-highlight-text);
     font-size: 0.875rem;
     letter-spacing: 0.12em;
     line-height: 1.2;
   }
   .testimonial-stars__off {
-    color: rgb(255 255 255 / 0.18);
+    color: var(--wp-border-strong);
   }
   .testimonial-text {
     margin: 0.5rem 0 0;

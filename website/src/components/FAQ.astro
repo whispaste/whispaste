@@ -128,7 +128,7 @@ const lang = currentLocale(Astro.currentLocale);
     color: var(--color-brand-cyan);
   }
   .faq-row {
-    border-bottom: 1px solid rgb(255 255 255 / 0.1);
+    border-bottom: 1px solid var(--wp-faq-divider);
   }
   .faq-row__q {
     display: flex;
@@ -148,7 +148,7 @@ const lang = currentLocale(Astro.currentLocale);
   }
   .faq-row__q::-webkit-details-marker { display: none; }
   .faq-row__q::marker { content: ''; }
-  .faq-row__q:hover { background: rgb(255 255 255 / 0.03); }
+  .faq-row__q:hover { background: var(--wp-faq-hover-fill); }
   .faq-row__q:focus-visible {
     outline: 2px solid var(--color-brand-cyan);
     outline-offset: 2px;
@@ -169,9 +169,9 @@ const lang = currentLocale(Astro.currentLocale);
     width: 0.875rem;
     height: 2px;
     border-radius: 1px;
-    background: var(--color-brand-cyan);
+    background: var(--wp-faq-icon);
     translate: -50% -50%;
-    transition: rotate var(--dur-base) ease;
+    transition: rotate var(--dur-base) var(--ease-flow);
   }
   .faq-row__icon::after { rotate: 90deg; }
   .faq-row[open] .faq-row__icon::after { rotate: 0deg; }

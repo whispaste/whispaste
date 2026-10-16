@@ -40,7 +40,7 @@ const sampleLanguages = [
 ];
 ---
 
-<section id="engines" class="band band-spotlight relative wp-section scroll-mt-20" data-testid="engines">
+<section id="engines" class="wp-band wp-band--alt relative wp-section scroll-mt-20" data-surface="light" data-testid="engines">
   <div class="relative wp-container">
     <div class="wp-section-head">
       <SectionEyebrow key="engines.label" />
@@ -112,7 +112,7 @@ const sampleLanguages = [
     flex-direction: column;
     padding: 1.5rem;
     border-radius: var(--radius-card);
-    border: 1px solid rgb(255 255 255 / 0.12);
+    border: 1px solid var(--wp-card-border);
     background: var(--color-brand-card);
     box-shadow: var(--shadow-card);
   }
@@ -157,7 +157,7 @@ const sampleLanguages = [
     gap: 0.75rem;
     margin: 1.25rem 0;
     padding-top: 1.25rem;
-    border-top: 1px solid rgb(255 255 255 / 0.08);
+    border-top: 1px solid var(--wp-border-subtle);
   }
   .engine-stat {
     display: grid;
@@ -208,7 +208,7 @@ const sampleLanguages = [
   .engine-languages {
     margin-top: 3rem;
     padding-top: 2rem;
-    border-top: 1px solid rgb(255 255 255 / 0.1);
+    border-top: 1px solid var(--wp-border-subtle);
     max-width: 50rem;
   }
   .engine-languages__title {

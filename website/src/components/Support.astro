@@ -9,7 +9,7 @@ const macosReviewUrl = STORES.macos.reviewUrl;
 <!-- Support: one closing panel above the footer. One primary action
      (sponsoring), everything else as chip links in one wrapping row. No
      payment UI of our own; all targets are external and open in a new tab. -->
-<section id="support" class="band band-deep relative support-zone scroll-mt-20" data-testid="support">
+<section id="support" class="wp-band--ink relative support-zone scroll-mt-20" data-surface="dark" data-testid="support">
   <div class="relative wp-container support-layout">
     <div class="support-copy">
       <svg class="support-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7.5-4.6-7.5-10.6A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 7.5 2.8C19.5 16.4 12 21 12 21Z"/><path d="M9 12h1M12 10v5M15 12h0"/></svg>
@@ -44,7 +44,7 @@ const macosReviewUrl = STORES.macos.reviewUrl;
     gap: 2rem;
     padding: clamp(1.5rem, 1rem + 2.5vw, 3.5rem);
     border-radius: var(--radius-surface);
-    border: 1px solid rgb(255 255 255 / 0.1);
+    border: 1px solid var(--wp-card-border);
     background:
       radial-gradient(60% 120% at 0% 0%, color-mix(in srgb, var(--color-brand-cyan) 14%, transparent), transparent 70%),
       color-mix(in srgb, var(--color-brand-card) 80%, transparent);
@@ -123,7 +123,7 @@ const macosReviewUrl = STORES.macos.reviewUrl;
     min-height: 44px;
     padding: 0.375rem 1rem;
     border-radius: var(--radius-pill);
-    border: 1px solid rgb(255 255 255 / 0.14);
+    border: 1px solid var(--wp-border-control);
     font-size: 0.9375rem;
     color: var(--color-ink-muted);
     text-decoration: none;

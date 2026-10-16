@@ -490,12 +490,7 @@
    Stops reference the brand tokens directly so the next accent re-sync
    cascades here instead of drifting again. */
 .text-gradient-brand {
-  background: linear-gradient(
-    135deg,
-    var(--color-brand-cyan) 0%,
-    var(--color-brand-teal) 50%,
-    var(--color-brand-cyan) 100%
-  );
+  background: var(--wp-gradient-brand-text);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;

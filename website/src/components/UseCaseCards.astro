@@ -29,13 +29,13 @@ const workflows = [
 
 <!-- Use cases: three compact entries into the existing use-case pages. Rows
      with a small illustration on phones/tablets, three equal cards from lg. -->
-<section id="use-cases" class="band band-raised relative wp-section scroll-mt-20">
+<section id="use-cases" class="wp-band relative wp-section scroll-mt-20" data-surface="light">
   <div class="relative wp-container">
     <div class="wp-section-head">
       <SectionEyebrow key="useCaseCards.label" />
       <h2 class="section-title">
         <span data-i18n="useCaseCards.titleLead">{t(lang, 'useCaseCards.titleLead')}</span><!--
-        --><span class="text-gradient-brand" data-i18n="useCaseCards.titleAccent">{t(lang, 'useCaseCards.titleAccent')}</span><!--
+        --><span class="wp-marker" data-i18n="useCaseCards.titleAccent">{t(lang, 'useCaseCards.titleAccent')}</span><!--
         --><span data-i18n="useCaseCards.titleTail">{t(lang, 'useCaseCards.titleTail')}</span>
       </h2>
       <div class="wp-head-art" aria-hidden="true"><MotionVoiceToText /></div>
@@ -99,7 +99,7 @@ const workflows = [
     padding: 1.25rem;
     border-radius: var(--radius-card);
     /* 12% like every structural edge on the page (Flutter borderSubtle) */
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--wp-card-border);
     background: var(--color-brand-card);
     box-shadow: var(--shadow-card);
     text-decoration: none;
