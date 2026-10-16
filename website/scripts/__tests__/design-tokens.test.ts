@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { buildCss, loadTokens, OUT_FILE } from '../build-tokens.mjs';
+import { findLiterals } from '../color-literals.mjs';
+import { lint } from '../design-lint.mjs';
 
 type TokenMap = Map<string, { value: unknown }>;
 
@@ -32,6 +34,18 @@ function contrast(fg: string, bg: string): number {
   return (a + 0.05) / (b + 0.05);
 }
 
+/** Flattens a translucent surface onto the band it sits on. */
+function solid(surface: string, mode: TokenMap): string {
+  const value = hex(surface, mode);
+  if (value.length !== 9) return value;
+  const base = hex('surface.band', mode);
+  const alpha = parseInt(value.slice(7, 9), 16) / 255;
+  return `#${[1, 3, 5]
+    .map((i) => Math.round(parseInt(value.slice(i, i + 2), 16) * alpha + parseInt(base.slice(i, i + 2), 16) * (1 - alpha)))
+    .map((c) => c.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
+
 describe('design tokens', () => {
   it('generated tokens.css matches the JSON sources (run `npm run tokens`)', () => {
     expect(readFileSync(OUT_FILE, 'utf8')).toBe(buildCss());
@@ -48,7 +62,7 @@ describe('design tokens', () => {
     for (const surface of surfaces) {
       for (const text of textAA) {
         it(`${name}: ${text} on ${surface} meets WCAG AA (4.5:1)`, () => {
-          expect(contrast(hex(text, mode), hex(surface, mode))).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(hex(text, mode), solid(surface, mode))).toBeGreaterThanOrEqual(4.5);
         });
       }
     }
@@ -56,6 +70,22 @@ describe('design tokens', () => {
       expect(contrast(hex('border.control', mode), hex('surface.band', mode))).toBeGreaterThanOrEqual(name === 'light' ? 3 : 1);
     });
   }
+
+  for (const [name, mode] of [['dark', dark], ['light', light]] as const) {
+    it(`${name}: text on the solid accent fill meets AA`, () => {
+      expect(contrast(hex('accent.on-fill', mode), hex('accent.fill', mode))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+
+  it('no literal colours outside tokens.css and the documented mock-ups', () => {
+    const hits = findLiterals().map((h) => `${h.file}:${h.line} ${h.text}`);
+    expect(hits).toEqual([]);
+  });
+
+  it('spacing, radii, font sizes and durations stay on the token scales', () => {
+    const hits = lint().map((h) => `${h.file}:${h.line} ${h.rule} ${h.text}`);
+    expect(hits).toEqual([]);
+  });
 
   it('text on the primary action fill meets AA', () => {
     for (const stop of ['color.cyan.300', 'color.cyan.400', 'color.cyan.500']) {

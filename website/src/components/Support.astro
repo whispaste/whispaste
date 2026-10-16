@@ -9,7 +9,7 @@ const macosReviewUrl = STORES.macos.reviewUrl;
 <!-- Support: one closing panel above the footer. One primary action
      (sponsoring), everything else as chip links in one wrapping row. No
      payment UI of our own; all targets are external and open in a new tab. -->
-<section id="support" class="wp-band--ink relative support-zone scroll-mt-20" data-surface="dark" data-testid="support">
+<section id="support" class="wp-band wp-band--alt relative support-zone scroll-mt-20" data-surface="light" data-testid="support">
   <div class="relative wp-container support-layout">
     <div class="support-copy">
       <svg class="support-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7.5-4.6-7.5-10.6A4.4 4.4 0 0 1 12 7.6a4.4 4.4 0 0 1 7.5 2.8C19.5 16.4 12 21 12 21Z"/><path d="M9 12h1M12 10v5M15 12h0"/></svg>
@@ -41,38 +41,37 @@ const macosReviewUrl = STORES.macos.reviewUrl;
      tinted edge so the block reads as a deliberate closing beat. */
   .support-layout {
     display: grid;
-    gap: 2rem;
-    padding: clamp(1.5rem, 1rem + 2.5vw, 3.5rem);
+    gap: var(--wp-space-8);
+    padding: clamp(var(--wp-space-6), var(--wp-space-4) + 2.5vw, 3.5rem);
     border-radius: var(--radius-surface);
     border: 1px solid var(--wp-card-border);
-    background:
-      radial-gradient(60% 120% at 0% 0%, color-mix(in srgb, var(--color-brand-cyan) 14%, transparent), transparent 70%),
-      color-mix(in srgb, var(--color-brand-card) 80%, transparent);
+    background: var(--wp-surface-floating);
+    box-shadow: var(--wp-card-shadow);
   }
   @media (min-width: 1024px) {
     .support-layout {
       grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
-      column-gap: clamp(2rem, 5vw, 6rem);
+      column-gap: clamp(var(--wp-space-8), 5vw, var(--wp-space-24));
       align-items: center;
     }
   }
   .support-mark {
     width: 2rem;
     height: 2rem;
-    color: var(--color-brand-cyan);
-    margin-bottom: 1rem;
+    color: var(--wp-highlight-text);
+    margin-bottom: var(--wp-space-4);
   }
   .support-title {
     font-family: var(--font-display);
     font-weight: 800;
     letter-spacing: -0.025em;
-    font-size: clamp(1.75rem, 1.2rem + 2vw, 3rem);
+    font-size: var(--wp-font-size-title);
     line-height: 1.1;
     color: var(--color-ink);
     text-wrap: balance;
   }
   .support-desc {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
     font-size: var(--type-lead);
     line-height: 1.6;
     color: var(--color-ink-muted);
@@ -83,31 +82,31 @@ const macosReviewUrl = STORES.macos.reviewUrl;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 1.25rem;
+    gap: var(--wp-space-5);
   }
   .support-sponsor {
     display: inline-flex;
     align-items: center;
-    gap: 0.625rem;
+    gap: var(--wp-space-3);
     min-height: 52px;
-    padding: 0.75rem 1.75rem;
+    padding: var(--wp-space-3) 1.75rem;
     border-radius: var(--radius-pill);
     background: var(--wp-button-primary-fill);
     color: var(--wp-button-primary-text);
-    font-size: 1rem;
+    font-size: var(--wp-font-size-md);
     font-weight: 700;
     text-decoration: none;
-    box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--color-brand-cyan) 70%, transparent);
+    box-shadow: var(--wp-button-primary-shadow-hover);
     transition: transform var(--dur-base) var(--ease-flow), box-shadow var(--dur-base) var(--ease-flow);
   }
   .support-sponsor svg {
     width: 1.125rem;
     height: 1.125rem;
-    color: #be185d;
+    color: currentColor;
   }
   .support-sponsor:hover {
     transform: translateY(-2px);
-    box-shadow: 0 16px 36px -12px color-mix(in srgb, var(--color-brand-cyan) 80%, transparent);
+    box-shadow: var(--wp-button-primary-shadow-hover);
   }
   .support-links {
     list-style: none;
@@ -115,28 +114,28 @@ const macosReviewUrl = STORES.macos.reviewUrl;
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
   .support-links a {
     display: inline-flex;
     align-items: center;
     min-height: 44px;
-    padding: 0.375rem 1rem;
+    padding: var(--wp-space-2) var(--wp-space-4);
     border-radius: var(--radius-pill);
     border: 1px solid var(--wp-border-control);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink-muted);
     text-decoration: none;
     transition: border-color var(--dur-fast) ease, color var(--dur-fast) ease, background-color var(--dur-fast) ease;
   }
   .support-links a:hover {
     color: var(--color-ink);
-    border-color: var(--color-brand-cyan);
-    background: color-mix(in srgb, var(--color-brand-cyan) 10%, transparent);
+    border-color: var(--wp-accent-strong);
+    background: var(--wp-accent-soft);
   }
   .support-sponsor:focus-visible,
   .support-links a:focus-visible {
-    outline: 2px solid var(--color-brand-cyan);
+    outline: 2px solid var(--wp-focus-ring);
     outline-offset: 2px;
   }
   @media (prefers-reduced-motion: reduce) {

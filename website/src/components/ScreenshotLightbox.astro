@@ -60,7 +60,7 @@ const lang = currentLocale(Astro.currentLocale);
     justify-content: center;
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transition: opacity var(--wp-duration-slow) ease, visibility var(--wp-duration-slow) ease;
   }
 
   .lightbox[data-open] {
@@ -80,13 +80,13 @@ const lang = currentLocale(Astro.currentLocale);
     z-index: 1;
     max-width: min(92vw, 1400px);
     max-height: 85vh;
-    border-radius: 12px;
+    border-radius: var(--wp-radius-card);
     box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
     object-fit: contain;
     transform: scale(0.92);
     opacity: 0;
-    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-                opacity 0.3s ease;
+    transition: transform var(--wp-duration-slow) cubic-bezier(0.22, 1, 0.36, 1),
+                opacity var(--wp-duration-slow) ease;
   }
 
   .lightbox[data-open] .lightbox-image {
@@ -113,7 +113,7 @@ const lang = currentLocale(Astro.currentLocale);
     background: var(--color-brand-floating);
     color: var(--color-ink);
     cursor: pointer;
-    transition: background 0.2s, border-color 0.2s;
+    transition: background var(--wp-duration-base), border-color var(--wp-duration-base);
   }
 
   .lightbox-close:hover {
@@ -136,7 +136,7 @@ const lang = currentLocale(Astro.currentLocale);
     background: var(--color-brand-floating);
     color: var(--color-ink);
     cursor: pointer;
-    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+    transition: background var(--wp-duration-base), border-color var(--wp-duration-base), opacity var(--wp-duration-base);
   }
 
   .lightbox-nav:hover {
@@ -158,11 +158,11 @@ const lang = currentLocale(Astro.currentLocale);
     left: 50%;
     transform: translateX(-50%);
     z-index: 2;
-    font-size: 0.8125rem;
+    font-size: var(--wp-font-size-sm);
     font-weight: 600;
     color: var(--color-ink-muted);
     letter-spacing: 0.05em;
-    padding: 0.25rem 0.75rem;
+    padding: var(--wp-space-1) var(--wp-space-3);
     border-radius: var(--radius-pill);
     background: var(--color-brand-floating);
   }

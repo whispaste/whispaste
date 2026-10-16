@@ -58,7 +58,8 @@ const platformBadges = [
        rasterize/composite that layer in a way that clips one effect's soft
        edge into a hard one; keeping each on its own non-animated (where
        applicable) layer means each rasterizes cleanly once. -->
-  <div class="hero-wave-blur absolute inset-0 pointer-events-none" aria-hidden="true">
+  <div class="hero-wave-fade absolute inset-0 pointer-events-none" aria-hidden="true">
+  <div class="hero-wave-blur absolute inset-0 pointer-events-none">
     <div
       class="hero-wave-mask absolute inset-0 flex items-center justify-center pointer-events-none"
     >
@@ -66,10 +67,10 @@ const platformBadges = [
         <svg class="hero-wave hero-sign shrink-0 w-[160vw] h-auto opacity-[0.10] -translate-y-[8%]" viewBox="0 0 1024 1024" fill="none" preserveAspectRatio="xMidYMid meet">
           <defs>
             <linearGradient id="wave-grad" x1="0.14" y1="0.79" x2="0.88" y2="0.38">
-              <stop offset="0%" stop-color="#155e75"/>
-              <stop offset="35%" stop-color="#0891b2"/>
-              <stop offset="70%" stop-color="#6FDDF0"/>
-              <stop offset="100%" stop-color="#67e8f9"/>
+              <stop offset="0%" style="stop-color: var(--wp-color-cyan-700)"/>
+              <stop offset="35%" style="stop-color: var(--wp-color-cyan-500)"/>
+              <stop offset="70%" style="stop-color: var(--wp-color-cyan-300)"/>
+              <stop offset="100%" style="stop-color: var(--wp-color-cyan-200)"/>
             </linearGradient>
           </defs>
           <!-- Audio bars (4 rounded bars, upper-left — theme-aware fill via CSS) -->
@@ -83,15 +84,7 @@ const platformBadges = [
       </div>
     </div>
   </div>
-
-  <!-- Hero-to-next-section hand-off aura: must stay pixel-locked to the hero's
-       bottom edge, so it lives on its own static (non-parallax) layer. It used
-       to share `.hero-console-glow` with the mid-depth glow below, both under
-       `wp-parallax-layer` -- that translate (up to +/-14px via the scroll-driven
-       view-timeline) shifted this fixed-height gradient band away from the
-       actual section boundary as you scrolled, exposing a hard edge on tall
-       viewports. Splitting it onto a static layer keeps it aligned always. -->
-  <div class="hero-handoff-glow absolute inset-0 pointer-events-none" aria-hidden="true"></div>
+  </div>
 
   <!-- Split hero from xl (5/7: copy + CTAs left, the e-mail example right);
        below xl the copy sits centred above the example. The example is a
@@ -142,10 +135,23 @@ const platformBadges = [
              mechanism (global.css) reduces this to the visitor's own platform
              once detected; unknown OS (bots, crawlers, privacy tools) sees all
              three equally weighted. -->
-        <div class="flex flex-wrap items-stretch justify-center xl:justify-start gap-3">
-          <div data-platform-btn="windows"><StoreButton size="lg" /></div>
-          <div data-platform-btn="macos"><MacStoreButton size="lg" /></div>
-          <div data-platform-btn="linux"><LinuxButton size="lg" /></div>
+        <div class="hero-cta-row">
+          <div class="flex flex-wrap items-stretch justify-center xl:justify-start gap-3">
+            <div data-platform-btn="windows"><StoreButton size="lg" /></div>
+            <div data-platform-btn="macos"><MacStoreButton size="lg" /></div>
+            <div data-platform-btn="linux"><LinuxButton size="lg" /></div>
+          </div>
+          <!-- Secondary CTA: every download route in one place, incl. the free
+               GitHub builds and package managers. A quiet text link beside the
+               platform button, so it never competes with it. -->
+          <a
+            href={localePath(lang, "download")}
+            class="hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-(--wp-text-link) hover:text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--wp-focus-ring) rounded"
+            data-testid="hero-secondary-cta"
+          >
+            <span data-i18n="hero.cta.secondary">{t(lang, "hero.cta.secondary")}</span>
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </a>
         </div>
 
         <!-- Store-Hint gilt nur für die Store-Wege (Microsoft Store / Mac App
@@ -169,26 +175,16 @@ const platformBadges = [
           </ul>
         </div>
 
-        <!-- Secondary CTA: every download route in one place, incl. the free
-             GitHub builds and package managers — a quiet text link, so it
-             never competes with the platform button above. -->
-        <a
-          href={localePath(lang, "download")}
-          class="hero-secondary-cta inline-flex items-center gap-1.5 text-sm font-medium text-brand-cyan hover:text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan rounded"
-          data-testid="hero-secondary-cta"
-        >
-          <span data-i18n="hero.cta.secondary">{t(lang, "hero.cta.secondary")}</span>
-          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-        </a>
       </div>
 
-      <!-- Trust line: honest, non-absolute privacy claim (local by default,
-           cloud only on opt-in) — one supporting statement, one place. -->
+      <!-- Trust group under a hairline: the honest privacy claim (local by
+           default, cloud only on opt-in) and the platform row read as one quiet
+           block, set apart from the call to action above. -->
+      <div class="hero-meta hero-fade-rise" style="--wp-rise-delay: 520ms">
       <p
-        class="hero-fade-rise mt-6 inline-flex items-start xl:items-center justify-center xl:justify-start gap-2 text-sm text-ink-muted max-w-xl"
-        style="--wp-rise-delay: 520ms"
+        class="flex items-start xl:items-center gap-2 text-left text-sm text-ink-muted"
       >
-        <svg class="w-4 h-4 mt-0.5 xl:mt-0 shrink-0 text-brand-cyan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
+        <svg class="w-4 h-4 mt-0.5 xl:mt-0 shrink-0 text-(--wp-accent-default)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
         <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
       </p>
 
@@ -198,8 +194,7 @@ const platformBadges = [
            highlighted via CSS only; unknown OS → all three equal. The stars
            link stays hidden until HomePage.astro has fetched the count. -->
       <div
-        class="platform-row hero-fade-rise mt-6 flex flex-wrap items-center justify-center xl:justify-start gap-2 sm:gap-2.5"
-        style="--wp-rise-delay: 600ms"
+        class="platform-row mt-4 flex flex-wrap items-center justify-center xl:justify-start gap-2 sm:gap-2.5"
         aria-label={t(lang, "hero.platforms.claim")}
         data-i18n-aria="hero.platforms.claim"
         role="group"
@@ -209,7 +204,7 @@ const platformBadges = [
             href={`${localePath(lang, "download")}#${os}`}
             data-testid={`hero-platform-badge-${os}`}
             aria-label={`${t(lang, `hero.platforms.${os}`)}: ${t(lang, "nav.download")}`}
-            class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-brand-card px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-brand-cyan/30 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-cyan"
+            class="platform-badge inline-flex items-center gap-1.5 rounded-full border border-(--wp-border-default) bg-(--wp-surface-card) px-3 py-1.5 sm:px-3.5 sm:py-1.5 text-xs sm:text-sm text-ink-muted hover:border-(--wp-border-strong) transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--wp-focus-ring)"
             data-platform-badge={os}
           >
             <span class="platform-badge__icon inline-flex w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" set:html={icon} />
@@ -228,9 +223,10 @@ const platformBadges = [
           data-i18n-aria="nav.githubAria"
           data-testid="hero-github-stars"
         >
-          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-highlight" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
           <span id="github-stars-count" data-template={t(lang, "hero.githubStars")}></span>
         </a>
+      </div>
       </div>
     </div>
 
@@ -244,16 +240,14 @@ const platformBadges = [
 
 <style>
   /* ---- Display headline: crank Bricolage to its characterful heavy weight ----
-     Fluid clamp() instead of the old text-5xl/sm:text-7xl/lg:text-[5.75rem]
-     breakpoint jumps — the size now tracks viewport width continuously
-     (48px -> 92px between a 375px and 1440px viewport), matching the
-     .section-title fluid scale below instead of visibly snapping at sm/lg. */
+     Sizes come from the type scale only: h1 when stacked, h2 while the
+     headline shares the row with the example (xl), h1 again from 1700px. */
   .hero-title {
     font-family: var(--font-display);
     font-variation-settings: "wght" 800;
     font-weight: 800;
     letter-spacing: -0.04em;
-    font-size: clamp(3rem, 2.03rem + 4.13vw, 5.75rem);
+    font-size: var(--wp-font-size-h1);
     /* leading-[0.98] packs the two title lines tight on purpose, but leaves
        zero clearance for the second line's descenders (the "g" in "typing.",
        "p" in "typing") below its line box — at this weight/size the glyphs
@@ -271,12 +265,12 @@ const platformBadges = [
   }
   @media (min-width: 1280px) {
     .hero-title {
-      font-size: clamp(3rem, 0.9rem + 3.4vw, 4.5rem);
+      font-size: var(--wp-font-size-h2);
     }
   }
   @media (min-width: 1700px) {
     .hero-title {
-      font-size: clamp(4.5rem, 1.5rem + 3.2vw, 7rem);
+      font-size: var(--wp-font-size-h1);
     }
     .hero-copy .wp-lead {
       max-width: 42rem;
@@ -295,24 +289,24 @@ const platformBadges = [
   }
   .platform-badge__current {
     display: none;
-    color: var(--color-brand-cyan);
+    color: var(--wp-text-link);
     font-weight: 600;
   }
   /* Detected OS gets a quiet accent — border/background/icon tint from the
-     brand-cyan token, plus the "(your system)" qualifier. Everything else
+     accent tokens, plus the "(your system)" qualifier. Everything else
      (including the unknown/bot fallback) keeps the neutral pill look, so all
      three platforms read as equally supported by default. */
   :global([data-os="macos"]) .platform-badge[data-platform-badge="macos"],
   :global([data-os="windows"]) .platform-badge[data-platform-badge="windows"],
   :global([data-os="linux"]) .platform-badge[data-platform-badge="linux"] {
-    border-color: color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
-    background: color-mix(in srgb, var(--color-brand-cyan) 14%, var(--color-brand-card) 86%);
+    border-color: color-mix(in srgb, var(--wp-accent-default) 45%, transparent);
+    background: var(--wp-accent-soft);
     color: var(--color-ink);
   }
   :global([data-os="macos"]) .platform-badge[data-platform-badge="macos"] .platform-badge__icon,
   :global([data-os="windows"]) .platform-badge[data-platform-badge="windows"] .platform-badge__icon,
   :global([data-os="linux"]) .platform-badge[data-platform-badge="linux"] .platform-badge__icon {
-    color: var(--color-brand-cyan);
+    color: var(--wp-accent-default);
   }
   :global([data-os="macos"]) .platform-badge[data-platform-badge="macos"] .platform-badge__current,
   :global([data-os="windows"]) .platform-badge[data-platform-badge="windows"] .platform-badge__current,
@@ -356,9 +350,9 @@ const platformBadges = [
      one gradient-text treatment sitewide instead of a hero-only
      near-duplicate. (Unrelated to the wave-mask edge below, which was the
      actual source of the reported rendering artifact.) */
-  /* Audio bars: white in dark mode (like original logo), dark navy in light mode */
   .hero-bar {
-    fill: #ebebeb;
+    /* Logo bars: the brand's off-white primitive (not a themed text token). */
+    fill: var(--wp-color-frost-50);
     fill-opacity: 0.5;
     /* Pivot each bar at its base so the signature scaleY grows upward. */
     transform-box: fill-box;
@@ -454,22 +448,14 @@ const platformBadges = [
   .hero-wave-blur {
     filter: blur(10px);
   }
-  /* Shallow, bottom-anchored aura that hands off into the next section's own
-     top-anchored aura (.band-spotlight::before, same ellipse-at-top shape,
-     ~16% cyan) -- without it, the last few hundred px of hero read flat/
-     near-black right where the next section's aura begins, a hard seam.
-     Static, not parallax: a scroll-driven translate would shift this
-     fixed-height gradient band away from the actual section boundary as you
-     scroll, exposing that same seam on tall viewports. */
-  .hero-handoff-glow {
-    background: radial-gradient(
-      ellipse 95% 55% at 50% 100%,
-      color-mix(in srgb, var(--color-brand-cyan) 14%, transparent) 0%,
-      transparent 70%
-    );
-    background-repeat: no-repeat;
-    background-position: center 100%;
-    background-size: 100% 380px;
+  /* The section clips overflow, so the ribbon used to end in a straight line
+     at the hero's bottom edge. This outermost wrapper (mask only, parent of
+     the blurred layer, never on the same element) fades it out over the same
+     distance the ambient wash uses. */
+  .hero-wave-fade {
+    --hero-wave-fade: clamp(120px, 18vh, 280px);
+    mask-image: linear-gradient(180deg, black 0, black calc(100% - var(--hero-wave-fade)), transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, black 0, black calc(100% - var(--hero-wave-fade)), transparent 100%);
   }
   /* Grain — same feTurbulence recipe as the design canvas, tuned so it stays
      a texture (2.5% opacity) rather than visible noise. overlay blend mode
@@ -525,7 +511,7 @@ const platformBadges = [
          facet cuts into the arc right at peak intensity. The blur term
          diffuses that seam away and reads as the "soft glow" the comment
          above already promises. */
-      box-shadow: 0 0 10px 4px color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
+      box-shadow: 0 0 10px 4px color-mix(in srgb, var(--wp-accent-default) 22%, transparent);
     }
   }
   :global([data-os="macos"] .wp-mac-store-btn),
@@ -551,6 +537,24 @@ const platformBadges = [
     .hero-bar { transform: none !important; }
     .hero-ribbon { clip-path: none !important; }
   }
+  .hero-cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wp-space-3) var(--wp-space-6);
+  }
+  .hero-meta {
+    margin-top: var(--wp-space-8);
+    padding-top: var(--wp-space-6);
+    border-top: 1px solid var(--wp-border-subtle);
+    max-width: 36rem;
+    margin-inline: auto;
+  }
+  @media (min-width: 1280px) {
+    .hero-cta-row { justify-content: flex-start; }
+    .hero-meta { margin-inline: 0; }
+  }
   /* Store perks under the primary CTA: why the store build is the better pick. */
   .hero-perks {
     list-style: none;
@@ -559,8 +563,8 @@ const platformBadges = [
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 0.375rem 1rem;
-    font-size: 0.8125rem;
+    gap: var(--wp-space-2) var(--wp-space-4);
+    font-size: var(--wp-font-size-sm);
     color: var(--color-ink-muted);
   }
   @media (min-width: 1280px) {
@@ -569,16 +573,16 @@ const platformBadges = [
   .hero-perks li {
     display: inline-flex;
     align-items: center;
-    gap: 0.375rem;
+    gap: var(--wp-space-2);
   }
   .hero-perks__icon {
     width: 0.875rem;
     height: 0.875rem;
     flex-shrink: 0;
-    color: var(--color-brand-cyan);
+    color: var(--wp-accent-default);
   }
   .hero-perks__icon.is-heart {
-    color: #f472b6;
+    color: var(--wp-highlight-text);
   }
 </style>
 

@@ -10,6 +10,8 @@ interface Props {
 }
 const { class: className = '' } = Astro.props;
 const nodes = [256, 196, 136, 76];
+// Unique gradient id per instance, so the graphic can render twice on a page.
+const accentId = `tl-accent-${Math.random().toString(36).slice(2, 8)}`;
 ---
 
 <svg
@@ -21,24 +23,32 @@ const nodes = [256, 196, 136, 76];
   data-testid="motion-timeline"
 >
   <defs>
-    <linearGradient id="tl-accent" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0" stop-color="#0BAACC" />
-      <stop offset="1" stop-color="#6FDDF0" />
+    <linearGradient id={accentId} x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-strong)" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-fill)" />
     </linearGradient>
   </defs>
 
-  <rect x="118" y="40" width="4" height="250" rx="2" fill="rgba(171,184,204,.22)" />
-  <rect class="pulse" x="116" y="250" width="8" height="40" rx="4" fill="url(#tl-accent)" />
+  <rect class="tl-spine" x="118" y="40" width="4" height="250" rx="2" />
+  <rect class="pulse" x="116" y="250" width="8" height="40" rx="4" fill={`url(#${accentId})`} />
 
   {nodes.map((y, i) => (
     <g style={`--i:${i}`}>
-      <circle cx="120" cy={y} r="11" fill="#0D1936" stroke="rgba(171,184,204,.35)" stroke-width="2" />
-      <circle class="node" cx="120" cy={y} r="6" fill="#6FDDF0" />
+      <circle class="tl-ring" cx="120" cy={y} r="11" stroke-width="2" />
+      <circle class="node tl-dot" cx="120" cy={y} r="6" />
       <g class="card">
-        <rect x="150" y={y - 22} width={i === nodes.length - 1 ? 250 : 210} height="44" rx="12" fill="#171D53" stroke={i === nodes.length - 1 ? 'url(#tl-accent)' : 'rgba(171,184,204,.22)'} />
-        <rect x="168" y={y - 9} width="44" height="8" rx="4" fill="#6FDDF0" />
-        <rect x="222" y={y - 9} width={i === nodes.length - 1 ? 150 : 110} height="8" rx="4" fill="#ABB8CC" opacity=".6" />
-        <rect x="168" y={y + 5} width="90" height="6" rx="3" fill="#8A99B2" opacity=".5" />
+        <rect
+          class="tl-card"
+          x="150"
+          y={y - 22}
+          width={i === nodes.length - 1 ? 250 : 210}
+          height="44"
+          rx="12"
+          style={i === nodes.length - 1 ? `stroke: url(#${accentId})` : undefined}
+        />
+        <rect class="tl-dot" x="168" y={y - 9} width="44" height="8" rx="4" />
+        <rect class="tl-muted" x="222" y={y - 9} width={i === nodes.length - 1 ? 150 : 110} height="8" rx="4" opacity=".6" />
+        <rect class="tl-muted" x="168" y={y + 5} width="90" height="6" rx="3" opacity=".5" />
       </g>
     </g>
   ))}
@@ -50,6 +60,13 @@ const nodes = [256, 196, 136, 76];
   .motion-tl .card,
   .motion-tl .pulse { transform-box: fill-box; transform-origin: center; }
   .motion-tl .card { transform-origin: left center; }
+
+  /* Solid token colours: the graphic must read on dark and light bands. */
+  .motion-tl .tl-spine { fill: var(--wp-illustration-stroke-soft); }
+  .motion-tl .tl-ring { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-line); }
+  .motion-tl .tl-dot { fill: var(--wp-illustration-accent-fill); }
+  .motion-tl .tl-card { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-node-border); }
+  .motion-tl .tl-muted { fill: var(--wp-illustration-muted); }
 
   @media (prefers-reduced-motion: no-preference) {
     .motion-tl .pulse { animation: tl-climb 8s cubic-bezier(0.65, 0, 0.35, 1) infinite; }

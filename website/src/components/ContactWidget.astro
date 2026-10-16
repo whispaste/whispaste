@@ -145,7 +145,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 0.75rem;
+    gap: var(--wp-space-3);
     pointer-events: none;
     transition: transform var(--dur-slow) var(--ease-flow);
   }
@@ -175,7 +175,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
     background: var(--color-brand-floating);
     color: var(--color-ink);
-    box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.04) inset;
+    box-shadow: var(--wp-shadow-overlay), inset 0 0 0 1px var(--wp-border-subtle);
     transition: border-color var(--dur-base) var(--ease-flow), transform var(--dur-base) var(--ease-flow);
   }
   .cw-badge {
@@ -186,12 +186,12 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     place-items: center;
     min-width: 20px;
     height: 20px;
-    padding-inline: 5px;
-    border-radius: 10px;
+    padding-inline: var(--wp-space-1);
+    border-radius: var(--wp-radius-control);
     border: 2px solid var(--color-brand-darker);
     background: var(--wp-color-red-800);
-    color: #fff;
-    font-size: 0.6875rem;
+    color: var(--wp-text-primary);
+    font-size: var(--wp-font-size-2xs);
     font-weight: 700;
     line-height: 1;
     animation: cw-pop var(--dur-slow) var(--ease-flow);
@@ -215,13 +215,13 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   .cw-teaser-body {
     display: flex;
     align-items: flex-start;
-    gap: 0.75rem;
+    gap: var(--wp-space-3);
     width: 100%;
-    padding: 1rem 2.5rem 1rem 1rem;
+    padding: var(--wp-space-4) var(--wp-space-10) var(--wp-space-4) var(--wp-space-4);
     border-radius: var(--radius-surface);
-    border: 1px solid rgb(255 255 255 / 0.1);
+    border: 1px solid var(--wp-border-subtle);
     background: var(--color-brand-floating);
-    box-shadow: 0 18px 48px -16px rgb(0 0 0 / 0.7);
+    box-shadow: var(--wp-shadow-panel);
     text-align: left;
     transition: border-color var(--dur-base) var(--ease-flow), transform var(--dur-base) var(--ease-flow);
   }
@@ -237,21 +237,21 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   }
   .cw-teaser-copy {
     display: grid;
-    gap: 0.3rem;
+    gap: var(--wp-space-1);
   }
   .cw-teaser-hello {
     font-weight: 700;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink);
   }
   .cw-teaser-text {
-    font-size: 0.875rem;
+    font-size: var(--wp-font-size-sm);
     line-height: 1.5;
     color: var(--color-ink-muted);
   }
   .cw-teaser-from {
-    margin-top: 0.15rem;
-    font-size: 0.75rem;
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-xs);
     color: var(--color-ink-subtle);
   }
   .cw-teaser-x {
@@ -266,7 +266,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     color: var(--color-ink-subtle);
   }
   .cw-teaser-x:hover {
-    background: rgb(255 255 255 / 0.06);
+    background: var(--wp-surface-control-hover);
     color: var(--color-ink);
   }
   .cw-teaser-x svg {
@@ -304,11 +304,11 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     max-height: min(40rem, calc(100dvh - 8rem));
     overflow: auto;
     overscroll-behavior: contain;
-    padding: 1.25rem;
+    padding: var(--wp-space-5);
     border-radius: var(--radius-surface);
-    border: 1px solid rgb(255 255 255 / 0.1);
+    border: 1px solid var(--wp-border-subtle);
     background: var(--color-brand-floating);
-    box-shadow: 0 24px 64px -16px rgb(0 0 0 / 0.7);
+    box-shadow: var(--wp-shadow-panel);
     transform-origin: bottom right;
     animation: cw-in var(--dur-base) var(--ease-flow);
   }
@@ -322,12 +322,12 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: var(--wp-space-4);
   }
   .cw-title {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 1.25rem;
+    font-size: var(--wp-font-size-xl);
     letter-spacing: -0.015em;
     color: var(--color-ink);
     outline: none;
@@ -342,7 +342,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
   }
   .cw-icon-btn:hover {
-    background: rgb(255 255 255 / 0.06);
+    background: var(--wp-surface-control-hover);
     color: var(--color-ink);
   }
   .cw-icon-btn svg {
@@ -354,32 +354,32 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     stroke-linecap: round;
   }
   .cw-note {
-    margin-top: 0.25rem;
-    font-size: 0.8125rem;
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-sm);
     line-height: 1.5;
     color: var(--color-ink-subtle);
   }
   .cw-thread {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
   }
   .cw-thread > [data-cw-step]:not([hidden]) {
     display: flex;
     flex-direction: column;
-    gap: 0.625rem;
+    gap: var(--wp-space-3);
   }
   .cw-bubble {
     align-self: flex-start;
     max-width: 92%;
-    padding: 0.7rem 0.9rem;
-    border-radius: 1rem 1rem 1rem 0.35rem;
-    background: rgb(255 255 255 / 0.06);
-    font-size: 0.9375rem;
+    padding: var(--wp-space-3) var(--wp-space-4);
+    border-radius: var(--wp-radius-card) var(--wp-radius-card) var(--wp-radius-card) var(--wp-radius-chip);
+    background: var(--wp-surface-control);
+    font-size: var(--wp-font-size-md);
     line-height: 1.55;
     color: var(--color-ink);
   }
   .cw-bubble--me {
     align-self: flex-end;
-    border-radius: 1rem 1rem 0.35rem 1rem;
+    border-radius: var(--wp-radius-card) var(--wp-radius-card) var(--wp-radius-chip) var(--wp-radius-card);
     background: color-mix(in srgb, var(--color-brand-cyan) 18%, transparent);
   }
   .cw-bubble[hidden] {
@@ -388,15 +388,15 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   .cw-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
   .cw-chip {
     min-height: 40px;
-    padding: 0.5rem 0.9rem;
+    padding: var(--wp-space-2) var(--wp-space-4);
     border-radius: var(--radius-pill);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
     color: var(--color-ink);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
   }
   .cw-chip:hover {
@@ -404,19 +404,19 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     background: color-mix(in srgb, var(--color-brand-cyan) 10%, transparent);
   }
   .cw-label {
-    margin-top: 0.25rem;
-    font-size: 0.8125rem;
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-sm);
     font-weight: 600;
     color: var(--color-ink-muted);
   }
   .cw-input {
     width: 100%;
-    padding: 0.65rem 0.8rem;
-    border-radius: 0.75rem;
-    border: 1px solid rgb(255 255 255 / 0.12);
+    padding: var(--wp-space-3) var(--wp-space-3);
+    border-radius: var(--wp-radius-card);
+    border: 1px solid var(--wp-border-default);
     background: var(--color-brand-darker);
     color: var(--color-ink);
-    font-size: 1rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.5;
     resize: vertical;
   }
@@ -435,7 +435,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     overflow: hidden;
   }
   .cw-privacy {
-    font-size: 0.8125rem;
+    font-size: var(--wp-font-size-sm);
     line-height: 1.5;
     color: var(--color-ink-subtle);
   }
@@ -443,27 +443,27 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     display: none;
   }
   .cw-status {
-    font-size: 0.875rem;
+    font-size: var(--wp-font-size-sm);
     color: var(--wp-status-error-text);
   }
   .cw-actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.75rem 1rem;
-    margin-top: 0.25rem;
+    gap: var(--wp-space-3) var(--wp-space-4);
+    margin-top: var(--wp-space-1);
   }
   .cw-primary {
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: var(--wp-space-2);
     min-height: 44px;
-    padding: 0.6rem 1.15rem;
+    padding: var(--wp-space-2) var(--wp-space-5);
     border-radius: var(--radius-pill);
     background: var(--wp-button-primary-fill);
     color: var(--wp-button-primary-text);
     font-weight: 700;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     transition: transform var(--dur-base) var(--ease-flow), opacity var(--dur-fast) ease;
   }
   .cw-primary:hover {
@@ -478,7 +478,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   }
   .cw-link {
     min-height: 44px;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink-muted);
   }
   .cw-link:hover {
@@ -491,7 +491,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   }
   .cw-bubble .cw-inline-link {
     display: inline-block;
-    margin-top: 0.35rem;
+    margin-top: var(--wp-space-1);
   }
   .cw-launcher:focus-visible,
   .cw-teaser-body:focus-visible,

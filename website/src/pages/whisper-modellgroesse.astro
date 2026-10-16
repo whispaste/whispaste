@@ -284,15 +284,15 @@ const relatedPages = [
 <style>
   .tldr {
     color: var(--color-ink);
-    font-size: 1.0625rem;
+    font-size: var(--wp-font-size-lg);
     line-height: 1.65;
   }
 
   .ms-form {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    margin-top: 0.25rem;
+    gap: var(--wp-space-5);
+    margin-top: var(--wp-space-1);
   }
   .ms-field {
     border: 0;
@@ -304,16 +304,16 @@ const relatedPages = [
   .ms-vram-label {
     display: block;
     color: var(--color-ink-subtle);
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    margin-bottom: 0.6rem;
+    margin-bottom: var(--wp-space-2);
   }
   .ms-pills {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
   .ms-pill {
     position: relative;
@@ -328,14 +328,14 @@ const relatedPages = [
   .ms-pill span {
     display: inline-flex;
     align-items: center;
-    padding: 0.5rem 1rem;
+    padding: var(--wp-space-2) var(--wp-space-4);
     border-radius: var(--radius-pill);
     border: 1px solid var(--color-brand-border);
     background: color-mix(in srgb, var(--color-brand-card) 55%, transparent);
     color: var(--color-ink-muted);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.2;
-    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+    transition: border-color var(--wp-duration-base) ease, color var(--wp-duration-base) ease, background-color var(--wp-duration-base) ease;
   }
   .ms-pill input:checked + span {
     border-color: var(--color-brand-cyan);
@@ -349,12 +349,12 @@ const relatedPages = [
 
   .ms-vram-input {
     width: 7rem;
-    padding: 0.5rem 0.75rem;
+    padding: var(--wp-space-2) var(--wp-space-3);
     border-radius: var(--radius-control);
     border: 1px solid var(--color-brand-border);
     background: color-mix(in srgb, var(--color-brand-card) 55%, transparent);
     color: var(--color-ink);
-    font-size: 1rem;
+    font-size: var(--wp-font-size-md);
   }
   .ms-vram-input:focus-visible {
     outline: 2px solid var(--color-brand-cyan);
@@ -364,22 +364,22 @@ const relatedPages = [
   .ms-hint,
   .ms-nojs {
     color: var(--color-ink-subtle);
-    font-size: 0.875rem;
+    font-size: var(--wp-font-size-sm);
     line-height: 1.6;
-    margin-top: 0.6rem;
+    margin-top: var(--wp-space-2);
   }
 
   .ms-panel {
-    margin-top: 1.1rem;
+    margin-top: var(--wp-space-4);
   }
   .ms-panel h3 {
     color: var(--color-ink);
     font-weight: 600;
-    font-size: 1.0625rem;
-    margin-bottom: 0.4rem;
+    font-size: var(--wp-font-size-lg);
+    margin-bottom: var(--wp-space-2);
   }
   .ms-parakeet {
-    padding-left: 0.9rem;
+    padding-left: var(--wp-space-4);
     border-left: 2px solid color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
   }
 
@@ -396,24 +396,24 @@ const relatedPages = [
   .ms-table {
     width: 100%;
     min-width: 34rem;
-    margin-top: 1.1rem;
+    margin-top: var(--wp-space-4);
     border-collapse: collapse;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
   }
   .ms-table caption {
     caption-side: top;
     text-align: left;
     color: var(--color-ink-subtle);
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    padding-bottom: 0.6rem;
+    padding-bottom: var(--wp-space-2);
   }
   .ms-table th,
   .ms-table td {
     text-align: left;
-    padding: 0.55rem 0.75rem 0.55rem 0;
+    padding: var(--wp-space-2) var(--wp-space-3) var(--wp-space-2) 0;
     border-bottom: 1px solid var(--color-brand-border);
   }
   .ms-table thead th {
@@ -429,15 +429,15 @@ const relatedPages = [
   }
 
   .faq-list {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
   }
   .faq-item + .faq-item {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
   }
   .faq-list dt {
     color: var(--color-ink);
     font-weight: 600;
-    margin-bottom: 0.25rem;
+    margin-bottom: var(--wp-space-1);
   }
   .faq-list dd {
     color: var(--color-ink-muted);

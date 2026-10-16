@@ -16,15 +16,15 @@ const idPrefix = variant === 'menu' ? 'lang-switch' : 'mobile-lang-switch';
 ---
 
 {variant === 'menu' ? (
-  <details class="lang-switch relative" data-testid="lang-switch">
+  <details data-surface="dark" class="lang-switch relative" data-testid="lang-switch">
     <summary
-      class="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-white transition-colors"
+      class="flex cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-ink-muted hover:text-ink transition-colors"
       aria-label={t(lang, 'nav.switchLanguageAria')}
     >
       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
       <span>{LOCALE_META[lang].short}</span>
     </summary>
-    <ul class="lang-switch-menu absolute right-0 top-full mt-3 min-w-44 rounded-xl border border-white/[0.08] py-1.5 shadow-xl">
+    <ul class="lang-switch-menu absolute right-0 top-full mt-3 min-w-44 rounded-xl border border-[color:var(--wp-nav-border)] py-1.5 shadow-xl">
       {SUPPORTED_LOCALES.map((l) => (
         <li>
           <a
@@ -35,8 +35,8 @@ const idPrefix = variant === 'menu' ? 'lang-switch' : 'mobile-lang-switch';
             data-testid={`${idPrefix}-${l}`}
             aria-current={l === lang ? 'true' : undefined}
             class:list={[
-              'block px-4 py-2 text-sm transition-colors hover:bg-white/[0.06] hover:text-white',
-              l === lang ? 'text-white font-semibold' : 'text-ink-muted',
+              'block px-4 py-2 text-sm transition-colors hover:bg-[var(--wp-surface-control-hover)] hover:text-ink',
+              l === lang ? 'text-ink font-semibold' : 'text-ink-muted',
             ]}
           >{LOCALE_META[l].nativeName}</a>
         </li>
@@ -44,7 +44,7 @@ const idPrefix = variant === 'menu' ? 'lang-switch' : 'mobile-lang-switch';
     </ul>
   </details>
 ) : (
-  <nav aria-label={t(lang, 'nav.switchLanguageAria')} class="flex flex-wrap gap-x-4 gap-y-2" data-testid="mobile-lang-switch">
+  <nav data-surface="dark" aria-label={t(lang, 'nav.switchLanguageAria')} class="flex flex-wrap gap-x-4 gap-y-2" data-testid="mobile-lang-switch">
     {SUPPORTED_LOCALES.map((l) => (
       <a
         href={paths[l]}
@@ -53,7 +53,7 @@ const idPrefix = variant === 'menu' ? 'lang-switch' : 'mobile-lang-switch';
         lang={LOCALE_META[l].tag}
         data-testid={`${idPrefix}-${l}`}
         aria-current={l === lang ? 'true' : undefined}
-        class:list={['text-sm transition-colors hover:text-white', l === lang ? 'text-white font-semibold' : 'text-ink-muted']}
+        class:list={['text-sm transition-colors hover:text-ink', l === lang ? 'text-ink font-semibold' : 'text-ink-muted']}
       >{LOCALE_META[l].short}</a>
     ))}
   </nav>
@@ -61,7 +61,7 @@ const idPrefix = variant === 'menu' ? 'lang-switch' : 'mobile-lang-switch';
 
 <style>
   .lang-switch summary::-webkit-details-marker { display: none; }
-  .lang-switch-menu { background: var(--color-brand-darker, #0b122a); }
+  .lang-switch-menu { background: var(--wp-nav-fill); }
 </style>
 
 <script is:inline>

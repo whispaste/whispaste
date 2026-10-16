@@ -62,12 +62,12 @@ const lang = currentLocale(Astro.currentLocale);
 <style>
   .faq-layout {
     display: grid;
-    gap: 2rem;
+    gap: var(--wp-space-8);
   }
   @media (min-width: 1280px) {
     .faq-layout {
       grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-      column-gap: 3rem;
+      column-gap: var(--wp-space-12);
       align-items: start;
     }
     .faq-head {
@@ -80,24 +80,24 @@ const lang = currentLocale(Astro.currentLocale);
   }
   /* Escape hatch from the FAQ into the contact widget (data-contact-open). */
   .faq-ask {
-    margin-top: 2rem;
-    padding-top: 1.5rem;
+    margin-top: var(--wp-space-8);
+    padding-top: var(--wp-space-6);
     border-top: 1px solid color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
     max-width: 24rem;
   }
   .faq-ask__title {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 1.2rem;
+    font-size: var(--wp-font-size-xl);
     color: var(--color-ink);
   }
   .faq-ask__desc {
-    margin-top: 0.35rem;
+    margin-top: var(--wp-space-1);
     color: var(--color-ink-muted);
     line-height: 1.6;
   }
   .faq-ask__cta {
-    margin-top: 1.25rem;
+    margin-top: var(--wp-space-5);
     cursor: pointer;
   }
   .faq-ask__cta svg {
@@ -106,7 +106,7 @@ const lang = currentLocale(Astro.currentLocale);
   }
   .faq-groups {
     display: grid;
-    gap: 2.5rem;
+    gap: var(--wp-space-10);
     max-width: 50rem;
   }
   /* Wide screens: the groups sit side by side instead of one 50rem column
@@ -115,13 +115,13 @@ const lang = currentLocale(Astro.currentLocale);
     .faq-groups {
       max-width: none;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      column-gap: clamp(2.5rem, 4vw, 5rem);
+      column-gap: clamp(var(--wp-space-10), 4vw, 5rem);
       align-items: start;
     }
   }
   .faq-group__title {
-    margin-bottom: 0.5rem;
-    font-size: 0.8125rem;
+    margin-bottom: var(--wp-space-2);
+    font-size: var(--wp-font-size-sm);
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -134,13 +134,13 @@ const lang = currentLocale(Astro.currentLocale);
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 1rem;
-    padding: 1.125rem 0.5rem;
-    margin-inline: -0.5rem;
+    gap: var(--wp-space-4);
+    padding: var(--wp-space-5) var(--wp-space-2);
+    margin-inline: calc(var(--wp-space-2) * -1);
     border-radius: var(--radius-control);
     cursor: pointer;
     list-style: none;
-    font-size: 1.0625rem;
+    font-size: var(--wp-font-size-lg);
     font-weight: 600;
     line-height: 1.4;
     color: var(--color-ink);
@@ -176,8 +176,8 @@ const lang = currentLocale(Astro.currentLocale);
   .faq-row__icon::after { rotate: 90deg; }
   .faq-row[open] .faq-row__icon::after { rotate: 0deg; }
   .faq-row__a {
-    padding: 0 0 1.25rem;
-    font-size: 1rem;
+    padding: 0 0 var(--wp-space-5);
+    font-size: var(--wp-font-size-md);
     line-height: 1.65;
     color: var(--color-ink-muted);
     max-width: var(--measure-lead);

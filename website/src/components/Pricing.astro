@@ -66,19 +66,19 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
 <style>
   .price-grid {
     display: grid;
-    gap: 1rem;
+    gap: var(--wp-space-4);
   }
   @media (min-width: 1024px) {
     .price-grid {
       grid-template-columns: 7fr 5fr;
-      gap: 1.5rem;
+      gap: var(--wp-space-6);
     }
   }
   .price-core,
   .price-get {
-    padding: 1.5rem;
+    padding: var(--wp-space-6);
     border-radius: var(--radius-surface);
-    border: 1px solid rgb(255 255 255 / 0.12);
+    border: 1px solid var(--wp-border-default);
     background: var(--color-brand-card);
     box-shadow: var(--shadow-card);
   }
@@ -90,40 +90,40 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
     border-color: color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
   }
   .price-core__price {
-    font-size: clamp(2rem, 1.5rem + 2vw, 3rem);
+    font-size: var(--wp-font-size-title);
     font-weight: 700;
     line-height: 1.1;
     letter-spacing: -0.02em;
   }
   .price-core__license {
-    margin-top: 0.5rem;
-    font-size: 0.9375rem;
+    margin-top: var(--wp-space-2);
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink-muted);
   }
   .price-chips {
     list-style: none;
-    margin: 1.25rem 0 0;
+    margin: var(--wp-space-5) 0 0;
     padding: 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
   .price-chips li {
-    padding: 0.25rem 0.75rem;
+    padding: var(--wp-space-1) var(--wp-space-3);
     border-radius: var(--radius-pill);
-    border: 1px solid rgb(255 255 255 / 0.1);
-    background: rgb(255 255 255 / 0.03);
-    font-size: 0.8125rem;
+    border: 1px solid var(--wp-border-default);
+    background: var(--wp-surface-control);
+    font-size: var(--wp-font-size-sm);
     font-weight: 500;
     color: var(--color-ink-muted);
   }
   .price-features {
     list-style: none;
-    margin: 1.5rem 0 0;
-    padding: 1.5rem 0 0;
-    border-top: 1px solid rgb(255 255 255 / 0.08);
+    margin: var(--wp-space-6) 0 0;
+    padding: var(--wp-space-6) 0 0;
+    border-top: 1px solid var(--wp-border-default);
     display: grid;
-    gap: 0.75rem 2rem;
+    gap: var(--wp-space-3) var(--wp-space-8);
   }
   @media (min-width: 640px) {
     .price-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -131,14 +131,14 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
   .price-features li {
     display: flex;
     align-items: flex-start;
-    gap: 0.625rem;
-    font-size: 0.9375rem;
+    gap: var(--wp-space-3);
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink-muted);
   }
   .price-features svg {
     width: 1rem;
     height: 1rem;
-    margin-top: 0.2rem;
+    margin-top: var(--wp-space-1);
     flex-shrink: 0;
     color: var(--color-brand-cyan);
   }
@@ -146,7 +146,7 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
   .price-get {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: var(--wp-space-4);
   }
   .price-get__title {
     font-size: var(--type-card-title);
@@ -156,21 +156,21 @@ const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'histo
   .price-get__buttons {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: var(--wp-space-3);
   }
   .price-get__perks {
-    padding-top: 1.25rem;
-    border-top: 1px solid rgb(255 255 255 / 0.08);
+    padding-top: var(--wp-space-5);
+    border-top: 1px solid var(--wp-border-default);
   }
   .price-get__free {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: var(--wp-space-1);
     min-height: 44px;
     margin-top: auto;
-    padding-top: 1rem;
-    border-top: 1px solid rgb(255 255 255 / 0.08);
-    font-size: 0.9375rem;
+    padding-top: var(--wp-space-4);
+    border-top: 1px solid var(--wp-border-default);
+    font-size: var(--wp-font-size-md);
     font-weight: 600;
     color: var(--color-brand-cyan);
     text-decoration: none;

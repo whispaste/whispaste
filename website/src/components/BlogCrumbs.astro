@@ -25,20 +25,20 @@ const { items } = Astro.props;
 
 <style>
   .blog-crumbs {
-    margin-bottom: clamp(2rem, 1.5rem + 2vw, 3.5rem);
-    font-size: 0.875rem;
+    margin-bottom: clamp(var(--wp-space-8), var(--wp-space-6) + 2vw, 3.5rem);
+    font-size: var(--wp-font-size-sm);
     color: var(--color-ink-subtle);
   }
   ol {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
   li {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
     min-width: 0;
   }
   a {

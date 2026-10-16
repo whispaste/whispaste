@@ -80,6 +80,7 @@
       "lead": { "$value": "20px", "$extensions": { "fluid": { "min": "17px", "max": "20px" } } },
       "card-title": { "$value": "21px", "$extensions": { "fluid": { "min": "18px", "max": "21px" } } },
       "h3": { "$value": "28px", "$extensions": { "fluid": { "min": "22px", "max": "28px" } } },
+      "title": { "$value": "48px", "$extensions": { "fluid": { "min": "28px", "max": "48px" } } },
       "h2": { "$value": "84px", "$extensions": { "fluid": { "min": "36px", "max": "84px" } } },
       "h1": { "$value": "100px", "$extensions": { "fluid": { "min": "40px", "max": "100px" } } },
       "display": { "$value": "112px", "$extensions": { "fluid": { "min": "44px", "max": "112px" } } }

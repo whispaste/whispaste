@@ -9,6 +9,8 @@ interface Props {
   class?: string;
 }
 const { class: className = '' } = Astro.props;
+// Unique gradient id per instance, so the graphic can render twice on a page.
+const accentId = `hk-accent-${Math.random().toString(36).slice(2, 8)}`;
 ---
 
 <svg
@@ -20,44 +22,44 @@ const { class: className = '' } = Astro.props;
   data-testid="motion-hotkey"
 >
   <defs>
-    <linearGradient id="hk-accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6FDDF0" />
-      <stop offset="1" stop-color="#0BAACC" />
+    <linearGradient id={accentId} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-fill)" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-strong)" />
     </linearGradient>
   </defs>
 
   <!-- keycaps: the app's default main hotkey, Ctrl+Shift+D (CONTEXT.md §2.5) -->
   <g class="key k1">
-    <rect x="40" y="196" width="80" height="80" rx="16" fill="#0B122A" />
-    <rect x="40" y="186" width="80" height="80" rx="16" fill="#171D53" stroke="rgba(171,184,204,.3)" />
-    <text x="80" y="236" text-anchor="middle" fill="#F0F4FA" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">Ctrl</text>
+    <rect class="hk-core" x="40" y="196" width="80" height="80" rx="16" />
+    <rect class="hk-node" x="40" y="186" width="80" height="80" rx="16" />
+    <text class="hk-label" x="80" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">Ctrl</text>
   </g>
   <g class="key k2">
-    <rect x="130" y="196" width="88" height="80" rx="16" fill="#0B122A" />
-    <rect x="130" y="186" width="88" height="80" rx="16" fill="#171D53" stroke="rgba(171,184,204,.3)" />
-    <text x="174" y="236" text-anchor="middle" fill="#F0F4FA" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">Shift</text>
+    <rect class="hk-core" x="130" y="196" width="88" height="80" rx="16" />
+    <rect class="hk-node" x="130" y="186" width="88" height="80" rx="16" />
+    <text class="hk-label" x="174" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">Shift</text>
   </g>
   <g class="key k3">
-    <rect x="228" y="196" width="76" height="80" rx="16" fill="#0B122A" />
-    <rect x="228" y="186" width="76" height="80" rx="16" fill="#171D53" stroke="url(#hk-accent)" stroke-width="2" />
-    <text x="266" y="236" text-anchor="middle" fill="#6FDDF0" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">D</text>
+    <rect class="hk-core" x="228" y="196" width="76" height="80" rx="16" />
+    <rect class="hk-node" style={`stroke: url(#${accentId})`} x="228" y="186" width="76" height="80" rx="16" stroke-width="2" />
+    <text class="hk-accent-text" x="266" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">D</text>
   </g>
 
   <!-- recording pill -->
   <g class="pill">
-    <rect x="96" y="104" width="140" height="44" rx="22" fill="#171D53" stroke="rgba(111,221,240,.4)" />
-    <circle cx="122" cy="126" r="7" fill="#6FDDF0" />
+    <rect class="hk-pill" x="96" y="104" width="140" height="44" rx="22" />
+    <circle class="hk-dot" cx="122" cy="126" r="7" />
     {[0, 1, 2, 3, 4, 5].map((i) => (
-      <rect class="bar" x={142 + i * 12} y="114" width="6" height="24" rx="3" fill="url(#hk-accent)" style={`--i:${i}`} />
+      <rect class="bar" x={142 + i * 12} y="114" width="6" height="24" rx="3" fill={`url(#${accentId})`} style={`--i:${i}`} />
     ))}
   </g>
 
   <!-- target field -->
-  <rect x="316" y="72" width="136" height="200" rx="16" fill="#0D1936" stroke="rgba(171,184,204,.22)" />
-  <rect x="334" y="96" width="100" height="8" rx="4" fill="rgba(171,184,204,.35)" />
-  <rect x="334" y="116" width="78" height="8" rx="4" fill="rgba(171,184,204,.35)" />
-  <rect class="paste" x="334" y="140" width="100" height="36" rx="8" fill="rgba(111,221,240,.14)" stroke="rgba(111,221,240,.5)" />
-  <rect class="paste" x="344" y="154" width="72" height="8" rx="4" fill="#F0F4FA" />
+  <rect class="hk-target" x="316" y="72" width="136" height="200" rx="16" />
+  <rect class="hk-placeholder" x="334" y="96" width="100" height="8" rx="4" />
+  <rect class="hk-placeholder" x="334" y="116" width="78" height="8" rx="4" />
+  <rect class="paste hk-paste-box" x="334" y="140" width="100" height="36" rx="8" />
+  <rect class="paste hk-label" x="344" y="154" width="72" height="8" rx="4" />
 </svg>
 
 <style>
@@ -67,6 +69,17 @@ const { class: className = '' } = Astro.props;
   .motion-hk .bar,
   .motion-hk .paste { transform-box: fill-box; transform-origin: center; }
   .motion-hk .paste { transform-origin: left center; }
+
+  /* Solid token colours: the graphic must read on dark and light bands. */
+  .motion-hk .hk-core { fill: var(--wp-illustration-core); }
+  .motion-hk .hk-node { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-node-border); }
+  .motion-hk .hk-pill { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-accent); }
+  .motion-hk .hk-label { fill: var(--wp-illustration-text-strong); }
+  .motion-hk .hk-accent-text { fill: var(--wp-illustration-accent); }
+  .motion-hk .hk-dot { fill: var(--wp-illustration-accent-fill); }
+  .motion-hk .hk-target { fill: var(--wp-illustration-fill); stroke: var(--wp-illustration-node-border); }
+  .motion-hk .hk-placeholder { fill: var(--wp-illustration-muted); }
+  .motion-hk .hk-paste-box { fill: var(--wp-illustration-glow); stroke: var(--wp-illustration-accent); }
 
   @media (prefers-reduced-motion: no-preference) {
     .motion-hk .key { animation: hk-press 6s cubic-bezier(0.22, 1, 0.36, 1) infinite; }

@@ -69,6 +69,7 @@ const artRules: readonly { readonly match: RegExp; readonly art: string }[] = [
   { match: /linux|whisper-desktop/, art: "platforms" },
 ];
 const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
+import PageSheet from "../components/PageSheet.astro";
 ---
 
 <SubpageLayout lang={lang} title={seo.title} description={seo.description}>
@@ -94,7 +95,7 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
     </div>
   </PageHero>
 
-  <div class="wp-container page-body">
+  <PageSheet>
     <div class="page-split">
       <article class="landing-content" data-testid="lp-content">
         <slot />
@@ -125,7 +126,7 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
     </div>
 
     {/* Closing CTA; id=lp-cta doubles as the "content read" sentinel. */}
-    <aside id="lp-cta" class="lp-end wp-spot" data-testid="lp-cta">
+    <aside id="lp-cta" class="lp-end wp-spot" data-surface="dark" data-testid="lp-cta">
       <p class="lp-end-title">{hero.heading}</p>
       <a href={cta.href} class="wp-cta">
         <span>{cta.label}</span>
@@ -135,7 +136,7 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
       </a>
       <p class="lp-rail-trust">{t(lang, "explainer.cta.trust")}</p>
     </aside>
-  </div>
+  </PageSheet>
 
   <script>
     // "Content read" engagement event (cookieless, once): fires when the
@@ -168,38 +169,38 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
 
   /* Rail: compact CTA card + related links. Sticky via .page-split__rail. */
   .lp-rail-card {
-    padding: 1.5rem;
+    padding: var(--wp-space-6);
     border-radius: var(--wp-radius-surface);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
     background: color-mix(in srgb, var(--color-brand-cyan) 5%, transparent);
   }
   .lp-rail-kicker {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: var(--wp-font-size-xs);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--color-ink-subtle);
-    margin-bottom: 0.9rem;
+    margin-bottom: var(--wp-space-4);
   }
   .lp-rail-cta {
     width: 100%;
     justify-content: center;
   }
   .lp-rail-trust {
-    margin-top: 0.9rem;
-    font-size: 0.85rem;
+    margin-top: var(--wp-space-4);
+    font-size: var(--wp-font-size-sm);
     color: var(--color-ink-subtle);
   }
   .lp-related {
-    margin-top: 2rem;
+    margin-top: var(--wp-space-8);
   }
   .lp-related ul {
     display: grid;
-    gap: 0.25rem;
+    gap: var(--wp-space-1);
   }
   .lp-related a {
     display: block;
-    padding: 0.55rem 0;
+    padding: var(--wp-space-2) 0;
     border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
     color: var(--color-ink-muted);
     transition: color var(--dur-base) var(--ease-flow);
@@ -217,7 +218,7 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
   .landing-content :global(> section),
   .landing-content :global(> * > section) {
     counter-increment: lp-section;
-    padding: 2.5rem 0;
+    padding: var(--wp-space-10) 0;
     border-top: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
   }
   .landing-content :global(> section:first-child) {
@@ -226,31 +227,31 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
   }
   /* The TL;DR opener reads as a pull quote above the numbered sections. */
   .landing-content :global(> .tldr) {
-    font-size: clamp(1.1rem, 1rem + 0.4vw, 1.35rem);
+    font-size: var(--wp-font-size-card-title);
     line-height: 1.6;
     color: var(--color-ink);
-    padding-left: 1.25rem;
-    margin-bottom: 2.5rem;
+    padding-left: var(--wp-space-5);
+    margin-bottom: var(--wp-space-10);
     border-left: 2px solid var(--color-brand-cyan);
     max-width: 62ch;
   }
   .landing-content :global(section h2) {
     font-family: var(--font-display);
     font-weight: 750;
-    font-size: clamp(1.6rem, 1.2rem + 1.2vw, 2.35rem);
+    font-size: var(--wp-font-size-title);
     line-height: 1.12;
     letter-spacing: -0.02em;
     color: var(--color-ink);
-    margin-bottom: 1rem;
+    margin-bottom: var(--wp-space-4);
     max-width: 40ch;
   }
   .landing-content :global(> section > h2::before),
   .landing-content :global(> * > section > h2::before) {
     content: counter(lp-section, decimal-leading-zero);
     display: block;
-    margin-bottom: 0.6rem;
+    margin-bottom: var(--wp-space-2);
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     font-weight: 500;
     letter-spacing: 0.14em;
     color: var(--color-brand-cyan);
@@ -258,9 +259,9 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
   .landing-content :global(section h3) {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 1.2rem;
+    font-size: var(--wp-font-size-xl);
     color: var(--color-ink);
-    margin: 1.5rem 0 0.5rem;
+    margin: var(--wp-space-6) 0 var(--wp-space-2);
   }
   .landing-content :global(section p) {
     color: var(--color-ink-muted);
@@ -268,37 +269,37 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
     max-width: 72ch;
   }
   .landing-content :global(section p + p) {
-    margin-top: 0.85rem;
+    margin-top: var(--wp-space-3);
   }
   .landing-content :global(section ul) {
     color: var(--color-ink-muted);
     line-height: 1.65;
-    margin-top: 0.85rem;
-    padding-left: 1.35rem;
+    margin-top: var(--wp-space-3);
+    padding-left: var(--wp-space-5);
     list-style: disc;
     max-width: 72ch;
   }
   .landing-content :global(section ul li + li) {
-    margin-top: 0.4rem;
+    margin-top: var(--wp-space-2);
   }
 
   /* Closing CTA: a wide statement band, not a small centered box. */
   .lp-end {
-    margin-top: 3rem;
-    padding: clamp(2rem, 4vw, 3.5rem);
+    margin-top: var(--wp-space-12);
+    padding: clamp(var(--wp-space-8), 4vw, 3.5rem);
     border-radius: var(--wp-radius-panel);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 20%, transparent);
     background:
       radial-gradient(60% 120% at 100% 0%, color-mix(in srgb, var(--color-brand-cyan) 14%, transparent), transparent 70%),
-      var(--surface-deep);
+      var(--wp-surface-band);
     display: grid;
-    gap: 1.25rem;
+    gap: var(--wp-space-5);
     justify-items: start;
   }
   .lp-end-title {
     font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(1.6rem, 1.1rem + 1.8vw, 3rem);
+    font-size: var(--wp-font-size-title);
     line-height: 1.08;
     letter-spacing: -0.025em;
     color: var(--color-ink);

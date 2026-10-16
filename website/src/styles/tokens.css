@@ -54,6 +54,7 @@
   --wp-font-size-lead: clamp(1.0625rem, 1.0147rem + 0.1961vw, 1.25rem);
   --wp-font-size-card-title: clamp(1.125rem, 1.0772rem + 0.1961vw, 1.3125rem);
   --wp-font-size-h3: clamp(1.375rem, 1.2794rem + 0.3922vw, 1.75rem);
+  --wp-font-size-title: clamp(1.75rem, 1.4314rem + 1.3072vw, 3rem);
   --wp-font-size-h2: clamp(2.25rem, 1.4853rem + 3.1373vw, 5.25rem);
   --wp-font-size-h1: clamp(2.5rem, 1.5441rem + 3.9216vw, 6.25rem);
   --wp-font-size-display: clamp(2.75rem, 1.6667rem + 4.4444vw, 7rem);
@@ -130,9 +131,9 @@
   --wp-surface-page: var(--wp-color-navy-900);
   --wp-surface-band: var(--wp-color-navy-600);
   --wp-surface-band-alt: var(--wp-color-navy-500);
-  --wp-surface-sunken: var(--wp-color-navy-950);
-  --wp-surface-card: var(--wp-color-navy-600);
-  --wp-surface-card-hover: var(--wp-color-navy-800);
+  --wp-surface-sunken: var(--wp-color-navy-900);
+  --wp-surface-card: #F0F4FA0F;
+  --wp-surface-card-hover: #F0F4FA17;
   --wp-surface-floating: var(--wp-color-navy-600);
   --wp-surface-control: #FFFFFF0A;
   --wp-surface-control-hover: #FFFFFF14;
@@ -151,6 +152,8 @@
   --wp-border-control: #F0F4FA29;
   --wp-accent-default: var(--wp-color-cyan-300);
   --wp-accent-strong: var(--wp-color-cyan-500);
+  --wp-accent-fill: var(--wp-color-cyan-300);
+  --wp-accent-on-fill: var(--wp-color-navy-900);
   --wp-accent-soft: #6FDDF01F;
   --wp-accent-glow: #6FDDF029;
   --wp-highlight-default: var(--wp-color-amber-400);
@@ -197,6 +200,8 @@
   --wp-border-control: var(--wp-color-glacier-500);
   --wp-accent-default: var(--wp-color-cyan-700);
   --wp-accent-strong: var(--wp-color-cyan-500);
+  --wp-accent-fill: var(--wp-color-cyan-400);
+  --wp-accent-on-fill: var(--wp-color-navy-900);
   --wp-accent-soft: #0BAACC1F;
   --wp-accent-glow: #0BAACC1A;
   --wp-highlight-default: var(--wp-color-amber-400);
@@ -226,6 +231,8 @@
   --wp-layout-section-head-gap: clamp(2.5rem, 2.0165rem + 1.9835vw, 4rem);
   --wp-layout-grid-gap: clamp(1.25rem, 1.0588rem + 0.7843vw, 2rem);
   --wp-layout-band-fade: clamp(80px, 12vh, 220px);
+  --wp-layout-band-inset: clamp(0.5rem, 0.3725rem + 0.5229vw, 1rem);
+  --wp-layout-band-radius: clamp(1.25rem, 0.9314rem + 1.3072vw, 2.5rem);
   --wp-type-display-size: var(--wp-font-size-display);
   --wp-type-display-weight: var(--wp-font-weight-heavy);
   --wp-type-display-line-height: var(--wp-font-line-height-tight);
@@ -394,8 +401,17 @@
   --wp-illustration-stroke: var(--wp-text-secondary);
   --wp-illustration-stroke-soft: var(--wp-border-strong);
   --wp-illustration-fill: var(--wp-surface-card);
+  --wp-illustration-node: var(--wp-surface-floating);
+  --wp-illustration-node-border: var(--wp-border-default);
+  --wp-illustration-core: var(--wp-color-navy-800);
+  --wp-illustration-line: var(--wp-border-strong);
+  --wp-illustration-text: var(--wp-text-secondary);
+  --wp-illustration-text-strong: var(--wp-text-primary);
+  --wp-illustration-muted: var(--wp-text-muted);
   --wp-illustration-accent: var(--wp-accent-default);
   --wp-illustration-accent-strong: var(--wp-accent-strong);
+  --wp-illustration-accent-fill: var(--wp-accent-fill);
+  --wp-illustration-glow: var(--wp-accent-glow);
   --wp-illustration-highlight: var(--wp-highlight-default);
   --wp-progress-track: var(--wp-border-subtle);
   --wp-progress-fill: var(--wp-accent-default);

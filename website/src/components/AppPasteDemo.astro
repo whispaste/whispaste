@@ -174,16 +174,18 @@ const scenes = [
 </section>
 
 <style>
+  /* mockup-colours:start: chat avatar palette belongs to the depicted apps */
   #app-paste-demo {
     --apd-avatar-a: #7c5cd9;
     --apd-avatar-b: #3b6fba;
   }
+  /* mockup-colours:end */
 
   /* ---- Stage: steps 4/12, scene 8/12 from lg; stacked below ---- */
   .apd-stage {
     display: grid;
-    gap: 2rem;
-    padding: clamp(1.25rem, 0.75rem + 2vw, 2.5rem);
+    gap: var(--wp-space-8);
+    padding: clamp(var(--wp-space-5), var(--wp-space-3) + 2vw, var(--wp-space-10));
     border-radius: var(--radius-surface);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 16%, transparent);
     background: color-mix(in srgb, var(--color-brand-card) 72%, transparent);
@@ -192,7 +194,7 @@ const scenes = [
   @media (min-width: 1024px) {
     .apd-stage {
       grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
-      gap: clamp(2rem, 1rem + 2vw, 3.5rem);
+      gap: clamp(var(--wp-space-8), var(--wp-space-4) + 2vw, 3.5rem);
       align-items: center;
     }
   }
@@ -210,18 +212,18 @@ const scenes = [
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 1.5rem;
+    gap: var(--wp-space-6);
   }
   @media (min-width: 640px) and (max-width: 1023px) {
     .apd-steps {
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1.25rem;
+      gap: var(--wp-space-5);
     }
   }
   .apd-step {
     display: grid;
     grid-template-columns: 2rem minmax(0, 1fr);
-    gap: 0.875rem;
+    gap: var(--wp-space-4);
     align-items: start;
   }
   .apd-num {
@@ -232,15 +234,15 @@ const scenes = [
     height: 2rem;
     border-radius: 50%;
     font-weight: 700;
-    font-size: 0.875rem;
+    font-size: var(--wp-font-size-sm);
     color: var(--color-brand-cyan);
     background: color-mix(in srgb, var(--color-brand-cyan) 14%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 34%, transparent);
   }
   .apd-step-body {
     display: grid;
-    gap: 0.5rem;
-    padding-top: 0.25rem;
+    gap: var(--wp-space-2);
+    padding-top: var(--wp-space-1);
     min-width: 0;
   }
   .apd-step-title {
@@ -252,7 +254,7 @@ const scenes = [
   .apd-step-note,
   .apd-spoken {
     margin: 0;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.5;
     color: var(--color-ink-muted);
   }
@@ -260,10 +262,10 @@ const scenes = [
   .apd-hotkey {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: var(--wp-space-1);
     justify-self: start;
     font-family: var(--font-mono);
-    font-size: 0.8125rem;
+    font-size: var(--wp-font-size-sm);
   }
   .apd-key--mod-cmd {
     display: none;
@@ -275,7 +277,7 @@ const scenes = [
     display: inline;
   }
   .apd-key {
-    padding: 0.15rem 0.45rem;
+    padding: var(--wp-space-1) var(--wp-space-2);
     border-radius: var(--radius-chip);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 34%, var(--color-brand-border));
     background: color-mix(in srgb, var(--color-brand-cyan) 12%, var(--color-brand-card));
@@ -288,37 +290,38 @@ const scenes = [
   /* ---- Scene ---- */
   .apd-scene {
     display: grid;
-    gap: 1rem;
+    gap: var(--wp-space-4);
     min-width: 0;
   }
   .apd-switch {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
   .apd-switch-btn {
     min-height: 44px;
-    padding: 0.5rem 1.125rem;
+    padding: var(--wp-space-2) var(--wp-space-5);
     border-radius: var(--radius-pill);
-    border: 1px solid rgb(255 255 255 / 0.12);
+    border: 1px solid var(--wp-border-control);
     background: transparent;
     color: var(--color-ink-muted);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     font-weight: 600;
     cursor: pointer;
     transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
   }
   .apd-switch-btn:hover { color: var(--color-ink); }
   .apd-switch-btn[aria-pressed="true"] {
-    color: var(--color-brand-darker);
-    background: var(--color-brand-cyan);
-    border-color: var(--color-brand-cyan);
+    color: var(--wp-accent-on-fill);
+    background: var(--wp-accent-fill);
+    border-color: var(--wp-accent-fill);
   }
   .apd-switch-btn:focus-visible {
-    outline: 2px solid var(--color-brand-cyan);
+    outline: 2px solid var(--wp-focus-ring);
     outline-offset: 2px;
   }
 
+  /* mockup-colours:start: the chat, mail and editor windows imitate the depicted apps */
   .apd-window {
     position: relative;
     border-radius: var(--radius-card);
@@ -327,26 +330,26 @@ const scenes = [
     overflow: hidden;
   }
   .apd-chrome {
-    padding: 0.75rem 1.125rem;
+    padding: var(--wp-space-3) var(--wp-space-5);
     border-bottom: 1px solid rgb(255 255 255 / 0.08);
     background: rgb(255 255 255 / 0.03);
   }
   .apd-appname {
-    font-size: 0.875rem;
+    font-size: var(--wp-font-size-sm);
     font-weight: 600;
     color: var(--color-ink-muted);
   }
   .apd-panel-body {
     display: grid;
-    gap: 0.875rem;
-    padding: 1.25rem 1.125rem 4.25rem;
+    gap: var(--wp-space-4);
+    padding: var(--wp-space-5) var(--wp-space-5) 4.25rem;
     min-height: 15rem;
     align-content: start;
   }
   .apd-msg-in {
     display: flex;
     align-items: flex-start;
-    gap: 0.625rem;
+    gap: var(--wp-space-3);
   }
   .apd-avatar {
     flex-shrink: 0;
@@ -356,26 +359,26 @@ const scenes = [
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.8125rem;
+    font-size: var(--wp-font-size-sm);
     font-weight: 700;
     color: #fff;
     /* AA-safe for the white initial (≥4.78:1 across the gradient). */
     background: linear-gradient(135deg, var(--apd-avatar-a), var(--apd-avatar-b));
   }
   .apd-bubble {
-    font-size: 1rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.45;
     color: var(--color-ink);
     background: rgb(255 255 255 / 0.06);
-    border-radius: 4px 14px 14px 14px;
-    padding: 0.5rem 0.875rem;
+    border-radius: var(--wp-radius-chip) var(--wp-radius-card) var(--wp-radius-card) var(--wp-radius-card);
+    padding: var(--wp-space-2) var(--wp-space-4);
   }
   .apd-chat .apd-field { margin-top: 2.5rem; }
   .apd-field {
-    padding: 0.75rem 0.875rem;
+    padding: var(--wp-space-3) var(--wp-space-4);
     border-radius: var(--radius-control);
     border: 1px solid rgb(255 255 255 / 0.1);
-    font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+    font-size: var(--wp-font-size-lead);
     line-height: 1.5;
     color: var(--color-ink);
   }
@@ -383,17 +386,18 @@ const scenes = [
     border-color: color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-cyan) 10%, transparent);
   }
+  /* mockup-colours:end */
   .apd-field--tall { min-height: 7.5rem; }
   .apd-mail-subject {
     margin: 0;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink-muted);
   }
   .apd-code {
     grid-template-columns: 2rem minmax(0, 1fr);
-    gap: 0.375rem 0.75rem;
+    gap: var(--wp-space-2) var(--wp-space-3);
     font-family: var(--font-mono);
-    font-size: 0.875rem;
+    font-size: var(--wp-font-size-sm);
   }
   .apd-code code {
     color: var(--color-ink-muted);
@@ -407,10 +411,10 @@ const scenes = [
   }
   .apd-field--comment {
     font-family: var(--font-sans);
-    font-size: 1rem;
+    font-size: var(--wp-font-size-md);
   }
   .apd-comment-mark {
-    margin-right: 0.375rem;
+    margin-right: var(--wp-space-2);
     font-family: var(--font-mono);
     color: var(--color-brand-cyan);
   }
@@ -420,7 +424,7 @@ const scenes = [
     height: 1.1em;
     margin-left: 2px;
     vertical-align: text-bottom;
-    background: var(--color-brand-cyan);
+    background: var(--wp-accent-fill);
     animation: apd-blink 1.1s steps(1) infinite;
   }
   @keyframes apd-blink {
@@ -433,10 +437,10 @@ const scenes = [
     bottom: 1rem;
     display: inline-flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.3rem 0.75rem;
+    gap: var(--wp-space-2);
+    padding: var(--wp-space-1) var(--wp-space-3);
     border-radius: var(--radius-pill);
-    font-size: 0.8125rem;
+    font-size: var(--wp-font-size-sm);
     font-weight: 600;
     color: var(--color-brand-cyan);
     background: color-mix(in srgb, var(--color-brand-cyan) 14%, transparent);
@@ -465,9 +469,9 @@ const scenes = [
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 0.4rem;
-    margin: 1.5rem 0 0;
-    font-size: 0.9375rem;
+    gap: var(--wp-space-2);
+    margin: var(--wp-space-6) 0 0;
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink-muted);
   }
   .apd-callout svg {

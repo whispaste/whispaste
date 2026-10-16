@@ -52,6 +52,7 @@ const lang = currentLocale(Astro.currentLocale);
     margin: 0;
     width: 100%;
   }
+  /* mockup-colours:start: the mail window imitates the depicted app */
   .hx-window {
     border-radius: var(--radius-surface);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
@@ -66,19 +67,19 @@ const lang = currentLocale(Astro.currentLocale);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    padding: 0.875rem 1.25rem;
+    gap: var(--wp-space-4);
+    padding: var(--wp-space-4) var(--wp-space-5);
     border-bottom: 1px solid rgb(255 255 255 / 0.08);
     background: rgb(255 255 255 / 0.03);
   }
   .hx-title {
     font-weight: 600;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink);
   }
   .hx-dots {
     display: inline-flex;
-    gap: 0.4rem;
+    gap: var(--wp-space-2);
   }
   .hx-dots i {
     width: 0.625rem;
@@ -88,21 +89,21 @@ const lang = currentLocale(Astro.currentLocale);
   }
   .hx-body {
     display: grid;
-    gap: 0.625rem;
-    padding: 1.25rem;
+    gap: var(--wp-space-3);
+    padding: var(--wp-space-5);
   }
   .hx-field {
     display: grid;
     grid-template-columns: 5.5rem minmax(0, 1fr);
     align-items: center;
-    gap: 0.75rem;
-    font-size: 0.9375rem;
+    gap: var(--wp-space-3);
+    font-size: var(--wp-font-size-md);
   }
   .hx-field-label {
     color: var(--color-ink-muted);
   }
   .hx-field-value {
-    padding: 0.5rem 0.75rem;
+    padding: var(--wp-space-2) var(--wp-space-3);
     border-radius: var(--radius-control);
     border: 1px solid rgb(255 255 255 / 0.1);
     color: var(--color-ink);
@@ -111,30 +112,31 @@ const lang = currentLocale(Astro.currentLocale);
     white-space: nowrap;
   }
   .hx-editor {
-    margin-top: 0.375rem;
+    margin-top: var(--wp-space-2);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    gap: 1.5rem;
+    gap: var(--wp-space-6);
     min-height: 13rem;
-    padding: 1rem 1.125rem;
+    padding: var(--wp-space-4) var(--wp-space-5);
     border-radius: var(--radius-card);
     border: 1px solid rgb(255 255 255 / 0.1);
     background: rgb(11 18 42 / 0.45);
   }
   .hx-text {
     margin: 0;
-    font-size: clamp(1rem, 0.95rem + 0.3vw, 1.1875rem);
+    font-size: var(--wp-font-size-lead);
     line-height: 1.6;
     color: var(--color-ink);
   }
+  /* mockup-colours:end */
   .hx-caret {
     display: inline-block;
     width: 2px;
     height: 1.15em;
     margin-left: 2px;
     vertical-align: text-bottom;
-    background: var(--color-brand-cyan);
+    background: var(--wp-accent-fill);
     animation: hx-blink 1.1s steps(1) infinite;
   }
   @keyframes hx-blink {
@@ -145,7 +147,7 @@ const lang = currentLocale(Astro.currentLocale);
     display: flex;
     justify-content: center;
     margin-top: -5.25rem;
-    margin-bottom: 2rem;
+    margin-bottom: var(--wp-space-8);
     pointer-events: none;
   }
   /* Fixed 346×80 logical canvas (scaled by dpr in JS); the renderer paints
@@ -157,31 +159,31 @@ const lang = currentLocale(Astro.currentLocale);
     height: auto;
   }
   .hx-caption {
-    margin-top: 0.25rem;
+    margin-top: var(--wp-space-1);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 0.5rem 1.25rem;
-    font-size: 0.875rem;
+    gap: var(--wp-space-2) var(--wp-space-5);
+    font-size: var(--wp-font-size-sm);
     color: var(--color-ink-subtle);
   }
   .hx-demo-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.375rem;
+    gap: var(--wp-space-2);
     min-height: 44px;
     font-weight: 600;
-    color: var(--color-brand-cyan);
+    color: var(--wp-text-link);
     text-decoration: none;
     border-radius: var(--radius-chip);
-    transition: color var(--dur-fast, 0.15s) ease;
+    transition: color var(--dur-fast) ease;
   }
   .hx-demo-link:hover {
     color: var(--color-ink);
   }
   .hx-demo-link:focus-visible {
-    outline: 2px solid var(--color-brand-cyan);
+    outline: 2px solid var(--wp-focus-ring);
     outline-offset: 2px;
   }
   .hx-demo-link svg {
@@ -193,7 +195,7 @@ const lang = currentLocale(Astro.currentLocale);
       grid-template-columns: 4.25rem minmax(0, 1fr);
     }
     .hx-body {
-      padding: 1rem;
+      padding: var(--wp-space-4);
     }
     /* Reserve the bottom strip for the overlay pill so it never covers text. */
     .hx-editor {
@@ -202,7 +204,7 @@ const lang = currentLocale(Astro.currentLocale);
     }
     .hx-overlay {
       margin-top: -5.5rem;
-      margin-bottom: 1.25rem;
+      margin-bottom: var(--wp-space-5);
     }
   }
   @media (prefers-reduced-motion: reduce) {

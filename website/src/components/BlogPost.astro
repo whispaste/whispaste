@@ -102,30 +102,30 @@ const articleSchema = {
   /* ---- Header: editorial, wide title, measured lead ---- */
   .post-head {
     max-width: 64rem;
-    margin-bottom: clamp(2rem, 1.5rem + 2vw, 3.5rem);
+    margin-bottom: clamp(var(--wp-space-8), var(--wp-space-6) + 2vw, 3.5rem);
   }
   .post-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 0.5em;
     font-family: var(--font-mono);
-    font-size: 0.8125rem;
+    font-size: var(--wp-font-size-sm);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-brand-cyan);
   }
   .post-title {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
     font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(2.25rem, 1.4rem + 3.4vw, 4.75rem);
+    font-size: var(--wp-font-size-h2);
     line-height: 1.04;
     letter-spacing: -0.035em;
     color: var(--color-ink);
     text-wrap: balance;
   }
   .post-lead {
-    margin-top: 1.5rem;
+    margin-top: var(--wp-space-6);
     max-width: var(--measure-lead);
     font-size: var(--type-lead);
     line-height: 1.6;
@@ -136,8 +136,8 @@ const articleSchema = {
   /* ---- Body: one reading column; on wide screens TOC | text | aside ---- */
   .post-layout {
     display: grid;
-    gap: clamp(2.5rem, 2rem + 2vw, 4rem);
-    margin-top: clamp(2.5rem, 2rem + 2vw, 4.5rem);
+    gap: clamp(var(--wp-space-10), var(--wp-space-8) + 2vw, var(--wp-space-16));
+    margin-top: clamp(var(--wp-space-10), var(--wp-space-8) + 2vw, 4.5rem);
   }
   .post-body {
     max-width: 46rem;
@@ -150,7 +150,7 @@ const articleSchema = {
     .post-layout {
       grid-template-columns: minmax(12rem, 1fr) minmax(0, 46rem) minmax(16rem, 1fr);
       align-items: start;
-      gap: clamp(3rem, 4vw, 6rem);
+      gap: clamp(var(--wp-space-12), 4vw, var(--wp-space-24));
     }
     .post-toc {
       display: block;
@@ -167,9 +167,9 @@ const articleSchema = {
     }
   }
   .post-toc-title {
-    margin-bottom: 0.875rem;
+    margin-bottom: var(--wp-space-4);
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -177,15 +177,15 @@ const articleSchema = {
   }
   .post-toc ol {
     display: grid;
-    gap: 0.25rem;
-    border-left: 1px solid rgb(255 255 255 / 0.08);
+    gap: var(--wp-space-1);
+    border-left: 1px solid var(--wp-border-default);
   }
   .post-toc a {
     display: block;
     margin-left: -1px;
-    padding: 0.35rem 0 0.35rem 1rem;
+    padding: var(--wp-space-1) 0 var(--wp-space-1) var(--wp-space-4);
     border-left: 1px solid transparent;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.4;
     color: var(--color-ink-muted);
     transition: color var(--dur-base) var(--ease-flow), border-color var(--dur-base) var(--ease-flow);
@@ -199,11 +199,11 @@ const articleSchema = {
     scroll-margin-top: 7.5rem;
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: clamp(1.5rem, 1.3rem + 0.7vw, 2rem);
+    font-size: var(--wp-font-size-h3);
     line-height: 1.2;
     letter-spacing: -0.02em;
     color: var(--color-ink);
-    margin: 2.75rem 0 0.875rem;
+    margin: 2.75rem 0 var(--wp-space-4);
     text-wrap: balance;
   }
   .post-body > :global(:first-child) {
@@ -211,18 +211,18 @@ const articleSchema = {
   }
   .post-body :global(p),
   .post-body :global(li) {
-    font-size: 1.0625rem;
+    font-size: var(--wp-font-size-lg);
     color: var(--color-ink-muted);
     line-height: 1.75;
     text-wrap: pretty;
   }
   .post-body :global(p + p) {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
   }
   .post-body :global(ul),
   .post-body :global(ol) {
-    margin-top: 1rem;
-    padding-left: 1.35rem;
+    margin-top: var(--wp-space-4);
+    padding-left: var(--wp-space-5);
   }
   .post-body :global(ul) {
     list-style: disc;
@@ -234,7 +234,7 @@ const articleSchema = {
     color: var(--color-brand-cyan);
   }
   .post-body :global(li + li) {
-    margin-top: 0.5rem;
+    margin-top: var(--wp-space-2);
   }
   .post-body :global(strong) {
     color: var(--color-ink);
@@ -260,44 +260,44 @@ const articleSchema = {
   /* ---- Aside: download CTA + translate hand-off ---- */
   .post-aside {
     display: grid;
-    gap: 1.25rem;
+    gap: var(--wp-space-5);
   }
   .post-aside :global(.translate-form) {
     margin-top: 0;
   }
   .post-cta {
-    padding: 1.5rem;
+    padding: var(--wp-space-6);
     border-radius: var(--radius-surface);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 25%, transparent);
     background:
       radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--color-brand-cyan) 12%, transparent), transparent 70%),
-      rgb(255 255 255 / 0.02);
+      var(--wp-surface-control);
   }
   .post-cta-title {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 1.25rem;
+    font-size: var(--wp-font-size-xl);
     letter-spacing: -0.015em;
     color: var(--color-ink);
   }
   .post-cta-text {
-    margin-top: 0.5rem;
-    font-size: 0.9375rem;
+    margin-top: var(--wp-space-2);
+    font-size: var(--wp-font-size-md);
     line-height: 1.6;
     color: var(--color-ink-muted);
   }
   .post-cta-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
     min-height: 44px;
-    margin-top: 1.125rem;
-    padding: 0.625rem 1.25rem;
+    margin-top: var(--wp-space-5);
+    padding: var(--wp-space-3) var(--wp-space-5);
     border-radius: var(--radius-pill);
     background: var(--wp-button-primary-fill);
     color: var(--wp-button-primary-text);
     font-weight: 700;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--color-brand-cyan) 70%, transparent);
     transition: transform var(--dur-base) var(--ease-flow);
   }
@@ -315,20 +315,20 @@ const articleSchema = {
   /* ---- More posts + back link ---- */
   .post-more {
     margin-top: var(--section-pad-y);
-    padding-top: clamp(2.5rem, 2rem + 2vw, 4rem);
-    border-top: 1px solid rgb(255 255 255 / 0.06);
+    padding-top: clamp(var(--wp-space-10), var(--wp-space-8) + 2vw, var(--wp-space-16));
+    border-top: 1px solid var(--wp-border-subtle);
   }
   .post-more-title {
-    margin-bottom: clamp(1.5rem, 1rem + 1.5vw, 2.5rem);
+    margin-bottom: clamp(var(--wp-space-6), var(--wp-space-4) + 1.5vw, var(--wp-space-10));
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: clamp(1.75rem, 1.3rem + 1.6vw, 3rem);
+    font-size: var(--wp-font-size-title);
     letter-spacing: -0.025em;
     color: var(--color-ink);
   }
   .post-more-grid {
     display: grid;
-    gap: clamp(1rem, 0.5rem + 1.25vw, 2rem);
+    gap: clamp(var(--wp-space-4), var(--wp-space-2) + 1.25vw, var(--wp-space-8));
   }
   @media (min-width: 768px) {
     .post-more-grid {
@@ -341,8 +341,8 @@ const articleSchema = {
     }
   }
   .post-back {
-    margin-top: clamp(2.5rem, 2rem + 2vw, 4rem);
-    font-size: 0.9375rem;
+    margin-top: clamp(var(--wp-space-10), var(--wp-space-8) + 2vw, var(--wp-space-16));
+    font-size: var(--wp-font-size-md);
   }
   .post-back a {
     color: var(--color-ink-muted);

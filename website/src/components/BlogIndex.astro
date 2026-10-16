@@ -50,7 +50,7 @@ const breadcrumbs = [
      so a short list fills the frame instead of leaving empty tracks. */
   .blog-grid {
     display: grid;
-    gap: clamp(1rem, 0.5rem + 1.25vw, 2rem);
+    gap: clamp(var(--wp-space-4), var(--wp-space-2) + 1.25vw, var(--wp-space-8));
   }
   @media (min-width: 768px) {
     .blog-grid {

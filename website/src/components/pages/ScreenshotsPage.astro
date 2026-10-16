@@ -19,6 +19,7 @@ const breadcrumbItems = [
   { name: t(lang, 'breadcrumb.home'), item: localePath(lang, '') },
   { name: t(lang, 'breadcrumb.screenshots'), item: localePath(lang, 'screenshots') },
 ];
+import PageSheet from "../PageSheet.astro";
 ---
 
 <SubpageLayout lang={lang} title={t(lang, 'meta.title.screenshots')} description={t(lang, 'meta.description.screenshots')}>
@@ -37,9 +38,9 @@ const breadcrumbItems = [
     </a>
   </PageHero>
 
-  <div class="wp-container page-body">
+  <PageSheet>
     <ScreenshotGallery />
-  </div>
+  </PageSheet>
 
   <BreadcrumbListSchema items={breadcrumbItems} />
 </SubpageLayout>

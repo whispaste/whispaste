@@ -1,0 +1,20 @@
+---
+/**
+ * Body of every subpage: a light glacier panel that rises over the dark stage
+ * below the PageHero, the same inset, rounded band the landing uses. Dark
+ * chrome inside (closing CTA, device mock-ups) sets data-surface="dark" on
+ * itself.
+ */
+---
+
+<section class="wp-band page-sheet" data-surface="light" data-testid="page-sheet">
+  <div class="wp-container page-body">
+    <slot />
+  </div>
+</section>
+
+<style>
+  .page-sheet {
+    padding-top: var(--wp-layout-section-pad-y);
+  }
+</style>

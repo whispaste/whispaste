@@ -7,7 +7,9 @@
     "section-pad-y": { "$value": "104px", "$extensions": { "fluid": { "min": "60px", "max": "104px", "maxVw": "1440px" } } },
     "section-head-gap": { "$value": "64px", "$extensions": { "fluid": { "min": "40px", "max": "64px", "maxVw": "1600px" } } },
     "grid-gap": { "$value": "32px", "$extensions": { "fluid": { "min": "20px", "max": "32px" } } },
-    "band-fade": { "$value": "clamp(80px, 12vh, 220px)", "$type": "string", "$description": "Feathered top/bottom edge of dark bands over the wash." }
+    "band-fade": { "$value": "clamp(80px, 12vh, 220px)", "$type": "string", "$description": "Feathered top/bottom edge of dark bands over the wash." },
+    "band-inset": { "$value": "16px", "$extensions": { "fluid": { "min": "8px", "max": "16px" } }, "$description": "Side inset of light bands: they sit on the dark stage as panels, never as full-bleed straight cuts." },
+    "band-radius": { "$value": "40px", "$extensions": { "fluid": { "min": "20px", "max": "40px" } }, "$description": "Corner radius of light band panels (reference: Wispr Flow's rising panel)." }
   },
   "type": {
     "display": {
@@ -238,11 +240,21 @@
     "pill-border": { "$type": "color", "$value": "#6FDDF073" }
   },
   "illustration": {
+    "$description": "Motion graphics and diagrams. Every SVG colour reads one of these, so a graphic adapts to the band it sits on.",
     "stroke": { "$type": "color", "$value": "{text.secondary}" },
     "stroke-soft": { "$type": "color", "$value": "{border.strong}" },
     "fill": { "$type": "color", "$value": "{surface.card}" },
+    "node": { "$type": "color", "$value": "{surface.floating}", "$description": "Opaque node/label bodies (white on light, navy on dark)." },
+    "node-border": { "$type": "color", "$value": "{border.default}" },
+    "core": { "$type": "color", "$value": "{color.navy.800}", "$description": "The one dark hero object of a graphic (chip, device), same in both modes." },
+    "line": { "$type": "color", "$value": "{border.strong}", "$description": "Connectors and paths." },
+    "text": { "$type": "color", "$value": "{text.secondary}" },
+    "text-strong": { "$type": "color", "$value": "{text.primary}" },
+    "muted": { "$type": "color", "$value": "{text.muted}", "$description": "Inactive dots and bars." },
     "accent": { "$type": "color", "$value": "{accent.default}" },
     "accent-strong": { "$type": "color", "$value": "{accent.strong}" },
+    "accent-fill": { "$type": "color", "$value": "{accent.fill}", "$description": "Active dots, the recording bar, the core of the chip." },
+    "glow": { "$type": "color", "$value": "{accent.glow}" },
     "highlight": { "$type": "color", "$value": "{highlight.default}" }
   },
   "progress": {

@@ -72,7 +72,7 @@ const paths = [
 <style>
   .privacy-layout {
     display: grid;
-    gap: 2rem;
+    gap: var(--wp-space-8);
   }
   .privacy-head {
     margin-bottom: 0;
@@ -81,12 +81,12 @@ const paths = [
     width: 2rem;
     height: 2rem;
     color: var(--color-brand-cyan);
-    margin-bottom: 0.75rem;
+    margin-bottom: var(--wp-space-3);
   }
 
   .privacy-paths {
     display: grid;
-    gap: 1rem;
+    gap: var(--wp-space-4);
   }
   @media (min-width: 768px) {
     .privacy-paths {
@@ -96,10 +96,10 @@ const paths = [
   .privacy-path {
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
-    padding: 1.5rem;
+    gap: var(--wp-space-3);
+    padding: var(--wp-space-6);
     border-radius: var(--radius-card);
-    border: 1px solid rgb(255 255 255 / 0.12);
+    border: 1px solid var(--wp-border-default);
     background: var(--color-brand-card);
     box-shadow: var(--shadow-card);
   }
@@ -109,18 +109,18 @@ const paths = [
   }
   .privacy-badge {
     align-self: flex-start;
-    padding: 0.25rem 0.625rem;
+    padding: var(--wp-space-1) var(--wp-space-3);
     border-radius: var(--radius-pill);
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     font-weight: 600;
     letter-spacing: 0.02em;
     color: var(--color-ink-muted);
-    border: 1px solid rgb(255 255 255 / 0.16);
+    border: 1px solid var(--wp-border-strong);
   }
   .privacy-path--local .privacy-badge {
-    color: var(--color-brand-darker);
-    background: var(--color-brand-cyan);
-    border-color: var(--color-brand-cyan);
+    color: var(--wp-accent-on-fill);
+    background: var(--wp-accent-fill);
+    border-color: var(--wp-accent-fill);
   }
   .privacy-path__title {
     font-size: var(--type-card-title);
@@ -129,7 +129,7 @@ const paths = [
     color: var(--color-ink);
   }
   .privacy-path__desc {
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.6;
     color: var(--color-ink-muted);
   }
@@ -140,15 +140,15 @@ const paths = [
     margin: 0;
     padding: 0;
     display: grid;
-    gap: 1.25rem;
+    gap: var(--wp-space-5);
   }
   .privacy-flow li {
     position: relative;
-    padding: 0.5rem 0.75rem;
+    padding: var(--wp-space-2) var(--wp-space-3);
     border-radius: var(--radius-control);
-    background: rgb(255 255 255 / 0.04);
-    border: 1px solid rgb(255 255 255 / 0.08);
-    font-size: 1rem;
+    background: var(--wp-surface-control);
+    border: 1px solid var(--wp-border-default);
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink);
   }
   .privacy-flow li + li::before {
@@ -157,7 +157,7 @@ const paths = [
     left: 0.875rem;
     top: -1.25rem;
     line-height: 1.25rem;
-    font-size: 0.875rem;
+    font-size: var(--wp-font-size-sm);
     color: var(--color-brand-cyan);
   }
   .privacy-path--cloud .privacy-flow li + li::before {
@@ -167,9 +167,9 @@ const paths = [
   .privacy-telemetry {
     display: grid;
     grid-template-columns: 1.5rem minmax(0, 1fr);
-    gap: 1rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgb(255 255 255 / 0.1);
+    gap: var(--wp-space-4);
+    padding-top: var(--wp-space-6);
+    border-top: 1px solid var(--wp-border-default);
   }
   .privacy-telemetry > svg {
     width: 1.5rem;
@@ -183,7 +183,7 @@ const paths = [
     .privacy-telemetry > div {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      column-gap: 3rem;
+      column-gap: var(--wp-space-12);
       align-items: center;
     }
     .privacy-telemetry > div > .privacy-details {
@@ -194,10 +194,10 @@ const paths = [
   .privacy-telemetry__title {
     font-weight: 600;
     color: var(--color-ink);
-    margin-bottom: 0.25rem;
+    margin-bottom: var(--wp-space-1);
   }
   .privacy-telemetry__desc {
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.6;
     color: var(--color-ink-muted);
     max-width: var(--measure-lead);
@@ -205,9 +205,9 @@ const paths = [
   .privacy-details {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: var(--wp-space-1);
     min-height: 44px;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     font-weight: 600;
     color: var(--color-brand-cyan);
     text-decoration: none;

@@ -283,7 +283,7 @@ export function renderBlocksToHtml(blocks: ReleaseBlocks): string {
 export function defaultCardRenderer(release: Release): HTMLElement {
   const article = document.createElement("article");
   article.className =
-    "release-card rounded-2xl border border-white/[0.06] p-6 sm:p-8 scroll-reveal visible";
+    "release-card rounded-2xl border border-(--wp-border-subtle) p-6 sm:p-8 scroll-reveal visible";
   // h2 (statt div) für konsistente Heading-Hierarchie mit den statischen Karten.
   const header = document.createElement("h2");
   header.className = "flex items-center gap-3 mb-5";

@@ -74,7 +74,7 @@ const cards = [
   .uc-hub-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: var(--wp-space-4);
   }
   @media (min-width: 640px) {
     .uc-hub-grid {
@@ -84,13 +84,13 @@ const cards = [
   .uc-hub-card {
     display: flex;
     flex-direction: column;
-    padding: 1.5rem 1.75rem;
+    padding: var(--wp-space-6) 1.75rem;
     border-radius: var(--radius-card);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--wp-border-subtle);
     background: var(--color-brand-card);
     box-shadow: var(--shadow-card);
     text-decoration: none;
-    transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+    transition: border-color var(--wp-duration-slow) ease, transform var(--wp-duration-slow) ease, box-shadow var(--wp-duration-slow) ease;
   }
   .uc-hub-card:hover {
     border-color: color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
@@ -100,19 +100,19 @@ const cards = [
   .uc-hub-card h2 {
     color: var(--color-ink);
     font-weight: 600;
-    font-size: 1.0625rem;
-    margin-bottom: 0.5rem;
+    font-size: var(--wp-font-size-lg);
+    margin-bottom: var(--wp-space-2);
   }
   .uc-hub-card p {
     color: var(--color-ink-muted);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.6;
     flex: 1;
   }
   .uc-hub-arrow {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
     color: var(--color-brand-cyan);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     font-weight: 500;
   }
   @media (prefers-reduced-motion: reduce) {

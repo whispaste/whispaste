@@ -259,7 +259,7 @@
     max-width: none;
     display: grid;
     grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
-    column-gap: clamp(3rem, 6vw, 8rem);
+    column-gap: clamp(var(--wp-space-12), 6vw, var(--wp-space-32));
     align-items: end;
   }
   .wp-section-head:has(> .wp-lead):not(:has(> .wp-head-art)):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-eyebrow {
@@ -267,7 +267,7 @@
   }
   .wp-section-head:has(> .wp-lead):not(:has(> .wp-head-art)):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-lead {
     margin-top: 0;
-    padding-bottom: 0.5rem;
+    padding-bottom: var(--wp-space-2);
   }
 }
 
@@ -278,7 +278,7 @@
   display: block;
   width: 100%;
   max-width: 28rem;
-  margin-top: 2rem;
+  margin-top: var(--wp-space-8);
 }
 .wp-head-art :where(svg) {
   display: block;
@@ -290,7 +290,7 @@
     max-width: none;
     display: grid;
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-    column-gap: clamp(2rem, 5vw, 6rem);
+    column-gap: clamp(var(--wp-space-8), 5vw, var(--wp-space-24));
     align-items: center;
   }
   .wp-section-head:has(> .wp-head-art) > :not(.wp-head-art) {
@@ -634,7 +634,7 @@
   letter-spacing: -0.03em;
   line-height: 1.03;
   color: var(--color-ink);
-  font-size: clamp(2.25rem, 1.35rem + 3.7vw, 5.25rem);
+  font-size: var(--wp-font-size-h2);
   text-wrap: balance;
 }
 
@@ -865,10 +865,10 @@
 .download-card,
 .release-card,
 .sponsor-card {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--wp-border-default);
 }
 .feature-card:hover {
-  border-color: rgba(255, 255, 255, 0.19);
+  border-color: var(--wp-border-strong);
 }
 
 /* Card shadows matching Flutter WpShadows.card */
@@ -1046,9 +1046,9 @@
   display: inline-flex;
   align-items: center;
   gap: 0.6em;
-  margin: 0 0 0.75rem;
+  margin: 0 0 var(--wp-space-3);
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-size: var(--wp-font-size-sm);
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: 0.12em;
@@ -1062,7 +1062,7 @@
   width: 0.4em;
   height: 0.4em;
   border-radius: 50%; /* Kreis, bewusst außerhalb der Radius-Leiter (s. oben) */
-  background: var(--color-brand-cyan);
+  background: var(--wp-eyebrow-dot);
   box-shadow: 0 0 6px color-mix(in srgb, var(--color-brand-cyan) 70%, transparent);
   animation: wp-eyebrow-blip 8s ease-in-out infinite;
 }
@@ -1466,12 +1466,12 @@
    click from the landing never drops into a narrow "docs column".
    --------------------------------------------------------------------------- */
 .page-hero {
-  padding-top: calc(var(--nav-clear, 6.5rem) + clamp(1rem, 3vw, 3rem));
-  padding-bottom: clamp(3rem, 2rem + 4vw, 6rem);
+  padding-top: calc(var(--nav-clear, 6.5rem) + clamp(var(--wp-space-4), 3vw, var(--wp-space-12)));
+  padding-bottom: clamp(var(--wp-space-12), var(--wp-space-8) + 4vw, var(--wp-space-24));
 }
 .page-hero__grid {
   display: grid;
-  gap: clamp(2.5rem, 2rem + 3vw, 5rem);
+  gap: clamp(var(--wp-space-10), var(--wp-space-8) + 3vw, 5rem);
   align-items: center;
 }
 @media (min-width: 1024px) {
@@ -1486,7 +1486,7 @@
   letter-spacing: -0.035em;
   line-height: 1;
   color: var(--color-ink);
-  font-size: clamp(2.5rem, 1.4rem + 4.6vw, 6.25rem);
+  font-size: var(--wp-font-size-h1);
   text-wrap: balance;
   /* Long German compounds ("Datenschutzerklärung") would otherwise push a
      390px viewport sideways. */
@@ -1497,21 +1497,21 @@
   min-width: 0;
 }
 .page-hero .wp-lead {
-  margin-top: clamp(1.25rem, 1rem + 1vw, 2rem);
-  font-size: clamp(1.125rem, 1rem + 0.5vw, 1.375rem);
+  margin-top: clamp(var(--wp-space-5), var(--wp-space-4) + 1vw, var(--wp-space-8));
+  font-size: var(--wp-font-size-card-title);
   max-width: 44rem;
 }
 .page-hero__actions:not(:empty) {
-  margin-top: clamp(1.75rem, 1.5rem + 1vw, 2.5rem);
+  margin-top: clamp(1.75rem, var(--wp-space-6) + 1vw, var(--wp-space-10));
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem 1.25rem;
+  gap: var(--wp-space-3) var(--wp-space-5);
 }
 .page-crumbs {
-  margin-bottom: clamp(1.25rem, 1rem + 1vw, 2rem);
+  margin-bottom: clamp(var(--wp-space-5), var(--wp-space-4) + 1vw, var(--wp-space-8));
   font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: var(--wp-font-size-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--color-ink-subtle);
@@ -1519,11 +1519,11 @@
 .page-crumbs ol {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem 0.6rem;
+  gap: var(--wp-space-1) var(--wp-space-2);
 }
 .page-crumbs li + li::before {
   content: "/";
-  margin-right: 0.6rem;
+  margin-right: var(--wp-space-2);
   opacity: 0.5;
 }
 .page-crumbs a:hover {
@@ -1533,15 +1533,15 @@
    corner ticks, the same HUD vocabulary as the landing cards. */
 .wp-panel {
   position: relative;
-  border-radius: 1.5rem;
+  border-radius: var(--wp-radius-panel);
   border: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
   background:
     linear-gradient(color-mix(in srgb, var(--color-ink) 4%, transparent) 1px, transparent 1px) 0 0 / 2rem 2rem,
     linear-gradient(90deg, color-mix(in srgb, var(--color-ink) 4%, transparent) 1px, transparent 1px) 0 0 / 2rem 2rem,
     radial-gradient(120% 90% at 70% 10%, color-mix(in srgb, var(--color-brand-cyan) 10%, transparent), transparent 60%),
     color-mix(in srgb, var(--surface-deep) 80%, transparent);
-  padding: clamp(1.25rem, 1rem + 1.5vw, 2.25rem);
-  box-shadow: 0 30px 80px -40px rgb(0 0 0 / 0.6);
+  padding: clamp(var(--wp-space-5), var(--wp-space-4) + 1.5vw, 2.25rem);
+  box-shadow: var(--wp-shadow-panel);
 }
 .wp-panel::before {
   content: attr(data-label);
@@ -1549,7 +1549,7 @@
   top: 0.85rem;
   left: 1.1rem;
   font-family: var(--font-mono);
-  font-size: 0.6875rem;
+  font-size: var(--wp-font-size-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-ink-subtle);
@@ -1561,7 +1561,7 @@
 }
 .page-split {
   display: grid;
-  gap: clamp(2.5rem, 2rem + 3vw, 5rem);
+  gap: clamp(var(--wp-space-10), var(--wp-space-8) + 3vw, 5rem);
 }
 @media (min-width: 1280px) {
   .page-split {
@@ -1584,9 +1584,9 @@
 .wp-cta {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: var(--wp-space-2);
   min-height: 48px;
-  padding: 0.75rem 1.6rem;
+  padding: var(--wp-space-3) var(--wp-space-6);
   border-radius: var(--radius-pill);
   background: var(--gradient-accent-cta);
   color: var(--color-brand-darker);
@@ -1612,9 +1612,9 @@
 .wp-cta-ghost {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--wp-space-2);
   min-height: 48px;
-  padding: 0.75rem 1.4rem;
+  padding: var(--wp-space-3) var(--wp-space-6);
   border-radius: var(--radius-pill);
   border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
   color: var(--color-ink);

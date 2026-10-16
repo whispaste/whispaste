@@ -17,6 +17,10 @@ const drift = [
   { x: 50, y: 260 },
   { x: 240, y: 20 },
 ];
+// Unique gradient ids per instance, so the graphic can render twice on a page.
+const uid = Math.random().toString(36).slice(2, 8);
+const glowId = `sp-glow-${uid}`;
+const accentId = `sp-accent-${uid}`;
 ---
 
 <svg
@@ -28,27 +32,26 @@ const drift = [
   data-testid="motion-support"
 >
   <defs>
-    <radialGradient id="sp-glow" cx=".5" cy=".5" r=".5">
-      <stop offset="0" stop-color="#6FDDF0" stop-opacity=".55" />
-      <stop offset="1" stop-color="#6FDDF0" stop-opacity="0" />
+    <radialGradient id={glowId} cx=".5" cy=".5" r=".5">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-fill)" stop-opacity=".55" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-fill)" stop-opacity="0" />
     </radialGradient>
-    <linearGradient id="sp-accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6FDDF0" />
-      <stop offset="1" stop-color="#0BAACC" />
+    <linearGradient id={accentId} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-fill)" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-strong)" />
     </linearGradient>
   </defs>
 
-  <circle class="glow" cx="240" cy="160" r="110" fill="url(#sp-glow)" />
-  <circle cx="240" cy="160" r="96" stroke="rgba(171,184,204,.22)" stroke-dasharray="2 8" />
+  <circle class="glow" cx="240" cy="160" r="110" fill={`url(#${glowId})`} />
+  <circle class="sp-track" cx="240" cy="160" r="96" stroke-dasharray="2 8" />
 
   <g class="orbit">
     {orbit.map((i) => (
       <circle
+        class={i % 3 ? 'sp-member' : 'sp-member sp-member-accent'}
         cx={240 + 96 * Math.cos((i / orbit.length) * Math.PI * 2)}
         cy={160 + 96 * Math.sin((i / orbit.length) * Math.PI * 2)}
         r={i % 2 ? 6 : 9}
-        fill={i % 3 ? '#171D53' : '#6FDDF0'}
-        stroke="rgba(111,221,240,.5)"
       />
     ))}
   </g>
@@ -57,16 +60,15 @@ const drift = [
   <path
     class="core"
     d="M240 196 C 200 168, 196 138, 214 128 C 228 120, 238 130, 240 138 C 242 130, 252 120, 266 128 C 284 138, 280 168, 240 196 Z"
-    fill="url(#sp-accent)"
+    fill={`url(#${accentId})`}
   />
 
   {drift.map((d, i) => (
     <circle
-      class="drop"
+      class="drop sp-drop"
       cx={d.x}
       cy={d.y}
       r="5"
-      fill="#6FDDF0"
       style={`--i:${i};--dx:${240 - d.x}px;--dy:${160 - d.y}px`}
     />
   ))}
@@ -77,6 +79,12 @@ const drift = [
   .motion-sp .glow,
   .motion-sp .core { transform-box: fill-box; transform-origin: center; }
   .motion-sp .orbit { transform-origin: 240px 160px; }
+
+  /* Solid token colours: the graphic must read on dark and light bands. */
+  .motion-sp .sp-track { stroke: var(--wp-illustration-line); }
+  .motion-sp .sp-member { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-accent); }
+  .motion-sp .sp-member-accent { fill: var(--wp-illustration-accent-fill); }
+  .motion-sp .sp-drop { fill: var(--wp-illustration-accent-fill); }
 
   @media (prefers-reduced-motion: no-preference) {
     .motion-sp .orbit { animation: sp-orbit 36s linear infinite; }

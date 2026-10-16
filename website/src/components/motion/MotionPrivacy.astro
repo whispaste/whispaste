@@ -10,6 +10,8 @@ interface Props {
 }
 const { class: className = '' } = Astro.props;
 const packets = [0, 1, 2, 3, 4, 5];
+// Unique gradient id per instance, so the graphic can render twice on a page.
+const accentId = `priv-accent-${Math.random().toString(36).slice(2, 8)}`;
 ---
 
 <svg
@@ -21,33 +23,33 @@ const packets = [0, 1, 2, 3, 4, 5];
   data-testid="motion-privacy"
 >
   <defs>
-    <linearGradient id="priv-accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6FDDF0" />
-      <stop offset="1" stop-color="#0BAACC" />
+    <linearGradient id={accentId} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-fill)" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-strong)" />
     </linearGradient>
   </defs>
 
   <!-- cloud, out of reach -->
   <g opacity=".4">
-    <path d="M384 70a22 22 0 0 1 42-6 18 18 0 1 1 6 35h-52a16 16 0 0 1 4-29z" stroke="#ABB8CC" stroke-width="2" />
-    <path d="M384 108 l50 -50" stroke="#ABB8CC" stroke-width="2" stroke-linecap="round" />
+    <path class="pv-muted" d="M384 70a22 22 0 0 1 42-6 18 18 0 1 1 6 35h-52a16 16 0 0 1 4-29z" stroke-width="2" />
+    <path class="pv-muted" d="M384 108 l50 -50" stroke-width="2" stroke-linecap="round" />
   </g>
 
   <!-- device boundary -->
-  <circle class="ring" cx="200" cy="170" r="120" stroke="url(#priv-accent)" stroke-width="2" stroke-dasharray="6 10" />
-  <circle cx="200" cy="170" r="84" fill="#171D53" stroke="rgba(171,184,204,.22)" />
+  <circle class="ring" cx="200" cy="170" r="120" stroke={`url(#${accentId})`} stroke-width="2" stroke-dasharray="6 10" />
+  <circle class="pv-disk" cx="200" cy="170" r="84" />
 
   <!-- lock -->
   <g class="lock">
-    <path d="M180 162v-14a20 20 0 0 1 40 0v14" stroke="#6FDDF0" stroke-width="6" stroke-linecap="round" />
-    <rect x="166" y="160" width="68" height="52" rx="12" fill="url(#priv-accent)" />
-    <circle cx="200" cy="184" r="6" fill="#0B122A" />
-    <rect x="197" y="186" width="6" height="12" rx="3" fill="#0B122A" />
+    <path class="pv-accent" d="M180 162v-14a20 20 0 0 1 40 0v14" stroke-width="6" stroke-linecap="round" />
+    <rect x="166" y="160" width="68" height="52" rx="12" fill={`url(#${accentId})`} />
+    <circle class="pv-core" cx="200" cy="184" r="6" />
+    <rect class="pv-core" x="197" y="186" width="6" height="12" rx="3" />
   </g>
 
   {packets.map((i) => (
     <g transform={`rotate(${i * 60 - 30} 200 170)`}>
-      <circle class="packet" cx="200" cy="74" r="5" fill="#6FDDF0" style={`--i:${i}`} />
+      <circle class="packet pv-dot" cx="200" cy="74" r="5" style={`--i:${i}`} />
     </g>
   ))}
 </svg>
@@ -56,6 +58,13 @@ const packets = [0, 1, 2, 3, 4, 5];
   .motion-priv { display: block; width: 100%; height: auto; }
   .motion-priv .ring { transform-box: fill-box; transform-origin: center; }
   .motion-priv .packet { transform-box: fill-box; transform-origin: center; }
+
+  /* Solid token colours: the graphic must read on dark and light bands. */
+  .motion-priv .pv-muted { stroke: var(--wp-illustration-muted); }
+  .motion-priv .pv-disk { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-node-border); }
+  .motion-priv .pv-accent { stroke: var(--wp-illustration-accent); }
+  .motion-priv .pv-core { fill: var(--wp-illustration-core); }
+  .motion-priv .pv-dot { fill: var(--wp-illustration-accent-fill); }
 
   @media (prefers-reduced-motion: no-preference) {
     .motion-priv .ring { animation: priv-spin 40s linear infinite; }

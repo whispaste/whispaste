@@ -14,6 +14,8 @@ const lanes = [
   { y: 160, label: 'VULKAN' },
   { y: 224, label: 'CPU' },
 ];
+// Unique gradient id per instance, so the graphic can render twice on a page.
+const accentId = `hw-accent-${Math.random().toString(36).slice(2, 8)}`;
 ---
 
 <svg
@@ -25,9 +27,9 @@ const lanes = [
   data-testid="motion-hardware"
 >
   <defs>
-    <linearGradient id="hw-accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6FDDF0" />
-      <stop offset="1" stop-color="#0BAACC" />
+    <linearGradient id={accentId} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-fill)" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-strong)" />
     </linearGradient>
   </defs>
 
@@ -35,21 +37,21 @@ const lanes = [
   <g class="chip">
     {[0, 1, 2, 3, 4].map((i) => (
       <>
-        <rect x={52 + i * 16} y="96" width="4" height="12" rx="2" fill="rgba(111,221,240,.45)" />
-        <rect x={52 + i * 16} y="212" width="4" height="12" rx="2" fill="rgba(111,221,240,.45)" />
+        <rect class="hw-pin" x={52 + i * 16} y="96" width="4" height="12" rx="2" />
+        <rect class="hw-pin" x={52 + i * 16} y="212" width="4" height="12" rx="2" />
       </>
     ))}
-    <rect x="36" y="106" width="108" height="108" rx="18" fill="#171D53" stroke="url(#hw-accent)" stroke-width="2" />
-    <rect class="core" x="62" y="132" width="56" height="56" rx="10" fill="url(#hw-accent)" />
+    <rect class="hw-chip" x="36" y="106" width="108" height="108" rx="18" stroke={`url(#${accentId})`} stroke-width="2" />
+    <rect class="core" x="62" y="132" width="56" height="56" rx="10" fill={`url(#${accentId})`} />
   </g>
 
   {lanes.map((lane, i) => (
     <g style={`--i:${i}`}>
-      <path d={`M144 160 C 200 160, 200 ${lane.y}, 256 ${lane.y} L 340 ${lane.y}`} stroke="rgba(171,184,204,.28)" stroke-width="2" />
-      <rect x="340" y={lane.y - 22} width="112" height="44" rx="12" fill="#0D1936" stroke="rgba(171,184,204,.22)" />
-      <text x="396" y={lane.y + 5} text-anchor="middle" fill="#ABB8CC" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="1.5">{lane.label}</text>
-      <circle class="led" cx="356" cy={lane.y} r="4" fill="#6FDDF0" />
-      <circle class="packet" cx="256" cy={lane.y} r="5" fill="#6FDDF0" />
+      <path class="hw-lane" d={`M144 160 C 200 160, 200 ${lane.y}, 256 ${lane.y} L 340 ${lane.y}`} stroke-width="2" />
+      <rect class="hw-box" x="340" y={lane.y - 22} width="112" height="44" rx="12" />
+      <text class="hw-label" x="396" y={lane.y + 5} text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13" letter-spacing="1.5">{lane.label}</text>
+      <circle class="led hw-dot" cx="356" cy={lane.y} r="4" />
+      <circle class="packet hw-dot" cx="256" cy={lane.y} r="5" />
     </g>
   ))}
 </svg>
@@ -59,6 +61,14 @@ const lanes = [
   .motion-hw .core,
   .motion-hw .packet,
   .motion-hw .led { transform-box: fill-box; transform-origin: center; }
+
+  /* Solid token colours: the graphic must read on dark and light bands. */
+  .motion-hw .hw-pin { fill: var(--wp-illustration-accent); }
+  .motion-hw .hw-chip { fill: var(--wp-illustration-core); }
+  .motion-hw .hw-lane { stroke: var(--wp-illustration-line); }
+  .motion-hw .hw-box { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-node-border); }
+  .motion-hw .hw-label { fill: var(--wp-illustration-text); }
+  .motion-hw .hw-dot { fill: var(--wp-illustration-accent-fill); }
 
   @media (prefers-reduced-motion: no-preference) {
     .motion-hw .core { animation: hw-core 3s ease-in-out infinite; }

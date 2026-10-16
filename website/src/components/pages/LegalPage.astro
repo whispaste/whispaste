@@ -39,12 +39,13 @@ const body = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/g, (_match, attrs: string
   toc.push({ id, label });
   return `<h2${attrs} id="${id}">${inner}</h2>`;
 });
+import PageSheet from "../PageSheet.astro";
 ---
 
 <SubpageLayout lang={lang} title={metaTitle} description={metaDescription}>
   <PageHero title={title} titleId="pageTitle" crumbs={crumbs} testid={testid} />
 
-  <div class="wp-container page-body">
+  <PageSheet>
     <div class="page-split">
       <article class="page-prose wp-prose legal-prose" data-testid={`${testid}-content`} set:html={body} />
 
@@ -57,7 +58,7 @@ const body = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/g, (_match, attrs: string
         </ol>
       </nav>
     </div>
-  </div>
+  </PageSheet>
 
   <BreadcrumbListSchema slot="head" items={crumbs} />
 </SubpageLayout>
@@ -68,37 +69,37 @@ const body = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/g, (_match, attrs: string
     line-height: 1.75;
   }
   .legal-prose :global(section) {
-    padding: 2rem 0;
+    padding: var(--wp-space-8) 0;
     border-top: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
   }
   .legal-prose :global(h2) {
     font-family: var(--font-display);
     font-weight: 750;
-    font-size: clamp(1.35rem, 1.1rem + 0.8vw, 1.85rem);
+    font-size: var(--wp-font-size-h3);
     line-height: 1.2;
     letter-spacing: -0.015em;
     color: var(--color-ink);
-    margin: 0 0 1rem;
+    margin: 0 0 var(--wp-space-4);
     scroll-margin-top: calc(var(--nav-clear, 6.5rem) + 1rem);
   }
   .legal-prose :global(h3) {
     font-family: var(--font-display);
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: var(--wp-font-size-lg);
     color: var(--color-ink);
-    margin: 1.5rem 0 0.5rem;
+    margin: var(--wp-space-6) 0 var(--wp-space-2);
   }
   .legal-prose :global(p + p),
   .legal-prose :global(p + ul),
   .legal-prose :global(ul + p) {
-    margin-top: 0.85rem;
+    margin-top: var(--wp-space-3);
   }
   .legal-prose :global(ul) {
-    padding-left: 1.35rem;
+    padding-left: var(--wp-space-5);
     list-style: disc;
   }
   .legal-prose :global(li + li) {
-    margin-top: 0.35rem;
+    margin-top: var(--wp-space-1);
   }
   .legal-prose :global(strong) {
     color: var(--color-ink);
@@ -118,11 +119,11 @@ const body = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/g, (_match, attrs: string
 
   .legal-toc__label {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: var(--wp-font-size-xs);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--color-ink-subtle);
-    margin-bottom: 0.75rem;
+    margin-bottom: var(--wp-space-3);
   }
   .legal-toc ol {
     display: grid;
@@ -131,9 +132,9 @@ const body = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/g, (_match, attrs: string
   }
   .legal-toc a {
     display: block;
-    padding: 0.4rem 0;
+    padding: var(--wp-space-2) 0;
     border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 7%, transparent);
-    font-size: 0.9rem;
+    font-size: var(--wp-font-size-sm);
     color: var(--color-ink-muted);
     transition: color var(--dur-base) var(--ease-flow);
   }

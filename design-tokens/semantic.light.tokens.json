@@ -5,7 +5,7 @@
     "page": { "$value": "{color.glacier.100}" },
     "band": { "$value": "{color.glacier.100}" },
     "band-alt": { "$value": "{color.glacier.200}" },
-    "sunken": { "$value": "{color.glacier.200}" },
+    "sunken": { "$value": "{color.glacier.200}", "$description": "Recessed wells inside a light band." },
     "card": { "$value": "{color.glacier.50}" },
     "card-hover": { "$value": "{color.white}" },
     "floating": { "$value": "{color.white}" },
@@ -35,6 +35,8 @@
     "$type": "color",
     "default": { "$value": "{color.cyan.700}", "$description": "Cyan as text/icon on light keeps AA; fills use accent.strong." },
     "strong": { "$value": "{color.cyan.500}" },
+    "fill": { "$value": "{color.cyan.400}", "$description": "Same bright cyan as on dark, so filled controls look identical in both modes." },
+    "on-fill": { "$value": "{color.navy.900}" },
     "soft": { "$value": "#0BAACC1F" },
     "glow": { "$value": "#0BAACC1A" }
   },

@@ -40,6 +40,7 @@ const channels = [
 ] as const;
 
 const costs = ['apple', 'microsoft', 'hosting'] as const;
+import PageSheet from "../PageSheet.astro";
 ---
 
 <SubpageLayout lang={lang} title={t(lang, 'meta.title.sponsor')} description={t(lang, 'meta.description.sponsor')}>
@@ -55,7 +56,7 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
     <MotionSupport slot="art" />
   </PageHero>
 
-  <div class="wp-container page-body">
+  <PageSheet>
     <div class="sp-channels">
       {channels.map((channel, index) => (
         <a
@@ -111,7 +112,7 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
         </ul>
       </section>
     </div>
-  </div>
+  </PageSheet>
 
   <BreadcrumbListSchema items={breadcrumbItems} />
 </SubpageLayout>
@@ -119,7 +120,7 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
 <style>
   .sp-channels {
     display: grid;
-    gap: 1.25rem;
+    gap: var(--wp-space-5);
   }
   @media (min-width: 768px) {
     .sp-channels {
@@ -130,8 +131,8 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
     position: relative;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    padding: clamp(1.5rem, 1rem + 1.5vw, 2.5rem);
+    gap: var(--wp-space-2);
+    padding: clamp(var(--wp-space-6), var(--wp-space-4) + 1.5vw, var(--wp-space-10));
     min-height: 100%;
     border-radius: var(--wp-radius-panel);
     border: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
@@ -147,7 +148,7 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
     top: 1.25rem;
     right: 1.5rem;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     letter-spacing: 0.14em;
     color: var(--color-ink-subtle);
   }
@@ -157,8 +158,8 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
     justify-content: center;
     width: 3rem;
     height: 3rem;
-    margin-bottom: 1rem;
-    border-radius: var(--radius-card, 1rem);
+    margin-bottom: var(--wp-space-4);
+    border-radius: var(--radius-card, var(--wp-radius-card));
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 25%, transparent);
     background: color-mix(in srgb, var(--color-brand-cyan) 8%, transparent);
     color: var(--color-brand-cyan);
@@ -170,28 +171,28 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
   .sp-title {
     font-family: var(--font-display);
     font-weight: 750;
-    font-size: clamp(1.4rem, 1.1rem + 0.8vw, 1.9rem);
+    font-size: var(--wp-font-size-h3);
     letter-spacing: -0.02em;
     color: var(--color-ink);
   }
   .sp-sub {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-ink-subtle);
   }
   .sp-desc {
-    margin-top: 0.5rem;
+    margin-top: var(--wp-space-2);
     color: var(--color-ink-muted);
     line-height: 1.65;
     flex: 1;
   }
   .sp-cta {
-    margin-top: 1.25rem;
+    margin-top: var(--wp-space-5);
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
     font-weight: 700;
     color: var(--color-brand-cyan);
   }
@@ -205,9 +206,9 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
   }
 
   .sp-details {
-    margin-top: clamp(3rem, 2rem + 3vw, 5rem);
+    margin-top: clamp(var(--wp-space-12), var(--wp-space-8) + 3vw, 5rem);
     display: grid;
-    gap: clamp(2rem, 1rem + 3vw, 4rem);
+    gap: clamp(var(--wp-space-8), var(--wp-space-4) + 3vw, var(--wp-space-16));
   }
   @media (min-width: 1024px) {
     .sp-details {
@@ -215,23 +216,23 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
     }
   }
   .sp-block {
-    padding-top: 1.5rem;
+    padding-top: var(--wp-space-6);
     border-top: 1px solid color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
   }
   .sp-block-title {
     font-family: var(--font-display);
     font-weight: 750;
-    font-size: clamp(1.4rem, 1.1rem + 1vw, 2rem);
+    font-size: var(--wp-font-size-h3);
     letter-spacing: -0.02em;
     color: var(--color-ink);
-    margin-bottom: 1rem;
+    margin-bottom: var(--wp-space-4);
   }
   .sp-list {
     display: grid;
-    margin-top: 0.5rem;
+    margin-top: var(--wp-space-2);
   }
   .sp-list li {
-    padding: 1rem 0;
+    padding: var(--wp-space-4) 0;
     border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
   }
   .sp-list-title {
@@ -241,8 +242,8 @@ const costs = ['apple', 'microsoft', 'hosting'] as const;
   }
   .sp-list-desc {
     display: block;
-    margin-top: 0.2rem;
-    font-size: 0.925rem;
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-sm);
     color: var(--color-ink-subtle);
     line-height: 1.6;
   }

@@ -22,7 +22,8 @@ without viewport scaling use `$value`.
 ## Colour roles ("Glacier + Amber")
 
 - **Navy stage** (`navy.*`): the ambient dark wash, hero and most bands.
-- **Deep ink** (`navy.950`): darker bands for tonal contrast.
+- **Deep ink** (`navy.950`): reserved for tonal depth inside graphics; never a
+  full-width band (a darker band behind cards reads as a hole).
 - **Glacier** (`glacier.*`): light bands where results and everyday use cases sit.
   Cool blue-grey, never cream or paper.
 - **Cyan** (`cyan.*`): action and recording. Buttons, focus, waveform, active states.
@@ -53,8 +54,29 @@ npm run tokens:check  # fail if the CSS is stale
 npx vitest run scripts/__tests__/design-tokens.test.ts
 ```
 
-The test also checks WCAG AA contrast for every text role on every band and
-card surface in both modes.
+## Checks
+
+Three layers catch values that bypass the system before anyone sees them:
+
+1. **Token contrast** (`design-tokens.test.ts`): every text role on every band
+   and card surface in both modes meets WCAG AA; text on the solid accent fill
+   too. Translucent surfaces are composited onto the band before measuring.
+2. **Static lint** (also in `design-tokens.test.ts`, runnable by hand):
+   - `node scripts/color-literals.mjs [--verbose]`: hex, rgb()/hsl(), Tailwind
+     palette utilities, named white/black and SVG colour attributes outside
+     `tokens.css`. Mock-ups of the app or an OS window are fenced with
+     `mockup-colours:start` / `mockup-colours:end`; the `theme-color` meta is
+     exempt because browsers read it before CSS.
+   - `node scripts/design-lint.mjs [--verbose] [rule]`: `font-size` and
+     `border-radius` written as lengths, padding/margin/gap off the 4px grid
+     (scale values become `--wp-space-*`), transition durations written as
+     ms/s, and Tailwind arbitrary lengths such as `text-[15px]`.
+3. **Rendered contrast**: Playwright checks text against its effective
+   background on every route (planned, see the website test suite).
+
+The same checks transfer to the app: the JSON feeds the Dart theme, and a
+Dart lint can flag `Color(0x…)`, `EdgeInsets` and `BorderRadius` literals the
+way `design-lint.mjs` flags CSS.
 
 ## Catalogue
 
@@ -67,10 +89,14 @@ route exists only in the dev server.
 ## Rules for new code
 
 1. Read `--wp-<component>-*` tokens; add a component group before inventing a value.
-2. No hex, rgba or raw durations in component styles. Device mock-ups that
-   mirror real app or OS pixels (`AppScreenshots`, `AppPasteDemo`, the
-   overlay mock-up) are the documented exception.
-3. Every text/surface pair must keep AA in both modes; the token test enforces
+2. No hex, rgba, raw font sizes, radii, durations or off-grid spacing in
+   component styles. Device mock-ups that mirror real app or OS pixels
+   (`AppScreenshots`, `AppPasteDemo`, `HeroExample`, the overlay mock-up) are
+   the documented exception for colour.
+3. Type sizes come from the scale only: `2xs`–`xl` for UI text, then the fluid
+   `lead`, `card-title`, `h3`, `title`, `h2`, `h1`, `display`. A heading that
+   fits none of them is a reason to discuss the scale, not to add a `clamp()`.
+4. Every text/surface pair must keep AA in both modes; the token test enforces
    it for the semantic roles.
-4. Blog and other Markdown content renders inside `.wp-prose`, which styles
+5. Blog and other Markdown content renders inside `.wp-prose`, which styles
    every element the renderer can emit.

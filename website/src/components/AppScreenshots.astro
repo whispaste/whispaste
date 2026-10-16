@@ -16,7 +16,7 @@ const views = [
 <!-- Screenshot teaser: one large real screenshot, no device frame, with a
      switch between history and detail editor. Full view opens the shared
      lightbox; the full gallery lives on /screenshots/. -->
-<section id="app-screenshots" class="wp-band--ink relative wp-section scroll-mt-20" data-surface="dark">
+<section id="app-screenshots" class="wp-band relative wp-section scroll-mt-20" data-surface="light">
   <div class="relative wp-container">
     <div class="shots-head">
       <div class="wp-section-head">
@@ -119,7 +119,7 @@ const views = [
 <style>
   .shots-stage {
     display: grid;
-    gap: 1rem;
+    gap: var(--wp-space-4);
     max-width: 70rem;
     margin-inline: auto;
   }
@@ -132,22 +132,22 @@ const views = [
     flex-wrap: wrap;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
+    gap: var(--wp-space-3);
   }
   .shots-switch {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
   .shots-switch-btn,
   .shots-open {
     min-height: 44px;
-    padding: 0.5rem 1.125rem;
+    padding: var(--wp-space-2) var(--wp-space-5);
     border-radius: var(--radius-pill);
-    border: 1px solid rgb(255 255 255 / 0.12);
+    border: 1px solid var(--wp-border-control);
     background: transparent;
     color: var(--color-ink-muted);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     font-weight: 600;
     cursor: pointer;
     transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
@@ -155,14 +155,14 @@ const views = [
   .shots-switch-btn:hover,
   .shots-open:hover { color: var(--color-ink); }
   .shots-switch-btn[aria-pressed="true"] {
-    color: var(--color-brand-darker);
-    background: var(--color-brand-cyan);
-    border-color: var(--color-brand-cyan);
+    color: var(--wp-accent-on-fill);
+    background: var(--wp-accent-fill);
+    border-color: var(--wp-accent-fill);
   }
   .shots-open {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
   .shots-open svg {
     width: 1rem;
@@ -172,14 +172,15 @@ const views = [
   .shots-open:focus-visible,
   .teaser-thumb-btn:focus-visible,
   .shots-more-link:focus-visible {
-    outline: 2px solid var(--color-brand-cyan);
+    outline: 2px solid var(--wp-focus-ring);
     outline-offset: 3px;
   }
+  /* mockup-colours:start: macOS/MacBook chrome imitates the real device, literal colours by design */
   /* ---- MacBook Pro frame (pure CSS, space-gray aluminium) ---- */
   .mbp {
     width: 100%;
     max-width: 66rem;
-    margin: 1rem auto 0;
+    margin: var(--wp-space-4) auto 0;
     filter: drop-shadow(0 40px 60px rgb(0 0 0 / 0.45)) drop-shadow(0 0 80px color-mix(in srgb, var(--color-brand-cyan) 14%, transparent));
   }
   .mbp-lid {
@@ -287,6 +288,7 @@ const views = [
       0 0 0 1px rgb(255 255 255 / 0.1);
   }
   .mbp-window:last-child { margin-bottom: auto; }
+  /* mockup-colours:end */
   .teaser-thumb-btn {
     display: block;
     width: 100%;
@@ -303,6 +305,7 @@ const views = [
     object-fit: cover;
     object-position: top center;
   }
+  /* mockup-colours:start: device base and thumb groove imitate the real hardware */
   /* Base: wider than the lid, bevelled front edge and the thumb groove. */
   .mbp-base {
     position: relative;
@@ -320,21 +323,22 @@ const views = [
     translate: -50% 0;
     width: 14%;
     height: 38%;
-    border-radius: 0 0 0.6rem 0.6rem;
+    border-radius: 0 0 var(--wp-radius-control) var(--wp-radius-control);
     background: linear-gradient(180deg, #24262a, #44474e);
   }
+  /* mockup-colours:end */
   @media (hover: hover) and (prefers-reduced-motion: no-preference) {
     .mbp { transition: transform 0.5s var(--ease-flow); }
     .mbp:hover { transform: translateY(-4px); }
   }
   .shots-caption {
-    margin-top: 0.5rem;
+    margin-top: var(--wp-space-2);
     text-align: center;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     color: var(--color-ink-muted);
   }
   .shots-more {
-    margin-top: 1.5rem;
+    margin-top: var(--wp-space-6);
     text-align: center;
   }
   .shots-more-link {
@@ -342,7 +346,7 @@ const views = [
     align-items: center;
     min-height: 44px;
     font-weight: 600;
-    color: var(--color-brand-cyan);
+    color: var(--wp-text-link);
     text-decoration: none;
     border-radius: var(--radius-chip);
   }

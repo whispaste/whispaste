@@ -51,8 +51,8 @@ const lang = currentLocale(Astro.currentLocale);
   .wp-store-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 1.5rem;
+    gap: var(--wp-space-3);
+    padding: var(--wp-space-3) var(--wp-space-6);
     min-height: 44px;
     border-radius: var(--radius-pill);
     background: var(--gradient-accent-cta);
@@ -85,9 +85,9 @@ const lang = currentLocale(Astro.currentLocale);
   /* Large variant (Hero, Download page) — same accent-gradient CTA, just
      bigger; the size difference alone carries the extra visual weight. */
   .wp-store-btn--lg {
-    padding: 0.75rem 2rem;
+    padding: var(--wp-space-3) var(--wp-space-8);
     min-height: 52px;
-    gap: 0.875rem;
+    gap: var(--wp-space-4);
   }
 
   .wp-store-btn--lg:hover {
@@ -115,20 +115,20 @@ const lang = currentLocale(Astro.currentLocale);
   /* Default: single line */
   .wp-store-btn:not(.wp-store-btn--lg) .wp-store-btn__text {
     flex-direction: row;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     font-weight: 600;
   }
 
   /* Large: two lines */
   .wp-store-btn--lg .wp-store-btn__label {
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     font-weight: 400;
     color: color-mix(in srgb, var(--color-brand-darker) 68%, transparent);
     letter-spacing: 0.01em;
   }
 
   .wp-store-btn--lg .wp-store-btn__store {
-    font-size: 1.0625rem;
+    font-size: var(--wp-font-size-lg);
     font-weight: 700;
     color: var(--color-brand-darker);
   }

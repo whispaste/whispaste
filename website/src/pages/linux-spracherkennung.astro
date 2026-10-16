@@ -194,7 +194,7 @@ const relatedPages = [
 <style>
   .tldr {
     color: var(--color-ink);
-    font-size: 1.0625rem;
+    font-size: var(--wp-font-size-lg);
     line-height: 1.65;
   }
 
@@ -206,44 +206,44 @@ const relatedPages = [
      dagegen, die Aufzählungspunkte blieben stehen. */
   .file-list.file-list {
     list-style: none;
-    margin-top: 1.25rem;
+    margin-top: var(--wp-space-5);
     padding-left: 0;
   }
   .file-item + .file-item {
-    margin-top: 1.4rem;
+    margin-top: var(--wp-space-6);
   }
   .file-name {
     display: block;
     color: var(--color-brand-cyan);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     /* Lange Artefaktnamen dürfen auf schmalen Viewports umbrechen statt die
        Seite horizontal zu scrollen. */
     overflow-wrap: anywhere;
   }
   .file-what {
-    margin-top: 0.35rem;
+    margin-top: var(--wp-space-1);
   }
   .file-alias {
-    margin-top: 0.35rem;
-    font-size: 0.875rem;
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-sm);
     color: var(--color-ink-subtle);
   }
   /* Alias auf eigener Zeile: sonst zerreißt der Umbruch den Dateinamen mitten
      im Wort, und genau dieser Name ist der Grund, warum die Seite existiert. */
   .file-alias code {
     display: block;
-    margin-top: 0.15rem;
+    margin-top: var(--wp-space-1);
     overflow-wrap: anywhere;
   }
 
   .command {
-    margin-top: 1rem;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
+    margin-top: var(--wp-space-4);
+    padding: var(--wp-space-3) var(--wp-space-4);
+    border-radius: var(--wp-radius-control);
     background: var(--color-brand-card);
     border: 1px solid var(--color-brand-border);
     color: var(--color-brand-cyan);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     /* Wrap instead of forcing a horizontal page scroll on narrow viewports. */
     white-space: pre-wrap;
     overflow-wrap: anywhere;
@@ -259,15 +259,15 @@ const relatedPages = [
   }
 
   .faq-list {
-    margin-top: 1.5rem;
+    margin-top: var(--wp-space-6);
   }
   .faq-item + .faq-item {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
   }
   .faq-list dt {
     color: var(--color-ink);
     font-weight: 600;
-    margin-bottom: 0.25rem;
+    margin-bottom: var(--wp-space-1);
   }
   .faq-list dd {
     color: var(--color-ink-muted);

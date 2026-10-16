@@ -148,17 +148,17 @@ const rows = matrix.map((cell) => {
 <style>
   .benchmark-table-wrap {
     overflow-x: auto;
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
   }
   .benchmark-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9rem;
+    font-size: var(--wp-font-size-sm);
   }
   .benchmark-table th,
   .benchmark-table td {
     text-align: left;
-    padding: 0.6rem 0.9rem;
+    padding: var(--wp-space-2) var(--wp-space-4);
     border-bottom: 1px solid var(--color-brand-border);
   }
   .benchmark-table th {
@@ -169,8 +169,8 @@ const rows = matrix.map((cell) => {
   .status-badge {
     display: inline-block;
     border-radius: var(--radius-pill);
-    padding: 0.15rem 0.65rem;
-    font-size: 0.75rem;
+    padding: var(--wp-space-1) var(--wp-space-3);
+    font-size: var(--wp-font-size-xs);
     font-weight: 600;
     white-space: nowrap;
   }

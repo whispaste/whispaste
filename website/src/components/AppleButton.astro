@@ -64,8 +64,8 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
   .wp-apple-btn {
     display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
-    padding: 0.625rem 1.5rem;
+    gap: var(--wp-space-3);
+    padding: var(--wp-space-3) var(--wp-space-6);
     min-height: 44px;
     border-radius: var(--radius-pill);
     background: var(--gradient-accent-cta);
@@ -98,9 +98,9 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
   /* Large variant — same accent-gradient CTA as StoreButton's `--lg`, just
      bigger, so the three primary Hero/Download CTAs read as one family. */
   .wp-apple-btn--lg {
-    padding: 0.75rem 2rem;
+    padding: var(--wp-space-3) var(--wp-space-8);
     min-height: 52px;
-    gap: 0.875rem;
+    gap: var(--wp-space-4);
   }
 
   .wp-apple-btn--lg:hover {
@@ -133,14 +133,14 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
   .wp-apple-btn:not(.wp-apple-btn--lg) .wp-apple-btn__text {
     flex-direction: row;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 0.9375rem;
+    gap: var(--wp-space-2);
+    font-size: var(--wp-font-size-md);
     font-weight: 600;
   }
 
   /* Large: two lines */
   .wp-apple-btn--lg .wp-apple-btn__label {
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     font-weight: 400;
     color: color-mix(in srgb, var(--color-brand-darker) 68%, transparent);
     letter-spacing: 0.01em;
@@ -149,22 +149,22 @@ const archLabel = STORES.macos.archLabel ? t(lang, 'platform.macos.archLabel') :
   .wp-apple-btn__platform-row {
     display: inline-flex;
     align-items: baseline;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
 
   .wp-apple-btn--lg .wp-apple-btn__platform {
-    font-size: 1.0625rem;
+    font-size: var(--wp-font-size-lg);
     font-weight: 700;
     color: var(--color-brand-darker);
   }
 
   /* Architecture badge — subtle, clearly separate from the platform name */
   .wp-apple-btn__arch {
-    font-size: 0.6875rem;
+    font-size: var(--wp-font-size-2xs);
     font-weight: 600;
     line-height: 1;
     white-space: nowrap;
-    padding: 0.15rem 0.4rem;
+    padding: var(--wp-space-1) var(--wp-space-2);
     border-radius: var(--radius-chip);
     color: color-mix(in srgb, var(--color-brand-darker) 85%, transparent);
     background: color-mix(in srgb, var(--color-brand-darker) 12%, transparent);

@@ -65,18 +65,18 @@ const whisperTarget =
 
 <style>
   .engine-race {
-    margin-top: 1.5rem;
+    margin-top: var(--wp-space-6);
   }
   .engine-race__heading {
-    margin: 0 0 1rem;
-    font-size: 0.9375rem;
+    margin: 0 0 var(--wp-space-4);
+    font-size: var(--wp-font-size-md);
     font-weight: 600;
     color: var(--color-ink-muted);
   }
   .engine-race__bars {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
+    gap: var(--wp-space-6);
     view-timeline-name: --engine-race-bars;
     view-timeline-axis: block;
   }
@@ -84,11 +84,11 @@ const whisperTarget =
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    margin-bottom: 0.5rem;
-    gap: 1rem;
+    margin-bottom: var(--wp-space-2);
+    gap: var(--wp-space-4);
   }
   .engine-race__label {
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     font-weight: 600;
     color: var(--color-ink-muted);
   }
@@ -98,7 +98,7 @@ const whisperTarget =
   .engine-race__value {
     font-family: var(--font-display, inherit);
     font-weight: 800;
-    font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem);
+    font-size: var(--wp-font-size-h3);
     line-height: 1;
     color: var(--color-ink-muted);
     letter-spacing: -0.02em;
@@ -120,7 +120,7 @@ const whisperTarget =
     border-radius: var(--radius-pill);
     transform: scaleX(0);
     transform-origin: left center;
-    transition: transform 1s var(--ease-flow);
+    transition: transform var(--wp-duration-cinematic) var(--ease-flow);
   }
   .engine-race__fill--whisper {
     background: color-mix(in srgb, var(--color-ink-subtle) 55%, transparent);
@@ -129,15 +129,15 @@ const whisperTarget =
   .engine-race__fill--parakeet {
     background: linear-gradient(
       90deg,
-      color-mix(in srgb, var(--color-brand-cyan) 75%, #0b7fa0) 0%,
+      color-mix(in srgb, var(--color-brand-cyan) 75%, var(--wp-accent-strong)) 0%,
       var(--color-brand-cyan) 100%
     );
     box-shadow: 0 0 20px color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
     transition-delay: 0.18s;
   }
   .engine-race__caption {
-    margin: 1.25rem 0 0;
-    font-size: 0.8125rem;
+    margin: var(--wp-space-5) 0 0;
+    font-size: var(--wp-font-size-sm);
     color: var(--color-ink-subtle);
   }
 

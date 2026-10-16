@@ -42,14 +42,13 @@ const rows = [
   .tk {
     position: relative;
     overflow: hidden;
-    padding-block: clamp(2.5rem, 1.5rem + 3vw, 4.5rem);
-    border-block: 1px solid var(--wp-border-subtle);
-    background: var(--wp-surface-sunken);
+    padding-block: clamp(var(--wp-space-10), var(--wp-space-6) + 3vw, 4.5rem);
   }
   /* Soft edge fade so items enter and leave instead of being cut; on the
      inner wrapper so the band's own background stays full-bleed. */
   .tk-inner {
-    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+    /* Mask alpha only: currentColor is simply an opaque stop. */
+    mask-image: linear-gradient(90deg, transparent, currentColor 8%, currentColor 92%, transparent);
   }
   .tk-row {
     display: flex;
@@ -57,7 +56,7 @@ const rows = [
     animation: tk-drift 60s linear infinite;
   }
   .tk-row + .tk-row {
-    margin-top: clamp(0.5rem, 0.25rem + 0.75vw, 1rem);
+    margin-top: clamp(var(--wp-space-2), var(--wp-space-1) + 0.75vw, var(--wp-space-4));
   }
   .tk-row--reverse {
     animation-direction: reverse;
@@ -77,11 +76,11 @@ const rows = [
   .tk-item {
     display: inline-flex;
     align-items: center;
-    gap: clamp(1rem, 0.5rem + 1.5vw, 2.25rem);
-    padding-right: clamp(1rem, 0.5rem + 1.5vw, 2.25rem);
+    gap: clamp(var(--wp-space-4), var(--wp-space-2) + 1.5vw, 2.25rem);
+    padding-right: clamp(var(--wp-space-4), var(--wp-space-2) + 1.5vw, 2.25rem);
     font-family: var(--font-display);
     font-weight: 800;
-    font-size: clamp(2rem, 1.1rem + 3.6vw, 5.5rem);
+    font-size: var(--wp-font-size-h2);
     line-height: 1.1;
     letter-spacing: -0.035em;
     white-space: nowrap;

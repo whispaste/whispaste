@@ -270,15 +270,15 @@ const relatedPages = [
 <style>
   .tldr {
     color: var(--color-ink);
-    font-size: 1.0625rem;
+    font-size: var(--wp-font-size-lg);
     line-height: 1.65;
   }
 
   .gc-form {
     display: flex;
     flex-direction: column;
-    gap: 1.25rem;
-    margin-top: 0.25rem;
+    gap: var(--wp-space-5);
+    margin-top: var(--wp-space-1);
   }
   .gc-field {
     border: 0;
@@ -288,16 +288,16 @@ const relatedPages = [
   }
   .gc-field legend {
     color: var(--color-ink-subtle);
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    margin-bottom: 0.6rem;
+    margin-bottom: var(--wp-space-2);
   }
   .gc-pills {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: var(--wp-space-2);
   }
   .gc-pill {
     position: relative;
@@ -312,14 +312,14 @@ const relatedPages = [
   .gc-pill span {
     display: inline-flex;
     align-items: center;
-    padding: 0.5rem 1rem;
+    padding: var(--wp-space-2) var(--wp-space-4);
     border-radius: var(--radius-pill);
     border: 1px solid var(--color-brand-border);
     background: color-mix(in srgb, var(--color-brand-card) 55%, transparent);
     color: var(--color-ink-muted);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.2;
-    transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+    transition: border-color var(--wp-duration-base) ease, color var(--wp-duration-base) ease, background-color var(--wp-duration-base) ease;
   }
   .gc-pill input:checked + span {
     border-color: var(--color-brand-cyan);
@@ -335,25 +335,25 @@ const relatedPages = [
   .gc-macos-note,
   .gc-nojs {
     color: var(--color-ink-subtle);
-    font-size: 0.875rem;
+    font-size: var(--wp-font-size-sm);
     line-height: 1.6;
   }
 
   .gc-panel {
-    margin-top: 1.1rem;
+    margin-top: var(--wp-space-4);
   }
   .gc-panel h3 {
     color: var(--color-ink);
     font-weight: 600;
-    font-size: 1.0625rem;
-    margin-bottom: 0.4rem;
+    font-size: var(--wp-font-size-lg);
+    margin-bottom: var(--wp-space-2);
   }
   .gc-vendor-note {
-    margin-top: 1rem;
-    padding-left: 0.9rem;
+    margin-top: var(--wp-space-4);
+    padding-left: var(--wp-space-4);
     border-left: 2px solid color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
     color: var(--color-ink-muted);
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
     line-height: 1.65;
   }
 
@@ -371,24 +371,24 @@ const relatedPages = [
   .gc-table {
     width: 100%;
     min-width: 22rem;
-    margin-top: 1.1rem;
+    margin-top: var(--wp-space-4);
     border-collapse: collapse;
-    font-size: 0.9375rem;
+    font-size: var(--wp-font-size-md);
   }
   .gc-table caption {
     caption-side: top;
     text-align: left;
     color: var(--color-ink-subtle);
-    font-size: 0.75rem;
+    font-size: var(--wp-font-size-xs);
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    padding-bottom: 0.6rem;
+    padding-bottom: var(--wp-space-2);
   }
   .gc-table th,
   .gc-table td {
     text-align: left;
-    padding: 0.55rem 0.75rem 0.55rem 0;
+    padding: var(--wp-space-2) var(--wp-space-3) var(--wp-space-2) 0;
     border-bottom: 1px solid var(--color-brand-border);
   }
   .gc-table thead th {
@@ -405,15 +405,15 @@ const relatedPages = [
   }
 
   .faq-list {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
   }
   .faq-item + .faq-item {
-    margin-top: 1rem;
+    margin-top: var(--wp-space-4);
   }
   .faq-list dt {
     color: var(--color-ink);
     font-weight: 600;
-    margin-bottom: 0.25rem;
+    margin-bottom: var(--wp-space-1);
   }
   .faq-list dd {
     color: var(--color-ink-muted);

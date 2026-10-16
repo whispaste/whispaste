@@ -209,7 +209,7 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
     {import.meta.env.PROD && <WebVitals enabled={true} />}
   </head>
   <body class="antialiased">
-    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-brand-cyan focus:text-brand-darker focus:rounded-lg focus:font-semibold focus:shadow-lg" data-i18n="nav.skip">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-(--wp-accent-fill) focus:text-(--wp-accent-on-fill) focus:rounded-lg focus:font-semibold focus:shadow-lg" data-i18n="nav.skip">
       {t(lang, "nav.skip")}
     </a>
     <slot />

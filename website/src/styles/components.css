@@ -7,15 +7,16 @@
 /* ---- Surface bands ----
    A section opts into a mode with data-surface and gets its fill from the
    band class. Light bands are opaque on purpose: the result text stands on
-   a calm, flat ground, the dark stage wash continues around it. */
+   a calm, flat ground, the dark stage wash continues around it. They sit on
+   the stage as inset, rounded panels: a full-bleed light band met the dark
+   neighbours in hard straight cuts. */
 [data-surface="light"].wp-band {
   background: var(--wp-surface-band);
+  margin-inline: var(--wp-layout-band-inset);
+  border-radius: var(--wp-layout-band-radius);
 }
 [data-surface="light"].wp-band--alt {
   background: var(--wp-surface-band-alt);
-}
-[data-surface="dark"].wp-band--ink {
-  background: var(--wp-surface-sunken);
 }
 
 /* ---- Marker: the warm accent behind one word ---- */
@@ -109,7 +110,7 @@
 .wp-chip--error { border-color: transparent; background: var(--wp-status-error-fill); color: var(--wp-status-error-text); }
 .wp-tag {
   display: inline-block;
-  padding: 0.125rem 0.4rem;
+  padding: 0.125rem var(--wp-space-2);
   border-radius: var(--wp-tag-radius);
   border: 1px solid var(--wp-tag-border);
   color: var(--wp-tag-text);
@@ -263,8 +264,8 @@
   scroll-margin-top: calc(var(--wp-layout-nav-clear) + 1rem);
 }
 .wp-prose :where(h2) {
-  margin: 2.75rem 0 0.875rem;
-  font-size: clamp(1.5rem, 1.3rem + 0.7vw, 2rem);
+  margin: 2.75rem 0 var(--wp-space-4);
+  font-size: var(--wp-font-size-h3);
   font-weight: var(--wp-font-weight-bold);
   line-height: 1.2;
   letter-spacing: -0.02em;
@@ -273,10 +274,10 @@
   margin-top: 0;
 }
 .wp-prose :where(p + p, p + ul, p + ol, ul + p, ol + p) {
-  margin-top: 1rem;
+  margin-top: var(--wp-space-4);
 }
 .wp-prose :where(ul, ol) {
-  padding-left: 1.35rem;
+  padding-left: var(--wp-space-5);
 }
 .wp-prose :where(ul) {
   list-style: disc;
@@ -285,7 +286,7 @@
   list-style: decimal;
 }
 .wp-prose :where(li + li) {
-  margin-top: 0.4rem;
+  margin-top: var(--wp-space-2);
 }
 .wp-prose :where(li::marker) {
   color: var(--wp-accent-default);
@@ -301,16 +302,16 @@
   text-decoration-thickness: 2px;
 }
 .wp-prose :where(h3) {
-  margin: 2rem 0 0.6rem;
-  font-size: clamp(1.2rem, 1.1rem + 0.4vw, 1.45rem);
+  margin: var(--wp-space-8) 0 var(--wp-space-2);
+  font-size: var(--wp-font-size-h3);
   font-weight: var(--wp-font-weight-bold);
   line-height: var(--wp-font-line-height-snug);
   letter-spacing: var(--wp-font-tracking-title);
 }
 .wp-prose :where(h4) {
-  margin: 1.5rem 0 0.5rem;
+  margin: var(--wp-space-6) 0 var(--wp-space-2);
   font-family: var(--wp-font-family-body);
-  font-size: 1.05rem;
+  font-size: var(--wp-font-size-md);
   font-weight: var(--wp-font-weight-bold);
 }
 .wp-prose :where(strong) {
@@ -318,13 +319,13 @@
 }
 .wp-prose :where(blockquote) {
   margin: 1.75rem 0;
-  padding: 0.25rem 0 0.25rem 1.25rem;
+  padding: var(--wp-space-1) 0 var(--wp-space-1) var(--wp-space-5);
   border-left: 3px solid var(--wp-prose-quote-rule);
   color: var(--wp-prose-quote-text);
   font-size: 1.1em;
 }
 .wp-prose :where(pre) {
-  margin: 1.5rem 0;
+  margin: var(--wp-space-6) 0;
   padding: var(--wp-space-4) var(--wp-space-5);
   overflow-x: auto;
   border-radius: var(--wp-code-radius);
@@ -332,7 +333,7 @@
   background: var(--wp-code-fill);
   color: var(--wp-code-text);
   font-family: var(--wp-font-family-mono);
-  font-size: 0.875rem;
+  font-size: var(--wp-font-size-sm);
   line-height: 1.6;
 }
 .wp-prose :where(pre code) {
@@ -351,7 +352,7 @@
   overflow-wrap: anywhere;
 }
 .wp-prose :where(hr) {
-  margin: 2.5rem 0;
+  margin: var(--wp-space-10) 0;
   border: 0;
   border-top: 1px solid var(--wp-prose-rule);
 }
@@ -370,7 +371,7 @@
   margin: 0;
 }
 .wp-prose :where(figcaption) {
-  margin-top: 0.6rem;
+  margin-top: var(--wp-space-2);
   color: var(--wp-photo-caption);
   font-size: var(--wp-type-small);
 }
