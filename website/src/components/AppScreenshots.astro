@@ -1,6 +1,9 @@
 ---
 import ScreenshotLightbox from './ScreenshotLightbox.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
+import appleIconRaw from '../../public/os-icons/apple.svg?raw';
+import windowsIconRaw from '../../public/os-icons/windows.svg?raw';
+import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
 import { t, localePath, currentLocale } from '../scripts/i18n.ts';
 
 const lang = currentLocale(Astro.currentLocale);
@@ -11,6 +14,26 @@ const shotLang = lang === 'de' || lang === 'ru' ? lang : 'en';
 const views = [
   { id: 'history', file: '01_workspace_overview', label: 'screenshots.view.history', caption: 'screenshots.workspace', aria: 'screenshots.teaser.overview.aria', alt: 'screenshots.teaser.overview.alt' },
   { id: 'detail', file: '02_workspace_detail', label: 'screenshots.view.detail', caption: 'screenshots.detail', aria: 'screenshots.teaser.detail.aria', alt: 'screenshots.teaser.detail.alt' },
+] as const;
+
+// Facts next to the app: platforms and the app's own interface languages
+// (lib/core/l10n — L10n.supportedLocales), each written in itself. The
+// dictation languages are the engines' (Whisper 99, Parakeet v3 25) and link
+// to the language summary in the Engines section.
+// The icon files carry their own <title>; the chip already names the OS.
+const bareIcon = (svg: string) => svg.replace(/<title>[\s\S]*?<\/title>/g, '');
+const platforms = [
+  { name: 'macOS', icon: bareIcon(appleIconRaw) },
+  { name: 'Windows', icon: bareIcon(windowsIconRaw) },
+  { name: 'Linux', icon: bareIcon(ubuntuIconRaw) },
+] as const;
+const uiLanguages = [
+  { code: 'de', name: 'Deutsch' },
+  { code: 'en', name: 'English' },
+  { code: 'es', name: 'Español' },
+  { code: 'he', name: 'עברית', dir: 'rtl' },
+  { code: 'pt', name: 'Português' },
+  { code: 'ru', name: 'Русский' },
 ] as const;
 ---
 <!-- Screenshot teaser: a large dark panel rises out of the light band while
@@ -80,6 +103,27 @@ const views = [
       {views.map((v) => (
         <p class="shots-caption" data-view-only={v.id} data-i18n={v.caption}>{t(lang, v.caption)}</p>
       ))}
+
+      <dl class="shots-facts" aria-label={t(lang, "screenshots.facts.aria")} data-i18n-aria="screenshots.facts.aria" data-testid="screenshots-facts">
+        <div class="shots-fact" data-testid="screenshots-facts-os">
+          <dt data-i18n="screenshots.facts.os">{t(lang, "screenshots.facts.os")}</dt>
+          {platforms.map((os) => (
+            <dd class="shots-chip"><span class="shots-chip__icon" aria-hidden="true" set:html={os.icon} />{os.name}</dd>
+          ))}
+        </div>
+        <div class="shots-fact" data-testid="screenshots-facts-ui">
+          <dt data-i18n="screenshots.facts.ui">{t(lang, "screenshots.facts.ui")}</dt>
+          {uiLanguages.map((l) => (
+            <dd class="shots-chip" lang={l.code} dir={'dir' in l ? l.dir : undefined}>{l.name}</dd>
+          ))}
+        </div>
+        <div class="shots-fact" data-testid="screenshots-facts-dictation">
+          <dt data-i18n="screenshots.facts.dictation">{t(lang, "screenshots.facts.dictation")}</dt>
+          <dd class="shots-chip shots-chip--link">
+            <a href="#languages" data-i18n="screenshots.facts.dictationValue">{t(lang, "screenshots.facts.dictationValue")}</a>
+          </dd>
+        </div>
+      </dl>
     </div>
 
     <p class="shots-more">
@@ -269,6 +313,81 @@ const views = [
     text-align: center;
     font-size: var(--wp-font-size-md);
     color: var(--wp-text-secondary);
+  }
+  /* ---- Facts: platforms and languages as chip rows ---- */
+  .shots-facts {
+    display: grid;
+    gap: var(--wp-space-4);
+    margin: var(--wp-space-4) 0 0;
+    padding: var(--wp-space-5);
+    border-radius: var(--wp-card-radius);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+  }
+  @media (min-width: 1024px) {
+    .shots-facts {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: start;
+      gap: var(--wp-space-8);
+    }
+  }
+  .shots-fact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wp-space-2);
+    margin: 0;
+  }
+  .shots-fact dt {
+    flex-basis: 100%;
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--wp-text-muted);
+  }
+  .shots-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    margin: 0;
+    padding: var(--wp-space-1) var(--wp-space-3);
+    border-radius: var(--wp-radius-pill);
+    border: 1px solid var(--wp-border-default);
+    background: var(--wp-surface-control);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    color: var(--wp-text-primary);
+  }
+  .shots-chip__icon {
+    display: inline-flex;
+    width: 1rem;
+    height: 1rem;
+  }
+  .shots-chip__icon :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+  /* The one amber accent of the strip: the dictation-language fact. */
+  .shots-chip--link {
+    padding: 0;
+    border-color: var(--wp-highlight-marker);
+    background: var(--wp-highlight-soft);
+  }
+  .shots-chip--link a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 var(--wp-space-4);
+    border-radius: inherit;
+    color: var(--wp-highlight-text);
+    text-decoration: none;
+  }
+  .shots-chip--link a:hover { text-decoration: underline; }
+  .shots-chip--link a:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
   }
   .shots-more {
     margin-top: var(--wp-space-6);

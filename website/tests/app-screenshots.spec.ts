@@ -37,3 +37,19 @@ test('screenshot panel has no device frame and no sideways scroll at 390px', asy
   );
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+for (const path of ['/', '/fr/', '/zh/'] as const) {
+  test(`${path}: platform and language facts are listed and the dictation link resolves`, async ({ page }) => {
+    await page.goto(path);
+    await expect(page.getByTestId('screenshots-facts-os').locator('dd')).toHaveText(['macOS', 'Windows', 'Linux']);
+    // The app's own interface languages (L10n.supportedLocales), each marked
+    // with its language so screen readers pronounce it correctly.
+    const ui = page.getByTestId('screenshots-facts-ui').locator('dd');
+    await expect(ui).toHaveCount(6);
+    expect(await ui.evaluateAll((els) => els.map((e) => e.getAttribute('lang')))).toEqual(['de', 'en', 'es', 'he', 'pt', 'ru']);
+    const link = page.getByTestId('screenshots-facts-dictation').locator('a');
+    await expect(link).toHaveAttribute('href', '#languages');
+    await expect(link).toContainText('99');
+    await expect(page.locator('#languages')).toHaveCount(1);
+  });
+}
