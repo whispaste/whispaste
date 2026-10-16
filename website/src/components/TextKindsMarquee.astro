@@ -76,14 +76,14 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
   /* ---- The recording pill, standing over the middle of the row ---- */
   .tk-pill {
     position: absolute;
-    z-index: 2;
+    z-index: 3;
     left: 50%;
     top: 0;
     translate: -50% 0;
     rotate: -4deg;
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--wp-space-1);
     height: 56px;
     padding: 0 var(--wp-space-5) 0 var(--wp-space-4);
     border-radius: var(--wp-radius-pill);
@@ -106,18 +106,49 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
   .tk-pill i:nth-child(6) { animation-delay: -0.6s; height: 24px; }
   .tk-pill i:nth-child(7) { animation-delay: -0.95s; height: 32px; }
   .tk-pill i:nth-child(8) { animation-delay: -0.3s; height: 16px; }
-  /* The drop: a short cyan line from the pill into the field below it. */
+  /* The drop: a solid cyan stem from the pill down into the field row —
+     where the text goes in. It glows up with every drop. */
   .tk-pill::after {
     content: "";
     position: absolute;
     left: 50%;
-    top: 100%;
-    width: 2px;
-    height: var(--wp-space-6);
+    top: calc(100% - 2px);
+    width: 3px;
+    height: var(--wp-space-8);
     translate: -50% 0;
     rotate: 4deg;
+    transform-origin: top center;
     border-radius: var(--wp-radius-pill);
-    background: linear-gradient(var(--wp-overlay-accent), transparent);
+    background: var(--wp-overlay-accent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--wp-overlay-accent) 60%, transparent);
+  }
+  /* A drop of text (a small amber text line) falls from the pill into the
+     field each time one fills. */
+  .tk-pill::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 2px);
+    width: 30px;
+    height: 8px;
+    translate: -50% 0;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-wave);
+    opacity: 0;
+  }
+  .tk-pill.is-dropping::before {
+    animation: tk-drop 380ms cubic-bezier(0.55, 0, 1, 0.45) both;
+  }
+  .tk-pill.is-dropping::after {
+    animation: tk-stem 520ms var(--ease-flow) both;
+  }
+  @keyframes tk-drop {
+    0% { opacity: 1; transform: translateY(0) scaleX(0.5); }
+    75% { opacity: 1; transform: translateY(var(--wp-space-12)) scaleX(1); }
+    100% { opacity: 0; transform: translateY(var(--wp-space-12)) scaleX(2.2) scaleY(0.4); }
+  }
+  @keyframes tk-stem {
+    40% { box-shadow: 0 0 22px var(--wp-overlay-accent); }
   }
   .tk-pill .tk-pill__dot {
     width: 10px;
@@ -203,7 +234,13 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
     display: none;
   }
   .tk[data-js] .tk-field[data-filled] .tk-field__value {
-    animation: tk-paste 1200ms var(--ease-flow) both;
+    display: inline-block;
+    animation:
+      tk-plop 460ms cubic-bezier(0.3, 1.5, 0.5, 1) 280ms both,
+      tk-paste 1200ms var(--ease-flow) 280ms both;
+  }
+  @keyframes tk-plop {
+    from { opacity: 0; transform: translateY(-0.7em) scale(0.96); }
   }
   .tk-field[data-filled] .tk-field__caret,
   .tk:not([data-js]) .tk-field__caret {
@@ -218,7 +255,9 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
     .tk-pill i,
     .tk-pill .tk-pill__dot,
     .tk-field__caret,
-    .tk-field__value {
+    .tk-field__value,
+    .tk-pill::before,
+    .tk-pill::after {
       animation: none !important;
     }
     .tk-track {
@@ -246,23 +285,31 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
     const fields = [...track.querySelectorAll<HTMLElement>('[data-tk-field]')];
     band.dataset.js = '';
     let setWidth = 0;
-    let centres: number[] = [];
+    let fronts: number[] = [];
     const measure = (): void => {
       // Second set starts exactly one set width after the first.
       const half = fields.length / 2;
       setWidth = fields[half].offsetLeft - fields[0].offsetLeft;
-      centres = fields.map((f) => f.offsetLeft + f.offsetWidth / 2);
+      // The front (left) edge: a field fills the moment it touches the pill.
+      fronts = fields.map((f) => f.offsetLeft + f.offsetWidth * 0.04);
     };
     let x = 0;
     const paint = (): void => {
       track.style.transform = `translateX(${x}px)`;
       const pillX = pill.offsetLeft - track.offsetLeft;
       fields.forEach((f, i) => {
-        const filled = centres[i] + x < pillX;
-        if (filled !== (f.dataset.filled !== undefined)) {
-          if (filled) f.dataset.filled = '';
-          else delete f.dataset.filled;
+        const filled = fronts[i] + x < pillX;
+        if (filled === (f.dataset.filled !== undefined)) return;
+        if (!filled) {
+          delete f.dataset.filled;
+          return;
         }
+        f.dataset.filled = '';
+        // The pill lets a drop of text fall into the field (restart the
+        // one-shot drop animation).
+        pill.classList.remove('is-dropping');
+        void pill.offsetWidth;
+        pill.classList.add('is-dropping');
       });
     };
     let raf = 0;

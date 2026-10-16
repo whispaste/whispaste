@@ -21,7 +21,7 @@ for (const { path, first } of [
   });
 }
 
-test('fields past the pill are filled, fields ahead of it wait empty', async ({ page }) => {
+test('fields that reached the pill are filled, fields ahead of it wait empty', async ({ page }) => {
   await page.goto('/');
   const band = page.getByTestId('text-kinds-marquee');
   await band.scrollIntoViewIfNeeded();
@@ -32,7 +32,8 @@ test('fields past the pill are filled, fields ahead of it wait empty', async ({ 
       const pillX = pill.left + pill.width / 2;
       return [...el.querySelectorAll<HTMLElement>('[data-tk-field]')].map((f) => {
         const r = f.getBoundingClientRect();
-        return { left: r.left + r.width / 2 < pillX, filled: f.dataset.filled !== undefined, x: r.left };
+        // A field fills the moment its front edge touches the pill.
+        return { left: r.left + r.width * 0.04 < pillX, filled: f.dataset.filled !== undefined, x: r.left };
       });
     });
   const before = await state();
