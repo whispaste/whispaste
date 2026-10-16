@@ -1,0 +1,73 @@
+{
+  "$description": "Semantic tokens, light mode (glacier): light result bands on the website. Same keys as the dark mode; a component placed in a light band adapts without component-level overrides. The desktop app is dark-only and does not consume this file today.",
+  "surface": {
+    "$type": "color",
+    "page": { "$value": "{color.glacier.100}" },
+    "band": { "$value": "{color.glacier.100}" },
+    "band-alt": { "$value": "{color.glacier.200}" },
+    "sunken": { "$value": "{color.glacier.200}" },
+    "card": { "$value": "{color.glacier.50}" },
+    "card-hover": { "$value": "{color.white}" },
+    "floating": { "$value": "{color.white}" },
+    "control": { "$value": "{color.white}" },
+    "control-hover": { "$value": "{color.glacier.50}" },
+    "inset": { "$value": "#0B122A0F", "$description": "Code and wells on light (navy 6%)." },
+    "scrim": { "$value": "#070B19CC" }
+  },
+  "text": {
+    "$type": "color",
+    "primary": { "$value": "{color.glacier.900}" },
+    "secondary": { "$value": "{color.glacier.700}" },
+    "muted": { "$value": "{color.glacier.600}" },
+    "link": { "$value": "{color.cyan.700}" },
+    "link-hover": { "$value": "{color.glacier.900}" },
+    "on-action": { "$value": "{color.navy.900}" },
+    "on-highlight": { "$value": "{color.navy.900}" }
+  },
+  "border": {
+    "$type": "color",
+    "subtle": { "$value": "#0B122A1F", "$description": "Hairlines and dividers (navy 12%)." },
+    "default": { "$value": "{color.glacier.300}" },
+    "strong": { "$value": "#0B122A47" },
+    "control": { "$value": "{color.glacier.500}", "$description": "Input outlines, 3:1 against the band." }
+  },
+  "accent": {
+    "$type": "color",
+    "default": { "$value": "{color.cyan.700}", "$description": "Cyan as text/icon on light keeps AA; fills use accent.strong." },
+    "strong": { "$value": "{color.cyan.500}" },
+    "soft": { "$value": "#0BAACC1F" },
+    "glow": { "$value": "#0BAACC1A" }
+  },
+  "highlight": {
+    "$type": "color",
+    "default": { "$value": "{color.amber.400}" },
+    "text": { "$value": "{color.amber.800}" },
+    "marker": { "$value": "#FFB54773", "$description": "Highlighter stroke behind dark text." },
+    "soft": { "$value": "#FFB54729" }
+  },
+  "focus": {
+    "$type": "color",
+    "ring": { "$value": "{color.cyan.700}" }
+  },
+  "status": {
+    "$type": "color",
+    "success": { "$value": "{color.green.800}" },
+    "success-soft": { "$value": "#0B6B401A" },
+    "warning": { "$value": "{color.yellow.800}" },
+    "warning-soft": { "$value": "#F5C84233" },
+    "error": { "$value": "{color.red.800}" },
+    "error-soft": { "$value": "#B423181A" }
+  },
+  "gradient": {
+    "$type": "gradient",
+    "action": { "$value": [{ "color": "{color.cyan.300}", "position": 0 }, { "color": "{color.cyan.400}", "position": 0.5 }, { "color": "{color.cyan.500}", "position": 1 }], "$extensions": { "angle": "135deg" } },
+    "brand-text": { "$value": [{ "color": "{color.cyan.700}", "position": 0 }, { "color": "{color.cyan.600}", "position": 0.5 }, { "color": "{color.cyan.700}", "position": 1 }], "$extensions": { "angle": "135deg" }, "$description": "Darker on light so gradient words keep contrast." },
+    "stage": { "$value": [{ "color": "{color.navy.700}", "position": 0 }, { "color": "{color.navy.600}", "position": 0.5 }, { "color": "{color.navy.500}", "position": 1 }], "$extensions": { "angle": "135deg" } }
+  },
+  "elevation": {
+    "$type": "shadow",
+    "card": { "$value": "{shadow.light-card}" },
+    "card-hover": { "$value": "{shadow.light-card}" },
+    "floating": { "$value": "{shadow.overlay}" }
+  }
+}

@@ -169,7 +169,7 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
   /* Rail: compact CTA card + related links. Sticky via .page-split__rail. */
   .lp-rail-card {
     padding: 1.5rem;
-    border-radius: var(--radius-lg, 1rem);
+    border-radius: var(--wp-radius-surface);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
     background: color-mix(in srgb, var(--color-brand-cyan) 5%, transparent);
   }
@@ -286,7 +286,7 @@ const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
   .lp-end {
     margin-top: 3rem;
     padding: clamp(2rem, 4vw, 3.5rem);
-    border-radius: var(--radius-xl, 1.5rem);
+    border-radius: var(--wp-radius-panel);
     border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 20%, transparent);
     background:
       radial-gradient(60% 120% at 100% 0%, color-mix(in srgb, var(--color-brand-cyan) 14%, transparent), transparent 70%),

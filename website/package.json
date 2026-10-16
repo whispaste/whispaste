@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "dev": "bash scripts/dev.sh",
+    "tokens": "node scripts/build-tokens.mjs",
+    "tokens:check": "node scripts/build-tokens.mjs --check",
     "build": "node scripts/generate-llms-txt.mjs && astro build",
     "build:check": "node scripts/generate-llms-txt.mjs && astro build && node scripts/check-brand-vocabulary.mjs",
     "build:deploy": "npm run build:check && node scripts/push-indexnow.mjs",

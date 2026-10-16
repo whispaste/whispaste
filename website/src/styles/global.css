@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Design tokens (generated from /design-tokens, see design-tokens/README.md). */
+@import "./tokens.css";
+@import "./components.css";
 
 /* ---------------------------------------------------------------------------
    Self-hosted variable fonts (no external CDN / Google Fonts request).
@@ -52,8 +55,8 @@
      drift note). Cascades through every consumer of these two tokens; the
      handful of components that hardcoded the old hex instead of the token
      were fixed alongside this. */
-  --color-brand-cyan: #6FDDF0;
-  --color-brand-teal: #0BAACC;
+  --color-brand-cyan: var(--wp-accent-default);
+  --color-brand-teal: var(--wp-color-cyan-500);
   /* Re-synced to the app's current WpColorsDark.surface/.background
      (lib/core/theme/colors.dart). Were #171D2C/#131826 — stale copies from
      before that file's chroma-doubling pass (documented there as "58-61%
@@ -63,8 +66,8 @@
      below are color-mix()'d from these, so every section band inherited the
      same grey-ish drift even though the stage-* stops they mix with were
      already correct. */
-  --color-brand-dark: #0D1936;
-  --color-brand-darker: #0B122A;
+  --color-brand-dark: var(--wp-color-navy-850);
+  --color-brand-darker: var(--wp-color-navy-900);
   /* Was #122247, the app's WpColorsDark.surfaceElevated verbatim — same
      mistake as the old --color-brand-dark twice over: a value lifted from
      the Dart constant instead of measured off real pixels. A first pixel-
@@ -78,15 +81,15 @@
      separate material from that wash at all — collapsed onto --stage-indigo
      directly, the same stop --surface-dark below already uses for section
      bands, rather than inventing a third bespoke navy. */
-  --color-brand-card: #171D53;
+  --color-brand-card: var(--wp-surface-card);
   /* Same collapse, same token, for chrome that floats over arbitrary content
      instead of sitting on the page wash (dialogs, toasts, dropdown popups,
      the nav pill/flyout) -- was #18274D, then #222248, both undersaturated
      for the same reason as the card fix above. This is also the nav's own
      "Blauton, der in der App so nicht vorkommt" the maintainer flagged
      separately, three rounds running before this one. */
-  --color-brand-floating: #171D53;
-  --color-brand-border: #2e3138;
+  --color-brand-floating: var(--wp-surface-floating);
+  --color-brand-border: var(--wp-border-default);
 
   /* The app's actual primary-CTA treatment (`WpHeroButton`, `accentWarmGradient`
      in lib/core/theme/colors.dart): an opaque three-stop cyan gradient, white
@@ -96,28 +99,26 @@
      website's download CTAs used to approximate this with a dark, near-opaque
      "glass" fill and a cyan-tinted glow shadow instead, which reads as an
      unrelated grey material rather than the app's own accent. */
-  --gradient-accent-cta: linear-gradient(135deg, #6FDDF0 0%, #1ACBE9 50%, #0BAACC 100%);
+  --gradient-accent-cta: var(--wp-gradient-action);
 
   /* Semantic text tokens — mirror the Flutter app's text hierarchy 1:1
      (WpColorsDark.textPrimary/Secondary/Muted in lib/core/theme/colors.dart,
      the same values the recording-overlay pill already uses). All three
      clear WCAG AA on #0B122A (muted #ABB8CC ≈ 9.2:1, subtle #8A99B2 ≈
      6.4:1). */
-  --color-ink: #F0F4FA;
-  --color-ink-muted: #ABB8CC;
-  --color-ink-subtle: #8A99B2;
+  --color-ink: var(--wp-text-primary);
+  --color-ink-muted: var(--wp-text-secondary);
+  --color-ink-subtle: var(--wp-text-muted);
+  --color-highlight: var(--wp-highlight-text);
 
   /* Typography: body grotesk + characterful display grotesk for headings.
      Setting --font-sans makes it the document default (Tailwind v4 preflight). */
-  --font-sans: "Hanken Grotesk Variable", ui-sans-serif, system-ui, -apple-system,
-    "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-display: "Bricolage Grotesque Variable", "Hanken Grotesk Variable",
-    ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--wp-font-family-body);
+  --font-display: var(--wp-font-family-display);
   /* Terminal/monospace voice — HUD labels, metrics, keycaps. Deliberately a
      pure system stack: zero extra font requests (Performance-Nordstern), and
      genuinely the typeface the target audience reads code in all day. */
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
+  --font-mono: var(--wp-font-family-mono);
 
   /* ---- Radius-Leiter ----
      Eigene Namen statt Tailwinds --radius-xl/2xl/3xl zu überschreiben: deren
@@ -152,9 +153,33 @@
      instead of Tailwind's generic cubic-bezier(0.4,0,0.2,1) — without touching
      a single piece of markup. 150ms cut the quintic-out tail off mid-flight;
      180ms lets it actually land. */
-  --ease-flow: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-flow: var(--wp-easing-flow);
   --default-transition-timing-function: var(--ease-flow);
-  --default-transition-duration: 180ms;
+  --default-transition-duration: var(--wp-duration-base);
+}
+
+/* ---- Surface modes ----
+   Legacy aliases above resolve once on :root. Every element that switches
+   mode via data-surface="light|dark" re-declares them, so components that
+   still read the legacy names (and Tailwind's text-ink/bg-brand-card
+   utilities) follow the mode of their section. New code reads --wp-* tokens
+   directly; see design-tokens/README.md. */
+[data-surface] {
+  --color-brand-cyan: var(--wp-accent-default);
+  --color-brand-card: var(--wp-surface-card);
+  --color-brand-floating: var(--wp-surface-floating);
+  --color-brand-border: var(--wp-border-default);
+  --gradient-accent-cta: var(--wp-gradient-action);
+  --color-ink: var(--wp-text-primary);
+  --color-ink-muted: var(--wp-text-secondary);
+  --color-ink-subtle: var(--wp-text-muted);
+  --color-highlight: var(--wp-highlight-text);
+  --shadow-card: var(--wp-card-shadow);
+  --shadow-card-hover: var(--wp-card-shadow-hover);
+  --shadow-overlay: var(--wp-elevation-floating);
+  --wp-card-ring: var(--wp-border-strong);
+  --wp-bracket: color-mix(in srgb, var(--wp-accent-default) 55%, transparent);
+  color: var(--wp-text-primary);
 }
 
 /* ---- Site container ----
@@ -211,11 +236,12 @@
    section title, so sections stop picking their own py-20/py-28/py-32 and
    text-base/lg/xl. Plain :root for the same tree-shaking reason as --dur-*. */
 :root {
-  --section-pad-y: clamp(3.75rem, 2.5rem + 4.5vw, 6.5rem);
-  --section-head-gap: clamp(2.5rem, 2rem + 2vw, 4rem);
-  --type-lead: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
-  --type-card-title: clamp(1.125rem, 1.05rem + 0.3vw, 1.3125rem);
+  --section-pad-y: var(--wp-layout-section-pad-y);
+  --section-head-gap: var(--wp-layout-section-head-gap);
+  --type-lead: var(--wp-type-lead);
+  --type-card-title: var(--wp-type-card-title);
   --measure-lead: 40rem;
+  --nav-clear: var(--wp-layout-nav-clear);
 }
 .wp-section {
   padding-block: var(--section-pad-y);
@@ -302,18 +328,18 @@
    the Astro-scoped <style> blocks that consume them are invisible to that
    analysis. */
 :root {
-  --dur-fast: 140ms;
-  --dur-base: 180ms;
-  --dur-slow: 320ms;
+  --dur-fast: var(--wp-duration-fast);
+  --dur-base: var(--wp-duration-base);
+  --dur-slow: var(--wp-duration-slow);
 
   /* ---- Stage wash tokens ----
      The three stops of the hero's ambient wash (WpColorsDark.warmSurfaceGradient
      — navy → indigo → violet), promoted out of Hero.astro so the rest of the
      page can derive from the same wash instead of cutting to flat
      --color-brand-dark/-darker at the first section boundary. */
-  --stage-navy: #13274F;
-  --stage-indigo: #171D53;
-  --stage-violet: #2E2153;
+  --stage-navy: var(--wp-color-navy-700);
+  --stage-indigo: var(--wp-color-navy-600);
+  --stage-violet: var(--wp-color-navy-500);
 
   /* Section-band surfaces, the SAME three stage stops the hero wash uses --
      specifically the indigo->violet half of it, not navy->indigo: navy and
@@ -340,17 +366,17 @@
   --surface-dark: var(--stage-indigo);
 
   /* Radius-Leiter — Rollen und Begründung siehe @theme-Block oben. */
-  --radius-chip: 6px;
-  --radius-control: 10px;
-  --radius-card: 14px;
-  --radius-surface: 20px;
+  --radius-chip: var(--wp-radius-chip);
+  --radius-control: var(--wp-radius-control);
+  --radius-card: var(--wp-radius-card);
+  --radius-surface: var(--wp-radius-surface);
   /* Full stadium shape for the accent-gradient CTA family (nav download,
      StoreButton/AppleButton/LinuxButton/MobileCta) — a fixed 14px corner
      read as a near-pill on the compact nav button but as a plain rounded
      rectangle on the much taller --lg hero buttons, so the same token
      produced two different-looking shape families. A true pill (radius >=
      half the tallest button's height) reads identically at every size. */
-  --radius-pill: 999px;
+  --radius-pill: var(--wp-radius-pill);
 
   /* ---- Schatten-Leiter ----
      Vorher lagen 81 box-shadow-Deklarationen verstreut in den Komponenten,
@@ -371,11 +397,11 @@
      at offset 0 is not a depth source" (lib/core/theme/colors.dart). Die
      primären Download-CTAs der Website (`--gradient-accent-cta`) übernehmen
      jetzt exakt das: kein Border, kein Glow, nur der neutrale pill-Hover. */
-  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 1px rgba(0, 0, 0, 0.1);
-  --shadow-card-hover: 0 10px 30px rgba(0, 0, 0, 0.22);
-  --shadow-overlay: 0 12px 32px rgba(0, 0, 0, 0.3);
-  --shadow-pill: 0 4px 12px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.15);
-  --shadow-pill-active: 0 1px 4px rgba(0, 0, 0, 0.2);
+  --shadow-card: var(--wp-card-shadow);
+  --shadow-card-hover: var(--wp-card-shadow-hover);
+  --shadow-overlay: var(--wp-elevation-floating);
+  --shadow-pill: var(--wp-shadow-pill);
+  --shadow-pill-active: var(--wp-shadow-pill-active);
 }
 
 /* ---------------------------------------------------------------------------
@@ -433,8 +459,8 @@
   [tabindex]:focus-visible,
   input:focus-visible,
   select:focus-visible {
-    outline: 2px solid var(--color-brand-cyan);
-    outline-offset: 2px;
+    outline: var(--wp-focus-ring-width) solid var(--wp-focus-ring-color);
+    outline-offset: var(--wp-focus-ring-offset);
     /* Kein border-radius hier. Die Regel liegt in @layer base und verliert
        ohnehin gegen jede rounded-*-Utility; wirksam wurde sie nur auf
        ungestylten Elementen — und erzeugte dort einen fast eckigen Ring
@@ -898,7 +924,7 @@
    danebenzusetzen. Amplitude so kalibriert, dass die Komposition aus
    0.12er-Border + Ring das dokumentierte Band ~0.17–0.30 trifft. */
 :root {
-  --wp-card-ring: rgba(255, 255, 255, 0.2);
+  --wp-card-ring: var(--wp-border-strong);
 }
 @keyframes wp-card-ring-breathe {
   0%, 100% { opacity: 0.3; }
@@ -1167,12 +1193,12 @@
 :root {
   /* Über --dur-slow (320ms, Karten) hinaus: großformatige Set-Piece-Reveals
      brauchen mehr Zeit, um als Inszenierung statt als Layout-Snap zu lesen. */
-  --dur-cinematic: 900ms;
-  --dur-cinematic-slow: 1400ms;
+  --dur-cinematic: var(--wp-duration-cinematic);
+  --dur-cinematic-slow: var(--wp-duration-cinematic-slow);
   /* Deckt sich mit dem bestehenden nth-child-Rhythmus in index.astro
      (0/80/160/240/320/400ms) — künftige Stagger-Stellen rechnen mit
      calc(var(--stagger-step) * n) statt neue Werte zu erfinden. */
-  --stagger-step: 80ms;
+  --stagger-step: var(--wp-duration-stagger);
 }
 
 /* --- Kinetic Line: Vorhang-Aufzug für Headlines ---------------------------- */
@@ -1380,7 +1406,7 @@
       z-index: 60;
       pointer-events: none;
       transform-origin: 0 50%;
-      background: linear-gradient(90deg, var(--color-brand-cyan), #818cf8);
+      background: linear-gradient(90deg, var(--wp-color-cyan-300), var(--wp-color-cyan-500));
       animation: wp-scroll-progress linear both;
       animation-timeline: scroll(root block);
     }

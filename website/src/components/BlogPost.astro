@@ -67,7 +67,7 @@ const articleSchema = {
           </ol>
         </nav>
       )}
-      <div class="post-body">
+      <div class="post-body wp-prose">
         <Content />
       </div>
       <aside class="post-aside">
@@ -241,8 +241,8 @@ const articleSchema = {
   }
   .post-body :global(code) {
     padding: 0.1em 0.35em;
-    border-radius: 0.375rem;
-    background: rgb(255 255 255 / 0.06);
+    border-radius: var(--wp-radius-chip);
+    background: var(--wp-code-fill);
     font-family: var(--font-mono);
     font-size: 0.9em;
     color: var(--color-ink);
@@ -294,8 +294,8 @@ const articleSchema = {
     margin-top: 1.125rem;
     padding: 0.625rem 1.25rem;
     border-radius: var(--radius-pill);
-    background: linear-gradient(135deg, var(--color-brand-cyan), color-mix(in srgb, var(--color-brand-cyan) 60%, #6366f1));
-    color: #04121f;
+    background: var(--wp-button-primary-fill);
+    color: var(--wp-button-primary-text);
     font-weight: 700;
     font-size: 0.9375rem;
     box-shadow: 0 10px 30px -12px color-mix(in srgb, var(--color-brand-cyan) 70%, transparent);

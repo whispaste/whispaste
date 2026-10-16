@@ -46,7 +46,7 @@ const body = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/g, (_match, attrs: string
 
   <div class="wp-container page-body">
     <div class="page-split">
-      <article class="page-prose legal-prose" data-testid={`${testid}-content`} set:html={body} />
+      <article class="page-prose wp-prose legal-prose" data-testid={`${testid}-content`} set:html={body} />
 
       <nav class="page-split__rail legal-toc" aria-label={tocLabel} data-testid={`${testid}-toc`}>
         <p class="legal-toc__label">{tocLabel}</p>
@@ -78,7 +78,7 @@ const body = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/g, (_match, attrs: string
     line-height: 1.2;
     letter-spacing: -0.015em;
     color: var(--color-ink);
-    margin-bottom: 1rem;
+    margin: 0 0 1rem;
     scroll-margin-top: calc(var(--nav-clear, 6.5rem) + 1rem);
   }
   .legal-prose :global(h3) {

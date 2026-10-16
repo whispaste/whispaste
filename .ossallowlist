@@ -62,6 +62,9 @@ macos/
 linux/
 windows/
 
+# Design tokens (platform-neutral source for website and app theme)
+design-tokens/
+
 # Server API (PHP/Slim, deployed to netcup; vendor/ and var/ via services/api/.gitignore)
 services/api/
 

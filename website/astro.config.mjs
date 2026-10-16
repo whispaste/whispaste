@@ -22,6 +22,20 @@ export default defineConfig({
     },
   },
   integrations: [
+    // Design-system catalogue (/design-system/): dev server only, never part
+    // of the build, so it needs no translations, sitemap entry or SEO meta.
+    {
+      name: 'wp-design-system-catalogue',
+      hooks: {
+        'astro:config:setup': ({ command, injectRoute }) => {
+          if (command !== 'dev') return;
+          injectRoute({
+            pattern: '/design-system',
+            entrypoint: './src/design-system/DesignSystemPage.astro',
+          });
+        },
+      },
+    },
     // Sitemap-Plugin generiert hreflang-Alternates per `<xhtml:link>`-Eintrag.
     // Die `locales`-Map muss BCP-47-Sprachtags auf die in `i18n.locales`
     // konfigurierten Slugs abbilden (siehe Astro-Docs zum Sitemap-Integrations-

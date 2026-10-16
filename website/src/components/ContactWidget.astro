@@ -189,7 +189,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     padding-inline: 5px;
     border-radius: 10px;
     border: 2px solid var(--color-brand-darker);
-    background: #ef4444;
+    background: var(--wp-color-red-800);
     color: #fff;
     font-size: 0.6875rem;
     font-weight: 700;
@@ -425,7 +425,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     outline-offset: 1px;
   }
   .cw-input[aria-invalid='true'] {
-    border-color: #f87171;
+    border-color: var(--wp-input-border-invalid);
   }
   .cw-hp {
     position: absolute;
@@ -444,7 +444,7 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
   }
   .cw-status {
     font-size: 0.875rem;
-    color: #fca5a5;
+    color: var(--wp-status-error-text);
   }
   .cw-actions {
     display: flex;
@@ -460,8 +460,8 @@ const kinds = ['idea', 'problem', 'question', 'other'] as const;
     min-height: 44px;
     padding: 0.6rem 1.15rem;
     border-radius: var(--radius-pill);
-    background: linear-gradient(135deg, var(--color-brand-cyan), color-mix(in srgb, var(--color-brand-cyan) 60%, #6366f1));
-    color: #04121f;
+    background: var(--wp-button-primary-fill);
+    color: var(--wp-button-primary-text);
     font-weight: 700;
     font-size: 0.9375rem;
     transition: transform var(--dur-base) var(--ease-flow), opacity var(--dur-fast) ease;
