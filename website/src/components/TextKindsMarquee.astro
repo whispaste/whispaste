@@ -65,7 +65,15 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
   .tk {
     position: relative;
     overflow: hidden;
-    padding-block: clamp(var(--wp-space-8), var(--wp-space-4) + 3vw, var(--wp-space-16));
+    /* The hero above ends with its own bottom padding (pb-16 / sm:pb-24);
+       the band adds none on top and the same amount below, so the row sits
+       with equal air above the pill and below the fields. */
+    padding-block: 0 var(--wp-space-16);
+  }
+  @media (min-width: 640px) {
+    .tk {
+      padding-bottom: var(--wp-space-24);
+    }
   }
   .tk-stage {
     position: relative;
@@ -106,21 +114,21 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
   .tk-pill i:nth-child(6) { animation-delay: -0.6s; height: 24px; }
   .tk-pill i:nth-child(7) { animation-delay: -0.95s; height: 32px; }
   .tk-pill i:nth-child(8) { animation-delay: -0.3s; height: 16px; }
-  /* The drop: a solid cyan stem from the pill down into the field row —
-     where the text goes in. It glows up with every drop. */
+  /* The pill speaks into the row: a speech-bubble tail in the pill's own
+     navy points down at the field; it lights up amber with every drop. */
   .tk-pill::after {
     content: "";
     position: absolute;
     left: 50%;
-    top: calc(100% - 2px);
-    width: 3px;
-    height: var(--wp-space-8);
+    top: calc(100% - 6px);
+    width: 18px;
+    height: 18px;
     translate: -50% 0;
-    rotate: 4deg;
-    transform-origin: top center;
-    border-radius: var(--wp-radius-pill);
-    background: var(--wp-overlay-accent);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--wp-overlay-accent) 60%, transparent);
+    z-index: -1;
+    rotate: 45deg;
+    border-radius: 0 0 var(--wp-radius-chip) 0;
+    background: var(--wp-overlay-fill);
+    box-shadow: inset -1px -1px 0 color-mix(in srgb, var(--wp-overlay-accent) 22%, transparent);
   }
   /* A drop of text (a small amber text line) falls from the pill into the
      field each time one fills. */
@@ -128,7 +136,7 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
     content: "";
     position: absolute;
     left: 50%;
-    top: calc(100% + 2px);
+    top: calc(100% + 10px);
     width: 30px;
     height: 8px;
     translate: -50% 0;
@@ -148,7 +156,7 @@ const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, ic
     100% { opacity: 0; transform: translateY(var(--wp-space-12)) scaleX(2.2) scaleY(0.4); }
   }
   @keyframes tk-stem {
-    40% { box-shadow: 0 0 22px var(--wp-overlay-accent); }
+    30%, 60% { background: var(--wp-overlay-wave); }
   }
   .tk-pill .tk-pill__dot {
     width: 10px;
