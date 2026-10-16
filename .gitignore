@@ -236,3 +236,7 @@ AGENTS.override.md
 
 # Codex CLI per-repo config (MCP server credentials, local hooks) — local-only.
 .codex/
+
+# Closed-source server API (PHP/Slim): lives in its own private git repository
+# at this path and must never be committed to or pushed with this public repo.
+/services/api/

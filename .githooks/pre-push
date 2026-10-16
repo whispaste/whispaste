@@ -43,6 +43,24 @@ if [ ${#REF_LINES[@]} -eq 0 ]; then
   exit 0
 fi
 
+# Closed-source guard: the server API (services/api/) lives in its own private
+# repository and must never reach this public repo — not in the pushed tree
+# and not in any commit of the push range (history counts as published).
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr _lsha _rr _rsha <<<"$_refline" || true
+  [ "$_lsha" = "$ZERO" ] && continue
+  if [ "$_rsha" != "$ZERO" ]; then
+    _api_range="${_rsha}..${_lsha}"
+  else
+    _api_range="$_lsha --not --remotes"
+  fi
+  # shellcheck disable=SC2086
+  if [ -n "$(git log --format=%h $_api_range -- services/api 2>/dev/null | head -1)" ]; then
+    echo "pre-push: BLOCKED — push range touches services/api/ (closed-source API, private repo only)." >&2
+    exit 1
+  fi
+done
+
 # Two-Path-Sync Advisory (Lektion aus 1.2.43: Store submitted, Tag vergessen
 # → Website/Downloads/Sentry asynchron). Advisory-only, nie blockierend.
 # Der Hook sieht nur die git-Seite; die Store-Submission läuft außerhalb und
