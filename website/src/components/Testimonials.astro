@@ -48,44 +48,6 @@ try {
   // Build continues without testimonials — section stays hidden
 }
 
-// Abstract, friendly avatar per testimonial: a tilted rounded shape with a
-// simple face on a colour field (no photo, no person). Shape details come
-// deterministically from the text; the colour pair is offset by the card index
-// so neighbouring cards never share a tone. No names exist (no PII by design).
-// Colours are derived from the semantic tokens (no primitives, no new tokens),
-// so the avatars follow the dark/light surface like the rest of the card.
-const AVATAR_PAIRS: [string, string][] = [
-  ['var(--wp-accent-strong)', 'var(--wp-accent-fill)'],
-  ['var(--wp-highlight-text)', 'var(--wp-highlight-default)'],
-  ['var(--wp-status-warning)', 'color-mix(in srgb, var(--wp-status-warning) 55%, var(--wp-text-primary))'],
-  ['var(--wp-accent-default)', 'var(--wp-text-primary)'],
-  ['var(--wp-status-success)', 'color-mix(in srgb, var(--wp-status-success) 50%, var(--wp-text-primary))'],
-  ['color-mix(in srgb, var(--wp-accent-strong) 60%, var(--wp-text-primary))', 'var(--wp-accent-fill)'],
-];
-
-function hashText(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function avatarFor(text: string, index: number) {
-  const h = hashText(text);
-  const [bg, face] = AVATAR_PAIRS[index % AVATAR_PAIRS.length];
-  return {
-    bg,
-    face,
-    rot: -14 + ((h >>> 3) % 29),
-    dx: -3 + ((h >>> 9) % 7),
-    dy: -2 + ((h >>> 13) % 5),
-    round: (h >>> 17) % 2 === 0,
-    open: (h >>> 19) % 3 === 0,
-  };
-}
-
 // Pangram principle (tone, not motif): a few big quote tiles in different
 // tones instead of a uniform card wall. The longest quote leads as a dark
 // panel spanning two columns and rows; every third other tile is tinted.
@@ -118,37 +80,19 @@ function escapeHtml(s: string): string {
       <div class="testimonial-grid" data-testid="testimonials-grid">
         {testimonials.map((item, i) => {
           const r = Math.max(0, Math.min(5, Math.round(item.rating) || 0));
-          const av = avatarFor(item.text, i);
-          const id = `tm-av-${i}`;
           return (
             <figure
               class={`testimonial-card testimonial-card--${tone(i)}`}
               data-surface={i === featured ? 'dark' : undefined}
               data-testid={`testimonials-card-${i}`}
             >
-              <div class="testimonial-head" aria-hidden="true">
-              <svg class="testimonial-avatar" viewBox="0 0 48 48" style={`--tm-tone: ${av.face}`}>
-                <defs>
-                  <clipPath id={`${id}-c`}><circle cx="24" cy="24" r="24" /></clipPath>
-                </defs>
-                <g clip-path={`url(#${id}-c)`}>
-                  <rect width="48" height="48" style={`fill: ${av.bg}`} />
-                  <g transform={`translate(${av.dx} ${av.dy + 6}) rotate(${av.rot} 24 24)`}>
-                    <rect x="7" y="7" width="34" height="38" rx={av.round ? 17 : 10} style={`fill: ${av.face}`} />
-                    <circle cx="18" cy="22" r="2.4" style={`fill: ${av.bg}`} />
-                    <circle cx="30" cy="22" r="2.4" style={`fill: ${av.bg}`} />
-                    {av.open
-                      ? <path d="M18 29q6 7 12 0z" style={`fill: ${av.bg}`} />
-                      : <path d="M18.5 29.5q5.5 4.5 11 0" style={`stroke: ${av.bg}`} stroke-width="2.2" stroke-linecap="round" fill="none" />}
-                  </g>
-                </g>
-              </svg>
-              <svg class="testimonial-glyph" viewBox="0 0 24 24"><path d="M3 21c3 0 7-1 7-8V5H3v8h4c0 3-1 5-4 5zm11 0c3 0 7-1 7-8V5h-7v8h4c0 3-1 5-4 5z" fill="currentColor" /></svg>
+              <div class="testimonial-head">
+                <svg class="testimonial-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21c3 0 7-1 7-8V5H3v8h4c0 3-1 5-4 5zm11 0c3 0 7-1 7-8V5h-7v8h4c0 3-1 5-4 5z" fill="currentColor" /></svg>
+                <div class="testimonial-stars" role="img" aria-label={`${r}/5`}>
+                  <span aria-hidden="true">{'★'.repeat(r)}<span class="testimonial-stars__off">{'★'.repeat(5 - r)}</span></span>
+                </div>
               </div>
               <blockquote class="testimonial-text" set:html={escapeHtml(item.text)} />
-              <div class="testimonial-stars" role="img" aria-label={`${r}/5`}>
-                <span aria-hidden="true">{'★'.repeat(r)}<span class="testimonial-stars__off">{'★'.repeat(5 - r)}</span></span>
-              </div>
             </figure>
           );
         })}
@@ -208,15 +152,9 @@ function escapeHtml(s: string): string {
     align-items: center;
     justify-content: space-between;
   }
-  .testimonial-avatar {
-    width: var(--wp-space-10);
-    height: var(--wp-space-10);
-    border-radius: var(--wp-radius-pill);
-    box-shadow: 0 0 0 2px var(--wp-card-fill), 0 0 0 3px var(--tm-tone);
-  }
   .testimonial-glyph {
-    width: var(--wp-space-6);
-    height: var(--wp-space-6);
+    width: var(--wp-space-8);
+    height: var(--wp-space-8);
     color: var(--wp-accent-default);
   }
   .testimonial-text {
@@ -235,7 +173,6 @@ function escapeHtml(s: string): string {
     letter-spacing: -0.02em;
   }
   .testimonial-stars {
-    margin-top: auto;
     color: var(--wp-highlight-text);
     font-size: var(--wp-font-size-sm);
     letter-spacing: 0.12em;
