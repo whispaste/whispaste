@@ -1,5 +1,4 @@
 ---
-import MotionPrivacy from './motion/MotionPrivacy.astro';
 import SectionEyebrow from './SectionEyebrow.astro';
 import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
 
@@ -7,8 +6,9 @@ const lang = currentLocale(Astro.currentLocale);
 const detailsHref = pathForSlug(lang, 'privacy-speech-recognition');
 
 // Two honest audio paths: local is the default, cloud only when the user picks
-// a provider. Each path is a plain ordered list, so the "graphic" reads the
-// same for screen readers.
+// a provider. Each path is one ordered list drawn inside a "your computer"
+// boundary; on the cloud path the provider step sits outside it. The list
+// order stays mic → engine/provider → text for screen readers.
 const paths = [
   {
     key: 'local',
@@ -33,11 +33,9 @@ const paths = [
 <section id="privacy" class="band band-spotlight relative wp-section scroll-mt-20" data-testid="privacy">
   <div class="relative wp-container privacy-layout">
     <div class="wp-section-head privacy-head">
-      <svg class="privacy-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="M9 12h1M12 9v6M15 11v2"/></svg>
       <SectionEyebrow key="privacy.label" />
-      <h2 class="section-title"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="text-gradient-brand" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
+      <h2 class="section-title"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="wp-marker" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
       <p class="wp-lead mt-4" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
-      <div class="wp-head-art" aria-hidden="true"><MotionPrivacy /></div>
     </div>
 
     <div class="privacy-paths">
@@ -45,9 +43,9 @@ const paths = [
         <article class={`privacy-path privacy-path--${p.key}`} data-testid={`privacy-path-${p.key}`}>
           <span class="privacy-badge" data-i18n={p.badgeKey}>{t(lang, p.badgeKey)}</span>
           <h3 class="privacy-path__title" data-i18n={p.titleKey}>{t(lang, p.titleKey)}</h3>
-          <ol class="privacy-flow">
-            {p.steps.map((s) => (
-              <li><span data-i18n={s}>{t(lang, s)}</span></li>
+          <ol class="privacy-flow" data-device-label={t(lang, 'privacy.flow.device')}>
+            {p.steps.map((s, i) => (
+              <li class={i === 1 ? 'privacy-step privacy-step--engine' : 'privacy-step'}><span data-i18n={s}>{t(lang, s)}</span></li>
             ))}
           </ol>
           <p class="privacy-path__desc" data-i18n={p.descKey}>{t(lang, p.descKey)}</p>
@@ -77,16 +75,10 @@ const paths = [
   .privacy-head {
     margin-bottom: 0;
   }
-  .privacy-mark {
-    width: 2rem;
-    height: 2rem;
-    color: var(--color-brand-cyan);
-    margin-bottom: var(--wp-space-3);
-  }
 
   .privacy-paths {
     display: grid;
-    gap: var(--wp-space-4);
+    gap: var(--wp-space-5);
   }
   @media (min-width: 768px) {
     .privacy-paths {
@@ -96,74 +88,129 @@ const paths = [
   .privacy-path {
     display: flex;
     flex-direction: column;
-    gap: var(--wp-space-3);
-    padding: var(--wp-space-6);
-    border-radius: var(--radius-card);
-    border: 1px solid var(--wp-border-default);
-    background: var(--color-brand-card);
-    box-shadow: var(--shadow-card);
+    gap: var(--wp-space-4);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
   }
-  /* The default route gets a subtle cyan edge; cloud stays neutral. */
-  .privacy-path--local {
-    border-color: color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
-  }
+  /* Evidence-card kicker: mono, small; the default route is the amber one. */
   .privacy-badge {
     align-self: flex-start;
     padding: var(--wp-space-1) var(--wp-space-3);
-    border-radius: var(--radius-pill);
+    border-radius: var(--wp-radius-pill);
+    font-family: var(--font-mono);
     font-size: var(--wp-font-size-xs);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--color-ink-muted);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wp-card-meta);
     border: 1px solid var(--wp-border-strong);
   }
   .privacy-path--local .privacy-badge {
-    color: var(--wp-accent-on-fill);
-    background: var(--wp-accent-fill);
-    border-color: var(--wp-accent-fill);
+    color: var(--wp-marker-text);
+    background: var(--wp-marker-stroke);
+    border-color: var(--wp-marker-stroke);
   }
   .privacy-path__title {
-    font-size: var(--type-card-title);
-    font-weight: 600;
-    line-height: 1.3;
-    color: var(--color-ink);
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--wp-card-title);
+    text-wrap: balance;
   }
   .privacy-path__desc {
+    margin: 0;
     font-size: var(--wp-font-size-md);
     line-height: 1.6;
-    color: var(--color-ink-muted);
+    color: var(--wp-card-text);
   }
 
-  /* Flow: vertical with down arrows; each step is a small chip. */
+  /* ---- Route: steps inside the dashed "your computer" boundary ---- */
   .privacy-flow {
     list-style: none;
-    margin: 0;
+    margin: var(--wp-space-8) var(--wp-space-3) var(--wp-space-3);
     padding: 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    /* Explicit rows, so the boundary's `1 / -1` spans every step. */
+    grid-template-rows: repeat(3, auto);
     gap: var(--wp-space-5);
   }
-  .privacy-flow li {
-    position: relative;
+  /* The boundary is the list's own grid item, spanning the device column,
+     so it needs no extra markup and the list order stays untouched. */
+  .privacy-flow::before {
+    content: attr(data-device-label);
+    grid-column: 1;
+    grid-row: 1 / -1;
+    align-self: stretch;
+    margin: calc(-1 * var(--wp-space-8)) calc(-1 * var(--wp-space-3)) calc(-1 * var(--wp-space-3));
     padding: var(--wp-space-2) var(--wp-space-3);
-    border-radius: var(--radius-control);
+    border: 2px dashed color-mix(in srgb, var(--wp-accent-default) 55%, transparent);
+    border-radius: var(--wp-radius-control);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--wp-text-link);
+    pointer-events: none;
+  }
+  .privacy-step {
+    position: relative;
+    grid-column: 1;
+    padding: var(--wp-space-2) var(--wp-space-3);
+    border-radius: var(--wp-radius-control);
     background: var(--wp-surface-control);
     border: 1px solid var(--wp-border-default);
     font-size: var(--wp-font-size-md);
-    color: var(--color-ink);
+    color: var(--wp-card-title);
   }
-  .privacy-flow li + li::before {
+  .privacy-step:nth-child(1) { grid-row: 1; }
+  .privacy-step:nth-child(2) { grid-row: 2; }
+  .privacy-step:nth-child(3) { grid-row: 3; }
+  .privacy-path--local .privacy-step + .privacy-step::before {
     content: "↓";
     position: absolute;
-    left: 0.875rem;
-    top: -1.25rem;
-    line-height: 1.25rem;
+    left: var(--wp-space-4);
+    top: calc(-1 * var(--wp-space-5));
+    line-height: var(--wp-space-5);
     font-size: var(--wp-font-size-sm);
-    color: var(--color-brand-cyan);
+    color: var(--wp-text-link);
   }
-  .privacy-path--cloud .privacy-flow li + li::before {
-    color: var(--color-ink-subtle);
+  /* Cloud: mic and text stay inside the boundary, the provider sits outside
+     to the right — audio leaves the computer and the text comes back. */
+  .privacy-path--cloud .privacy-flow {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: repeat(2, auto);
+    column-gap: var(--wp-space-10);
+    align-items: center;
+  }
+  .privacy-path--cloud .privacy-step:nth-child(3) { grid-row: 2; }
+  .privacy-path--cloud .privacy-step--engine {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    border-style: dashed;
+    border-color: var(--wp-border-strong);
+    background: transparent;
+  }
+  .privacy-path--cloud .privacy-step--engine::before {
+    content: "⇄";
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    width: var(--wp-space-10);
+    translate: 0 -50%;
+    text-align: center;
+    font-size: var(--wp-font-size-md);
+    color: var(--wp-card-meta);
   }
 
+  /* ---- Telemetry row ---- */
   .privacy-telemetry {
     display: grid;
     grid-template-columns: 1.5rem minmax(0, 1fr);
@@ -174,8 +221,8 @@ const paths = [
   .privacy-telemetry > svg {
     width: 1.5rem;
     height: 1.5rem;
-    color: var(--color-brand-cyan);
-    margin-top: 0.125rem;
+    color: var(--wp-text-link);
+    margin-top: var(--wp-space-1);
   }
   /* Wide screens: copy left, details link anchored right, so the row spans
      the frame like the two path cards above it. */
@@ -193,13 +240,13 @@ const paths = [
   }
   .privacy-telemetry__title {
     font-weight: 600;
-    color: var(--color-ink);
+    color: var(--wp-text-primary);
     margin-bottom: var(--wp-space-1);
   }
   .privacy-telemetry__desc {
     font-size: var(--wp-font-size-md);
     line-height: 1.6;
-    color: var(--color-ink-muted);
+    color: var(--wp-text-secondary);
     max-width: var(--measure-lead);
   }
   .privacy-details {
@@ -209,7 +256,7 @@ const paths = [
     min-height: 44px;
     font-size: var(--wp-font-size-md);
     font-weight: 600;
-    color: var(--color-brand-cyan);
+    color: var(--wp-text-link);
     text-decoration: none;
   }
   .privacy-details svg {

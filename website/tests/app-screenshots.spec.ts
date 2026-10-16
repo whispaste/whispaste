@@ -44,12 +44,15 @@ for (const path of ['/', '/fr/', '/zh/'] as const) {
     await expect(page.getByTestId('screenshots-facts-os').locator('dd')).toHaveText(['macOS', 'Windows', 'Linux']);
     // The app's own interface languages (L10n.supportedLocales), each marked
     // with its language so screen readers pronounce it correctly.
-    const ui = page.getByTestId('screenshots-facts-ui').locator('dd');
-    await expect(ui).toHaveCount(6);
-    expect(await ui.evaluateAll((els) => els.map((e) => e.getAttribute('lang')))).toEqual(['de', 'en', 'es', 'he', 'pt', 'ru']);
-    const link = page.getByTestId('screenshots-facts-dictation').locator('a');
+    const ui = page.getByTestId('screenshots-facts-ui');
+    await expect(ui).toContainText('6');
+    const names = ui.locator('span[lang]');
+    expect(await names.evaluateAll((els) => els.map((e) => e.getAttribute('lang')))).toEqual(['de', 'en', 'es', 'he', 'pt', 'ru']);
+    const dictation = page.getByTestId('screenshots-facts-dictation');
+    await expect(dictation).toContainText('99');
+    const link = dictation.locator('a');
     await expect(link).toHaveAttribute('href', '#languages');
-    await expect(link).toContainText('99');
+    await expect(link).toContainText('25');
     await expect(page.locator('#languages')).toHaveCount(1);
   });
 }
