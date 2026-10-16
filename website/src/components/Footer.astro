@@ -109,6 +109,8 @@ const resourceLinks = [
         </nav>
         <p>© {year} WhisPaste · <span data-i18n="footer.rights">{t(lang, "footer.rights")}</span></p>
       </div>
+      <!-- EU AI Act Art. 50(4): explains the "AI-generated" label on photos. -->
+      <p class="footer-ai-note" data-testid="footer-ai-note" data-i18n="footer.aiNote">{t(lang, "footer.aiNote")}</p>
     </div>
   </footer>
 
@@ -175,6 +177,13 @@ const resourceLinks = [
     justify-content: space-between;
     gap: var(--wp-space-2) var(--wp-space-6);
     font-size: var(--wp-font-size-sm);
+    color: var(--color-ink-subtle);
+  }
+  .footer-ai-note {
+    margin-top: var(--wp-space-4);
+    max-width: 70ch;
+    font-size: var(--wp-font-size-xs);
+    line-height: 1.55;
     color: var(--color-ink-subtle);
   }
   .footer-legal__links {

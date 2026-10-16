@@ -19,7 +19,7 @@ const rows = [
 ].map((row) => row.map((n) => `useCaseCards.marquee.${n}`));
 ---
 
-<div class="tk" data-surface="dark" role="region" aria-label={t(lang, 'useCaseCards.marquee.aria')} data-testid="text-kinds-marquee">
+<div class="tk" data-surface="dark" data-motion-scope role="region" aria-label={t(lang, 'useCaseCards.marquee.aria')} data-testid="text-kinds-marquee">
   <div class="tk-inner">
   {rows.map((keys, r) => (
     <div class:list={['tk-row', r === 1 && 'tk-row--reverse']}>

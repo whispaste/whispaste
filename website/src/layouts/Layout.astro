@@ -214,5 +214,9 @@ const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCA
     </a>
     <slot />
     <ContactWidget />
+      <script>
+      import { startMotionBudget } from '../scripts/motion-budget.ts';
+      startMotionBudget();
+    </script>
   </body>
 </html>

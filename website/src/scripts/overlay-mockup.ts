@@ -16,10 +16,9 @@
  * paints **solid** (2026-08-26, maintainer: no glass/frost material anywhere
  * on the site) — see {@link RENDER_GLASS_SHEEN}:
  *
- *   - `solid` (what the site renders): fully opaque pill filled with the
- *     app's own {@link OVERLAY_SOLID_FILL} (verbatim `WpColorsDark
- *     .frameGradient`, the same navy→violet arc the app's title bar/nav
- *     rail/status bar paint) — no sheen, no rim light, no specular drift;
+ *   - `solid` (what the site renders): fully opaque pill filled with
+ *     {@link OVERLAY_SOLID_FILL} (the navy gradient of the design tokens'
+ *     `overlay` group) — no sheen, no rim light, no specular drift;
  *   - `glass` (mirrored, not rendered): near-clear capsule fill
  *     (`fillOpacityFactor 0.14`) plus a Fresnel edge treatment — bright 1 px
  *     top rim, soft inner rim band, a crisp specular streak with a dark
@@ -38,9 +37,13 @@
  *     shaded tips); all four recording-arc states (recording / transcribing
  *     / done / error) with their state-dependent pill-width targets.
  *
- * Every constant below is copied verbatim from `OverlayDesignSpec` (normal-size
- * pill; the SSOT declares one single capsule design for both themes). There are
- * deliberately no invented values: change the Dart SSOT, then mirror it here.
+ * Geometry, motion and behaviour are copied verbatim from `OverlayDesignSpec`
+ * (normal-size pill; one single capsule design for both themes): change the
+ * Dart SSOT, then mirror it here. The COLOURS are the exception (2026-10-16):
+ * they come from the design tokens' `overlay` group
+ * (`design-tokens/components.tokens.json` → `overlay-tokens.generated.ts`),
+ * the redesign the app adopts 1:1 next; until then the app still paints its
+ * old navy→violet/teal values.
  *
  * The module has no top-level DOM access, so the pure parts (tokens,
  * {@link WaveformHistory}, {@link Spring}, the wobble waves and the width
@@ -52,6 +55,8 @@
  * because a state-transition crossfade draws the fill layer once and the two
  * content layers at different alphas onto the same frame.
  */
+
+import { OVERLAY_COLORS } from './overlay-tokens.generated.ts';
 
 /** Theme variants the mockup mirrors — same two the app SSOT defines. */
 export type OverlayTheme = 'light' | 'dark';
@@ -67,6 +72,8 @@ export interface OverlayThemeTokens {
   readonly fillEnd: string;
   /** Accent — recording dot, waveform bars, progress timeline, hairline border. */
   readonly accent: string;
+  /** Waveform colour (amber) — every bar, flat and fully opaque. */
+  readonly wave: string;
   /** Content ink — since the universal-legibility scheme this is the dark
    * SHADOW behind the white glyphs, no longer the glyph fill. */
   readonly content: string;
@@ -77,30 +84,23 @@ export interface OverlayThemeTokens {
 }
 
 /**
- * Light + dark colour sets, copied from `OverlayDesignSpec.light` /
- * `OverlayDesignSpec.dark`. The light tint-fill is the canonical capsule
- * (`#F7FAFD → #E6EEF5`) named in the design spec.
+ * The overlay's colour set, from the design tokens' `overlay` group. One
+ * capsule design for light AND dark desktops (OverlayDesignSpec: "There is
+ * deliberately no separate dark capsule variant"), so both themes share it.
  */
+const OVERLAY_THEME_COLORS: OverlayThemeTokens = {
+  fillStart: OVERLAY_COLORS.fill,
+  fillEnd: OVERLAY_COLORS.fill,
+  accent: OVERLAY_COLORS.accent,
+  wave: OVERLAY_COLORS.wave,
+  content: OVERLAY_COLORS.glyphShadow,
+  success: OVERLAY_COLORS.success,
+  error: OVERLAY_COLORS.error,
+};
+
 export const OVERLAY_TOKENS: Readonly<Record<OverlayTheme, OverlayThemeTokens>> = {
-  light: {
-    fillStart: '#F7FAFD', // OverlayDesignSpec.light.capsuleFillStart
-    fillEnd: '#E6EEF5', //   OverlayDesignSpec.light.capsuleFillEnd
-    accent: '#0887A8', //    OverlayDesignSpec.light.accent
-    content: '#14202E', //   OverlayDesignSpec.light.text (glyph SHADOW ink)
-    success: '#05875C', //   OverlayDesignSpec.light.success
-    error: '#CC1C1C', //     OverlayDesignSpec.light.error
-  },
-  // The SSOT declares `dark = light` — one single capsule design renders
-  // identically over light AND dark desktops (OverlayDesignSpec: "There is
-  // deliberately no separate dark capsule variant").
-  dark: {
-    fillStart: '#F7FAFD', // OverlayDesignSpec.dark.capsuleFillStart (= light)
-    fillEnd: '#E6EEF5', //   OverlayDesignSpec.dark.capsuleFillEnd   (= light)
-    accent: '#0887A8', //    OverlayDesignSpec.dark.accent            (= light)
-    content: '#14202E', //   OverlayDesignSpec.dark.text              (= light)
-    success: '#05875C', //   OverlayDesignSpec.dark.success           (= light)
-    error: '#CC1C1C', //     OverlayDesignSpec.dark.error             (= light)
-  },
+  light: OVERLAY_THEME_COLORS,
+  dark: OVERLAY_THEME_COLORS,
 };
 
 /**
@@ -159,9 +159,9 @@ export const OVERLAY_CHROME = {
 } as const;
 
 /**
- * Fill for `OverlayStyleVariant.solid` — verbatim `WpColorsDark.frameGradient`
- * (`lib/core/theme/colors.dart`), the same navy→violet arc the app's title
- * bar/nav rail/status bar paint. Painted fully opaque (no `fillOpacity`),
+ * Fill for `OverlayStyleVariant.solid` — the tokens' flat navy
+ * (`overlay.fill`; a one-colour "gradient" keeps the painter unchanged).
+ * Painted fully opaque (no `fillOpacity`),
  * unlike `OVERLAY_TOKENS`' near-clear glass tint: "no sheen, no rim light, no
  * specular drift... the fill is the app's own frame gradient instead of a
  * near-clear tint" (`OverlayStyleVariant.solid` doc comment). Theme-invariant,
@@ -169,8 +169,8 @@ export const OVERLAY_CHROME = {
  * gradient, not a per-theme pair.
  */
 export const OVERLAY_SOLID_FILL = {
-  colors: ['#051A3E', '#071144', '#0E0941', '#140A2F'],
-  stops: [0, 0.42, 0.74, 1.0],
+  colors: [OVERLAY_COLORS.fill, OVERLAY_COLORS.fill],
+  stops: [0, 1],
 } as const;
 
 /**
@@ -235,8 +235,8 @@ export const OVERLAY_LIQUID = {
  * icons keep their semantic mid-tone colours (≥3:1 against both extremes).
  */
 export const OVERLAY_GLYPH = {
-  fill: '#FFFFFF', //       contentGlyphFill
-  shadowColor: '#14202E', //glyphShadowColor
+  fill: OVERLAY_COLORS.glyph, //              contentGlyphFill
+  shadowColor: OVERLAY_COLORS.glyphShadow, // glyphShadowColor
   shadowOpacity: 0.85, //   glyphShadowOpacity
   shadowBlur: 1.75, //      glyphShadowBlurSigma
   shadowDy: 0.75, //        glyphShadowOffset.dy
@@ -477,16 +477,6 @@ function rgba(hex: string, alpha: number): string {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
-}
-
-/** Channel-wise sRGB mix of two `#RRGGBB` colours (mirrors `Color.lerp`). */
-function mixRgba(hexA: string, hexB: string, t: number, alpha: number): string {
-  const ch = (o: number): number => {
-    const a = parseInt(hexA.slice(o, o + 2), 16);
-    const b = parseInt(hexB.slice(o, o + 2), 16);
-    return Math.round(a + (b - a) * t);
-  };
-  return `rgba(${ch(1)},${ch(3)},${ch(5)},${alpha})`;
 }
 
 /** Traces a rounded-rectangle path (arcTo form, identical across engines). */
@@ -1136,18 +1126,9 @@ function drawWaveform(
   // The class alpha modulates the whole bar (baked into the gradient stops):
   // fully opaque while recording, quieter for the decorative rest state.
   const classAlpha = isRecording ? w.activeOpacity : w.inactiveStateOpacity;
-  const zoneTop = cy - maxH / 2;
-  const zoneBottom = cy + maxH / 2;
-  const tip = mixRgba(tok.accent, '#000000', w.tipShadeFraction, classAlpha);
-  const coreGradient = (coreLight: number): CanvasGradient => {
-    const grad = ctx.createLinearGradient(0, zoneTop, 0, zoneBottom);
-    grad.addColorStop(0, tip);
-    grad.addColorStop(0.5, mixRgba(tok.accent, '#FFFFFF', coreLight, classAlpha));
-    grad.addColorStop(1, tip);
-    return grad;
-  };
-  const mutedPaint = coreGradient(w.coreMutedLightFraction);
-  const activePaint = coreGradient(w.coreActiveLightFraction);
+  // Flat design (2026-10-16): one opaque colour for every bar, no in-bar
+  // energy gradient; the playhead bars still read through their width.
+  const paint = rgba(tok.wave, classAlpha);
 
   for (let i = 0; i < count; i++) {
     const raw = isRecording ? clamp01(frame.bars[i] ?? 0) : w.restLevel;
@@ -1162,7 +1143,7 @@ function drawWaveform(
     // Height floor: never below the bar's own width — a resting bar becomes a
     // perfect bead (circle), a speaking bar a capsule.
     const h = Math.max(Math.max(w.minBarHeightPx, wBar), level * maxH);
-    ctx.fillStyle = active ? activePaint : mutedPaint;
+    ctx.fillStyle = paint;
     roundRectPath(ctx, x - wBar / 2, cy - h / 2, wBar, h, wBar / 2);
     ctx.fill();
   }
@@ -1201,10 +1182,8 @@ function drawTimeline(
   const lineR = x + w - radius;
   if (lineR <= lineL) return;
   const end = lineL + (lineR - lineL) * clamp01(progress);
-  const grad = ctx.createLinearGradient(lineL, 0, lineR, 0);
-  grad.addColorStop(0, rgba(tok.accent, 1));
-  grad.addColorStop(1, rgba(tok.accent, c.timelineEndOpacity));
-  ctx.strokeStyle = grad;
+  // Flat cyan line, same colour as its lead dot.
+  ctx.strokeStyle = rgba(tok.accent, 1);
   ctx.lineWidth = c.timelineStroke;
   ctx.lineCap = 'round';
   ctx.beginPath();

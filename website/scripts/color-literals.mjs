@@ -19,6 +19,7 @@ const SRC = join(ROOT, 'src');
 export const ALLOWED = new Map([
   ['src/styles/tokens.css', 'generated token output'],
   ['src/scripts/overlay-mockup.ts', 'draws the app overlay pill, app pixels only'],
+  ['src/scripts/overlay-tokens.generated.ts', 'generated from design-tokens by build-tokens.mjs'],
   ['src/components/ScreenshotLightbox.astro', 'full-screen photo viewer, always black'],
 ]);
 

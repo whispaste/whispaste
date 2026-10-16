@@ -394,10 +394,13 @@
   --wp-prose-quote-text: var(--wp-text-primary);
   --wp-prose-rule: var(--wp-border-subtle);
   --wp-prose-line-height: var(--wp-font-line-height-relaxed);
-  --wp-record-dot: var(--wp-accent-default);
-  --wp-record-wave: var(--wp-accent-default);
-  --wp-record-pill-fill: #0B122ADB;
-  --wp-record-pill-border: #6FDDF073;
+  --wp-overlay-fill: var(--wp-color-navy-900);
+  --wp-overlay-accent: var(--wp-color-cyan-300);
+  --wp-overlay-wave: var(--wp-color-amber-400);
+  --wp-overlay-success: var(--wp-color-green-400);
+  --wp-overlay-error: var(--wp-color-red-400);
+  --wp-overlay-glyph: var(--wp-color-frost-50);
+  --wp-overlay-glyph-shadow: var(--wp-color-navy-950);
   --wp-illustration-stroke: var(--wp-text-secondary);
   --wp-illustration-stroke-soft: var(--wp-border-strong);
   --wp-illustration-fill: var(--wp-surface-card);

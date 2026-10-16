@@ -60,16 +60,30 @@ for (const path of ['/', '/en/']) {
   }
 }
 
-test('hero example dominates the split layout on wide screens', async ({ page }) => {
+test('hero stage spans the container, the example sits in the photo\'s calm right half', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/', { waitUntil: 'domcontentloaded' });
   await page.evaluate(() => document.fonts.ready);
-  const film = await page.getByTestId('hero-example').boundingBox();
-  const copy = await page.getByTestId('hero').locator('.hero-copy').boundingBox();
-  expect(film && copy).toBeTruthy();
-  expect(film!.width).toBeGreaterThan(copy!.width);
-  expect(film!.width).toBeGreaterThanOrEqual(700);
-  // Side by side, and the example sits fully above the fold.
-  expect(film!.x).toBeGreaterThan(copy!.x + copy!.width - 1);
-  expect(film!.y + film!.height).toBeLessThanOrEqual(900);
+  const stage = await page.getByTestId('hero-stage').boundingBox();
+  const example = await page.getByTestId('hero-example').boundingBox();
+  const title = await page.getByTestId('hero').locator('h1').boundingBox();
+  expect(stage && example && title).toBeTruthy();
+  // The stage is a wide panel, not a narrow column (anti-slop: no narrow
+  // containers on wide screens). The speaker owns the left half of the
+  // photo, the example card the right half.
+  expect(stage!.width).toBeGreaterThanOrEqual(1200);
+  expect(example!.width).toBeGreaterThanOrEqual(520);
+  expect(example!.x).toBeGreaterThan(stage!.x + stage!.width / 2);
+  expect(example!.x + example!.width).toBeLessThanOrEqual(stage!.x + stage!.width);
+  // Story order: headline first, the product below it.
+  expect(example!.y).toBeGreaterThan(title!.y + title!.height);
+});
+
+test('hero photo carries the AI label and the footer explains it', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/');
+  await expect(page.getByTestId('hero-ai-badge')).toHaveText('KI-generiert');
+  await expect(page.getByTestId('footer-ai-note')).toContainText('KI-generiert');
+  await page.goto('/en/');
+  await expect(page.getByTestId('hero-ai-badge')).toHaveText('AI-generated');
 });

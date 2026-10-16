@@ -233,11 +233,15 @@
     "rule": { "$type": "color", "$value": "{border.subtle}" },
     "line-height": { "$type": "number", "$value": "{font.line-height.relaxed}" }
   },
-  "record": {
-    "dot": { "$type": "color", "$value": "{accent.default}" },
-    "wave": { "$type": "color", "$value": "{accent.default}" },
-    "pill-fill": { "$type": "color", "$value": "#0B122ADB", "$description": "Recording pill over photos: navy.900 86%, stays dark on any surface." },
-    "pill-border": { "$type": "color", "$value": "#6FDDF073" }
+  "overlay": {
+    "$description": "The recording overlay (the fluid pill that floats over the desktop while dictating). Theme-invariant: one capsule reads on light and dark desktops alike. Shape, motion and behaviour stay in the app's OverlayDesignSpec; these are only its colours, shared 1:1 by the website renderer (src/scripts/overlay-tokens.generated.ts) and, once adopted, the app.",
+    "fill": { "$type": "color", "$value": "{color.navy.900}", "$description": "Flat, opaque capsule fill. Navy only, no gradient, no violet." },
+    "accent": { "$type": "color", "$value": "{color.cyan.300}", "$description": "Primary: live dot, progress timeline and the hairline border (at 20 %)." },
+    "wave": { "$type": "color", "$value": "{color.amber.400}", "$description": "Secondary: the waveform, flat and fully opaque, one colour for every bar." },
+    "success": { "$type": "color", "$value": "{color.green.400}", "$description": "Done checkmark." },
+    "error": { "$type": "color", "$value": "{color.red.400}", "$description": "Error icon." },
+    "glyph": { "$type": "color", "$value": "{color.frost.50}", "$description": "Timer and status text, close cross, stop square." },
+    "glyph-shadow": { "$type": "color", "$value": "{color.navy.950}", "$description": "Soft shadow behind the glyphs, keeps them legible on any desktop." }
   },
   "illustration": {
     "$description": "Motion graphics and diagrams. Every SVG colour reads one of these, so a graphic adapts to the band it sits on.",

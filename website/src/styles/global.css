@@ -1155,10 +1155,8 @@
                         gekoppelt — deshalb ohne @supports lauffähig und die
                         richtige Wahl für alles, was schon beim Laden sichtbar
                         ist (Hero-Headline, Above-the-fold-Content). Delay pro
-                        Instanz über `--wp-rise-delay`; Blur-Stärke über
-                        `--wp-rise-blur` kappbar (Default 6px — auf großem
-                        Display-Text ist ungebremster Blur die teuerste
-                        Paint-Operation der Seite).
+                        Instanz über `--wp-rise-delay`. Bewusst ohne Blur
+                        (teuerste Paint-Operation, in Safari speicherintensiv).
    - .wp-bracket-lock   Modifier auf `.wp-bracketed`: die Klammern rasten von
                         außen kommend auf den Text ein, statt nur zu erscheinen
                         — der "Tastendruck" als grafisches Ereignis. Teilt sich
@@ -1197,19 +1195,16 @@
 }
 
 /* --- Kinetic Line: Vorhang-Aufzug für Headlines ---------------------------- */
+/* No filter: a blur on a scroll-driven timeline is re-rasterised on every
+   scroll frame, which costs Safari memory and smoothness (2026-10-16). */
 @keyframes wp-kinetic-rise {
   from {
     clip-path: inset(0 0 100% 0);
     translate: 0 14%;
-    filter: blur(7px);
-  }
-  60% {
-    filter: blur(0);
   }
   to {
     clip-path: inset(0 0 0% 0);
     translate: 0 0;
-    filter: blur(0);
   }
 }
 @supports (animation-timeline: view()) {
@@ -1223,22 +1218,17 @@
 /* --- Rise In: zeitbasierte Vorhang-Aufzug-Variante für Above-the-fold-Inhalt
    Gleiche Optik wie wp-kinetic-rise, aber über animation-delay statt
    view-timeline gesteuert — läuft überall, keine @supports-Gate nötig. Bewusst
-   kein `opacity: 0`-Start (nur clip-path/translate/filter): auf einem
+   kein `opacity: 0`-Start (nur clip-path/translate): auf einem
    LCP-Kandidaten wie der Hero-H1 darf der Erstanstrich nicht auf einen späten
    Animationsschritt warten. */
 @keyframes wp-rise {
   from {
     clip-path: inset(0 0 100% 0);
     translate: 0 14%;
-    filter: blur(var(--wp-rise-blur, 6px));
-  }
-  60% {
-    filter: blur(0);
   }
   to {
     clip-path: inset(0 0 0% 0);
     translate: 0 0;
-    filter: blur(0);
   }
 }
 .wp-rise-in {

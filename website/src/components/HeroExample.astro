@@ -12,6 +12,7 @@ const lang = currentLocale(Astro.currentLocale);
 ---
 
 <figure class="hx" data-testid="hero-example">
+  <div class="hx-frame">
   <div class="hx-window" role="img" aria-labelledby="hero-example-caption">
     <div class="hx-titlebar" aria-hidden="true">
       <span class="hx-title" data-i18n="hero.example.label">{t(lang, 'hero.example.label')}</span>
@@ -32,11 +33,13 @@ const lang = currentLocale(Astro.currentLocale);
       </div>
     </div>
   </div>
-  <!-- The real recording pill (shared canvas renderer, 1:1 with the app's
-       overlay), floating bottom-centre over the window like the app places it.
-       Decorative here: the caption carries the meaning. -->
-  <div class="hx-overlay" aria-hidden="true">
+  <!-- The real recording pill (shared canvas renderer, the overlay the app
+       shows), breaking out of the window's bottom-left corner towards the
+       speaker in the photo: voice in, text out. Decorative here: the caption
+       carries the meaning. -->
+  <div class="hx-overlay" aria-hidden="true" data-testid="hero-recording-pill">
     <canvas class="hx-overlay-canvas" width="692" height="160"></canvas>
+  </div>
   </div>
   <figcaption class="hx-caption">
     <span id="hero-example-caption" data-i18n="hero.example.caption">{t(lang, 'hero.example.caption')}</span>
@@ -118,7 +121,7 @@ const lang = currentLocale(Astro.currentLocale);
     justify-content: space-between;
     gap: var(--wp-space-6);
     min-height: 13rem;
-    padding: var(--wp-space-4) var(--wp-space-5);
+    padding: var(--wp-space-4) var(--wp-space-5) var(--wp-space-12);
     border-radius: var(--radius-card);
     border: 1px solid rgb(255 255 255 / 0.1);
     background: rgb(11 18 42 / 0.45);
@@ -142,24 +145,47 @@ const lang = currentLocale(Astro.currentLocale);
   @keyframes hx-blink {
     50% { opacity: 0; }
   }
-  .hx-overlay {
+  .hx-frame {
     position: relative;
-    display: flex;
-    justify-content: center;
-    margin-top: -5.25rem;
-    margin-bottom: var(--wp-space-8);
+  }
+  /* The pill hangs off the bottom-left corner, tilted like a sticker, and
+     slides in once from the left (from the speaker). Transform/opacity only. */
+  .hx-overlay {
+    position: absolute;
+    left: calc(-1 * var(--wp-space-4));
+    bottom: calc(-1 * var(--wp-space-8));
+    rotate: -4deg;
+    transform-origin: left center;
     pointer-events: none;
+    animation: hx-pill-in 900ms var(--ease-flow) 500ms both;
+  }
+  @keyframes hx-pill-in {
+    from {
+      opacity: 0;
+      translate: calc(-1 * var(--wp-space-12)) 0;
+      rotate: -10deg;
+    }
   }
   /* Fixed 346×80 logical canvas (scaled by dpr in JS); the renderer paints
      the pill's own shadow. */
   .hx-overlay-canvas {
     display: block;
     width: 300px;
-    max-width: 90%;
+    max-width: 82vw;
     height: auto;
   }
+  @media (min-width: 1024px) {
+    /* Next to the photo: reach across the gap into the speaker's half. */
+    .hx-overlay {
+      left: calc(-1 * var(--wp-space-24));
+    }
+    .hx-overlay-canvas {
+      width: 340px;
+    }
+  }
+  /* Clears the pill hanging below the window. */
   .hx-caption {
-    margin-top: var(--wp-space-1);
+    margin-top: var(--wp-space-16);
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -197,18 +223,13 @@ const lang = currentLocale(Astro.currentLocale);
     .hx-body {
       padding: var(--wp-space-4);
     }
-    /* Reserve the bottom strip for the overlay pill so it never covers text. */
     .hx-editor {
-      min-height: 12rem;
-      padding-bottom: 4.5rem;
-    }
-    .hx-overlay {
-      margin-top: -5.5rem;
-      margin-bottom: var(--wp-space-5);
+      min-height: 11rem;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .hx-caret {
+    .hx-caret,
+    .hx-overlay {
       animation: none;
     }
   }

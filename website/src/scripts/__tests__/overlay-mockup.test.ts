@@ -18,6 +18,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  OVERLAY_SOLID_FILL,
   OVERLAY_TOKENS,
   OVERLAY_GEOMETRY,
   OVERLAY_CHROME,
@@ -37,15 +38,26 @@ import {
   pillWidthForText,
   type OverlayState,
 } from "../overlay-mockup";
+import { OVERLAY_COLORS } from "../overlay-tokens.generated";
 
 describe("AC1: tokens mirror the SSOT design spec", () => {
-  it("uses the canonical light tint-fill, accent and status colours (OverlayDesignSpec.light)", () => {
-    expect(OVERLAY_TOKENS.light.fillStart).toBe("#F7FAFD");
-    expect(OVERLAY_TOKENS.light.fillEnd).toBe("#E6EEF5");
-    expect(OVERLAY_TOKENS.light.accent).toBe("#0887A8");
-    expect(OVERLAY_TOKENS.light.content).toBe("#14202E"); // OverlayDesignSpec.light.text
-    expect(OVERLAY_TOKENS.light.success).toBe("#05875C");
-    expect(OVERLAY_TOKENS.light.error).toBe("#CC1C1C");
+  // Colours come from the design tokens' overlay group (2026-10-16 redesign),
+  // geometry and motion still mirror OverlayDesignSpec.
+  it("takes its colours from the design tokens' overlay group", () => {
+    expect(OVERLAY_TOKENS.light.fillStart).toBe(OVERLAY_COLORS.fill);
+    expect(OVERLAY_TOKENS.light.fillEnd).toBe(OVERLAY_COLORS.fill);
+    expect(OVERLAY_TOKENS.light.wave).toBe(OVERLAY_COLORS.wave);
+    expect(OVERLAY_TOKENS.light.accent).toBe(OVERLAY_COLORS.accent);
+    expect(OVERLAY_TOKENS.light.content).toBe(OVERLAY_COLORS.glyphShadow);
+    expect(OVERLAY_TOKENS.light.success).toBe(OVERLAY_COLORS.success);
+    expect(OVERLAY_TOKENS.light.error).toBe(OVERLAY_COLORS.error);
+    expect(OVERLAY_SOLID_FILL.colors).toEqual([OVERLAY_COLORS.fill, OVERLAY_COLORS.fill]);
+  });
+
+  it("is flat navy with a cyan accent and an amber waveform (brand pair, no violet)", () => {
+    expect(OVERLAY_COLORS.fill).toBe("#0B122A"); //   color.navy.900
+    expect(OVERLAY_COLORS.accent).toBe("#6FDDF0"); // color.cyan.300
+    expect(OVERLAY_COLORS.wave).toBe("#FFB547"); //   color.amber.400
   });
 
   it("uses the dark colour set (OverlayDesignSpec.dark = light — one single capsule design)", () => {
@@ -78,8 +90,8 @@ describe("AC1: tokens mirror the SSOT design spec", () => {
   });
 
   it("uses the universal-legibility glyph scheme (white fill + soft dark shadow)", () => {
-    expect(OVERLAY_GLYPH.fill).toBe("#FFFFFF");
-    expect(OVERLAY_GLYPH.shadowColor).toBe("#14202E");
+    expect(OVERLAY_GLYPH.fill).toBe(OVERLAY_COLORS.glyph);
+    expect(OVERLAY_GLYPH.shadowColor).toBe(OVERLAY_COLORS.glyphShadow);
     expect(OVERLAY_GLYPH.shadowOpacity).toBe(0.85);
     expect(OVERLAY_GLYPH.shadowBlur).toBe(1.75);
     expect(OVERLAY_GLYPH.shadowDy).toBe(0.75);

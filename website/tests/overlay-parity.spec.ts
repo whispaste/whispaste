@@ -15,10 +15,10 @@ import { expect, test } from '@playwright/test';
  *
  * Determinism: reduced motion makes the renderer draw its frozen frame (the
  * spike-verified 22-bar snapshot, timer 0:07, progress 60%), so the only
- * variable left is the rendering engine. The capsule renders the app's real
- * `OverlayStyleVariant.solid` (2026-08-26) — an opaque `WpColorsDark.
- * frameGradient` fill (navy→violet, `#051A3E`→`#140A2F`), no glass/backdrop
- * effects — so there is nothing theme-dependent left to force either.
+ * variable left is the rendering engine. The capsule renders the app's
+ * `OverlayStyleVariant.solid` in the design tokens' overlay colours
+ * (2026-10-16: flat navy fill, amber waveform), no glass/backdrop effects —
+ * so there is nothing theme-dependent left to force either.
  */
 
 test.use({

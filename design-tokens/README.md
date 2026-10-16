@@ -49,10 +49,21 @@ sets `data-surface="dark"` on itself.
 
 ```bash
 cd website
-npm run tokens        # regenerate src/styles/tokens.css
-npm run tokens:check  # fail if the CSS is stale
+npm run tokens        # regenerate src/styles/tokens.css + src/scripts/overlay-tokens.generated.ts
+npm run tokens:check  # fail if either output is stale
 npx vitest run scripts/__tests__/design-tokens.test.ts
 ```
+
+### Recording overlay (`overlay.*`)
+
+The fluid recording pill is the one component shared 1:1 between website and
+app. Its shape, wobble, timings and states stay in the app's
+`OverlayDesignSpec`; only its colours live here: a flat navy fill
+(`overlay.fill`), cyan for the live dot, progress line and hairline
+(`overlay.accent`), and a flat, fully opaque amber waveform (`overlay.wave`).
+The canvas renderer can't read CSS variables, so the build also writes the
+group as hex constants to `website/src/scripts/overlay-tokens.generated.ts`.
+The app still paints its old navy→violet/teal colours until it adopts these.
 
 ## Checks
 
