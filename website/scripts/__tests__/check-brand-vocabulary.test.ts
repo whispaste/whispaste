@@ -111,6 +111,17 @@ ${CONTRASTIVE_CLOSE}
   });
 });
 
+describe("scanHtml ignores machine identifiers", () => {
+  it("skips data-testid and data-i18n values but still flags visible text", () => {
+    const html =
+      '<a href="/x/" data-testid="footer-link-os-dictation">' +
+      '<span data-i18n="comparison.osDictation.breadcrumb">dictation</span></a>';
+    const violations = scanHtml(html, VOCAB);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]?.column).toBe(html.lastIndexOf("dictation") + 1);
+  });
+});
+
 describe("buildTermRegex", () => {
   it("anchors ASCII words at word boundaries to prevent false positives", () => {
     const re = buildTermRegex("dictation");

@@ -122,13 +122,15 @@ export function buildTermRegex(term) {
 /**
  * Blanks the values of `href`/`src`/`action` attributes (same length, so line
  * and column numbers stay valid). URLs such as `paypal.com/donate` are
- * addresses, not copy, and must not trip the vocabulary gate.
+ * addresses, not copy, and must not trip the vocabulary gate. The same holds
+ * for machine identifiers that never reach the reader: `data-testid` and the
+ * `data-i18n*` keys (e.g. `footer-link-os-dictation`).
  *
  * @param {string} html
  * @returns {string}
  */
 export function blankUrlAttributes(html) {
-  return html.replace(/\b(href|src|action)=("[^"]*"|'[^']*')/gi, (m, name, quoted) => {
+  return html.replace(/(?<![\w-])(href|src|action|data-testid|data-i18n(?:-[\w-]+)?)=("[^"]*"|'[^']*')/gi, (m, name, quoted) => {
     return `${name}=${quoted[0]}${" ".repeat(quoted.length - 2)}${quoted[0]}`;
   });
 }
