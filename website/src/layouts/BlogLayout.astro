@@ -15,12 +15,13 @@ interface Props {
   readonly lang: Locale;
   readonly title: string;
   readonly description: string;
+  readonly ogImage?: string;
 }
 
-const { lang, title, description } = Astro.props;
+const { lang, title, description, ogImage } = Astro.props;
 ---
 
-<SubpageLayout lang={lang} title={title} description={description}>
+<SubpageLayout lang={lang} title={title} description={description} ogImage={ogImage}>
   <link slot="head" rel="alternate" type="application/rss+xml" title={t(lang, "blog.seoTitle")} href={feedPath(lang)} />
   <header class="page-hero band band-spotlight" data-testid="blog-hero">
     <div class="wp-container">

@@ -4,14 +4,19 @@
  * bars (the overlay pill's level meter, WhisPaste's own visual signature)
  * seeded from the post slug, so every post gets a stable, distinct shape
  * without any image asset. Decorative only (aria-hidden).
+ *
+ * A post can bring its own artwork (`cover` in its frontmatter): the image then
+ * replaces the waveform inside the same frame and carries its alt text.
  */
 interface Props {
   seed: string;
   /** `card` for list tiles, `hero` for the wide band above a post. */
   variant?: 'card' | 'hero';
+  /** The post's own cover image; replaces the generated waveform. */
+  image?: { src: string; alt: string };
 }
 
-const { seed, variant = 'card' } = Astro.props;
+const { seed, variant = 'card', image } = Astro.props;
 
 // FNV-1a hash -> mulberry32 PRNG: deterministic per slug, no dependencies.
 let h = 2166136261;
@@ -49,6 +54,11 @@ const gid = `bc-${(h >>> 0).toString(36)}-${variant}`;
 const hue = Math.round(rand() * 40); // small, seeded drift towards indigo
 ---
 
+{image ? (
+  <div class:list={['blog-cover', 'blog-cover--image', `blog-cover--${variant}`]} data-surface="dark">
+    <img src={image.src} alt={image.alt} width="2400" height="1000" loading={variant === 'hero' ? 'eager' : 'lazy'} decoding="async" />
+  </div>
+) : (
 <div class:list={['blog-cover', `blog-cover--${variant}`]} data-surface="dark" aria-hidden="true" style={`--bc-shift:${hue}%`}>
   <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" focusable="false">
     <defs>
@@ -62,6 +72,7 @@ const hue = Math.round(rand() * 40); // small, seeded drift towards indigo
     ))}
   </svg>
 </div>
+)}
 
 <style>
   .blog-cover {
@@ -89,6 +100,23 @@ const hue = Math.round(rand() * 40); // small, seeded drift towards indigo
   /* A slim band, not a poster: the title above carries the page. */
   .blog-cover--hero {
     height: clamp(7rem, 4rem + 9vw, 14rem);
+  }
+  /* Own artwork: fills the frame; the hero keeps the artwork's 2.4:1 shape. */
+  .blog-cover--image {
+    display: block;
+    aspect-ratio: 2.4 / 1;
+  }
+  .blog-cover--image.blog-cover--card {
+    aspect-ratio: 16 / 7;
+  }
+  .blog-cover--image.blog-cover--hero {
+    height: auto;
+  }
+  .blog-cover--image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .blog-cover--hero svg {
     width: 92%;
