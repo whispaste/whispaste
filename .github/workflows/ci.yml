@@ -69,6 +69,10 @@ jobs:
       # here and not in the path-filtered website job. bash + perl only.
       - name: Public-Docs-QS (docs-attest check)
         run: bash scripts/docs-attest.sh check
+      # Server-side backstop for the local hooks (which `--no-verify` skips):
+      # no other dictation product may be named anywhere in the tree.
+      - name: Third-party product name guard
+        run: bash .githooks/name-guard.sh tree HEAD
       - name: Scan for potential secrets
         run: |
           echo 'Scanning for potential secrets...'

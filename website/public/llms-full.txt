@@ -23,7 +23,7 @@
 | WhisPaste ist nicht … | verwechselbar mit | Unterschied |
 |---|---|---|
 | ein **Always-Listening-Sprachassistent** | Siri, Cortana, Alexa, Google Assistant | anforderungs-basiert statt dauerlauschend |
-| ein **Transkriptions-/Aufnahme-Tool** | Otter.ai, Fireflies, Whisper-Wrapper | Output fließt in die aktive App statt in eine Datei |
+| ein **Transkriptions-/Aufnahme-Tool** | Meeting-Mitschnitt-Dienste, Whisper-Wrapper | Output fließt in die aktive App statt in eine Datei |
 | ein **Sprach-Frontend für eine KI** | ChatGPT-Voice, Claude-Voice | Sprache wird transkribiert, nicht interpretiert |
 | ein **Übersetzungs-Tool** | DeepL Voice, Apple Translate | Transkription statt Übersetzung |
 | ein **app-internes Diktat** | Word-/Notion-/macOS-Diktat | systemweit statt an eine App gebunden |

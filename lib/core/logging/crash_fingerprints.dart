@@ -223,8 +223,8 @@ const String sttCudaLoadCrashRecovered = 'stt-cuda-load-crash-recovered';
 // ---------------------------------------------------------------------------
 // Ticket 10 (GPU-vendor-distribution telemetry, 2026-09). One anonymous
 // "vendor" + "platform" info-level signal per session on Windows/Linux,
-// feeding a later data-driven CUDA-build decision (see
-// `.scratch/fluidvoice-catchup/issues/10-gpu-vendor-telemetrie.md`). Not a
+// feeding a later data-driven CUDA-build decision (GPU vendor
+// telemetry ticket 10). Not a
 // failure — captured as `info`, distinct from [gpuDetectionFailed].
 // ---------------------------------------------------------------------------
 

@@ -3,3 +3,6 @@
 tmp="$1.aiclean.$$"
 grep -viE '^co-authored-by:.*(anthropic|claude|copilot|cursor|codeium)|generated with \[claude|claude\.com/claude-code|🤖 generated with' "$1" > "$tmp" 2>/dev/null || true
 if [ -s "$tmp" ]; then mv "$tmp" "$1"; else rm -f "$tmp"; fi
+
+# third-party product name guard — never name other dictation products
+"$(git rev-parse --show-toplevel)/.githooks/name-guard.sh" file "$1" || exit 1

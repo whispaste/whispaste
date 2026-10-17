@@ -1,5 +1,5 @@
 /// Layout-regression tests for the Unicode direct-type paste fallback
-/// (ticket 09 — `.scratch/fluidvoice-catchup/issues/09-layout-regressionstests-paste.md`).
+/// (paste layout-regression ticket 09).
 ///
 /// Scope, per the ticket:
 /// - Targets ONLY the direct-type fallback (`Paster.typeText`, and the

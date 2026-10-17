@@ -369,7 +369,7 @@ class OverlaySizeSpec {
     timelineLeadDotRadius: 1.8,
   );
 
-  /// The mini spec — the waveform-first third size (Wispr-Flow-inspired, in
+  /// The mini spec — the waveform-first third size, in
   /// WhisPaste's own design language: teal accent waveform, capsule chrome,
   /// fixed accent hairline border).
   ///

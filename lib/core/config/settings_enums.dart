@@ -68,8 +68,7 @@ enum CloudSttProvider {
 /// (broadest language/hardware coverage — 99 languages, CUDA/Vulkan/Metal/CPU).
 /// [parakeet] runs NVIDIA Parakeet TDT via `sherpa_onnx` in-process
 /// (lowest latency on CPU-only/weak hardware — ~25 languages, no GPU backend
-/// yet). See `.scratch/whisper-ffi-engine/PRD.md` for the FluidVoice-inspired
-/// rationale.
+/// yet). See `.scratch/whisper-ffi-engine/PRD.md` for the rationale.
 enum OnDeviceEngine {
   whisper('whisper'),
   parakeet('parakeet');

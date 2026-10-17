@@ -598,9 +598,9 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                         ),
                         // ── Original transcript disclosure (ticket 12) ──
                         // Final text stays the primary view; the original
-                        // is secondary/collapsed by default — unlike
-                        // FluidVoice's side-by-side raw/final panes, this
-                        // is WhisPaste's own "final text first" stance.
+                        // is secondary/collapsed by default rather than
+                        // shown in side-by-side raw/final panes — this is
+                        // WhisPaste's own "final text first" stance.
                         if (_hasOriginalDiff) ...[
                           const SizedBox(height: WpSpacing.sm),
                           _OriginalTranscriptDisclosure(

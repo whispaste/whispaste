@@ -9,7 +9,7 @@
     "grid-gap": { "$value": "32px", "$extensions": { "fluid": { "min": "20px", "max": "32px" } } },
     "band-fade": { "$value": "clamp(80px, 12vh, 220px)", "$type": "string", "$description": "Feathered top/bottom edge of dark bands over the wash." },
     "band-inset": { "$value": "16px", "$extensions": { "fluid": { "min": "8px", "max": "16px" } }, "$description": "Side inset of light bands: they sit on the dark stage as panels, never as full-bleed straight cuts." },
-    "band-radius": { "$value": "40px", "$extensions": { "fluid": { "min": "20px", "max": "40px" } }, "$description": "Corner radius of light band panels (reference: Wispr Flow's rising panel)." }
+    "band-radius": { "$value": "40px", "$extensions": { "fluid": { "min": "20px", "max": "40px" } }, "$description": "Corner radius of light band panels (the panel rises over the light ground)." }
   },
   "type": {
     "display": {

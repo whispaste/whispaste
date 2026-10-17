@@ -25,6 +25,9 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 ALLOWLIST="$ROOT/.ossallowlist"
 
+# ── 0. Third-party product name guard (staged paths + added lines) ──────
+"$ROOT/.githooks/name-guard.sh" staged
+
 # ── -1. Self-install: mas-guard git clean filter (idempotent) ──────────
 # .gitattributes assigns macos/Flutter/GeneratedPluginRegistrant.swift to
 # the `mas-guard` filter, but git filter *commands* live in local config,

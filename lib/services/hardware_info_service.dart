@@ -138,8 +138,8 @@ List<String> gpuAdapterNamesForTelemetry(List<String> adapterNames) {
 // selection every platform needs) — only *this report* is gated to
 // Windows/Linux, since macOS has a fundamentally different GPU landscape
 // (Apple Silicon unified memory, no CUDA/Vulkan choice to inform) and is not
-// a target of the CUDA-build decision (see
-// `.scratch/fluidvoice-catchup/issues/10-gpu-vendor-telemetrie.md`). Gating
+// a target of the CUDA-build decision (GPU vendor
+// telemetry ticket 10). Gating
 // the report rather than restructuring `detectGpu()`/the provider keeps this
 // additive and keeps every existing caller of the cross-platform detector
 // unchanged.

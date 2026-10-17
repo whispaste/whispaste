@@ -43,6 +43,20 @@ if [ ${#REF_LINES[@]} -eq 0 ]; then
   exit 0
 fi
 
+# Third-party product name guard: no commit in the push range may carry the
+# name of another dictation/transcription product (messages, added lines,
+# paths), and the pushed tree must be free of them as well.
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr _lsha _rr _rsha <<<"$_refline" || true
+  [ "$_lsha" = "$ZERO" ] && continue
+  if [ "$_rsha" != "$ZERO" ]; then
+    "$ROOT/.githooks/name-guard.sh" range "${_rsha}..${_lsha}"
+  else
+    "$ROOT/.githooks/name-guard.sh" range "$_lsha --not --remotes"
+  fi
+  "$ROOT/.githooks/name-guard.sh" tree "$_lsha"
+done
+
 # Closed-source guard: the server API (services/api/) lives in its own private
 # repository and must never reach this public repo — not in the pushed tree
 # and not in any commit of the push range (history counts as published).
