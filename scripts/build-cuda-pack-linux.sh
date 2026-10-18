@@ -72,8 +72,12 @@ actual_commit="$(git -C "$SRC" rev-parse HEAD)"
 echo "[1/6] source verified: $WHISPER_TAG @ $WHISPER_PINNED_COMMIT"
 
 # --- 2. CUDA toolkit from NVIDIA redist archives (SHA-256 checked) ----------
-if [[ ! -x "$CUDA_HOME/bin/nvcc" ]]; then
+# bin/nvcc appears before the other components finish, so only a marker written after
+# a complete fetch counts; an interrupted fetch is simply repeated.
+if [[ ! -f "$CUDA_HOME/.fetch-complete" ]]; then
+  rm -rf "$CUDA_HOME"   # the fetch cannot merge into a half-filled tree (symlink "File exists")
   python3 "$SCRIPT_DIR/fetch-cuda-redist.py" "$CUDA_VERSION" linux-x86_64 "$CUDA_HOME"
+  touch "$CUDA_HOME/.fetch-complete"
 fi
 export CUDA_HOME
 export PATH="$CUDA_HOME/bin:$PATH"

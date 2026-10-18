@@ -15,7 +15,7 @@
 #   WINBOX=<host|ip>  default silviospc.local (mDNS is flaky; win-test/find-winbox.sh
 #                     resolves the current DHCP address)
 #   LINUX_HOST=<ssh>  default local-ai-srv (needs Docker and passwordless SSH)
-#   DOCKER_IMAGE=<i>  default ubuntu:24.04
+#   DOCKER_IMAGE=<i>  default ubuntu:24.04 pinned by digest
 #   BUILD_JOBS=<n>    jobs per build, default 4 (8 would suit the Linux host)
 #
 # Remote layout: C:\wp-cuda-build\{scripts,out,src,cuda,build,...} on the box;
@@ -26,7 +26,9 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WINBOX="${WINBOX:-silviospc.local}"
 WIN_USER="silvi"
 LINUX_HOST="${LINUX_HOST:-local-ai-srv}"
-DOCKER_IMAGE="${DOCKER_IMAGE:-ubuntu:24.04}"
+# Pinned by digest (ubuntu:24.04 as of 2026-10-02); bump deliberately. apt packages are not
+# version-pinned: the base image digest fixes the release, the archive moves within it.
+DOCKER_IMAGE="${DOCKER_IMAGE:-ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac}"
 LX_DIR="wp-cuda-build"   # relative to the remote home
 BUILD_JOBS="${BUILD_JOBS:-4}"
 KEY="$HOME/.ssh/whispaste-winbox"
@@ -52,6 +54,24 @@ TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 die() { echo "ERROR: $*" >&2; exit 1; }
+
+# Both values end up inside a remote shell command line: accept only plain tokens.
+[[ "$BUILD_JOBS" =~ ^[0-9]+$ ]] || die "BUILD_JOBS must be a number, got '$BUILD_JOBS'"
+[[ "$DOCKER_IMAGE" =~ ^[A-Za-z0-9._/:@-]+$ ]] || die "DOCKER_IMAGE has unexpected characters: '$DOCKER_IMAGE'"
+
+# retry <cmd...>: runs the command up to 5 times with 5/10/20/40 s backoff. Used for
+# the poll loop so a short SSH or Wi-Fi dropout does not abort the driver while the
+# build keeps running remotely.
+retry() {
+  local delay=5 try
+  for try in 1 2 3 4 5; do
+    "$@" && return 0
+    (( try < 5 )) || break
+    echo "   (ssh dropout, retry $try/4 in ${delay}s)" >&2
+    sleep "$delay"; delay=$(( delay * 2 ))
+  done
+  return 1
+}
 
 # Runs a PowerShell snippet on the box. Sent base64-encoded so no quoting
 # reaches the remote shell.
@@ -169,8 +189,14 @@ echo "== reach $LINUX_HOST"
 
 if [[ "$FETCH_ONLY" == 0 ]]; then
   # Linux: one container does apt deps + build; the done marker carries the exit code.
-  echo "== sync Linux build scripts -> $LINUX_HOST:$LX_DIR"
   "${LX_SSH[@]}" "mkdir -p $LX_DIR/scripts $LX_DIR/out $LX_DIR/work"
+  # One Linux build at a time. Checked BEFORE syncing: bash reads a running script
+  # incrementally, so overwriting scripts/ under a live build would corrupt it. The lock
+  # check and the done-marker reset are one remote step, so a second start can neither
+  # clobber a running build's marker nor mistake a stale one for its own.
+  "${LX_SSH[@]}" "cd $LX_DIR && { flock -n build.lock true || exit 75; } && rm -f build-linux.done" \
+    || die "another Linux build is running on $LINUX_HOST (build.lock held)"
+  echo "== sync Linux build scripts -> $LINUX_HOST:$LX_DIR"
   "${LX_SCP[@]}" \
     "$REPO_ROOT/scripts/build-cuda-pack-linux.sh" \
     "$REPO_ROOT/scripts/fetch-cuda-redist.py" \
@@ -178,18 +204,28 @@ if [[ "$FETCH_ONLY" == 0 ]]; then
     "$LINUX_HOST:$LX_DIR/scripts/"
   cat > "$TMP_DIR/run-linux.sh" <<'SH'
 #!/usr/bin/env bash
-# Runs on LINUX_HOST, detached. Files created in the container are chowned back
-# to the invoking user so later cleanup and scp need no root.
+# Runs on LINUX_HOST, detached; holds build.lock for the whole build.
 cd "$HOME/wp-cuda-build" || exit 1
+# One build at a time: WORK_DIR and the done marker are shared state.
+exec 9> build.lock
+flock -n 9 || { echo "another Linux build holds build.lock" >&2; exit 75; }
 rm -f build-linux.done
-docker run --rm -v "$PWD:/w" -e BUILD_JOBS="$1" -e OUT_DIR=/w/out -e WORK_DIR=/w/work \
+# Hardened: no capabilities beyond what apt needs as root, no privilege gain. Only the
+# package install runs as root; the build itself drops to the invoking uid via setpriv,
+# so everything it writes belongs to that user (no chown needed).
+docker run --rm --cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE --cap-add FOWNER \
+  --cap-add SETUID --cap-add SETGID --cap-add SETPCAP --security-opt no-new-privileges \
+  -v "$PWD:/w" -e BUILD_JOBS="$1" -e OUT_DIR=/w/out -e WORK_DIR=/w/work -e HOME=/w/work/home \
   -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" "$2" bash -c '
-    bash /w/scripts/build-cuda-pack-linux.sh --install-deps && bash /w/scripts/build-cuda-pack-linux.sh
-    rc=$?; chown -R "$HOST_UID:$HOST_GID" /w; exit $rc' > build-linux.log 2>&1
+    set -e
+    bash /w/scripts/build-cuda-pack-linux.sh --install-deps
+    mkdir -p "$HOME"; chown "$HOST_UID:$HOST_GID" "$HOME"
+    exec setpriv --reuid="$HOST_UID" --regid="$HOST_GID" --clear-groups \
+      bash /w/scripts/build-cuda-pack-linux.sh' > build-linux.log 2>&1
 echo "DONE_RC=$?" > build-linux.done
 SH
   "${LX_SCP[@]}" "$TMP_DIR/run-linux.sh" "$LINUX_HOST:$LX_DIR/run-linux.sh"
-  "${LX_SSH[@]}" "chmod +x $LX_DIR/run-linux.sh && cd $LX_DIR && rm -f build-linux.done && nohup ./run-linux.sh $BUILD_JOBS $DOCKER_IMAGE >/dev/null 2>&1 < /dev/null &"
+  "${LX_SSH[@]}" "chmod +x $LX_DIR/run-linux.sh && cd $LX_DIR && nohup ./run-linux.sh '$BUILD_JOBS' '$DOCKER_IMAGE' >/dev/null 2>&1 < /dev/null &"
   echo "== Linux build started in $DOCKER_IMAGE on $LINUX_HOST (jobs $BUILD_JOBS)"
 
   if [[ "$LINUX_ONLY" == 0 ]]; then
@@ -213,9 +249,19 @@ SH
   # shellcheck disable=SC2016 # PowerShell variables, expanded on the box
   win_poll='$p = "C:\wp-cuda-build\build-windows.done"; if (Test-Path $p) { (Get-Content $p -Raw).Trim() } else { "running" }'
   deadline=$(( SECONDS + 6 * 3600 ))
+  lost=0
   while :; do
-    lin="$("${LX_SSH[@]}" "cat $LX_DIR/build-linux.done 2>/dev/null || echo running" | tr -d '\r')"
-    if [[ "$LINUX_ONLY" == 1 ]]; then win="skipped"; else win="$(ps "$win_poll" | tr -d '\r' | tail -n1)"; fi
+    if lin="$(retry "${LX_SSH[@]}" "cat $LX_DIR/build-linux.done 2>/dev/null || echo running")"; then
+      lin="${lin//$'\r'/}"
+      if [[ "$LINUX_ONLY" == 1 ]]; then win="skipped"
+      elif win="$(retry ps "$win_poll" | tr -d '\r' | tail -n1)" && [[ -n "$win" ]]; then :
+      else win="running"; fi
+      lost=0
+    else
+      # Retries exhausted: keep waiting (the builds run on without us), give up after ~10 polls.
+      lin="running"; win="running"; lost=$(( lost + 1 ))
+      (( lost < 10 )) || die "lost contact with the build hosts for ~20 min; builds may still be running"
+    fi
     echo "$(date '+%H:%M:%S') windows=$win linux=$lin"
     [[ "$win" != running && "$lin" != running ]] && break
     (( SECONDS < deadline )) || die "timed out waiting for the builds"
