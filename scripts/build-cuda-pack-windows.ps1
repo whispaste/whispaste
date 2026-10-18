@@ -41,6 +41,7 @@ $Build = Join-Path $WorkDir "build-$WhisperTag"
 $Stage = Join-Path $WorkDir ('stage\' + $PackId)
 $OutDir = Join-Path $WorkDir 'out'
 $LicenseFile = Join-Path $ScriptDir 'LICENSE-NVIDIA.txt'
+$LicenseSha256 = '95815d3a862cf6bb5b3b58b661c3a3172a58b9ca6fcfa36b0e3d19a8e63a18e3'
 $DoneMarker = Join-Path $WorkDir 'build-windows.done'
 $LogFile = Join-Path $WorkDir 'build-windows.log'
 
@@ -136,10 +137,15 @@ function Install-Prereqs {
   Write-Host 'prerequisites checked; start the build in a new session so PATH is current'
 }
 
-function Test-LicenseFile {
+function Test-LicenseFile([string]$Path = $LicenseFile) {
   # The pack ships NVIDIA's full CUDA EULA text; refuse to build without it.
-  if (-not (Test-Path $LicenseFile)) { throw "$LicenseFile missing (NVIDIA CUDA EULA text is required in every pack)" }
-  if ([IO.File]::ReadAllText($LicenseFile).Trim().Length -eq 0) { throw "$LicenseFile is empty" }
+  # The text is pinned by SHA-256: a changed file is a deliberate bump, not a silent update.
+  if (-not (Test-Path $Path)) { throw "$Path missing (NVIDIA CUDA EULA text is required in every pack)" }
+  if ([IO.File]::ReadAllText($Path).Trim().Length -eq 0) { throw "$Path is empty" }
+  $actual = (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLower()
+  if ($actual -ne $LicenseSha256) {
+    throw "$Path text changed, bump the pinned hash deliberately (expected $LicenseSha256, got $actual)"
+  }
 }
 
 function Invoke-Pack {
@@ -231,6 +237,7 @@ function Invoke-Pack {
   $template = [IO.File]::ReadAllText((Join-Path $ScriptDir 'cuda-pack-NOTICE.template.txt')).Replace("`r`n", "`n")
   Write-Utf8NoBom (Join-Path $Stage 'NOTICE.txt') $template.Replace('@WHISPER_LICENSE@', $license)
   Copy-Item $LicenseFile (Join-Path $Stage 'LICENSE-NVIDIA.txt')
+  Test-LicenseFile (Join-Path $Stage 'LICENSE-NVIDIA.txt')
 
   Write-Step '[5/6] SHA256SUMS + verify'
   $names = @(Get-ChildItem -Path $Stage -File | ForEach-Object { $_.Name })

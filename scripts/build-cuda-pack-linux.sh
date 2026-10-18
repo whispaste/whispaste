@@ -12,7 +12,8 @@
 # satisfies the module's NEEDED entry by soname.
 #
 # Usage:   bash build-cuda-pack-linux.sh --install-deps   (once, as root)
-#          bash build-cuda-pack-linux.sh --check-license  (checks LICENSE-NVIDIA.txt only)
+#          bash build-cuda-pack-linux.sh --check-license  (checks LICENSE-NVIDIA.txt hash only)
+#          bash build-cuda-pack-linux.sh --check-stage DIR  (checks DIR/LICENSE-NVIDIA.txt)
 #          [BUILD_JOBS=N] [CUDA_ARCHS=...] [WORK_DIR=...] [OUT_DIR=...] \
 #            bash build-cuda-pack-linux.sh
 # Output:  $OUT_DIR/WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64.tar.gz
@@ -48,13 +49,23 @@ fi
 fail() { echo "ERROR: $*" >&2; exit 1; }
 
 # The pack ships NVIDIA's full CUDA EULA text; refuse to build without it.
+# The text is pinned by SHA-256: a changed file is a deliberate bump, not a silent update.
 LICENSE_FILE="$SCRIPT_DIR/LICENSE-NVIDIA.txt"
+LICENSE_SHA256="95815d3a862cf6bb5b3b58b661c3a3172a58b9ca6fcfa36b0e3d19a8e63a18e3"
 check_license() {
-  [[ -f "$LICENSE_FILE" ]] || fail "$LICENSE_FILE missing (NVIDIA CUDA EULA text is required in every pack)"
-  grep -q '[^[:space:]]' "$LICENSE_FILE" || fail "$LICENSE_FILE is empty"
+  local file="$1" actual
+  [[ -f "$file" ]] || fail "$file missing (NVIDIA CUDA EULA text is required in every pack)"
+  grep -q '[^[:space:]]' "$file" || fail "$file is empty"
+  actual="$(sha256sum "$file" | cut -d' ' -f1)"
+  [[ "$actual" == "$LICENSE_SHA256" ]] \
+    || fail "$file text changed, bump the pinned hash deliberately (expected $LICENSE_SHA256, got $actual)"
 }
-check_license
-[[ "${1:-}" == "--check-license" ]] && { echo "ok: $LICENSE_FILE present and non-empty"; exit 0; }
+check_license "$LICENSE_FILE"
+case "${1:-}" in
+  --check-license) echo "ok: $LICENSE_FILE matches the pinned hash"; exit 0 ;;
+  --check-stage)   check_license "${2:?--check-stage needs a directory}/LICENSE-NVIDIA.txt"
+                   echo "ok: staged LICENSE-NVIDIA.txt matches the pinned hash"; exit 0 ;;
+esac
 
 echo "=== build-cuda-pack-linux ($PACK_ID) ==="
 
@@ -144,6 +155,7 @@ cp "$LICENSE_FILE" "$STAGE/LICENSE-NVIDIA.txt"
 
 # --- 5. Verify --------------------------------------------------------------
 echo "[5/6] verify"
+check_license "$STAGE/LICENSE-NVIDIA.txt"
 lib="$STAGE/libggml-cuda.so"
 # Dynamic section and symbols are captured first: `grep -q` on a pipe can
 # SIGPIPE the producer, which pipefail would report as a failure.
@@ -189,6 +201,8 @@ archive="$OUT_DIR/$PACK_ID.tar.gz"
 epoch="$(git -C "$SRC" log -1 --format=%ct)"
 tar --format=gnu --sort=name --owner=0 --group=0 --numeric-owner --mtime="@$epoch" \
   -C "$STAGE" -cf - "${names[@]}" | gzip -n -9 > "$archive"
+listing="$(tar -tzf "$archive")"
+grep -qx 'LICENSE-NVIDIA.txt' <<<"$listing" || fail "LICENSE-NVIDIA.txt missing from $archive"
 
 (cd "$STAGE" && ls -l)
 echo "unpacked: $(du -cb "$STAGE"/* | tail -n1 | cut -f1) bytes"

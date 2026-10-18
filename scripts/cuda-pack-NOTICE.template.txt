@@ -30,9 +30,13 @@ Contents: the ggml-cuda backend module, built from whisper.cpp / ggml v1.9.5,
    components of the NVIDIA CUDA Toolkit 12.8 (release 12.8.1). They are
    distributed under the NVIDIA CUDA End User License Agreement, Attachment A
    (https://docs.nvidia.com/cuda/eula/index.html). Under that agreement these
-   components may only be used by WhisPaste.
+   components may only be used by WhisPaste. The agreement is governed by the
+   laws of the United States and of the State of Delaware.
 
    The complete license text is included in this archive as
-   LICENSE-NVIDIA.txt.
+   LICENSE-NVIDIA.txt (NVIDIA CUDA Toolkit EULA, document dated January 26,
+   2026; retrieved 2026-10-18).
+
+   The optional CUDA acceleration pack is a separate download that contains NVIDIA redistributables under the NVIDIA CUDA Toolkit EULA, not under this project's licence. Its terms (including no reverse engineering and keeping notices intact) apply to those files.
 
    Copyright NVIDIA Corporation. All rights reserved.

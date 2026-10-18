@@ -9,9 +9,18 @@ redistributable manifest. Attachment A of this agreement lists the files
 that may be distributed with applications.
 
 Source:    https://docs.nvidia.com/cuda/eula/index.html
-           (document "Last updated: January 26, 2026")
+Version:   document "Last updated: January 26, 2026" (the agreement's own date,
+           printed in the text below). The documentation site footer shows
+           "Last updated on Oct 12, 2026" (CUDA documentation v13.4); the
+           agreement text itself is unchanged in that version.
 Manifest:  https://developer.download.nvidia.com/compute/cuda/redist/redistrib_12.8.1.json
 Retrieved: 2026-10-18
+
+Attachment A (section 2.6) lists the CUDA Runtime (cudart: libcudart.so,
+cudart.dll), the CUDA BLAS Library (cublas: libcublas.so, cublas.dll;
+cublasLt: libcublasLt.so, cublasLt.dll) as distributable for Linux and
+Windows, including variants with version information embedded in the
+file name (e.g. cublas64_12.dll).
 
 The text below is the full agreement as published, with the HTML markup
 removed and nothing else changed. Tables are rendered as plain text.

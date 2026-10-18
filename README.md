@@ -161,6 +161,8 @@ and Mac App Store versions offer optional one-time tips through the store. Tips 
 Contributions welcome — fork, branch, PR. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
 [Code of Conduct](CODE_OF_CONDUCT.md). Licensed under [MIT](LICENSE).
 
+The optional CUDA acceleration pack is a separate download that contains NVIDIA redistributables under the NVIDIA CUDA Toolkit EULA, not under this project's licence. Its terms (including no reverse engineering and keeping notices intact) apply to those files.
+
 <p align="center">
   <sub>Made by <a href="https://github.com/silvio-l">Silvio Lindstedt</a></sub>
 </p>
