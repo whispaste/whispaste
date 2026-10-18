@@ -131,6 +131,7 @@ scripts/fetch-cuda-redist.py
 scripts/build-cuda-pack-linux.sh
 scripts/build-cuda-pack-windows.ps1
 scripts/cuda-pack-NOTICE.template.txt
+scripts/LICENSE-NVIDIA.txt
 
 # Smart-Mode-v2 native shim (llama.cpp FFI wrapper, mirrors the libwhisper pattern)
 native/

@@ -12,6 +12,7 @@
 # satisfies the module's NEEDED entry by soname.
 #
 # Usage:   bash build-cuda-pack-linux.sh --install-deps   (once, as root)
+#          bash build-cuda-pack-linux.sh --check-license  (checks LICENSE-NVIDIA.txt only)
 #          [BUILD_JOBS=N] [CUDA_ARCHS=...] [WORK_DIR=...] [OUT_DIR=...] \
 #            bash build-cuda-pack-linux.sh
 # Output:  $OUT_DIR/WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64.tar.gz
@@ -45,6 +46,15 @@ if [[ "${1:-}" == "--install-deps" ]]; then
 fi
 
 fail() { echo "ERROR: $*" >&2; exit 1; }
+
+# The pack ships NVIDIA's full CUDA EULA text; refuse to build without it.
+LICENSE_FILE="$SCRIPT_DIR/LICENSE-NVIDIA.txt"
+check_license() {
+  [[ -f "$LICENSE_FILE" ]] || fail "$LICENSE_FILE missing (NVIDIA CUDA EULA text is required in every pack)"
+  grep -q '[^[:space:]]' "$LICENSE_FILE" || fail "$LICENSE_FILE is empty"
+}
+check_license
+[[ "${1:-}" == "--check-license" ]] && { echo "ok: $LICENSE_FILE present and non-empty"; exit 0; }
 
 echo "=== build-cuda-pack-linux ($PACK_ID) ==="
 
@@ -129,6 +139,8 @@ patchelf --set-rpath '$ORIGIN' "$STAGE/libggml-cuda.so"
 awk -v license="$SRC/LICENSE" '
   $0 == "@WHISPER_LICENSE@" { while ((getline line < license) > 0) print line; close(license); next }
   { print }' "$SCRIPT_DIR/cuda-pack-NOTICE.template.txt" > "$STAGE/NOTICE.txt"
+cp "$LICENSE_FILE" "$STAGE/LICENSE-NVIDIA.txt"
+[[ -s "$STAGE/LICENSE-NVIDIA.txt" ]] || fail "LICENSE-NVIDIA.txt not staged"
 
 # --- 5. Verify --------------------------------------------------------------
 echo "[5/6] verify"

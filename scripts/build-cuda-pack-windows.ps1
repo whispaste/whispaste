@@ -40,6 +40,7 @@ $CudaHome = Join-Path $WorkDir 'cuda'
 $Build = Join-Path $WorkDir "build-$WhisperTag"
 $Stage = Join-Path $WorkDir ('stage\' + $PackId)
 $OutDir = Join-Path $WorkDir 'out'
+$LicenseFile = Join-Path $ScriptDir 'LICENSE-NVIDIA.txt'
 $DoneMarker = Join-Path $WorkDir 'build-windows.done'
 $LogFile = Join-Path $WorkDir 'build-windows.log'
 
@@ -135,7 +136,14 @@ function Install-Prereqs {
   Write-Host 'prerequisites checked; start the build in a new session so PATH is current'
 }
 
+function Test-LicenseFile {
+  # The pack ships NVIDIA's full CUDA EULA text; refuse to build without it.
+  if (-not (Test-Path $LicenseFile)) { throw "$LicenseFile missing (NVIDIA CUDA EULA text is required in every pack)" }
+  if ([IO.File]::ReadAllText($LicenseFile).Trim().Length -eq 0) { throw "$LicenseFile is empty" }
+}
+
 function Invoke-Pack {
+  Test-LicenseFile
   Write-Step 'toolchain'
   Import-VsDevEnvironment
   foreach ($tool in 'cmake', 'ninja', 'git', 'dumpbin') {
@@ -222,6 +230,7 @@ function Invoke-Pack {
   $license = [IO.File]::ReadAllText((Join-Path $Src 'LICENSE')).Replace("`r`n", "`n").TrimEnd("`n")
   $template = [IO.File]::ReadAllText((Join-Path $ScriptDir 'cuda-pack-NOTICE.template.txt')).Replace("`r`n", "`n")
   Write-Utf8NoBom (Join-Path $Stage 'NOTICE.txt') $template.Replace('@WHISPER_LICENSE@', $license)
+  Copy-Item $LicenseFile (Join-Path $Stage 'LICENSE-NVIDIA.txt')
 
   Write-Step '[5/6] SHA256SUMS + verify'
   $names = @(Get-ChildItem -Path $Stage -File | ForEach-Object { $_.Name })
@@ -232,7 +241,7 @@ function Invoke-Pack {
   }
   Write-Utf8NoBom (Join-Path $Stage 'SHA256SUMS') (($sums -join "`n") + "`n")
   $names += 'SHA256SUMS'
-  foreach ($required in 'ggml-cuda.dll', 'cudart64_12.dll', 'cublas64_12.dll', 'cublasLt64_12.dll', 'NOTICE.txt', 'SHA256SUMS') {
+  foreach ($required in 'ggml-cuda.dll', 'cudart64_12.dll', 'cublas64_12.dll', 'cublasLt64_12.dll', 'NOTICE.txt', 'LICENSE-NVIDIA.txt', 'SHA256SUMS') {
     if ($names -notcontains $required) { throw "pack is missing $required" }
   }
 

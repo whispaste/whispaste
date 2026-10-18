@@ -201,6 +201,7 @@ if [[ "$FETCH_ONLY" == 0 ]]; then
     "$REPO_ROOT/scripts/build-cuda-pack-linux.sh" \
     "$REPO_ROOT/scripts/fetch-cuda-redist.py" \
     "$REPO_ROOT/scripts/cuda-pack-NOTICE.template.txt" \
+    "$REPO_ROOT/scripts/LICENSE-NVIDIA.txt" \
     "$LINUX_HOST:$LX_DIR/scripts/"
   cat > "$TMP_DIR/run-linux.sh" <<'SH'
 #!/usr/bin/env bash
@@ -235,6 +236,7 @@ SH
       "$REPO_ROOT/scripts/build-cuda-pack-windows.ps1" \
       "$REPO_ROOT/scripts/fetch-cuda-redist.py" \
       "$REPO_ROOT/scripts/cuda-pack-NOTICE.template.txt" \
+      "$REPO_ROOT/scripts/LICENSE-NVIDIA.txt" \
       "$WIN_USER@$WINBOX:C:/wp-cuda-build/scripts/"
 
     echo "== prerequisites (Python 3 via winget if missing)"

@@ -123,6 +123,7 @@ scripts/*
 !scripts/build-cuda-pack-linux.sh
 !scripts/build-cuda-pack-windows.ps1
 !scripts/cuda-pack-NOTICE.template.txt
+!scripts/LICENSE-NVIDIA.txt
 !scripts/git-hooks/
 !scripts/smoke/
 !scripts/generate-release-notes.mjs

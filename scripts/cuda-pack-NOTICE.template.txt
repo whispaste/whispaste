@@ -32,4 +32,7 @@ Contents: the ggml-cuda backend module, built from whisper.cpp / ggml v1.9.5,
    (https://docs.nvidia.com/cuda/eula/index.html). Under that agreement these
    components may only be used by WhisPaste.
 
+   The complete license text is included in this archive as
+   LICENSE-NVIDIA.txt.
+
    Copyright NVIDIA Corporation. All rights reserved.
