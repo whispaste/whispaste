@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # build-cuda-pack-linux.sh — builds the optional Linux CUDA backend pack
 # WhisPaste-CUDA-ggml-v1.9.5-cu12.8-r1-linux-x64.tar.gz: libggml-cuda.so plus
-# the CUDA 12.8.1 runtime libraries it links. Runs inside WSL2 Ubuntu 24.04 on
-# SilviosPC; tool/cuda_pack_build.sh drives it from the Mac.
+# the CUDA 12.8.1 runtime libraries it links. Runs inside an ubuntu:24.04 Docker container on
+# local-ai-srv; tool/cuda_pack_build.sh drives it from the Mac.
 #
 # Same whisper.cpp pin, CUDA redist and ggml options as
 # `build-libwhisper-linux.sh --cuda`, but this script packs instead of staging:
@@ -37,7 +37,7 @@ NUM_CPUS="$(nproc)"
 BUILD_JOBS="${BUILD_JOBS:-$(( NUM_CPUS < 8 ? NUM_CPUS : 8 ))}"
 
 if [[ "${1:-}" == "--install-deps" ]]; then
-  [[ "$EUID" -eq 0 ]] || { echo "ERROR: --install-deps needs root (wsl -u root)" >&2; exit 1; }
+  [[ "$EUID" -eq 0 ]] || { echo "ERROR: --install-deps needs root (run as root, e.g. inside the container)" >&2; exit 1; }
   apt-get update
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential cmake make git python3 patchelf binutils ca-certificates
@@ -56,7 +56,7 @@ echo "distro:  ${PRETTY_NAME} (glibc $(getconf GNU_LIBC_VERSION | awk '{print $2
   || echo "warning: not Ubuntu 24.04; the app's Linux release is built on 24.04 (glibc 2.39)"
 for tool in git cmake make g++ python3 patchelf readelf objdump nm strip ldd; do
   command -v "$tool" >/dev/null \
-    || fail "$tool missing (run once: wsl -d <distro> -u root -- bash <this script> --install-deps)"
+    || fail "$tool missing (run once as root: bash <this script> --install-deps)"
 done
 cmake --version | head -n1
 g++ --version | head -n1
