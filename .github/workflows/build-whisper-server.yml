@@ -88,7 +88,7 @@ jobs:
     runs-on: windows-2025
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install Vulkan SDK
         shell: pwsh
@@ -178,7 +178,7 @@ jobs:
           Write-Host "Created whisper-server-vulkan-x64.zip"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: whisper-server-vulkan-x64
           path: whisper-server-vulkan-x64.zip
@@ -276,7 +276,7 @@ jobs:
           Write-Host "Created whisper-server-cpu-x64.zip"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: whisper-server-cpu-x64
           path: whisper-server-cpu-x64.zip
@@ -290,7 +290,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Clone whisper.cpp
         run: |
@@ -349,7 +349,7 @@ jobs:
           echo "Created whisper-server-metal-arm64.zip"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: whisper-server-metal-arm64
           path: whisper-server-metal-arm64.zip
@@ -371,7 +371,7 @@ jobs:
     # resulting binary still dynamically links libgomp, libm, and libc (glibc),
     # which are present on every modern Linux system.
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Install build dependencies
         run: |
@@ -458,7 +458,7 @@ jobs:
           echo "Created whisper-server-cpu-linux-x64.zip"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: whisper-server-cpu-linux-x64
           path: whisper-server-cpu-linux-x64.zip
@@ -479,10 +479,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: assets
           merge-multiple: true
@@ -549,7 +549,7 @@ jobs:
           cat assets/whisper-server-manifest.json
 
       - name: Create release with assets
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "Whisper Server (${{ inputs.whisper_tag }}) – Vulkan + CPU + Metal + Linux"

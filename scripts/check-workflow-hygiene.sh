@@ -26,6 +26,12 @@
 #      (cf. 19b24e8a, which fixed exactly that failure mode in the docs-drift
 #      auditor).
 #
+#   3. Every `uses:` must be pinned to a full 40-char commit SHA with a
+#      trailing `# vX.Y.Z` comment (docker:// refs: @sha256 digest; local
+#      ./ refs exempt). A tag can be moved after review, so a tag-pinned
+#      action runs code nobody reviewed. Checked as plain text, so it also
+#      runs where PyYAML is missing (rules 1 and 2 then skip).
+#
 # Fast (pure YAML parse, no network, no runner), so it belongs on the push
 # path next to actionlint rather than in CI, where it would cost the very
 # minutes it is protecting.
@@ -35,6 +41,45 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 python3 - "$REPO_ROOT" <<'PYEOF'
 import sys, pathlib, re
+
+# --- rule 3: every uses: pinned to a commit SHA + version comment ----------
+# Text-based on purpose: this must run even without PyYAML (see below).
+PIN_RE = re.compile(r'^\s*(?:-\s+)?uses:\s*(\S+)(.*)$')
+SHA_REF = re.compile(r'^[^@\s]+@[0-9a-f]{40}$')
+DIGEST_REF = re.compile(r'^docker://.+@sha256:[0-9a-f]{64}$')
+VERSION_COMMENT = re.compile(r'^#\s*v[0-9]+(\.[0-9]+){0,2}\s*$')
+
+_root = pathlib.Path(sys.argv[1])
+_wf = _root / ".github" / "workflows"
+_pin_files = (sorted(_wf.glob("*.yml")) + sorted(_wf.glob("*.yaml"))
+              + sorted((_root / ".github" / "actions").glob("*/action.y*ml")))
+pin_problems = []
+pin_refs = 0
+for _f in _pin_files:
+    for _no, _line in enumerate(_f.read_text().splitlines(), 1):
+        _m = PIN_RE.match(_line)
+        if not _m:
+            continue
+        _ref, _rest = _m.group(1), _m.group(2).strip()
+        if _ref.startswith(("./", "../")):
+            continue
+        pin_refs += 1
+        _where = f"{_f.relative_to(_root)}:{_no}"
+        if _ref.startswith("docker://"):
+            if not DIGEST_REF.match(_ref):
+                pin_problems.append(f"{_where}: docker reference not pinned by digest: {_ref}")
+        elif not SHA_REF.match(_ref):
+            pin_problems.append(f"{_where}: not pinned to a full commit SHA: {_ref}")
+        elif not VERSION_COMMENT.match(_rest):
+            pin_problems.append(f"{_where}: missing trailing '# vX.Y.Z' comment: {_ref}")
+if pin_problems:
+    print("")
+    print("Action pin problems (pin to <owner/repo>@<40-char-sha> # vX.Y.Z):")
+    for _p in pin_problems:
+        print(f"  - {_p}")
+    print("")
+    sys.exit(1)
+print(f"  action pins: clean ({pin_refs} references)")
 
 try:
     import yaml

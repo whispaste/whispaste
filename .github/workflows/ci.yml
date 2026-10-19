@@ -57,7 +57,11 @@ jobs:
       website: ${{ steps.changes.outputs.website }}
       golden: ${{ steps.changes.outputs.golden }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # Enough history for gitleaks' push-range scan and detect-changes.sh
+          # (a full clone costs minutes per dev push; the full scan runs weekly).
+          fetch-depth: 100
 
       - name: Detect changed areas
         id: changes
@@ -90,6 +94,48 @@ jobs:
           fi
           echo 'No secrets found'
 
+      # gitleaks as a binary, not the gitleaks-action (that needs a paid
+      # licence for organisation-owned repos). Version and SHA-256 are pinned
+      # and verified before extraction. Same ruleset and .gitleaks.toml as the
+      # local hooks, so `--no-verify` cannot skip it. Push runs scan only the
+      # pushed range; scheduled/manual runs scan the full history.
+      - name: Install gitleaks (pinned, checksum-verified)
+        env:
+          GITLEAKS_VERSION: '8.30.1'
+          GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/gitleaks-bin"
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP/gitleaks-bin" gitleaks
+          echo "$RUNNER_TEMP/gitleaks-bin" >> "$GITHUB_PATH"
+
+      - name: gitleaks secret scan
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gitleaks version
+          ZERO=0000000000000000000000000000000000000000
+          if [ "$FULL_RUN" = "true" ] || [ -z "$BEFORE" ] || [ "$BEFORE" = "$ZERO" ] \
+             || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # Full-history run: the checkout is shallow, so fetch the rest first.
+            if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+              git fetch --quiet --unshallow
+            fi
+            gitleaks git --no-banner --redact .
+          else
+            gitleaks git --no-banner --redact --log-opts="$BEFORE..$AFTER" .
+          fi
+
+      # Workflow policy gate: timeouts, SDK pins and SHA-pinned uses:
+      # (rule 3). Same script as the pre-push hook; backstop for --no-verify.
+      - name: Workflow hygiene (timeouts, SDK pins, action SHA pins)
+        run: bash scripts/check-workflow-hygiene.sh
+
       # Enforces the logging concept documented in LOGGING.md: all app-level
       # logging must go through AppLogger (lib/core/logging/app_logger.dart)
       # so it gets file persistence, rotation/redaction, and Sentry
@@ -121,10 +167,10 @@ jobs:
     env:
       CMAKE_BUILD_PARALLEL_LEVEL: 4
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           flutter-version: 3.44.1
@@ -268,10 +314,10 @@ jobs:
     # (once per pinned version, see the cache step below).
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           flutter-version: 3.44.1
@@ -308,7 +354,7 @@ jobs:
       # runner has none of it, so cache all three, keyed on the scripts that
       # pin the versions.
       - name: Cache native libs and test model
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             .build/libwhisper/macos
@@ -391,7 +437,7 @@ jobs:
     # tests (~10min); the complete suite runs in flutter-tests-linux.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       # Linux-Desktop-Toolchain fuer `flutter build linux`. Die reinen Unit-/
       # Widget-Tests (`flutter test`) brauchen das nicht, der Build aber schon.
@@ -416,7 +462,7 @@ jobs:
             libayatana-appindicator3-dev libasound2-dev xvfb
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           flutter-version: 3.44.1
@@ -534,10 +580,10 @@ jobs:
       matrix:
         shard: [1, 2]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           flutter-version: 3.44.1
@@ -583,10 +629,10 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
           channel: stable
           flutter-version: 3.44.1
@@ -626,10 +672,10 @@ jobs:
       run:
         working-directory: website
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
 
