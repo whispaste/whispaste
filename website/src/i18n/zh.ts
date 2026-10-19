@@ -890,7 +890,7 @@ const dict: Record<string, string> = {
   'faq.group.features': '继续编辑文字',
   'footer.resourcesMore': '更多指南',
   'nav.features': '写作工具',
-  'nav.community': '参与贡献',
+  'nav.community': '开源',
   'nav.privacy': '隐私',
   'nav.blog': '博客',
   'mobileCta.label': '下载电脑版本',

@@ -887,7 +887,7 @@ const dict: Record<string, string> = {
   'faq.group.features': 'Trabalhar com o texto',
   'footer.resourcesMore': 'Mais guias',
   'nav.features': 'Ferramentas',
-  'nav.community': 'Participe',
+  'nav.community': 'Código aberto',
   'nav.privacy': 'Privacidade',
   'nav.blog': 'Blog',
   'mobileCta.label': 'Downloads para seu computador',

@@ -43,7 +43,7 @@ test('shares one light sheet with the use cases, a thin rule on the seam', async
 test('the nav links to the section in every place it shows', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
-  await expect(page.getByTestId('nav-link-community')).toHaveText('Mitmachen');
+  await expect(page.getByTestId('nav-link-community')).toHaveText('Open Source');
   await page.getByTestId('nav-link-community').click();
   await expect(page).toHaveURL(/#open-source$/);
   await expect(page.getByTestId('open-source')).toBeInViewport();

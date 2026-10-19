@@ -936,7 +936,7 @@ const dict: Record<string, string> = {
   'faq.group.features': 'Working with text',
   'footer.resourcesMore': 'More guides',
   'nav.features': 'Writing tools',
-  'nav.community': 'Contribute',
+  'nav.community': 'Open Source',
   'nav.privacy': 'Privacy',
   'nav.blog': 'Blog',
   'blog.seoTitle': 'Blog | WhisPaste',

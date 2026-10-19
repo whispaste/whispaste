@@ -939,7 +939,7 @@ const dict: Record<string, string> = {
   'faq.group.features': 'Mit Text weiterarbeiten',
   'footer.resourcesMore': 'Weitere Anleitungen',
   'nav.features': 'Schreibhilfen',
-  'nav.community': 'Mitmachen',
+  'nav.community': 'Open Source',
   'nav.privacy': 'Datenschutz',
   'nav.blog': 'Blog',
   'blog.seoTitle': 'Blog | WhisPaste',
