@@ -51,7 +51,8 @@ case "$mode" in
   staged)
     git diff --cached --name-only --diff-filter=ACMR | scan_stdin "staged path"
     git diff --cached -U0 --no-color --diff-filter=ACMR \
-      | grep -E '^\+' | grep -vE '^\+\+\+ ' | scan_stdin "staged change"
+      | { grep -E '^\+' || true; } | { grep -vE '^\+\+\+ ' || true; } \
+      | scan_stdin "staged change"
     ;;
   tree)
     rev="${2:?rev}"
