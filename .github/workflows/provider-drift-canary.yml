@@ -2,9 +2,8 @@ name: provider-drift-canary
 
 # Catches a silent breaking change in the OpenAI/Deepgram STT REST APIs
 # (status codes, response JSON shape) before a user's cloud transcription
-# quietly starts failing — adapted from OpenWhispr's llm-canary.yml/
-# stt-canary.yml pattern (see the competitive review that flagged this as
-# worth adopting).
+# quietly starts failing — a scheduled canary against the real provider
+# endpoints instead of only the mocked tests.
 #
 # Two independent checks, both living next to the existing mocked tests in
 # test/services/transcription/{openai,deepgram}_transcriber_test.dart:
