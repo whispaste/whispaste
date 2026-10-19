@@ -276,10 +276,26 @@ done
 # ein Feature-Worktree/-Branch muss vor jedem dev/main-Push fertig
 # gemerged UND entfernt sein (Solo-Dev-Workflow, kein PR-Review nötig).
 push_touches_devmain=0
+push_touches_main=0
 for _refline in "${REF_LINES[@]}"; do
   read -r _lr _ls rref _rs <<<"$_refline" || true
   case "$rref" in refs/heads/dev|refs/heads/main) push_touches_devmain=1 ;; esac
+  [ "$rref" = "refs/heads/main" ] && push_touches_main=1
 done
+
+# Override for long-running integration phases (maintainer decision
+# 2026-10-19): with WP_ALLOW_OPEN_BRANCHES=1 a push that only touches dev may
+# skip this hygiene check, so dev stays in sync with origin while feature
+# branches/worktrees are still open. Every other check below still runs, and
+# a push touching main always enforces the hygiene.
+if [ "$push_touches_devmain" = 1 ] && [ "${WP_ALLOW_OPEN_BRANCHES:-}" = 1 ]; then
+  if [ "$push_touches_main" = 1 ]; then
+    echo "pre-push: WP_ALLOW_OPEN_BRANCHES ignored — the push touches main" >&2
+  else
+    echo "pre-push: WP_ALLOW_OPEN_BRANCHES=1 — branch/worktree hygiene skipped for this dev push" >&2
+    push_touches_devmain=0
+  fi
+fi
 
 if [ "$push_touches_devmain" = 1 ]; then
   # beta-appcast-pointer ist eine dauerhafte, CI-verwaltete Orphan-Branch
