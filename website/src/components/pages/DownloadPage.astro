@@ -26,6 +26,7 @@ import {
   LINUX_APPIMAGE_URL,
   LINUX_DEB_URL,
   GITHUB_REPO_URL,
+  MS_STORE_URL,
   getLivePkgManagersGroupedByPlatform,
 } from '../../data/platforms.ts';
 import { PKG_MANAGER_ICONS } from '../../scripts/pkgManagerIcons.ts';
@@ -309,6 +310,7 @@ import PageSheet from "../PageSheet.astro";
             <div>
               <h2 class="text-xl font-semibold text-ink" data-i18n="download.github.title">{t(lang, "download.github.title")}</h2>
               <p class="text-ink-muted text-sm mt-1" data-i18n="download.github.desc">{t(lang, "download.github.desc")}</p>
+              <p class="text-ink-subtle text-xs mt-1" data-testid="download-github-unsigned" data-i18n="download.github.unsigned">{t(lang, "download.github.unsigned")}</p>
             </div>
           </div>
 
@@ -329,7 +331,7 @@ import PageSheet from "../PageSheet.astro";
 
           <!-- SmartScreen guide — demoted to secondary/collapsible (issue 13),
                collapsed by default; content unchanged. -->
-          <details class="smartscreen-box tech-helper group rounded-xl border border-[color-mix(in_srgb,var(--wp-highlight-default)_10%,transparent)] bg-[color-mix(in_srgb,var(--wp-highlight-default)_3%,transparent)]">
+          <details data-testid="download-smartscreen-box" class="smartscreen-box tech-helper group rounded-xl border border-[color-mix(in_srgb,var(--wp-highlight-default)_10%,transparent)] bg-[color-mix(in_srgb,var(--wp-highlight-default)_3%,transparent)]">
             <summary class="tech-helper__summary flex items-start gap-3 p-5 cursor-pointer select-none">
               <svg class="w-5 h-5 text-[var(--wp-highlight-text)] shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
               <div class="flex-1">
@@ -340,6 +342,20 @@ import PageSheet from "../PageSheet.astro";
             </summary>
 
             <div class="tech-helper__body px-5 pb-5">
+              <!-- Smart App Control blocks unsigned installers outright (no
+                   "Run anyway"), so the Store is the only way there. -->
+              <div class="ml-8 mb-4 rounded-lg border border-[color:var(--wp-border-subtle)] p-3" data-testid="download-sac-note">
+                <p class="text-ink-muted text-xs leading-relaxed" data-i18n="download.sac.desc">{t(lang, "download.sac.desc")}</p>
+                <a
+                  href={MS_STORE_URL}
+                  target="_blank"
+                  rel="noopener"
+                  class="inline-block mt-2 text-xs font-medium text-brand-cyan underline underline-offset-2"
+                  data-testid="download-sac-store-link"
+                  data-i18n="download.store.fallback"
+                  onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
+                >{t(lang, "download.store.fallback")}</a>
+              </div>
               <div class="space-y-3 ml-8">
                 <div class="flex gap-3">
                   <div class="shrink-0 w-6 h-6 rounded-full bg-[var(--wp-accent-soft)] border border-[color-mix(in_srgb,var(--wp-accent-default)_20%,transparent)] flex items-center justify-center text-brand-cyan font-semibold text-xs">1</div>
