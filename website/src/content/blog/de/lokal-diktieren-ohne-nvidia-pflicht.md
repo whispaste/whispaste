@@ -8,7 +8,7 @@ Brauchst du eine NVIDIA-Grafikkarte, um auf deinem Rechner lokal zu diktieren? F
 
 ## Die Voraussetzungen zuerst
 
-Du brauchst einen 64-Bit-Prozessor, mindestens 8 GB RAM und freien Speicherplatz für die App und ihre Sprachmodelle. Unterstützt werden Windows 10 oder neuer, Linux sowie macOS 12 Monterey oder neuer auf Apple Silicon.
+Du brauchst einen 64-Bit-Prozessor und freien Speicherplatz für die App und ihre Sprachmodelle; 8 GB RAM werden empfohlen. Unterstützt werden Windows 10 oder neuer, Linux sowie macOS 12 Monterey oder neuer auf Apple Silicon.
 
 Beim Mac gilt eine Einschränkung: WhisPaste gibt es dort als Build für Apple Silicon. Auch ältere Prozessoren ohne AVX2 funktionieren, sofern sie die übrigen Systemanforderungen erfüllen.
 

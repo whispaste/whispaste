@@ -8,7 +8,7 @@ Do you need an NVIDIA graphics card to dictate locally on your computer? With Wh
 
 ## Start with the requirements
 
-You need a 64-bit processor, at least 8 GB of RAM, and free disk space for the app and its speech models. Supported systems are Windows 10 or later, Linux, and macOS 12 Monterey or later on Apple Silicon.
+You need a 64-bit processor and free disk space for the app and its speech models; 8 GB of RAM is recommended. Supported systems are Windows 10 or later, Linux, and macOS 12 Monterey or later on Apple Silicon.
 
 On the Mac there is one restriction: WhisPaste is an Apple Silicon build there. Older processors without AVX2 work too, provided they meet the other system requirements.
 
