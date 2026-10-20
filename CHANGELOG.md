@@ -4,13 +4,36 @@ All entries are written in English.
 
 ## Unreleased
 
-### Fixes
+### New Features
 
-- **Computers with less than 8 GB of RAM start:** WhisPaste no longer stops at start on such machines. It starts and recommends the compact speech model.
+- **Redesigned main window:** a sidebar leads to Recordings, Notes, Dictionary, Snippets, Statistics and Help, and a dock at the bottom holds the Dictate button with the speech model, Smart Mode, language and output selectors.
+- **Import audio files:** drop a file onto the window or the Recordings page to transcribe it on this device. WAV works everywhere; MP3, FLAC, M4A/AAC and Ogg/Opus work on macOS, Windows and Linux.
+- **Notes:** write notes with titles, images and highlights, keep a version history, lock them behind the History PIN, and save quick notes in the background.
+- **App profiles:** a profile sets the language, speech model, Smart Mode preset, microphone and after-transcription action for a target app, and can have its own hotkey. Pick it from the tray or the menu bar, or let rules activate it.
+- **Dictionary and Snippets pages:** the Dictionary holds terms, replacements and suggestions, with a CSV import preview. Snippets can be marked as favourites and show how often they are used.
+- **Undo Smart Mode:** undo or restore a Smart Mode result from History. Output that changes facts or loops falls back to the raw transcript.
+- **Menu bar and title menus:** macOS gets a native menu bar with Recording and Help menus, and Cmd+, opens Settings. Windows and Linux get the same commands in a title bar menu.
+- **Help hub and feedback form:** the 16-chapter handbook, support, introduction and diagnostics share one searchable Help page. The feedback form offers type chips, an optional rating and opt-in diagnostics, and opens from the tray.
+- **Linux auto-paste on Wayland:** WhisPaste checks the focused window, confirms each paste with a clipboard receipt, and lets you choose the uinput keyboard or the desktop portal.
 
 ### Improvements
 
 - **Flat dialogs:** dialogs dim the window behind them without a blur.
+- **Speech model:** WhisPaste recommends a model from this computer's hardware class and its own measurements, and the model stays loaded between dictations by default so the next hotkey press starts at once.
+- **Settings in areas:** settings are split into areas with a navigation column, and search jumps to the matching area in all six interface languages.
+- **Auto-paste and clipboard:** an app picker replaces the text list of apps that skip auto-paste, and a setting restores your previous clipboard after each paste.
+- **Overlay:** new shapes, wave styles and colour presets, a recording ring, adjustable size and opacity, and a position that is remembered per monitor.
+- **Recording controls:** double-tap the hotkey to record hands-free, choose a separate cancel key, and let a microphone priority list take over when a device is missing.
+- **Statistics:** shows raw versus revised words, transform actions and frequent corrections, and labels the time saved as an estimate.
+- **Onboarding:** Enter and Escape move through the setup, a model download can be cancelled, and a download the disk cannot hold is refused before it starts.
+
+### Fixes
+
+- **Computers with less than 8 GB of RAM start:** WhisPaste no longer stops at start on such machines. It starts and recommends the compact speech model.
+- **Hotkey after idle:** the first press after idle starts recording at once, and a press right after a released start is no longer dropped.
+- **Failed transcriptions:** the audio of a failed transcription is kept for 24 hours and can be retried.
+- **Sleep and wake:** a recording in progress finishes before the computer sleeps, and the speech engine is checked again after wake.
+- **Database from a newer build:** WhisPaste shows a start screen instead of failing when the database was written by a newer version.
 
 ### Known issues
 
