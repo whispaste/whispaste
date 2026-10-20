@@ -33,6 +33,8 @@ import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/settings/sections/overlay_button_section.dart';
+import 'package:whispaste/services/floating_button/floating_button_support.dart';
+import 'package:whispaste/services/floating_button/floating_button_support_provider.dart';
 import 'package:whispaste/features/settings/widgets/wp_settings_group.dart'
     show WpSettingsGroup, settingsRowKey;
 import 'package:whispaste/features/settings/widgets/overlay_size_selector.dart';
@@ -1002,29 +1004,35 @@ void main() {
       }
     });
 
-    testWidgets('entire section hidden on Linux (no WpFloatingButtonView)', (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-      try {
-        final notifier = _FakeSettingsNotifier(
-          AppSettings.defaults.copyWithSections(
-            overlay: const OverlaySettings(showFloatingButton: true),
-          ),
-        );
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: FloatingButtonSection()),
-            overrides: [settingsProvider.overrideWith(() => notifier)],
-          ),
-        );
-        await tester.pumpAndSettle();
+    testWidgets(
+      'section shown on Linux with the button view and switch (PAR-010)',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+        try {
+          final notifier = _FakeSettingsNotifier(
+            AppSettings.defaults.copyWithSections(
+              overlay: const OverlaySettings(showFloatingButton: true),
+            ),
+          );
+          await tester.pumpWidget(
+            makeTestable(
+              const SingleChildScrollView(child: FloatingButtonSection()),
+              overrides: [
+                settingsProvider.overrideWith(() => notifier),
+                floatingButtonSupportProvider.overrideWith(
+                  (ref) async => FloatingButtonSupport.full,
+                ),
+              ],
+            ),
+          );
+          await tester.pumpAndSettle();
 
-        expect(find.byType(WpFloatingButtonView), findsNothing);
-        expect(find.byType(Switch), findsNothing);
-      } finally {
-        debugDefaultTargetPlatformOverride = null;
-      }
-    });
+          expect(find.byType(WpFloatingButtonView), findsOneWidget);
+          expect(find.byType(Switch), findsWidgets);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
   });
 }

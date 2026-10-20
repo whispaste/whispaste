@@ -8,6 +8,7 @@ library;
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -60,6 +61,10 @@ String _idPart(String identifier) =>
       RegExp(r'[^a-z0-9]+'),
       '-',
     );
+
+/// Identifiers never contain control characters (line breaks, tabs).
+final TextInputFormatter _noControlCharacters =
+    FilteringTextInputFormatter.deny(RegExp(r'[\x00-\x1F\x7F]'));
 
 class AutoPasteBlocklistField extends ConsumerWidget {
   const AutoPasteBlocklistField({
@@ -344,6 +349,8 @@ class _AutoPasteAppPickerState extends ConsumerState<_AutoPasteAppPicker> {
                       hintText: _manualPlaceholder(l10n),
                       semanticLabel: l10n.settingsPasteBlocklistManualHeading,
                       onChanged: (_) => setState(() {}),
+                      // One identifier per entry: no line breaks or tabs.
+                      inputFormatters: [_noControlCharacters],
                     ),
                   ),
                 ),

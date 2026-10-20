@@ -1,30 +1,32 @@
-/// Review page between a CSV file and the replacement list. Shows what will
-/// be added, which rows are skipped as duplicates, and the lines that could
-/// not be read. Nothing is written until the user confirms.
+/// Review page between a CSV file and the replacement list. Shows the package
+/// header, the counts for the chosen conflict strategy, every row with its
+/// status, and the lines that could not be read. The plan shown here is the
+/// plan that gets written, and nothing is written until the user confirms.
 library;
 
 import 'package:flutter/material.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/dictionary/replacement_csv.dart';
-import '../../services/dictionary/replacement_duplicates.dart';
+import '../../services/dictionary/replacement_import_plan.dart';
 import '../../widgets/wp_banner.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_row_checkbox.dart';
+import '../../widgets/wp_segmented_selector.dart';
 
 class DictionaryCsvPreviewPage extends StatefulWidget {
   const DictionaryCsvPreviewPage({
     super.key,
     required this.result,
-    this.existingTriggerKeys = const {},
+    required this.existing,
   });
 
   final ReplacementCsvParseResult result;
 
-  /// Normalized trigger keys already in the list. A row that uses one of them
-  /// (or one used by an earlier row of the same file) is skipped.
-  final Set<String> existingTriggerKeys;
+  /// The entries already in the list, as the planner needs them.
+  final List<ReplacementImportExisting> existing;
 
   @override
   State<DictionaryCsvPreviewPage> createState() =>
@@ -32,23 +34,36 @@ class DictionaryCsvPreviewPage extends StatefulWidget {
 }
 
 class _DictionaryCsvPreviewPageState extends State<DictionaryCsvPreviewPage> {
-  /// Indices of rows the user unticked. Duplicates are never importable, so
-  /// they have no box and are not in this set.
-  final Set<int> _unticked = {};
+  ReplacementImportStrategy _strategy = ReplacementImportStrategy.skip;
 
-  ReplacementCsvParseResult get result => widget.result;
-  Set<String> get existingTriggerKeys => widget.existingTriggerKeys;
+  /// Rows the user took out of the import (UIA-DIC-12). Only rows that would
+  /// be added can be unticked.
+  final Set<int> _unticked = {};
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final theme = Theme.of(context);
-    final decisions = _decide(result.rows, existingTriggerKeys);
-    final toAdd = [
-      for (var i = 0; i < decisions.length; i++)
-        if (!decisions[i].skipped && !_unticked.contains(i)) decisions[i].row,
+    // With every row ticked, the rows that would be added get a box.
+    final all = planReplacementImport(
+      rows: widget.result.rows,
+      existing: widget.existing,
+      strategy: _strategy,
+    );
+    // The plan that gets written only contains the ticked rows.
+    final tickedIndex = [
+      for (var i = 0; i < widget.result.rows.length; i++)
+        if (!_unticked.contains(i)) i,
     ];
-    final skippedCount = decisions.length - toAdd.length;
+    final plan = planReplacementImport(
+      rows: [for (final i in tickedIndex) widget.result.rows[i]],
+      existing: widget.existing,
+      strategy: _strategy,
+    );
+    final statusByRow = {
+      for (var k = 0; k < tickedIndex.length; k++)
+        tickedIndex[k]: plan.statuses[k],
+    };
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.dictionaryCsvPreviewTitle)),
@@ -56,32 +71,80 @@ class _DictionaryCsvPreviewPageState extends State<DictionaryCsvPreviewPage> {
         padding: const EdgeInsets.all(WpSpacing.lg),
         children: [
           Text(
+            key: const ValueKey('dictionary-csv-preview-header'),
+            _packageHeader(context, l10n),
+            style: theme.textTheme.titleSmall,
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          Text(
             l10n.dictionaryCsvPreviewIntro,
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: WpSpacing.md),
-          if (result.truncated) ...[
+          Text(
+            key: const ValueKey('dictionary-csv-preview-summary'),
+            l10n.dictionaryCsvSummaryLine(
+              plan.count(ReplacementImportStatus.added),
+              plan.count(ReplacementImportStatus.duplicate),
+              plan.conflictCount,
+              plan.count(ReplacementImportStatus.circular),
+              widget.result.errors.length,
+            ),
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: WpSpacing.md),
+          if (plan.count(ReplacementImportStatus.duplicate) ==
+                  widget.result.rows.length &&
+              widget.result.rows.isNotEmpty) ...[
+            WpBanner(
+              key: const ValueKey('dictionary-csv-preview-all-present'),
+              tone: WpBannerTone.info,
+              message: l10n.dictionaryCsvAllPresent,
+            ),
+            const SizedBox(height: WpSpacing.md),
+          ],
+          if (widget.result.truncated) ...[
             WpBanner(
               tone: WpBannerTone.info,
               message: l10n.dictionaryCsvTruncated(replacementCsvMaxRows),
             ),
             const SizedBox(height: WpSpacing.md),
           ],
-          if (skippedCount > 0) ...[
-            WpBanner(
-              key: const ValueKey('dictionary-csv-preview-duplicates'),
-              tone: WpBannerTone.info,
-              message: l10n.dictionaryCsvSkippedDuplicates(skippedCount),
-            ),
-            const SizedBox(height: WpSpacing.md),
-          ],
-          if (result.errors.isNotEmpty) ...[
+          Text(
+            l10n.dictionaryCsvStrategyLabel,
+            style: theme.textTheme.labelLarge,
+          ),
+          const SizedBox(height: WpSpacing.xs),
+          WpSegmentedSelector(
+            key: const ValueKey('dictionary-csv-preview-strategy'),
+            borderColor: WpColors.borderSubtle,
+            surfaceColor: WpColors.cardFill,
+            textSecondary: WpColors.textMuted,
+            items: [
+              for (final option in ReplacementImportStrategy.values)
+                WpSegmentItem(
+                  label: _strategyLabel(l10n, option),
+                  isActive: _strategy == option,
+                  onTap: () => setState(() => _strategy = option),
+                ),
+            ],
+          ),
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            key: const ValueKey('dictionary-csv-preview-strategy-hint'),
+            _strategyHint(l10n, plan),
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: WpSpacing.md),
+          if (widget.result.errors.isNotEmpty) ...[
             WpBanner(
               key: const ValueKey('dictionary-csv-preview-errors'),
               tone: WpBannerTone.warning,
-              message: l10n.dictionaryCsvErrorSummary(result.errors.length),
+              message: l10n.dictionaryCsvErrorSummary(
+                widget.result.errors.length,
+              ),
             ),
-            for (final error in result.errors)
+            for (final error in widget.result.errors)
               Padding(
                 key: ValueKey('dictionary-csv-preview-error-${error.line}'),
                 padding: const EdgeInsets.only(top: WpSpacing.xs),
@@ -94,50 +157,81 @@ class _DictionaryCsvPreviewPageState extends State<DictionaryCsvPreviewPage> {
               ),
             const SizedBox(height: WpSpacing.md),
           ],
-          for (var i = 0; i < decisions.length; i++) ...[
+          for (var i = 0; i < widget.result.rows.length; i++) ...[
             _PreviewRow(
               key: ValueKey('dictionary-csv-preview-row-$i'),
               statusKey: ValueKey('dictionary-csv-preview-row-status-$i'),
-              decision: decisions[i],
-              ticked: !_unticked.contains(i),
-              onToggle: decisions[i].skipped
-                  ? null
-                  : () => setState(() {
-                      if (!_unticked.remove(i)) _unticked.add(i);
-                    }),
               checkboxKey: ValueKey('dictionary-csv-preview-select-$i'),
-              willAddLabel: l10n.dictionaryCsvRowWillAdd,
-              skippedLabel: l10n.dictionaryCsvRowSkipped,
+              row: widget.result.rows[i],
+              ticked: !_unticked.contains(i),
+              onToggle: all.statuses[i] == ReplacementImportStatus.added
+                  ? () => setState(() {
+                      if (!_unticked.remove(i)) _unticked.add(i);
+                    })
+                  : null,
+              statusText: statusByRow.containsKey(i)
+                  ? _statusText(l10n, statusByRow[i]!)
+                  : l10n.dictionaryCsvRowWillAdd,
             ),
-            if (i < decisions.length - 1) const Divider(height: 1),
+            if (i < widget.result.rows.length - 1) const Divider(height: 1),
           ],
           const SizedBox(height: WpSpacing.lg),
           WpButton(
             key: const ValueKey('dictionary-csv-preview-import'),
-            label: l10n.dictionaryCsvPreviewAddCount(toAdd.length),
+            label: l10n.dictionaryCsvPreviewAddCount(plan.writeCount),
             variant: WpButtonVariant.primary,
-            onPressed: toAdd.isEmpty
+            onPressed: plan.writeCount == 0
                 ? null
-                : () => Navigator.of(context).pop(toAdd),
+                : () => Navigator.of(context).pop(plan),
           ),
         ],
       ),
     );
   }
 
-  static List<_RowDecision> _decide(
-    List<ReplacementCsvRow> rows,
-    Set<String> existing,
-  ) {
-    final seen = <String>{...existing};
-    final out = <_RowDecision>[];
-    for (final row in rows) {
-      final keys = [for (final t in row.triggers) normalizeTriggerKey(t)];
-      final skipped = keys.any(seen.contains);
-      seen.addAll(keys);
-      out.add(_RowDecision(row, skipped));
-    }
-    return out;
+  String _packageHeader(BuildContext context, L10n l10n) {
+    final meta = widget.result.meta;
+    if (meta == null) return l10n.dictionaryCsvPackageNone;
+    final created = meta.created;
+    final date = created == null
+        ? '-'
+        : MaterialLocalizations.of(context).formatShortDate(created);
+    return l10n.dictionaryCsvPackageHeader(meta.name ?? '-', date);
+  }
+
+  static String _strategyLabel(
+    L10n l10n,
+    ReplacementImportStrategy strategy,
+  ) => switch (strategy) {
+    ReplacementImportStrategy.skip => l10n.dictionaryCsvStrategySkip,
+    ReplacementImportStrategy.overwrite => l10n.dictionaryCsvStrategyOverwrite,
+    ReplacementImportStrategy.keepBoth => l10n.dictionaryCsvStrategyKeepBoth,
+  };
+
+  String _strategyHint(L10n l10n, ReplacementImportPlan plan) =>
+      switch (_strategy) {
+        ReplacementImportStrategy.skip => l10n.dictionaryCsvStrategySkipHint,
+        ReplacementImportStrategy.overwrite =>
+          l10n.dictionaryCsvStrategyOverwriteHint(plan.changedExistingCount),
+        ReplacementImportStrategy.keepBoth =>
+          l10n.dictionaryCsvStrategyKeepBothHint,
+      };
+
+  static String _statusText(L10n l10n, ReplacementImportStatus status) {
+    final texts = {
+      ReplacementImportStatus.added: l10n.dictionaryCsvStatusAdded,
+      ReplacementImportStatus.duplicate: l10n.dictionaryCsvStatusDuplicate,
+      ReplacementImportStatus.conflictSkipped:
+          l10n.dictionaryCsvStatusConflictSkipped,
+      ReplacementImportStatus.conflictReplaced:
+          l10n.dictionaryCsvStatusConflictReplaced,
+      ReplacementImportStatus.conflictKept:
+          l10n.dictionaryCsvStatusConflictKept,
+      ReplacementImportStatus.supersededInFile:
+          l10n.dictionaryCsvStatusSuperseded,
+      ReplacementImportStatus.circular: l10n.dictionaryCsvStatusCircular,
+    };
+    return texts[status]!;
   }
 
   String _reasonText(L10n l10n, ReplacementCsvErrorReason reason) {
@@ -156,44 +250,38 @@ class _DictionaryCsvPreviewPageState extends State<DictionaryCsvPreviewPage> {
           l10n.dictionaryCsvReasonUnknownMatchMode,
       ReplacementCsvErrorReason.invalidThreshold:
           l10n.dictionaryCsvReasonInvalidThreshold,
+      ReplacementCsvErrorReason.tooManyTriggers: l10n
+          .dictionaryCsvReasonTooManyTriggers(replacementCsvMaxTriggersPerRow),
+      ReplacementCsvErrorReason.controlCharacter:
+          l10n.dictionaryCsvReasonControlCharacter,
     };
     return texts[reason]!;
   }
-}
-
-class _RowDecision {
-  const _RowDecision(this.row, this.skipped);
-
-  final ReplacementCsvRow row;
-  final bool skipped;
 }
 
 class _PreviewRow extends StatelessWidget {
   const _PreviewRow({
     super.key,
     required this.statusKey,
-    required this.decision,
+    required this.checkboxKey,
+    required this.row,
     required this.ticked,
     required this.onToggle,
-    required this.checkboxKey,
-    required this.willAddLabel,
-    required this.skippedLabel,
+    required this.statusText,
   });
 
   final Key statusKey;
-  final _RowDecision decision;
+  final Key checkboxKey;
+  final ReplacementCsvRow row;
   final bool ticked;
 
-  /// Null for duplicates, which are skipped and cannot be selected.
+  /// Null for rows that cannot be unticked (duplicates, conflicts).
   final VoidCallback? onToggle;
-  final Key checkboxKey;
-  final String willAddLabel;
-  final String skippedLabel;
+  final String statusText;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final row = decision.row;
     final text = '${row.triggers.join(', ')} → ${row.replacement}';
     final toggle = onToggle;
     return Padding(
@@ -213,19 +301,16 @@ class _PreviewRow extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: decision.skipped
-                  ? theme.textTheme.bodyMedium?.copyWith(
+              overflow: TextOverflow.ellipsis,
+              style: ticked
+                  ? theme.textTheme.bodyMedium
+                  : theme.textTheme.bodyMedium?.copyWith(
                       decoration: TextDecoration.lineThrough,
-                    )
-                  : theme.textTheme.bodyMedium,
+                    ),
             ),
           ),
           const SizedBox(width: WpSpacing.sm),
-          Text(
-            key: statusKey,
-            decision.skipped ? skippedLabel : willAddLabel,
-            style: theme.textTheme.bodySmall,
-          ),
+          Text(key: statusKey, statusText, style: theme.textTheme.bodySmall),
         ],
       ),
     );

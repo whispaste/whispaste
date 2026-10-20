@@ -1,7 +1,10 @@
 import 'package:flutter/services.dart';
 
+import '../../core/logging/app_logger.dart';
 import '../../shared_render_engine_helpers.dart' show RenderChannel;
 import 'side_panel_snapshot.dart';
+
+final _log = AppLogger('SidePanelRenderChannel');
 
 /// The render-engine side of the side-panel shell seam, mirroring
 /// [OverlayRenderChannel]'s split between native-shell plumbing and the
@@ -37,7 +40,13 @@ class SidePanelRenderChannel implements RenderChannel {
       case 'updateSnapshot':
         final args = call.arguments;
         if (args is Map) {
-          onSnapshot(SidePanelSnapshot.fromMap(args));
+          // fromMap never throws for malformed fields; this guard only keeps
+          // a bug in the parser from failing the method-channel call.
+          try {
+            onSnapshot(SidePanelSnapshot.fromMap(args));
+          } on Object catch (e, st) {
+            _log.error('Dropped an unreadable side panel snapshot', e, st);
+          }
         }
         return null;
       default:

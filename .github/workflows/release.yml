@@ -1527,11 +1527,13 @@ jobs:
           fi
 
           ZIP_NAME="WhisPaste-${VERSION}-linux-x64.tar.gz"
-          # Ship the uinput udev rule + installer so Auto-Paste can be enabled
-          # with one sudo call (the .deb applies it automatically), and the
-          # optional GNOME Shell focus extension with its per-user installer.
+          # Ship the uinput udev rule with its install and uninstall scripts, so
+          # Auto-Paste can be enabled and removed with one sudo call each after
+          # the user agreed in the app (R-02). The optional GNOME Shell focus
+          # extension ships with its per-user installer.
           tar -czf "$ARTIFACT_DIR/$ZIP_NAME" -C "$BUNDLE_DIR" . \
-            -C "$GITHUB_WORKSPACE/packaging/linux" 71-whispaste-uinput.rules install-uinput-rule.sh \
+            -C "$GITHUB_WORKSPACE/packaging/linux" 71-whispaste-uinput.rules \
+            install-uinput-rule.sh uninstall-uinput-rule.sh \
             gnome-shell-extension install-gnome-extension.sh
 
           echo "Release artifacts:"

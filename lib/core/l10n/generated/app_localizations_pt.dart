@@ -772,7 +772,7 @@ class L10nPt extends L10n {
 
   @override
   String pasteNotificationLinuxUinputBody(String paste) {
-    return 'O WhisPaste ainda não pode usar o teclado virtual /dev/uinput. O texto está na área de transferência; cole-o com $paste. Clique aqui para ver o comando que configura isso uma única vez.';
+    return 'O WhisPaste ainda não pode usar o teclado virtual /dev/uinput. O texto está na área de transferência; cole-o com $paste. Clique aqui para configurar.';
   }
 
   @override
@@ -990,11 +990,11 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingPasteLinuxNative =>
-      'Neste sistema, o Auto-Paste funciona automaticamente. O WhisPaste cola o texto no cursor após cada gravação.';
+      'O Auto-Paste precisa da sua permissão para o teclado virtual (/dev/uinput). Com o pacote .deb, escolha “Permitir (senha de administrador)” e digite sua senha de administrador; caso contrário, copie o comando e execute-o uma vez em um terminal. Você pode remover a permissão nas configurações.';
 
   @override
   String get onboardingPasteLinuxFlatpak =>
-      'Na versão Flatpak, --device=all torna /dev/input/* e /dev/uinput visíveis dentro do sandbox. O próprio WhisPaste não lê nenhum dispositivo de entrada. Se o seu usuário tiver permissão de leitura no computador (por exemplo, como membro do grupo input), o app poderia ler as teclas digitadas em outros programas. Os membros do grupo input também podem gerar entradas virtuais. O Auto-Paste também precisa de acesso de escrita a /dev/uinput no computador: instale a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/ e execute sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. A regra dá acesso de escrita ao usuário que fez login e a todo membro do grupo input. Estes comandos exigem direitos de administrador (sudo) e alteram o sistema. Se não quiser isso, deixe o Auto-Paste desligado e cole o texto manualmente.';
+      'Na versão Flatpak, --device=all torna /dev/input/* e /dev/uinput visíveis dentro do sandbox. O WhisPaste não lê nenhum dispositivo de entrada. Se o seu usuário tiver permissão de leitura no computador (por exemplo, como membro do grupo input), o app poderia ler as teclas digitadas em outros programas. O Auto-Paste também precisa de acesso de escrita a /dev/uinput no computador: copie o comando e execute-o uma vez em um terminal. Ele instala a regra udev 71-whispaste-uinput.rules, que dá acesso só à sessão conectada. O comando precisa de permissões de administrador (sudo) e altera o sistema. Se não quiser isso, deixe o Auto-Paste desligado e cole o texto à mão.';
 
   @override
   String get onboardingPasteLinuxSnap =>
@@ -1002,7 +1002,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingPasteLinuxAppImage =>
-      'O AppImage precisa de acesso a /dev/uinput (o dispositivo de teclado virtual). Recomendado: instale a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/ e execute: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. A regra dá acesso de escrita ao usuário que fez login e a todo membro do grupo input, então cada membro pode gerar entradas virtuais (p. ex. simular pressionamentos de tecla). Alternativa: sudo usermod -aG input \$USER, depois saia da sessão e entre de novo. Os membros do grupo input também podem ler as teclas digitadas em todos os dispositivos de entrada, inclusive as de outros programas. Estes comandos exigem direitos de administrador (sudo) e alteram o sistema. Até lá, o Auto-Paste apenas copia o texto.';
+      'O AppImage precisa de acesso a /dev/uinput (o teclado virtual). Copie o comando e execute-o uma vez em um terminal. Ele instala a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/ e executa sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. A regra dá acesso de escrita só à sessão conectada. O comando precisa de permissões de administrador (sudo) e altera o sistema. Até lá, o Auto-Paste só copia o texto.';
 
   @override
   String get onboardingPasteWinEnableCta => 'Ativar Auto-Paste';
@@ -1487,6 +1487,9 @@ class L10nPt extends L10n {
 
   @override
   String get actionCancel => 'Cancelar';
+
+  @override
+  String get actionClose => 'Fechar';
 
   @override
   String get actionConfirm => 'Confirmar';
@@ -2311,6 +2314,81 @@ class L10nPt extends L10n {
   String get feedbackRequiredMarker => 'Obrigatório';
 
   @override
+  String get feedbackPublishConsentLabel =>
+      'Permito que o meu feedback apareça de forma anónima como citação no site.';
+
+  @override
+  String get feedbackPublishConsentExplanation =>
+      'Desligado por padrão. Só são mostrados o seu texto e a sua avaliação, nunca o seu nome ou e-mail. Pode retirar esta autorização a qualquer momento com um clique na página Feedback da app.';
+
+  @override
+  String get feedbackWithdrawConsentLabel => 'Retirar consentimento';
+
+  @override
+  String get feedbackWithdrawConsentHelp =>
+      'Aplica-se aos feedbacks enviados com consentimento a partir deste dispositivo. A citação desaparece do site em cerca de 24 horas.';
+
+  @override
+  String get feedbackWithdrawConsentPending =>
+      'A retirada está guardada e será enviada quando o WhisPaste estiver a correr com ligação à internet (até 30 dias); caso contrário, retire por e-mail.';
+
+  @override
+  String get feedbackWithdrawNoCode =>
+      'Não há nenhum código de retirada guardado neste dispositivo – retire por e-mail';
+
+  @override
+  String feedbackWithdrawEntrySending(Object date) {
+    return 'A retirada de $date está a ser enviada…';
+  }
+
+  @override
+  String feedbackWithdrawEntryFailed(Object date) {
+    return 'Retirada de $date não entregue – retire por e-mail';
+  }
+
+  @override
+  String get feedbackWithdrawConsentUndelivered =>
+      'Não foi possível entregar a retirada – retire por e-mail.';
+
+  @override
+  String get feedbackWithdrawEmailLabel => 'Retirar por e-mail';
+
+  @override
+  String get feedbackWithdrawEmailSubject =>
+      'Retirar o meu consentimento para citar o meu feedback';
+
+  @override
+  String get feedbackWithdrawEmailBody =>
+      'Por favor, retire o meu consentimento para citar o meu feedback.';
+
+  @override
+  String get feedbackWithdrawEmailDateLabel => 'Data do feedback:';
+
+  @override
+  String get feedbackWithdrawEmailReferenceLabel => 'Referência da retirada:';
+
+  @override
+  String get feedbackWithdrawEmailSentLabel => 'Enviei o e-mail';
+
+  @override
+  String get feedbackWithdrawEmailLaunchFailed =>
+      'Nenhuma app de e-mail encontrada. Envie a mensagem preparada para este endereço:';
+
+  @override
+  String get feedbackWithdrawEmailCopyLabel => 'Copiar endereço e mensagem';
+
+  @override
+  String get feedbackWithdrawEmailCopied => 'Endereço e mensagem copiados.';
+
+  @override
+  String get feedbackWithdrawLocked =>
+      'O armazenamento de credenciais do sistema não pode ser lido neste momento. O WhisPaste não consegue enviar os consentimentos e retiradas guardados lá. Retire por e-mail; o e-mail preparado contém as referências necessárias.';
+
+  @override
+  String get feedbackWithdrawConsentDone =>
+      'Retirada enviada. A citação desaparece do site em cerca de 24 horas, na próxima atualização diária.';
+
+  @override
   String get feedbackPrivacyNote =>
       'Anônimo por padrão; só é identificável se você informar seu e-mail acima.';
 
@@ -2924,6 +3002,10 @@ class L10nPt extends L10n {
   @override
   String get errorSttModelCorrupted =>
       'O arquivo do modelo de voz está danificado. Baixe o modelo de voz novamente nas configurações.';
+
+  @override
+  String get errorSttEngineRestartNeeded =>
+      'O motor de voz ainda está ocupado com um ditado anterior. Reinicie o WhisPaste para usá-lo novamente.';
 
   @override
   String get pendingRetryFailed =>
@@ -4272,6 +4354,23 @@ class L10nPt extends L10n {
   String get trayQuit => 'Sair';
 
   @override
+  String get trayRecentRecordings => 'Gravações recentes';
+
+  @override
+  String get trayUnlockRecordings => 'Desbloquear gravações…';
+
+  @override
+  String trayRecentMeta(String time, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count palavras',
+      one: '1 palavra',
+    );
+    return '$time · $_temp0';
+  }
+
+  @override
   String get trayFeedback => 'Enviar feedback…';
 
   @override
@@ -4671,6 +4770,17 @@ class L10nPt extends L10n {
       'Botão de gravação sempre no topo, para acesso rápido';
 
   @override
+  String get settingsFloatingButtonWaylandTitle => 'Limites do Wayland';
+
+  @override
+  String get settingsFloatingButtonWaylandLimit =>
+      'No Wayland, o ambiente de trabalho decide onde o botão aparece e se ele fica sempre por cima. O WhisPaste só consegue garantir isso de forma limitada. Gravar com um clique continua funcionando, e o botão não tira o foco do teclado.';
+
+  @override
+  String get settingsFloatingButtonUnavailable =>
+      'Não disponível neste ambiente Linux: o botão precisa de X11 ou XWayland. Desligar continua possível.';
+
+  @override
   String get settingsSttIdleTimeout => 'Tempo de inatividade do modelo de voz';
 
   @override
@@ -4745,6 +4855,29 @@ class L10nPt extends L10n {
 
   @override
   String get reviewSupportAction => 'Avaliar';
+
+  @override
+  String get reviewSupportGitHubLabel =>
+      'Apoie o WhisPaste com uma estrela no GitHub';
+
+  @override
+  String get reviewSupportGitHubAction => 'Ver no GitHub';
+
+  @override
+  String get githubInviteTitle => 'O WhisPaste é código aberto';
+
+  @override
+  String get githubInviteBody =>
+      'Uma estrela no GitHub ajuda outras pessoas a encontrá-lo.';
+
+  @override
+  String get githubInviteOpen => 'Ver no GitHub';
+
+  @override
+  String get githubInviteLater => 'Mais tarde';
+
+  @override
+  String get githubInviteNever => 'Não perguntar novamente';
 
   @override
   String get ideasBoardLabel => 'Ideias e pedidos de recursos';
@@ -5275,6 +5408,13 @@ class L10nPt extends L10n {
       'Tudo o que você copiar enquanto o WhisPaste estiver em execução aparece aqui — é apagado quando o app reinicia.';
 
   @override
+  String get sidePanelClipboardLockedTitle => 'Bloqueado por PIN';
+
+  @override
+  String get sidePanelClipboardLockedHint =>
+      'O texto copiado fica oculto enquanto as gravações estiverem bloqueadas. Desbloqueie-as com o seu PIN para o ver de novo.';
+
+  @override
   String get sidePanelClose => 'Fechar painel';
 
   @override
@@ -5288,6 +5428,10 @@ class L10nPt extends L10n {
 
   @override
   String get sidePanelNoMatchesHint => 'Tente outro termo de pesquisa.';
+
+  @override
+  String get sidePanelLoadFailedHint =>
+      'Feche o painel e abra-o de novo para tentar outra vez.';
 
   @override
   String get settingsSmartMode => 'Smart Mode';
@@ -5677,6 +5821,23 @@ class L10nPt extends L10n {
   @override
   String get settingsCudaPackErrorStorage =>
       'Não foi possível salvar o pacote. Verifique o espaço livre em disco.';
+
+  @override
+  String get cudaEulaDialogTitle => 'Licença NVIDIA CUDA';
+
+  @override
+  String cudaEulaDialogBody(String version) {
+    return 'O pacote CUDA contém componentes da NVIDIA sob o Contrato de Licença de Usuário Final NVIDIA CUDA (versão $version). O texto válido é a cópia no pacote (LICENSE-NVIDIA.txt); o link abre a versão atual da NVIDIA. Você precisa aceitá-lo para baixar.';
+  }
+
+  @override
+  String get cudaEulaDialogLink => 'Abrir a licença na NVIDIA';
+
+  @override
+  String get cudaEulaDialogCancel => 'Cancelar';
+
+  @override
+  String get cudaEulaDialogAccept => 'Aceitar e baixar';
 
   @override
   String get recoveryCudaDisabledToast =>
@@ -6484,6 +6645,15 @@ class L10nPt extends L10n {
       'O limite deve ser strict, standard, tolerant ou um número de 0,5 a 1.';
 
   @override
+  String get dictionaryCsvReasonControlCharacter =>
+      'A linha contém um caractere de controle ou de formatação oculto, ou uma quebra de linha.';
+
+  @override
+  String dictionaryCsvReasonTooManyTriggers(int max) {
+    return 'Gatilhos demais em uma linha (no máximo $max).';
+  }
+
+  @override
   String get dictionaryCsvPreviewTitle => 'Revisar entradas';
 
   @override
@@ -6536,21 +6706,114 @@ class L10nPt extends L10n {
   }
 
   @override
-  String dictionaryCsvSkippedDuplicates(int count) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count duplicatas serão ignoradas.',
-      one: '$count duplicata será ignorada.',
-    );
-    return '$_temp0';
+  String get dictionaryCsvImportEncodingError => 'O arquivo não é texto UTF-8.';
+
+  @override
+  String get dictionaryCsvRefusedFormat =>
+      'Este arquivo usa um formato de pacote que este app não consegue ler.';
+
+  @override
+  String get dictionaryCsvRefusedType =>
+      'Este arquivo não é um pacote de dicionário de substituições.';
+
+  @override
+  String dictionaryCsvPackageHeader(String name, String date) {
+    return 'Pacote: $name (criado em $date)';
   }
+
+  @override
+  String get dictionaryCsvPackageNone =>
+      'Sem informações do pacote (arquivo antigo ou de outra origem)';
+
+  @override
+  String dictionaryCsvSummaryLine(
+    int added,
+    int duplicates,
+    int conflicts,
+    int circular,
+    int errors,
+  ) {
+    return 'Novas: $added · Duplicadas: $duplicates · Conflitos: $conflicts · Referências circulares: $circular · Com erro: $errors';
+  }
+
+  @override
+  String get dictionaryCsvStrategyLabel => 'Se um gatilho já existir';
+
+  @override
+  String get dictionaryCsvStrategySkip => 'Ignorar';
+
+  @override
+  String get dictionaryCsvStrategyOverwrite => 'Substituir';
+
+  @override
+  String get dictionaryCsvStrategyKeepBoth => 'Manter ambos';
+
+  @override
+  String get dictionaryCsvStrategySkipHint =>
+      'A linha não é importada. As entradas existentes não mudam.';
+
+  @override
+  String dictionaryCsvStrategyOverwriteHint(int changed) {
+    return 'O gatilho em comum sai da entrada antiga e a linha é adicionada. $changed entradas existentes mudam ou são excluídas.';
+  }
+
+  @override
+  String get dictionaryCsvStrategyKeepBothHint =>
+      'A linha é adicionada também. Para o mesmo gatilho, continua valendo a entrada existente que vem primeiro na lista.';
+
+  @override
+  String get dictionaryCsvStatusAdded => 'será adicionada';
+
+  @override
+  String get dictionaryCsvStatusDuplicate => 'já existe';
+
+  @override
+  String get dictionaryCsvStatusConflictSkipped => 'conflito, será ignorado';
+
+  @override
+  String get dictionaryCsvStatusConflictReplaced =>
+      'conflito, substitui o gatilho existente';
+
+  @override
+  String get dictionaryCsvStatusConflictKept =>
+      'conflito, adicionada além disso';
+
+  @override
+  String get dictionaryCsvStatusSuperseded =>
+      'substituída por uma linha posterior deste arquivo';
+
+  @override
+  String get dictionaryCsvStatusCircular =>
+      'referência circular, não é importada';
 
   @override
   String get dictionaryCsvRowWillAdd => 'Será adicionado';
 
   @override
   String get dictionaryCsvRowSkipped => 'Duplicado, será ignorado';
+
+  @override
+  String get dictionaryCsvExportSelectTitle =>
+      'Escolha as entradas para exportar';
+
+  @override
+  String dictionaryCsvExportSelectSubtitle(int count) {
+    return '$count entradas para escolher';
+  }
+
+  @override
+  String get dictionaryCsvAllPresent =>
+      'Todas as entradas já existem. Nada será gravado.';
+
+  @override
+  String dictionaryCsvExportConfirm(int count) {
+    return 'Exportar ($count)';
+  }
+
+  @override
+  String dictionaryCsvExportTooMany(int count) {
+    return 'Entradas demais para um arquivo: $count. Escolha menos (no máximo 5000 entradas, 1 MiB).';
+  }
 
   @override
   String get settingsBetaGroupHeading => 'Versões prévias';
@@ -7058,7 +7321,7 @@ class L10nPt extends L10n {
 
   @override
   String get manualC02S3B2I2 =>
-      '«Botão flutuante»: um botão sobre todas as janelas para gravar com um clique. Padrão: desativado.';
+      '«Botão flutuante»: um botão para gravar com um clique. Padrão: desativado. No Linux com Wayland, o ambiente pode limitar a posição e se ele fica sempre no topo.';
 
   @override
   String get manualC02S4Heading => 'Colar após gravar';
@@ -7222,6 +7485,10 @@ class L10nPt extends L10n {
   String manualC05S3B1(String k1, String k2, String k3, String k4) {
     return 'Você pode salvar ou transferir suas substituições como arquivo CSV. O arquivo tem as colunas $k1. Separe várias frases-gatilho com $k2. O arquivo pode ter no máximo $k3 e $k4 linhas.';
   }
+
+  @override
+  String get manualC05S3B2 =>
+      'A importação e a exportação estão no menu Mais (⋯) acima da lista. O campo de teste também abre por esse menu.';
 
   @override
   String get manualC06Title => 'Snippets';
@@ -7390,6 +7657,10 @@ class L10nPt extends L10n {
   @override
   String get manualC08S5B2 =>
       'Um PIN esquecido não pode ser recuperado. Para o repor, são apagados de imediato todas as transcrições e ficheiros de áudio guardados (incluindo arquivo e lixo), todas as notas com as suas versões e todas as imagens das notas. As definições, os blocos de texto e as substituições são mantidos.';
+
+  @override
+  String get manualC08S5B3 =>
+      'Enquanto as gravações estiverem bloqueadas por PIN, a aba da área de transferência no painel lateral não mostra texto copiado nem o cola. O texto volta a aparecer ao desbloqueá-las.';
 
   @override
   String get manualC08S6Heading => 'Esvaziamento automático';
@@ -7634,6 +7905,10 @@ class L10nPt extends L10n {
   String get manualC13S3B2 => 'O download é único. O app mostra o tamanho.';
 
   @override
+  String get manualC13S3B3 =>
+      'O pacote contém componentes da NVIDIA. Antes do download, você aceita o contrato de licença CUDA da NVIDIA, ao qual o diálogo leva.';
+
+  @override
   String get manualC13S4Heading => 'Aceleração gráfica';
 
   @override
@@ -7764,7 +8039,7 @@ class L10nPt extends L10n {
 
   @override
   String get manualC14S15B2 =>
-      'Neste sistema não é preciso configurar nada. O WhisPaste cola o texto no cursor após cada gravação.';
+      'O pacote .deb não dá nenhum acesso ao ser instalado. O Auto-Paste pergunta primeiro: na configuração inicial ou em Configurações → Depois da transcrição, escolha “Permitir (senha de administrador)” e digite sua senha de administrador. Enquanto a permissão existir, outros programas da sua sessão também podem gerar teclas. Com “Remover permissão” você a retira a qualquer momento; ao desinstalar, ela também é removida.';
 
   @override
   String get manualC14S15B3 =>
@@ -7776,7 +8051,7 @@ class L10nPt extends L10n {
 
   @override
   String get manualC14S15B5 =>
-      'O AppImage precisa de acesso a /dev/uinput. Instale a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/, ou adicione seu usuário ao grupo input e faça login de novo. Até lá, o Auto-Paste apenas copia o texto.';
+      'O AppImage precisa de acesso a /dev/uinput. Na configuração inicial ou nas configurações, copie o comando e execute-o uma vez em um terminal. Ele instala a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/, que dá acesso de escrita só à sessão conectada. Até lá, o Auto-Paste só copia o texto.';
 
   @override
   String get manualC14S15TerminalHeading => 'Terminais e Wayland';
@@ -7875,7 +8150,7 @@ class L10nPt extends L10n {
 
   @override
   String get manualC14S15B3E =>
-      'A regra dá acesso de escrita ao usuário que fez login e a todo membro do grupo input. Estes comandos exigem direitos de administrador (sudo) e alteram o sistema. Se não quiser isso, deixe o Auto-Paste desligado e cole o texto manualmente.';
+      'A regra dá acesso de escrita só à sessão conectada. Estes comandos precisam de permissões de administrador (sudo) e alteram o sistema. Se não quiser isso, deixe o Auto-Paste desligado e cole o texto à mão. Para remover a regra, use o botão nas configurações que copia o comando correspondente.';
 
   @override
   String get manualC14S15SnapHeading => 'Snap';
@@ -8162,7 +8437,7 @@ class L10nPt extends L10n {
 
   @override
   String get pasteFailureLinuxUinputHint =>
-      'A colagem automática precisa de acesso único a /dev/uinput. Copie o comando e execute-o num terminal.';
+      'A colagem automática precisa uma única vez da sua permissão para o teclado virtual (/dev/uinput).';
 
   @override
   String get pasteFailureLinuxUinputCopy => 'Copiar comando';
@@ -8174,6 +8449,32 @@ class L10nPt extends L10n {
   @override
   String get pasteFailureLinuxUinputSettingsHint =>
       'A colagem automática precisa de acesso único a /dev/uinput. Abra as definições do Auto-Paste para a configuração única.';
+
+  @override
+  String linuxUinputConsentNotice(String paste) {
+    return 'O Auto-Paste agora pergunta antes de usar o teclado virtual /dev/uinput, por isso esta atualização removeu o acesso antigo. O texto está na área de transferência; cole-o com $paste. Clique aqui para permitir.';
+  }
+
+  @override
+  String get linuxUinputSetupAction => 'Configurar';
+
+  @override
+  String get linuxUinputConsentDetail =>
+      'Para colar o texto sozinho, o WhisPaste precisa de um teclado virtual. Enquanto ele estiver permitido, outros programas da sua sessão também podem gerar teclas. Sem permissão, o WhisPaste copia o texto e você cola.';
+
+  @override
+  String get linuxUinputGrantButton => 'Permitir (senha de administrador)';
+
+  @override
+  String get linuxUinputGrantFailed =>
+      'Não foi possível dar a permissão. O WhisPaste continua só copiando o texto.';
+
+  @override
+  String get linuxUinputRevokeButton => 'Remover permissão';
+
+  @override
+  String get linuxUinputRevokeDone =>
+      'Permissão removida. Agora o WhisPaste só copia o texto.';
 
   @override
   String get settingsSecureKeysNotRemoved =>
@@ -8668,4 +8969,281 @@ class L10nPt extends L10n {
   @override
   String get holdToRecordExplained =>
       'Ativado: segure o atalho e fale, solte para terminar. Desativado: pressione uma vez para iniciar e de novo para terminar.';
+
+  @override
+  String get settingsAreaProfiles => 'Perfis';
+
+  @override
+  String get profilesSectionHeading => 'Seus perfis';
+
+  @override
+  String get profilesEmptyBody =>
+      'Perfis trocam o modelo de fala, o idioma, o Smart Mode e a ação após a transcrição com um atalho ou automaticamente por app.';
+
+  @override
+  String get profilesAddFirst => 'Criar primeiro perfil';
+
+  @override
+  String get profilesAdd => 'Criar perfil';
+
+  @override
+  String get profilesCreate => 'Criar';
+
+  @override
+  String get profilesLimitReached =>
+      'No máximo 9 perfis. Exclua um para criar outro.';
+
+  @override
+  String get profilesActiveBadge => 'Ativo';
+
+  @override
+  String get profilesMoveUp => 'Mover para cima';
+
+  @override
+  String get profilesMoveDown => 'Mover para baixo';
+
+  @override
+  String get profilesDragHandle => 'Arraste para reordenar';
+
+  @override
+  String get profilesNewTitle => 'Novo perfil';
+
+  @override
+  String get profilesNameLabel => 'Nome';
+
+  @override
+  String get profilesNameEmpty => 'Digite um nome.';
+
+  @override
+  String get profileDetailHeading => 'Configurações do perfil';
+
+  @override
+  String get profileDetailModel => 'Modelo de fala';
+
+  @override
+  String get profileDetailLanguage => 'Idioma';
+
+  @override
+  String get profileDetailLanguageSubtitle =>
+      'Vale para Whisper e serviços na nuvem. O Parakeet detecta o idioma sozinho.';
+
+  @override
+  String get profileDetailSmartMode => 'Smart Mode';
+
+  @override
+  String get profileDetailAfter => 'Após a transcrição';
+
+  @override
+  String get profileDetailMicrophone => 'Microfone';
+
+  @override
+  String get profileKeepUnchanged => 'Deixar sem alteração';
+
+  @override
+  String profileValueUnavailable(String value) {
+    return '$value (indisponível)';
+  }
+
+  @override
+  String get profileDetailHotkey => 'Atalho';
+
+  @override
+  String get profileDetailHotkeySubtitle =>
+      'Muda para este perfil com esta combinação.';
+
+  @override
+  String get profileHotkeyNone => 'Sem atalho';
+
+  @override
+  String get profileHotkeyChange => 'Definir atalho';
+
+  @override
+  String get profileHotkeyRemove => 'Remover atalho';
+
+  @override
+  String get profileHotkeyNeedsModifier =>
+      'Um atalho de perfil precisa de pelo menos uma tecla modificadora, como Ctrl, Alt, Shift ou Comando.';
+
+  @override
+  String profileHotkeyTakenByApp(String action) {
+    return 'Já usado por «$action». O atalho não está ativo.';
+  }
+
+  @override
+  String profileHotkeyTakenByProfile(String name) {
+    return 'Já usado pelo perfil «$name». O atalho não está ativo.';
+  }
+
+  @override
+  String get profileDetailApps => 'Apps de destino';
+
+  @override
+  String get profileDetailAppsSubtitle =>
+      'Quando um destes apps está em primeiro plano ao ditar, o perfil fica ativo automaticamente.';
+
+  @override
+  String get profileAppIdentifierLabel => 'Identificador do app';
+
+  @override
+  String get profileAppAdd => 'Adicionar';
+
+  @override
+  String get profileAppHintMac => 'macOS: ID do pacote, ex.: com.apple.mail';
+
+  @override
+  String get profileAppHintWindows =>
+      'Windows: nome do programa sem .exe, ex.: chrome';
+
+  @override
+  String get profileAppHintLinux =>
+      'Linux: WM_CLASS da janela, ex.: google-chrome. No Wayland não é detectável.';
+
+  @override
+  String profileAppClash(String name) {
+    return 'Este app já pertence ao perfil «$name».';
+  }
+
+  @override
+  String get profileAppEmpty => 'Nenhum app atribuído ainda.';
+
+  @override
+  String get profileAppRemove => 'Remover regra do app';
+
+  @override
+  String get profileDetailContext => 'Ler contexto';
+
+  @override
+  String get profileDetailContextSubtitle =>
+      'Opcionalmente lê o texto selecionado ou a área de transferência para adequar o processamento. Com serviços na nuvem, só com o seu consentimento.';
+
+  @override
+  String get profileContextNone => 'Não ler nada';
+
+  @override
+  String get profileContextSelection => 'Texto selecionado';
+
+  @override
+  String get profileContextClipboard => 'Área de transferência';
+
+  @override
+  String get profileConsentGiven => 'Consentimento dado';
+
+  @override
+  String get profileConsentMissing =>
+      'Falta o consentimento; nenhum contexto é lido';
+
+  @override
+  String get profileConsentWithdraw => 'Retirar consentimento';
+
+  @override
+  String get profileConsentTitle => 'Enviar contexto a um serviço na nuvem?';
+
+  @override
+  String get profileConsentBody =>
+      'Quando este perfil está ativo, o texto selecionado ou o conteúdo da área de transferência da janela de destino são enviados ao provedor na nuvem indicado neste perfil, apenas para refinar este ditado. Você pode retirar este consentimento a qualquer momento nas configurações do perfil.';
+
+  @override
+  String get profileConsentAccept => 'Consentir';
+
+  @override
+  String get profileDeleteAction => 'Excluir perfil';
+
+  @override
+  String profileDeleteTitle(String name) {
+    return 'Excluir o perfil «$name»?';
+  }
+
+  @override
+  String get profileDeleteMessage =>
+      'O perfil e os seus apps de destino serão removidos. O atalho dele ficará livre.';
+
+  @override
+  String get manualProfilesTitle => 'Perfis e troca rápida';
+
+  @override
+  String get manualProfilesS1Heading => 'Criar perfis';
+
+  @override
+  String get manualProfilesS1Body =>
+      'Um perfil é um conjunto nomeado de configurações de ditado. Você o cria em Configurações → Perfis e decide, em cada campo, se o perfil o define ou o deixa sem alteração.';
+
+  @override
+  String get manualProfilesS1B1 =>
+      'Modelo de fala, idioma, Smart Mode, ação após a transcrição e microfone';
+
+  @override
+  String get manualProfilesS1B2 =>
+      'Até 9 perfis. Cada campo pode ficar em «Deixar sem alteração».';
+
+  @override
+  String get manualProfilesS2Heading => 'Atalhos';
+
+  @override
+  String get manualProfilesS2Body =>
+      'Cada perfil pode ter o seu próprio atalho. Ao pressioná-lo, o perfil fica ativo até que você escolha outro ou altere à mão um dos seus campos.';
+
+  @override
+  String get manualProfilesS2Tip =>
+      'Um atalho precisa de uma tecla modificadora. Uma combinação que outra função já usa fica inativa e o perfil a mostra como conflito.';
+
+  @override
+  String get manualProfilesS3Heading => 'Automático por app';
+
+  @override
+  String get manualProfilesS3Body =>
+      'Se você adicionar um app em Apps de destino, o perfil fica ativo sempre que esse app estiver em primeiro plano ao ditar. O identificador depende do sistema operacional:';
+
+  @override
+  String get manualProfilesS3Mac =>
+      'macOS: ID do pacote, por exemplo com.apple.mail';
+
+  @override
+  String get manualProfilesS3Win =>
+      'Windows: nome do programa sem .exe, por exemplo chrome';
+
+  @override
+  String get manualProfilesS3Linux =>
+      'Linux: WM_CLASS da janela no X11, por exemplo google-chrome. No Wayland o WhisPaste não consegue detectar o app.';
+
+  @override
+  String get manualProfilesS4Heading => 'Bandeja e sobreposição';
+
+  @override
+  String get manualProfilesS4Body =>
+      'O menu da bandeja tem um submenu Perfil: «Automático, por app» segue as regras, «Sem perfil» as desativa, e abaixo ficam os seus perfis. No overlay de gravação, o nome do perfil ativo aparece depois da hora e do idioma, por exemplo 0:07 · DE · Mail.';
+
+  @override
+  String get manualProfilesS5Heading => 'Deixar sem alteração';
+
+  @override
+  String get manualProfilesS5Body =>
+      '«Deixar sem alteração» significa que o perfil não mexe nesse campo. Vale o valor que está definido agora nas configurações.';
+
+  @override
+  String get manualProfilesS6Heading => 'O que uma troca manual faz';
+
+  @override
+  String get manualProfilesS6Body =>
+      'Se você escolher um perfil na bandeja ou pressionar o atalho dele, ele vale para todos os ditados seguintes. Se depois alterar um campo que o perfil define, como o modelo de fala, a marca ativo termina e as regras por app voltam a decidir. A escolha se mantém após reiniciar.';
+
+  @override
+  String get profileAppCapture => 'Capturar app';
+
+  @override
+  String profileAppCaptureCountdown(int seconds) {
+    return 'Mude para o app de destino em $seconds s …';
+  }
+
+  @override
+  String profileAppCaptured(Object identifier) {
+    return '«$identifier» foi adicionado como app de destino.';
+  }
+
+  @override
+  String get profileAppCaptureNone =>
+      'Nenhum outro app está em primeiro plano. Mude para o app de destino antes da contagem terminar.';
+
+  @override
+  String get profileAppCaptureUnavailable =>
+      'Esta sessão não consegue ler o app em primeiro plano (por exemplo Wayland). Digite o identificador manualmente.';
 }

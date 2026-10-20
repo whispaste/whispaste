@@ -7,6 +7,7 @@ Maintainer: Silvio Lindstedt <silvio-lindstedt@outlook.com>
 Homepage: https://whispaste.de/
 Depends: libgtk-3-0, libsecret-1-0, libnotify4, libayatana-appindicator3-1, libasound2, libcurl4, libkeybinder-3.0-0, liblzma5, libc6, zlib1g, libxss1,
  libopusfile0, libogg0, libflac14 | libflac12t64 | libflac12 | libflac8
+Recommends: pkexec | policykit-1, acl
 Description: Voice-input tool — hotkey, speak, paste anywhere
  WhisPaste is a voice-input tool. Press a global hotkey, speak, and the
  transcribed text is pasted at the cursor position of whatever application
@@ -19,5 +20,6 @@ Description: Voice-input tool — hotkey, speak, paste anywhere
  ($XDG_CONFIG_HOME/whispaste, default ~/.config/whispaste); audio never
  leaves your device in local mode.
  .
- The package installs a udev rule that gives the logged-in user access to
- /dev/uinput, which automatic pasting needs.
+ Automatic pasting needs access to /dev/uinput. The package does not grant
+ it on install: WhisPaste asks for consent and administrator rights first,
+ and the access can be removed again in the settings.

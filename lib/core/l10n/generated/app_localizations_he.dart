@@ -765,7 +765,7 @@ class L10nHe extends L10n {
 
   @override
   String pasteNotificationLinuxUinputBody(String paste) {
-    return 'WhisPaste עדיין לא יכולה להשתמש במקלדת הווירטואלית /dev/uinput. הטקסט נמצא בלוח הגזירים, הדבק אותו עם $paste. לחץ כאן כדי לראות את הפקודה שמגדירה זאת פעם אחת.';
+    return 'WhisPaste עדיין לא יכולה להשתמש במקלדת הווירטואלית /dev/uinput. הטקסט נמצא בלוח הגזירים, הדבק אותו עם $paste. לחץ כאן כדי להגדיר זאת.';
   }
 
   @override
@@ -977,11 +977,11 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPasteLinuxNative =>
-      'במערכת הזו, הדבקה אוטומטית עובדת באופן אוטומטי. WhisPaste מדביק את הטקסט במיקום הסמן אחרי כל הקלטה.';
+      'הדבקה אוטומטית צריכה את ההרשאה שלך למקלדת הווירטואלית (/dev/uinput). עם חבילת ה-.deb, בחר „לאפשר (סיסמת מנהל)” והזן את סיסמת המנהל; אחרת העתק את הפקודה והרץ אותה פעם אחת בטרמינל. אפשר להסיר את ההרשאה בהגדרות.';
 
   @override
   String get onboardingPasteLinuxFlatpak =>
-      'בגרסת Flatpak, --device=all הופך את /dev/input/* ואת /dev/uinput לגלויים בתוך הסנדבוקס. WhisPaste עצמה אינה קוראת התקני קלט. אם למשתמש שלך יש הרשאת קריאה במחשב (למשל כחבר בקבוצה input), האפליקציה יכולה לקרוא הקשות של תוכנות אחרות. חברי הקבוצה input יכולים גם ליצור קלט וירטואלי. להדבקה אוטומטית המחשב צריך גם הרשאת כתיבה ל-/dev/uinput: התקן את כלל udev 71-whispaste-uinput.rules ב-/etc/udev/rules.d/ והרץ sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. הכלל נותן הרשאת כתיבה למשתמש המחובר ולכל חבר בקבוצה input. הפקודות דורשות הרשאות מנהל (sudo) ומשנות את המערכת. אם אתה לא רוצה את זה, כבה את ההדבקה האוטומטית והדבק את הטקסט ידנית.';
+      'בגרסת Flatpak, ‏--device=all חושף את /dev/input/* ואת /dev/uinput בתוך ארגז החול. WhisPaste עצמה לא קוראת התקני קלט. אם למשתמש שלך יש הרשאות קריאה במחשב (למשל כחבר בקבוצה input), האפליקציה עלולה לקרוא הקשות של תוכנות אחרות. הדבקה אוטומטית צריכה גם הרשאת כתיבה ל-/dev/uinput במחשב: העתק את הפקודה והרץ אותה פעם אחת בטרמינל. היא מתקינה את כלל ה-udev ‏71-whispaste-uinput.rules, שנותן גישה רק להפעלה המחוברת. הפקודה דורשת הרשאות מנהל (sudo) ומשנה את המערכת. אם אינך רוצה בכך, השאר את ההדבקה האוטומטית כבויה והדבק את הטקסט ידנית.';
 
   @override
   String get onboardingPasteLinuxSnap =>
@@ -989,7 +989,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingPasteLinuxAppImage =>
-      'ל-AppImage נדרשת גישה ל-/dev/uinput (התקן המקלדת הווירטואלי). מומלץ: התקן את כלל udev 71-whispaste-uinput.rules ב-/etc/udev/rules.d/ והרץ: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. הכלל נותן הרשאת כתיבה למשתמש המחובר ולכל חבר בקבוצה input, כך שכל חבר יכול ליצור קלט וירטואלי (למשל לדמות הקשות מקלדת). חלופה: הרץ sudo usermod -aG input \$USER, ואז התנתק והתחבר מחדש. חברי הקבוצה input יכולים גם לקרוא את ההקשות של כל התקני הקלט, כולל של תוכנות אחרות. הפקודות דורשות הרשאות מנהל (sudo) ומשנות את המערכת. עד אז הדבקה אוטומטית רק מעתיקה את הטקסט.';
+      'ה-AppImage צריך גישה ל-/dev/uinput (המקלדת הווירטואלית). העתק את הפקודה והרץ אותה פעם אחת בטרמינל. היא מתקינה את כלל ה-udev ‏71-whispaste-uinput.rules אל /etc/udev/rules.d/ ומריצה sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. הכלל נותן הרשאת כתיבה רק להפעלה המחוברת. הפקודה דורשת הרשאות מנהל (sudo) ומשנה את המערכת. עד אז, הדבקה אוטומטית רק מעתיקה את הטקסט.';
 
   @override
   String get onboardingPasteWinEnableCta => 'הפעל את ההדבקה האוטומטית';
@@ -1468,6 +1468,9 @@ class L10nHe extends L10n {
 
   @override
   String get actionCancel => 'בטל';
+
+  @override
+  String get actionClose => 'סגור';
 
   @override
   String get actionConfirm => 'אישור';
@@ -2278,6 +2281,80 @@ class L10nHe extends L10n {
   String get feedbackRequiredMarker => 'חובה';
 
   @override
+  String get feedbackPublishConsentLabel =>
+      'אני מאשר/ת שהמשוב שלי יופיע באתר כציטוט בעילום שם.';
+
+  @override
+  String get feedbackPublishConsentExplanation =>
+      'כבוי כברירת מחדל. מוצגים רק הטקסט והדירוג שלך, לעולם לא השם או הדואר האלקטרוני. אפשר לבטל את ההסכמה בכל עת בלחיצה אחת בעמוד המשוב באפליקציה.';
+
+  @override
+  String get feedbackWithdrawConsentLabel => 'לבטל את ההסכמה';
+
+  @override
+  String get feedbackWithdrawConsentHelp =>
+      'חל על משובים שנשלחו עם הסכמה מהמכשיר הזה. הציטוט יוסר מהאתר תוך כ-24 שעות.';
+
+  @override
+  String get feedbackWithdrawConsentPending =>
+      'הביטול נשמר ויישלח כאשר WhisPaste פועל עם חיבור לאינטרנט (עד 30 יום); אחרת בטל באמצעות דוא״ל.';
+
+  @override
+  String get feedbackWithdrawNoCode =>
+      'אין קוד ביטול שמור במכשיר הזה – בטל באמצעות דוא״ל';
+
+  @override
+  String feedbackWithdrawEntrySending(Object date) {
+    return 'הביטול מ־$date נשלח…';
+  }
+
+  @override
+  String feedbackWithdrawEntryFailed(Object date) {
+    return 'הביטול מ־$date לא נמסר – בטל באמצעות דוא״ל';
+  }
+
+  @override
+  String get feedbackWithdrawConsentUndelivered =>
+      'לא ניתן היה למסור את הביטול – בטל באמצעות דוא״ל.';
+
+  @override
+  String get feedbackWithdrawEmailLabel => 'ביטול בדוא״ל';
+
+  @override
+  String get feedbackWithdrawEmailSubject => 'ביטול ההסכמה לציטוט המשוב שלי';
+
+  @override
+  String get feedbackWithdrawEmailBody =>
+      'נא לבטל את ההסכמה שלי לציטוט המשוב שלי.';
+
+  @override
+  String get feedbackWithdrawEmailDateLabel => 'תאריך המשוב:';
+
+  @override
+  String get feedbackWithdrawEmailReferenceLabel => 'מזהה ביטול:';
+
+  @override
+  String get feedbackWithdrawEmailSentLabel => 'שלחתי את הדוא״ל';
+
+  @override
+  String get feedbackWithdrawEmailLaunchFailed =>
+      'לא נמצאה אפליקציית דוא״ל. שלח את ההודעה המוכנה לכתובת הזו:';
+
+  @override
+  String get feedbackWithdrawEmailCopyLabel => 'העתקת הכתובת וההודעה';
+
+  @override
+  String get feedbackWithdrawEmailCopied => 'הכתובת וההודעה הועתקו.';
+
+  @override
+  String get feedbackWithdrawLocked =>
+      'לא ניתן לקרוא כרגע את מאגר האישורים של המערכת. WhisPaste אינו יכול לשלוח הסכמות וביטולים השמורים בו. בטל באמצעות דוא״ל; הדוא״ל המוכן כולל את המזהים הדרושים.';
+
+  @override
+  String get feedbackWithdrawConsentDone =>
+      'הביטול נשלח. הציטוט יוסר מהאתר תוך כ-24 שעות, בעדכון היומי הבא.';
+
+  @override
   String get feedbackPrivacyNote =>
       'אנונימי כברירת מחדל, ניתן לזיהוי רק אם תוסיף את האימייל שלך למעלה.';
 
@@ -2873,6 +2950,10 @@ class L10nHe extends L10n {
   @override
   String get errorSttModelCorrupted =>
       'קובץ מודל הדיבור פגום. הורד מחדש את מודל הדיבור בהגדרות.';
+
+  @override
+  String get errorSttEngineRestartNeeded =>
+      'מנוע הדיבור עדיין עסוק בהכתבה קודמת. הפעל מחדש את WhisPaste כדי להשתמש בו שוב.';
 
   @override
   String get pendingRetryFailed =>
@@ -4191,6 +4272,24 @@ class L10nHe extends L10n {
   String get trayQuit => 'צא';
 
   @override
+  String get trayRecentRecordings => 'הקלטות אחרונות';
+
+  @override
+  String get trayUnlockRecordings => 'ביטול נעילת הקלטות…';
+
+  @override
+  String trayRecentMeta(String time, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count מילים',
+      two: 'שתי מילים',
+      one: 'מילה אחת',
+    );
+    return '$time · $_temp0';
+  }
+
+  @override
   String get trayFeedback => 'שליחת משוב…';
 
   @override
@@ -4584,6 +4683,17 @@ class L10nHe extends L10n {
       'כפתור הקלטה תמיד עליון לגישה מהירה';
 
   @override
+  String get settingsFloatingButtonWaylandTitle => 'מגבלות Wayland';
+
+  @override
+  String get settingsFloatingButtonWaylandLimit =>
+      'תחת Wayland שולחן העבודה קובע איפה הכפתור מופיע ואם הוא נשאר מעל החלונות. WhisPaste יכולה להבטיח את שניהם רק במידה מוגבלת שם. הקלטה בלחיצה ממשיכה לעבוד, והכפתור לא לוקח את מיקוד המקלדת.';
+
+  @override
+  String get settingsFloatingButtonUnavailable =>
+      'לא זמין בשולחן העבודה הזה של Linux: הכפתור דורש X11 או XWayland. כיבוי נשאר אפשרי.';
+
+  @override
   String get settingsSttIdleTimeout => 'זמן המתנה של מודל זיהוי דיבור';
 
   @override
@@ -4658,6 +4768,28 @@ class L10nHe extends L10n {
 
   @override
   String get reviewSupportAction => 'דרג';
+
+  @override
+  String get reviewSupportGitHubLabel => 'תמוך ב-WhisPaste עם כוכב ב-GitHub';
+
+  @override
+  String get reviewSupportGitHubAction => 'צפה ב-GitHub';
+
+  @override
+  String get githubInviteTitle => 'WhisPaste הוא קוד פתוח';
+
+  @override
+  String get githubInviteBody =>
+      'כוכב ב-GitHub עוזר לאחרים למצוא את האפליקציה.';
+
+  @override
+  String get githubInviteOpen => 'צפה ב-GitHub';
+
+  @override
+  String get githubInviteLater => 'אחר כך';
+
+  @override
+  String get githubInviteNever => 'אל תשאל שוב';
 
   @override
   String get ideasBoardLabel => 'רעיונות ובקשות לתכונות';
@@ -5174,6 +5306,13 @@ class L10nHe extends L10n {
       'כל מה שתעתיק בזמן ש-WhisPaste פועלת יופיע כאן — מתנקה עם הפעלה מחדש של האפליקציה.';
 
   @override
+  String get sidePanelClipboardLockedTitle => 'נעול בקוד PIN';
+
+  @override
+  String get sidePanelClipboardLockedHint =>
+      'הטקסט שהועתק מוסתר כל עוד ההקלטות נעולות. בטלו את הנעילה בקוד ה-PIN כדי לראות אותו שוב.';
+
+  @override
   String get sidePanelClose => 'סגור סרגל';
 
   @override
@@ -5187,6 +5326,10 @@ class L10nHe extends L10n {
 
   @override
   String get sidePanelNoMatchesHint => 'נסה מונח חיפוש אחר.';
+
+  @override
+  String get sidePanelLoadFailedHint =>
+      'סגרו את הפאנל ופתחו אותו מחדש כדי לנסות שוב.';
 
   @override
   String get settingsSmartMode => 'Smart Mode';
@@ -5570,6 +5713,23 @@ class L10nHe extends L10n {
   @override
   String get settingsCudaPackErrorStorage =>
       'לא ניתן היה לשמור את החבילה. בדוק את שטח הדיסק הפנוי.';
+
+  @override
+  String get cudaEulaDialogTitle => 'רישיון NVIDIA CUDA';
+
+  @override
+  String cudaEulaDialogBody(String version) {
+    return 'חבילת CUDA כוללת רכיבים של NVIDIA לפי הסכם הרישיון למשתמש הקצה של NVIDIA CUDA (גרסה $version). הנוסח המחייב הוא העותק שבחבילה (LICENSE-NVIDIA.txt); הקישור פותח את הגרסה העדכנית של NVIDIA. יש לאשר אותו כדי להוריד.';
+  }
+
+  @override
+  String get cudaEulaDialogLink => 'פתיחת הרישיון של NVIDIA';
+
+  @override
+  String get cudaEulaDialogCancel => 'ביטול';
+
+  @override
+  String get cudaEulaDialogAccept => 'אישור והורדה';
 
   @override
   String get recoveryCudaDisabledToast =>
@@ -6362,6 +6522,15 @@ class L10nHe extends L10n {
       'הסף חייב להיות strict, standard, tolerant או מספר בין 0.5 ל-1.';
 
   @override
+  String get dictionaryCsvReasonControlCharacter =>
+      'השורה מכילה תו בקרה או תו עיצוב נסתר, או שבירת שורה.';
+
+  @override
+  String dictionaryCsvReasonTooManyTriggers(int max) {
+    return 'יותר מדי טריגרים בשורה אחת (עד $max).';
+  }
+
+  @override
   String get dictionaryCsvPreviewTitle => 'בדיקת הפריטים';
 
   @override
@@ -6413,15 +6582,108 @@ class L10nHe extends L10n {
   }
 
   @override
-  String dictionaryCsvSkippedDuplicates(int count) {
-    return '$count כפילויות ידולגו.';
+  String get dictionaryCsvImportEncodingError => 'הקובץ אינו טקסט UTF-8.';
+
+  @override
+  String get dictionaryCsvRefusedFormat =>
+      'הקובץ בפורמט חבילה שהאפליקציה הזו אינה יכולה לקרוא.';
+
+  @override
+  String get dictionaryCsvRefusedType => 'הקובץ אינו חבילת מילון החלפות.';
+
+  @override
+  String dictionaryCsvPackageHeader(String name, String date) {
+    return 'חבילה: $name (נוצרה ב-$date)';
   }
+
+  @override
+  String get dictionaryCsvPackageNone => 'אין פרטי חבילה (קובץ ישן או זר)';
+
+  @override
+  String dictionaryCsvSummaryLine(
+    int added,
+    int duplicates,
+    int conflicts,
+    int circular,
+    int errors,
+  ) {
+    return 'חדשים: $added · כפולים: $duplicates · התנגשויות: $conflicts · הפניות מעגליות: $circular · שגויים: $errors';
+  }
+
+  @override
+  String get dictionaryCsvStrategyLabel => 'כשהטריגר כבר קיים';
+
+  @override
+  String get dictionaryCsvStrategySkip => 'לדלג';
+
+  @override
+  String get dictionaryCsvStrategyOverwrite => 'לדרוס';
+
+  @override
+  String get dictionaryCsvStrategyKeepBoth => 'לשמור את שניהם';
+
+  @override
+  String get dictionaryCsvStrategySkipHint =>
+      'השורה לא תיובא. הערכים הקיימים נשארים ללא שינוי.';
+
+  @override
+  String dictionaryCsvStrategyOverwriteHint(int changed) {
+    return 'הטריגר המשותף יוסר מהערך הישן והשורה תתווסף. $changed ערכים קיימים ישתנו או יימחקו.';
+  }
+
+  @override
+  String get dictionaryCsvStrategyKeepBothHint =>
+      'השורה תתווסף גם היא. לאותו טריגר ימשיך לחול הערך הקיים שמופיע קודם ברשימה.';
+
+  @override
+  String get dictionaryCsvStatusAdded => 'ייתווסף';
+
+  @override
+  String get dictionaryCsvStatusDuplicate => 'כבר קיים';
+
+  @override
+  String get dictionaryCsvStatusConflictSkipped => 'התנגשות, מדולג';
+
+  @override
+  String get dictionaryCsvStatusConflictReplaced =>
+      'התנגשות, מחליף את הטריגר הקיים';
+
+  @override
+  String get dictionaryCsvStatusConflictKept => 'התנגשות, מתווספת בנוסף';
+
+  @override
+  String get dictionaryCsvStatusSuperseded =>
+      'הוחלפה על ידי שורה מאוחרת יותר בקובץ';
+
+  @override
+  String get dictionaryCsvStatusCircular => 'הפניה מעגלית, לא מיובאת';
 
   @override
   String get dictionaryCsvRowWillAdd => 'יתווסף';
 
   @override
   String get dictionaryCsvRowSkipped => 'כפילות, ידולג';
+
+  @override
+  String get dictionaryCsvExportSelectTitle => 'בחרו ערכים לייצוא';
+
+  @override
+  String dictionaryCsvExportSelectSubtitle(int count) {
+    return '$count ערכים לבחירה';
+  }
+
+  @override
+  String get dictionaryCsvAllPresent => 'כל הערכים כבר קיימים. לא ייכתב דבר.';
+
+  @override
+  String dictionaryCsvExportConfirm(int count) {
+    return 'ייצוא ($count)';
+  }
+
+  @override
+  String dictionaryCsvExportTooMany(int count) {
+    return 'יותר מדי ערכים לקובץ אחד: $count. בחרו פחות (עד 5000 ערכים, מגבלה של 1 MiB).';
+  }
 
   @override
   String get settingsBetaGroupHeading => 'גרסאות מקדימות';
@@ -6911,7 +7173,7 @@ class L10nHe extends L10n {
 
   @override
   String get manualC02S3B2I2 =>
-      '„כפתור צף“: כפתור שמקליטים בלחיצה מעל כל החלונות. ברירת מחדל: כבוי.';
+      '„כפתור צף“: כפתור שמקליטים בלחיצה. ברירת מחדל: כבוי. ב-Linux עם Wayland, שולחן העבודה עשוי להגביל את המיקום ואת השארת הכפתור מעל החלונות.';
 
   @override
   String get manualC02S4Heading => 'הדבקה אחרי ההקלטה';
@@ -7070,6 +7332,10 @@ class L10nHe extends L10n {
   String manualC05S3B1(String k1, String k2, String k3, String k4) {
     return 'אפשר לגבות או להעביר את ההחלפות כקובץ CSV. לקובץ העמודות $k1. מפרידים בין כמה ביטויים מפעילים באמצעות $k2. הקובץ יכול להיות עד $k3 ועד $k4 שורות.';
   }
+
+  @override
+  String get manualC05S3B2 =>
+      'ייבוא וייצוא נמצאים בתפריט עוד (⋯) מעל הרשימה. שדה הבדיקה נפתח גם הוא מאותו תפריט.';
 
   @override
   String get manualC06Title => 'קטעים';
@@ -7233,6 +7499,10 @@ class L10nHe extends L10n {
   @override
   String get manualC08S5B2 =>
       'קוד PIN ששכחת אינו ניתן לשחזור. לאיפוס נמחקים מיד כל התמלולים וקובצי השמע השמורים (כולל הארכיון וסל המחזור), כל ההערות עם הגרסאות וכל תמונות ההערות. ההגדרות, קטעי הטקסט וההחלפות נשמרים.';
+
+  @override
+  String get manualC08S5B3 =>
+      'בזמן שההקלטות נעולות בקוד PIN, לשונית הלוח בפאנל הצדדי אינה מציגה טקסט שהועתק ואינה מדביקה אותו. הטקסט חוזר להופיע לאחר ביטול הנעילה.';
 
   @override
   String get manualC08S6Heading => 'ריקון אוטומטי';
@@ -7476,6 +7746,10 @@ class L10nHe extends L10n {
   String get manualC13S3B2 => 'ההורדה חד-פעמית. האפליקציה מציגה את הגודל.';
 
   @override
+  String get manualC13S3B3 =>
+      'החבילה כוללת רכיבים של NVIDIA. לפני ההורדה מאשרים את הסכם הרישיון של NVIDIA ל-CUDA, שאליו הדיאלוג מפנה.';
+
+  @override
   String get manualC13S4Heading => 'האצה גרפית';
 
   @override
@@ -7605,7 +7879,7 @@ class L10nHe extends L10n {
 
   @override
   String get manualC14S15B2 =>
-      'במערכת הזו לא נדרשת הגדרה. WhisPaste מדביק את הטקסט במיקום הסמן אחרי כל הקלטה.';
+      'חבילת ה-.deb לא נותנת שום גישה בזמן ההתקנה. הדבקה אוטומטית שואלת קודם: בהגדרה הראשונית או בהגדרות → אחרי התמלול, בחר „לאפשר (סיסמת מנהל)” והזן את סיסמת המנהל. כל עוד ההרשאה קיימת, גם תוכנות אחרות בהפעלה שלך יכולות ליצור הקשות. „הסרת ההרשאה” מבטלת אותה בכל עת; גם הסרת ההתקנה מסירה אותה.';
 
   @override
   String get manualC14S15B3 =>
@@ -7616,7 +7890,7 @@ class L10nHe extends L10n {
 
   @override
   String get manualC14S15B5 =>
-      'ל-AppImage נדרשת גישה ל-/dev/uinput. התקן את כלל udev 71-whispaste-uinput.rules בתיקייה /etc/udev/rules.d/, או הוסף את המשתמש שלך לקבוצה input והתחבר מחדש. עד אז, הדבקה אוטומטית רק מעתיקה את הטקסט.';
+      'ה-AppImage צריך גישה ל-/dev/uinput. בהגדרה הראשונית או בהגדרות, העתק את הפקודה והרץ אותה פעם אחת בטרמינל. היא מתקינה את כלל ה-udev ‏71-whispaste-uinput.rules אל /etc/udev/rules.d/, שנותן הרשאת כתיבה רק להפעלה המחוברת. עד אז, הדבקה אוטומטית רק מעתיקה את הטקסט.';
 
   @override
   String get manualC14S15TerminalHeading => 'מסופים ו-Wayland';
@@ -7715,7 +7989,7 @@ class L10nHe extends L10n {
 
   @override
   String get manualC14S15B3E =>
-      'הכלל נותן הרשאת כתיבה למשתמש המחובר ולכל חבר בקבוצה input. הפקודות דורשות הרשאות מנהל (sudo) ומשנות את המערכת. אם אתה לא רוצה את זה, כבה את ההדבקה האוטומטית והדבק את הטקסט ידנית.';
+      'הכלל נותן הרשאת כתיבה רק להפעלה המחוברת. הפקודות האלה דורשות הרשאות מנהל (sudo) ומשנות את המערכת. אם אינך רוצה בכך, השאר את ההדבקה האוטומטית כבויה והדבק את הטקסט ידנית. כדי להסיר את הכלל, השתמש בכפתור בהגדרות שמעתיק את הפקודה המתאימה.';
 
   @override
   String get manualC14S15SnapHeading => 'Snap';
@@ -7999,7 +8273,7 @@ class L10nHe extends L10n {
 
   @override
   String get pasteFailureLinuxUinputHint =>
-      'הדבקה אוטומטית צריכה גישה חד-פעמית ל-/dev/uinput. העתק את הפקודה והרץ אותה בטרמינל.';
+      'הדבקה אוטומטית צריכה את ההרשאה שלך, פעם אחת, למקלדת הווירטואלית (/dev/uinput).';
 
   @override
   String get pasteFailureLinuxUinputCopy => 'העתקת הפקודה';
@@ -8011,6 +8285,32 @@ class L10nHe extends L10n {
   @override
   String get pasteFailureLinuxUinputSettingsHint =>
       'הדבקה אוטומטית צריכה גישה חד-פעמית ל-/dev/uinput. פתח את הגדרות ההדבקה האוטומטית להגדרה החד-פעמית.';
+
+  @override
+  String linuxUinputConsentNotice(String paste) {
+    return 'הדבקה אוטומטית שואלת עכשיו לפני שהיא משתמשת במקלדת הווירטואלית /dev/uinput, ולכן העדכון הזה הסיר את הגישה הקודמת. הטקסט נמצא בלוח הגזירים, הדבק אותו עם $paste. לחץ כאן כדי לאפשר זאת.';
+  }
+
+  @override
+  String get linuxUinputSetupAction => 'הגדרה';
+
+  @override
+  String get linuxUinputConsentDetail =>
+      'כדי להדביק את הטקסט בעצמה, WhisPaste צריכה מקלדת וירטואלית. כל עוד היא מאושרת, גם תוכנות אחרות בהפעלה שלך יכולות ליצור הקשות. בלי הרשאה, WhisPaste מעתיקה את הטקסט ואתה מדביק אותו בעצמך.';
+
+  @override
+  String get linuxUinputGrantButton => 'לאפשר (סיסמת מנהל)';
+
+  @override
+  String get linuxUinputGrantFailed =>
+      'מתן ההרשאה לא הצליח. WhisPaste ממשיכה רק להעתיק את הטקסט.';
+
+  @override
+  String get linuxUinputRevokeButton => 'הסרת ההרשאה';
+
+  @override
+  String get linuxUinputRevokeDone =>
+      'ההרשאה הוסרה. עכשיו WhisPaste רק מעתיקה את הטקסט.';
 
   @override
   String get settingsSecureKeysNotRemoved =>
@@ -8495,4 +8795,278 @@ class L10nHe extends L10n {
   @override
   String get holdToRecordExplained =>
       'מופעל: החזק את הקיצור ודבר, שחרר כדי לסיים. כבוי: לחץ פעם אחת כדי להתחיל ולחץ שוב כדי לסיים.';
+
+  @override
+  String get settingsAreaProfiles => 'פרופילים';
+
+  @override
+  String get profilesSectionHeading => 'הפרופילים שלך';
+
+  @override
+  String get profilesEmptyBody =>
+      'פרופילים מחליפים את מודל הדיבור, השפה, Smart Mode ואת הפעולה אחרי התמלול במקש קיצור, או אוטומטית לפי אפליקציה.';
+
+  @override
+  String get profilesAddFirst => 'יצירת הפרופיל הראשון';
+
+  @override
+  String get profilesAdd => 'יצירת פרופיל';
+
+  @override
+  String get profilesCreate => 'יצירה';
+
+  @override
+  String get profilesLimitReached =>
+      'עד 9 פרופילים. מחקו פרופיל כדי ליצור פרופיל חדש.';
+
+  @override
+  String get profilesActiveBadge => 'פעיל';
+
+  @override
+  String get profilesMoveUp => 'הזזה למעלה';
+
+  @override
+  String get profilesMoveDown => 'הזזה למטה';
+
+  @override
+  String get profilesDragHandle => 'גררו כדי לסדר מחדש';
+
+  @override
+  String get profilesNewTitle => 'פרופיל חדש';
+
+  @override
+  String get profilesNameLabel => 'שם';
+
+  @override
+  String get profilesNameEmpty => 'הזינו שם.';
+
+  @override
+  String get profileDetailHeading => 'הגדרות הפרופיל';
+
+  @override
+  String get profileDetailModel => 'מודל דיבור';
+
+  @override
+  String get profileDetailLanguage => 'שפה';
+
+  @override
+  String get profileDetailLanguageSubtitle =>
+      'חל על Whisper ועל שירותי ענן. Parakeet מזהה את השפה בעצמו.';
+
+  @override
+  String get profileDetailSmartMode => 'Smart Mode';
+
+  @override
+  String get profileDetailAfter => 'אחרי התמלול';
+
+  @override
+  String get profileDetailMicrophone => 'מיקרופון';
+
+  @override
+  String get profileKeepUnchanged => 'להשאיר ללא שינוי';
+
+  @override
+  String profileValueUnavailable(String value) {
+    return '$value (לא זמין)';
+  }
+
+  @override
+  String get profileDetailHotkey => 'מקש קיצור';
+
+  @override
+  String get profileDetailHotkeySubtitle =>
+      'מעבר לפרופיל הזה בלחיצה על מקש הקיצור.';
+
+  @override
+  String get profileHotkeyNone => 'ללא מקש קיצור';
+
+  @override
+  String get profileHotkeyChange => 'הגדרת מקש קיצור';
+
+  @override
+  String get profileHotkeyRemove => 'הסרת מקש הקיצור';
+
+  @override
+  String get profileHotkeyNeedsModifier =>
+      'למקש קיצור של פרופיל צריך לפחות מקש שינוי אחד, כמו Ctrl, Alt, Shift או Command.';
+
+  @override
+  String profileHotkeyTakenByApp(String action) {
+    return 'כבר בשימוש ב-„$action“. מקש הקיצור לא פעיל.';
+  }
+
+  @override
+  String profileHotkeyTakenByProfile(String name) {
+    return 'כבר בשימוש בפרופיל „$name“. מקש הקיצור לא פעיל.';
+  }
+
+  @override
+  String get profileDetailApps => 'אפליקציות יעד';
+
+  @override
+  String get profileDetailAppsSubtitle =>
+      'כשאחת מהאפליקציות האלה בחזית בזמן הכתבה, הפרופיל מופעל אוטומטית.';
+
+  @override
+  String get profileAppIdentifierLabel => 'מזהה האפליקציה';
+
+  @override
+  String get profileAppAdd => 'הוספה';
+
+  @override
+  String get profileAppHintMac => 'macOS: מזהה החבילה, למשל com.apple.mail';
+
+  @override
+  String get profileAppHintWindows =>
+      'Windows: שם התוכנית בלי .exe, למשל chrome';
+
+  @override
+  String get profileAppHintLinux =>
+      'Linux: WM_CLASS של החלון, למשל google-chrome. לא ניתן לזיהוי ב-Wayland.';
+
+  @override
+  String profileAppClash(String name) {
+    return 'האפליקציה הזו כבר שייכת לפרופיל „$name“.';
+  }
+
+  @override
+  String get profileAppEmpty => 'עדיין לא שויכה אפליקציה.';
+
+  @override
+  String get profileAppRemove => 'הסרת כלל האפליקציה';
+
+  @override
+  String get profileDetailContext => 'קריאת הקשר';
+
+  @override
+  String get profileDetailContextSubtitle =>
+      'קורא אופציונלית טקסט מסומן או את הלוח, כדי שהעיבוד יתאים. בשירותי ענן רק באישורך.';
+
+  @override
+  String get profileContextNone => 'לא לקרוא כלום';
+
+  @override
+  String get profileContextSelection => 'טקסט מסומן';
+
+  @override
+  String get profileContextClipboard => 'לוח';
+
+  @override
+  String get profileConsentGiven => 'הסכמה ניתנה';
+
+  @override
+  String get profileConsentMissing => 'חסרה הסכמה, לכן לא נקרא הקשר';
+
+  @override
+  String get profileConsentWithdraw => 'ביטול הסכמה';
+
+  @override
+  String get profileConsentTitle => 'לשלוח הקשר לשירות ענן?';
+
+  @override
+  String get profileConsentBody =>
+      'כשהפרופיל הזה פעיל, הטקסט המסומן או תוכן הלוח של חלון היעד נשלחים לספק הענן שצוין בפרופיל הזה, רק כדי לשפר את הכתבה הזו. ניתן לבטל את ההסכמה בכל עת בהגדרות הפרופיל.';
+
+  @override
+  String get profileConsentAccept => 'הסכמה';
+
+  @override
+  String get profileDeleteAction => 'מחיקת הפרופיל';
+
+  @override
+  String profileDeleteTitle(String name) {
+    return 'למחוק את הפרופיל „$name“?';
+  }
+
+  @override
+  String get profileDeleteMessage =>
+      'הפרופיל והאפליקציות שלו יוסרו. מקש הקיצור שלו יתפנה.';
+
+  @override
+  String get manualProfilesTitle => 'פרופילים והחלפה מהירה';
+
+  @override
+  String get manualProfilesS1Heading => 'יצירת פרופילים';
+
+  @override
+  String get manualProfilesS1Body =>
+      'פרופיל הוא קבוצה בעלת שם של הגדרות כתיבה בהכתבה. יוצרים אותו תחת הגדרות ← פרופילים, ולכל שדה מחליטים אם הפרופיל קובע אותו או משאיר ללא שינוי.';
+
+  @override
+  String get manualProfilesS1B1 =>
+      'מודל דיבור, שפה, Smart Mode, פעולה אחרי התמלול ומיקרופון';
+
+  @override
+  String get manualProfilesS1B2 =>
+      'עד 9 פרופילים. כל שדה יכול להיות במצב „להשאיר ללא שינוי“.';
+
+  @override
+  String get manualProfilesS2Heading => 'מקשי קיצור';
+
+  @override
+  String get manualProfilesS2Body =>
+      'לכל פרופיל יכול להיות מקש קיצור משלו. לחיצה עליו מפעילה את הפרופיל, והוא נשאר פעיל עד שתבחרו פרופיל אחר או תשנו ידנית אחד משדותיו.';
+
+  @override
+  String get manualProfilesS2Tip =>
+      'מקש קיצור צריך מקש שינוי. שילוב שכבר בשימוש בתכונה אחרת נשאר לא פעיל, והפרופיל מציג אותו כהתנגשות.';
+
+  @override
+  String get manualProfilesS3Heading => 'אוטומטית לפי אפליקציה';
+
+  @override
+  String get manualProfilesS3Body =>
+      'אם מוסיפים אפליקציה תחת אפליקציות יעד, הפרופיל מופעל בכל פעם שהאפליקציה הזו בחזית בזמן הכתבה. המזהה תלוי במערכת ההפעלה:';
+
+  @override
+  String get manualProfilesS3Mac => 'macOS: מזהה החבילה, למשל com.apple.mail';
+
+  @override
+  String get manualProfilesS3Win => 'Windows: שם התוכנית בלי .exe, למשל chrome';
+
+  @override
+  String get manualProfilesS3Linux =>
+      'Linux: WM_CLASS של החלון ב-X11, למשל google-chrome. ב-Wayland ‏WhisPaste לא יכול לזהות את האפליקציה.';
+
+  @override
+  String get manualProfilesS4Heading => 'מגש וכיתוב על המסך';
+
+  @override
+  String get manualProfilesS4Body =>
+      'בתפריט המגש יש תת-תפריט פרופיל: „אוטומטי לפי אפליקציה“ פועל לפי הכללים, „ללא פרופיל“ מכבה אותם, ומתחתיהם הפרופילים שלכם. בכיתוב ההקלטה מופיע שם הפרופיל הפעיל אחרי השעה והשפה, למשל 0:07 · DE · Mail.';
+
+  @override
+  String get manualProfilesS5Heading => 'להשאיר ללא שינוי';
+
+  @override
+  String get manualProfilesS5Body =>
+      '„להשאיר ללא שינוי“ פירושו שהפרופיל לא נוגע בשדה הזה. נשאר בתוקף הערך שמוגדר כרגע בהגדרות.';
+
+  @override
+  String get manualProfilesS6Heading => 'מה עושה החלפה ידנית';
+
+  @override
+  String get manualProfilesS6Body =>
+      'אם בוחרים פרופיל בתפריט המגש או לוחצים על מקש הקיצור שלו, הוא חל על כל הכתבות הבאות. אם משנים אחר כך שדה שהפרופיל קובע, כמו מודל הדיבור, הסימון פעיל מתבטל וכללי כל אפליקציה מחליטים שוב. הבחירה נשמרת גם אחרי הפעלה מחדש.';
+
+  @override
+  String get profileAppCapture => 'לכידת אפליקציה';
+
+  @override
+  String profileAppCaptureCountdown(int seconds) {
+    return 'עבור לאפליקציית היעד בעוד $seconds שניות …';
+  }
+
+  @override
+  String profileAppCaptured(Object identifier) {
+    return '„$identifier“ נוספה כאפליקציית יעד.';
+  }
+
+  @override
+  String get profileAppCaptureNone =>
+      'אין אפליקציה אחרת בחזית. עבור לאפליקציית היעד לפני שהספירה לאחור מסתיימת.';
+
+  @override
+  String get profileAppCaptureUnavailable =>
+      'הסשן הזה לא יכול לקרוא את האפליקציה שבחזית (למשל Wayland). הזן את המזהה ידנית.';
 }

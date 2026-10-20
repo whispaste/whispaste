@@ -54,6 +54,14 @@ void main() {
     });
   });
 
+  group('appVersionKnown', () {
+    test('is false in the test host, where no version was resolved', () {
+      // flutter test passes no APP_VERSION define and initAppInfo never runs,
+      // so the settings footer must not print a version at all (UX-043).
+      expect(appVersionKnown, isFalse);
+    });
+  });
+
   group('sentryRelease', () {
     test('uses the lowercase "whispaste@" prefix, not the display appName', () {
       // Regression guard for the case-sensitivity bug: CI uploads symbols

@@ -1,8 +1,10 @@
 /// Request-size limit for the local automation API (WP-38 / 8.1).
 library;
 
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shelf/shelf.dart';
 import 'package:whispaste/services/automation_api/automation_body_limit.dart';
@@ -126,4 +128,82 @@ void main() {
     expect(small.statusCode, 413);
     expect(big.statusCode, 200);
   });
+
+  test(
+    'a client that stops sending mid-body gets 408, not a hung handler',
+    () async {
+      final handler = const Pipeline()
+          .addMiddleware(
+            automationBodyLimit(
+              maxBytesFor: (_) => 1024,
+              readTimeout: const Duration(milliseconds: 50),
+            ),
+          )
+          .addHandler(_echo);
+      // One chunk arrives, then the stream stays open and silent.
+      final stalled = StreamController<List<int>>()..add([1, 2, 3]);
+      addTearDown(stalled.close);
+
+      final request = Request(
+        'POST',
+        Uri.parse('http://localhost/v1/x'),
+        body: stalled.stream,
+      );
+      final response = await Future.sync(
+        () => handler(request),
+      ).timeout(const Duration(seconds: 5));
+
+      expect(response.statusCode, 408);
+    },
+  );
+
+  test(
+    'the total deadline cancels the body subscription: no chunk is read after '
+    'the 408',
+    () {
+      fakeAsync((async) {
+        var cancelled = false;
+        final controller = StreamController<List<int>>(
+          onCancel: () => cancelled = true,
+        );
+        // One byte every 20 ms: each chunk is in time for the idle limit,
+        // but the body is still open when the 100 ms total deadline passes.
+        final ticker = Timer.periodic(
+          const Duration(milliseconds: 20),
+          (_) => controller.add([1]),
+        );
+        addTearDown(ticker.cancel);
+
+        final handler = const Pipeline()
+            .addMiddleware(
+              automationBodyLimit(
+                maxBytesFor: (_) => 1024,
+                readTimeout: const Duration(seconds: 1),
+                totalReadTimeout: const Duration(milliseconds: 100),
+              ),
+            )
+            .addHandler(_echo);
+        Response? response;
+        addTearDown(controller.close);
+        unawaited(
+          Future.sync(
+            () => handler(
+              Request(
+                'POST',
+                Uri.parse('http://localhost/v1/x'),
+                body: controller.stream,
+              ),
+            ),
+          ).then((r) => response = r),
+        );
+
+        async.elapse(const Duration(milliseconds: 200));
+
+        expect(response?.statusCode, 408);
+        expect(cancelled, isTrue, reason: 'the body subscription is cancelled');
+        expect(controller.hasListener, isFalse);
+        ticker.cancel();
+      });
+    },
+  );
 }

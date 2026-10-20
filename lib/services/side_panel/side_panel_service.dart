@@ -195,13 +195,25 @@ class SidePanelService
 
   SidePanelSnapshot _buildSnapshot({required bool visible}) {
     // A PIN-locked history (`.scratch/history-pin-lock/`) lists nothing.
+    final historyHidden = ref.read(historyContentHiddenProvider);
     final history =
-        (ref.read(historyContentHiddenProvider)
-            ? null
-            : ref.read(historyEntriesProvider).value) ??
+        (historyHidden ? null : ref.read(historyEntriesProvider).value) ??
         const [];
     final snippets = ref.read(snippetsProvider).value ?? const <SnippetItem>[];
-    final clipboard = ref.read(clipboardHistoryProvider);
+    // Copied text is withheld under the same PIN lock as the recordings
+    // (GS-125): no rows, so nothing to show, tooltip or paste.
+    final clipboardLocked = ref.read(historyContentHiddenProvider);
+    final clipboard = clipboardLocked
+        ? const <ClipboardHistoryEntry>[]
+        : ref.read(clipboardHistoryProvider);
+
+    // A load that failed lists nothing, and the panel says so instead of
+    // showing the empty state. A PIN-hidden history is not a failure.
+    final failedSections = {
+      if (!historyHidden && ref.read(historyEntriesProvider).hasError)
+        SidePanelSection.transcriptions,
+      if (ref.read(snippetsProvider).hasError) SidePanelSection.snippets,
+    };
 
     _transcriptionContent = {for (final e in history) e.id: e.content};
     _snippetContent = {for (final s in snippets) s.id: s.body};
@@ -220,6 +232,7 @@ class SidePanelService
             subtitle: _timeLabel(e.timestamp),
             content: e.content,
             colorSlot: e.colorSlot,
+            createdAt: e.timestamp.toLocal(),
           ),
       ],
       snippets: [
@@ -230,6 +243,8 @@ class SidePanelService
         for (final entry in _clipboardEntries.entries)
           _rowFor(entry.key, entry.value),
       ],
+      clipboardLocked: clipboardLocked,
+      failedSections: failedSections,
     );
   }
 

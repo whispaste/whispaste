@@ -24,6 +24,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart' show Material, MaterialType, Theme;
 import 'package:flutter/widgets.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/theme/colors.dart';
@@ -57,8 +58,12 @@ const String _renderChannelName = 'com.whispaste.side_panel_render';
 /// entrypoint name only against the root library -- it has no `libraryURI`
 /// variant. That thin entrypoint delegates here so the real wiring stays in
 /// this cohesive, unit-tested file.
-void runSidePanelEngine() {
+Future<void> runSidePanelEngine() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // This engine formats day headers with DateFormat in every app locale, and
+  // intl loads that locale data only when asked. Without it, he and ru dates
+  // would fall back to English.
+  await initializeDateFormatting();
   debugPrint('[side-panel-engine] runSidePanelEngine booted');
   runApp(const _SidePanelRenderApp());
 }

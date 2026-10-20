@@ -608,7 +608,7 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
-      _log.warning('Could not add daily_stats columns: $e', e);
+      _log.warning('Could not add daily_stats columns: ${errorKind(e)}');
     }
   }
 
@@ -638,7 +638,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
-      _log.warning('Could not add history_entries color_slot column: $e', e);
+      _log.warning(
+        'Could not add history_entries color_slot column: ${errorKind(e)}',
+      );
     }
   }
 
@@ -713,7 +715,7 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
-      _log.warning('Could not add notes is_quick_note column: $e', e);
+      _log.warning('Could not add notes is_quick_note column: ${errorKind(e)}');
     }
   }
 
@@ -744,7 +746,7 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
-      _log.warning('Could not add snippets kind column: $e', e);
+      _log.warning('Could not add snippets kind column: ${errorKind(e)}');
     }
   }
 
@@ -775,8 +777,8 @@ class HistoryDatabase extends _$HistoryDatabase {
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
       _log.warning(
-        'Could not add history_entries smart_mode_edited_content column: $e',
-        e,
+        'Could not add history_entries smart_mode_edited_content column: '
+        '${errorKind(e)}',
       );
     }
   }
@@ -836,8 +838,7 @@ class HistoryDatabase extends _$HistoryDatabase {
       // Table may not exist yet during initial creation — skip.
       _log.warning(
         'Could not add history_entries original_transcript/target_app '
-        'columns: $e',
-        e,
+        'columns: ${errorKind(e)}',
       );
     }
   }
@@ -867,7 +868,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
-      _log.warning('Could not backfill interactive snippet templates: $e', e);
+      _log.warning(
+        'Could not backfill interactive snippet templates: ${errorKind(e)}',
+      );
     }
   }
 
@@ -900,7 +903,9 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
-      _log.warning('Could not add text_replacements fuzzy columns: $e', e);
+      _log.warning(
+        'Could not add text_replacements fuzzy columns: ${errorKind(e)}',
+      );
     }
   }
 
@@ -1130,7 +1135,7 @@ class HistoryDatabase extends _$HistoryDatabase {
     } catch (e) {
       // SQLite < 3.35 does not support DROP COLUMN — log and continue.
       // The column stays with an empty value; no user data is at risk.
-      _log.warning('Could not drop groq_api_key column: $e', e);
+      _log.warning('Could not drop groq_api_key column: ${errorKind(e)}');
       Sentry.addBreadcrumb(
         Breadcrumb(
           message: 'groq_api_key column drop skipped (SQLite < 3.35)',
@@ -1170,7 +1175,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         ),
       );
     } catch (e) {
-      _log.warning('_migrateGroqSttProvider failed: $e', e);
+      _log.warning('_migrateGroqSttProvider failed: ${errorKind(e)}');
     }
   }
 
@@ -1215,7 +1220,7 @@ class HistoryDatabase extends _$HistoryDatabase {
            OR cost_usd IS NULL OR archived IS NULL
       ''');
     } catch (e) {
-      _log.warning('_backfillNullableHistoryColumns failed: $e', e);
+      _log.warning('_backfillNullableHistoryColumns failed: ${errorKind(e)}');
     }
   }
 
@@ -1767,6 +1772,20 @@ class HistoryDatabase extends _$HistoryDatabase {
     return _writeCoordinator.write<int>(
       () => (delete(historyEntries)..where((e) => e.id.equals(entryId))).go(),
     );
+  }
+
+  /// IDs of soft-deleted entries; with [olderThan] only those trashed before it.
+  /// Used to drop parked audio of entries that are about to disappear.
+  Future<List<String>> trashedEntryIds({DateTime? olderThan}) async {
+    final rows =
+        await (select(historyEntries)..where((e) {
+              final trashed = e.deletedAt.isNotNull();
+              return olderThan == null
+                  ? trashed
+                  : trashed & e.deletedAt.isSmallerThanValue(olderThan);
+            }))
+            .get();
+    return [for (final row in rows) row.id];
   }
 
   /// Permanently remove soft-deleted entries older than [days].
@@ -2708,19 +2727,63 @@ class HistoryDatabase extends _$HistoryDatabase {
           origin: Value(origin),
         ),
       );
-      await (delete(
-        textReplacementTriggers,
-      )..where((t) => t.replacementId.equals(id))).go();
-      await batch((b) {
-        b.insertAll(textReplacementTriggers, [
-          for (var i = 0; i < triggers.length; i++)
-            TextReplacementTriggersCompanion.insert(
-              id: '${id}_t$i',
-              replacementId: id,
-              trigger: triggers[i],
-            ),
-        ]);
-      });
+      await _replaceTriggers(id, triggers);
+    });
+  }
+
+  /// Swaps the trigger rows of [id] for [triggers] (complete list). The
+  /// caller runs this inside a transaction.
+  Future<void> _replaceTriggers(String id, List<String> triggers) async {
+    await (delete(
+      textReplacementTriggers,
+    )..where((t) => t.replacementId.equals(id))).go();
+    await batch((b) {
+      b.insertAll(textReplacementTriggers, [
+        for (var i = 0; i < triggers.length; i++)
+          TextReplacementTriggersCompanion.insert(
+            id: '${id}_t$i',
+            replacementId: id,
+            trigger: triggers[i],
+          ),
+      ]);
+    });
+  }
+
+  /// Applies a planned replacement import in one transaction (R-08). Only the
+  /// trigger lists of [updates] change: favourite and usage count of those
+  /// entries stay as they are. Any failing step rolls back all of them.
+  Future<void> applyReplacementImport({
+    required List<({String id, List<String> triggers})> updates,
+    required List<String> deleteIds,
+    required List<ReplacementWrite> inserts,
+  }) {
+    return transaction(() async {
+      for (final update in updates) {
+        assert(update.triggers.isNotEmpty, 'an entry keeps a trigger');
+        await (this.update(
+          textReplacements,
+        )..where((t) => t.id.equals(update.id))).write(
+          TextReplacementsCompanion(trigger: Value(update.triggers.first)),
+        );
+        await _replaceTriggers(update.id, update.triggers);
+      }
+      for (final id in deleteIds) {
+        await (delete(
+          textReplacementTriggers,
+        )..where((t) => t.replacementId.equals(id))).go();
+        await (delete(textReplacements)..where((t) => t.id.equals(id))).go();
+      }
+      for (final item in inserts) {
+        await upsertReplacementWithTriggers(
+          id: item.id,
+          triggers: item.triggers,
+          replacement: item.replacement,
+          createdAt: item.createdAt,
+          matchMode: item.matchMode,
+          fuzzyThreshold: item.fuzzyThreshold,
+          origin: item.origin,
+        );
+      }
     });
   }
 
@@ -4208,7 +4271,9 @@ Future<void> migrateFromNestedPath(String correctDir, {bool? isWindows}) async {
 
     _log.info('DB migrated from nested WhisPaste/WhisPaste/ path');
   } catch (e) {
-    _log.warning('DB migration failed (will use existing location): $e', e);
+    _log.warning(
+      'DB migration failed (will use existing location): ${errorKind(e)}',
+    );
   }
 }
 

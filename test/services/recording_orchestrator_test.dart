@@ -17,6 +17,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logging/logging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -34,6 +35,8 @@ import 'package:whispaste/features/history/data/history_lock.dart';
 import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
+import 'package:whispaste/services/desktop_paste/linux_uinput_access.dart';
+import 'package:whispaste/services/desktop_paste/linux_uinput_consent_notice.dart';
 import 'package:whispaste/services/drift_recording_store.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
@@ -87,6 +90,45 @@ import 'package:whispaste/services/tray_service.dart';
 /// Minimal fake [HotKeyRegistrar] for the session-scoped
 /// interactive-snippet keys (Enter/Escape): records registrations and
 /// exposes the captured keyDown handlers so a test can synthesize presses.
+/// A paster whose target lookup fails with an [Error], not an [Exception].
+class _ThrowingPaster implements Paster {
+  @override
+  Future<String?> getTargetBundleId() => throw RangeError('lookup failed');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Lifecycle whose status read fails with an [Error] once [armed] is set, so
+/// the start of the recording is not affected.
+class _StatusThrowsLifecycle implements OnDeviceEngineLifecycle {
+  bool armed = false;
+
+  @override
+  EngineLifecycleStatus get status {
+    if (armed) throw RangeError('status unavailable');
+    return const EngineLifecycleStatus(isReady: true);
+  }
+
+  @override
+  Future<void> ensureRunning({bool warmup = true}) async {}
+
+  @override
+  Future<void> prewarm() async {}
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  void notifyRecordingStarted() {}
+
+  @override
+  void notifyRecordingStopped() {}
+
+  @override
+  void notifyTranscriptionCompleted() {}
+}
+
 class FakeSessionKeyRegistrar implements HotKeyRegistrar {
   final List<HotKey> registered = [];
   final Map<int, HotKeyHandler> keyDownHandlersByKeyId = {};
@@ -1552,6 +1594,56 @@ void main() {
   // =========================================================================
   // Happy path
   // =========================================================================
+
+  group('stray errors keep the dictation (DEV-145, DEV-146)', () {
+    const settings = AppSettings(
+      stt: SttSettings(model: 'whisper-small', language: 'English'),
+      afterTranscriptionSection: AfterTranscriptionSettings(
+        afterTranscription: 'nothing',
+      ),
+      onboarding: OnboardingSettings(onboardingCompleted: true),
+    );
+
+    test(
+      'a RangeError in the target-app lookup does not lose the dictation',
+      () async {
+        container.dispose();
+        container = buildContainer(
+          settings,
+          extraOverrides: [pasterProvider.overrideWithValue(_ThrowingPaster())],
+        );
+        await container.read(settingsProvider.future);
+        fakeStt.transcriptToReturn = 'Lookup fails';
+
+        final orch = await startRecordingPhase();
+        await orch.stopRecording();
+
+        final entries = await db.allEntries();
+        expect(entries.map((e) => e.content), ['Lookup fails']);
+        expect(container.read(recordingProvider).phase, RecordingPhase.done);
+      },
+    );
+
+    test('a RangeError outside the step runner ends in the error state and '
+        'does not escape stopRecording', () async {
+      final lifecycle = _StatusThrowsLifecycle();
+      container.dispose();
+      container = buildContainer(
+        settings,
+        extraOverrides: [
+          onDeviceEngineLifecycleProvider.overrideWithValue(lifecycle),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      fakeStt.transcriptToReturn = 'unused';
+
+      final orch = await startRecordingPhase();
+      lifecycle.armed = true;
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.error);
+    });
+  });
 
   group('Happy path', () {
     test('stopRecording transcribes and saves to history', () async {
@@ -5440,6 +5532,7 @@ void main() {
       AppSettings settings, {
       PasteCapabilityNotifier Function()? capabilityNotifier,
       List<Override> extraOverrides = const [],
+      bool debInstall = false,
     }) {
       return ProviderContainer(
         overrides: [
@@ -5473,6 +5566,10 @@ void main() {
           if (capabilityNotifier != null)
             pasteCapabilityNotifierProvider.overrideWith(capabilityNotifier),
           ...extraOverrides,
+          // Whether the host has the .deb helper must not decide a test.
+          linuxUinputAccessProvider.overrideWithValue(
+            LinuxUinputAccess(exists: (_) => debInstall),
+          ),
         ],
       );
     }
@@ -6006,6 +6103,54 @@ void main() {
         reason:
             'Linux has no OS grant flow; recording a handoff would turn '
             'the next failure into a bogus "Restart needed".',
+      );
+    });
+
+    test('R-02: after a .deb upgrade the first blocked paste says why, '
+        'once', () async {
+      SharedPreferences.setMockInitialValues({});
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      fakeDesktopPaste.pasteStatusOverride =
+          NativePasteStatus.permissionMissing;
+
+      final notifier = _SeededPasteCapabilityNotifier(
+        const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: false,
+          ),
+        ),
+      );
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+        capabilityNotifier: () => notifier,
+        debInstall: true,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'linux uinput test';
+      await orch.stopRecording();
+      await Future<void>.delayed(Duration.zero);
+
+      final en = lookupL10n(const Locale('en'));
+      expect(fakeAttention.lastBody, en.linuxUinputConsentNotice('Ctrl+V'));
+      expect(
+        (await SharedPreferences.getInstance()).getBool(
+          kLinuxUinputConsentNoticeShownKey,
+        ),
+        isTrue,
+        reason: 'later blocked pastes get the regular notification',
       );
     });
 

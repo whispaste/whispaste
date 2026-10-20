@@ -13,6 +13,7 @@ import '../../services/replacements/text_replacement_matcher.dart'
         fuzzyThresholdStandard,
         fuzzyThresholdTolerant;
 import '../../services/dictionary/replacement_duplicates.dart';
+import '../../services/dictionary/replacement_import_plan.dart';
 import '../../services/replacements/correction_learning_service.dart';
 import '../../services/replacements/vocabulary_import_service.dart';
 import '../../services/telemetry_service.dart';
@@ -25,11 +26,11 @@ import '../../widgets/searchable_list_page.dart';
 import '../../widgets/toast.dart';
 import '../../widgets/trigger_chip.dart';
 import '../../widgets/wp_accent_badge.dart';
+import '../../widgets/wp_banner.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_favourite_star.dart';
 import '../../widgets/wp_segmented_selector.dart';
 import '../../widgets/wp_text_field.dart';
-import '../settings/settings_widgets.dart' show SettingRow, settingsToggle;
 import 'correction_cards.dart';
 import 'vocabulary_import_review_page.dart';
 import 'package:whispaste/core/data/database.dart';
@@ -237,32 +238,26 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
     await reload();
   }
 
-  /// Adds several entries in one transaction (CSV batch import, C-M-4): a
-  /// failing row adds none of them.
-  Future<void> addAll(
-    Iterable<
-      ({
-        List<String> triggers,
-        String replacement,
-        TextReplacementMatchMode matchMode,
-        double? fuzzyThreshold,
-      })
-    >
-    entries,
-  ) async {
+  /// Writes a planned import (R-08) in one transaction. Entries the plan does
+  /// not touch keep their favourite flag and usage count.
+  Future<void> applyImportPlan(ReplacementImportPlan plan) async {
     final db = ref.read(historyDatabaseProvider);
     final now = DateTime.now();
-    await db.writeReplacements([
-      for (final e in entries)
-        ReplacementWrite(
-          id: generateV4Uuid(),
-          triggers: e.triggers,
-          replacement: e.replacement,
-          createdAt: now,
-          matchMode: e.matchMode.name,
-          fuzzyThreshold: e.fuzzyThreshold,
-        ),
-    ]);
+    await db.applyReplacementImport(
+      updates: [for (final u in plan.updates) (id: u.id, triggers: u.triggers)],
+      deleteIds: plan.deleteIds,
+      inserts: [
+        for (final r in plan.inserts)
+          ReplacementWrite(
+            id: generateV4Uuid(),
+            triggers: r.triggers,
+            replacement: r.replacement,
+            createdAt: now,
+            matchMode: r.matchMode.name,
+            fuzzyThreshold: r.fuzzyThreshold,
+          ),
+      ],
+    );
     await reload();
   }
 
@@ -308,12 +303,19 @@ final pendingCorrectionCandidatesProvider =
 
 /// Replacements page — auto-replace words during dictation.
 class ReplacementsPage extends ConsumerStatefulWidget {
-  const ReplacementsPage({super.key, this.showSuggestionCards = true});
+  const ReplacementsPage({
+    super.key,
+    this.showSuggestionCards = true,
+    this.leadingMenuActions = const [],
+  });
 
   /// Whether the correction-learning switch and the pending-suggestions card
   /// sit above the list. The dictionary's Suggestions tab shows them instead,
   /// so the Replacements tab passes `false` to avoid showing them twice.
   final bool showSuggestionCards;
+
+  /// Actions the parent adds in front of this page's own overflow entries.
+  final List<WpListMenuAction> leadingMenuActions;
 
   @override
   ConsumerState<ReplacementsPage> createState() => _ReplacementsPageState();
@@ -354,37 +356,45 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     ]);
 
     return WpSearchableListPage<Replacement>(
-      // The master switch lives in a header card, not in the toolbar.
-      //
-      // In the toolbar it was a bare `Text` next to an unlabelled `Switch`:
-      // measured on the semantics tree, the switch node carried an empty
-      // label while its caption merged into the page-level focus node far
-      // away from it — a screen reader announced "switch, on" with no clue
-      // what it switches. It also broke the house tooltip rule by putting a
-      // Tooltip on a control that already had a visible caption.
-      //
-      // `SettingRow` is the shape the app already uses for "labelled control
-      // with an explanatory subtitle", it names the switch correctly by
-      // construction (see no_double_announcement_test), and it puts this
-      // screen's own setting exactly where the sibling Snippets screen puts
-      // its picker-trigger field. That leaves all three screens with the
-      // same toolbar: search plus the add button, nothing else.
-      //
-      // Unlike the Snippets header this one is not platform-gated —
-      // replacements run on all three platforms.
+      // Header and toolbar, top to bottom: the explanation scrolls away with
+      // the rows; the search and Add row stays fixed. The master switch is no
+      // longer a card above the list: it sits in the overflow menu, and while
+      // it is off a banner offers to turn it on, so the list keeps the space.
+      listKey: const ValueKey('replacements-list'),
+      identifierPrefix: 'replacements',
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ReplacementsToggleCard(
-            enabled: enabled,
-            onChanged: (v) => ref
-                .read(settingsProvider.notifier)
-                .updateSettings((s) => s.copyWith(textReplacementsEnabled: v)),
-          ),
-          _VocabularyImportCard(
-            onImport: _importFromFolder,
-            importing: _importing,
-          ),
+          // Only shown while the feature is off: when it is on, the list
+          // starts right under the toolbar and the header costs no space.
+          if (!enabled)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                WpSpacing.xl,
+                WpSpacing.xs,
+                WpSpacing.xl,
+                WpSpacing.xs,
+              ),
+              // Live region: the banner appears after a tap elsewhere (the
+              // menu toggle), so screen readers must hear the state change.
+              child: Semantics(
+                liveRegion: true,
+                child: WpBanner(
+                  tone: WpBannerTone.warning,
+                  message: l10n.replacementsToggleDisabled,
+                  action: Semantics(
+                    identifier: 'replacements-enable',
+                    child: WpButton(
+                      key: const ValueKey('replacements-enable'),
+                      label: l10n.replacementsToggleLabel,
+                      variant: WpButtonVariant.secondary,
+                      size: WpButtonSize.dense,
+                      onPressed: () => _setEnabled(true),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (widget.showSuggestionCards)
             CorrectionLearningToggleCard(
               enabled: correctionLearningEnabled,
@@ -422,16 +432,37 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       emptyTitle: l10n.replacementsEmpty,
       emptyHint: l10n.replacementsEmptyHint,
       // Same string as the empty state's hint — see the Snippets call site.
-      subtitle: l10n.replacementsEmptyHint,
       emptyActionLabel: l10n.replacementsAdd,
       noMatchesTitle: l10n.replacementsNoMatches,
       noMatchesHint: l10n.replacementsNoMatchesHint,
-      // Content — dimmed when disabled so users can still see their shortcuts
-      contentWrapper: (context, child) => AnimatedOpacity(
-        duration: WpMotion.durationFor(context, WpMotion.normal),
-        opacity: enabled ? 1.0 : 0.5,
-        child: child,
-      ),
+      // Rows stay visible but dimmed while disabled, so the shortcuts can
+      // still be read.
+      dimContent: !enabled,
+      menuKey: const ValueKey('replacements-more'),
+      menuTooltip: l10n.dockOverflow,
+      menuActions: [
+        ...widget.leadingMenuActions,
+        WpListMenuAction(
+          itemKey: const ValueKey('replacements-import-folder'),
+          label: l10n.replacementsImportFromFolder,
+          hint: _importing
+              ? l10n.replacementsImportScanning
+              : l10n.replacementsImportHint,
+          icon: LucideIcons.folderInput,
+          enabled: !_importing,
+          onSelected: _importFromFolder,
+        ),
+        WpListMenuAction(
+          itemKey: const ValueKey('replacements-toggle'),
+          label: l10n.replacementsToggleLabel,
+          icon: LucideIcons.replace,
+          hint: enabled
+              ? l10n.replacementsToggleEnabled
+              : l10n.replacementsToggleDisabled,
+          checked: enabled,
+          onSelected: () => _setEnabled(!enabled),
+        ),
+      ],
       onItemActivate: (r) => _showAddEditDialog(existing: r),
       onItemDelete: _confirmDelete,
       itemBuilder: (context, r, isCursor) {
@@ -451,6 +482,10 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
       },
     );
   }
+
+  void _setEnabled(bool value) => ref
+      .read(settingsProvider.notifier)
+      .updateSettings((s) => s.copyWith(textReplacementsEnabled: value));
 
   // ── Add / Edit dialog ────────────────────────────────────────────────
 
@@ -663,125 +698,11 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
 }
 
 // ---------------------------------------------------------------------------
-// Master switch
-// ---------------------------------------------------------------------------
-
-/// Header card above the replacement list: the single switch that turns
-/// automatic text replacement on or off during dictation.
-///
-/// Lives on this page rather than in Settings because it only matters in the
-/// context of the list it governs — the same placement rule that keeps the
-/// Snippets picker-trigger field on the Snippets page. Card geometry is
-/// deliberately identical to `_SnippetPickerTriggerField`'s so switching
-/// between the two sibling screens never nudges the toolbar below it.
-class _ReplacementsToggleCard extends StatelessWidget {
-  const _ReplacementsToggleCard({
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.sm,
-        WpSpacing.xl,
-        0,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(WpSpacing.xxs),
-        // Card material, same correction as the snippets header opposite it:
-        // a plate on the content plane, frost rather than an opaque band.
-        decoration: BoxDecoration(
-          color: WpColors.cardFill,
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: WpColors.borderSubtle),
-        ),
-        child: SettingRow(
-          icon: LucideIcons.replace,
-          label: l10n.replacementsToggleLabel,
-          // The subtitle states the current state in words, which is what
-          // the toolbar's caption used to do — except a screen reader now
-          // gets it too, and `semanticToggledValue` adds the on/off state to
-          // the row's own announcement. No Tooltip: the row is labelled on
-          // screen, so one would only repeat what is already there.
-          subtitle: enabled
-              ? l10n.replacementsToggleEnabled
-              : l10n.replacementsToggleDisabled,
-          semanticToggledValue: enabled,
-          trailing: settingsToggle(value: enabled, onChanged: onChanged),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Vocabulary import entry point
-// ---------------------------------------------------------------------------
-
-/// "Import from folder" card (PRD.md vocabulary-fuzzy-replacements, UI
-/// requirement (a)) — same card geometry as [_ReplacementsToggleCard] right
-/// above it, so the two headers read as one stacked group.
-class _VocabularyImportCard extends StatelessWidget {
-  const _VocabularyImportCard({
-    required this.onImport,
-    required this.importing,
-  });
-
-  final VoidCallback onImport;
-  final bool importing;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.xxs,
-        WpSpacing.xl,
-        0,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(WpSpacing.xxs),
-        decoration: BoxDecoration(
-          color: WpColors.cardFill,
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: WpColors.borderSubtle),
-        ),
-        child: SettingRow(
-          icon: LucideIcons.folderInput,
-          label: l10n.replacementsImportFromFolder,
-          subtitle: importing
-              ? l10n.replacementsImportScanning
-              : l10n.replacementsImportHint,
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-          trailing: WpButton(
-            key: const ValueKey('replacements-import-folder'),
-            label: l10n.replacementsImportFromFolder,
-            variant: WpButtonVariant.secondary,
-            size: WpButtonSize.dense,
-            isLoading: importing,
-            onPressed: importing ? null : onImport,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Correction-learning (ticket 01 `.scratch/vocab-learning-corrections/`)
 // ---------------------------------------------------------------------------
 
-/// Global on/off switch for automatic correction-candidate detection — same
-/// card geometry as [_ReplacementsToggleCard]/[_VocabularyImportCard] above
-/// it. Turning this off only stops new candidates from being *observed*; it
+/// Global on/off switch for automatic correction-candidate detection. Turning
+/// this off only stops new candidates from being *observed*; it
 /// never touches already-learned entries or candidates already pending
 /// review (see `BehaviorSettings.correctionLearningEnabled` doc comment).
 // ---------------------------------------------------------------------------

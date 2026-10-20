@@ -4,8 +4,12 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../core/logging/app_logger.dart';
+import '../../core/utils/word_count.dart';
+import '../audio/retention/audio_retention.dart';
 import '../audio/user_audio_dirs.dart';
+import '../dictation_text_steps.dart';
 import '../recording_store.dart';
+import '../text_transforms.dart';
 
 final _log = AppLogger('PendingAudio');
 
@@ -13,6 +17,25 @@ final _log = AppLogger('PendingAudio');
 /// "Audio aufbewahren" is off (UIA-FLW-01). With the setting on, the normal
 /// retention applies instead.
 const Duration kParkedAudioMaxAge = Duration(hours: 24);
+
+/// Shape of an entry ID as [newRecordingEntryId] makes it: milliseconds, a
+/// dash and a four-digit suffix. Every path built from an ID is checked
+/// against it first, so a tampered ID cannot leave the folder.
+final _entryIdPattern = RegExp(r'^\d{13}-\d{4}$');
+
+bool isValidPendingEntryId(String id) => _entryIdPattern.hasMatch(id);
+
+/// Age after which a WAV without a record counts as an orphan.
+const Duration orphanGrace = Duration(hours: 1);
+
+/// Age limit for a parked dictation when retained audio is off. With retained
+/// audio on, the same window as retained audio applies.
+const Duration kPendingAudioMaxAgeWithoutRetention = Duration(days: 7);
+
+/// How long a parked dictation may wait for a save, counted from when it was
+/// dictated. Shared by the start-up recovery and the daily retention sweep.
+Duration pendingAudioMaxAge({required bool retainAudio}) =>
+    retainAudio ? kRetainedAudioMaxAge : kPendingAudioMaxAgeWithoutRetention;
 
 /// Transcription failures that a later try can fix: the server or the network
 /// was down or busy, or the GPU ran out of memory. The audio itself is fine.
@@ -78,6 +101,7 @@ class PendingAudioQueue {
     required this.save,
     required this.entryExists,
     this.retainAudio,
+    this.applyReplacements = _noReplacements,
     this.maxEntries = 20,
     this.maxAttempts = 5,
     DateTime Function()? clock,
@@ -85,8 +109,14 @@ class PendingAudioQueue {
 
   final DateTime Function() _clock;
 
+  static Future<String> _noReplacements(String text) async => text;
+
   /// Folder that holds the parked audio and records.
   final String Function() directory;
+
+  /// The user's dictionary, for a parked raw transcript whose text steps
+  /// include the replacements; the same function the live pipeline uses.
+  final Future<String> Function(String text) applyReplacements;
 
   /// Writes an entry to history; the same save as the first attempt.
   final Future<SavedRecording> Function(RecordingInput input) save;
@@ -109,7 +139,16 @@ class PendingAudioQueue {
   /// Throws when the audio cannot be moved or the record cannot be written.
   /// In that case [wavPath] is back in place when the throw happens, so the
   /// caller's cleanup still applies.
-  Future<void> park(String wavPath, RecordingInput input) async {
+  ///
+  /// [rawTextSteps] marks [RecordingInput.transcript] as the raw transcript
+  /// of a dictation stopped before its text steps ran; the recovery runs
+  /// those steps, as the live pipeline would have. Smart Mode is not among
+  /// them: a background recovery never refines the text.
+  Future<void> park(
+    String wavPath,
+    RecordingInput input, {
+    DictationTextSteps? rawTextSteps,
+  }) async {
     final id = input.entryId;
     if (id == null) {
       throw ArgumentError.value(input, 'input', 'entryId is required');
@@ -117,7 +156,7 @@ class PendingAudioQueue {
     await _parkRecord(
       wavPath,
       id,
-      _PendingRecord.fromInput(input, attempts: 0),
+      _PendingRecord.fromInput(input, attempts: 0, rawTextSteps: rawTextSteps),
     );
     _log.warning('Kept audio of entry $id for a later history save');
   }
@@ -154,11 +193,15 @@ class PendingAudioQueue {
     String id,
     _PendingRecord record,
   ) async {
+    if (!isValidPendingEntryId(id)) {
+      throw ArgumentError('entryId has an unexpected format');
+    }
     final dir = Directory(directory());
     // Creates the folder with mode 0700 (user audio).
     await userAudioDirs.ensure(dir.path);
     final wavDest = p.join(dir.path, '$id.wav');
     await _moveFile(wavPath, wavDest);
+    await _restrict(wavDest);
     try {
       await _writeRecord(p.join(dir.path, '$id.json'), record);
     } on Object {
@@ -270,11 +313,33 @@ class PendingAudioQueue {
   }
 
   /// Deletes a kept recording without saving it.
-  Future<void> discard(String entryId) =>
-      _removeFiles(Directory(directory()), entryId);
+  Future<void> discard(String entryId) async {
+    if (!isValidPendingEntryId(entryId)) {
+      _log.warning(
+        'Ignoring discard for an entry ID with an unexpected format',
+      );
+      return;
+    }
+    await _removeFiles(Directory(directory()), entryId);
+  }
 
   /// Retries every parked dictation once. Returns the counts; never throws.
-  Future<PendingRecovery> recoverAll({required bool retainAudio}) async {
+  Future<PendingRecovery> recoverAll({
+    required bool retainAudio,
+    DateTime? now,
+  }) async {
+    try {
+      return await _recoverAll(retainAudio: retainAudio, now: now);
+    } on Object catch (e) {
+      _log.error('Recovering parked audio stopped: ${errorKind(e)}');
+      return const PendingRecovery();
+    }
+  }
+
+  Future<PendingRecovery> _recoverAll({
+    required bool retainAudio,
+    DateTime? now,
+  }) async {
     var saved = 0;
     var failed = 0;
     var skipped = 0;
@@ -283,6 +348,8 @@ class PendingAudioQueue {
     // Kept retries past their time are deleted here, so an app that was
     // closed for longer than 24 h does not keep the audio around.
     await purgeExpired();
+    await sweepExpired(retainAudio: retainAudio, now: now);
+    await _removeOrphans(dir, now ?? _clock());
 
     for (final record in await _records(dir)) {
       final id = record.entryId;
@@ -295,7 +362,15 @@ class PendingAudioQueue {
           continue;
         }
         if (await entryExists(id)) {
-          // The first save did write the entry, so only the files are stale.
+          // The entry was written after all (a save that outlived its
+          // timeout). The audio belongs to that entry: it goes to retention
+          // when retention is on, otherwise the files are stale.
+          // A late save with retention on may have moved the WAV already.
+          if (retainAudio &&
+              this.retainAudio != null &&
+              await File(wavPath).exists()) {
+            await this.retainAudio!(id, wavPath);
+          }
           await _removeFiles(dir, id);
           continue;
         }
@@ -305,7 +380,7 @@ class PendingAudioQueue {
           skipped++;
           continue;
         }
-        await save(record.toInput());
+        await save(await record.toInput(applyReplacements));
         if (retainAudio && this.retainAudio != null) {
           await this.retainAudio!(id, wavPath);
         } else {
@@ -316,14 +391,68 @@ class PendingAudioQueue {
         _log.info('Saved parked dictation $id to history');
       } on Object catch (e) {
         failed++;
-        _log.warning('Retry of parked dictation $id failed: $e');
-        await _writeRecord(
-          p.join(dir.path, '$id.json'),
-          record.withAttempts(record.attempts + 1),
-        );
+        _log.warning('Retry of parked dictation $id failed: ${errorKind(e)}');
+        try {
+          await _writeRecord(
+            p.join(dir.path, '$id.json'),
+            record.withAttempts(record.attempts + 1),
+          );
+        } on Object catch (writeError) {
+          _log.error(
+            'Could not record a failed retry of $id: ${errorKind(writeError)}',
+          );
+        }
       }
     }
     return PendingRecovery(saved: saved, failed: failed, skipped: skipped);
+  }
+
+  /// Removes parked dictations older than [pendingAudioMaxAge]. Returns the
+  /// number removed. Never throws.
+  Future<int> sweepExpired({required bool retainAudio, DateTime? now}) async {
+    final dir = Directory(directory());
+    if (!await dir.exists()) return 0;
+    final cutoff = (now ?? _clock()).subtract(
+      pendingAudioMaxAge(retainAudio: retainAudio),
+    );
+    var removed = 0;
+    try {
+      for (final record in await _records(dir)) {
+        if (!record.createdAt.isBefore(cutoff)) continue;
+        await _removeFiles(dir, record.entryId);
+        removed++;
+        _log.info('Dropped parked dictation ${record.entryId}: too old');
+      }
+    } on Object catch (e) {
+      _log.warning('Expiry sweep of parked audio failed: ${errorKind(e)}');
+    }
+    return removed;
+  }
+
+  /// Removes leftovers that no record refers to: temp records from an
+  /// interrupted write, and WAVs without a record, such as partial copies.
+  /// A WAV is only removed after [orphanGrace], because a dictation being
+  /// parked right now has its WAV in place before its record exists.
+  Future<void> _removeOrphans(Directory dir, DateTime now) async {
+    final entries = await dir.list().toList();
+    final names = {for (final e in entries) p.basename(e.path)};
+    for (final entity in entries) {
+      if (entity is! File) continue;
+      final name = p.basename(entity.path);
+      try {
+        if (name.endsWith('.json.tmp')) {
+          await entity.delete();
+        } else if (name.endsWith('.wav')) {
+          final recordName = '${p.basenameWithoutExtension(name)}.json';
+          final old = now.difference(entity.lastModifiedSync()) > orphanGrace;
+          if (!names.contains(recordName) && old) await entity.delete();
+        }
+      } on Object catch (e) {
+        _log.warning(
+          'Could not remove an orphaned pending file: ${errorKind(e)}',
+        );
+      }
+    }
   }
 
   /// Records of every parseable entry, oldest first. A record that cannot be
@@ -336,7 +465,8 @@ class PendingAudioQueue {
         final json = jsonDecode(await entity.readAsString());
         records.add(_PendingRecord.fromJson(json));
       } on Object catch (e) {
-        _log.warning('Ignoring unreadable pending record ${entity.path}: $e');
+        // The error type only: a FormatException can quote part of the file.
+        _log.warning('Ignoring unreadable pending record (${e.runtimeType})');
       }
     }
     records.sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -360,8 +490,14 @@ class PendingAudioQueue {
 
   Future<void> _writeRecord(String path, _PendingRecord record) async {
     final tmp = File('$path.tmp');
-    await tmp.writeAsString(jsonEncode(record.toJson()), flush: true);
-    await tmp.rename(path);
+    try {
+      await tmp.writeAsString(jsonEncode(record.toJson()), flush: true);
+      await _restrict(tmp.path);
+      await tmp.rename(path);
+    } on Object {
+      await _deleteIfExists(tmp.path);
+      rethrow;
+    }
   }
 
   static Future<void> _moveFile(String from, String to) async {
@@ -372,6 +508,20 @@ class PendingAudioQueue {
       // Capture and app-data dirs may sit on different filesystems.
       await source.copy(to);
       await source.delete();
+    }
+  }
+
+  /// Owner-only permissions (0600) on macOS and Linux. Best effort: a failure
+  /// is logged and the file stays where it is.
+  static Future<void> _restrict(String path) async {
+    if (Platform.isWindows) return;
+    try {
+      final result = await Process.run('chmod', ['600', path]);
+      if (result.exitCode != 0) {
+        _log.warning('Could not restrict pending audio file permissions');
+      }
+    } on Object {
+      _log.warning('Could not restrict pending audio file permissions');
     }
   }
 
@@ -407,6 +557,7 @@ class _PendingRecord {
     required this.attempts,
     this.originalTranscript,
     this.targetApp,
+    this.rawTextSteps,
     this.retryErrorCode,
     this.expiresAt,
   });
@@ -438,6 +589,7 @@ class _PendingRecord {
   factory _PendingRecord.fromInput(
     RecordingInput input, {
     required int attempts,
+    DictationTextSteps? rawTextSteps,
   }) {
     return _PendingRecord(
       entryId: input.entryId!,
@@ -452,6 +604,7 @@ class _PendingRecord {
       processingDurationSec: input.processingDurationSec,
       originalTranscript: input.originalTranscript,
       targetApp: input.targetApp,
+      rawTextSteps: rawTextSteps,
       attempts: attempts,
     );
   }
@@ -460,8 +613,12 @@ class _PendingRecord {
     if (json is! Map<String, Object?>) {
       throw const FormatException('pending record is not an object');
     }
+    final entryId = json['entryId'] as String;
+    if (!isValidPendingEntryId(entryId)) {
+      throw const FormatException('entry ID has an unexpected format');
+    }
     return _PendingRecord(
-      entryId: json['entryId'] as String,
+      entryId: entryId,
       createdAt: DateTime.parse(json['createdAt'] as String),
       transcript: json['transcript'] as String,
       audioDurationMs: json['audioDurationMs'] as int,
@@ -471,6 +628,7 @@ class _PendingRecord {
       historyMaxEntries: json['historyMaxEntries'] as int,
       wordCount: json['wordCount'] as int,
       processingDurationSec: json['processingDurationSec'] as int,
+      rawTextSteps: _rawTextStepsFromJson(json),
       originalTranscript: json['originalTranscript'] as String?,
       targetApp: json['targetApp'] as String?,
       attempts: json['attempts'] as int,
@@ -493,6 +651,10 @@ class _PendingRecord {
   final int processingDurationSec;
   final String? originalTranscript;
   final String? targetApp;
+
+  /// Set when [transcript] is the raw transcript of a dictation stopped
+  /// before its text steps ran: the steps its settings enabled.
+  final DictationTextSteps? rawTextSteps;
   final int attempts;
 
   /// Set for a kept audio whose transcription failed; see [PendingRetry].
@@ -512,28 +674,48 @@ class _PendingRecord {
     processingDurationSec: processingDurationSec,
     originalTranscript: originalTranscript,
     targetApp: targetApp,
+    rawTextSteps: rawTextSteps,
     attempts: value,
     retryErrorCode: retryErrorCode,
     expiresAt: expiresAt,
   );
 
-  /// Same save as the first attempt: no replacements (the transcript is
-  /// already final), history entry and daily stat written.
-  RecordingInput toInput() => RecordingInput(
-    transcript: transcript,
-    audioDuration: Duration(milliseconds: audioDurationMs),
-    modelId: modelId,
-    isLocal: isLocal,
-    languageCode: languageCode,
-    applyTextReplacements: false,
-    historyMaxEntries: historyMaxEntries,
-    wordCount: wordCount,
-    processingDurationSec: processingDurationSec,
-    originalTranscript: originalTranscript,
-    targetApp: targetApp,
-    entryId: entryId,
-    createdAt: createdAt,
-  );
+  /// Same save as the first attempt: history entry and daily stat written.
+  /// A raw transcript first gets the whitespace cleanup and its text steps,
+  /// so the entry matches what the live pipeline would have saved (without
+  /// Smart Mode), with the cleaned transcript kept as the original.
+  Future<RecordingInput> toInput(
+    Future<String> Function(String text) applyReplacements,
+  ) async {
+    var text = transcript;
+    var original = originalTranscript;
+    var words = wordCount;
+    final steps = rawTextSteps;
+    if (steps != null) {
+      original = collapseTranscriptWhitespace(transcript);
+      text = await steps.apply(
+        original,
+        languageCode: languageCode,
+        applyReplacements: applyReplacements,
+      );
+      words = computeWordCountFast(text);
+    }
+    return RecordingInput(
+      transcript: text,
+      audioDuration: Duration(milliseconds: audioDurationMs),
+      modelId: modelId,
+      isLocal: isLocal,
+      languageCode: languageCode,
+      applyTextReplacements: false,
+      historyMaxEntries: historyMaxEntries,
+      wordCount: words,
+      processingDurationSec: processingDurationSec,
+      originalTranscript: original,
+      targetApp: targetApp,
+      entryId: entryId,
+      createdAt: createdAt,
+    );
+  }
 
   Map<String, Object?> toJson() => {
     'entryId': entryId,
@@ -546,10 +728,27 @@ class _PendingRecord {
     'historyMaxEntries': historyMaxEntries,
     'wordCount': wordCount,
     'processingDurationSec': processingDurationSec,
+    'rawTextSteps': rawTextSteps?.toJson(),
     'originalTranscript': originalTranscript,
     'targetApp': targetApp,
     'attempts': attempts,
     'retryErrorCode': retryErrorCode,
     'expiresAt': expiresAt?.toIso8601String(),
   };
+}
+
+/// Text steps of a parked raw transcript. Records without them carry a final
+/// transcript. A record from a build that stored only a replacements flag
+/// gets just the replacements. A corrupted value reads as a final transcript
+/// instead of failing the whole record.
+DictationTextSteps? _rawTextStepsFromJson(Map<String, Object?> json) {
+  final steps = DictationTextSteps.tryParse(json['rawTextSteps']);
+  if (steps != null) return steps;
+  if (json['applyTextReplacements'] != true) return null;
+  return const DictationTextSteps(
+    removeFillerWords: false,
+    spokenPunctuation: false,
+    voiceLineBreaks: false,
+    textReplacements: true,
+  );
 }

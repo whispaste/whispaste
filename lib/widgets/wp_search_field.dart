@@ -223,7 +223,12 @@ class WpSearchField extends StatefulWidget {
     this.suffix,
     this.semanticsLabel,
     this.autofocus = false,
+    this.testId,
   });
+
+  /// Stable test id (`<screen>-<element>`) of the field, for UI tests and the
+  /// agent-driven checks. Null adds no semantics node.
+  final String? testId;
 
   /// Owned by the caller — every call site already holds one to read the query
   /// from, and several wire a listener to it.
@@ -529,10 +534,13 @@ class _WpSearchFieldState extends State<WpSearchField> {
     // The 2 px ring above and below the 44 px field focuses the field, the
     // way a tap on the field itself does (see WpTouchTarget).
     // loam-ignore: a11y-interactive-semantics – the wrapped child keeps its own role and label; WpTouchTarget only enlarges the tap area and is excluded from semantics (see wp_touch_target.dart).
-    return WpTouchTarget(
+    final touchTarget = WpTouchTarget(
       onTap: () => _focusNode.requestFocus(),
       child: SizedBox(width: double.infinity, child: box),
     );
+    final testId = widget.testId;
+    if (testId == null) return touchTarget;
+    return Semantics(identifier: testId, container: true, child: touchTarget);
   }
 }
 

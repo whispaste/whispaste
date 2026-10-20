@@ -266,6 +266,35 @@ void main() {
         handle.dispose();
       },
     );
+
+    // Round 2 (WP-87): a pasted line break or tab must not end up inside an
+    // identifier; control characters are dropped as they are typed or pasted.
+    testWidgets('manual identifier entry drops control characters', (
+      tester,
+    ) async {
+      final notifier = await _pump(tester, blocklist: '');
+
+      await tester.tap(
+        find.byKey(const ValueKey('settings-paste-blocklist-add')),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('settings-paste-blocklist-manual-field'),
+          ),
+          matching: find.byType(TextField),
+        ),
+        'note\npad\t.exe',
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('settings-paste-blocklist-manual-add')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_stored(notifier), 'notepad.exe');
+    });
   });
 
   group('platform variants', () {

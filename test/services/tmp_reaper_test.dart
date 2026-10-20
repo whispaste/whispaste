@@ -304,4 +304,85 @@ void main() {
       },
     );
   });
+
+  group('resumable fragment registry', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('tmp_reaper_registry_');
+    });
+
+    tearDown(() async {
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
+    Future<File> agedFragment(String name) async {
+      final file = File(p.join(tempDir.path, name));
+      await file.writeAsBytes([1, 2, 3]);
+      await file.setLastModified(
+        DateTime.now().subtract(const Duration(hours: 2)),
+      );
+      return file;
+    }
+
+    test(
+      'a registered fragment survives an aged sweep, even when no active '
+      'path is passed (interrupted download that can still resume)',
+      () async {
+        final fragment = await agedFragment('encoder.onnx.tmp');
+        registerResumableFragment(fragment.path);
+        addTearDown(() => releaseResumableFragment(fragment.path));
+
+        await sweepOrphanedTmpFiles(
+          directory: tempDir.path,
+          ageThreshold: const Duration(hours: 1),
+        );
+
+        expect(
+          fragment.existsSync(),
+          isTrue,
+          reason: 'a resumable fragment must not be reaped by a sibling sweep',
+        );
+      },
+    );
+
+    test('a released fragment is reaped again by the next sweep', () async {
+      final fragment = await agedFragment('encoder.onnx.tmp');
+      registerResumableFragment(fragment.path);
+      releaseResumableFragment(fragment.path);
+
+      await sweepOrphanedTmpFiles(
+        directory: tempDir.path,
+        ageThreshold: const Duration(hours: 1),
+      );
+
+      expect(fragment.existsSync(), isFalse);
+    });
+
+    test('registration is per full path: the same name in another directory '
+        'is still reaped', () async {
+      final otherDir = await Directory.systemTemp.createTemp(
+        'tmp_reaper_other_',
+      );
+      addTearDown(() => otherDir.delete(recursive: true));
+      final unrelated = File(p.join(otherDir.path, 'encoder.onnx.tmp'));
+      await unrelated.writeAsBytes([1]);
+      await unrelated.setLastModified(
+        DateTime.now().subtract(const Duration(hours: 2)),
+      );
+      final fragment = await agedFragment('encoder.onnx.tmp');
+      registerResumableFragment(fragment.path);
+      addTearDown(() => releaseResumableFragment(fragment.path));
+
+      await sweepOrphanedTmpFiles(
+        directory: otherDir.path,
+        ageThreshold: const Duration(hours: 1),
+      );
+
+      expect(unrelated.existsSync(), isFalse);
+      expect(fragment.existsSync(), isTrue);
+    });
+  });
 }

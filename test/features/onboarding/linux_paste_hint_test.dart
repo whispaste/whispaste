@@ -48,26 +48,29 @@ void main() {
     );
   });
 
-  test('the AppImage hint recommends udev and warns about the input group', () {
-    final text = linuxPasteHintText(en, LinuxPackageFormat.appimage);
-    expect(text, contains('71-whispaste-uinput.rules'));
-    expect(text, contains('input group'));
-    expect(text, contains('administrator rights'));
-    expect(
-      text,
-      contains(
-        'sudo udevadm control --reload-rules && '
-        'sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput',
-      ),
-    );
-    expect(text, contains('sudo usermod -aG input \$USER'));
-  });
+  test(
+    'the AppImage hint shows the udev setup, session access only (R-02)',
+    () {
+      final text = linuxPasteHintText(en, LinuxPackageFormat.appimage);
+      expect(text, contains('71-whispaste-uinput.rules'));
+      expect(text, contains('signed-in session'));
+      expect(text, contains('administrator rights'));
+      expect(
+        text,
+        contains('sudo udevadm control --reload-rules && sudo udevadm trigger'),
+      );
+      // R-02 (4a): the rule no longer opens the device to the input group, and
+      // joining that group is no longer offered (it also grants reading every
+      // keyboard).
+      expect(text, isNot(contains('usermod')));
+      expect(text, isNot(contains('input group')));
+    },
+  );
 
-  test('the native hint says it works without a manual step', () {
-    expect(
-      linuxPasteHintText(en, LinuxPackageFormat.native),
-      contains('works automatically'),
-    );
+  test('the native hint asks for consent, never "works automatically"', () {
+    final text = linuxPasteHintText(en, LinuxPackageFormat.native);
+    expect(text, isNot(contains('works automatically')));
+    expect(text, contains('Allow'));
   });
 
   test('the override seam decides which format the page describes', () {

@@ -102,7 +102,9 @@ void snippetPickerMain() => runSnippetPickerEngine();
 /// here. It delegates straight into [runSidePanelEngine]; it is never
 /// called from Dart, and the pragma keeps it out of the tree-shaker.
 @pragma('vm:entry-point')
-void sidePanelMain() => runSidePanelEngine();
+void sidePanelMain() {
+  unawaited(runSidePanelEngine());
+}
 
 Future<ProviderContainer> bootstrapAppContainer({
   List overrides = const [],
@@ -245,7 +247,7 @@ Future<void> main(List<String> args) async {
     // Same Linux args-branch fast-path as above, for the side panel's
     // second engine — macOS/Windows instead boot it by name via the
     // sidePanelMain() pragma function above.
-    runSidePanelEngine();
+    await runSidePanelEngine();
     return;
   }
 
@@ -254,6 +256,11 @@ Future<void> main(List<String> args) async {
   // single-instance guard and any window/UI setup, then exits.
   if (HeadlessTranscriptionOptions.isRequested(args)) {
     exit(await runHeadlessCli(args));
+  }
+  // `whispaste --download-cuda-pack --accept-nvidia-eula`: CUDA pack download
+  // without the window; refuses unless the NVIDIA EULA flag is given.
+  if (isCudaPackDownloadRequested(args)) {
+    exit(await runCudaPackDownloadCli(args));
   }
   // `whispaste --diagnose`: start probe for the release package smoke tests
   // (scripts/smoke/) — same early exit, no UI, settings or permissions.

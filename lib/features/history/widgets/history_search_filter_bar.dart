@@ -851,10 +851,9 @@ class _HistorySearchFilterBarState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Wrap(
-                      spacing: WpSpacing.xs,
-                      runSpacing: WpSpacing.xxs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    // One line that scrolls sideways, not a second chip row
+                    // (UX-031): the list below keeps its height at 800 px.
+                    child: _FilterChipScroller(
                       children: [
                         WpFilterChip(
                           label: l10n.historyAll,
@@ -2068,6 +2067,71 @@ class _ToolsMenuRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// A single line of filter chips that scrolls sideways when it is too narrow.
+///
+/// Wrapping put "Papierkorb" on a second line at 800 px and pushed the list
+/// below the fold (UX-031). A trailing fade says there is more, and the
+/// scroll follows keyboard focus, so every filter stays reachable.
+class _FilterChipScroller extends StatefulWidget {
+  const _FilterChipScroller({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  State<_FilterChipScroller> createState() => _FilterChipScrollerState();
+}
+
+class _FilterChipScrollerState extends State<_FilterChipScroller> {
+  final ScrollController _controller = ScrollController();
+  bool _moreAhead = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onScroll);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final position = _controller.position;
+    final more = position.pixels < position.maxScrollExtent - 1;
+    if (more != _moreAhead) setState(() => _moreAhead = more);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final row = Row(
+      children: [
+        for (var i = 0; i < widget.children.length; i++) ...[
+          if (i > 0) const SizedBox(width: WpSpacing.xs),
+          widget.children[i],
+        ],
+      ],
+    );
+    return ShaderMask(
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (rect) => LinearGradient(
+        colors: _moreAhead
+            ? const [Colors.white, Colors.white, Colors.transparent]
+            : const [Colors.white, Colors.white, Colors.white],
+        stops: const [0, 0.86, 1],
+      ).createShader(rect),
+      child: SingleChildScrollView(
+        controller: _controller,
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsetsDirectional.only(end: WpSpacing.lg),
+        child: row,
+      ),
     );
   }
 }

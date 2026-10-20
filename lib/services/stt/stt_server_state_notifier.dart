@@ -26,8 +26,10 @@ import '../../core/logging/crash_reporter.dart';
 import '../../core/recording/recording_state.dart'
     show
         SttServerState,
+        RecordingPhase,
         isDictationBusy,
         recordingPhaseProvider,
+        recordingProvider,
         transcriptionStuckBudget;
 import '../hardware_info_service.dart' as hw;
 import '../model_download_service.dart';
@@ -72,9 +74,13 @@ class SttStatus {
     this.benchmarkingTier,
     this.cpuFallbackActive = false,
     this.backend,
+    this.pendingModelId,
   });
 
   final SttServerState serverState;
+
+  /// Model whose switch is deferred until a running native call finishes.
+  final String? pendingModelId;
 
   /// Legacy HTTP-era field, permanently `0` since the Issue 03 cutover to the
   /// in-process [WhisperEngine] — there is no localhost port to bind. Kept
@@ -125,6 +131,8 @@ class SttStatus {
     bool clearBenchmarkingTier = false,
     bool? cpuFallbackActive,
     WhisperBackend? backend,
+    String? pendingModelId,
+    bool clearPendingModelId = false,
   }) {
     return SttStatus(
       serverState: serverState ?? this.serverState,
@@ -138,6 +146,9 @@ class SttStatus {
           : (benchmarkingTier ?? this.benchmarkingTier),
       cpuFallbackActive: cpuFallbackActive ?? this.cpuFallbackActive,
       backend: backend ?? this.backend,
+      pendingModelId: clearPendingModelId
+          ? null
+          : (pendingModelId ?? this.pendingModelId),
     );
   }
 
@@ -231,6 +242,21 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   @visibleForTesting
   static Duration stopDrainTimeout = const Duration(seconds: 1);
 
+  /// Upper bound on how long a native call may keep the engine busy before a
+  /// model switch, unload or new decode gives up waiting. Past it the switch
+  /// is deferred, never forced, and the engine is not unloaded under the call.
+  @visibleForTesting
+  static Duration nativeIdleCap = const Duration(seconds: 30);
+
+  /// Bound on how long a final decode waits for a live-preview decode that
+  /// is still running (the native engine cannot cancel a decode).
+  @visibleForTesting
+  static Duration previewDrainCap = const Duration(seconds: 2);
+
+  /// Overrides the idle-unload delay in tests.
+  @visibleForTesting
+  static Duration? debugIdleUnloadDelay;
+
   /// Quiet period the dictation pipeline must hold before a deferred
   /// benchmark ([_scheduleBenchmark]) claims the worker, so a rapid follow-up
   /// dictation still wins the queue. Mutable + [visibleForTesting] so tests
@@ -279,6 +305,44 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// wait out a request already past the [transcribeBytes] readiness check
   /// before freeing the native engine — see [stop] (FLUTTER_WHISPASTE-6X).
   Completer<void>? _drainCompleter;
+
+  /// Native calls (final decode, live preview, model load) that have not
+  /// returned yet. Counted on the native future itself, so a Dart-side
+  /// stuck-budget timeout does not hide a call still running in native code.
+  int _nativeBusy = 0;
+  int _nativePreviewBusy = 0;
+
+  /// Completed when [_nativeBusy] drops to zero. Waiters are the decode
+  /// gate, the stop path, the idle unload and a deferred model switch.
+  Completer<void>? _nativeIdle;
+
+  /// An engine detached at the cap while its native call still runs. It is
+  /// unloaded once that call returns, by [_onNativeIdle] only.
+  WhisperEngine? _retiredEngine;
+
+  /// Set by an idle timer that fired during a native call; the unload runs
+  /// when the native calls have returned.
+  bool _unloadWhenIdle = false;
+
+  /// Model switch deferred because a native call outlived [nativeIdleCap].
+  String? _deferredModelChangeId;
+
+  /// Bumped by each model-change request: a waiting switch that is superseded
+  /// by a newer one stops instead of loading its model.
+  int _modelChangeGeneration = 0;
+
+  /// Set when a retired engine was unloaded on release, so a stop that was
+  /// waiting for the same native call does not unload it a second time.
+  bool _unloadedOnRelease = false;
+
+  /// The stop in progress; a second caller shares its acknowledgement.
+  Future<void>? _pendingStop;
+
+  /// True while [build] subscribes to its providers. A listener can fire
+  /// during that subscription, before [state] exists, so it must not reach
+  /// [_transition] (see the engine listener in [build]).
+  bool _building = false;
+
   Completer<void>? _startCompleter;
   final Set<String> _modelLoadFailedIds = {};
   Timer? _modelChangeDebounce;
@@ -340,7 +404,8 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     _livePreview?.dispose();
     final previewer = LiveTranscriptPreviewer(
-      decode: (samples) => e.decodeLivePreview(samples),
+      decode: (samples) =>
+          _nativeCall(() => e.decodeLivePreview(samples), preview: true),
     );
     _livePreview = previewer;
     previewer.start();
@@ -390,6 +455,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
   @override
   SttStatus build() {
+    _building = true;
     _engine = ref.read(whisperEngineProvider);
     // The provider rebuilds when its GPU inputs change (settings finishing
     // their async load, the GPU toggle, detection) and its onDispose shuts
@@ -399,9 +465,30 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // and reload on next use instead.
     ref.listen<WhisperEngine>(whisperEngineProvider, (_, next) {
       if (identical(next, _engine)) return;
+      // Subscribing mounts the engine provider, which can replace the engine
+      // right here, during build(). Nothing is loaded yet, so only follow the
+      // replacement; stop() would write state that does not exist yet.
+      if (_building) {
+        _engine = next;
+        return;
+      }
       _log.info('STT engine replaced — reloading on next use');
       unawaited(stop());
       _engine = next;
+    });
+
+    // The during-recording preview ends when the recording leaves its phase,
+    // whatever ended it (N2): a delivered, empty or fallen-back dictation
+    // reaches no `notifyRecordingStopped`, and the trigger timer would keep
+    // re-decoding the frozen window until the next recording.
+    ref.listen<RecordingPhase>(recordingProvider.select((s) => s.phase), (
+      previous,
+      next,
+    ) {
+      if (previous == RecordingPhase.recording &&
+          next != RecordingPhase.recording) {
+        _stopLivePreview();
+      }
     });
 
     ref.onDispose(() {
@@ -447,6 +534,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       }
     });
 
+    _building = false;
     return const SttStatus();
   }
 
@@ -460,6 +548,20 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   Future<void> ensureRunning({bool warmup = true}) async {
     if (_startCompleter != null) {
       return _startCompleter!.future;
+    }
+    final pendingStop = _pendingStop;
+    if (pendingStop != null) await pendingStop;
+    if (_retiredEngine != null) {
+      _log.warning(
+        'Start refused: the previous engine is still in native code',
+      );
+      _fail(_restartNeededCode);
+      return;
+    }
+    if (_nativeBusy > 0 && !await _awaitNativeIdle(nativeIdleCap)) {
+      _log.warning('Start refused: a native call is still running');
+      _fail(_restartNeededCode);
+      return;
     }
 
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
@@ -713,6 +815,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // between pre-flight validation and the inference it is about to enqueue.
     _transcribeInFlight++;
     try {
+      await _awaitNativeGate();
       return await _transcribeBytesInner(wavBytes, language: language);
     } finally {
       _transcribeInFlight--;
@@ -885,7 +988,41 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// keep calling `stop()` without awaiting (FLUTTER_WHISPASTE-BC: the
   /// native free racing an imminent process exit is what crashes, not what
   /// this method itself does).
-  Future<void> stop() async {
+  Future<void> stop() {
+    final pending = _pendingStop;
+    if (pending != null) return pending;
+    late final Future<void> ack;
+    ack = _stopNow().whenComplete(() {
+      if (identical(_pendingStop, ack)) _pendingStop = null;
+    });
+    _pendingStop = ack;
+    return ack;
+  }
+
+  /// App quit: a busy engine is retired at once instead of waited for, so
+  /// quit is not held up by a native decode. [hasNativeCallRunning] tells
+  /// the caller whether the process must end without a normal exit.
+  Future<void> stopForQuit() async {
+    if (_nativeBusy == 0) return stop();
+    _cancelTimers();
+    final engine = _engine;
+    if (engine != null) _retireEngine(engine);
+    _transition(SttStatus(pendingModelId: _deferredModelChangeId));
+  }
+
+  /// True while a native call runs (a decode, a preview or a model load).
+  bool get hasNativeCallRunning => _nativeBusy > 0;
+
+  void _cancelTimers() {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _modelChangeDebounce?.cancel();
+    _modelChangeDebounce = null;
+    _benchmarkDeferTimer?.cancel();
+    _benchmarkDeferTimer = null;
+  }
+
+  Future<void> _stopNow() async {
     _idleTimer?.cancel();
     _idleTimer = null;
     _modelChangeDebounce?.cancel();
@@ -908,7 +1045,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // must not wait on native cleanup. The returned Future still resolves
     // only once the engine confirms it, for callers that need that
     // guarantee (app quit, see `app.dart`'s `onWindowClose`).
-    _transition(const SttStatus());
+    _transition(SttStatus(pendingModelId: _deferredModelChangeId));
     // A caller can already be past transcribeBytes's readiness check (idle
     // timer, model switch, and the OOM/cloud-switch fallback all call stop()
     // without coordinating with in-flight requests) — unloading the native
@@ -921,7 +1058,105 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       _drainCompleter ??= Completer<void>();
       await _drainCompleter!.future.timeout(stopDrainTimeout, onTimeout: () {});
     }
-    await (_engine?.unload() ?? Future<void>.value());
+    final engine = _engine;
+    if (engine == null) return;
+    // Never free the engine under a native call that has not returned. The
+    // Dart-side stuck budget does not end the native call, so only its return
+    // makes the unload safe (de8789eb, b320fb2a).
+    if (_nativeBusy > 0) {
+      final idle = await _awaitNativeIdle(nativeIdleCap);
+      if (!idle) {
+        _retireEngine(engine);
+        _fail(_restartNeededCode);
+        return;
+      }
+      // The release on return already unloaded this engine.
+      if (_unloadedOnRelease) return;
+    }
+    await engine.unload();
+  }
+
+  /// Detaches [engine] from the notifier; it is unloaded when its native
+  /// call returns, never while the call runs.
+  void _retireEngine(WhisperEngine engine) {
+    _retiredEngine = engine;
+    _log.warning(
+      'Engine still busy in native code; retired and released when it returns',
+    );
+  }
+
+  /// Runs one native call and counts it until the native future itself
+  /// completes, not until a Dart-side timeout gives up on it.
+  Future<T> _nativeCall<T>(Future<T> Function() call, {bool preview = false}) {
+    _nativeBusy++;
+    if (preview) _nativePreviewBusy++;
+    final future = Future<T>.sync(call);
+    unawaited(
+      future.then<void>((_) {}, onError: (Object _) {}).whenComplete(() {
+        _nativeBusy--;
+        if (preview) _nativePreviewBusy--;
+        _onNativeIdle();
+      }),
+    );
+    return future;
+  }
+
+  /// Waits until no native call runs, at most [cap]. Returns whether the
+  /// engine is idle.
+  Future<bool> _awaitNativeIdle(Duration cap) async {
+    if (_nativeBusy == 0) return true;
+    final idle = _nativeIdle ??= Completer<void>();
+    try {
+      await idle.future.timeout(cap);
+      return true;
+    } on TimeoutException {
+      return _nativeBusy == 0;
+    }
+  }
+
+  /// Gate in front of a new decode: a decode never starts on a busy instance.
+  /// A preview-only backlog gets the short [previewDrainCap], anything else
+  /// [nativeIdleCap].
+  Future<void> _awaitNativeGate() async {
+    if (_nativeBusy == 0) return;
+    final previewOnly = _nativePreviewBusy == _nativeBusy;
+    final cap = previewOnly ? previewDrainCap : nativeIdleCap;
+    if (!await _awaitNativeIdle(cap)) {
+      throw StateError(
+        'STT engine is still busy with a native call; decode not started',
+      );
+    }
+  }
+
+  /// Runs when a native call returns: wakes the waiters, releases a retired
+  /// engine, runs an idle unload and a deferred model switch that were held.
+  void _onNativeIdle() {
+    if (_nativeBusy > 0) return;
+    final idle = _nativeIdle;
+    _nativeIdle = null;
+    idle?.complete();
+
+    final retired = _retiredEngine;
+    if (retired != null) {
+      _retiredEngine = null;
+      _unloadedOnRelease = true;
+      _log.info('Retired engine released after its native call returned');
+      if (state.errorMessage == _restartNeededCode) {
+        _transition(SttStatus(pendingModelId: _deferredModelChangeId));
+      }
+      unawaited(retired.unload());
+    }
+
+    if (_unloadWhenIdle) {
+      _unloadWhenIdle = false;
+      unawaited(stop());
+    }
+
+    final deferred = _deferredModelChangeId;
+    if (deferred != null) {
+      _deferredModelChangeId = null;
+      _debouncedPrewarmOnModelChange(deferred);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -1110,20 +1345,20 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         // protection" comment for why this is the one place in this app's
         // batch architecture where that contention is real and something
         // this app actually controls).
-        return await _engine!
-            .transcribe(
-              payload,
-              language: lang,
-              prompt: prompt,
-              vadEnabled: vadEnabled,
-              reducedThreads: _isRecordingActive,
-            )
-            .timeout(
-              transcriptionStuckBudget(
-                Duration(milliseconds: audioDurationMs),
-                floor: stuckGuardTimeout,
-              ),
-            );
+        return await _nativeCall(
+          () => _engine!.transcribe(
+            payload,
+            language: lang,
+            prompt: prompt,
+            vadEnabled: vadEnabled,
+            reducedThreads: _isRecordingActive,
+          ),
+        ).timeout(
+          transcriptionStuckBudget(
+            Duration(milliseconds: audioDurationMs),
+            floor: stuckGuardTimeout,
+          ),
+        );
       } on TimeoutException {
         const failure = WhisperEngineException(
           WhisperFailureKind.timeout,
@@ -1329,7 +1564,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       modelMB: hw.sttModelVramMB[settings.effectiveModelId],
     );
 
-    if (baseMinutes <= 0) return;
+    if (baseMinutes <= 0 && debugIdleUnloadDelay == null) return;
 
     var timeoutMinutes = baseMinutes;
 
@@ -1342,8 +1577,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       );
     }
 
-    final timeout = Duration(minutes: timeoutMinutes);
+    final timeout = debugIdleUnloadDelay ?? Duration(minutes: timeoutMinutes);
     _idleTimer = Timer(timeout, () {
+      if (_nativeBusy > 0) {
+        _unloadWhenIdle = true;
+        _log.info('STT idle unload deferred: a native call is still running');
+        return;
+      }
       _log.info(
         'STT engine idle for ${timeout.inMinutes} min, '
         'unloading to free memory',
@@ -1354,6 +1594,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
   void _debouncedPrewarmOnModelChange(String newModelId) {
     _modelChangeDebounce?.cancel();
+    final generation = ++_modelChangeGeneration;
+    _deferredModelChangeId = null;
+    if (state.pendingModelId != null) {
+      _transition(state.copyWith(clearPendingModelId: true));
+    }
     _modelChangeDebounce = Timer(const Duration(milliseconds: 500), () async {
       _log.info('Model changed to $newModelId, starting debounced pre-warm');
 
@@ -1364,6 +1609,19 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       }
 
       if (state.serverState != SttServerState.stopped) {
+        // A switch never frees the engine under a native call. Past the cap
+        // it is shown as pending and retried once native is idle (b28cc78c).
+        if (_nativeBusy > 0 && !await _awaitNativeIdle(nativeIdleCap)) {
+          if (generation != _modelChangeGeneration) return;
+          _deferredModelChangeId = newModelId;
+          _log.warning(
+            'Model switch to $newModelId deferred: a native call is still '
+            'running after ${nativeIdleCap.inSeconds}s',
+          );
+          _transition(state.copyWith(pendingModelId: newModelId));
+          return;
+        }
+        if (generation != _modelChangeGeneration) return;
         await _stopForRestart();
       }
       try {
@@ -1661,9 +1919,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     var gpuAttemptPending = attemptingGpu;
 
     try {
-      await _engine!.load(
-        modelPath: modelPath,
-        vadModelPath: defaultWhisperVadModelPath(),
+      _unloadedOnRelease = false;
+      await _nativeCall(
+        () => _engine!.load(
+          modelPath: modelPath,
+          vadModelPath: defaultWhisperVadModelPath(),
+        ),
       );
     } catch (e) {
       if (gpuAttemptPending) {
@@ -1819,6 +2080,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
   /// Enters the error state with a stable [code] (shown localized by the UI).
   /// Free text and paths go to the log only, never into the code.
+  /// Error code for "the engine is still in native code; restart the app".
+  static const _restartNeededCode = 'stt_engine_restart_needed';
+
   void _fail(String code, {String? detail}) {
     _log.error('STT error: $code${detail == null ? '' : ' ($detail)'}');
     _transition(

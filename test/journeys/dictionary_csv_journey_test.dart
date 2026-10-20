@@ -50,7 +50,9 @@ import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/system_attention_service.dart';
 import 'package:whispaste/widgets/sidebar.dart';
+import 'package:whispaste/widgets/searchable_list_page.dart';
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_list_skeleton.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -418,9 +420,6 @@ Future<void> _settleAsync(
 bool _present(Key key) => find.byKey(key).evaluate().isNotEmpty;
 
 /// True when the button with [key] is present and has a press handler.
-bool _enabled(WidgetTester tester, Key key) =>
-    _present(key) && tester.widget<WpButton>(find.byKey(key)).onPressed != null;
-
 String _labelOf(WidgetTester tester, Key key) =>
     tester.widget<Text>(find.byKey(key)).data ?? '';
 
@@ -460,9 +459,37 @@ Future<void> _openDictionary(
   await tester.pump();
   await _settle(
     tester,
-    () => _present(const ValueKey('dictionary-test-input')),
+    () =>
+        _present(const ValueKey('replacements-more')) &&
+        find.byType(WpListSkeleton).evaluate().isEmpty,
     what: 'dictionary page open',
   );
+}
+
+/// Opens the replacements toolbar's ⋯ menu. CSV import and export live there
+/// (WP-81), so the journey reaches them the way a user does.
+Future<void> _openMenu(WidgetTester tester) async {
+  await tester.tap(find.byKey(const ValueKey('replacements-more')));
+  await tester.pumpAndSettle();
+}
+
+/// Opens the ⋯ menu and taps the item [key].
+Future<void> _menuAction(WidgetTester tester, Key key) async {
+  await _openMenu(tester);
+  await tester.tap(find.byKey(key));
+  await tester.pumpAndSettle();
+}
+
+/// Whether the menu item [key] is enabled. Opens the menu, reads it and
+/// closes it again by tapping the modal barrier.
+Future<bool> _menuItemEnabled(WidgetTester tester, Key key) async {
+  await _openMenu(tester);
+  final enabled = tester
+      .widget<PopupMenuItem<WpListMenuAction>>(find.byKey(key))
+      .enabled;
+  await tester.tapAt(const Offset(2, 2));
+  await tester.pumpAndSettle();
+  return enabled;
 }
 
 Future<List<ReplacementWithTriggers>> _rows(
@@ -569,7 +596,7 @@ void main() {
       final csv = File('${_tmp.path}/woerterbuch.csv')
         ..writeAsStringSync(_csvText);
       _queuedOpenFile = csv.path;
-      await tester.tap(find.byKey(const ValueKey('dictionary-csv-import')));
+      await _menuAction(tester, const ValueKey('dictionary-csv-import'));
       await _settle(
         tester,
         () => _present(const ValueKey('dictionary-csv-preview-import')),
@@ -594,28 +621,29 @@ void main() {
         );
       }
       expect(
-        find.byKey(const ValueKey('dictionary-csv-preview-duplicates')),
+        find.byKey(const ValueKey('dictionary-csv-preview-summary')),
         findsOneWidget,
-        reason: 'duplicates are announced',
+        reason: 'the counts line is shown',
       );
 
-      // Rows that pass validation, in file order: the two valid rows, then
-      // the two duplicates (of the seeded `lg` and of the first valid row).
+      // Rows that pass validation, in file order: two new triggers, the seeded
+      // `lg` (duplicate), and a second `wisp paste` with another replacement,
+      // which conflicts with the first row and is skipped by default.
       expect(
         _labelOf(tester, const ValueKey('dictionary-csv-preview-row-status-0')),
-        _l10n.dictionaryCsvRowWillAdd,
+        _l10n.dictionaryCsvStatusAdded,
       );
       expect(
         _labelOf(tester, const ValueKey('dictionary-csv-preview-row-status-1')),
-        _l10n.dictionaryCsvRowWillAdd,
+        _l10n.dictionaryCsvStatusAdded,
       );
       expect(
         _labelOf(tester, const ValueKey('dictionary-csv-preview-row-status-2')),
-        _l10n.dictionaryCsvRowSkipped,
+        _l10n.dictionaryCsvStatusDuplicate,
       );
       expect(
         _labelOf(tester, const ValueKey('dictionary-csv-preview-row-status-3')),
-        _l10n.dictionaryCsvRowSkipped,
+        _l10n.dictionaryCsvStatusConflictSkipped,
       );
       expect(
         find.byKey(const ValueKey('dictionary-csv-preview-row-status-4')),
@@ -645,7 +673,8 @@ void main() {
       expect(byTrigger['whisp paste']!.matchMode, 'fuzzy');
       expect(byTrigger['whisp paste']!.fuzzyThreshold, 0.85);
 
-      // -- Try-it field shows the replacement -------------------------------
+      // -- Try-it dialog (⋯ menu) shows the replacement ---------------------
+      await _menuAction(tester, const ValueKey('dictionary-test-open'));
       await tester.enterText(
         find.descendant(
           of: find.byKey(const ValueKey('dictionary-test-input')),
@@ -660,6 +689,12 @@ void main() {
             .data,
         contains('ich teste WhisPaste heute'),
       );
+      final close = find.widgetWithText(WpButton, _l10n.actionClose);
+      await tester.ensureVisible(close);
+      await tester.pumpAndSettle();
+      await tester.tap(close);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('dictionary-test-input')), findsNothing);
 
       // -- Dictation, exact trigger ----------------------------------------
       _spokenText = 'ich teste wisp paste heute';
@@ -731,15 +766,24 @@ void main() {
       );
     });
 
+    // The selection page's confirm button sits below the default surface.
+    tester.view.physicalSize = const Size(1280, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
     final exportPath = '${_tmp.path}/whispaste-woerterbuch.csv';
     _queuedSavePath = exportPath;
     await _openDictionary(tester, db, settings);
+    expect(
+      await _menuItemEnabled(tester, const ValueKey('dictionary-csv-export')),
+      isTrue,
+    );
+    await _menuAction(tester, const ValueKey('dictionary-csv-export'));
     await _settle(
       tester,
-      () => _enabled(tester, const ValueKey('dictionary-csv-export')),
-      what: 'export enabled once the list has loaded',
+      () => _present(const ValueKey('vocabulary-import-confirm')),
+      what: 'export selection page open',
     );
-    await tester.tap(find.byKey(const ValueKey('dictionary-csv-export')));
+    _pressConfirm(tester);
 
     await _settle(tester, () {
       final file = File(exportPath);
@@ -783,15 +827,24 @@ void main() {
         createdAt: DateTime(2026, 10, 1),
       ),
     );
+    // The selection page's confirm button sits below the default surface.
+    tester.view.physicalSize = const Size(1280, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
     final exportPath = '${_tmp.path}/formula.csv';
     _queuedSavePath = exportPath;
     await _openDictionary(tester, db, _settings());
+    expect(
+      await _menuItemEnabled(tester, const ValueKey('dictionary-csv-export')),
+      isTrue,
+    );
+    await _menuAction(tester, const ValueKey('dictionary-csv-export'));
     await _settle(
       tester,
-      () => _enabled(tester, const ValueKey('dictionary-csv-export')),
-      what: 'export enabled',
+      () => _present(const ValueKey('vocabulary-import-confirm')),
+      what: 'export selection page open',
     );
-    await tester.tap(find.byKey(const ValueKey('dictionary-csv-export')));
+    _pressConfirm(tester);
     await _settle(
       tester,
       () => File(exportPath).existsSync() && File(exportPath).lengthSync() > 0,
@@ -816,4 +869,72 @@ void main() {
     );
     await _teardown(tester);
   });
+
+  testWidgets('CSV export writes only the entries left selected, with package '
+      'metadata', (tester) async {
+    final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    await tester.runAsync(() async {
+      await db.upsertReplacementWithTriggers(
+        id: 'r-keep',
+        triggers: const ['wisp paste'],
+        replacement: 'WhisPaste',
+        createdAt: DateTime(2026, 10, 1),
+      );
+      await db.upsertReplacementWithTriggers(
+        id: 'r-skip',
+        triggers: const ['lg'],
+        replacement: 'Liebe Grüße',
+        createdAt: DateTime(2026, 10, 2),
+      );
+    });
+
+    // The selection page's confirm button sits below the default surface.
+    tester.view.physicalSize = const Size(1280, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    final exportPath = '${_tmp.path}/whispaste-woerterbuch.csv';
+    _queuedSavePath = exportPath;
+    await _openDictionary(tester, db, _settings());
+    expect(
+      await _menuItemEnabled(tester, const ValueKey('dictionary-csv-export')),
+      isTrue,
+    );
+    await _menuAction(tester, const ValueKey('dictionary-csv-export'));
+    await _settle(
+      tester,
+      () => _present(const ValueKey('vocabulary-import-confirm')),
+      what: 'export selection page open',
+    );
+
+    // Both entries start selected; take the second one out.
+    await tester.tap(find.text('lg → Liebe Grüße'));
+    await tester.pump();
+    expect(
+      find.text(_l10n.dictionaryCsvExportConfirm(1)),
+      findsOneWidget,
+      reason: 'the button counts the entries that stay selected',
+    );
+    _pressConfirm(tester);
+
+    await _settle(tester, () {
+      final file = File(exportPath);
+      return file.existsSync() && file.lengthSync() > 0;
+    }, what: 'export file written');
+
+    final parsed = parseReplacementsCsv(File(exportPath).readAsStringSync());
+    expect(parsed.rows, hasLength(1));
+    expect(parsed.rows.single.triggers, ['wisp paste']);
+    expect(parsed.meta?.name, 'whispaste-woerterbuch');
+    expect(parsed.meta?.created, isNotNull);
+    await _teardown(tester);
+  });
+}
+
+/// Presses the selection page's confirm button. Its centre lies outside the
+/// test surface, so a pointer event cannot reach it; the button callback is
+/// invoked directly instead.
+void _pressConfirm(WidgetTester tester) {
+  tester
+      .widget<WpButton>(find.byKey(const ValueKey('vocabulary-import-confirm')))
+      .onPressed!();
 }

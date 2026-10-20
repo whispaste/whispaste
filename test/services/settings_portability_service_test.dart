@@ -221,6 +221,20 @@ void main() {
     expect(merged.history.historyAutoLockMinutes, 15, reason: 'portable');
   });
 
+  test('an import cannot grant the NVIDIA CUDA EULA acceptance: consent is '
+      'per installation, the acceptance never travels', () {
+    final local = AppSettings.defaults;
+    final imported = {
+      'cuda_eula_accepted': 'ggml-v1.9.5-cu12.8-r1',
+      'cuda_acceleration': 'false',
+    };
+
+    final merged = mergeImportedSettings(local, imported);
+
+    expect(merged.behavior.cudaEulaAccepted, isEmpty);
+    expect(merged.behavior.cudaAcceleration, isFalse, reason: 'portable');
+  });
+
   // ---------------------------------------------------------------------------
   // Deny list: filtered on export (bundle assumed pre-filtered by the
   // caller — see below) and filtered *again* on import, so a hand-edited or

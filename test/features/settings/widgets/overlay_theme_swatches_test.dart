@@ -3,6 +3,8 @@
 // keys and Home/End move focus only, and Enter or Space select the focused
 // swatch. Every swatch prints its name underneath.
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -29,24 +31,28 @@ class _HostState extends State<_Host> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        WpOverlayBackgroundSwatches(
-          value: _background,
-          onChanged: (value) {
-            setState(() => _background = value);
-            widget.onBackground(value);
-          },
-        ),
-        WpOverlayWaveSwatches(
-          value: _wave,
-          background: _background,
-          onChanged: (value) {
-            setState(() => _wave = value);
-            widget.onWave(value);
-          },
-        ),
-      ],
+    // The settings page scrolls. At text scale 2.0 the two rows together are
+    // taller than the 600 px test surface, so the host scrolls like the page.
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          WpOverlayBackgroundSwatches(
+            value: _background,
+            onChanged: (value) {
+              setState(() => _background = value);
+              widget.onBackground(value);
+            },
+          ),
+          WpOverlayWaveSwatches(
+            value: _wave,
+            background: _background,
+            onChanged: (value) {
+              setState(() => _wave = value);
+              widget.onWave(value);
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -284,5 +290,65 @@ void main() {
     await tester.pump();
     expect(waves, isEmpty);
     expect(find.text(reason), findsOneWidget);
+  });
+
+  testWidgets(
+    'each swatch row is a radio group with one checked swatch (UX-039)',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          makeTestable(_Host(onBackground: (_) {}, onWave: (_) {})),
+        );
+        await tester.pump();
+
+        void expectRadio(String id, {required bool checked}) {
+          final flags = tester
+              .getSemantics(find.bySemanticsIdentifier(id))
+              .getSemanticsData()
+              .flagsCollection;
+          expect(flags.isInMutuallyExclusiveGroup, isTrue, reason: id);
+          expect(
+            flags.isChecked,
+            checked ? ui.CheckedState.isTrue : ui.CheckedState.isFalse,
+            reason: id,
+          );
+        }
+
+        expectRadio('overlay-background-marine', checked: true);
+        expectRadio('overlay-background-graphit', checked: false);
+        expectRadio('overlay-wave-cyan', checked: true);
+        expectRadio('overlay-wave-neutral', checked: false);
+      } finally {
+        handle.dispose();
+      }
+    },
+  );
+
+  testWidgets('names wrap instead of truncating at text scale 2.0 (UX-040)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      makeTestable(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: SizedBox(
+            width: 320,
+            child: _Host(onBackground: (_) {}, onWave: (_) {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final l10n = lookupL10n(const Locale('en'));
+    for (final text in [
+      l10n.settingsOverlayBackgroundGletscher,
+      l10n.settingsOverlayBackgroundGraphit,
+      l10n.settingsOverlayWaveViolett,
+    ]) {
+      final paragraph = tester.renderObject<RenderParagraph>(find.text(text));
+      expect(paragraph.didExceedMaxLines, isFalse, reason: text);
+      expect(paragraph.text.toPlainText(), text);
+    }
   });
 }

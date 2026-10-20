@@ -107,6 +107,14 @@ const _methodAllowlist = <String, Map<String, Map<String, String>>>{
           'Clipboard-only undo: Linux has no undo keystroke path, so undo always copies the original text to the clipboard.',
     },
   },
+  'com.whispaste.floating_button': {
+    'getCapabilities': {
+      'macos':
+          'Linux-only probe: floating_button_support_provider.dart asks for the GDK backend only when the target platform is Linux. macOS never sends it and has no X11 backend to report.',
+      'windows':
+          'Linux-only probe: floating_button_support_provider.dart asks for the GDK backend only when the target platform is Linux. Windows never sends it and has no X11 backend to report.',
+    },
+  },
   'com.whispaste.support_store': {
     'hasVerifiedSupportPurchase': {
       'windows':

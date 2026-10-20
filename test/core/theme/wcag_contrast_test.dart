@@ -631,6 +631,44 @@ void main() {
     }
   });
 
+  // The settings row title (e.g. "Aus Korrekturen lernen" on the replacements
+  // page) sits on the translucent card fill, which is painted over the
+  // ambient gradient. Gated per appearance with that palette active, because
+  // the title and the fill are read from the same palette.
+  for (final (themeName, set) in [
+    ('light', wpLightColors),
+    ('dark', wpDarkColors),
+    ('navy', wpNavyColors),
+  ]) {
+    group('Settings row title on its card fill – $themeName (≥ 4.5:1)', () {
+      setUp(() => WpColors.activate(set));
+      tearDown(() => WpColors.activate(wpLightColors));
+      final ambient = gradientExtremes(set.warmSurfaceGradient);
+      final grounds = <String, Color>{
+        'cardFill over ambient.lightest': alphaComposite(
+          set.cardFill,
+          ambient.lightest,
+        ),
+        'cardFill over ambient.darkest': alphaComposite(
+          set.cardFill,
+          ambient.darkest,
+        ),
+      };
+      for (final ground in grounds.entries) {
+        test('textPrimary on ${ground.key}', () {
+          final ratio = contrastRatio(WpColors.textPrimary, ground.value);
+          expect(
+            ratio,
+            greaterThanOrEqualTo(4.5),
+            reason:
+                'row title (WpColors.textPrimary) on ${ground.key} is '
+                '${ratio.toStringAsFixed(2)}:1 — below the AA floor for body text.',
+          );
+        });
+      }
+    });
+  }
+
   // Sanity: verify our contrast computation against known values
   group('contrast ratio math', () {
     test('black on white = 21:1', () {

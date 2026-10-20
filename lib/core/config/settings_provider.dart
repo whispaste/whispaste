@@ -15,6 +15,7 @@
 /// directly (e.g. `settings.stt.model`) and mutate via [copyWithSections].
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -1020,6 +1021,14 @@ const kSttIdleDefaultMigrationKey = 'stt_idle_default_migrated';
 /// "auto" default. Every other value is kept.
 const _kLegacyIdleTimeoutMinutes = {5, -1};
 
+/// A change requested before the load, with an optional coalescing key.
+class _QueuedChange {
+  const _QueuedChange(this.key, this.updater);
+
+  final String? key;
+  final AppSettings Function(AppSettings) updater;
+}
+
 /// Central settings notifier — loads from and persists to Drift/SQLite.
 ///
 /// API keys are stored in platform-native secure storage and merged into
@@ -1032,11 +1041,44 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
   @visibleForTesting
   Future<void>? secureKeysFuture;
 
+  /// Upper bound for changes queued before the load. The oldest is dropped
+  /// beyond it, with a warning, so a stuck load cannot grow memory forever.
+  static const int _maxQueuedChanges = 100;
+
+  /// Changes requested before the stored settings were loaded. Applied in
+  /// order by [build], so the latest value wins. A change with a [key]
+  /// replaces an earlier queued change with the same key.
+  final List<_QueuedChange> _queuedUpdates = [];
+
+  /// Queued changes dropped by the cap. Visible for tests.
+  @visibleForTesting
+  int droppedQueuedChanges = 0;
+
+  /// Persist attempts of queued changes that failed. Visible for tests.
+  @visibleForTesting
+  int queuedPersistFailures = 0;
+
+  /// Number of changes waiting for the load. Visible for tests.
+  @visibleForTesting
+  int get queuedUpdateCount => _queuedUpdates.length;
+
   @override
   Future<AppSettings> build() async {
     final db = ref.watch(historyDatabaseProvider);
     final secureStore = ref.watch(secureKeyStoreProvider);
-    final values = await db.readAppSettings();
+    final Map<String, String> values;
+    try {
+      values = await db.readAppSettings();
+    } catch (e) {
+      // The queue survives a failed load and is applied by the next one.
+      if (_queuedUpdates.isNotEmpty) {
+        _log.warning(
+          'Settings load failed; keeping ${_queuedUpdates.length} queued '
+          'change(s) for the next load: $e',
+        );
+      }
+      rethrow;
+    }
 
     AppSettings settings;
     if (values.isNotEmpty) {
@@ -1151,6 +1193,11 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       _log.info('Initial app language set from the system: $locale');
     }
 
+    // Changes made before this load (see _applyOrQueue) are applied now, in
+    // order, and persisted once. Nothing awaits between this point and the
+    // return, so no new change can slip in between.
+    settings = _applyQueuedChanges(settings);
+
     // Defer slow secure store operations to after initial load.
     // This lets the app show its window and become interactive immediately.
     // API keys will be available within ~200ms after startup.
@@ -1218,21 +1265,64 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     return result;
   }
 
+  /// Applies the changes queued before this load, in order, and persists the
+  /// result once. Called without an await in between, so no new change can
+  /// slip in between.
+  AppSettings _applyQueuedChanges(AppSettings loaded) {
+    if (_queuedUpdates.isEmpty) return loaded;
+    final queued = List.of(_queuedUpdates);
+    _queuedUpdates.clear();
+    var settings = loaded;
+    for (final change in queued) {
+      settings = change.updater(settings);
+    }
+    _log.info('Applied ${queued.length} settings change(s) made before load');
+    unawaited(
+      _persistChange(loaded, settings).catchError((Object e) {
+        queuedPersistFailures++;
+        _log.error('Persisting queued settings failed: $e');
+      }),
+    );
+    return settings;
+  }
+
   /// Update one or more settings and persist the change.
-  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
-    final current = state.value ?? const AppSettings();
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) =>
+      _applyOrQueue(updater, key: null);
+
+  /// Like [updateSettings], but a change queued before the load replaces an
+  /// earlier queued change with the same [key].
+  Future<void> updateSettingsKeyed(
+    String key,
+    AppSettings Function(AppSettings) updater,
+  ) => _applyOrQueue(updater, key: key);
+
+  Future<void> _applyOrQueue(
+    AppSettings Function(AppSettings) updater, {
+    required String? key,
+  }) async {
+    // Without a loaded snapshot there is nothing to merge into. Writing
+    // defaults over stored values would be wrong, so the change is queued
+    // and applied by build() once the load finishes.
+    if (!state.hasValue) {
+      if (key != null) {
+        _queuedUpdates.removeWhere((q) => q.key == key);
+      }
+      _queuedUpdates.add(_QueuedChange(key, updater));
+      if (_queuedUpdates.length > _maxQueuedChanges) {
+        _queuedUpdates.removeAt(0);
+        droppedQueuedChanges++;
+        _log.warning('Settings queue full; dropped the oldest queued change');
+      }
+      _log.info('Settings change queued until settings are loaded');
+      return;
+    }
+    final current = state.requireValue;
     final updated = updater(current);
     state = AsyncData(updated);
 
     try {
-      // Persist API key changes to secure storage.
-      final secureStore = ref.read(secureKeyStoreProvider);
-      await _syncApiKeysToSecureStorage(current, updated, secureStore);
-
-      // Persist all non-key settings to SQLite (toStorageMap writes '' for keys).
-      await ref
-          .read(historyDatabaseProvider)
-          .writeAppSettings(updated.toStorageMap());
+      await _persistChange(current, updated);
     } catch (e, st) {
       _log.error('Could not save settings', e, st);
       // Show what is stored, not the value that failed to save: the next
@@ -1240,6 +1330,16 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       if (identical(state.value, updated)) state = AsyncData(current);
       ref.read(settingsSaveFailuresProvider.notifier).record();
     }
+  }
+
+  /// Persists API key changes to secure storage and all non-key settings to
+  /// SQLite (toStorageMap writes '' for keys).
+  Future<void> _persistChange(AppSettings before, AppSettings after) async {
+    final secureStore = ref.read(secureKeyStoreProvider);
+    await _syncApiKeysToSecureStorage(before, after, secureStore);
+    await ref
+        .read(historyDatabaseProvider)
+        .writeAppSettings(after.toStorageMap());
   }
 
   /// Restore all settings to factory defaults.

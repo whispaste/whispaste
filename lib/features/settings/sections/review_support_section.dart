@@ -54,6 +54,18 @@ class ReviewSupportSection extends ConsumerWidget {
             onPressed: () => _launchReviewSupport(channel),
           ),
         ),
+        // Permanent, gate-free entry on every channel: the GitHub star is
+        // always reachable here, independent of any rating or invitation prompt.
+        WpSettingsRow(
+          rowId: 'advanced-github-star',
+          title: l10n.reviewSupportGitHubLabel,
+          trailing: WpButton(
+            key: const ValueKey('settings-github-star-button'),
+            label: l10n.reviewSupportGitHubAction,
+            variant: WpButtonVariant.secondary,
+            onPressed: () => openExternalUrl(context, kGitHubRepoUrl),
+          ),
+        ),
         // Same quiet, gate-free register as the row above — an
         // opt-in destination for users who want to shape the roadmap,
         // not a prompt anyone is pushed toward.

@@ -422,6 +422,16 @@ class ParakeetGpuEngine {
     }
   }
 
+  /// Quit path: kills the worker now instead of waiting for its acknowledgement.
+  /// A worker inside a native call is not interrupted by the kill; the caller
+  /// must then end the process without static destructors (GS-117).
+  void abandon() {
+    if (_closed) return;
+    _closed = true;
+    _isolate.kill(priority: Isolate.immediate);
+    _replies.close();
+  }
+
   /// Frees the native context and stops the worker. Idempotent. The abort
   /// flag is freed only after the worker acknowledged, because a worker still
   /// inside a native call could otherwise read freed memory.

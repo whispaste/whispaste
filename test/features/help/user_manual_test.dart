@@ -142,8 +142,8 @@ void main() {
   });
 
   group('handbook content guard', () {
-    test('there are 16 chapters with unique slugs', () {
-      expect(manualChapters, hasLength(16));
+    test('there are 17 chapters with unique slugs', () {
+      expect(manualChapters, hasLength(17));
       final slugs = manualChapters.map((c) => c.slug).toSet();
       expect(slugs, hasLength(manualChapters.length));
     });

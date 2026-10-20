@@ -23,6 +23,7 @@ import 'package:whispaste/widgets/dialog.dart';
 import 'package:whispaste/widgets/find_replace_bar.dart';
 import 'package:whispaste/widgets/markdown_toolbar.dart';
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_search_field.dart';
 import 'package:whispaste/widgets/wp_text_field.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -39,6 +40,19 @@ late L10n l10n;
 /// a test that *injects* unavailability must not keep counting a field that
 /// is no longer rendered.
 final _fieldOffset = snippetPickerAvailableOnPlatform ? 1 : 0;
+
+/// The toolbar search field. Found through its wrapper, not by tree index:
+/// the toolbar sits above the list header, so its position shifted.
+Finder get _searchField => find.descendant(
+  of: find.byType(WpSearchField),
+  matching: find.byType(TextField),
+);
+
+/// The picker-trigger field: the only text field capped at the trigger's
+/// maximum length (64). Found by its limit, not by tree index, because the
+/// search toolbar now sits above the header that holds it.
+Finder get _pickerTriggerField =>
+    find.byWidgetPredicate((w) => w is TextField && w.maxLength == 64);
 
 /// Sends the platform's "new item" chord — Cmd on macOS, Ctrl elsewhere,
 /// exactly as `WpSearchableListPage` binds it.
@@ -387,7 +401,7 @@ void main() {
       expect(find.text('Signature'), findsOneWidget);
       expect(find.text('Greeting'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField).at(_fieldOffset), 'Sign');
+      await tester.enterText(_searchField, 'Sign');
       await tester.pumpAndSettle();
 
       expect(find.text('Signature'), findsOneWidget);
@@ -416,10 +430,7 @@ void main() {
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
 
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset),
-        'zzzznonexistent',
-      );
+      await tester.enterText(_searchField, 'zzzznonexistent');
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsNoMatches), findsOneWidget);
@@ -552,11 +563,72 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).first, 'snippet');
+      await tester.enterText(_pickerTriggerField, 'snippet');
       showPage.value = false;
       await tester.pump();
 
       expect(notifier.state.value!.behavior.snippetPickerTrigger, 'snippet');
+    });
+
+    // Round 2 (WP-87): a trigger word is one short spoken word. A pasted line
+    // break must not survive into the setting, and a long value is cut short.
+    testWidgets('a trigger word is one line and at most 64 characters', (
+      tester,
+    ) async {
+      if (!Platform.isMacOS) return;
+      final notifier = _FakeSettingsNotifier(const AppSettings());
+      final showPage = ValueNotifier<bool>(true);
+      addTearDown(showPage.dispose);
+      await tester.pumpWidget(
+        makeTestable(
+          ValueListenableBuilder<bool>(
+            valueListenable: showPage,
+            builder: (_, visible, _) =>
+                visible ? const SnippetsPage() : const SizedBox.shrink(),
+          ),
+          locale: const Locale('en'),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_pickerTriggerField, 'snip\npet${'x' * 80}');
+      showPage.value = false;
+      await tester.pump();
+
+      final saved = notifier.state.value!.behavior.snippetPickerTrigger;
+      expect(saved.contains('\n'), isFalse);
+      expect(saved.length, lessThanOrEqualTo(64));
+    });
+
+    // Round 2 (WP-87): leaving the app (Cmd+Tab, lock screen) writes a pending
+    // trigger word right away, not only when the page is left.
+    testWidgets('a pending trigger word is saved when the app is paused', (
+      tester,
+    ) async {
+      if (!Platform.isMacOS) return;
+      final notifier = _FakeSettingsNotifier(const AppSettings());
+      await tester.pumpWidget(
+        makeTestable(
+          const SnippetsPage(),
+          locale: const Locale('en'),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(_pickerTriggerField, 'snippet');
+      final binding = tester.binding;
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
+
+      expect(notifier.state.value!.behavior.snippetPickerTrigger, 'snippet');
+      // Back to the foreground along the engine's own path.
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     });
 
     testWidgets('an empty trigger word shows no empty-list hint even while '
@@ -598,7 +670,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(TextField).at(_fieldOffset));
+      await tester.tap(_searchField);
       await tester.pumpAndSettle();
 
       await _pressNewItemChord(tester);

@@ -18,6 +18,7 @@ enum SettingsArea {
   recording(SettingsGroup.dictation),
   speech(SettingsGroup.dictation),
   textInsert(SettingsGroup.dictation),
+  profiles(SettingsGroup.dictation),
   privacy(SettingsGroup.system),
   advanced(SettingsGroup.system),
   about(SettingsGroup.system);
@@ -62,6 +63,7 @@ const Map<SettingsArea, List<String>> kSettingsAreaSections = {
     'textProcessing',
     'smartMode',
   ],
+  SettingsArea.profiles: ['profiles'],
   SettingsArea.privacy: ['privacy', 'history', 'settingsPortability'],
   SettingsArea.advanced: ['betaChannel', 'advanced', 'automationApi'],
   SettingsArea.about: ['about'],

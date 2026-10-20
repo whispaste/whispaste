@@ -112,17 +112,23 @@ Onboarding-Hinweis wählt den Text nach dem erkannten Format
 
 | Format | Auto-Paste | Schritt für Nutzer |
 |---|---|---|
-| `.deb` / nativ | funktioniert sofort | keiner |
-| Flatpak | über `--device=all` | udev-Regel `71-whispaste-uinput.rules` oder Gruppe `input` auf dem Host (Befehle brauchen Administratorrechte, sudo). WhisPaste selbst liest keine Eingabegeräte. Mit `--device=all` sind `/dev/input/*` in der Sandbox aber sichtbar: Hat der Benutzer auf dem Rechner Leserechte (z. B. als Mitglied der Gruppe `input`), könnte die App Tastatureingaben anderer Programme lesen. Mitglieder der Gruppe `input` können außerdem Tastatureingaben lesen und virtuelle Eingaben erzeugen. Wer das nicht möchte: Auto-Paste aus lassen, Text von Hand einfügen |
+| `.deb` / nativ | erst nach Zustimmung (R-02) | im Onboarding bzw. in den Einstellungen „Freigeben“ und Administratorpasswort (polkit-Aktion `de.whispaste.uinput.manage`, Hilfsprogramm `/usr/libexec/whispaste/uinput-access`). „Freigabe entfernen“ nimmt sie zurück, die Deinstallation ebenfalls (`prerm`) |
+| Tarball | erst nach Zustimmung | `sudo ./install-uinput-rule.sh`, zurück mit `sudo ./uninstall-uinput-rule.sh` |
+| Flatpak | über `--device=all` | udev-Regel `71-whispaste-uinput.rules` auf dem Host, Befehl kopierbar im Onboarding (Administratorrechte, sudo). WhisPaste selbst liest keine Eingabegeräte. Mit `--device=all` sind `/dev/input/*` in der Sandbox aber sichtbar: Hat der Benutzer auf dem Rechner Leserechte (z. B. als Mitglied der Gruppe `input`), könnte die App Tastatureingaben anderer Programme lesen. Mitglieder der Gruppe `input` können außerdem Tastatureingaben lesen und virtuelle Eingaben erzeugen. Wer das nicht möchte: Auto-Paste aus lassen, Text von Hand einfügen |
 | Snap | braucht die Schnittstelle `uinput` | einmal `sudo snap connect whispaste:uinput` |
-| AppImage | braucht Zugriff auf `/dev/uinput` | empfohlen: udev-Regel `71-whispaste-uinput.rules` nach `/etc/udev/rules.d/`, dann `sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput`. Alternative: `sudo usermod -aG input $USER`, danach ab- und wieder anmelden. Die Gruppe `input` kann virtuelle Eingaben erzeugen **und alle Tastatureingaben lesen**, auch die anderer Programme. Die Befehle brauchen **Administratorrechte** (sudo) |
+| AppImage | braucht Zugriff auf `/dev/uinput` | udev-Regel `71-whispaste-uinput.rules` nach `/etc/udev/rules.d/`, dann `sudo udevadm control --reload-rules && sudo udevadm trigger`. Der Befehl erscheint kopierbar im Onboarding, erst nach der Erklärung. Die Befehle brauchen **Administratorrechte** (sudo) |
+
+Die Regel gibt Schreibzugriff nur der aktiven Sitzung (`TAG+="uaccess"`), keiner
+Gruppe (R-02, Entscheidung 4a). Solange sie liegt, kann jedes Programm dieser
+Sitzung virtuelle Eingaben erzeugen. Deshalb installiert kein Paket sie von
+selbst. Der Tipp „Gruppe `input`“ ist entfallen: Mitglieder dieser Gruppe
+können alle Tastatureingaben lesen.
 
 **Warum kein engeres Recht für Flatpak:** `--device=input` gibt in Flatpak nur
 `/dev/input` frei (Quelle: `common/flatpak-run.c`, Stand Flatpak-`main` am
 2026-10-18, dev-bind von `/dev/input`; Doku `doc/flatpak-run.xml`, `--device`).
 `/dev/uinput` liegt nicht darin, deshalb ist `--device=all` nötig. Ob der
-Schreibzugriff auf dem Host klappt, hängt zusätzlich an der udev-Regel bzw.
-der Gruppe `input`. Der Flatpak-Build ist auf einem echten System noch nicht
+Schreibzugriff auf dem Host klappt, hängt zusätzlich an der udev-Regel. Der Flatpak-Build ist auf einem echten System noch nicht
 geprüft (offenes Release-Tor, siehe `flatpak/README.md`, Abschnitt „Release-Tor“).
 
 **Lizenz:** `libXScrnSaver` 1.2.4 (X11, MIT-style) wird im Flatpak-Build gebaut

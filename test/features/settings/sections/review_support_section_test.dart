@@ -167,4 +167,28 @@ void main() {
       expect(opened, [kGitHubRepoUrl]);
     },
   );
+
+  for (final channel in DeployChannel.values) {
+    testWidgets(
+      'the permanent GitHub star entry opens the repository on $channel',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const ReviewSupportSection(),
+            locale: const Locale('en'),
+            overrides: [deployChannelProvider.overrideWith((ref) => channel)],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.reviewSupportGitHubLabel), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('settings-github-star-button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(capturedUrl, kGitHubRepoUrl);
+      },
+    );
+  }
 }

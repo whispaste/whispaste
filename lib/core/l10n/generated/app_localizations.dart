@@ -1332,7 +1332,7 @@ abstract class L10n {
   /// No description provided for @pasteNotificationLinuxUinputBody.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste can\'t use the virtual keyboard device /dev/uinput yet. The text is on the clipboard, paste it with {paste}. Click here for the command that sets this up once.'**
+  /// **'WhisPaste can\'t use the virtual keyboard device /dev/uinput yet. The text is on the clipboard, paste it with {paste}. Click here to set it up.'**
   String pasteNotificationLinuxUinputBody(String paste);
 
   /// No description provided for @pasteNotificationLinuxUinputTray.
@@ -1680,13 +1680,13 @@ abstract class L10n {
   /// No description provided for @onboardingPasteLinuxNative.
   ///
   /// In en, this message translates to:
-  /// **'On this system auto-paste works automatically. WhisPaste pastes the text at the cursor after each recording.'**
+  /// **'Auto-paste needs your permission for the virtual keyboard (/dev/uinput). With the .deb package, choose “Allow (administrator password)” and enter your administrator password; otherwise copy the command and run it once in a terminal. You can remove the permission again in the settings.'**
   String get onboardingPasteLinuxNative;
 
   /// No description provided for @onboardingPasteLinuxFlatpak.
   ///
   /// In en, this message translates to:
-  /// **'In the Flatpak build, --device=all makes /dev/input/* and /dev/uinput visible inside the sandbox. WhisPaste itself reads no input devices. If your user has read rights on the host (e.g. as a member of the input group), the app could read keystrokes of other programs. Members of the input group can also generate virtual input. Auto-paste also needs write access to /dev/uinput on the host: install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/ and run: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. The rule gives write access to the logged-in user and to every member of the input group. These commands need administrator rights (sudo) and change the system. If you do not want this, leave auto-paste off and paste the text by hand.'**
+  /// **'In the Flatpak build, --device=all makes /dev/input/* and /dev/uinput visible inside the sandbox. WhisPaste itself reads no input devices. If your user has read rights on the host (e.g. as a member of the input group), the app could read keystrokes of other programs. Auto-paste also needs write access to /dev/uinput on the host: copy the command and run it once in a terminal. It installs the udev rule 71-whispaste-uinput.rules, which gives access only to the signed-in session. The command needs administrator rights (sudo) and changes the system. If you do not want this, leave auto-paste off and paste the text by hand.'**
   String get onboardingPasteLinuxFlatpak;
 
   /// No description provided for @onboardingPasteLinuxSnap.
@@ -1698,7 +1698,7 @@ abstract class L10n {
   /// No description provided for @onboardingPasteLinuxAppImage.
   ///
   /// In en, this message translates to:
-  /// **'The AppImage needs access to /dev/uinput (the virtual keyboard device). Recommended: install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/ and run: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. The rule gives write access to the logged-in user and to every member of the input group, so every member can generate virtual input (e.g. simulated key presses). Alternative: sudo usermod -aG input \$USER, then sign out and back in. Members of the input group can also read the keystrokes of all input devices, including those of other programs. These commands need administrator rights (sudo) and change the system. Until then, auto-paste only copies the text.'**
+  /// **'The AppImage needs access to /dev/uinput (the virtual keyboard device). Copy the command and run it once in a terminal. It installs the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/ and runs sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. The rule gives write access only to the signed-in session. The command needs administrator rights (sudo) and changes the system. Until then, auto-paste only copies the text.'**
   String get onboardingPasteLinuxAppImage;
 
   /// No description provided for @onboardingPasteWinEnableCta.
@@ -2510,6 +2510,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Cancel'**
   String get actionCancel;
+
+  /// No description provided for @actionClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get actionClose;
 
   /// No description provided for @actionConfirm.
   ///
@@ -3933,6 +3939,126 @@ abstract class L10n {
   /// **'Required'**
   String get feedbackRequiredMarker;
 
+  /// No description provided for @feedbackPublishConsentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'I allow my feedback to appear anonymously as a quote on the website.'**
+  String get feedbackPublishConsentLabel;
+
+  /// No description provided for @feedbackPublishConsentExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Off by default. Only your text and rating are shown, never your name or email. You can withdraw this at any time with one click on the Feedback page in the app.'**
+  String get feedbackPublishConsentExplanation;
+
+  /// No description provided for @feedbackWithdrawConsentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw consent'**
+  String get feedbackWithdrawConsentLabel;
+
+  /// No description provided for @feedbackWithdrawConsentHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies to feedback you sent with consent from this device. The quote disappears from the website within about 24 hours.'**
+  String get feedbackWithdrawConsentHelp;
+
+  /// No description provided for @feedbackWithdrawConsentPending.
+  ///
+  /// In en, this message translates to:
+  /// **'The withdrawal is saved and will be sent once WhisPaste runs with an internet connection (for up to 30 days); otherwise please withdraw by e-mail.'**
+  String get feedbackWithdrawConsentPending;
+
+  /// No description provided for @feedbackWithdrawNoCode.
+  ///
+  /// In en, this message translates to:
+  /// **'No withdrawal code is stored on this device – withdraw by e-mail'**
+  String get feedbackWithdrawNoCode;
+
+  /// No description provided for @feedbackWithdrawEntrySending.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawal from {date} is being sent …'**
+  String feedbackWithdrawEntrySending(Object date);
+
+  /// No description provided for @feedbackWithdrawEntryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawal from {date} not delivered – withdraw by e-mail'**
+  String feedbackWithdrawEntryFailed(Object date);
+
+  /// No description provided for @feedbackWithdrawConsentUndelivered.
+  ///
+  /// In en, this message translates to:
+  /// **'The withdrawal could not be delivered – please withdraw by e-mail.'**
+  String get feedbackWithdrawConsentUndelivered;
+
+  /// No description provided for @feedbackWithdrawEmailLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw by e-mail'**
+  String get feedbackWithdrawEmailLabel;
+
+  /// No description provided for @feedbackWithdrawEmailSubject.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw my consent to quote my feedback'**
+  String get feedbackWithdrawEmailSubject;
+
+  /// No description provided for @feedbackWithdrawEmailBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Please withdraw my consent to quote my feedback.'**
+  String get feedbackWithdrawEmailBody;
+
+  /// No description provided for @feedbackWithdrawEmailDateLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback date:'**
+  String get feedbackWithdrawEmailDateLabel;
+
+  /// No description provided for @feedbackWithdrawEmailReferenceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawal reference:'**
+  String get feedbackWithdrawEmailReferenceLabel;
+
+  /// No description provided for @feedbackWithdrawEmailSentLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'I have sent the e-mail'**
+  String get feedbackWithdrawEmailSentLabel;
+
+  /// No description provided for @feedbackWithdrawEmailLaunchFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'No e-mail app found. Please send the prepared message to this address:'**
+  String get feedbackWithdrawEmailLaunchFailed;
+
+  /// No description provided for @feedbackWithdrawEmailCopyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy address and message'**
+  String get feedbackWithdrawEmailCopyLabel;
+
+  /// No description provided for @feedbackWithdrawEmailCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Address and message copied.'**
+  String get feedbackWithdrawEmailCopied;
+
+  /// No description provided for @feedbackWithdrawLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Your system\'s credential store cannot be read right now. WhisPaste cannot send the consents and withdrawals kept there. Please withdraw by e-mail; the prepared e-mail contains the references needed.'**
+  String get feedbackWithdrawLocked;
+
+  /// No description provided for @feedbackWithdrawConsentDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdrawal sent. The quote disappears from the website within about 24 hours, at the next daily update.'**
+  String get feedbackWithdrawConsentDone;
+
   /// No description provided for @feedbackPrivacyNote.
   ///
   /// In en, this message translates to:
@@ -4946,6 +5072,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'The speech model file is damaged. Download the speech model again in Settings.'**
   String get errorSttModelCorrupted;
+
+  /// Error toast when the speech engine is still running a native call after a model switch or quit was requested. Tells the user to restart the app.
+  ///
+  /// In en, this message translates to:
+  /// **'The speech engine is still busy with an earlier dictation. Restart WhisPaste to use it again.'**
+  String get errorSttEngineRestartNeeded;
 
   /// Error toast when a retry of a kept recording fails again. The recording stays for another try.
   ///
@@ -7174,6 +7306,24 @@ abstract class L10n {
   /// **'Quit'**
   String get trayQuit;
 
+  /// No description provided for @trayRecentRecordings.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent recordings'**
+  String get trayRecentRecordings;
+
+  /// No description provided for @trayUnlockRecordings.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock recordings…'**
+  String get trayUnlockRecordings;
+
+  /// No description provided for @trayRecentMeta.
+  ///
+  /// In en, this message translates to:
+  /// **'{time} · {count, plural, =1{1 word} other{{count} words}}'**
+  String trayRecentMeta(String time, int count);
+
   /// No description provided for @trayFeedback.
   ///
   /// In en, this message translates to:
@@ -7870,6 +8020,24 @@ abstract class L10n {
   /// **'Always-on-top recording button for quick access'**
   String get settingsFloatingButtonSectionSubtitle;
 
+  /// No description provided for @settingsFloatingButtonWaylandTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wayland limits'**
+  String get settingsFloatingButtonWaylandTitle;
+
+  /// No description provided for @settingsFloatingButtonWaylandLimit.
+  ///
+  /// In en, this message translates to:
+  /// **'Under Wayland the desktop decides where the button appears and whether it stays on top. WhisPaste can only promise both to a limited extent there. Recording with a click still works, and the button does not take keyboard focus.'**
+  String get settingsFloatingButtonWaylandLimit;
+
+  /// No description provided for @settingsFloatingButtonUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available on this Linux desktop: the button needs X11 or XWayland. Turning it off is still possible.'**
+  String get settingsFloatingButtonUnavailable;
+
   /// No description provided for @settingsSttIdleTimeout.
   ///
   /// In en, this message translates to:
@@ -7995,6 +8163,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Rate'**
   String get reviewSupportAction;
+
+  /// No description provided for @reviewSupportGitHubLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Support WhisPaste with a star on GitHub'**
+  String get reviewSupportGitHubLabel;
+
+  /// No description provided for @reviewSupportGitHubAction.
+  ///
+  /// In en, this message translates to:
+  /// **'View on GitHub'**
+  String get reviewSupportGitHubAction;
+
+  /// No description provided for @githubInviteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste is open source'**
+  String get githubInviteTitle;
+
+  /// No description provided for @githubInviteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'A star on GitHub helps others find it.'**
+  String get githubInviteBody;
+
+  /// No description provided for @githubInviteOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'View on GitHub'**
+  String get githubInviteOpen;
+
+  /// No description provided for @githubInviteLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Later'**
+  String get githubInviteLater;
+
+  /// No description provided for @githubInviteNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t ask again'**
+  String get githubInviteNever;
 
   /// No description provided for @ideasBoardLabel.
   ///
@@ -8896,6 +9106,18 @@ abstract class L10n {
   /// **'Anything you copy while WhisPaste is running shows up here — cleared when the app restarts.'**
   String get sidePanelClipboardHistoryEmptyHint;
 
+  /// No description provided for @sidePanelClipboardLockedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked by PIN'**
+  String get sidePanelClipboardLockedTitle;
+
+  /// No description provided for @sidePanelClipboardLockedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied text stays hidden while the recordings are locked. Unlock them with your PIN to see it again.'**
+  String get sidePanelClipboardLockedHint;
+
   /// Accessibility label for the side panel's close button (screen readers)
   ///
   /// In en, this message translates to:
@@ -8925,6 +9147,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Try a different search term.'**
   String get sidePanelNoMatchesHint;
+
+  /// No description provided for @sidePanelLoadFailedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Close and reopen the panel to try again.'**
+  String get sidePanelLoadFailedHint;
 
   /// No description provided for @settingsSmartMode.
   ///
@@ -9576,6 +9804,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'The pack could not be saved. Check your free disk space.'**
   String get settingsCudaPackErrorStorage;
+
+  /// No description provided for @cudaEulaDialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'NVIDIA CUDA licence'**
+  String get cudaEulaDialogTitle;
+
+  /// No description provided for @cudaEulaDialogBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The CUDA pack contains NVIDIA components under the NVIDIA CUDA End User License Agreement (version {version}). The authoritative text is the copy in the pack (LICENSE-NVIDIA.txt); the link opens NVIDIA\'s current version. You need to accept it to download.'**
+  String cudaEulaDialogBody(String version);
+
+  /// No description provided for @cudaEulaDialogLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the licence on NVIDIA'**
+  String get cudaEulaDialogLink;
+
+  /// No description provided for @cudaEulaDialogCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cudaEulaDialogCancel;
+
+  /// No description provided for @cudaEulaDialogAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept and download'**
+  String get cudaEulaDialogAccept;
 
   /// No description provided for @recoveryCudaDisabledToast.
   ///
@@ -10954,6 +11212,18 @@ abstract class L10n {
   /// **'The threshold must be strict, standard, tolerant or a number from 0.5 to 1.'**
   String get dictionaryCsvReasonInvalidThreshold;
 
+  /// No description provided for @dictionaryCsvReasonControlCharacter.
+  ///
+  /// In en, this message translates to:
+  /// **'The line contains a control or hidden formatting character, or a line break.'**
+  String get dictionaryCsvReasonControlCharacter;
+
+  /// No description provided for @dictionaryCsvReasonTooManyTriggers.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many trigger phrases in one line (at most {max}).'**
+  String dictionaryCsvReasonTooManyTriggers(int max);
+
   /// No description provided for @dictionaryCsvPreviewTitle.
   ///
   /// In en, this message translates to:
@@ -11038,11 +11308,131 @@ abstract class L10n {
   /// **'Add {count} entries'**
   String dictionaryCsvPreviewAddCount(int count);
 
-  /// No description provided for @dictionaryCsvSkippedDuplicates.
+  /// No description provided for @dictionaryCsvImportEncodingError.
   ///
   /// In en, this message translates to:
-  /// **'{count} duplicates are skipped.'**
-  String dictionaryCsvSkippedDuplicates(int count);
+  /// **'The file is not UTF-8 text.'**
+  String get dictionaryCsvImportEncodingError;
+
+  /// No description provided for @dictionaryCsvRefusedFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'This file uses a package format this app cannot read.'**
+  String get dictionaryCsvRefusedFormat;
+
+  /// No description provided for @dictionaryCsvRefusedType.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is not a replacement dictionary package.'**
+  String get dictionaryCsvRefusedType;
+
+  /// No description provided for @dictionaryCsvPackageHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Package: {name} (created {date})'**
+  String dictionaryCsvPackageHeader(String name, String date);
+
+  /// No description provided for @dictionaryCsvPackageNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No package info (older or foreign file)'**
+  String get dictionaryCsvPackageNone;
+
+  /// No description provided for @dictionaryCsvSummaryLine.
+  ///
+  /// In en, this message translates to:
+  /// **'New: {added} · Duplicates: {duplicates} · Conflicts: {conflicts} · Circular references: {circular} · Invalid: {errors}'**
+  String dictionaryCsvSummaryLine(
+    int added,
+    int duplicates,
+    int conflicts,
+    int circular,
+    int errors,
+  );
+
+  /// No description provided for @dictionaryCsvStrategyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'When a trigger already exists'**
+  String get dictionaryCsvStrategyLabel;
+
+  /// No description provided for @dictionaryCsvStrategySkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get dictionaryCsvStrategySkip;
+
+  /// No description provided for @dictionaryCsvStrategyOverwrite.
+  ///
+  /// In en, this message translates to:
+  /// **'Overwrite'**
+  String get dictionaryCsvStrategyOverwrite;
+
+  /// No description provided for @dictionaryCsvStrategyKeepBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep both'**
+  String get dictionaryCsvStrategyKeepBoth;
+
+  /// No description provided for @dictionaryCsvStrategySkipHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The row is not imported. Existing entries stay unchanged.'**
+  String get dictionaryCsvStrategySkipHint;
+
+  /// No description provided for @dictionaryCsvStrategyOverwriteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The shared trigger is removed from the old entry and the row is added. {changed} existing entries change or are deleted.'**
+  String dictionaryCsvStrategyOverwriteHint(int changed);
+
+  /// No description provided for @dictionaryCsvStrategyKeepBothHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The row is added as well. For the same trigger, the existing entry that comes first in the list still applies.'**
+  String get dictionaryCsvStrategyKeepBothHint;
+
+  /// No description provided for @dictionaryCsvStatusAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'will be added'**
+  String get dictionaryCsvStatusAdded;
+
+  /// No description provided for @dictionaryCsvStatusDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'already present'**
+  String get dictionaryCsvStatusDuplicate;
+
+  /// No description provided for @dictionaryCsvStatusConflictSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'conflict, skipped'**
+  String get dictionaryCsvStatusConflictSkipped;
+
+  /// No description provided for @dictionaryCsvStatusConflictReplaced.
+  ///
+  /// In en, this message translates to:
+  /// **'conflict, replaces the existing trigger'**
+  String get dictionaryCsvStatusConflictReplaced;
+
+  /// No description provided for @dictionaryCsvStatusConflictKept.
+  ///
+  /// In en, this message translates to:
+  /// **'conflict, added alongside'**
+  String get dictionaryCsvStatusConflictKept;
+
+  /// No description provided for @dictionaryCsvStatusSuperseded.
+  ///
+  /// In en, this message translates to:
+  /// **'replaced by a later row in this file'**
+  String get dictionaryCsvStatusSuperseded;
+
+  /// No description provided for @dictionaryCsvStatusCircular.
+  ///
+  /// In en, this message translates to:
+  /// **'circular reference, not imported'**
+  String get dictionaryCsvStatusCircular;
 
   /// No description provided for @dictionaryCsvRowWillAdd.
   ///
@@ -11055,6 +11445,36 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Duplicate, skipped'**
   String get dictionaryCsvRowSkipped;
+
+  /// No description provided for @dictionaryCsvExportSelectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose entries to export'**
+  String get dictionaryCsvExportSelectTitle;
+
+  /// No description provided for @dictionaryCsvExportSelectSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} entries to choose from'**
+  String dictionaryCsvExportSelectSubtitle(int count);
+
+  /// No description provided for @dictionaryCsvAllPresent.
+  ///
+  /// In en, this message translates to:
+  /// **'All entries are already present. Nothing will be written.'**
+  String get dictionaryCsvAllPresent;
+
+  /// No description provided for @dictionaryCsvExportConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Export ({count})'**
+  String dictionaryCsvExportConfirm(int count);
+
+  /// No description provided for @dictionaryCsvExportTooMany.
+  ///
+  /// In en, this message translates to:
+  /// **'Too many entries for one file: {count}. Choose fewer (at most 5000 entries, 1 MiB).'**
+  String dictionaryCsvExportTooMany(int count);
 
   /// No description provided for @settingsBetaGroupHeading.
   ///
@@ -11881,7 +12301,7 @@ abstract class L10n {
   /// No description provided for @manualC02S3B2I2.
   ///
   /// In en, this message translates to:
-  /// **'“Floating button”: a button above all windows that you click to record. Default: off.'**
+  /// **'“Floating button”: a button you click to record. Default: off. On Linux under Wayland, the desktop may limit its position and whether it stays on top.'**
   String get manualC02S3B2I2;
 
   /// No description provided for @manualC02S4Heading.
@@ -12141,6 +12561,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'You can back up or transfer your replacements as a CSV file. The file has the columns {k1}. Separate several trigger phrases with {k2}. A file can be at most {k3} and {k4} lines.'**
   String manualC05S3B1(String k1, String k2, String k3, String k4);
+
+  /// No description provided for @manualC05S3B2.
+  ///
+  /// In en, this message translates to:
+  /// **'Import and export are in the More menu (⋯) above the list. The try-it field opens from the same menu.'**
+  String get manualC05S3B2;
 
   /// No description provided for @manualC06Title.
   ///
@@ -12417,6 +12843,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'A forgotten PIN cannot be recovered. To reset it, all transcriptions and saved audio files (including archive and trash), all notes with their versions, and all note images are deleted immediately. Settings, snippets, and replacements are kept.'**
   String get manualC08S5B2;
+
+  /// No description provided for @manualC08S5B3.
+  ///
+  /// In en, this message translates to:
+  /// **'While the recordings are locked by a PIN, the clipboard tab in the side panel shows no copied text and pastes none. Copied text comes back once you unlock them.'**
+  String get manualC08S5B3;
 
   /// No description provided for @manualC08S6Heading.
   ///
@@ -12766,6 +13198,12 @@ abstract class L10n {
   /// **'The download is one-time. The app shows its size.'**
   String get manualC13S3B2;
 
+  /// No description provided for @manualC13S3B3.
+  ///
+  /// In en, this message translates to:
+  /// **'The pack contains NVIDIA components. Before the download, you accept NVIDIA\'s CUDA licence agreement, which the dialog links to.'**
+  String get manualC13S3B3;
+
   /// No description provided for @manualC13S4Heading.
   ///
   /// In en, this message translates to:
@@ -12976,10 +13414,10 @@ abstract class L10n {
   /// **'On Linux, auto-paste uses a virtual input device (uinput). If it does not work, check whether WhisPaste may access that device.'**
   String get manualC14S15B1;
 
-  /// Shown when the current Linux system needs no extra setup for auto-paste.
+  /// The .deb flow (R-02): nothing is granted on install; the user allows /dev/uinput in the app with the administrator password and can remove it again.
   ///
   /// In en, this message translates to:
-  /// **'On this system, no setup is needed. WhisPaste pastes the text at the cursor after each recording.'**
+  /// **'The .deb package grants no access when it is installed. Auto-paste asks first: in the setup or under Settings → After transcription, choose “Allow (administrator password)” and enter your administrator password. While the permission is in place, other programs in your session can create key presses too. “Remove permission” takes it back at any time; uninstalling removes it as well.'**
   String get manualC14S15B2;
 
   /// Flatpak note: what the sandbox permission gives the app. Plain language, no technical flags.
@@ -12994,10 +13432,10 @@ abstract class L10n {
   /// **'In the Snap build, run this once in a terminal:'**
   String get manualC14S15B4;
 
-  /// AppImage setup options (udev rule or input group) and what happens until setup is done.
+  /// AppImage setup: the copied udev command (session access only) and what happens until setup is done.
   ///
   /// In en, this message translates to:
-  /// **'The AppImage needs access to /dev/uinput. Either install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/, or add your user to the input group and sign in again. Until then, auto-paste only copies the text.'**
+  /// **'The AppImage needs access to /dev/uinput. In the setup or in the settings, copy the command and run it once in a terminal. It installs the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/, which gives write access only to the signed-in session. Until then, auto-paste only copies the text.'**
   String get manualC14S15B5;
 
   /// Handbook troubleshooting heading: terminal paste shortcut under Wayland.
@@ -13144,10 +13582,10 @@ abstract class L10n {
   /// **'Could not copy. Select the command and copy it by hand.'**
   String get manualCodeCopyFailed;
 
-  /// Warning that the udev rule gives write access to the logged-in user and the input group, and that the commands need administrator rights.
+  /// Warning that the udev rule gives write access to the signed-in session only, that the commands need administrator rights, and how to remove the rule.
   ///
   /// In en, this message translates to:
-  /// **'The rule gives write access to the logged-in user and to every member of the input group. These commands need administrator rights (sudo) and change the system. If you do not want this, leave auto-paste off and paste the text by hand.'**
+  /// **'The rule gives write access only to the signed-in session. These commands need administrator rights (sudo) and change the system. If you do not want this, leave auto-paste off and paste the text by hand. To remove the rule, use the button in the settings that copies the matching command.'**
   String get manualC14S15B3E;
 
   /// Subheading for the Snap build, a Linux app package format. Keep the name as is.
@@ -13603,7 +14041,7 @@ abstract class L10n {
   /// No description provided for @pasteFailureLinuxUinputHint.
   ///
   /// In en, this message translates to:
-  /// **'Auto-paste needs one-time access to /dev/uinput. Copy the command and run it in a terminal.'**
+  /// **'Auto-paste needs your one-time permission for the virtual keyboard (/dev/uinput).'**
   String get pasteFailureLinuxUinputHint;
 
   /// No description provided for @pasteFailureLinuxUinputCopy.
@@ -13623,6 +14061,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Auto-paste needs one-time access to /dev/uinput. Open the Auto-Paste settings for the one-time setup.'**
   String get pasteFailureLinuxUinputSettingsHint;
+
+  /// Notification after a .deb upgrade removed the install-time /dev/uinput access (R-02); shown once, on the first blocked paste.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-paste now asks before it uses the virtual keyboard /dev/uinput, so this update removed the old access. The text is on the clipboard, paste it with {paste}. Click here to allow it.'**
+  String linuxUinputConsentNotice(String paste);
+
+  /// No description provided for @linuxUinputSetupAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up'**
+  String get linuxUinputSetupAction;
+
+  /// No description provided for @linuxUinputConsentDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'To paste the text itself, WhisPaste needs a virtual keyboard. While it is allowed, other programs in your session can create key presses too. Without it, WhisPaste copies the text and you paste it yourself.'**
+  String get linuxUinputConsentDetail;
+
+  /// No description provided for @linuxUinputGrantButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow (administrator password)'**
+  String get linuxUinputGrantButton;
+
+  /// No description provided for @linuxUinputGrantFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowing did not work. WhisPaste keeps copying the text only.'**
+  String get linuxUinputGrantFailed;
+
+  /// No description provided for @linuxUinputRevokeButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove permission'**
+  String get linuxUinputRevokeButton;
+
+  /// No description provided for @linuxUinputRevokeDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission removed. WhisPaste now only copies the text.'**
+  String get linuxUinputRevokeDone;
 
   /// No description provided for @settingsSecureKeysNotRemoved.
   ///
@@ -14427,6 +14907,480 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'On: hold the hotkey and speak, release to finish. Off: press once to start, press again to finish.'**
   String get holdToRecordExplained;
+
+  /// No description provided for @settingsAreaProfiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles'**
+  String get settingsAreaProfiles;
+
+  /// No description provided for @profilesSectionHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Your profiles'**
+  String get profilesSectionHeading;
+
+  /// No description provided for @profilesEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles switch the speech model, language, Smart Mode and the after-transcription action with a hotkey, or automatically per app.'**
+  String get profilesEmptyBody;
+
+  /// No description provided for @profilesAddFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Create first profile'**
+  String get profilesAddFirst;
+
+  /// No description provided for @profilesAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Create profile'**
+  String get profilesAdd;
+
+  /// No description provided for @profilesCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get profilesCreate;
+
+  /// No description provided for @profilesLimitReached.
+  ///
+  /// In en, this message translates to:
+  /// **'At most 9 profiles. Delete one to create another.'**
+  String get profilesLimitReached;
+
+  /// No description provided for @profilesActiveBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get profilesActiveBadge;
+
+  /// No description provided for @profilesMoveUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Move up'**
+  String get profilesMoveUp;
+
+  /// No description provided for @profilesMoveDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Move down'**
+  String get profilesMoveDown;
+
+  /// No description provided for @profilesDragHandle.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to reorder'**
+  String get profilesDragHandle;
+
+  /// No description provided for @profilesNewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New profile'**
+  String get profilesNewTitle;
+
+  /// No description provided for @profilesNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get profilesNameLabel;
+
+  /// No description provided for @profilesNameEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a name.'**
+  String get profilesNameEmpty;
+
+  /// No description provided for @profileDetailHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile settings'**
+  String get profileDetailHeading;
+
+  /// No description provided for @profileDetailModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech model'**
+  String get profileDetailModel;
+
+  /// No description provided for @profileDetailLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get profileDetailLanguage;
+
+  /// No description provided for @profileDetailLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies to Whisper and cloud services. Parakeet detects the language itself.'**
+  String get profileDetailLanguageSubtitle;
+
+  /// No description provided for @profileDetailSmartMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get profileDetailSmartMode;
+
+  /// No description provided for @profileDetailAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'After transcription'**
+  String get profileDetailAfter;
+
+  /// No description provided for @profileDetailMicrophone.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone'**
+  String get profileDetailMicrophone;
+
+  /// No description provided for @profileKeepUnchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave unchanged'**
+  String get profileKeepUnchanged;
+
+  /// No description provided for @profileValueUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} (unavailable)'**
+  String profileValueUnavailable(String value);
+
+  /// No description provided for @profileDetailHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotkey'**
+  String get profileDetailHotkey;
+
+  /// No description provided for @profileDetailHotkeySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches to this profile with this key press.'**
+  String get profileDetailHotkeySubtitle;
+
+  /// No description provided for @profileHotkeyNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No hotkey'**
+  String get profileHotkeyNone;
+
+  /// No description provided for @profileHotkeyChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Set hotkey'**
+  String get profileHotkeyChange;
+
+  /// No description provided for @profileHotkeyRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove hotkey'**
+  String get profileHotkeyRemove;
+
+  /// No description provided for @profileHotkeyNeedsModifier.
+  ///
+  /// In en, this message translates to:
+  /// **'A profile hotkey needs at least one modifier key, such as Ctrl, Alt, Shift or Command.'**
+  String get profileHotkeyNeedsModifier;
+
+  /// No description provided for @profileHotkeyTakenByApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Already used by “{action}”. The hotkey is not active.'**
+  String profileHotkeyTakenByApp(String action);
+
+  /// No description provided for @profileHotkeyTakenByProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Already used by the profile “{name}”. The hotkey is not active.'**
+  String profileHotkeyTakenByProfile(String name);
+
+  /// No description provided for @profileDetailApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Target apps'**
+  String get profileDetailApps;
+
+  /// No description provided for @profileDetailAppsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When one of these apps is in front while you dictate, the profile becomes active automatically.'**
+  String get profileDetailAppsSubtitle;
+
+  /// No description provided for @profileAppIdentifierLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'App identifier'**
+  String get profileAppIdentifierLabel;
+
+  /// No description provided for @profileAppAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get profileAppAdd;
+
+  /// No description provided for @profileAppHintMac.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS: bundle ID, e.g. com.apple.mail'**
+  String get profileAppHintMac;
+
+  /// No description provided for @profileAppHintWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Windows: program name without .exe, e.g. chrome'**
+  String get profileAppHintWindows;
+
+  /// No description provided for @profileAppHintLinux.
+  ///
+  /// In en, this message translates to:
+  /// **'Linux: window WM_CLASS, e.g. google-chrome. Not detectable under Wayland.'**
+  String get profileAppHintLinux;
+
+  /// No description provided for @profileAppClash.
+  ///
+  /// In en, this message translates to:
+  /// **'This app already belongs to the profile “{name}”.'**
+  String profileAppClash(String name);
+
+  /// No description provided for @profileAppEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No app assigned yet.'**
+  String get profileAppEmpty;
+
+  /// No description provided for @profileAppRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove app rule'**
+  String get profileAppRemove;
+
+  /// No description provided for @profileDetailContext.
+  ///
+  /// In en, this message translates to:
+  /// **'Read context'**
+  String get profileDetailContext;
+
+  /// No description provided for @profileDetailContextSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Optionally reads the selected text or the clipboard so processing fits. With cloud services only with your consent.'**
+  String get profileDetailContextSubtitle;
+
+  /// No description provided for @profileContextNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Read nothing'**
+  String get profileContextNone;
+
+  /// No description provided for @profileContextSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected text'**
+  String get profileContextSelection;
+
+  /// No description provided for @profileContextClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard'**
+  String get profileContextClipboard;
+
+  /// No description provided for @profileConsentGiven.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent given'**
+  String get profileConsentGiven;
+
+  /// No description provided for @profileConsentMissing.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent missing, so no context is read'**
+  String get profileConsentMissing;
+
+  /// No description provided for @profileConsentWithdraw.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw consent'**
+  String get profileConsentWithdraw;
+
+  /// No description provided for @profileConsentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Send context to a cloud service?'**
+  String get profileConsentTitle;
+
+  /// No description provided for @profileConsentBody.
+  ///
+  /// In en, this message translates to:
+  /// **'When this profile is active, the selected text or the clipboard contents of the target window are sent to the cloud provider named in this profile, only to refine this recording. You can withdraw this consent at any time in the profile settings.'**
+  String get profileConsentBody;
+
+  /// No description provided for @profileConsentAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent'**
+  String get profileConsentAccept;
+
+  /// No description provided for @profileDeleteAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete profile'**
+  String get profileDeleteAction;
+
+  /// No description provided for @profileDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete profile “{name}”?'**
+  String profileDeleteTitle(String name);
+
+  /// No description provided for @profileDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The profile and its target apps are removed. Its hotkey becomes free.'**
+  String get profileDeleteMessage;
+
+  /// No description provided for @manualProfilesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles and quick switching'**
+  String get manualProfilesTitle;
+
+  /// No description provided for @manualProfilesS1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating profiles'**
+  String get manualProfilesS1Heading;
+
+  /// No description provided for @manualProfilesS1Body.
+  ///
+  /// In en, this message translates to:
+  /// **'A profile is a named set of recording settings. Create it under Settings → Profiles and decide for each field whether the profile sets it or leaves it unchanged.'**
+  String get manualProfilesS1Body;
+
+  /// No description provided for @manualProfilesS1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech model, language, Smart Mode, after-transcription action and microphone'**
+  String get manualProfilesS1B1;
+
+  /// No description provided for @manualProfilesS1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to 9 profiles. Every field can be set to “Leave unchanged”.'**
+  String get manualProfilesS1B2;
+
+  /// No description provided for @manualProfilesS2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotkeys'**
+  String get manualProfilesS2Heading;
+
+  /// No description provided for @manualProfilesS2Body.
+  ///
+  /// In en, this message translates to:
+  /// **'Each profile can have its own hotkey. Pressing it activates the profile, and it stays active until you choose another one or change one of its fields by hand.'**
+  String get manualProfilesS2Body;
+
+  /// No description provided for @manualProfilesS2Tip.
+  ///
+  /// In en, this message translates to:
+  /// **'A hotkey needs a modifier key. A combination that another feature already uses stays inactive, and the profile shows it as a conflict.'**
+  String get manualProfilesS2Tip;
+
+  /// No description provided for @manualProfilesS3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic per app'**
+  String get manualProfilesS3Heading;
+
+  /// No description provided for @manualProfilesS3Body.
+  ///
+  /// In en, this message translates to:
+  /// **'If you add an app under target apps, the profile becomes active whenever that app is in front while you dictate. The identifier depends on the operating system:'**
+  String get manualProfilesS3Body;
+
+  /// No description provided for @manualProfilesS3Mac.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS: bundle ID, for example com.apple.mail'**
+  String get manualProfilesS3Mac;
+
+  /// No description provided for @manualProfilesS3Win.
+  ///
+  /// In en, this message translates to:
+  /// **'Windows: program name without .exe, for example chrome'**
+  String get manualProfilesS3Win;
+
+  /// No description provided for @manualProfilesS3Linux.
+  ///
+  /// In en, this message translates to:
+  /// **'Linux: window WM_CLASS under X11, for example google-chrome. Under Wayland WhisPaste cannot detect the app.'**
+  String get manualProfilesS3Linux;
+
+  /// No description provided for @manualProfilesS4Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Tray and overlay'**
+  String get manualProfilesS4Heading;
+
+  /// No description provided for @manualProfilesS4Body.
+  ///
+  /// In en, this message translates to:
+  /// **'The tray menu has a Profile submenu: “Automatic, by app” follows the rules, “No profile” switches them off, and your profiles are listed below. In the recording overlay, the name of the active profile follows the time and language, for example 0:07 · DE · Mail.'**
+  String get manualProfilesS4Body;
+
+  /// No description provided for @manualProfilesS5Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave unchanged'**
+  String get manualProfilesS5Heading;
+
+  /// No description provided for @manualProfilesS5Body.
+  ///
+  /// In en, this message translates to:
+  /// **'“Leave unchanged” means the profile does not touch this field. The value currently set in Settings applies.'**
+  String get manualProfilesS5Body;
+
+  /// No description provided for @manualProfilesS6Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What a manual change does'**
+  String get manualProfilesS6Heading;
+
+  /// No description provided for @manualProfilesS6Body.
+  ///
+  /// In en, this message translates to:
+  /// **'If you choose a profile in the tray or press its hotkey, it applies to all following recordings. If you then change a field the profile sets, such as the speech model, the active marker ends and the per-app rules decide again. The choice survives a restart.'**
+  String get manualProfilesS6Body;
+
+  /// No description provided for @profileAppCapture.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture app'**
+  String get profileAppCapture;
+
+  /// No description provided for @profileAppCaptureCountdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to the target app in {seconds} s …'**
+  String profileAppCaptureCountdown(int seconds);
+
+  /// No description provided for @profileAppCaptured.
+  ///
+  /// In en, this message translates to:
+  /// **'“{identifier}” was added as target app.'**
+  String profileAppCaptured(Object identifier);
+
+  /// No description provided for @profileAppCaptureNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No other app is in front. Switch to the target app before the countdown ends.'**
+  String get profileAppCaptureNone;
+
+  /// No description provided for @profileAppCaptureUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This session cannot read the app in front (for example Wayland). Enter the identifier by hand.'**
+  String get profileAppCaptureUnavailable;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

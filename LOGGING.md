@@ -119,8 +119,15 @@ Zwei Schutzschichten, dieselbe Regex-Quelle
 
 **Log-Injection-Schutz**: `record.message`/`record.error` werden vor dem
 Schreiben single-lined (`\n`/`\r` → literales `\n`, Steuerzeichen entfernt),
-sodass aufrufer-kontrollierter Text (z. B. Dateinamen, Clipboard-Ausschnitte
-in Fehlermeldungen) keine gefälschten zusätzlichen Log-Zeilen erzeugen kann.
+sodass aufrufer-kontrollierter Text (z. B. Dateinamen in Fehlermeldungen)
+keine gefälschten zusätzlichen Log-Zeilen erzeugen kann.
+
+WhisPaste schreibt Diktat- und Zwischenablage-Inhalte nicht ins Log, nur ihre
+Länge (z. B. `text: 42 chars`). Wo Fehlermeldungen solche Inhalte enthalten
+könnten, wird nur der Fehlertyp protokolliert: `errorKind(e)` statt `$e`, also
+Typ plus Code oder Grund, etwa `SqliteException(code 1555)` oder
+`TranscriberException(reason: timeout)`. Alle Logzeilen werden zusätzlich um
+Pfade und Geheimnisse bereinigt.
 Stacktraces bleiben bewusst mehrzeilig (klar als solche erkennbar, kein
 freier Text).
 

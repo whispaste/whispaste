@@ -11,6 +11,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/data/database.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../services/path_service.dart';
+import '../../pending_audio/pending_audio_providers.dart';
 import '../import/audio_import_providers.dart';
 import '../recovery/recording_journal_provider.dart';
 import 'audio_retention.dart';
@@ -37,10 +38,26 @@ Timer startRetentionSchedule(
         container.read(settingsProvider).value?.historyAutoTrashDays ?? 0;
     if (trashDays > 0) {
       try {
+        final cutoff = DateTime.now().subtract(Duration(days: trashDays));
+        final purgedIds = await db.trashedEntryIds(olderThan: cutoff);
         await db.purgeTrash(days: trashDays);
+        final queue = container.read(pendingAudioQueueProvider);
+        for (final id in purgedIds) {
+          await queue.discard(id);
+        }
       } on Object catch (e) {
         _log.warning('Trash purge failed: $e');
       }
+    }
+    try {
+      final retainAudio =
+          container.read(settingsProvider).value?.privacy.retainRecentAudio ??
+          false;
+      await container
+          .read(pendingAudioQueueProvider)
+          .sweepExpired(retainAudio: retainAudio);
+    } on Object catch (e) {
+      _log.warning('Pending audio expiry sweep failed: $e');
     }
     try {
       final now = DateTime.now();

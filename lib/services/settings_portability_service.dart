@@ -127,6 +127,10 @@ const Set<String> settingsPortabilityDenyList = {
   'history_pin',
   'history_pin_failed_attempts',
   'history_pin_locked_until',
+  // NVIDIA CUDA EULA acceptance (pack id): consent is per installation. An
+  // export carries no acceptance, and an import must not grant one for this
+  // machine, so the user is asked again before any CUDA download here.
+  'cuda_eula_accepted',
 };
 
 /// Every storage key that is neither deny-listed nor a genuinely new

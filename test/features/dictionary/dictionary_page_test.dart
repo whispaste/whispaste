@@ -13,6 +13,7 @@ import 'package:whispaste/features/dictionary/dictionary_csv_preview_page.dart';
 import 'package:whispaste/features/dictionary/dictionary_page.dart';
 import 'package:whispaste/features/dictionary/widgets/dictionary_terms_field.dart';
 import 'package:whispaste/services/dictionary/replacement_csv.dart';
+import 'package:whispaste/services/dictionary/replacement_import_plan.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -66,6 +67,9 @@ void main() {
       await tester.tap(find.text(l10n.dictionaryTabReplacements));
       await tester.pumpAndSettle();
 
+      // CSV import/export and the try-it dialog sit behind the ⋯ menu.
+      await tester.tap(find.byKey(const ValueKey('replacements-more')));
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('dictionary-csv-import')),
         findsOneWidget,
@@ -75,7 +79,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey('dictionary-test-input')),
+        find.byKey(const ValueKey('dictionary-test-open')),
         findsOneWidget,
       );
     });
@@ -85,6 +89,12 @@ void main() {
     ) async {
       await pumpPage(tester);
       await tester.tap(find.text(l10n.dictionaryTabReplacements));
+      await tester.pumpAndSettle();
+
+      // The try-it dialog opens from the ⋯ menu.
+      await tester.tap(find.byKey(const ValueKey('replacements-more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dictionary-test-open')));
       await tester.pumpAndSettle();
 
       await tester.enterText(
@@ -127,17 +137,19 @@ void main() {
           ),
         ],
       );
-      List<ReplacementCsvRow>? confirmed;
+      ReplacementImportPlan? confirmed;
       await tester.pumpWidget(
         makeTestable(
           Builder(
             builder: (context) => TextButton(
               onPressed: () async {
                 confirmed = await Navigator.of(context)
-                    .push<List<ReplacementCsvRow>>(
+                    .push<ReplacementImportPlan>(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            const DictionaryCsvPreviewPage(result: result),
+                        builder: (_) => const DictionaryCsvPreviewPage(
+                          result: result,
+                          existing: [],
+                        ),
                       ),
                     );
               },
@@ -169,8 +181,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(confirmed, hasLength(1));
-      expect(confirmed!.single.replacement, 'Manufacturing');
+      expect(confirmed!.writeCount, 1);
+      expect(confirmed!.inserts.single.replacement, 'Manufacturing');
     });
   });
 }

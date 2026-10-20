@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/dictionary/replacement_csv.dart';
 import 'package:whispaste/services/replacements/text_replacement_matcher.dart';
@@ -215,6 +217,268 @@ void main() {
       expect(parsed.rows.length, 2);
       expect(parsed.rows.first.replacement, 'Er sagt "Hi" und geht');
       expect(parsed.rows.last.triggers.single, 'test');
+    });
+  });
+
+  group('package metadata (R-08)', () {
+    test('export writes the metadata record first and import reads it', () {
+      final csv = encodeReplacementsCsv(
+        const [
+          ReplacementCsvRow(triggers: ['mfg'], replacement: 'Gruß'),
+        ],
+        meta: ReplacementCsvMeta(
+          name: 'Support, Team',
+          created: DateTime(2026, 10, 18),
+        ),
+      );
+      expect(
+        csv.substring(1),
+        '#whispaste-dictionary,format=1,type=replacements,'
+        '"name=Support, Team",created=2026-10-18\r\n'
+        'triggers,replacement,match_mode,threshold\r\n'
+        'mfg,Gruß,exact,\r\n',
+      );
+      final result = parseReplacementsCsv(csv);
+      expect(result.refusal, isNull);
+      expect(result.errors, isEmpty);
+      expect(result.meta?.name, 'Support, Team');
+      expect(result.meta?.created, DateTime(2026, 10, 18));
+      expect(result.rows.single.replacement, 'Gruß');
+    });
+
+    test('a file without metadata is read as before', () {
+      final result = parseReplacementsCsv(
+        '﻿triggers,replacement,match_mode,threshold\r\nmfg,Gruß,exact,\r\n',
+      );
+      expect(result.meta, isNull);
+      expect(result.refusal, isNull);
+      expect(result.rows.single.triggers, ['mfg']);
+    });
+
+    test('the name is sanitised and cut to 80 characters', () {
+      final result = parseReplacementsCsv(
+        '#whispaste-dictionary,format=1,'
+        'name=  A\u0007${'b' * 100}\u202E  \r\n'
+        'mfg,x\r\n',
+      );
+      expect(result.meta?.name, isNotNull);
+      expect(result.meta!.name!.length, 80);
+      expect(result.meta!.name!.startsWith('Ab'), isTrue);
+      expect(result.meta!.name!.contains('\u0007'), isFalse);
+      expect(result.meta!.name!.contains('\u202E'), isFalse);
+    });
+
+    test('an invalid or impossible date is ignored, not refused', () {
+      for (final date in ['18.10.2026', '2026-02-30', '2026-1-1', '']) {
+        final result = parseReplacementsCsv(
+          '#whispaste-dictionary,format=1,created=$date\r\nmfg,x\r\n',
+        );
+        expect(result.refusal, isNull, reason: date);
+        expect(result.meta?.created, isNull, reason: date);
+        expect(result.rows, hasLength(1), reason: date);
+      }
+    });
+
+    test('a missing, empty or newer format refuses the whole file', () {
+      for (final first in [
+        '#whispaste-dictionary,type=replacements',
+        '#whispaste-dictionary,format=',
+        '#whispaste-dictionary,format=2,type=replacements',
+      ]) {
+        final result = parseReplacementsCsv('$first\r\nmfg,x\r\nlg,y\r\n');
+        expect(
+          result.refusal,
+          ReplacementCsvRefusal.unsupportedFormat,
+          reason: first,
+        );
+        expect(result.rows, isEmpty, reason: first);
+        expect(result.errors, isEmpty, reason: first);
+      }
+    });
+
+    test('an unknown package type refuses the file', () {
+      final result = parseReplacementsCsv(
+        '#whispaste-dictionary,format=1,type=snippets\r\nmfg,x\r\n',
+      );
+      expect(result.refusal, ReplacementCsvRefusal.unsupportedType);
+      expect(result.rows, isEmpty);
+    });
+
+    test('a missing type counts as replacements', () {
+      final result = parseReplacementsCsv(
+        '#whispaste-dictionary,format=1\r\nmfg,x\r\n',
+      );
+      expect(result.refusal, isNull);
+      expect(result.rows.single.triggers, ['mfg']);
+    });
+
+    test('the marker counts only as the first record', () {
+      final result = parseReplacementsCsv(
+        'mfg,x\r\n#whispaste-dictionary,format=9\r\n',
+      );
+      expect(result.refusal, isNull);
+      expect(result.rows.map((r) => r.triggers.single), [
+        'mfg',
+        '#whispaste-dictionary',
+      ]);
+    });
+  });
+
+  group('field separator', () {
+    test('a semicolon file with a header is read (German Excel)', () {
+      final result = parseReplacementsCsv(
+        'triggers;replacement;match_mode;threshold\r\n'
+        'mfg;Mit freundlichen Grüßen;exact;\r\n',
+      );
+      expect(result.errors, isEmpty);
+      expect(result.rows.single.replacement, 'Mit freundlichen Grüßen');
+    });
+
+    test('a semicolon metadata record sets the separator for the file', () {
+      final result = parseReplacementsCsv(
+        '#whispaste-dictionary;format=1;name=Test\r\n'
+        'mfg;Gruß\r\n',
+      );
+      expect(result.meta?.name, 'Test');
+      expect(result.rows.single.triggers, ['mfg']);
+    });
+
+    test('a comma file keeps semicolons inside its fields', () {
+      final result = parseReplacementsCsv('mfg,Hallo; Welt\r\n');
+      expect(result.errors, isEmpty);
+      expect(result.rows.single.replacement, 'Hallo; Welt');
+    });
+  });
+
+  group('byte decoding', () {
+    test('valid UTF-8 with umlauts and Cyrillic decodes', () {
+      final text = decodeReplacementsCsvBytes(utf8.encode('mfg,Grüße,Привет'));
+      expect(text, 'mfg,Grüße,Привет');
+    });
+
+    test('invalid UTF-8 is refused', () {
+      expect(decodeReplacementsCsvBytes([0x6d, 0x66, 0x67, 0xe4]), isNull);
+    });
+
+    test('a NUL byte is refused, even where UTF-8 accepts it', () {
+      expect(decodeReplacementsCsvBytes([0x6d, 0x00, 0x66]), isNull);
+    });
+
+    test('UTF-16 text is refused', () {
+      // UTF-16 LE BOM followed by "mfg": the bytes contain NUL bytes.
+      final bytes = [0xff, 0xfe, 0x6d, 0x00, 0x66, 0x00, 0x67, 0x00];
+      expect(decodeReplacementsCsvBytes(bytes), isNull);
+    });
+  });
+
+  group('forbidden characters', () {
+    String row(String cell) => 'mfg,$cell\r\n';
+
+    test('C0 and DEL controls in a field make the row fail', () {
+      for (final c in ['\u0001', '\u000b', '\u001b', '\u007f', '\u0085']) {
+        final result = parseReplacementsCsv(row('a${c}b'));
+        expect(
+          result.errors.single.reason,
+          ReplacementCsvErrorReason.controlCharacter,
+          reason: c.codeUnits.toString(),
+        );
+        expect(result.errors.single.line, 1);
+      }
+    });
+
+    test('bidi embedding and isolate controls make the row fail', () {
+      for (final c in ['\u202E', '\u2066']) {
+        final result = parseReplacementsCsv('mfg$c,x\r\n');
+        expect(
+          result.errors.single.reason,
+          ReplacementCsvErrorReason.controlCharacter,
+        );
+      }
+    });
+
+    test('a line break inside a quoted field is kept (round trip)', () {
+      final result = parseReplacementsCsv('mfg,"Zeile eins\nZeile zwei"\r\n');
+      expect(result.errors, isEmpty);
+      expect(result.rows.single.replacement, 'Zeile eins\nZeile zwei');
+    });
+
+    test('a tab inside a field is allowed', () {
+      final result = parseReplacementsCsv('mfg,a\tb\r\n');
+      expect(result.errors, isEmpty);
+      expect(result.rows.single.replacement, 'a\tb');
+    });
+
+    test('the error reports the line of the offending row', () {
+      final result = parseReplacementsCsv('mfg,x\r\nlg,a\u0001\r\nsig,y\r\n');
+      expect(result.errors.single.line, 2);
+      expect(result.rows.map((r) => r.triggers.single), ['mfg', 'sig']);
+    });
+  });
+
+  group('formula cells', () {
+    test('import keeps formula-like text as text, removing one apostrophe', () {
+      final result = parseReplacementsCsv(
+        "triggers,replacement\r\n'=HYPERLINK,'=1+1\r\n+1,-x\r\n",
+      );
+      expect(result.errors, isEmpty);
+      expect(result.rows[0].triggers, ['=HYPERLINK']);
+      expect(result.rows[0].replacement, '=1+1');
+      expect(result.rows[1].triggers, ['+1']);
+      expect(result.rows[1].replacement, '-x');
+    });
+  });
+
+  group('limits (R-08)', () {
+    test('50 triggers are accepted, 51 are refused', () {
+      final ok = List.generate(50, (i) => 'trigger$i').join('|');
+      final tooMany = List.generate(51, (i) => 'trigger$i').join('|');
+      final result = parseReplacementsCsv('$ok,x\r\n$tooMany,x\r\n');
+      expect(result.rows, hasLength(1));
+      expect(
+        result.errors.single.reason,
+        ReplacementCsvErrorReason.tooManyTriggers,
+      );
+      expect(result.errors.single.line, 2);
+    });
+
+    test('trigger length 200 is accepted, 201 is refused', () {
+      final result = parseReplacementsCsv(
+        '${'a' * 200},x\r\n${'b' * 201},x\r\n',
+      );
+      expect(result.rows, hasLength(1));
+      expect(
+        result.errors.single.reason,
+        ReplacementCsvErrorReason.triggerTooLong,
+      );
+    });
+
+    test('replacement length 5000 is accepted, 5001 is refused', () {
+      final result = parseReplacementsCsv(
+        'a,${'x' * 5000}\r\nb,${'y' * 5001}\r\n',
+      );
+      expect(result.rows, hasLength(1));
+      expect(
+        result.errors.single.reason,
+        ReplacementCsvErrorReason.replacementTooLong,
+      );
+    });
+
+    test('more than 5000 rows are cut and the result is truncated', () {
+      final buffer = StringBuffer();
+      for (var i = 0; i < 5001; i++) {
+        buffer.write('t$i,r$i\r\n');
+      }
+      final result = parseReplacementsCsv(buffer.toString());
+      expect(result.truncated, isTrue);
+      expect(result.rows.length + result.errors.length, 5000);
+    });
+
+    test('an input above 1 MiB is refused before reading', () {
+      final result = parseReplacementsCsv(
+        'mfg,${'x' * (replacementCsvMaxBytes + 1)}\r\n',
+      );
+      expect(result.tooLarge, isTrue);
+      expect(result.rows, isEmpty);
     });
   });
 }

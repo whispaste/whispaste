@@ -151,6 +151,8 @@ void main() {
       );
       // 60 s: repeat the dictation until it is long enough.
       final long = Float32List(16000 * 60);
+      // An empty clip would never advance `pos` below: fail instead of hang.
+      expect(speech, isNotEmpty, reason: 'speech clip must not be empty');
       var pos = 0;
       while (pos < long.length) {
         final n = min(speech.length, long.length - pos);

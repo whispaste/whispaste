@@ -9,7 +9,7 @@ import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/dictionary/dictionary_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
-import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/searchable_list_page.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -45,10 +45,14 @@ void main() {
     await tester.tap(find.text(l10n.dictionaryTabReplacements));
     await tester.pumpAndSettle();
 
-    final exportButton = tester.widget<WpButton>(
+    // Export lives in the overflow menu; the disabled row carries the reason.
+    await tester.tap(find.byKey(const ValueKey('replacements-more')));
+    await tester.pumpAndSettle();
+
+    final exportItem = tester.widget<PopupMenuItem<WpListMenuAction>>(
       find.byKey(const ValueKey('dictionary-csv-export')),
     );
-    expect(exportButton.onPressed, isNull);
+    expect(exportItem.enabled, isFalse);
     expect(find.text(l10n.dictionaryCsvExportEmpty), findsOneWidget);
   });
 }

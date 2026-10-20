@@ -216,6 +216,35 @@ bool isCudaPackOffered({
   required bool turingOrNewerNvidia,
 }) => packAvailable && turingOrNewerNvidia;
 
+/// NVIDIA's CUDA End User License Agreement. The pack ships NVIDIA
+/// components under it, so the download waits for explicit consent (see
+/// [isCudaEulaAcceptedFor]). The text itself is not copied into the app: the
+/// consent dialog links here.
+const kCudaNvidiaEulaUrl = 'https://docs.nvidia.com/cuda/eula/index.html';
+
+/// Version label of the NVIDIA CUDA EULA the pack ships. The bundled copy is
+/// dated 26 Jan 2026; the authoritative text is `LICENSE-NVIDIA.txt` inside
+/// the pack, and [kCudaNvidiaEulaUrl] opens NVIDIA's current version.
+const kCudaEulaVersion = '2026-01-26';
+
+/// SHA-256 of the bundled `LICENSE-NVIDIA.txt`, pinned in the build drivers.
+const kCudaEulaSha256 =
+    '95815d3a862cf6bb5b3b58b661c3a3172a58b9ca6fcfa36b0e3d19a8e63a18e3';
+
+/// The consent value stored once the user accepts [packId]: the pack version
+/// and the EULA version together. Changing either makes it stale.
+String cudaEulaConsentValue(String packId) => '$packId+eula-$kCudaEulaVersion';
+
+/// Whether the stored consent [accepted] covers the pack [packId].
+///
+/// Consent is per pack version and per EULA version: a new pack id or a new
+/// EULA text asks again. An empty string (never accepted) never matches. Pure,
+/// so the rule is testable.
+bool isCudaEulaAcceptedFor({
+  required String accepted,
+  required String packId,
+}) => accepted.isNotEmpty && accepted == cudaEulaConsentValue(packId);
+
 /// Whether a CUDA pack may be downloaded or loaded in this build. Store
 /// builds never do (Store policy 10.2.2, AR-19); the row shows the reason
 /// instead. Checked hard in [CudaPackNotifier.install] and in
@@ -455,10 +484,41 @@ class CudaPackNotifier extends Notifier<CudaPackState> {
     );
   }
 
-  /// Downloads, verifies and installs the pack.
+  /// Downloads, verifies and installs the pack. Refuses unless the NVIDIA
+  /// EULA was accepted for this pack id (the consent dialog runs first, see
+  /// [acceptEulaAndInstall]).
   Future<void> install() async {
     final pack = state.pack;
-    if (pack == null || state.isBusy || state.installed) return;
+    if (pack == null) return;
+    final settings = await ref.read(settingsProvider.future);
+    if (!isCudaEulaAcceptedFor(
+      accepted: settings.behavior.cudaEulaAccepted,
+      packId: pack.id,
+    )) {
+      return;
+    }
+    await _install(pack);
+  }
+
+  /// Records the user's acceptance of the NVIDIA EULA for this pack version
+  /// (per installation, never exported), then downloads and installs.
+  Future<void> acceptEulaAndInstall() async {
+    final pack = state.pack;
+    if (pack == null) return;
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            behavior: s.behavior.copyWith(
+              cudaEulaAccepted: cudaEulaConsentValue(pack.id),
+            ),
+          ),
+        );
+    await _install(pack);
+  }
+
+  Future<void> _install(CudaPackInfo pack) async {
+    if (state.isBusy || state.installed) return;
     if (!isCudaPackDownloadAllowed(channel: ref.read(deployChannelProvider))) {
       return;
     }

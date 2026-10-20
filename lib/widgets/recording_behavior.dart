@@ -159,6 +159,8 @@ String localizeRecordingError(
       return l10n.errorQuickNoteAppendFailed;
     case 'stt_model_corrupted':
       return l10n.errorSttModelCorrupted;
+    case 'stt_engine_restart_needed':
+      return l10n.errorSttEngineRestartNeeded;
     case 'stt_model_file_missing':
     case 'parakeet_model_not_found':
     case 'whisper_model_not_found':
@@ -788,6 +790,7 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
           ? l10n.pendingAudioSaveLater
           : l10n.pendingAudioRecovered,
       type: saveLater ? WpToastType.warning : WpToastType.info,
+      testId: 'pending-audio-toast',
     );
   }
 

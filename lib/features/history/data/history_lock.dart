@@ -327,12 +327,19 @@ final historyRevealedProvider = NotifierProvider<HistoryRevealedNotifier, bool>(
   HistoryRevealedNotifier.new,
 );
 
-/// Whether history text must be withheld from every surface: a PIN is set
-/// and the history has not been unlocked. The PIN-less gate only covers the
-/// History page itself, so it does not count here. Every surface reading
-/// this (side panel, floating button, Automation API) is only started from
-/// loaded settings, so the not-yet-loaded fallback is never consulted.
+/// Whether history text must be withheld from every surface: true only when a
+/// PIN is actually set and the history has not been unlocked. The lock never
+/// claims a PIN it does not know of: while the settings are still loading
+/// there is no PIN state yet, so nothing is withheld (every surface is only
+/// started from loaded settings). Only a settings load that failed without
+/// any previous value fails closed, because a PIN cannot be ruled out then.
+/// The PIN-less gate only covers the History page itself, so it does not
+/// count here.
 final historyContentHiddenProvider = Provider<bool>((ref) {
+  final failedWithoutValue = ref.watch(
+    settingsProvider.select((s) => s.hasError && !s.hasValue),
+  );
+  if (failedWithoutValue) return true;
   final hasPin = ref.watch(
     settingsProvider.select(
       (s) => s.value?.history.historyPin.isNotEmpty ?? false,

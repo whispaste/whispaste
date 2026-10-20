@@ -46,6 +46,9 @@ Transcribes a 16 kHz mono 16-bit PCM WAV without opening the app window.
   --replacements             apply the text replacements from the app's data
   --json                     print a JSON timing report instead of the text
   --out <file>               also write the JSON timing report to <file>
+
+Download the optional NVIDIA CUDA pack (needs NVIDIA EULA consent):
+  whispaste --download-cuda-pack --accept-nvidia-eula
 ''';
 
 /// Parsed `--transcribe-file` command line.

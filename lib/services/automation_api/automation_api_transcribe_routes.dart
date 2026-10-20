@@ -76,7 +76,11 @@ AutomationApiRouteGroup automationTranscribeRoutes({
       } on AutomationTranscriptionBusyException {
         return jsonResponse(409, {'error': 'busy'});
       } catch (e, st) {
-        _log.warning('POST /v1/transcriptions failed', e, st);
+        _log.warning(
+          'POST /v1/transcriptions failed: ${errorKind(e)}',
+          null,
+          st,
+        );
         return jsonResponse(500, {'error': 'transcribe_failed'});
       }
     });

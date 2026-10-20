@@ -41,6 +41,12 @@ String _runtimeAppVersion = 'unknown';
 String get appVersion =>
     _compileTimeVersion.isNotEmpty ? _compileTimeVersion : _runtimeAppVersion;
 
+/// Whether a real version is known. False only on a dev run where
+/// [initAppInfo] has not resolved it yet (and in the test host). User-visible
+/// labels check this instead of printing the `'unknown'` placeholder (UX-043).
+bool get appVersionKnown =>
+    _compileTimeVersion.isNotEmpty || _runtimeAppVersion != 'unknown';
+
 /// User-Agent header value for HTTP requests.
 String get appUserAgent => '$appName/$appVersion';
 

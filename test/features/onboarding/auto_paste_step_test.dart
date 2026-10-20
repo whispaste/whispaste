@@ -30,6 +30,7 @@ import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
 import 'package:whispaste/services/desktop_paste/linux_desktop_paste_controller.dart';
 import 'package:whispaste/services/desktop_paste/linux_package_format.dart';
+import 'package:whispaste/services/desktop_paste/linux_uinput_access.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/widgets/wp_button.dart';
@@ -185,6 +186,7 @@ _pumpStep(
   WidgetTester tester, {
   required _FakePasteCapabilityNotifier paste,
   _RecordingSettingsNotifier? settings,
+  LinuxUinputAccess? uinputAccess,
 }) async {
   final settingsNotifier = settings ?? _RecordingSettingsNotifier();
   await tester.pumpWidget(
@@ -199,6 +201,11 @@ _pumpStep(
       overrides: [
         pasteCapabilityNotifierProvider.overrideWith(() => paste),
         settingsProvider.overrideWith(() => settingsNotifier),
+        // Not a .deb unless a test says so: the host's real helper must not
+        // decide which button shows.
+        linuxUinputAccessProvider.overrideWithValue(
+          uinputAccess ?? LinuxUinputAccess(exists: (_) => false),
+        ),
       ],
     ),
   );
@@ -1001,6 +1008,9 @@ void main() {
             overrides: [
               pasteCapabilityNotifierProvider.overrideWith(() => paste),
               settingsProvider.overrideWith(() => _RecordingSettingsNotifier()),
+              linuxUinputAccessProvider.overrideWithValue(
+                LinuxUinputAccess(exists: (_) => false),
+              ),
             ],
           ),
         );
@@ -1053,6 +1063,9 @@ void main() {
             overrides: [
               pasteCapabilityNotifierProvider.overrideWith(() => paste),
               settingsProvider.overrideWith(() => _RecordingSettingsNotifier()),
+              linuxUinputAccessProvider.overrideWithValue(
+                LinuxUinputAccess(exists: (_) => false),
+              ),
             ],
           ),
         );
@@ -1103,6 +1116,9 @@ void main() {
             overrides: [
               pasteCapabilityNotifierProvider.overrideWith(() => paste),
               settingsProvider.overrideWith(() => _RecordingSettingsNotifier()),
+              linuxUinputAccessProvider.overrideWithValue(
+                LinuxUinputAccess(exists: (_) => false),
+              ),
             ],
           ),
         );
@@ -1257,6 +1273,75 @@ void main() {
       await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
     }, variant: linux);
+
+    testWidgets(
+      '.deb: explains the access, grants it through pkexec and switches '
+      'Auto-Paste on (R-02)',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        final calls = <List<String>>[];
+        final handles = await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.permissionMissing),
+          uinputAccess: LinuxUinputAccess(
+            exists: (_) => true,
+            run: (exe, args) async {
+              calls.add([exe, ...args]);
+              return ProcessResult(0, 0, '', '');
+            },
+          ),
+        );
+
+        expect(find.text(l10n.linuxUinputConsentDetail), findsOneWidget);
+        expect(find.byKey(copyButton), findsNothing);
+
+        await tester.tap(
+          find.byKey(const ValueKey('onboarding-paste-linux-grant-button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(calls.single, [
+          LinuxUinputAccess.pkexecPath,
+          LinuxUinputAccess.helperPath,
+          'enable',
+        ]);
+        expect(
+          handles
+              .settings
+              .updates
+              .single
+              .afterTranscriptionSection
+              .afterTranscription,
+          'clipboard_and_paste',
+        );
+        expect(copied, isEmpty);
+      },
+    );
+
+    testWidgets(
+      '.deb: a dismissed password prompt changes nothing',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        final handles = await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.permissionMissing),
+          uinputAccess: LinuxUinputAccess(
+            exists: (_) => true,
+            run: (_, _) async => ProcessResult(0, 126, '', ''),
+          ),
+        );
+
+        await tester.tap(
+          find.byKey(const ValueKey('onboarding-paste-linux-grant-button')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(handles.settings.updates, isEmpty);
+        expect(find.text(l10n.linuxUinputGrantFailed), findsNothing);
+      },
+    );
 
     testWidgets('uinput writable and Auto-Paste on: no fallback notice', (
       tester,

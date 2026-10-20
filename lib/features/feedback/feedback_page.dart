@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_info.dart';
 import '../../core/app_urls.dart';
@@ -12,6 +15,7 @@ import '../../core/logging/install_id.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/feedback_diagnostics.dart';
+import '../../services/feedback_consent_store.dart';
 import '../../services/feedback_submission_service.dart';
 import '../../services/shared_prefs_safe_read.dart';
 import '../../widgets/language_selector.dart';
@@ -19,23 +23,13 @@ import '../../widgets/wp_row_checkbox.dart';
 import '../../widgets/wp_voice_input_button.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_consent_checkbox.dart';
 import '../../widgets/wp_filter_chip.dart';
 import '../../widgets/wp_focus_ring.dart';
 import '../../widgets/wp_text_field.dart';
 import '../../widgets/external_link.dart';
 import '../notes/voice_insert.dart' show insertDictation;
 import 'feedback_type.dart';
-
-/// Supabase URL — injected at build time via `--dart-define`.
-const _supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
-
-/// Supabase publishable key — injected at build time via `--dart-define`.
-/// Public key (replaces legacy anon key), safe for client-side use.
-/// RLS enforces all access control server-side.
-const _supabasePublishableKey = String.fromEnvironment(
-  'SUPABASE_PUBLISHABLE_KEY',
-  defaultValue: '',
-);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -103,9 +97,10 @@ Future<void> _recordFeedbackSubmission() async {
 /// Top-aligned, responsive: narrow form column on wide screens with generous
 /// padding so it breathes on maximized desktop windows.
 class FeedbackPage extends ConsumerStatefulWidget {
-  const FeedbackPage({super.key, this._submissionService});
+  const FeedbackPage({super.key, this._submissionService, this._consentStore});
 
   final FeedbackSubmissionService? _submissionService;
+  final FeedbackConsentStore? _consentStore;
 
   @override
   ConsumerState<FeedbackPage> createState() => _FeedbackPageState();
@@ -129,6 +124,22 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
   // opens, so the user learns it before typing a long message (UIA-FBK-04).
   bool _clientLimited = false;
 
+  /// Publication opt-in of this submission; never implied by anything else.
+  bool _publishConsent = false;
+  late final FeedbackConsentStore _consentStore =
+      widget._consentStore ?? FeedbackConsentStore();
+  ConsentState _consentState = const ConsentState();
+  bool _hasSubmittedBefore = false;
+  String? _withdrawMessage;
+  bool _withdrawing = false;
+
+  /// The mail app opened. Opening is not sending, so undelivered entries are
+  /// only deleted once the user confirms the mail went out.
+  bool _mailOpened = false;
+
+  /// Prepared mail, shown for copying when no mail app could be opened.
+  String? _mailFallback;
+
   late final FeedbackSubmissionService _service;
 
   @override
@@ -136,14 +147,11 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
     super.initState();
     _service =
         widget._submissionService ??
-        FeedbackSubmissionService(
-          client: http.Client(),
-          supabaseUrl: _supabaseUrl,
-          supabasePublishableKey: _supabasePublishableKey,
-        );
+        ref.read(feedbackSubmissionServiceProvider);
     _isClientRateLimited().then((limited) {
       if (mounted && limited) setState(() => _clientLimited = true);
     });
+    unawaited(_refreshConsent());
     // An entry point may have preset the type ("Idee vorschlagen…").
     final preset = ref.read(feedbackPresetTypeProvider);
     if (preset != null) {
@@ -254,6 +262,112 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         const SizedBox(width: WpSpacing.xs),
         Text(marker, style: ts.bodySmall?.copyWith(color: WpColors.textMuted)),
       ],
+    );
+  }
+
+  /// Retries pending withdrawals (offline earlier) and reads the local state
+  /// that decides which withdrawal options the screen shows.
+  Future<void> _refreshConsent() async {
+    try {
+      await _consentStore.flushPending(_service);
+      final consent = await _consentStore.state();
+      final prefs = await SharedPreferences.getInstance();
+      final lastMs = readIntPrefSafe(prefs, _kLastFeedbackKey);
+      if (!mounted) return;
+      setState(() {
+        _consentState = consent;
+        _hasSubmittedBefore = lastMs != null;
+      });
+    } on Exception catch (e) {
+      _log.warning('Could not read the consent state: $e');
+    }
+  }
+
+  /// One click: the server withdraws the quotes of this device. Until the server
+  /// confirms, the withdrawal stays pending and is retried later.
+  Future<void> _withdrawConsent() async {
+    if (_withdrawing) return;
+    setState(() {
+      _withdrawing = true;
+      _withdrawMessage = null;
+    });
+    final done = await _consentStore.withdrawAll(_service);
+    if (!done) feedbackWithdrawalRetry.retryLater();
+    final consent = await _consentStore.state();
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    // Without a backend, or after a final rejection, nothing will be sent:
+    // point to the e-mail route instead of promising a later delivery.
+    final undeliverable =
+        !_service.isConfigured || consent.pending.any((p) => p.failed);
+    setState(() {
+      _withdrawing = false;
+      _consentState = consent;
+      _withdrawMessage = done && !undeliverable
+          ? l10n.feedbackWithdrawConsentDone
+          : undeliverable
+          ? l10n.feedbackWithdrawConsentUndelivered
+          : l10n.feedbackWithdrawConsentPending;
+    });
+  }
+
+  /// E-mail route for consents without a stored code and for withdrawals
+  /// the app could not deliver. The mail carries the feedback date when the
+  /// device knows it, and for each undelivered withdrawal the hash the server
+  /// stores (withdraw_token_hash), never the secret itself.
+  Future<void> _withdrawByEmail() async {
+    final l10n = L10n.of(context);
+    final prefs = await SharedPreferences.getInstance();
+    final lastMs = readIntPrefSafe(prefs, _kLastFeedbackKey);
+    final body = StringBuffer(l10n.feedbackWithdrawEmailBody);
+    if (lastMs != null) {
+      body.write(
+        '\n${l10n.feedbackWithdrawEmailDateLabel} '
+        '${_formatDate(DateTime.fromMillisecondsSinceEpoch(lastMs))}',
+      );
+    }
+    // Undelivered withdrawals, plus whatever only the unreadable credential
+    // store holds (GS-124), known by hash from the prefs mirror.
+    final references = [
+      for (final entry in _consentState.pending.where((p) => p.failed))
+        consentTokenHash(entry.token),
+      for (final ref in _consentState.locked) ref.hash,
+    ];
+    for (final reference in references) {
+      body.write('\n${l10n.feedbackWithdrawEmailReferenceLabel} $reference');
+    }
+    final subject = l10n.feedbackWithdrawEmailSubject;
+    final opened = await _launchMail(
+      consentWithdrawalMailUri(subject: subject, body: '$body').toString(),
+    );
+    if (!mounted) return;
+    setState(() {
+      _mailOpened = opened;
+      _mailFallback = opened
+          ? null
+          : '$kConsentWithdrawalContact\n\n$subject\n\n$body';
+    });
+  }
+
+  /// The user says the mail went out: it now covers the undelivered
+  /// withdrawals, so their secrets are deleted from the device.
+  Future<void> _confirmMailSent() async {
+    await _consentStore.acknowledgeFailed();
+    if (!mounted) return;
+    setState(() {
+      _mailOpened = false;
+      _mailFallback = null;
+    });
+    await _refreshConsent();
+  }
+
+  Future<void> _copyMail() async {
+    final text = _mailFallback;
+    if (text == null) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    setState(
+      () => _withdrawMessage = L10n.of(context).feedbackWithdrawEmailCopied,
     );
   }
 
@@ -447,6 +561,18 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                                 !_showDiagnosticsPreview,
                           ),
                         ),
+
+                        const SizedBox(height: WpSpacing.xxl),
+
+                        // Opt-in to quote this text on the website. Off by
+                        // default and never implied by the rating or by sending.
+                        WpConsentCheckbox(
+                          key: const Key('feedbackPublishConsent'),
+                          value: _publishConsent,
+                          label: l10n.feedbackPublishConsentLabel,
+                          explanation: l10n.feedbackPublishConsentExplanation,
+                          onChanged: (v) => setState(() => _publishConsent = v),
+                        ),
                       ],
                     ],
                   ),
@@ -516,6 +642,22 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                     ],
                   ),
 
+                  // Outside the type gate: withdrawing must not depend on
+                  // filling in the form.
+                  _ConsentWithdrawalSection(
+                    consent: _consentState,
+                    canDeliver: _service.isConfigured,
+                    hasSubmittedBefore: _hasSubmittedBefore,
+                    withdrawing: _withdrawing,
+                    message: _withdrawMessage,
+                    onWithdraw: _withdrawConsent,
+                    onWithdrawByEmail: _withdrawByEmail,
+                    mailOpened: _mailOpened,
+                    mailFallback: _mailFallback,
+                    onConfirmMailSent: _confirmMailSent,
+                    onCopyMail: _copyMail,
+                  ),
+
                   const SizedBox(height: WpSpacing.xxxl),
                 ],
               ),
@@ -561,6 +703,8 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       }
 
       final email = _emailController.text.trim();
+      // A fresh secret per consented submission; only its hash is sent.
+      final consentToken = _publishConsent ? newConsentToken() : null;
       final payload = FeedbackPayload(
         rating: _rating!,
         feedbackText: _composedText,
@@ -570,6 +714,10 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         locale: locale,
         contactEmail: email.isEmpty ? null : email,
         contactLocale: email.isEmpty ? null : (_contactLocale ?? locale),
+        publishConsent: _publishConsent,
+        withdrawTokenHash: consentToken == null
+            ? null
+            : consentTokenHash(consentToken),
       );
 
       final result = await _service.submit(payload);
@@ -580,6 +728,10 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         case FeedbackSent():
           await _recordFeedbackSubmission();
           setState(() => _submitted = true);
+          if (consentToken != null) {
+            await _consentStore.addConsent(consentToken);
+            unawaited(_refreshConsent());
+          }
         case FeedbackSkippedNotConfigured():
           setState(() {
             _submitting = false;
@@ -626,6 +778,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
       _commentController.clear();
       _emailController.clear();
       _contactLocale = null;
+      _publishConsent = false;
     });
   }
 }
@@ -634,6 +787,150 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
 // Optional contact email + preferred reply language — extracted out of
 // _FeedbackPageState.build to keep its cyclomatic complexity down.
 // ---------------------------------------------------------------------------
+
+/// Opens a `mailto:` link. True when a mail app took it; the caller shows the
+/// prepared mail for copying otherwise.
+Future<bool> _launchMail(String url) async {
+  final uri = Uri.parse(url);
+  try {
+    if (await canLaunchUrl(uri)) {
+      return await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  } on Exception catch (e) {
+    // Scheme only: a mail link carries the withdrawal reference.
+    _FeedbackPageState._log.warning(
+      'Could not open a ${uri.scheme} link: ${e.runtimeType}',
+    );
+  }
+  return false;
+}
+
+String _formatDate(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
+
+class _ConsentWithdrawalSection extends StatelessWidget {
+  const _ConsentWithdrawalSection({
+    required this.consent,
+    required this.canDeliver,
+    required this.hasSubmittedBefore,
+    required this.withdrawing,
+    required this.message,
+    required this.onWithdraw,
+    required this.onWithdrawByEmail,
+    required this.mailOpened,
+    required this.mailFallback,
+    required this.onConfirmMailSent,
+    required this.onCopyMail,
+  });
+
+  final ConsentState consent;
+
+  /// False without a backend: nothing will ever be sent.
+  final bool canDeliver;
+  final bool hasSubmittedBefore;
+  final bool withdrawing;
+  final String? message;
+  final VoidCallback onWithdraw;
+  final VoidCallback onWithdrawByEmail;
+  final bool mailOpened;
+  final String? mailFallback;
+  final VoidCallback onConfirmMailSent;
+  final VoidCallback onCopyMail;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final muted = Theme.of(context).textTheme.bodySmall;
+    final pending = consent.pending;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (consent.active.isNotEmpty) ...[
+          WpButton(
+            key: const Key('feedback-withdraw-consent'),
+            label: l10n.feedbackWithdrawConsentLabel,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            isLoading: withdrawing,
+            onPressed: onWithdraw,
+          ),
+          const SizedBox(height: WpSpacing.xs),
+          Text(l10n.feedbackWithdrawConsentHelp, style: muted),
+        ] else if (pending.isEmpty &&
+            consent.locked.isEmpty &&
+            hasSubmittedBefore)
+          Text(l10n.feedbackWithdrawNoCode, style: muted),
+        if (consent.locked.isNotEmpty) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            l10n.feedbackWithdrawLocked,
+            key: const Key('feedback-withdraw-locked'),
+            style: muted,
+          ),
+        ],
+        // One line per withdrawal the server has not confirmed yet.
+        for (final (i, entry) in pending.indexed) ...[
+          const SizedBox(height: WpSpacing.xs),
+          if (entry.failed || !canDeliver)
+            Text(
+              l10n.feedbackWithdrawEntryFailed(_formatDate(entry.since)),
+              key: Key('feedback-withdraw-entry-failed-$i'),
+              style: muted,
+            )
+          else
+            Text(
+              l10n.feedbackWithdrawEntrySending(_formatDate(entry.since)),
+              key: Key('feedback-withdraw-entry-sending-$i'),
+              style: muted,
+            ),
+        ],
+        if (message != null) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Text(
+            message!,
+            key: const Key('feedback-withdraw-consent-message'),
+            style: muted,
+          ),
+        ],
+        const SizedBox(height: WpSpacing.xs),
+        WpButton(
+          key: const Key('feedback-withdraw-email'),
+          label: l10n.feedbackWithdrawEmailLabel,
+          variant: WpButtonVariant.ghost,
+          tone: WpButtonTone.neutral,
+          onPressed: onWithdrawByEmail,
+        ),
+        if (mailFallback != null) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Text(l10n.feedbackWithdrawEmailLaunchFailed, style: muted),
+          const SelectableText(
+            kConsentWithdrawalContact,
+            key: Key('feedback-withdraw-email-address'),
+          ),
+          WpButton(
+            key: const Key('feedback-withdraw-email-copy'),
+            label: l10n.feedbackWithdrawEmailCopyLabel,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            onPressed: onCopyMail,
+          ),
+        ],
+        if ((mailOpened || mailFallback != null) &&
+            pending.any((p) => p.failed)) ...[
+          const SizedBox(height: WpSpacing.xs),
+          WpButton(
+            key: const Key('feedback-withdraw-email-sent'),
+            label: l10n.feedbackWithdrawEmailSentLabel,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            onPressed: onConfirmMailSent,
+          ),
+        ],
+      ],
+    );
+  }
+}
 
 /// The card the feedback form stands on.
 ///
@@ -801,6 +1098,7 @@ class _DiagnosticsOption extends StatelessWidget {
             child: Row(
               children: [
                 WpRowCheckbox(
+                  key: const Key('feedback-diagnostics-attach'),
                   value: attached,
                   semanticsLabel: l10n.feedbackDiagnosticsLabel,
                   onChanged: () => onAttachedChanged(!attached),

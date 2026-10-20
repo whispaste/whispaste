@@ -232,7 +232,7 @@ class CrashReporter {
             scope.setTag('error_type', type);
             if (processName != null) scope.setTag('process', processName);
             if (extras != null) {
-              scope.setContexts('extras', scrubUserPathsInMap(extras));
+              scope.setContexts('extras', redactPathsInMap(extras));
             }
             if (fingerprint.isNotEmpty) {
               scope.fingerprint = fingerprint;
@@ -253,7 +253,7 @@ class CrashReporter {
             scope.setTag('error_type', type);
             if (processName != null) scope.setTag('process', processName);
             if (extras != null) {
-              scope.setContexts('extras', scrubUserPathsInMap(extras));
+              scope.setContexts('extras', redactPathsInMap(extras));
             }
             if (fingerprint.isNotEmpty) {
               scope.fingerprint = fingerprint;
@@ -349,27 +349,80 @@ class CrashReporter {
     }
   }
 
-  /// Replaces the OS account name in the free-text parts of [event]: home
-  /// directories reach Sentry through log breadcrumbs and exception values.
+  /// Redacts paths in the free-text parts of [event]: the message, the
+  /// transaction name, the culprit, the request, exception values, stack frame paths, and breadcrumb
+  /// messages and string data. Home directories reach Sentry through log
+  /// breadcrumbs and exception values, and file names through the same
+  /// parts (see [redactPathsInText]).
   static void _scrubUserPaths(SentryEvent event) {
     final message = event.message;
-    if (message != null) message.formatted = scrubUserPaths(message.formatted);
+    if (message != null) {
+      message.formatted = redactPathsInText(message.formatted);
+    }
+    final transaction = event.transaction;
+    if (transaction != null) event.transaction = redactPathsInText(transaction);
+    final culprit = event.culprit;
+    if (culprit != null) event.culprit = redactPathsInText(culprit);
+    _redactRequest(event.request);
     for (final ex in event.exceptions ?? const <SentryException>[]) {
       final value = ex.value;
-      if (value != null) ex.value = scrubUserPaths(value);
+      if (value != null) ex.value = redactPathsInText(value);
+      _redactFrames(ex.stackTrace);
+    }
+    for (final thread in event.threads ?? const <SentryThread>[]) {
+      _redactFrames(thread.stacktrace);
     }
     for (final b in event.breadcrumbs ?? const <Breadcrumb>[]) {
       final text = b.message;
-      if (text != null) b.message = scrubUserPaths(text);
+      if (text != null) b.message = redactPathsInText(text);
       final data = b.data;
       if (data != null) {
         b.data = {
           for (final e in data.entries)
             e.key: e.value is String
-                ? scrubUserPaths(e.value as String)
+                ? redactPathsInText(e.value as String)
                 : e.value,
         };
       }
+    }
+  }
+
+  /// Redacts paths in the URL, query, fragment and header values of
+  /// [request]. Cookies and credential headers are dropped completely.
+  static void _redactRequest(SentryRequest? request) {
+    if (request == null) return;
+    final url = request.url;
+    if (url != null) request.url = redactPathsInText(url);
+    final query = request.queryString;
+    if (query != null) request.queryString = redactPathsInText(query);
+    final fragment = request.fragment;
+    if (fragment != null) request.fragment = redactPathsInText(fragment);
+    request.cookies = null;
+    final headers = request.headers;
+    if (headers.isNotEmpty) {
+      request.headers = {
+        for (final e in headers.entries)
+          if (!_credentialHeaders.contains(e.key.toLowerCase()))
+            e.key: redactPathsInText(e.value),
+      };
+    }
+  }
+
+  static const _credentialHeaders = {
+    'authorization',
+    'proxy-authorization',
+    'cookie',
+    'set-cookie',
+  };
+
+  /// Redacts the local file paths of every frame in [trace]. Dart frames
+  /// such as `package:whispaste/app.dart` stay readable.
+  static void _redactFrames(SentryStackTrace? trace) {
+    for (final frame in trace?.frames ?? const <SentryStackFrame>[]) {
+      final absPath = frame.absPath;
+      if (absPath != null) frame.absPath = redactPathsInText(absPath);
+      final fileName = frame.fileName;
+      if (fileName != null) frame.fileName = redactPathsInText(fileName);
     }
   }
 
@@ -427,6 +480,8 @@ class CrashReporter {
     // every event, transactions included, but only [beforeSend] scrubs
     // them — so drop them here instead of shipping unchecked log lines.
     transaction.breadcrumbs = null;
+    final name = transaction.transaction;
+    if (name != null) transaction.transaction = redactPathsInText(name);
     return transaction;
   }
 }

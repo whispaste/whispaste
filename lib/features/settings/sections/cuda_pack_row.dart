@@ -14,6 +14,7 @@ import '../../../widgets/wp_button.dart';
 import '../../../widgets/dialog.dart';
 import '../settings_widgets.dart';
 import '../widgets/wp_settings_group.dart';
+import 'cuda_eula_dialog.dart';
 
 /// Settings row for the optional NVIDIA CUDA pack (see `cuda_pack.dart`):
 /// download with progress and cancel, then an on/off switch and a remove
@@ -171,7 +172,7 @@ class CudaPackRow extends ConsumerWidget {
             label: l10n.settingsCudaPackDownload,
             variant: WpButtonVariant.ghost,
             icon: LucideIcons.download,
-            onPressed: notifier.install,
+            onPressed: () => _requestDownload(context, ref, pack),
           ),
         ],
       );
@@ -186,5 +187,29 @@ class CudaPackRow extends ConsumerWidget {
       ),
       trailing: trailing,
     );
+  }
+
+  /// Download entry point: the NVIDIA EULA must be accepted for this pack
+  /// version first. Cancel in the dialog changes nothing.
+  Future<void> _requestDownload(
+    BuildContext context,
+    WidgetRef ref,
+    CudaPackInfo pack,
+  ) async {
+    final notifier = ref.read(cudaPackProvider.notifier);
+    // Awaited: the settings may still be loading when the row is first used.
+    final settings = await ref.read(settingsProvider.future);
+    if (!context.mounted) return;
+    final accepted = isCudaEulaAcceptedFor(
+      accepted: settings.behavior.cudaEulaAccepted,
+      packId: pack.id,
+    );
+    if (accepted) {
+      await notifier.install();
+      return;
+    }
+    final confirmed = await showCudaEulaDialog(context);
+    if (!confirmed || !context.mounted) return;
+    await notifier.acceptEulaAndInstall();
   }
 }

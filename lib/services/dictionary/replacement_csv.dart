@@ -1,7 +1,7 @@
 /// CSV import and export for the replacement dictionary (matrix 4.6).
 ///
 /// Pure codec: no file access, no database. The UI reads the file through
-/// the user's own selection (sandbox-safe) and hands the text here.
+/// the user's own selection (sandbox-safe) and hands the bytes or text here.
 ///
 /// Layout, one entry per record:
 ///   triggers,replacement,match_mode,threshold
@@ -13,9 +13,17 @@
 /// - `threshold`: `strict`, `standard` or `tolerant` for fuzzy entries (the
 ///   three UI steps), or a number from 0.50 to 1.00. Empty for exact entries.
 ///
+/// Package files (`.csv`) start with one metadata record, written by the
+/// export and optional on import:
+///   #whispaste-dictionary,format=1,type=replacements,name=...,created=...
+/// The format version is required; a file whose format or type this version
+/// does not know is refused as a whole. A file without that record is read
+/// as before.
+///
 /// Parsing is lenient about line endings, a leading byte-order mark, a
-/// missing final newline and a header row, and strict about content: every
-/// bad record is reported with its line number and skipped, never guessed.
+/// missing final newline, a header row, and a `;` field separator (German
+/// Excel), and strict about content: every bad record is reported with its
+/// line number and skipped, never guessed.
 library;
 
 import 'dart:convert';
@@ -48,6 +56,23 @@ const int replacementCsvMaxRows = 5000;
 const int replacementCsvMaxTriggerLength = 200;
 const int replacementCsvMaxReplacementLength = 5000;
 
+/// Every trigger of a row is compiled into the matcher and scanned on every
+/// dictation, so a row cannot carry an unbounded number of them.
+const int replacementCsvMaxTriggersPerRow = 50;
+
+/// First field of the package metadata record (compared case-insensitively).
+const String replacementCsvMetaMarker = '#whispaste-dictionary';
+
+/// The only package format version this build reads and writes.
+const int replacementCsvFormatVersion = 1;
+
+/// The only package type this build reads and writes. Snippets are not part
+/// of the replacement package (see the R-08 ticket, section 3.3a).
+const String replacementCsvPackageType = 'replacements';
+
+/// Package names are cut to this many characters.
+const int replacementCsvMaxNameLength = 80;
+
 /// One dictionary entry as it appears in a CSV file.
 class ReplacementCsvRow {
   const ReplacementCsvRow({
@@ -65,14 +90,36 @@ class ReplacementCsvRow {
   final double? fuzzyThreshold;
 }
 
+/// Package metadata from the first record of a file. Both fields are optional.
+class ReplacementCsvMeta {
+  const ReplacementCsvMeta({this.name, this.created});
+
+  /// Sanitised package name, or `null` when the file has none.
+  final String? name;
+
+  /// Export date, date only (time of day is dropped).
+  final DateTime? created;
+}
+
+/// Why a whole file was refused, before any row was read.
+enum ReplacementCsvRefusal {
+  /// The metadata record has no `format=1` (missing, empty or another value).
+  unsupportedFormat,
+
+  /// The metadata record names a package type this build does not read.
+  unsupportedType,
+}
+
 enum ReplacementCsvErrorReason {
   missingFields,
   emptyTrigger,
   triggerTooLong,
+  tooManyTriggers,
   emptyReplacement,
   replacementTooLong,
   unknownMatchMode,
   invalidThreshold,
+  controlCharacter,
 }
 
 class ReplacementCsvError {
@@ -89,6 +136,8 @@ class ReplacementCsvParseResult {
     required this.errors,
     this.truncated = false,
     this.tooLarge = false,
+    this.meta,
+    this.refusal,
   });
 
   final List<ReplacementCsvRow> rows;
@@ -99,12 +148,25 @@ class ReplacementCsvParseResult {
 
   /// The input exceeded [replacementCsvMaxBytes]; nothing was read.
   final bool tooLarge;
+
+  /// The package metadata, when the file has a metadata record.
+  final ReplacementCsvMeta? meta;
+
+  /// Set when the whole file is refused because of its metadata record.
+  /// Then [rows] and [errors] are empty.
+  final ReplacementCsvRefusal? refusal;
 }
 
 /// Serialises [rows] with the header, a UTF-8 byte-order mark (so Excel
-/// reads umlauts and Cyrillic correctly) and CRLF line endings.
-String encodeReplacementsCsv(Iterable<ReplacementCsvRow> rows) {
-  final out = StringBuffer('﻿')..write(_record(replacementCsvHeader));
+/// reads umlauts and Cyrillic correctly) and CRLF line endings. With [meta],
+/// a package metadata record is written first.
+String encodeReplacementsCsv(
+  Iterable<ReplacementCsvRow> rows, {
+  ReplacementCsvMeta? meta,
+}) {
+  final out = StringBuffer('﻿');
+  if (meta != null) out.write(_record(_metaFields(meta)));
+  out.write(_record(replacementCsvHeader));
   for (final row in rows) {
     out.write(
       _record([
@@ -118,8 +180,20 @@ String encodeReplacementsCsv(Iterable<ReplacementCsvRow> rows) {
   return out.toString();
 }
 
+/// Decodes the raw bytes of a file as UTF-8. Returns `null` when the bytes are
+/// not valid UTF-8 or contain a NUL byte (UTF-16 and Latin-1 files look like
+/// one of the two), so the caller can refuse the file with one message.
+String? decodeReplacementsCsvBytes(List<int> bytes) {
+  if (bytes.contains(0)) return null;
+  try {
+    return utf8.decode(bytes);
+  } on FormatException {
+    return null;
+  }
+}
+
 /// Parses [input] (the whole file as text). Never throws on bad content;
-/// problems come back as [ReplacementCsvError]s.
+/// problems come back as [ReplacementCsvError]s or as a [refusal].
 ReplacementCsvParseResult parseReplacementsCsv(String input) {
   if (utf8.encode(input).length > replacementCsvMaxBytes) {
     return const ReplacementCsvParseResult(
@@ -129,14 +203,28 @@ ReplacementCsvParseResult parseReplacementsCsv(String input) {
     );
   }
 
-  final records = _readRecords(input);
+  final text = input.startsWith('﻿') ? input.substring(1) : input;
+  final records = _readRecords(text, _delimiterFor(text));
   final rows = <ReplacementCsvRow>[];
   final errors = <ReplacementCsvError>[];
   var truncated = false;
+
+  ReplacementCsvMeta? meta;
   var start = 0;
-  if (records.isNotEmpty &&
-      records.first.fields.first.trim().toLowerCase() == 'triggers') {
+  if (records.isNotEmpty && _isMetaRecord(records.first.fields)) {
+    final parsed = _parseMeta(records.first.fields);
+    if (parsed.refusal != null) {
+      return ReplacementCsvParseResult(
+        rows: const [],
+        errors: const [],
+        refusal: parsed.refusal,
+      );
+    }
+    meta = parsed.meta;
     start = 1;
+  }
+  if (start < records.length && _isHeader(records[start].fields)) {
+    start++;
   }
 
   for (var i = start; i < records.length; i++) {
@@ -156,12 +244,113 @@ ReplacementCsvParseResult parseReplacementsCsv(String input) {
     rows: rows,
     errors: errors,
     truncated: truncated,
+    meta: meta,
   );
+}
+
+/// Makes a package name safe to store and show: control and format characters
+/// removed, trimmed, cut to [replacementCsvMaxNameLength] characters.
+String sanitizeReplacementPackageName(String raw) {
+  final clean = raw.replaceAll(_unsafeNameCharacters, '').trim();
+  final runes = clean.runes;
+  if (runes.length <= replacementCsvMaxNameLength) return clean;
+  return String.fromCharCodes(runes.take(replacementCsvMaxNameLength)).trim();
+}
+
+final _unsafeNameCharacters = RegExp(r'[\p{Cc}\p{Cf}]', unicode: true);
+
+// ---------------------------------------------------------------------------
+// Package metadata
+// ---------------------------------------------------------------------------
+
+List<String> _metaFields(ReplacementCsvMeta meta) {
+  final name = meta.name == null
+      ? ''
+      : sanitizeReplacementPackageName(meta.name!);
+  final created = meta.created;
+  return [
+    replacementCsvMetaMarker,
+    'format=$replacementCsvFormatVersion',
+    'type=$replacementCsvPackageType',
+    if (name.isNotEmpty) 'name=$name',
+    if (created != null) 'created=${_isoDate(created)}',
+  ];
+}
+
+String _isoDate(DateTime d) =>
+    '${d.year.toString().padLeft(4, '0')}-'
+    '${d.month.toString().padLeft(2, '0')}-'
+    '${d.day.toString().padLeft(2, '0')}';
+
+bool _isMetaRecord(List<String> fields) =>
+    fields.first.trim().toLowerCase() == replacementCsvMetaMarker;
+
+bool _isHeader(List<String> fields) =>
+    fields.first.trim().toLowerCase() == 'triggers';
+
+({ReplacementCsvMeta? meta, ReplacementCsvRefusal? refusal}) _parseMeta(
+  List<String> fields,
+) {
+  final values = <String, String>{};
+  for (final field in fields.skip(1)) {
+    final eq = field.indexOf('=');
+    if (eq <= 0) continue;
+    values[field.substring(0, eq).trim().toLowerCase()] = field
+        .substring(eq + 1)
+        .trim();
+  }
+  if (values['format'] != '$replacementCsvFormatVersion') {
+    return (meta: null, refusal: ReplacementCsvRefusal.unsupportedFormat);
+  }
+  final type = values['type'] ?? replacementCsvPackageType;
+  if (type != replacementCsvPackageType) {
+    return (meta: null, refusal: ReplacementCsvRefusal.unsupportedType);
+  }
+  final name = values['name'] == null
+      ? ''
+      : sanitizeReplacementPackageName(values['name']!);
+  return (
+    meta: ReplacementCsvMeta(
+      name: name.isEmpty ? null : name,
+      created: _parseIsoDate(values['created']),
+    ),
+    refusal: null,
+  );
+}
+
+/// Accepts only `JJJJ-MM-TT` that names a real calendar day.
+DateTime? _parseIsoDate(String? value) {
+  if (value == null || !_isoDatePattern.hasMatch(value)) return null;
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null || _isoDate(parsed) != value) return null;
+  return parsed;
+}
+
+final _isoDatePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+
+/// The field separator: `;` when the first line is the metadata record or a
+/// header written with `;` (German Excel), otherwise `,`.
+String _delimiterFor(String text) {
+  final firstLine = text.split(RegExp(r'[\r\n]')).first.trim().toLowerCase();
+  if (firstLine.startsWith('$replacementCsvMetaMarker;') ||
+      firstLine.startsWith('triggers;')) {
+    return ';';
+  }
+  return ',';
 }
 
 // ---------------------------------------------------------------------------
 // Row validation
 // ---------------------------------------------------------------------------
+
+/// Tab, CR and LF are allowed: a quoted field may span lines, and an entry
+/// that holds a real line break (stored by an older version or an import)
+/// must survive an export and re-import. Other C0 controls, DEL, C1 controls,
+/// and the bidi embedding and isolate controls are rejected: they hide or
+/// reorder text on screen.
+final _forbiddenCharacters = RegExp(
+  r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\u202A-\u202E\u2066-\u2069]',
+);
 
 (ReplacementCsvRow?, ReplacementCsvErrorReason?) _rowFromRecord(
   List<String> fields,
@@ -169,12 +358,18 @@ ReplacementCsvParseResult parseReplacementsCsv(String input) {
   if (fields.length < 2) {
     return (null, ReplacementCsvErrorReason.missingFields);
   }
+  if (fields.any(_forbiddenCharacters.hasMatch)) {
+    return (null, ReplacementCsvErrorReason.controlCharacter);
+  }
 
   final triggers = _splitTriggers(
     _restoreFormula(fields[0]),
   ).map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
   if (triggers.isEmpty) {
     return (null, ReplacementCsvErrorReason.emptyTrigger);
+  }
+  if (triggers.length > replacementCsvMaxTriggersPerRow) {
+    return (null, ReplacementCsvErrorReason.tooManyTriggers);
   }
   if (triggers.any((t) => t.length > replacementCsvMaxTriggerLength)) {
     return (null, ReplacementCsvErrorReason.triggerTooLong);
@@ -309,9 +504,8 @@ class _CsvRecord {
 
 /// Reads all records. Quoted fields may contain commas, quotes (`""`) and
 /// line breaks. Empty physical lines are skipped.
-List<_CsvRecord> _readRecords(String input) {
-  final text = input.startsWith('\uFEFF') ? input.substring(1) : input;
-  final scan = _CsvScan(text);
+List<_CsvRecord> _readRecords(String text, String delimiter) {
+  final scan = _CsvScan(text, delimiter);
   for (var i = 0; i < text.length; i++) {
     i = scan.inQuotes ? scan.readQuoted(i) : scan.readUnquoted(i);
   }
@@ -322,9 +516,10 @@ List<_CsvRecord> _readRecords(String input) {
 /// State of one pass over the CSV text. The methods are the two modes of the
 /// reader: inside a quoted field and outside one.
 class _CsvScan {
-  _CsvScan(this._text);
+  _CsvScan(this._text, this._delimiter);
 
   final String _text;
+  final String _delimiter;
   final List<_CsvRecord> records = [];
   var _fields = <String>[];
   final _field = StringBuffer();
@@ -373,7 +568,7 @@ class _CsvScan {
     if (c == '\r' && nextIsLf) return i;
     if (c == '\r' || c == '\n') {
       _newLine();
-    } else if (c == ',') {
+    } else if (c == _delimiter) {
       _fields.add(_field.toString());
       _field.clear();
     } else if (c == '"' && _field.isEmpty) {

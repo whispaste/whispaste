@@ -39,6 +39,7 @@ import 'widgets/settings_navigation.dart';
 import 'widgets/wp_settings_group.dart';
 import 'widgets/settings_scroll_affordance.dart';
 import 'widgets/settings_search_field.dart';
+import 'profiles/profiles_section.dart';
 
 /// Width below which the navigation collapses into an area dropdown above the
 /// page (spec §2).
@@ -79,6 +80,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     'appearance': GlobalKey(),
     'stt': GlobalKey(),
     'smartMode': GlobalKey(),
+    'profiles': GlobalKey(),
     'audio': GlobalKey(),
     'afterTranscription': GlobalKey(),
     'textProcessing': GlobalKey(),
@@ -211,6 +213,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           InterfaceAppearanceSection(key: _sectionKeys['appearance']),
       'stt': () => SpeechRecognitionSection(key: _sectionKeys['stt']),
       'smartMode': () => SmartModeSection(key: _sectionKeys['smartMode']),
+      'profiles': () => ProfilesSection(key: _sectionKeys['profiles']),
       'audio': () => AudioSection(key: _sectionKeys['audio']),
       'afterTranscription': () =>
           AfterTranscriptionSection(key: _sectionKeys['afterTranscription']),
@@ -437,14 +440,18 @@ class _SettingsFooter extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          l10n.settingsNavVersion(appVersion),
-          style: TextStyle(
-            fontSize: WpTypography.body,
-            color: WpColors.textMuted,
+        // Omitted until the version is resolved, so a dev run never shows the
+        // "unknown" placeholder (UX-043). Release builds always carry it.
+        if (appVersionKnown) ...[
+          Text(
+            l10n.settingsNavVersion(appVersion),
+            style: TextStyle(
+              fontSize: WpTypography.body,
+              color: WpColors.textMuted,
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
+          const SizedBox(height: 2),
+        ],
         Text(
           status,
           style: TextStyle(

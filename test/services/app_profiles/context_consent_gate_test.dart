@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 const _profileModelFiles = {
   'lib/services/app_profiles/app_profile.dart',
   'lib/services/app_profiles/app_profile_consent.dart',
+  'lib/services/app_profiles/app_profile_context_edits.dart',
   'lib/services/app_profiles/app_profile_context_source.dart',
   'lib/services/app_profiles/app_profile_resolver.dart',
   'lib/services/app_profiles/app_profile_storage.dart',

@@ -444,8 +444,27 @@ void main() {
         expect(json['locale'], 'en');
         expect(json.containsKey('contact_email'), isFalse);
         expect(json.containsKey('contact_locale'), isFalse);
+        expect(json['publish_consent'], isFalse);
+        expect(json.containsKey('withdraw_token_hash'), isFalse);
       },
     );
+
+    test('sends the consent text version and hash only with opt-in', () {
+      final payload = FeedbackPayload(
+        rating: 5,
+        feedbackText: 'Great app!',
+        category: 'general',
+        appVersion: '1.0.0',
+        deviceIdHash: 'abc123def456',
+        locale: 'en',
+        publishConsent: true,
+        withdrawTokenHash: 'a' * 64,
+      );
+      final json = payload.toJson();
+      expect(json['publish_consent'], isTrue);
+      expect(json['consent_text_version'], kFeedbackConsentTextVersion);
+      expect(json['withdraw_token_hash'], 'a' * 64);
+    });
 
     test('includes contact fields only when provided', () {
       const payload = FeedbackPayload(

@@ -22,6 +22,7 @@ final pendingAudioQueueProvider = Provider<PendingAudioQueue>((ref) {
     save: store.save,
     entryExists: (id) async => (await db.getEntry(id)) != null,
     retainAudio: (id, wavPath) => _keepForRetention(ref, db, id, wavPath),
+    applyReplacements: store.applyReplacements,
   );
 });
 

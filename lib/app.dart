@@ -123,6 +123,7 @@ import 'widgets/feature_spotlight_notice.dart';
 import 'features/onboarding/smart_mode_usage_hint.dart';
 import 'widgets/nudge_input_listener.dart';
 import 'widgets/review_prompt_dialog.dart';
+import 'widgets/github_invite_dialog.dart';
 import 'widgets/support_prompt_dialog.dart';
 
 // activePageProvider and settingsScrollTargetProvider are defined in
@@ -1668,372 +1669,391 @@ class _AppShellState extends ConsumerState<_AppShell>
       },
       child: WpNudgeInputListener(
         child: WpReviewPromptWatcher(
-          child: WpSupportPromptWatcher(
-            child: WpFeatureSpotlightWatcher(
-              child: SmartModeUsageHintWatcher(
-                child: WpServiceBootstrap(
-                  child: WpRecordingBehavior(
-                    child: Scaffold(
-                      backgroundColor: Colors.transparent,
-                      body: WpAudioDropZone(
-                        child: Stack(
-                          children: [
-                            // The frame — one diagonal ambient for title bar, nav
-                            // rail and status bar together, painted here and
-                            // nowhere else. None of the three bars carries a ground
-                            // of its own (gated in frame_single_paint_test.dart):
-                            // a flat fill on one strip would cut a seam across a
-                            // gradient that has to read as a single light source.
-                            // Any future depth belongs *inside* this DecoratedBox,
-                            // never as a second layer above it — see *The
-                            // One-Atmosphere Rule*.
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: WpColors.frame.frameGradient,
+          child: WpGitHubInviteWatcher(
+            child: WpSupportPromptWatcher(
+              child: WpFeatureSpotlightWatcher(
+                child: SmartModeUsageHintWatcher(
+                  child: WpServiceBootstrap(
+                    child: WpRecordingBehavior(
+                      child: Scaffold(
+                        backgroundColor: Colors.transparent,
+                        body: WpAudioDropZone(
+                          child: Stack(
+                            children: [
+                              // The frame — one diagonal ambient for title bar, nav
+                              // rail and status bar together, painted here and
+                              // nowhere else. None of the three bars carries a ground
+                              // of its own (gated in frame_single_paint_test.dart):
+                              // a flat fill on one strip would cut a seam across a
+                              // gradient that has to read as a single light source.
+                              // Any future depth belongs *inside* this DecoratedBox,
+                              // never as a second layer above it — see *The
+                              // One-Atmosphere Rule*.
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: WpColors.frame.frameGradient,
+                                ),
+                                child: const SizedBox.expand(),
                               ),
-                              child: const SizedBox.expand(),
-                            ),
-                            // Main layout: the title band, the full-height sidebar and the
-                            // content panel with its dock (chat-08, WP-20).
-                            WpAppShell(
-                              titleBar: WpTitleBar(
-                                // macOS has the global menu bar instead.
-                                actions: [
-                                  if (!Platform.isMacOS)
-                                    const WpTitleBarMenuButton(),
-                                ],
-                              ),
-                              sidebar: WpSidebar(
-                                compact: compactRail,
-                                items: navItems,
-                                dividerAfterIds: wpNavDividerAfterIds,
-                                activeId: activePage,
-                                onItemTap: (id) {
-                                  if (id == 'smartMode') {
-                                    ref
-                                        .read(
-                                          settingsScrollTargetProvider.notifier,
-                                        )
-                                        .set('text-smart-mode-preset');
+                              // Main layout: the title band, the full-height sidebar and the
+                              // content panel with its dock (chat-08, WP-20).
+                              WpAppShell(
+                                titleBar: WpTitleBar(
+                                  // macOS has the global menu bar instead.
+                                  actions: [
+                                    if (!Platform.isMacOS)
+                                      const WpTitleBarMenuButton(),
+                                  ],
+                                ),
+                                sidebar: WpSidebar(
+                                  compact: compactRail,
+                                  items: navItems,
+                                  dividerAfterIds: wpNavDividerAfterIds,
+                                  activeId: activePage,
+                                  onItemTap: (id) {
+                                    if (id == 'smartMode') {
+                                      ref
+                                          .read(
+                                            settingsScrollTargetProvider
+                                                .notifier,
+                                          )
+                                          .set('text-smart-mode-preset');
+                                      ref
+                                          .read(activePageProvider.notifier)
+                                          .setPage('settings');
+                                      return;
+                                    }
                                     ref
                                         .read(activePageProvider.notifier)
-                                        .setPage('settings');
-                                    return;
-                                  }
-                                  ref
-                                      .read(activePageProvider.notifier)
-                                      .setPage(id);
-                                },
-                                bottomItems: [
-                                  wpHelpNavItem(l10n),
-                                  // Attention dot on the gear whenever a
-                                  // newer version is waiting — reuses the
-                                  // existing `updateProvider` phase rather
-                                  // than tracking a second "seen" state,
-                                  // and reuses the sentence the status bar
-                                  // already shows so the dot is never a
-                                  // bare, unexplained mark.
-                                  wpSettingsNavItem(
-                                    l10n,
-                                    badgeHint:
-                                        updateState.phase ==
-                                            UpdatePhase.available
-                                        ? l10n.updateAvailable(
-                                            updateState.latestVersion ?? '',
-                                          )
-                                        : null,
-                                  ),
-                                ],
-                              ),
-                              contentDecoration: contentDecoration,
-                              content: Column(
-                                children: [
-                                  // Recording indicator — thin pulsing bar
-                                  WpRecordingIndicatorBar(
-                                    phase: recordingPhase,
-                                  ),
-                                  // Page header with smooth title transition
-                                  AnimatedSwitcher(
-                                    duration: WpMotion.durationFor(
-                                      context,
-                                      WpMotion.fast,
+                                        .setPage(id);
+                                  },
+                                  bottomItems: [
+                                    wpHelpNavItem(l10n),
+                                    // Attention dot on the gear whenever a
+                                    // newer version is waiting — reuses the
+                                    // existing `updateProvider` phase rather
+                                    // than tracking a second "seen" state,
+                                    // and reuses the sentence the status bar
+                                    // already shows so the dot is never a
+                                    // bare, unexplained mark.
+                                    wpSettingsNavItem(
+                                      l10n,
+                                      badgeHint:
+                                          updateState.phase ==
+                                              UpdatePhase.available
+                                          ? l10n.updateAvailable(
+                                              updateState.latestVersion ?? '',
+                                            )
+                                          : null,
                                     ),
-                                    child: _PageHeader(
-                                      key: ValueKey('header-$activePage'),
-                                      title: wpPageTitle(activePage, [
-                                        ...navItems,
-                                        wpHelpNavItem(l10n),
-                                      ], l10n),
+                                  ],
+                                ),
+                                contentDecoration: contentDecoration,
+                                content: Column(
+                                  children: [
+                                    // Recording indicator — thin pulsing bar
+                                    WpRecordingIndicatorBar(
+                                      phase: recordingPhase,
                                     ),
-                                  ),
-                                  // Content with page transition animation
-                                  Expanded(
-                                    child: AnimatedSwitcher(
+                                    // Page header with smooth title transition
+                                    AnimatedSwitcher(
                                       duration: WpMotion.durationFor(
                                         context,
-                                        WpMotion.normal,
+                                        WpMotion.fast,
                                       ),
-                                      switchInCurve: WpMotion.defaultCurve,
-                                      switchOutCurve: WpMotion.defaultCurve,
-                                      transitionBuilder: (child, animation) {
-                                        return FadeTransition(
-                                          opacity: animation,
-                                          child: SlideTransition(
-                                            position: Tween<Offset>(
-                                              begin: const Offset(0.0, 0.015),
-                                              end: Offset.zero,
-                                            ).animate(animation),
-                                            child: child,
-                                          ),
-                                        );
-                                      },
-                                      child: KeyedSubtree(
-                                        key: ValueKey(activePage),
-                                        child:
-                                            wpPageWidgets[activePage] ??
-                                            const SizedBox.shrink(),
+                                      child: _PageHeader(
+                                        key: ValueKey('header-$activePage'),
+                                        title: wpPageTitle(activePage, [
+                                          ...navItems,
+                                          wpHelpNavItem(l10n),
+                                        ], l10n),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              dock: // Recording dock — sits on the frame, full width.
-                                  //
-                                  // `backendUtilizationPercent` alone is wrapped in a
-                                  // `Consumer`: `backendUtilizationProvider` ticks
-                                  // every ~3 s (see backend_utilization_notifier.dart),
-                                  // and watching it directly in this method's `build`
-                                  // would rebuild the entire app shell — nav rail,
-                                  // active page, animations — on every tick for a
-                                  // value only this one status-bar chip renders. The
-                                  // `.select` narrows it further to just the field
-                                  // this chip actually reads, so only this `Consumer`
-                                  // rebuilds each tick.
-                                  Consumer(
-                                    builder: (context, ref, child) {
-                                      final backendUtilizationPercent = ref
-                                          .watch(
-                                            backendUtilizationProvider.select(
-                                              (s) => s.cpuPercent,
+                                    // Content with page transition animation
+                                    Expanded(
+                                      child: AnimatedSwitcher(
+                                        duration: WpMotion.durationFor(
+                                          context,
+                                          WpMotion.normal,
+                                        ),
+                                        switchInCurve: WpMotion.defaultCurve,
+                                        switchOutCurve: WpMotion.defaultCurve,
+                                        transitionBuilder: (child, animation) {
+                                          return FadeTransition(
+                                            opacity: animation,
+                                            child: SlideTransition(
+                                              position: Tween<Offset>(
+                                                begin: const Offset(0.0, 0.015),
+                                                end: Offset.zero,
+                                              ).animate(animation),
+                                              child: child,
                                             ),
                                           );
-                                      final automationApiState = ref.watch(
-                                        automationApiControllerProvider,
-                                      );
-                                      final supportStatus = ref.watch(
-                                        supportStatusProvider,
-                                      );
-                                      final supportChipMode =
-                                          !supportStatus.showsSponsorChip
-                                          ? null
-                                          : supportStatus.suppressesPrompts
-                                          ? WpSupportChipMode.thanks
-                                          : WpSupportChipMode.sponsor;
-                                      return WpRecordingDock(
-                                        localProcessing: localProcessing,
-                                        smartMode: _dockSmartModeChoices(
-                                          ref,
-                                          settings,
-                                          l10n,
+                                        },
+                                        child: KeyedSubtree(
+                                          key: ValueKey(activePage),
+                                          child:
+                                              wpPageWidgets[activePage] ??
+                                              const SizedBox.shrink(),
                                         ),
-                                        language: _dockLanguageChoices(
-                                          context,
-                                          ref,
-                                          settings,
-                                          l10n,
-                                        ),
-                                        supportChipMode: supportChipMode,
-                                        onSupportTap: () => ref
-                                            .read(activePageProvider.notifier)
-                                            .setPage('support'),
-                                        sttModeLabel:
-                                            statusBarModel.sttModeLabel,
-                                        engine: _dockEngineChoices(
-                                          ref,
-                                          settings,
-                                          l10n,
-                                          statusBarModel.sttModeLabel,
-                                        ),
-                                        sttState: statusBarSttState,
-                                        backendKind: sttBackendKind,
-                                        backendUtilizationPercent:
-                                            backendUtilizationPercent,
-                                        // Parakeet has no starting-since timestamp (no
-                                        // "warming up" phase to time) — the status bar
-                                        // simply shows no elapsed-time hint for it.
-                                        sttStartingSince: parakeetStatus != null
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                dock: // Recording dock — sits on the frame, full width.
+                                    //
+                                    // `backendUtilizationPercent` alone is wrapped in a
+                                    // `Consumer`: `backendUtilizationProvider` ticks
+                                    // every ~3 s (see backend_utilization_notifier.dart),
+                                    // and watching it directly in this method's `build`
+                                    // would rebuild the entire app shell — nav rail,
+                                    // active page, animations — on every tick for a
+                                    // value only this one status-bar chip renders. The
+                                    // `.select` narrows it further to just the field
+                                    // this chip actually reads, so only this `Consumer`
+                                    // rebuilds each tick.
+                                    Consumer(
+                                      builder: (context, ref, child) {
+                                        final backendUtilizationPercent = ref
+                                            .watch(
+                                              backendUtilizationProvider.select(
+                                                (s) => s.cpuPercent,
+                                              ),
+                                            );
+                                        final automationApiState = ref.watch(
+                                          automationApiControllerProvider,
+                                        );
+                                        final supportStatus = ref.watch(
+                                          supportStatusProvider,
+                                        );
+                                        final supportChipMode =
+                                            !supportStatus.showsSponsorChip
                                             ? null
-                                            : sttStatus.startingSince,
-                                        sttModelMissing: sttModelMissing,
-                                        sttModelDownloadPercent:
-                                            sttModelDownloadPercent,
-                                        recordingPhase: recordingPhase,
-                                        doneMessage: doneMessageFor(
-                                          resolvedAfterAction.value,
-                                          l10n,
-                                          target: doneTarget,
-                                          pasteFailed: pasteFailed,
-                                          copiedOnly: copiedOnly,
-                                          historyOnly: historyOnly,
-                                        ),
-                                        donePasteFailed: pasteFailed,
-                                        afterActionLabel:
-                                            afterTranscriptionDockLabel(
-                                              resolvedAfterAction,
-                                              l10n,
-                                            ),
-                                        afterAction: resolvedAfterAction,
-                                        microphoneLabel: currentMic,
-                                        microphoneOptions: micOptions,
-                                        onMicrophoneChanged: (label) {
-                                          unawaited(
+                                            : supportStatus.suppressesPrompts
+                                            ? WpSupportChipMode.thanks
+                                            : WpSupportChipMode.sponsor;
+                                        return WpRecordingDock(
+                                          localProcessing: localProcessing,
+                                          smartMode: _dockSmartModeChoices(
+                                            ref,
+                                            settings,
+                                            l10n,
+                                          ),
+                                          language: _dockLanguageChoices(
+                                            context,
+                                            ref,
+                                            settings,
+                                            l10n,
+                                          ),
+                                          supportChipMode: supportChipMode,
+                                          onSupportTap: () => ref
+                                              .read(activePageProvider.notifier)
+                                              .setPage('support'),
+                                          sttModeLabel:
+                                              statusBarModel.sttModeLabel,
+                                          engine: _dockEngineChoices(
+                                            ref,
+                                            settings,
+                                            l10n,
+                                            statusBarModel.sttModeLabel,
+                                          ),
+                                          sttState: statusBarSttState,
+                                          backendKind: sttBackendKind,
+                                          backendUtilizationPercent:
+                                              backendUtilizationPercent,
+                                          // Parakeet has no starting-since timestamp (no
+                                          // "warming up" phase to time) — the status bar
+                                          // simply shows no elapsed-time hint for it.
+                                          sttStartingSince:
+                                              parakeetStatus != null
+                                              ? null
+                                              : sttStatus.startingSince,
+                                          sttModelMissing: sttModelMissing,
+                                          sttModelDownloadPercent:
+                                              sttModelDownloadPercent,
+                                          recordingPhase: recordingPhase,
+                                          doneMessage: doneMessageFor(
+                                            resolvedAfterAction.value,
+                                            l10n,
+                                            target: doneTarget,
+                                            pasteFailed: pasteFailed,
+                                            copiedOnly: copiedOnly,
+                                            historyOnly: historyOnly,
+                                          ),
+                                          donePasteFailed: pasteFailed,
+                                          afterActionLabel:
+                                              afterTranscriptionDockLabel(
+                                                resolvedAfterAction,
+                                                l10n,
+                                              ),
+                                          afterAction: resolvedAfterAction,
+                                          microphoneLabel: currentMic,
+                                          microphoneOptions: micOptions,
+                                          onMicrophoneChanged: (label) {
+                                            unawaited(
+                                              ref
+                                                  .read(
+                                                    microphoneSelectionServiceProvider,
+                                                  )
+                                                  .select(label),
+                                            );
+                                          },
+                                          onMicrophoneMenuOpened: () =>
+                                              ref.invalidate(
+                                                audioInputDevicesProvider,
+                                              ),
+                                          hotkeyLabel: formatHotkeyKeycap(
+                                            activeHotkey.modifiers,
+                                            activeHotkey.key,
+                                            l10n: l10n,
+                                            displayOverride:
+                                                activeHotkey.display,
+                                          ),
+                                          hotkeyEnabled: settings.hotkeyEnabled,
+                                          updateVersion:
+                                              updateState.phase ==
+                                                  UpdatePhase.available
+                                              ? updateState.latestVersion
+                                              : null,
+                                          updateReadyToInstall:
+                                              updateState.phase ==
+                                              UpdatePhase.readyToInstall,
+                                          showAutoPasteOffHint:
+                                              shouldShowAutoPasteOffHint(
+                                                afterAction:
+                                                    resolvedAfterAction,
+                                                onboardingCompleted: settings
+                                                    .onboarding
+                                                    .onboardingCompleted,
+                                                autoPasteOffHintDismissed: settings
+                                                    .onboarding
+                                                    .autoPasteOffHintDismissed,
+                                              ),
+                                          onAutoPasteOffHintTap: () {
                                             ref
                                                 .read(
-                                                  microphoneSelectionServiceProvider,
+                                                  settingsScrollTargetProvider
+                                                      .notifier,
                                                 )
-                                                .select(label),
-                                          );
-                                        },
-                                        onMicrophoneMenuOpened: () =>
-                                            ref.invalidate(
-                                              audioInputDevicesProvider,
-                                            ),
-                                        hotkeyLabel: formatHotkeyKeycap(
-                                          activeHotkey.modifiers,
-                                          activeHotkey.key,
-                                          l10n: l10n,
-                                          displayOverride: activeHotkey.display,
-                                        ),
-                                        hotkeyEnabled: settings.hotkeyEnabled,
-                                        updateVersion:
-                                            updateState.phase ==
-                                                UpdatePhase.available
-                                            ? updateState.latestVersion
-                                            : null,
-                                        updateReadyToInstall:
-                                            updateState.phase ==
-                                            UpdatePhase.readyToInstall,
-                                        showAutoPasteOffHint:
-                                            shouldShowAutoPasteOffHint(
-                                              afterAction: resolvedAfterAction,
-                                              onboardingCompleted: settings
-                                                  .onboarding
-                                                  .onboardingCompleted,
-                                              autoPasteOffHintDismissed: settings
-                                                  .onboarding
-                                                  .autoPasteOffHintDismissed,
-                                            ),
-                                        onAutoPasteOffHintTap: () {
-                                          ref
-                                              .read(
-                                                settingsScrollTargetProvider
-                                                    .notifier,
-                                              )
-                                              .set(
-                                                'text-after-dictation-action',
-                                              );
-                                          ref
-                                              .read(activePageProvider.notifier)
-                                              .setPage('settings');
-                                        },
-                                        onAutoPasteOffHintDismiss: () {
-                                          ref
-                                              .read(settingsProvider.notifier)
-                                              .updateSettings(
-                                                (s) => s.copyWithSections(
-                                                  onboarding: s.onboarding
-                                                      .copyWith(
-                                                        autoPasteOffHintDismissed:
-                                                            true,
-                                                      ),
-                                                ),
-                                              );
-                                        },
-                                        onHotkeyTap: () {
-                                          ref
-                                              .read(
-                                                settingsScrollTargetProvider
-                                                    .notifier,
-                                              )
-                                              .set('general-hotkey-dictation');
-                                          ref
-                                              .read(activePageProvider.notifier)
-                                              .setPage('settings');
-                                        },
-                                        onSttTap: () {
-                                          ref
-                                              .read(
-                                                settingsScrollTargetProvider
-                                                    .notifier,
-                                              )
-                                              .set('stt-model');
-                                          ref
-                                              .read(activePageProvider.notifier)
-                                              .setPage('settings');
-                                        },
-                                        onAfterActionChanged: (action) {
-                                          ref
-                                              .read(settingsProvider.notifier)
-                                              .updateSettings(
-                                                (s) => s.copyWith(
-                                                  afterTranscription:
-                                                      action.value,
-                                                ),
-                                              );
-                                        },
-                                        onUpdateTap: () => triggerUpdateAction(
-                                          ref: ref,
-                                          updateState: updateState,
-                                          channel: deployChannel,
-                                        ),
-                                        automationApiRunState:
-                                            automationApiState.runState,
-                                        automationApiPort:
-                                            automationApiState.port,
-                                        automationApiRequestedPort:
-                                            automationApiState.requestedPort,
-                                        onAutomationApiTap: () {
-                                          ref
-                                              .read(
-                                                settingsScrollTargetProvider
-                                                    .notifier,
-                                              )
-                                              .set('advanced-automation-api');
-                                          ref
-                                              .read(activePageProvider.notifier)
-                                              .setPage('settings');
-                                        },
-                                      );
-                                    },
-                                  ),
-                            ),
-                            // Onboarding overlay — the first launch, a review the
-                            // user reopened from Settings, or an onboarding
-                            // revision run (`.scratch/onboarding-revisions/
-                            // issues/03`). `onboardingCompleted` alone no longer
-                            // decides which of the latter two it is — both start
-                            // with setup already done — so the ephemeral revision
-                            // flag breaks the tie; the two are mutually exclusive
-                            // by construction (see `OnboardingOverlay.revisionRun`).
-                            // Multiline preview for automation inserts (WP-38 / 8.5).
-                            const WpMultilinePastePreviewHost(),
-                            if (ref.watch(onboardingSurfaceActiveProvider))
-                              Positioned.fill(
-                                child: OnboardingOverlay(
-                                  manualReview:
-                                      settings.onboarding.onboardingCompleted &&
-                                      !onboardingRevisionRunning,
-                                  revisionRun: onboardingRevisionRunning,
-                                ),
+                                                .set(
+                                                  'text-after-dictation-action',
+                                                );
+                                            ref
+                                                .read(
+                                                  activePageProvider.notifier,
+                                                )
+                                                .setPage('settings');
+                                          },
+                                          onAutoPasteOffHintDismiss: () {
+                                            ref
+                                                .read(settingsProvider.notifier)
+                                                .updateSettings(
+                                                  (s) => s.copyWithSections(
+                                                    onboarding: s.onboarding
+                                                        .copyWith(
+                                                          autoPasteOffHintDismissed:
+                                                              true,
+                                                        ),
+                                                  ),
+                                                );
+                                          },
+                                          onHotkeyTap: () {
+                                            ref
+                                                .read(
+                                                  settingsScrollTargetProvider
+                                                      .notifier,
+                                                )
+                                                .set(
+                                                  'general-hotkey-dictation',
+                                                );
+                                            ref
+                                                .read(
+                                                  activePageProvider.notifier,
+                                                )
+                                                .setPage('settings');
+                                          },
+                                          onSttTap: () {
+                                            ref
+                                                .read(
+                                                  settingsScrollTargetProvider
+                                                      .notifier,
+                                                )
+                                                .set('stt-model');
+                                            ref
+                                                .read(
+                                                  activePageProvider.notifier,
+                                                )
+                                                .setPage('settings');
+                                          },
+                                          onAfterActionChanged: (action) {
+                                            ref
+                                                .read(settingsProvider.notifier)
+                                                .updateSettings(
+                                                  (s) => s.copyWith(
+                                                    afterTranscription:
+                                                        action.value,
+                                                  ),
+                                                );
+                                          },
+                                          onUpdateTap: () =>
+                                              triggerUpdateAction(
+                                                ref: ref,
+                                                updateState: updateState,
+                                                channel: deployChannel,
+                                              ),
+                                          automationApiRunState:
+                                              automationApiState.runState,
+                                          automationApiPort:
+                                              automationApiState.port,
+                                          automationApiRequestedPort:
+                                              automationApiState.requestedPort,
+                                          onAutomationApiTap: () {
+                                            ref
+                                                .read(
+                                                  settingsScrollTargetProvider
+                                                      .notifier,
+                                                )
+                                                .set('advanced-automation-api');
+                                            ref
+                                                .read(
+                                                  activePageProvider.notifier,
+                                                )
+                                                .setPage('settings');
+                                          },
+                                        );
+                                      },
+                                    ),
                               ),
-                          ],
+                              // Onboarding overlay — the first launch, a review the
+                              // user reopened from Settings, or an onboarding
+                              // revision run (`.scratch/onboarding-revisions/
+                              // issues/03`). `onboardingCompleted` alone no longer
+                              // decides which of the latter two it is — both start
+                              // with setup already done — so the ephemeral revision
+                              // flag breaks the tie; the two are mutually exclusive
+                              // by construction (see `OnboardingOverlay.revisionRun`).
+                              // Multiline preview for automation inserts (WP-38 / 8.5).
+                              const WpMultilinePastePreviewHost(),
+                              if (ref.watch(onboardingSurfaceActiveProvider))
+                                Positioned.fill(
+                                  child: OnboardingOverlay(
+                                    manualReview:
+                                        settings
+                                            .onboarding
+                                            .onboardingCompleted &&
+                                        !onboardingRevisionRunning,
+                                    revisionRun: onboardingRevisionRunning,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ), // Scaffold
-                  ), // WpRecordingBehavior
-                ), // WpServiceBootstrap
-              ), // SmartModeUsageHintWatcher
-            ), // WpFeatureSpotlightWatcher
+                      ), // Scaffold
+                    ), // WpRecordingBehavior
+                  ), // WpServiceBootstrap
+                ), // SmartModeUsageHintWatcher
+              ), // WpFeatureSpotlightWatcher
+            ),
           ), // WpSupportPromptWatcher
         ), // WpReviewPromptWatcher
       ), // WpNudgeInputListener

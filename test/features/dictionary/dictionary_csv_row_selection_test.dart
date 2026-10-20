@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/dictionary/dictionary_csv_preview_page.dart';
 import 'package:whispaste/services/dictionary/replacement_csv.dart';
-import 'package:whispaste/services/dictionary/replacement_duplicates.dart';
+import 'package:whispaste/services/dictionary/replacement_import_plan.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -26,9 +26,15 @@ void main() {
       );
       await tester.pumpWidget(
         makeTestable(
-          DictionaryCsvPreviewPage(
+          const DictionaryCsvPreviewPage(
             result: result,
-            existingTriggerKeys: {normalizeTriggerKey('MFG')},
+            existing: [
+              ReplacementImportExisting(
+                id: 'mfg',
+                triggers: ['MFG'],
+                replacement: 'Manufacturing',
+              ),
+            ],
           ),
           locale: const Locale('en'),
         ),

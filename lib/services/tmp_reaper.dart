@@ -20,6 +20,30 @@ import '../core/logging/app_logger.dart';
 
 final _log = AppLogger('TmpReaper');
 
+/// Absolute paths of `.tmp` fragments whose download is in progress or was
+/// interrupted in this session and can still be resumed. A sweep never deletes
+/// these, whatever their age: a sibling download's post-completion sweep would
+/// otherwise remove a paused fragment that the user is about to resume.
+///
+/// In-memory and process-wide. After an app restart the registry is empty and
+/// the age rule applies again, which is what reaps truly abandoned fragments.
+final Set<String> _resumableFragments = <String>{};
+
+String _fragmentKey(String tmpPath) => p.normalize(p.absolute(tmpPath));
+
+/// Marks [tmpPath] as a resumable download fragment (see [_resumableFragments]).
+void registerResumableFragment(String tmpPath) =>
+    _resumableFragments.add(_fragmentKey(tmpPath));
+
+/// Removes [tmpPath] from the resumable registry, e.g. after its rename to the
+/// final file, so the next sweep may reap it again if it is ever orphaned.
+void releaseResumableFragment(String tmpPath) =>
+    _resumableFragments.remove(_fragmentKey(tmpPath));
+
+/// Whether [tmpPath] is currently registered as resumable.
+bool isResumableFragment(String tmpPath) =>
+    _resumableFragments.contains(_fragmentKey(tmpPath));
+
 // ---------------------------------------------------------------------------
 // Data
 // ---------------------------------------------------------------------------
@@ -105,6 +129,7 @@ Future<void> sweepOrphanedTmpFiles({
       if (entity is! File) continue;
       final name = p.basename(entity.path);
       if (!name.endsWith('.tmp')) continue;
+      if (isResumableFragment(entity.path)) continue;
 
       try {
         final stat = await entity.stat();

@@ -28,9 +28,13 @@ abstract final class TrayCommandIds {
   static const settings = 'settings';
   static const feedback = 'feedback';
   static const quit = 'quit';
+  static const recentRecordings = 'recent-submenu';
+  static const unlockHistory = 'unlock_history';
 
   /// The fixed ids, for guards that check the tree is complete.
   static const all = [
+    recentRecordings,
+    unlockHistory,
     status,
     toggleRecording,
     transcribeFile,
@@ -48,6 +52,20 @@ abstract final class TrayCommandIds {
   ];
 }
 
+/// Prefix of the ids of recent-recording items; the recording id follows it.
+const trayRecentIdPrefix = 'recent-';
+
+/// Most recent recordings the tray submenu lists.
+const trayRecentLimit = 5;
+
+/// Menu id of the recent recording [id].
+String trayRecentKey(String id) => '$trayRecentIdPrefix$id';
+
+/// The recording id behind a recent-item id, or null for any other id.
+String? trayRecentIdFromKey(String key) => key.startsWith(trayRecentIdPrefix)
+    ? key.substring(trayRecentIdPrefix.length)
+    : null;
+
 /// Everything the tray menu shows, as plain values.
 @immutable
 class TrayMenuState {
@@ -63,6 +81,8 @@ class TrayMenuState {
     this.actionNeeded,
     this.sidePanelAvailable = false,
     this.toggleShortcut,
+    this.recentRecordings = const [],
+    this.historyLocked = false,
   });
 
   /// Whether a recording is running (drives the toggle label and status).
@@ -98,6 +118,14 @@ class TrayMenuState {
 
   /// Whether the side panel entry is shown.
   final bool sidePanelAvailable;
+
+  /// Latest recordings, newest first: id and a label of date and word count.
+  /// The label never carries the text. Empty while [historyLocked].
+  final List<({String id, String label})> recentRecordings;
+
+  /// A PIN is set and the history has not been unlocked. The submenu then
+  /// offers only the unlock entry, so locked text never reaches the menu.
+  final bool historyLocked;
 }
 
 /// Label table of the tray: the ARB keys the tree refers to, resolved in the
@@ -114,6 +142,8 @@ Map<String, String> trayLabelsFor(L10n l) => {
   'trayProfile': l.trayProfile,
   'trayProfileAutomatic': l.trayProfileAutomatic,
   'trayProfileNone': l.trayProfileNone,
+  'trayRecentRecordings': l.trayRecentRecordings,
+  'trayUnlockRecordings': l.trayUnlockRecordings,
   'traySpeechModel': l.traySpeechModel,
   'navSmartMode': l.navSmartMode,
   'settingsAfterTranscription': l.settingsAfterTranscription,
@@ -204,6 +234,26 @@ List<AppCommand> buildTrayCommands(
         id: TrayCommandIds.profile,
         labelKey: 'trayProfile',
         children: profileCommands,
+      ),
+    if (state.historyLocked)
+      const AppCommand(
+        id: TrayCommandIds.recentRecordings,
+        labelKey: 'trayRecentRecordings',
+        children: [
+          AppCommand(
+            id: TrayCommandIds.unlockHistory,
+            labelKey: 'trayUnlockRecordings',
+          ),
+        ],
+      )
+    else if (state.recentRecordings.isNotEmpty)
+      AppCommand(
+        id: TrayCommandIds.recentRecordings,
+        labelKey: 'trayRecentRecordings',
+        children: [
+          for (final r in state.recentRecordings)
+            AppCommand(id: trayRecentKey(r.id), labelKey: r.label),
+        ],
       ),
     if (hasRealMicDevices)
       AppCommand(

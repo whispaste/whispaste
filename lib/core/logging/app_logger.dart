@@ -19,7 +19,9 @@ import 'dart:convert';
 import 'dart:developer' as dev;
 import 'dart:io';
 
+import 'package:drift/native.dart' show SqliteException;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:logging/logging.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart' as diag;
@@ -54,6 +56,27 @@ class AppLogger {
   void error(Object? message, [Object? error, StackTrace? stackTrace]) =>
       _logger.severe(message, error, stackTrace);
 }
+
+/// An app exception whose [reason] says what failed without carrying a path
+/// or user content, so [errorKind] can log it.
+abstract interface class ReasonedError {
+  Enum get reason;
+}
+
+/// Short description of [error] for log lines that must not carry its text:
+/// the type plus a code or reason where the type has one. Use it instead of
+/// `$e` where the message can hold user content (transcript, clipboard text,
+/// SQL statements).
+String errorKind(Object error) => switch (error) {
+  ReasonedError(:final reason) =>
+    '${error.runtimeType}(reason: ${reason.name})',
+  SqliteException(:final extendedResultCode) =>
+    'SqliteException(code $extendedResultCode)',
+  FileSystemException(:final osError) =>
+    'FileSystemException(errno ${osError?.errorCode ?? '-'})',
+  PlatformException(:final code) => 'PlatformException($code)',
+  _ => '${error.runtimeType}',
+};
 
 // ---------------------------------------------------------------------------
 // Global logging configuration

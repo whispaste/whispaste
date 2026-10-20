@@ -39,14 +39,6 @@ const double kUxMaxChromeAbove = 0.35;
 /// Ticket that owns each known failure. Keyed by screen id from
 /// `kUxScreens`. Empty means the guard is green for that screen.
 const Map<String, String> kUxGuardSkips = {
-  'dictionary-replacements@800x716':
-      'WP-81 / UX-028: Woerterbuch Ersetzungen, Fixed-Chrome ueber der Liste',
-  'dictionary-replacements@1100x720':
-      'WP-81 / UX-028: Woerterbuch Ersetzungen, Fixed-Chrome ueber der Liste',
-  'snippets@800x716':
-      'WP-82 / UX-030: Textbausteine, Konfigurationskarten ueber der Liste',
-  'snippets@1100x720':
-      'WP-82 / UX-030: Textbausteine, Konfigurationskarten ueber der Liste',
   'history@800x716':
       'WP-82 / UX-031: Aufnahmen, Filterleiste umbricht ueber der Liste',
   'help@800x716': 'WP-82 / UX-032: Hilfe, leerer Kopfbereich ueber dem Inhalt',

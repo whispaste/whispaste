@@ -22,6 +22,7 @@ import '../../widgets/toast.dart';
 import '../../widgets/wp_list_skeleton.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../../services/audio/import/audio_import_providers.dart';
+import '../../services/pending_audio/pending_audio_providers.dart';
 import '../../services/clipboard_history/app_clipboard.dart';
 import '../../services/history/history_exporter.dart' as history_exporter;
 import 'data/history_detail_provider.dart';
@@ -812,6 +813,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       } else {
         await ref.read(historyDatabaseProvider).softDeleteEntry(entry.id);
       }
+      await ref.read(pendingAudioQueueProvider).discard(entry.id);
     } catch (e) {
       _showHistoryWriteFailedToast();
       return;
@@ -1042,10 +1044,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     final ids = _selectedIds.toList();
     final message = L10n.of(context).historyBulkMovedToTrash(ids.length);
     try {
+      final ids = _selectedIds.toList();
       if (isTrash) {
         await db.batchPermanentDelete(ids);
       } else {
         await db.softDeleteEntries(ids);
+      }
+      final queue = ref.read(pendingAudioQueueProvider);
+      for (final id in ids) {
+        await queue.discard(id);
       }
     } catch (e) {
       _showHistoryWriteFailedToast();
@@ -1161,7 +1168,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       destructive: true,
     );
     if (!confirmed || !mounted) return;
-    final count = await ref.read(historyDatabaseProvider).emptyTrash();
+    final db = ref.read(historyDatabaseProvider);
+    final trashedIds = await db.trashedEntryIds();
+    final count = await db.emptyTrash();
+    final queue = ref.read(pendingAudioQueueProvider);
+    for (final id in trashedIds) {
+      await queue.discard(id);
+    }
     if (!mounted) return;
     WpToast.show(
       context,

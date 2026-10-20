@@ -16,7 +16,6 @@ import 'package:whispaste/services/feedback_diagnostics.dart';
 import 'package:whispaste/services/feedback_submission_service.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_filter_chip.dart';
-import 'package:whispaste/widgets/wp_row_checkbox.dart';
 import 'package:whispaste/widgets/wp_voice_input_button.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -234,8 +233,10 @@ void main() {
   ) async {
     await pump(tester);
     await choose(tester, l10n.feedbackTypeProblem);
-    await tester.ensureVisible(find.byType(WpRowCheckbox));
-    await tester.tap(find.byType(WpRowCheckbox));
+    await tester.ensureVisible(
+      find.byKey(const Key('feedback-diagnostics-attach')),
+    );
+    await tester.tap(find.byKey(const Key('feedback-diagnostics-attach')));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text(l10n.feedbackDiagnosticsPreview));
@@ -253,8 +254,10 @@ void main() {
   ) async {
     await pump(tester);
     await choose(tester, l10n.feedbackTypePraise);
-    await tester.ensureVisible(find.byType(WpRowCheckbox));
-    await tester.tap(find.byType(WpRowCheckbox));
+    await tester.ensureVisible(
+      find.byKey(const Key('feedback-diagnostics-attach')),
+    );
+    await tester.tap(find.byKey(const Key('feedback-diagnostics-attach')));
     await tester.pumpAndSettle();
 
     expect(

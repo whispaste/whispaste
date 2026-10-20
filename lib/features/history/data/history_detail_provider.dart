@@ -13,6 +13,7 @@ import 'package:whispaste/core/logging/app_logger.dart';
 import 'package:whispaste/features/history/data/history_title.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_retroactive_service.dart';
+import 'package:whispaste/services/pending_audio/pending_audio_providers.dart';
 
 final _log = AppLogger('HistoryDetail');
 
@@ -382,12 +383,14 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
 
   Future<void> softDelete() async {
     await _db.softDeleteEntry(_entryId);
+    await ref.read(pendingAudioQueueProvider).discard(_entryId);
   }
 
   Future<void> restore() => _applyEntryAction(() => _db.restoreEntry(_entryId));
 
   Future<void> permanentDelete() async {
     await _db.permanentDeleteEntry(_entryId);
+    await ref.read(pendingAudioQueueProvider).discard(_entryId);
   }
 
   Future<HistoryEntry?> duplicate() async {

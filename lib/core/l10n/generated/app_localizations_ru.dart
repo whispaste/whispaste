@@ -814,7 +814,7 @@ class L10nRu extends L10n {
 
   @override
   String pasteNotificationLinuxUinputBody(String paste) {
-    return 'WhisPaste пока не может использовать виртуальную клавиатуру /dev/uinput. Текст находится в буфере обмена, вставьте его сочетанием $paste. Нажмите здесь, чтобы увидеть команду для однократной настройки.';
+    return 'WhisPaste пока не может использовать виртуальную клавиатуру /dev/uinput. Текст находится в буфере обмена, вставьте его сочетанием $paste. Нажмите здесь, чтобы настроить.';
   }
 
   @override
@@ -1030,11 +1030,11 @@ class L10nRu extends L10n {
 
   @override
   String get onboardingPasteLinuxNative =>
-      'В этой системе автовставка работает автоматически. WhisPaste вставляет текст в курсор после каждой записи.';
+      'Автовставке нужно ваше разрешение на виртуальную клавиатуру (/dev/uinput). С пакетом .deb нажмите «Разрешить (пароль администратора)» и введите пароль администратора, иначе скопируйте команду и выполните её один раз в терминале. Разрешение можно убрать в настройках.';
 
   @override
   String get onboardingPasteLinuxFlatpak =>
-      'В версии Flatpak параметр --device=all делает /dev/input/* и /dev/uinput видимыми внутри песочницы. Сам WhisPaste не читает устройства ввода. Если у вашего пользователя есть право чтения на компьютере (например, как члена группы input), приложение могло бы читать нажатия клавиш других программ. Члены группы input могут также создавать виртуальный ввод. Автовставке также нужен доступ на запись к /dev/uinput на компьютере: установите правило udev 71-whispaste-uinput.rules в /etc/udev/rules.d/ и выполните sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. Правило даёт право записи вошедшему в систему пользователю и каждому члену группы input. Эти команды требуют прав администратора (sudo) и меняют систему. Если это не нужно, оставьте автовставку выключенной и вставляйте текст вручную.';
+      'В версии Flatpak --device=all делает /dev/input/* и /dev/uinput видимыми внутри песочницы. Сам WhisPaste не читает устройства ввода. Если у вашего пользователя есть права на чтение в системе (например, как у члена группы input), приложение могло бы читать нажатия клавиш в других программах. Автовставке также нужен доступ на запись к /dev/uinput в системе: скопируйте команду и выполните её один раз в терминале. Она устанавливает правило udev 71-whispaste-uinput.rules, которое даёт доступ только активному сеансу. Команде нужны права администратора (sudo), и она изменяет систему. Если вы этого не хотите, оставьте автовставку выключенной и вставляйте текст вручную.';
 
   @override
   String get onboardingPasteLinuxSnap =>
@@ -1042,7 +1042,7 @@ class L10nRu extends L10n {
 
   @override
   String get onboardingPasteLinuxAppImage =>
-      'AppImage нужен доступ к /dev/uinput (виртуальное устройство клавиатуры). Рекомендуется: установите правило udev 71-whispaste-uinput.rules в /etc/udev/rules.d/ и выполните: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. Правило даёт право записи вошедшему в систему пользователю и каждому члену группы input, поэтому каждый член группы может создавать виртуальный ввод (например, имитировать нажатия клавиш). Альтернатива: sudo usermod -aG input \$USER, затем выйдите из сеанса и войдите снова. Члены группы input могут также читать нажатия клавиш всех устройств ввода, в том числе других программ. Эти команды требуют прав администратора (sudo) и меняют систему. Пока что автовставка только копирует текст.';
+      'AppImage нужен доступ к /dev/uinput (виртуальной клавиатуре). Скопируйте команду и выполните её один раз в терминале. Она устанавливает правило udev 71-whispaste-uinput.rules в /etc/udev/rules.d/ и выполняет sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. Правило даёт доступ на запись только активному сеансу. Команде нужны права администратора (sudo), и она изменяет систему. До тех пор автовставка только копирует текст.';
 
   @override
   String get onboardingPasteWinEnableCta => 'Включить автовставку';
@@ -1529,6 +1529,9 @@ class L10nRu extends L10n {
 
   @override
   String get actionCancel => 'Отмена';
+
+  @override
+  String get actionClose => 'Закрыть';
 
   @override
   String get actionConfirm => 'Подтвердить';
@@ -2361,6 +2364,81 @@ class L10nRu extends L10n {
   String get feedbackRequiredMarker => 'Обязательно';
 
   @override
+  String get feedbackPublishConsentLabel =>
+      'Я разрешаю показать мой отзыв на сайте анонимно, как цитату.';
+
+  @override
+  String get feedbackPublishConsentExplanation =>
+      'По умолчанию выключено. Показываются только ваш текст и оценка, но не имя и не e-mail. Согласие можно отозвать в любой момент одним нажатием на странице «Отзыв» в приложении.';
+
+  @override
+  String get feedbackWithdrawConsentLabel => 'Отозвать согласие';
+
+  @override
+  String get feedbackWithdrawConsentHelp =>
+      'Относится к отзывам, отправленным с согласием с этого устройства. Цитата исчезнет с сайта примерно через 24 часа.';
+
+  @override
+  String get feedbackWithdrawConsentPending =>
+      'Отзыв сохранён и будет отправлен, когда WhisPaste запустится с подключением к интернету (в течение 30 дней); иначе отзовите по e-mail.';
+
+  @override
+  String get feedbackWithdrawNoCode =>
+      'На этом устройстве нет кода отзыва – отзовите по e-mail';
+
+  @override
+  String feedbackWithdrawEntrySending(Object date) {
+    return 'Отзыв от $date отправляется…';
+  }
+
+  @override
+  String feedbackWithdrawEntryFailed(Object date) {
+    return 'Отзыв от $date не доставлен – отзовите по e-mail';
+  }
+
+  @override
+  String get feedbackWithdrawConsentUndelivered =>
+      'Не удалось доставить отзыв – отзовите по e-mail.';
+
+  @override
+  String get feedbackWithdrawEmailLabel => 'Отозвать по e-mail';
+
+  @override
+  String get feedbackWithdrawEmailSubject =>
+      'Отзыв согласия на цитирование моего отзыва';
+
+  @override
+  String get feedbackWithdrawEmailBody =>
+      'Пожалуйста, отзовите моё согласие на цитирование моего отзыва.';
+
+  @override
+  String get feedbackWithdrawEmailDateLabel => 'Дата отзыва:';
+
+  @override
+  String get feedbackWithdrawEmailReferenceLabel => 'Код отзыва:';
+
+  @override
+  String get feedbackWithdrawEmailSentLabel => 'Письмо отправлено';
+
+  @override
+  String get feedbackWithdrawEmailLaunchFailed =>
+      'Почтовая программа не найдена. Отправьте подготовленное сообщение на этот адрес:';
+
+  @override
+  String get feedbackWithdrawEmailCopyLabel => 'Скопировать адрес и сообщение';
+
+  @override
+  String get feedbackWithdrawEmailCopied => 'Адрес и сообщение скопированы.';
+
+  @override
+  String get feedbackWithdrawLocked =>
+      'Хранилище учётных данных системы сейчас недоступно для чтения. WhisPaste не может отправить сохранённые там согласия и отзывы. Отзовите по e-mail: подготовленное письмо содержит нужные коды.';
+
+  @override
+  String get feedbackWithdrawConsentDone =>
+      'Отзыв отправлен. Цитата исчезнет с сайта примерно через 24 часа, при следующем ежедневном обновлении.';
+
+  @override
   String get feedbackPrivacyNote =>
       'По умолчанию анонимно. Мы узнаем вас, только если вы укажете email выше.';
 
@@ -2980,6 +3058,10 @@ class L10nRu extends L10n {
   @override
   String get errorSttModelCorrupted =>
       'Файл голосовой модели повреждён. Скачайте голосовую модель заново в Настройках.';
+
+  @override
+  String get errorSttEngineRestartNeeded =>
+      'Голосовой движок ещё занят предыдущей диктовкой. Перезапустите WhisPaste, чтобы использовать его снова.';
 
   @override
   String get pendingRetryFailed =>
@@ -4342,6 +4424,25 @@ class L10nRu extends L10n {
   String get trayQuit => 'Выход';
 
   @override
+  String get trayRecentRecordings => 'Последние записи';
+
+  @override
+  String get trayUnlockRecordings => 'Разблокировать записи…';
+
+  @override
+  String trayRecentMeta(String time, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count слова',
+      many: '$count слов',
+      few: '$count слова',
+      one: '$count слово',
+    );
+    return '$time · $_temp0';
+  }
+
+  @override
   String get trayFeedback => 'Отправить отзыв…';
 
   @override
@@ -4739,6 +4840,17 @@ class L10nRu extends L10n {
       'Всегда видимая поверх окон кнопка для быстрого доступа';
 
   @override
+  String get settingsFloatingButtonWaylandTitle => 'Ограничения Wayland';
+
+  @override
+  String get settingsFloatingButtonWaylandLimit =>
+      'В Wayland рабочий стол сам решает, где появится кнопка и останется ли она поверх окон. WhisPaste может гарантировать это только в ограниченной степени. Запись по нажатию работает как обычно, а кнопка не забирает фокус клавиатуры.';
+
+  @override
+  String get settingsFloatingButtonUnavailable =>
+      'Недоступно на этом рабочем столе Linux: кнопке нужен X11 или XWayland. Выключить её всё равно можно.';
+
+  @override
   String get settingsSttIdleTimeout =>
       'Время простоя модели распознавания речи';
 
@@ -4816,6 +4928,28 @@ class L10nRu extends L10n {
 
   @override
   String get reviewSupportAction => 'Оценить';
+
+  @override
+  String get reviewSupportGitHubLabel =>
+      'Поддержите WhisPaste звездой на GitHub';
+
+  @override
+  String get reviewSupportGitHubAction => 'Открыть на GitHub';
+
+  @override
+  String get githubInviteTitle => 'WhisPaste — открытое ПО';
+
+  @override
+  String get githubInviteBody => 'Звезда на GitHub помогает другим его найти.';
+
+  @override
+  String get githubInviteOpen => 'Открыть на GitHub';
+
+  @override
+  String get githubInviteLater => 'Позже';
+
+  @override
+  String get githubInviteNever => 'Больше не спрашивать';
 
   @override
   String get ideasBoardLabel => 'Идеи и пожелания';
@@ -5348,6 +5482,13 @@ class L10nRu extends L10n {
       'Все, что вы копируете при запущенном WhisPaste, появляется здесь — очищается при перезапуске.';
 
   @override
+  String get sidePanelClipboardLockedTitle => 'Заблокировано PIN-кодом';
+
+  @override
+  String get sidePanelClipboardLockedHint =>
+      'Скопированный текст скрыт, пока записи заблокированы. Разблокируйте их PIN-кодом, чтобы снова его увидеть.';
+
+  @override
   String get sidePanelClose => 'Закрыть панель';
 
   @override
@@ -5361,6 +5502,10 @@ class L10nRu extends L10n {
 
   @override
   String get sidePanelNoMatchesHint => 'Попробуйте другой запрос.';
+
+  @override
+  String get sidePanelLoadFailedHint =>
+      'Закройте панель и откройте её снова, чтобы повторить попытку.';
 
   @override
   String get settingsSmartMode => 'Smart Mode';
@@ -5750,6 +5895,23 @@ class L10nRu extends L10n {
   @override
   String get settingsCudaPackErrorStorage =>
       'Не удалось сохранить пакет. Проверьте свободное место на диске.';
+
+  @override
+  String get cudaEulaDialogTitle => 'Лицензия NVIDIA CUDA';
+
+  @override
+  String cudaEulaDialogBody(String version) {
+    return 'Пакет CUDA содержит компоненты NVIDIA по Лицензионному соглашению конечного пользователя NVIDIA CUDA (версия $version). Обязательный текст — копия в пакете (LICENSE-NVIDIA.txt); ссылка открывает актуальную версию NVIDIA. Для загрузки его нужно принять.';
+  }
+
+  @override
+  String get cudaEulaDialogLink => 'Открыть лицензию NVIDIA';
+
+  @override
+  String get cudaEulaDialogCancel => 'Отмена';
+
+  @override
+  String get cudaEulaDialogAccept => 'Принять и загрузить';
 
   @override
   String get recoveryCudaDisabledToast =>
@@ -6571,6 +6733,15 @@ class L10nRu extends L10n {
       'Порог: strict, standard, tolerant или число от 0,5 до 1.';
 
   @override
+  String get dictionaryCsvReasonControlCharacter =>
+      'Строка содержит управляющий или скрытый символ форматирования либо разрыв строки.';
+
+  @override
+  String dictionaryCsvReasonTooManyTriggers(int max) {
+    return 'Слишком много триггеров в одной строке (не больше $max).';
+  }
+
+  @override
   String get dictionaryCsvPreviewTitle => 'Проверьте записи';
 
   @override
@@ -6631,15 +6802,114 @@ class L10nRu extends L10n {
   }
 
   @override
-  String dictionaryCsvSkippedDuplicates(int count) {
-    return 'Дубликатов пропущено: $count.';
+  String get dictionaryCsvImportEncodingError =>
+      'Файл не является текстом в кодировке UTF-8.';
+
+  @override
+  String get dictionaryCsvRefusedFormat =>
+      'Этот файл в формате пакета, который это приложение не может прочитать.';
+
+  @override
+  String get dictionaryCsvRefusedType =>
+      'Этот файл не является пакетом словаря замен.';
+
+  @override
+  String dictionaryCsvPackageHeader(String name, String date) {
+    return 'Пакет: $name (создан $date)';
   }
+
+  @override
+  String get dictionaryCsvPackageNone =>
+      'Нет данных о пакете (старый или чужой файл)';
+
+  @override
+  String dictionaryCsvSummaryLine(
+    int added,
+    int duplicates,
+    int conflicts,
+    int circular,
+    int errors,
+  ) {
+    return 'Новых: $added · Дубликатов: $duplicates · Конфликтов: $conflicts · Циклических ссылок: $circular · С ошибками: $errors';
+  }
+
+  @override
+  String get dictionaryCsvStrategyLabel => 'Если триггер уже есть';
+
+  @override
+  String get dictionaryCsvStrategySkip => 'Пропустить';
+
+  @override
+  String get dictionaryCsvStrategyOverwrite => 'Заменить';
+
+  @override
+  String get dictionaryCsvStrategyKeepBoth => 'Оставить оба';
+
+  @override
+  String get dictionaryCsvStrategySkipHint =>
+      'Строка не импортируется. Существующие записи не меняются.';
+
+  @override
+  String dictionaryCsvStrategyOverwriteHint(int changed) {
+    return 'Общий триггер удаляется из старой записи, строка добавляется. Изменится или будет удалено записей: $changed.';
+  }
+
+  @override
+  String get dictionaryCsvStrategyKeepBothHint =>
+      'Строка тоже добавляется. Для того же триггера по-прежнему работает существующая запись, которая стоит в списке раньше.';
+
+  @override
+  String get dictionaryCsvStatusAdded => 'будет добавлено';
+
+  @override
+  String get dictionaryCsvStatusDuplicate => 'уже есть';
+
+  @override
+  String get dictionaryCsvStatusConflictSkipped => 'конфликт, пропускается';
+
+  @override
+  String get dictionaryCsvStatusConflictReplaced =>
+      'конфликт, заменяет существующий триггер';
+
+  @override
+  String get dictionaryCsvStatusConflictKept =>
+      'конфликт, добавляется дополнительно';
+
+  @override
+  String get dictionaryCsvStatusSuperseded =>
+      'заменена более поздней строкой этого файла';
+
+  @override
+  String get dictionaryCsvStatusCircular =>
+      'циклическая ссылка, не импортируется';
 
   @override
   String get dictionaryCsvRowWillAdd => 'Будет добавлено';
 
   @override
   String get dictionaryCsvRowSkipped => 'Дубликат, пропускается';
+
+  @override
+  String get dictionaryCsvExportSelectTitle => 'Выберите записи для экспорта';
+
+  @override
+  String dictionaryCsvExportSelectSubtitle(int count) {
+    return 'Записей для выбора: $count';
+  }
+
+  @override
+  String get dictionaryCsvAllPresent =>
+      'Все записи уже есть. Ничего не будет записано.';
+
+  @override
+  String dictionaryCsvExportConfirm(int count) {
+    return 'Экспортировать ($count)';
+  }
+
+  @override
+  String dictionaryCsvExportTooMany(int count) {
+    return 'Слишком много записей для одного файла: $count. Выберите меньше (не более 5000 записей, 1 МиБ).';
+  }
 
   @override
   String get settingsBetaGroupHeading => 'Предварительные версии';
@@ -7144,7 +7414,7 @@ class L10nRu extends L10n {
 
   @override
   String get manualC02S3B2I2 =>
-      '«Плавающая кнопка»: кнопка поверх всех окон, которой запись запускается кликом. По умолчанию: выкл.';
+      '«Плавающая кнопка»: кнопка, которой запись запускается кликом. По умолчанию: выкл. В Linux с Wayland рабочий стол может ограничивать положение кнопки и то, остаётся ли она поверх окон.';
 
   @override
   String get manualC02S4Heading => 'Вставка после записи';
@@ -7307,6 +7577,10 @@ class L10nRu extends L10n {
   String manualC05S3B1(String k1, String k2, String k3, String k4) {
     return 'Замены можно сохранить или перенести в файле CSV. В файле столбцы $k1. Несколько триггеров разделяются символом $k2. Файл может быть размером не больше $k3 и содержать не более $k4 строк.';
   }
+
+  @override
+  String get manualC05S3B2 =>
+      'Импорт и экспорт находятся в меню «Ещё» (⋯) над списком. Поле проверки также открывается из этого меню.';
 
   @override
   String get manualC06Title => 'Сниппеты';
@@ -7473,6 +7747,10 @@ class L10nRu extends L10n {
   @override
   String get manualC08S5B2 =>
       'Забытый PIN-код восстановить нельзя. Для сброса сразу удаляются все записи и сохранённые аудиофайлы (включая архив и корзину), все заметки с версиями и все изображения заметок. Настройки, текстовые блоки и замены сохраняются.';
+
+  @override
+  String get manualC08S5B3 =>
+      'Пока записи заблокированы PIN-кодом, вкладка буфера обмена в боковой панели не показывает скопированный текст и не вставляет его. После разблокировки текст снова доступен.';
 
   @override
   String get manualC08S6Heading => 'Автоочистка';
@@ -7718,6 +7996,10 @@ class L10nRu extends L10n {
       'Загрузка одноразовая. Размер показывает приложение.';
 
   @override
+  String get manualC13S3B3 =>
+      'Пакет содержит компоненты NVIDIA. Перед загрузкой вы принимаете лицензионное соглашение NVIDIA CUDA, ссылка на которое есть в окне.';
+
+  @override
   String get manualC13S4Heading => 'Графическое ускорение';
 
   @override
@@ -7850,7 +8132,7 @@ class L10nRu extends L10n {
 
   @override
   String get manualC14S15B2 =>
-      'В этой системе ничего настраивать не нужно. WhisPaste вставляет текст в курсор после каждой записи.';
+      'Пакет .deb при установке не выдаёт никакого доступа. Автовставка сначала спрашивает: в начальной настройке или в настройках, раздел «После транскрипции» нажмите «Разрешить (пароль администратора)» и введите пароль администратора. Пока разрешение действует, другие программы в вашем сеансе тоже могут создавать нажатия клавиш. Кнопка «Убрать разрешение» отменяет его в любой момент; при удалении программы оно тоже убирается.';
 
   @override
   String get manualC14S15B3 =>
@@ -7862,7 +8144,7 @@ class L10nRu extends L10n {
 
   @override
   String get manualC14S15B5 =>
-      'AppImage нужен доступ к /dev/uinput. Установите правило udev 71-whispaste-uinput.rules в /etc/udev/rules.d/ или добавьте своего пользователя в группу input и войдите в систему заново. До этого автовставка только копирует текст.';
+      'AppImage нужен доступ к /dev/uinput. В начальной настройке или в настройках скопируйте команду и выполните её один раз в терминале. Она устанавливает правило udev 71-whispaste-uinput.rules в /etc/udev/rules.d/, которое даёт доступ на запись только активному сеансу. До тех пор автовставка только копирует текст.';
 
   @override
   String get manualC14S15TerminalHeading => 'Терминалы и Wayland';
@@ -7961,7 +8243,7 @@ class L10nRu extends L10n {
 
   @override
   String get manualC14S15B3E =>
-      'Правило даёт право записи вошедшему в систему пользователю и каждому члену группы input. Эти команды требуют прав администратора (sudo) и меняют систему. Если это не нужно, оставьте автовставку выключенной и вставляйте текст вручную.';
+      'Правило даёт доступ на запись только активному сеансу. Этим командам нужны права администратора (sudo), и они изменяют систему. Если вы этого не хотите, оставьте автовставку выключенной и вставляйте текст вручную. Чтобы удалить правило, воспользуйтесь кнопкой в настройках, которая копирует нужную команду.';
 
   @override
   String get manualC14S15SnapHeading => 'Snap';
@@ -8247,7 +8529,7 @@ class L10nRu extends L10n {
 
   @override
   String get pasteFailureLinuxUinputHint =>
-      'Автовставке нужен одноразовый доступ к /dev/uinput. Скопируйте команду и выполните её в терминале.';
+      'Автовставке нужно ваше однократное разрешение на виртуальную клавиатуру (/dev/uinput).';
 
   @override
   String get pasteFailureLinuxUinputCopy => 'Скопировать команду';
@@ -8259,6 +8541,32 @@ class L10nRu extends L10n {
   @override
   String get pasteFailureLinuxUinputSettingsHint =>
       'Автовставке нужен одноразовый доступ к /dev/uinput. Откройте настройки автовставки для одноразовой настройки.';
+
+  @override
+  String linuxUinputConsentNotice(String paste) {
+    return 'Теперь автовставка спрашивает, прежде чем использовать виртуальную клавиатуру /dev/uinput, поэтому это обновление убрало прежний доступ. Текст находится в буфере обмена, вставьте его сочетанием $paste. Нажмите здесь, чтобы разрешить.';
+  }
+
+  @override
+  String get linuxUinputSetupAction => 'Настроить';
+
+  @override
+  String get linuxUinputConsentDetail =>
+      'Чтобы вставлять текст самостоятельно, WhisPaste нужна виртуальная клавиатура. Пока она разрешена, другие программы в вашем сеансе тоже могут создавать нажатия клавиш. Без разрешения WhisPaste копирует текст, и вы вставляете его сами.';
+
+  @override
+  String get linuxUinputGrantButton => 'Разрешить (пароль администратора)';
+
+  @override
+  String get linuxUinputGrantFailed =>
+      'Не удалось выдать разрешение. WhisPaste по-прежнему только копирует текст.';
+
+  @override
+  String get linuxUinputRevokeButton => 'Убрать разрешение';
+
+  @override
+  String get linuxUinputRevokeDone =>
+      'Разрешение убрано. Теперь WhisPaste только копирует текст.';
 
   @override
   String get settingsSecureKeysNotRemoved =>
@@ -8752,4 +9060,279 @@ class L10nRu extends L10n {
   @override
   String get holdToRecordExplained =>
       'Вкл.: удерживайте сочетание клавиш и говорите, отпустите для завершения. Выкл.: нажмите для старта и ещё раз для завершения.';
+
+  @override
+  String get settingsAreaProfiles => 'Профили';
+
+  @override
+  String get profilesSectionHeading => 'Ваши профили';
+
+  @override
+  String get profilesEmptyBody =>
+      'Профили переключают модель распознавания, язык, Smart Mode и действие после транскрипции горячей клавишей или автоматически для каждого приложения.';
+
+  @override
+  String get profilesAddFirst => 'Создать первый профиль';
+
+  @override
+  String get profilesAdd => 'Создать профиль';
+
+  @override
+  String get profilesCreate => 'Создать';
+
+  @override
+  String get profilesLimitReached =>
+      'Не более 9 профилей. Удалите один, чтобы создать новый.';
+
+  @override
+  String get profilesActiveBadge => 'Активен';
+
+  @override
+  String get profilesMoveUp => 'Выше';
+
+  @override
+  String get profilesMoveDown => 'Ниже';
+
+  @override
+  String get profilesDragHandle => 'Перетащите для сортировки';
+
+  @override
+  String get profilesNewTitle => 'Новый профиль';
+
+  @override
+  String get profilesNameLabel => 'Имя';
+
+  @override
+  String get profilesNameEmpty => 'Введите имя.';
+
+  @override
+  String get profileDetailHeading => 'Настройки профиля';
+
+  @override
+  String get profileDetailModel => 'Модель распознавания';
+
+  @override
+  String get profileDetailLanguage => 'Язык';
+
+  @override
+  String get profileDetailLanguageSubtitle =>
+      'Действует для Whisper и облачных сервисов. Parakeet определяет язык сам.';
+
+  @override
+  String get profileDetailSmartMode => 'Smart Mode';
+
+  @override
+  String get profileDetailAfter => 'После транскрипции';
+
+  @override
+  String get profileDetailMicrophone => 'Микрофон';
+
+  @override
+  String get profileKeepUnchanged => 'Не менять';
+
+  @override
+  String profileValueUnavailable(String value) {
+    return '$value (недоступно)';
+  }
+
+  @override
+  String get profileDetailHotkey => 'Горячая клавиша';
+
+  @override
+  String get profileDetailHotkeySubtitle =>
+      'Переключает на этот профиль по этому сочетанию клавиш.';
+
+  @override
+  String get profileHotkeyNone => 'Без горячей клавиши';
+
+  @override
+  String get profileHotkeyChange => 'Задать сочетание';
+
+  @override
+  String get profileHotkeyRemove => 'Убрать сочетание';
+
+  @override
+  String get profileHotkeyNeedsModifier =>
+      'Горячей клавише профиля нужен хотя бы один модификатор, например Ctrl, Alt, Shift или Command.';
+
+  @override
+  String profileHotkeyTakenByApp(String action) {
+    return 'Уже занято: „$action“. Сочетание не активно.';
+  }
+
+  @override
+  String profileHotkeyTakenByProfile(String name) {
+    return 'Уже занято профилем „$name“. Сочетание не активно.';
+  }
+
+  @override
+  String get profileDetailApps => 'Приложения';
+
+  @override
+  String get profileDetailAppsSubtitle =>
+      'Если одно из этих приложений активно во время диктовки, профиль включается автоматически.';
+
+  @override
+  String get profileAppIdentifierLabel => 'Идентификатор приложения';
+
+  @override
+  String get profileAppAdd => 'Добавить';
+
+  @override
+  String get profileAppHintMac => 'macOS: ID пакета, например com.apple.mail';
+
+  @override
+  String get profileAppHintWindows =>
+      'Windows: имя программы без .exe, например chrome';
+
+  @override
+  String get profileAppHintLinux =>
+      'Linux: WM_CLASS окна, например google-chrome. Под Wayland не определяется.';
+
+  @override
+  String profileAppClash(String name) {
+    return 'Это приложение уже относится к профилю „$name“.';
+  }
+
+  @override
+  String get profileAppEmpty => 'Приложения пока не назначены.';
+
+  @override
+  String get profileAppRemove => 'Удалить правило приложения';
+
+  @override
+  String get profileDetailContext => 'Чтение контекста';
+
+  @override
+  String get profileDetailContextSubtitle =>
+      'По желанию читает выделенный текст или буфер обмена, чтобы обработка подходила. Для облачных сервисов только с вашего согласия.';
+
+  @override
+  String get profileContextNone => 'Ничего не читать';
+
+  @override
+  String get profileContextSelection => 'Выделенный текст';
+
+  @override
+  String get profileContextClipboard => 'Буфер обмена';
+
+  @override
+  String get profileConsentGiven => 'Согласие дано';
+
+  @override
+  String get profileConsentMissing => 'Согласие не дано, контекст не читается';
+
+  @override
+  String get profileConsentWithdraw => 'Отозвать согласие';
+
+  @override
+  String get profileConsentTitle => 'Отправлять контекст в облачный сервис?';
+
+  @override
+  String get profileConsentBody =>
+      'Когда этот профиль активен, выделенный текст или содержимое буфера обмена окна назначения отправляются облачному провайдеру, указанному в этом профиле, только чтобы улучшить эту диктовку. Согласие можно отозвать в любой момент в настройках профиля.';
+
+  @override
+  String get profileConsentAccept => 'Согласиться';
+
+  @override
+  String get profileDeleteAction => 'Удалить профиль';
+
+  @override
+  String profileDeleteTitle(String name) {
+    return 'Удалить профиль „$name“?';
+  }
+
+  @override
+  String get profileDeleteMessage =>
+      'Профиль и его приложения будут удалены. Его горячая клавиша освободится.';
+
+  @override
+  String get manualProfilesTitle => 'Профили и быстрое переключение';
+
+  @override
+  String get manualProfilesS1Heading => 'Создание профилей';
+
+  @override
+  String get manualProfilesS1Body =>
+      'Профиль — это именованный набор настроек диктовки. Создайте его в Настройки → Профили и для каждого поля решите, задаёт ли его профиль или оставляет без изменений.';
+
+  @override
+  String get manualProfilesS1B1 =>
+      'Модель распознавания, язык, Smart Mode, действие после транскрипции и микрофон';
+
+  @override
+  String get manualProfilesS1B2 =>
+      'До 9 профилей. Любое поле может быть «Не менять».';
+
+  @override
+  String get manualProfilesS2Heading => 'Горячие клавиши';
+
+  @override
+  String get manualProfilesS2Body =>
+      'У каждого профиля может быть своя горячая клавиша. Нажатие включает профиль, и он остаётся активным, пока вы не выберете другой или не измените вручную одно из его полей.';
+
+  @override
+  String get manualProfilesS2Tip =>
+      'Горячей клавише нужен модификатор. Сочетание, которое уже использует другая функция, остаётся неактивным, и профиль показывает это как конфликт.';
+
+  @override
+  String get manualProfilesS3Heading => 'Автоматически по приложению';
+
+  @override
+  String get manualProfilesS3Body =>
+      'Если добавить приложение в «Приложения», профиль включается, когда оно активно во время диктовки. Идентификатор зависит от системы:';
+
+  @override
+  String get manualProfilesS3Mac => 'macOS: ID пакета, например com.apple.mail';
+
+  @override
+  String get manualProfilesS3Win =>
+      'Windows: имя программы без .exe, например chrome';
+
+  @override
+  String get manualProfilesS3Linux =>
+      'Linux: WM_CLASS окна в X11, например google-chrome. Под Wayland WhisPaste не может определить приложение.';
+
+  @override
+  String get manualProfilesS4Heading => 'Трей и оверлей';
+
+  @override
+  String get manualProfilesS4Body =>
+      'В меню трея есть подменю «Профиль»: «Автоматически, по приложению» следует правилам, «Без профиля» отключает их, ниже перечислены ваши профили. В оверлее записи имя активного профиля идёт после времени и языка, например 0:07 · DE · Mail.';
+
+  @override
+  String get manualProfilesS5Heading => 'Не менять';
+
+  @override
+  String get manualProfilesS5Body =>
+      '«Не менять» означает, что профиль не трогает это поле. Действует значение, которое сейчас задано в настройках.';
+
+  @override
+  String get manualProfilesS6Heading => 'Что делает ручное переключение';
+
+  @override
+  String get manualProfilesS6Body =>
+      'Если выбрать профиль в трее или нажать его горячую клавишу, он действует на все следующие диктовки. Если затем изменить поле, которое задаёт профиль, например модель распознавания, отметка активен снимается и снова решают правила для приложений. Выбор сохраняется после перезапуска.';
+
+  @override
+  String get profileAppCapture => 'Захватить приложение';
+
+  @override
+  String profileAppCaptureCountdown(int seconds) {
+    return 'Переключитесь в целевое приложение через $seconds с …';
+  }
+
+  @override
+  String profileAppCaptured(Object identifier) {
+    return '„$identifier“ добавлено как целевое приложение.';
+  }
+
+  @override
+  String get profileAppCaptureNone =>
+      'Другое приложение не на переднем плане. Переключитесь в целевое приложение до конца отсчёта.';
+
+  @override
+  String get profileAppCaptureUnavailable =>
+      'Эта сессия не может определить приложение на переднем плане (например Wayland). Введите идентификатор вручную.';
 }

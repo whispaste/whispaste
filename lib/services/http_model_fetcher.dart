@@ -15,6 +15,7 @@ import 'package:sentry_dio/sentry_dio.dart';
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
 import 'download_allowlist.dart';
+import 'tmp_reaper.dart';
 
 final _log = AppLogger('HttpModelFetcher');
 
@@ -198,6 +199,10 @@ class HttpModelFetcher {
     required int expectedSize,
     void Function(FetchProgress)? onProgress,
   }) async {
+    // Protect the fragment from sibling sweeps while it can still be resumed.
+    // It stays registered after a failure or cancel (the next attempt resumes
+    // it) and is released only once the atomic rename has succeeded.
+    registerResumableFragment('$destPath.tmp');
     for (var attempt = 0; ; attempt++) {
       try {
         await _fetchInternal(
@@ -206,6 +211,7 @@ class HttpModelFetcher {
           expectedSize: expectedSize,
           onProgress: onProgress,
         );
+        releaseResumableFragment('$destPath.tmp');
         return;
       } on _TransferInterrupted catch (interrupted) {
         if (attempt >= _retryBackoff.length) {

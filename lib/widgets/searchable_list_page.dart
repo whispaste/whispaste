@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -42,7 +41,12 @@ class WpSearchableListPage<T> extends StatefulWidget {
     required this.itemBuilder,
     required this.onItemActivate,
     this.onItemDelete,
-    this.contentWrapper,
+    this.dimContent = false,
+    this.listKey,
+    this.menuActions = const [],
+    this.menuKey,
+    this.menuTooltip,
+    this.identifierPrefix,
     this.header,
     this.subtitle,
     this.skeletonRowHeight,
@@ -110,12 +114,29 @@ class WpSearchableListPage<T> extends StatefulWidget {
   /// not reach. Both current call sites pass it.
   final void Function(T item)? onItemDelete;
 
-  /// Optional wrapper around the list / empty-state area (e.g. dimming via
-  /// `AnimatedOpacity` while the feature is disabled).
-  final Widget Function(BuildContext context, Widget child)? contentWrapper;
+  /// Dims the rows and the empty states (not the header or toolbar) to half
+  /// opacity while the feature is switched off.
+  final bool dimContent;
 
-  /// Optional widget above the toolbar, shown in every load state (e.g. the
-  /// Snippets page's picker-trigger field). Include your own outer padding.
+  /// Key of the list's scroll view, so tests and the keyboard layer can
+  /// address it. Stable per screen.
+  final ValueKey<String>? listKey;
+
+  /// Secondary actions behind one overflow button in the toolbar. Empty means
+  /// no button: the toolbar stays search plus Add.
+  final List<WpListMenuAction> menuActions;
+
+  /// Key and tooltip (accessible name) of that overflow button.
+  final ValueKey<String>? menuKey;
+  final String? menuTooltip;
+
+  /// Prefix for the stable automation identifiers of the toolbar controls:
+  /// `<prefix>-search` and `<prefix>-add`. Null leaves them unidentified.
+  final String? identifierPrefix;
+
+  /// Optional widget at the top of the list's scroll view, above the rows and
+  /// shown in every load state (e.g. the Snippets page's picker-trigger field).
+  /// It scrolls away with the rows. Include your own outer padding.
   final Widget? header;
 
   /// Height of one loading-skeleton placeholder bar, when this page's rows
@@ -159,12 +180,6 @@ class WpSearchableListPage<T> extends StatefulWidget {
 /// measurements, so they move when the rows do — `wp_list_skeleton_test.dart`
 /// is where that gets caught.
 const _searchableListSkeletonRowHeight = 71.0;
-
-/// Height the page keeps for its own body when an oversized header would
-/// otherwise take everything: the search toolbar plus roughly one row, at
-/// text scale 1.0. Scaled with the system font size at the point of use —
-/// see [_WpSearchableListPageState._cappedHeader].
-const _searchableListBodyReserve = 130.0;
 
 // ---------------------------------------------------------------------------
 // The keyboard cursor
@@ -339,6 +354,19 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
     _searchFocusNode.requestFocus();
   }
 
+  /// True when a text input other than the page's search field has focus.
+  bool _foreignTextFieldHasFocus() {
+    final focused = FocusManager.instance.primaryFocus;
+    if (focused == null || focused == _searchFocusNode) return false;
+    return focused.context?.findAncestorStateOfType<EditableTextState>() !=
+        null;
+  }
+
+  /// `<identifierPrefix>-<suffix>`, or null when no prefix was given.
+  String? _id(String suffix) => widget.identifierPrefix == null
+      ? null
+      : '${widget.identifierPrefix}-$suffix';
+
   /// Bare-key handler for the whole page, mounted on the page's existing
   /// [Focus] wrapper because that node is an ancestor of both the search
   /// field and the list — so the keys arrive wherever focus happens to sit,
@@ -351,6 +379,9 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
   /// of the query — a single-line field, where Home/End say the same thing.
   KeyEventResult _handlePageKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    // A text field elsewhere on the page (the Snippets trigger field, for one)
+    // owns its arrows and Escape. Only the page's own search field may pass.
+    if (_foreignTextFieldHasFocus()) return KeyEventResult.ignored;
     final key = event.logicalKey;
     final visible = _visibleNow;
 
@@ -360,7 +391,14 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
     // Everything below acts on the cursor's row, so it is inert unless the
     // cursor is live — which also means no text field can have focus.
     final item = _cursorItem(visible);
-    if (item == null) return KeyEventResult.ignored;
+    if (item == null) {
+      // Escape outside the cursor clears a live search; the field keeps focus.
+      if (key == LogicalKeyboardKey.escape && _searchQuery.isNotEmpty) {
+        _clearSearch();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
 
     if (key == LogicalKeyboardKey.enter) {
       widget.onItemActivate(item);
@@ -386,7 +424,7 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
     final l10n = L10n.of(context);
 
     // Sits between the page H1 (drawn by `_PageHeader` in app.dart, outside
-    // this widget) and the toolbar, continuing the H1's `xl` gutter. It wraps
+    // this widget) and the list, continuing the H1's `xl` gutter. It wraps
     // to as many lines as it needs: a one-line cap with an ellipsis cut the
     // sentence mid-thought at 800 px and text scale 1.0 (UX-014).
     final subtitleLine = widget.subtitle == null
@@ -429,135 +467,145 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
             ),
           );
 
-    final body = widget.asyncAll.when(
-      // Same list-shaped placeholder History and Notes use. A centred spinner
-      // used to sit here, which made these two the only list surfaces in the
-      // app whose loading state neither reserved the rows' space nor matched
-      // its siblings — the list visibly re-flowed the moment data arrived.
-      loading: () => WpListSkeleton(
-        rowHeight: widget.skeletonRowHeight ?? _searchableListSkeletonRowHeight,
-        // The real rows below sit on the `xl` gutter, not the skeleton's
-        // history/notes default — pass it so the bars land on their edge.
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.xl,
-          vertical: WpSpacing.xs,
-        ),
-      ),
-      error: (e, _) => WpEmptyState(
-        icon: LucideIcons.triangleAlert,
-        title: l10n.errorGeneric,
-        actionLabel: l10n.actionRetry,
-        onAction: widget.onRetry,
-      ),
-      data: (all) {
-        final visible = _filtered(all);
-        // Derived, never stored: an item can be deleted out from under the
-        // cursor between two frames, and the list can shrink under a new
-        // query before `onChanged`'s reset has been rebuilt.
-        final cursor =
-            (_listHasPrimaryFocus &&
-                _cursorIndex >= 0 &&
-                _cursorIndex < visible.length)
-            ? _cursorIndex
-            : -1;
-        final content = all.isEmpty
-            ? WpEmptyState(
-                icon: widget.emptyIcon,
-                title: widget.emptyTitle,
-                hint: widget.emptyHint,
-                actionLabel: widget.emptyActionLabel,
-                onAction: widget.onAdd,
-              )
-            : visible.isEmpty
-            ? WpEmptyState(
-                icon: LucideIcons.searchX,
-                title: widget.noMatchesTitle,
-                hint: widget.noMatchesHint,
-                // Per the WpEmptyState rule the search-empty state offers its
-                // main action: get out of the search. Verlauf and Notizen say
-                // the same thing with their own keys, whose wording is
-                // byte-identical to the generic one in every locale — so this
-                // reuses the generic key instead of minting a fourth string.
-                actionLabel: l10n.actionClearSearch,
-                onAction: _clearSearch,
-              )
-            : ListView.separated(
+    // Explanation, banners and a feature's own header card are the first
+    // sliver of the same scroll view as the rows, so they scroll away with
+    // the list instead of taking the viewport from it (WP-81). Only the
+    // toolbar stays fixed above the scroll view.
+    final headerChildren = <Widget>[?subtitleLine, ?widget.header];
+    final headerSliver = SliverToBoxAdapter(
+      child: headerChildren.isEmpty
+          ? const SizedBox.shrink()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: headerChildren,
+            ),
+    );
+
+    final content = widget.asyncAll
+        .when<({Widget? toolbar, List<Widget> slivers})>(
+          // Same list-shaped placeholder History and Notes use. A centred
+          // spinner used to sit here, which made these two the only list
+          // surfaces in the app whose loading state neither reserved the
+          // rows' space nor matched its siblings — the list visibly re-flowed
+          // the moment data arrived.
+          loading: () => (
+            toolbar: null,
+            slivers: [
+              headerSliver,
+              // The skeleton is itself a list, so it is a scroll body: a box
+              // child would ask the viewport for intrinsic sizes it cannot give.
+              SliverFillRemaining(
+                child: WpListSkeleton(
+                  rowHeight:
+                      widget.skeletonRowHeight ??
+                      _searchableListSkeletonRowHeight,
+                  // The real rows below sit on the `xl` gutter, not the
+                  // skeleton's history/notes default — pass it so the bars
+                  // land on their edge.
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WpSpacing.xl,
+                    vertical: WpSpacing.xs,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          error: (e, _) => (
+            toolbar: null,
+            slivers: [
+              headerSliver,
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: WpEmptyState(
+                  icon: LucideIcons.triangleAlert,
+                  title: l10n.errorGeneric,
+                  actionLabel: l10n.actionRetry,
+                  onAction: widget.onRetry,
+                ),
+              ),
+            ],
+          ),
+          data: (all) {
+            final visible = _filtered(all);
+            // Derived, never stored: an item can be deleted out from under the
+            // cursor between two frames, and the list can shrink under a new
+            // query before `onChanged`'s reset has been rebuilt.
+            final cursor =
+                (_listHasPrimaryFocus &&
+                    _cursorIndex >= 0 &&
+                    _cursorIndex < visible.length)
+                ? _cursorIndex
+                : -1;
+            final Widget rows;
+            if (all.isEmpty) {
+              rows = SliverFillRemaining(
+                hasScrollBody: false,
+                child: WpEmptyState(
+                  icon: widget.emptyIcon,
+                  title: widget.emptyTitle,
+                  hint: widget.emptyHint,
+                  actionLabel: widget.emptyActionLabel,
+                  onAction: widget.onAdd,
+                ),
+              );
+            } else if (visible.isEmpty) {
+              rows = SliverFillRemaining(
+                hasScrollBody: false,
+                child: WpEmptyState(
+                  icon: LucideIcons.searchX,
+                  title: widget.noMatchesTitle,
+                  hint: widget.noMatchesHint,
+                  // Per the WpEmptyState rule the search-empty state offers
+                  // its main action: get out of the search. Verlauf and
+                  // Notizen say the same thing with their own keys, whose
+                  // wording is byte-identical to the generic one in every
+                  // locale — so this reuses the generic key instead of
+                  // minting a fourth string.
+                  actionLabel: l10n.actionClearSearch,
+                  onAction: _clearSearch,
+                ),
+              );
+            } else {
+              rows = SliverPadding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: WpSpacing.xl,
                   vertical: WpSpacing.xs,
                 ),
-                itemCount: visible.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(height: WpSpacing.xs),
-                itemBuilder: (context, index) => KeyedSubtree(
-                  key: _rowKey(index),
-                  child: widget.itemBuilder(
-                    context,
-                    visible[index],
-                    index == cursor,
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => KeyedSubtree(
+                      key: _rowKey(index),
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          bottom: index < visible.length - 1 ? WpSpacing.xs : 0,
+                        ),
+                        child: widget.itemBuilder(
+                          context,
+                          visible[index],
+                          index == cursor,
+                        ),
+                      ),
+                    ),
+                    childCount: visible.length,
                   ),
                 ),
               );
-        return Column(
-          children: [
-            // Toolbar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                WpSpacing.xl,
-                WpSpacing.sm,
-                WpSpacing.xl,
-                WpSpacing.sm,
-              ),
-              child: Row(
-                children: [
-                  // Search
-                  Expanded(
-                    child: WpSearchField(
-                      controller: _searchController,
-                      focusNode: _searchFocusNode,
-                      hintText: widget.searchHint,
-                      variant: WpSearchFieldVariant.outlined,
-                      // Every keystroke re-filters, so the index the cursor
-                      // held points at a different item than the one the user
-                      // was looking at. Dropping it is the same reset the
-                      // settings search dropdown does on every text change.
-                      onChanged: (v) => setState(() {
-                        _searchQuery = v;
-                        _cursorIndex = -1;
-                      }),
-                      semanticsLabel: widget.searchFieldLabel,
-                    ),
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  // Add button — see `emptyStateOwnsTheCta` above.
-                  // Beside the 44 px field: an icon button of the same height
-                  // (WP-14 spec §4). The label is the tooltip and the
-                  // accessible name.
-                  WpIconButton(
-                    icon: LucideIcons.plus,
-                    tooltip: widget.addLabel,
-                    onPressed: widget.onAdd,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              // The list's focus anchor sits *inside* the content wrapper so
-              // it stays mounted across every data state — losing the node
-              // while a dialog is open would drop the cursor the dialog was
-              // opened from. `skipTraversal` keeps it out of the Tab order:
-              // Tab from here continues into the rows themselves, exactly as
-              // it did before the cursor existed.
-              child: Focus(
-                focusNode: _listFocusNode,
-                skipTraversal: true,
-                child: widget.contentWrapper?.call(context, content) ?? content,
-              ),
-            ),
-          ],
+            }
+            return (
+              toolbar: _toolbar(context),
+              slivers: [
+                headerSliver,
+                SliverAnimatedOpacity(
+                  // Dimmed while the feature is switched off: the rows stay
+                  // readable as shortcuts but read as inactive.
+                  opacity: widget.dimContent ? 0.5 : 1.0,
+                  duration: WpMotion.durationFor(context, WpMotion.normal),
+                  sliver: rows,
+                ),
+              ],
+            );
+          },
         );
-      },
-    );
 
     // Ctrl+F / Cmd+F focuses the search field — the one shortcut History,
     // Notes and Settings all bind. Snippets and Replacements were the only
@@ -597,60 +645,215 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
         child: WpPageShell(
           scrollable: false,
           padding: EdgeInsets.zero,
-          child: (widget.header == null && subtitleLine == null)
-              ? body
-              : LayoutBuilder(
-                  // Von *außen* gemessen: ein Column-Kind ohne Flex bekommt in
-                  // der Hauptachse unbegrenzte Constraints und weiß deshalb
-                  // selbst nicht, wie viel Platz die Seite überhaupt hat.
-                  builder: (context, constraints) => Column(
-                    children: [
-                      ?subtitleLine,
-                      if (widget.header case final header?)
-                        _cappedHeader(header, constraints.maxHeight),
-                      Expanded(child: body),
-                    ],
+          child: Column(
+            children: [
+              ?content.toolbar,
+              Expanded(
+                // The list's focus anchor sits *inside* the content wrapper so
+                // it stays mounted across every data state — losing the node
+                // while a dialog is open would drop the cursor the dialog was
+                // opened from. `skipTraversal` keeps it out of the Tab order:
+                // Tab from here continues into the rows themselves, exactly as
+                // it did before the cursor existed.
+                child: Focus(
+                  focusNode: _listFocusNode,
+                  skipTraversal: true,
+                  child: CustomScrollView(
+                    key: widget.listKey,
+                    slivers: content.slivers,
                   ),
                 ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  /// Keeps [header] from ever eating the list below it.
-  ///
-  /// The header is the one child of this page that is *not* flexible, so a
-  /// header taller than the window leaves the list exactly zero pixels —
-  /// which is not a cosmetic overflow but a page whose entire content is
-  /// gone. Reachable in practice since the Snippets header carries two
-  /// settings (ticket 27): measured at accessibility text size 2.0 in an
-  /// 800×600 window it overshot by 43 px, and every further step of the
-  /// system font size makes it worse.
-  ///
-  /// Above the cap the header scrolls inside its own share instead. A second
-  /// scroll area is not free, but it only ever appears where the alternative
-  /// is a blank page — at every ordinary text size the header is far shorter
-  /// than the cap and this wrapper changes nothing (the scroll view takes its
-  /// child's height while it fits).
-  ///
-  /// The cap is „everything except what the list needs to exist": the search
-  /// toolbar plus one row, scaled with the system font size, because that is
-  /// what grows underneath the header in the first place. A fixed fraction
-  /// does not work in both directions — a third of the window clips the
-  /// Snippets header at normal text size, and half of it still buries the
-  /// toolbar at 2.5.
-  Widget _cappedHeader(Widget header, double availableHeight) {
-    if (!availableHeight.isFinite) return header;
-    final reserved = MediaQuery.textScalerOf(
-      context,
-    ).scale(_searchableListBodyReserve);
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        // Nie unter ein Viertel der Seite: lieber ein knapper, scrollender
-        // Kopfbereich als einer, der auf eine Zeile zusammenfällt.
-        maxHeight: math.max(availableHeight - reserved, availableHeight / 4),
+  /// The fixed search toolbar: search field, Add, and — when the feature has
+  /// secondary actions — one overflow button that opens them.
+  Widget _toolbar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.sm,
+        WpSpacing.xl,
+        WpSpacing.sm,
       ),
-      child: SingleChildScrollView(child: header),
+      child: Row(
+        children: [
+          // Search
+          Expanded(
+            child: Semantics(
+              identifier: _id('search'),
+              child: WpSearchField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                hintText: widget.searchHint,
+                variant: WpSearchFieldVariant.outlined,
+                // Every keystroke re-filters, so the index the cursor held points
+                // at a different item than the one the user was looking at.
+                // Dropping it is the same reset the settings search dropdown
+                // does on every text change.
+                onChanged: (v) => setState(() {
+                  _searchQuery = v;
+                  _cursorIndex = -1;
+                }),
+                semanticsLabel: widget.searchFieldLabel,
+              ),
+            ),
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          // Add button — beside the 44 px field: an icon button of the same
+          // height (WP-14 spec §4). The label is the tooltip and the
+          // accessible name.
+          Semantics(
+            identifier: _id('add'),
+            child: WpIconButton(
+              icon: LucideIcons.plus,
+              tooltip: widget.addLabel,
+              onPressed: widget.onAdd,
+            ),
+          ),
+          if (widget.menuActions.isNotEmpty) ...[
+            const SizedBox(width: WpSpacing.sm),
+            Builder(
+              builder: (buttonContext) => Semantics(
+                identifier: widget.menuKey?.value,
+                child: WpIconButton(
+                  key: widget.menuKey,
+                  icon: LucideIcons.ellipsis,
+                  tooltip: widget.menuTooltip ?? '',
+                  onPressed: () => _openMenu(buttonContext),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Opens the overflow menu under its button. Items are plain menu rows, so
+  /// a secondary action costs no space on the page until it is asked for.
+  Future<void> _openMenu(BuildContext buttonContext) async {
+    final overlay =
+        Overlay.of(buttonContext).context.findRenderObject()! as RenderBox;
+    final button = buttonContext.findRenderObject()! as RenderBox;
+    final anchor = Rect.fromPoints(
+      button.localToGlobal(Offset.zero, ancestor: overlay),
+      button.localToGlobal(
+        button.size.bottomRight(Offset.zero),
+        ancestor: overlay,
+      ),
+    );
+    final chosen = await showMenu<WpListMenuAction>(
+      context: buttonContext,
+      position: RelativeRect.fromRect(anchor, Offset.zero & overlay.size),
+      shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
+      items: [
+        for (final action in widget.menuActions)
+          PopupMenuItem<WpListMenuAction>(
+            key: action.itemKey,
+            value: action,
+            enabled: action.enabled,
+            child: _ListMenuRow(action: action),
+          ),
+      ],
+    );
+    chosen?.onSelected();
+  }
+}
+
+/// One entry of a searchable list's overflow menu.
+///
+/// [checked] renders a state mark for toggle-like entries; null means the
+/// entry is a plain action. [hint] is an optional second line explaining what
+/// the action does before the user commits to it.
+class WpListMenuAction {
+  const WpListMenuAction({
+    required this.itemKey,
+    required this.label,
+    required this.icon,
+    required this.onSelected,
+    this.hint,
+    this.checked,
+    this.enabled = true,
+  });
+
+  final ValueKey<String> itemKey;
+  final String label;
+  final String? hint;
+  final IconData icon;
+  final bool? checked;
+  final bool enabled;
+  final VoidCallback onSelected;
+}
+
+class _ListMenuRow extends StatelessWidget {
+  const _ListMenuRow({required this.action});
+
+  final WpListMenuAction action;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hint = action.hint;
+    final checked = action.checked;
+    // A checkable row announces its on/off state; the check icon is visual only.
+    // One node per row: the label is the action, the hint is its state or
+    // detail. Excluding the child text keeps the visible hint from being
+    // merged into the label.
+    return Semantics(
+      identifier: action.itemKey.value,
+      label: action.label,
+      hint: hint,
+      toggled: checked,
+      excludeSemantics: true,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 220, maxWidth: 340),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(action.icon, size: WpIconSize.sm, color: WpColors.textMuted),
+            const SizedBox(width: WpSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(action.label, style: theme.textTheme.bodyMedium),
+                  if (hint != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        hint,
+                        style: TextStyle(
+                          fontSize: WpTypography.small,
+                          color: WpColors.textMuted,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            if (checked != null) ...[
+              const SizedBox(width: WpSpacing.sm),
+              SizedBox(
+                width: WpIconSize.sm,
+                child: checked
+                    ? Icon(
+                        LucideIcons.check,
+                        size: WpIconSize.sm,
+                        color: theme.colorScheme.primary,
+                      )
+                    : null,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

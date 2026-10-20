@@ -26,8 +26,11 @@
 library;
 
 import 'dart:convert';
+import 'dart:math';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:sentry_flutter/sentry_flutter.dart';
 
@@ -40,6 +43,47 @@ import '../core/logging/app_logger.dart';
 
 /// The longest `feedback_text` the anon insert policy accepts.
 const kFeedbackTextMaxLength = 1000;
+
+/// Version of the consent text shown next to the quote checkbox. The server
+/// accepts only allowlisted versions and stamps the consent time itself
+/// (migrations 20261020100000 and 20261020120000). Bump it with the text.
+const String kFeedbackConsentTextVersion = 'feedback-quote-v2';
+
+/// SHA-256 (hex) of the consent text per locale, per text version: label and
+/// explanation joined by a newline. Never edit an existing entry. A changed
+/// consent text gets a new version, a new entry here and the new version in
+/// the server allowlist (guard test in feedback_consent_text_version_test).
+const Map<String, Map<String, String>> kFeedbackConsentTextHashes = {
+  'feedback-quote-v1': {
+    'de': 'd1d22cc59d894df88ef99dbe59762c1d7d09dd719d9b84c601fad82e741d5bb5',
+    'en': 'b2ace2ac775ac9023243fe862edf7387de7fc744aa58caf7d185de5bc3b284fb',
+    'es': '2af78ad2c629f7c8b828f88df7744a0596a51a429bbe508df70e887848e9fe28',
+    'he': '7445c43bc9395e2985ffb9081f1f0f9e29ad31751339f7708d75e3ef232f20a3',
+    'pt': '9f2e107408e42b8f28e967fdf83f2a641b14c294106e6fec32b0bf5396709cb6',
+    'ru': 'c251bd7dbb9bd9d8fde67896c6d6522801d592d860c310ee1f2afbc6d044e7d3',
+  },
+  'feedback-quote-v2': {
+    'de': '9c56e8eac34585a8d0f36ab645db390d1049b2f72ecfab19689017afcc61a01f',
+    'en': 'cd0ebcc4d40665101909f6782a25ee8478a934074bab6bce1ea050775bc1ef9b',
+    'es': '24a3813fc4815558cd865461678c2c38fa8a0ecf54e9b5d8c1850fb68c139864',
+    'he': '068180d1bc015ab88d0ebd946ac7d304eb793dadced035f79eac78c1ee6174ea',
+    'pt': '7b29be82f25975c775ece4c469afc7b57d0be07fb36c57ea0a9eb08b1042b053',
+    'ru': '11aca92a26b2f0e099aec437b410f08c9bc518dbe32a69f33cd5d76d584ec80d',
+  },
+};
+
+/// Secret for one consent, kept on the device. The server only stores its
+/// SHA-256 (withdraw_token_hash) and can withdraw with the secret, but cannot
+/// read it back: anon has no SELECT on user_feedback.
+String newConsentToken() {
+  final random = Random.secure();
+  final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+  return base64UrlEncode(bytes).replaceAll('=', '');
+}
+
+/// Lowercase hex SHA-256 of [token], as stored in withdraw_token_hash.
+String consentTokenHash(String token) =>
+    sha256.convert(utf8.encode(token)).toString();
 
 // ---------------------------------------------------------------------------
 // FeedbackPayload
@@ -56,6 +100,8 @@ final class FeedbackPayload {
     required this.locale,
     this.contactEmail,
     this.contactLocale,
+    this.publishConsent = false,
+    this.withdrawTokenHash,
   });
 
   /// The star rating, 1 to 5. Required by the form.
@@ -76,6 +122,14 @@ final class FeedbackPayload {
   /// distinct from [locale] (the app UI language at submit time).
   final String? contactLocale;
 
+  /// Explicit opt-in to show this text anonymously as a website quote.
+  /// Defaults to `false`; the server shows nothing without it.
+  final bool publishConsent;
+
+  /// SHA-256 of the consent secret (see [newConsentToken]). Sent only with
+  /// [publishConsent]; the secret itself never leaves the device.
+  final String? withdrawTokenHash;
+
   Map<String, Object?> toJson() => {
     'rating': rating,
     'feedback_text': feedbackText,
@@ -85,6 +139,10 @@ final class FeedbackPayload {
     'locale': locale,
     if (contactEmail != null) 'contact_email': contactEmail,
     if (contactLocale != null) 'contact_locale': contactLocale,
+    'publish_consent': publishConsent,
+    if (publishConsent) 'consent_text_version': kFeedbackConsentTextVersion,
+    if (publishConsent && withdrawTokenHash != null)
+      'withdraw_token_hash': withdrawTokenHash,
   };
 }
 
@@ -126,6 +184,32 @@ final class FeedbackNetworkError extends FeedbackSubmissionResult {
   final Object cause;
 }
 
+/// Supabase URL — injected at build time via `--dart-define`.
+const _envSupabaseUrl = String.fromEnvironment(
+  'SUPABASE_URL',
+  defaultValue: '',
+);
+
+/// Supabase publishable key — injected at build time via `--dart-define`.
+/// Public key (replaces legacy anon key), safe for client-side use.
+/// RLS enforces all access control server-side.
+const _envSupabasePublishableKey = String.fromEnvironment(
+  'SUPABASE_PUBLISHABLE_KEY',
+  defaultValue: '',
+);
+
+/// Result of one withdrawal request.
+enum WithdrawalOutcome {
+  /// The server answered 2xx.
+  confirmed,
+
+  /// Offline, timed out, 5xx or any other 4xx: try again later.
+  retry,
+
+  /// 400, 409, 410 or 422: final, retrying cannot help.
+  rejected,
+}
+
 // ---------------------------------------------------------------------------
 // FeedbackSubmissionService
 // ---------------------------------------------------------------------------
@@ -146,7 +230,19 @@ final class FeedbackSubmissionService {
   }) : _breadcrumbSink = breadcrumbSink ?? _defaultBreadcrumbSink,
        _messageSink = messageSink ?? _defaultMessageSink;
 
+  /// The service as the app builds it: configured by `--dart-define`. The
+  /// caller owns [client] and closes it.
+  factory FeedbackSubmissionService.fromEnvironment(http.Client client) =>
+      FeedbackSubmissionService(
+        client: client,
+        supabaseUrl: _envSupabaseUrl,
+        supabasePublishableKey: _envSupabasePublishableKey,
+      );
+
   static final _log = AppLogger('FeedbackSubmissionService');
+
+  /// HTTP statuses that make a withdrawal final.
+  static const _finalWithdrawalStatuses = {400, 409, 410, 422};
 
   /// Cap on the response body slice captured in the Sentry event. Keeps the
   /// payload small even when the server returns an HTML error page.
@@ -158,6 +254,61 @@ final class FeedbackSubmissionService {
   final Duration _timeout;
   final BreadcrumbSinkFn _breadcrumbSink;
   final MessageSinkFn _messageSink;
+
+  /// True when a backend URL and key were injected at build time.
+  bool get isConfigured =>
+      _supabaseUrl.isNotEmpty && _supabasePublishableKey.isNotEmpty;
+
+  /// Withdraws the website-quote consent that belongs to [token]. Never
+  /// throws. The server answers the same way whether or not a row matched.
+  ///
+  /// 2xx confirms. Only 400, 409, 410 and 422 are final: the request itself
+  /// is wrong. Everything else (5xx, 401, 403, 404 and other 4xx, timeouts,
+  /// network errors) is retried, because one systemic fault such as a
+  /// rotated key or a renamed function must not end every withdrawal. Only
+  /// the status code is logged, never the secret.
+  Future<WithdrawalOutcome> withdrawPublishConsent(String token) async {
+    if (token.isEmpty || !isConfigured) return WithdrawalOutcome.retry;
+    try {
+      final response = await _client
+          .post(
+            Uri.parse(
+              '$_supabaseUrl/rest/v1/rpc/withdraw_feedback_publish_consent',
+            ),
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': _supabasePublishableKey,
+              'Authorization': 'Bearer $_supabasePublishableKey',
+              'User-Agent': appUserAgent,
+            },
+            body: jsonEncode({'p_token': token}),
+          )
+          .timeout(_timeout);
+      final status = response.statusCode;
+      _log.info('Consent withdrawal answered HTTP $status');
+      if (status >= 200 && status < 300) return WithdrawalOutcome.confirmed;
+      final outcome = _finalWithdrawalStatuses.contains(status)
+          ? WithdrawalOutcome.rejected
+          : WithdrawalOutcome.retry;
+      _breadcrumbSink(
+        Breadcrumb(
+          message: 'feedback_withdraw',
+          category: 'feedback',
+          level: SentryLevel.warning,
+          data: {
+            'result': outcome == WithdrawalOutcome.rejected
+                ? 'rejected'
+                : 'retry',
+            'status': status,
+          },
+        ),
+      );
+      return outcome;
+    } on Object catch (e) {
+      _log.warning('Consent withdrawal failed: ${e.runtimeType}');
+      return WithdrawalOutcome.retry;
+    }
+  }
 
   /// Submits [payload] and returns a [FeedbackSubmissionResult].
   ///
@@ -337,3 +488,13 @@ void _defaultMessageSink(
     },
   );
 }
+
+/// The app-wide feedback service with one shared HTTP client, closed when
+/// the provider container is disposed.
+final feedbackSubmissionServiceProvider = Provider<FeedbackSubmissionService>((
+  ref,
+) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return FeedbackSubmissionService.fromEnvironment(client);
+});

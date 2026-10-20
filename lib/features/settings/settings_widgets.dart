@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/config/settings_labels.dart';
@@ -165,14 +166,28 @@ class _SettingRowState extends State<SettingRow> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (badge == null)
-                          Text(widget.label, style: tt.bodyLarge)
+                          Text(
+                            widget.label,
+                            style: tt.bodyLarge?.copyWith(
+                              // Same palette as the row's card fill: the
+                              // theme text can come from another palette.
+                              color: WpColors.textPrimary,
+                            ),
+                          )
                         else
                           Wrap(
                             spacing: WpSpacing.xs,
                             runSpacing: WpSpacing.xxs,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              Text(widget.label, style: tt.bodyLarge),
+                              Text(
+                                widget.label,
+                                style: tt.bodyLarge?.copyWith(
+                                  // Same palette as the row's card fill: the
+                                  // theme text can come from another palette.
+                                  color: WpColors.textPrimary,
+                                ),
+                              ),
                               WpAccentBadge(key: widget.badgeKey, label: badge),
                             ],
                           ),
@@ -633,6 +648,8 @@ Widget settingsTextField({
   int maxLines = 1,
   ValueChanged<String>? onChanged,
   String? semanticLabel,
+  int? maxLength,
+  List<TextInputFormatter>? inputFormatters,
 }) {
   return SizedBox(
     width: maxLines > 1 ? double.infinity : 240,
@@ -642,6 +659,8 @@ Widget settingsTextField({
       semanticsLabel: semanticLabel,
       hintText: hintText,
       maxLines: maxLines,
+      maxLength: maxLength,
+      inputFormatters: inputFormatters,
       onChanged: onChanged,
     ),
   );

@@ -232,6 +232,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
               ltrIsolate('5000'),
             ),
           ),
+          ManualParagraph((l) => l.manualC05S3B2),
         ],
       ),
     ],
@@ -345,6 +346,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
         blocks: <ManualBlock>[
           ManualParagraph((l) => l.manualC08S5B1),
           ManualParagraph((l) => l.manualC08S5B2),
+          ManualParagraph((l) => l.manualC08S5B3),
         ],
       ),
       ManualSection(
@@ -549,6 +551,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
             ),
           ),
           ManualParagraph((l) => l.manualC13S3B2),
+          ManualParagraph((l) => l.manualC13S3B3),
         ],
       ),
       ManualSection(
@@ -850,6 +853,52 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
           ]),
           ManualParagraph((l) => l.manualC15S6B3),
         ],
+      ),
+    ],
+  ),
+  ManualChapter(
+    slug: 'profiles',
+    title: (l) => l.manualProfilesTitle,
+    sections: <ManualSection>[
+      ManualSection(
+        heading: (l) => l.manualProfilesS1Heading,
+        blocks: <ManualBlock>[
+          ManualParagraph((l) => l.manualProfilesS1Body),
+          ManualBullets(<ManualText>[
+            (l) => l.manualProfilesS1B1,
+            (l) => l.manualProfilesS1B2,
+          ]),
+        ],
+      ),
+      ManualSection(
+        heading: (l) => l.manualProfilesS2Heading,
+        blocks: <ManualBlock>[
+          ManualParagraph((l) => l.manualProfilesS2Body),
+          ManualTip((l) => l.manualProfilesS2Tip),
+        ],
+      ),
+      ManualSection(
+        heading: (l) => l.manualProfilesS3Heading,
+        blocks: <ManualBlock>[
+          ManualParagraph((l) => l.manualProfilesS3Body),
+          ManualBullets(<ManualText>[
+            (l) => l.manualProfilesS3Mac,
+            (l) => l.manualProfilesS3Win,
+            (l) => l.manualProfilesS3Linux,
+          ]),
+        ],
+      ),
+      ManualSection(
+        heading: (l) => l.manualProfilesS4Heading,
+        blocks: <ManualBlock>[ManualParagraph((l) => l.manualProfilesS4Body)],
+      ),
+      ManualSection(
+        heading: (l) => l.manualProfilesS5Heading,
+        blocks: <ManualBlock>[ManualParagraph((l) => l.manualProfilesS5Body)],
+      ),
+      ManualSection(
+        heading: (l) => l.manualProfilesS6Heading,
+        blocks: <ManualBlock>[ManualParagraph((l) => l.manualProfilesS6Body)],
       ),
     ],
   ),

@@ -100,8 +100,11 @@ class GpuLoadCrashGuard {
   void markAttempt({bool cuda = false}) {
     try {
       _markerFile.parent.createSync(recursive: true);
+      // flush: the marker must reach the disk before the risky GPU load,
+      // otherwise a hard crash right after can leave no marker behind.
       _markerFile.writeAsStringSync(
         '${cuda ? _cudaMarkerPrefix : ''}${DateTime.now().toIso8601String()}',
+        flush: true,
       );
     } catch (e) {
       // Best-effort: if the marker can't be written, this launch simply
@@ -190,7 +193,7 @@ class GpuLoadCrashGuard {
     final next = consecutiveCrashes + 1;
     try {
       _strikesFile.parent.createSync(recursive: true);
-      _strikesFile.writeAsStringSync('$next');
+      _strikesFile.writeAsStringSync('$next', flush: true);
     } catch (e) {
       _log.error('Failed to write GPU-load crash streak: $e', e);
     }

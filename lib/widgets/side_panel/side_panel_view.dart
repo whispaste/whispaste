@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../services/side_panel/side_panel_row_filter.dart';
+import '../../services/side_panel/side_panel_row_groups.dart';
 import '../../services/side_panel/side_panel_snapshot.dart';
 import '../wp_focus_ring.dart';
 import '../wp_search_field.dart';
+import 'side_panel_focus_tooltip.dart';
 import 'side_panel_row_tile.dart';
 
 /// The side panel's content: one section at a time (Transcriptions, Snippets,
@@ -125,20 +128,33 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final rows = _rowsOf(_selected);
+    // A PIN-locked clipboard tab renders no rows at all (GS-125), even if the
+    // snapshot carried some.
+    final locked =
+        _selected == SidePanelSection.clipboardHistory &&
+        widget.snapshot.clipboardLocked;
+    final rows = locked ? const <SidePanelRow>[] : _rowsOf(_selected);
+    final loadFailed =
+        !locked && widget.snapshot.failedSections.contains(_selected);
     final query = _queries[_selected]!;
     final filteredRows = filterSidePanelRows(rows, query);
-    final (emptyTitle, emptyHint) = _emptyOf(_selected, l10n);
+    final (emptyTitle, emptyHint) = locked
+        ? (
+            l10n.sidePanelClipboardLockedTitle,
+            l10n.sidePanelClipboardLockedHint,
+          )
+        : _emptyOf(_selected, l10n);
     final switchDuration = WpMotion.durationFor(context, WpMotion.normal);
 
     final dockedRight = widget.snapshot.edge == 'right';
     const round = Radius.circular(WpRadius.xl);
     final closeButton = _CloseButton(
+      testId: 'side-panel-close',
       label: l10n.sidePanelClose,
       onTap: widget.onClose,
     );
 
-    return Container(
+    final panel = Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: WpColors.surfaceGradient,
@@ -207,6 +223,7 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
                 const SizedBox(height: WpSpacing.sm),
                 WpSearchField(
                   key: ValueKey(_selected),
+                  testId: 'side-panel-search',
                   controller: _searchControllers[_selected]!,
                   hintText: l10n.sidePanelSearchHint,
                   variant: WpSearchFieldVariant.capsule,
@@ -233,9 +250,15 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
               ),
               child: KeyedSubtree(
                 key: ValueKey(_selected),
-                child: rows.isEmpty
+                child: loadFailed
                     ? _EmptySectionState(
-                        icon: iconOf(_selected),
+                        icon: LucideIcons.triangleAlert,
+                        title: l10n.errorGeneric,
+                        hint: l10n.sidePanelLoadFailedHint,
+                      )
+                    : rows.isEmpty
+                    ? _EmptySectionState(
+                        icon: locked ? LucideIcons.lock : iconOf(_selected),
                         title: emptyTitle,
                         hint: emptyHint,
                       )
@@ -245,37 +268,36 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
                         title: l10n.sidePanelNoMatches,
                         hint: l10n.sidePanelNoMatchesHint,
                       )
-                    : ListView(
-                        padding: const EdgeInsets.fromLTRB(
-                          WpSpacing.md,
-                          WpSpacing.xxs,
-                          WpSpacing.md,
-                          WpSpacing.md,
+                    : _SidePanelList(
+                        items: groupSidePanelRows(
+                          filteredRows,
+                          now: DateTime.now(),
+                          todayLabel: l10n.historyToday,
+                          yesterdayLabel: l10n.historyYesterday,
+                          locale: Localizations.localeOf(context).toString(),
                         ),
-                        // No per-row bottom Padding wrapper (issue 08) --
-                        // WpListTileSurface.panelVerticalMargin alone
-                        // governs row spacing, same as HistoryListView and
-                        // NotesListView, instead of stacking an extra
-                        // WpSpacing.xxs gap on top of it.
-                        children: [
-                          for (final row in filteredRows)
-                            // loam-ignore: a11y-interactive-semantics – Semantics lives inside WpSidePanelRowTile
-                            WpSidePanelRowTile(
-                              row: row,
-                              leadingIcon: iconOf(_selected),
-                              onTap: () => widget.onRowTap(_selected, row.id),
-                              onDragStart: widget.onRowDragStart == null
-                                  ? null
-                                  : () =>
-                                        widget.onRowDragStart!(_selected, row),
-                            ),
-                        ],
+                        leadingIcon: iconOf(_selected),
+                        kindLabel: _titleOf(_selected, l10n),
+                        onRowTap: (row) => widget.onRowTap(_selected, row.id),
+                        onRowDragStart: widget.onRowDragStart == null
+                            ? null
+                            : (row) => widget.onRowDragStart!(_selected, row),
                       ),
               ),
             ),
           ),
         ],
       ),
+    );
+
+    // Escape closes the panel from anywhere inside it, the same way the
+    // close button does. Arrow keys, Tab and Enter already traverse and
+    // activate rows through the standard focus actions.
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.escape): widget.onClose,
+      },
+      child: panel,
     );
   }
 
@@ -292,10 +314,105 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
   }
 }
 
-/// Icon segmented control switching the three sections. Icon-only because
-/// three localized titles ("Zwischenablage-Verlauf") cannot share ~290px;
-/// the active section's title is spelled out in the header above, and each
-/// segment carries the full title as its semantics label.
+/// Lazily built list of day headers and rows. Only visible items are built,
+/// so a long history stays cheap to scroll.
+class _SidePanelList extends StatelessWidget {
+  const _SidePanelList({
+    required this.items,
+    required this.leadingIcon,
+    required this.kindLabel,
+    required this.onRowTap,
+    this.onRowDragStart,
+  });
+
+  final List<SidePanelListItem> items;
+  final IconData leadingIcon;
+
+  /// Localized name of the active section, spoken before each row's title.
+  final String kindLabel;
+  final void Function(SidePanelRow row) onRowTap;
+  final void Function(SidePanelRow row)? onRowDragStart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      identifier: 'side-panel-list',
+      explicitChildNodes: true,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(
+          WpSpacing.md,
+          WpSpacing.xxs,
+          WpSpacing.md,
+          // Bottom room so the last row scrolls clear of the panel edge.
+          WpSpacing.xl,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return switch (item) {
+            SidePanelDateHeader(:final label, :final day) =>
+              _SidePanelDateHeader(label: label, day: day),
+            SidePanelRowItem(:final row) =>
+              // loam-ignore: a11y-interactive-semantics – Semantics lives inside WpSidePanelRowTile
+              WpSidePanelRowTile(
+                row: row,
+                leadingIcon: leadingIcon,
+                kindLabel: kindLabel,
+                onTap: () => onRowTap(row),
+                onDragStart: onRowDragStart == null
+                    ? null
+                    : () => onRowDragStart!(row),
+              ),
+          };
+        },
+      ),
+    );
+  }
+}
+
+/// Muted day label between row groups.
+class _SidePanelDateHeader extends StatelessWidget {
+  const _SidePanelDateHeader({required this.label, required this.day});
+
+  final String label;
+  final DateTime day;
+
+  @override
+  Widget build(BuildContext context) {
+    final dayKey =
+        '${day.year.toString().padLeft(4, '0')}-'
+        '${day.month.toString().padLeft(2, '0')}-'
+        '${day.day.toString().padLeft(2, '0')}';
+    return Semantics(
+      header: true,
+      identifier: 'side-panel-day-$dayKey',
+      child: Padding(
+        // Directional, so the indent sits on the reading-start side in RTL.
+        padding: const EdgeInsetsDirectional.only(
+          top: WpSpacing.sm,
+          bottom: WpSpacing.xxs,
+          start: WpSpacing.xxs,
+        ),
+        child: Text(
+          label,
+          textScaler: sidePanelTextScaler(context),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: WpColors.textMuted,
+            fontSize: WpTypography.caption,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Segmented control switching the three sections: icon plus label per
+/// segment. The label is ellipsized when the panel is at its minimum width,
+/// so each segment always carries its full title as a tooltip and as its
+/// semantics label.
 class _SidePanelTabBar extends StatelessWidget {
   const _SidePanelTabBar({
     required this.selected,
@@ -325,6 +442,7 @@ class _SidePanelTabBar extends StatelessWidget {
           for (final section in SidePanelSection.values)
             Expanded(
               child: _SidePanelTab(
+                testId: sidePanelTabTestId(section),
                 icon: iconOf(section),
                 label: labelOf(section),
                 isSelected: section == selected,
@@ -337,14 +455,31 @@ class _SidePanelTabBar extends StatelessWidget {
   }
 }
 
+/// Stable, language-independent id of a section's tab.
+String sidePanelTabTestId(SidePanelSection section) => switch (section) {
+  SidePanelSection.transcriptions => 'side-panel-tab-transcriptions',
+  SidePanelSection.snippets => 'side-panel-tab-snippets',
+  SidePanelSection.clipboardHistory => 'side-panel-tab-clipboard-history',
+};
+
+/// Largest text scale the side panel renders at. The panel is 290 px wide,
+/// so beyond 2x its tabs and headers cannot fit anyway.
+const double kSidePanelMaxTextScale = 2.0;
+
+TextScaler sidePanelTextScaler(BuildContext context) => MediaQuery.textScalerOf(
+  context,
+).clamp(maxScaleFactor: kSidePanelMaxTextScale);
+
 class _SidePanelTab extends StatefulWidget {
   const _SidePanelTab({
+    required this.testId,
     required this.icon,
     required this.label,
     required this.isSelected,
     required this.onTap,
   });
 
+  final String testId;
   final IconData icon;
   final String label;
   final bool isSelected;
@@ -358,6 +493,10 @@ class _SidePanelTabState extends State<_SidePanelTab> {
   bool _isHovered = false;
   final FocusNode _focusNode = FocusNode(debugLabel: 'SidePanelTab');
 
+  /// Set during layout: whether the label is cut off at the current text
+  /// scale. Read by [WpSidePanelFocusTooltip] on focus changes.
+  bool _labelTruncated = false;
+
   @override
   void dispose() {
     _focusNode.dispose();
@@ -367,56 +506,102 @@ class _SidePanelTabState extends State<_SidePanelTab> {
   @override
   Widget build(BuildContext context) {
     final isActive = widget.isSelected || _isHovered;
+    final tone = widget.isSelected
+        ? WpColors.accent
+        : _isHovered
+        ? WpColors.textSecondary
+        : WpColors.textMuted;
+    // One semantics node per tab: the Semantics label names it, so the icon
+    // and text inside are excluded. The tooltip shows on pointer hover; the
+    // label is what keyboard focus announces.
     return Semantics(
+      identifier: widget.testId,
       button: true,
       selected: widget.isSelected,
       label: widget.label,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _isHovered = true),
-        onExit: (_) => setState(() => _isHovered = false),
-        child: WpFocusRing(
+      onTap: widget.onTap,
+      child: ExcludeSemantics(
+        child: WpSidePanelFocusTooltip(
+          message: widget.label,
           focusNode: _focusNode,
-          radius: WpRadius.sm,
-          child: InkWell(
-            onTap: widget.onTap,
-            focusNode: _focusNode,
-            borderRadius: WpRadius.borderSm,
-            focusColor: Colors.transparent,
-            hoverColor: Colors.transparent,
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: AnimatedContainer(
-              duration: WpMotion.durationFor(
-                context,
-                isActive ? WpMotion.hoverIn : WpMotion.hoverOut,
-              ),
-              curve: WpMotion.defaultCurve,
-              height: 28,
-              decoration: BoxDecoration(
-                color: widget.isSelected
-                    ? WpColors.accentActiveFill
-                    : _isHovered
-                    ? WpColors.hover
-                    : WpColors.hoverTransparent,
+          isTruncated: () => _labelTruncated,
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) => setState(() => _isHovered = true),
+            onExit: (_) => setState(() => _isHovered = false),
+            child: WpFocusRing(
+              focusNode: _focusNode,
+              radius: WpRadius.sm,
+              child: InkWell(
+                onTap: widget.onTap,
+                focusNode: _focusNode,
                 borderRadius: WpRadius.borderSm,
-                // Never null -- animates its alpha, so the selection edge
-                // fades instead of flashing (see wp_list_tile_surface.dart).
-                border: Border.all(
-                  color: widget.isSelected
-                      ? WpColors.accentBorder20
-                      : WpColors.accent.withValues(alpha: 0),
-                  width: 1,
+                focusColor: Colors.transparent,
+                hoverColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                child: AnimatedContainer(
+                  duration: WpMotion.durationFor(
+                    context,
+                    isActive ? WpMotion.hoverIn : WpMotion.hoverOut,
+                  ),
+                  curve: WpMotion.defaultCurve,
+                  // 48 px minimum target; grows with the text scale.
+                  constraints: const BoxConstraints(minHeight: 48),
+                  decoration: BoxDecoration(
+                    color: widget.isSelected
+                        ? WpColors.accentActiveFill
+                        : _isHovered
+                        ? WpColors.hover
+                        : WpColors.hoverTransparent,
+                    borderRadius: WpRadius.borderSm,
+                    // Never null -- animates its alpha, so the selection edge
+                    // fades instead of flashing (see wp_list_tile_surface.dart).
+                    border: Border.all(
+                      color: widget.isSelected
+                          ? WpColors.accentBorder20
+                          : WpColors.accent.withValues(alpha: 0),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(widget.icon, size: WpIconSize.sm, color: tone),
+                      const SizedBox(width: WpSpacing.xxs),
+                      Flexible(
+                        // Measures the slot the label gets, to know whether
+                        // the focus tooltip is needed (see _labelTruncated).
+                        child: LayoutBuilder(
+                          builder: (context, box) {
+                            final scaler = sidePanelTextScaler(context);
+                            final style = TextStyle(
+                              color: tone,
+                              fontSize: WpTypography.caption,
+                              fontWeight: widget.isSelected
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                            );
+                            _labelTruncated = isOneLineTruncated(
+                              context,
+                              text: widget.label,
+                              style: style,
+                              textScaler: scaler,
+                              maxWidth: box.maxWidth,
+                            );
+                            return Text(
+                              widget.label,
+                              textScaler: scaler,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: style,
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              child: Icon(
-                widget.icon,
-                size: WpIconSize.md,
-                color: widget.isSelected
-                    ? WpColors.accent
-                    : _isHovered
-                    ? WpColors.textSecondary
-                    : WpColors.textMuted,
               ),
             ),
           ),
@@ -427,8 +612,13 @@ class _SidePanelTabState extends State<_SidePanelTab> {
 }
 
 class _CloseButton extends StatefulWidget {
-  const _CloseButton({required this.label, required this.onTap});
+  const _CloseButton({
+    required this.testId,
+    required this.label,
+    required this.onTap,
+  });
 
+  final String testId;
   final String label;
   final VoidCallback onTap;
 
@@ -449,6 +639,7 @@ class _CloseButtonState extends State<_CloseButton> {
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      identifier: widget.testId,
       button: true,
       label: widget.label,
       child: MouseRegion(

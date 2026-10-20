@@ -72,6 +72,7 @@ Native libraries are built from pinned sources and bundled with the app (see [BU
 | Flag | Implementation | Purpose |
 |---|---|---|
 | `--transcribe-file` | `services/headless/` | Transcribe a WAV file and report timings |
+| `--download-cuda-pack --accept-nvidia-eula` | `services/headless/` | Download the optional NVIDIA CUDA pack; refuses without the EULA flag |
 | `--diagnose` | `services/headless/` | Start probe for the package smoke tests |
 | `--toggle`, `--cancel` | single-instance service | Remote-control a running instance |
 

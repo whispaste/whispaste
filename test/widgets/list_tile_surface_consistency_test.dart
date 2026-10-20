@@ -59,6 +59,7 @@ import 'package:whispaste/features/notes/widgets/notes_list_view.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/widgets/wp_list_tile_surface.dart';
+import 'package:whispaste/widgets/wp_search_field.dart';
 import 'package:whispaste/widgets/wp_filter_chip.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -524,8 +525,14 @@ void main() {
       tester,
     ) async {
       await _pumpSnippets(tester);
+      // The toolbar search field, found through its wrapper: the picker
+      // trigger field sits below the toolbar in tree order, so `.last` is no
+      // longer the search field.
       await tester.enterText(
-        find.byType(TextField).last,
+        find.descendant(
+          of: find.byType(WpSearchField),
+          matching: find.byType(TextField),
+        ),
         'zzzz-no-such-snippet',
       );
       await tester.pumpAndSettle();
@@ -540,7 +547,10 @@ void main() {
     });
   });
 
-  group("history's filter row wraps instead of squashing", () {
+  group("history's filter row stays on one line instead of squashing", () {
+    // UX-031 (WP-87) replaced the wrap with one line: chips that do not fit
+    // scroll sideways inside the row (see _FilterChipScroller), so the
+    // right-edge check of the original ticket no longer applies to them.
     // Ticket 03, point 7. The row used to be a plain `Row`: the trailing
     // controls (result count, "Empty trash", three icon controls) were
     // non-flexible, so they were laid out at their unbounded intrinsic width
@@ -602,22 +612,21 @@ void main() {
               chips,
               findsNWidgets(6),
               reason:
-                  'a filter disappeared. Wrapping was chosen over the previous '
-                  'horizontal scroll precisely so all six stay reachable '
-                  'without a gesture that has no affordance.',
+                  'a filter disappeared from the row: all six must stay in the '
+                  'tree, the chips beyond the bar scroll into view.',
             );
 
             final barRight = tester
                 .getRect(find.byType(HistorySearchFilterBar))
                 .right;
-            for (var i = 0; i < 6; i++) {
-              final chip = tester.getRect(chips.at(i));
+            final firstTop = tester.getRect(chips.at(0)).top;
+            for (var i = 1; i < 6; i++) {
               expect(
-                chip.right,
-                lessThanOrEqualTo(barRight + 0.01),
+                (tester.getRect(chips.at(i)).top - firstTop).abs(),
+                lessThan(0.5),
                 reason:
-                    'chip $i is painted past the bar\'s right edge at '
-                    '$panel dp @${scale}x — the row is squashing again',
+                    'chip $i wrapped onto a second line at $panel dp '
+                    '@${scale}x — the row must stay on one line',
               );
             }
 

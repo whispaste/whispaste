@@ -6,6 +6,7 @@
 /// dispatches user intents (test, grant, repair, open settings) back to it.
 library;
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -21,6 +22,7 @@ import '../features/onboarding/steps/auto_paste_step.dart'
     show linuxPasteFormatForOnboarding;
 import '../services/desktop_paste/linux_desktop_paste_controller.dart'
     show linuxUinputCopyCommand;
+import '../services/desktop_paste/linux_uinput_access.dart';
 import '../services/desktop_paste/linux_package_format.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/permissions/stale_entry_removal_guide.dart';
@@ -43,6 +45,10 @@ class _WpPasteCapabilityIndicatorState
     extends ConsumerState<WpPasteCapabilityIndicator> {
   bool _busy = false;
   bool _showTroubleshoot = false;
+
+  /// Whether the .deb's own udev rule is installed (R-02); only then can
+  /// the card remove it again.
+  bool _linuxGranted = false;
   late final void Function() _releaseWatch;
 
   @override
@@ -55,6 +61,7 @@ class _WpPasteCapabilityIndicatorState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _run(() => ref.read(pasteCapabilityNotifierProvider.notifier).check());
+      unawaited(_loadLinuxGrant());
     });
   }
 
@@ -62,6 +69,20 @@ class _WpPasteCapabilityIndicatorState
   void dispose() {
     _releaseWatch();
     super.dispose();
+  }
+
+  /// Linux, ready, and the access is the .deb's own rule (see [_loadLinuxGrant]).
+  bool _linuxRemovable(PasteCapability cap) =>
+      cap.status == PasteCapabilityStatus.ready &&
+      defaultTargetPlatform == TargetPlatform.linux &&
+      _linuxGranted;
+
+  Future<void> _loadLinuxGrant() async {
+    if (defaultTargetPlatform != TargetPlatform.linux) return;
+    final access = ref.read(linuxUinputAccessProvider);
+    if (!access.canManage) return;
+    final granted = await access.isGranted();
+    if (mounted) setState(() => _linuxGranted = granted);
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -123,12 +144,14 @@ class _WpPasteCapabilityIndicatorState
 
   /// Shown only when the user has to act (permission missing, restart needed,
   /// Wayland or unsupported). A ready capability renders nothing, the way other
-  /// apps stay quiet when everything works; a status that is still unknown
-  /// renders nothing either.
+  /// apps stay quiet when everything works, except a .deb access WhisPaste
+  /// granted itself, which can be taken back here. A status that is still
+  /// unknown renders nothing either.
   @override
   Widget build(BuildContext context) {
     final cap = ref.watch(pasteCapabilityNotifierProvider).capability;
-    if (cap == null || cap.status == PasteCapabilityStatus.ready) {
+    if (cap == null) return const SizedBox.shrink();
+    if (cap.status == PasteCapabilityStatus.ready && !_linuxRemovable(cap)) {
       return const SizedBox.shrink();
     }
     return Padding(
@@ -157,6 +180,8 @@ class _WpPasteCapabilityIndicatorState
     final linuxSetupNeeded =
         cap?.status == PasteCapabilityStatus.permissionMissing &&
         defaultTargetPlatform == TargetPlatform.linux;
+    final linuxAccess = ref.watch(linuxUinputAccessProvider);
+    final linuxRemovable = cap != null && _linuxRemovable(cap);
     final waiting =
         _busy || capState.pollingPhase == PollingPhase.awaitingGrant;
 
@@ -277,6 +302,11 @@ class _WpPasteCapabilityIndicatorState
             _buildTroubleshoot(context, l10n, notifier),
           ],
           if (linuxSetupNeeded) ...[
+            const SizedBox(height: WpSpacing.xs),
+            Text(
+              l10n.linuxUinputConsentDetail,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
             const SizedBox(height: WpSpacing.sm),
             // The command runs with sudo, so it is shown, not only copied.
             WpCommandBox(
@@ -288,12 +318,42 @@ class _WpPasteCapabilityIndicatorState
             const SizedBox(height: WpSpacing.sm),
             Align(
               alignment: Alignment.centerLeft,
+              // A .deb grants it itself after the password prompt; every
+              // other format hands over the command (R-02).
+              child: linuxAccess.canManage
+                  ? WpButton(
+                      key: const ValueKey('settings-paste-linux-grant-button'),
+                      label: l10n.linuxUinputGrantButton,
+                      variant: WpButtonVariant.primary,
+                      icon: LucideIcons.shield,
+                      onPressed: _busy
+                          ? null
+                          : () => _run(() => _grantLinuxAccess(l10n)),
+                    )
+                  : WpButton(
+                      key: const ValueKey('settings-paste-linux-copy-command'),
+                      label: l10n.pasteFailureLinuxUinputCopy,
+                      variant: WpButtonVariant.primary,
+                      icon: LucideIcons.copy,
+                      onPressed: () => _copyLinuxCommand(
+                        l10n,
+                        linuxUinputCopyCommand(_linuxFormat),
+                      ),
+                    ),
+            ),
+          ],
+          if (linuxRemovable) ...[
+            const SizedBox(height: WpSpacing.sm),
+            Align(
+              alignment: Alignment.centerLeft,
               child: WpButton(
-                key: const ValueKey('settings-paste-linux-copy-command'),
-                label: l10n.pasteFailureLinuxUinputCopy,
-                variant: WpButtonVariant.primary,
-                icon: LucideIcons.copy,
-                onPressed: () => _copyLinuxSetupCommand(l10n),
+                key: const ValueKey('settings-paste-linux-revoke-button'),
+                label: l10n.linuxUinputRevokeButton,
+                variant: WpButtonVariant.secondary,
+                icon: LucideIcons.shieldOff,
+                onPressed: _busy
+                    ? null
+                    : () => _run(() => _revokeLinuxAccess(l10n)),
               ),
             ),
           ],
@@ -302,14 +362,42 @@ class _WpPasteCapabilityIndicatorState
     );
   }
 
-  Future<void> _copyLinuxSetupCommand(L10n l10n) async {
-    await Clipboard.setData(
-      ClipboardData(
-        text: linuxUinputCopyCommand(
-          linuxPasteFormatForOnboarding() ?? LinuxPackageFormat.native,
-        ),
-      ),
+  LinuxPackageFormat get _linuxFormat =>
+      linuxPasteFormatForOnboarding() ?? LinuxPackageFormat.native;
+
+  Future<void> _grantLinuxAccess(L10n l10n) async {
+    final result = await ref.read(linuxUinputAccessProvider).enable();
+    if (!mounted) return;
+    switch (result) {
+      case UinputAccessChange.done:
+        setState(() => _linuxGranted = true);
+        await ref.read(pasteCapabilityNotifierProvider.notifier).check();
+      case UinputAccessChange.failed || UinputAccessChange.unavailable:
+        WpToast.show(
+          context,
+          message: l10n.linuxUinputGrantFailed,
+          type: WpToastType.error,
+        );
+      case UinputAccessChange.cancelled:
+        break;
+    }
+  }
+
+  Future<void> _revokeLinuxAccess(L10n l10n) async {
+    final result = await ref.read(linuxUinputAccessProvider).disable();
+    if (!mounted || result != UinputAccessChange.done) return;
+    setState(() => _linuxGranted = false);
+    await ref.read(pasteCapabilityNotifierProvider.notifier).check();
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: l10n.linuxUinputRevokeDone,
+      type: WpToastType.success,
     );
+  }
+
+  Future<void> _copyLinuxCommand(L10n l10n, String command) async {
+    await Clipboard.setData(ClipboardData(text: command));
     if (!mounted) return;
     WpToast.show(
       context,

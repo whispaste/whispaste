@@ -24,8 +24,7 @@ import 'terminal_targets.dart';
 /// `/etc/udev/rules.d` and loaded. The paste-failure toast copies it to the
 /// clipboard; the app never runs it.
 const String kLinuxUinputUdevCommand =
-    "echo 'KERNEL==\"uinput\", SUBSYSTEM==\"misc\", MODE=\"0660\", "
-    "GROUP=\"input\", TAG+=\"uaccess\"' "
+    "echo 'KERNEL==\"uinput\", SUBSYSTEM==\"misc\", TAG+=\"uaccess\"' "
     '| sudo tee /etc/udev/rules.d/71-whispaste-uinput.rules '
     '&& sudo udevadm control --reload-rules '
     '&& sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput';
@@ -34,7 +33,7 @@ const String kLinuxUinputUdevCommand =
 /// be connected once (packaging/snap/README.md).
 const String kSnapUinputConnectCommand = 'sudo snap connect whispaste:uinput';
 
-/// The one-time command the paste-failure toast copies for [format].
+/// The one-time command the Auto-Paste setup copies for [format].
 String linuxUinputCopyCommand(LinuxPackageFormat format) =>
     format == LinuxPackageFormat.snap
     ? kSnapUinputConnectCommand

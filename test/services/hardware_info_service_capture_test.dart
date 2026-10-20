@@ -173,7 +173,8 @@ void main() {
 
       expect(_capturedEvents, hasLength(1));
       final extras = _capturedEvents.single.contexts['extras'] as Map?;
-      expect(extras?['gpu_adapters'], [r'Adreno GPU C:\Users\<user>\drv']);
+      expect(extras?['gpu_adapters'], ['Adreno GPU <path>']);
+      expect(extras.toString(), isNot(contains('silvio')));
     });
   });
 

@@ -59,15 +59,16 @@ install -Dm644 "$PKG_ROOT/packaging/flatpak/$APP_ID.metainfo.xml" \
 install -Dm644 "$PKG_ROOT/assets/icons/app_icon_512.png" \
   "$STAGE/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
 
-# udev rule granting the active desktop user /dev/uinput access, which
-# Auto-Paste needs to synthesize Ctrl+V (see the rule file's header). Without
-# it Auto-Paste falls back to clipboard-only. The modules-load.d entry makes
-# sure /dev/uinput exists on kernels that build uinput as a module.
+# Auto-Paste needs write access to /dev/uinput. Nothing here grants it
+# (security review R-02): the udev rule ships as an inactive template, and the
+# root helper behind the polkit action installs it only after the user agreed
+# in the app (and removes it on revocation and in prerm).
 install -Dm644 "$PKG_ROOT/packaging/linux/71-whispaste-uinput.rules" \
-  "$STAGE/usr/lib/udev/rules.d/71-whispaste-uinput.rules"
-install -d "$STAGE/usr/lib/modules-load.d"
-printf 'uinput\n' > "$STAGE/usr/lib/modules-load.d/whispaste-uinput.conf"
-chmod 644 "$STAGE/usr/lib/modules-load.d/whispaste-uinput.conf"
+  "$STAGE/usr/share/whispaste/udev/71-whispaste-uinput.rules"
+install -Dm755 "$PKG_ROOT/packaging/linux/whispaste-uinput-access" \
+  "$STAGE/usr/libexec/whispaste/uinput-access"
+install -Dm644 "$PKG_ROOT/packaging/linux/de.whispaste.uinput.policy" \
+  "$STAGE/usr/share/polkit-1/actions/de.whispaste.uinput.policy"
 
 # GNOME Shell focus extension. It is installed system-wide but stays disabled:
 # the user turns it on with `gnome-extensions enable <uuid>`, and the app asks
@@ -83,9 +84,10 @@ install -m644 "$GNOME_EXT_SRC/metadata.json" "$GNOME_EXT_SRC/extension.js" \
 install -d "$STAGE/DEBIAN"
 sed "s/__VERSION__/$VERSION/" "$SCRIPT_DIR/control.template" \
   > "$STAGE/DEBIAN/control"
-# Maintainer scripts: apply the udev rule right away so Auto-Paste works
-# without a reboot, and drop it again on removal.
+# Maintainer scripts: postinst drops the rule older versions installed,
+# prerm removes the grant the user gave in the app (R-02).
 install -m755 "$SCRIPT_DIR/postinst" "$STAGE/DEBIAN/postinst"
+install -m755 "$SCRIPT_DIR/prerm" "$STAGE/DEBIAN/prerm"
 install -m755 "$SCRIPT_DIR/postrm" "$STAGE/DEBIAN/postrm"
 
 # Installed-Size (KiB) — dpkg-deb does not compute it; lintian flags its absence.

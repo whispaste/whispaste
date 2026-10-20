@@ -55,6 +55,7 @@ import '../../../services/desktop_paste/desktop_paste_controller.dart';
 import '../../../services/desktop_paste/linux_desktop_paste_controller.dart'
     show linuxUinputCopyCommand;
 import '../../../services/desktop_paste/linux_package_format.dart';
+import '../../../services/desktop_paste/linux_uinput_access.dart';
 import '../../../services/paste/paste_capability_notifier.dart';
 import '../../../services/paste/paster.dart';
 import '../../../services/permissions/mic_permission_notifier.dart';
@@ -234,6 +235,27 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
         );
   }
 
+  /// .deb only: grants /dev/uinput through the password prompt (R-02),
+  /// then re-checks and switches Auto-Paste on, which is what the user just
+  /// agreed to.
+  Future<void> _onGrantLinuxPressed(bool autoPasteEnabled) async {
+    final result = await ref.read(linuxUinputAccessProvider).enable();
+    if (!mounted) return;
+    switch (result) {
+      case UinputAccessChange.done:
+        await ref.read(pasteCapabilityNotifierProvider.notifier).check();
+        if (!autoPasteEnabled) await _onEnableAutoPastePressed();
+      case UinputAccessChange.failed || UinputAccessChange.unavailable:
+        WpToast.show(
+          context,
+          message: L10n.of(context).linuxUinputGrantFailed,
+          type: WpToastType.error,
+        );
+      case UinputAccessChange.cancelled:
+        break;
+    }
+  }
+
   Future<void> _onSkipPressed() async {
     // Capture the grant-handoff bit BEFORE persisting the skip so the
     // breadcrumb describes the state the user actually skipped from.
@@ -307,6 +329,8 @@ class _AutoPasteStepState extends ConsumerState<AutoPasteStep> {
           state: ref.watch(pasteCapabilityNotifierProvider),
           format: linuxPasteFormatForOnboarding(),
           autoPasteEnabled: autoPasteEnabled,
+          canGrant: ref.watch(linuxUinputAccessProvider).canManage,
+          onGrant: () => _onGrantLinuxPressed(autoPasteEnabled),
           onEnable: _onEnableAutoPastePressed,
           onSkip: _onSkipPressed,
         );
@@ -943,11 +967,17 @@ class _LinuxBody extends StatelessWidget {
     required this.state,
     required this.format,
     required this.autoPasteEnabled,
+    required this.canGrant,
+    required this.onGrant,
     required this.onEnable,
     required this.onSkip,
   });
 
   final PasteCapabilityState state;
+
+  /// Whether this install grants the access itself (the .deb, R-02).
+  final bool canGrant;
+  final Future<void> Function() onGrant;
 
   /// How the app was installed, or null when that cannot be detected.
   final LinuxPackageFormat? format;
@@ -1046,15 +1076,40 @@ class _LinuxBody extends StatelessWidget {
           const SizedBox(height: WpSpacing.sm),
           Padding(
             padding: inset,
+            child: Text(
+              l10n.linuxUinputConsentDetail,
+              key: const ValueKey('onboarding-paste-linux-consent'),
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textSecondary,
+                height: 1.4,
+              ),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          Padding(
+            padding: inset,
             child: Align(
               alignment: AlignmentDirectional.centerStart,
-              child: WpButton(
-                key: const ValueKey('onboarding-paste-linux-copy-command'),
-                label: l10n.pasteFailureLinuxUinputCopy,
-                icon: LucideIcons.copy,
-                variant: WpButtonVariant.secondary,
-                onPressed: () => _copySetupCommand(context, l10n),
-              ),
+              child: canGrant
+                  ? WpButton(
+                      key: const ValueKey(
+                        'onboarding-paste-linux-grant-button',
+                      ),
+                      label: l10n.linuxUinputGrantButton,
+                      icon: LucideIcons.shield,
+                      variant: WpButtonVariant.secondary,
+                      onPressed: onGrant,
+                    )
+                  : WpButton(
+                      key: const ValueKey(
+                        'onboarding-paste-linux-copy-command',
+                      ),
+                      label: l10n.pasteFailureLinuxUinputCopy,
+                      icon: LucideIcons.copy,
+                      variant: WpButtonVariant.secondary,
+                      onPressed: () => _copySetupCommand(context, l10n),
+                    ),
             ),
           ),
           // Sandboxed installs need more than the udev rule (Flatpak device

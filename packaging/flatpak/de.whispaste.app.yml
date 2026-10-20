@@ -52,9 +52,9 @@ finish-args:
   # of the input group), the app could read keystrokes of other programs.
   # Members of the input group can also generate virtual input. Evidence: a grep
   # for /dev/input/evdev in linux/ and lib/ finds no reader in WhisPaste's code.
-  # This device scope is a deliberate trade-off for Auto-Paste. The host still
-  # needs the udev rule or the input group for write access; the in-app
-  # onboarding hint names both.
+  # This device scope is a deliberate trade-off for Auto-Paste (R-02,
+  # decision 2b). The host still needs the udev rule for write access; the
+  # onboarding shows the command to copy after explaining the risk.
   - --device=all
   # ── Audio (Aufnahme — CONTEXT.md §2.2) ──────────────────────────────────────
   - --socket=pulseaudio

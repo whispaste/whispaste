@@ -25,8 +25,21 @@ const _surfacesByPlatform = <String, List<String>>{
 
 /// Every command id the tree can emit, with all optional parts switched on.
 Set<String> _maximalTrayIds() {
+  final withRecent = _trayIdsFor(
+    recentRecordings: const [(id: 'r1', label: 'x')],
+  );
+  final locked = _trayIdsFor(historyLocked: true);
+  return {...withRecent, ...locked};
+}
+
+Set<String> _trayIdsFor({
+  List<({String id, String label})> recentRecordings = const [],
+  bool historyLocked = false,
+}) {
   final commands = buildTrayCommands(
     TrayMenuState(
+      recentRecordings: recentRecordings,
+      historyLocked: historyLocked,
       isRecording: true,
       micDeviceLabels: const [micDefaultLabel, 'USB Mic'],
       selectedMic: 'USB Mic',

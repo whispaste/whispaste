@@ -66,6 +66,10 @@ class _FakeWhisperEngine implements WhisperEngine {
   Completer<void>? unloadGate;
   bool unloadCalled = false;
 
+  /// Set when [unload] runs while a [transcribe] call has not returned yet.
+  bool unloadedWhileDecoding = false;
+  int _decodesRunning = 0;
+
   /// The `prompt` argument of the most recent [transcribe] call — lets
   /// tests assert on what [SttServerStateNotifier] actually resolved/
   /// truncated the effective prompt to, without needing to intercept the
@@ -96,16 +100,22 @@ class _FakeWhisperEngine implements WhisperEngine {
     bool reducedThreads = false,
   }) async {
     lastPrompt = prompt;
-    final delay = transcribeDelay;
-    if (delay != null) {
-      await Future<void>.delayed(delay);
+    _decodesRunning++;
+    try {
+      final delay = transcribeDelay;
+      if (delay != null) {
+        await Future<void>.delayed(delay);
+      }
+      return responseText;
+    } finally {
+      _decodesRunning--;
     }
-    return responseText;
   }
 
   @override
   Future<void> unload() async {
     unloadCalled = true;
+    if (_decodesRunning > 0) unloadedWhileDecoding = true;
     final gate = unloadGate;
     if (gate != null) await gate.future;
     _loaded = false;
@@ -410,20 +420,10 @@ void main() {
       expect(engine.unloadCalled, isTrue);
     });
 
-    test('stop() gives up waiting on the short stopDrainTimeout rather than '
-        'blocking for as long as the in-flight transcription takes — app '
-        'quit must not stall behind a still-running transcription '
-        '(FLUTTER_WHISPASTE-6X)', () async {
-      final savedDrainTimeout = SttServerStateNotifier.stopDrainTimeout;
-      SttServerStateNotifier.stopDrainTimeout = const Duration(
-        milliseconds: 50,
-      );
-      addTearDown(
-        () => SttServerStateNotifier.stopDrainTimeout = savedDrainTimeout,
-      );
-
+    test('stop() unloads only after an in-flight native decode has returned, '
+        'never under it (FLUTTER_WHISPASTE-6X)', () async {
       final engine = _FakeWhisperEngine()
-        ..transcribeDelay = const Duration(seconds: 2);
+        ..transcribeDelay = const Duration(milliseconds: 300);
       final container = _makeContainer(engine: engine);
       addTearDown(container.dispose);
 
@@ -432,20 +432,51 @@ void main() {
       await notifier.ensureRunning();
 
       unawaited(notifier.transcribeBytes(_validWavHeader()));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      final stopwatch = Stopwatch()..start();
       await notifier.stop();
-      stopwatch.stop();
 
       expect(
-        stopwatch.elapsed,
-        lessThan(const Duration(milliseconds: 500)),
-        reason:
-            'stop() must give up waiting after stopDrainTimeout and unload '
-            'anyway — reusing the multi-minute stuckGuardTimeout budget here '
-            'would stall app quit behind a still-running transcription',
+        engine.unloadCalled,
+        isTrue,
+        reason: 'the engine is freed once the decode returned',
       );
+      expect(
+        engine.unloadedWhileDecoding,
+        isFalse,
+        reason:
+            'unloading under a running native decode raced into '
+            'whisper_engine_not_loaded',
+      );
+    });
+
+    test('stopForQuit() does not wait for a running decode — app quit must '
+        'not stall behind a still-running transcription', () async {
+      final engine = _FakeWhisperEngine()
+        ..transcribeDelay = const Duration(milliseconds: 400);
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      unawaited(notifier.transcribeBytes(_validWavHeader()));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final stopwatch = Stopwatch()..start();
+      await notifier.stopForQuit();
+      stopwatch.stop();
+
+      expect(stopwatch.elapsed, lessThan(const Duration(milliseconds: 300)));
+      expect(notifier.hasNativeCallRunning, isTrue);
+      expect(engine.unloadCalled, isFalse);
+
+      // The retired engine is released once its decode returns, never before.
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      expect(notifier.hasNativeCallRunning, isFalse);
       expect(engine.unloadCalled, isTrue);
+      expect(engine.unloadedWhileDecoding, isFalse);
     });
   });
 

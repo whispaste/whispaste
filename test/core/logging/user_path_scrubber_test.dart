@@ -70,6 +70,62 @@ void main() {
       expect(scrubUserPaths('a b c', userName: 'a'), 'a b c');
     });
 
+    test('an account name with a space is replaced whole', () {
+      final out = scrubUserPaths(
+        '/Users/Max Mustermann/x.wav',
+        home: '/nowhere',
+        userName: 'nobody',
+      );
+      expect(out, '/Users/<user>/x.wav');
+    });
+
+    test('brackets and separators in the account name are replaced whole', () {
+      expect(
+        scrubUserPaths('/Users/Max (Büro)/x.wav', home: '/nowhere'),
+        '/Users/<user>/x.wav',
+      );
+      expect(scrubUserPaths('/home/a;b/x', home: '/nowhere'), '/home/<user>/x');
+    });
+
+    test('error text after the path on the same line stays', () {
+      expect(
+        scrubUserPaths(
+          'Cannot open /Users/anna: permission denied',
+          home: '/nowhere',
+        ),
+        'Cannot open /Users/<user>: permission denied',
+      );
+      expect(
+        scrubUserPaths(
+          "path = '/Users/anna' (OS Error: denied, errno = 13)",
+          home: '/nowhere',
+        ),
+        "path = '/Users/<user>' (OS Error: denied, errno = 13)",
+      );
+    });
+
+    test('when in doubt, the account segment is redacted to the separator', () {
+      expect(
+        scrubUserPaths(
+          'Cannot open /Users/anna permission denied',
+          home: '/nowhere',
+        ),
+        'Cannot open /Users/<user>',
+      );
+      expect(
+        scrubUserPaths(r'C:\Users\Muster, Max\x.wav', home: '/nowhere'),
+        r'C:\Users\<user>\x.wav',
+      );
+      expect(
+        scrubUserPaths('/Users/Muster, Max/x.wav', home: '/nowhere'),
+        '/Users/<user>/x.wav',
+      );
+      expect(
+        scrubUserPaths('/home/anna, errno = 2', home: '/nowhere'),
+        '/home/<user>',
+      );
+    });
+
     test('text without paths is unchanged', () {
       expect(
         scrubUserPaths('Whisper model failed to load'),
@@ -141,7 +197,70 @@ void main() {
         '${out.breadcrumbs!.single.data}',
       ].join('\n');
       expect(serialized.toLowerCase(), isNot(contains('alice')));
+      expect(out.message!.formatted, 'Preflight OK: model=<file>.bin');
+      expect(out.exceptions!.single.value, 'Cannot open <file>.db');
+      expect(out.breadcrumbs!.single.message, 'loaded <file>.bin');
+      expect(out.breadcrumbs!.single.data!['path'], '<path>');
       expect(out.breadcrumbs!.single.data!['count'], 3);
+    });
+
+    test('transaction name and stack frame paths', () {
+      final event = SentryEvent(
+        transaction: '/Users/alice/x.wav',
+        exceptions: [
+          SentryException(
+            type: 'StateError',
+            value: 'boom',
+            stackTrace: SentryStackTrace(
+              frames: [
+                SentryStackFrame(
+                  absPath: 'file:///Users/alice/proj/lib/a.dart',
+                  fileName: '/Users/alice/proj/lib/a.dart',
+                ),
+                SentryStackFrame(absPath: 'package:whispaste/app.dart'),
+              ],
+            ),
+          ),
+        ],
+      );
+
+      final out = CrashReporter.beforeSend(event, Hint())!;
+
+      expect(out.transaction, '<file>.wav');
+      final frames = out.exceptions!.single.stackTrace!.frames;
+      expect(frames[0].absPath, 'file:<file>.dart');
+      expect(frames[0].fileName, '<file>.dart');
+      expect(frames[1].absPath, 'package:whispaste/app.dart');
+    });
+
+    test('culprit and request parts', () {
+      final event = SentryEvent(
+        culprit: 'open /Users/alice/x.wav',
+        request: SentryRequest(
+          url: 'file:///Users/alice/a.wav',
+          queryString: 'file=%2FUsers%2Falice%2Fb.wav',
+          cookies: 'session=secret; last=/home/alice/c.txt',
+          headers: {
+            'X-File': r'C:\Users\alice\d.wav',
+            'Authorization': 'Bearer secret',
+            'proxy-authorization': 'Basic secret',
+            'Cookie': 'session=secret',
+            'Set-Cookie': 'session=secret',
+          },
+        ),
+      );
+
+      final out = CrashReporter.beforeSend(event, Hint())!;
+
+      expect(out.culprit, 'open <file>.wav');
+      final request = out.request!;
+      expect(request.url, 'file:<file>.wav');
+      expect(request.queryString, 'file=<file>.wav');
+      expect(request.cookies, isNull);
+      expect(request.headers, {'X-File': '<file>.wav'});
+      final json = request.toJson().toString();
+      expect(json, isNot(contains('alice')));
+      expect(json, isNot(contains('secret')));
     });
   });
 }

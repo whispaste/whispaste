@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/services/dictation_text_steps.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
 import 'package:whispaste/services/pending_audio/pending_audio_queue.dart';
 import 'package:whispaste/services/recording_store.dart';
+import 'package:whispaste/services/text_transforms.dart';
 
 const _transcript = 'Ein Diktat, das nicht gespeichert werden konnte';
 final _capturedAt = DateTime(2026, 10, 18, 9, 30, 15);
@@ -43,10 +47,11 @@ void main() {
     int maxAttempts = 5,
     Future<void> Function(String entryId, String wavPath)? retain,
   }) => PendingAudioQueue(
+    applyReplacements: store.applyReplacements,
     directory: () => pendingDir,
     save: (input) async {
       saveCalls++;
-      if (failSaves) throw StateError('history write failed');
+      if (failSaves) throw StateError('history write failed: $_transcript');
       return store.save(input);
     },
     entryExists: (id) async => (await db.getEntry(id)) != null,
@@ -158,6 +163,121 @@ void main() {
       expect(pendingFiles(), isEmpty);
     });
 
+    for (final (label, value) in [('missing', null), ('corrupted', 'yes')]) {
+      test('a record whose replacements flag is $label is saved as final '
+          'text, without replacements', () async {
+        await db.upsertReplacementWithTriggers(
+          id: 'r1',
+          triggers: const ['Diktat'],
+          replacement: 'DIKTAT',
+          createdAt: _capturedAt,
+        );
+        await queue().park(captureWav('whispaste_legacy.wav'), input());
+        final record = File(p.join(pendingDir, '1781775015000-0042.json'));
+        final json =
+            jsonDecode(record.readAsStringSync()) as Map<String, dynamic>
+              ..remove('applyTextReplacements');
+        if (value != null) json['applyTextReplacements'] = value;
+        record.writeAsStringSync(jsonEncode(json));
+
+        final result = await queue().recoverAll(retainAudio: false);
+
+        expect(result.saved, 1);
+        expect((await db.getEntry('1781775015000-0042'))!.content, _transcript);
+      });
+    }
+
+    test('a raw transcript gets its stored text steps on recovery, with '
+        'the cleaned transcript kept as the original', () async {
+      await db.upsertReplacementWithTriggers(
+        id: 'r1',
+        triggers: const ['Diktat'],
+        replacement: 'DIKTAT',
+        createdAt: _capturedAt,
+      );
+      const raw = 'äh ein  Diktat Komma\nneue Zeile weiter';
+      final rawInput = RecordingInput(
+        transcript: raw,
+        audioDuration: const Duration(seconds: 3),
+        modelId: 'parakeet-tdt',
+        isLocal: true,
+        languageCode: 'de',
+        applyTextReplacements: false,
+        historyMaxEntries: 0,
+        wordCount: 7,
+        processingDurationSec: 1,
+        entryId: '1781775015000-0043',
+        createdAt: _capturedAt,
+      );
+      const steps = DictationTextSteps(
+        removeFillerWords: true,
+        spokenPunctuation: true,
+        voiceLineBreaks: true,
+        textReplacements: true,
+      );
+
+      await queue().park(
+        captureWav('whispaste_raw.wav'),
+        rawInput,
+        rawTextSteps: steps,
+      );
+      await queue().recoverAll(retainAudio: false);
+
+      final cleaned = collapseTranscriptWhitespace(raw);
+      final expected = await steps.apply(
+        cleaned,
+        languageCode: 'de',
+        applyReplacements: store.applyReplacements,
+      );
+      final entry = await db.getEntry('1781775015000-0043');
+      expect(entry!.content, expected);
+      expect(entry.content, contains('DIKTAT'));
+      expect(entry.content, isNot(contains('äh')));
+      expect(entry.originalTranscript, cleaned);
+    });
+
+    for (final (label, value) in [
+      ('a corrupted', 'nonsense'),
+      ('a broken', <String, Object?>{'textReplacements': 'yes'}),
+    ]) {
+      test('$label text-steps value never fails the record', () async {
+        await queue().park(captureWav('whispaste_bad.wav'), input());
+        final record = File(p.join(pendingDir, '1781775015000-0042.json'));
+        final json =
+            jsonDecode(record.readAsStringSync()) as Map<String, dynamic>;
+        json['rawTextSteps'] = value;
+        record.writeAsStringSync(jsonEncode(json));
+
+        final result = await queue().recoverAll(retainAudio: false);
+
+        expect(result.saved, 1);
+        expect((await db.getEntry('1781775015000-0042'))!.content, _transcript);
+      });
+    }
+
+    test('a record from a build that stored only the replacements flag gets '
+        'just the replacements', () async {
+      await db.upsertReplacementWithTriggers(
+        id: 'r1',
+        triggers: const ['Diktat'],
+        replacement: 'DIKTAT',
+        createdAt: _capturedAt,
+      );
+      await queue().park(captureWav('whispaste_flag.wav'), input());
+      final record = File(p.join(pendingDir, '1781775015000-0042.json'));
+      final json = jsonDecode(record.readAsStringSync()) as Map<String, dynamic>
+        ..remove('rawTextSteps')
+        ..['applyTextReplacements'] = true;
+      record.writeAsStringSync(jsonEncode(json));
+
+      await queue().recoverAll(retainAudio: false);
+
+      expect(
+        (await db.getEntry('1781775015000-0042'))!.content,
+        _transcript.replaceAll('Diktat', 'DIKTAT'),
+      );
+    });
+
     test('does not write a duplicate when the first save did reach the '
         'history', () async {
       // The first save finished after its 5 s budget: the entry exists and
@@ -186,6 +306,20 @@ void main() {
         pendingFiles(),
         containsAll(['1781775015000-0042.json', '1781775015000-0042.wav']),
       );
+    });
+
+    test('a failed save does not log the error text', () async {
+      await queue().park(captureWav('whispaste_7.wav'), input());
+      failSaves = true;
+      final records = <LogRecord>[];
+      final sub = Logger.root.onRecord.listen(records.add);
+      addTearDown(sub.cancel);
+
+      await queue().recoverAll(retainAudio: false);
+
+      final logged = records.map((r) => '${r.message} ${r.error}').join('\n');
+      expect(logged, contains('StateError'));
+      expect(logged, isNot(contains(_transcript)));
     });
 
     test('stops retrying after maxAttempts failures and never calls the '
@@ -270,7 +404,10 @@ void main() {
         isTrue,
       );
 
-      await queue().park(captureWav('whispaste_12.wav'), input(id: 'b-2'));
+      await queue().park(
+        captureWav('whispaste_12.wav'),
+        input(id: '1781775015004-0004'),
+      );
       await queue().recoverAll(retainAudio: false);
       expect(pendingFiles(), isEmpty);
     });
@@ -286,9 +423,182 @@ void main() {
     );
   });
 
+  group('never throws', () {
+    test('a failed retry whose record cannot be rewritten does not escape '
+        'recoverAll', () async {
+      final wav = captureWav('whispaste_nt1.wav');
+      await queue().park(wav, input());
+      failSaves = true;
+      // A directory where the temp record must go makes the rewrite fail.
+      Directory('$pendingDir/1781775015000-0042.json.tmp').createSync();
+
+      final result = await queue().recoverAll(retainAudio: false);
+
+      expect(result.failed, 1);
+      expect(
+        File(p.join(pendingDir, '1781775015000-0042.wav')).existsSync(),
+        isTrue,
+      );
+    });
+
+    test('removes orphaned temp records and WAVs without a record that are '
+        'older than an hour, and keeps young ones', () async {
+      Directory(pendingDir).createSync(recursive: true);
+      final oldTmp = File(p.join(pendingDir, '1781775017000-0001.json.tmp'))
+        ..writeAsStringSync('{');
+      final oldWav = File(p.join(pendingDir, '1781775018000-0002.wav'))
+        ..writeAsBytesSync([1, 2, 3]);
+      final youngWav = File(p.join(pendingDir, '1781775019000-0003.wav'))
+        ..writeAsBytesSync([1, 2, 3]);
+      final old = DateTime.now().subtract(const Duration(hours: 2));
+      oldTmp.setLastModifiedSync(old);
+      oldWav.setLastModifiedSync(old);
+
+      await queue().recoverAll(retainAudio: false);
+
+      expect(oldTmp.existsSync(), isFalse);
+      expect(oldWav.existsSync(), isFalse);
+      expect(youngWav.existsSync(), isTrue);
+    });
+  });
+
+  group('entry ID validation', () {
+    test('park rejects an entry ID that is not a recording ID and moves no '
+        'audio', () async {
+      final wav = captureWav('whispaste_id1.wav');
+
+      await expectLater(
+        queue().park(wav, input(id: '../escape')),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(File(wav).existsSync(), isTrue);
+      expect(pendingFiles(), isEmpty);
+    });
+
+    test('discard never touches a path outside the folder', () async {
+      final outside = File(p.join(tmp.path, 'outside.wav'))
+        ..writeAsBytesSync([1]);
+      Directory(pendingDir).createSync(recursive: true);
+
+      await queue().discard('../outside');
+
+      expect(outside.existsSync(), isTrue);
+    });
+
+    test('a record with an invalid entry ID is skipped, never saved or '
+        'deleted outside the folder', () async {
+      Directory(pendingDir).createSync(recursive: true);
+      final outside = File(p.join(tmp.path, 'victim.wav'))
+        ..writeAsBytesSync([1]);
+      File(p.join(pendingDir, 'bad.json')).writeAsStringSync(
+        '{"entryId":"../victim","createdAt":"2026-10-18T09:30:15.000",'
+        '"transcript":"x","audioDurationMs":1,"modelId":"m","isLocal":true,'
+        '"languageCode":"de","historyMaxEntries":0,"wordCount":1,'
+        '"processingDurationSec":0,"attempts":0}',
+      );
+
+      final result = await queue().recoverAll(retainAudio: false);
+
+      expect(saveCalls, 0);
+      expect(result.saved, 0);
+      expect(outside.existsSync(), isTrue);
+      expect(File(p.join(pendingDir, 'bad.json')).existsSync(), isTrue);
+    });
+  });
+
+  group('expiry', () {
+    test('removes a parked dictation older than 7 days when retention is '
+        'off, and keeps a younger one', () async {
+      final wav = captureWav('whispaste_exp1.wav');
+      await queue().park(wav, input());
+
+      await queue().sweepExpired(
+        retainAudio: false,
+        now: _capturedAt.add(const Duration(days: 6)),
+      );
+      expect(pendingFiles(), isNotEmpty);
+
+      await queue().sweepExpired(
+        retainAudio: false,
+        now: _capturedAt.add(const Duration(days: 8)),
+      );
+      expect(pendingFiles(), isEmpty);
+    });
+
+    test('uses the audio retention window when retention is on', () async {
+      final wav = captureWav('whispaste_exp2.wav');
+      await queue().park(wav, input());
+
+      await queue().sweepExpired(
+        retainAudio: true,
+        now: _capturedAt.add(const Duration(days: 8)),
+      );
+      expect(pendingFiles(), isNotEmpty);
+
+      await queue().sweepExpired(
+        retainAudio: true,
+        now: _capturedAt.add(const Duration(days: 31)),
+      );
+      expect(pendingFiles(), isEmpty);
+    });
+
+    test('recoverAll drops an expired record instead of saving it', () async {
+      final wav = captureWav('whispaste_exp3.wav');
+      await queue().park(wav, input());
+
+      final result = await queue().recoverAll(
+        retainAudio: false,
+        now: _capturedAt.add(const Duration(days: 8)),
+      );
+
+      expect(saveCalls, 0);
+      expect(result.saved, 0);
+      expect(pendingFiles(), isEmpty);
+    });
+  });
+
+  group('file mode', () {
+    test('the parked WAV and record are readable by the owner only', () async {
+      if (Platform.isWindows) return;
+      final wav = captureWav('whispaste_mode.wav');
+      expect(File(wav).statSync().mode & 0x1ff, isNot(0x180));
+
+      await queue().park(wav, input());
+
+      for (final name in pendingFiles()) {
+        final mode = File(p.join(pendingDir, name)).statSync().mode & 0x1ff;
+        expect(mode, 0x180, reason: 'mode of $name');
+      }
+    });
+  });
+
+  group('discard', () {
+    test(
+      'removes the parked copy of one entry and leaves the others',
+      () async {
+        final wavA = captureWav('whispaste_dA.wav');
+        final wavB = captureWav('whispaste_dB.wav');
+        await queue().park(wavA, input());
+        await queue().park(wavB, input(id: '1781775016000-0043'));
+
+        await queue().discard('1781775015000-0042');
+
+        expect(pendingFiles(), [
+          '1781775016000-0043.json',
+          '1781775016000-0043.wav',
+        ]);
+      },
+    );
+
+    test('is a no-op for an entry without a parked copy', () async {
+      await queue().discard('1781775099000-0099');
+      expect(pendingFiles(), isEmpty);
+    });
+  });
+
   group('cap', () {
     test('evicts the oldest parked dictations beyond maxEntries', () async {
-      final oldest = input(id: '1-0001');
+      final oldest = input(id: '1781775015001-0001');
       final middle = RecordingInput(
         transcript: 'zwei',
         audioDuration: Duration.zero,
@@ -299,7 +609,7 @@ void main() {
         historyMaxEntries: 0,
         wordCount: 1,
         processingDurationSec: 0,
-        entryId: '2-0002',
+        entryId: '1781775015002-0002',
         createdAt: _capturedAt.add(const Duration(minutes: 1)),
       );
       final newest = RecordingInput(
@@ -312,7 +622,7 @@ void main() {
         historyMaxEntries: 0,
         wordCount: 1,
         processingDurationSec: 0,
-        entryId: '3-0003',
+        entryId: '1781775015003-0003',
         createdAt: _capturedAt.add(const Duration(minutes: 2)),
       );
       // Parked in arbitrary order; eviction follows the capture time.
@@ -322,10 +632,10 @@ void main() {
       await q.park(captureWav('c.wav'), middle);
 
       expect(pendingFiles(), [
-        '2-0002.json',
-        '2-0002.wav',
-        '3-0003.json',
-        '3-0003.wav',
+        '1781775015002-0002.json',
+        '1781775015002-0002.wav',
+        '1781775015003-0003.json',
+        '1781775015003-0003.wav',
       ]);
     });
   });
@@ -375,7 +685,7 @@ void main() {
 
     Future<void> parkRetry(
       PendingAudioQueue q, {
-      String id = 'r1',
+      String id = '1781775015020-0020',
       String code = 'stt_server_failed',
       Duration maxAge = const Duration(hours: 24),
     }) => q.parkForRetry(
@@ -387,19 +697,20 @@ void main() {
       expiresAt: now.add(maxAge),
     );
 
-    RecordingInput retried(String text, {String id = 'r1'}) => RecordingInput(
-      transcript: text,
-      audioDuration: const Duration(seconds: 7),
-      modelId: 'parakeet-tdt',
-      isLocal: true,
-      languageCode: 'de',
-      applyTextReplacements: false,
-      historyMaxEntries: 0,
-      wordCount: 1,
-      processingDurationSec: 1,
-      entryId: id,
-      createdAt: _capturedAt,
-    );
+    RecordingInput retried(String text, {String id = '1781775015020-0020'}) =>
+        RecordingInput(
+          transcript: text,
+          audioDuration: const Duration(seconds: 7),
+          modelId: 'parakeet-tdt',
+          isLocal: true,
+          languageCode: 'de',
+          applyTextReplacements: false,
+          historyMaxEntries: 0,
+          wordCount: 1,
+          processingDurationSec: 1,
+          entryId: id,
+          createdAt: _capturedAt,
+        );
 
     test(
       'keeps the audio with its error and lists it for the retry UI',
@@ -409,9 +720,12 @@ void main() {
         await parkRetry(q);
 
         final entries = await q.retryEntries();
-        expect(entries.map((e) => e.entryId), ['r1']);
+        expect(entries.map((e) => e.entryId), ['1781775015020-0020']);
         expect(entries.single.errorCode, 'stt_server_failed');
-        expect(pendingFiles(), ['r1.json', 'r1.wav']);
+        expect(pendingFiles(), [
+          '1781775015020-0020.json',
+          '1781775015020-0020.wav',
+        ]);
       },
     );
 
@@ -420,16 +734,16 @@ void main() {
       final q = retryQueue();
       // Names sort the other way round than the capture times.
       await q.parkForRetry(
-        captureWav('aa-new.wav'),
-        entryId: 'aa-new',
+        captureWav('1781775015010-0010.wav'),
+        entryId: '1781775015010-0010',
         capturedAt: _capturedAt,
         audioDuration: const Duration(seconds: 3),
         errorCode: 'stt_server_failed',
         expiresAt: now.add(const Duration(hours: 24)),
       );
       await q.parkForRetry(
-        captureWav('zz-old.wav'),
-        entryId: 'zz-old',
+        captureWav('1781775015011-0011.wav'),
+        entryId: '1781775015011-0011',
         capturedAt: _capturedAt.subtract(const Duration(hours: 1)),
         audioDuration: const Duration(seconds: 3),
         errorCode: 'stt_server_failed',
@@ -438,7 +752,10 @@ void main() {
 
       final entries = await q.retryEntries();
 
-      expect(entries.map((e) => e.entryId), ['zz-old', 'aa-new']);
+      expect(entries.map((e) => e.entryId), [
+        '1781775015011-0011',
+        '1781775015010-0010',
+      ]);
     });
 
     test('an entry is deleted once its 24 h are over (fake clock)', () async {
@@ -484,7 +801,7 @@ void main() {
         await parkRetry(q);
 
         final outcome = await q.retry(
-          'r1',
+          '1781775015020-0020',
           transcribe: (wav) async => 'Gerettet',
           buildInput: (text, _) => retried(text),
           retainAudio: false,
@@ -492,7 +809,7 @@ void main() {
 
         expect(outcome, PendingRetryOutcome.saved);
         expect(saveCalls, 1);
-        expect((await db.getEntry('r1'))?.content, 'Gerettet');
+        expect((await db.getEntry('1781775015020-0020'))?.content, 'Gerettet');
         expect(pendingFiles(), isEmpty);
       },
     );
@@ -509,14 +826,14 @@ void main() {
       await parkRetry(q);
 
       await q.retry(
-        'r1',
+        '1781775015020-0020',
         transcribe: (wav) async => 'Gerettet',
         buildInput: (text, _) => retried(text),
         retainAudio: true,
       );
 
       expect(retained, hasLength(1));
-      expect(retained.single, startsWith('r1|'));
+      expect(retained.single, startsWith('1781775015020-0020|'));
       expect(pendingFiles(), isEmpty);
     });
 
@@ -525,7 +842,7 @@ void main() {
       await parkRetry(q);
 
       final outcome = await q.retry(
-        'r1',
+        '1781775015020-0020',
         transcribe: (wav) async => throw StateError('server still down'),
         buildInput: (text, _) => retried(text),
         retainAudio: false,
@@ -533,7 +850,10 @@ void main() {
 
       expect(outcome, PendingRetryOutcome.failed);
       expect(saveCalls, 0);
-      expect(pendingFiles(), ['r1.json', 'r1.wav']);
+      expect(pendingFiles(), [
+        '1781775015020-0020.json',
+        '1781775015020-0020.wav',
+      ]);
     });
 
     test('a retry whose history save fails keeps the audio', () async {
@@ -542,14 +862,17 @@ void main() {
       failSaves = true;
 
       final outcome = await q.retry(
-        'r1',
+        '1781775015020-0020',
         transcribe: (wav) async => 'Gerettet',
         buildInput: (text, _) => retried(text),
         retainAudio: false,
       );
 
       expect(outcome, PendingRetryOutcome.failed);
-      expect(pendingFiles(), ['r1.json', 'r1.wav']);
+      expect(pendingFiles(), [
+        '1781775015020-0020.json',
+        '1781775015020-0020.wav',
+      ]);
     });
 
     test(
@@ -559,7 +882,7 @@ void main() {
         await parkRetry(q);
 
         final outcome = await q.retry(
-          'r1',
+          '1781775015020-0020',
           transcribe: (wav) async => '',
           buildInput: (text, _) => retried(text),
           retainAudio: false,
@@ -574,10 +897,10 @@ void main() {
     test('a retry for an entry without audio drops the record', () async {
       final q = retryQueue();
       await parkRetry(q);
-      File(p.join(pendingDir, 'r1.wav')).deleteSync();
+      File(p.join(pendingDir, '1781775015020-0020.wav')).deleteSync();
 
       final outcome = await q.retry(
-        'r1',
+        '1781775015020-0020',
         transcribe: (wav) async => 'x',
         buildInput: (text, _) => retried(text),
         retainAudio: false,
@@ -591,7 +914,7 @@ void main() {
       final q = retryQueue();
       await parkRetry(q);
 
-      await q.discard('r1');
+      await q.discard('1781775015020-0020');
 
       expect(pendingFiles(), isEmpty);
       expect(await q.retryEntries(), isEmpty);

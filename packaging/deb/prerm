@@ -1,0 +1,10 @@
+#!/bin/sh
+# Removes the uinput access the user granted in the app (R-02) when the
+# package goes away, so no grant outlives WhisPaste. Upgrades keep it.
+set -e
+
+if [ "$1" = "remove" ] && [ -x /usr/libexec/whispaste/uinput-access ]; then
+  /usr/libexec/whispaste/uinput-access disable || true
+fi
+
+exit 0

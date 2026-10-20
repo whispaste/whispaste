@@ -19,13 +19,50 @@ import '../../core/config/settings_provider.dart';
 import '../../core/data/database.dart';
 import '../drift_recording_store.dart' show textReplacementRulesFrom;
 import '../hardware_info_service.dart' as hw;
-import '../stt/whisper/cuda_pack.dart' show activeCudaPackDirProvider;
+import '../stt/whisper/cuda_pack.dart'
+    show
+        CudaPackError,
+        activeCudaPackDirProvider,
+        cudaPackForThisPlatform,
+        cudaEulaConsentValue,
+        cudaPackProvider,
+        kCudaNvidiaEulaUrl;
 import '../replacements/text_replacement_matcher.dart';
 import '../stt_engine_lifecycle_provider.dart';
 import 'headless_transcription.dart';
 
 /// Exit code for an invalid command line (BSD `EX_USAGE`).
 const int headlessExitUsage = 64;
+
+/// `whispaste --download-cuda-pack --accept-nvidia-eula`.
+const String kDownloadCudaPackFlag = '--download-cuda-pack';
+const String kAcceptNvidiaEulaFlag = '--accept-nvidia-eula';
+
+/// Usage text for `--download-cuda-pack`, also printed on refusal.
+const String cudaPackDownloadUsage = '''
+Usage: whispaste --download-cuda-pack --accept-nvidia-eula
+
+Downloads and installs the optional NVIDIA CUDA pack (Windows/Linux x64)
+without opening the app window, then exits.
+  --accept-nvidia-eula       required. The pack contains NVIDIA components
+                             under the NVIDIA CUDA End User License Agreement,
+                             https://docs.nvidia.com/cuda/eula/index.html
+                             The flag records your acceptance for this run only;
+                             nothing is stored in the app settings.
+''';
+
+/// Whether [args] ask for the CUDA pack download.
+bool isCudaPackDownloadRequested(List<String> args) =>
+    args.contains(kDownloadCudaPackFlag);
+
+/// Why the CUDA pack download must not start for [args], or `null` when it
+/// may. Without `--accept-nvidia-eula` nothing is downloaded.
+String? cudaPackDownloadRefusal(List<String> args) {
+  if (args.contains(kAcceptNvidiaEulaFlag)) return null;
+  return 'whispaste: refused to download the CUDA pack: it contains NVIDIA '
+      'components under the NVIDIA CUDA EULA ($kCudaNvidiaEulaUrl). Read it, '
+      'then re-run with $kAcceptNvidiaEulaFlag to accept it.';
+}
 
 /// Settings held in memory only: the engine's post-load bookkeeping (e.g.
 /// the tier benchmark) must not overwrite the user's persisted settings.
@@ -41,6 +78,59 @@ class _HeadlessSettingsNotifier extends SettingsNotifier {
   Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
     _settings = updater(_settings);
     state = AsyncData(_settings);
+  }
+}
+
+/// Downloads the CUDA pack for [args] and returns the process exit code.
+/// Refuses without `--accept-nvidia-eula`: the download never starts, and the
+/// reason is printed to stderr.
+Future<int> runCudaPackDownloadCli(List<String> args) async {
+  if (cudaPackDownloadRefusal(args) case final reason?) {
+    stderr.writeln('$reason\n\n$cudaPackDownloadUsage');
+    return headlessExitUsage;
+  }
+  final pack = cudaPackForThisPlatform();
+  if (pack == null) {
+    stderr.writeln('whispaste: no CUDA pack exists for this platform');
+    return 1;
+  }
+  WidgetsFlutterBinding.ensureInitialized();
+  // Consent for this run only: an in-memory acceptance, never written to the
+  // user's persisted settings (the same rule as the rest of headless mode).
+  final base = AppSettings.defaults;
+  final container = ProviderContainer(
+    overrides: [
+      settingsProvider.overrideWith(
+        () => _HeadlessSettingsNotifier(
+          base.copyWithSections(
+            behavior: base.behavior.copyWith(
+              cudaEulaAccepted: cudaEulaConsentValue(pack.id),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+  try {
+    stderr.writeln('whispaste: downloading CUDA pack ${pack.id} …');
+    final notifier = container.read(cudaPackProvider.notifier);
+    await notifier.install();
+    final state = container.read(cudaPackProvider);
+    if (state.installed) {
+      stdout.writeln('CUDA pack ${pack.id} installed');
+      return 0;
+    }
+    final reason = switch (state.error) {
+      CudaPackError.network => 'network error',
+      CudaPackError.verification => 'verification failed',
+      CudaPackError.storage => 'could not save the pack',
+      null => 'unknown error',
+    };
+    stderr.writeln('whispaste: CUDA pack download failed: $reason');
+    return 1;
+  } finally {
+    container.dispose();
+    await stdout.flush();
   }
 }
 

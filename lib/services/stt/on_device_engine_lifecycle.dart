@@ -87,6 +87,10 @@ class WhisperEngineLifecycleAdapter implements OnDeviceEngineLifecycle {
   @override
   Future<void> stop() => _notifier.stop();
 
+  /// Quit variant of [stop]: never waits for a native call (see
+  /// [SttServerStateNotifier.stopForQuit]).
+  Future<void> stopForQuit() => _notifier.stopForQuit();
+
   @override
   void notifyRecordingStarted() => _notifier.notifyRecordingStarted();
 

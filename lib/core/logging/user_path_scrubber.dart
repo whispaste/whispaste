@@ -7,8 +7,14 @@ library;
 
 import 'dart:io';
 
+/// The account segment runs to the next separator, spaces, commas and
+/// semicolons included (`Max Muster`, `Muster, Max`, `a;b`): when in doubt,
+/// more is redacted. Only a colon or a quote followed by whitespace or the
+/// end ends it early. Neither occurs in Windows account names, and they are
+/// how `FileSystemException` and most error texts follow a path.
 final _profileDir = RegExp(
-  r'(/Users/|/home/|[A-Za-z]:[\\/]+Users[\\/]+)([^\\/\s]+)',
+  r'(/Users/|/home/|[A-Za-z]:[\\/]+Users[\\/]+)'
+  r'((?:[^\\/\r\n:"\x27]|[:"\x27](?!\s|$))+)',
   caseSensitive: false,
 );
 

@@ -11,6 +11,7 @@ import 'dart:ui' show Locale;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
@@ -33,12 +34,15 @@ import 'app_profiles/app_profile_storage.dart';
 import 'audio/signal_loss_detector.dart';
 import 'audio/user_audio_dirs.dart';
 import 'clipboard_history/app_clipboard.dart';
+import 'desktop_paste/linux_uinput_access.dart';
+import 'desktop_paste/linux_uinput_consent_notice.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
 import 'recording/oom_recovery_handler.dart';
 import 'recording/pipeline_step_runner.dart';
 import 'recording/recording_state_machine.dart';
 import 'recording/safety_guard.dart';
+import 'github_invite_service.dart';
 import 'review_prompt_service.dart';
 import 'snippet_picker/snippet_picker_controller.dart'
     show snippetPickerAvailableOnPlatform;
@@ -66,9 +70,8 @@ import 'selection_edit/selection_edit_service.dart'
     show SelectionEditOutcome, selectionEditServiceProvider;
 import 'system_attention_service.dart';
 import 'number_transforms.dart';
+import 'dictation_text_steps.dart';
 import 'text_transforms.dart';
-import 'voice_line_breaks.dart';
-import 'voice_punctuation.dart';
 import 'tray_service.dart';
 import 'pending_audio/pending_audio_notice.dart';
 import 'pending_audio/pending_audio_providers.dart';
@@ -876,6 +879,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // ── Pipeline timing ──────────────────────────────────────────────────
     final pipelineSw = Stopwatch()..start();
     final timing = _PipelineTiming();
+    final inFlight = _InFlightDictation();
 
     // One runner instance; per-call timeout overrides are used where the
     // step budget differs from the default.  The default is intentionally
@@ -906,10 +910,14 @@ class RecordingOrchestrator extends Notifier<void> {
             wavBytes: bytes,
             timing: timing,
             session: session,
+            inFlight: inFlight,
           );
           if (!shouldContinue) return;
       }
-    } on Exception catch (e) {
+    } on Object catch (e) {
+      // An Error (such as a RangeError) must not skip the error state, and it
+      // must not let the cleanup below delete a dictation that has a
+      // transcript: that audio is parked for a later history save.
       timing.outcome = 'exception';
       if ('$e'.contains('stt_cuda_oom')) {
         timing.outcome = 'stt_cuda_oom';
@@ -918,7 +926,8 @@ class RecordingOrchestrator extends Notifier<void> {
       }
       _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
       ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
-      _log.error('[$sid] Pipeline error: $e');
+      _log.error('[$sid] Pipeline error: ${e.runtimeType}');
+      await _keepInFlightAudio(sid, session, inFlight, timing);
     } finally {
       pipelineSw.stop();
       _logPipelineSummary(sid, pipelineSw, timing);
@@ -1070,6 +1079,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required List<int> wavBytes,
     required _PipelineTiming timing,
     required _RecordingSession session,
+    required _InFlightDictation inFlight,
   }) async {
     _pasteFailureSoundPlayedThisPipeline = false;
     _pasteNotConfirmedThisPipeline = false;
@@ -1102,6 +1112,9 @@ class RecordingOrchestrator extends Notifier<void> {
     // Calculate audio duration for RTF logging
     // (16 kHz, mono, 16-bit + 44-byte header).
     final audioDurMs = ((wavBytes.length - 44) / 32000 * 1000).round();
+    inFlight
+      ..wavPath = wavPath
+      ..audioDuration = Duration(milliseconds: audioDurMs);
     _log.info(
       '[$sid] Transcribing (${wavBytes.length} bytes, '
       '~${audioDurMs}ms audio, lang=$effectiveLang)',
@@ -1135,6 +1148,7 @@ class RecordingOrchestrator extends Notifier<void> {
       runner: runner,
       timing: timing,
       session: session,
+      inFlight: inFlight,
     );
   }
 
@@ -1236,6 +1250,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required PipelineStepRunner runner,
     required _PipelineTiming timing,
     required _RecordingSession session,
+    required _InFlightDictation inFlight,
   }) async {
     // Checked before any branch: a failure of a cancelled transcription must
     // not move the phase of whatever recording was started since.
@@ -1298,7 +1313,10 @@ class RecordingOrchestrator extends Notifier<void> {
         // extras) already happens inside `SttServerStateNotifier.
         // transcribeBytes` for non-200 responses. See CHANGELOG.md
         // — Unreleased.
-        _log.warning('[$sid] Transcription failed: ${error.message}');
+        _log.warning(
+          '[$sid] Transcription failed: ${error.reason.name} '
+          '(${errorKind(error)})',
+        );
         ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return false;
       case FailedWith(:final error):
@@ -1313,7 +1331,7 @@ class RecordingOrchestrator extends Notifier<void> {
         // Downgraded to `_log.warning` — see the parallel comment a
         // few lines up. The notifier-side `captureError` is the
         // single source of truth for inference Sentry events.
-        _log.warning('[$sid] Transcription failed: $error');
+        _log.warning('[$sid] Transcription failed: ${errorKind(error)}');
         return false;
       case Ok(:final value):
         return _finalizeTranscription(
@@ -1324,6 +1342,7 @@ class RecordingOrchestrator extends Notifier<void> {
           settings: settings,
           runner: runner,
           timing: timing,
+          inFlight: inFlight,
           session: session,
         );
     }
@@ -1360,6 +1379,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required PipelineStepRunner runner,
     required _PipelineTiming timing,
     required _RecordingSession session,
+    required _InFlightDictation inFlight,
   }) async {
     _logRealTimeFactor(sid, timing, audioDurMs);
 
@@ -1376,6 +1396,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // Whisper models often insert extraneous newlines. Collapse them
     // into single spaces for clean copy/paste results.
     final replaceSw = Stopwatch()..start();
+    inFlight.transcript = transcript;
     var finalText = _cleanupTranscriptWhitespace(sid, transcript);
     replaceSw.stop();
     timing.replaceMs = replaceSw.elapsedMilliseconds;
@@ -1402,32 +1423,19 @@ class RecordingOrchestrator extends Notifier<void> {
     // before this snapshot rather than counting as part of the diff.
     final preTransformText = finalText;
 
-    // ── Filler word removal (opt-in, handy-catchup ticket 16) ──────────
-    // After the snapshot (it is a product-level transform the History
-    // detail panel should show as a diff) but before Smart Mode and the
-    // dictionary replacements, so a trigger phrase interrupted by an "äh"
-    // still fires and the LLM gets cleaner input.
-    if (settings.stt.removeFillerWords) {
-      finalText = removeFillerWords(
-        finalText,
-        languageCode: _resolveEffectiveLang(settings, session),
-      );
-    }
-
-    // Spoken line breaks: same position and history contract as filler
-    // removal (after the snapshot, before Smart Mode and replacements).
-    finalText = _applySpokenPunctuation(finalText, settings, session);
-    finalText = _applySpokenLineBreaks(finalText, settings, session);
-
-    // ── Dictionary replacements (before Smart Mode) ───────────────────
-    // Runs ahead of Smart Mode so the LLM sees the corrected terms (a
-    // dictionary "WhisPaste" instead of the misheard "wisp paste"). Skipped
-    // for the onboarding sandbox, as Smart Mode and history are.
-    if (sandboxTranscriptSink == null && settings.textReplacementsEnabled) {
-      finalText = await ref
-          .read(recordingStoreProvider)
-          .applyReplacements(finalText);
-    }
+    // ── Text steps (filler words, spoken punctuation and line breaks,
+    // dictionary) ──────────────────────────────────────────────────────
+    // After the snapshot (product-level transforms the History detail panel
+    // shows as a diff) and before Smart Mode, so a trigger phrase
+    // interrupted by an "äh" still fires and the LLM sees the corrected
+    // terms. The recovery of a parked raw transcript runs the same steps.
+    // The dictionary is skipped for the onboarding sandbox, as Smart Mode
+    // and history are.
+    finalText = await _textSteps(settings).apply(
+      finalText,
+      languageCode: _resolveEffectiveLang(settings, session),
+      applyReplacements: ref.read(recordingStoreProvider).applyReplacements,
+    );
 
     // ── Smart Mode: local Cleanup preset (ticket 02) ──────────────────
     // Runs before history-save/snippet-picker/paste so every downstream
@@ -1516,6 +1524,9 @@ class RecordingOrchestrator extends Notifier<void> {
         timing.saveMs = saveSw.elapsedMilliseconds;
 
         await _keepAudioIfUnsaved(sid, wavPath, historyInput, saveResult);
+        // From here the entry is written or parked; a later stray error must
+        // not park the same dictation again.
+        inFlight.transcript = null;
         finalText = _historySaveOutcome(sid, saveResult, finalText);
       }
 
@@ -1607,6 +1618,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // due flag; the shared display arbiter decides when a dialog opens.
       unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
       unawaited(ref.read(supportPromptProvider.notifier).checkAndMaybePrompt());
+      unawaited(ref.read(githubInviteProvider.notifier).checkAndMaybeInvite());
     }
     _oomHandler.reset();
     timing.outcome = 'ok';
@@ -2241,35 +2253,23 @@ class RecordingOrchestrator extends Notifier<void> {
     return language.isEmpty ? 'auto' : language;
   }
 
-  /// Turns spoken line-break commands into real line breaks when the setting
-  /// is on. Kept out of [_finalizeTranscription], whose branch count is
-  /// already at the complexity limit.
-  String _applySpokenLineBreaks(
-    String text,
-    AppSettings settings,
-    _RecordingSession session,
-  ) {
-    if (!settings.stt.voiceLineBreaks) return text;
-    return applyVoiceLineBreaks(
-      text,
-      languageCode: _resolveEffectiveLang(settings, session),
-    );
+  /// The text steps [settings] enable for a dictation. Also stored with a
+  /// parked raw transcript, so its recovery runs the same steps.
+  /// Text steps of a raw in-flight transcript. Falls back to the defaults
+  /// when [settings] cannot be read, so the parked audio is still kept.
+  DictationTextSteps _rawTextSteps(AppSettings settings) {
+    try {
+      return _textSteps(settings);
+    } on Object {
+      return _textSteps(AppSettings.defaults);
+    }
   }
 
-  /// Turns spoken punctuation commands into marks when the setting is on.
-  /// Runs before the line-break step, so "Komma" next to "neuer Absatz" is
-  /// resolved first. Off means the transcript is passed through untouched.
-  String _applySpokenPunctuation(
-    String text,
-    AppSettings settings,
-    _RecordingSession session,
-  ) {
-    if (!settings.stt.spokenPunctuation) return text;
-    return applyVoicePunctuation(
-      text,
-      languageCode: _resolveEffectiveLang(settings, session),
-    );
-  }
+  DictationTextSteps _textSteps(AppSettings settings) =>
+      DictationTextSteps.fromSettings(
+        settings,
+        textReplacements: sandboxTranscriptSink == null,
+      );
 
   /// Collapses extraneous whitespace from a raw whisper transcript.
   ///
@@ -2791,7 +2791,8 @@ class RecordingOrchestrator extends Notifier<void> {
       isLocal: settings.sttProviderType.isLocal,
       languageCode: _resolveEffectiveLang(settings, session),
       // Replacements already ran before Smart Mode (see the pipeline
-      // step above), so the transcript arrives here replaced.
+      // step above), so the transcript arrives replaced. A parked raw
+      // transcript gets them through its stored text steps instead.
       applyTextReplacements: false,
       historyMaxEntries: settings.historyMaxEntries,
       wordCount: computeWordCountFast(transcript),
@@ -2816,8 +2817,8 @@ class RecordingOrchestrator extends Notifier<void> {
           .read(pasterProvider)
           ?.getTargetBundleId()
           .timeout(const Duration(seconds: 1));
-    } on Exception catch (e) {
-      _log.warning('Target app lookup skipped: $e');
+    } on Object catch (e) {
+      _log.warning('Target app lookup skipped: ${e.runtimeType}');
       return null;
     }
   }
@@ -2980,6 +2981,42 @@ class RecordingOrchestrator extends Notifier<void> {
     if (!saved) await _keepUnsavedAudio(sid, wavPath, input);
   }
 
+  /// Parks the audio of a dictation that a stray error stopped before its
+  /// history save ran. Without a transcript there is no entry to write, so
+  /// nothing is parked.
+  Future<void> _keepInFlightAudio(
+    String sid,
+    _RecordingSession? session,
+    _InFlightDictation inFlight,
+    _PipelineTiming timing,
+  ) async {
+    final wavPath = inFlight.wavPath;
+    final transcript = inFlight.transcript;
+    inFlight.transcript = null;
+    if (session == null || wavPath == null || transcript == null) return;
+    try {
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+      final input = await _buildHistoryInput(
+        transcript,
+        inFlight.audioDuration,
+        settings,
+        (timing.transcribeMs ?? 0) ~/ 1000,
+        session: session,
+      );
+      // The in-flight transcript is raw: its recovery runs the text steps.
+      await _keepUnsavedAudio(
+        sid,
+        wavPath,
+        input,
+        rawTextSteps: _rawTextSteps(settings),
+      );
+    } on Object catch (e) {
+      _log.error(
+        '[$sid] Could not keep audio after a stray error: ${e.runtimeType}',
+      );
+    }
+  }
+
   /// Keeps the audio of a dictation whose history save failed or timed out,
   /// so [PendingAudioQueue.recoverAll] can write the entry on a later start.
   /// Without this, the `finally` cleanup of the pipeline deletes the WAV and
@@ -2988,11 +3025,14 @@ class RecordingOrchestrator extends Notifier<void> {
   Future<void> _keepUnsavedAudio(
     String sid,
     String wavPath,
-    RecordingInput input,
-  ) async {
+    RecordingInput input, {
+    DictationTextSteps? rawTextSteps,
+  }) async {
     if (!input.insertHistoryEntry) return;
     try {
-      await ref.read(pendingAudioQueueProvider).park(wavPath, input);
+      await ref
+          .read(pendingAudioQueueProvider)
+          .park(wavPath, input, rawTextSteps: rawTextSteps);
       _retainedWavPath = wavPath;
       ref
           .read(pendingAudioNoticeProvider.notifier)
@@ -3511,7 +3551,7 @@ class RecordingOrchestrator extends Notifier<void> {
         );
         return false;
       case PasteOutcome.permissionMissing:
-        _reportPermissionMissingPaste();
+        await _reportPermissionMissingPaste();
         return false;
       case PasteOutcome.elevationBlocked:
         _log.warning(
@@ -3562,7 +3602,7 @@ class RecordingOrchestrator extends Notifier<void> {
 
   /// Reports a paste refused for a missing permission. Linux names the
   /// uinput udev rule; macOS and Windows pick the recovery arm below.
-  void _reportPermissionMissingPaste() {
+  Future<void> _reportPermissionMissingPaste() async {
     _log.warning(pasteInjectionDeniedLogMessage(defaultTargetPlatform));
     // Two distinct causes look identical from the paste outcome alone,
     // so branch on the shared [PasteCapabilityNotifier.needsRestart]
@@ -3589,11 +3629,17 @@ class RecordingOrchestrator extends Notifier<void> {
           ref.read(pasteCapabilityNotifierProvider).capability?.status ==
           PasteCapabilityStatus.unsupported;
       final shortcut = pasteShortcutLabel(l10n: linuxL10n);
+      // After a .deb upgrade took the install-time access away (R-02), the
+      // first blocked paste says why, once.
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+      final upgraded = !noDevice && await _takeLinuxConsentNotice(settings);
       _reportPasteFailure(
         outcome: PasteOutcome.permissionMissing,
         kind: AttentionKind.pasteBlockedPermission,
         title: linuxL10n.pasteNotificationPermissionBlockedTitle,
-        body: noDevice
+        body: upgraded
+            ? linuxL10n.linuxUinputConsentNotice(shortcut)
+            : noDevice
             ? linuxL10n.pasteNotificationLinuxNoDeviceBody(shortcut)
             : linuxL10n.pasteNotificationLinuxUinputBody(shortcut),
         trayLabel: noDevice
@@ -3680,6 +3726,22 @@ class RecordingOrchestrator extends Notifier<void> {
     return lookupL10n(const Locale('en'));
   }
 
+  Future<bool> _takeLinuxConsentNotice(AppSettings settings) async {
+    try {
+      return await takeLinuxUinputConsentNotice(
+        prefs: await SharedPreferences.getInstance(),
+        canManage: ref.read(linuxUinputAccessProvider).canManage,
+        // This paste ran, so Auto-Paste is on, and it was just refused.
+        autoPasteOn: true,
+        onboardingDone: settings.onboarding.onboardingCompleted,
+        pasteBlocked: () async => true,
+      );
+    } on Object catch (e) {
+      _log.warning('Consent notice check failed: $e');
+      return false;
+    }
+  }
+
   void _reportPasteFailure({
     required PasteOutcome outcome,
     required AttentionKind kind,
@@ -3764,6 +3826,15 @@ final recordingOrchestratorProvider =
 /// handed to the pipeline that finalizes that recording. Finalization reads
 /// the target and overrides from here, never from the shared providers, which
 /// the next start overwrites.
+/// What the pipeline has of the current dictation when a stray error stops it.
+/// Filled in step by step, so the audio can be parked when a transcript exists
+/// but the history save has not run yet.
+class _InFlightDictation {
+  String? wavPath;
+  Duration audioDuration = Duration.zero;
+  String? transcript;
+}
+
 class _RecordingSession {
   _RecordingSession({
     this.target = RecordingTarget.clipboard,

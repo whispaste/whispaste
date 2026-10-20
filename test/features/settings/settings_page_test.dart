@@ -9,6 +9,8 @@ import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/features/settings/widgets/settings_scroll_affordance.dart';
 import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
+import 'package:whispaste/services/floating_button/floating_button_support.dart';
+import 'package:whispaste/services/floating_button/floating_button_support_provider.dart';
 import 'package:whispaste/widgets/page_shell.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -209,22 +211,25 @@ void main() {
     );
 
     group('Floating Button section — platform gating', () {
-      testWidgets('is entirely absent on Linux, not just an empty card '
-          '(sectionCard wraps even a SizedBox.shrink() child in a padded, '
-          'bordered container, so hiding only the inner content still leaves '
-          'a bare outline)', (tester) async {
+      testWidgets('is present on Linux, so the Linux button is reachable '
+          '(PAR-010)', (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
 
         await tester.pumpWidget(
           makeTestable(
             const SettingsPage(),
             locale: const Locale('en'),
-            overrides: [settingsAreaAt(SettingsArea.appearance)],
+            overrides: [
+              settingsAreaAt(SettingsArea.appearance),
+              floatingButtonSupportProvider.overrideWith(
+                (ref) async => FloatingButtonSupport.full,
+              ),
+            ],
           ),
         );
         await tester.pumpAndSettle();
 
-        expect(find.byType(FloatingButtonSection), findsNothing);
+        expect(find.byType(FloatingButtonSection), findsOneWidget);
 
         debugDefaultTargetPlatformOverride = null;
       });

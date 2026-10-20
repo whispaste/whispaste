@@ -548,6 +548,28 @@ class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
     state = const ParakeetStatus();
   }
 
+  /// App quit: never waits. The worker is killed at once instead of the
+  /// bounded graceful handshake in [stop], because a decode can hang (the
+  /// Dart-side transcribe timeout fails only the caller, not the native call),
+  /// and a quit must not sit behind it. [hasNativeCallRunning] tells the quit
+  /// path to end the process without static destructors (GS-117).
+  Future<void> stopForQuit() async {
+    _stopGeneration++;
+    final gpu = _gpu;
+    _gpu = null;
+    gpu?.abandon();
+    final isolate = _isolate;
+    _sub?.cancel();
+    _sub = null;
+    _isolate = null;
+    _workerPort = null;
+    isolate?.kill(priority: Isolate.immediate);
+    state = const ParakeetStatus();
+  }
+
+  /// True while a native transcription is still in flight in the worker.
+  bool get hasNativeCallRunning => _pending.isNotEmpty;
+
   /// Chooses the GPU backend and starts it. Returns `true` when the GPU engine
   /// is ready; `false` leaves the sherpa-onnx path to run.
   ///

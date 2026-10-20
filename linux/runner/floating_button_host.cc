@@ -1,6 +1,7 @@
 #include "floating_button_host.h"
 
 #include <gdk/gdk.h>
+#include <gdk/gdkx.h>
 
 #include <cstring>
 #include <string>
@@ -305,6 +306,19 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
     button_window_ = nullptr;
     render_ready_ = false;
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "getCapabilities") == 0) {
+    // ── getCapabilities ───────────────────────────────────────────────────
+    // Reports whether the active GDK backend can host the button at all. Keep-
+    // above, absolute positioning and focus-free clicks need X11 (native or
+    // XWayland). The Dart side maps the session type (X11 vs. Wayland) to the
+    // limits it shows in Settings (PAR-010).
+    GdkDisplay* display = gdk_display_get_default();
+    g_autoptr(FlValue) caps = fl_value_new_map();
+    fl_value_set_string_take(
+        caps, "x11",
+        fl_value_new_bool(display != nullptr && GDK_IS_X11_DISPLAY(display)));
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(caps));
 
   } else if (strcmp(method, "setOpacity") == 0) {
     // ── setOpacity ────────────────────────────────────────────────────────

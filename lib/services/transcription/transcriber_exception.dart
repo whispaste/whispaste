@@ -1,11 +1,14 @@
+import '../../core/logging/app_logger.dart';
+
 /// Structured error from any [Transcriber] adapter.
-class TranscriberException implements Exception {
+class TranscriberException implements Exception, ReasonedError {
   const TranscriberException(
     this.message, {
     this.reason = TranscriberFailureReason.unknown,
   });
 
   final String message;
+  @override
   final TranscriberFailureReason reason;
 
   @override

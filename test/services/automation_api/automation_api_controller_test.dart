@@ -1370,7 +1370,11 @@ void main() {
       ProviderContainer c, {
       required bool confirm,
     }) async {
+      final clock = Stopwatch()..start();
       while (c.read(multilinePasteConfirmationProvider) == null) {
+        if (clock.elapsed > const Duration(seconds: 5)) {
+          fail('answerPreview: multiline paste preview never opened');
+        }
         await Future<void>.delayed(const Duration(milliseconds: 5));
       }
       final notifier = c.read(multilinePasteConfirmationProvider.notifier);

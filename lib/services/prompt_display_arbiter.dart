@@ -1,4 +1,5 @@
-/// Single display arbiter for the post-recording nudges (review, support).
+/// Single display arbiter for the post-recording nudges (review, support,
+/// GitHub invitation).
 ///
 /// The nudges never open concurrently, and at most one of them opens per app
 /// session. A prompt claims the arbiter at the moment its dialog is actually
@@ -13,7 +14,7 @@ import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The nudge dialogs that compete for the same display window.
-enum PromptOwner { review, support }
+enum PromptOwner { review, support, githubInvite }
 
 final class PromptDisplayArbiter {
   PromptOwner? _open;

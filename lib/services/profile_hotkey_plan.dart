@@ -32,8 +32,12 @@ class ProfileHotkeyEntry {
   String get signature => canonicalHotkeyCombo(key, modifiers);
 }
 
+/// Prefix of every profile hotkey action id.
+const kProfileHotkeyActionPrefix = 'profile:';
+
 /// Action id of a profile hotkey in the hotkey service.
-String profileHotkeyActionId(String profileId) => 'profile:$profileId';
+String profileHotkeyActionId(String profileId) =>
+    '$kProfileHotkeyActionPrefix$profileId';
 
 /// Every hotkey of the app that is switched on, so a profile cannot take it.
 List<({String key, String modifiers})> reservedHotkeysOf(AppSettings s) => [

@@ -127,6 +127,10 @@ void main() {
         findsOneWidget,
       );
       expect(
+        find.byKey(const ValueKey('settings-row-advanced-github-star')),
+        findsOneWidget,
+      );
+      expect(
         find.byKey(const ValueKey('settings-row-advanced-ideas')),
         findsOneWidget,
       );

@@ -19,9 +19,13 @@ import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/features/settings/search/settings_search_provider.dart';
 import 'package:whispaste/features/settings/sections/linux_paste_shortcut_row.dart';
+import 'package:whispaste/services/app_profiles/app_profile.dart';
+import 'package:whispaste/services/app_profiles/app_profile_repository.dart';
 import 'package:whispaste/features/settings/settings_areas.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/services/autostart_service.dart';
+import 'package:whispaste/services/floating_button/floating_button_support.dart';
+import 'package:whispaste/services/floating_button/floating_button_support_provider.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/desktop_paste/focused_target/linux_focused_target.dart';
 import 'package:whispaste/services/automation_api/automation_api_controller.dart';
@@ -130,6 +134,23 @@ class _RowState {
 }
 
 final List<_RowState> _states = [
+  _RowState(
+    name: 'a profile exists (the first one shows its detail)',
+    area: SettingsArea.profiles,
+    rowIds: const {
+      'profiles-list',
+      'profiles-detail-name',
+      'profiles-detail-model',
+      'profiles-detail-language',
+      'profiles-detail-smart-mode',
+      'profiles-detail-after',
+      'profiles-detail-microphone',
+      'profiles-detail-hotkey',
+      'profiles-detail-apps',
+      'profiles-detail-context',
+    },
+    overrides: () => [appProfilesProvider.overrideWith(_SeededProfiles.new)],
+  ),
   _RowState(
     name: 'autostart failed',
     area: SettingsArea.general,
@@ -338,9 +359,33 @@ final List<_RowState> _states = [
       stableRevertHintProvider.overrideWith(_BetaRevertHint.new),
     ],
   ),
+  _RowState(
+    name: 'Wayland session limits the floating button',
+    area: SettingsArea.appearance,
+    rowIds: const {'appearance-floating-button-wayland'},
+    overrides: () => [
+      floatingButtonSupportProvider.overrideWith(
+        (ref) async => const FloatingButtonSupport(
+          available: true,
+          limits: {
+            FloatingButtonLimit.alwaysOnTop,
+            FloatingButtonLimit.freePositioning,
+          },
+        ),
+      ),
+    ],
+  ),
 ];
 
 /// The state that makes [rowId] render, or null when the default page shows it.
+/// One profile, so the list and its detail render.
+class _SeededProfiles extends AppProfilesController {
+  @override
+  Future<List<AppProfile>> build() async => const [
+    AppProfile(id: 'profile-seed', name: 'Mail'),
+  ];
+}
+
 _RowState? _stateFor(String rowId) {
   for (final state in _states) {
     if (state.rowIds.contains(rowId)) return state;

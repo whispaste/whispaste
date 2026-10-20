@@ -26,6 +26,7 @@ import 'package:whispaste/services/replacements/vocabulary_import_service.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart'
     show SettingRow;
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_search_field.dart';
 import 'package:whispaste/widgets/wp_favourite_star.dart';
 import 'package:whispaste/widgets/wp_segmented_selector.dart';
 
@@ -360,86 +361,184 @@ void main() {
     // 5. Enable / disable toggle
     // -------------------------------------------------------------------------
 
-    testWidgets('toggle switch updates textReplacementsEnabled in provider', (
-      tester,
-    ) async {
-      // BehaviorSettings defaults textReplacementsEnabled = false.
-      // Override with true so the switch starts ON, then verify toggling to OFF.
-      final notifier = _FakeSettingsNotifier(
-        AppSettings.defaults.copyWith(textReplacementsEnabled: true),
-      );
-      await tester.pumpWidget(
-        makeTestable(
-          const ReplacementsPage(),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      // Starts enabled — switch is ON and the header card says so in words.
-      // Scoped to this card's own SettingRow: the header now also carries the
-      // correction-learning toggle's switch, so a bare `find.byType(Switch)`
-      // would match two widgets.
-      final masterSwitchFinder = find.descendant(
-        of: find.widgetWithText(SettingRow, l10n.replacementsToggleLabel),
-        matching: find.byType(Switch),
-      );
-      final switchOn = tester.widget<Switch>(masterSwitchFinder);
-      expect(switchOn.value, isTrue);
-      expect(find.text(l10n.replacementsToggleLabel), findsOneWidget);
-      expect(find.text(l10n.replacementsToggleEnabled), findsOneWidget);
-
-      // Tap toggle to disable
-      await tester.tap(masterSwitchFinder);
-      await tester.pumpAndSettle();
-
-      expect(
-        notifier.state.value?.behavior.textReplacementsEnabled,
-        isFalse,
-        reason: 'Provider should reflect the new disabled state',
-      );
-    });
-
-    testWidgets('the master switch is announced with a name and its state', (
-      tester,
-    ) async {
-      // In the toolbar this switch was an unnamed node: measured on the
-      // semantics tree it carried an empty label while its visible caption
-      // merged into the page-level focus node, so a screen reader read
-      // "switch, on" with nothing to say what it switches.
-      final handle = tester.ensureSemantics();
-      try {
+    testWidgets(
+      'the master switch sits in the overflow menu and turns the list off',
+      (tester) async {
+        // The switch is no longer a card above the list (WP-81): it is a
+        // checkable row in the ⋯ menu, and while it is off a banner offers to
+        // turn it back on.
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWith(textReplacementsEnabled: true),
+        );
         await tester.pumpWidget(
           makeTestable(
             const ReplacementsPage(),
-            overrides: [
-              settingsProvider.overrideWith(
-                () => _FakeSettingsNotifier(
-                  AppSettings.defaults.copyWith(textReplacementsEnabled: true),
-                ),
-              ),
-            ],
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('replacements-enable')), findsNothing);
+
+        await tester.tap(find.byKey(const ValueKey('replacements-more')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('replacements-toggle')));
+        await tester.pumpAndSettle();
+
+        expect(
+          notifier.state.value?.behavior.textReplacementsEnabled,
+          isFalse,
+          reason: 'Provider should reflect the new disabled state',
+        );
+        expect(
+          find.byKey(const ValueKey('replacements-enable')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'the disabled banner is a live region and its button is identified',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWith(textReplacementsEnabled: false),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const ReplacementsPage(),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
             locale: const Locale('en'),
           ),
         );
         await tester.pumpAndSettle();
 
+        // The banner appears after a change made elsewhere (the menu row), so
+        // assistive tech must be told when it shows up.
         expect(
-          tester.getSemantics(
-            find.widgetWithText(SettingRow, l10n.replacementsToggleLabel),
+          find.byWidgetPredicate(
+            (w) => w is Semantics && w.properties.liveRegion == true,
           ),
-          isSemantics(
-            label: l10n.replacementsToggleLabel,
-            hint: l10n.replacementsToggleEnabled,
-            hasToggledState: true,
-            isToggled: true,
+          findsWidgets,
+        );
+        expect(
+          find.bySemanticsIdentifier('replacements-enable'),
+          findsOneWidget,
+        );
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'the master switch row states on or off in its hint and identifiers',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWith(textReplacementsEnabled: true),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const ReplacementsPage(),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+            locale: const Locale('en'),
           ),
         );
-      } finally {
+        await tester.pumpAndSettle();
+
+        // Toolbar controls carry stable identifiers for automation.
+        expect(
+          find.bySemanticsIdentifier('replacements-search'),
+          findsOneWidget,
+        );
+        expect(find.bySemanticsIdentifier('replacements-add'), findsOneWidget);
+        expect(find.bySemanticsIdentifier('replacements-more'), findsOneWidget);
+
+        await tester.tap(find.byKey(const ValueKey('replacements-more')));
+        await tester.pumpAndSettle();
+        final toggle = find.byKey(const ValueKey('replacements-toggle'));
+        expect(
+          find.descendant(
+            of: toggle,
+            matching: find.text(l10n.replacementsToggleEnabled),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsIdentifier('replacements-toggle'),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .getSemantics(find.bySemanticsIdentifier('replacements-toggle'))
+              .getSemanticsData()
+              .hint,
+          l10n.replacementsToggleEnabled,
+        );
+
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('replacements-more')));
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('replacements-toggle')),
+            matching: find.text(l10n.replacementsToggleDisabled),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          tester
+              .getSemantics(find.bySemanticsIdentifier('replacements-toggle'))
+              .getSemanticsData()
+              .hint,
+          l10n.replacementsToggleDisabled,
+        );
         handle.dispose();
-      }
-    });
+      },
+    );
+
+    testWidgets(
+      'the master switch row in the menu is announced with its state',
+      (tester) async {
+        // A bare check icon told a screen reader nothing; the row now carries
+        // a toggled state, and the menu item reads the name of the setting.
+        final handle = tester.ensureSemantics();
+        try {
+          await tester.pumpWidget(
+            makeTestable(
+              const ReplacementsPage(),
+              overrides: [
+                settingsProvider.overrideWith(
+                  () => _FakeSettingsNotifier(
+                    AppSettings.defaults.copyWith(
+                      textReplacementsEnabled: true,
+                    ),
+                  ),
+                ),
+              ],
+              locale: const Locale('en'),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          await tester.tap(find.byKey(const ValueKey('replacements-more')));
+          await tester.pumpAndSettle();
+
+          expect(
+            tester.getSemantics(
+              find.byKey(const ValueKey('replacements-toggle')),
+            ),
+            isSemantics(
+              label: l10n.replacementsToggleLabel,
+              hasToggledState: true,
+              isToggled: true,
+            ),
+          );
+        } finally {
+          handle.dispose();
+        }
+      },
+    );
 
     // -------------------------------------------------------------------------
     // 6. Delete via hover
@@ -673,8 +772,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // The folder import lives in the overflow menu (WP-81).
+      await tester.tap(find.byKey(const ValueKey('replacements-more')));
+      await tester.pumpAndSettle();
       await tester.tap(
-        find.widgetWithText(WpButton, l10n.replacementsImportFromFolder),
+        find.byKey(const ValueKey('replacements-import-folder')),
       );
       await tester.pumpAndSettle();
 
@@ -696,7 +798,13 @@ void main() {
 
       // The new entry is appended after the three sample rows and may be
       // scrolled out of the test viewport — filter down to it.
-      await tester.enterText(find.byType(TextField).first, 'ImportedClassName');
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(WpSearchField),
+          matching: find.byType(TextField),
+        ),
+        'ImportedClassName',
+      );
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.replacementsImportedBadge), findsOneWidget);

@@ -1,5 +1,6 @@
 #!/bin/sh
-# Reloads udev rules after the WhisPaste uinput rule was removed.
+# Reloads udev rules after removal; prerm already removed the uinput rule
+# the user granted in the app (R-02).
 set -e
 
 if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then

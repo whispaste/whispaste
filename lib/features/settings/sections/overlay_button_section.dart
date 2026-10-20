@@ -14,6 +14,8 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/overlay_customization.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/floating_button/floating_button_controller_interface.dart';
+import '../../../services/floating_button/floating_button_support.dart';
+import '../../../services/floating_button/floating_button_support_provider.dart';
 import '../../../widgets/floating_button/floating_button_view.dart';
 import '../settings_widgets.dart';
 import '../widgets/overlay_size_selector.dart';
@@ -296,7 +298,7 @@ class OverlaySection extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Floating Button section (Windows / macOS only)
+// Floating Button section (Windows, macOS, Linux)
 // ---------------------------------------------------------------------------
 
 class FloatingButtonSection extends ConsumerWidget {
@@ -314,7 +316,8 @@ class FloatingButtonSection extends ConsumerWidget {
   /// outline with nothing in it.
   static bool get isSupportedPlatform =>
       defaultTargetPlatform == TargetPlatform.windows ||
-      defaultTargetPlatform == TargetPlatform.macOS;
+      defaultTargetPlatform == TargetPlatform.macOS ||
+      defaultTargetPlatform == TargetPlatform.linux;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -331,6 +334,13 @@ class FloatingButtonSection extends ConsumerWidget {
     // dimmed and inert until the switch above turns the button on.
     final shown = settings.overlay.showFloatingButton;
     final lookReason = shown ? null : l10n.settingsFloatingButtonLookLocked;
+    // Only Linux probes at runtime; Windows and macOS report full support.
+    final support =
+        ref.watch(floatingButtonSupportProvider).value ??
+        FloatingButtonSupport.full;
+    // Where the native host cannot run, the switch stays usable only to turn an
+    // imported "on" state off. It never turns on a button that cannot appear.
+    final switchable = support.available || settings.showFloatingButton;
 
     return WpSettingsGroup(
       heading: l10n.settingsFloatingButtonSection,
@@ -339,6 +349,9 @@ class FloatingButtonSection extends ConsumerWidget {
           rowId: 'appearance-floating-button',
           title: l10n.settingsShowFloatingButton,
           subtitle: l10n.settingsShowFloatingButtonSubtitle,
+          disabledReason: support.available
+              ? null
+              : l10n.settingsFloatingButtonUnavailable,
           semanticToggledValue: settings.showFloatingButton,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
@@ -353,9 +366,13 @@ class FloatingButtonSection extends ConsumerWidget {
               const SizedBox(width: WpSpacing.xs),
               settingsToggle(
                 value: settings.showFloatingButton,
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(showFloatingButton: v)),
+                onChanged: switchable
+                    ? (v) => ref
+                          .read(settingsProvider.notifier)
+                          .updateSettings(
+                            (s) => s.copyWith(showFloatingButton: v),
+                          )
+                    : null,
               ),
             ],
           ),
@@ -458,6 +475,15 @@ class FloatingButtonSection extends ConsumerWidget {
             ),
           ),
         ),
+        if (support.limits.isNotEmpty) ...[
+          settingsInlineBreak,
+          WpSettingsRow(
+            rowId: 'appearance-floating-button-wayland',
+            title: l10n.settingsFloatingButtonWaylandTitle,
+            subtitle: l10n.settingsFloatingButtonWaylandLimit,
+            trailing: const Icon(Icons.info_outline_rounded),
+          ),
+        ],
       ],
     );
   }

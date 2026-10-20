@@ -15,6 +15,13 @@ All entries are written in English.
 - **Menu bar and title menus:** macOS gets a native menu bar with Recording and Help menus, and Cmd+, opens Settings. Windows and Linux get the same commands in a title bar menu.
 - **Help hub and feedback form:** the 16-chapter handbook, support, introduction and diagnostics share one searchable Help page. The feedback form offers type chips, an optional rating and opt-in diagnostics, and opens from the tray.
 - **Linux auto-paste on Wayland:** WhisPaste checks the focused window, confirms each paste with a clipboard receipt, and lets you choose the uinput keyboard or the desktop portal.
+- **Recent recordings in the tray:** the tray menu lists the last five recordings with their time and word count, and one click copies the text. While recordings are PIN-locked, the entry offers "Unlock recordings…" instead.
+- **Feedback quotes with consent:** the feedback form can show your text anonymously as a quote on the website, but only if you tick a box that is off by default. Withdraw it with one click on the feedback page; a withdrawal made offline is sent once WhisPaste is back online.
+- **App profiles in Settings:** a new Profiles area lists the app profiles, and a detail editor sets what a profile changes for one app. The app in front is recorded when a dictation starts, and the manual explains how profiles apply. Profiles can be saved, deleted and reordered.
+- **GitHub star invitation:** after 40 recordings, store builds invite you to star WhisPaste on GitHub, at most twice and 30 days apart. Settings and Help keep a permanent entry.
+- **Dictionary CSV import review:** the review lists each row with its planned outcome (added, already present, conflict, circular reference). A conflict follows the strategy you choose (skip, overwrite or keep both). Rows can be unticked, and the import is written in one transaction.
+- **Dictionary CSV export choice:** the export lets you choose which entries go into the file. The file carries the package name and the export date in its metadata line.
+- **Floating button on Linux:** Settings offers the floating button on Linux. Where the desktop cannot run it, the switch is disabled with an explanation. On Wayland the section names the limits: the desktop decides the position and whether the button stays on top.
 
 ### Improvements
 
@@ -26,14 +33,30 @@ All entries are written in English.
 - **Recording controls:** double-tap the hotkey to record hands-free, choose a separate cancel key, and let a microphone priority list take over when a device is missing.
 - **Statistics:** shows raw versus revised words, transform actions and frequent corrections, and labels the time saved as an estimate.
 - **Onboarding:** Enter and Escape move through the setup, a model download can be cancelled, and a download the disk cannot hold is refused before it starts.
+- **Replacements use the page:** the explanation cards are gone, so search and Add stay fixed while the list scrolls. Import, export and the try-it test sit in the "more" menu; while replacements are off, a banner offers to turn them on.
+- **Swatch rows announce their choice:** each colour row is announced as a radio group with one checked swatch.
 
 ### Fixes
 
+- **Linux: Auto-Paste asks before it gets keyboard access:** the .deb package no longer grants /dev/uinput when it is installed. WhisPaste asks first and needs your administrator password. You can remove the permission again in the settings.
+- **Crash reports keep less personal data:** file names, local paths and imported document text are removed from crash reports and log entries. Only the file extension and the error type remain.
+- **CUDA pack asks for the NVIDIA licence:** the optional CUDA pack downloads only after you accept the NVIDIA CUDA licence, which the app links to before the download.
+- **Settings changed during start-up are kept:** a change made before your stored settings finished loading is applied once they are loaded, instead of being overwritten by the defaults.
+- **Model downloads resume after a sibling cleanup:** a paused model download is no longer deleted by another download's cleanup, so it can continue where it stopped.
+- **Automation API: stalled requests time out:** a request whose body stops or trickles in gets a 408 response after 30 seconds instead of holding the connection open.
+- **The speech engine is never unloaded during a running transcription:** a model switch or idle unload waits until the current transcription has returned. Quitting no longer waits for it, and if the engine is still busy after a long wait, WhisPaste shows a notice to restart the app instead of freeing it under a running call.
 - **Computers with less than 8 GB of RAM start:** WhisPaste no longer stops at start on such machines. It starts and recommends the compact speech model.
 - **Hotkey after idle:** the first press after idle starts recording at once, and a press right after a released start is no longer dropped.
-- **Failed transcriptions:** the audio of a failed transcription is kept for 24 hours and can be retried.
+- **Failed transcriptions:** the audio of a failed transcription stays parked for 24 hours and can be retried; unfinished or orphaned audio files are cleaned up.
 - **Sleep and wake:** a recording in progress finishes before the computer sleeps, and the speech engine is checked again after wake.
 - **Database from a newer build:** WhisPaste shows a start screen instead of failing when the database was written by a newer version.
+- **Snippet picker trigger:** the trigger word is limited to 64 characters on one line, and a word still being typed is saved when the app leaves the foreground.
+- **Blocklist entry:** control characters can no longer be typed into the manual entry of the auto-paste blocklist.
+- **Side panel:** Escape closes it, a failed load says so instead of showing the empty state, and its tabs have 48 px hit areas.
+- **Live preview ends with the recording:** the preview shown while dictating also stops after a delivered, empty or Smart Mode dictation, not only after a cancel.
+- **History PIN:** content is withheld only while a PIN is set.
+- **Footer version:** the footer hides the app version until it is known, instead of showing a placeholder.
+- **PIN lock covers copied text in the side panel:** while the recordings are locked by a PIN, the clipboard tab of the side panel shows no copied text and cannot paste it.
 
 ### Known issues
 

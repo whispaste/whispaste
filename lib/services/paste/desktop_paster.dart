@@ -430,7 +430,7 @@ class DesktopPaster implements Paster, UndoKeystrokeSender {
           .timeout(const Duration(seconds: 5));
     } on Exception catch (e) {
       // Non-fatal — clipboard restore is best-effort.
-      _log.debug('Clipboard restore after paste failed', e);
+      _log.debug('Clipboard restore after paste failed: ${errorKind(e)}');
       outcome = ClipboardRestoreOutcome.failed;
     }
     _log.info(

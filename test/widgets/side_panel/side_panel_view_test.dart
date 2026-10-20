@@ -15,6 +15,13 @@ const _fullSnapshot = SidePanelSnapshot(
   clipboardHistory: [SidePanelRow(id: 'c1', title: 'Copied text')],
 );
 
+/// The header title: the first AnimatedSwitcher in the panel. The tab bar
+/// labels carry the same words, so header lookups are scoped to it.
+Finder _headerText(String text) => find.descendant(
+  of: find.byType(AnimatedSwitcher).first,
+  matching: find.text(text),
+);
+
 void main() {
   group('WpSidePanelView', () {
     testWidgets('shows the transcriptions tab by default', (tester) async {
@@ -30,7 +37,7 @@ void main() {
 
       // Header spells out the active section; the other two sections'
       // rows are not rendered while their tab is inactive.
-      expect(find.text('Transcriptions'), findsOneWidget);
+      expect(_headerText('Transcriptions'), findsOneWidget);
       expect(find.text('Hello world'), findsOneWidget);
       expect(find.text('My signature'), findsNothing);
       expect(find.text('Copied text'), findsNothing);
@@ -49,16 +56,42 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.notebookText));
       await tester.pumpAndSettle();
-      expect(find.text('Snippets'), findsOneWidget);
+      expect(_headerText('Snippets'), findsOneWidget);
       expect(find.text('My signature'), findsOneWidget);
       expect(find.text('Hello world'), findsNothing);
       expect(find.text('Copied text'), findsNothing);
 
       await tester.tap(find.byIcon(LucideIcons.clipboardList).first);
       await tester.pumpAndSettle();
-      expect(find.text('Clipboard history'), findsOneWidget);
+      expect(_headerText('Clipboard history'), findsOneWidget);
       expect(find.text('Copied text'), findsOneWidget);
       expect(find.text('My signature'), findsNothing);
+    });
+
+    testWidgets('a PIN-locked clipboard tab shows the lock hint and no text', (
+      tester,
+    ) async {
+      // Rows are passed on purpose: even if a row slipped through, a locked
+      // tab must render no copied text, tooltip or paste target.
+      await tester.pumpWidget(
+        makeTestable(
+          const WpSidePanelView(
+            snapshot: SidePanelSnapshot(
+              clipboardHistory: [SidePanelRow(id: 'c1', title: 'Copied text')],
+              clipboardLocked: true,
+            ),
+            onRowTap: _noopTap,
+            onClose: _noopClose,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byIcon(LucideIcons.clipboardList).first);
+      await tester.pumpAndSettle();
+      expect(_headerText('Clipboard history'), findsOneWidget);
+      expect(find.text('Copied text'), findsNothing);
+      expect(find.text('Locked by PIN'), findsOneWidget);
+      expect(find.text('Nothing copied yet'), findsNothing);
     });
 
     testWidgets('each tab renders its own empty state', (tester) async {
@@ -128,7 +161,7 @@ void main() {
           expect(radius.bottomRight, dockedRight ? Radius.zero : round);
 
           final closeX = tester.getCenter(find.byIcon(LucideIcons.x)).dx;
-          final titleX = tester.getCenter(find.text('Transcriptions')).dx;
+          final titleX = tester.getCenter(_headerText('Transcriptions')).dx;
           expect(
             closeX < titleX,
             dockedRight,
@@ -452,6 +485,7 @@ void main() {
             WpSidePanelRowTile(
               row: row,
               leadingIcon: LucideIcons.clipboardList,
+              kindLabel: 'Clipboard history',
               onTap: () {},
             ),
           ),

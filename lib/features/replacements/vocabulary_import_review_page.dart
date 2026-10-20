@@ -30,6 +30,8 @@ class VocabularyImportReviewPage extends StatefulWidget {
     required this.candidates,
     this.title,
     this.subtitleBuilder,
+    this.confirmLabelBuilder,
+    this.initialSelection = const {},
   });
 
   /// Sorted, already deduplicated against existing triggers (the scan's
@@ -45,6 +47,13 @@ class VocabularyImportReviewPage extends StatefulWidget {
   /// Overrides the default import-flavored subtitle, given the candidate
   /// count. Same reasoning as [title].
   final String Function(int count)? subtitleBuilder;
+
+  /// Overrides the confirm button label, given the number of selected
+  /// candidates. Null keeps the import wording.
+  final String Function(int count)? confirmLabelBuilder;
+
+  /// Candidates that start selected (the export preselects everything).
+  final Set<String> initialSelection;
 
   @override
   State<VocabularyImportReviewPage> createState() =>
@@ -62,6 +71,7 @@ class _VocabularyImportReviewPageState
   void initState() {
     super.initState();
     _filtered = widget.candidates;
+    _selected.addAll(widget.initialSelection);
   }
 
   @override
@@ -278,9 +288,11 @@ class _VocabularyImportReviewPageState
                     // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
                     WpButton(
                       key: const Key('vocabulary-import-confirm'),
-                      label: l10n.replacementsImportReviewImportButton(
-                        _selected.length,
-                      ),
+                      label:
+                          widget.confirmLabelBuilder?.call(_selected.length) ??
+                          l10n.replacementsImportReviewImportButton(
+                            _selected.length,
+                          ),
                       variant: WpButtonVariant.primary,
                       onPressed: _selected.isEmpty
                           ? null

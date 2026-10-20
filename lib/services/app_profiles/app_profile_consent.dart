@@ -6,11 +6,10 @@
 /// provider, another source, or a new text version.
 library;
 
+import 'app_profile_context_source.dart';
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
-
-import 'app_profile_context_source.dart';
 
 /// Version of the consent text. Bump it when [kAppProfileConsentCanonicalText]
 /// changes; then every stored consent of an older version lapses. The hash

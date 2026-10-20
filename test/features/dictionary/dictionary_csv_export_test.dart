@@ -18,7 +18,8 @@ void main() {
               onPressed: () => writeReplacementsCsv(
                 context,
                 '/nonexistent-whispaste-b3/woerterbuch.csv',
-                const [],
+                '',
+                0,
               ),
               child: const Text('export'),
             ),

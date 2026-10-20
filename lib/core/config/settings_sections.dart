@@ -1284,6 +1284,7 @@ class BehaviorSettings {
     this.copyBlockedToClipboard = true,
     this.linuxAlwaysShiftPaste = false,
     this.restoreClipboardAfterPaste = true,
+    this.cudaEulaAccepted = '',
   });
 
   final int maxRecordDuration;
@@ -1340,6 +1341,12 @@ class BehaviorSettings {
   /// always keeps the transcript.
   final bool restoreClipboardAfterPaste;
 
+  /// The consent value (pack version + EULA version, see
+  /// `cudaEulaConsentValue` in `cuda_pack.dart`) the user accepted the NVIDIA
+  /// CUDA EULA for. Empty = never accepted. Per installation: deny-listed in
+  /// the settings export, so it never travels to another machine.
+  final String cudaEulaAccepted;
+
   static const BehaviorSettings defaults = BehaviorSettings();
 
   factory BehaviorSettings.fromMap(Map<String, String> v) => BehaviorSettings(
@@ -1386,6 +1393,7 @@ class BehaviorSettings {
       'restore_clipboard_after_paste',
       defaults.restoreClipboardAfterPaste,
     ),
+    cudaEulaAccepted: v['cuda_eula_accepted'] ?? defaults.cudaEulaAccepted,
   );
 
   Map<String, String> toMap() => {
@@ -1402,6 +1410,7 @@ class BehaviorSettings {
     'copy_blocked_to_clipboard': '$copyBlockedToClipboard',
     'linux_always_shift_paste': '$linuxAlwaysShiftPaste',
     'restore_clipboard_after_paste': '$restoreClipboardAfterPaste',
+    'cuda_eula_accepted': cudaEulaAccepted,
   };
 
   BehaviorSettings copyWith({
@@ -1418,6 +1427,7 @@ class BehaviorSettings {
     bool? copyBlockedToClipboard,
     bool? linuxAlwaysShiftPaste,
     bool? restoreClipboardAfterPaste,
+    String? cudaEulaAccepted,
     // loam-ignore: code-duplicates – same copyWith return shape by design as every other settings-section class in this file.
   }) => BehaviorSettings(
     maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
@@ -1437,6 +1447,7 @@ class BehaviorSettings {
     linuxAlwaysShiftPaste: linuxAlwaysShiftPaste ?? this.linuxAlwaysShiftPaste,
     restoreClipboardAfterPaste:
         restoreClipboardAfterPaste ?? this.restoreClipboardAfterPaste,
+    cudaEulaAccepted: cudaEulaAccepted ?? this.cudaEulaAccepted,
   );
 
   @override
@@ -1455,7 +1466,8 @@ class BehaviorSettings {
         cudaAcceleration == other.cudaAcceleration &&
         copyBlockedToClipboard == other.copyBlockedToClipboard &&
         linuxAlwaysShiftPaste == other.linuxAlwaysShiftPaste &&
-        restoreClipboardAfterPaste == other.restoreClipboardAfterPaste;
+        restoreClipboardAfterPaste == other.restoreClipboardAfterPaste &&
+        cudaEulaAccepted == other.cudaEulaAccepted;
   }
 
   @override
@@ -1473,6 +1485,7 @@ class BehaviorSettings {
     copyBlockedToClipboard,
     linuxAlwaysShiftPaste,
     restoreClipboardAfterPaste,
+    cudaEulaAccepted,
   );
 }
 

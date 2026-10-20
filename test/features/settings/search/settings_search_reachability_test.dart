@@ -21,6 +21,8 @@ import 'package:whispaste/features/settings/widgets/settings_navigation.dart';
 import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLocalEngineAvailableProvider;
+import 'package:whispaste/services/app_profiles/app_profile.dart';
+import 'package:whispaste/services/app_profiles/app_profile_repository.dart';
 import 'package:whispaste/widgets/wp_page_header.dart';
 
 import '../../../fixtures/test_helpers.dart';
@@ -41,6 +43,7 @@ const Set<String> _renderedOnlyInState = {
   'advanced-feature-spotlights',
   'advanced-onboarding-again',
   'appearance-floating-button',
+  'appearance-floating-button-wayland',
   // Button look rows: only in the floating-button section (macOS/Windows).
   'appearance-button-idle-opacity',
   'appearance-button-ring',
@@ -140,6 +143,8 @@ void main() {
             // which the default check reports on macOS and Windows alone.
             overrides: [
               smartModeLocalEngineAvailableProvider.overrideWith((ref) => true),
+              // A profile must exist for its detail rows to render.
+              appProfilesProvider.overrideWith(_SeededProfiles.new),
               helpTargetProvider.overrideWith(
                 () => _TabAt(helpTabForRow(entry.rowId)),
               ),
@@ -187,6 +192,8 @@ void main() {
                 smartModeLocalEngineAvailableProvider.overrideWith(
                   (ref) => true,
                 ),
+                // Same count as the Settings tree: riverpod forbids changing it.
+                appProfilesProvider.overrideWith(_SeededProfiles.new),
                 helpTargetProvider.overrideWith(
                   () => _TabAt(helpTabForRow(entry.rowId)),
                 ),
@@ -219,4 +226,12 @@ void main() {
       });
     }
   });
+}
+
+/// One profile, so the profile detail rows are part of the tree.
+class _SeededProfiles extends AppProfilesController {
+  @override
+  Future<List<AppProfile>> build() async => const [
+    AppProfile(id: 'profile-seed', name: 'Mail'),
+  ];
 }

@@ -1,0 +1,79 @@
+#!/bin/sh
+# Root helper behind the polkit action de.whispaste.uinput.manage (R-02).
+# WhisPaste runs it through pkexec after the user agreed to Auto-Paste:
+#   enable   install the udev rule so the active session may write /dev/uinput
+#   disable  remove the rule and the session's access again
+#   status   exit 0 while the rule is installed (needs no root)
+# Arguments other than these are rejected; every path is fixed here, and
+# pkexec clears the environment.
+set -eu
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+
+TEMPLATE=/usr/share/whispaste/udev/71-whispaste-uinput.rules
+RULE=/etc/udev/rules.d/71-whispaste-uinput.rules
+MODULE_CONF=/etc/modules-load.d/whispaste-uinput.conf
+DEVICE=/dev/uinput
+
+need_root() {
+  if [ "$(id -u)" -ne 0 ]; then
+    echo "Run through pkexec: pkexec $0 $1" >&2
+    exit 1
+  fi
+}
+
+reload() {
+  udevadm control --reload-rules || true
+  udevadm trigger --subsystem-match=misc --sysname-match=uinput || true
+  udevadm settle --timeout=5 || true
+}
+
+# Whether a rule still tags the device uaccess now. Since systemd 247 TAGS
+# is sticky (it keeps tags of earlier events, so it would still list ours);
+# CURRENT_TAGS holds what the rules set now. Older udev has only TAGS.
+still_uaccess() {
+  props="$(udevadm info --query=property --name="$DEVICE" 2>/dev/null)" ||
+    return 1
+  if printf '%s\n' "$props" | grep -q '^CURRENT_TAGS='; then
+    printf '%s\n' "$props" | grep -q '^CURRENT_TAGS=.*:uaccess:'
+  else
+    printf '%s\n' "$props" | grep -q '^TAGS=.*:uaccess:'
+  fi
+}
+
+# Removing the rule does not take back an ACL logind already granted; it
+# would stay until the next login. Drop the calling user's entry, unless
+# another rule (for example steam-devices) still tags the device uaccess.
+revoke_session_acl() {
+  [ -e "$DEVICE" ] || return 0
+  if still_uaccess; then
+    return 0
+  fi
+  case "${PKEXEC_UID:-}" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  setfacl -x "u:$PKEXEC_UID" "$DEVICE" 2>/dev/null || true
+}
+
+case "${1:-}" in
+  enable)
+    need_root enable
+    install -m644 "$TEMPLATE" "$RULE"
+    printf 'uinput\n' > "$MODULE_CONF"
+    modprobe uinput 2>/dev/null || true
+    reload
+    ;;
+  disable)
+    need_root disable
+    rm -f "$RULE" "$MODULE_CONF"
+    reload
+    revoke_session_acl
+    ;;
+  status)
+    [ -f "$RULE" ]
+    ;;
+  *)
+    echo "usage: $0 enable|disable|status" >&2
+    exit 2
+    ;;
+esac

@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:path/path.dart' as p;
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
@@ -27,11 +28,16 @@ import '../core/logging/app_logger.dart';
 import 'paste/paster.dart' show PasteCapabilityStatus;
 import '../core/recording/recording_state.dart';
 import '../features/feedback/feedback_type.dart';
+import '../core/data/database.dart' show HistoryEntry;
+import '../core/data/history_providers.dart';
+import '../features/history/data/history_lock.dart';
+import 'desktop_paste/desktop_paste_controller.dart';
 import 'audio_service.dart';
 import 'graceful_shutdown.dart';
 import 'app_commands/app_command.dart';
 import 'app_commands/tray_choice_commands.dart';
 import 'app_commands/tray_command_adapter.dart';
+import 'tray_recent_copy.dart';
 import 'app_commands/tray_command_catalog.dart';
 import 'app_profiles/app_profile.dart';
 import 'app_profiles/app_profile_choice.dart';
@@ -155,14 +161,21 @@ class TrayService extends Notifier<void> implements TrayListener {
     // so they are re-read whenever one of those changes.
     ref.listen(
       settingsProvider.select((async) => _trayMenuSettings(async.value)),
-      (_, _) => unawaited(_rebuildMenu()),
+      (_, _) => _scheduleRebuild(),
     );
-    ref.listen(modelDownloadProvider, (_, _) => unawaited(_rebuildMenu()));
-    ref.listen(localSttBundleProvider, (_, _) => unawaited(_rebuildMenu()));
-    ref.listen(profileChoiceProvider, (_, _) => unawaited(_rebuildMenu()));
+    ref.listen(modelDownloadProvider, (_, _) => _scheduleRebuild());
+    // Recent recordings and the PIN lock both change the submenu. A lock that
+    // engages also drops the copy texts at once.
+    ref.listen(historyEntriesProvider, (_, _) => _scheduleRebuild());
+    ref.listen(historyContentHiddenProvider, (_, hidden) {
+      if (hidden) _recentCopier.clear();
+      _scheduleRebuild();
+    });
+    ref.listen(localSttBundleProvider, (_, _) => _scheduleRebuild());
+    ref.listen(profileChoiceProvider, (_, _) => _scheduleRebuild());
     ref.listen(appProfilesProvider, (prev, next) {
       if (_profileMenuKey(prev?.value) != _profileMenuKey(next.value)) {
-        unawaited(_rebuildMenu());
+        _scheduleRebuild();
       }
     });
     ref.onDispose(_destroy);
@@ -215,7 +228,15 @@ class TrayService extends Notifier<void> implements TrayListener {
         _requestQuit();
       case langMoreMenuKey:
         _showWindow();
+      case TrayCommandIds.unlockHistory:
+        _showWindow();
+        onNavigate?.call('history');
       default:
+        final recentId = trayRecentIdFromKey(key);
+        if (recentId != null) {
+          _copyRecent(recentId);
+          return;
+        }
         final micLabel = micLabelFromMenuKey(key);
         if (micLabel != null) {
           _selectMicrophone(micLabel);
@@ -523,6 +544,46 @@ class TrayService extends Notifier<void> implements TrayListener {
     return null;
   }
 
+  /// Full text of the recordings the last menu build listed, by id.
+  late final TrayRecentCopier _recentCopier = TrayRecentCopier(
+    isHidden: () => ref.read(historyContentHiddenProvider),
+    write: (text) => writeTrayCopyTransient(
+      text,
+      excludedWrite: ref
+          .read(desktopPasteControllerProvider)
+          ?.writeClipboardTextExcludingHistory,
+    ),
+  );
+
+  /// Copies a recent recording (see [TrayRecentCopier]).
+  void _copyRecent(String id) {
+    unawaited(
+      _recentCopier
+          .copy(id)
+          .catchError(
+            (Object e, StackTrace st) =>
+                _log.error('Copy from tray failed', e, st),
+          ),
+    );
+  }
+
+  /// Menu label of a recent recording: time and word count, never the text.
+  String _recentLabel(HistoryEntry entry, L10n l10n) {
+    final time = DateFormat.Hm(
+      l10n.localeName,
+    ).format(entry.timestamp.toLocal());
+    final words = entry.content
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .length;
+    return l10n.trayRecentMeta(time, words);
+  }
+
+  /// Rebuilds the menu after the current provider notification has finished.
+  /// A listener runs while the provider that changed is still updating, and
+  /// the rebuild reads speech models that depend on that same provider.
+  void _scheduleRebuild() => unawaited(Future<void>.microtask(_rebuildMenu));
+
   Future<void> _rebuildMenu() async {
     final l = _l10n;
     // Labels are set in build() before the first menu, so this only guards
@@ -538,8 +599,20 @@ class TrayService extends Notifier<void> implements TrayListener {
             models: ref.read(selectableSpeechModelsProvider),
             missing: ref.read(missingSelectedSpeechModelProvider),
           );
+    // Locked history never reaches the menu: no items, only the unlock entry.
+    final historyLocked = ref.read(historyContentHiddenProvider);
+    final recent = historyLocked
+        ? const <HistoryEntry>[]
+        : (ref.read(historyEntriesProvider).value ?? const <HistoryEntry>[])
+              .take(trayRecentLimit)
+              .toList();
+    _recentCopier.replace({for (final e in recent) e.id: e.content});
     final commands = trayCommandTree(
       l,
+      historyLocked: historyLocked,
+      recentRecordings: [
+        for (final e in recent) (id: e.id, label: _recentLabel(e, l)),
+      ],
       recording: _lastRecording,
       micDeviceLabels: _micDeviceLabels,
       settings: settings,
@@ -786,6 +859,8 @@ List<AppCommand>? languageCommandsFor(AppSettings? settings) {
 /// Aufnahme menu both build from this tree, so they show the same state.
 List<AppCommand> trayCommandTree(
   L10n l, {
+  bool historyLocked = false,
+  List<({String id, String label})> recentRecordings = const [],
   required RecordingState recording,
   required List<String> micDeviceLabels,
   required AppSettings? settings,
@@ -827,6 +902,8 @@ List<AppCommand> trayCommandTree(
             ),
       actionNeeded: actionNeeded,
       sidePanelAvailable: sidePanelAvailable,
+      historyLocked: historyLocked,
+      recentRecordings: recentRecordings,
       toggleShortcut: settings == null
           ? null
           : formatHotkeyShortcut(

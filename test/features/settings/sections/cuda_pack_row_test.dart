@@ -40,6 +40,7 @@ class _FakeCudaPackNotifier extends CudaPackNotifier {
   _FakeCudaPackNotifier(this._initial);
   final CudaPackState _initial;
   int installCalls = 0;
+  int acceptCalls = 0;
 
   @override
   CudaPackState build() => _initial;
@@ -51,7 +52,17 @@ class _FakeCudaPackNotifier extends CudaPackNotifier {
 
   @override
   Future<void> remove() async => removeCalls++;
+  @override
+  Future<void> acceptEulaAndInstall() async => acceptCalls++;
 }
+
+/// Settings with the NVIDIA EULA accepted for [packId].
+AppSettings _acceptedFor(String packId) =>
+    AppSettings.defaults.copyWithSections(
+      behavior: AppSettings.defaults.behavior.copyWith(
+        cudaEulaAccepted: cudaEulaConsentValue(packId),
+      ),
+    );
 
 class _FakeSttNotifier extends SttServerStateNotifier {
   @override
@@ -84,13 +95,96 @@ void main() {
     tester,
   ) async {
     final notifier = _FakeCudaPackNotifier(const CudaPackState(pack: _pack));
-    await tester.pumpWidget(row(notifier._initial, notifier: notifier));
+    await tester.pumpWidget(
+      row(
+        notifier._initial,
+        settings: _FakeSettingsNotifier(_acceptedFor(_pack.id)),
+        notifier: notifier,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('settings-cuda-pack-row')), findsOneWidget);
     expect(find.byKey(const Key('settings-cuda-pack-toggle')), findsNothing);
     await tester.tap(find.byKey(const Key('settings-cuda-pack-download')));
     expect(notifier.installCalls, 1);
+  });
+
+  group('NVIDIA EULA consent before the download', () {
+    testWidgets('asks first, and cancel starts nothing and stores nothing', (
+      tester,
+    ) async {
+      final settings = _FakeSettingsNotifier(AppSettings.defaults);
+      final notifier = _FakeCudaPackNotifier(const CudaPackState(pack: _pack));
+      await tester.pumpWidget(
+        row(notifier._initial, settings: settings, notifier: notifier),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('settings-cuda-pack-download')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('cuda-eula-dialog')), findsOneWidget);
+      expect(find.byKey(const Key('cuda-eula-link')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('cuda-eula-cancel')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('cuda-eula-dialog')), findsNothing);
+      expect(notifier.installCalls, 0);
+      expect(notifier.acceptCalls, 0);
+      expect(settings._settings.behavior.cudaEulaAccepted, isEmpty);
+    });
+
+    testWidgets('accept hands over to the download with consent recorded', (
+      tester,
+    ) async {
+      final notifier = _FakeCudaPackNotifier(const CudaPackState(pack: _pack));
+      await tester.pumpWidget(row(notifier._initial, notifier: notifier));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('settings-cuda-pack-download')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('cuda-eula-accept')));
+      await tester.pumpAndSettle();
+
+      expect(notifier.acceptCalls, 1);
+      expect(notifier.installCalls, 0);
+    });
+
+    testWidgets('an already accepted pack version is not asked again', (
+      tester,
+    ) async {
+      final notifier = _FakeCudaPackNotifier(const CudaPackState(pack: _pack));
+      await tester.pumpWidget(
+        row(
+          notifier._initial,
+          settings: _FakeSettingsNotifier(_acceptedFor(_pack.id)),
+          notifier: notifier,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('settings-cuda-pack-download')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('cuda-eula-dialog')), findsNothing);
+      expect(notifier.installCalls, 1);
+    });
+
+    testWidgets('a new pack version asks again', (tester) async {
+      final notifier = _FakeCudaPackNotifier(const CudaPackState(pack: _pack));
+      await tester.pumpWidget(
+        row(
+          notifier._initial,
+          settings: _FakeSettingsNotifier(_acceptedFor('ggml-old-r1')),
+          notifier: notifier,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('settings-cuda-pack-download')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('cuda-eula-dialog')), findsOneWidget);
+      expect(notifier.installCalls, 0);
+    });
   });
 
   testWidgets('shows progress and cancel while downloading', (tester) async {

@@ -385,9 +385,10 @@ class _Swatch extends StatelessWidget {
         child: MergeSemantics(
           child: Semantics(
             identifier: id,
-            button: true,
+            // A radio in a mutually exclusive group: one checked swatch per row.
+            inMutuallyExclusiveGroup: true,
             enabled: enabled,
-            selected: selected,
+            checked: selected,
             label: label,
             hint: reason,
             child: Column(

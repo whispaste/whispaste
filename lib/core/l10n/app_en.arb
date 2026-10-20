@@ -282,7 +282,7 @@
   "pasteNotificationFailedBody": "The system blocked the paste key. The text is on the clipboard. Paste it yourself with {paste}.",
   "@pasteNotificationFailedBody": {"placeholders": {"paste": {"type": "String"}}},
   "pasteNotificationFailedTray": "Auto-Paste failed",
-  "pasteNotificationLinuxUinputBody": "WhisPaste can't use the virtual keyboard device /dev/uinput yet. The text is on the clipboard, paste it with {paste}. Click here for the command that sets this up once.",
+  "pasteNotificationLinuxUinputBody": "WhisPaste can't use the virtual keyboard device /dev/uinput yet. The text is on the clipboard, paste it with {paste}. Click here to set it up.",
   "@pasteNotificationLinuxUinputBody": {"placeholders": {"paste": {"type": "String"}}},
   "pasteNotificationLinuxUinputTray": "Auto-Paste blocked — setup needed",
   "pasteNotificationLinuxNoDeviceBody": "Auto-Paste unavailable: this system has no virtual keyboard device for it. The text is on the clipboard, paste it with {paste}. Click here for the Auto-Paste settings.",
@@ -348,10 +348,10 @@
   "onboardingPasteWhyWinUipi": "In programs running as administrator, Auto-Paste won't work. The text then stays on the clipboard, and you paste it yourself with Ctrl+V.",
   "onboardingPasteWinOnTitle": "Auto-Paste is on",
   "onboardingPasteWinOnDetail": "After each recording, WhisPaste presses Ctrl+V for you — the text lands right at your cursor. A copy stays on the clipboard, too.",
-  "onboardingPasteLinuxNative": "On this system auto-paste works automatically. WhisPaste pastes the text at the cursor after each recording.",
-  "onboardingPasteLinuxFlatpak": "In the Flatpak build, --device=all makes /dev/input/* and /dev/uinput visible inside the sandbox. WhisPaste itself reads no input devices. If your user has read rights on the host (e.g. as a member of the input group), the app could read keystrokes of other programs. Members of the input group can also generate virtual input. Auto-paste also needs write access to /dev/uinput on the host: install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/ and run: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. The rule gives write access to the logged-in user and to every member of the input group. These commands need administrator rights (sudo) and change the system. If you do not want this, leave auto-paste off and paste the text by hand.",
+  "onboardingPasteLinuxNative": "Auto-paste needs your permission for the virtual keyboard (/dev/uinput). With the .deb package, choose “Allow (administrator password)” and enter your administrator password; otherwise copy the command and run it once in a terminal. You can remove the permission again in the settings.",
+  "onboardingPasteLinuxFlatpak": "In the Flatpak build, --device=all makes /dev/input/* and /dev/uinput visible inside the sandbox. WhisPaste itself reads no input devices. If your user has read rights on the host (e.g. as a member of the input group), the app could read keystrokes of other programs. Auto-paste also needs write access to /dev/uinput on the host: copy the command and run it once in a terminal. It installs the udev rule 71-whispaste-uinput.rules, which gives access only to the signed-in session. The command needs administrator rights (sudo) and changes the system. If you do not want this, leave auto-paste off and paste the text by hand.",
   "onboardingPasteLinuxSnap": "In the Snap build, run this once in a terminal: sudo snap connect whispaste:uinput. Until then, auto-paste only copies the text.",
-  "onboardingPasteLinuxAppImage": "The AppImage needs access to /dev/uinput (the virtual keyboard device). Recommended: install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/ and run: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. The rule gives write access to the logged-in user and to every member of the input group, so every member can generate virtual input (e.g. simulated key presses). Alternative: sudo usermod -aG input $USER, then sign out and back in. Members of the input group can also read the keystrokes of all input devices, including those of other programs. These commands need administrator rights (sudo) and change the system. Until then, auto-paste only copies the text.",
+  "onboardingPasteLinuxAppImage": "The AppImage needs access to /dev/uinput (the virtual keyboard device). Copy the command and run it once in a terminal. It installs the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/ and runs sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. The rule gives write access only to the signed-in session. The command needs administrator rights (sudo) and changes the system. Until then, auto-paste only copies the text.",
   "onboardingPasteWinEnableCta": "Turn on Auto-Paste",
   "onboardingPasteWinAdminCaveat": "In programs running as administrator, Auto-Paste won't work. The text then stays on the clipboard, and you paste it yourself with Ctrl+V.",
   "onboardingPasteLinuxClipboardFallback": "Auto-Paste is on. Until access is set up, WhisPaste puts the text on the clipboard, and you paste it yourself with Ctrl+V.",
@@ -555,6 +555,7 @@
   "trayUnavailableMinimizedHint": "The tray icon is unavailable. WhisPaste was minimized and keeps running.",
   "settingsSaveFailedToast": "The setting could not be saved. The previous value is kept.",
   "actionCancel": "Cancel",
+  "actionClose": "Close",
   "actionConfirm": "Confirm",
   "actionSave": "Save",
   "actionRetry": "Try again",
@@ -936,6 +937,26 @@
   "@feedbackMissingEmail": {"description": "Missing-item clause: the optional email address is not valid"},
   "feedbackRequiredMarker": "Required",
   "@feedbackRequiredMarker": {"description": "Small marker next to the labels of the required feedback fields"},
+  "feedbackPublishConsentLabel": "I allow my feedback to appear anonymously as a quote on the website.",
+  "feedbackPublishConsentExplanation": "Off by default. Only your text and rating are shown, never your name or email. You can withdraw this at any time with one click on the Feedback page in the app.",
+  "feedbackWithdrawConsentLabel": "Withdraw consent",
+  "feedbackWithdrawConsentHelp": "Applies to feedback you sent with consent from this device. The quote disappears from the website within about 24 hours.",
+  "feedbackWithdrawConsentPending": "The withdrawal is saved and will be sent once WhisPaste runs with an internet connection (for up to 30 days); otherwise please withdraw by e-mail.",
+  "feedbackWithdrawNoCode": "No withdrawal code is stored on this device – withdraw by e-mail",
+  "feedbackWithdrawEntrySending": "Withdrawal from {date} is being sent …",
+  "feedbackWithdrawEntryFailed": "Withdrawal from {date} not delivered – withdraw by e-mail",
+  "feedbackWithdrawConsentUndelivered": "The withdrawal could not be delivered – please withdraw by e-mail.",
+  "feedbackWithdrawEmailLabel": "Withdraw by e-mail",
+  "feedbackWithdrawEmailSubject": "Withdraw my consent to quote my feedback",
+  "feedbackWithdrawEmailBody": "Please withdraw my consent to quote my feedback.",
+  "feedbackWithdrawEmailDateLabel": "Feedback date:",
+  "feedbackWithdrawEmailReferenceLabel": "Withdrawal reference:",
+  "feedbackWithdrawEmailSentLabel": "I have sent the e-mail",
+  "feedbackWithdrawEmailLaunchFailed": "No e-mail app found. Please send the prepared message to this address:",
+  "feedbackWithdrawEmailCopyLabel": "Copy address and message",
+  "feedbackWithdrawEmailCopied": "Address and message copied.",
+  "feedbackWithdrawLocked": "Your system's credential store cannot be read right now. WhisPaste cannot send the consents and withdrawals kept there. Please withdraw by e-mail; the prepared e-mail contains the references needed.",
+  "feedbackWithdrawConsentDone": "Withdrawal sent. The quote disappears from the website within about 24 hours, at the next daily update.",
   "feedbackPrivacyNote": "Anonymous by default, only identifiable if you add your email above.",
   "feedbackThankYou": "Thank you!",
   "feedbackThankYouMessage": "Your feedback helps us make WhisPaste better\nfor everyone.",
@@ -1176,6 +1197,8 @@
   "errorSttModelFileMissing": "The speech model file is missing. Download the speech model in Settings.",
   "@errorSttModelFileMissing": {"description": "Error toast when the speech model file is missing from disk. Directs the user to download it in Settings."},
   "errorSttModelCorrupted": "The speech model file is damaged. Download the speech model again in Settings.",
+  "errorSttEngineRestartNeeded": "The speech engine is still busy with an earlier dictation. Restart WhisPaste to use it again.",
+  "@errorSttEngineRestartNeeded": {"description": "Error toast when the speech engine is still running a native call after a model switch or quit was requested. Tells the user to restart the app."},
   "@errorSttModelCorrupted": {"description": "Error toast when the speech model file on disk is damaged. Directs the user to download it again in Settings."},
   "pendingRetryFailed": "Transcribing again failed. The recording is kept for another try.",
   "@pendingRetryFailed": {"description": "Error toast when a retry of a kept recording fails again. The recording stays for another try."},
@@ -1784,6 +1807,15 @@
   "@trayOpenSidePanel": {"description": "Tray menu entry that opens the clipboard quick-paste side panel without the main window"},
   "traySettings": "Settings",
   "trayQuit": "Quit",
+  "trayRecentRecordings": "Recent recordings",
+  "trayUnlockRecordings": "Unlock recordings…",
+  "trayRecentMeta": "{time} · {count, plural, =1{1 word} other{{count} words}}",
+  "@trayRecentMeta": {
+    "placeholders": {
+      "time": { "type": "String" },
+      "count": { "type": "int" }
+    }
+  },
   "trayFeedback": "Send feedback…",
   "quitDuringDictationTitle": "A recording is still running",
   "@quitDuringDictationTitle": {"description": "Title of the confirmation shown when the user quits from the tray during a recording or transcription (UIA-SHL-15)."},
@@ -1937,6 +1969,9 @@
   "settingsFloatingButtonLookLocked": "Turn on the floating button to change this.",
   "settingsFloatingButtonSection": "Floating button",
   "settingsFloatingButtonSectionSubtitle": "Always-on-top recording button for quick access",
+  "settingsFloatingButtonWaylandTitle": "Wayland limits",
+  "settingsFloatingButtonWaylandLimit": "Under Wayland the desktop decides where the button appears and whether it stays on top. WhisPaste can only promise both to a limited extent there. Recording with a click still works, and the button does not take keyboard focus.",
+  "settingsFloatingButtonUnavailable": "Not available on this Linux desktop: the button needs X11 or XWayland. Turning it off is still possible.",
   "settingsSttIdleTimeout": "Speech model idle timeout",
   "settingsSttIdleTimeoutSubtitle": "How long the speech model stays loaded after use",
   "settingsSttIdleTimeoutKeepAlive": "Keep alive",
@@ -1960,6 +1995,13 @@
   "reviewSupportEntry": "Rate & support WhisPaste",
   "reviewSupportLabel": "Rate the app",
   "reviewSupportAction": "Rate",
+  "reviewSupportGitHubLabel": "Support WhisPaste with a star on GitHub",
+  "reviewSupportGitHubAction": "View on GitHub",
+  "githubInviteTitle": "WhisPaste is open source",
+  "githubInviteBody": "A star on GitHub helps others find it.",
+  "githubInviteOpen": "View on GitHub",
+  "githubInviteLater": "Later",
+  "githubInviteNever": "Don't ask again",
   "ideasBoardLabel": "Ideas & feature requests",
   "ideasBoardAction": "View board",
   "feedbackIdeasLink": "Suggest & vote on ideas",
@@ -2174,6 +2216,8 @@
   "sidePanelClipboardHistoryTitle": "Clipboard history",
   "sidePanelClipboardHistoryEmpty": "Nothing copied yet",
   "sidePanelClipboardHistoryEmptyHint": "Anything you copy while WhisPaste is running shows up here — cleared when the app restarts.",
+  "sidePanelClipboardLockedTitle": "Locked by PIN",
+  "sidePanelClipboardLockedHint": "Copied text stays hidden while the recordings are locked. Unlock them with your PIN to see it again.",
   "sidePanelClose": "Close panel",
   "@sidePanelClose": {
     "description": "Accessibility label for the side panel's close button (screen readers)"
@@ -2185,6 +2229,7 @@
   },
   "sidePanelNoMatches": "No matches",
   "sidePanelNoMatchesHint": "Try a different search term.",
+  "sidePanelLoadFailedHint": "Close and reopen the panel to try again.",
   "settingsSmartMode": "Smart Mode",
   "settingsSmartModeSubtitle": "Local text cleanup, shortening, and translation after recording",
   "smartModeStandardPreset": "Standard preset",
@@ -2397,6 +2442,12 @@
   "settingsCudaPackErrorNetwork": "Download failed. Check your connection and try again.",
   "settingsCudaPackErrorVerification": "The download was damaged. Please try again.",
   "settingsCudaPackErrorStorage": "The pack could not be saved. Check your free disk space.",
+  "cudaEulaDialogTitle": "NVIDIA CUDA licence",
+  "cudaEulaDialogBody": "The CUDA pack contains NVIDIA components under the NVIDIA CUDA End User License Agreement (version {version}). The authoritative text is the copy in the pack (LICENSE-NVIDIA.txt); the link opens NVIDIA's current version. You need to accept it to download.",
+  "@cudaEulaDialogBody": {"placeholders": {"version": {"type": "String"}}},
+  "cudaEulaDialogLink": "Open the licence on NVIDIA",
+  "cudaEulaDialogCancel": "Cancel",
+  "cudaEulaDialogAccept": "Accept and download",
   "recoveryCudaDisabledToast": "CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, recording works as usual.",
   "supportPromptSnooze": "Don't ask for 90 days",
   "supportPayPalLabel": "PayPal",
@@ -2833,6 +2884,9 @@
   "dictionaryCsvReasonReplacementTooLong": "The replacement text is too long.",
   "dictionaryCsvReasonUnknownMatchMode": "Match mode must be exact or fuzzy.",
   "dictionaryCsvReasonInvalidThreshold": "The threshold must be strict, standard, tolerant or a number from 0.5 to 1.",
+  "dictionaryCsvReasonControlCharacter": "The line contains a control or hidden formatting character, or a line break.",
+  "dictionaryCsvReasonTooManyTriggers": "Too many trigger phrases in one line (at most {max}).",
+  "@dictionaryCsvReasonTooManyTriggers": {"placeholders": {"max": {"type": "int"}}},
   "dictionaryCsvPreviewTitle": "Check the entries",
   "dictionaryDuplicateBadge": "Duplicate",
   "dictionaryDuplicateHint": "Another entry uses the same trigger. The entry listed first applies.",
@@ -2850,10 +2904,39 @@
   "dictionaryCsvPreviewIntro": "Entries marked “will be added” go into your list. Existing entries stay as they are.",
   "dictionaryCsvPreviewAddCount": "Add {count} entries",
   "@dictionaryCsvPreviewAddCount": {"placeholders": {"count": {"type": "int"}}},
-  "dictionaryCsvSkippedDuplicates": "{count} duplicates are skipped.",
-  "@dictionaryCsvSkippedDuplicates": {"placeholders": {"count": {"type": "int"}}},
+  "dictionaryCsvImportEncodingError": "The file is not UTF-8 text.",
+  "dictionaryCsvRefusedFormat": "This file uses a package format this app cannot read.",
+  "dictionaryCsvRefusedType": "This file is not a replacement dictionary package.",
+  "dictionaryCsvPackageHeader": "Package: {name} (created {date})",
+  "@dictionaryCsvPackageHeader": {"placeholders": {"name": {"type": "String"}, "date": {"type": "String"}}},
+  "dictionaryCsvPackageNone": "No package info (older or foreign file)",
+  "dictionaryCsvSummaryLine": "New: {added} · Duplicates: {duplicates} · Conflicts: {conflicts} · Circular references: {circular} · Invalid: {errors}",
+  "@dictionaryCsvSummaryLine": {"placeholders": {"added": {"type": "int"}, "duplicates": {"type": "int"}, "conflicts": {"type": "int"}, "circular": {"type": "int"}, "errors": {"type": "int"}}},
+  "dictionaryCsvStrategyLabel": "When a trigger already exists",
+  "dictionaryCsvStrategySkip": "Skip",
+  "dictionaryCsvStrategyOverwrite": "Overwrite",
+  "dictionaryCsvStrategyKeepBoth": "Keep both",
+  "dictionaryCsvStrategySkipHint": "The row is not imported. Existing entries stay unchanged.",
+  "dictionaryCsvStrategyOverwriteHint": "The shared trigger is removed from the old entry and the row is added. {changed} existing entries change or are deleted.",
+  "@dictionaryCsvStrategyOverwriteHint": {"placeholders": {"changed": {"type": "int"}}},
+  "dictionaryCsvStrategyKeepBothHint": "The row is added as well. For the same trigger, the existing entry that comes first in the list still applies.",
+  "dictionaryCsvStatusAdded": "will be added",
+  "dictionaryCsvStatusDuplicate": "already present",
+  "dictionaryCsvStatusConflictSkipped": "conflict, skipped",
+  "dictionaryCsvStatusConflictReplaced": "conflict, replaces the existing trigger",
+  "dictionaryCsvStatusConflictKept": "conflict, added alongside",
+  "dictionaryCsvStatusSuperseded": "replaced by a later row in this file",
+  "dictionaryCsvStatusCircular": "circular reference, not imported",
   "dictionaryCsvRowWillAdd": "Will be added",
   "dictionaryCsvRowSkipped": "Duplicate, skipped",
+  "dictionaryCsvExportSelectTitle": "Choose entries to export",
+  "dictionaryCsvExportSelectSubtitle": "{count} entries to choose from",
+  "@dictionaryCsvExportSelectSubtitle": {"placeholders": {"count": {"type": "int"}}},
+  "dictionaryCsvAllPresent": "All entries are already present. Nothing will be written.",
+  "dictionaryCsvExportConfirm": "Export ({count})",
+  "@dictionaryCsvExportConfirm": {"placeholders": {"count": {"type": "int"}}},
+  "dictionaryCsvExportTooMany": "Too many entries for one file: {count}. Choose fewer (at most 5000 entries, 1 MiB).",
+  "@dictionaryCsvExportTooMany": {"placeholders": {"count": {"type": "int"}}},
   "settingsBetaGroupHeading": "Pre-releases",
   "analyticsWordingTitle": "Wording",
   "analyticsWordingPanelTitle": "Words: raw vs. revised",
@@ -3065,7 +3148,7 @@
   "manualC02S3B1": "The dock at the bottom of the main window shows the current state. While recording, the main button changes to “Stop recording”, and the status area shows the current step. The dock is always there and cannot be turned off.",
   "manualC02S3B3": "In a narrow window, the dock moves less important controls into the “More” menu, including the hotkey, the Auto-Paste hint, and the update notice. Everything stays reachable there.",
   "manualC02S3B2I1": "“Recording overlay” set to “Floating (always visible)”: a small waveform overlay above all programs. Default: off.",
-  "manualC02S3B2I2": "“Floating button”: a button above all windows that you click to record. Default: off.",
+  "manualC02S3B2I2": "“Floating button”: a button you click to record. Default: off. On Linux under Wayland, the desktop may limit its position and whether it stays on top.",
   "manualC02S4Heading": "Pasting after recording",
   "manualC02S4B1": "Under “After transcription”, choose what happens after each recording:",
   "manualC02S4B2I1": "“Copy to clipboard” (default): the text goes to the clipboard, and you paste it yourself.",
@@ -3139,6 +3222,7 @@
   "manualC05S2B1I3": "Tolerance (strict, standard, or tolerant): set per entry, not for all entries at once.",
   "manualC05S3Heading": "Import and export (CSV)",
   "manualC05S3B1": "You can back up or transfer your replacements as a CSV file. The file has the columns {k1}. Separate several trigger phrases with {k2}. A file can be at most {k3} and {k4} lines.",
+  "manualC05S3B2": "Import and export are in the More menu (⋯) above the list. The try-it field opens from the same menu.",
   "@manualC05S3B1": {
     "placeholders": {
       "k1": {
@@ -3222,6 +3306,7 @@
   "manualC08S5Heading": "PIN protection",
   "manualC08S5B1": "With “PIN protection”, a PIN is required before recordings are shown. This also applies to the side panel, the menu of the floating button, and the automation API. The PIN keeps others from casually viewing your transcriptions, but it does not encrypt them. Notes are locked the same way.",
   "manualC08S5B2": "A forgotten PIN cannot be recovered. To reset it, all transcriptions and saved audio files (including archive and trash), all notes with their versions, and all note images are deleted immediately. Settings, snippets, and replacements are kept.",
+  "manualC08S5B3": "While the recordings are locked by a PIN, the clipboard tab in the side panel shows no copied text and pastes none. Copied text comes back once you unlock them.",
   "manualC08S6Heading": "Automatic emptying",
   "manualC08S6B1": "Under “Auto-delete trash after”, set how long deleted entries stay in the trash before they are removed automatically.",
   "manualC09Title": "Importing audio files",
@@ -3327,6 +3412,7 @@
   "manualC13S3B1": "The CUDA pack is an optional add-on for NVIDIA cards, per the app for {k1} and {k2}. It is available for {k3} and {k4} (x64). Turn it on under {k5}.",
   "@manualC13S3B1": {"placeholders": {"k1": {"type": "String"}, "k2": {"type": "String"}, "k3": {"type": "String"}, "k4": {"type": "String"}, "k5": {"type": "String"}}},
   "manualC13S3B2": "The download is one-time. The app shows its size.",
+  "manualC13S3B3": "The pack contains NVIDIA components. Before the download, you accept NVIDIA's CUDA licence agreement, which the dialog links to.",
   "manualC13S4Heading": "Graphics acceleration",
   "manualC13S4B1": "Under {k1}, choose whether WhisPaste uses the graphics card. Processor only is usually slower.",
   "@manualC13S4B1": {"placeholders": {"k1": {"type": "String"}}},
@@ -3376,9 +3462,9 @@
   "@manualC14S15B1": {
     "description": "Explains that auto-paste on Linux uses a virtual input device (uinput), and what to check when it does not work."
   },
-  "manualC14S15B2": "On this system, no setup is needed. WhisPaste pastes the text at the cursor after each recording.",
+  "manualC14S15B2": "The .deb package grants no access when it is installed. Auto-paste asks first: in the setup or under Settings → After transcription, choose “Allow (administrator password)” and enter your administrator password. While the permission is in place, other programs in your session can create key presses too. “Remove permission” takes it back at any time; uninstalling removes it as well.",
   "@manualC14S15B2": {
-    "description": "Shown when the current Linux system needs no extra setup for auto-paste."
+    "description": "The .deb flow (R-02): nothing is granted on install; the user allows /dev/uinput in the app with the administrator password and can remove it again."
   },
   "manualC14S15B3": "The Flatpak build gives the app access to the system's input devices so that auto-paste can work. WhisPaste itself does not read input devices.",
   "@manualC14S15B3": {
@@ -3388,9 +3474,9 @@
   "@manualC14S15B4": {
     "description": "Lead-in before the Snap command; the command itself follows in its own copyable block."
   },
-  "manualC14S15B5": "The AppImage needs access to /dev/uinput. Either install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/, or add your user to the input group and sign in again. Until then, auto-paste only copies the text.",
+  "manualC14S15B5": "The AppImage needs access to /dev/uinput. In the setup or in the settings, copy the command and run it once in a terminal. It installs the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/, which gives write access only to the signed-in session. Until then, auto-paste only copies the text.",
   "@manualC14S15B5": {
-    "description": "AppImage setup options (udev rule or input group) and what happens until setup is done."
+    "description": "AppImage setup: the copied udev command (session access only) and what happens until setup is done."
   },
   "manualC14S15TerminalHeading": "Terminals and Wayland",
   "@manualC14S15TerminalHeading": {"description": "Handbook troubleshooting heading: terminal paste shortcut under Wayland."},
@@ -3447,9 +3533,9 @@
     "description": "Confirmation toast after a command has been copied to the clipboard."
   },
   "manualCodeCopyFailed": "Could not copy. Select the command and copy it by hand.",
-  "manualC14S15B3E": "The rule gives write access to the logged-in user and to every member of the input group. These commands need administrator rights (sudo) and change the system. If you do not want this, leave auto-paste off and paste the text by hand.",
+  "manualC14S15B3E": "The rule gives write access only to the signed-in session. These commands need administrator rights (sudo) and change the system. If you do not want this, leave auto-paste off and paste the text by hand. To remove the rule, use the button in the settings that copies the matching command.",
   "@manualC14S15B3E": {
-    "description": "Warning that the udev rule gives write access to the logged-in user and the input group, and that the commands need administrator rights."
+    "description": "Warning that the udev rule gives write access to the signed-in session only, that the commands need administrator rights, and how to remove the rule."
   },
   "manualC14S15SnapHeading": "Snap",
   "@manualC14S15SnapHeading": {
@@ -3561,10 +3647,18 @@
   "permissionRowOptional": "Optional",
   "autostartApprovalBody": "macOS is waiting for your approval: WhisPaste only starts at login once you switch it on under Login Items.",
   "autostartApprovalAction": "Open Login Items",
-  "pasteFailureLinuxUinputHint": "Auto-paste needs one-time access to /dev/uinput. Copy the command and run it in a terminal.",
+  "pasteFailureLinuxUinputHint": "Auto-paste needs your one-time permission for the virtual keyboard (/dev/uinput).",
   "pasteFailureLinuxUinputCopy": "Copy command",
   "pasteFailureLinuxNoDeviceHint": "Auto-paste is not available on this system: there is no virtual keyboard device.",
   "pasteFailureLinuxUinputSettingsHint": "Auto-paste needs one-time access to /dev/uinput. Open the Auto-Paste settings for the one-time setup.",
+  "linuxUinputConsentNotice": "Auto-paste now asks before it uses the virtual keyboard /dev/uinput, so this update removed the old access. The text is on the clipboard, paste it with {paste}. Click here to allow it.",
+  "@linuxUinputConsentNotice": {"description": "Notification after a .deb upgrade removed the install-time /dev/uinput access (R-02); shown once, on the first blocked paste.", "placeholders": {"paste": {"type": "String"}}},
+  "linuxUinputSetupAction": "Set up",
+  "linuxUinputConsentDetail": "To paste the text itself, WhisPaste needs a virtual keyboard. While it is allowed, other programs in your session can create key presses too. Without it, WhisPaste copies the text and you paste it yourself.",
+  "linuxUinputGrantButton": "Allow (administrator password)",
+  "linuxUinputGrantFailed": "Allowing did not work. WhisPaste keeps copying the text only.",
+  "linuxUinputRevokeButton": "Remove permission",
+  "linuxUinputRevokeDone": "Permission removed. WhisPaste now only copies the text.",
   "settingsSecureKeysNotRemoved": "API keys could not be fully removed.",
   "@smartModeOnboardingHintBody": {
     "placeholders": {
@@ -3839,5 +3933,121 @@
   "holdToRecordExplained": "On: hold the hotkey and speak, release to finish. Off: press once to start, press again to finish.",
   "@holdToRecordExplained": {
     "description": "Fixed subtitle of the Hold-to-record switch (onboarding and Settings): explains both states, so it never reads as contradicting the title (UIA-XP-7-12)."
-  }
+  },
+  "settingsAreaProfiles": "Profiles",
+  "profilesSectionHeading": "Your profiles",
+  "profilesEmptyBody": "Profiles switch the speech model, language, Smart Mode and the after-transcription action with a hotkey, or automatically per app.",
+  "profilesAddFirst": "Create first profile",
+  "profilesAdd": "Create profile",
+  "profilesCreate": "Create",
+  "profilesLimitReached": "At most 9 profiles. Delete one to create another.",
+  "profilesActiveBadge": "Active",
+  "profilesMoveUp": "Move up",
+  "profilesMoveDown": "Move down",
+  "profilesDragHandle": "Drag to reorder",
+  "profilesNewTitle": "New profile",
+  "profilesNameLabel": "Name",
+  "profilesNameEmpty": "Enter a name.",
+  "profileDetailHeading": "Profile settings",
+  "profileDetailModel": "Speech model",
+  "profileDetailLanguage": "Language",
+  "profileDetailLanguageSubtitle": "Applies to Whisper and cloud services. Parakeet detects the language itself.",
+  "profileDetailSmartMode": "Smart Mode",
+  "profileDetailAfter": "After transcription",
+  "profileDetailMicrophone": "Microphone",
+  "profileKeepUnchanged": "Leave unchanged",
+  "profileValueUnavailable": "{value} (unavailable)",
+  "@profileValueUnavailable": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "profileDetailHotkey": "Hotkey",
+  "profileDetailHotkeySubtitle": "Switches to this profile with this key press.",
+  "profileHotkeyNone": "No hotkey",
+  "profileHotkeyChange": "Set hotkey",
+  "profileHotkeyRemove": "Remove hotkey",
+  "profileHotkeyNeedsModifier": "A profile hotkey needs at least one modifier key, such as Ctrl, Alt, Shift or Command.",
+  "profileHotkeyTakenByApp": "Already used by “{action}”. The hotkey is not active.",
+  "@profileHotkeyTakenByApp": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "profileHotkeyTakenByProfile": "Already used by the profile “{name}”. The hotkey is not active.",
+  "@profileHotkeyTakenByProfile": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileDetailApps": "Target apps",
+  "profileDetailAppsSubtitle": "When one of these apps is in front while you dictate, the profile becomes active automatically.",
+  "profileAppIdentifierLabel": "App identifier",
+  "profileAppAdd": "Add",
+  "profileAppHintMac": "macOS: bundle ID, e.g. com.apple.mail",
+  "profileAppHintWindows": "Windows: program name without .exe, e.g. chrome",
+  "profileAppHintLinux": "Linux: window WM_CLASS, e.g. google-chrome. Not detectable under Wayland.",
+  "profileAppClash": "This app already belongs to the profile “{name}”.",
+  "@profileAppClash": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileAppEmpty": "No app assigned yet.",
+  "profileAppRemove": "Remove app rule",
+  "profileDetailContext": "Read context",
+  "profileDetailContextSubtitle": "Optionally reads the selected text or the clipboard so processing fits. With cloud services only with your consent.",
+  "profileContextNone": "Read nothing",
+  "profileContextSelection": "Selected text",
+  "profileContextClipboard": "Clipboard",
+  "profileConsentGiven": "Consent given",
+  "profileConsentMissing": "Consent missing, so no context is read",
+  "profileConsentWithdraw": "Withdraw consent",
+  "profileConsentTitle": "Send context to a cloud service?",
+  "profileConsentBody": "When this profile is active, the selected text or the clipboard contents of the target window are sent to the cloud provider named in this profile, only to refine this recording. You can withdraw this consent at any time in the profile settings.",
+  "profileConsentAccept": "Consent",
+  "profileDeleteAction": "Delete profile",
+  "profileDeleteTitle": "Delete profile “{name}”?",
+  "@profileDeleteTitle": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileDeleteMessage": "The profile and its target apps are removed. Its hotkey becomes free.",
+  "manualProfilesTitle": "Profiles and quick switching",
+  "manualProfilesS1Heading": "Creating profiles",
+  "manualProfilesS1Body": "A profile is a named set of recording settings. Create it under Settings → Profiles and decide for each field whether the profile sets it or leaves it unchanged.",
+  "manualProfilesS1B1": "Speech model, language, Smart Mode, after-transcription action and microphone",
+  "manualProfilesS1B2": "Up to 9 profiles. Every field can be set to “Leave unchanged”.",
+  "manualProfilesS2Heading": "Hotkeys",
+  "manualProfilesS2Body": "Each profile can have its own hotkey. Pressing it activates the profile, and it stays active until you choose another one or change one of its fields by hand.",
+  "manualProfilesS2Tip": "A hotkey needs a modifier key. A combination that another feature already uses stays inactive, and the profile shows it as a conflict.",
+  "manualProfilesS3Heading": "Automatic per app",
+  "manualProfilesS3Body": "If you add an app under target apps, the profile becomes active whenever that app is in front while you dictate. The identifier depends on the operating system:",
+  "manualProfilesS3Mac": "macOS: bundle ID, for example com.apple.mail",
+  "manualProfilesS3Win": "Windows: program name without .exe, for example chrome",
+  "manualProfilesS3Linux": "Linux: window WM_CLASS under X11, for example google-chrome. Under Wayland WhisPaste cannot detect the app.",
+  "manualProfilesS4Heading": "Tray and overlay",
+  "manualProfilesS4Body": "The tray menu has a Profile submenu: “Automatic, by app” follows the rules, “No profile” switches them off, and your profiles are listed below. In the recording overlay, the name of the active profile follows the time and language, for example 0:07 · DE · Mail.",
+  "manualProfilesS5Heading": "Leave unchanged",
+  "manualProfilesS5Body": "“Leave unchanged” means the profile does not touch this field. The value currently set in Settings applies.",
+  "manualProfilesS6Heading": "What a manual change does",
+  "manualProfilesS6Body": "If you choose a profile in the tray or press its hotkey, it applies to all following recordings. If you then change a field the profile sets, such as the speech model, the active marker ends and the per-app rules decide again. The choice survives a restart.",
+  "profileAppCapture": "Capture app",
+  "profileAppCaptureCountdown": "Switch to the target app in {seconds} s …",
+  "@profileAppCaptureCountdown": {"placeholders": {"seconds": {"type": "int"}}},
+  "profileAppCaptured": "“{identifier}” was added as target app.",
+  "@profileAppCaptured": {"placeholders": {"identifier": {}}},
+  "profileAppCaptureNone": "No other app is in front. Switch to the target app before the countdown ends.",
+  "profileAppCaptureUnavailable": "This session cannot read the app in front (for example Wayland). Enter the identifier by hand."
 }

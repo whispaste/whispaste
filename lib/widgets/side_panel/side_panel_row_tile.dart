@@ -7,26 +7,33 @@ import '../../core/theme/tokens.dart';
 import '../../services/side_panel/side_panel_snapshot.dart';
 import '../wp_focus_ring.dart';
 import '../wp_list_tile_surface.dart';
+import 'side_panel_focus_tooltip.dart';
 
-/// One row of the side panel -- click-to-insert, a leading glyph disc in the
-/// main window's avatar material, single-line bold title with an optional
-/// muted subtitle, or a small thumbnail for [SidePanelRowKind.image] rows.
-/// Mirrors the hover-tracking pattern used by `HistoryEntryRow`, kept far
-/// simpler here: the panel only ever renders pre-resolved strings, no
-/// derived-field memoization needed.
+/// One row of the side panel -- click-to-insert, a single-tone kind icon, a
+/// single-line bold title with an optional muted subtitle, or a small
+/// thumbnail for [SidePanelRowKind.image] rows. Rows carry no per-entry color:
+/// the icon says what kind of row it is, not which entry it is. Mirrors the
+/// hover-tracking pattern used by `HistoryEntryRow`, kept far simpler here:
+/// the panel only ever renders pre-resolved strings, no derived-field
+/// memoization needed.
 class WpSidePanelRowTile extends StatefulWidget {
   const WpSidePanelRowTile({
     super.key,
     required this.row,
     required this.leadingIcon,
+    required this.kindLabel,
     required this.onTap,
     this.onDragStart,
   });
 
   final SidePanelRow row;
 
-  /// Glyph of the section this row belongs to -- the disc says what *kind*
-  /// of thing the row is, the way the main window's entry avatar does.
+  /// Localized section name ("Transcriptions", ...), spoken before the title
+  /// so a screen reader says what kind of row it is.
+  final String kindLabel;
+
+  /// Glyph of the section this row belongs to -- it says what *kind* of
+  /// thing the row is, in one tone for every row.
   final IconData leadingIcon;
 
   final VoidCallback onTap;
@@ -55,6 +62,39 @@ class WpSidePanelRowTile extends StatefulWidget {
 
 class _WpSidePanelRowTileState extends State<WpSidePanelRowTile> {
   bool _isHovered = false;
+
+  /// Set during layout: whether the title or subtitle is cut off. Read by
+  /// [WpSidePanelFocusTooltip] on focus changes.
+  bool _labelTruncated = false;
+
+  TextStyle get _titleStyle => TextStyle(
+    color: WpColors.textPrimary,
+    fontSize: WpTypography.body,
+    fontWeight: FontWeight.w600,
+  );
+  TextStyle get _subtitleStyle =>
+      TextStyle(color: WpColors.textMuted, fontSize: WpTypography.caption);
+
+  bool _measureTruncated(BuildContext context, double maxWidth) {
+    final scaler = MediaQuery.textScalerOf(context);
+    final title = isOneLineTruncated(
+      context,
+      text: widget.row.title,
+      style: _titleStyle,
+      textScaler: scaler,
+      maxWidth: maxWidth,
+    );
+    if (widget.row.subtitle.isEmpty) return title;
+    return title ||
+        isOneLineTruncated(
+          context,
+          text: widget.row.subtitle,
+          style: _subtitleStyle,
+          textScaler: scaler,
+          maxWidth: maxWidth,
+        );
+  }
+
   final FocusNode _focusNode = FocusNode(debugLabel: 'WpSidePanelRowTile');
 
   @override
@@ -77,94 +117,104 @@ class _WpSidePanelRowTileState extends State<WpSidePanelRowTile> {
   @override
   Widget build(BuildContext context) {
     final row = widget.row;
+    final spoken = row.subtitle.isEmpty
+        ? row.title
+        : '${row.title}, ${row.subtitle}';
     return Semantics(
+      identifier: 'side-panel-row-${row.id}',
       button: true,
-      label: row.subtitle.isEmpty ? row.title : '${row.title}, ${row.subtitle}',
+      label: '${widget.kindLabel}, $spoken',
       child: ExcludeSemantics(
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _isHovered = true),
           onExit: (_) => setState(() => _isHovered = false),
-          child: WpFocusRing(
+          child: WpSidePanelFocusTooltip(
+            message: widget.row.subtitle.isEmpty
+                ? widget.row.title
+                : '${widget.row.title}\n${widget.row.subtitle}',
             focusNode: _focusNode,
-            radius: WpRadius.lg,
-            child: GestureDetector(
-              onHorizontalDragStart: widget.onDragStart == null
-                  ? null
-                  : (_) => widget.onDragStart!(),
-              child: InkWell(
-                onTap: widget.onTap,
-                focusNode: _focusNode,
-                borderRadius: WpRadius.borderLg,
-                // WpListTileSurface handles all hover/focus/tap styling.
-                // Suppress InkWell's default visual feedback.
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                child: WpListTileSurface(
-                  variant: WpListTileVariant.panel,
-                  isHovered: _isHovered,
-                  isFocused: _focusNode.hasFocus,
-                  child: Row(
-                    children: [
-                      if (row.kind == SidePanelRowKind.image &&
-                          row.imageBytes != null)
-                        Padding(
-                          padding: const EdgeInsets.only(right: WpSpacing.sm),
-                          child: ClipRRect(
-                            borderRadius: WpRadius.borderSm,
-                            child: Image.memory(
-                              Uint8List.fromList(row.imageBytes!),
-                              width: _RowGlyphDisc.size,
-                              height: _RowGlyphDisc.size,
-                              fit: BoxFit.cover,
-                              // The enclosing Semantics(label: ...) already names
-                              // this row; the thumbnail itself carries no extra
-                              // information for screen readers.
-                              excludeFromSemantics: true,
-                            ),
-                          ),
-                        )
-                      else
-                        Padding(
-                          padding: const EdgeInsets.only(right: WpSpacing.sm),
-                          child: _RowGlyphDisc(
-                            icon: widget.leadingIcon,
-                            colorSlot: row.colorSlot,
-                          ),
-                        ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              row.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: WpColors.textPrimary,
-                                fontSize: WpTypography.body,
-                                fontWeight: FontWeight.w600,
+            isTruncated: () => _labelTruncated,
+            showOnHover: false,
+            child: WpFocusRing(
+              focusNode: _focusNode,
+              radius: WpRadius.lg,
+              child: GestureDetector(
+                onHorizontalDragStart: widget.onDragStart == null
+                    ? null
+                    : (_) => widget.onDragStart!(),
+                child: InkWell(
+                  onTap: widget.onTap,
+                  focusNode: _focusNode,
+                  borderRadius: WpRadius.borderLg,
+                  // WpListTileSurface handles all hover/focus/tap styling.
+                  // Suppress InkWell's default visual feedback.
+                  focusColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  child: WpListTileSurface(
+                    variant: WpListTileVariant.panel,
+                    isHovered: _isHovered,
+                    isFocused: _focusNode.hasFocus,
+                    child: Row(
+                      children: [
+                        if (row.kind == SidePanelRowKind.image &&
+                            row.imageBytes != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: WpSpacing.sm),
+                            child: ClipRRect(
+                              borderRadius: WpRadius.borderSm,
+                              child: Image.memory(
+                                Uint8List.fromList(row.imageBytes!),
+                                width: _RowKindGlyph.size,
+                                height: _RowKindGlyph.size,
+                                fit: BoxFit.cover,
+                                // The enclosing Semantics(label: ...) already names
+                                // this row; the thumbnail itself carries no extra
+                                // information for screen readers.
+                                excludeFromSemantics: true,
                               ),
                             ),
-                            if (row.subtitle.isNotEmpty) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                row.subtitle,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: WpColors.textMuted,
-                                  fontSize: WpTypography.caption,
-                                ),
-                              ),
-                            ],
-                          ],
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.only(right: WpSpacing.sm),
+                            child: _RowKindGlyph(icon: widget.leadingIcon),
+                          ),
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, box) {
+                              _labelTruncated = _measureTruncated(
+                                context,
+                                box.maxWidth,
+                              );
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    row.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: _titleStyle,
+                                  ),
+                                  if (row.subtitle.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      row.subtitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: _subtitleStyle,
+                                    ),
+                                  ],
+                                ],
+                              );
+                            },
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -176,46 +226,23 @@ class _WpSidePanelRowTileState extends State<WpSidePanelRowTile> {
   }
 }
 
-/// Scaled-down sibling of the main window's `HistoryEntryAvatar`: the same
-/// disc material ([WpAvatarTint.dark] gradient, hue-tinted rim, lifted
-/// glyph), sized for a dense quick-paste row.
-///
-/// Tinted from [colorSlot] when the row has one -- an index into
-/// `WpCategorySlot.categories`, the same persisted slot the main window's
-/// `HistoryEntryAvatar` reads, so a transcription's disc here matches the
-/// same entry's avatar there. Falls back to [WpCategorySlot.neutral] for row
-/// kinds with no persisted slot (snippets, clipboard history) and for any
-/// out-of-range value, rather than hashing one: a hashed hue here would
-/// disagree with the color the same entry wears in the main window.
-class _RowGlyphDisc extends StatelessWidget {
-  const _RowGlyphDisc({required this.icon, this.colorSlot});
+/// The row's kind glyph: one neutral tone for every row, no per-entry tint.
+/// Random or per-entry colors read as noise next to the text, so the kind
+/// is carried by the icon alone.
+class _RowKindGlyph extends StatelessWidget {
+  const _RowKindGlyph({required this.icon});
 
   final IconData icon;
-  final int? colorSlot;
 
   static const double size = 28;
 
   @override
   Widget build(BuildContext context) {
-    final tint = WpAvatarTint.current;
-    final slot = colorSlot;
-    const categories = WpCategorySlot.categories;
-    final resolvedSlot = (slot != null && slot >= 0 && slot < categories.length)
-        ? categories[slot]
-        : WpCategorySlot.neutral;
-    final base = resolvedSlot.color();
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        gradient: tint.discGradient(base),
-        shape: BoxShape.circle,
-        border: Border.all(color: tint.edge(base), width: 1),
-      ),
-      child: Icon(
-        icon,
-        size: (size * 0.44).roundToDouble(),
-        color: tint.glyph(base),
+      child: Center(
+        child: Icon(icon, size: WpIconSize.md, color: WpColors.textMuted),
       ),
     );
   }

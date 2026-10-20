@@ -124,6 +124,7 @@ const Map<String, List<String>> _legacySectionRows = {
     'advanced-onboarding-again',
     'advanced-feature-spotlights',
     'advanced-review',
+    'advanced-github-star',
     'advanced-ideas',
   ],
   'automationApi': [

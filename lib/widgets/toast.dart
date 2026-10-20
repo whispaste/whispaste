@@ -172,6 +172,7 @@ class WpToast {
     WpToastAction? action,
     Widget? body,
     String? messageTestId,
+    String? testId,
     VoidCallback? onDismissed,
   }) {
     // The bundled [WpToastAction] is the canonical surface — fall back to
@@ -287,6 +288,7 @@ class WpToast {
           onFocus: (value) => timer.focus(value),
           body: body,
           messageTestId: messageTestId,
+          testId: testId,
         );
         if (openPopups == null) return toast;
         return ValueListenableBuilder<int>(
@@ -406,6 +408,7 @@ class _WpToastOverlay extends StatelessWidget {
     this.actionTestId,
     this.body,
     this.messageTestId,
+    this.testId,
   });
 
   final String message;
@@ -425,6 +428,9 @@ class _WpToastOverlay extends StatelessWidget {
 
   /// Replaces the icon and message line; see [WpToast.show].
   final Widget? body;
+
+  /// Stable id of the whole card (`ValueKey`), for tests and journeys.
+  final String? testId;
 
   @override
   Widget build(BuildContext context) {
@@ -466,6 +472,7 @@ class _WpToastOverlay extends StatelessWidget {
                   actionTestId: actionTestId,
                   body: body,
                   messageTestId: messageTestId,
+                  testId: testId,
                 ),
               ),
             ),
@@ -486,6 +493,7 @@ class _ToastCard extends StatelessWidget {
     this.actionTestId,
     this.body,
     this.messageTestId,
+    this.testId,
   });
 
   final String message;
@@ -496,6 +504,9 @@ class _ToastCard extends StatelessWidget {
   final VoidCallback? onAction;
   final String? actionTestId;
   final Widget? body;
+
+  /// Stable id of the whole card (`ValueKey`), for tests and journeys.
+  final String? testId;
 
   /// From this text scale on the action and close buttons move under the
   /// message instead of beside it (UX-050). Beside it they leave the message a
@@ -654,6 +665,10 @@ class _ToastCard extends StatelessWidget {
         (hasAction && _crowdedBesideAction(context, message, messageStyle));
 
     return Semantics(
+      key: switch (testId) {
+        final id? => ValueKey<String>(id),
+        null => null,
+      },
       // Not a liveRegion: WpToast.show() already calls sendAnnouncement()
       // explicitly once, precisely when the toast is inserted — combining
       // that with liveRegion risks a double announcement (liveRegion fires

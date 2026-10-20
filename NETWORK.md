@@ -54,6 +54,13 @@ the background.
   API, directly from your machine.
 - Crash reports, usage statistics and update checks can each be switched off
   independently; the feedback form is only used when you submit it.
+- Clipboard content never leaves your machine. The app reads it only to paste
+  a dictation and put back what was on the clipboard before, and for the
+  clipboard history, which is held in memory only. It is not stored on disk
+  and not part of any connection listed above. WhisPaste does not write
+  dictation or clipboard content to the log. Where an error message could
+  contain such content, only the error type is logged; every log line is
+  also stripped of paths and secrets.
 
 See [`SECURITY.md`](./SECURITY.md) for how these connections are secured
 (HTTPS-only, no plaintext fallbacks) and how to report a vulnerability.

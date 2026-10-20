@@ -11,6 +11,7 @@ export '../../core/navigation/help_target.dart';
 HelpTab helpTabForRow(String rowId) => switch (rowId) {
   'advanced-onboarding-again' || 'advanced-feature-spotlights' => HelpTab.intro,
   'advanced-review' ||
+  'advanced-github-star' ||
   'advanced-ideas' ||
   'general-sponsor-chip' => HelpTab.support,
   'help-diagnostics' ||

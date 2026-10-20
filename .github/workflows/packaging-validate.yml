@@ -312,6 +312,9 @@ jobs:
             echo "  ✓ $s syntax OK"
           done
 
+      - name: .deb grants no uinput access before consent (R-02)
+        run: bash test/scripts/deb_uinput_consent_test.sh
+
       - name: Validate .deb control metadata
         run: |
           CTRL="packaging/deb/control.template"

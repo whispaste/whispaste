@@ -87,6 +87,9 @@ class AppMatchRule {
   int get hashCode => Object.hash(identifier, teamId);
 }
 
+/// Marks a [AppProfile.copyWith] argument that was not passed.
+const _unset = Object();
+
 /// One profile. Immutable; the editor builds a new instance on every save.
 class AppProfile {
   const AppProfile({
@@ -144,6 +147,49 @@ class AppProfile {
 
   /// Whether a hotkey is set (both parts are needed to register one).
   bool get hasHotkey => (hotkeyKey ?? '').isNotEmpty;
+
+  /// A copy with the given fields replaced. A nullable field is cleared by
+  /// passing `null` explicitly; leaving it out keeps the current value.
+  AppProfile copyWith({
+    String? name,
+    List<AppMatchRule>? rules,
+    AppProfileSmartMode? smartMode,
+    Object? asrLanguage = _unset,
+    Object? modelId = _unset,
+    AppProfileContextSource? contextSource,
+    Object? consent = _unset,
+    Object? hotkeyKey = _unset,
+    Object? hotkeyModifiers = _unset,
+    Object? afterTranscription = _unset,
+    Object? microphone = _unset,
+  }) {
+    return AppProfile(
+      id: id,
+      name: name ?? this.name,
+      rules: rules ?? this.rules,
+      smartMode: smartMode ?? this.smartMode,
+      asrLanguage: identical(asrLanguage, _unset)
+          ? this.asrLanguage
+          : asrLanguage as String?,
+      modelId: identical(modelId, _unset) ? this.modelId : modelId as String?,
+      contextSource: contextSource ?? this.contextSource,
+      consent: identical(consent, _unset)
+          ? this.consent
+          : consent as AppProfileConsent?,
+      hotkeyKey: identical(hotkeyKey, _unset)
+          ? this.hotkeyKey
+          : hotkeyKey as String?,
+      hotkeyModifiers: identical(hotkeyModifiers, _unset)
+          ? this.hotkeyModifiers
+          : hotkeyModifiers as String?,
+      afterTranscription: identical(afterTranscription, _unset)
+          ? this.afterTranscription
+          : afterTranscription as String?,
+      microphone: identical(microphone, _unset)
+          ? this.microphone
+          : microphone as String?,
+    );
+  }
 
   @override
   bool operator ==(Object other) {

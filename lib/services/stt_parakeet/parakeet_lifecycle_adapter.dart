@@ -35,6 +35,9 @@ class ParakeetEngineLifecycleAdapter implements OnDeviceEngineLifecycle {
   @override
   Future<void> stop() => _notifier.stop();
 
+  /// Quit path, see [ParakeetEngineNotifier.stopForQuit].
+  Future<void> stopForQuit() => _notifier.stopForQuit();
+
   // Parakeet has no idle-shutdown timer yet (Phase 1 scope, see
   // parakeet_transcriber.dart) — the worker isolate stays warm regardless of
   // recording activity, so these are no-ops rather than missing behavior.

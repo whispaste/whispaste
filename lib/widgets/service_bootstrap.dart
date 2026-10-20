@@ -28,6 +28,8 @@ import '../core/recording/recording_state.dart'
 import '../services/audio/import/audio_import_providers.dart';
 import '../services/autostart_service.dart';
 import '../services/clipboard_history/clipboard_history_monitor_service.dart';
+import '../services/feedback_consent_store.dart';
+import '../services/feedback_submission_service.dart';
 import '../services/floating_button/floating_button_service.dart';
 import '../services/floating_overlay/floating_overlay_service.dart';
 import '../services/hotkey_service.dart';
@@ -168,6 +170,12 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     // Start UI thread jank detection.
     UiThreadWatchdog.instance.start();
 
+    // Withdrawals of the website-quote consent that were made offline are
+    // sent now and retried with backoff while any are pending.
+    unawaited(
+      feedbackWithdrawalRetry.kick(ref.read(feedbackSubmissionServiceProvider)),
+    );
+
     // Linux file dialogs show their title and buttons in the app language
     // and follow every language change (XP-5-13).
     if (defaultTargetPlatform == TargetPlatform.linux) {
@@ -246,6 +254,7 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     hotkeySvc.onProfileHotkeyPressed = (profileId) =>
         unawaited(ref.read(profileActivatorProvider).activateById(profileId));
     ref.read(profileHotkeySyncProvider);
+    ref.read(profileMarkerProvider);
 
     // ── Smart-Mode trigger handler (ticket 04) — push-to-talk AND toggle,
     // identical to the main hotkey's behaviour, but always forces the bound
@@ -426,6 +435,7 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
   void dispose() {
     SingleInstanceService.onRemoteCommand = null;
     UiThreadWatchdog.instance.dispose();
+    feedbackWithdrawalRetry.cancel();
     super.dispose();
   }
 

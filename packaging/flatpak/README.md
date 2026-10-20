@@ -76,8 +76,8 @@ effektiven finish-args. Offen: voller Manifest-Build und ein Suspend-Zyklus in d
 installierten App (Release-Tor unten).
 
 Auto-Paste ist im Flatpak **nicht** mehr „nicht unterstützt“: es braucht
-`--device=all` und auf dem Host die udev-Regel `71-whispaste-uinput.rules` oder
-die Gruppe `input` (Befehle mit sudo). Die Aussage dazu lautet: WhisPaste selbst
+`--device=all` und auf dem Host die udev-Regel `71-whispaste-uinput.rules`
+(Befehl mit sudo, kopierbar im Onboarding; Entscheidung 2b zu R-02). Die Aussage dazu lautet: WhisPaste selbst
 liest keine Eingabegeräte. Mit `--device=all` sind sie in der Sandbox aber
 sichtbar: Hat der Benutzer auf dem Rechner Leserechte (z. B. als Mitglied der
 Gruppe `input`), könnte die App Tastatureingaben anderer Programme lesen.
@@ -189,8 +189,7 @@ mit einem lokalen Release-Bundle von `agent-review-int1` @563ee8b25 statt des
 3. ✓ `/app/share/licenses/libXScrnSaver/COPYING` ist installiert.
 4. ✓ `/dev/uinput` und `/dev/input/*` sind in der Sandbox sichtbar.
 5. offen: Schreibzugriff auf `/dev/uinput` ist nur mit der udev-Regel auf dem
-   Host (`packaging/linux/71-whispaste-uinput.rules`) bzw. der Gruppe `input`
-   möglich. Auf dem Testhost fehlt die Gruppe; Host und Sandbox verweigern den
+   Host (`packaging/linux/71-whispaste-uinput.rules`) möglich. Auf dem Testhost fehlt die Gruppe; Host und Sandbox verweigern den
    Zugriff gleich. Der Positivfall ist noch nicht belegt.
 6. ✓ Headless-Start (`xvfb-run`, `flatpak run --socket=x11`) läuft stabil, bis
    ein Timeout ihn beendet. `crashpad_handler` startet. Er braucht das

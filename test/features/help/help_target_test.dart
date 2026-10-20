@@ -14,6 +14,7 @@ void main() {
 
   test('the rating, ideas and sponsor rows open the support tab', () {
     expect(helpTabForRow('advanced-review'), HelpTab.support);
+    expect(helpTabForRow('advanced-github-star'), HelpTab.support);
     expect(helpTabForRow('advanced-ideas'), HelpTab.support);
     expect(helpTabForRow('general-sponsor-chip'), HelpTab.support);
   });

@@ -14,7 +14,7 @@ import 'package:whispaste/features/dictionary/dictionary_csv_preview_page.dart';
 import 'package:whispaste/features/dictionary/dictionary_page.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/services/dictionary/replacement_csv.dart';
-import 'package:whispaste/services/dictionary/replacement_duplicates.dart';
+import 'package:whispaste/services/dictionary/replacement_import_plan.dart';
 import 'package:whispaste/services/replacements/correction_learning_service.dart';
 
 import 'package:whispaste/widgets/wp_favourite_star.dart';
@@ -100,16 +100,17 @@ void main() {
       expect(rows.single.row.isFavorite, isTrue);
     });
 
-    testWidgets(
-      'two entries with the same trigger is badged on the later entry only',
-      (tester) async {
-        final db = await seed([('mfg', 'Manufacturing'), ('MFG', 'Factory')]);
-        await openReplacementsTab(tester, db: db);
+    testWidgets('two entries with the same trigger are both badged', (
+      tester,
+    ) async {
+      final db = await seed([('mfg', 'Manufacturing'), ('MFG', 'Factory')]);
+      await openReplacementsTab(tester, db: db);
 
-        // The entry listed first applies, so only the later one is badged.
-        expect(find.text(l10n.dictionaryDuplicateBadge), findsOneWidget);
-      },
-    );
+      // Both collide on the same normalised trigger, so both carry the badge
+      // (see replacement_duplicates.dart). The earlier test passed only
+      // because the old 48 px list strip built just the first row.
+      expect(find.text(l10n.dictionaryDuplicateBadge), findsNWidgets(2));
+    });
   });
 
   group('suggestions tab', () {
@@ -194,18 +195,24 @@ void main() {
           ),
         ],
       );
-      List<ReplacementCsvRow>? confirmed;
+      ReplacementImportPlan? confirmed;
       await tester.pumpWidget(
         makeTestable(
           Builder(
             builder: (context) => TextButton(
               onPressed: () async {
                 confirmed = await Navigator.of(context)
-                    .push<List<ReplacementCsvRow>>(
+                    .push<ReplacementImportPlan>(
                       MaterialPageRoute(
-                        builder: (_) => DictionaryCsvPreviewPage(
+                        builder: (_) => const DictionaryCsvPreviewPage(
                           result: result,
-                          existingTriggerKeys: {normalizeTriggerKey('MFG')},
+                          existing: [
+                            ReplacementImportExisting(
+                              id: 'e1',
+                              triggers: ['MFG'],
+                              replacement: 'Anderer Text',
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -219,8 +226,11 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.dictionaryCsvRowSkipped), findsOneWidget);
-      expect(find.text(l10n.dictionaryCsvRowWillAdd), findsOneWidget);
+      expect(
+        find.text(l10n.dictionaryCsvStatusConflictSkipped),
+        findsOneWidget,
+      );
+      expect(find.text(l10n.dictionaryCsvStatusAdded), findsOneWidget);
       expect(
         find.text(
           l10n.dictionaryCsvLineError(
@@ -237,8 +247,87 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(confirmed, hasLength(1));
-      expect(confirmed!.single.replacement, 'Large');
+      expect(confirmed!.writeCount, 1);
+      expect(confirmed!.inserts.single.replacement, 'Large');
     });
+
+    testWidgets('choosing a conflict strategy updates the counts and hint', (
+      tester,
+    ) async {
+      const result = ReplacementCsvParseResult(
+        rows: [
+          ReplacementCsvRow(triggers: ['mfg'], replacement: 'Mit Grüßen'),
+        ],
+        errors: [],
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const DictionaryCsvPreviewPage(
+            result: result,
+            existing: [
+              ReplacementImportExisting(
+                id: 'e1',
+                triggers: ['mfg', 'mahlzeit'],
+                replacement: 'Gruß',
+              ),
+            ],
+          ),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Default is skip: nothing is written, so the button is disabled.
+      expect(find.text(l10n.dictionaryCsvStrategySkipHint), findsOneWidget);
+      expect(find.text(l10n.dictionaryCsvPreviewAddCount(0)), findsOneWidget);
+
+      await tester.tap(find.text(l10n.dictionaryCsvStrategyOverwrite));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(l10n.dictionaryCsvStrategyOverwriteHint(1)),
+        findsOneWidget,
+      );
+      expect(find.text(l10n.dictionaryCsvPreviewAddCount(1)), findsOneWidget);
+      expect(
+        find.text(l10n.dictionaryCsvStatusConflictReplaced),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets(
+      'a package whose entries all exist says so and writes nothing',
+      (tester) async {
+        const result = ReplacementCsvParseResult(
+          rows: [
+            ReplacementCsvRow(triggers: ['mfg'], replacement: 'Gruß'),
+          ],
+          errors: [],
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const DictionaryCsvPreviewPage(
+              result: result,
+              existing: [
+                ReplacementImportExisting(
+                  id: 'e1',
+                  triggers: ['mfg'],
+                  replacement: 'Gruß',
+                ),
+              ],
+            ),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const ValueKey('dictionary-csv-preview-all-present')),
+          findsOneWidget,
+        );
+        expect(find.text(l10n.dictionaryCsvAllPresent), findsOneWidget);
+        expect(find.text(l10n.dictionaryCsvPreviewAddCount(0)), findsOneWidget);
+      },
+    );
   });
 }

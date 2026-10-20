@@ -23,6 +23,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/widgets/wp_list_tile_surface.dart';
+import 'package:whispaste/widgets/wp_search_field.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -449,11 +450,52 @@ void main() {
     );
 
     final row = tester.getRect(cursorRow);
-    final viewport = tester.getRect(find.byType(ListView));
+    final viewport = tester.getRect(find.byType(CustomScrollView));
     expect(
       row.top >= viewport.top - 0.5 && row.bottom <= viewport.bottom + 0.5,
       isTrue,
       reason: 'the cursor row sits inside the viewport, not past its edge',
+    );
+  });
+
+  // DEV-278 / DEV-279: a text field on the page owns its own arrow and Escape
+  // keys. The Snippets picker's trigger field sits inside the page's key
+  // scope, so arrows typed there must not start the list cursor, and Escape
+  // there must not clear the list search.
+  testWidgets('arrows and Escape typed in a foreign text field leave the list '
+      'cursor and the search alone', (tester) async {
+    final page = _pages.firstWhere((p) => p.name == 'Snippets');
+    await _pumpPage(tester, page);
+
+    final search = find.descendant(
+      of: find.byType(WpSearchField),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(search, page.query);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<EditableText>(search).controller.text,
+      page.query,
+      reason: 'precondition: the list is filtered',
+    );
+
+    final trigger = find.byType(EditableText).last;
+    expect(
+      find.descendant(of: find.byType(WpSearchField), matching: trigger),
+      findsNothing,
+      reason: 'precondition: the trigger field is not the search field',
+    );
+    await tester.tap(trigger);
+    await tester.pumpAndSettle();
+
+    await _press(tester, LogicalKeyboardKey.arrowDown);
+    _expectNoCursor(tester, page);
+
+    await _press(tester, LogicalKeyboardKey.escape);
+    expect(
+      tester.widget<EditableText>(search).controller.text,
+      page.query,
+      reason: 'Escape in the trigger field must not clear the list search',
     );
   });
 }

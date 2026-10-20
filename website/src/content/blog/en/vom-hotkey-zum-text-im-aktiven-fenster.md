@@ -22,7 +22,7 @@ Read through the text and make any edits in your application. Recognition accura
 
 ## Check the Linux setup once
 
-On Linux, Auto-Paste needs a permission rule for `/dev/uinput`. The .deb package sets it up during installation; with AppImage or tar.gz, you set it up once using sudo. Without the rule, the result stays in your clipboard, ready to paste with Ctrl+V.
+On Linux, Auto-Paste needs a permission rule for `/dev/uinput`. With the .deb package, you allow it in the app with your administrator password and can remove it there again; with AppImage or tar.gz, you set it up once using sudo. Without the rule, the result stays in your clipboard, ready to paste with Ctrl+V.
 
 On Wayland, configure the hotkey through your desktop environment. Bind it to `whispaste --toggle`; for an AppImage, use its full path followed by `--toggle` instead.
 

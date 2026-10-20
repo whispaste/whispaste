@@ -1,6 +1,8 @@
 // XP-5-06: the failed-paste notification on Linux leads to the Auto-Paste
 // settings, so the capability card there has to show the one-time uinput
 // setup instead of the macOS permission flow.
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,7 @@ import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart'
     show debugLinuxPackageFormatOverride;
 import 'package:whispaste/services/desktop_paste/linux_desktop_paste_controller.dart';
 import 'package:whispaste/services/desktop_paste/linux_package_format.dart';
+import 'package:whispaste/services/desktop_paste/linux_uinput_access.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/widgets/paste_capability_indicator.dart';
@@ -23,9 +26,32 @@ class _FakeCapability extends PasteCapabilityNotifier {
   PasteCapabilityState build() =>
       PasteCapabilityState(capability: PasteCapability(status: _status));
 
+  int checks = 0;
+
   @override
-  Future<void> check({bool prompt = false}) async {}
+  Future<void> check({bool prompt = false}) async => checks++;
 }
+
+/// A .deb install (helper and pkexec present) or, with [deb] false, any
+/// other format. [ruleInstalled] answers `status`; every call is recorded.
+LinuxUinputAccess _access({
+  bool deb = false,
+  bool ruleInstalled = false,
+  int pkexecExit = 0,
+  List<List<String>>? calls,
+}) => LinuxUinputAccess(
+  exists: (_) => deb,
+  run: (exe, args) async {
+    calls?.add([exe, ...args]);
+    final status = args.last == 'status';
+    return ProcessResult(
+      0,
+      status ? (ruleInstalled ? 0 : 1) : pkexecExit,
+      '',
+      '',
+    );
+  },
+);
 
 void main() {
   final en = lookupL10n(const Locale('en'));
@@ -46,14 +72,21 @@ void main() {
     debugLinuxPackageFormatOverride = null;
   });
 
-  Future<void> pump(WidgetTester tester, PasteCapabilityStatus status) async {
+  late _FakeCapability capability;
+
+  Future<void> pump(
+    WidgetTester tester,
+    PasteCapabilityStatus status, {
+    LinuxUinputAccess? access,
+  }) async {
     await tester.pumpWidget(
       makeTestable(
         const SingleChildScrollView(child: WpPasteCapabilityIndicator()),
         overrides: [
           pasteCapabilityNotifierProvider.overrideWith(
-            () => _FakeCapability(status),
+            () => capability = _FakeCapability(status),
           ),
+          linuxUinputAccessProvider.overrideWithValue(access ?? _access()),
         ],
         locale: const Locale('en'),
       ),
@@ -115,5 +148,96 @@ void main() {
 
     expect(find.byKey(copyButton), findsNothing);
     expect(find.text(en.pasteFailureLinuxUinputHint), findsNothing);
+  }, variant: linux);
+
+  const grantButton = ValueKey('settings-paste-linux-grant-button');
+  const revokeButton = ValueKey('settings-paste-linux-revoke-button');
+
+  testWidgets(
+    'a .deb explains the access and grants it through pkexec (R-02)',
+    (tester) async {
+      final calls = <List<String>>[];
+      await pump(
+        tester,
+        PasteCapabilityStatus.permissionMissing,
+        access: _access(deb: true, calls: calls),
+      );
+
+      expect(find.text(en.linuxUinputConsentDetail), findsOneWidget);
+      expect(find.byKey(copyButton), findsNothing);
+
+      await tester.tap(find.byKey(grantButton));
+      await tester.pumpAndSettle();
+
+      expect(calls.last, [
+        LinuxUinputAccess.pkexecPath,
+        LinuxUinputAccess.helperPath,
+        'enable',
+      ]);
+      expect(capability.checks, greaterThanOrEqualTo(2));
+      expect(copied, isEmpty, reason: 'granting never touches the clipboard');
+    },
+    variant: linux,
+  );
+
+  testWidgets('a failed grant says so, a dismissed prompt stays quiet', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      PasteCapabilityStatus.permissionMissing,
+      access: _access(deb: true, pkexecExit: 1),
+    );
+    await tester.tap(find.byKey(grantButton));
+    await tester.pumpAndSettle();
+    expect(find.text(en.linuxUinputGrantFailed), findsOneWidget);
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+
+    await pump(
+      tester,
+      PasteCapabilityStatus.permissionMissing,
+      access: _access(deb: true, pkexecExit: 126),
+    );
+    await tester.tap(find.byKey(grantButton));
+    await tester.pumpAndSettle();
+    expect(find.text(en.linuxUinputGrantFailed), findsNothing);
+  }, variant: linux);
+
+  testWidgets('a .deb with its rule installed offers to remove it', (
+    tester,
+  ) async {
+    final calls = <List<String>>[];
+    await pump(
+      tester,
+      PasteCapabilityStatus.ready,
+      access: _access(deb: true, ruleInstalled: true, calls: calls),
+    );
+
+    await tester.tap(find.byKey(revokeButton));
+    await tester.pumpAndSettle();
+
+    expect(calls.last.last, 'disable');
+    expect(find.text(en.linuxUinputRevokeDone), findsOneWidget);
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+  }, variant: linux);
+
+  testWidgets('no remove button when the access is not from our rule', (
+    tester,
+  ) async {
+    await pump(tester, PasteCapabilityStatus.ready, access: _access(deb: true));
+
+    expect(find.byKey(revokeButton), findsNothing);
+  }, variant: linux);
+
+  testWidgets('other formats show no removal card when ready', (tester) async {
+    debugLinuxPackageFormatOverride = LinuxPackageFormat.snap;
+    await pump(tester, PasteCapabilityStatus.ready);
+
+    // Only a .deb's own rule is offered back; a ready card would otherwise
+    // show on every Linux install.
+    expect(find.byKey(revokeButton), findsNothing);
+    expect(find.text(en.pasteCapabilityReady), findsNothing);
   }, variant: linux);
 }

@@ -583,6 +583,85 @@ void main() {
       expect(fakePanel.snapshots.last.transcriptions, isEmpty);
     });
 
+    test('a PIN-locked clipboard tab lists no copied text and pastes nothing '
+        '(GS-125)', () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <HistoryEntry>[]),
+          ),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      container
+          .read(clipboardHistoryProvider.notifier)
+          .add(
+            ClipboardHistoryEntry.text(
+              'secret copy',
+              capturedAt: DateTime(2026),
+            ),
+          );
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              history: s.history.copyWith(
+                historyPin: hashHistoryPin('4711', iterations: 10),
+              ),
+            ),
+          );
+      final service = _readService(container);
+      await service.open();
+
+      expect(fakePanel.snapshots.last.clipboardLocked, isTrue);
+      expect(fakePanel.snapshots.last.clipboardHistory, isEmpty);
+
+      fakePanel.fireEvent(
+        const SidePanelRowClicked(SidePanelSection.clipboardHistory, 'clip-0'),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+
+      await container
+          .read(historyRevealedProvider.notifier)
+          .unlockWithPin('4711');
+      await Future<void>.delayed(Duration.zero);
+      expect(fakePanel.snapshots.last.clipboardLocked, isFalse);
+      expect(
+        fakePanel.snapshots.last.clipboardHistory.single.title,
+        'secret copy',
+      );
+    });
+
+    test('a failing history load is reported as a failed section, not as an '
+        'empty list', () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.error(StateError('history unreadable')),
+          ),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      final service = _readService(container);
+      await service.open();
+
+      expect(fakePanel.snapshots.last.transcriptions, isEmpty);
+      expect(fakePanel.snapshots.last.failedSections, {
+        SidePanelSection.transcriptions,
+      });
+    });
+
     test('transcription and snippet rows carry the full insertable content, '
         'not just the (possibly shorter) display title', () async {
       container = ProviderContainer(

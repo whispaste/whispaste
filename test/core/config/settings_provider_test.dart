@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -61,6 +62,41 @@ class FakeSecureKeyStore extends SecureKeyStore {
       }
     }
     return result;
+  }
+}
+
+/// Database whose settings read waits until the test releases it, so a change
+/// can be made while the load is still running.
+class _GatedSettingsDatabase extends HistoryDatabase {
+  _GatedSettingsDatabase(super.e) : super.forTesting();
+
+  final Completer<void> gate = Completer<void>();
+  final List<Map<String, String>> writes = [];
+
+  /// Number of upcoming settings reads that fail before reads succeed again.
+  int failingReads = 0;
+
+  /// When set, every settings write fails.
+  bool failWrites = false;
+
+  /// Rows returned by the gated read. A row is needed so the first-start
+  /// language write does not run and fail before the queued change is saved.
+  Map<String, String> stored = const {};
+
+  @override
+  Future<Map<String, String>> readAppSettings() async {
+    await gate.future;
+    if (failingReads > 0) {
+      failingReads--;
+      throw Exception('simulated load failure');
+    }
+    return stored;
+  }
+
+  @override
+  Future<void> writeAppSettings(Map<String, String> values) async {
+    if (failWrites) throw Exception('simulated write failure');
+    writes.add(values);
   }
 }
 
@@ -1349,5 +1385,141 @@ void main() {
       );
       expect(s.transcriptionModelId, 'whisper-medium');
     });
+  });
+
+  group('changes made while settings are still loading', () {
+    test(
+      'a change made before the load finishes is applied and persisted once',
+      () async {
+        final db = _GatedSettingsDatabase(NativeDatabase.memory());
+        final container = ProviderContainer(
+          overrides: [
+            historyDatabaseProvider.overrideWith((ref) {
+              ref.onDispose(db.close);
+              return db;
+            }),
+            secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        // Loading is still in progress here: the change is queued, not lost.
+        final load = container.read(settingsProvider.future);
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings((settings) => settings.copyWith(locale: 'de'));
+        // A second change before load: the latest value must win.
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings((settings) => settings.copyWith(locale: 'es'));
+
+        db.gate.complete();
+        final loaded = await load;
+        expect(loaded.locale, 'es');
+        await container.read(settingsProvider.future);
+        await Future<void>.delayed(Duration.zero);
+
+        final withLocale = db.writes
+            .where((w) => AppSettings.fromStorageMap(w).locale == 'es')
+            .length;
+        expect(withLocale, 1, reason: 'the queued changes persist once');
+      },
+    );
+
+    ProviderContainer gatedContainer(_GatedSettingsDatabase db) {
+      final container = ProviderContainer(
+        retry: (_, _) => null,
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test(
+      'the queue is capped and drops the oldest change, with a count',
+      () async {
+        final db = _GatedSettingsDatabase(NativeDatabase.memory());
+        final container = gatedContainer(db);
+        final load = container.read(settingsProvider.future);
+        final notifier = container.read(settingsProvider.notifier);
+        for (var i = 0; i < 105; i++) {
+          await notifier.updateSettings((s) => s);
+        }
+        expect(notifier.queuedUpdateCount, 100);
+        expect(notifier.droppedQueuedChanges, 5);
+
+        db.gate.complete();
+        await load;
+      },
+    );
+
+    test(
+      'a keyed change replaces an earlier queued change with that key',
+      () async {
+        final db = _GatedSettingsDatabase(NativeDatabase.memory());
+        final container = gatedContainer(db);
+        final load = container.read(settingsProvider.future);
+        final notifier = container.read(settingsProvider.notifier);
+        await notifier.updateSettingsKeyed(
+          'locale',
+          (s) => s.copyWith(locale: 'de'),
+        );
+        await notifier.updateSettingsKeyed(
+          'locale',
+          (s) => s.copyWith(locale: 'es'),
+        );
+        expect(notifier.queuedUpdateCount, 1);
+
+        db.gate.complete();
+        expect((await load).locale, 'es');
+      },
+    );
+
+    test('a failed load keeps the queued change for the next load', () async {
+      final db = _GatedSettingsDatabase(NativeDatabase.memory());
+      final container = gatedContainer(db);
+      db.failingReads = 1;
+      db.gate.complete();
+      await expectLater(
+        container.read(settingsProvider.future),
+        throwsA(isA<Exception>()),
+      );
+
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(locale: 'de'));
+      expect(container.read(settingsProvider.notifier).queuedUpdateCount, 1);
+
+      container.invalidate(settingsProvider);
+      expect((await container.read(settingsProvider.future)).locale, 'de');
+    });
+
+    test(
+      'a failed persist of a queued change is reported, not silent',
+      () async {
+        final db = _GatedSettingsDatabase(NativeDatabase.memory());
+        db.stored = {'locale': 'en'};
+        final container = gatedContainer(db);
+        final load = container.read(settingsProvider.future);
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings((s) => s.copyWith(locale: 'de'));
+        db.failWrites = true;
+
+        db.gate.complete();
+        await load;
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          container.read(settingsProvider.notifier).queuedPersistFailures,
+          1,
+        );
+      },
+    );
   });
 }

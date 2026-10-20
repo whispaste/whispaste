@@ -207,6 +207,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
     final hasSnippets = ref.watch(snippetsProvider).value?.isNotEmpty ?? true;
 
     return WpSearchableListPage<SnippetItem>(
+      identifierPrefix: 'snippets',
       header: _SnippetPickerHeader(
         trigger: trigger,
         pageRef: ref,
@@ -465,8 +466,14 @@ class _SnippetPickerTriggerField extends StatefulWidget {
       _SnippetPickerTriggerFieldState();
 }
 
-class _SnippetPickerTriggerFieldState
-    extends State<_SnippetPickerTriggerField> {
+/// The trigger word is one spoken word: no line breaks or other control
+/// characters, and a bounded length.
+const int _kSnippetPickerTriggerMaxLength = 64;
+final TextInputFormatter _noControlCharacters =
+    FilteringTextInputFormatter.deny(RegExp(r'[\x00-\x1F\x7F]'));
+
+class _SnippetPickerTriggerFieldState extends State<_SnippetPickerTriggerField>
+    with WidgetsBindingObserver {
   late final TextEditingController _controller;
   Timer? _debounce;
   void Function()? _pendingWrite;
@@ -475,6 +482,21 @@ class _SnippetPickerTriggerFieldState
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.trigger);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Leaving the app (Cmd+Tab, lock screen, quit) writes a pending word now,
+  /// not only when the page is left.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _debounce?.cancel();
+      _debounce = null;
+      final write = _pendingWrite;
+      _pendingWrite = null;
+      write?.call();
+    }
   }
 
   @override
@@ -488,6 +510,7 @@ class _SnippetPickerTriggerFieldState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Save an edit still inside the debounce window instead of dropping it.
     // Deferred: dispose runs inside the widget build, and a provider write
     // there is rejected by Riverpod.
@@ -534,6 +557,8 @@ class _SnippetPickerTriggerFieldState
             hintText: l10n.snippetsPickerTriggerHint,
             onChanged: _onChanged,
             semanticLabel: l10n.snippetsPickerTriggerLabel,
+            maxLength: _kSnippetPickerTriggerMaxLength,
+            inputFormatters: [_noControlCharacters],
           ),
         ),
         if (widget.showEmptyListHint)
@@ -1175,6 +1200,14 @@ class _SnippetDialogState extends State<_SnippetDialog> {
 /// module-level patterns.
 final RegExp _whitespaceRun = RegExp(r'\s+');
 
+/// The body preview as it is painted (UX-036).
+///
+/// Wrapped in a first-strong isolate (FSI): the body takes its direction from
+/// its own first strong letter, so a Latin body inside a right-to-left UI
+/// (Hebrew) keeps its trailing punctuation at its own end, and a Hebrew body
+/// stays right-to-left. No direction is guessed here.
+String snippetPreviewForDisplay(String body) => '\u2068$body\u2069';
+
 class _SnippetTile extends StatefulWidget {
   const _SnippetTile({
     super.key,
@@ -1384,7 +1417,7 @@ class _SnippetTileState extends State<_SnippetTile> {
                         ),
                         const SizedBox(height: WpSpacing.xxs),
                         Text(
-                          _bodyPreview,
+                          snippetPreviewForDisplay(_bodyPreview),
                           style: TextStyle(
                             color: WpColors.textMuted,
                             fontSize: WpTypography.small,
