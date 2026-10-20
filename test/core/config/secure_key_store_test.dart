@@ -57,7 +57,10 @@ void main() {
     test(
       'fails fast with KeyringLocked instead of calling the plugin',
       () async {
-        final store = SecureKeyStore(null, () async => true);
+        final store = SecureKeyStore(
+          null,
+          () async => KeyringAvailability.locked,
+        );
 
         for (final op in <Future<Object?> Function()>[
           store.readAllApiKeys,
@@ -83,8 +86,100 @@ void main() {
     test(
       'still delegates to the plugin when the keyring is unlocked',
       () async {
-        final store = SecureKeyStore(null, () async => false);
+        final store = SecureKeyStore(
+          null,
+          () async => KeyringAvailability.usable,
+        );
 
+        unawaited(store.readKey('wp_openai_api_key'));
+        await pumpEventQueue();
+
+        expect(pluginCalls, ['read']);
+      },
+    );
+
+    // XP-7-01: a session bus that cannot start the Secret Service made every
+    // plugin call wait 25 s on the GTK main thread, so `--toggle` and the end
+    // of a recording waited with it. The probe reports that as unreachable.
+    test('fails fast without the plugin when the Secret Service is '
+        'unreachable, and probes only once within the retry window', () async {
+      var probes = 0;
+      final store = SecureKeyStore(null, () async {
+        probes++;
+        return KeyringAvailability.unreachable;
+      });
+
+      for (final op in <Future<Object?> Function()>[
+        store.readAllApiKeys,
+        () => store.deleteKey('wp_openai_api_key'),
+        () => store.deleteKey('wp_deepgram_api_key'),
+        () => store.writeKey('wp_openai_api_key', 'sk-test'),
+      ]) {
+        await expectLater(
+          op().timeout(const Duration(seconds: 2)),
+          throwsA(
+            isA<PlatformException>().having(
+              (e) => e.code,
+              'code',
+              'KeyringLocked',
+            ),
+          ),
+        );
+      }
+      expect(pluginCalls, isEmpty);
+      expect(probes, 1);
+    });
+
+    // A Secret Service that starts late (gnome-keyring after login) must not
+    // disable the keys for the whole session: the unreachable mark expires
+    // after the retry window and the next call probes again.
+    test('probes an unreachable Secret Service again after the retry window, '
+        'so a late start is picked up', () async {
+      var now = DateTime(2026, 10, 19, 12);
+      var reachable = false;
+      var probes = 0;
+      final store = SecureKeyStore(null, () async {
+        probes++;
+        return reachable
+            ? KeyringAvailability.usable
+            : KeyringAvailability.unreachable;
+      }, () => now);
+
+      await expectLater(
+        store.readKey('wp_openai_api_key'),
+        throwsA(isA<PlatformException>()),
+      );
+      now = now.add(const Duration(seconds: 29));
+      await expectLater(
+        store.readKey('wp_openai_api_key'),
+        throwsA(isA<PlatformException>()),
+      );
+      expect(probes, 1, reason: 'still inside the retry window');
+
+      reachable = true;
+      now = now.add(const Duration(seconds: 2));
+      unawaited(store.readKey('wp_openai_api_key'));
+      await pumpEventQueue();
+
+      expect(probes, 2);
+      expect(pluginCalls, ['read']);
+    });
+
+    test(
+      'probes a locked keyring again, so unlocking it later works',
+      () async {
+        var locked = true;
+        final store = SecureKeyStore(
+          null,
+          () async =>
+              locked ? KeyringAvailability.locked : KeyringAvailability.usable,
+        );
+
+        await expectLater(
+          store.readKey('wp_openai_api_key'),
+          throwsA(isA<PlatformException>()),
+        );
+        locked = false;
         unawaited(store.readKey('wp_openai_api_key'));
         await pumpEventQueue();
 

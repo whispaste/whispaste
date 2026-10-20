@@ -271,7 +271,7 @@ Tippen ist langsam, anstrengend und unterbricht den Denkfluss — besonders bei
 längeren Antworten oder beim Brainstorming. Die existierenden Lösungen sind
 unbequem: Diktatfunktionen der Betriebssysteme sind versteckt, schalten den Fokus
 weg, schicken Audio in die Cloud, und arbeiten nur in vorgesehenen Textfeldern.
-Cloud-Dienste wie Dragon sind teuer, abomodellig und datenschutzrechtlich heikel.
+Kommerzielle Diktat-Abos sind teuer und schicken Audio oft in die Cloud.
 Es fehlt eine **leise, lokale, global verfügbare** Diktatfunktion, die genau
 dort einfügt, wo der Cursor steht — egal in welcher App.
 

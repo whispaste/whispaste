@@ -1,26 +1,30 @@
-import 'dart:io';
-
-import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'dart:convert';
+
 import '../../core/app_info.dart';
 import '../../core/app_urls.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
+import '../../core/logging/install_id.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/feedback_diagnostics.dart';
 import '../../services/feedback_submission_service.dart';
 import '../../services/shared_prefs_safe_read.dart';
 import '../../widgets/language_selector.dart';
+import '../../widgets/wp_row_checkbox.dart';
+import '../../widgets/wp_voice_input_button.dart';
 import '../../widgets/page_shell.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_filter_chip.dart';
 import '../../widgets/wp_focus_ring.dart';
 import '../../widgets/wp_text_field.dart';
+import '../../widgets/external_link.dart';
+import '../notes/voice_insert.dart' show insertDictation;
+import 'feedback_type.dart';
 
 /// Supabase URL — injected at build time via `--dart-define`.
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL', defaultValue: '');
@@ -33,27 +37,9 @@ const _supabasePublishableKey = String.fromEnvironment(
   defaultValue: '',
 );
 
-/// Override for testing. When non-null, the Thank-You-View review CTAs use
-/// this value instead of [Platform.isWindows] to decide whether the
-/// Store-Review button is shown alongside the GitHub-Stern button.
-@visibleForTesting
-bool? feedbackPlatformIsWindowsOverride;
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// Computes a stable 12-character hex device identifier hash from [hostname].
-///
-/// The result is always exactly 12 lowercase hex characters — matching the
-/// `length(device_id_hash) = 12` constraint in the RLS policy.
-/// Exposed via [visibleForTesting] so unit tests can verify the hash logic
-/// without going through the full widget submit flow.
-@visibleForTesting
-String computeFeedbackDeviceIdHash(String hostname) {
-  final bytes = utf8.encode('${hostname}_whispaste');
-  return md5.convert(bytes).toString().substring(0, 12);
-}
 
 /// Invisible slack a [WpFilterChip] carries above and below its pill.
 ///
@@ -77,6 +63,14 @@ const _chipRowSlack = WpSpacing.xs;
 
 const _kLastFeedbackKey = 'feedback_last_submitted_ms';
 const _kClientRateLimitHours = 24;
+
+/// The prompt bubble that opens the text step, per type.
+String _promptFor(L10n l10n, FeedbackType type) => switch (type) {
+  FeedbackType.problem => l10n.feedbackPromptProblem,
+  FeedbackType.idea => l10n.feedbackPromptIdea,
+  FeedbackType.praise => l10n.feedbackPromptPraise,
+  FeedbackType.question => l10n.feedbackPromptQuestion,
+};
 
 /// Mirrors the server-side CHECK constraint on `user_feedback.contact_email`
 /// (`supabase/migrations/20260717_add_feedback_contact_email.sql`) — a
@@ -104,40 +98,36 @@ Future<void> _recordFeedbackSubmission() async {
   await prefs.setInt(_kLastFeedbackKey, DateTime.now().millisecondsSinceEpoch);
 }
 
-/// Opens [url] in the external handler (store app or browser). Used by the
-/// Thank-You-View review CTAs — URLs come from the single-source
-/// `app_urls.dart` constants.
-Future<void> _launchExternalUrl(String url) async {
-  final uri = Uri.parse(url);
-  if (await canLaunchUrl(uri)) {
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-}
-
 /// Feedback page — polished, chat-inspired feedback form.
 ///
 /// Top-aligned, responsive: narrow form column on wide screens with generous
 /// padding so it breathes on maximized desktop windows.
-class FeedbackPage extends StatefulWidget {
+class FeedbackPage extends ConsumerStatefulWidget {
   const FeedbackPage({super.key, this._submissionService});
 
   final FeedbackSubmissionService? _submissionService;
 
   @override
-  State<FeedbackPage> createState() => _FeedbackPageState();
+  ConsumerState<FeedbackPage> createState() => _FeedbackPageState();
 }
 
-class _FeedbackPageState extends State<FeedbackPage> {
+class _FeedbackPageState extends ConsumerState<FeedbackPage> {
   static final _log = AppLogger('FeedbackPage');
 
-  int _rating = 0;
-  String _category = '';
+  FeedbackType? _type;
+  // Optional: null until the user picks one, and back to null on a second tap.
+  int? _rating;
+  bool _attachDiagnostics = false;
+  bool _showDiagnosticsPreview = false;
   final _commentController = TextEditingController();
   final _emailController = TextEditingController();
   String? _contactLocale;
   bool _submitted = false;
   bool _submitting = false;
   String? _error;
+  // Set when a feedback was sent within the last 24 h. Checked when the form
+  // opens, so the user learns it before typing a long message (UIA-FBK-04).
+  bool _clientLimited = false;
 
   late final FeedbackSubmissionService _service;
 
@@ -151,6 +141,19 @@ class _FeedbackPageState extends State<FeedbackPage> {
           supabaseUrl: _supabaseUrl,
           supabasePublishableKey: _supabasePublishableKey,
         );
+    _isClientRateLimited().then((limited) {
+      if (mounted && limited) setState(() => _clientLimited = true);
+    });
+    // An entry point may have preset the type ("Idee vorschlagen…").
+    final preset = ref.read(feedbackPresetTypeProvider);
+    if (preset != null) {
+      _type = preset;
+      // Cleared after the frame: a provider may not change while the tree is
+      // being built.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(feedbackPresetTypeProvider.notifier).set(null);
+      });
+    }
   }
 
   @override
@@ -160,22 +163,114 @@ class _FeedbackPageState extends State<FeedbackPage> {
     super.dispose();
   }
 
+  bool get _emailOk {
+    final email = _emailController.text.trim();
+    return email.isEmpty || isValidFeedbackContactEmail(email);
+  }
+
+  /// The message as typed, trimmed.
+  String get _message => _commentController.text.trim();
+
+  /// The diagnostics block, when attached (read live: the engine may change).
+  String get _diagnosticBlock => ref.read(feedbackDiagnosticBlockProvider);
+
+  /// A neutral tag for praise and questions, so the analysis can tell them
+  /// apart: both are stored as category `general`. Problem and idea carry
+  /// their category already.
+  String? get _typeTag => switch (_type) {
+    FeedbackType.praise => '[praise]',
+    FeedbackType.question => '[question]',
+    _ => null,
+  };
+
+  String get _taggedMessage =>
+      _typeTag == null ? _message : '${_typeTag!} $_message';
+
+  /// The text the server receives: the tagged message, plus the opt-in block.
+  String get _composedText => _attachDiagnostics
+      ? '$_taggedMessage\n\n$_diagnosticBlock'
+      : _taggedMessage;
+
+  bool get _textFits => _composedText.length <= kFeedbackTextMaxLength;
+
+  /// The longest message the field accepts: the server limit minus the tag
+  /// and, when attached, the diagnostics block.
+  int get _commentMaxLength =>
+      kFeedbackTextMaxLength -
+      (_typeTag == null ? 0 : _typeTag!.length + 1) -
+      (_attachDiagnostics ? _diagnosticBlock.length + 2 : 0);
+
+  /// The star rating is a required field of the form.
+  bool get _ratingOk => _rating != null;
+
   bool get _canSubmit =>
-      _rating > 0 &&
-      _category.isNotEmpty &&
-      _commentController.text.isNotEmpty &&
-      (_emailController.text.trim().isEmpty ||
-          isValidFeedbackContactEmail(_emailController.text.trim()));
+      _type != null &&
+      _message.isNotEmpty &&
+      _ratingOk &&
+      _emailOk &&
+      _textFits;
+
+  /// The first missing item as a sentence, or null when the form can be sent
+  /// (UIA-FBK-03). Shown as visible text so it reaches everyone, not only
+  /// the hover tooltip a disabled button would need.
+  String? _missingHint(L10n l10n) {
+    final String what;
+    if (_type == null) {
+      what = l10n.feedbackMissingCategory;
+    } else if (_message.isEmpty) {
+      what = l10n.feedbackMissingComment;
+    } else if (!_ratingOk) {
+      what = l10n.feedbackMissingRating;
+    } else if (!_emailOk) {
+      what = l10n.feedbackMissingEmail;
+    } else if (!_textFits) {
+      return l10n.feedbackTextTooLong;
+    } else {
+      return null;
+    }
+    return l10n.feedbackSubmitMissing(what);
+  }
+
+  /// A dictated transcript lands at the caret, like in the notes editor, and
+  /// is clipped to the field's limit (the controller bypasses the field's
+  /// own length formatter).
+  void _insertDictation(String transcript) {
+    final next = insertDictation(_commentController.value, transcript);
+    final max = _commentMaxLength;
+    final clipped = next.text.length > max
+        ? next.copyWith(
+            text: next.text.substring(0, max),
+            selection: TextSelection.collapsed(offset: max),
+          )
+        : next;
+    setState(() => _commentController.value = clipped);
+  }
+
+  /// A section label with a visible marker: "Pflicht" or "Optional".
+  Widget _fieldLabel(String text, TextTheme ts, String marker) {
+    return Row(
+      children: [
+        Flexible(child: Text(text, style: ts.titleSmall)),
+        const SizedBox(width: WpSpacing.xs),
+        Text(marker, style: ts.bodySmall?.copyWith(color: WpColors.textMuted)),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    // The form may already be open when another entry point presets a type.
+    ref.listen<FeedbackType?>(feedbackPresetTypeProvider, (_, next) {
+      if (next == null) return;
+      setState(() => _type = next);
+      ref.read(feedbackPresetTypeProvider.notifier).set(null);
+    });
     final ts = Theme.of(context).textTheme;
     final l10n = L10n.of(context);
 
     if (_submitted) {
-      final isWindows = feedbackPlatformIsWindowsOverride ?? Platform.isWindows;
       return WpPageShell(
-        child: _ThankYouView(ts: ts, onReset: _reset, isWindows: isWindows),
+        child: _ThankYouView(ts: ts, onReset: _reset),
       );
     }
 
@@ -210,124 +305,156 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
                   _FeedbackCard(
                     children: [
-                      // Category selection
-                      Text(l10n.feedbackCategoryLabel, style: ts.titleSmall),
+                      // Step one: what is it about. A chat-like prompt, then
+                      // the types as chips (FB-03).
+                      _ChatPrompt(text: l10n.feedbackCategoryLabel),
                       // `- _chipRowSlack` on both sides of the row: the chips'
                       // tap surfaces are taller than their pills, and the eye
                       // measures from the pill. See [_chipRowSlack].
                       const SizedBox(height: WpSpacing.md - _chipRowSlack),
-                      // `WpFilterChip`, not a local chip class: this row picks one
-                      // of a set, which is exactly the job History, Notes and the
-                      // analytics period selector already use it for. The private
-                      // `_CategoryChip` it replaces was the fifth reimplementation
-                      // of that widget and repeated the same two defects the
-                      // analytics one had — a bare `GestureDetector`, so the
-                      // control was unreachable by keyboard, and a `label:` on a
-                      // `Semantics` whose child renders the same text, so each chip
-                      // announced its name twice. It also hand-mixed its active
-                      // border at `accent` 30%, which is the `accentBorder30` rung
-                      // spelled out longhand.
                       Wrap(
                         spacing: WpSpacing.sm,
-                        // Not `sm` again: horizontally the gap is measured pill to
-                        // pill, vertically it would be measured box to box, and
-                        // the two boxes bring ~20px of slack between them on their
-                        // own. Spelling both tokens the same would have put 32px
-                        // between two runs against 12px inside one — and the four
-                        // German labels do wrap onto a second run once the OS text
-                        // size is turned up. Zero leaves 12px within a run and
-                        // ~20px between them: a step up, which is what separates
-                        // runs from each other, but a far smaller one than 32.
+                        // Zero leaves 12px within a run and ~20px between runs,
+                        // see the note on [_chipRowSlack].
                         runSpacing: 0,
                         children: [
-                          for (final (value, icon, label)
-                              in <(String, IconData, String)>[
+                          for (final (type, icon, label)
+                              in <(FeedbackType, IconData, String)>[
                                 (
-                                  'bug',
+                                  FeedbackType.problem,
                                   LucideIcons.bug,
-                                  l10n.feedbackCategoryBug,
+                                  l10n.feedbackTypeProblem,
                                 ),
                                 (
-                                  'feature',
+                                  FeedbackType.idea,
                                   LucideIcons.lightbulb,
-                                  l10n.feedbackCategoryFeature,
+                                  l10n.feedbackTypeIdea,
                                 ),
                                 (
-                                  'general',
-                                  LucideIcons.messageCircle,
-                                  l10n.feedbackCategoryGeneral,
+                                  FeedbackType.praise,
+                                  LucideIcons.thumbsUp,
+                                  l10n.feedbackTypePraise,
                                 ),
                                 (
-                                  'ai',
-                                  LucideIcons.sparkles,
-                                  l10n.feedbackCategoryAiQuality,
+                                  FeedbackType.question,
+                                  LucideIcons.circleHelp,
+                                  l10n.feedbackTypeQuestion,
                                 ),
                               ])
-                            WpFilterChip(
-                              icon: icon,
-                              label: label,
-                              isActive: _category == value,
-                              onTap: () => setState(() => _category = value),
+                            Semantics(
+                              identifier: 'feedback-type-${type.name}',
+                              child: WpFilterChip(
+                                icon: icon,
+                                label: label,
+                                isActive: _type == type,
+                                onTap: () => setState(() => _type = type),
+                              ),
                             ),
                         ],
                       ),
 
-                      const SizedBox(height: WpSpacing.xxxl - _chipRowSlack),
+                      // Step two, once a type is chosen: the text, with a
+                      // dictation button in the field (FB-05).
+                      if (_type != null) ...[
+                        const SizedBox(height: WpSpacing.xxl - _chipRowSlack),
+                        _ChatPrompt(text: _promptFor(l10n, _type!)),
+                        const SizedBox(height: WpSpacing.md),
+                        Semantics(
+                          identifier: 'feedback-text-field',
+                          child: WpTextField(
+                            key: const Key('feedbackCommentField'),
+                            controller: _commentController,
+                            variant: WpTextFieldVariant.form,
+                            minLines: 3,
+                            maxLines: 5,
+                            maxLength: _commentMaxLength,
+                            // The app's own dictation button, as in the notes
+                            // editor: the transcript lands in this field.
+                            suffix: Semantics(
+                              identifier: 'feedback-dictate-button',
+                              child: WpVoiceInputButton(
+                                onTranscript: _insertDictation,
+                              ),
+                            ),
+                            onChanged: (_) => setState(() {}),
+                          ),
+                        ),
+                        if (_type == FeedbackType.idea) ...[
+                          const SizedBox(height: WpSpacing.md),
+                          Text(
+                            l10n.feedbackIdeaBoardHint,
+                            style: ts.bodySmall?.copyWith(
+                              color: WpColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: WpSpacing.xs),
+                          Semantics(
+                            identifier: 'feedback-idea-board-link',
+                            child: WpButton(
+                              label: l10n.feedbackIdeasLink,
+                              variant: WpButtonVariant.ghost,
+                              icon: LucideIcons.externalLink,
+                              onPressed: () =>
+                                  openExternalUrl(context, kVotepitBoardUrl),
+                            ),
+                          ),
+                        ],
 
-                      // Emoji rating
-                      Text(l10n.feedbackRatingLabel, style: ts.titleSmall),
-                      const SizedBox(height: WpSpacing.md),
-                      _EmojiRatingRow(
-                        rating: _rating,
-                        onChanged: (v) => setState(() => _rating = v),
-                      ),
+                        const SizedBox(height: WpSpacing.xxl),
 
-                      const SizedBox(height: WpSpacing.xxxl),
+                        // Rating: optional. Until the server accepts an empty
+                        // rating, a skipped one is sent as the default.
+                        _fieldLabel(
+                          l10n.feedbackRatingLabel,
+                          ts,
+                          l10n.feedbackRequiredMarker,
+                        ),
+                        const SizedBox(height: WpSpacing.md),
+                        _EmojiRatingRow(
+                          rating: _rating ?? 0,
+                          onChanged: (v) =>
+                              setState(() => _rating = _rating == v ? null : v),
+                        ),
 
-                      // Comment field — chat-styled
-                      Text(l10n.feedbackCommentsLabel, style: ts.titleSmall),
-                      const SizedBox(height: WpSpacing.md),
-                      // A form field, so it looks like every other form field —
-                      // it used to sit borderless inside a warm-gradient box of
-                      // its own, which gave it a third field look *and* no focus
-                      // indicator at all.
-                      WpTextField(
-                        key: const Key('feedbackCommentField'),
-                        controller: _commentController,
-                        variant: WpTextFieldVariant.form,
-                        hintText: _category == 'bug'
-                            ? l10n.feedbackPlaceholderBug
-                            : _category == 'feature'
-                            ? l10n.feedbackPlaceholderFeature
-                            : _category == 'ai'
-                            ? l10n.feedbackPlaceholderAi
-                            : l10n.feedbackPlaceholderGeneral,
-                        minLines: 3,
-                        maxLines: 5,
-                        maxLength: 1000,
-                        onChanged: (_) => setState(() {}),
-                      ),
+                        const SizedBox(height: WpSpacing.xxl),
 
-                      const SizedBox(height: WpSpacing.xxl),
+                        // Optional contact e-mail + preferred reply language
+                        _ContactEmailSection(
+                          emailController: _emailController,
+                          contactLocale: _contactLocale,
+                          // The email text lives on the parent's controller and
+                          // feeds _canSubmit + the submit payload, so a change
+                          // must re-run the parent's build, not just the child's.
+                          onEmailChanged: () => setState(() {}),
+                          onContactLocaleChanged: (code) =>
+                              setState(() => _contactLocale = code),
+                        ),
 
-                      // Optional contact email + preferred reply language
-                      _ContactEmailSection(
-                        emailController: _emailController,
-                        contactLocale: _contactLocale,
-                        // The email text lives on the parent's controller and
-                        // feeds _canSubmit + the submit payload, so a change
-                        // must re-run the parent's build, not just the child's.
-                        onEmailChanged: () => setState(() {}),
-                        onContactLocaleChanged: (code) =>
-                            setState(() => _contactLocale = code),
-                      ),
+                        const SizedBox(height: WpSpacing.xxl),
+
+                        // Opt-in diagnostics, off by default, with a preview of
+                        // the exact text that is added (FB-04).
+                        _DiagnosticsOption(
+                          attached: _attachDiagnostics,
+                          previewOpen: _showDiagnosticsPreview,
+                          block: _diagnosticBlock,
+                          onAttachedChanged: (value) => setState(() {
+                            _attachDiagnostics = value;
+                            if (!value) _showDiagnosticsPreview = false;
+                          }),
+                          onPreviewToggled: () => setState(
+                            () => _showDiagnosticsPreview =
+                                !_showDiagnosticsPreview,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
 
                   const SizedBox(height: WpSpacing.xxl),
 
                   // Error message
-                  if (_error != null) ...[
+                  if (_error != null || _clientLimited) ...[
                     Text(
                       _errorText(l10n),
                       style: ts.bodySmall?.copyWith(
@@ -340,16 +467,29 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
                   // Submit button
                   // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: _submitting
-                        ? l10n.feedbackSubmitting
-                        : l10n.feedbackSubmit,
-                    variant: WpButtonVariant.primary,
-                    icon: LucideIcons.send,
-                    isLoading: _submitting,
-                    expanded: true,
-                    onPressed: _canSubmit ? _submit : null,
+                  Semantics(
+                    identifier: 'feedback-submit',
+                    child: WpButton(
+                      label: _submitting
+                          ? l10n.feedbackSubmitting
+                          : l10n.feedbackSubmit,
+                      variant: WpButtonVariant.primary,
+                      icon: LucideIcons.send,
+                      isLoading: _submitting,
+                      expanded: true,
+                      onPressed: _canSubmit && !_clientLimited ? _submit : null,
+                    ),
                   ),
+                  if (!_canSubmit &&
+                      !_submitting &&
+                      _missingHint(l10n) != null) ...[
+                    const SizedBox(height: WpSpacing.xs),
+                    Text(
+                      _missingHint(l10n)!,
+                      style: ts.bodySmall?.copyWith(color: WpColors.textMuted),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
 
                   const SizedBox(height: WpSpacing.lg),
 
@@ -358,7 +498,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
+                      Icon(
                         LucideIcons.lock,
                         size: WpIconSize.xs,
                         color: WpColors.textMuted,
@@ -387,7 +527,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
   }
 
   String _errorText(L10n l10n) {
-    return switch (_error) {
+    return switch (_error ?? 'rate_limited') {
       'rate_limited' => l10n.feedbackErrorRateLimited,
       'network_error' => l10n.feedbackErrorNetwork,
       'not_configured' => l10n.feedbackErrorNotConfigured,
@@ -422,11 +562,11 @@ class _FeedbackPageState extends State<FeedbackPage> {
 
       final email = _emailController.text.trim();
       final payload = FeedbackPayload(
-        rating: _rating,
-        feedbackText: _commentController.text.trim(),
-        category: _category,
+        rating: _rating!,
+        feedbackText: _composedText,
+        category: feedbackCategoryFor(_type!),
         appVersion: appVersion,
-        deviceIdHash: _deriveDeviceId(),
+        deviceIdHash: readInstallId(),
         locale: locale,
         contactEmail: email.isEmpty ? null : email,
         contactLocale: email.isEmpty ? null : (_contactLocale ?? locale),
@@ -461,8 +601,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
             _error = 'network_error';
           });
       }
-    } on Exception catch (e) {
-      _log.warning('Feedback submission failed unexpectedly: $e');
+    } catch (e, st) {
+      // Any error, not only Exception: a Dart Error must also end the sending
+      // state instead of leaving the spinner up (UIA-FBK-05).
+      _log.warning('Feedback submission failed unexpectedly: $e\n$st');
       if (mounted) {
         setState(() {
           _submitting = false;
@@ -477,20 +619,14 @@ class _FeedbackPageState extends State<FeedbackPage> {
       _submitted = false;
       _submitting = false;
       _error = null;
-      _rating = 0;
-      _category = '';
+      _rating = null;
+      _type = null;
+      _attachDiagnostics = false;
+      _showDiagnosticsPreview = false;
       _commentController.clear();
       _emailController.clear();
       _contactLocale = null;
     });
-  }
-
-  static String _deriveDeviceId() {
-    try {
-      return computeFeedbackDeviceIdHash(Platform.localHostname);
-    } on Exception {
-      return computeFeedbackDeviceIdHash('fallback_device');
-    }
   }
 }
 
@@ -513,13 +649,9 @@ class _FeedbackPageState extends State<FeedbackPage> {
 /// form has none, and the submit stays outside because a form's action is what
 /// you do *to* the form, not one more field in it.
 class _FeedbackCard extends StatelessWidget {
-  const _FeedbackCard({
-    required this.children,
-    this.crossAxisAlignment = CrossAxisAlignment.start,
-  });
+  const _FeedbackCard({required this.children});
 
   final List<Widget> children;
-  final CrossAxisAlignment crossAxisAlignment;
 
   @override
   Widget build(BuildContext context) {
@@ -531,7 +663,10 @@ class _FeedbackCard extends StatelessWidget {
         borderRadius: WpRadius.borderLg,
         border: Border.all(color: WpColors.cardEdgeHighlight),
       ),
-      child: Column(crossAxisAlignment: crossAxisAlignment, children: children),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
     );
   }
 }
@@ -567,14 +702,17 @@ class _ContactEmailSection extends StatelessWidget {
           style: ts.bodySmall?.copyWith(color: WpColors.textSecondary),
         ),
         const SizedBox(height: WpSpacing.sm),
-        WpTextField(
-          key: const Key('feedbackEmailField'),
-          controller: emailController,
-          variant: WpTextFieldVariant.form,
-          hintText: l10n.feedbackContactEmailPlaceholder,
-          // An address is never a word the dictionary should second-guess.
-          autocorrect: false,
-          onChanged: (_) => onEmailChanged(),
+        Semantics(
+          identifier: 'feedback-email-field',
+          child: WpTextField(
+            key: const Key('feedbackEmailField'),
+            controller: emailController,
+            variant: WpTextFieldVariant.form,
+            hintText: l10n.feedbackContactEmailPlaceholder,
+            // An address is never a word the dictionary should second-guess.
+            autocorrect: false,
+            onChanged: (_) => onEmailChanged(),
+          ),
         ),
         if (showInvalidEmail) ...[
           const SizedBox(height: WpSpacing.xs),
@@ -608,20 +746,140 @@ class _ContactEmailSection extends StatelessWidget {
   }
 }
 
+/// A chat-style prompt: the question the next step answers, in a quiet bubble.
+class _ChatPrompt extends StatelessWidget {
+  const _ChatPrompt({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.md,
+        vertical: WpSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: WpColors.surfaceVariant,
+        borderRadius: WpRadius.borderMd,
+      ),
+      child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
+    );
+  }
+}
+
+/// The opt-in diagnostics switch (FB-04). Off by default. The preview shows
+/// the exact block that is added to the message, nothing more.
+class _DiagnosticsOption extends StatelessWidget {
+  const _DiagnosticsOption({
+    required this.attached,
+    required this.previewOpen,
+    required this.block,
+    required this.onAttachedChanged,
+    required this.onPreviewToggled,
+  });
+
+  final bool attached;
+  final bool previewOpen;
+  final String block;
+  final ValueChanged<bool> onAttachedChanged;
+  final VoidCallback onPreviewToggled;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final ts = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Semantics(
+          identifier: 'feedback-diagnostics-checkbox',
+          child: InkWell(
+            borderRadius: WpRadius.borderMd,
+            onTap: () => onAttachedChanged(!attached),
+            child: Row(
+              children: [
+                WpRowCheckbox(
+                  value: attached,
+                  semanticsLabel: l10n.feedbackDiagnosticsLabel,
+                  onChanged: () => onAttachedChanged(!attached),
+                ),
+                const SizedBox(width: WpSpacing.xs),
+                Flexible(
+                  child: Text(
+                    l10n.feedbackDiagnosticsLabel,
+                    style: ts.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(left: WpRowCheckbox.extent),
+          child: Text(
+            l10n.feedbackDiagnosticsExplanation,
+            style: ts.bodySmall?.copyWith(color: WpColors.textSecondary),
+          ),
+        ),
+        if (attached) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Semantics(
+            identifier: 'feedback-diagnostics-preview-toggle',
+            child: WpButton(
+              label: previewOpen
+                  ? l10n.feedbackDiagnosticsPreviewHide
+                  : l10n.feedbackDiagnosticsPreview,
+              variant: WpButtonVariant.ghost,
+              icon: previewOpen ? LucideIcons.eyeOff : LucideIcons.eye,
+              onPressed: onPreviewToggled,
+            ),
+          ),
+          if (previewOpen)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: WpSpacing.xs),
+              padding: const EdgeInsets.all(WpSpacing.md),
+              decoration: BoxDecoration(
+                color: WpColors.surfaceVariant,
+                borderRadius: WpRadius.borderMd,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.feedbackDiagnosticsPreviewHeading,
+                    style: ts.bodySmall?.copyWith(
+                      color: WpColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: WpSpacing.xs),
+                  Semantics(
+                    identifier: 'feedback-diagnostics-preview',
+                    child: SelectableText(
+                      block,
+                      style: ts.bodySmall?.copyWith(fontFamily: 'monospace'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Thank-you state — shown after submission
 // ---------------------------------------------------------------------------
 
 class _ThankYouView extends StatelessWidget {
-  const _ThankYouView({
-    required this.ts,
-    required this.onReset,
-    required this.isWindows,
-  });
+  const _ThankYouView({required this.ts, required this.onReset});
 
   final TextTheme ts;
   final VoidCallback onReset;
-  final bool isWindows;
 
   @override
   Widget build(BuildContext context) {
@@ -641,19 +899,23 @@ class _ThankYouView extends StatelessWidget {
                 Container(
                   width: 72,
                   height: 72,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: WpColors.accentSubtle,
                     shape: BoxShape.circle,
                   ),
                   alignment: Alignment.center,
-                  child: const Icon(
+                  child: Icon(
                     LucideIcons.heart,
                     size: WpIconSize.xl,
                     color: WpColors.accent,
                   ),
                 ),
                 const SizedBox(height: WpSpacing.xxl),
-                Text(l10n.feedbackThankYou, style: ts.headlineMedium),
+                Semantics(
+                  header: true,
+                  liveRegion: true,
+                  child: Text(l10n.feedbackThankYou, style: ts.headlineMedium),
+                ),
                 const SizedBox(height: WpSpacing.sm),
                 Text(
                   l10n.feedbackThankYouMessage,
@@ -664,97 +926,28 @@ class _ThankYouView extends StatelessWidget {
                 // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
                 WpButton(
                   label: l10n.feedbackSendAnother,
-                  variant: WpButtonVariant.secondary,
+                  variant: WpButtonVariant.primary,
                   icon: LucideIcons.messageSquarePlus,
                   onPressed: onReset,
                 ),
                 const SizedBox(height: WpSpacing.xxxl),
-                // The one group on this screen that is a bounded offer rather
-                // than a sentence addressed to the reader, so it is the one
-                // that gets card material. The celebration above it — mark,
-                // headline, message, "send another" — is narrative and stands
-                // on the page ground, the way the onboarding steps do.
-                _FeedbackCard(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [_ReviewSupportCtas(ts: ts, isWindows: isWindows)],
-                ),
-                const SizedBox(height: WpSpacing.lg),
                 // Quietest element on the page, on purpose: the reader just
                 // finished giving feedback, so a link to the public ideas
-                // board is a natural next step — but it must not compete with
-                // the review/support card above it, so it gets no card, no
-                // fill, just the ghost variant's plain text-button register.
+                // board is a natural next step. It is the only extra action on
+                // this screen, so it gets no card and no fill: just the ghost
+                // variant's plain text-button register.
                 // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
                 WpButton(
                   label: l10n.feedbackIdeasLink,
                   variant: WpButtonVariant.ghost,
                   icon: LucideIcons.lightbulb,
-                  onPressed: () => _launchExternalUrl(kVotepitBoardUrl),
+                  onPressed: () => openExternalUrl(context, kVotepitBoardUrl),
                 ),
               ],
             ),
           ),
         );
       },
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Review-CTA section — discrete "Rate & support WhisPaste" actions shown only
-// in the Thank-You-View, so they never compete with the feedback submit. URLs
-// come from the single-source app_urls.dart constants; l10n keys + button
-// language mirror the review-prompt dialog and the settings entry.
-// ---------------------------------------------------------------------------
-
-class _ReviewSupportCtas extends StatelessWidget {
-  const _ReviewSupportCtas({required this.ts, required this.isWindows});
-
-  final TextTheme ts;
-  final bool isWindows;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(l10n.reviewSupportEntry, style: ts.titleSmall),
-        const SizedBox(height: WpSpacing.xs),
-        Text(
-          l10n.reviewSupportSubtitle,
-          textAlign: TextAlign.center,
-          style: ts.bodySmall?.copyWith(color: WpColors.textSecondary),
-        ),
-        const SizedBox(height: WpSpacing.md),
-        // Windows has a store listing → offer the Store-Review deep-link as the
-        // primary action; macOS/Linux have no store, so only GitHub is offered.
-        if (isWindows) ...[
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-          WpButton(
-            label: l10n.reviewPromptRateStore,
-            variant: WpButtonVariant.primary,
-            onPressed: () => _launchExternalUrl(kWindowsStoreReviewUrl),
-          ),
-          const SizedBox(height: WpSpacing.xs),
-        ],
-        // The loud action of the thank-you state on the platforms that have no
-        // store listing. It used to be `secondary` on all three, which meant a
-        // Windows reader met a screen with one obvious next step and a macOS
-        // reader met the same screen with none — the same code branch quietly
-        // deciding whether the page had a point (the One-Loud-Action Rule,
-        // `lib/DESIGN.md`, and `one_loud_action_test.dart` pins both branches).
-        // Windows keeps GitHub as the quieter second option, because there the
-        // store rating is the bigger ask and two loud buttons are none.
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-        WpButton(
-          label: l10n.reviewPromptStarGitHub,
-          variant: isWindows
-              ? WpButtonVariant.secondary
-              : WpButtonVariant.primary,
-          onPressed: () => _launchExternalUrl(kGitHubRepoUrl),
-        ),
-      ],
     );
   }
 }
@@ -784,12 +977,15 @@ class _EmojiRatingRow extends StatelessWidget {
     return Row(
       children: List.generate(5, (i) {
         return Expanded(
-          child: _EmojiRatingOption(
-            emoji: _emojis[i],
-            label: labels[i],
-            isSelected: rating == i + 1,
-            isLast: i == 4,
-            onTap: () => onChanged(i + 1),
+          child: Semantics(
+            identifier: 'feedback-rating-${i + 1}',
+            child: _EmojiRatingOption(
+              emoji: _emojis[i],
+              label: labels[i],
+              isSelected: rating == i + 1,
+              isLast: i == 4,
+              onTap: () => onChanged(i + 1),
+            ),
           ),
         );
       }),
@@ -836,8 +1032,8 @@ class _EmojiRatingOptionState extends State<_EmojiRatingOption> {
 
   @override
   Widget build(BuildContext context) {
-    const accentSubtle = WpColors.accentSubtle;
-    const surfaceVariant = WpColors.surfaceVariant;
+    final accentSubtle = WpColors.accentSubtle;
+    final surfaceVariant = WpColors.surfaceVariant;
 
     final tile = AnimatedContainer(
       duration: WpMotion.durationFor(context, WpMotion.fast),

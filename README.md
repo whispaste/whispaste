@@ -98,7 +98,7 @@ whispaste --transcribe-file clip.wav [--engine whisper|parakeet] [--model whispe
 
 Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model and exits — no hotkeys, tray or dictation UI are started. `--json` prints load time, per-run inference time and real-time factor instead of the text, plus the compute backend and GPU device the engine ran on. `--gpu disabled` forces the CPU, like "CPU only" in the settings. It runs separately from an open WhisPaste and does not change its settings. On Windows, use `--out` to get the report, as the console output of the app is not reliable there.
 
-`whispaste --diagnose [--out report.json]` checks that an installation starts and that its bundled on-device engine libraries load, prints a JSON report and exits with 0 (ok) or 1. The release pipeline runs it against every package before publishing.
+`whispaste --diagnose [--out report.json]` checks that an installation starts and that its bundled on-device engine libraries load, prints a JSON report and exits with 0 (ok) or 1. The release pipeline runs it against every package before publishing. On Linux it also runs without a display: it then starts a private Xvfb for the check, and exits with 2 if Xvfb is not installed.
 
 ## Development
 
@@ -134,8 +134,7 @@ To build the bundled on-device engines and for the full per-OS toolchain, see [B
 
 ```bash
 flutter analyze --fatal-infos          # Lint + static analysis
-flutter test                           # Run all tests (excludes goldens)
-flutter test --tags=golden             # Run widget/screenshot tests
+flutter test                           # Run all tests
 flutter build windows --release --no-tree-shake-icons
 flutter build macos   --release --no-tree-shake-icons \
   --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_PUBLISHABLE_KEY=...

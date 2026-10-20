@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
 
 // ---------------------------------------------------------------------------
@@ -65,15 +66,14 @@ import '../core/theme/tokens.dart';
 // [actions] is a trailing slot at the *envelope* level: the row's content
 // gets the flexible remainder, the actions get their intrinsic width, and
 // `WpRowActions` reserves its own height so revealing them never reflows the
-// row. Replacements and snippets use it — their single action genuinely
-// belongs to the row as a whole.
+// row. Replacements, snippets and notes use it. Notes' favourite star and row
+// actions form one trailing group centred on the body, so the 48 px touch
+// boxes set the body's minimum height instead of stacking on its padding.
 //
-// History and notes deliberately pass their actions inside [child] instead,
-// because theirs belong to one specific *line* of a multi-line tile:
-// history's three actions share the metadata line with the timestamp, and
-// notes' trash actions sit on the title line next to the relative date.
-// Hoisting them to the envelope would move them visually. The slot is an
-// offer, not an obligation.
+// History passes its actions inside [child] instead, because they belong to
+// one specific *line* of a multi-line tile: the three actions share the
+// metadata line with the timestamp, and hoisting them to the envelope would
+// move them visually. The slot is an offer, not an obligation.
 // ---------------------------------------------------------------------------
 
 /// Which surface a list row sits on — see the library comment for why this
@@ -144,6 +144,10 @@ class WpListTileSurface extends StatelessWidget {
   /// area's edge.
   static const double panelHorizontalMargin = 0.0;
 
+  /// Vertical padding of the panel row (spec §3: 16/14). Off the spacing scale
+  /// on purpose; 14 is the row's own rhythm, not a list gap.
+  static const double panelVerticalPadding = 14;
+
   /// Hairline gap between rows so adjacent selection borders never touch.
   /// Off-scale on purpose — `WpSpacing.xxs` would read as a list gap.
   static const double panelVerticalMargin = 1.0;
@@ -169,13 +173,11 @@ class WpListTileSurface extends StatelessWidget {
         // The hover delta is deliberately quiet (~1.03:1) — it is carried
         // jointly by the fill and the tinted edge in [_border], and the row's
         // real hover affordance is the action slot it reveals.
-        if (variant == WpListTileVariant.overview && isSelected) {
-          return WpColors.accentSubtle;
-        }
         return _isActive ? WpColors.cardFillElevated : WpColors.cardFill;
       case WpListTileVariant.panel:
+        // Selected rows are white cards, never a cyan wash (WP-14 §3).
         if (isSelected) {
-          return WpColors.accentSubtle;
+          return WpColors.surfaceElevated;
         }
         if (isFocused || isHovered) {
           return WpColors.hover;
@@ -187,6 +189,12 @@ class WpListTileSurface extends StatelessWidget {
   Border _border() {
     switch (variant) {
       case WpListTileVariant.card:
+        if (isSelected) {
+          return Border.all(
+            color: WpColors.controlEdge,
+            width: overviewBorderWidth,
+          );
+        }
         // Active edge is the tinted `cardEdgeHighlight` rather than the
         // neutral `cardActiveBorder`: on a frost plate the rim is what carries
         // the shape, and a white rim over a chromatic fill is the exact
@@ -198,7 +206,7 @@ class WpListTileSurface extends StatelessWidget {
       case WpListTileVariant.overview:
         if (isSelected) {
           return Border.all(
-            color: WpColors.accent.withValues(alpha: 0.5),
+            color: WpColors.controlEdge,
             width: overviewBorderWidth,
           );
         }
@@ -207,18 +215,12 @@ class WpListTileSurface extends StatelessWidget {
           width: overviewBorderWidth,
         );
       case WpListTileVariant.panel:
-        const accent = WpColors.accent;
+        final accent = WpColors.accent;
+        // One width in every state, the same resting width as the other list
+        // areas (see list_tile_surface_consistency_test): a state change must
+        // not move the label.
         if (isSelected) {
-          // Light-theme ink is deliberately reduced (history polish pass,
-          // 2026-07-28): the light accent #06678A is itself dark
-          // (rel. luminance ≈ 0.11), so a 2 px @ 0.7 stroke was the darkest
-          // ink in the whole list (≈ 3.4:1 against the 0.92-lum surface) and
-          // read as "much too dark". 1.5 px @ 0.6 keeps the stroke at
-          // ≈ 2.9:1 — still clearly visible on top of the tinted fill and the
-          // lifted shadow — with ~45 % less ink. Dark keeps the approved
-          // full-strength values, and is the one place the shared
-          // [borderWidth] is exceeded.
-          return Border.all(color: accent.withValues(alpha: 0.7), width: 2);
+          return Border.all(color: WpColors.controlEdge, width: borderWidth);
         }
         if (isFocused) {
           return Border.all(
@@ -242,8 +244,8 @@ class WpListTileSurface extends StatelessWidget {
         );
       case WpListTileVariant.panel:
         return const EdgeInsets.symmetric(
-          horizontal: WpSpacing.sm,
-          vertical: WpSpacing.md,
+          horizontal: WpSpacing.md,
+          vertical: panelVerticalPadding,
         );
       case WpListTileVariant.overview:
         return const EdgeInsets.symmetric(
@@ -255,11 +257,11 @@ class WpListTileSurface extends StatelessWidget {
 
   BorderRadius _radius() {
     switch (variant) {
+      // One radius for every row (WP-14 §3: selected row radius 10).
       case WpListTileVariant.overview:
-        return WpRadius.borderMd;
       case WpListTileVariant.card:
       case WpListTileVariant.panel:
-        return WpRadius.borderLg;
+        return BorderRadius.circular(WpRadiusTokens.control);
     }
   }
 
@@ -281,11 +283,24 @@ class WpListTileSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = actions == null
+    final padding = _padding();
+    // With an actions slot the vertical padding moves from the envelope onto
+    // the content, next to the actions. The actions box (48 px, reserved by
+    // WpRowActions) is then the row's minimum height: a single-line row is
+    // 48 px at least, and a multi-line one keeps its full padding above and
+    // below to the divider. Callers must keep 48 px touch targets out of the
+    // content column, or the content's own floor would add to this padding.
+    final hasActions = actions != null;
+    final content = !hasActions
         ? child
         : Row(
             children: [
-              Expanded(child: child),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: padding.top),
+                  child: child,
+                ),
+              ),
               actions!,
             ],
           );
@@ -297,15 +312,33 @@ class WpListTileSurface extends StatelessWidget {
       ),
       curve: WpMotion.defaultCurve,
       margin: _margin(),
-      padding: _padding(),
+      padding: hasActions
+          ? EdgeInsets.symmetric(horizontal: padding.left)
+          : padding,
       decoration: BoxDecoration(
         color: _fill(),
         borderRadius: _radius(),
         border: _border(),
-        // No `boxShadow` at all — see the library comment. A row lives in the
-        // plane; its depth is the brightness delta.
       ),
-      child: content,
+      child: variant == WpListTileVariant.panel
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                content,
+                // The rule sits at the text start (inside the horizontal
+                // padding). It is transparent when selected so both states
+                // keep the same height and label position.
+                Container(
+                  key: const ValueKey('wp-list-tile-divider'),
+                  height: 1,
+                  color: isSelected
+                      ? Colors.transparent
+                      : WpColors.borderSubtle,
+                ),
+              ],
+            )
+          : content,
     );
   }
 }

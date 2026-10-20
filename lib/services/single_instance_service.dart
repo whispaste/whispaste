@@ -79,6 +79,14 @@ class SingleInstanceService {
   @visibleForTesting
   static String? lockDirOverride;
 
+  /// The file a second launch writes for the primary. Outside callers (the
+  /// Linux desktop-shortcut launcher) write `<unique token> <command>` here
+  /// directly to skip booting a second process.
+  static String signalFilePath() => p.join(
+    lockDirOverride ?? p.join(paths.appDataDir(), _dirName),
+    _signalFileName,
+  );
+
   /// Callback invoked when a second instance requests focus.
   static void Function()? onSecondInstanceLaunched;
 

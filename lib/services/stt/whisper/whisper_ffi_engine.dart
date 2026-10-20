@@ -40,6 +40,7 @@ import '../../../core/utils/windows_dll_search_path.dart';
 import '../../audio/pcm_wav_codec.dart';
 import '../native_call_guard.dart';
 import 'whisper_bindings.dart';
+import 'whisper_language_probe.dart';
 import 'whisper_engine.dart';
 
 final _log = AppLogger('WhisperFfi');
@@ -102,8 +103,11 @@ String defaultWhisperVadModelPath() =>
 /// tests for the same reason as [whisperLibraryPathFor].
 String whisperVadModelPathFor(String executablePath) {
   final libraryDir = p.dirname(whisperLibraryPathFor(executablePath));
-  return p.join(libraryDir, 'ggml-silero-v5.1.2.bin');
+  return p.join(libraryDir, whisperVadModelFileName);
 }
+
+/// File name of the bundled Silero-VAD model, next to the whisper library.
+const String whisperVadModelFileName = 'ggml-silero-v5.1.2.bin';
 
 /// One segment whisper.cpp emitted for a [WhisperFfiEngine.transcribe] call.
 ///
@@ -154,6 +158,7 @@ class WhisperFfiEngine
     implements
         WhisperEngine,
         PartialTranscriptSource,
+        DetectedLanguageSource,
         LivePreviewEngine,
         PromptTokenCounter {
   WhisperFfiEngine({
@@ -223,6 +228,17 @@ class WhisperFfiEngine
   /// not-in-[WhisperBindings] situation as [_segmentT0]/[_segmentT1].
   double Function(ffi.Pointer<whisper_context>, int)? _segmentNoSpeechProb;
 
+  /// Raw lookups for `whisper_full_lang_id` and `whisper_lang_str`, same
+  /// not-in-[WhisperBindings] situation as [_segmentT0]. `null` on a build
+  /// without them; the detected language is then simply unknown.
+  int Function(ffi.Pointer<whisper_context>)? _fullLangId;
+  ffi.Pointer<ffi.Char> Function(int)? _langStr;
+
+  String? _lastDetectedLanguage;
+
+  @override
+  String? get lastDetectedLanguage => _lastDetectedLanguage;
+
   /// Per-segment breakdown of the most recent [transcribe] call. Populated
   /// by [_logSegments]; empty before the first call or if the last call
   /// failed before segment assembly. Exposed (read-only) so diagnostic
@@ -238,7 +254,7 @@ class WhisperFfiEngine
   // params`, not globally like `whisper_log_set`) fires synchronously on
   // this same isolate's thread once for every newly completed segment
   // *during* a `whisper_full` call — see [_decodeOnce]. `.isolateLocal` (not
-  // `.listener`, unlike [_ensureLogCallbackRegistered]'s ggml log callback)
+  // `.listener`, unlike [installProcessLogForwarder]'s ggml log callback)
   // is correct and safe here because the callback only ever fires on the
   // thread that is blocked inside `whisper_full`, i.e. this isolate's own —
   // there is no cross-thread hazard to guard against.
@@ -320,9 +336,9 @@ class WhisperFfiEngine
       _confirmedBackend = backend;
       _gpuDevice = gpuDevice;
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
-      _ensureLogCallbackRegistered(bindings);
       _cpuFeatures = _readCpuFeatures(bindings);
       _resolveSegmentTimestampLookups(dylib);
+      _resolveLanguageLookups(dylib);
       final guard = NativeCallGuard.nextTo(_libraryPath);
       _guard = guard != null && guard.supportsWhisperStructs ? guard : null;
       _initStateFn = dylib.lookup<ffi.Void>('whisper_init_state');
@@ -399,13 +415,12 @@ class WhisperFfiEngine
     }
   }
 
-  static bool _logCallbackRegistered = false;
+  static bool _logForwarderInstalled = false;
 
-  // Never read — this reference exists solely to keep the NativeCallable
-  // (and the native function pointer ggml now holds via whisper_log_set)
-  // alive for the process lifetime. Letting it go out of scope would let
-  // the GC close the callable and invalidate that pointer while ggml still
-  // has it registered.
+  // Never read — this reference keeps the NativeCallable (and the native
+  // function pointer ggml holds via whisper_log_set) alive for the process
+  // lifetime. Letting it go out of scope would let the GC close the callable
+  // and invalidate that pointer while ggml still has it registered.
   // ignore: unused_field
   static ffi.NativeCallable<GgmlLogCallbackNative>? _logCallable;
 
@@ -414,6 +429,15 @@ class WhisperFfiEngine
   /// not called, or NULL is supplied, everything is output on stderr") — a
   /// console-less Windows GUI/MSIX process has no guaranteed-valid stderr
   /// handle for that default path (FLUTTER_WHISPASTE-BB).
+  ///
+  /// Must run in the long-lived main isolate, never in a worker: ggml keeps
+  /// this native function pointer for the whole process, but a
+  /// `NativeCallable` is closed when the isolate that created it ends. A
+  /// worker that registered its own callable (WP-48) left ggml with a dangling
+  /// pointer after shutdown, and the next log line aborted the VM ("Callback
+  /// invoked after it has been deleted"). Idempotent per isolate. Never throws:
+  /// a library that cannot be opened here fails again in the worker's load(),
+  /// which reports it.
   ///
   /// Deliberately does NOT read the native `text` pointer: ggml formats each
   /// log line into a buffer that is stack-local (or freed immediately after
@@ -424,14 +448,22 @@ class WhisperFfiEngine
   /// `.listener` is required over `.isolateLocal` because ggml can log from
   /// worker threads never registered with the Dart isolate. Only the `level`
   /// (a plain int, always safe to read) is forwarded.
-  static void _ensureLogCallbackRegistered(WhisperBindings bindings) {
-    if (_logCallbackRegistered) return;
-    _logCallbackRegistered = true;
-    final callable = ffi.NativeCallable<GgmlLogCallbackNative>.listener(
-      _onGgmlLog,
-    );
-    _logCallable = callable;
-    bindings.whisper_log_set(callable.nativeFunction, ffi.nullptr);
+  static void installProcessLogForwarder(String libraryPath) {
+    if (_logForwarderInstalled) return;
+    _logForwarderInstalled = true;
+    try {
+      ensureWindowsDllSearchPath(libraryPath);
+      final bindings = WhisperBindings.fromLookup(
+        ffi.DynamicLibrary.open(libraryPath).lookup,
+      );
+      final callable = ffi.NativeCallable<GgmlLogCallbackNative>.listener(
+        _onGgmlLog,
+      );
+      _logCallable = callable;
+      bindings.whisper_log_set(callable.nativeFunction, ffi.nullptr);
+    } catch (e) {
+      _log.warning('ggml log forwarding not installed: $e');
+    }
   }
 
   static void _onGgmlLog(
@@ -1529,6 +1561,8 @@ class WhisperFfiEngine
         );
       }
 
+      _lastDetectedLanguage = _readDetectedLanguage(ctx);
+
       _logSegments(
         bindings,
         ctx,
@@ -1551,6 +1585,37 @@ class WhisperFfiEngine
       if (promptC != null) malloc.free(promptC);
       if (vadModelPathC != null) malloc.free(vadModelPathC);
     }
+  }
+
+  void _resolveLanguageLookups(ffi.DynamicLibrary dylib) {
+    try {
+      _fullLangId = dylib
+          .lookupFunction<
+            ffi.Int Function(ffi.Pointer<whisper_context>),
+            int Function(ffi.Pointer<whisper_context>)
+          >('whisper_full_lang_id');
+      _langStr = dylib
+          .lookupFunction<
+            ffi.Pointer<ffi.Char> Function(ffi.Int),
+            ffi.Pointer<ffi.Char> Function(int)
+          >('whisper_lang_str');
+    } on ArgumentError {
+      _fullLangId = null;
+      _langStr = null;
+    }
+  }
+
+  /// The language whisper decoded the last chunk in, or `null` when the
+  /// library lacks the lookups. Reads native state only after `whisper_full`
+  /// has returned successfully.
+  String? _readDetectedLanguage(ffi.Pointer<whisper_context> ctx) {
+    final fullLangId = _fullLangId;
+    final langStr = _langStr;
+    if (fullLangId == null || langStr == null) return null;
+    return detectedLanguageCode(fullLangId(ctx), (id) {
+      final ptr = langStr(id);
+      return ptr.address == 0 ? null : ptr.cast<Utf8>().toDartString();
+    });
   }
 
   @override

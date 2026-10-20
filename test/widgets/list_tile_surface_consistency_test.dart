@@ -46,6 +46,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/generated/wp_tokens.g.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/widgets/history_card_view.dart';
@@ -414,7 +415,9 @@ void main() {
     ) async {
       await _pumpPlain(tester, _historyList());
       final overview = _measureEnvelope(tester);
-      expect(overview.radius, WpRadius.borderMd);
+      // WP-14 §3: every row shares the 8 px control radius; only a selected
+      // row lifts (soft shadow), so a resting row still has none.
+      expect(overview.radius, BorderRadius.circular(WpRadiusTokens.control));
       expect(overview.borderWidth, WpListTileSurface.overviewBorderWidth);
       expect(overview.hasShadow, isFalse);
     });

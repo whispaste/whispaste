@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
 
-/// Shared accent-gradient hero CTA button used throughout onboarding and
-/// elsewhere.
+/// Shared hero call-to-action button (onboarding "Weiter", "Los geht's").
 ///
-/// Always renders white text on the gradient background for reliable contrast
-/// in both light and dark themes. Supports disabled state via nullable
-/// [onPressed] and keyboard focus via [Material] + [InkWell].
+/// A flat amber surface in every appearance ([WpColors.ctaFill], hover and
+/// pressed from tokens) with navy label text ([WpColors.onCta]), which keeps
+/// the label above 4.5:1 in all three appearances (UIA-CMP-01). Supports the
+/// disabled state via nullable [onPressed] and keyboard focus via [Material] +
+/// [InkWell].
 class WpHeroButton extends StatefulWidget {
   const WpHeroButton({
     super.key,
     required this.label,
-    required this.gradient,
     required this.onPressed,
     this.verticalPadding = WpSpacing.md,
   });
 
   final String label;
-  final LinearGradient gradient;
   final VoidCallback? onPressed;
 
   /// Vertical inner padding.
@@ -76,14 +76,17 @@ class _WpHeroButtonState extends State<WpHeroButton> {
                 borderRadius: WpRadius.borderMd,
                 clipBehavior: Clip.antiAlias,
                 child: Ink(
-                  decoration: BoxDecoration(gradient: widget.gradient),
+                  decoration: BoxDecoration(
+                    color: _hovered ? WpColors.ctaHover : WpColors.ctaFill,
+                    borderRadius: WpRadius.borderMd,
+                  ),
                   child: InkWell(
                     onTap: widget.onPressed,
                     focusNode: _focusNode,
                     borderRadius: WpRadius.borderMd,
                     // WpFocusRing owns focus visuals — suppress InkWell's own.
                     focusColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
+                    highlightColor: WpColors.ctaPressed,
                     onHover: (hovering) => setState(() => _hovered = hovering),
                     child: Container(
                       padding: EdgeInsets.symmetric(
@@ -93,10 +96,9 @@ class _WpHeroButtonState extends State<WpHeroButton> {
                       child: Text(
                         widget.label,
                         // labelLarge = Type/button role (16 / 700 / ls -0.3).
-                        // Always white: button sits on an accent-gradient background.
                         style: Theme.of(
                           context,
-                        ).textTheme.labelLarge?.copyWith(color: Colors.white),
+                        ).textTheme.labelLarge?.copyWith(color: WpColors.onCta),
                       ),
                     ),
                   ),

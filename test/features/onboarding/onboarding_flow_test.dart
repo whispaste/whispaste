@@ -1,10 +1,10 @@
-/// Durchgehender Onboarding-Walkthrough-Test über die sechs Linux-Seiten:
+/// Durchgehender Onboarding-Walkthrough-Test über alle sieben Seiten:
 /// Willkommen → Datenschutz → Modell → Hotkey → Erscheinungsbild (inkl.
-/// Autostart-Umschalter) → Ausprobieren & Los. Auf macOS/Windows liegt
-/// zwischen Erscheinungsbild und der letzten Seite zusätzlich die
-/// Auto-Paste-Seite (sieben Seiten) — die Sequenz-Differenz selbst ist in
-/// `onboarding_step_ids_test.dart` und `onboarding_overlay_test.dart`
-/// abgedeckt; hier wird bewusst der kürzere Linux-Pfad durchgespielt.
+/// Autostart-Umschalter) → Auto-Paste → Ausprobieren & Los. Auto-Paste ist
+/// auf macOS, Windows und Linux eine eigene Seite (auf Linux mit dem Hinweis
+/// zum erkannten Paketformat); nur der Kill-Switch entfernt sie. Die
+/// Sequenz selbst ist in `onboarding_step_ids_test.dart` und
+/// `onboarding_overlay_test.dart` abgedeckt.
 ///
 /// Dieser Test treibt die [OnboardingOverlay] über die Shell-Navigation
 /// ("Weiter") bis zum Abschluss und assertiert dabei:
@@ -26,7 +26,6 @@ library;
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
@@ -37,6 +36,7 @@ import 'package:whispaste/core/platform/desktop_window_geometry.dart'
     show kOnboardingWindowSize;
 import 'package:whispaste/features/onboarding/onboarding_flow_migration.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
+import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/features/onboarding/steps/autostart_toggle.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
@@ -62,6 +62,7 @@ import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
+import 'package:golden_screenshot/golden_screenshot.dart' show loadAppFonts;
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -145,9 +146,12 @@ class _FakeMicPermissionChecker implements MicPermissionChecker {
 /// awaits `awaitInitialScan()`, and the real notifier's initial scan is real
 /// `Directory`/`File` I/O, which never resolves under `testWidgets` (see the
 /// override in `onboarding_overlay_test.dart`, which this mirrors).
+/// A speech model is already installed, so Next on the model page is open
+/// (UIA-RT-01 holds it until a model is there or downloading).
 class _StaticWhisperDownload extends ModelDownloadNotifier {
   @override
-  ModelDownloadState build() => const ModelDownloadState();
+  ModelDownloadState build() =>
+      const ModelDownloadState(downloadedModels: {'whisper-medium'});
 }
 
 class _StaticParakeetDownload extends ParakeetDownloadNotifier {
@@ -256,18 +260,13 @@ void main() {
     l10n = await L10n.delegate.load(const Locale('en'));
     // Echte gebündelte UI-Schrift statt der Quadrat-Testschrift — die
     // Fixed-Window-Messung unten ist sonst bedeutungslos.
-    final fontLoader = FontLoader('Inter')
-      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
-    await fontLoader.load();
+    await loadAppFonts();
   });
 
-  group('Onboarding Walkthrough — sechs Seiten bis zum Abschluss', () {
+  group('Onboarding Walkthrough — sieben Seiten bis zum Abschluss', () {
     testWidgets(
       'Seite 1: Willkommen (WelcomeStep) wird als erste Seite angezeigt '
-      '(1 of 6); die Seite trägt gar keinen Mikrofon-Chip mehr — auf Linux '
+      '(1 of 7); die Seite trägt gar keinen Mikrofon-Chip mehr — auf Linux '
       'verspräche er zusätzlich '
       'eine Aktion (Settings-Deep-Link), die es dort nicht gibt',
       (tester) async {
@@ -277,7 +276,7 @@ void main() {
 
           expect(find.byType(WelcomeStep), findsOneWidget);
           expect(find.byType(MicPermissionChip), findsNothing);
-          expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
           _expectExactlyTwoNavActions(tester, page: 1);
         } finally {
           debugDefaultTargetPlatformOverride = null;
@@ -285,7 +284,7 @@ void main() {
       },
     );
 
-    testWidgets('Vollständiger Durchlauf über alle sechs Seiten: '
+    testWidgets('Vollständiger Durchlauf über alle sieben Seiten: '
         'onboardingCompleted = true nach gelungener Testaufnahme und '
         '"Los geht\'s"', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.linux;
@@ -295,41 +294,47 @@ void main() {
         // Seite 1: Willkommen (Demo-Beats + Sprachauswahl; Linux ohne Chip).
         expect(find.byType(WelcomeStep), findsOneWidget);
         expect(find.byType(MicPermissionChip), findsNothing);
-        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 1);
         await _tapNext(tester);
 
         // Seite 2: Datenschutz.
         expect(find.byType(PrivacyStep), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(2, 7)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 2);
         await _tapNext(tester);
 
         // Seite 3: Modell — nur noch die Engine-Wahl, ohne Hotkey-Block.
         expect(find.byType(ModelStep), findsOneWidget);
         expect(find.byType(TriggerStep), findsNothing);
-        expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(3, 7)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 3);
         await _tapNext(tester);
 
         // Seite 4: Hotkey — eigene Seite seit der Aufteilung.
         expect(find.byType(TriggerStep), findsOneWidget);
         expect(find.byType(ModelStep), findsNothing);
-        expect(find.text(l10n.onboardingStepOf(4, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(4, 7)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 4);
         await _tapNext(tester);
 
         // Seite 5: Erscheinungsbild — nur noch der Autostart-Umschalter
         // (Theme-Auswahl entfernt 2026-08-11, Dark-only).
         expect(find.byType(OnboardingAutostartToggle), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(5, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(5, 7)), findsOneWidget);
         _expectExactlyTwoNavActions(tester, page: 5);
         await _tapNext(tester);
 
-        // Seite 6: Ausprobieren & Los.
+        // Seite 6: Auto-Paste — auf Linux mit dem Hinweis zum Paketformat.
+        expect(find.byType(AutoPasteStep), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(6, 7)), findsOneWidget);
+        _expectExactlyTwoNavActions(tester, page: 6);
+        await _tapNext(tester);
+
+        // Seite 7: Ausprobieren & Los.
         expect(find.byType(TestRecordingStep), findsOneWidget);
         expect(find.byType(ReadyStep), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(7, 7)), findsOneWidget);
         // Der Abschluss-CTA trägt das "Los geht's"-Label statt "Weiter".
         expect(find.text(l10n.onboardingStartUsing), findsOneWidget);
 
@@ -384,12 +389,12 @@ void main() {
       try {
         await _pumpOverlay(tester);
         await _tapNext(tester);
-        expect(find.text(l10n.onboardingStepOf(2, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(2, 7)), findsOneWidget);
 
         await tester.tap(find.byKey(kOnboardingBackButtonKey));
         await tester.pumpAndSettle();
 
-        expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
         expect(find.byType(WelcomeStep), findsOneWidget);
       } finally {
         debugDefaultTargetPlatformOverride = null;
@@ -425,13 +430,13 @@ void main() {
             hotkeyStatus: HotkeyRegistrationStatus.conflict,
             initialSettings: AppSettings.defaults.copyWithSections(
               onboarding: AppSettings.defaults.onboarding.copyWith(
-                onboardingCurrentStep: 5,
+                onboardingCurrentStep: 6,
                 onboardingFlowVersion: kOnboardingFlowVersion,
               ),
             ),
           );
 
-          expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(7, 7)), findsOneWidget);
           expect(
             find.text(l10n.onboardingTriggerHotkeyConflictTitle),
             findsWidgets,
@@ -463,13 +468,13 @@ void main() {
             tester,
             initialSettings: AppSettings.defaults.copyWithSections(
               onboarding: AppSettings.defaults.onboarding.copyWith(
-                onboardingCurrentStep: 5,
+                onboardingCurrentStep: 6,
                 onboardingFlowVersion: kOnboardingFlowVersion,
               ),
             ),
           );
 
-          expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(7, 7)), findsOneWidget);
           // Ohne Testaufnahme: CTA deaktiviert, Grund benannt.
           expect(
             tester
@@ -520,7 +525,7 @@ void main() {
           hotkeyStatus: HotkeyRegistrationStatus.conflict,
           initialSettings: AppSettings.defaults.copyWithSections(
             onboarding: AppSettings.defaults.onboarding.copyWith(
-              onboardingCurrentStep: 5,
+              onboardingCurrentStep: 6,
               onboardingFlowVersion: kOnboardingFlowVersion,
             ),
           ),
@@ -567,7 +572,7 @@ void main() {
         );
 
         expect(find.byType(ModelStep), findsOneWidget);
-        expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
+        expect(find.text(l10n.onboardingStepOf(3, 7)), findsOneWidget);
         expect(find.byType(WelcomeStep), findsNothing);
         // Keine erneute Übersetzung: Position bleibt unangetastet.
         expect(settings.state.value!.onboarding.onboardingCurrentStep, 2);
@@ -596,7 +601,7 @@ void main() {
 
           expect(find.byType(TriggerStep), findsOneWidget);
           expect(find.byType(ModelStep), findsNothing);
-          expect(find.text(l10n.onboardingStepOf(4, 6)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(4, 7)), findsOneWidget);
 
           final onboarding = settings.state.value!.onboarding;
           expect(
@@ -633,7 +638,7 @@ void main() {
           );
 
           expect(find.byType(WelcomeStep), findsOneWidget);
-          expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
           expect(settings.state.value!.onboarding.onboardingCurrentStep, 0);
           expect(
             settings.state.value!.onboarding.onboardingFlowVersion,
@@ -691,8 +696,8 @@ void main() {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
       try {
         // Index der letzten Seite aus der echten Sequenz ableiten: auf
-        // macOS sind es sieben Seiten, auf Linux sechs — eine feste Zahl
-        // hier hätte die Messung stillschweigend auf die Auto-Paste-Seite
+        // Auf allen Desktop-Plattformen sind es sieben Seiten; eine feste
+        // Zahl hier hätte die Messung stillschweigend auf die falsche Seite
         // gelenkt.
         final lastIndex =
             buildOnboardingStepIds(

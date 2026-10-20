@@ -18,6 +18,7 @@ library;
 
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +34,12 @@ import 'package:whispaste/services/stt_parakeet/parakeet_model_registry.dart';
 /// state (the atomic `.tmp` → final rename has already happened by the time
 /// `fetch()` returns).
 class _FakeFetcher extends HttpModelFetcher {
+  _FakeFetcher({Set<String>? corruptFirstFetchOf})
+    : corruptFirstFetchOf = {...?corruptFirstFetchOf};
+
+  /// URLs whose next fetch writes same-sized bytes that do not match the
+  /// pinned SHA-256 (a corrupt transfer). Consumed on use.
+  final Set<String> corruptFirstFetchOf;
   final List<String> requestedUrls = [];
 
   @override
@@ -43,7 +50,10 @@ class _FakeFetcher extends HttpModelFetcher {
     void Function(FetchProgress)? onProgress,
   }) async {
     requestedUrls.add(url);
-    await File(destPath).writeAsBytes(List<int>.filled(expectedSize, 0));
+    final corrupt = corruptFirstFetchOf.remove(url);
+    await File(
+      destPath,
+    ).writeAsBytes(List<int>.filled(expectedSize, corrupt ? 1 : 0));
     onProgress?.call(
       FetchProgress(
         bytesReceived: expectedSize,
@@ -76,23 +86,34 @@ class _FailingFetcher extends HttpModelFetcher {
   void cancel([String reason = 'cancelled']) {}
 }
 
-const _fakeFiles = [
+/// SHA-256 of the zero-filled fixture [_FakeFetcher] writes for [n] bytes.
+String _zeroSha256(int n) => sha256.convert(List<int>.filled(n, 0)).toString();
+
+final _fakeFiles = [
   ParakeetModelFile(
     filename: 'encoder.int8.onnx',
     url: 'https://x/e',
     sizeBytes: 8,
+    sha256: _zeroSha256(8),
   ),
   ParakeetModelFile(
     filename: 'decoder.int8.onnx',
     url: 'https://x/d',
     sizeBytes: 4,
+    sha256: _zeroSha256(4),
   ),
   ParakeetModelFile(
     filename: 'joiner.int8.onnx',
     url: 'https://x/j',
     sizeBytes: 4,
+    sha256: _zeroSha256(4),
   ),
-  ParakeetModelFile(filename: 'tokens.txt', url: 'https://x/t', sizeBytes: 2),
+  ParakeetModelFile(
+    filename: 'tokens.txt',
+    url: 'https://x/t',
+    sizeBytes: 2,
+    sha256: _zeroSha256(2),
+  ),
 ];
 
 void main() {
@@ -163,6 +184,49 @@ void main() {
           'Parakeet bundle directory on success, the same way the whisper '
           'model path does after model_download_service.dart\'s '
           '_markModelDone',
+    );
+  });
+
+  group('SHA-256 verification of freshly downloaded files', () {
+    test(
+      'a hash mismatch deletes the file and errors; retry recovers',
+      () async {
+        final fetcher = _FakeFetcher(corruptFirstFetchOf: {'https://x/d'});
+        final container = ProviderContainer(
+          overrides: [
+            parakeetDownloadProvider.overrideWith(
+              () => ParakeetDownloadNotifier()..fetcherOverride = fetcher,
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final notifier = container.read(parakeetDownloadProvider.notifier);
+
+        await notifier.downloadBundle();
+
+        final failed = container.read(parakeetDownloadProvider);
+        expect(failed.phase, ParakeetDownloadPhase.error);
+        expect(failed.installed, isFalse);
+        expect(failed.errorMessage, contains('decoder.int8.onnx'));
+        expect(failed.errorMessage, contains('checksum'));
+        expect(
+          File(p.join(parakeetModelDir(), 'decoder.int8.onnx')).existsSync(),
+          isFalse,
+          reason: 'a file that fails its pinned hash must not stay on disk',
+        );
+
+        await notifier.downloadBundle();
+
+        expect(
+          container.read(parakeetDownloadProvider).phase,
+          ParakeetDownloadPhase.done,
+        );
+        expect(
+          fetcher.requestedUrls.where((u) => u == 'https://x/d'),
+          hasLength(2),
+          reason: 'retry re-downloads only the rejected file',
+        );
+      },
     );
   });
 

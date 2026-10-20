@@ -9,9 +9,12 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/logging/app_logger.dart';
 import 'package:whispaste/features/history/data/history_title.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_retroactive_service.dart';
+
+final _log = AppLogger('HistoryDetail');
 
 // ---------------------------------------------------------------------------
 // State
@@ -78,6 +81,14 @@ sealed class HistoryPresetApplicationResult {
 final class HistoryPresetApplicationSuccess
     extends HistoryPresetApplicationResult {
   const HistoryPresetApplicationSuccess();
+}
+
+/// Another Smart-Mode write (an undo, a restore or a preset) holds the entry's
+/// lock. Not a failure: nothing was applied and the user may simply retry
+/// (DEV-175).
+final class HistoryPresetApplicationBusy
+    extends HistoryPresetApplicationResult {
+  const HistoryPresetApplicationBusy();
 }
 
 final class HistoryPresetApplicationFailure
@@ -162,6 +173,23 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
     SmartModePreset preset, {
     SmartModeTargetLanguage? targetLanguage,
   }) async {
+    final lock = ref.read(smartModeBusyProvider.notifier);
+    // Shared with undo/restore (DEV-155): neither may start while the other
+    // writes to this entry.
+    if (!lock.tryAcquire(_entryId)) {
+      return const HistoryPresetApplicationBusy();
+    }
+    try {
+      return await _applyPresetLocked(preset, targetLanguage: targetLanguage);
+    } finally {
+      lock.release(_entryId);
+    }
+  }
+
+  Future<HistoryPresetApplicationResult> _applyPresetLocked(
+    SmartModePreset preset, {
+    SmartModeTargetLanguage? targetLanguage,
+  }) async {
     final current = state.asData?.value;
     if (current == null) {
       return const HistoryPresetApplicationFailure(
@@ -170,13 +198,26 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
     }
 
     state = AsyncValue.data(current.copyWith(applyingPreset: true));
-    final result = await ref
-        .read(smartModeRetroactiveServiceProvider)
-        .apply(
-          rawText: current.entry.content,
-          preset: preset,
-          targetLanguage: targetLanguage,
-        );
+    final SmartModeRetroactiveResult result;
+    try {
+      result = await ref
+          .read(smartModeRetroactiveServiceProvider)
+          .apply(
+            rawText: current.entry.content,
+            preset: preset,
+            targetLanguage: targetLanguage,
+            languageCode: current.entry.language,
+            detectedLanguage: current.entry.languageHint,
+          );
+    } on Object catch (error) {
+      // Fail closed: the stored versions stay as they were, and the busy flag
+      // is cleared on every path (DEV-141). Only the class is logged.
+      _log.warning('Retroactive Smart Mode failed (${error.runtimeType})');
+      _clearApplyingPreset();
+      return const HistoryPresetApplicationFailure(
+        SmartModeRetroactiveFailureReason.engineError,
+      );
+    }
 
     switch (result) {
       case SmartModeRetroactiveSuccess(:final editedContent):
@@ -185,16 +226,53 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
           HistoryEntriesCompanion(smartModeEditedContent: Value(editedContent)),
         );
         final entry = await _db.getEntry(_entryId);
+        final latest = state.asData?.value ?? current;
         state = AsyncValue.data(
-          (current.copyWith(applyingPreset: false)).copyWith(
-            entry: entry ?? current.entry,
+          latest.copyWith(
+            applyingPreset: false,
+            entry: entry ?? latest.entry,
             viewingEditedVersion: true,
           ),
         );
         return const HistoryPresetApplicationSuccess();
       case SmartModeRetroactiveFailure(:final reason):
-        state = AsyncValue.data(current.copyWith(applyingPreset: false));
+        _clearApplyingPreset();
         return HistoryPresetApplicationFailure(reason);
+    }
+  }
+
+  void _clearApplyingPreset() {
+    final latest = state.asData?.value;
+    if (latest == null) return;
+    state = AsyncValue.data(latest.copyWith(applyingPreset: false));
+  }
+
+  /// Smart-Mode undo (Block C): the raw input becomes the content again and
+  /// the result is kept for [restoreSmartMode]. Returns false when no undo is
+  /// in effect (for example after a manual edit cleared it).
+  Future<bool> undoSmartMode() =>
+      _writeSmartModeUndo(() => _db.undoSmartMode(_entryId));
+
+  /// Reverses [undoSmartMode] and brings the stored result back.
+  Future<bool> restoreSmartMode() =>
+      _writeSmartModeUndo(() => _db.restoreSmartModeOutput(_entryId));
+
+  /// Runs one undo/restore write. Refused while a preset is being applied
+  /// (DEV-155). The state is re-read after the await, so a snapshot taken
+  /// before the write never overwrites newer state.
+  Future<bool> _writeSmartModeUndo(Future<bool> Function() write) async {
+    final current = state.asData?.value;
+    if (current == null || current.applyingPreset) return false;
+    final lock = ref.read(smartModeBusyProvider.notifier);
+    if (!lock.tryAcquire(_entryId)) return false;
+    try {
+      final changed = await write();
+      final entry = await _db.getEntry(_entryId);
+      final latest = state.asData?.value ?? current;
+      state = AsyncValue.data(latest.copyWith(entry: entry ?? latest.entry));
+      return changed;
+    } finally {
+      lock.release(_entryId);
     }
   }
 
@@ -320,6 +398,30 @@ class HistoryDetailNotifier extends AsyncNotifier<HistoryDetailState> {
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
+
+/// Entry IDs with a Smart-Mode write in flight (a preset apply or an
+/// undo/restore). Each entry takes the lock at most once at a time, whichever
+/// path (detail panel or toast) starts the write (DEV-155).
+final smartModeBusyProvider =
+    NotifierProvider<SmartModeBusyNotifier, Set<String>>(
+      SmartModeBusyNotifier.new,
+    );
+
+class SmartModeBusyNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => const {};
+
+  /// Returns false when [entryId] is already locked.
+  bool tryAcquire(String entryId) {
+    if (state.contains(entryId)) return false;
+    state = {...state, entryId};
+    return true;
+  }
+
+  void release(String entryId) {
+    state = {...state}..remove(entryId);
+  }
+}
 
 /// Family provider keyed by entry ID. Auto-disposes when the detail panel
 /// is closed (no listeners).

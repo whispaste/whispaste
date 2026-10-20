@@ -5,8 +5,8 @@ import 'wp_button.dart';
 
 /// Empty state — centered visual with icon, title, hint, and optional CTA.
 ///
-/// Premium: accent-tinted icon circle (a single quiet signal point, glow-
-/// free), glass border hint, refined spacing, confident title size.
+/// Icon disc on the `accentSubtle` role with a `borderSubtle` ring: one quiet
+/// signal point, no light effect, no translucent accent tint.
 ///
 /// When to pass an action — one rule, the same on every page: **an empty
 /// state offers the area's main action whenever the area has one; that the
@@ -47,14 +47,14 @@ class WpEmptyState extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Icon circle — one quiet accent signal point, no glow
+              // Icon circle — one quiet accent signal point, no light effect
               Container(
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: WpColors.accentChipFill,
+                  color: WpColors.accentSubtle,
                   shape: BoxShape.circle,
-                  border: Border.all(color: WpColors.accentBorder20),
+                  border: Border.all(color: WpColors.borderSubtle),
                 ),
                 child: Icon(icon, size: WpIconSize.xl, color: WpColors.accent),
               ),

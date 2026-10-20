@@ -1,8 +1,9 @@
 /// Voice input button — records a short voice clip inline, transcribes it,
 /// and hands the raw transcript to the caller.
 ///
-/// Reuses [AudioServiceNotifier] and [SttServerStateNotifier] for the
-/// recording pipeline. The button shows recording/transcribing state inline.
+/// Reuses [AudioServiceNotifier] and the active [Transcriber] (whatever
+/// [transcriberProvider] picks — whisper, Parakeet or cloud, same as the
+/// dictation hotkey) for the recording pipeline. The button shows recording/transcribing state inline.
 ///
 /// The button owns the *pipeline* (start lock, WAV flush wait, STT timeouts,
 /// error toasts) and nothing else: what happens with the finished transcript
@@ -20,13 +21,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
+import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/audio_service.dart';
 import '../services/recording_orchestrator.dart';
-import '../services/stt/stt_bundle.dart';
+import '../services/stt_engine_lifecycle_provider.dart';
+import '../services/transcription/transcriber.dart';
+import 'recording_behavior.dart' show localizeRecordingError;
 import 'toast.dart';
+import 'wp_touch_target.dart';
 
 // ---------------------------------------------------------------------------
 // Voice input button state
@@ -97,7 +102,7 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
   }
 
   /// Updates [_phase] and announces the new phase to screen readers — mirrors
-  /// the recording-state announcement in [WpStatusBar]'s `_SttChip`.
+  /// the recording-state announcement in [WpRecordingDock]'s `_SttChip`.
   void _setPhase(_VoicePhase phase) {
     setState(() => _phase = phase);
     SemanticsService.sendAnnouncement(
@@ -124,6 +129,21 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
     // container, which outlives the button.
     final container = ProviderScope.containerOf(context, listen: false);
     final orch = container.read(recordingOrchestratorProvider.notifier);
+
+    // Refuse up front, with the dictation's own message, when the active
+    // engine cannot transcribe (e.g. no model downloaded) — not after the
+    // user has spoken the whole note.
+    final notReady = await orch.checkTranscriptionReady();
+    if (!mounted) return;
+    if (notReady != null) {
+      _log.warning('Voice input refused by preflight: $notReady');
+      _showToast(
+        localizeRecordingError(L10n.of(context), notReady),
+        isError: true,
+      );
+      return;
+    }
+
     if (!orch.tryAcquireStartLock()) {
       _log.debug(
         'Voice input suppressed — orchestrator lock not acquired '
@@ -166,7 +186,7 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
     final l10n = L10n.of(context);
     final container = ProviderScope.containerOf(context, listen: false);
     final audio = container.read(audioServiceProvider.notifier);
-    final stt = container.read(localSttBundleProvider.notifier);
+    final transcriber = container.read(transcriberProvider);
 
     _setPhase(_VoicePhase.transcribing);
 
@@ -199,20 +219,27 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
         return;
       }
 
-      // Ensure STT is ready.
-      await stt.ensureRunning().timeout(
+      // Ensure the active engine is ready.
+      await transcriber.prepare().timeout(
         WpVoiceInputButton.ensureRunningTimeout,
       );
 
-      final sttStatus = container.read(localSttBundleProvider);
-      if (!sttStatus.isReady) {
-        _fail(sttStatus.errorMessage ?? 'stt_not_ready');
+      // Local engines report start-up failures (OOM, missing binary) through
+      // their lifecycle status rather than by throwing — same check as the
+      // dictation pipeline's prepare step.
+      final settings = container.read(settingsProvider).value;
+      final engineStatus = container
+          .read(onDeviceEngineLifecycleProvider)
+          .status;
+      if ((settings?.sttProviderType.isLocal ?? true) &&
+          !engineStatus.isReady) {
+        _fail(engineStatus.errorMessage ?? 'stt_server_failed');
         return;
       }
 
       // Transcribe.
-      final transcript = await stt
-          .transcribeBytes(wavBytes)
+      final transcript = await transcriber
+          .transcribe(wavBytes)
           .timeout(WpVoiceInputButton.transcribeTimeout);
 
       if (transcript.trim().isEmpty) {
@@ -233,6 +260,8 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
       _reset();
     } on TimeoutException {
       _fail('timeout');
+    } on TranscriberException catch (e) {
+      _fail(e.message);
     } on Exception catch (e) {
       _fail('$e');
     } finally {
@@ -240,13 +269,29 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
       if (wavPath != null) {
         await audio.cleanupFile(wavPath);
       }
+      // Lets the engine start its idle countdown, as after a dictation. When
+      // the whole provider scope went down with the button there is no
+      // engine left to tell.
+      try {
+        transcriber.release();
+      } on Exception catch (e) {
+        // Riverpod's UnmountedRefException: the engine's provider is gone.
+        _log.debug('Transcriber release skipped: $e');
+      }
     }
   }
 
   void _fail(String reason) {
     _log.warning('Voice input failed: $reason');
     if (mounted) {
-      _showToast(L10n.of(context).voiceNoteError, isError: true);
+      // A known pipeline code gets the dictation's specific message; anything
+      // else keeps the generic voice-note error.
+      final l10n = L10n.of(context);
+      final specific = localizeRecordingError(l10n, reason);
+      _showToast(
+        specific == l10n.errorGeneric ? l10n.voiceNoteError : specific,
+        isError: true,
+      );
     }
     _reset();
   }
@@ -310,21 +355,24 @@ class _WpVoiceInputButtonState extends ConsumerState<WpVoiceInputButton> {
       button: true,
       child: Tooltip(
         message: tooltip,
-        child: InkWell(
+        child: WpTouchTarget(
           onTap: _phase == _VoicePhase.transcribing ? null : _onTap,
-          borderRadius: WpRadius.borderSm,
-          child: Padding(
-            padding: const EdgeInsets.all(WpSpacing.xxs),
-            child: _phase == _VoicePhase.transcribing
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: color,
-                    ),
-                  )
-                : Icon(icon, size: 16, color: color),
+          child: InkWell(
+            onTap: _phase == _VoicePhase.transcribing ? null : _onTap,
+            borderRadius: WpRadius.borderSm,
+            child: Padding(
+              padding: const EdgeInsets.all(WpSpacing.xxs),
+              child: _phase == _VoicePhase.transcribing
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: color,
+                      ),
+                    )
+                  : Icon(icon, size: WpIconSize.sm, color: color),
+            ),
           ),
         ),
       ),

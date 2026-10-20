@@ -6,7 +6,6 @@ library;
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
@@ -23,6 +22,7 @@ import '../services/hotkey_key_resolver.dart' as key_resolver;
 import '../services/win_layout_label.dart';
 import 'dialog.dart';
 import 'wp_button.dart';
+import 'wp_keycap.dart';
 
 // ---------------------------------------------------------------------------
 // Data class
@@ -246,6 +246,12 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
   @override
   void initState() {
     super.initState();
+    _loadInitialCombo();
+  }
+
+  /// Loads the combo the recorder was opened with. Also the inline mode's
+  /// Escape: it discards what was recorded and shows the saved combo again.
+  void _loadInitialCombo() {
     _modifiersStorage = widget.initialModifiers;
     // Validate the persisted key before trusting it as a valid combo.
     // Pre-fix DBs may contain non-resolvable tokens (e.g. raw `'Ö'`) that the
@@ -305,12 +311,20 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
 
     // Escape closes the dialog instead of being treated as an (invalid)
     // recordable key — without this, a keyboard-only user has no way out of
-    // the recorder besides clicking Cancel with the mouse. Only relevant in
-    // modal mode: embedded mode has no route to pop and no Cancel button.
-    if (event is KeyDownEvent &&
-        key == LogicalKeyboardKey.escape &&
-        widget.onSubmit == null) {
-      Navigator.of(context).pop();
+    // the recorder besides clicking Cancel with the mouse. Embedded inline
+    // there is no route to pop, so Escape discards the recorded combo and
+    // restores the saved one instead (UIA-ONB-08).
+    if (event is KeyDownEvent && key == LogicalKeyboardKey.escape) {
+      if (widget.onSubmit == null) {
+        Navigator.of(context).pop();
+      } else {
+        _heldModifiers.clear();
+        _isAltGr = false;
+        setState(() {
+          _loadInitialCombo();
+          _showInvalidKeyHint = false;
+        });
+      }
       return;
     }
 
@@ -496,16 +510,17 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
 
   @override
   Widget build(BuildContext context) {
-    const bg = WpColors.surfaceElevated;
-    const border = WpColors.borderDefault;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final bg = WpColors.surfaceElevated;
+    final border = WpColors.borderDefault;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
     final l10n = L10n.of(context);
 
     // Modifier chips, derived from the canonical storage tokens at render time
     // so they stay localized AND platform-correct (Strg/Option/AltGr/Win …).
     final modifierLabels = hotkeyModifierLabels(_modifiersStorage, l10n: l10n);
+    final examples = hotkeyRecorderExamples(l10n: l10n);
 
     // A valid combo requires a resolvable storage key plus either a modifier
     // or a whitelisted single key (F1–F12, media keys — stored in
@@ -536,16 +551,12 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
             // ── Header ──────────────────────────────────────
             Row(
               children: [
-                const Icon(
-                  LucideIcons.keyboard,
-                  size: WpIconSize.md,
-                  color: accent,
-                ),
+                Icon(LucideIcons.keyboard, size: WpIconSize.md, color: accent),
                 const SizedBox(width: WpSpacing.sm),
                 Expanded(
                   child: Text(
                     l10n.settingsHotkeyRecorderTitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: textPrimary,
                       fontSize: WpTypography.heading,
                       fontWeight: FontWeight.w600,
@@ -557,10 +568,7 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
             const SizedBox(height: WpSpacing.xs),
             Text(
               l10n.settingsHotkeyRecorderHint,
-              style: const TextStyle(
-                color: textMuted,
-                fontSize: WpTypography.small,
-              ),
+              style: TextStyle(color: textMuted, fontSize: WpTypography.small),
             ),
             const SizedBox(height: WpSpacing.xl),
 
@@ -582,9 +590,13 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
             // ── Modifier hint ───────────────────────────────
             Center(
               child: Text(
-                l10n.settingsHotkeyRecorderModifierHint,
+                l10n.settingsHotkeyRecorderModifierHint(
+                  examples[0],
+                  examples[1],
+                  examples[2],
+                ),
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: textMuted,
                   fontSize: WpTypography.caption,
                 ),
@@ -600,7 +612,7 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
                   child: Text(
                     l10n.settingsHotkeyRecorderInvalidKey,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: WpColors.warning,
                       fontSize: WpTypography.caption,
                     ),
@@ -670,23 +682,9 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
           focusNode: _focusNode,
           autofocus: true,
           onKeyEvent: _handleKeyEvent,
-          // The blur backdrop only makes sense in modal mode, where it frosts
-          // the modal barrier behind the card. Two exceptions render the card
-          // bare instead:
-          //   • Windows — BackdropFilter + ImageFilter.blur is broken on
-          //     frameless windows (see _WpDialogBarrier in dialog.dart), so
-          //     the blur would show up as a visibly broken dialog.
-          //   • Inline mode (onSubmit != null, e.g. the onboarding trigger
-          //     page) — there is no barrier back there, just real page
-          //     content. The blur would smear the heading and the conflict
-          //     warning that explain why the recorder appeared in the first
-          //     place.
-          child: Platform.isWindows || widget.onSubmit != null
-              ? card
-              : BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                  child: card,
-                ),
+          // The card is flat: no backdrop blur (Maintainer decision 12,
+          // 2026-10-20). The modal barrier behind it is the dim scrim.
+          child: card,
         ),
       ),
     );
@@ -763,7 +761,7 @@ class _KeyComboDisplay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColors.textMuted;
+    final textMuted = WpColors.textMuted;
 
     // Nothing recorded yet — show placeholder
     if (modifiers.isEmpty && keyLabel.isEmpty) {
@@ -774,7 +772,7 @@ class _KeyComboDisplay extends StatelessWidget {
         // box. Both branches now reserve the same 48 dp floor and grow.
         constraints: const BoxConstraints(minHeight: 48),
         alignment: Alignment.center,
-        child: const Text(
+        child: Text(
           '—',
           style: TextStyle(color: textMuted, fontSize: WpTypography.title),
         ),
@@ -785,23 +783,27 @@ class _KeyComboDisplay extends StatelessWidget {
 
     for (var i = 0; i < modifiers.length; i++) {
       if (i > 0) caps.add(const _PlusSeparator());
-      caps.add(_KeyCap(label: modifiers[i]));
+      caps.add(WpKeycap(label: modifiers[i]));
     }
 
     if (keyLabel.isNotEmpty) {
       if (caps.isNotEmpty) caps.add(const _PlusSeparator());
-      caps.add(_KeyCap(label: keyLabel, isPrimary: true));
+      caps.add(WpKeycap(label: keyLabel, emphasized: true));
     }
 
     return Container(
       constraints: const BoxConstraints(minHeight: 48),
       alignment: Alignment.center,
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: WpSpacing.xxs,
-        runSpacing: WpSpacing.xs,
-        children: caps,
+      // Shortcut order is left to right in every locale (UX-024).
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: WpSpacing.xxs,
+          runSpacing: WpSpacing.xs,
+          children: caps,
+        ),
       ),
     );
   }
@@ -810,47 +812,6 @@ class _KeyComboDisplay extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // Individual key cap
 // ---------------------------------------------------------------------------
-
-class _KeyCap extends StatelessWidget {
-  const _KeyCap({required this.label, this.isPrimary = false});
-
-  final String label;
-  final bool isPrimary;
-
-  @override
-  Widget build(BuildContext context) {
-    const bgColor = WpColors.surfaceVariant;
-    const borderColor = WpColors.borderSubtle;
-    const textColor = WpColors.textPrimary;
-    const accentColor = WpColors.accent;
-
-    return AnimatedContainer(
-      duration: WpMotion.durationFor(context, WpMotion.fast),
-      curve: WpMotion.defaultCurve,
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.sm,
-        vertical: WpSpacing.xxs + 2,
-      ),
-      decoration: BoxDecoration(
-        color: isPrimary ? (WpColors.active) : bgColor,
-        borderRadius: BorderRadius.circular(WpRadius.sm),
-        border: Border.all(
-          color: isPrimary ? accentColor.withValues(alpha: 0.4) : borderColor,
-        ),
-        boxShadow: WpShadows.subtle,
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: WpTypography.body,
-          fontWeight: FontWeight.w700,
-          color: isPrimary ? accentColor : textColor,
-          letterSpacing: 0.3,
-        ),
-      ),
-    );
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Plus separator
@@ -861,8 +822,8 @@ class _PlusSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
       child: Text(
         '+',
         style: TextStyle(
@@ -883,6 +844,48 @@ class _PlusSeparator extends StatelessWidget {
 ///
 /// Non-blocking: the Save button remains enabled. The user retains full
 /// control over whether to accept the potential conflict.
+/// Localized name of the OS function behind a conflicting combination.
+String conflictNoteLabel(L10n l10n, ConflictNote note) => switch (note) {
+  ConflictNote.spotlight => l10n.hotkeyConflictNoteSpotlight,
+  ConflictNote.appSwitcher => l10n.hotkeyConflictNoteAppSwitcher,
+  ConflictNote.quitApp => l10n.hotkeyConflictNoteQuitApp,
+  ConflictNote.closeWindow => l10n.hotkeyConflictNoteCloseWindow,
+  ConflictNote.hideApp => l10n.hotkeyConflictNoteHideApp,
+  ConflictNote.minimizeWindow => l10n.hotkeyConflictNoteMinimizeWindow,
+  ConflictNote.cycleWindows => l10n.hotkeyConflictNoteCycleWindows,
+  ConflictNote.screenshotFullScreen =>
+    l10n.hotkeyConflictNoteScreenshotFullScreen,
+  ConflictNote.screenshotSelection =>
+    l10n.hotkeyConflictNoteScreenshotSelection,
+  ConflictNote.screenshotRecording =>
+    l10n.hotkeyConflictNoteScreenshotRecording,
+  ConflictNote.emojiPicker => l10n.hotkeyConflictNoteEmojiPicker,
+  ConflictNote.forceQuit => l10n.hotkeyConflictNoteForceQuit,
+  ConflictNote.lockWorkstation => l10n.hotkeyConflictNoteLockWorkstation,
+  ConflictNote.showDesktop => l10n.hotkeyConflictNoteShowDesktop,
+  ConflictNote.fileExplorer => l10n.hotkeyConflictNoteFileExplorer,
+  ConflictNote.runDialog => l10n.hotkeyConflictNoteRunDialog,
+  ConflictNote.settings => l10n.hotkeyConflictNoteSettings,
+  ConflictNote.search => l10n.hotkeyConflictNoteSearch,
+  ConflictNote.taskView => l10n.hotkeyConflictNoteTaskView,
+  ConflictNote.inputLanguageSwitch =>
+    l10n.hotkeyConflictNoteInputLanguageSwitch,
+  ConflictNote.maximizeWindow => l10n.hotkeyConflictNoteMaximizeWindow,
+  ConflictNote.snapLeft => l10n.hotkeyConflictNoteSnapLeft,
+  ConflictNote.snapRight => l10n.hotkeyConflictNoteSnapRight,
+  ConflictNote.securityOptionsTaskManager =>
+    l10n.hotkeyConflictNoteSecurityOptionsTaskManager,
+  ConflictNote.taskManager => l10n.hotkeyConflictNoteTaskManager,
+  ConflictNote.lockScreenGnomeKde => l10n.hotkeyConflictNoteLockScreenGnomeKde,
+  ConflictNote.runDialogKde => l10n.hotkeyConflictNoteRunDialogKde,
+  ConflictNote.logoutShutdownDialog =>
+    l10n.hotkeyConflictNoteLogoutShutdownDialog,
+  ConflictNote.openTerminal => l10n.hotkeyConflictNoteOpenTerminal,
+  ConflictNote.lockScreenGnome => l10n.hotkeyConflictNoteLockScreenGnome,
+  ConflictNote.activityOverviewKde =>
+    l10n.hotkeyConflictNoteActivityOverviewKde,
+};
+
 class _ConflictWarning extends StatelessWidget {
   const _ConflictWarning({required this.conflict, required this.l10n});
 
@@ -898,7 +901,7 @@ class _ConflictWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const warningColor = WpColors.warning;
+    final warningColor = WpColors.warning;
     final warningBg = warningColor.withValues(alpha: 0.12);
     final warningBorder = warningColor.withValues(alpha: 0.35);
 
@@ -917,7 +920,7 @@ class _ConflictWarning extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             LucideIcons.triangleAlert,
             size: WpIconSize.sm,
             color: warningColor,
@@ -927,9 +930,11 @@ class _ConflictWarning extends StatelessWidget {
             child: Text(
               l10n.hotkeyConflictWarning(
                 _platformName(),
-                conflict.note.isNotEmpty ? conflict.note : conflict.key,
+                conflict.note == null
+                    ? conflict.key
+                    : conflictNoteLabel(l10n, conflict.note!),
               ),
-              style: const TextStyle(
+              style: TextStyle(
                 color: warningColor,
                 fontSize: WpTypography.caption,
                 height: 1.4,

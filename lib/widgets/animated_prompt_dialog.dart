@@ -73,9 +73,21 @@ mixin WpPostRecordingPromptDelay<T extends StatefulWidget> on State<T> {
         _promptDialogShowing = false;
         return;
       }
-      onDelayElapsed();
+      // Central nudge gate (R-11): no dictation running, 30 s idle in the app.
+      unawaited(
+        waitForNudgeGate().then((_) {
+          if (!mounted) {
+            _promptDialogShowing = false;
+            return;
+          }
+          onDelayElapsed();
+        }),
+      );
     });
   }
+
+  /// Completes when the central nudge gate allows a nudge to open.
+  Future<void> waitForNudgeGate();
 
   /// Call once the dialog has closed (any resolution) so a future prompt can
   /// trigger again.

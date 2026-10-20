@@ -335,10 +335,32 @@ void main() {
       },
     );
 
-    testWidgets('escape hatch: tapping "continue without a microphone" sets '
-        'onboardingMicBypassProvider and shows the honest consequence note', (
-      tester,
-    ) async {
+    testWidgets('a whitespace-only transcript shows no success line but asks '
+        'to try again (UIA-ONB-04)', (tester) async {
+      final orchestrator = await _pumpStep(tester);
+
+      orchestrator.sandboxTranscriptSink!('  \n ');
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.onboardingTestRecordingDoneMessage), findsNothing);
+      expect(find.text(l10n.errorTranscriptionEmpty), findsOneWidget);
+      expect(
+        find.text(l10n.onboardingTestRecordingPlaceholder),
+        findsOneWidget,
+      );
+
+      orchestrator.sandboxTranscriptSink!('Hello again');
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.errorTranscriptionEmpty), findsNothing);
+      expect(
+        find.text(l10n.onboardingTestRecordingDoneMessage),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the step states the escape hatch consequence before it is '
+        'taken; the button itself lives in the shell footer', (tester) async {
       await _pumpStep(tester);
       final container = ProviderScope.containerOf(
         tester.element(find.byType(TestRecordingStep)),
@@ -346,25 +368,35 @@ void main() {
 
       expect(container.read(onboardingMicBypassProvider), false);
       expect(
-        find.text(l10n.onboardingTestRecordingMicBypassHint),
-        findsNothing,
-      );
-
-      await tester.ensureVisible(
-        find.byKey(kTestRecordingStepMicBypassButtonKey),
-      );
-      await tester.tap(find.byKey(kTestRecordingStepMicBypassButtonKey));
-      await tester.pumpAndSettle();
-
-      expect(container.read(onboardingMicBypassProvider), true);
-      expect(
-        find.text(l10n.onboardingTestRecordingMicBypassHint),
+        find.text(l10n.onboardingTestRecordingMicBypassConsequence),
         findsOneWidget,
       );
       expect(
         find.byKey(kTestRecordingStepMicBypassButtonKey),
         findsNothing,
-        reason: 'The one-shot escape hatch disappears once taken.',
+        reason:
+            'The escape hatch is rendered by the onboarding footer beside the '
+            'CTA, never inside the step body.',
+      );
+    });
+
+    testWidgets('once the escape hatch is taken, the step shows the honest '
+        'consequence note instead', (tester) async {
+      await _pumpStep(tester);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(TestRecordingStep)),
+      );
+
+      container.read(onboardingMicBypassProvider.notifier).activate();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(l10n.onboardingTestRecordingMicBypassHint),
+        findsOneWidget,
+      );
+      expect(
+        find.text(l10n.onboardingTestRecordingMicBypassConsequence),
+        findsNothing,
       );
     });
   });

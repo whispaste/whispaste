@@ -6,7 +6,9 @@
 /// but with entirely independent persisted state — its own SharedPreferences
 /// keys and its own recording-count threshold. The two prompts are never
 /// coupled through shared counters; they are only coordinated in *timing*
-/// (see [checkAndMaybePrompt]) so they never appear in close succession.
+/// (see [checkAndMaybePrompt]) so they never appear in close succession. The
+/// one shared input is the history itself: dictations whose paste failed are
+/// excluded from both thresholds (see [countEligibleRecordings]).
 ///
 /// No resolution is ever permanent. An explicit dismiss buys a 90-day snooze;
 /// opening a sponsoring link buys a 9-month quiet period, after which exactly
@@ -163,7 +165,8 @@ class SupportPromptNotifier extends Notifier<SupportPromptState> {
         prefs: prefs,
         bridge: ref.read(supportStoreBridgeProvider),
       );
-      if (status.suppressesPrompts) return;
+      // A user who hid the sponsor chip is not asked again either (R-12).
+      if (status.suppressesPrompts || status.chipHidden) return;
       if (!_offersExternalSupport()) return;
 
       final impressions = prefs.getInt(_keyImpressionCount) ?? 0;
@@ -174,7 +177,8 @@ class SupportPromptNotifier extends Notifier<SupportPromptState> {
       if (prefs.getBool(_keyFollowUpShown) == true) return;
 
       final db = ref.read(historyDatabaseProvider);
-      final count = await db.countActive();
+      // Failed-paste dictations do not count here either (growth review GR-012).
+      final count = await countEligibleRecordings(prefs, db);
       if (count < _minRecordings) return;
 
       // In-session guard: if the review prompt is currently pending display,

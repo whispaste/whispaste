@@ -197,6 +197,9 @@ void FloatingOverlayWindow::Destroy() {
 
 void FloatingOverlayWindow::Show() {
   if (!hwnd_ || shutting_down_) return;
+  // Already on screen: every visible snapshot would otherwise re-order the
+  // window. Position changes arrive through SetPosition, so skipping is safe.
+  if (visible_ && IsWindowVisible(hwnd_)) return;
   ValidatePosition();
   ApplyWindowPosition();
   ShowWindow(hwnd_, SW_SHOWNOACTIVATE);

@@ -136,20 +136,25 @@ class WpFloatingOverlayView extends StatefulWidget {
     double liquidMotion = 0.0,
     double liquidLevel = 0.0,
   }) {
-    // The spec still declares a dark/light pair, and its two members are
-    // the same constant on purpose (`dark = light` — the spike has one
-    // design). What went with the light theme is the bridge that used to
-    // pick between them from `snapshot.isDark`; the spec's own pair is not
-    // this refactor's to collapse.
-    const theme = OverlayDesignTheme.dark;
+    final appearance = snapshot.appearance;
+    final colors = OverlayDesignSpec.colorsFor(
+      background: snapshot.background,
+      wave: snapshot.wave,
+    );
     final designState = designStateFor(snapshot.state);
     return WpOverlayPainter(
+      languageChip: snapshot.languageChip,
+      profileChip: snapshot.profileChip,
+      form: appearance.form,
+      waveStyle: appearance.waveStyle,
+      showTimer: appearance.showTimer,
+      showCancel: appearance.showCancel,
+      fillOpacity: snapshot.effectiveOpacity.alpha,
       state: designState,
-      theme: theme,
+      theme: colors.tone,
       sizeSpec: OverlayDesignSpec.sizeFor(snapshot.size),
       layout: OverlayDesignSpec.layoutFor(snapshot.size),
-      colors: OverlayDesignSpec.colors(theme),
-      style: snapshot.style,
+      colors: colors,
       waveformBars: snapshot.state == OverlayVisualState.recording
           ? waveformBars
           : const [],
@@ -162,6 +167,7 @@ class WpFloatingOverlayView extends StatefulWidget {
       paintContent: paintContent,
       pillWidth: pillWidth,
       iconRevealFraction: iconRevealFraction,
+      donePasteFailed: snapshot.donePasteFailed,
       glassPhase: glassPhase,
       liquidMotion: liquidMotion,
       liquidLevel: liquidLevel,
@@ -627,6 +633,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   double get _liquidMotion =>
       (_reducedMotion ||
           !widget.animate ||
+          !widget.snapshot.appearance.waveFluid ||
           widget.snapshot.state == OverlayVisualState.transcribing)
       ? 0.0
       : 1.0;

@@ -22,7 +22,9 @@ mkdir -p "$DEBUG_DIR"
 count=0
 while IFS= read -r so; do
   name="$(basename "$so")"
-  if ! readelf -n "$so" | grep -q 'Build ID'; then
+  # Match the note type, not its label: readelf localizes "Build ID"
+  # (de_DE prints "Build-ID:"), so the label check failed on German hosts.
+  if ! readelf -n "$so" | grep -q 'NT_GNU_BUILD_ID'; then
     echo "ERROR: $name has no GNU build-id — Sentry could not match its debug file." >&2
     exit 1
   fi

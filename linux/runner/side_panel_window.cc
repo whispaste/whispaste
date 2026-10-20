@@ -5,7 +5,8 @@
 #include <algorithm>
 #include <cmath>
 
-#include "flutter/generated_plugin_registrant.h"
+#include "secondary_plugin_registrant.h"
+#include "positioned_window_type.h"
 
 // ══════════════════════════════════════════════════════════════════════
 // SidePanelSensorWindow
@@ -24,8 +25,10 @@ bool SidePanelSensorWindow::Create(int x, int y, int width, int height,
   // just asks not to be decorated/activated/listed, so `gtk_window_set_
   // keep_above` and the NOTIFICATION type hint below actually mean something
   // to the WM (an override-redirect POPUP window bypasses the WM entirely,
-  // which loses both).
-  window_ = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  // which loses both). Tiling WMs are the exception: they would tile the
+  // strip into a black half-screen pane, so there it bypasses the WM
+  // (XP-6-10, PositionedHelperWindowType).
+  window_ = gtk_window_new(PositionedHelperWindowType());
 
   gtk_window_set_decorated(GTK_WINDOW(window_), FALSE);
   gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window_), TRUE);
@@ -148,8 +151,8 @@ SidePanelContentWindow::~SidePanelContentWindow() { Destroy(); }
 bool SidePanelContentWindow::Create(int x, int y, int width, int height) {
   if (window_) return true;
 
-  // TOPLEVEL, same rationale as SidePanelSensorWindow::Create above.
-  window_ = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  // Same window type rule as SidePanelSensorWindow::Create above.
+  window_ = gtk_window_new(PositionedHelperWindowType());
 
   gtk_window_set_decorated(GTK_WINDOW(window_), FALSE);
   gtk_window_set_skip_taskbar_hint(GTK_WINDOW(window_), TRUE);
@@ -186,7 +189,7 @@ bool SidePanelContentWindow::Create(int x, int y, int width, int height) {
   fl_view_set_background_color(fl_view_, &transparent);
 
   gtk_container_add(GTK_CONTAINER(window_), GTK_WIDGET(fl_view_));
-  fl_register_plugins(FL_PLUGIN_REGISTRY(fl_view_));
+  fl_register_secondary_plugins(FL_PLUGIN_REGISTRY(fl_view_));
   gtk_widget_show(GTK_WIDGET(fl_view_));
 
   gtk_widget_add_events(window_, GDK_ENTER_NOTIFY_MASK |

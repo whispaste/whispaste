@@ -1,22 +1,29 @@
 import 'package:flutter/material.dart';
 
-/// WhisPaste brand wordmark — the full logo + "Whispaste" text as a PNG image.
+/// WhisPaste brand wordmark — the original word-and-image mark (logo bars and
+/// wave + "Whispaste") as a PNG image with 1.5x–4x resolution variants.
 ///
-/// Automatically selects the dark or light variant based on theme brightness.
 /// Dark variant: light bars + white "Whis" + cyan "paste" (for dark backgrounds).
 /// Light variant: dark bars + navy "Whis" + cyan "paste" (for light backgrounds).
 class WpBrandWordmark extends StatelessWidget {
-  const WpBrandWordmark({super.key, this.height = 28});
+  const WpBrandWordmark({super.key, this.height = 28, this.onDark});
 
   /// Logical height of the wordmark image.
   final double height;
 
+  /// Whether the mark sits on a dark surface; defaults to the theme's
+  /// brightness. Pass it explicitly where the surface differs from the theme
+  /// (the sidebar frame).
+  final bool? onDark;
+
   @override
   Widget build(BuildContext context) {
-    const asset = 'assets/icons/wordmark-dark.png';
+    final dark = onDark ?? Theme.of(context).brightness == Brightness.dark;
 
     return Image.asset(
-      asset,
+      dark
+          ? 'assets/icons/wordmark-dark.png'
+          : 'assets/icons/wordmark-light.png',
       height: height,
       filterQuality: FilterQuality.high,
       isAntiAlias: true,

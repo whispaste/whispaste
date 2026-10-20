@@ -98,7 +98,7 @@ function verifySourceImages() {
         const filePath = screenshotPathFor(screen, lang, storeId);
         if (!fs.existsSync(filePath)) {
           throw new Error(
-            `Missing golden screenshot for store="${storeId}" lang="${lang}":\n  ${filePath}\nRun: flutter test --update-goldens test/screenshots/`,
+            `Missing golden screenshot for store="${storeId}" lang="${lang}":\n  ${filePath}\nRegenerate with: flutter test --tags=store --update-goldens test/screenshots/store_screenshots_test.dart`,
           );
         }
       }

@@ -121,6 +121,12 @@ const breadcrumbItems = [
       <p>
         Transcribed text is stored locally on your device in an SQLite database (<code>%APPDATA%\WhisPaste\</code> on Windows, <code>~/Library/Application Support/WhisPaste</code> on macOS, <code>~/.config/whispaste</code> on Linux). This data never leaves your device. You can view, search, export, and delete your transcription history at any time through the application.
       </p>
+      <p>
+        <strong>Notes and note images:</strong> WhisPaste also stores your notes locally on your device, together with their version history (up to 50 versions and 4&nbsp;MiB in total per note; older versions are then removed automatically). Images you add to a note (via the file picker, by pasting from the clipboard, or by drag and drop) are stored by WhisPaste in the application folder; each note may hold up to 20 images and 32&nbsp;MiB, with 512&nbsp;MiB in total. Before saving, WhisPaste removes extra information from images, including GPS location, EXIF, XMP, IPTC and comment data; the image orientation is kept. Notes and images never leave your device.
+      </p>
+      <p>
+        The PIN for your history also protects your notes: while the app is locked, notes and search show no content; you can still capture quick notes, but existing content is not shown. If you forget the PIN and reset it, all recordings, all notes with their version history and all note images are deleted immediately and permanently. Settings, snippets, and replacements are kept.
+      </p>
     </section>
 
     <section>

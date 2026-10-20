@@ -126,7 +126,7 @@ void main() {
     });
 
     test('overlayTranscribing Label stimmt', () {
-      expect(l10n.overlayTranscribing, 'Transcribing…');
+      expect(l10n.overlayTranscribing, 'Processing…');
     });
 
     test('overlayError Label stimmt', () {
@@ -167,7 +167,7 @@ void main() {
 
     test('"copy_and_paste" → overlayDoneBoth ("Copied & Pasted")', () {
       expect(doneMessageFor('copy_and_paste', l10n), l10n.overlayDoneBoth);
-      expect(l10n.overlayDoneBoth, 'Copied & Pasted');
+      expect(l10n.overlayDoneBoth, 'Copied & pasted');
     });
 
     test('"clipboard_and_paste" → overlayDoneBoth — Alias', () {

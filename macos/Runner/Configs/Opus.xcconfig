@@ -1,0 +1,10 @@
+// Ogg/Opus decoder for the Runner target (WP-35b). Static, universal libraries
+// built by scripts/build-opus-macos.sh into .build/opus-macos (gitignored).
+// Includes AppInfo.xcconfig so the Runner base settings stay unchanged.
+#include "AppInfo.xcconfig"
+
+OPUS_PREFIX = $(SRCROOT)/../.build/opus-macos
+HEADER_SEARCH_PATHS = $(inherited) $(OPUS_PREFIX)/include $(OPUS_PREFIX)/include/opus $(SRCROOT)/../linux/runner
+LIBRARY_SEARCH_PATHS = $(inherited) $(OPUS_PREFIX)/lib
+OTHER_LDFLAGS = $(inherited) -lopusfile -lopus -logg
+SWIFT_OBJC_BRIDGING_HEADER = Runner/Runner-Bridging-Header.h

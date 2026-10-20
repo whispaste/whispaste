@@ -1,11 +1,10 @@
 /// Unit tests for [buildOnboardingStepIds] — the pure step-sequence function.
 ///
-/// The flow is seven steps on macOS and Windows and six on Linux: the
-/// Auto-Paste page is omitted from the *sequence* where it cannot apply,
-/// rather than rendered as a page with nothing on it. That difference is the
-/// single piece of platform variance in the flow, and these tests pin both
-/// sides of it — the difference itself, and the fact that nothing else about
-/// the order varies.
+/// The flow is seven steps on every desktop platform. The Auto-Paste page is
+/// omitted from the *sequence* only under the App Review kill switch, rather
+/// than rendered as a page with nothing on it. Linux shows it too, with a hint
+/// per package format. These tests pin the kill switch as the only variance
+/// and the fact that nothing else about the order varies.
 ///
 /// Tests here do NOT pump the widget tree — [buildOnboardingStepIds] is a pure
 /// function so assertions are direct list checks, which is the highest
@@ -27,14 +26,10 @@ List<OnboardingStepId> _steps(TargetPlatform platform, bool autoPaste) =>
 
 void main() {
   group('buildOnboardingStepIds', () {
-    test('macOS and Windows run seven steps, Linux six', () {
-      expect(_steps(TargetPlatform.macOS, true), hasLength(7));
-      expect(_steps(TargetPlatform.windows, true), hasLength(7));
-      expect(
-        _steps(TargetPlatform.linux, true),
-        hasLength(6),
-        reason: 'Linux has no paste controller wired — no Auto-Paste page',
-      );
+    test('every desktop platform runs seven steps', () {
+      for (final platform in _platforms) {
+        expect(_steps(platform, true), hasLength(7), reason: '$platform');
+      }
     });
 
     test('sequence is Welcome → Privacy → Model → Hotkey → Appearance → '
@@ -54,20 +49,17 @@ void main() {
         OnboardingStepId.model,
         OnboardingStepId.hotkey,
         OnboardingStepId.appearance,
+        OnboardingStepId.autoPaste,
         OnboardingStepId.tryAndGo,
       ]);
     });
 
-    test('the Auto-Paste page is omitted from the sequence entirely where it '
-        'cannot apply — never included as an empty page', () {
-      // Linux: no paste controller, at any kill-switch setting.
-      for (final autoPaste in [true, false]) {
-        expect(
-          _steps(TargetPlatform.linux, autoPaste),
-          isNot(contains(OnboardingStepId.autoPaste)),
-          reason: 'linux autoPasteSupported=$autoPaste',
-        );
-      }
+    test('the Auto-Paste page is shown on Linux and omitted only under the '
+        'kill switch', () {
+      expect(
+        _steps(TargetPlatform.linux, true),
+        contains(OnboardingStepId.autoPaste),
+      );
       // The App Review Guideline 2.4.5 kill switch removes it everywhere.
       for (final platform in _platforms) {
         expect(
@@ -80,13 +72,13 @@ void main() {
     });
 
     test('every other step is present on every platform and build variant — '
-        'Auto-Paste is the only thing that varies', () {
+        'the Auto-Paste kill switch is the only thing that varies', () {
       for (final platform in _platforms) {
         for (final autoPaste in [true, false]) {
           final steps = _steps(platform, autoPaste);
           final reason = 'platform=$platform autoPasteSupported=$autoPaste';
           for (final id in OnboardingStepId.values) {
-            if (id == OnboardingStepId.autoPaste) continue;
+            if (id == OnboardingStepId.autoPaste && !autoPaste) continue;
             expect(steps, contains(id), reason: '$id missing — $reason');
           }
           // Order is invariant even where the length is not: dropping the

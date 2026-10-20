@@ -4,8 +4,7 @@
 /// SQLite (`toStorageMap` / `fromStorageMap`) without breaking existing data.
 library;
 
-import '../theme/overlay_design_spec.dart'
-    show OverlaySizeVariant, OverlayStyleVariant;
+import '../theme/overlay_design_spec.dart' show OverlaySizeVariant;
 
 // ---------------------------------------------------------------------------
 // STT Provider
@@ -167,6 +166,36 @@ enum OverlayStartPosition {
 }
 
 // ---------------------------------------------------------------------------
+// Appearance
+// ---------------------------------------------------------------------------
+
+/// Appearance of the app windows (AR-21). [system] follows the OS between
+/// [light] and [dark]; [navy] uses the website language (navy frame around
+/// light content, amber primary record button). Recording dock, overlay and
+/// floating button stay navy in every mode.
+enum AppearanceMode {
+  system('system'),
+  light('light'),
+  dark('dark'),
+  navy('navy');
+
+  const AppearanceMode(this.value);
+  final String value;
+
+  static AppearanceMode fromValue(String? v) {
+    // WP-50: the mode was called "brand" until 1.4.x. Stored values keep
+    // loading; the next write stores the new name.
+    if (v == 'brand') return navy;
+    for (final e in values) {
+      if (e.value == v) return e;
+    }
+    // Missing or unknown values get the default. Navy is the default since
+    // WP-50b; a stored `light` or `dark` is an explicit choice and loads as is.
+    return navy;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Side Panel Edge
 // ---------------------------------------------------------------------------
 
@@ -219,42 +248,6 @@ extension FloatingOverlaySizeVariantX on FloatingOverlaySize {
     FloatingOverlaySize.normal => OverlaySizeVariant.normal,
     FloatingOverlaySize.compact => OverlaySizeVariant.compact,
     FloatingOverlaySize.mini => OverlaySizeVariant.mini,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Floating Overlay Style
-// ---------------------------------------------------------------------------
-
-/// Chrome style for the floating overlay pill — independent of
-/// [FloatingOverlaySize], applies identically to all three sizes.
-enum OverlayStyle {
-  /// The default translucent no-blur "Dock glass" chrome (see
-  /// [OverlayDesignSpec]'s glass constants).
-  glass('glass'),
-
-  /// Fully opaque pill filled with the app's own frame gradient (the same
-  /// blue as the app header/sidebar) — no sheen, no rim light, no specular
-  /// drift. The waveform and the liquid silhouette wobble stay unchanged.
-  solid('solid');
-
-  const OverlayStyle(this.value);
-  final String value;
-
-  static OverlayStyle fromValue(String? v) {
-    for (final e in values) {
-      if (e.value == v) return e;
-    }
-    return glass;
-  }
-}
-
-/// Maps the persisted settings enum onto the design-spec style variant.
-extension OverlayStyleVariantX on OverlayStyle {
-  /// The design-spec variant for this settings value.
-  OverlayStyleVariant get variant => switch (this) {
-    OverlayStyle.glass => OverlayStyleVariant.glass,
-    OverlayStyle.solid => OverlayStyleVariant.solid,
   };
 }
 

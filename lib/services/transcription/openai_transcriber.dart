@@ -6,19 +6,18 @@ import 'package:http/http.dart' as http;
 
 import '../../core/config/secure_key_store.dart';
 import '../../core/config/settings_provider.dart';
+import '../stt/transcript_hallucination_filter.dart';
+import 'cloud_request.dart';
 import 'transcriber_interface.dart';
 
 /// Calls OpenAI Whisper API (`/v1/audio/transcriptions`).
 ///
 /// Requires `openAiApiKey` to be set in secure storage.
 class OpenAiTranscriber implements Transcriber {
-  OpenAiTranscriber({required this.ref, http.Client? httpClient})
-    : _client = httpClient ?? http.Client(),
-      _ownsClient = httpClient == null;
+  OpenAiTranscriber({required this.ref, this._httpClient});
 
   final Ref ref;
-  final http.Client _client;
-  final bool _ownsClient;
+  final http.Client? _httpClient;
 
   static const _endpoint = 'https://api.openai.com/v1/audio/transcriptions';
   static const _model = 'whisper-1';
@@ -32,7 +31,7 @@ class OpenAiTranscriber implements Transcriber {
     final key = await _apiKey;
     if (key == null || key.trim().isEmpty) {
       throw const TranscriberException(
-        'OpenAI API key not set. Add your key in Settings → Cloud Providers.',
+        'OpenAI API key not set. Add your key in Settings → Speech recognition.',
         reason: TranscriberFailureReason.authError,
       );
     }
@@ -76,9 +75,14 @@ class OpenAiTranscriber implements Transcriber {
       request.fields['prompt'] = vocabulary;
     }
 
-    final http.StreamedResponse streamed;
+    final int status;
+    final String body;
     try {
-      streamed = await _client.send(request).timeout(_timeout);
+      (status, body) = await sendCloudSttRequest(
+        request,
+        timeout: _timeout,
+        client: _httpClient,
+      );
     } on TimeoutException {
       throw const TranscriberException(
         'OpenAI request timed out.',
@@ -91,12 +95,13 @@ class OpenAiTranscriber implements Transcriber {
       );
     }
 
-    final body = await streamed.stream.bytesToString();
-
-    switch (streamed.statusCode) {
+    switch (status) {
       case 200:
         final json = jsonDecode(body) as Map<String, dynamic>;
-        return (json['text'] as String? ?? '').trim();
+        final text = (json['text'] as String? ?? '').trim();
+        // Same silence artefacts the on-device path drops (stock phrases,
+        // a lone sound annotation); empty reads as a blank recording.
+        return isNonSpeechTranscript(text) ? '' : text;
       case 401:
         throw const TranscriberException(
           'OpenAI API key is invalid or expired.',
@@ -109,14 +114,12 @@ class OpenAiTranscriber implements Transcriber {
         );
       default:
         throw TranscriberException(
-          'OpenAI API error (HTTP ${streamed.statusCode}): $body',
+          'OpenAI API error (HTTP $status): $body',
           reason: TranscriberFailureReason.unknown,
         );
     }
   }
 
   @override
-  void release() {
-    if (_ownsClient) _client.close();
-  }
+  void release() {}
 }

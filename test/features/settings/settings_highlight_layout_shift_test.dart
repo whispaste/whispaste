@@ -1,102 +1,192 @@
-/// Pins the settings search-hit highlight as a *painted* ring, not a laid-out
-/// one.
+/// Pins the settings deep-link highlight: a soft tint behind the target row.
 ///
-/// The ring is transient: selecting a search suggestion sets
-/// [settingsHighlightTargetProvider], and the page clears it again 1.5 s
-/// later. While it was a `Border` inside `AnimatedContainer.decoration`, the
-/// container inset its child by the 2 px border width — so the section the
-/// user had just been sent to jumped 2 px inward on arrival and 2 px back out
-/// on expiry, twice per search, at the exact moment they were trying to read
-/// it. `foregroundDecoration` paints the same ring over the child at zero
-/// layout cost.
-///
-/// The geometry assertion alone would also pass if the ring stopped rendering
-/// altogether, so this file checks both halves: the ring is really there, and
-/// it costs nothing.
+/// The tint is a positioned background (no border, no outline, no layout), so
+/// the row never moves while it is marked. It fades in quickly and out over
+/// 1.5 s once the page clears the target. Reduce motion turns both fades into
+/// a static tint, and the title and explanation keep WCAG AA contrast on it in
+/// every colour set.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/navigation/page_state.dart';
-import 'package:whispaste/features/settings/sections/interface_section.dart';
+import 'package:whispaste/core/theme/colors.dart';
+import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
 
 import '../../fixtures/test_helpers.dart';
 
-/// The `AnimatedContainer` the page wraps around one section for its
-/// highlight ring.
-Finder _highlightBoxOf(Finder section) =>
-    find.ancestor(of: section, matching: find.byType(AnimatedContainer)).first;
+const _rowId = 'general-app-language';
+
+Finder _rowOf(String rowId) => find.byKey(ValueKey('settings-row-$rowId'));
+
+Finder _fillOf(String rowId) => find.descendant(
+  of: _rowOf(rowId),
+  matching: find.byKey(const ValueKey('settings-row-highlight-fill')),
+);
+
+/// Opacity the fill is currently painted with (the animated value).
+double _fillOpacity(WidgetTester tester, String rowId) => tester
+    .widget<FadeTransition>(
+      // Nearest FadeTransition above the fill: the one AnimatedOpacity builds.
+      find
+          .ancestor(of: _fillOf(rowId), matching: find.byType(FadeTransition))
+          .first,
+    )
+    .opacity
+    .value;
+
+void _mark(WidgetTester tester, String? rowId) {
+  final container = ProviderScope.containerOf(
+    tester.element(find.byType(SettingsPage)),
+  );
+  container.read(settingsHighlightTargetProvider.notifier).set(rowId);
+}
+
+Future<void> _pumpPage(WidgetTester tester) async {
+  await tester.pumpWidget(
+    makeTestable(const SettingsPage(), locale: const Locale('en')),
+  );
+  await tester.pumpAndSettle();
+}
+
+/// WCAG 2.x contrast ratio of [fg] over [bg].
+double _contrast(Color fg, Color bg) {
+  final a = fg.computeLuminance();
+  final b = bg.computeLuminance();
+  final hi = a > b ? a : b;
+  final lo = a > b ? b : a;
+  return (hi + 0.05) / (lo + 0.05);
+}
 
 void main() {
-  group('settings search highlight', () {
-    testWidgets('does not move the section it highlights', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(const SettingsPage(), locale: const Locale('en')),
-      );
-      await tester.pumpAndSettle();
+  tearDown(() => WpColors.activate(wpLightColors));
 
-      final section = find.byType(InterfaceSection);
-      expect(section, findsOneWidget);
+  group('settings deep-link highlight', () {
+    testWidgets('shows a tint on the target row only', (tester) async {
+      await _pumpPage(tester);
+      expect(_fillOpacity(tester, _rowId), 0);
 
-      final before = tester.getRect(section);
-      final borderAtRest =
-          (tester.widget<AnimatedContainer>(_highlightBoxOf(section)).decoration
-                  as BoxDecoration?)
-              ?.border;
-
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(SettingsPage)),
-      );
-      container.read(settingsHighlightTargetProvider.notifier).set('interface');
-
-      // Past the 200 ms highlight animation, well short of the 1.5 s clear.
+      _mark(tester, _rowId);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(WpMotion.highlightIn);
+
+      expect(_fillOpacity(tester, _rowId), 1);
+    });
+
+    testWidgets('paints no border or outline around the row', (tester) async {
+      await _pumpPage(tester);
+      _mark(tester, _rowId);
+      await tester.pump(WpMotion.highlightIn);
+
+      final fill = tester.widget<DecoratedBox>(_fillOf(_rowId));
+      final decoration = fill.decoration as BoxDecoration;
+      expect(decoration.border, isNull, reason: 'no outline as highlight');
+      expect(decoration.color, isNotNull);
+
+      final rowContainers = tester.widgetList<Container>(
+        find.descendant(of: _rowOf(_rowId), matching: find.byType(Container)),
+      );
+      for (final c in rowContainers) {
+        expect(
+          (c.foregroundDecoration as BoxDecoration?)?.border,
+          isNull,
+          reason: 'the row must not paint a ring',
+        );
+      }
+    });
+
+    testWidgets('fill spans the row bounds plus the inset, nothing more', (
+      tester,
+    ) async {
+      await _pumpPage(tester);
+      final before = tester.getRect(_rowOf(_rowId));
+      _mark(tester, _rowId);
+      await tester.pump(WpMotion.highlightIn);
 
       expect(
-        tester.getRect(section),
+        tester.getRect(_rowOf(_rowId)),
         before,
-        reason:
-            'the highlight ring must not be laid out — a Border in '
-            '`decoration` insets the child by its width and shifts the '
-            'section the user was just sent to',
-      );
-
-      // The ring is genuinely on screen, so the geometry check above is not
-      // passing on an invisible highlight.
-      final highlighted = tester.widget<AnimatedContainer>(
-        _highlightBoxOf(section),
+        reason: 'the tint must not move or resize the row',
       );
       expect(
-        highlighted.foregroundDecoration,
-        isA<BoxDecoration>().having((d) => d.border, 'border', isNotNull),
-        reason: 'the highlight ring belongs in the foreground decoration',
-      );
-      // The background decoration is not empty any more — Ticket 14 put the
-      // section on the card material, and a card's rim is a `Border` there by
-      // definition. What matters is that it does not *change*: a constant
-      // border costs its inset once, at every moment, which is exactly the
-      // layout the section already had. The ring must add nothing to it.
-      expect(
-        (highlighted.decoration as BoxDecoration?)?.border,
-        borderAtRest,
+        tester.getRect(_fillOf(_rowId)),
+        Rect.fromLTRB(
+          before.left - WpSpacing.sm,
+          before.top,
+          before.right + WpSpacing.sm,
+          before.bottom,
+        ),
         reason:
-            'the background decoration changed when the ring arrived — that '
-            'is the layer that costs layout, so anything that moves in it '
-            'moves the section with it',
+            'the fill covers the row band with WpSpacing.sm of air on each '
+            'side, so the label keeps its inner padding inside the tint',
       );
+    });
 
-      // …and back out again when the page clears the target 1.5 s later.
-      await tester.pump(const Duration(milliseconds: 1500));
+    testWidgets('fades out over 1.5 s after the target is cleared', (
+      tester,
+    ) async {
+      await _pumpPage(tester);
+      _mark(tester, _rowId);
+      await tester.pump();
+      await tester.pump(WpMotion.highlightIn);
+      expect(_fillOpacity(tester, _rowId), 1);
+
+      _mark(tester, null);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 750));
+      final midway = _fillOpacity(tester, _rowId);
+      expect(midway, greaterThan(0));
+      expect(midway, lessThan(1), reason: 'still fading at the midpoint');
+
+      await tester.pump(WpMotion.highlightOut);
       await tester.pumpAndSettle();
+      expect(_fillOpacity(tester, _rowId), 0);
+    });
 
-      expect(
-        tester.getRect(section),
-        before,
-        reason: 'the section must also hold still when the ring expires',
+    testWidgets('reduced motion shows a static tint without animation', (
+      tester,
+    ) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
       );
+      await _pumpPage(tester);
+
+      _mark(tester, _rowId);
+      await tester.pumpAndSettle();
+      expect(
+        _fillOpacity(tester, _rowId),
+        1,
+        reason: 'no fade-in: the tint is there at once',
+      );
+
+      _mark(tester, null);
+      await tester.pumpAndSettle();
+      expect(
+        _fillOpacity(tester, _rowId),
+        0,
+        reason: 'no fade-out: the tint is gone at once',
+      );
+    });
+
+    test('title and explanation keep WCAG AA contrast on the tint', () {
+      for (final set in [wpLightColors, wpDarkColors, wpNavyColors]) {
+        final base = Color.alphaBlend(set.cardFill, set.background);
+        final tint = Color.alphaBlend(set.accentActiveFill, base);
+        expect(
+          _contrast(set.textPrimary, tint),
+          greaterThanOrEqualTo(4.5),
+          reason: 'title on tint (${set.brightness})',
+        );
+        expect(
+          _contrast(set.textMuted, tint),
+          greaterThanOrEqualTo(4.5),
+          reason: 'explanation on tint (${set.brightness})',
+        );
+      }
     });
   });
 }

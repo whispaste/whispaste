@@ -12,6 +12,8 @@
 /// against.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -25,6 +27,7 @@ import '../core/l10n/generated/app_localizations.dart';
 import '../core/onboarding/onboarding_surface.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/nudge_gate.dart';
 import 'wp_button.dart';
 
 /// Opens [url] in the system browser, silently doing nothing when the
@@ -129,7 +132,16 @@ class _WpFeatureSpotlightWatcherState
       return;
     }
     _dialogShowing = true;
-    _showDialog(context, state.pending);
+    // Central nudge gate (R-11): no dictation running, 30 s idle in the app.
+    unawaited(
+      ref.read(nudgeGateProvider).whenAllowed().then((_) {
+        if (!mounted || !context.mounted) {
+          _dialogShowing = false;
+          return;
+        }
+        _showDialog(context, state.pending);
+      }),
+    );
   }
 
   Future<void> _showDialog(

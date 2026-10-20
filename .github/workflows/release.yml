@@ -67,6 +67,28 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # ── sherpa-onnx without TTS (Windows) ────────────────────────────────────
+      # The sherpa_onnx pub plugin ships a prebuilt C API with espeak-ng (GPL-3.0)
+      # linked in. Build the pinned v1.13.4 with TTS=OFF, stage it in .build/sherpa-onnx/windows,
+      # and the bundle picks it up at build time. Release gate: scripts/check-no-espeak.sh.
+      - name: Cache sherpa-onnx build (Windows)
+        id: sherpa_cache_windows
+        uses: actions/cache@v4
+        with:
+          path: .build/sherpa-onnx/windows
+          key: sherpa-onnx-windows-v1.13.4-1428072-${{ hashFiles('scripts/build-sherpa-onnx.ps1', 'scripts/check-no-espeak.sh', 'scripts/sherpa-onnx.pin', 'scripts/check-sherpa-stage.cmake') }}
+
+      - name: Build + stage sherpa-onnx without TTS (Windows)
+        if: steps.sherpa_cache_windows.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: pwsh -File scripts/build-sherpa-onnx.ps1
+
+      # Runs on cache hits too: a stage built from another pin, or before a
+      # sherpa_onnx bump in pubspec.lock, must fail the release here.
+      - name: Verify sherpa-onnx stage matches the pins (Windows)
+        shell: bash
+        run: cmake -DSTAGE_DIR=.build/sherpa-onnx/windows -DREPO_ROOT=. -P scripts/check-sherpa-stage.cmake
+
       - name: Build Windows release
         shell: pwsh
         run: |
@@ -284,6 +306,13 @@ jobs:
             debug-files upload --org silvio-lindstedt-und-maik-g-y2 --project flutter_whispaste `
             build/windows/x64/symbols .build/libwhisper/windows/pdb .build/libllama/windows/pdb
           if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Native PDB upload to Sentry failed -- crash frames in whispaste.exe/whisper/ggml/llama stay unsymbolicated for this release." }
+
+      - name: Guard — no espeak-ng in the Windows bundle
+        shell: bash
+        run: |
+          bash scripts/check-no-espeak.sh build/windows/x64/runner/Release
+          cmp .build/sherpa-onnx/windows/sherpa-onnx-c-api.dll build/windows/x64/runner/Release/sherpa-onnx-c-api.dll
+          cmp .build/sherpa-onnx/windows/onnxruntime.dll build/windows/x64/runner/Release/onnxruntime.dll
 
       - name: Install NSIS
         run: choco install nsis -y --no-progress
@@ -761,8 +790,8 @@ jobs:
 
       # Generates the Microsoft Store screenshot set (tools/appstore-screens/
       # output/<lang>/microsoft/*.png) that submit-ms-store.ps1 uploads below.
-      # Reads from the Flutter-golden PNGs already committed under
-      # test/screenshots/goldens/ — no Flutter/Dart toolchain needed on this
+      # Reads the store-screenshot PNGs committed under test/screenshots/goldens/
+      # (written by the explicit `store` generator) — no Flutter/Dart toolchain needed on this
       # windows-latest runner, just Node + a Playwright-driven HTML renderer.
       - name: Set up Node.js
         if: steps.store_check.outputs.skip != 'true'
@@ -927,6 +956,28 @@ jobs:
           bash scripts/build-libllama-macos.sh
           bash scripts/build-smartmode-shim-macos.sh
 
+      # ── sherpa-onnx without TTS (macOS) ────────────────────────────────────
+      # The sherpa_onnx pub plugin ships a prebuilt C API with espeak-ng (GPL-3.0)
+      # linked in. Build the pinned v1.13.4 with TTS=OFF, stage it in .build/sherpa-onnx/macos,
+      # and the bundle picks it up at build time. Release gate: scripts/check-no-espeak.sh.
+      - name: Cache sherpa-onnx build (macOS)
+        id: sherpa_cache_macos
+        uses: actions/cache@v4
+        with:
+          path: .build/sherpa-onnx/macos
+          key: sherpa-onnx-macos-v1.13.4-1428072-${{ hashFiles('scripts/build-sherpa-onnx.sh', 'scripts/sherpa-stage-libs.sh', 'scripts/fetch-onnxruntime.sh', 'scripts/check-no-espeak.sh', 'macos/embed_sherpa_onnx.sh', 'scripts/sherpa-onnx.pin', 'scripts/check-sherpa-stage.cmake') }}
+
+      - name: Build + stage sherpa-onnx without TTS (macOS)
+        if: steps.sherpa_cache_macos.outputs.cache-hit != 'true'
+        shell: bash
+        run: bash scripts/build-sherpa-onnx.sh macos
+
+      # Runs on cache hits too: a stage built from another pin, or before a
+      # sherpa_onnx bump in pubspec.lock, must fail the release here.
+      - name: Verify sherpa-onnx stage matches the pins (macOS)
+        shell: bash
+        run: cmake -DSTAGE_DIR=.build/sherpa-onnx/macos -DREPO_ROOT=. -P scripts/check-sherpa-stage.cmake
+
       - name: Build macOS release
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -983,6 +1034,12 @@ jobs:
 
       # Upload .dSYM debug symbols for native crash symbolication.
       # See the Windows job for rationale and Free-Tier accounting.
+      - name: Guard — no espeak-ng in the macOS app
+        run: |
+          APP="build/macos/Build/Products/Release/WhisPaste.app"
+          bash scripts/check-no-espeak.sh "$APP"
+          cmp .build/sherpa-onnx/macos/libsherpa-onnx-c-api.dylib "$APP/Contents/Frameworks/libsherpa-onnx-c-api.dylib"
+
       - name: Upload debug symbols to Sentry
         if: env.SENTRY_AUTH_TOKEN != ''
         env:
@@ -1115,6 +1172,16 @@ jobs:
           xcrun stapler validate "$APP_PATH"
           spctl --assess --type exec --verbose "$APP_PATH"
 
+          # GS-013: the bundle signature must seal the embedded sherpa-onnx
+          # libraries. --deep --strict fails if any nested code is unsigned or changed.
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          SHERPA_LIB="$(find "$APP_PATH/Contents" -name 'libsherpa-onnx-c-api.dylib' -print -quit)"
+          if [[ -z "$SHERPA_LIB" ]]; then
+            echo "::error::libsherpa-onnx-c-api.dylib is not inside the signed bundle"
+            exit 1
+          fi
+          codesign -dv "$SHERPA_LIB" 2>&1 | head -5
+
           echo "::notice::Developer-ID notarization and stapling completed."
 
       - name: Clean up keychain
@@ -1241,12 +1308,15 @@ jobs:
             clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libsecret-1-dev \
             libkeybinder-3.0-dev libnotify-dev \
-            libayatana-appindicator3-dev libasound2-dev \
+            libayatana-appindicator3-dev libasound2-dev libxss-dev \
             libcurl4-openssl-dev zlib1g-dev \
-            libflac-dev libogg-dev libopus-dev libvorbis-dev \
+            libflac-dev libogg-dev libopus-dev libopusfile-dev libvorbis-dev \
             default-jdk \
             g++ patchelf libvulkan-dev glslang-tools glslc spirv-headers \
             xvfb
+          # Idle-time gate (GS-070) needs XScreenSaver; fail the job instead of
+          # silently building a binary without the idle source.
+          pkg-config --exists xscrnsaver || { echo "::error::xscrnsaver (libxss-dev) missing"; exit 1; }
 
       # jni-Plugin: JAVA_HOME muss gesetzt sein (§3.1)
       - name: Set JAVA_HOME
@@ -1264,6 +1334,28 @@ jobs:
 
       - name: Get dependencies
         run: flutter pub get
+
+      # ── sherpa-onnx without TTS (Linux) ────────────────────────────────────
+      # The sherpa_onnx pub plugin ships a prebuilt C API with espeak-ng (GPL-3.0)
+      # linked in. Build the pinned v1.13.4 with TTS=OFF, stage it in .build/sherpa-onnx/linux,
+      # and the bundle picks it up at build time. Release gate: scripts/check-no-espeak.sh.
+      - name: Cache sherpa-onnx build (Linux)
+        id: sherpa_cache_linux
+        uses: actions/cache@v4
+        with:
+          path: .build/sherpa-onnx/linux
+          key: sherpa-onnx-linux-v1.13.4-1428072-${{ hashFiles('scripts/build-sherpa-onnx.sh', 'scripts/sherpa-stage-libs.sh', 'scripts/fetch-onnxruntime.sh', 'scripts/check-no-espeak.sh', 'scripts/sherpa-onnx.pin', 'scripts/check-sherpa-stage.cmake') }}
+
+      - name: Build + stage sherpa-onnx without TTS (Linux)
+        if: steps.sherpa_cache_linux.outputs.cache-hit != 'true'
+        shell: bash
+        run: bash scripts/build-sherpa-onnx.sh linux
+
+      # Runs on cache hits too: a stage built from another pin, or before a
+      # sherpa_onnx bump in pubspec.lock, must fail the release here.
+      - name: Verify sherpa-onnx stage matches the pins (Linux)
+        shell: bash
+        run: cmake -DSTAGE_DIR=.build/sherpa-onnx/linux -DREPO_ROOT=. -P scripts/check-sherpa-stage.cmake
 
       - name: Build Linux release
         env:
@@ -1300,7 +1392,7 @@ jobs:
       # -DGGML_BACKEND_DL=ON: same hardware-inclusivity reasoning as Windows —
       # without it ggml.so hard-links libggml-vulkan.so (-> libvulkan.so.1), so
       # a machine with no Vulkan driver at all would fail to load on-device
-      # Whisper entirely. Verified live via WSL2 Ubuntu: removing
+      # Whisper entirely. Verified live on an Ubuntu machine: removing
       # libggml-vulkan.so breaks the load without this flag, loads fine with
       # it. Unlike Windows, no DynamicLibrary-search-path code fix is needed
       # here — the $ORIGIN rpath baked into each .so by build-libwhisper-linux.sh
@@ -1382,6 +1474,11 @@ jobs:
       # DWARF (debug/*.debug, see scripts/split-debug-linux.sh) goes up
       # separately with the sentry-cli the plugin downloaded. Symbol uploads
       # do not count against Sentry's event quota.
+      - name: Guard — no espeak-ng in the Linux bundle
+        run: |
+          bash scripts/check-no-espeak.sh build/linux/x64/release/bundle
+          cmp .build/sherpa-onnx/linux/libsherpa-onnx-c-api.so build/linux/x64/release/bundle/lib/libsherpa-onnx-c-api.so
+
       - name: Upload debug symbols to Sentry
         if: env.SENTRY_AUTH_TOKEN != ''
         env:
@@ -1431,9 +1528,11 @@ jobs:
 
           ZIP_NAME="WhisPaste-${VERSION}-linux-x64.tar.gz"
           # Ship the uinput udev rule + installer so Auto-Paste can be enabled
-          # with one sudo call (the .deb applies it automatically).
+          # with one sudo call (the .deb applies it automatically), and the
+          # optional GNOME Shell focus extension with its per-user installer.
           tar -czf "$ARTIFACT_DIR/$ZIP_NAME" -C "$BUNDLE_DIR" . \
-            -C "$GITHUB_WORKSPACE/packaging/linux" 71-whispaste-uinput.rules install-uinput-rule.sh
+            -C "$GITHUB_WORKSPACE/packaging/linux" 71-whispaste-uinput.rules install-uinput-rule.sh \
+            gnome-shell-extension install-gnome-extension.sh
 
           echo "Release artifacts:"
           ls -lh "$ARTIFACT_DIR"
@@ -1454,6 +1553,11 @@ jobs:
           fi
           bash packaging/deb/build-deb.sh \
             build/linux/x64/release/bundle "$VERSION" release-artifacts
+
+      - name: Check built .deb Depends against the required groups
+        run: |
+          dpkg-deb -f release-artifacts/WhisPaste-linux-x64.deb Depends \
+            | python3 packaging/deb/check_depends.py -
 
       - name: Install AppImage tooling
         run: |

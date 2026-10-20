@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # detect-changes.sh <before-sha> <after-sha> <full:true|false>
-# Writes app/platform_full/website/golden=true|false to $GITHUB_OUTPUT so ci.yml can skip
+# Writes app/platform_full/website=true|false to $GITHUB_OUTPUT so ci.yml can skip
 # jobs a push cannot affect. Fails open: an unknown base (new branch,
 # force-push, shallow miss) or a non-push event runs everything.
 set -euo pipefail
@@ -9,8 +9,8 @@ before="$1"; after="$2"; full="$3"
 out="${GITHUB_OUTPUT:-/dev/stdout}"
 
 all_true() {
-  { echo "app=true"; echo "platform_full=true"; echo "website=true"; echo "golden=true"; } >> "$out"
-  echo "app=true platform_full=true website=true golden=true (full run)"
+  { echo "app=true"; echo "platform_full=true"; echo "website=true"; } >> "$out"
+  echo "app=true platform_full=true website=true (full run)"
   exit 0
 }
 
@@ -53,10 +53,6 @@ else
     fi
   done <<< "$files"
 fi
-# Golden baselines render widgets, theme, strings, fonts/assets and the
-# overlay. Deeper dependencies (providers, data layer) are left to the
-# weekly full run and the local pre-commit golden reminder.
-golden=$(has '^lib/(features|widgets|core/theme|core/l10n|l10n|services/floating_overlay)/|^lib/app\.dart$|^assets/|^fonts/|golden|^test/(screenshots|fixtures)/|^pubspec\.(yaml|lock)$|^l10n\.yaml$|^test/flutter_test_config\.dart$|^dart_test\.yaml$')
 
-{ echo "app=$app"; echo "platform_full=$platform_full"; echo "website=$website"; echo "golden=$golden"; } >> "$out"
-echo "app=$app platform_full=$platform_full website=$website golden=$golden"
+{ echo "app=$app"; echo "platform_full=$platform_full"; echo "website=$website"; } >> "$out"
+echo "app=$app platform_full=$platform_full website=$website"

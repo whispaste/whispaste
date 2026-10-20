@@ -102,9 +102,9 @@ String appDataDir() {
 String sttDir() => sttDirOverride ?? p.join(appDataDir(), 'models', 'stt');
 
 /// Directory holding recent retained dictation WAVs (rotating cap enforced
-/// by the app layer). Deliberately outside the system temp directory — the
-/// app's startup cleanup sweeps `whispaste_*.wav` files there, which would
-/// silently defeat retention.
+/// by the app layer). Deliberately outside the capture folder and the system
+/// temp directory — the app's startup cleanup sweeps `whispaste_*.wav` files
+/// in those places, which would silently defeat retention.
 String retainedAudioDir() =>
     retainedAudioDirOverride ?? p.join(appDataDir(), 'recordings');
 
@@ -335,6 +335,34 @@ String? resolveMsixFallbackDataRoot({
         sttDirExistsCheck ??
         (root) => Directory(p.join(root, 'models', 'stt')).existsSync(),
   );
+}
+
+/// The MSIX LocalCache data roots of the installed WhisPaste package, in
+/// sorted package order. Lists `%LOCALAPPDATA%\Packages\` but does not require
+/// `models\stt`, unlike [resolveAllDataRoots], because the install id exists
+/// before any model is downloaded. Empty off Windows.
+List<String> msixLocalCacheRoots() {
+  if (!Platform.isWindows) return const [];
+  final localAppData =
+      localAppDataOverride ?? Platform.environment['LOCALAPPDATA'];
+  if (localAppData == null || localAppData.isEmpty) return const [];
+  try {
+    final packagesDir = Directory(p.join(localAppData, 'Packages'));
+    if (!packagesDir.existsSync()) return const [];
+    final entries =
+        packagesDir
+            .listSync()
+            .whereType<Directory>()
+            .map((d) => p.basename(d.path))
+            .toList()
+          ..sort();
+    return msixLocalCacheCandidatesFor(
+      localAppData: localAppData,
+      packageDirNames: entries,
+    );
+  } on FileSystemException {
+    return const [];
+  }
 }
 
 /// Resolves **all** WhisPaste data roots visible from a Standalone-Diagnose

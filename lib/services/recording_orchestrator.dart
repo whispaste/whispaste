@@ -15,6 +15,7 @@ import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
 import '../core/config/build_config.dart';
+import '../core/config/cloud_stt_keys.dart';
 import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
@@ -26,6 +27,11 @@ import '../core/data/analytics_provider.dart';
 import '../core/data/database.dart';
 import '../features/recording/clipping_state.dart';
 import 'audio_service.dart';
+import 'app_profiles/app_profile_choice.dart';
+import 'app_profiles/app_profile_resolver.dart';
+import 'app_profiles/app_profile_storage.dart';
+import 'audio/signal_loss_detector.dart';
+import 'audio/user_audio_dirs.dart';
 import 'clipboard_history/app_clipboard.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
@@ -42,7 +48,12 @@ import 'smart_mode/smart_mode_ffi_engine.dart'
     show smartModeEngineProvider, smartModeLocalEngineAvailableProvider;
 import 'smart_mode/smart_mode_model_download_service.dart'
     show smartModeDownloadProvider;
+import 'smart_mode/smart_mode_fact_guard.dart';
+import 'smart_mode/smart_mode_name_change_notice.dart';
+import 'smart_mode/smart_mode_undo_notice.dart';
+import 'smart_mode/smart_mode_output_guard.dart';
 import 'smart_mode/smart_mode_presets.dart';
+import 'smart_mode/smart_mode_text_model.dart';
 import 'sound_feedback_service.dart';
 import 'support_prompt_service.dart';
 import 'telemetry_service.dart';
@@ -50,25 +61,54 @@ import 'paste/paste_capability_notifier.dart';
 import 'paste/paste_failure_notifier.dart';
 import 'paste/paste_policy.dart';
 import 'paste/paster.dart';
+import 'permissions/tcc_entry_reset_confirm.dart';
 import 'selection_edit/selection_edit_service.dart'
-    show selectionEditServiceProvider;
+    show SelectionEditOutcome, selectionEditServiceProvider;
 import 'system_attention_service.dart';
 import 'number_transforms.dart';
 import 'text_transforms.dart';
 import 'voice_line_breaks.dart';
+import 'voice_punctuation.dart';
 import 'tray_service.dart';
+import 'pending_audio/pending_audio_notice.dart';
+import 'pending_audio/pending_audio_providers.dart';
+import 'audio/retention/audio_retention.dart';
+import 'pending_audio/pending_audio_queue.dart';
 import 'recording_store.dart';
 import 'stt/inference_client_rejected.dart';
 import 'stt/on_device_engine_lifecycle.dart';
 import 'stt/stt_bundle.dart' show localSttBundleProvider;
+import 'stt/whisper/whisper_language_probe.dart';
+import 'stt_parakeet/parakeet_language_support.dart';
 import 'stt_engine_lifecycle_provider.dart';
 import 'stt_parakeet/parakeet_model_registry.dart' as parakeet;
+import 'automation_api/automation_hook_dispatcher_provider.dart';
+import 'transcription/language_mismatch_hint.dart';
 import 'transcription/transcriber.dart';
 import '../core/utils/word_count.dart';
+import '../core/config/settings_labels.dart';
 
 // ---------------------------------------------------------------------------
 // Orchestrator
 // ---------------------------------------------------------------------------
+
+/// The log line for a paste the OS refused, naming the fix of [platform]:
+/// a Linux log must not send the reader to macOS settings (UIA-XP-7-12).
+@visibleForTesting
+String pasteInjectionDeniedLogMessage(TargetPlatform platform) =>
+    switch (platform) {
+      TargetPlatform.macOS =>
+        'Paste failed: OS denied event injection. Grant Accessibility '
+            'permission in System Settings → Privacy & Security → '
+            'Accessibility.',
+      TargetPlatform.linux =>
+        'Paste failed: OS denied event injection. /dev/uinput is not '
+            'usable; set up the uinput access the paste notice links to.',
+      TargetPlatform.windows =>
+        'Paste failed: OS denied event injection. The target app likely '
+            'runs with higher rights than WhisPaste (UIPI).',
+      _ => 'Paste failed: OS denied event injection.',
+    };
 
 /// Orchestrates the full dictation pipeline:
 ///
@@ -105,9 +145,36 @@ class RecordingOrchestrator extends Notifier<void> {
   /// the async preflight.
   bool _startInFlight = false;
 
+  /// Completed when the start that holds [_startInFlight] unwinds. A press
+  /// that finds the lock taken by a start the user has already released
+  /// waits on it instead of being dropped (see [startRecording]).
+  Completer<void>? _startDone;
+
+  /// Set when a stop arrives while [_startInFlight] is held: the start's
+  /// capture is aborted, so a following press must not be treated as busy.
+  bool _releasedDuringStart = false;
+
+  /// Whether the paste target was captured for the paste still to come, at
+  /// hotkey time ([startRecording]) or when an interactive snippet started.
+  /// [_pasteTranscript] then keeps that target instead of capturing whatever
+  /// is in front by now (PAR-032, briefing B3), and consumes the flag.
+  bool _pasteTargetPrimed = false;
+
+  /// The hotkey-time prime while it still runs ([_primeInParallel]); the
+  /// paste waits for it instead of capturing the target again.
+  Future<void>? _pendingPastePrime;
+
+  /// Bumped by [_clearPasteTarget], so a late prime of a cancelled
+  /// dictation does not mark the target as captured.
+  int _pasteTargetGeneration = 0;
+
   /// Prevents concurrent `stopRecording()` calls from launching multiple
   /// transcription pipelines (e.g. hotkey-stop + auto-stop firing together).
   bool _stopInFlight = false;
+
+  /// The WAV that the save step moved into the retained folder during the
+  /// current stop. The stop's cleanup must not delete it.
+  String? _retainedWavPath;
 
   /// The session of the most recent [startRecording] call. A pipeline keeps
   /// the session it was started with (see [_RecordingSession]), so a newer
@@ -122,6 +189,36 @@ class RecordingOrchestrator extends Notifier<void> {
   /// "transcription complete" success tone instead of playing it right
   /// after the failure tone.
   bool _pasteFailureSoundPlayedThisPipeline = false;
+
+  /// Set when the current pipeline run tried to paste and the text did not
+  /// reach the field (no paster, blocked app, or any non-success outcome).
+  /// Such a dictation triggers no review or support prompt and is not counted
+  /// toward the review threshold (growth review GR-012). Unlike
+  /// [_pasteFailureSoundPlayedThisPipeline] it also covers quiet outcomes such
+  /// as a blocklisted target, which play no failure tone.
+  bool _pasteNotConfirmedThisPipeline = false;
+
+  /// The block list stopped this pipeline's paste; the transcript is only on
+  /// the clipboard (GS-075). Reset with [_pasteFailureSoundPlayedThisPipeline].
+  bool _copiedOnlyThisPipeline = false;
+
+  /// Blocked paste with the clipboard copy switched off (maintainer 4a+c).
+  bool _historyOnlyThisPipeline = false;
+
+  /// Set when the quick-note append of this pipeline failed (UIA-FLW-02). The
+  /// run then ends in error with the transcript kept, never in done.
+  bool _quickNoteAppendFailedThisPipeline = false;
+
+  /// Why Smart Mode left this run's text unedited, or null. The OS notice is
+  /// sent after the paste step (see [_flushSmartModeFallbackNotice]), so it can
+  /// say what actually happened to the text.
+  SmartModeFallbackReason? _smartModeFallbackThisPipeline;
+
+  /// Result of this run's paste, or null when no paste was attempted.
+  PasteOutcome? _pasteOutcomeThisPipeline;
+
+  /// Set when this run copied the transcript to the clipboard.
+  bool _clipboardCopiedThisPipeline = false;
 
   /// Throttle for the "pipeline busy" hint — a held or mashed hotkey hits the
   /// abort branches several times per second, and a toast per press would be
@@ -139,6 +236,10 @@ class RecordingOrchestrator extends Notifier<void> {
   /// [startRecording] call always overwrites it before any session that
   /// could read it exists.
   DateTime? _hotkeyPressedAtForLatencyKpi;
+
+  /// When [stopRecording] began for the hotkey session in flight; the
+  /// stop-to-text time excludes the speaking time (XP-6-09).
+  DateTime? _recordingStoppedAtForLatencyKpi;
 
   /// Mic-start trace of the most recent start (handy-catchup ticket 19):
   /// hotkey → phase change → paster primed → capture started → first real
@@ -202,6 +303,7 @@ class RecordingOrchestrator extends Notifier<void> {
   @override
   void build() {
     ref.onDispose(_cancelAmplitude);
+    ref.listen(micSignalLostProvider, (_, lost) => _onMicSignalLost(lost));
 
     // Wire the state machine to the shared RecordingNotifier.
     // phaseReader reads the current phase without accessing protected state.
@@ -262,7 +364,7 @@ class RecordingOrchestrator extends Notifier<void> {
   /// [tryAcquireStartLock]. Must be called exactly once per successful
   /// acquisition.
   void releaseStartLock() {
-    _startInFlight = false;
+    _releaseStartLock();
     _log.debug('releaseStartLock released (voice note)');
   }
 
@@ -296,6 +398,8 @@ class RecordingOrchestrator extends Notifier<void> {
   /// in flight to discard.
   Future<void> cancelRecording() async {
     final phase = ref.read(recordingProvider).phase;
+    // Nothing of this dictation is pasted any more.
+    _clearPasteTarget();
     switch (phase) {
       case RecordingPhase.recording:
         await _cancelDuringRecording();
@@ -356,9 +460,10 @@ class RecordingOrchestrator extends Notifier<void> {
         recording.phase == RecordingPhase.refining) {
       return;
     }
-    // idle, done, or error → start. Kick off server warm-up before preflight
-    // to maximise the parallel window.
-    unawaited(_prewarmStt());
+    // idle, done, or error → start. No prewarm here: loading the model in
+    // parallel with the microphone setup stalled the setup on a busy thread
+    // (cold-hotkey trace), and the post-capture load already has the whole
+    // recording as lead time.
     await startRecording(
       target: target,
       forcedSmartModePreset: forcedSmartModePreset,
@@ -397,16 +502,22 @@ class RecordingOrchestrator extends Notifier<void> {
     // existing hotkey→overlay latency pairing (PerfMarkers.markOverlayShown,
     // reset separately) is unaffected.
     _hotkeyPressedAtForLatencyKpi = PerfMarkers.instance.pendingHotkeyPressedAt;
+    _recordingStoppedAtForLatencyKpi = null;
     final hotkeyMicros =
         PerfMarkers.instance.pendingHotkeyPressedMonotonicMicros;
     final triggerMicros = PerfMarkers.instance.monotonicMicros();
     // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
     if (_startInFlight) {
-      _log.debug('startRecording ignored — already in flight');
-      _hintPipelineBusy();
-      return;
+      return _pressWhileStarting(
+        target: target,
+        forcedSmartModePreset: forcedSmartModePreset,
+        languageOverride: languageOverride,
+        silenceTimeoutOverride: silenceTimeoutOverride,
+      );
     }
     _startInFlight = true;
+    _startDone = Completer<void>();
+    _releasedDuringStart = false;
 
     // Flow-first: a fresh start while a terminal "done"/"error" status is still
     // lingering preempts it immediately. By the time the phase is `done` the
@@ -428,7 +539,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // this call was entering (e.g. two simultaneous hotkey presses).
     if (ref.read(recordingProvider).phase != RecordingPhase.idle) {
       _log.debug('startRecording aborted — phase not idle after lock acquired');
-      _startInFlight = false;
+      _releaseStartLock();
       _hintPipelineBusy();
       return;
     }
@@ -437,11 +548,15 @@ class RecordingOrchestrator extends Notifier<void> {
     // that the pipeline keeps. A rejected start (e.g. one made while the
     // previous pipeline is still transcribing) must not overwrite the target
     // or overrides that pipeline will finalize with.
+    // SW-03: the transcription language is frozen here, at start. A language
+    // change in Settings or on the Dock while this recording runs applies to
+    // the next recording only, as the Dock promises.
     final session = _session = _RecordingSession(
       target: target,
       smartModeHotkeyPreset: forcedSmartModePreset,
       languageOverride: languageOverride,
       silenceTimeoutOverride: silenceTimeoutOverride,
+      languageCode: _languageCodeFor(languageOverride),
     );
     // Providers stay in sync for readers outside the pipeline.
     ref.read(recordingTargetProvider.notifier).set(target);
@@ -449,6 +564,7 @@ class RecordingOrchestrator extends Notifier<void> {
         .read(smartModeHotkeyOverridePresetProvider.notifier)
         .set(forcedSmartModePreset);
     ref.read(sttLanguageOverrideProvider.notifier).set(languageOverride);
+    ref.read(recordingLanguageProvider.notifier).set(session.languageCode);
     ref
         .read(autoStopSilenceOverrideProvider.notifier)
         .set(silenceTimeoutOverride);
@@ -492,6 +608,8 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // Transition state: idle → recording (generates sessionId).
       _stateMachine.transition(RecordingIntent.start);
+      // A new dictation ends any pending name-change undo (DEV-165).
+      ref.read(smartModeNameChangeNoticeProvider.notifier).clear();
       final sid = ref.read(recordingProvider).sessionId ?? '?';
       _log.info('[$sid] Recording started');
       final micTrace = _micStartTrace = MicStartTrace(
@@ -500,6 +618,7 @@ class RecordingOrchestrator extends Notifier<void> {
         hotkeyMicros: hotkeyMicros,
         triggerMicros: triggerMicros,
       )..mark(MicStartStage.phaseRecording);
+      _watchOverlayFrame(micTrace);
 
       // No per-start telemetry: a recording's outcome is captured once at the
       // end via the aggregated pipeline-outcome counter (see
@@ -510,25 +629,9 @@ class RecordingOrchestrator extends Notifier<void> {
       final engineLifecycle = ref.read(onDeviceEngineLifecycleProvider);
       engineLifecycle.notifyRecordingStarted();
 
-      // Kick off the on-device engine in parallel — files already confirmed
-      // by preflight. Fires before the two async calls below to maximise
-      // warm-up lead time. Cloud providers transcribe over HTTP and need no
-      // local engine.
       final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-      if (settings.sttProviderType.isLocal) {
-        unawaited(engineLifecycle.ensureRunning());
-      }
 
-      // Capturing the paste target only makes sense for the clipboard/paste
-      // path — a quick-note target never pastes anywhere, so skip it for a
-      // pure latency win, not a behaviour change.
-      // Edit selection captures it too: the copy and the replacing paste
-      // both go to the app that was frontmost at hotkey time.
-      if (target == RecordingTarget.clipboard ||
-          target == RecordingTarget.selectionEdit) {
-        await ref.read(pasterProvider)?.prime();
-        micTrace.mark(MicStartStage.pasterPrimed);
-      }
+      _captureTargetAtStart(session, target, languageOverride, micTrace);
 
       // Start audio capture. `streamRawPcm` opens the live-transcript-
       // during-recording preview's raw-PCM feed (live-transcript-streaming
@@ -554,10 +657,18 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
       micTrace.mark(MicStartStage.captureStarted);
+
+      // The engine load starts only once the microphone is open: loading the
+      // model in parallel competed with the capture start for CPU and disk.
+      // The transcription runs after the recording, so the load still has the
+      // whole recording as lead time. Cloud providers need no local engine.
+      if (settings.sttProviderType.isLocal) {
+        unawaited(_loadEngineAfterCapture(engineLifecycle, micTrace));
+      }
       unawaited(
         audioNotifier.firstSampleArrived?.then((_) {
           micTrace.mark(MicStartStage.firstSample);
-          _log.debug(micTrace.summary());
+          _log.info(micTrace.summary());
         }),
       );
 
@@ -576,8 +687,102 @@ class RecordingOrchestrator extends Notifier<void> {
       ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
       _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
     } finally {
-      _startInFlight = false;
+      _releaseStartLock();
     }
+  }
+
+  /// A press that finds the start lock taken. When the user already released
+  /// the press that holds it, that capture setup is only unwinding and this
+  /// press must still record: it waits for the setup, then starts normally.
+  /// Otherwise it is a real duplicate and only hints busy.
+  Future<void> _pressWhileStarting({
+    required RecordingTarget target,
+    SmartModePreset? forcedSmartModePreset,
+    String? languageOverride,
+    double? silenceTimeoutOverride,
+  }) async {
+    final previousDone = _startDone;
+    if (!_releasedDuringStart || previousDone == null) {
+      _log.debug('startRecording ignored — already in flight');
+      _hintPipelineBusy();
+      return;
+    }
+    _log.debug('startRecording waits for the released start to unwind');
+    await previousDone.future;
+    return startRecording(
+      target: target,
+      forcedSmartModePreset: forcedSmartModePreset,
+      languageOverride: languageOverride,
+      silenceTimeoutOverride: silenceTimeoutOverride,
+    );
+  }
+
+  /// Releases the start lock taken by [startRecording] and wakes a press that
+  /// waits for it.
+  void _releaseStartLock() {
+    _startInFlight = false;
+    _releasedDuringStart = false;
+    final done = _startDone;
+    _startDone = null;
+    if (done != null && !done.isCompleted) done.complete();
+  }
+
+  /// Captures the paste target alongside the mic start instead of in front of
+  /// it. [_pasteTranscript] primes again before it pastes, and platform
+  /// channels answer in call order, so a paste never reads an older target.
+  Future<void> _primeInParallel(Paster? paster, MicStartTrace trace) {
+    _clearPasteTarget();
+    if (paster == null) return Future<void>.value();
+    final generation = _pasteTargetGeneration;
+    final prime = paster.prime().then(
+      (_) {
+        // A cancel or a newer start in the meantime owns the flag now.
+        if (generation == _pasteTargetGeneration) _pasteTargetPrimed = true;
+        trace.mark(MicStartStage.pasterPrimed);
+      },
+      onError: (Object e, StackTrace _) =>
+          _log.warning('Paster prime failed, paste will prime again: $e'),
+    );
+    _pendingPastePrime = prime;
+    return prime;
+  }
+
+  /// Forgets the captured paste target (see [_pasteTargetPrimed]); a prime
+  /// still in flight no longer sets it.
+  void _clearPasteTarget() {
+    _pasteTargetPrimed = false;
+    _pendingPastePrime = null;
+    _pasteTargetGeneration++;
+  }
+
+  /// Loads the local engine in the background and stamps the load's end onto
+  /// [trace]. When the load finishes after the first sample, the span is logged
+  /// again, so a slow load after an idle unload shows up in the log.
+  Future<void> _loadEngineAfterCapture(
+    OnDeviceEngineLifecycle engineLifecycle,
+    MicStartTrace trace,
+  ) async {
+    try {
+      // No warm-up inference: the transcription that follows runs the same
+      // first inference, so a silent warm-up only delays the result.
+      await engineLifecycle.ensureRunning(warmup: false);
+    } on Exception catch (e) {
+      _log.warning('Engine load after capture start failed: $e');
+    }
+    trace.mark(MicStartStage.engineLoaded);
+    if (trace.elapsedMs(MicStartStage.firstSample) != null) {
+      _log.info(trace.summary());
+    }
+  }
+
+  /// Stamps the overlay's first painted frame onto [trace]. A frame that comes
+  /// after the first sample completes the span, so the span is logged again.
+  void _watchOverlayFrame(MicStartTrace trace) {
+    PerfMarkers.instance.setOverlayFirstFrameListener((micros) {
+      if (trace.elapsedMs(MicStartStage.overlayVisible) != null) return;
+      trace.markAt(MicStartStage.overlayVisible, micros);
+      if (trace.isComplete) _log.info(trace.summary());
+    });
   }
 
   /// Wires up the level-metering and safety-guard amplitude subscriptions
@@ -661,6 +866,8 @@ class RecordingOrchestrator extends Notifier<void> {
       return;
     }
     _stopInFlight = true;
+    if (_startInFlight) _releasedDuringStart = true;
+    _recordingStoppedAtForLatencyKpi = DateTime.now();
 
     final sid = ref.read(recordingProvider).sessionId ?? '?';
     final session = _session;
@@ -722,7 +929,14 @@ class RecordingOrchestrator extends Notifier<void> {
       // why: an intermittent transcription drop can only be replayed
       // through the offline harness if the exact audio Whisper received
       // survives past this cleanup step).
-      if (wavPath != null) {
+      // A WAV that the save step retained (audio retention) now belongs to its
+      // history entry, so it must survive this cleanup.
+      final keptForRetention = wavPath != null && wavPath == _retainedWavPath;
+      _retainedWavPath = null;
+      final keptForRetry =
+          wavPath != null &&
+          await _keepAudioForRetry(sid, wavPath, keptForRetention);
+      if (wavPath != null && !keptForRetention && !keptForRetry) {
         if (kRetainDebugAudio) {
           _log.info('[$sid] kRetainDebugAudio active — kept WAV at $wavPath');
         } else {
@@ -734,7 +948,12 @@ class RecordingOrchestrator extends Notifier<void> {
       // concurrent stop cannot slip into this window and double-clean the
       // same WAV file. A cancelled session already handed the lock back in
       // cancelRecording, and a newer recording may own it by now.
-      if (!session.cancelRequested) _stopInFlight = false;
+      // The same holds for the captured paste target: a pipeline that ended
+      // without pasting (empty transcript, error) must not leave it behind.
+      if (!session.cancelRequested) {
+        _stopInFlight = false;
+        _clearPasteTarget();
+      }
     }
   }
 
@@ -853,6 +1072,14 @@ class RecordingOrchestrator extends Notifier<void> {
     required _RecordingSession session,
   }) async {
     _pasteFailureSoundPlayedThisPipeline = false;
+    _pasteNotConfirmedThisPipeline = false;
+    _copiedOnlyThisPipeline = false;
+    _historyOnlyThisPipeline = false;
+    _quickNoteAppendFailedThisPipeline = false;
+    _smartModeFallbackThisPipeline = null;
+    _pasteOutcomeThisPipeline = null;
+    _clipboardCopiedThisPipeline = false;
+    await session.languageResolution;
 
     // Read settings for language hint and model info.
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
@@ -892,6 +1119,10 @@ class RecordingOrchestrator extends Notifier<void> {
     );
     inferSw.stop();
     timing.transcribeMs = inferSw.elapsedMilliseconds;
+    if (transcribeResult is Ok<String>) {
+      session.detectedLanguage = _detectedLanguageOf(transcriber);
+    }
+    _reportDetectedLanguage(transcriber, transcribeResult, effectiveLang);
 
     return _handleTranscribeResult(
       result: transcribeResult,
@@ -947,7 +1178,7 @@ class RecordingOrchestrator extends Notifier<void> {
         timing.outcome = 'stt_start_error';
         _stateMachine.transition(
           RecordingIntent.fail,
-          errorMessage: _transcriberErrorCode(error),
+          errorMessage: transcriberErrorCode(error),
         );
         _log.warning('[$sid] STT prepare failed: ${error.message}');
         ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
@@ -1058,7 +1289,7 @@ class RecordingOrchestrator extends Notifier<void> {
         timing.outcome = 'transcribe_error';
         _stateMachine.transition(
           RecordingIntent.fail,
-          errorMessage: _transcriberErrorCode(error),
+          errorMessage: transcriberErrorCode(error),
         );
         // Downgraded from `_log.error` to `_log.warning` so the
         // AppLogger auto-escalation does NOT capture a second Sentry
@@ -1159,6 +1390,7 @@ class RecordingOrchestrator extends Notifier<void> {
         instruction: finalText,
         settings: settings,
         timing: timing,
+        factLanguageCode: _factGuardLanguage(settings, session),
       );
     }
 
@@ -1173,8 +1405,8 @@ class RecordingOrchestrator extends Notifier<void> {
     // ── Filler word removal (opt-in, handy-catchup ticket 16) ──────────
     // After the snapshot (it is a product-level transform the History
     // detail panel should show as a diff) but before Smart Mode and the
-    // text-replacement pass inside the history save, so a trigger phrase
-    // interrupted by an "äh" still fires and the LLM gets cleaner input.
+    // dictionary replacements, so a trigger phrase interrupted by an "äh"
+    // still fires and the LLM gets cleaner input.
     if (settings.stt.removeFillerWords) {
       finalText = removeFillerWords(
         finalText,
@@ -1184,7 +1416,18 @@ class RecordingOrchestrator extends Notifier<void> {
 
     // Spoken line breaks: same position and history contract as filler
     // removal (after the snapshot, before Smart Mode and replacements).
+    finalText = _applySpokenPunctuation(finalText, settings, session);
     finalText = _applySpokenLineBreaks(finalText, settings, session);
+
+    // ── Dictionary replacements (before Smart Mode) ───────────────────
+    // Runs ahead of Smart Mode so the LLM sees the corrected terms (a
+    // dictionary "WhisPaste" instead of the misheard "wisp paste"). Skipped
+    // for the onboarding sandbox, as Smart Mode and history are.
+    if (sandboxTranscriptSink == null && settings.textReplacementsEnabled) {
+      finalText = await ref
+          .read(recordingStoreProvider)
+          .applyReplacements(finalText);
+    }
 
     // ── Smart Mode: local Cleanup preset (ticket 02) ──────────────────
     // Runs before history-save/snippet-picker/paste so every downstream
@@ -1202,16 +1445,22 @@ class RecordingOrchestrator extends Notifier<void> {
     final activePreset =
         hotkeyPreset ??
         smartModePresetFromSettingsValue(settings.smartMode.standardPreset);
-    if (sandboxTranscriptSink == null && activePreset != SmartModePreset.off) {
-      finalText = await _runSmartModeRefine(
-        sid,
-        finalText,
-        runner,
-        activePreset,
-        _activeSmartModeTargetLanguage(settings, hotkeyPreset != null),
-        settings,
-      );
-    }
+    // Undo data (v27): the exact Smart-Mode input and its result, stored only
+    // when the run actually changed the text (a fallback keeps no undo).
+    final smartSave = await _smartModeForSave(
+      sid,
+      finalText,
+      preTransformText,
+      runner,
+      activePreset,
+      _activeSmartModeTargetLanguage(settings, hotkeyPreset != null),
+      settings,
+      languageCode: _factGuardLanguage(settings, session),
+      enabled: sandboxTranscriptSink == null,
+    );
+    finalText = smartSave.text;
+    final smartModeInput = smartSave.input;
+    final smartModeApplied = smartSave.applied;
 
     // Cancelled while Smart Mode ran: discard before anything is saved,
     // dispatched or pasted.
@@ -1231,6 +1480,9 @@ class RecordingOrchestrator extends Notifier<void> {
         session.target == RecordingTarget.clipboard &&
         await _tryDispatchSnippetPicker(sid, finalText, settings);
 
+    // Id of the history entry this dictation wrote, if any: a failed paste
+    // marks exactly this entry as not counting toward the review threshold.
+    String? historyEntryId;
     if (!snippetPickerDispatched) {
       // ── Step 4: Save to history (5 s budget) ─────────────────────
       // Onboarding's test-recording step redirects the transcript to a local
@@ -1239,44 +1491,52 @@ class RecordingOrchestrator extends Notifier<void> {
       // user's real History, so the whole save step is skipped while the sink
       // is set.
       if (sandboxTranscriptSink == null) {
+        // The entry input is built before the save runs, so it is still at
+        // hand when the save fails or times out and the audio must be kept.
+        final historyInput = await _buildHistoryInput(
+          finalText,
+          Duration(milliseconds: audioDurMs),
+          settings,
+          (timing.transcribeMs ?? 0) ~/ 1000,
+          originalTranscript: preTransformText,
+          smartModeInput: smartModeInput,
+          smartModeApplied: smartModeApplied,
+          session: session,
+        );
+        // A quick note or template field writes no history row under this id,
+        // so the review count never finds it and ignores it.
+        historyEntryId = historyInput.entryId;
         final saveSw = Stopwatch()..start();
         final saveResult = await runner.run<String?>(
           'save_history',
-          () async => _saveToHistory(
-            finalText,
-            Duration(milliseconds: audioDurMs),
-            settings,
-            (timing.transcribeMs ?? 0) ~/ 1000,
-            wavPath,
-            originalTranscript: preTransformText,
-            session: session,
-          ),
+          () => _saveToHistory(historyInput, wavPath, session: session),
           timeout: const Duration(seconds: 5),
         );
         saveSw.stop();
         timing.saveMs = saveSw.elapsedMilliseconds;
 
+        await _keepAudioIfUnsaved(sid, wavPath, historyInput, saveResult);
         finalText = _historySaveOutcome(sid, saveResult, finalText);
       }
 
       // ── Zahlen-Modus (itn-cad-zahlen, digits-only transform) ────────
-      // Runs after the history-save block (and its text-replacement pass,
-      // so a trigger phrase that happens to contain a number word still
-      // fires) but before stripPunctuation (whose ambiguous-punctuation
-      // guard for a decimal separator only works once digits already
-      // exist). Precedent-conform with stripPunctuation (§6.2 Option D1,
-      // itn-cad-zahlen PRD): the history entry keeps the pre-transform
-      // text — no second DB write in this latency-critical path.
+      // Runs after the dictionary replacements (so a trigger phrase that
+      // happens to contain a number word still fires) but before
+      // stripPunctuation (whose ambiguous-punctuation guard for a decimal
+      // separator only works once digits already exist). Precedent-conform
+      // with stripPunctuation (§6.2 Option D1, itn-cad-zahlen PRD): the
+      // history entry keeps the pre-transform text — no second DB write in
+      // this latency-critical path.
       if (settings.stt.numericOnlyMode) {
         finalText = toNumericOnly(finalText) ?? finalText;
       }
 
       // ── Punctuation strip (always applied after text replacements) ──
       // Deterministic, engine-independent — runs regardless of which STT
-      // engine/provider produced finalText. Placed after the history-save
-      // block (and its text-replacement pass) so a user's own explicit voice
-      // shortcut for punctuation (e.g. a "period" → "." trigger) survives;
-      // only the STT engine's own auto-inserted punctuation is removed.
+      // engine/provider produced finalText. Placed after the dictionary
+      // replacements so a user's own explicit voice shortcut for punctuation
+      // (e.g. a "period" → "." trigger) survives; only the STT engine's own
+      // auto-inserted punctuation is removed.
       if (settings.stt.stripPunctuation) {
         finalText = stripPunctuation(finalText);
       }
@@ -1299,6 +1559,7 @@ class RecordingOrchestrator extends Notifier<void> {
 
       _logAfterTranscriptionResult(sid, clipResult);
     }
+    _flushSmartModeFallbackNotice();
 
     // Text is now in the field (clipboard/paste action above has completed)
     // — this is the "fertig eingefügter Text" moment for the hotkey→text
@@ -1307,8 +1568,9 @@ class RecordingOrchestrator extends Notifier<void> {
     await _persistHotkeyLatencyIfPending(sid);
 
     // Cancelled during the paste step: the phase now belongs to whatever
-    // recording was started next, so never transition it from here.
-    if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
+    // recording was started next, so never transition it from here. A failed
+    // quick-note append ends in error instead of done (UIA-FLW-02).
+    if (_endWithoutCompletion(sid, session, timing, finalText)) return false;
 
     // Transition state: transcribing/processing → done.
     // Uses RecordingIntent.complete (transcribing→done) which the
@@ -1317,18 +1579,64 @@ class RecordingOrchestrator extends Notifier<void> {
       RecordingIntent.complete,
       transcript: finalText,
       pasteFailed: _pasteFailureSoundPlayedThisPipeline,
+      copiedOnly: _copiedOnlyThisPipeline,
+      historyOnly: _historyOnlyThisPipeline,
+    );
+    // Automation hooks (WP-38 / 8.3): fire-and-forget, never awaited, so a
+    // slow or failing hook cannot delay the pipeline's own completion.
+    unawaited(
+      ref
+          .read(automationHookDispatcherProvider)
+          .dispatch(
+            event: 'transcript.finished',
+            data: {'transcript': finalText, 'origin': 'dictation'},
+          ),
     );
     ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
-    // Two independent fire-and-forget checks. Each one only sets its own
-    // due flag; the shared display arbiter decides when a dialog opens.
-    unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
-    unawaited(ref.read(supportPromptProvider.notifier).checkAndMaybePrompt());
+    // A dictation whose text did not reach the field is no prompt moment and
+    // does not count toward the review threshold (growth review GR-012).
+    if (_pasteFailureSoundPlayedThisPipeline ||
+        _pasteNotConfirmedThisPipeline) {
+      unawaited(
+        ref
+            .read(reviewPromptProvider.notifier)
+            .countUnpastedDictation(entryId: historyEntryId),
+      );
+    } else {
+      // Two independent fire-and-forget checks. Each one only sets its own
+      // due flag; the shared display arbiter decides when a dialog opens.
+      unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
+      unawaited(ref.read(supportPromptProvider.notifier).checkAndMaybePrompt());
+    }
     _oomHandler.reset();
     timing.outcome = 'ok';
 
     // No separate 'complete' event — the aggregated pipeline outcome (emitted
     // once per run in _trackPipelineOutcome) already records the success path.
 
+    return true;
+  }
+
+  /// Ends a pipeline that must not reach done: a cancelled session, or a
+  /// quick-note append that failed (UIA-FLW-02). The failed append keeps the
+  /// [finalText] on the error state, so the toast can offer to copy it.
+  /// Returns `true` when the pipeline was ended here.
+  bool _endWithoutCompletion(
+    String sid,
+    _RecordingSession session,
+    _PipelineTiming timing,
+    String finalText,
+  ) {
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return true;
+    if (!_quickNoteAppendFailedThisPipeline) return false;
+    _quickNoteAppendFailedThisPipeline = false;
+    timing.outcome = 'quick_note_append_failed';
+    _stateMachine.transition(
+      RecordingIntent.fail,
+      errorMessage: 'quick_note_append_failed',
+      transcript: finalText,
+    );
+    ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
     return true;
   }
 
@@ -1413,6 +1721,7 @@ class RecordingOrchestrator extends Notifier<void> {
     required String instruction,
     required AppSettings settings,
     required _PipelineTiming timing,
+    required String factLanguageCode,
   }) async {
     final service = ref.read(selectionEditServiceProvider);
     if (service == null) {
@@ -1430,10 +1739,14 @@ class RecordingOrchestrator extends Notifier<void> {
       pasteOptions: PasteOptions(
         autoPasteDelayMs: settings.autoPasteDelay,
         blocklist: settings.autoPasteBlocklist,
+        copyBlockedToClipboard: settings.behavior.copyBlockedToClipboard,
+        restoreClipboardAfterPaste:
+            settings.behavior.restoreClipboardAfterPaste,
       ),
       translateTarget: smartModeTargetLanguageFromSettingsValue(
         settings.smartMode.targetLanguage,
       ),
+      factLanguageCode: factLanguageCode,
     );
     sw.stop();
     timing.clipboardMs = sw.elapsedMilliseconds;
@@ -1449,7 +1762,7 @@ class RecordingOrchestrator extends Notifier<void> {
       timing.outcome = failure.errorCode;
       _stateMachine.transition(
         RecordingIntent.fail,
-        errorMessage: failure.errorCode,
+        errorMessage: outcome.failureCode,
       );
       return false;
     }
@@ -1459,10 +1772,21 @@ class RecordingOrchestrator extends Notifier<void> {
       RecordingIntent.complete,
       transcript: outcome.result,
     );
+    _announceNameChanges(outcome);
     ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
     _oomHandler.reset();
     timing.outcome = 'ok';
     return true;
+  }
+
+  /// Offers the name-change toast with its undo (2c, DEV-165). Only when the
+  /// edit changed a name; the toast is non-blocking.
+  void _announceNameChanges(SelectionEditOutcome outcome) {
+    final undo = outcome.undo;
+    if (undo == null || outcome.nameChanges.isEmpty) return;
+    ref
+        .read(smartModeNameChangeNoticeProvider.notifier)
+        .announce(count: outcome.nameChanges.length, ticket: undo);
   }
 
   /// Timeout for the Smart Mode Cleanup engine call itself — the primary
@@ -1495,6 +1819,65 @@ class RecordingOrchestrator extends Notifier<void> {
     );
   }
 
+  /// Runs [_runSmartModeRefine] and keeps the undo pair (v27): the exact input
+  /// and the result, only when the run changed the text. A fallback keeps
+  /// neither, so there is nothing to undo.
+  /// Smart Mode for the save step: the text to use plus the undo data. The
+  /// raw text is stored once as [originalTranscript], so the Smart-Mode input
+  /// is kept only when it differs from that (BIZ-25). Nothing runs when
+  /// [enabled] is false or [preset] is off.
+  Future<({String text, String? input, bool applied})> _smartModeForSave(
+    String sid,
+    String rawText,
+    String originalTranscript,
+    PipelineStepRunner runner,
+    SmartModePreset preset,
+    SmartModeTargetLanguage targetLanguage,
+    AppSettings settings, {
+    required String languageCode,
+    required bool enabled,
+  }) async {
+    if (!enabled || preset == SmartModePreset.off) {
+      return (text: rawText, input: null, applied: false);
+    }
+    final run = await _runSmartModeWithUndo(
+      sid,
+      rawText,
+      runner,
+      preset,
+      targetLanguage,
+      settings,
+      languageCode,
+    );
+    return (
+      text: run.text,
+      input: run.input == originalTranscript ? null : run.input,
+      applied: run.applied,
+    );
+  }
+
+  Future<({String text, String? input, bool applied})> _runSmartModeWithUndo(
+    String sid,
+    String rawText,
+    PipelineStepRunner runner,
+    SmartModePreset preset,
+    SmartModeTargetLanguage targetLanguage,
+    AppSettings settings,
+    String languageCode,
+  ) async {
+    final result = await _runSmartModeRefine(
+      sid,
+      rawText,
+      runner,
+      preset,
+      targetLanguage,
+      settings,
+      languageCode,
+    );
+    if (result == rawText) return (text: rawText, input: null, applied: false);
+    return (text: result, input: rawText, applied: true);
+  }
+
   /// Runs the active Smart Mode preset ([SmartModePreset.cleanup],
   /// [SmartModePreset.concise], or [SmartModePreset.translate]) over
   /// [rawText] and returns the result — or [rawText] unchanged on any
@@ -1510,6 +1893,7 @@ class RecordingOrchestrator extends Notifier<void> {
     SmartModePreset preset,
     SmartModeTargetLanguage targetLanguage,
     AppSettings settings,
+    String languageCode,
   ) async {
     final provider = SmartModeProviderType.fromValue(
       settings.smartMode.provider,
@@ -1525,7 +1909,7 @@ class RecordingOrchestrator extends Notifier<void> {
         '[$sid] Smart Mode $preset selected but model not downloaded — '
         'falling back to raw transcript',
       );
-      _notifySmartModeFallback();
+      _recordSmartModeFallback(SmartModeFallbackReason.noTextModel);
       return rawText;
     }
 
@@ -1553,7 +1937,57 @@ class RecordingOrchestrator extends Notifier<void> {
           // silently paste an empty string where the user dictated real
           // content.
           _log.warning('[$sid] Smart Mode $preset returned empty result');
-          _notifySmartModeFallback();
+          _recordSmartModeFallback(SmartModeFallbackReason.failed);
+          return rawText;
+        }
+        // Translations may legitimately be much longer than the source, so
+        // only the cleanup and concise presets get the loop check.
+        if (preset != SmartModePreset.translate &&
+            smartModeOutputLooksLooped(input: rawText, output: value)) {
+          _log.warning(
+            '[$sid] Smart Mode $preset output looks looped '
+            '(${value.length} chars for ${rawText.length}), '
+            'falling back to raw transcript',
+          );
+          _recordSmartModeFallback(SmartModeFallbackReason.failed);
+          return rawText;
+        }
+        // Fact guard (matrix 2.5, deterministic and offline): a changed
+        // number, date, URL, e-mail or name keeps the raw transcript on the
+        // automatic path. Names are not checked for translations, whose
+        // target language legitimately changes capitalisation.
+        // DEV-146: the dictionary read belongs to the guard. A throw there
+        // keeps the raw transcript instead of escaping the paste path.
+        final SmartModeFactCheck factCheck;
+        try {
+          factCheck = await checkSmartModeFacts(
+            input: rawText,
+            output: value,
+            checkNames: preset != SmartModePreset.translate,
+            knownTerms: await ref
+                .read(recordingStoreProvider)
+                .dictionaryTerms(),
+            singleCapitalisedWordsAreNames: !_isGermanLanguage(languageCode),
+          );
+        } on Object catch (e) {
+          _log.warning(
+            '[$sid] Smart Mode $preset fact check could not run ($e), '
+            'falling back to raw transcript',
+          );
+          _recordSmartModeFallback(SmartModeFallbackReason.failed);
+          return rawText;
+        }
+        final factViolations = factCheck.violations;
+        if (factViolations == null || factViolations.isNotEmpty) {
+          _log.warning(
+            '[$sid] Smart Mode $preset changed protected facts '
+            '(${factViolations?.length ?? factCheck.failure?.name}), falling back to raw transcript',
+          );
+          _recordSmartModeFallback(
+            factCheck.failure == SmartModeGuardFailure.timedOut
+                ? SmartModeFallbackReason.timedOut
+                : SmartModeFallbackReason.failed,
+          );
           return rawText;
         }
         _log.debug('[$sid] Smart Mode $preset succeeded');
@@ -1566,30 +2000,64 @@ class RecordingOrchestrator extends Notifier<void> {
         // Really stop the generation the pipeline just gave up on, instead
         // of letting it burn CPU/GPU in the background.
         unawaited(engine.cancel());
-        _notifySmartModeFallback();
+        _recordSmartModeFallback(SmartModeFallbackReason.timedOut);
         return rawText;
       case FailedWith(:final error):
         _log.warning('[$sid] Smart Mode $preset failed: $error');
-        _notifySmartModeFallback();
+        // An engine that throws because no text model is set up (for example
+        // the cloud provider without a key) is a missing model, not a failure.
+        final modelMissing =
+            smartModeTextModelStatus(
+              provider: provider,
+              localEngineAvailable: ref.read(
+                smartModeLocalEngineAvailableProvider,
+              ),
+              modelDownloaded: ref
+                  .read(smartModeDownloadProvider)
+                  .modelDownloaded,
+              openAiApiKey: settings.cloudProvider.openAiApiKey,
+            ) !=
+            SmartModeTextModelStatus.ready;
+        _recordSmartModeFallback(
+          modelMissing
+              ? SmartModeFallbackReason.noTextModel
+              : SmartModeFallbackReason.failed,
+        );
         return rawText;
     }
   }
 
-  /// Fires the OS notification for a Smart Mode fallback (ticket 02) — the
-  /// paste itself still succeeds with the raw transcript, so unlike every
-  /// other [SystemAttentionService] call site in this file this is purely
-  /// informational: no tray "action needed" badge (there's nothing to click
-  /// through to fix) and no error sound (nothing actually failed from the
-  /// user's point of view — their text still landed).
-  void _notifySmartModeFallback() {
+  /// Remembers why Smart Mode left this run's text unedited. The notice is
+  /// sent after the paste step by [_flushSmartModeFallbackNotice].
+  void _recordSmartModeFallback(SmartModeFallbackReason reason) {
+    _smartModeFallbackThisPipeline = reason;
+  }
+
+  /// Fires the OS notification for a Smart Mode fallback (ticket 02) once the
+  /// paste step is over, so it can say what happened to the unedited text
+  /// (UIA-XP-7-05): pasted, only on the clipboard, not confirmed, or not
+  /// inserted. Purely informational: no tray "action needed" badge and no error
+  /// sound, since the dictation itself completed.
+  void _flushSmartModeFallbackNotice() {
+    final reason = _smartModeFallbackThisPipeline;
+    if (reason == null) return;
+    _smartModeFallbackThisPipeline = null;
+    final l10n = _resolveL10n();
+    final delivery = smartModeDeliveryOf(
+      paste: _pasteOutcomeThisPipeline,
+      clipboardHeld: _clipboardCopiedThisPipeline || _copiedOnlyThisPipeline,
+    );
     unawaited(
       ref
           .read(systemAttentionServiceProvider)
           .requestAttention(
             kind: AttentionKind.smartModeFallback,
-            title: 'WhisPaste: Smart Mode übersprungen',
-            body:
-                'Die Nachbearbeitung konnte nicht angewendet werden — der unbearbeitete Text wurde trotzdem eingefügt.',
+            title: l10n.notificationSmartModeSkippedTitle,
+            body: smartModeFallbackNoticeBody(
+              l10n,
+              reason: reason,
+              delivery: delivery,
+            ),
           ),
     );
   }
@@ -1609,6 +2077,22 @@ class RecordingOrchestrator extends Notifier<void> {
     }
   }
 
+  /// Language the transcriber reported for its last transcription, if any.
+  String? _detectedLanguageOf(Transcriber transcriber) => switch (transcriber) {
+    LanguageReportingTranscriber(:final lastDetectedLanguage) =>
+      lastDetectedLanguage,
+    _ => null,
+  };
+
+  /// Language for the fact guard's name rule (DEV-83). The configured language
+  /// wins; with automatic detection, the language the engine reported. Without
+  /// one, German rules apply: single capitalised words are ordinary nouns.
+  String _factGuardLanguage(AppSettings settings, _RecordingSession session) =>
+      factGuardLanguage(
+        configured: _resolveEffectiveLang(settings, session),
+        detected: session.detectedLanguage,
+      );
+
   /// Maps a [TranscriberException] to a stable error code for the UI layer.
   ///
   /// Cloud adapters (OpenAI, Deepgram) carry English prose in
@@ -1616,9 +2100,34 @@ class RecordingOrchestrator extends Notifier<void> {
   /// stable codes, so auth/quota failures are mapped via the reason enum.
   /// All other reasons pass the message through — the local adapter already
   /// uses code-shaped messages (e.g. `stt_cuda_oom`).
-  String _transcriberErrorCode(TranscriberException e) => switch (e.reason) {
+  /// Publishes the wrong-language hint when the engine heard a clearly
+  /// different language than the fixed setting (9.10). Silent for automatic
+  /// detection, short text, and adapters that cannot report a language.
+  void _reportDetectedLanguage(
+    Transcriber transcriber,
+    StepResult<String> result,
+    String configured,
+  ) {
+    final detected = _detectedLanguageOf(transcriber);
+    if (detected == null || result is! Ok<String>) return;
+    if (!isLanguageMismatch(
+      configured: configured,
+      detected: detected,
+      wordCount: computeWordCountFast(result.value),
+    )) {
+      return;
+    }
+    ref
+        .read(languageMismatchHintProvider.notifier)
+        .show(LanguageMismatchHint(detected: detected, configured: configured));
+  }
+
+  @visibleForTesting
+  String transcriberErrorCode(TranscriberException e) => switch (e.reason) {
     TranscriberFailureReason.authError => 'cloud_auth_error',
     TranscriberFailureReason.quotaExceeded => 'cloud_quota_exceeded',
+    TranscriberFailureReason.networkError => 'cloud_network_error',
+    TranscriberFailureReason.timeout => 'cloud_timeout',
     _ => e.message,
   };
 
@@ -1633,8 +2142,102 @@ class RecordingOrchestrator extends Notifier<void> {
   String _resolveEffectiveLang(
     AppSettings settings,
     _RecordingSession session,
+  ) => session.languageCode;
+
+  /// Publishes the Parakeet language notice when the language this recording
+  /// runs with is one Parakeet cannot transcribe (SW-05).
+  void _noticeParakeetLanguageGap(String languageCode) {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final gap = parakeetUnsupportedLanguage(
+      settings,
+      languageOverride: languageCode,
+    );
+    if (gap == null) return;
+    ref
+        .read(parakeetLanguageNoticeProvider.notifier)
+        .show(ParakeetLanguageNotice(gap));
+  }
+
+  /// Captures the paste target alongside the mic start (never awaited here).
+  /// Without an override, the profile language is then resolved from that same
+  /// capture in the background (SW-07). Quick-note targets never paste, so they
+  /// skip the capture.
+  void _captureTargetAtStart(
+    _RecordingSession session,
+    RecordingTarget target,
+    String? languageOverride,
+    MicStartTrace micTrace,
   ) {
-    final language = session.languageOverride ?? settings.sttLanguageCode;
+    // Edit selection captures too: the copy and the replacing paste both go to
+    // the app that was frontmost at hotkey time.
+    final capturesTarget =
+        target == RecordingTarget.clipboard ||
+        target == RecordingTarget.selectionEdit;
+    if (!capturesTarget || languageOverride != null) {
+      if (capturesTarget) {
+        _primeInParallel(ref.read(pasterProvider), micTrace);
+      }
+      _noticeParakeetLanguageGap(session.languageCode);
+      return;
+    }
+    final captured = _primeInParallel(ref.read(pasterProvider), micTrace);
+    session.languageResolution = _resolveProfileLanguage(session, captured);
+  }
+
+  /// SW-07: the target app's profile language for this recording. Runs in the
+  /// background from the paste-target capture the start already made (no extra
+  /// capture, no wait in the mic start). Transcription awaits it through
+  /// [_RecordingSession.languageResolution]. Settings changes after the start
+  /// do not reach this recording: the global value was frozen at start, and
+  /// the profile is matched against the target captured at start.
+  Future<void> _resolveProfileLanguage(
+    _RecordingSession session,
+    Future<void> targetCaptured,
+  ) async {
+    String? resolvedLanguage;
+    try {
+      final db = ref.read(historyDatabaseProvider);
+      final profiles = appProfilesFromRows(
+        await db.readAppProfiles(),
+        await db.readAppProfileRules(),
+      );
+      final choice = ref.read(profileChoiceProvider);
+      if (profiles.any(
+        (profile) =>
+            profile.asrLanguage != null &&
+            (profile.rules.isNotEmpty || choice is ProfileChoiceProfile),
+      )) {
+        await targetCaptured;
+        final targetId = await _targetAppForSave();
+        final language = resolveAppProfile(
+          choice: choice,
+          profiles: profiles,
+          target: targetEvidenceFromNativeId(targetId),
+        ).profile?.asrLanguage;
+        if (language != null && language.isNotEmpty) {
+          session.languageCode = language;
+          resolvedLanguage = language;
+        }
+      }
+    } on Object catch (e) {
+      // Background lookup: any failure keeps the global language, and it
+      // must never surface as an unhandled error from the recording start.
+      _log.warning('Profile language skipped, global language kept: $e');
+    }
+    // The recording may have ended and disposed this notifier meanwhile.
+    if (!ref.mounted) return;
+    // The chip follows the profile language once, and only for this session.
+    if (resolvedLanguage != null && identical(_session, session)) {
+      ref.read(recordingLanguageProvider.notifier).set(resolvedLanguage);
+    }
+    _noticeParakeetLanguageGap(session.languageCode);
+  }
+
+  /// Language code for one recording (SW-03). [languageOverride] wins over the
+  /// configured language; a null override falls back to the setting.
+  String _languageCodeFor(String? languageOverride) {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final language = languageOverride ?? settings.sttLanguageCode;
     return language.isEmpty ? 'auto' : language;
   }
 
@@ -1648,6 +2251,21 @@ class RecordingOrchestrator extends Notifier<void> {
   ) {
     if (!settings.stt.voiceLineBreaks) return text;
     return applyVoiceLineBreaks(
+      text,
+      languageCode: _resolveEffectiveLang(settings, session),
+    );
+  }
+
+  /// Turns spoken punctuation commands into marks when the setting is on.
+  /// Runs before the line-break step, so "Komma" next to "neuer Absatz" is
+  /// resolved first. Off means the transcript is passed through untouched.
+  String _applySpokenPunctuation(
+    String text,
+    AppSettings settings,
+    _RecordingSession session,
+  ) {
+    if (!settings.stt.spokenPunctuation) return text;
+    return applyVoicePunctuation(
       text,
       languageCode: _resolveEffectiveLang(settings, session),
     );
@@ -1740,6 +2358,7 @@ class RecordingOrchestrator extends Notifier<void> {
     // stopped; that pipeline's finally no longer releases it (see
     // stopRecording).
     _stopInFlight = false;
+    _clearPasteTarget();
     _log.info('Cancel requested during $phase — result will be discarded');
   }
 
@@ -1851,6 +2470,11 @@ class RecordingOrchestrator extends Notifier<void> {
           nextModelId: nextModelId,
           hasCloudConfigured: hasCloudConfigured,
           isPermanentFail: isPermanentFail,
+          // The name of the provider that receives the audio if the user
+          // picks the cloud action (BYOK: the configured one, not a fixed label).
+          cloudProviderName: hasCloudConfigured
+              ? _preferredCloudProvider(settings)?.value
+              : null,
         );
     // OOM recovery resets to idle regardless of current phase.
     // The oomRetry intent (error→recording) is intentionally NOT used here
@@ -1912,13 +2536,8 @@ class RecordingOrchestrator extends Notifier<void> {
     return null;
   }
 
-  bool _hasApiKeyForProvider(AppSettings settings, SttProviderType provider) {
-    return switch (provider) {
-      SttProviderType.openAI => settings.openAiApiKey.trim().isNotEmpty,
-      SttProviderType.deepgram => settings.deepgramApiKey.trim().isNotEmpty,
-      SttProviderType.onDevice => false,
-    };
-  }
+  bool _hasApiKeyForProvider(AppSettings settings, SttProviderType provider) =>
+      hasSttApiKey(settings.cloudProvider, provider);
 
   String _cloudProviderValue(SttProviderType provider) {
     return switch (provider) {
@@ -1927,6 +2546,13 @@ class RecordingOrchestrator extends Notifier<void> {
       SttProviderType.onDevice => CloudSttProvider.openAI.value,
     };
   }
+
+  /// Same readiness check dictation runs before it records — onboarding,
+  /// cloud key, and the model file of the active engine. Returns the error
+  /// code ([localizeRecordingError] vocabulary) or `null` when ready, so
+  /// other recording surfaces (the voice-note button) fail with the same,
+  /// specific message instead of after the clip.
+  Future<String?> checkTranscriptionReady() => _runPreflight();
 
   Future<String?> _runPreflight() async {
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
@@ -2080,7 +2706,10 @@ class RecordingOrchestrator extends Notifier<void> {
   /// without this call the originally-focused app would never be captured
   /// and [completeInteractiveSnippet] would have nothing to paste into.
   Future<void> primeForInteractiveSnippet() async {
+    _clearPasteTarget();
+    final generation = _pasteTargetGeneration;
     await ref.read(pasterProvider)?.prime();
+    if (generation == _pasteTargetGeneration) _pasteTargetPrimed = true;
   }
 
   /// Called by `InteractiveSnippetController` once every field of an
@@ -2131,54 +2760,92 @@ class RecordingOrchestrator extends Notifier<void> {
     }
   }
 
-  Future<String?> _saveToHistory(
+  /// Builds the history entry input for a dictation. The entry ID and capture
+  /// time are fixed here, so a later retry writes the same entry (see
+  /// `PendingAudioQueue`).
+  Future<RecordingInput> _buildHistoryInput(
     String transcript,
     Duration audioDuration,
     AppSettings settings,
-    int processingDurationSec,
-    String wavPath, {
+    int processingDurationSec, {
     String? originalTranscript,
+    String? smartModeInput,
+    bool smartModeApplied = false,
     required _RecordingSession session,
   }) async {
-    try {
-      final store = ref.read(recordingStoreProvider);
-      final wordCount = computeWordCountFast(transcript);
+    final createdAt = DateTime.now();
+    final target = session.target;
+    final isQuickNote = target == RecordingTarget.quickNote;
+    final isTemplateField = target == RecordingTarget.templateField;
+    // Target app (ticket 12) — only meaningful for the `clipboard` target,
+    // the only one that ever pastes into an external app. Bounded: the native
+    // lookup has no timeout of its own, and a hang here must not stall the
+    // save or the paste.
+    final targetApp = target == RecordingTarget.clipboard
+        ? await _targetAppForSave()
+        : null;
+    return RecordingInput(
+      transcript: transcript,
+      audioDuration: audioDuration,
+      modelId: settings.transcriptionModelId,
+      isLocal: settings.sttProviderType.isLocal,
+      languageCode: _resolveEffectiveLang(settings, session),
+      // Replacements already ran before Smart Mode (see the pipeline
+      // step above), so the transcript arrives here replaced.
+      applyTextReplacements: false,
+      historyMaxEntries: settings.historyMaxEntries,
+      wordCount: computeWordCountFast(transcript),
+      processingDurationSec: processingDurationSec,
       // A quick note already lives in Notes — it must not also land in
-      // Verlauf (see _handleAfterTranscription's quickNote branch below,
-      // which appends to the note instead of clipboard/paste). A template
-      // field is one piece of a still-in-progress interactive snippet — only
-      // the final composed result (assembled by
-      // `InteractiveSnippetController`) gets its own single history entry,
-      // never the individual fields.
-      final target = session.target;
-      final isQuickNote = target == RecordingTarget.quickNote;
-      final isTemplateField = target == RecordingTarget.templateField;
+      // Verlauf. A template field is one piece of a still-in-progress
+      // interactive snippet — only the composed result gets its own entry.
+      insertHistoryEntry: !isQuickNote && !isTemplateField,
+      originalTranscript: originalTranscript,
+      smartModeInput: smartModeInput,
+      smartModeApplied: smartModeApplied,
+      detectedLanguage: session.detectedLanguage,
+      targetApp: targetApp,
+      entryId: newRecordingEntryId(createdAt),
+      createdAt: createdAt,
+    );
+  }
 
-      // Target app (ticket 12) — only meaningful for the `clipboard` target,
-      // the only one that ever pastes into an external app. Reuses the same
-      // captured-target lookup `DesktopPaster` already uses for the
-      // blocklist check (Paster.prime() captured it when recording started);
-      // `null` on Linux/test env (unsupported) or when nothing was captured.
-      final targetApp = target == RecordingTarget.clipboard
-          ? await ref.read(pasterProvider)?.getTargetBundleId()
-          : null;
+  Future<String?> _targetAppForSave() async {
+    try {
+      return await ref
+          .read(pasterProvider)
+          ?.getTargetBundleId()
+          .timeout(const Duration(seconds: 1));
+    } on Exception catch (e) {
+      _log.warning('Target app lookup skipped: $e');
+      return null;
+    }
+  }
 
-      final saved = await store.save(
-        RecordingInput(
-          transcript: transcript,
-          audioDuration: audioDuration,
-          modelId: settings.transcriptionModelId,
-          isLocal: settings.sttProviderType.isLocal,
-          languageCode: _resolveEffectiveLang(settings, session),
-          applyTextReplacements: settings.textReplacementsEnabled,
-          historyMaxEntries: settings.historyMaxEntries,
-          wordCount: wordCount,
-          processingDurationSec: processingDurationSec,
-          insertHistoryEntry: !isQuickNote && !isTemplateField,
-          originalTranscript: originalTranscript,
-          targetApp: targetApp,
-        ),
-      );
+  Future<String?> _saveToHistory(
+    RecordingInput input,
+    String wavPath, {
+    required _RecordingSession session,
+  }) async {
+    final target = session.target;
+    final isQuickNote = target == RecordingTarget.quickNote;
+    final isTemplateField = target == RecordingTarget.templateField;
+
+    final SavedRecording saved;
+    try {
+      saved = await ref.read(recordingStoreProvider).save(input);
+    } on Exception catch (e) {
+      _log.error('Failed to save to history: $e');
+      return null;
+    }
+
+    // The entry is written from here on. A failure in the steps below must
+    // not report the save as failed: the caller would keep the audio for a
+    // second write, and the next start would add the same entry again.
+    try {
+      if (input.smartModeApplied && !isQuickNote && !isTemplateField) {
+        ref.read(smartModeUndoNoticeProvider.notifier).announce(saved.entryId);
+      }
 
       if (isQuickNote) {
         _log.info(
@@ -2197,7 +2864,7 @@ class RecordingOrchestrator extends Notifier<void> {
       if (saved.trimmedCount > 0) {
         _log.info(
           'Auto-trimmed ${saved.trimmedCount} old entries to stay within '
-          '${settings.historyMaxEntries} limit',
+          '${input.historyMaxEntries} limit',
         );
       }
 
@@ -2208,6 +2875,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // history entry to link the audio to. Takes priority over the
       // user-facing retention setting below — a live diagnosis session
       // wants every WAV kept in place, uncapped, not rotated away.
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
       if (kRetainDebugAudio && !isQuickNote && !isTemplateField) {
         await _linkDebugAudioAttachment(saved.entryId, wavPath);
       } else if (settings.privacy.retainRecentAudio &&
@@ -2215,14 +2883,123 @@ class RecordingOrchestrator extends Notifier<void> {
           !isTemplateField) {
         await _retainRecentAudio(saved.entryId, wavPath);
       }
-
-      // Refresh analytics dashboard so counters update immediately.
-      ref.invalidate(analyticsProvider);
-
-      return saved.processedTranscript;
     } on Exception catch (e) {
-      _log.error('Failed to save to history: $e');
-      return null;
+      _log.error('Post-save step failed after the entry was written: $e');
+    }
+
+    // Refresh analytics dashboard so counters update immediately.
+    ref.invalidate(analyticsProvider);
+
+    return saved.processedTranscript;
+  }
+
+  /// Keeps the audio of a dictation whose transcription failed with a
+  /// repeatable error, so the user can retry it (UIA-FLW-01). Returns true when
+  /// the WAV was moved into the queue and must not be cleaned up. Without
+  /// "Audio aufbewahren" the audio expires after [kParkedAudioMaxAge]; with it,
+  /// the normal retention applies.
+  Future<bool> _keepAudioForRetry(
+    String sid,
+    String wavPath,
+    bool keptForRetention,
+  ) async {
+    if (keptForRetention) return false;
+    final state = ref.read(recordingProvider);
+    final code = state.errorMessage;
+    if (!state.isError ||
+        code == null ||
+        !isRepeatableTranscriptionError(code)) {
+      return false;
+    }
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final now = DateTime.now();
+    final maxAge = settings.privacy.retainRecentAudio
+        ? kRetainedAudioMaxAge
+        : kParkedAudioMaxAge;
+    try {
+      final size = await File(wavPath).length();
+      await ref
+          .read(pendingAudioQueueProvider)
+          .parkForRetry(
+            wavPath,
+            entryId: newRecordingEntryId(now),
+            capturedAt: now,
+            audioDuration: Duration(milliseconds: ((size - 44) / 32).round()),
+            errorCode: code,
+            expiresAt: now.add(maxAge),
+          );
+      return true;
+    } on Object catch (e) {
+      _log.error('[$sid] Could not keep audio for a retry: $e');
+      return false;
+    }
+  }
+
+  /// Transcribes the kept dictation again (UIA-FLW-01) and saves the text to
+  /// history. Returns null when no kept dictation exists.
+  Future<PendingRetryOutcome?> retryKeptDictation() async {
+    final queue = ref.read(pendingAudioQueueProvider);
+    final entries = await queue.retryEntries();
+    if (entries.isEmpty) return null;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final transcriber = ref.read(transcriberProvider);
+    final lang = settings.sttLanguageCode.isEmpty
+        ? 'auto'
+        : settings.sttLanguageCode;
+    return queue.retry(
+      entries.last.entryId,
+      transcribe: (wav) => transcriber.transcribe(wav, language: lang),
+      buildInput: (text, audio) => RecordingInput(
+        transcript: text,
+        audioDuration: audio,
+        modelId: settings.transcriptionModelId,
+        isLocal: settings.sttProviderType.isLocal,
+        languageCode: lang,
+        applyTextReplacements: false,
+        historyMaxEntries: settings.historyMaxEntries,
+        wordCount: computeWordCountFast(text),
+        processingDurationSec: 0,
+        entryId: newRecordingEntryId(DateTime.now()),
+        createdAt: DateTime.now(),
+      ),
+      retainAudio: settings.privacy.retainRecentAudio,
+    );
+  }
+
+  /// Parks the audio unless the history save reported success.
+  Future<void> _keepAudioIfUnsaved(
+    String sid,
+    String wavPath,
+    RecordingInput input,
+    StepResult<String?> saveResult,
+  ) async {
+    final saved = switch (saveResult) {
+      Ok(:final value) => value != null,
+      _ => false,
+    };
+    if (!saved) await _keepUnsavedAudio(sid, wavPath, input);
+  }
+
+  /// Keeps the audio of a dictation whose history save failed or timed out,
+  /// so [PendingAudioQueue.recoverAll] can write the entry on a later start.
+  /// Without this, the `finally` cleanup of the pipeline deletes the WAV and
+  /// the dictation is lost. Entries that never reach history (quick note,
+  /// template field) have nothing to retry and are not kept.
+  Future<void> _keepUnsavedAudio(
+    String sid,
+    String wavPath,
+    RecordingInput input,
+  ) async {
+    if (!input.insertHistoryEntry) return;
+    try {
+      await ref.read(pendingAudioQueueProvider).park(wavPath, input);
+      _retainedWavPath = wavPath;
+      ref
+          .read(pendingAudioNoticeProvider.notifier)
+          .report(PendingAudioNotice.saveLater);
+    } on Object catch (e) {
+      // The WAV is still at wavPath, so the pipeline's cleanup removes it.
+      _log.error('[$sid] Could not keep audio for a later history save: $e');
     }
   }
 
@@ -2261,7 +3038,7 @@ class RecordingOrchestrator extends Notifier<void> {
       if (!await source.exists()) return;
 
       final dir = Directory(retainedAudioDir());
-      if (!await dir.exists()) await dir.create(recursive: true);
+      await userAudioDirs.ensure(dir.path);
       final destPath = p.join(dir.path, p.basename(wavPath));
 
       File dest;
@@ -2282,6 +3059,7 @@ class RecordingOrchestrator extends Notifier<void> {
           filePath: dest.path,
           sizeBytes: sizeBytes,
         );
+        _retainedWavPath = wavPath;
 
         final evicted = await db.enforceAudioAttachmentCap();
         for (final path in evicted) {
@@ -2324,17 +3102,28 @@ class RecordingOrchestrator extends Notifier<void> {
   /// already delivered the text to the user.
   Future<void> _persistHotkeyLatencyIfPending(String sid) async {
     final hotkeyAt = _hotkeyPressedAtForLatencyKpi;
+    final stoppedAt = _recordingStoppedAtForLatencyKpi;
     _hotkeyPressedAtForLatencyKpi = null;
+    _recordingStoppedAtForLatencyKpi = null;
     if (hotkeyAt == null) return;
 
     final now = DateTime.now();
     final latencyMs = now.difference(hotkeyAt).inMilliseconds;
     if (latencyMs < 0) return; // clock-skew guard
+    final stopToTextMs = stoppedAt == null
+        ? null
+        : now.difference(stoppedAt).inMilliseconds;
 
     try {
       await ref
           .read(historyDatabaseProvider)
-          .recordHotkeyLatency(recordedAt: now, latencyMs: latencyMs);
+          .recordHotkeyLatency(
+            recordedAt: now,
+            latencyMs: latencyMs,
+            stopToTextMs: stopToTextMs != null && stopToTextMs >= 0
+                ? stopToTextMs
+                : null,
+          );
     } on Exception catch (e) {
       _log.warning('[$sid] Failed to persist hotkey→text latency: $e');
     }
@@ -2357,8 +3146,48 @@ class RecordingOrchestrator extends Notifier<void> {
       case DurationLimitReached():
         _log.info('Max recording duration reached');
         _handleAutoStop();
+      case NoSignalWarning():
+        _log.info('No microphone signal 1 s after start');
+        _notifyNoMicrophoneSignal();
     }
   }
+
+  /// Non-terminal hint: the microphone delivered nothing for a second after
+  /// the start. Recording keeps running; the dead-mic guard still decides at
+  /// its own timeout. Goes out through the attention service so the user's
+  /// notification switches apply; no error sound (nothing has failed yet).
+  void _notifyNoMicrophoneSignal() {
+    final l10n = _resolveL10n();
+    unawaited(
+      ref
+          .read(systemAttentionServiceProvider)
+          .requestAttention(
+            kind: AttentionKind.silentMicrophone,
+            title: l10n.silentMicrophoneNotificationTitle,
+            body: l10n.silentMicrophoneNotificationBody,
+          ),
+    );
+  }
+
+  /// XP-5-08: the microphone stopped delivering mid-recording (unplugged,
+  /// muted, or the platform switched sources). The overlay shows it while it
+  /// lasts; the notification reaches users who hide the overlay. Recording
+  /// keeps running, so what was said before still gets transcribed.
+  void _onMicSignalLost(bool lost) {
+    final recording =
+        ref.read(recordingProvider).phase == RecordingPhase.recording;
+    if (lost && recording) {
+      _micSignalLostReported = true;
+      _log.warning('Microphone signal lost during recording');
+      _notifyNoMicrophoneSignal();
+    } else if (!lost && _micSignalLostReported) {
+      // Also the reset at the next start; only a real return is logged.
+      _micSignalLostReported = false;
+      if (recording) _log.info('Microphone signal is back');
+    }
+  }
+
+  bool _micSignalLostReported = false;
 
   /// Dead-mic triggered: stop recording and surface error.
   Future<void> _handleDeadMic() async {
@@ -2474,6 +3303,7 @@ class RecordingOrchestrator extends Notifier<void> {
         },
       );
       _log.info('Transcript copied to clipboard (${transcript.length} chars)');
+      _clipboardCopiedThisPipeline = true;
       return true;
     } on Exception catch (e) {
       _log.warning('Clipboard copy failed: $e');
@@ -2498,7 +3328,12 @@ class RecordingOrchestrator extends Notifier<void> {
     }
 
     if (target == RecordingTarget.quickNote) {
-      await _appendToQuickNote(transcript);
+      try {
+        await _appendToQuickNote(transcript);
+      } on Object catch (e) {
+        _log.error('Quick-note append failed: $e');
+        _quickNoteAppendFailedThisPipeline = true;
+      }
       return;
     }
 
@@ -2582,21 +3417,70 @@ class RecordingOrchestrator extends Notifier<void> {
     onQuickNoteAppended?.call(note.id);
   }
 
-  Future<bool> _pasteTranscript(String transcript, AppSettings settings) async {
-    final paster = ref.read(pasterProvider);
-    if (paster == null) return false;
+  /// Logs an unconfirmed paste. Only [PasteOutcome.unconfirmed] (a receipt
+  /// was armed but timed out or ownership was lost) raises a warning;
+  /// [PasteOutcome.unconfirmedNoBridge] (no receipt could be armed) says
+  /// nothing about this paste.
+  void _reportUnconfirmedPaste(PasteOutcome outcome) {
+    if (outcome == PasteOutcome.unconfirmedNoBridge) {
+      _log.info(
+        'Paste unconfirmed: no read receipt armed; transcript kept on the '
+        'clipboard, no warning',
+      );
+      return;
+    }
+    // Briefing N12: the shortcut was sent, but nothing proves the text reached
+    // the field. Never reported as a paste.
+    _log.warning(
+      'Paste unconfirmed: no proof the text reached the field; transcript kept '
+      'on the clipboard',
+    );
+    ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
+  }
 
-    // Capture the paste target if it hasn't been primed yet (e.g. when this
-    // is the first recording, or recording was started externally).
-    await paster.prime();
+  /// A failed paste is the moment a revoked permission shows up. Re-probe so
+  /// the Settings card, tray and recovery surfaces stop reading "ready".
+  void _recheckCapabilityAfterPasteFailure(PasteOutcome outcome) {
+    if (outcome == PasteOutcome.success) return;
+    unawaited(
+      ref
+          .read(pasteCapabilityNotifierProvider.notifier)
+          .recheckAfterPasteFailure(),
+    );
+  }
+
+  Future<bool> _pasteTranscript(String transcript, AppSettings settings) async {
+    // Keep the target captured at hotkey time: capturing again here would
+    // follow the user into the app they switched to meanwhile, and the
+    // native target check could never refuse the paste. Only a paste
+    // without a captured target (no recording start) captures it now.
+    final pending = _pendingPastePrime;
+    if (pending != null) await pending;
+    final primed = _pasteTargetPrimed;
+    _clearPasteTarget();
+    final paster = ref.read(pasterProvider);
+    if (paster == null) {
+      _pasteNotConfirmedThisPipeline = true;
+      return false;
+    }
+    if (!primed) await paster.prime();
 
     final outcome = await paster.paste(
       transcript,
       PasteOptions(
         autoPasteDelayMs: settings.autoPasteDelay,
         blocklist: settings.autoPasteBlocklist,
+        copyBlockedToClipboard: settings.behavior.copyBlockedToClipboard,
+        restoreClipboardAfterPaste:
+            settings.behavior.restoreClipboardAfterPaste,
       ),
     );
+    _pasteOutcomeThisPipeline = outcome;
+
+    if (outcome != PasteOutcome.success) {
+      _pasteNotConfirmedThisPipeline = true;
+    }
+    _recheckCapabilityAfterPasteFailure(outcome);
 
     switch (outcome) {
       case PasteOutcome.success:
@@ -2605,9 +3489,11 @@ class RecordingOrchestrator extends Notifier<void> {
         return true;
       case PasteOutcome.blocked:
         _log.info('Auto-paste blocked for current app (in blocklist)');
-        return false;
-      case PasteOutcome.platformUnavailable:
-        _log.warning('Desktop paste not available on this platform');
+        if (settings.behavior.copyBlockedToClipboard) {
+          _copiedOnlyThisPipeline = true;
+        } else {
+          _historyOnlyThisPipeline = true;
+        }
         return false;
       case PasteOutcome.noTarget:
         _log.warning(
@@ -2625,76 +3511,7 @@ class RecordingOrchestrator extends Notifier<void> {
         );
         return false;
       case PasteOutcome.permissionMissing:
-        _log.warning(
-          'Paste failed: OS denied event injection. On macOS, grant '
-          'Accessibility permission in System Settings → Privacy & '
-          'Security → Accessibility.',
-        );
-        // Two distinct causes look identical from the paste outcome alone,
-        // so branch on the shared [PasteCapabilityNotifier.needsRestart]
-        // signal — the same one the settings indicator and onboarding use —
-        // before choosing the click target. A genuinely-missing grant needs
-        // the Settings pane; a grant WhisPaste already handed the user off to
-        // that still reads as missing is the known stale in-process view
-        // (Settings would show the toggle already on, which reads as "nothing
-        // to do here" and just re-confuses the user). That case needs a
-        // restart, not another trip to Settings. Routing the grant click
-        // through the notifier's `openAccessibilitySettings` records the
-        // handoff, so the *next* failure/surface correctly resolves to
-        // restart instead of sending the user to Settings a second time.
-        final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-        final staleGrant = capNotifier.needsRestart;
-        // Third arm, ahead of the plain Settings deep-link: on a live-probe
-        // build a missing permission can be a TCC entry pinned to a binary
-        // that no longer exists, and Settings then shows the toggle already
-        // ON — "nichts zu tun" — which is precisely the dead end the user
-        // reported. Clearing the entry first makes the row honest before the
-        // user ever gets there. See
-        // [PasteCapabilityNotifier.grantRequiresEntryReset] for why this is
-        // unconditional rather than gated on detected staleness.
-        final resetEntryFirst =
-            !staleGrant && capNotifier.grantRequiresEntryReset;
-        // Name the chosen arm in the log: all three arms report the same
-        // `permissionMissing` outcome, so without this a support log cannot
-        // tell which recovery the user was actually offered.
-        _log.info(
-          'Auto-paste permission recovery arm: '
-          '${staleGrant
-              ? 'restart'
-              : resetEntryFirst
-              ? 'reset-entry-then-grant'
-              : 'open-settings'}',
-        );
-        final permissionL10n = _resolveL10n();
-        _reportPasteFailure(
-          outcome: PasteOutcome.permissionMissing,
-          kind: AttentionKind.pasteBlockedPermission,
-          title: staleGrant
-              ? permissionL10n.pasteNotificationRestartNeededTitle
-              : permissionL10n.pasteNotificationPermissionBlockedTitle,
-          body: staleGrant
-              ? permissionL10n.pasteNotificationRestartNeededBody
-              : resetEntryFirst
-              ? permissionL10n.pasteNotificationPermissionResetEntryBody
-              : permissionL10n.pasteNotificationPermissionOpenSettingsBody,
-          trayLabel: staleGrant
-              ? permissionL10n.pasteNotificationRestartNeededTray
-              : permissionL10n.pasteNotificationPermissionBlockedTray,
-          // The arms above pick the *wording*; the click itself re-resolves
-          // the arm when it fires. A notification can sit unread and the tray
-          // entry waits indefinitely, so the state at click time is the one
-          // that counts.
-          onClick: capNotifier.runMissingPermissionRecovery,
-          // Own tray key, so the persistent surface runs this recovery too
-          // instead of the default "open the after-transcription settings"
-          // jump — being sent to a settings page to hunt for a fix is the
-          // dead end this whole branch exists to remove.
-          trayMenuItemKey: kTrayPastePermissionActionNeededKey,
-          // Own tray key, so the persistent surface runs this recovery too
-          // instead of the default "open the after-transcription settings"
-          // jump — being sent to a settings page to hunt for a fix is the
-          // dead end this whole branch exists to remove.
-        );
+        _reportPermissionMissingPaste();
         return false;
       case PasteOutcome.elevationBlocked:
         _log.warning(
@@ -2711,18 +3528,137 @@ class RecordingOrchestrator extends Notifier<void> {
           trayLabel: elevationL10n.pasteNotificationElevationBlockedTray,
         );
         return false;
-      case PasteOutcome.failed:
-        _log.warning('Paste failed: native bridge reported an unknown error');
+      case PasteOutcome.targetChanged:
+        // Briefing B3 criterion 1: nothing was pasted, the transcript stays on
+        // the clipboard and the toast names the state.
+        _log.warning(
+          'Paste refused: target app changed during processing; transcript '
+          'kept on the clipboard',
+        );
+        ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
+        return false;
+      case PasteOutcome.unconfirmed:
+      case PasteOutcome.unconfirmedNoBridge:
+        _reportUnconfirmedPaste(outcome);
+        return false;
+      // platformUnavailable: the native paste channel is missing, so nothing
+      // was pasted. It reports like an unknown failure. Otherwise the run
+      // completes as a success (chime, toast) over text that never landed.
+      case PasteOutcome.failed || PasteOutcome.platformUnavailable:
+        _log.warning('Paste failed: native paste bridge reported $outcome');
         final failedL10n = _resolveL10n();
         _reportPasteFailure(
-          outcome: PasteOutcome.failed,
+          outcome: outcome,
           kind: AttentionKind.pasteFailedUnknown,
           title: failedL10n.pasteNotificationFailedTitle,
-          body: failedL10n.pasteNotificationFailedBody,
+          body: failedL10n.pasteNotificationFailedBody(
+            pasteShortcutLabel(l10n: failedL10n),
+          ),
           trayLabel: failedL10n.pasteNotificationFailedTray,
         );
         return false;
     }
+  }
+
+  /// Reports a paste refused for a missing permission. Linux names the
+  /// uinput udev rule; macOS and Windows pick the recovery arm below.
+  void _reportPermissionMissingPaste() {
+    _log.warning(pasteInjectionDeniedLogMessage(defaultTargetPlatform));
+    // Two distinct causes look identical from the paste outcome alone,
+    // so branch on the shared [PasteCapabilityNotifier.needsRestart]
+    // signal — the same one the settings indicator and onboarding use —
+    // before choosing the click target. A genuinely-missing grant needs
+    // the Settings pane; a grant WhisPaste already handed the user off to
+    // that still reads as missing is the known stale in-process view
+    // (Settings would show the toggle already on, which reads as "nothing
+    // to do here" and just re-confuses the user). That case needs a
+    // restart, not another trip to Settings. Routing the grant click
+    // through the notifier's `openAccessibilitySettings` records the
+    // handoff, so the *next* failure/surface correctly resolves to
+    // restart instead of sending the user to Settings a second time.
+    // Linux has no permission dialog to send the user to: the uinput
+    // device needs a one-time udev rule, and the Auto-Paste settings show
+    // the command for it (XP-5-06). The macOS arms below would show
+    // macOS copy and record a grant handoff that never happens.
+    if (defaultTargetPlatform == TargetPlatform.linux) {
+      final linuxL10n = _resolveL10n();
+      // Without any /dev/uinput node the udev rule cannot help, and the
+      // native bridge reports the same permission_missing for that case
+      // (PAR-025). The notice then must not ask for the rule.
+      final noDevice =
+          ref.read(pasteCapabilityNotifierProvider).capability?.status ==
+          PasteCapabilityStatus.unsupported;
+      final shortcut = pasteShortcutLabel(l10n: linuxL10n);
+      _reportPasteFailure(
+        outcome: PasteOutcome.permissionMissing,
+        kind: AttentionKind.pasteBlockedPermission,
+        title: linuxL10n.pasteNotificationPermissionBlockedTitle,
+        body: noDevice
+            ? linuxL10n.pasteNotificationLinuxNoDeviceBody(shortcut)
+            : linuxL10n.pasteNotificationLinuxUinputBody(shortcut),
+        trayLabel: noDevice
+            ? linuxL10n.pasteNotificationLinuxNoDeviceTray
+            : linuxL10n.pasteNotificationLinuxUinputTray,
+        onClick: () => ref
+            .read(trayServiceProvider.notifier)
+            .openActionNeeded(kTrayPasteActionNeededKey),
+      );
+      return;
+    }
+    final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
+    final staleGrant = capNotifier.needsRestart;
+    // Third arm, ahead of the plain Settings deep-link: on a live-probe
+    // build a missing permission can be a TCC entry pinned to a binary
+    // that no longer exists, and Settings then shows the toggle already
+    // ON — "nichts zu tun" — which is precisely the dead end the user
+    // reported. Clearing the entry first makes the row honest before the
+    // user ever gets there. See
+    // [PasteCapabilityNotifier.grantRequiresEntryReset] for why this is
+    // unconditional rather than gated on detected staleness.
+    final resetEntryFirst = !staleGrant && capNotifier.staleEntryResetCandidate;
+    // Name the chosen arm in the log: all three arms report the same
+    // `permissionMissing` outcome, so without this a support log cannot
+    // tell which recovery the user was actually offered.
+    _log.info(
+      'Auto-paste permission recovery arm: '
+      '${staleGrant
+          ? 'restart'
+          : resetEntryFirst
+          ? 'reset-entry-then-grant'
+          : 'open-settings'}',
+    );
+    final permissionL10n = _resolveL10n();
+    _reportPasteFailure(
+      outcome: PasteOutcome.permissionMissing,
+      kind: AttentionKind.pasteBlockedPermission,
+      title: staleGrant
+          ? permissionL10n.pasteNotificationRestartNeededTitle
+          : permissionL10n.pasteNotificationPermissionBlockedTitle,
+      body: staleGrant
+          ? permissionL10n.pasteNotificationRestartNeededBody
+          : resetEntryFirst
+          ? permissionL10n.pasteNotificationPermissionResetEntryBody
+          : permissionL10n.pasteNotificationPermissionOpenSettingsBody,
+      trayLabel: staleGrant
+          ? permissionL10n.pasteNotificationRestartNeededTray
+          : permissionL10n.pasteNotificationPermissionBlockedTray,
+      // The arms above pick the *wording*; the click itself re-resolves
+      // the arm when it fires. A notification can sit unread and the tray
+      // entry waits indefinitely, so the state at click time is the one
+      // that counts.
+      onClick: () => capNotifier.runMissingPermissionRecovery(
+        confirmReset: () => confirmTccEntryReset(l10n: permissionL10n),
+      ),
+      // Own tray key, so the persistent surface runs this recovery too
+      // instead of the default "open the after-transcription settings"
+      // jump — being sent to a settings page to hunt for a fix is the
+      // dead end this whole branch exists to remove.
+      trayMenuItemKey: kTrayPastePermissionActionNeededKey,
+      // Own tray key, so the persistent surface runs this recovery too
+      // instead of the default "open the after-transcription settings"
+      // jump — being sent to a settings page to hunt for a fix is the
+      // dead end this whole branch exists to remove.
+    );
   }
 
   /// Resolves the app's own persisted language setting (`AppSettings.locale`,
@@ -2834,7 +3770,22 @@ class _RecordingSession {
     this.smartModeHotkeyPreset,
     this.languageOverride,
     this.silenceTimeoutOverride,
+    this.languageCode = 'auto',
   });
+
+  /// Effective transcription language, frozen when the recording started
+  /// (SW-03). Settings changes during the recording do not reach it.
+  /// Frozen at start (override, else global setting). Replaced once, by the
+  /// target app's profile language, when [languageResolution] finishes.
+  String languageCode;
+
+  /// Pending profile-language resolution, awaited before transcription. Null
+  /// when the start already settled the language.
+  Future<void>? languageResolution;
+
+  /// Language the engine reported for this recording's transcription (only
+  /// with automatic detection). Feeds the fact guard's name rule (DEV-83).
+  String? detectedLanguage;
 
   final RecordingTarget target;
   final SmartModePreset? smartModeHotkeyPreset;
@@ -2873,3 +3824,8 @@ final class _CaptureOk extends _CaptureStepResult {
   final String path;
   final List<int> bytes;
 }
+
+/// German dictations keep single capitalised words as ordinary words (nouns);
+/// every other language, and "auto", checks them as possible names.
+bool _isGermanLanguage(String languageCode) =>
+    languageCode.toLowerCase().startsWith('de');

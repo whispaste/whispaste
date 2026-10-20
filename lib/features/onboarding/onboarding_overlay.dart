@@ -3,9 +3,11 @@ import 'dart:async' show unawaited;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, visibleForTesting;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
+
 import '../../core/config/build_config.dart';
 import '../../core/config/settings_provider.dart';
 import '../../core/onboarding/onboarding_revision.dart';
@@ -18,9 +20,12 @@ import '../../services/hotkey_service.dart';
 import '../../services/paste/paste_capability_notifier.dart';
 import '../../services/permissions/mic_permission_notifier.dart';
 import '../../services/telemetry_service.dart';
+import '../settings/widgets/settings_scroll_affordance.dart';
 import '../../widgets/dialog.dart';
+import '../../widgets/hotkey_recorder.dart' show WpHotkeyRecorderDialog;
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_hero_button.dart';
+import '../../widgets/wp_toast_dock.dart';
 import 'onboarding_completion_gate.dart';
 import 'onboarding_flow_migration.dart';
 import 'smart_mode_onboarding_hint.dart';
@@ -34,6 +39,7 @@ import 'steps/model_step.dart';
 import 'steps/trigger_step.dart';
 import 'steps/test_recording_step.dart';
 import 'steps/ready_step.dart';
+import 'stt_model_readiness.dart';
 
 /// Widget keys exposed for testing — the shell-owned navigation actions.
 @visibleForTesting
@@ -42,6 +48,7 @@ const kOnboardingNavRowKey = Key('onboardingNavRow');
 const kOnboardingBackButtonKey = Key('onboardingNavBackButton');
 @visibleForTesting
 const kOnboardingNextButtonKey = Key('onboardingNavNextButton');
+const kOnboardingStepCounterKey = Key('onboardingStepCounter');
 
 /// The top bar's X. Closes the window during the first run and leaves the
 /// review in a reopened one — one control, two meanings, so tests address it
@@ -142,8 +149,8 @@ const double _kOnboardingBottomGap = WpSpacing.lg;
 
 /// Identifier for each page of the first-run onboarding flow.
 ///
-/// Seven pages on macOS and Windows, six on Linux: [autoPaste] is the one
-/// piece of platform variance, and it is a *sequence-level* decision (see
+/// Seven pages on every desktop platform. [autoPaste] is the one piece of
+/// platform variance, and it is a *sequence-level* decision (see
 /// [buildOnboardingStepIds]) rather than a page that renders empty where it
 /// does not apply.
 enum OnboardingStepId {
@@ -172,19 +179,29 @@ enum OnboardingStepId {
   appearance,
 
   /// 6 — Auto-Paste: the permission that lets a transcript land at the
-  /// cursor. **Not part of the sequence on Linux** (no paste controller is
-  /// wired there) or under the Auto-Paste kill switch.
+  /// cursor. Shown on Linux too, with a hint per package format; left out
+  /// only under the Auto-Paste kill switch.
   autoPaste,
 
   /// 7 — Try & Go: guided test recording, quick-start hints, completion CTA.
   tryAndGo,
 }
 
+/// Subtitle of the Auto-Paste page for [platform]. macOS asks for the
+/// Accessibility permission, Windows asks for nothing, and Linux has no system
+/// dialog at all, so Linux gets its own text instead of the macOS one.
+String onboardingPasteSubtitleFor(L10n l10n, TargetPlatform platform) =>
+    switch (platform) {
+      TargetPlatform.windows => l10n.onboardingPasteSubtitleWin,
+      TargetPlatform.linux => l10n.onboardingPasteSubtitleLinux,
+      _ => l10n.onboardingPasteSubtitle,
+    };
+
 /// Returns the ordered list of onboarding step IDs for this build.
 ///
-/// Seven steps on macOS/Windows, six on Linux — [autoPaste] is omitted from
-/// the sequence entirely where it cannot apply, rather than rendered as a page
-/// with nothing on it. The predicate itself lives in
+/// Seven steps on every desktop platform. [autoPaste] is omitted only where
+/// the kill switch is off, rather than rendered as a page with nothing on it.
+/// The predicate itself lives in
 /// [onboardingIncludesAutoPasteStep] because the resume-position migration
 /// needs exactly the same answer; splitting it would let the two drift.
 ///
@@ -378,6 +395,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       (_, next) => _hydrateStepFromSettings(next.value),
       fireImmediately: true,
     );
+    ref.listenManual(
+      onboardingModelStepRequestProvider,
+      (_, _) => _goToStep(OnboardingStepId.model),
+    );
     if (!_stepHydrated) {
       // Settings weren't loaded synchronously — track the tentative first
       // step; _hydrateStepFromSettings corrects both the step and this
@@ -569,6 +590,18 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     }
   }
 
+  /// Jumps straight to [id] — the way back to the model step from the closing
+  /// page and from a "model missing" notice (UIA-RT-01).
+  void _goToStep(OnboardingStepId id) {
+    final index = _onboardingSteps().indexOf(id);
+    if (index < 0 || index == _currentStep) return;
+    setState(() {
+      _previousStep = _currentStep;
+      _currentStep = index;
+    });
+    _persistCurrentStep(_currentStep);
+  }
+
   void _goBack() {
     if (_currentStep > 0) {
       setState(() {
@@ -644,7 +677,10 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     // before the overlay tears itself down, but its outcome never blocks
     // completion: skip and download both just close the dialog and fall
     // through here.
-    if (!_smartModeHintShown) {
+    // Only once a speech model is on disk: Smart Mode cleans up dictation, so
+    // pitching it earlier is a dead end. The usage hint shown after the first
+    // finished dictation covers the later discovery (UIA-RT-01).
+    if (!_smartModeHintShown && ref.read(onboardingSttModelInstalledProvider)) {
       _smartModeHintShown = true;
       await showSmartModeOnboardingHint(context, ref);
       if (!mounted) return;
@@ -726,6 +762,16 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     );
   }
 
+  /// Whether the shell's Next is held on [id] because the model page has no
+  /// model, no running download and no saved cloud key (UIA-RT-01,
+  /// UIA-MDL-GATE). Never in a review or a revision run, see the Next gate in
+  /// [build].
+  bool _modelStepBlocked(OnboardingStepId id) =>
+      !widget.manualReview &&
+      !widget.revisionRun &&
+      id == OnboardingStepId.model &&
+      !ref.watch(onboardingModelStepCanAdvanceProvider);
+
   Widget _buildStepContent(OnboardingStepId id) {
     final l10n = L10n.of(context);
     return switch (id) {
@@ -744,7 +790,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           title: l10n.onboardingModelTitle,
           subtitle: l10n.onboardingModelSubtitle,
         ),
-        body: const ModelStep(),
+        body: ModelStep(nextBlocked: _modelStepBlocked(id)),
       ),
       OnboardingStepId.hotkey => _buildHotkeyPage(l10n),
       OnboardingStepId.appearance => OnboardingPage(
@@ -757,9 +803,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       OnboardingStepId.autoPaste => OnboardingPage(
         header: OnboardingPageHeading(
           title: l10n.onboardingPasteTitle,
-          subtitle: defaultTargetPlatform == TargetPlatform.windows
-              ? l10n.onboardingPasteSubtitleWin
-              : l10n.onboardingPasteSubtitle,
+          subtitle: onboardingPasteSubtitleFor(l10n, defaultTargetPlatform),
         ),
         body: const AutoPasteStep(),
       ),
@@ -798,12 +842,17 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           title: l10n.onboardingTestRecordingTitle,
           subtitle: l10n.onboardingTestRecordingSubtitle,
         ),
-        body: const Row(
+        body: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(flex: 6, child: TestRecordingStep()),
-            SizedBox(width: WpSpacing.xxl),
-            Expanded(flex: 3, child: ReadyStep()),
+            const Expanded(flex: 6, child: TestRecordingStep()),
+            const SizedBox(width: WpSpacing.xxl),
+            Expanded(
+              flex: 3,
+              child: ReadyStep(
+                onBackToModel: () => _goToStep(OnboardingStepId.model),
+              ),
+            ),
           ],
         ),
       ),
@@ -960,7 +1009,8 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
       child: child,
     );
 
-    // Two independent completion gates (PRD "Zwei Abschluss-Gates"):
+    // Three completion conditions for the first run (PRD "Zwei Abschluss-
+    // Gates", extended by UIA-MDL-GATE):
     //  1. Residual safety gate (moved from the old ReadyStep): a confirmed
     //     hotkey conflict disables the completion CTA so the user is never
     //     sent into a non-functional hotkey. `unknown` stays enabled —
@@ -969,19 +1019,103 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
     //  2. Microphone gate: a successful test recording with recognised
     //     speech (non-empty sandbox transcript) — or the explicit
     //     "continue without a microphone" escape hatch, which bypasses ONLY
-    //     this condition, never the hotkey one.
+    //     this condition, never the hotkey one or the model one.
+    //  3. Speech gate (UIA-MDL-GATE): a model is installed, a download is
+    //     running or a cloud key is saved. Without it nothing can be
+    //     transcribed, and the escape hatch must not bring the user there.
     final hotkeyStatus = ref.watch(hotkeyRegistrationStatusProvider);
     final testRecordingSucceeded = ref.watch(
       onboardingTestRecordingSucceededProvider,
     );
     final micBypassed = ref.watch(onboardingMicBypassProvider);
+    final speechReady = ref.watch(onboardingModelStepCanAdvanceProvider);
     final completionEnabled =
         hotkeyStatus != HotkeyRegistrationStatus.conflict &&
-        (testRecordingSucceeded || micBypassed);
+        (testRecordingSucceeded || micBypassed) &&
+        speechReady;
 
-    const textMuted = WpColors.textMuted;
-    const accentGradient = WpColors.accentWarmGradient;
+    final textMuted = WpColors.textMuted;
 
+    // The two completion gates guard the *first* run from ending in a
+    // half-configured app. A review or a revision run opens on an app that
+    // already works, so gating its way out on a fresh test recording would
+    // only trap a returning user who came to look at a page — and would make
+    // the no-data-loss promise (a full run with zero user input must be
+    // completable) impossible to keep.
+    // The model page needs a model, a running download or a cloud key to
+    // move on (UIA-RT-01, UIA-MDL-GATE). Not in a review or a revision run:
+    // those open on an app that already works, and gating a returning user
+    // there would trap them.
+    final modelStepBlocked = _modelStepBlocked(steps[safeCurrent]);
+    final VoidCallback? nextAction = isLastStep
+        ? ((completionEnabled || widget.manualReview || widget.revisionRun)
+              ? _complete
+              : null)
+        : (modelStepBlocked ? null : _goNext);
+    final VoidCallback? backAction = safeCurrent > 0 ? _goBack : null;
+
+    // Enter/Escape mirror Next/Back so the flow can be walked from the
+    // keyboard — except while a text field or the inline hotkey recorder has
+    // focus: both need those keys themselves (see the check below).
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter): () =>
+            _runUnlessTextInputFocused(nextAction),
+        const SingleActivator(LogicalKeyboardKey.numpadEnter): () =>
+            _runUnlessTextInputFocused(nextAction),
+        const SingleActivator(LogicalKeyboardKey.escape): () =>
+            _runUnlessTextInputFocused(backAction),
+      },
+      child: Focus(
+        autofocus: true,
+        child: _buildSurface(
+          context: context,
+          l10n: l10n,
+          steps: steps,
+          totalSteps: totalSteps,
+          safeCurrent: safeCurrent,
+          isLastStep: isLastStep,
+          direction: direction,
+          frame: frame,
+          testRecordingSucceeded: testRecordingSucceeded,
+          micBypassed: micBypassed,
+          textMuted: textMuted,
+          nextAction: nextAction,
+          backAction: backAction,
+        ),
+      ),
+    );
+  }
+
+  void _runUnlessTextInputFocused(VoidCallback? action) {
+    if (action == null) return;
+    final focused = FocusManager.instance.primaryFocus?.context;
+    if (focused != null &&
+        (focused.widget is EditableText ||
+            focused.findAncestorWidgetOfExactType<EditableText>() != null ||
+            // Its KeyboardListener sees keys without consuming them.
+            focused.findAncestorWidgetOfExactType<WpHotkeyRecorderDialog>() !=
+                null)) {
+      return;
+    }
+    action();
+  }
+
+  Widget _buildSurface({
+    required BuildContext context,
+    required L10n l10n,
+    required List<OnboardingStepId> steps,
+    required int totalSteps,
+    required int safeCurrent,
+    required bool isLastStep,
+    required double direction,
+    required Widget Function({required Widget child}) frame,
+    required bool testRecordingSucceeded,
+    required bool micBypassed,
+    required Color textMuted,
+    required VoidCallback? nextAction,
+    required VoidCallback? backAction,
+  }) {
     return BlockSemantics(
       // The whole surface doubles as a window drag area: the title bar is
       // hidden during onboarding, and interactive children win the gesture
@@ -993,7 +1127,7 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
           // Same ambient frame gradient as the rest of the app — deliberately
           // no blur and no dimmed scrim (and therefore no Windows
           // frameless-window blur fallback either).
-          decoration: const BoxDecoration(gradient: WpColors.frameGradient),
+          decoration: BoxDecoration(gradient: WpColors.frameGradient),
           // A Stack, because the exit controls (revision exit + close X) are
           // a floating corner layer rather than children of the top strip —
           // the one way their glyph can sit symmetrically in the corner
@@ -1033,7 +1167,11 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                         // frame would silently run the full window width.
                         return Align(
                           alignment: Alignment.topCenter,
-                          child: SingleChildScrollView(
+                          // The affordance owns the one scroll view of the page
+                          // and shows its thumb while the page overflows
+                          // (UX-049: at large text scale the rows below the
+                          // fold were otherwise the only hint).
+                          child: SettingsScrollAffordance(
                             padding: const EdgeInsets.symmetric(
                               horizontal: WpSpacing.xl,
                               vertical: WpSpacing.lg,
@@ -1076,51 +1214,81 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   ),
 
                   // -- Shell-owned navigation: exactly two actions per page. ----
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: WpSpacing.xl,
-                    ),
-                    child: frame(
-                      child: Row(
-                        key: kOnboardingNavRowKey,
-                        children: [
-                          WpButton(
-                            key: kOnboardingBackButtonKey,
-                            label: l10n.onboardingBack,
-                            variant: WpButtonVariant.ghost,
-                            tone: WpButtonTone.neutral,
-                            onPressed: safeCurrent > 0 ? _goBack : null,
-                          ),
-                          const Spacer(),
-                          ConstrainedBox(
-                            constraints: const BoxConstraints(minWidth: 140),
-                            // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
-                            child: WpHeroButton(
-                              key: kOnboardingNextButtonKey,
-                              label: isLastStep
-                                  ? ((widget.manualReview || widget.revisionRun)
-                                        ? l10n.onboardingReviewDone
-                                        : l10n.onboardingStartUsing)
-                                  : l10n.onboardingNext,
-                              gradient: accentGradient,
-                              // The two completion gates guard the *first* run
-                              // from ending in a half-configured app. A review or
-                              // a revision run opens on an app that already
-                              // works, so gating its way out on a fresh test
-                              // recording would only trap a returning user who
-                              // came to look at a page — and would make the
-                              // no-data-loss promise (a full run with zero user
-                              // input must be completable) impossible to keep.
-                              onPressed: isLastStep
-                                  ? ((completionEnabled ||
-                                            widget.manualReview ||
-                                            widget.revisionRun)
-                                        ? _complete
-                                        : null)
-                                  : _goNext,
+                  // Toasts rise above this row rather than cover "Weiter".
+                  WpToastDockReserve(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: WpSpacing.xl,
+                      ),
+                      child: frame(
+                        child: Row(
+                          key: kOnboardingNavRowKey,
+                          children: [
+                            WpButton(
+                              key: kOnboardingBackButtonKey,
+                              label: l10n.onboardingBack,
+                              variant: WpButtonVariant.ghost,
+                              tone: WpButtonTone.neutral,
+                              onPressed: backAction,
                             ),
-                          ),
-                        ],
+                            Expanded(
+                              // Wrap, not Row + Spacer: the Spacer and a Flexible
+                              // button shared the free width half and half, so the
+                              // escape hatch was cut to half its label at large
+                              // text scale. Now the actions wrap onto a second
+                              // line (right-aligned) when the footer is full.
+                              child: Wrap(
+                                alignment: WrapAlignment.end,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: WpSpacing.sm,
+                                runSpacing: WpSpacing.sm,
+                                children: [
+                                  // Escape hatch for the microphone condition, beside
+                                  // the CTA it unlocks. Gone once a test recording has
+                                  // succeeded or the escape hatch has been taken. A
+                                  // review or revision run never gates its CTA, so it
+                                  // has nothing to unlock there and the nav row keeps
+                                  // exactly Back and Next.
+                                  if (isLastStep &&
+                                      !testRecordingSucceeded &&
+                                      !micBypassed &&
+                                      !widget.manualReview &&
+                                      !widget.revisionRun) ...[
+                                    WpButton(
+                                      key: kTestRecordingStepMicBypassButtonKey,
+                                      label: l10n
+                                          .onboardingTestRecordingMicBypassCta,
+                                      variant: WpButtonVariant.ghost,
+                                      tone: WpButtonTone.neutral,
+                                      onPressed: () => ref
+                                          .read(
+                                            onboardingMicBypassProvider
+                                                .notifier,
+                                          )
+                                          .activate(),
+                                    ),
+                                  ],
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 140,
+                                    ),
+                                    // loam-ignore: a11y-interactive-semantics – semantics provided in WpHeroButton.build
+                                    child: WpHeroButton(
+                                      key: kOnboardingNextButtonKey,
+                                      label: isLastStep
+                                          ? ((widget.manualReview ||
+                                                    widget.revisionRun)
+                                                ? l10n.onboardingReviewDone
+                                                : l10n.onboardingStartUsing)
+                                          : l10n.onboardingNext,
+                                      onPressed: nextAction,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -1140,16 +1308,24 @@ class _OnboardingOverlayState extends ConsumerState<OnboardingOverlay> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _StepperDots(
-                        currentStep: safeCurrent,
-                        totalSteps: totalSteps,
+                      // The dots repeat the counter visually; a screen reader
+                      // gets the counter alone, announced on every page change.
+                      ExcludeSemantics(
+                        child: _StepperDots(
+                          currentStep: safeCurrent,
+                          totalSteps: totalSteps,
+                        ),
                       ),
                       const SizedBox(width: WpSpacing.sm),
-                      Text(
-                        l10n.onboardingStepOf(safeCurrent + 1, totalSteps),
-                        style: const TextStyle(
-                          fontSize: WpTypography.small,
-                          color: textMuted,
+                      Semantics(
+                        key: kOnboardingStepCounterKey,
+                        liveRegion: true,
+                        child: Text(
+                          l10n.onboardingStepOf(safeCurrent + 1, totalSteps),
+                          style: TextStyle(
+                            fontSize: WpTypography.small,
+                            color: textMuted,
+                          ),
                         ),
                       ),
                     ],
@@ -1178,8 +1354,8 @@ class _StepperDots extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
-    const muted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final muted = WpColors.textMuted;
 
     return Row(
       mainAxisSize: MainAxisSize.min,

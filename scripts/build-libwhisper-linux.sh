@@ -7,7 +7,7 @@
 # `@loader_path`) so the co-located `libggml*` backends resolve inside the
 # Flutter Linux bundle's lib/ directory.
 #
-# Verified live via WSL2 Ubuntu during v1.2.45 release prep: `ldd` on the
+# Verified live on Ubuntu during v1.2.45 release prep: `ldd` on the
 # staged libwhisper.so resolves libggml.so.0/libggml-base.so.0 correctly via
 # the $ORIGIN rpath with no extra runtime setup (unlike Windows — its PE
 # format has no rpath equivalent, which is why whisper_ffi_engine.dart needs
@@ -87,6 +87,14 @@ if [[ "$ACTUAL_COMMIT" != "$WHISPER_PINNED_COMMIT" ]]; then
   exit 1
 fi
 echo "[1/4] source verified: $WHISPER_TAG @ $WHISPER_PINNED_COMMIT"
+
+# Staging below names each .so by its SONAME and sets the $ORIGIN rpath with
+# patchelf. Without it those steps used to fall back silently and stage
+# libraries whose DT_NEEDED entries (libggml.so.0, …) never resolve.
+if ! command -v patchelf >/dev/null 2>&1; then
+  echo "ERROR: patchelf not found (sudo apt install patchelf)." >&2
+  exit 1
+fi
 
 if [[ "$CUDA" == 1 ]]; then
   echo "[2/4] cmake configure + build (ggml-cuda module only) …"

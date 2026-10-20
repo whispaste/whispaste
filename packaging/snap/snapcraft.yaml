@@ -83,7 +83,7 @@ apps:
       # Unlike the plugs above, snapd's `uinput` interface is NOT auto-connect —
       # even with this plug declared, a user installing outside the Snap Store
       # (or before a store auto-connect assertion is granted) must run
-      # `snap connect whispaste:uinput` once themselves, or Auto-Paste falls
+      # `sudo snap connect whispaste:uinput` once themselves, or Auto-Paste falls
       # back to clipboard-only (CheckCapability() reports `permission_missing`).
       - uinput
       # ── Global Hotkey (CONTEXT.md §2.5) ──────────────────────────────────────
@@ -113,6 +113,7 @@ parts:
       - libnotify4
       - libayatana-appindicator3-1
       - libasound2
+      - libxss1
       - libcurl4
       - libkeybinder-3.0-0
       - liblzma5

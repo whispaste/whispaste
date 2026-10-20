@@ -45,16 +45,44 @@ Flatpak-Sandbox braucht das zwei Dinge, die die `finish-args` setzen:
 
 | App-Funktion (CONTEXT.md) | finish-arg |
 |---|---|
-| Hotkey (§2.5) | `--socket=session-bus` (+ X11/Wayland-Sockets) |
+| Hotkey (§2.5) | X11-Grab über `--socket=fallback-x11` (XWayland), Push-to-talk unter Wayland über das GlobalShortcuts-Portal (keine Freigabe nötig). Kein `--socket=session-bus` (F-18 / R-03) |
 | Clipboard / Paste (§2.4) | über Wayland-/X11-Socket (kein Extra-Arg) |
+| Auto-Paste (Keystroke über uinput, §2.4) | `--device=all` (einzige Flatpak-Option, die `/dev/uinput` sichtbar macht; `--device=input` gibt nur `/dev/input` frei, siehe `flatpak-run.c`) |
 | Aufnahme / Audio (§2.2) | `--socket=pulseaudio` |
 | Self-Download Sprachdienst | `--share=network` + `--filesystem=xdg-data/whispaste:create` |
 | Display | `--socket=wayland`, `--socket=fallback-x11`, `--device=dri`, `--share=ipc` |
 | Tray / Notifications | `--talk-name=org.kde.StatusNotifierWatcher`, `--talk-name=org.freedesktop.Notifications` |
+| Secret Service (flutter_secure_storage) | `--talk-name=org.freedesktop.secrets` (bewusste Entscheidung, siehe unten) |
+| Stromereignisse, Sicherheitsnetz (WP-39, PAR-030) | `--system-talk-name=org.freedesktop.login1` (nur dieser Dienst) |
 
-Auto-Paste (Keystroke-Synthese) ist auf Linux **nicht** unterstützt
-(`PasteCapabilityStatus.unsupported`, CONTEXT.md §2.7) — daher wird **bewusst
-kein** Input-Device-Injection-Arg angefordert.
+**Secret Service, bewusste Entscheidung (R-03, 2026-10-19):** Die Freigabe
+reicht an alle Einträge des entsperrten Schlüsselbunds, nicht nur an die von
+WhisPaste. Ohne sie fiele libsecret in der Sandbox auf das Portal-Dateibackend
+zurück, und bereits gespeicherte API-Schlüssel wären nach dem Update weg. Der
+Maintainer hat den breiten Zugriff gegen diesen Schlüsselverlust abgewogen und
+die Freigabe behalten.
+
+**Stromereignisse, Sicherheitsnetz (PAR-030, 2026-10-19):** Der Linux-Runner
+abonniert Suspend und Resume auf dem System-Bus (`org.freedesktop.login1`,
+`linux/runner/power_event_host.cc`). Ohne die benannte Freigabe ist in der Sandbox
+kein System-Bus erreichbar. Die Abonnierung scheitert dann still, und die Ereignisse
+erreichen die App nicht. Die Freigabe gilt nur für diesen einen Dienst.
+
+Laufzeitprüfung (Probe auf local-ai-srv, GNOME-50-Runtime, nur über
+`flatpak-builder --run` ohne Installation): Mit Freigabe meldet die Sandbox
+`login1: reachable, PrepareForSleep present`, ohne Freigabe `login1: NOT reachable`.
+Das echte Manifest parst mit flatpak-builder 1.4.8 und führt die Freigabe in den
+effektiven finish-args. Offen: voller Manifest-Build und ein Suspend-Zyklus in der
+installierten App (Release-Tor unten).
+
+Auto-Paste ist im Flatpak **nicht** mehr „nicht unterstützt“: es braucht
+`--device=all` und auf dem Host die udev-Regel `71-whispaste-uinput.rules` oder
+die Gruppe `input` (Befehle mit sudo). Die Aussage dazu lautet: WhisPaste selbst
+liest keine Eingabegeräte. Mit `--device=all` sind sie in der Sandbox aber
+sichtbar: Hat der Benutzer auf dem Rechner Leserechte (z. B. als Mitglied der
+Gruppe `input`), könnte die App Tastatureingaben anderer Programme lesen.
+Mitglieder der Gruppe `input` können außerdem virtuelle Eingaben erzeugen.
+Ob das Einfügen auf dem Host klappt, ist noch nicht gebaut und geprüft (Release-Tor unten).
 
 ---
 
@@ -85,6 +113,10 @@ flatpak-builder --force-clean --user --install build-dir \
 flatpak run de.whispaste.app
 ```
 
+`whispaste --diagnose` startet in der Sandbox kein eigenes Xvfb; ohne Display
+schreibt es einen Fehlerreport und endet mit 2. Headless daher unter Xvfb
+prüfen: `xvfb-run -a flatpak run --socket=x11 --nosocket=wayland de.whispaste.app --diagnose`.
+
 `flatpak-builder` ist auf macOS/dem Dev-Mac **nicht** verfügbar — der
 reproduzierbare Build (AC1) läuft daher in CI bzw. auf der NAS-x86-VM
 (Ubuntu x86_64).
@@ -105,6 +137,11 @@ Vor jeder Einreichung / jedem Release:
 2. **Release-Eintrag** in `de.whispaste.app.metainfo.xml` voranstellen
    (`<release version="<version>" date="<YYYY-MM-DD">`).
 3. Lokal/CI validieren (siehe oben).
+
+**Bekannte Abweichung (Stand 2026-10-19):** Das Manifest bezieht noch das Archiv
+von v1.2.65, die Metainfo nennt als neuesten Eintrag aber 1.2.67. `flatpak info`
+meldet deshalb 1.2.67 für einen Build, der den Code von 1.2.65 enthält. Beim
+nächsten Release Schritt 1 und 2 auf denselben Tag ziehen.
 
 ---
 
@@ -135,3 +172,100 @@ Ablauf, sobald ein Linux-Release-Tag + veröffentlichtes Linux-`whisper-server`
 **Nicht** neu erfinden. (Der im Distributions-Strang vorgesehene Switch auf
 `de.whispaste.app` ist noch **nicht** vollzogen — sobald er es ist, ziehen
 App-ID, Datei-Namen und der `--filesystem`-Pfad gemeinsam nach.)
+
+## Release-Tor: flatpak-builder-Lauf
+
+Stand 2026-10-19 auf `local-ai-srv` (Ubuntu 26.04, Flatpak 1.16.6,
+flatpak-builder 1.4.8, `org.gnome.Platform`/`Sdk` 50). Gebaut wurde das Manifest
+mit einem lokalen Release-Bundle von `agent-review-int1` @563ee8b25 statt des
+`archive`-Eintrags (Scratch-Kopie; nur `url`/`sha256` → `path`):
+
+1. ✓ `flatpak-builder --user --force-clean build-dir de.whispaste.app.yml` läuft
+   durch, alle Module inklusive `libXScrnSaver`.
+2. ✓ `libXScrnSaver` findet die `scrnsaverproto`- und `libXext`-Header aus dem
+   SDK; `ldd /app/whispaste/whispaste` meldet keine fehlende Bibliothek
+   (`libXss.so.1`, `libkeybinder-3.0.so.0`, `libayatana-appindicator3.so.1`
+   kommen aus `/app/lib`).
+3. ✓ `/app/share/licenses/libXScrnSaver/COPYING` ist installiert.
+4. ✓ `/dev/uinput` und `/dev/input/*` sind in der Sandbox sichtbar.
+5. offen: Schreibzugriff auf `/dev/uinput` ist nur mit der udev-Regel auf dem
+   Host (`packaging/linux/71-whispaste-uinput.rules`) bzw. der Gruppe `input`
+   möglich. Auf dem Testhost fehlt die Gruppe; Host und Sandbox verweigern den
+   Zugriff gleich. Der Positivfall ist noch nicht belegt.
+6. ✓ Headless-Start (`xvfb-run`, `flatpak run --socket=x11`) läuft stabil, bis
+   ein Timeout ihn beendet. `crashpad_handler` startet. Er braucht das
+   Ausführungsrecht aus dem Release-Tarball (`release.yml`, „Ensure
+   crashpad_handler is executable“); flatpak-builder übernimmt es.
+
+Lokale Stolperfallen, keine Paketfehler:
+
+- **glibc:** Ein auf Ubuntu 26.04 gebautes Bundle verlangt glibc 2.43 (SoLoud-
+  Plugin), die GNOME-50-Runtime hat 2.42 → Ton fällt aus. Das Release-Bundle aus
+  CI (`ubuntu-latest`, glibc 2.39) passt.
+- **Cache:** flatpak-builder nimmt bei geändertem lokalem Archiv unter Umständen
+  den alten Modulstand aus dem Cache. Für einen frischen Lauf `--state-dir` neu
+  anlegen bzw. `--disable-cache` setzen.
+- **Document-Portal:** In einer SSH-Sitzung ohne eingehängtes
+  `/run/user/<uid>/doc` bricht `flatpak run` mit „Can't find source path“ ab;
+  `--no-documents-portal` umgeht das.
+
+## GNOME-Shell-Fokus-Erweiterung (Host-Schritt, optional)
+
+Unter GNOME auf Wayland kann WhisPaste das fokussierte Fenster nur über die
+Erweiterung `whispaste-focus@whispaste.de` erfahren (Terminal-Erkennung,
+Auto-Paste-Sperrliste, App-Profile). Die Erweiterung läuft in der
+GNOME-Shell des **Hosts**, nicht in der Sandbox; die Flatpak-App spricht sie
+über den Session-Bus an, dafür reicht `--socket=session-bus` (bereits gesetzt),
+es ist keine zusätzliche `finish-args`-Zeile nötig.
+
+Der Nutzer installiert sie einmal auf dem Host, aus dem Linux-Tarball oder
+dem Quellbaum:
+
+```bash
+bash packaging/linux/install-gnome-extension.sh
+```
+
+Danach unter Wayland einmal ab- und wieder anmelden. Ohne die Erweiterung
+funktioniert WhisPaste weiter, nur ohne Fenstererkennung.
+
+## Fokuserkennung unter Wayland in der Sandbox
+
+Welches Fenster den Fokus hat (Terminal-Erkennung, Sperrliste), fragt die App den
+Compositor. In der Flatpak gilt pro Desktop:
+
+- **KDE (KWin):** geht über den Session-Bus. Das kurze KWin-Skript liegt in
+  `$XDG_RUNTIME_DIR/app/$FLATPAK_ID`, weil `/tmp` in der Sandbox privat ist und
+  KWin es sonst nicht lesen kann.
+- **GNOME:** nur mit der Host-Erweiterung (Abschnitt oben).
+- **Sway, niri, Hyprland und andere wlroots-Compositors (labwc, Wayfire):**
+  Die IPC-Sockets von Sway und niri sind in der Sandbox nicht sichtbar. Die App
+  fragt dann über den Wayland-Socket per `zwlr_foreign_toplevel_manager_v1`.
+  Das Protokoll liefert nur einen Namen: bei Wayland-Fenstern die App-ID, bei
+  XWayland-Fenstern die WM_CLASS-Klasse. Hyprland nutzt den genaueren eigenen
+  Socket, sobald er freigegeben ist:
+  `flatpak override --user --filesystem=xdg-run/hypr:ro de.whispaste.app`.
+- **Ohne erreichbare Quelle** (z. B. ein Compositor ohne das Protokoll, etwa
+  COSMIC) zeigt die Statuszeile „nicht unterstützt“. Dann greift der Schalter
+  „Immer mit Strg+Umschalt+V einfügen“.
+
+## Tastatureingabe über das Portal (libei)
+
+Neben uinput gibt es einen zweiten Tastaturpfad über das Portal
+`org.freedesktop.portal.RemoteDesktop` (Version 2, `ConnectToEIS`, libei). Er
+braucht kein `/dev/uinput` und läuft deshalb auch in der Flatpak-Sandbox ohne
+Gerätezugriff. Das Manifest braucht dafür keine zusätzlichen `finish-args`: der
+Portal-Zugriff ist ohne Freigabe-Loch erlaubt.
+
+- **Build:** `libei.so.1` wird zur Laufzeit per `dlopen` geladen. Im Build ist nur
+  optional `libei-1.0` (Header) nötig; ohne sie meldet `portalInputAvailable`
+  `false` und uinput bleibt der einzige Pfad.
+- **Offener Punkt:** Ob `org.gnome.Platform` 50 `libei` mitliefert, ist offline
+  nicht prüfbar (Runtime lokal nicht installiert). Falls nicht, bleibt der Pfad in
+  der Flatpak auf `unavailable` und fällt auf uinput zurück. Vor einem Flathub-Release
+  mit `flatpak run --command=sh org.gnome.Platform//50` prüfen (`ls /usr/lib/*/libei*`).
+- **Consent:** Der Portal-Dialog erscheint beim ersten Verbinden; das Restore-Token
+  (`persist_mode` 2) wird in SharedPreferences abgelegt, damit er bei späteren
+  Starts entfällt, bis der Nutzer die Freigabe im System widerruft.
+- **Nicht gemessen:** Die Hotkey-bis-Text-Latenz auf dem Portal-Pfad muss auf
+  Hardware gemessen werden (SilviosPC/Mac); die uinput-Latenz ist hier ausdrücklich
+  nicht gemessen.

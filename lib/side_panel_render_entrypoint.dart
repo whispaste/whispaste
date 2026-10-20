@@ -22,10 +22,13 @@ library;
 
 import 'dart:async';
 
-import 'package:flutter/material.dart' show Material, MaterialType;
+import 'package:flutter/material.dart' show Material, MaterialType, Theme;
 import 'package:flutter/widgets.dart';
 
 import 'core/l10n/generated/app_localizations.dart';
+import 'core/theme/colors.dart';
+import 'core/theme/persisted_appearance.dart';
+import 'core/theme/theme.dart';
 import 'services/side_panel/side_panel_render_channel.dart';
 import 'services/side_panel/side_panel_snapshot.dart';
 import 'shared_render_engine_helpers.dart';
@@ -75,10 +78,28 @@ class _SidePanelRenderAppState
   SidePanelSnapshot _snapshot = const SidePanelSnapshot();
   Timer? _closeTimer;
 
+  /// The colour set this engine paints with (AR-21). Re-resolved from the
+  /// appearance mirror on every relayed snapshot, so a change in Settings
+  /// reaches an engine that was booted earlier.
+  late WpThemeColors _colors;
+
+  @override
+  void initState() {
+    super.initState();
+    _colors = _resolveAppearance();
+  }
+
+  WpThemeColors _resolveAppearance() => resolvePersistedAppearance(
+    WidgetsBinding.instance.platformDispatcher.platformBrightness,
+  );
+
   @override
   SidePanelRenderChannel createChannel() => SidePanelRenderChannel(
     name: _renderChannelName,
-    onSnapshot: (s) => setState(() => _snapshot = s),
+    onSnapshot: (s) => setState(() {
+      _snapshot = s;
+      _colors = _resolveAppearance();
+    }),
   );
 
   @override
@@ -107,69 +128,72 @@ class _SidePanelRenderAppState
   @override
   Widget build(BuildContext context) {
     final resolvedL10n = l10n ?? lookupL10n(const Locale('en'));
-    return Localizations(
-      locale: Locale(resolvedL10n.localeName),
-      delegates: L10n.localizationsDelegates,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        // No Scaffold and no background fill: the engine surface is cleared
-        // by the native shell, so anything we don't paint stays transparent.
-        // WpSidePanelView's own rows carry per-row Semantics/tap handling
-        // already, so -- unlike the overlay/button engines -- this root
-        // deliberately does not wrap the tree in a single opaque
-        // RenderEngineGestureLayer, which would compete with those row-level
-        // GestureDetectors for the same tap. MouseRegion only tracks hover
-        // and never intercepts hit-testing, so it composes cleanly instead.
-        //
-        // `Material(type: transparency)` IS still required, though (issue
-        // 09's search field): it paints nothing and never intercepts hit
-        // testing, but `TextField` asserts a `Material` ancestor to host its
-        // ink/decoration internals -- without it the field throws "No
-        // Material widget found" on every build, which cascades into a
-        // garbage intrinsic size and a `RenderFlex overflowed` error on the
-        // panel's outer Column.
-        //
-        // `Overlay` wraps that `Material` for the same reason, one layer up:
-        // the search field's clear button is an `IconButton(tooltip: ...)`,
-        // and `Tooltip` shows itself by inserting an `OverlayEntry` -- with
-        // no `Navigator`/`MaterialApp` in this engine there is no ambient
-        // `Overlay` to insert into, so the clear button throws "No Overlay
-        // widget found" the moment typed text makes it appear, which again
-        // cascades into a `RenderFlex overflowed` on the panel's Column.
-        child: Overlay(
-          initialEntries: [
-            OverlayEntry(
-              builder: (context) => Material(
-                type: MaterialType.transparency,
-                child: Semantics(
-                  container: true,
-                  label: semanticsLabel,
-                  child: MouseRegion(
-                    onEnter: (_) => _cancelScheduledClose(),
-                    onExit: (_) => _scheduleClose(),
-                    child: WpSidePanelView(
-                      snapshot: _snapshot,
-                      onRowTap: (section, id) {
-                        debugPrint(
-                          '[side-panel-engine] row tapped: ${section.name}/$id '
-                          'at ${DateTime.now()}',
-                        );
-                        channel.rowClicked(section, id);
-                      },
-                      onRowDragStart: (section, row) {
-                        debugPrint(
-                          '[side-panel-engine] row drag started: '
-                          '${section.name}/${row.id} at ${DateTime.now()}',
-                        );
-                        channel.beginDrag(section, row);
-                      },
-                      onClose: _closeNow,
+    return Theme(
+      data: wpThemeFor(_colors),
+      child: Localizations(
+        locale: Locale(resolvedL10n.localeName),
+        delegates: L10n.localizationsDelegates,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          // No Scaffold and no background fill: the engine surface is cleared
+          // by the native shell, so anything we don't paint stays transparent.
+          // WpSidePanelView's own rows carry per-row Semantics/tap handling
+          // already, so -- unlike the overlay/button engines -- this root
+          // deliberately does not wrap the tree in a single opaque
+          // RenderEngineGestureLayer, which would compete with those row-level
+          // GestureDetectors for the same tap. MouseRegion only tracks hover
+          // and never intercepts hit-testing, so it composes cleanly instead.
+          //
+          // `Material(type: transparency)` IS still required, though (issue
+          // 09's search field): it paints nothing and never intercepts hit
+          // testing, but `TextField` asserts a `Material` ancestor to host its
+          // ink/decoration internals -- without it the field throws "No
+          // Material widget found" on every build, which cascades into a
+          // garbage intrinsic size and a `RenderFlex overflowed` error on the
+          // panel's outer Column.
+          //
+          // `Overlay` wraps that `Material` for the same reason, one layer up:
+          // the search field's clear button is an `IconButton(tooltip: ...)`,
+          // and `Tooltip` shows itself by inserting an `OverlayEntry` -- with
+          // no `Navigator`/`MaterialApp` in this engine there is no ambient
+          // `Overlay` to insert into, so the clear button throws "No Overlay
+          // widget found" the moment typed text makes it appear, which again
+          // cascades into a `RenderFlex overflowed` on the panel's Column.
+          child: Overlay(
+            initialEntries: [
+              OverlayEntry(
+                builder: (context) => Material(
+                  type: MaterialType.transparency,
+                  child: Semantics(
+                    container: true,
+                    label: semanticsLabel,
+                    child: MouseRegion(
+                      onEnter: (_) => _cancelScheduledClose(),
+                      onExit: (_) => _scheduleClose(),
+                      child: WpSidePanelView(
+                        snapshot: _snapshot,
+                        onRowTap: (section, id) {
+                          debugPrint(
+                            '[side-panel-engine] row tapped: ${section.name}/$id '
+                            'at ${DateTime.now()}',
+                          );
+                          channel.rowClicked(section, id);
+                        },
+                        onRowDragStart: (section, row) {
+                          debugPrint(
+                            '[side-panel-engine] row drag started: '
+                            '${section.name}/${row.id} at ${DateTime.now()}',
+                          );
+                          channel.beginDrag(section, row);
+                        },
+                        onClose: _closeNow,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

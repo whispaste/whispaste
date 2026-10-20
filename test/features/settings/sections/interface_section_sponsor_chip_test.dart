@@ -1,7 +1,6 @@
-/// Tests for the sponsor-chip restore toggle in Settings › Oberfläche.
+/// Tests for the sponsor-chip restore toggle on the Help page (Hilfe).
 ///
-/// The toggle may only hide the chip after a verified purchase or a
-/// self-declaration; restoring a hidden chip is always allowed.
+/// The toggle hides or restores the chip for every user (growth review R-12).
 library;
 
 import 'package:flutter/material.dart';
@@ -33,7 +32,7 @@ Future<FakeSupportStatusNotifier> _pump(
   final support = FakeSupportStatusNotifier(status);
   await tester.pumpWidget(
     makeTestable(
-      const SingleChildScrollView(child: InterfaceSection()),
+      const SingleChildScrollView(child: SponsorChipRow()),
       locale: const Locale('en'),
       overrides: [
         settingsProvider.overrideWith(_FakeSettings.new),
@@ -46,15 +45,17 @@ Future<FakeSupportStatusNotifier> _pump(
 }
 
 void main() {
-  testWidgets('chip shown without a purchase: toggle is on and locked', (
+  testWidgets('chip shown without a purchase: toggle is on and can hide it', (
     tester,
   ) async {
     final support = await _pump(tester, const SupportStatus());
-
     final toggle = tester.widget<Switch>(find.byKey(_toggle));
     expect(toggle.value, isTrue);
-    expect(toggle.onChanged, isNull);
-    expect(support.calls, isEmpty);
+    expect(toggle.onChanged, isNotNull);
+    await tester.ensureVisible(find.byKey(_toggle));
+    await tester.tap(find.byKey(_toggle));
+    await tester.pumpAndSettle();
+    expect(support.calls, ['hideChip']);
   });
 
   testWidgets('verified supporter may hide the chip', (tester) async {

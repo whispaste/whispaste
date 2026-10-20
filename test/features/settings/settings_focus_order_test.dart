@@ -77,8 +77,11 @@ void main() {
             'Expected at least 4 focusable controls in SettingsPage, got ${dyValues.length}.',
       );
 
-      // Assert monotonically non-decreasing — allow 1px of sub-pixel rounding.
-      const epsilon = 1.0;
+      // Assert monotonically non-decreasing. Centres of controls on one row
+      // differ by half their height difference: a 48 px button followed by a
+      // 40 px dropdown moves the centre up by (48 - 40) / 2 = 4 px without any
+      // upward focus step, so the tolerance is that bound.
+      const epsilon = 4.0;
       for (int i = 1; i < dyValues.length; i++) {
         expect(
           dyValues[i],

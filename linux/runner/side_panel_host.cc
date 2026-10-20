@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cstring>
 
+#include "clipboard_receipt.h"
+
 namespace {
 
 constexpr char kChannelName[] = "com.whispaste.side_panel";
@@ -559,6 +561,8 @@ bool SidePanelHost::ShouldSuppress(const Fingerprint& fp) {
 
 void SidePanelHost::EmitClipboardSnapshot() {
   GtkClipboard* clipboard = gtk_clipboard_get(GDK_SELECTION_CLIPBOARD);
+  // A hover during a paste must not count as the target's read (GR-015).
+  ClipboardReceipt::ScopedSelfRead self_read;
 
   gchar* text = gtk_clipboard_wait_for_text(clipboard);
   if (text && text[0] != '\0') {

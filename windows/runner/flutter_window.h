@@ -7,13 +7,16 @@
 #include <memory>
 
 #include "attention_host.h"
+#include "audio_file_decode_host.h"
 #include "clipboard_monitor_host.h"
 #include "desktop_paste_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
 #include "keyboard_monitor_host.h"
+#include "power_event_host.h"
 #include "side_panel_host.h"
 #include "snippet_picker_host.h"
+#include "store_review_channel.h"
 #include "support_store_channel.h"
 #include "win32_window.h"
 
@@ -72,6 +75,9 @@ class FlutterWindow : public Win32Window {
   // main window is hidden.
   std::unique_ptr<AttentionHost> attention_host_;
 
+  // System sleep/resume source for the recording safety net (WP-39, 9.5).
+  std::unique_ptr<PowerEventHost> power_event_host_;
+
   // RawInput key-up source for global hotkeys, enabling push-to-talk on
   // Windows (RegisterHotKey is key-down only). See keyboard_monitor_host.h.
   std::unique_ptr<KeyboardMonitorHost> keyboard_monitor_host_;
@@ -79,6 +85,9 @@ class FlutterWindow : public Win32Window {
   // Microsoft Store sponsoring channel (runner-owned, destroyed before engine
   // teardown). Replies are posted back to this window's message loop.
   std::unique_ptr<SupportStoreChannel> support_store_channel_;
+  std::unique_ptr<StoreReviewChannel> store_review_channel_;
+  // Decodes imported MP3, FLAC and M4A files for WP-35b.
+  std::unique_ptr<AudioFileDecodeHost> audio_file_decode_host_;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

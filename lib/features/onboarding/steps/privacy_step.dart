@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
+import '../../../core/data/database.dart' show kAudioCap;
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/audio/retention/audio_retention.dart'
+    show kRetainedAudioMaxAge;
 import '../../../services/telemetry_service.dart';
 import '../../settings/settings_widgets.dart';
 import 'onboarding_headings.dart';
@@ -51,52 +54,57 @@ class PrivacyStep extends ConsumerWidget {
       // Deliberately frameless: the surrounding card plus an inline divider
       // made these rows read as one packed box. Whitespace separates them
       // now, as in the reference.
-      body: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SettingRow(
-            key: kPrivacyStepCrashToggleKey,
-            icon: LucideIcons.shieldCheck,
-            iconSize: WpIconSize.md,
-            trailingHugsLabel: true,
-            label: l10n.onboardingPrivacyCrashToggle,
-            subtitle: l10n.onboardingPrivacyCrashToggleHint,
-            semanticToggledValue: settings.errorReporting,
-            trailing: settingsToggle(
-              value: settings.errorReporting,
-              onChanged: (v) => _setErrorReportingConsent(ref, v),
+      // The column is as wide as its widest row and every label fills it, so
+      // the three switches share one column right after the longest text
+      // instead of each hugging its own label (UIA-RT-02).
+      body: IntrinsicWidth(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SettingRow(
+              key: kPrivacyStepCrashToggleKey,
+              icon: LucideIcons.shieldCheck,
+              iconSize: WpIconSize.md,
+              label: l10n.onboardingPrivacyCrashToggle,
+              subtitle: l10n.onboardingPrivacyCrashToggleHint,
+              semanticToggledValue: settings.errorReporting,
+              trailing: settingsToggle(
+                value: settings.errorReporting,
+                onChanged: (v) => _setErrorReportingConsent(ref, v),
+              ),
             ),
-          ),
-          const SizedBox(height: WpSpacing.lg),
-          SettingRow(
-            icon: LucideIcons.barChart3,
-            iconSize: WpIconSize.md,
-            trailingHugsLabel: true,
-            label: l10n.onboardingPrivacyToggle,
-            subtitle: l10n.onboardingPrivacyToggleHint,
-            semanticToggledValue: settings.privacy.shareUsageStats,
-            trailing: settingsToggle(
-              value: settings.privacy.shareUsageStats,
-              onChanged: (v) => _setUsageStatsConsent(ref, v),
+            const SizedBox(height: WpSpacing.lg),
+            SettingRow(
+              icon: LucideIcons.barChart3,
+              iconSize: WpIconSize.md,
+              label: l10n.onboardingPrivacyToggle,
+              subtitle: l10n.onboardingPrivacyToggleHint,
+              semanticToggledValue: settings.privacy.shareUsageStats,
+              trailing: settingsToggle(
+                value: settings.privacy.shareUsageStats,
+                onChanged: (v) => _setUsageStatsConsent(ref, v),
+              ),
             ),
-          ),
-          const SizedBox(height: WpSpacing.lg),
-          SettingRow(
-            icon: LucideIcons.fileAudio,
-            iconSize: WpIconSize.md,
-            trailingHugsLabel: true,
-            label: l10n.settingsRetainRecentAudio,
-            subtitle: l10n.settingsRetainRecentAudioSubtitle,
-            semanticToggledValue: settings.privacy.retainRecentAudio,
-            trailing: settingsToggle(
-              value: settings.privacy.retainRecentAudio,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings((s) => s.copyWith(retainRecentAudio: v)),
+            const SizedBox(height: WpSpacing.lg),
+            SettingRow(
+              icon: LucideIcons.fileAudio,
+              iconSize: WpIconSize.md,
+              label: l10n.settingsRetainRecentAudio,
+              subtitle: l10n.settingsRetainRecentAudioSubtitle(
+                kAudioCap,
+                kRetainedAudioMaxAge.inDays,
+              ),
+              semanticToggledValue: settings.privacy.retainRecentAudio,
+              trailing: settingsToggle(
+                value: settings.privacy.retainRecentAudio,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(retainRecentAudio: v)),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

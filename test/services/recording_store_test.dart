@@ -51,6 +51,28 @@ void main() {
       expect(entries.first.content, 'test transcription');
     });
 
+    test('keeps the language the engine detected for an auto recording '
+        '(DEV-132)', () async {
+      await store.save(
+        const RecordingInput(
+          transcript: 'We met Brown yesterday.',
+          audioDuration: Duration(seconds: 5),
+          modelId: 'whisper-small',
+          isLocal: true,
+          languageCode: 'auto',
+          detectedLanguage: 'en',
+          applyTextReplacements: false,
+          historyMaxEntries: 0,
+          wordCount: 4,
+          processingDurationSec: 2,
+        ),
+      );
+
+      final entries = await db.allEntries(limit: 100, offset: 0);
+      expect(entries.single.language, 'auto');
+      expect(entries.single.languageHint, 'en');
+    });
+
     test('applies text replacements when enabled', () async {
       final now = DateTime.now();
       final id = now.millisecondsSinceEpoch.toString();
@@ -114,6 +136,22 @@ void main() {
       );
 
       expect(result.processedTranscript, 'Mit freundlichen Grüßen');
+    });
+
+    test('applyReplacements returns the replaced text without writing an '
+        'entry', () async {
+      final now = DateTime.now();
+      await db.upsertReplacementWithTriggers(
+        id: now.millisecondsSinceEpoch.toString(),
+        triggers: ['mfg'],
+        replacement: 'Mit freundlichen Grüßen',
+        createdAt: now,
+      );
+
+      final replaced = await store.applyReplacements('bitte mfg');
+
+      expect(replaced, 'bitte Mit freundlichen Grüßen');
+      expect(await db.allEntries(limit: 100, offset: 0), isEmpty);
     });
 
     test('skips replacements when applyTextReplacements is false', () async {

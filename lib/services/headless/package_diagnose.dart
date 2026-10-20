@@ -4,8 +4,9 @@
 /// unpack each artifact and start it with `--diagnose`. Reaching Dart's
 /// `main()` already proves that the runner, the Flutter engine and the AOT
 /// snapshot load; this then opens every bundled native engine library (and
-/// looks up one entry point each), so a package with a missing or
-/// unresolvable `.so`/`.dll`/`.dylib` fails before it is published.
+/// looks up one entry point each) and checks the bundled VAD model, so a
+/// package with a missing or unresolvable `.so`/`.dll`/`.dylib` or without
+/// the VAD model fails before it is published.
 ///
 /// Like `--transcribe-file` it runs before crash reporting, the
 /// single-instance guard and any window/UI setup, and touches no settings,
@@ -17,6 +18,7 @@ import 'dart:ffi' as ffi;
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
+import 'package:path/path.dart' as p;
 
 import '../../core/app_info.dart' show appVersion;
 import '../../core/config/settings_sections.dart' show BehaviorSettings;
@@ -27,15 +29,23 @@ import '../stt/native_call_guard.dart';
 import '../stt/whisper/whisper_engine.dart'
     show cpuBackendFeaturesFromSystemInfo;
 import '../stt/whisper/whisper_ffi_engine.dart'
-    show WhisperFfiEngine, ggmlDeviceTypeGpu, whisperLibraryPathFor;
+    show
+        WhisperFfiEngine,
+        ggmlDeviceTypeGpu,
+        whisperLibraryPathFor,
+        whisperVadModelFileName;
 
 /// Usage text printed for an invalid `--diagnose` command line.
 const String packageDiagnoseUsage = '''
 Usage: whispaste --diagnose [--out <file>]
 
-Checks that the installed app starts and its bundled native libraries load,
-prints a JSON report and exits 0 (ok) or 1 (a library failed to load).
+Checks that the installed app starts, its bundled native libraries load and
+the VAD model is bundled, prints a JSON report and exits 0 (ok) or 1 (a
+library failed to load or the VAD model is missing).
   --out <file>  also write the JSON report to <file>
+
+Linux without a display starts a private Xvfb for the run; without Xvfb,
+or inside Flatpak/Snap, it writes a failure report and exits 2.
 ''';
 
 /// Parsed `--diagnose` command line.
@@ -132,6 +142,17 @@ void selfCheckNativeCallGuard(String libraryPath) {
   throw StateError('$libraryPath: self-test exception was not reported');
 }
 
+/// [NativeLibrary.selfCheck] for whisper: the Silero-VAD model must sit next
+/// to the library, where [WhisperFfiEngine] looks for it. The engine treats a
+/// missing model as "VAD unavailable" and runs on silently, so only this
+/// check notices a package that forgot to bundle it.
+void selfCheckWhisperVadModel(String libraryPath) {
+  final model = p.join(p.dirname(libraryPath), whisperVadModelFileName);
+  if (!File(model).existsSync()) {
+    throw StateError('VAD model $whisperVadModelFileName missing at $model');
+  }
+}
+
 /// The engine libraries bundled next to [executablePath], resolved exactly
 /// like the engines resolve them at runtime.
 List<NativeLibrary> bundledNativeLibraries(String executablePath) => [
@@ -139,6 +160,7 @@ List<NativeLibrary> bundledNativeLibraries(String executablePath) => [
     name: 'whisper',
     path: whisperLibraryPathFor(executablePath),
     symbols: const ['whisper_full'],
+    selfCheck: selfCheckWhisperVadModel,
     cpuBackendProbe: Platform.isMacOS ? null : WhisperFfiEngine.probeCpuBackend,
   ),
   NativeLibrary(

@@ -7,18 +7,19 @@ import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/overlay_customization.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/floating_button/floating_button_controller_interface.dart';
 import '../../../widgets/floating_button/floating_button_view.dart';
-import '../../../widgets/overlay_preview.dart';
-import '../../../widgets/section.dart';
 import '../settings_widgets.dart';
 import '../widgets/overlay_size_selector.dart';
+import '../widgets/overlay_theme_swatches.dart';
+import '../widgets/wp_settings_group.dart';
+import '../widgets/overlay_preview_stage.dart';
 
 // ---------------------------------------------------------------------------
 // Recording Overlay section
@@ -34,132 +35,262 @@ class OverlaySection extends ConsumerWidget {
     final effectiveMode = settings.effectiveOverlayMode;
     final isDesktop =
         Platform.isWindows || Platform.isMacOS || Platform.isLinux;
+    final floating = effectiveMode == OverlayMode.floating;
+    final look = settings.overlayAppearance;
+    final notifier = ref.read(settingsProvider.notifier);
 
     // Consolidated dropdown value: 'off' when overlay is disabled, real
     // position otherwise (back-compat: overlayStartPosition is never 'off').
-    final startPosValue = effectiveMode == OverlayMode.floating
+    final startPosValue = floating
         ? settings.overlayStartPositionType.value
         : OverlayStartPosition.off.value;
 
-    return WpSection(
-      title: l10n.settingsOverlayFloatingButton,
-      subtitle: l10n.settingsOverlayFloatingButtonSubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          // ── Start position (always visible on desktop; 'Aus' = off) ──
-          if (isDesktop) ...[
-            SettingRow(
-              icon: LucideIcons.mapPin,
-              label: l10n.settingsOverlayStartPosition,
-              subtitle: l10n.settingsOverlayStartPositionSubtitle,
-              trailing: settingsDropdown(
-                context: context,
-                value: startPosValue,
-                items: OverlayStartPosition.values.map((e) => e.value).toList(),
-                labels: [
-                  l10n.settingsOff,
-                  l10n.settingsOverlayStartTopCenter,
-                  l10n.settingsOverlayStartBottomCenter,
-                  l10n.settingsOverlayStartLastPosition,
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  if (v == OverlayStartPosition.off.value) {
-                    ref
-                        .read(settingsProvider.notifier)
-                        .updateSettings(
-                          (s) => s.copyWith(
-                            overlayMode: OverlayMode.off.value,
-                            showOverlay: false,
-                          ),
-                        );
-                  } else {
-                    ref
-                        .read(settingsProvider.notifier)
-                        .updateSettings(
-                          (s) => s.copyWith(
-                            overlayMode: OverlayMode.floating.value,
-                            showOverlay: true,
-                            overlayStartPosition: v,
-                          ),
-                        );
-                  }
-                },
-              ),
-            ),
-          ],
+    // Edge bar is not offered yet: its docking is not implemented on any
+    // platform (WP-95 open point), so the picker lists only the shapes that
+    // render. A stored edge bar shows as the pill it falls back to.
+    const offeredForms = [OverlayForm.pill, OverlayForm.roundedRect];
+    final formValue = offeredForms.contains(look.form)
+        ? look.form
+        : OverlayForm.pill;
 
-          // ── Size + preview (visible only when overlay is enabled) ─────
-          if (effectiveMode == OverlayMode.floating) ...[
-            settingsInlineBreak,
-            SettingRow(
-              icon: LucideIcons.maximize2,
-              label: l10n.settingsOverlaySize,
-              subtitle: l10n.settingsOverlaySizeSubtitle,
-              trailing: WpOverlaySizeSelector(
-                value: settings.overlaySizeType,
-                onChanged: (size) {
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings(
-                        (s) => s.copyWith(overlaySize: size.value),
-                      );
-                },
-              ),
+    final previewRows = <Widget>[
+      // ── Preview stage: top of the section, so every option below shows its effect ──
+      if (floating)
+        SettingsRowFrame(
+          rowId: 'appearance-overlay-preview',
+          child: WpOverlayPreviewStage(
+            size: settings.overlaySizeType,
+            background: settings.overlayBackgroundType,
+            wave: settings.overlayWaveType,
+            showButton: FloatingButtonSection.isSupportedPlatform,
+            appearance: look,
+            buttonLook: settings.floatingButtonLook,
+          ),
+        ),
+    ];
+    // Shared colours: their own card under the preview.
+    final colourRows = <Widget>[
+      if (floating) ...[
+        WpSettingsRow(
+          rowId: 'appearance-overlay-background',
+          title: l10n.settingsOverlayBackground,
+          subtitle: l10n.settingsOverlayBackgroundSubtitle,
+          trailing: WpOverlayBackgroundSwatches(
+            value: settings.overlayBackgroundType,
+            onChanged: (preset) =>
+                pickOverlayBackground(context, ref, settings, preset),
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'appearance-overlay-wave',
+          title: l10n.settingsOverlayWave,
+          subtitle: l10n.settingsOverlayWaveSubtitle,
+          trailing: WpOverlayWaveSwatches(
+            value: settings.overlayWaveType,
+            background: settings.overlayBackgroundType,
+            onChanged: (preset) => notifier.updateSettings(
+              (s) => s.copyWith(overlayWave: preset.value),
             ),
-            settingsInlineBreak,
-            SettingRow(
-              icon: LucideIcons.sparkles,
-              label: l10n.settingsOverlayStyle,
-              subtitle: l10n.settingsOverlayStyleSubtitle,
-              trailing: settingsDropdown(
-                context: context,
-                value: settings.overlayStyleType.value,
-                items: OverlayStyle.values.map((e) => e.value).toList(),
-                labels: [
-                  l10n.settingsOverlayStyleGlass,
-                  l10n.settingsOverlayStyleSolid,
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(overlayStyle: v));
-                },
-              ),
+          ),
+        ),
+      ],
+    ];
+    // Overlay options: their own card below the colours.
+    final optionRows = <Widget>[
+      // Start position (always visible on desktop; 'Aus' = off)
+      if (isDesktop)
+        WpSettingsRow(
+          rowId: 'appearance-overlay-start',
+          title: l10n.settingsOverlayStartPosition,
+          subtitle: l10n.settingsOverlayStartPositionSubtitle,
+          trailing: settingsDropdown(
+            context: context,
+            value: startPosValue,
+            items: OverlayStartPosition.values.map((e) => e.value).toList(),
+            labels: [
+              l10n.settingsOff,
+              l10n.settingsOverlayStartTopCenter,
+              l10n.settingsOverlayStartBottomCenter,
+              l10n.settingsOverlayStartLastPosition,
+            ],
+            onChanged: (v) {
+              if (v == null) return;
+              if (v == OverlayStartPosition.off.value) {
+                notifier.updateSettings(
+                  (s) => s.copyWith(
+                    overlayMode: OverlayMode.off.value,
+                    showOverlay: false,
+                  ),
+                );
+              } else {
+                notifier.updateSettings(
+                  (s) => s.copyWith(
+                    overlayMode: OverlayMode.floating.value,
+                    showOverlay: true,
+                    overlayStartPosition: v,
+                  ),
+                );
+              }
+            },
+          ),
+        ),
+      if (floating) ...[
+        WpSettingsRow(
+          rowId: 'appearance-overlay-size',
+          title: l10n.settingsOverlaySize,
+          subtitle: l10n.settingsOverlaySizeSubtitle,
+          trailing: WpOverlaySizeSelector(
+            value: settings.overlaySizeType,
+            onChanged: (size) => notifier.updateSettings(
+              (s) => s.copyWith(overlaySize: size.value),
             ),
-            settingsInlineBreak,
-            // ── Live transcript (ticket 11) ─────────────────────────────
-            // Off by default: the PRD keeps the existing, deliberately
-            // minimal waveform-only overlay as the default/selectable
-            // behaviour (privacy/reduction) — live text is an opt-in
-            // error-transparency trade-off, not the other way round.
-            SettingRow(
-              icon: LucideIcons.captions,
-              label: l10n.settingsOverlayLiveTranscript,
-              subtitle: l10n.settingsOverlayLiveTranscriptSubtitle,
-              semanticToggledValue: settings.overlayShowLiveTranscript,
-              trailing: settingsToggle(
-                value: settings.overlayShowLiveTranscript,
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWith(overlayShowLiveTranscript: v),
-                    ),
-              ),
+          ),
+        ),
+        // Live transcript (ticket 11). Off by default: the PRD keeps the
+        // waveform-only overlay as the default (privacy/reduction); live text
+        // is an opt-in error-transparency trade-off.
+        WpSettingsRow(
+          rowId: 'appearance-overlay-live-text',
+          title: l10n.settingsOverlayLiveTranscript,
+          subtitle: l10n.settingsOverlayLiveTranscriptSubtitle,
+          semanticToggledValue: settings.overlayShowLiveTranscript,
+          trailing: settingsToggle(
+            value: settings.overlayShowLiveTranscript,
+            onChanged: (v) => notifier.updateSettings(
+              (s) => s.copyWith(overlayShowLiveTranscript: v),
             ),
-            settingsInlineBreak,
-            // Preview at real (1:1) size in its own full-width row so the
-            // Normal vs. Compact difference is actually recognisable. FittedBox
-            // inside only scales down on windows narrower than the real pill.
-            WpOverlayRealPreview(
-              size: settings.overlaySizeType,
-              style: settings.overlayStyleType,
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'appearance-overlay-form',
+          title: l10n.settingsOverlayForm,
+          subtitle: l10n.settingsOverlayFormSubtitle,
+          trailing: settingsDropdown(
+            context: context,
+            value: formValue.value,
+            items: offeredForms.map((f) => f.value).toList(),
+            labels: [
+              l10n.settingsOverlayFormPill,
+              l10n.settingsOverlayFormRoundedRect,
+            ],
+            keyPrefix: 'overlay-form',
+            onChanged: (v) {
+              if (v == null) return;
+              notifier.updateSettings((s) => s.copyWith(overlayForm: v));
+            },
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'appearance-overlay-wave-style',
+          title: l10n.settingsOverlayWaveStyle,
+          subtitle: l10n.settingsOverlayWaveStyleSubtitle,
+          trailing: settingsDropdown(
+            context: context,
+            value: look.waveStyle.value,
+            items: OverlayWaveStyle.values.map((s) => s.value).toList(),
+            labels: [
+              l10n.settingsOverlayWaveBars,
+              l10n.settingsOverlayWaveLine,
+              l10n.settingsOverlayWaveDots,
+            ],
+            keyPrefix: 'overlay-wave-style',
+            onChanged: (v) {
+              if (v == null) return;
+              notifier.updateSettings((s) => s.copyWith(overlayWaveStyle: v));
+            },
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'appearance-overlay-wave-fluid',
+          title: l10n.settingsOverlayWaveFluid,
+          subtitle: l10n.settingsOverlayWaveFluidSubtitle,
+          semanticToggledValue: look.waveFluid,
+          trailing: settingsToggle(
+            key: const ValueKey('overlay-wave-fluid-toggle'),
+            value: look.waveFluid,
+            onChanged: (v) =>
+                notifier.updateSettings((s) => s.copyWith(overlayWaveFluid: v)),
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'appearance-overlay-show-timer',
+          title: l10n.settingsOverlayShowTimer,
+          subtitle: l10n.settingsOverlayShowTimerSubtitle,
+          semanticToggledValue: look.showTimer,
+          trailing: settingsToggle(
+            key: const ValueKey('overlay-show-timer-toggle'),
+            value: look.showTimer,
+            onChanged: (v) =>
+                notifier.updateSettings((s) => s.copyWith(overlayShowTimer: v)),
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'appearance-overlay-show-cancel',
+          title: l10n.settingsOverlayShowCancel,
+          subtitle: l10n.settingsOverlayShowCancelSubtitle,
+          semanticToggledValue: look.showCancel,
+          trailing: settingsToggle(
+            key: const ValueKey('overlay-show-cancel-toggle'),
+            value: look.showCancel,
+            onChanged: (v) => notifier.updateSettings(
+              (s) => s.copyWith(overlayShowCancel: v),
             ),
-          ],
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'appearance-overlay-opacity',
+          title: l10n.settingsOverlayOpacity,
+          subtitle: l10n.settingsOverlayOpacitySubtitle,
+          trailing: settingsDropdown(
+            context: context,
+            value: '${look.opacity.percent}',
+            items: const ['100', '80', '60'],
+            labels: [
+              l10n.settingsOverlayOpacityFull,
+              l10n.settingsOverlayOpacityReduced,
+              l10n.settingsOverlayOpacitySubtle,
+            ],
+            keyPrefix: 'overlay-opacity',
+            onChanged: (v) {
+              if (v == null) return;
+              notifier.updateSettings((s) => s.copyWith(overlayOpacity: v));
+            },
+          ),
+        ),
+      ],
+    ];
+
+    List<Widget> spaced(List<Widget> rows) => [
+      for (var i = 0; i < rows.length; i++) ...[
+        if (i > 0) settingsInlineBreak,
+        rows[i],
+      ],
+    ];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (previewRows.isNotEmpty)
+          WpSettingsGroup(
+            heading: l10n.settingsOverlayFloatingButton,
+            children: spaced(previewRows),
+          ),
+        if (colourRows.isNotEmpty) ...[
+          const SizedBox(height: WpSpacing.xl),
+          WpSettingsGroup(
+            heading: l10n.settingsOverlayColorsGroup,
+            children: spaced(colourRows),
+          ),
         ],
-      ),
+        if (optionRows.isNotEmpty) ...[
+          const SizedBox(height: WpSpacing.xl),
+          WpSettingsGroup(
+            heading: l10n.settingsOverlayOptionsGroup,
+            children: spaced(optionRows),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -194,36 +325,151 @@ class FloatingButtonSection extends ConsumerWidget {
     final l10n = L10n.of(context);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
 
-    return WpSection(
-      title: l10n.settingsFloatingButtonSection,
-      subtitle: l10n.settingsFloatingButtonSectionSubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          SettingRow(
-            icon: LucideIcons.circle,
-            label: l10n.settingsShowFloatingButton,
-            subtitle: l10n.settingsShowFloatingButtonSubtitle,
-            semanticToggledValue: settings.showFloatingButton,
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const WpFloatingButtonView(
-                  state: FloatingButtonVisualState.idle,
-                  diameter: 32,
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                settingsToggle(
-                  value: settings.showFloatingButton,
-                  onChanged: (v) => ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(showFloatingButton: v)),
-                ),
+    final notifier = ref.read(settingsProvider.notifier);
+    final look = settings.floatingButtonLook;
+    // The look rows describe a button that is not shown (UX-051): they are
+    // dimmed and inert until the switch above turns the button on.
+    final shown = settings.overlay.showFloatingButton;
+    final lookReason = shown ? null : l10n.settingsFloatingButtonLookLocked;
+
+    return WpSettingsGroup(
+      heading: l10n.settingsFloatingButtonSection,
+      children: [
+        WpSettingsRow(
+          rowId: 'appearance-floating-button',
+          title: l10n.settingsShowFloatingButton,
+          subtitle: l10n.settingsShowFloatingButtonSubtitle,
+          semanticToggledValue: settings.showFloatingButton,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              WpFloatingButtonView(
+                state: FloatingButtonVisualState.idle,
+                diameter: 32,
+                background: settings.overlayBackgroundType,
+                wave: settings.overlayWaveType,
+                look: look,
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              settingsToggle(
+                value: settings.showFloatingButton,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings((s) => s.copyWith(showFloatingButton: v)),
+              ),
+            ],
+          ),
+        ),
+        _lookRow(
+          context,
+          shown: shown,
+          child: WpSettingsRow(
+            rowId: 'appearance-button-size',
+            disabledReason: lookReason,
+            title: l10n.settingsFloatingButtonSize,
+            subtitle: l10n.settingsFloatingButtonSizeSubtitle,
+            trailing: settingsDropdown(
+              context: context,
+              value: look.size,
+              items: const ['small', 'medium', 'large'],
+              labels: [
+                l10n.settingsFloatingButtonSizeSmall,
+                l10n.settingsFloatingButtonSizeMedium,
+                l10n.settingsFloatingButtonSizeLarge,
               ],
+              keyPrefix: 'floating-button-size',
+              onChanged: (v) {
+                if (v == null) return;
+                notifier.updateSettings(
+                  (s) => s.copyWith(floatingButtonSize: v),
+                );
+              },
             ),
           ),
-        ],
-      ),
+        ),
+        _lookRow(
+          context,
+          shown: shown,
+          child: WpSettingsRow(
+            rowId: 'appearance-button-shape',
+            disabledReason: lookReason,
+            title: l10n.settingsFloatingButtonShape,
+            subtitle: l10n.settingsFloatingButtonShapeSubtitle,
+            trailing: settingsDropdown(
+              context: context,
+              value: look.square ? 'square' : 'round',
+              items: const ['round', 'square'],
+              labels: [
+                l10n.settingsFloatingButtonShapeRound,
+                l10n.settingsFloatingButtonShapeSquare,
+              ],
+              keyPrefix: 'floating-button-shape',
+              onChanged: (v) {
+                if (v == null) return;
+                notifier.updateSettings(
+                  (s) => s.copyWith(floatingButtonShape: v),
+                );
+              },
+            ),
+          ),
+        ),
+        _lookRow(
+          context,
+          shown: shown,
+          child: WpSettingsRow(
+            rowId: 'appearance-button-ring',
+            disabledReason: lookReason,
+            title: l10n.settingsFloatingButtonRing,
+            subtitle: l10n.settingsFloatingButtonRingSubtitle,
+            semanticToggledValue: look.ring,
+            trailing: settingsToggle(
+              key: const ValueKey('floating-button-ring-toggle'),
+              value: look.ring,
+              onChanged: (v) => notifier.updateSettings(
+                (s) => s.copyWith(floatingButtonRing: v),
+              ),
+            ),
+          ),
+        ),
+        _lookRow(
+          context,
+          shown: shown,
+          child: WpSettingsRow(
+            rowId: 'appearance-button-idle-opacity',
+            disabledReason: lookReason,
+            title: l10n.settingsFloatingButtonIdleOpacity,
+            subtitle: l10n.settingsFloatingButtonIdleOpacitySubtitle,
+            trailing: settingsDropdown(
+              context: context,
+              value: look.idleOpacity,
+              items: const ['100', '70', '40'],
+              labels: [
+                l10n.settingsOverlayOpacityFull,
+                l10n.settingsFloatingButtonIdleOpacityReduced,
+                l10n.settingsFloatingButtonIdleOpacitySubtle,
+              ],
+              keyPrefix: 'floating-button-idle-opacity',
+              onChanged: (v) {
+                if (v == null) return;
+                notifier.updateSettings(
+                  (s) => s.copyWith(floatingButtonIdleOpacity: v),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
     );
+  }
+
+  /// One look row, dimmed and inert while [shown] is false (UX-051). The same
+  /// idiom as the hotkey rows: the row stays readable, and the switch above it
+  /// is never affected.
+  static Widget _lookRow(
+    BuildContext context, {
+    required bool shown,
+    required Widget child,
+  }) {
+    return settingsDimmedWhen(context, enabled: shown, child: child);
   }
 }

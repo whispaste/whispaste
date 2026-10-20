@@ -1,7 +1,7 @@
 /// Widget tests for the [OnboardingOverlay] shell.
 ///
-/// The flow is seven steps on macOS/Windows and six on Linux — the Auto-Paste
-/// page is omitted from the sequence where it cannot apply. Every test that
+/// The flow is seven steps on every desktop platform — the Auto-Paste page is
+/// omitted from the sequence only under the kill switch. Every test that
 /// walks pages therefore pins [debugDefaultTargetPlatformOverride] explicitly
 /// and derives the expected count from [buildOnboardingStepIds]; without that
 /// the suite would silently depend on the host it runs on and the Linux path
@@ -22,36 +22,50 @@
 ///  - the layout renders in every supported UI language (list read from
 ///    [L10n.supportedLocales], never hard-coded) and mirrors fully in RTL;
 ///  - the layout survives a window *below* the size the app enforces (800×550;
-///    the real floor is `WpLayout.minWindowHeight`, 800×628) and an enlarged
+///    the real floor is `WpLayout.minWindowHeight`, 800×732) and an enlarged
 ///    system text scale without overflow errors.
 library;
 
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride, defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show RenderShiftedBox;
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
+import 'package:flutter/rendering.dart' show RenderParagraph, RenderShiftedBox;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:intl/intl.dart' show Bidi;
+import 'package:whispaste/core/config/settings_labels.dart'
+    show pushToTalkUnavailableMessage;
+import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/platform/desktop_window_geometry.dart'
     show kOnboardingWindowSize;
+import 'package:whispaste/core/navigation/page_state.dart';
+import 'package:whispaste/core/onboarding/onboarding_revision.dart';
+import 'package:whispaste/core/onboarding/onboarding_surface.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
+import 'package:whispaste/widgets/overlay_preview.dart';
+import 'package:whispaste/features/onboarding/steps/appearance_step.dart';
 import 'package:whispaste/features/onboarding/steps/autostart_toggle.dart';
 import 'package:whispaste/features/onboarding/steps/mic_permission_chip.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
 import 'package:whispaste/features/onboarding/steps/onboarding_headings.dart';
+import 'package:whispaste/features/onboarding/steps/ready_step.dart';
 import 'package:whispaste/features/onboarding/steps/onboarding_page_fill.dart';
 import 'package:whispaste/features/onboarding/steps/test_recording_step.dart'
-    show kTestRecordingStepMicBypassButtonKey;
+    show
+        kTestRecordingStepMicBypassButtonKey,
+        kTestRecordingStepReassuranceHintKey;
 import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
+import 'package:whispaste/features/settings/sections/linux_desktop_shortcut_block.dart'
+    show manualToggleCommandProvider;
 import 'package:whispaste/features/settings/settings_widgets.dart'
     show SettingRow;
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/widgets/brand_wordmark.dart';
+import 'package:whispaste/services/linux_desktop_shortcut.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/keyboard_up_monitor.dart';
 import 'package:whispaste/services/model_download_service.dart';
@@ -64,6 +78,8 @@ import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
+
+import 'package:golden_screenshot/golden_screenshot.dart' show loadAppFonts;
 
 late L10n l10n;
 
@@ -159,6 +175,16 @@ class _TroubleshootPasteCapabilityNotifier extends PasteCapabilityNotifier {
 
   @override
   void stopPolling() {}
+
+  // The real reset only runs for a stale entry; this fake models that
+  // evidence as present and routes the confirmed reset to repair().
+  @override
+  bool get staleEntryResetCandidate => true;
+
+  @override
+  Future<TccRepairResult?> resetStaleEntry({
+    Future<bool> Function()? confirmReset,
+  }) => repair();
 
   @override
   Future<TccRepairResult> repair() async =>
@@ -265,10 +291,10 @@ class _FakeHotkeyStatusController extends HotkeyRegistrationStatusController {
 }
 
 class _FakeRegistrar implements HotKeyRegistrar {
-  const _FakeRegistrar();
+  const _FakeRegistrar({this.supportsKeyUp = true});
 
   @override
-  bool get supportsKeyUp => true;
+  final bool supportsKeyUp;
 
   @override
   Future<void> register(
@@ -289,9 +315,9 @@ class _NoopHotkeyService extends HotkeyService {
   void build() {}
 }
 
-HotkeyService _noopHotkeyService() {
+HotkeyService _noopHotkeyService({bool supportsKeyUp = true}) {
   final svc = _NoopHotkeyService();
-  svc.injectRegistrar(const _FakeRegistrar());
+  svc.injectRegistrar(_FakeRegistrar(supportsKeyUp: supportsKeyUp));
   svc.injectMonitor(NoopKeyboardUpMonitor());
   return svc;
 }
@@ -305,6 +331,23 @@ class _StaticWhisperDownload extends ModelDownloadNotifier {
 
   @override
   ModelDownloadState build() => _initial;
+}
+
+/// A whisper download whose state the test drives through [script], so a
+/// running download can be aborted after the page was already passed
+/// (UIA-MDL-GATE).
+class _ScriptedWhisperDownload extends ModelDownloadNotifier {
+  _ScriptedWhisperDownload(this._script);
+
+  final ValueNotifier<ModelDownloadState> _script;
+
+  @override
+  ModelDownloadState build() {
+    void onChange() => state = _script.value;
+    _script.addListener(onChange);
+    ref.onDispose(() => _script.removeListener(onChange));
+    return _script.value;
+  }
 }
 
 class _StaticParakeetDownload extends ParakeetDownloadNotifier {
@@ -331,16 +374,30 @@ Future<void> _pumpOverlay(
   TextScaler textScaler = TextScaler.noScaling,
   HotkeyRegistrationStatus? hotkeyStatus,
   bool downloadFailed = false,
+  // Whether a Whisper model counts as installed. Most tests walk past the
+  // model page and need Next to work, so the default is "installed".
+  bool modelInstalled = true,
+  ModelDownloadState? whisperDownload,
+  ValueNotifier<ModelDownloadState>? whisperScript,
+  ParakeetDownloadState? parakeetDownload,
   // `false` for states that animate forever (the mic chip's `requesting`
   // spinner) — pumpAndSettle would time out on those.
   bool settle = true,
+  bool manualReview = false,
+  bool revisionRun = false,
+  OnboardingRevisionRegistry? revisionRegistry,
+  DesktopShortcutFallback? desktopShortcut,
+  bool supportsKeyUp = true,
 }) async {
   const downloadError = 'Verbindung unterbrochen (HTTP 503)';
   await tester.pumpWidget(
     makeTestable(
       MediaQuery(
         data: MediaQueryData(size: size, textScaler: textScaler),
-        child: const OnboardingOverlay(),
+        child: OnboardingOverlay(
+          manualReview: manualReview,
+          revisionRun: revisionRun,
+        ),
       ),
       size: size,
       locale: locale,
@@ -348,18 +405,37 @@ Future<void> _pumpOverlay(
         settingsProvider.overrideWith(
           () => settings ?? _FakeSettingsNotifier(),
         ),
+        if (revisionRegistry != null)
+          onboardingRevisionRegistryProvider.overrideWithValue(
+            revisionRegistry,
+          ),
         micPermissionCheckerProvider.overrideWithValue(
           _FakeMicPermissionChecker(),
         ),
+        if (desktopShortcut != null) ...[
+          desktopShortcutFallbackProvider.overrideWith(
+            (ref) async => desktopShortcut,
+          ),
+          gnomeToggleShortcutInstalledProvider.overrideWith(
+            (ref) async => false,
+          ),
+          manualToggleCommandProvider.overrideWithValue(
+            "'/opt/WhisPaste/whispaste' --toggle",
+          ),
+        ],
         if (paste != null)
           pasteCapabilityNotifierProvider.overrideWith(() => paste),
         if (mic != null) micPermissionNotifierProvider.overrideWith(() => mic),
-        if (hotkeyStatus != null) ...[
+        if (hotkeyStatus != null)
           hotkeyRegistrationStatusProvider.overrideWith(
             () => _FakeHotkeyStatusController(hotkeyStatus),
           ),
-          hotkeyServiceProvider.overrideWith(_noopHotkeyService),
-        ],
+        // Without key-up the real service would still report it on macOS
+        // (its monitor), so the override must apply whenever it is turned off.
+        if (hotkeyStatus != null || !supportsKeyUp)
+          hotkeyServiceProvider.overrideWith(
+            () => _noopHotkeyService(supportsKeyUp: supportsKeyUp),
+          ),
         // Always statically overridden — never the real notifier. Its
         // initial disk scan hits real `Directory`/`File` calls, which
         // `ModelStep._detectHardware()` now awaits before its first
@@ -367,23 +443,31 @@ Future<void> _pumpOverlay(
         // resolve under `testWidgets`, hanging every test that reaches
         // ModelStep until `pumpAndSettle` times out.
         modelDownloadProvider.overrideWith(
-          () => _StaticWhisperDownload(
-            downloadFailed
-                ? const ModelDownloadState(
-                    phase: DownloadPhase.error,
-                    errorMessage: downloadError,
-                  )
-                : const ModelDownloadState(),
-          ),
+          () => whisperScript != null
+              ? _ScriptedWhisperDownload(whisperScript)
+              : _StaticWhisperDownload(
+                  whisperDownload ??
+                      (downloadFailed
+                          ? const ModelDownloadState(
+                              phase: DownloadPhase.error,
+                              errorMessage: downloadError,
+                            )
+                          : ModelDownloadState(
+                              downloadedModels: modelInstalled
+                                  ? const {'whisper-medium'}
+                                  : const {},
+                            )),
+                ),
         ),
         parakeetDownloadProvider.overrideWith(
           () => _StaticParakeetDownload(
-            downloadFailed
-                ? const ParakeetDownloadState(
-                    phase: ParakeetDownloadPhase.error,
-                    errorMessage: downloadError,
-                  )
-                : const ParakeetDownloadState(),
+            parakeetDownload ??
+                (downloadFailed
+                    ? const ParakeetDownloadState(
+                        phase: ParakeetDownloadPhase.error,
+                        errorMessage: downloadError,
+                      )
+                    : const ParakeetDownloadState()),
           ),
         ),
       ],
@@ -408,15 +492,10 @@ void main() {
     // square, roughly doubling text width vs. Inter, which makes captions
     // wrap to lines that never occur in the real app. Real metrics keep the
     // gate meaningful.
-    final fontLoader = FontLoader('Inter')
-      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
-    await fontLoader.load();
+    await loadAppFonts();
   });
 
-  // ── Step sequence: seven steps, six on Linux ────────────────────────────
+  // ── Step sequence: seven steps on every desktop platform ────────────────
 
   group('OnboardingOverlay step sequence', () {
     for (final platform in [
@@ -443,66 +522,33 @@ void main() {
       );
     }
 
-    testWidgets(
-      'on Linux the Auto-Paste page is absent from the whole flow — walking '
-      'every page never mounts it, and the flow is one page shorter',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.linux;
-        try {
-          await _pumpOverlay(tester);
-          final total = _totalSteps(TargetPlatform.linux);
-          expect(total, 6);
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
+      testWidgets(
+        'on $platform the Auto-Paste page is a page of its own, between '
+        'Appearance and Try & Go',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = platform;
+          try {
+            await _pumpOverlay(tester);
+            for (var page = 2; page <= 5; page++) {
+              await _tapNext(tester); // → 5: Appearance
+            }
+            expect(find.byKey(kOnboardingAutostartToggleKey), findsOneWidget);
+            expect(find.byType(AutoPasteStep), findsNothing);
 
-          for (var page = 2; page <= total; page++) {
-            await _tapNext(tester);
+            await _tapNext(tester); // → 6: Auto-Paste
+            expect(find.byType(AutoPasteStep), findsOneWidget);
             expect(
-              find.byType(AutoPasteStep),
+              find.byKey(kOnboardingAutostartToggleKey),
               findsNothing,
-              reason: 'AutoPasteStep must never mount on Linux (page $page)',
+              reason: 'the autostart toggle stayed on the Appearance page',
             );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
           }
-          // The last page is Try & Go, i.e. the Next button became the
-          // completion CTA — proof the flow really ended one page earlier
-          // rather than just hiding the page's content.
-          expect(
-            find.text(l10n.onboardingStepOf(total, total)),
-            findsOneWidget,
-          );
-          final next = tester.widget<WpHeroButton>(
-            find.byKey(kOnboardingNextButtonKey),
-          );
-          expect(next.label, l10n.onboardingStartUsing);
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
-
-    testWidgets(
-      'on macOS the Auto-Paste page is a page of its own, between Appearance '
-      'and Try & Go',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-        try {
-          await _pumpOverlay(tester);
-          for (var page = 2; page <= 5; page++) {
-            await _tapNext(tester); // → 5: Appearance
-          }
-          expect(find.byKey(kOnboardingAutostartToggleKey), findsOneWidget);
-          expect(find.byType(AutoPasteStep), findsNothing);
-
-          await _tapNext(tester); // → 6: Auto-Paste
-          expect(find.byType(AutoPasteStep), findsOneWidget);
-          expect(
-            find.byKey(kOnboardingAutostartToggleKey),
-            findsNothing,
-            reason: 'the autostart toggle stayed on the Appearance page',
-          );
-        } finally {
-          debugDefaultTargetPlatformOverride = null;
-        }
-      },
-    );
+        },
+      );
+    }
   });
 
   // ── Page composition after the split ────────────────────────────────────
@@ -799,7 +845,7 @@ void main() {
     // same pattern as `test/core/design/responsive_overflow_test.dart`.
     //
     // 800×550 is one notch *below* the window minimum the app enforces
-    // (`WpLayout.minWindowHeight`, 800×628) — kept there on purpose after the
+    // (`WpLayout.minWindowHeight`, 800×732) — kept there on purpose after the
     // minimum was raised: a floor that is harsher than reality stays a valid
     // floor, and the onboarding overlay covers the whole window anyway, so
     // none of the chrome that sets that minimum is on screen here.
@@ -1221,6 +1267,63 @@ void main() {
     // designed placeholder, not with a smaller surface.
     final foldRatchet = <(TargetPlatform, int, String, double), double>{};
 
+    // XP-6-14: without the GlobalShortcuts portal the hotkey page swaps its
+    // one-line "works system-wide" notice for the desktop-shortcut block, and
+    // the last page adds a line pointing back to it. Both are taller than
+    // what they replace, on the two pages with the least slack.
+    for (final fallback in [
+      DesktopShortcutFallback.gnome,
+      DesktopShortcutFallback.manual,
+    ]) {
+      for (final locale in L10n.supportedLocales) {
+        testWidgets('every page fits the fixed window with the desktop '
+            'shortcut block (${fallback.name}, ${locale.languageCode})', (
+          tester,
+        ) async {
+          useFixedWindow(tester);
+          debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+          try {
+            await _pumpOverlay(
+              tester,
+              size: kOnboardingWindowSize,
+              locale: locale,
+              desktopShortcut: fallback,
+              settings: _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(locale: locale.languageCode),
+              ),
+            );
+            var sawBlock = false;
+            var sawHint = false;
+            final total = _totalSteps(TargetPlatform.linux);
+            for (var page = 1; page <= total; page++) {
+              if (page > 1) await _tapNext(tester);
+              sawBlock |= find
+                  .byKey(const ValueKey('general-desktop-shortcut'))
+                  .evaluate()
+                  .isNotEmpty;
+              sawHint |= find
+                  .byKey(
+                    const ValueKey('onboarding-ready-desktop-shortcut-hint'),
+                  )
+                  .evaluate()
+                  .isNotEmpty;
+              expectFits(
+                tester,
+                measure(tester),
+                what:
+                    'page $page (linux, ${locale.languageCode}, '
+                    '${fallback.name} desktop shortcut)',
+              );
+            }
+            expect(sawBlock, isTrue);
+            expect(sawHint, isTrue);
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        });
+      }
+    }
+
     for (final platform in [TargetPlatform.macOS, TargetPlatform.linux]) {
       for (final locale in L10n.supportedLocales) {
         for (final scale in foldTextScales) {
@@ -1250,21 +1353,36 @@ void main() {
               final total = _totalSteps(platform);
               for (var page = 1; page <= total; page++) {
                 if (page > 1) await _tapNext(tester);
-                expectFits(
-                  tester,
-                  measure(tester),
-                  what:
-                      'page $page ($platform, ${locale.languageCode}, '
-                      'scale $scale)',
-                  allowed:
-                      foldRatchet[(
-                        platform,
-                        page,
-                        locale.languageCode,
-                        scale,
-                      )] ??
-                      0,
-                );
+                if (scale == 1.0) {
+                  // At the default text size every page fits outright.
+                  expectFits(
+                    tester,
+                    measure(tester),
+                    what:
+                        'page $page ($platform, ${locale.languageCode}, '
+                        'scale $scale)',
+                    allowed:
+                        foldRatchet[(
+                          platform,
+                          page,
+                          locale.languageCode,
+                          scale,
+                        )] ??
+                        0,
+                  );
+                } else {
+                  // Above the default size the page body scrolls, by design.
+                  // The layout must not overflow, and the navigation stays
+                  // fixed outside the scroll view, so Next is still reachable.
+                  expect(
+                    tester.takeException(),
+                    isNull,
+                    reason:
+                        'page $page ($platform, ${locale.languageCode}, '
+                        'scale $scale) overflowed instead of scrolling',
+                  );
+                  expect(find.byKey(kOnboardingNextButtonKey), findsOneWidget);
+                }
               }
             } finally {
               debugDefaultTargetPlatformOverride = null;
@@ -1319,25 +1437,87 @@ void main() {
                 'the wrong state.',
           );
 
-          final fold = tester
-              .getRect(find.byType(SingleChildScrollView).first)
-              .bottom;
+          // The escape hatch lives in the shell footer, so the fold is the
+          // footer row: the button must sit inside it and the row inside the
+          // window, which cannot be resized.
+          final navRow = tester.getRect(find.byKey(kOnboardingNavRowKey));
           expect(
             tester.getRect(button).bottom,
-            lessThanOrEqualTo(fold),
+            lessThanOrEqualTo(navRow.bottom),
             reason:
-                'The microphone-bypass button ends '
-                '${tester.getRect(button).bottom - fold} px below the fold at '
-                'text scale $scale. The onboarding window cannot be resized, '
-                'so a user without a working microphone has no way to reach '
-                'it. Relieve the page (see the 6:3 column split and the '
-                'footer stack) — do not add a scroll affordance.',
+                'The microphone-bypass button is not inside the footer row at '
+                'text scale $scale.',
+          );
+          expect(
+            navRow.bottom,
+            lessThanOrEqualTo(kOnboardingWindowSize.height),
+            reason:
+                'The footer row ends ${navRow.bottom - kOnboardingWindowSize.height} '
+                'px below the window at text scale $scale. The onboarding window '
+                'cannot be resized, so a user without a working microphone has '
+                'no way to reach the escape hatch. Relieve the page (see the 6:3 '
+                'column split and the footer stack) — do not add a scroll '
+                'affordance.',
           );
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
       });
     }
+
+    testWidgets('the microphone escape hatch sits in the footer beside the CTA '
+        'on the last step, and leaves the footer once taken', (tester) async {
+      useFixedWindow(tester);
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await _pumpOverlay(
+          tester,
+          size: kOnboardingWindowSize,
+          locale: const Locale('de'),
+          settings: _FakeSettingsNotifier(
+            AppSettings.defaults.copyWith(locale: 'de'),
+          ),
+        );
+
+        final total = _totalSteps(TargetPlatform.macOS);
+        for (var page = 2; page <= total; page++) {
+          await _tapNext(tester);
+        }
+
+        final navRow = find.byKey(kOnboardingNavRowKey);
+        final bypass = find.byKey(kTestRecordingStepMicBypassButtonKey);
+        expect(
+          find.descendant(of: navRow, matching: bypass),
+          findsOneWidget,
+          reason: 'The escape hatch is a footer action, not step content.',
+        );
+        expect(
+          find.descendant(
+            of: navRow,
+            matching: find.byKey(kOnboardingNextButtonKey),
+          ),
+          findsOneWidget,
+        );
+
+        await tester.tap(bypass);
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(kTestRecordingStepMicBypassButtonKey),
+          findsNothing,
+          reason: 'The one-shot escape hatch leaves the footer once taken.',
+        );
+        expect(
+          tester
+              .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
+              .onPressed,
+          isNotNull,
+          reason: 'Taking the escape hatch unlocks the completion CTA.',
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
 
     // ── One header gap for the whole flow ────────────────────────────────
     //
@@ -1525,12 +1705,12 @@ void main() {
 
           expect(
             checked,
-            greaterThanOrEqualTo(5),
+            greaterThanOrEqualTo(2),
             reason:
-                'The flow is expected to carry at least five hugging setting '
-                'rows (two on the privacy page, two on the hotkey page, the '
-                'autostart row on the ready page) — the three pages the '
-                'criterion names. '
+                'The flow is expected to carry at least two hugging setting '
+                'rows (the two on the hotkey page). The privacy and appearance '
+                'pages put their controls in one shared column instead '
+                '(UIA-RT-02, Maintainer 3b). '
                 'Finding fewer means the opt-in was dropped somewhere and the '
                 'assertion above silently stopped covering it.',
           );
@@ -1632,6 +1812,47 @@ void main() {
       );
 
       testWidgets(
+        'the hotkey page fits the fixed window with push-to-talk unavailable '
+        'and its reason shown (UIA-ONB-06) in ${locale.languageCode}',
+        (tester) async {
+          useFixedWindow(tester);
+          debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+          try {
+            await _pumpOverlay(
+              tester,
+              size: kOnboardingWindowSize,
+              locale: locale,
+              settings: _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(locale: locale.languageCode),
+              ),
+              supportsKeyUp: false,
+            );
+            for (var page = 2; page <= 4; page++) {
+              await _tapNext(tester);
+            }
+
+            final localized = await L10n.delegate.load(locale);
+            expect(
+              find.textContaining(
+                pushToTalkUnavailableMessage(
+                  localized,
+                  operatingSystem: 'linux',
+                ),
+              ),
+              findsOneWidget,
+            );
+            expectFits(
+              tester,
+              measure(tester),
+              what: 'hotkey page, no key-up (${locale.languageCode})',
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+
+      testWidgets(
         'the model page fits the fixed window in the download-error branch '
         '(error banner + retry button) in ${locale.languageCode}',
         (tester) async {
@@ -1702,11 +1923,11 @@ void main() {
 
                 final localized = await L10n.delegate.load(locale);
                 expect(
-                  find.text(
-                    phase == PollingPhase.awaitingGrant
-                        ? localized.onboardingPasteWaitingForGrantTitle
-                        : localized.onboardingPasteGrantCta,
-                  ),
+                  phase == PollingPhase.awaitingGrant
+                      ? find.text(localized.onboardingPasteWaitingForGrantTitle)
+                      : find.byKey(
+                          const ValueKey('permissions-row-auto-paste-action'),
+                        ),
                   findsOneWidget,
                   reason: 'the $name branch must actually be rendered',
                 );
@@ -2034,5 +2255,1318 @@ void main() {
         if (page < total) await _tapNext(tester);
       }
     });
+  });
+
+  // UX-021: the appearance page's overlay preview is the page's last block.
+  // Below the height the whole page needs, the scroll viewport cut it in
+  // half, so it is left out there instead.
+  group('appearance page preview (UX-021)', () {
+    Future<void> goToAppearance(WidgetTester tester, Size size) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await _pumpOverlay(tester, size: size);
+      for (var page = 1; page < 5; page++) {
+        await _tapNext(tester);
+      }
+    }
+
+    testWidgets('is left out when the viewport is shorter than the page', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await goToAppearance(tester, const Size(800, 600));
+        expect(find.byType(WpOverlayRealPreview), findsNothing);
+        expect(find.text(l10n.onboardingStepOf(5, 7)), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('is left out at the fixed 1100x720 window, and only the '
+        'background swatch names stay visible', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await goToAppearance(tester, kOnboardingWindowSize);
+        expect(find.byType(WpOverlayRealPreview), findsNothing);
+        expect(find.text(l10n.settingsOverlayBackgroundMarine), findsOneWidget);
+        // The wave colour is chosen in Settings, not on this page.
+        expect(find.text(l10n.settingsOverlayWaveCyan), findsNothing);
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('is shown whole when the window offers the full page height', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await goToAppearance(tester, const Size(1100, 900));
+        expect(find.byType(WpOverlayRealPreview), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('shows only the pill, without a frame, when the page fits '
+        'it but not the full preview', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await goToAppearance(tester, const Size(1100, 790));
+        expect(find.byType(WpOverlayRealPreview), findsOneWidget);
+        expect(find.text(l10n.onboardingAppearanceSettingsHint), findsNothing);
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    for (final code in const ['de', 'en', 'es', 'pt', 'ru', 'he']) {
+      testWidgets('falls back to the Settings hint in $code when even the pill '
+          'does not fit', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final localized = await L10n.delegate.load(Locale(code));
+          await _pumpOverlay(
+            tester,
+            size: kOnboardingWindowSize,
+            locale: Locale(code),
+          );
+          for (var page = 1; page < 5; page++) {
+            await _tapNext(tester);
+          }
+          expect(find.byType(WpOverlayRealPreview), findsNothing);
+          expect(
+            find.text(localized.onboardingAppearanceSettingsHint),
+            findsOneWidget,
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+  });
+
+  group('large text on the fixed windows (BIZ-52)', () {
+    for (final size in const [Size(800, 716), kOnboardingWindowSize]) {
+      for (final scale in const [1.3, 2.0]) {
+        testWidgets('every page lays out without overflow at '
+            '${size.width.toInt()}x${size.height.toInt()}, text scale $scale', (
+          tester,
+        ) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            tester.view.physicalSize = size;
+            tester.view.devicePixelRatio = 1.0;
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
+            await _pumpOverlay(
+              tester,
+              size: size,
+              textScaler: TextScaler.linear(scale),
+            );
+            for (var page = 1; page <= 5; page++) {
+              expect(tester.takeException(), isNull, reason: 'page $page');
+              if (page < 5) await _tapNext(tester);
+            }
+            // The swatch targets stay 48 px square at every scale.
+            for (final id in const ['overlay-background-marine']) {
+              final semantics = find.byWidgetPredicate(
+                (w) => w is Semantics && w.properties.identifier == id,
+              );
+              expect(semantics, findsOneWidget, reason: id);
+              final target = tester.getSize(
+                find
+                    .descendant(of: semantics, matching: find.byType(InkWell))
+                    .first,
+              );
+              expect(target.width, greaterThanOrEqualTo(48), reason: id);
+              expect(target.height, greaterThanOrEqualTo(48), reason: id);
+            }
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        });
+      }
+    }
+  });
+
+  // UX-049: at 800x716 and text scale 2.0 the appearance rows run past the
+  // window. The page has to scroll, and each row has to come fully into the
+  // scroll viewport (the background row was under the footer edge).
+  group('appearance rows at 800x716, text scale 2.0 (UX-049)', () {
+    testWidgets('every row can be scrolled fully into view', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        const size = Size(800, 716);
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await _pumpOverlay(
+          tester,
+          size: size,
+          textScaler: const TextScaler.linear(2),
+        );
+        for (var page = 1; page < 5; page++) {
+          await _tapNext(tester);
+        }
+        expect(tester.takeException(), isNull);
+
+        // Desktop shows no scroll hint on its own: the thumb has to be visible
+        // while the page overflows, or the cut-off row is the only signal.
+        final scrollbar = find.ancestor(
+          of: find.byKey(kAppearanceStepOverlayColorsKey),
+          matching: find.byType(Scrollbar),
+        );
+        expect(
+          scrollbar
+              .evaluate()
+              .map((e) => e.widget as Scrollbar)
+              .any((s) => s.thumbVisibility == true),
+          isTrue,
+          reason: 'the scroll thumb must be visible on the Appearance page',
+        );
+
+        for (final key in const [
+          kAppearanceStepOverlayPositionKey,
+          kAppearanceStepOverlaySizeKey,
+          kAppearanceStepOverlayColorsKey,
+        ]) {
+          final row = find.byKey(key);
+          expect(row, findsOneWidget, reason: '$key');
+          await tester.ensureVisible(row);
+          await tester.pump();
+          final viewport = tester.getRect(
+            find.ancestor(of: row, matching: find.byType(Scrollable)).first,
+          );
+          final rect = tester.getRect(row);
+          expect(
+            rect.top,
+            greaterThanOrEqualTo(viewport.top - 0.5),
+            reason: '$key',
+          );
+          expect(
+            rect.bottom,
+            lessThanOrEqualTo(viewport.bottom + 0.5),
+            reason: '$key',
+          );
+        }
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
+  group('appearance hint links to Settings (DEV-215, DEV-266/267/268)', () {
+    Finder hintText() => find.byWidgetPredicate(
+      (w) =>
+          w is Semantics &&
+          w.properties.identifier == kAppearanceStepHintTextId,
+    );
+    Finder hintLink() => find.bySemanticsIdentifier(kAppearanceStepHintLinkId);
+
+    testWidgets(
+      'first run: plain hint text, no link, and the flow stays open',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          tester.view.physicalSize = kOnboardingWindowSize;
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          await _pumpOverlay(tester, size: kOnboardingWindowSize);
+          for (var page = 1; page < 5; page++) {
+            await _tapNext(tester);
+          }
+          expect(hintText(), findsOneWidget);
+          expect(
+            find.text(l10n.onboardingAppearanceSettingsHint),
+            findsOneWidget,
+          );
+          expect(hintLink(), findsNothing);
+          final container = ProviderScope.containerOf(
+            tester.element(hintText()),
+          );
+          expect(
+            container
+                .read(settingsProvider)
+                .value
+                ?.onboarding
+                .onboardingCompleted,
+            isFalse,
+          );
+          expect(container.read(activePageProvider), isNot('settings'));
+          expect(tester.takeException(), isNull);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      },
+    );
+
+    testWidgets('manual review: the link has a 48 px target, carries link '
+        'semantics, and opens Darstellung at the overlay rows', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        tester.view.physicalSize = kOnboardingWindowSize;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await _pumpOverlay(tester, size: kOnboardingWindowSize);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(OnboardingOverlay)),
+        );
+        container.read(onboardingManuallyOpenProvider.notifier).open();
+        await tester.pumpAndSettle();
+        for (var page = 1; page < 5; page++) {
+          await _tapNext(tester);
+        }
+        expect(hintText(), findsNothing);
+        expect(hintLink(), findsOneWidget);
+        expect(
+          find.text(l10n.onboardingAppearanceSettingsLink),
+          findsOneWidget,
+        );
+        expect(tester.getSize(hintLink()).height, greaterThanOrEqualTo(48));
+        expect(tester.getSemantics(hintLink()).flagsCollection.isLink, isTrue);
+        // Manual review may say the link ends setup; the revision label must not appear.
+        expect(
+          find.text(l10n.onboardingAppearanceSettingsLink),
+          findsOneWidget,
+        );
+        expect(
+          find.text(l10n.onboardingAppearanceSettingsLinkRevision),
+          findsNothing,
+        );
+
+        // Near the top edge of the 48 px target, outside the text box.
+        final rect = tester.getRect(hintLink());
+        await tester.tapAt(Offset(rect.center.dx, rect.top + 3));
+        await tester.pump();
+        expect(container.read(activePageProvider), 'settings');
+        expect(
+          container.read(settingsScrollTargetProvider),
+          kAppearanceStepOverlayStartRowId,
+        );
+        expect(container.read(onboardingManuallyOpenProvider), isFalse);
+        expect(
+          container
+              .read(settingsProvider)
+              .value
+              ?.onboarding
+              .onboardingCompleted,
+          isFalse,
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('revision run: the link leaves the run unstamped, so the '
+        'next start offers the revision again', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        tester.view.physicalSize = kOnboardingWindowSize;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await _pumpOverlay(
+          tester,
+          size: kOnboardingWindowSize,
+          revisionRun: true,
+          revisionRegistry: [
+            OnboardingRevisionEntry(version: 1, reason: (l10n) => 'r'),
+          ],
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(OnboardingOverlay)),
+        );
+        await container.read(onboardingRevisionRunProvider.notifier).start();
+        await tester.pumpAndSettle();
+        final storedBefore = container
+            .read(settingsProvider)
+            .value!
+            .onboarding
+            .onboardingContentVersion;
+        for (var page = 1; page < 5; page++) {
+          await _tapNext(tester);
+        }
+        expect(hintLink(), findsOneWidget);
+        // A revision run never claims to end setup; it offers to show the revision later.
+        expect(
+          find.text(l10n.onboardingAppearanceSettingsLinkRevision),
+          findsOneWidget,
+        );
+        expect(find.text(l10n.onboardingAppearanceSettingsLink), findsNothing);
+        final rect = tester.getRect(hintLink());
+        await tester.tapAt(Offset(rect.center.dx, rect.top + 3));
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(container.read(activePageProvider), 'settings');
+        expect(container.read(onboardingRevisionRunProvider), isFalse);
+        final onboarding = container.read(settingsProvider).value!.onboarding;
+        expect(onboarding.onboardingContentVersion, storedBefore);
+        final target = targetOnboardingContentVersion(
+          container.read(onboardingRevisionRegistryProvider),
+          currentOnboardingPlatform(),
+        );
+        expect(
+          onboarding.onboardingContentVersion,
+          lessThan(target),
+          reason: 'the revision must still be pending after a restart',
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('both flags set: the link never claims to end setup, the '
+        'revision label wins', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        tester.view.physicalSize = kOnboardingWindowSize;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await _pumpOverlay(
+          tester,
+          size: kOnboardingWindowSize,
+          manualReview: true,
+          revisionRun: true,
+          revisionRegistry: [
+            OnboardingRevisionEntry(version: 1, reason: (l10n) => 'r'),
+          ],
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(OnboardingOverlay)),
+        );
+        container.read(onboardingManuallyOpenProvider.notifier).open();
+        await container.read(onboardingRevisionRunProvider.notifier).start();
+        await tester.pumpAndSettle();
+        for (var page = 1; page < 5; page++) {
+          await _tapNext(tester);
+        }
+        expect(hintLink(), findsOneWidget);
+        expect(
+          find.text(l10n.onboardingAppearanceSettingsLinkRevision),
+          findsOneWidget,
+        );
+        expect(find.text(l10n.onboardingAppearanceSettingsLink), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('German at text scale 1.3 on 1100x720: no overflow, the page '
+        'scrolls, and the link and the Next button stay reachable', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        tester.view.physicalSize = kOnboardingWindowSize;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await _pumpOverlay(
+          tester,
+          size: kOnboardingWindowSize,
+          locale: const Locale('de'),
+          textScaler: const TextScaler.linear(1.3),
+          manualReview: true,
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(OnboardingOverlay)),
+        );
+        container.read(onboardingManuallyOpenProvider.notifier).open();
+        await tester.pumpAndSettle();
+        for (var page = 1; page < 5; page++) {
+          await _tapNext(tester);
+        }
+        expect(tester.takeException(), isNull);
+
+        // The page scrolls rather than clipping: the link is reachable by
+        // scrolling it into view, then tappable.
+        await tester.ensureVisible(hintLink());
+        await tester.pumpAndSettle();
+        expect(hintLink(), findsOneWidget);
+        final linkRect = tester.getRect(hintLink());
+        expect(
+          linkRect.bottom,
+          lessThanOrEqualTo(kOnboardingWindowSize.height),
+        );
+
+        // The CTA sits in the shell-owned nav row, outside the scroll view,
+        // so it is always inside the window.
+        final next = find.byKey(kOnboardingNextButtonKey);
+        expect(next, findsOneWidget);
+        final nextRect = tester.getRect(next);
+        expect(
+          nextRect.bottom,
+          lessThanOrEqualTo(kOnboardingWindowSize.height),
+        );
+        expect(nextRect.top, greaterThanOrEqualTo(0));
+
+        await tester.tap(hintLink());
+        await tester.pump();
+        expect(container.read(activePageProvider), 'settings');
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
+  // XP-6-03 / UX-063: on the last page the escape hatch and the main action
+  // shared the free width with a Spacer, so the main action stopped short of
+  // the nav row's right edge, unlike on every other page.
+  group('the main action keeps the right edge (XP-6-03)', () {
+    for (final locale in const [Locale('en'), Locale('de')]) {
+      testWidgets('on the last page (${locale.languageCode})', (tester) async {
+        tester.view.physicalSize = kOnboardingWindowSize;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await _pumpOverlay(tester, size: kOnboardingWindowSize, locale: locale);
+        for (var page = 1; page < 7; page++) {
+          await _tapNext(tester);
+        }
+        expect(find.byKey(kTestRecordingStepMicBypassButtonKey), findsOne);
+        expect(
+          tester.getRect(find.byKey(kOnboardingNextButtonKey)).right,
+          moreOrLessEquals(
+            tester.getRect(find.byKey(kOnboardingNavRowKey)).right,
+            epsilon: 0.5,
+          ),
+        );
+      });
+    }
+  });
+
+  // ── Step counter semantics (UIA-ONB-10) ─────────────────────────────────
+
+  testWidgets('the step counter is a live region and the dots stay out of '
+      'the semantics tree', (tester) async {
+    final handle = tester.ensureSemantics();
+    await _pumpOverlay(
+      tester,
+      mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+    );
+    final total = _totalSteps(defaultTargetPlatform);
+
+    final node = tester.getSemantics(find.byKey(kOnboardingStepCounterKey));
+    expect(node.label, l10n.onboardingStepOf(1, total));
+    expect(node.flagsCollection.isLiveRegion, isTrue);
+    handle.dispose();
+  });
+
+  // ── Keyboard navigation (UIA-ONB-01) ────────────────────────────────────
+
+  group('OnboardingOverlay keyboard navigation', () {
+    testWidgets('Enter advances like Next, Escape goes back, and Escape on '
+        'page 1 stays put', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final total = _totalSteps(TargetPlatform.macOS);
+        await _pumpOverlay(
+          tester,
+          mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+        );
+        expect(find.text(l10n.onboardingStepOf(1, total)), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.onboardingStepOf(1, total)), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.onboardingStepOf(2, total)), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.numpadEnter);
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.onboardingStepOf(3, total)), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.onboardingStepOf(2, total)), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('a focused inline hotkey recorder keeps Enter and Escape '
+        '(UIA-ONB-01/08)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final total = _totalSteps(TargetPlatform.macOS);
+        await _pumpOverlay(
+          tester,
+          mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+          hotkeyStatus: HotkeyRegistrationStatus.conflict,
+        );
+        for (var page = 2; page <= 4; page++) {
+          await _tapNext(tester);
+        }
+        expect(find.byKey(kTriggerStepInlineRecorderKey), findsOneWidget);
+        await tester.tap(find.byKey(kTriggerStepInlineRecorderKey));
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump(const Duration(seconds: 1));
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump(const Duration(seconds: 1));
+
+        expect(find.text(l10n.onboardingStepOf(4, total)), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('Enter on the last page does not complete while the '
+        'completion gate is closed', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final total = _totalSteps(TargetPlatform.macOS);
+        final settings = _FakeSettingsNotifier();
+        await _pumpOverlay(
+          tester,
+          settings: settings,
+          mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+        );
+        for (var page = 1; page < total; page++) {
+          await _tapNext(tester);
+        }
+        expect(find.text(l10n.onboardingStepOf(total, total)), findsOneWidget);
+        final before = settings.current;
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.onboardingStepOf(total, total)), findsOneWidget);
+        expect(settings.current, same(before));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
+  // ── Speech model or cloud key, and the closing page (UIA-MDL-GATE) ──────
+
+  group(
+    'OnboardingOverlay — cloud key and closing-page gate (UIA-MDL-GATE)',
+    () {
+      bool nextEnabled(WidgetTester tester) =>
+          tester
+              .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
+              .onPressed !=
+          null;
+
+      Future<void> pumpToModelPage(
+        WidgetTester tester, {
+        AppSettings? settings,
+        bool modelInstalled = false,
+        ValueNotifier<ModelDownloadState>? script,
+      }) async {
+        await _pumpOverlay(
+          tester,
+          mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+          settings: settings == null ? null : _FakeSettingsNotifier(settings),
+          modelInstalled: modelInstalled,
+          whisperScript: script,
+        );
+        await _tapNext(tester);
+        await _tapNext(tester);
+        expect(find.text(l10n.onboardingModelTitle), findsOneWidget);
+      }
+
+      // From the model page to the closing page (model is index 2 of total).
+      Future<void> walkToClosingPage(WidgetTester tester) async {
+        final total = _totalSteps(TargetPlatform.macOS);
+        for (var page = 2; page < total - 1; page++) {
+          await _tapNext(tester);
+        }
+        expect(find.text(l10n.onboardingStepOf(total, total)), findsOneWidget);
+      }
+
+      const aborted = ModelDownloadState(
+        phase: DownloadPhase.error,
+        errorMessage: 'Verbindung unterbrochen (HTTP 503)',
+      );
+      const running = ModelDownloadState(
+        phase: DownloadPhase.downloading,
+        activeModelId: 'whisper-medium',
+        progressPercent: 10,
+      );
+
+      testWidgets('a chosen cloud provider with a saved key lets Next through '
+          'without any model', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await pumpToModelPage(
+            tester,
+            settings: AppSettings.defaults.copyWith(
+              sttProvider: SttProviderType.openAI.value,
+              openAiApiKey: 'sk-test-key',
+            ),
+          );
+
+          expect(nextEnabled(tester), isTrue);
+          expect(find.byKey(kModelStepNextBlockedKey), findsNothing);
+          expect(find.byKey(kModelStepUseLocalKey), findsOneWidget);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+
+      // G1a: a saved key alone does not open the gate while the local engine
+      // is chosen (dictation would fail with "model missing"). The page
+      // offers the cloud provider as an explicit choice instead, so nobody
+      // is stuck and nothing switches silently.
+      testWidgets('a saved key with the local engine chosen offers the cloud '
+          'provider and switches only on tap (UIA-MDL-GATE G1a)', (
+        tester,
+      ) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        final settings = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWith(deepgramApiKey: 'dg-test-key'),
+        );
+        try {
+          await _pumpOverlay(
+            tester,
+            mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+            settings: settings,
+            modelInstalled: false,
+          );
+          await _tapNext(tester);
+          await _tapNext(tester);
+
+          expect(nextEnabled(tester), isFalse);
+          expect(find.byKey(kModelStepNextBlockedKey), findsOneWidget);
+          expect(
+            find.text(l10n.onboardingModelUseCloud('Deepgram')),
+            findsOneWidget,
+          );
+          expect(settings.current.sttProviderType, SttProviderType.onDevice);
+
+          await tester.tap(find.byKey(kModelStepUseCloudKey));
+          await tester.pumpAndSettle();
+
+          expect(settings.current.sttProviderType, SttProviderType.deepgram);
+          expect(nextEnabled(tester), isTrue);
+          expect(find.byKey(kModelStepUseCloudKey), findsNothing);
+
+          await tester.tap(find.byKey(kModelStepUseLocalKey));
+          await tester.pumpAndSettle();
+
+          expect(settings.current.sttProviderType, SttProviderType.onDevice);
+          expect(nextEnabled(tester), isFalse);
+          expect(find.byKey(kModelStepUseCloudKey), findsOneWidget);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+
+      testWidgets('without any saved key no cloud choice is shown', (
+        tester,
+      ) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await pumpToModelPage(tester);
+
+          expect(find.byKey(kModelStepUseCloudKey), findsNothing);
+          expect(find.byKey(kModelStepUseLocalKey), findsNothing);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+
+      testWidgets('a blank cloud key does not count as set up', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          await pumpToModelPage(
+            tester,
+            settings: AppSettings.defaults.copyWith(openAiApiKey: '   '),
+          );
+
+          expect(nextEnabled(tester), isFalse);
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+
+      testWidgets(
+        'without a model, download or key the reason is readable text '
+        'under its key (UIA-MDL-GATE)',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            await pumpToModelPage(tester);
+
+            expect(nextEnabled(tester), isFalse);
+            expect(
+              tester.widget<Text>(find.byKey(kModelStepNextBlockedKey)).data,
+              l10n.onboardingModelNextBlocked,
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+
+      testWidgets('a download aborted on the model page closes Next again '
+          '(UIA-MDL-GATE)', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        final script = ValueNotifier<ModelDownloadState>(running);
+        try {
+          await pumpToModelPage(tester, script: script);
+          expect(nextEnabled(tester), isTrue);
+
+          script.value = aborted;
+          await tester.pumpAndSettle();
+
+          expect(nextEnabled(tester), isFalse);
+          expect(find.byKey(kModelStepNextBlockedKey), findsOneWidget);
+        } finally {
+          script.dispose();
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+
+      testWidgets('a download aborted after the model page closes the closing '
+          'page even with the mic bypass (UIA-MDL-GATE)', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        final script = ValueNotifier<ModelDownloadState>(running);
+        try {
+          await pumpToModelPage(tester, script: script);
+          await walkToClosingPage(tester);
+          await tester.tap(find.byKey(kTestRecordingStepMicBypassButtonKey));
+          await tester.pumpAndSettle();
+          expect(nextEnabled(tester), isTrue, reason: 'running download');
+
+          script.value = aborted;
+          await tester.pumpAndSettle();
+
+          expect(nextEnabled(tester), isFalse);
+          expect(find.byKey(kReadyStepNoModelKey), findsOneWidget);
+          expect(find.byKey(kReadyStepBackToModelKey), findsOneWidget);
+
+          await tester.tap(find.byKey(kReadyStepBackToModelKey));
+          await tester.pumpAndSettle();
+          expect(find.text(l10n.onboardingModelTitle), findsOneWidget);
+        } finally {
+          script.dispose();
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+
+      for (final (label, settings, installed) in [
+        ('an installed model', null, true),
+        (
+          'a chosen cloud provider with a saved key',
+          AppSettings.defaults.copyWith(
+            sttProvider: SttProviderType.openAI.value,
+            openAiApiKey: 'sk-test-key',
+          ),
+          false,
+        ),
+      ]) {
+        testWidgets('the closing page completes with the mic bypass and '
+            '$label (UIA-MDL-GATE)', (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            await pumpToModelPage(
+              tester,
+              settings: settings,
+              modelInstalled: installed,
+            );
+            await walkToClosingPage(tester);
+            await tester.tap(find.byKey(kTestRecordingStepMicBypassButtonKey));
+            await tester.pumpAndSettle();
+
+            expect(nextEnabled(tester), isTrue);
+            expect(find.byKey(kReadyStepNoModelKey), findsNothing);
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        });
+      }
+    },
+  );
+
+  // ── Model page: Next needs a model or a running download (UIA-RT-01) ─────
+
+  group('OnboardingOverlay — model page gates Next (UIA-RT-01)', () {
+    Future<void> pumpToModelPage(
+      WidgetTester tester, {
+      ModelDownloadState? whisper,
+      ParakeetDownloadState? parakeet,
+    }) async {
+      await _pumpOverlay(
+        tester,
+        mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+        modelInstalled: false,
+        whisperDownload: whisper,
+        parakeetDownload: parakeet,
+      );
+      await _tapNext(tester);
+      await _tapNext(tester);
+      expect(find.text(l10n.onboardingModelTitle), findsOneWidget);
+    }
+
+    bool nextEnabled(WidgetTester tester) =>
+        tester
+            .widget<WpHeroButton>(find.byKey(kOnboardingNextButtonKey))
+            .onPressed !=
+        null;
+
+    testWidgets('without a model and without a download Next is disabled', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await pumpToModelPage(tester);
+
+        expect(nextEnabled(tester), isFalse);
+        expect(
+          find.text(l10n.onboardingModelNextBlocked),
+          findsOneWidget,
+          reason: 'The reason is visible text, not only a disabled button.',
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('a running download lets Next through (it continues in the '
+        'background)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await pumpToModelPage(
+          tester,
+          whisper: const ModelDownloadState(
+            phase: DownloadPhase.downloading,
+            activeModelId: 'whisper-medium',
+            progressPercent: 10,
+          ),
+        );
+
+        expect(nextEnabled(tester), isTrue);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('the closing page without a model offers a jump back to the '
+        'model step (UIA-RT-01)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final total = _totalSteps(TargetPlatform.macOS);
+        await _pumpOverlay(
+          tester,
+          mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+          modelInstalled: false,
+          // A running download is enough to pass the model page; nothing is
+          // installed yet when the closing page is reached.
+          whisperDownload: const ModelDownloadState(
+            phase: DownloadPhase.downloading,
+            activeModelId: 'whisper-medium',
+            progressPercent: 10,
+          ),
+        );
+        for (var page = 1; page < total; page++) {
+          await _tapNext(tester);
+        }
+        expect(find.text(l10n.onboardingStepOf(total, total)), findsOneWidget);
+        expect(find.text(l10n.onboardingReadyTitle), findsNothing);
+
+        await tester.tap(find.byKey(kReadyStepBackToModelKey));
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.onboardingStepOf(3, total)), findsOneWidget);
+        expect(find.text(l10n.onboardingModelTitle), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('a model step request from a notice jumps back to the model '
+        'step (UIA-RT-01)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final total = _totalSteps(TargetPlatform.macOS);
+        await _pumpOverlay(
+          tester,
+          mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+        );
+        for (var page = 1; page < total; page++) {
+          await _tapNext(tester);
+        }
+        expect(find.text(l10n.onboardingStepOf(total, total)), findsOneWidget);
+
+        ProviderScope.containerOf(
+          tester.element(find.byType(OnboardingOverlay)),
+        ).read(onboardingModelStepRequestProvider.notifier).request();
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.onboardingStepOf(3, total)), findsOneWidget);
+        expect(find.text(l10n.onboardingModelTitle), findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    for (final locale in const [Locale('de'), Locale('he')]) {
+      testWidgets('the closing page without a model fits the fixed 1100x720 '
+          'window in ${locale.languageCode} (UIA-RT-01)', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          const size = Size(1100, 720);
+          final total = _totalSteps(TargetPlatform.macOS);
+          await _pumpOverlay(
+            tester,
+            size: size,
+            locale: locale,
+            mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+            modelInstalled: false,
+            whisperDownload: const ModelDownloadState(
+              phase: DownloadPhase.downloading,
+              activeModelId: 'whisper-medium',
+              progressPercent: 10,
+            ),
+          );
+          for (var page = 1; page < total; page++) {
+            await _tapNext(tester);
+          }
+          final button = find.byKey(kReadyStepBackToModelKey);
+          expect(button, findsOneWidget);
+          expect(
+            tester.getRect(button).bottom,
+            lessThanOrEqualTo(size.height),
+            reason: 'The way back must be on screen, not scrolled away.',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+
+    // Finishing without a model must not pitch Smart Mode: it cleans up
+    // dictation, which needs a model (UIA-RT-01). With a model it still does.
+    for (final installed in [false, true]) {
+      testWidgets('finishing onboarding with${installed ? '' : 'out'} a speech '
+          'model ${installed ? 'offers' : 'does not offer'} Smart Mode '
+          '(UIA-RT-01)', (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        try {
+          final total = _totalSteps(TargetPlatform.macOS);
+          final settings = _FakeSettingsNotifier();
+          await _pumpOverlay(
+            tester,
+            settings: settings,
+            mic: _RecordingMicPermissionNotifier(MicPermissionStatus.granted),
+            modelInstalled: installed,
+            whisperDownload: installed
+                ? null
+                : const ModelDownloadState(
+                    phase: DownloadPhase.downloading,
+                    activeModelId: 'whisper-medium',
+                    progressPercent: 10,
+                  ),
+          );
+          for (var page = 1; page < total; page++) {
+            await _tapNext(tester);
+          }
+          await tester.tap(find.byKey(kTestRecordingStepMicBypassButtonKey));
+          await tester.pumpAndSettle();
+
+          await _tapNext(tester);
+
+          if (installed) {
+            expect(
+              find.text(l10n.smartModeOnboardingHintTitle),
+              findsOneWidget,
+            );
+            await tester.tap(
+              find.byKey(const Key('onboarding-smart-mode-hint-skip')),
+            );
+            await tester.pumpAndSettle();
+          } else {
+            expect(find.text(l10n.smartModeOnboardingHintTitle), findsNothing);
+          }
+          expect(
+            settings.current.onboarding.onboardingCompleted,
+            isTrue,
+            reason: 'The flow must still finish, model or not.',
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      });
+    }
+
+    testWidgets('an installed model lets Next through', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await pumpToModelPage(
+          tester,
+          parakeet: const ParakeetDownloadState(installed: true),
+        );
+
+        expect(nextEnabled(tester), isTrue);
+        expect(find.text(l10n.onboardingModelNextBlocked), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+  });
+
+  // ── Text scale 2.0 on the fixed window (UIA-VIS-09, UIA-VIS-10) ─────────
+  //
+  // The fixed-window group above stops at 1.3, because above that the page
+  // scrolls by design. At 2.0 it still scrolls, but two things must hold:
+  // whatever scrolls must end above the footer (never under it), and no
+  // label may be cut to an ellipsis or clipped in a button.
+  group('OnboardingOverlay — text scale 2.0 (UIA-VIS-09, UIA-VIS-10)', () {
+    const scale2Sizes = [kOnboardingWindowSize, Size(800, 716)];
+    const scale2Locales = [Locale('de'), Locale('he')];
+
+    // Scrolls the page's own scroll view to its end, the way a user would
+    // reach the last line of the page.
+    void scrollPageToEnd(WidgetTester tester) {
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      position.jumpTo(position.maxScrollExtent);
+    }
+
+    // Fails when [what] is not fully above the footer row.
+    void expectAboveFooter(WidgetTester tester, Finder what, String name) {
+      final footerTop = tester.getRect(find.byKey(kOnboardingNavRowKey)).top;
+      expect(
+        tester.getRect(what).bottom,
+        lessThanOrEqualTo(footerTop),
+        reason:
+            '$name ends ${tester.getRect(what).bottom - footerTop} px below the '
+            'top of the footer, so the footer covers it. The page must scroll '
+            'its last line above the footer.',
+      );
+    }
+
+    // Fails when any text under [scope] was cut off (ellipsis or line cap).
+    void expectNotTruncated(WidgetTester tester, Finder scope, String name) {
+      final paragraphs = tester.renderObjectList<RenderParagraph>(
+        find.descendant(of: scope, matching: find.byType(RichText)),
+      );
+      expect(paragraphs, isNotEmpty, reason: '$name has no text to measure.');
+      for (final paragraph in paragraphs) {
+        expect(
+          paragraph.didExceedMaxLines,
+          isFalse,
+          reason:
+              '"${paragraph.text.toPlainText()}" in $name is cut off at text '
+              'scale 2.0.',
+        );
+      }
+    }
+
+    void useWindow(WidgetTester tester, Size size) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    }
+
+    for (final size in scale2Sizes) {
+      for (final locale in scale2Locales) {
+        final label =
+            '${size.width.toInt()}x${size.height.toInt()}, '
+            '${locale.languageCode}';
+
+        testWidgets('UIA-VIS-10 model page (3): the Parakeet name is whole and '
+            'the GPU notice ends above the footer, $label', (tester) async {
+          useWindow(tester, size);
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            await _pumpOverlay(
+              tester,
+              size: size,
+              locale: locale,
+              textScaler: const TextScaler.linear(2.0),
+              settings: _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(locale: locale.languageCode),
+              ),
+            );
+            await _tapNext(tester); // → 2
+            await _tapNext(tester); // → 3: Model
+
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: 'Model page overflowed at text scale 2.0 ($label).',
+            );
+            scrollPageToEnd(tester);
+            await tester.pump();
+            expect(tester.takeException(), isNull);
+            expectAboveFooter(
+              tester,
+              find.byKey(kModelStepGpuCpuFallbackKey),
+              'the GPU notice',
+            );
+            expectNotTruncated(
+              tester,
+              find.byKey(kModelStepEngineParakeetCardKey),
+              'the Parakeet card',
+            );
+            expectNotTruncated(
+              tester,
+              find.byKey(kOnboardingNavRowKey),
+              'the footer',
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        });
+
+        testWidgets('UIA-VIS-09 try-and-go page (7): the reassurance line and '
+            'the footer buttons stay whole and above the footer, $label', (
+          tester,
+        ) async {
+          useWindow(tester, size);
+          debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+          try {
+            final loc = await L10n.delegate.load(locale);
+            await _pumpOverlay(
+              tester,
+              size: size,
+              locale: locale,
+              textScaler: const TextScaler.linear(2.0),
+              settings: _FakeSettingsNotifier(
+                AppSettings.defaults.copyWith(locale: locale.languageCode),
+              ),
+            );
+            final total = _totalSteps(TargetPlatform.macOS);
+            for (var page = 2; page <= total; page++) {
+              await _tapNext(tester);
+            }
+
+            expect(
+              tester.takeException(),
+              isNull,
+              reason: 'Try & Go overflowed at text scale 2.0 ($label).',
+            );
+            scrollPageToEnd(tester);
+            await tester.pump();
+            expect(tester.takeException(), isNull);
+            expectAboveFooter(
+              tester,
+              find.byKey(kTestRecordingStepReassuranceHintKey),
+              'the reassurance line',
+            );
+            expectAboveFooter(
+              tester,
+              find.text(loc.onboardingTestRecordingMicBypassConsequence),
+              'the escape-hatch consequence line',
+            );
+            expectNotTruncated(
+              tester,
+              find.byKey(kOnboardingNavRowKey),
+              'the footer',
+            );
+            expectNotTruncated(
+              tester,
+              find.byKey(kTestRecordingStepMicBypassButtonKey),
+              'the microphone escape hatch',
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        });
+      }
+    }
+  });
+
+  // Maintainer 3b (2026-10-19, replaces the XP-6-03 decision to keep each
+  // control next to its own label): the controls of pages 2 and 5 share one
+  // column, so they end on the same x whatever the label lengths are. The
+  // controls differ in width (switch, dropdown, swatches), so the shared
+  // edge is their end edge, the one the switches of page 2 already share.
+  group('OnboardingOverlay — pages 2 and 5 share one control column (3b)', () {
+    setUpAll(loadAppFonts);
+
+    // The end edge of every setting row's control on the current page.
+    List<double> controlEnds(WidgetTester tester, {required bool rtl}) => [
+      for (final element in find.byType(SettingRow).evaluate())
+        () {
+          final row = element.widget as SettingRow;
+          final rect = tester.getRect(
+            find.descendant(
+              of: find.byWidget(row),
+              matching: find.byWidget(row.trailing),
+            ),
+          );
+          return rtl ? rect.left : rect.right;
+        }(),
+    ];
+
+    for (final scale in const [1.0, 2.0]) {
+      for (final size in const [kOnboardingWindowSize, Size(800, 716)]) {
+        for (final locale in const [Locale('de'), Locale('he')]) {
+          final label =
+              'scale $scale, ${size.width.toInt()}x${size.height.toInt()}, '
+              '${locale.languageCode}';
+          testWidgets('pages 2 and 5 line their controls up ($label)', (
+            tester,
+          ) async {
+            debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+            try {
+              tester.view.physicalSize = size;
+              tester.view.devicePixelRatio = 1.0;
+              addTearDown(tester.view.resetPhysicalSize);
+              addTearDown(tester.view.resetDevicePixelRatio);
+              await _pumpOverlay(
+                tester,
+                size: size,
+                locale: locale,
+                textScaler: TextScaler.linear(scale),
+                settings: _FakeSettingsNotifier(
+                  AppSettings.defaults.copyWith(locale: locale.languageCode),
+                ),
+              );
+              final rtl = Bidi.isRtlLanguage(locale.languageCode);
+
+              for (var page = 1; page <= 5; page++) {
+                if (page > 1) await _tapNext(tester);
+                if (page != 2 && page != 5) continue;
+                expect(tester.takeException(), isNull, reason: 'page $page');
+                final ends = controlEnds(tester, rtl: rtl);
+                expect(
+                  ends.length,
+                  page == 2 ? 3 : 4,
+                  reason: 'page $page rows',
+                );
+                for (final x in ends) {
+                  expect(
+                    x,
+                    moreOrLessEquals(ends.first, epsilon: 0.5),
+                    reason: 'page $page control ends: $ends',
+                  );
+                }
+              }
+            } finally {
+              debugDefaultTargetPlatformOverride = null;
+            }
+          });
+        }
+      }
+    }
   });
 }

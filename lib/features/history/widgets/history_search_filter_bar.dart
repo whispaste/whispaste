@@ -13,6 +13,7 @@ import '../../../core/recording/recording_state.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/recording_orchestrator.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_filter_chip.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../../../widgets/wp_search_field.dart';
@@ -71,7 +72,6 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
     required this.onSortOrderChanged,
     this.searchFocusNode,
     this.onEmptyTrash,
-    this.newRecordingIsLoud = true,
   });
 
   final TextEditingController controller;
@@ -87,22 +87,6 @@ class HistorySearchFilterBar extends ConsumerStatefulWidget {
   final ValueChanged<HistorySortOrder> onSortOrderChanged;
   final FocusNode? searchFocusNode;
   final VoidCallback? onEmptyTrash;
-
-  /// Whether "New recording" is this screen's one loud action.
-  ///
-  /// False while the content area below shows an empty state that carries a
-  /// CTA of its own — "Clear search" when a query found nothing, "Try again"
-  /// after a load error. *The One-Loud-Action Rule* allows one `primary` per
-  /// screen and a centred CTA on an otherwise blank page is the louder of the
-  /// two, so the button gives up the volume and keeps the action.
-  ///
-  /// The other empty states — trash, archive, favourites, today, this week,
-  /// and a history that has simply never been filled — deliberately offer no
-  /// action of their own (see [WpEmptyState]'s rule: the history fills from a
-  /// recording run, and its hint says so). On those this button stays loud,
-  /// which is exactly right: starting a recording is what an empty history
-  /// wants next.
-  final bool newRecordingIsLoud;
 
   @override
   ConsumerState<HistorySearchFilterBar> createState() =>
@@ -182,19 +166,17 @@ class _HistorySearchFilterBarState
       return KeyEventResult.handled;
     }
 
-    // Only the simple tag/lang list is navigable. The smart panel renders three
-    // heterogeneous sections and ignores _selectedIdx entirely, so consuming
-    // arrows there would swallow the caret keys for no visible effect —
-    // deliberately left to a follow-up ticket.
-    if (_suggestionType != _SuggestionType.tag &&
-        _suggestionType != _SuggestionType.lang) {
-      return KeyEventResult.ignored;
-    }
-    if (_suggestions.isEmpty) return KeyEventResult.ignored;
+    // The tag/lang lists and the smart panel (recent searches, then popular
+    // tags) are navigable. The quick-action chips are not, and keep Tab.
+    final navigable =
+        _suggestionType == _SuggestionType.tag ||
+        _suggestionType == _SuggestionType.lang ||
+        _suggestionType == _SuggestionType.smartPanel;
+    if (!navigable || _navigableCount == 0) return KeyEventResult.ignored;
 
     if (key == LogicalKeyboardKey.arrowDown) {
       setState(() {
-        _selectedIdx = (_selectedIdx + 1) % _suggestions.length;
+        _selectedIdx = (_selectedIdx + 1) % _navigableCount;
       });
       return KeyEventResult.handled;
     }
@@ -202,7 +184,7 @@ class _HistorySearchFilterBarState
     if (key == LogicalKeyboardKey.arrowUp) {
       setState(() {
         _selectedIdx = _selectedIdx <= 0
-            ? _suggestions.length - 1
+            ? _navigableCount - 1
             : _selectedIdx - 1;
       });
       return KeyEventResult.handled;
@@ -215,8 +197,8 @@ class _HistorySearchFilterBarState
     // list and hands Tab straight back. Matches settings_search_field.dart:120,
     // which is also Enter-only.
     if (key == LogicalKeyboardKey.enter) {
-      if (_selectedIdx >= 0 && _selectedIdx < _suggestions.length) {
-        _selectSuggestion(_suggestions[_selectedIdx]);
+      if (_selectedIdx >= 0 && _selectedIdx < _navigableCount) {
+        _activateHighlighted();
         return KeyEventResult.handled;
       }
       return KeyEventResult.ignored;
@@ -302,7 +284,9 @@ class _HistorySearchFilterBarState
       _quickTags = topTags;
       _suggestions = topTags;
       _suggestionType = _SuggestionType.smartPanel;
-      _selectedIdx = 0;
+      // Nothing highlighted until the user arrows in, so Enter cannot act on
+      // an item they did not pick (UIA-HIS-14).
+      _selectedIdx = -1;
     });
   }
 
@@ -348,6 +332,25 @@ class _HistorySearchFilterBarState
         _suggestionType = _SuggestionType.none;
         _selectedIdx = 0;
       });
+    }
+  }
+
+  /// Items the arrow keys walk: in the smart panel the recent searches come
+  /// first, then the popular tags (UIA-HIS-14).
+  int get _navigableCount => _suggestionType == _SuggestionType.smartPanel
+      ? _recentSearches.length + _quickTags.length
+      : _suggestions.length;
+
+  /// Runs the highlighted item: a recent search replays, a tag is inserted.
+  void _activateHighlighted() {
+    if (_suggestionType != _SuggestionType.smartPanel) {
+      _selectSuggestion(_suggestions[_selectedIdx]);
+      return;
+    }
+    if (_selectedIdx < _recentSearches.length) {
+      _replayRecentSearch(_recentSearches[_selectedIdx]);
+    } else {
+      _selectSuggestion(_quickTags[_selectedIdx - _recentSearches.length]);
     }
   }
 
@@ -429,15 +432,26 @@ class _HistorySearchFilterBarState
           // Section: Recent Searches
           if (_recentSearches.isNotEmpty) ...[
             _sectionHeader(l10n.historyRecentSearches, textMuted),
-            for (final query in _recentSearches)
-              _recentSearchItem(query, accent, textMuted),
+            for (var i = 0; i < _recentSearches.length; i++)
+              _recentSearchItem(
+                _recentSearches[i],
+                accent,
+                textMuted,
+                highlighted: _selectedIdx == i,
+              ),
           ],
           // Section: Popular Tags
           if (_quickTags.isNotEmpty) ...[
             if (_recentSearches.isNotEmpty)
               const SizedBox(height: WpSpacing.xs),
             _sectionHeader(l10n.historySearchQuickTags, textMuted),
-            for (final tag in _quickTags) _tagItem(tag, accent, textMuted),
+            for (var j = 0; j < _quickTags.length; j++)
+              _tagItem(
+                _quickTags[j],
+                accent,
+                textMuted,
+                highlighted: _selectedIdx == _recentSearches.length + j,
+              ),
           ],
           // Section: Quick Actions
           if (_recentSearches.isNotEmpty || _quickTags.isNotEmpty) ...[
@@ -504,64 +518,83 @@ class _HistorySearchFilterBarState
     );
   }
 
-  Widget _recentSearchItem(String query, Color accent, Color textMuted) {
+  Widget _recentSearchItem(
+    String query,
+    Color accent,
+    Color textMuted, {
+    bool highlighted = false,
+  }) {
     return InkWell(
       onTap: () => _replayRecentSearch(query),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.md,
-          vertical: WpSpacing.xxs + 1,
-        ),
-        child: Row(
-          children: [
-            Icon(LucideIcons.clock, size: 13, color: textMuted),
-            const SizedBox(width: WpSpacing.xs),
-            Expanded(
-              child: Text(
-                query,
-                style: TextStyle(fontSize: WpTypography.body, color: textMuted),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+      child: Container(
+        color: highlighted ? WpColors.accentActiveFill : Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.xxs + 1,
+          ),
+          child: Row(
+            children: [
+              Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
+              const SizedBox(width: WpSpacing.xs),
+              Expanded(
+                child: Text(
+                  query,
+                  style: TextStyle(
+                    fontSize: WpTypography.body,
+                    color: textMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            // loam-ignore: a11y-interactive-semantics – semantics provided in _DismissIconState.build
-            _DismissIcon(
-              icon: LucideIcons.x,
-              size: 12,
-              color: textMuted,
-              semanticLabel: L10n.of(context).historyRemoveRecentSearch,
-              onTap: () {
-                ref.read(recentSearchesProvider.notifier).removeSearch(query);
-                setState(() {
-                  _recentSearches = _recentSearches
-                      .where((s) => s != query)
-                      .toList();
-                });
-              },
-            ),
-          ],
+              // loam-ignore: a11y-interactive-semantics – semantics provided in _DismissIconState.build
+              _DismissIcon(
+                icon: LucideIcons.x,
+                size: 12,
+                color: textMuted,
+                semanticLabel: L10n.of(context).historyRemoveRecentSearch,
+                onTap: () {
+                  ref.read(recentSearchesProvider.notifier).removeSearch(query);
+                  setState(() {
+                    _recentSearches = _recentSearches
+                        .where((s) => s != query)
+                        .toList();
+                  });
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _tagItem(String tag, Color accent, Color textMuted) {
+  Widget _tagItem(
+    String tag,
+    Color accent,
+    Color textMuted, {
+    bool highlighted = false,
+  }) {
     return InkWell(
       onTap: () => _selectSuggestion(tag),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: WpSpacing.md,
-          vertical: WpSpacing.xxs + 1,
-        ),
-        child: Row(
-          children: [
-            Icon(LucideIcons.tag, size: 13, color: textMuted),
-            const SizedBox(width: WpSpacing.xs),
-            Text(
-              '#$tag',
-              style: TextStyle(fontSize: WpTypography.body, color: textMuted),
-            ),
-          ],
+      child: Container(
+        color: highlighted ? WpColors.accentActiveFill : Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.md,
+            vertical: WpSpacing.xxs + 1,
+          ),
+          child: Row(
+            children: [
+              Icon(LucideIcons.tag, size: WpIconSize.xs, color: textMuted),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                '#$tag',
+                style: TextStyle(fontSize: WpTypography.body, color: textMuted),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -590,7 +623,7 @@ class _HistorySearchFilterBarState
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 12, color: accent),
+            Icon(icon, size: WpIconSize.xxs, color: accent),
             const SizedBox(width: 4),
             Text(
               label,
@@ -643,7 +676,7 @@ class _HistorySearchFilterBarState
                       _suggestionType == _SuggestionType.lang
                           ? LucideIcons.globe
                           : LucideIcons.tag,
-                      size: 13,
+                      size: WpIconSize.xs,
                       color: selected ? accent : textMuted,
                     ),
                     const SizedBox(width: WpSpacing.xs),
@@ -683,14 +716,14 @@ class _HistorySearchFilterBarState
       activeCommands.add('lang:${parsed.langCode}');
     }
 
-    const accent = WpColors.accent;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
     // The suggestion panel floats over whatever the list happens to show, so
     // it takes the *pre-composited* card material and the tinted rim that
     // goes with it — the same recipe `WpDropdown` uses for its menu. A
     // translucent frost over unknown content is not a material.
-    const surface = WpColors.floatingSurface;
-    const borderCol = WpColors.cardEdgeHighlight;
+    final surface = WpColors.floatingSurface;
+    final borderCol = WpColors.cardEdgeHighlight;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -724,7 +757,7 @@ class _HistorySearchFilterBarState
                 ),
               ),
               const SizedBox(width: WpSpacing.sm),
-              _NewRecordingButton(isLoud: widget.newRecordingIsLoud),
+              const _NewRecordingButton(),
             ],
           ),
 
@@ -800,38 +833,13 @@ class _HistorySearchFilterBarState
           // field's own.
           const SizedBox(height: WpSpacing.xs),
 
-          // ── Filter chips + controls ──────────────────────────────────────
+          // ── Filter chips + controls (row 2) ──────────────────────────────
           //
-          // `OverflowBar`, not a `Row`, and two `Wrap`s inside it — this row
-          // used to squash and then overflow (ticket 03, point 7). Three
-          // separate causes, all of them fixed here:
-          //
-          //   1. The trailing controls (result count, "Empty trash", three
-          //      icon controls) were plain `Row` children, so they were laid
-          //      out at their *unbounded* intrinsic width and whatever was
-          //      left over went to the chips' `Expanded`. Once the controls
-          //      alone were wider than the panel that leftover went negative
-          //      and the row overflowed — measured at a 340 px panel it
-          //      already overflowed by 7.7 px at 1.0x with the trash button
-          //      showing, and by 266 px at 2.6x.
-          //   2. The chips sat in a `SizedBox(height: minTouchTarget)`, a
-          //      hard 48 dp cap. At 2.6x a chip's own text is taller than
-          //      that, so the pills were clipped rather than merely tight.
-          //      They no longer need it: `WpFilterChip` carries its own
-          //      `minHeight: WpLayout.minTouchTarget` tap surface.
-          //   3. The chips scrolled horizontally, which meant the answer to
-          //      "the filters do not fit" was "hide some of them behind a
-          //      gesture with no affordance". Wrapping shows all six.
-          //
-          // `OverflowBar` keeps the wide-panel look exactly as it was —
-          // chips left, controls flush right on one line — and stacks the
-          // two groups onto separate lines the moment their intrinsic
-          // widths stop fitting, which is the "wrap, don't squash" the
-          // ticket asks for. No width threshold to guess or maintain.
-          // ── Filter chips + controls ──────────────────────────────────────
-          //
-          // One row: the chips take the remaining width and wrap inside it, the
-          // trailing group keeps its place on the right. The three view tools
+          // Row 2 sits below the search row, which matches Notes. The chips
+          // wrap onto further lines when the content column is narrow; they
+          // never scroll sideways, so every filter stays visible (Ticket 03).
+          // The trailing controls keep their place on the right, beside the
+          // chips, and wrap inside their own half of the row. The three view tools
           // (select, sort, view) sit inline while the row is wide enough for
           // the chips to stay on one line beside them; below that they collapse
           // into ONE 48 dp overflow menu on the same row, so nothing drops to a
@@ -914,7 +922,7 @@ class _HistorySearchFilterBarState
                         if (rawQuery.isNotEmpty)
                           Text(
                             l10n.historyResultCount(widget.resultCount),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: WpTypography.small,
                               color: textMuted,
                             ),
@@ -940,7 +948,7 @@ class _HistorySearchFilterBarState
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(
+                                      Icon(
                                         LucideIcons.trash2,
                                         size: WpIconSize.sm,
                                         color: WpColors.error,
@@ -956,7 +964,7 @@ class _HistorySearchFilterBarState
                                           l10n.historyEmptyTrash,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: WpTypography.small,
                                             color: WpColors.error,
                                           ),
@@ -1096,7 +1104,7 @@ class _CommandChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
+    final accent = WpColors.accent;
     return Container(
       // Vertical 2 stays off-scale on purpose: the active-filter pill hugs its
       // small text; xxs would visibly inflate it.
@@ -1114,7 +1122,7 @@ class _CommandChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: WpTypography.small,
               fontWeight: FontWeight.w600,
               color: accent,
@@ -1174,17 +1182,17 @@ class HistoryMultiSelectBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColors.accent;
+    final accent = WpColors.accent;
     // Card material at its elevated rung: this bar is a mode band laid over
     // the list, and the frost keeps the ambient running under it.
-    const bg = WpColors.cardFillElevated;
+    final bg = WpColors.cardFillElevated;
 
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.xl,
         vertical: WpSpacing.sm,
       ),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: bg,
         // The band's lower edge is `cardEdgeHighlight`, not `accentBorder20`
         // (Ticket 13): the line is load-bearing — it is what separates the
@@ -1214,7 +1222,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
               child: Text(
                 l10n.historyItemsSelected(selectedCount),
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: accent,
@@ -1237,7 +1245,7 @@ class HistoryMultiSelectBar extends StatelessWidget {
                   totalCount != null && selectedCount >= totalCount!
                       ? l10n.historyDeselectAll
                       : l10n.historySelectAll,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.small,
                     color: accent,
                     fontWeight: FontWeight.w500,
@@ -1370,7 +1378,7 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
 
   @override
   Widget build(BuildContext context) {
-    const textSecondary = WpColors.textSecondary;
+    final textSecondary = WpColors.textSecondary;
     final hoverColor = widget.isDestructive
         ? (WpColors.error)
         : (WpColors.textPrimary);
@@ -1451,7 +1459,7 @@ class HistoryViewModeToggle extends StatelessWidget {
     // The track is card material like the filter chips beside it, not the
     // old `surfaceVariant` tile: at the resting rung, so the active segment's
     // accent fill is the only thing in this control that reads as raised.
-    const bgColor = WpColors.cardFill;
+    final bgColor = WpColors.cardFill;
     return Container(
       // Off-scale on purpose: classic 2px segmented-control inset between the
       // track and its segments; xxs would make the track look chunky.
@@ -1610,10 +1618,7 @@ class _HistoryViewModeButtonState extends State<_HistoryViewModeButton> {
 /// way through the pipeline, and nothing sensible remains to stop. The
 /// spinner says so, the tooltip names the phase.
 class _NewRecordingButton extends ConsumerWidget {
-  const _NewRecordingButton({required this.isLoud});
-
-  /// See [HistorySearchFilterBar.newRecordingIsLoud].
-  final bool isLoud;
+  const _NewRecordingButton();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1627,17 +1632,18 @@ class _NewRecordingButton extends ConsumerWidget {
         phase == RecordingPhase.transcribing ||
         phase == RecordingPhase.refining;
 
-    return WpButton(
-      label: isRecording ? l10n.historyStopRecording : l10n.historyNewRecording,
-      // Recording never quiets down: a running recording is the loudest thing
-      // on any screen it appears on, whatever the list behind it is showing.
-      variant: (isLoud || isRecording)
-          ? WpButtonVariant.primary
-          : WpButtonVariant.secondary,
-      tone: isRecording ? WpButtonTone.danger : WpButtonTone.accent,
+    // Beside the 44 px search field: an icon button of the same height
+    // (WP-14 spec §4). Its label is the tooltip and accessible name.
+    return WpIconButton(
       icon: isRecording ? LucideIcons.square : LucideIcons.mic,
-      isLoading: isTranscribing,
-      disabledTooltip: isTranscribing ? l10n.statusTranscribing : null,
+      // While transcribing the tooltip says why the press does nothing.
+      tooltip: isTranscribing
+          ? l10n.statusTranscribing
+          : isRecording
+          ? l10n.historyStopRecording
+          : l10n.historyNewRecording,
+      danger: isRecording,
+      loading: isTranscribing,
       // Live in every phase but `transcribing` — `toggleRecording` decides
       // what the press means (start from idle/done/error, stop while
       // recording), exactly as it does for the hotkey.
@@ -1660,14 +1666,14 @@ class _SearchHelpButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
-    const textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final textPrimary = WpColors.textPrimary;
     // A popup menu floats over arbitrary content — pre-composited card
     // material, see `WpColors.floatingSurface`.
-    const surface = WpColors.floatingSurface;
+    final surface = WpColors.floatingSurface;
 
     return IconButton(
-      icon: const Icon(LucideIcons.info, size: 15, color: textMuted),
+      icon: Icon(LucideIcons.info, size: WpIconSize.sm, color: textMuted),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(
         minWidth: WpLayout.minTouchTarget,
@@ -1699,7 +1705,7 @@ class _SearchHelpButton extends StatelessWidget {
                 children: [
                   Text(
                     l10n.historySearchHelpTitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.body,
                       fontWeight: FontWeight.w600,
                       color: textPrimary,
@@ -1746,21 +1752,18 @@ class _HelpRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: textMuted),
+        Icon(icon, size: WpIconSize.xxs, color: textMuted),
         const SizedBox(width: WpSpacing.xs),
         Flexible(
           child: Text(
             text,
-            style: const TextStyle(
-              fontSize: WpTypography.small,
-              color: textMuted,
-            ),
+            style: TextStyle(fontSize: WpTypography.small, color: textMuted),
           ),
         ),
         if (example.isNotEmpty) ...[
@@ -1778,7 +1781,7 @@ class _HelpRow extends StatelessWidget {
             ),
             child: Text(
               example,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.caption,
                 fontWeight: FontWeight.w500,
                 color: accent,
@@ -1815,8 +1818,8 @@ class _SortDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
 
     final labels = {
       HistorySortOrder.newest: l10n.historySortNewest,
@@ -1844,7 +1847,7 @@ class _SortDropdown extends StatelessWidget {
                     : order == HistorySortOrder.oldest
                     ? LucideIcons.arrowUpNarrowWide
                     : LucideIcons.ruler,
-                size: 14,
+                size: WpIconSize.xs,
                 color: isSelected ? accent : textMuted,
               ),
               const SizedBox(width: WpSpacing.xs),
@@ -1982,8 +1985,8 @@ class _HistoryToolsOverflowButtonState
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final label = l10n.historyToolsMenu;
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
     final iconColor = widget.multiSelectMode ? accent : textMuted;
 
     return Semantics(
@@ -2048,7 +2051,7 @@ class _ToolsMenuRow extends StatelessWidget {
         SizedBox(
           width: WpIconSize.sm,
           child: selected
-              ? const Icon(
+              ? Icon(
                   LucideIcons.check,
                   size: WpIconSize.sm,
                   color: WpColors.accent,

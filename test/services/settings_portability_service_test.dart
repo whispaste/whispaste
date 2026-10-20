@@ -115,6 +115,8 @@ void main() {
     final restored = await service.importFromFile('/roundtrip.json');
 
     for (final key in settingsPortabilityPortableKeysForTest) {
+      // Exported, but import never applies these (WP-43a C-M-5).
+      if (settingsImportRefusedKeys.contains(key)) continue;
       expect(restored.settings[key], bundle.settings[key], reason: key);
     }
     expect(restored.replacements, hasLength(bundle.replacements.length));

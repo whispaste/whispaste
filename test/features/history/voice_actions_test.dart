@@ -22,6 +22,7 @@ import 'package:whispaste/features/history/widgets/voice_note_button.dart';
 import 'package:whispaste/widgets/wp_voice_input_button.dart';
 import 'package:whispaste/features/history/data/history_detail_provider.dart';
 import 'package:whispaste/services/audio_service.dart';
+import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/path_service.dart' as paths;
@@ -78,7 +79,7 @@ class _FakeSttService extends SttServerStateNotifier {
       const SttStatus(serverState: SttServerState.ready, port: 9999);
 
   @override
-  Future<void> ensureRunning() async {
+  Future<void> ensureRunning({bool warmup = true}) async {
     if (ensureRunningThrows) {
       throw Exception('STT server failed to start');
     }
@@ -192,6 +193,14 @@ Future<Directory> _createFakeSttDir({String modelId = 'whisper-small'}) async {
   return dir;
 }
 
+/// The real orchestrator with its dictation preflight (onboarding done,
+/// model file on disk) waved through — these tests are about what happens
+/// after the button starts, not about the host's model folder.
+class _ReadyOrchestrator extends RecordingOrchestrator {
+  @override
+  Future<String?> checkTranscriptionReady() async => null;
+}
+
 /// Wraps a [VoiceNoteButton] with the real [localSttBundleProvider]
 /// (`SttServerStateNotifier`) driven by a fake [WhisperEngine] injected via
 /// [whisperEngineProvider] — the actual FFI engine seam, as opposed to
@@ -211,6 +220,7 @@ Widget _makeTestableButtonViaEngine({
       }),
       audioServiceProvider.overrideWith(() => fakeAudio),
       whisperEngineProvider.overrideWithValue(engine),
+      recordingOrchestratorProvider.overrideWith(_ReadyOrchestrator.new),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
           AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
@@ -263,6 +273,7 @@ Widget _makeTestableButton({
       }),
       audioServiceProvider.overrideWith(() => fakeAudio),
       localSttBundleProvider.overrideWith(() => fakeStt),
+      recordingOrchestratorProvider.overrideWith(_ReadyOrchestrator.new),
     ],
     child: MaterialApp(
       debugShowCheckedModeBanner: false,

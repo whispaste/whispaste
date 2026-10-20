@@ -28,27 +28,34 @@ void main() {
     });
 
     test(
-      'reflects the average of locally persisted hotkey-latency samples',
+      'reflects the average stop-to-text time of persisted samples',
       () async {
         await db.recordHotkeyLatency(
           recordedAt: DateTime.now(),
-          latencyMs: 1000,
+          latencyMs: 9000,
         );
         await db.recordHotkeyLatency(
           recordedAt: DateTime.now(),
-          latencyMs: 2000,
+          latencyMs: 4000,
+          stopToTextMs: 1000,
+        );
+        await db.recordHotkeyLatency(
+          recordedAt: DateTime.now(),
+          latencyMs: 5000,
+          stopToTextMs: 2000,
         );
 
         final data = await container.read(analyticsProvider.future);
 
-        expect(data.averageHotkeyLatencyMs, 1500.0);
+        // Samples from before XP-6-09 carry no stop time and are skipped.
+        expect(data.averageStopToTextMs, 1500.0);
       },
     );
 
     test('is null when no hotkey-latency samples have been recorded', () async {
       final data = await container.read(analyticsProvider.future);
 
-      expect(data.averageHotkeyLatencyMs, isNull);
+      expect(data.averageStopToTextMs, isNull);
     });
   });
 }

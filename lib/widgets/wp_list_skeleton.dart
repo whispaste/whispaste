@@ -41,7 +41,7 @@ class WpListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const boxColor = WpColors.borderSubtle;
+    final boxColor = WpColors.borderSubtle;
 
     return ListView.separated(
       padding: padding,

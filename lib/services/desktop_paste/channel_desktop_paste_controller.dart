@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show protected;
 
 import '../../core/logging/app_logger.dart';
+import '../paste/input_idle.dart';
 import 'desktop_paste_controller_interface.dart';
 
 /// Shared base for channel-based desktop paste controllers (macOS + Windows).
@@ -34,6 +35,52 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
     return id;
   }
 
+  /// Sends Cmd+Z to the frontmost app (macOS). Other platforms have no
+  /// handler and report false, so the caller falls back to the clipboard.
+  Future<bool> sendUndoShortcut() async {
+    if (disposed) return false;
+    try {
+      return await channel.invokeMethod<bool>('sendUndoShortcut') ?? false;
+    } on MissingPluginException {
+      return false;
+    } on Object catch (e) {
+      // Any malformed or failed answer means no keystroke; the caller copies.
+      _log.debug('Undo keystroke not sent', e);
+      return false;
+    }
+  }
+
+  /// Native input-idle snapshot (DEV-185, GS-056). Null when the host cannot
+  /// answer; the caller then treats the input as typed.
+  Future<InputIdleSnapshot?> inputIdleSnapshot() async {
+    if (disposed) return null;
+    try {
+      final raw = await channel.invokeMapMethod<String, Object?>(
+        'inputIdleSnapshot',
+      );
+      final key = raw?['keyIdle'];
+      final mouse = raw?['mouseIdle'];
+      final synthetic = raw?['syntheticIdle'];
+      if (key is! num || mouse is! num || synthetic is! num) return null;
+      return InputIdleSnapshot(
+        keyIdle: key.toDouble(),
+        mouseIdle: mouse.toDouble(),
+        syntheticIdle: synthetic.toDouble(),
+      );
+    } on MissingPluginException {
+      return null;
+    } on Object catch (e) {
+      // A malformed answer must not reach the paste path; input then counts as typed.
+      _log.warning('Input idle snapshot unavailable, input counts as typed', e);
+      return null;
+    }
+  }
+
+  /// Extra arguments for the paste and copy shortcuts (pasteClipboard,
+  /// copySelection, typeText). Linux adds the terminal shortcut flag here.
+  @protected
+  Future<Map<String, Object?>> shortcutArguments() async => const {};
+
   @override
   Future<NativePasteResult> pasteClipboard({required Duration delay}) =>
       _sendShortcut('pasteClipboard', delay);
@@ -50,11 +97,13 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
     }
     final raw = await channel.invokeMethod<Object?>(method, {
       'delayMs': delay.inMilliseconds,
+      ...await shortcutArguments(),
     });
     if (raw is Map) {
       return NativePasteResult.fromMap(raw.cast<Object?, Object?>());
     }
-    return NativePasteResult.fromLegacyBool(raw as bool?);
+    // A non-bool answer counts as no answer (postFailed), like a missing one.
+    return NativePasteResult.fromLegacyBool(raw is bool ? raw : null);
   }
 
   @override
@@ -68,22 +117,29 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
     final raw = await channel.invokeMethod<Object?>('typeText', {
       'text': text,
       'delayMs': delay.inMilliseconds,
+      ...await shortcutArguments(),
     });
     if (raw is Map) {
       return NativePasteResult.fromMap(raw.cast<Object?, Object?>());
     }
-    return NativePasteResult.fromLegacyBool(raw as bool?);
+    return NativePasteResult.fromLegacyBool(raw is bool ? raw : null);
   }
 
   @override
   Future<bool> writeClipboardTextExcludingHistory(String text) async {
     if (disposed) return false;
     try {
-      final raw = await channel.invokeMethod<bool>('writeClipboardText', {
+      // Object? so a non-bool answer is false instead of a TypeError.
+      final raw = await channel.invokeMethod<Object?>('writeClipboardText', {
         'text': text,
       });
-      return raw ?? false;
+      return raw == true;
     } on MissingPluginException {
+      // Every platform with this controller implements the method (GS-106).
+      // Without it the caller falls back to a plain write that clipboard
+      // history records, so make the gap loud in debug builds.
+      _log.error('writeClipboardText has no native handler; plain write used');
+      assert(false, 'writeClipboardText has no native handler');
       return false;
     } on PlatformException {
       return false;
@@ -134,9 +190,8 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
     }
   }
 
-  /// Shared channel plumbing for [ClipboardReceiptBridge] — only the
-  /// macOS/Windows controllers mix it in (see
-  /// [ChannelClipboardReceiptBridge]); Linux has no native handler.
+  /// Shared channel plumbing for [ClipboardReceiptBridge] — the desktop
+  /// controllers mix it in (see [ChannelClipboardReceiptBridge]).
   Future<Object?> _invokeReceiptMethod(
     String method, [
     Map<String, Object?>? args,
@@ -165,8 +220,9 @@ abstract class ChannelDesktopPasteController extends DesktopPasteController {
   }
 }
 
-/// Channel implementation of [ClipboardReceiptBridge] for the macOS and
-/// Windows native hosts (`DesktopPasteHost.swift` / `desktop_paste_host.cpp`).
+/// Channel implementation of [ClipboardReceiptBridge] for the native hosts
+/// (`DesktopPasteHost.swift`, `desktop_paste_host.cpp`,
+/// `clipboard_receipt.cc`).
 /// Every channel failure degrades to the "no receipt" answer, so the caller
 /// falls back to the classic fixed-delay restore.
 mixin ChannelClipboardReceiptBridge on ChannelDesktopPasteController

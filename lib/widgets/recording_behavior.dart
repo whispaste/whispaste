@@ -10,25 +10,38 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/config/selectable_speech_models.dart';
 import '../core/navigation/page_state.dart'
     show
         activePageProvider,
         notesEditorTargetProvider,
         settingsScrollTargetProvider;
+import '../core/config/settings_enums.dart';
 import '../core/config/settings_provider.dart';
 import '../core/onboarding/onboarding_surface.dart';
+import '../features/onboarding/stt_model_readiness.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/recording/recording_helpers.dart';
 import '../core/recording/recording_state.dart';
+import '../services/clipboard_history/app_clipboard.dart';
 import '../services/model_download_service.dart';
+import '../services/pending_audio/pending_audio_queue.dart';
+import '../services/stt_parakeet/parakeet_download_service.dart'
+    show parakeetDownloadProvider;
+import '../services/transcription/language_mismatch_hint.dart';
+import '../services/stt_parakeet/parakeet_language_support.dart';
 import '../services/paste/paste_capability_notifier.dart';
+import '../services/paste/clipboard_unsaved_notifier.dart';
 import '../services/paste/paste_failure_notifier.dart';
 import '../services/paste/paster.dart';
+import '../services/pending_audio/pending_audio_notice.dart';
 import '../services/permissions/mic_permission_notifier.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/sound_feedback_service.dart';
@@ -38,6 +51,18 @@ import '../services/tray_service.dart';
 import '../services/window_activation.dart';
 import 'oom_recovery_dialog.dart';
 import 'toast.dart';
+import '../core/config/settings_labels.dart';
+import '../services/permissions/tcc_entry_reset_confirm.dart';
+import 'wp_error_notice.dart';
+import 'parakeet_language_notice.dart';
+
+/// Shortens [text] to [maxChars] code points for the done-toast. Works on
+/// runes rather than UTF-16 units so an emoji is never cut in half.
+String transcriptPreview(String text, {int maxChars = 80}) {
+  final runes = text.runes;
+  if (runes.length <= maxChars) return text;
+  return '${String.fromCharCodes(runes.take(maxChars))}…';
+}
 
 // ---------------------------------------------------------------------------
 // Localization helpers (error / info codes → human-readable messages)
@@ -53,7 +78,21 @@ import 'toast.dart';
 // components of the design system, which they are not.
 
 /// Maps error codes from the recording orchestrator to localized messages.
-String localizeRecordingError(L10n l10n, String errorCode) {
+///
+/// [localModelInstalled] only changes the cloud network and timeout messages:
+/// the offline hint (dictate with the local model) is shown only when a local
+/// model is on disk to fall back to (UIA-FLW-05).
+String localizeRecordingError(
+  L10n l10n,
+  String errorCode, {
+  bool localModelInstalled = false,
+}) {
+  const factsChangedPrefix = 'selection_edit_facts_changed:';
+  if (errorCode.startsWith(factsChangedPrefix)) {
+    return l10n.errorSelectionEditFactsChangedValue(
+      errorCode.substring(factsChangedPrefix.length),
+    );
+  }
   switch (errorCode) {
     case 'onboarding_not_completed':
       return l10n.errorOnboardingNotCompleted;
@@ -68,6 +107,8 @@ String localizeRecordingError(L10n l10n, String errorCode) {
     // Edit selection by voice (`.scratch/voice-selection-edit/`).
     case 'selection_edit_no_selection':
       return l10n.errorSelectionEditNoSelection;
+    case 'selection_edit_check_timed_out':
+      return l10n.smartModeCheckTimedOut;
     case 'selection_edit_no_engine':
       return l10n.errorSelectionEditNoEngine;
     case 'selection_edit_local_unavailable':
@@ -78,6 +119,8 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorSelectionEditCopyFailed;
     case 'selection_edit_failed':
       return l10n.errorSelectionEditFailed;
+    case 'selection_edit_facts_changed':
+      return l10n.errorSelectionEditFactsChanged;
     case 'selection_edit_paste_failed':
       return l10n.errorSelectionEditPasteFailed;
     case 'transcription_empty':
@@ -112,6 +155,26 @@ String localizeRecordingError(L10n l10n, String errorCode) {
       return l10n.errorCloudAuth;
     case 'cloud_quota_exceeded':
       return l10n.errorCloudQuota;
+    case 'quick_note_append_failed':
+      return l10n.errorQuickNoteAppendFailed;
+    case 'stt_model_corrupted':
+      return l10n.errorSttModelCorrupted;
+    case 'stt_model_file_missing':
+    case 'parakeet_model_not_found':
+    case 'whisper_model_not_found':
+      return l10n.errorSttModelFileMissing;
+    case 'stt_model_load_failed':
+    case 'whisper_init_failed':
+    case 'whisper_library_load_failed':
+      return l10n.errorSttModelLoadFailed;
+    case 'cloud_network_error':
+      return localModelInstalled
+          ? l10n.errorCloudNetworkLocal
+          : l10n.errorCloudNetwork;
+    case 'cloud_timeout':
+      return localModelInstalled
+          ? l10n.errorCloudTimeoutLocal
+          : l10n.errorCloudTimeout;
     // Pre-flight reject keys emitted by `InferenceRequestValidator` via
     // the `InferenceClientRejected` exception. Dotted IDs (stable string
     // contract owned by the validator) → camelCase ARB getters.
@@ -136,7 +199,8 @@ String localizeRecordingInfo(L10n l10n, String infoCode) => switch (infoCode) {
   'info_stt_cuda_oom_model' => l10n.infoSttCudaOomFallbackModel,
   'info_stt_cuda_oom_cpu' => l10n.infoSttCudaOomFallbackCpu,
   'info_snippet_picker_empty' => l10n.infoSnippetPickerEmpty,
-  _ => infoCode,
+  // An unknown code is a bug on our side; the raw code is not user text.
+  _ => l10n.errorGeneric,
 };
 
 // ---------------------------------------------------------------------------
@@ -209,6 +273,14 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
             .read(recoveryToastNotifierProvider.notifier)
             .report(RecoveryToastKind.cudaLoadCrashDisabled);
       }
+      // A notice reported before this widget listened (startup recovery) is
+      // re-raised: clearing and reporting again is a state change the listener
+      // in build() reacts to.
+      final pendingAudio = ref.read(pendingAudioNoticeProvider);
+      if (pendingAudio != null) {
+        final notifier = ref.read(pendingAudioNoticeProvider.notifier)..clear();
+        notifier.report(pendingAudio);
+      }
     });
   }
 
@@ -221,7 +293,7 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
   }
 
   void _onQuickNoteAppended(String noteId) =>
-      openQuickNoteInEditor(ref, noteId);
+      unawaited(reactToQuickNoteAppended(context, ref, noteId));
 
   void _checkStuckDone() {
     try {
@@ -278,6 +350,7 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
         modelName: nextModelName,
         hasCloudConfigured: pending.hasCloudConfigured,
         isPermanentFail: pending.isPermanentFail,
+        cloudProviderName: pending.cloudProviderName,
       );
 
       if (!mounted) return;
@@ -285,11 +358,20 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
       final orchestrator = ref.read(recordingOrchestratorProvider.notifier);
       switch (choice ?? WpOomRecoveryChoice.cancel) {
         case WpOomRecoveryChoice.trySmallerModel:
-          if (pending.nextModelId == null || nextModelName == null) break;
+          if (pending.nextModelId == null || nextModelName == null) {
+            if (mounted) {
+              showOomNoSmallerModelToast(context: context, l10n: l10n);
+            }
+            break;
+          }
           final didSwitch = await orchestrator.applyOomModelFallback(
             pending.nextModelId!,
           );
-          if (!mounted || !didSwitch) break;
+          if (!mounted) break;
+          if (!didSwitch) {
+            showOomNoSmallerModelToast(context: context, l10n: l10n);
+            break;
+          }
           WpToast.show(
             context,
             message: l10n.oomRecoveryDowngrading(nextModelName),
@@ -308,11 +390,11 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
               duration: const Duration(seconds: 4),
             );
           } else {
-            _openSettings('stt');
+            _openSettings('stt-model');
           }
           break;
         case WpOomRecoveryChoice.openSettings:
-          _openSettings('stt');
+          _openSettings('stt-model');
           break;
         case WpOomRecoveryChoice.cancel:
           break;
@@ -320,6 +402,29 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     } finally {
       _oomDialogOpen = false;
     }
+  }
+
+  /// Makes [code] the fixed STT language, as the user chose in the hint.
+  void _switchLanguage(String code) {
+    unawaited(
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(stt: s.stt.copyWith(language: code)),
+          ),
+    );
+  }
+
+  void _switchEngineToWhisper() {
+    unawaited(
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              stt: s.stt.copyWith(engine: OnDeviceEngine.whisper.value),
+            ),
+          ),
+    );
   }
 
   void _openSettings(String target) {
@@ -334,6 +439,22 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     ref.read(activePageProvider.notifier).setPage('settings');
   }
 
+  /// The "Open Settings" action of an error toast, deep-linked to the matching
+  /// row. Within onboarding a missing model goes back to the model step
+  /// (same as the info toast, UIA-RT-01). `null` when the code has no fix.
+  VoidCallback? _settingsRecoveryAction(String errorCode) {
+    final provider =
+        ref.read(settingsProvider).value?.sttProviderType ??
+        SttProviderType.onDevice;
+    final row = settingsRowForRecordingError(errorCode, provider);
+    if (row == null) return null;
+    if (row == 'stt-model' && ref.read(onboardingSurfaceActiveProvider)) {
+      return () =>
+          ref.read(onboardingModelStepRequestProvider.notifier).request();
+    }
+    return () => _openSettings(row);
+  }
+
   void _handleErrorState(BuildContext context, L10n l10n, RecordingState next) {
     try {
       ref.read(soundFeedbackProvider.notifier).playError();
@@ -346,6 +467,14 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
       errorCode: next.errorMessage!,
       onDismiss: () => ref.read(recordingOrchestratorProvider.notifier).reset(),
       openMicrophoneSettings: _openMicrophoneSettings,
+      openSettings: _settingsRecoveryAction(next.errorMessage!),
+      retry: isRepeatableTranscriptionError(next.errorMessage!)
+          ? () => unawaited(_retryKeptDictation(l10n))
+          : null,
+      copyTranscript: next.transcript == null
+          ? null
+          : () => unawaited(AppClipboard.setText(next.transcript!)),
+      localModelInstalled: ref.read(onboardingSttModelInstalledProvider),
     );
     // Auto-reset after toast display so FAB returns to idle.
     Future.delayed(const Duration(seconds: 5), () {
@@ -360,25 +489,42 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     });
   }
 
+  /// Transcribes the kept dictation again (UIA-FLW-01). Only a failure is
+  /// reported; a success lands in the history like any other dictation.
+  Future<void> _retryKeptDictation(L10n l10n) async {
+    final outcome = await ref
+        .read(recordingOrchestratorProvider.notifier)
+        .retryKeptDictation();
+    if (outcome == PendingRetryOutcome.failed && mounted) {
+      WpToast.show(
+        context,
+        message: l10n.pendingRetryFailed,
+        type: WpToastType.error,
+        duration: const Duration(seconds: 5),
+      );
+    }
+  }
+
   void _handleDoneState(BuildContext context, L10n l10n, RecordingState next) {
     _log.debug('State → done, scheduling sound + toast + 2s reset');
-    // Skip the success chime when the paste/insert attempt for this
-    // recording already failed — the error tone (played where the failure
-    // was reported) has already told the user something went wrong; a
-    // success chime right after it would contradict that signal.
+    // Skip the success chime and toast when the paste/insert attempt for this
+    // recording already failed — the error tone and the error toast (raised
+    // where the failure was reported) have already told the user something
+    // went wrong; a success signal right after them would contradict it and
+    // the success toast would even replace the error toast (XP-5-07).
     if (!next.pasteFailed) {
       try {
         ref.read(soundFeedbackProvider.notifier).playTranscriptionComplete();
       } catch (e) {
         _log.error('Success sound playback failed (non-fatal)', e);
       }
+      WpToast.show(
+        context,
+        message:
+            '${doneToastLabel(l10n, ref.read(recordingTargetProvider))} — ${transcriptPreview(next.transcript!)}',
+        type: WpToastType.success,
+      );
     }
-    WpToast.show(
-      context,
-      message:
-          '${doneToastLabel(l10n, ref.read(recordingTargetProvider))} — ${next.transcript!.length > 80 ? '${next.transcript!.substring(0, 80)}…' : next.transcript!}',
-      type: WpToastType.success,
-    );
     // Auto-reset after a short delay so the FAB returns to idle.
     // Guard on isDone: if the user already preempted the linger by starting a
     // new recording (orchestrator.startRecording resets done → idle → recording),
@@ -435,7 +581,7 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     // the action — the detour through Settings only remains for the cases
     // where there is nothing concrete to download.
     final missingModel = next == 'info_model_missing'
-        ? ref.read(missingSttModelProvider)
+        ? ref.read(missingSelectedSpeechModelProvider)
         : null;
     // Info codes that leave the user with an obvious open question must
     // carry the last logical step as a one-tap action instead of leaving
@@ -452,11 +598,26 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
         // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
         WpToastAction(
           label: l10n.infoModelMissingDownload,
+          // Whisper file or Parakeet bundle alike (UIA-MDL-GATE b).
           onPressed: () => unawaited(
-            ref
-                .read(modelDownloadProvider.notifier)
-                .downloadModel(missingModel.id),
+            downloadSpeechModel(
+              model: missingModel,
+              whisper: ref.read(modelDownloadProvider.notifier),
+              parakeet: ref.read(parakeetDownloadProvider.notifier),
+            ),
           ),
+        ),
+      ),
+      // Inside the onboarding flow the model step is the place to fix this,
+      // so the action goes there instead of out to Settings (UIA-RT-01).
+      'info_model_missing' when ref.read(onboardingSurfaceActiveProvider) => (
+        WpToastType.info,
+        const Duration(seconds: 6),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
+        WpToastAction(
+          label: l10n.onboardingReadyBackToModel,
+          onPressed: () =>
+              ref.read(onboardingModelStepRequestProvider.notifier).request(),
         ),
       ),
       'info_model_missing' => (
@@ -465,7 +626,7 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
         // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
         WpToastAction(
           label: l10n.pasteFailureOpenSettings,
-          onPressed: () => _openSettings('stt'),
+          onPressed: () => _openSettings('stt-model'),
         ),
       ),
       // Trigger word matched but the snippet list is empty — the
@@ -529,6 +690,24 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
       );
     });
 
+    // ── Previous clipboard could not be kept (macOS pasteboard privacy) ──
+    ref.listen<bool>(clipboardUnsavedNotifierProvider, (prev, next) {
+      if (!next) return;
+      _showClipboardUnsavedToast(context, l10n);
+      Future.microtask(
+        () => ref.read(clipboardUnsavedNotifierProvider.notifier).clear(),
+      );
+    });
+
+    // ── Audio kept for a history save (save failed, or kept from an earlier start) ──
+    ref.listen<PendingAudioNotice?>(pendingAudioNoticeProvider, (prev, next) {
+      if (next == null) return;
+      _showPendingAudioToast(context, l10n, next);
+      Future.microtask(
+        () => ref.read(pendingAudioNoticeProvider.notifier).clear(),
+      );
+    });
+
     // ── Server-binary recovery outcomes (issue #07 actionable toast) ──
     ref.listen<RecoveryToastEvent?>(recoveryToastNotifierProvider, (
       prev,
@@ -538,6 +717,39 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
       _showRecoveryToast(context, l10n, next.kind);
       Future.microtask(
         () => ref.read(recoveryToastNotifierProvider.notifier).clear(),
+      );
+    });
+
+    // ── Wrong-language hint (9.10): offer a switch, never switch silently ──
+    ref.listen<LanguageMismatchHint?>(languageMismatchHintProvider, (
+      prev,
+      next,
+    ) {
+      if (next == null) return;
+      showLanguageMismatchToast(
+        context: context,
+        l10n: l10n,
+        onSwitch: () => _switchLanguage(next.detected),
+      );
+      Future.microtask(
+        () => ref.read(languageMismatchHintProvider.notifier).clear(),
+      );
+    });
+
+    // ── Parakeet cannot transcribe the chosen language (SW-05) ──
+    ref.listen<ParakeetLanguageNotice?>(parakeetLanguageNoticeProvider, (
+      prev,
+      next,
+    ) {
+      if (next == null) return;
+      showWpParakeetLanguageToast(
+        context: context,
+        l10n: l10n,
+        languageCode: next.languageCode,
+        onSwitch: _switchEngineToWhisper,
+      );
+      Future.microtask(
+        () => ref.read(parakeetLanguageNoticeProvider.notifier).clear(),
       );
     });
 
@@ -564,6 +776,21 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
     );
   }
 
+  void _showPendingAudioToast(
+    BuildContext context,
+    L10n l10n,
+    PendingAudioNotice notice,
+  ) {
+    final saveLater = notice == PendingAudioNotice.saveLater;
+    WpToast.show(
+      context,
+      message: saveLater
+          ? l10n.pendingAudioSaveLater
+          : l10n.pendingAudioRecovered,
+      type: saveLater ? WpToastType.warning : WpToastType.info,
+    );
+  }
+
   void _showPasteFailureToast(
     BuildContext context,
     L10n l10n,
@@ -578,11 +805,45 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
       l10n: l10n,
       outcome: outcome,
       openAccessibilitySettings: _openAccessibilitySettings,
-      resetEntryAndGrant: capNotifier.grantRequiresEntryReset
-          ? capNotifier.repairAndRequestGrant
+      openAutoPasteSettings: () => _openSettings('text-after-dictation-action'),
+      resetEntryAndGrant: capNotifier.staleEntryResetCandidate
+          ? () => capNotifier.repairAndRequestGrant(
+              confirmReset: () => confirmTccEntryReset(l10n: l10n),
+            )
           : null,
       staleEntry: capNotifier.grantDidNotTakeEffect,
+      linuxNoDevice:
+          ref.read(pasteCapabilityNotifierProvider).capability?.status ==
+          PasteCapabilityStatus.unsupported,
     );
+  }
+
+  /// Calm, non-blocking, shown once per session: the paste itself worked, only
+  /// the previous clipboard content could not be kept.
+  void _showClipboardUnsavedToast(BuildContext context, L10n l10n) {
+    WpToast.show(
+      context,
+      message: l10n.pasteClipboardUnsavedHint,
+      type: WpToastType.info,
+      duration: const Duration(seconds: 8),
+      action: WpToastAction(
+        label: l10n.pasteClipboardUnsavedAction,
+        onPressed: () => unawaited(_openPrivacySettings()),
+        testId: 'clipboard-unsaved-toast-action',
+      ),
+    );
+  }
+
+  Future<void> _openPrivacySettings() async {
+    if (!Platform.isMacOS) return;
+    final uri = Uri.parse(
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_Pasteboard',
+    );
+    try {
+      await launchUrl(uri);
+    } on Exception catch (e) {
+      _log.warning('Could not open privacy settings', e);
+    }
   }
 
   Future<void> _openAccessibilitySettings() async {
@@ -608,8 +869,36 @@ class _WpRecordingBehaviorState extends ConsumerState<WpRecordingBehavior> {
 // (same testability motive as the injected seams on the toast helpers below).
 // ---------------------------------------------------------------------------
 
-/// Reacts to a finished quick-note append: brings the window forward, aims
-/// the Notizen area at [noteId] and switches to it.
+/// What a finished quick-note append does (UIA-SHL-08). By default the note is
+/// saved in the background and a toast offers "Open note"; the main window
+/// stays where it is. With the setting "Notizen im Hauptfenster öffnen" on, the
+/// window comes forward and opens the note at once ([openQuickNoteInEditor]).
+Future<void> reactToQuickNoteAppended(
+  BuildContext context,
+  WidgetRef ref,
+  String noteId,
+) async {
+  final settings = await ref.read(settingsProvider.future);
+  if (settings.quickNoteHotkey.openNoteInMainWindow) {
+    openQuickNoteInEditor(ref, noteId);
+    return;
+  }
+  if (!context.mounted) return;
+  final l10n = L10n.of(context);
+  WpToast.show(
+    context,
+    message: l10n.quickNoteToastSaved,
+    type: WpToastType.success,
+    action: WpToastAction(
+      label: l10n.quickNoteToastOpenNote,
+      testId: 'quick-note-toast-open-note',
+      onPressed: () => openQuickNoteInEditor(ref, noteId),
+    ),
+  );
+}
+
+/// Brings the window forward, aims the Notizen area at [noteId] and switches
+/// to it.
 ///
 /// Only ever reached from the quick-note path — the ordinary dictation target
 /// (main hotkey, tray, shelf button, floating button) has no equivalent hook
@@ -625,13 +914,45 @@ void openQuickNoteInEditor(WidgetRef ref, String noteId) {
   ref.read(activePageProvider.notifier).setPage('notes');
 }
 
+/// Cause and next step for a recording error, shown as a [WpErrorNotice].
+class WpRecordingErrorNotice {
+  const WpRecordingErrorNotice({required this.cause, required this.nextStep});
+
+  final String cause;
+  final String nextStep;
+}
+
+/// The cause-and-next-step copy for the recording errors that have one.
+///
+/// Covers a missing speech model, a denied microphone, a failed transcription
+/// and the GPU-to-CPU fallback. Other codes return `null` and keep the
+/// one-line [localizeRecordingError] text.
+WpRecordingErrorNotice? recordingErrorNotice(L10n l10n, String errorCode) {
+  return switch (errorCode) {
+    'stt_model_not_found' => WpRecordingErrorNotice(
+      cause: l10n.errorNoticeNoModelCause,
+      nextStep: l10n.errorNoticeNoModelNext,
+    ),
+    'mic_permission_denied' => WpRecordingErrorNotice(
+      cause: l10n.errorNoticeMicCause,
+      nextStep: l10n.errorNoticeMicNext,
+    ),
+    'stt_server_failed' ||
+    'stt_server_connection_lost' => WpRecordingErrorNotice(
+      cause: l10n.errorNoticeTranscribeCause,
+      nextStep: l10n.errorNoticeTranscribeNext,
+    ),
+    _ => null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Recording-error toast — extracted the same way as [showPasteFailureToast]
 // below so widget tests can exercise the mic-permission-denied action wiring
 // directly without bootstrapping the full WpRecordingBehavior.
 //
 // Unprefixed on purpose (see the Wp-naming note at the top of this file):
-// this and the three toast helpers that follow are call sites of [WpToast],
+// this and the toast helpers that follow are call sites of [WpToast],
 // not components of their own.
 // ---------------------------------------------------------------------------
 
@@ -649,26 +970,79 @@ void openQuickNoteInEditor(WidgetRef ref, String noteId) {
 ///
 /// [openMicrophoneSettings] is injected so widget tests can substitute a
 /// spy, mirroring [showPasteFailureToast]'s `openAccessibilitySettings`.
+///
+/// Recovery actions (UIA-FLW-02, UIA-FLW-03): a missing model or a cloud auth
+/// failure offers "Open Settings" when [openSettings] is given (the caller
+/// deep-links to the matching row, see [settingsRowForRecordingError]); a
+/// failed quick-note append offers "Copy text" when [copyTranscript] is given.
 void showRecordingErrorToast({
   required BuildContext context,
   required L10n l10n,
   required String errorCode,
   required VoidCallback onDismiss,
   VoidCallback? openMicrophoneSettings,
+  VoidCallback? openSettings,
+  VoidCallback? copyTranscript,
+  VoidCallback? retry,
+  bool localModelInstalled = false,
 }) {
   final offerSettings =
       errorCode == 'mic_permission_denied' && Platform.isMacOS;
+  // The caller passes [openSettings] only for codes that have a settings row.
+  final offerSettingsRecovery = openSettings != null;
+  final offerCopy =
+      copyTranscript != null && errorCode == 'quick_note_append_failed';
+  final notice = recordingErrorNotice(l10n, errorCode);
+  final (String actionLabel, VoidCallback onAction) = retry != null
+      ? (l10n.actionRetry, retry)
+      : offerSettings
+      ? (l10n.pasteFailureOpenSettings, openMicrophoneSettings ?? onDismiss)
+      : offerSettingsRecovery
+      ? (l10n.pasteFailureOpenSettings, openSettings)
+      : offerCopy
+      ? (l10n.historyCopyText, copyTranscript)
+      : (l10n.actionDismiss, onDismiss);
   WpToast.show(
     context,
-    message: localizeRecordingError(l10n, errorCode),
+    message: notice == null
+        ? localizeRecordingError(
+            l10n,
+            errorCode,
+            localModelInstalled: localModelInstalled,
+          )
+        : '${notice.cause} ${notice.nextStep}',
+    body: notice == null
+        ? null
+        : WpErrorNotice(cause: notice.cause, nextStep: notice.nextStep),
     type: WpToastType.error,
     duration: const Duration(seconds: 5),
-    actionLabel: offerSettings
-        ? l10n.pasteFailureOpenSettings
-        : l10n.actionDismiss,
-    onAction: offerSettings ? (openMicrophoneSettings ?? onDismiss) : onDismiss,
+    actionLabel: actionLabel,
+    onAction: onAction,
   );
 }
+
+/// The Settings row a recovery action deep-links to for [errorCode] (UIA-FLW-03).
+/// `null` when the error has no settings fix. A missing model goes to the
+/// engine selector; a cloud auth failure goes to the key row of the configured
+/// provider.
+String? settingsRowForRecordingError(
+  String errorCode,
+  SttProviderType provider,
+) => switch (errorCode) {
+  'stt_model_not_found' ||
+  'stt_model_corrupted' ||
+  'stt_model_file_missing' ||
+  'stt_model_unknown' ||
+  'stt_model_load_failed' ||
+  'parakeet_model_not_found' ||
+  'whisper_model_not_found' ||
+  'whisper_init_failed' ||
+  'whisper_library_load_failed' => 'stt-model',
+  'cloud_auth_error' when provider == SttProviderType.deepgram =>
+    'speech-deepgram-key',
+  'cloud_auth_error' => 'speech-openai-key',
+  _ => null,
+};
 
 // ---------------------------------------------------------------------------
 // Paste-failure toast — extracted the same way as [showRecoveryToast] /
@@ -710,8 +1084,10 @@ void showPasteFailureToast({
   required L10n l10n,
   required PasteOutcome outcome,
   VoidCallback? openAccessibilitySettings,
+  VoidCallback? openAutoPasteSettings,
   VoidCallback? resetEntryAndGrant,
   bool staleEntry = false,
+  bool linuxNoDevice = false,
 }) {
   String message;
   String? actionLabel;
@@ -719,25 +1095,57 @@ void showPasteFailureToast({
 
   switch (outcome) {
     case PasteOutcome.permissionMissing:
-      message = l10n.pasteFailurePermissionMissing;
+      // The transcript stays on the clipboard after a failed paste, so the
+      // copy says so and names the shortcut for the manual paste.
+      message = l10n.pasteFailureClipboardCopy(pasteShortcutLabel(l10n: l10n));
       if (Platform.isMacOS) {
-        actionLabel = l10n.pasteFailureOpenSettings;
+        actionLabel = l10n.pasteFailureCheckPermission;
         onAction = openAccessibilitySettings;
         if (resetEntryAndGrant != null) {
           actionLabel = l10n.pasteCapabilityRepairButton;
           onAction = resetEntryAndGrant;
-          if (staleEntry) message = l10n.pasteCapabilityRepairHint;
+          // The stale hint names the cause; the clipboard sentence still says
+          // where the transcript is. Both belong in the one message.
+          if (staleEntry) {
+            message =
+                '${l10n.pasteCapabilityRepairHint} '
+                '${l10n.pasteFailureClipboardCopy(pasteShortcutLabel(l10n: l10n))}';
+          }
         }
+      }
+      if (defaultTargetPlatform == TargetPlatform.linux) {
+        // The uinput device is not accessible to this user. Nothing in the app
+        // can grant that. The action opens the Auto-Paste settings, which show
+        // the one-time command with its own copy button. Copying the command
+        // here would overwrite the transcript that the failed paste left on the
+        // clipboard (XP-5-06 follow-up).
+        // Without any /dev/uinput node the udev rule cannot help, so the
+        // toast says so instead of asking for the command (PAR-028).
+        final hint = linuxNoDevice
+            ? l10n.pasteFailureLinuxNoDeviceHint
+            : l10n.pasteFailureLinuxUinputSettingsHint;
+        message =
+            '${l10n.pasteFailureClipboardCopy(pasteShortcutLabel(l10n: l10n))} '
+            '$hint';
+        actionLabel = l10n.pasteFailureOpenSettings;
+        onAction = openAutoPasteSettings;
       }
     case PasteOutcome.elevationBlocked:
       message = l10n.pasteFailureElevationBlocked;
     case PasteOutcome.noTarget:
       message = l10n.pasteFailureNoTarget;
+    case PasteOutcome.targetChanged:
+      message = l10n.pasteFailureTargetChanged;
+    case PasteOutcome.unconfirmed:
+      message = l10n.pasteFailureUnconfirmed(pasteShortcutLabel(l10n: l10n));
+    case PasteOutcome.unconfirmedNoBridge:
+      // Never reported as a warning, see the orchestrator.
+      return;
     case PasteOutcome.failed:
     case PasteOutcome.platformUnavailable:
     case PasteOutcome.blocked:
     case PasteOutcome.success:
-      message = l10n.pasteFailureGeneric;
+      message = l10n.pasteFailureGeneric(pasteShortcutLabel(l10n: l10n));
   }
 
   WpToast.show(
@@ -745,8 +1153,13 @@ void showPasteFailureToast({
     message: message,
     type: WpToastType.warning,
     duration: const Duration(seconds: 6),
-    actionLabel: actionLabel,
-    onAction: onAction,
+    action: actionLabel == null || onAction == null
+        ? null
+        : WpToastAction(
+            label: actionLabel,
+            onPressed: onAction,
+            testId: 'paste-failure-toast-action',
+          ),
   );
 }
 
@@ -862,6 +1275,26 @@ bool shouldShowCpuFallbackToast(SttStatus? prev, SttStatus next) {
   return !wasActive && next.cpuFallbackActive;
 }
 
+/// Quiet hint that the spoken language differs from the fixed setting, with a
+/// one-tap switch. Info tone, not an error: the transcript itself is fine.
+///
+/// Unprefixed on purpose, like the toast helpers above: a call site of
+/// [WpToast], not a component of its own.
+void showLanguageMismatchToast({
+  required BuildContext context,
+  required L10n l10n,
+  required VoidCallback onSwitch,
+}) {
+  WpToast.show(
+    context,
+    message: l10n.languageMismatchHint,
+    type: WpToastType.info,
+    duration: const Duration(seconds: 6),
+    actionLabel: l10n.languageMismatchSwitch,
+    onAction: onSwitch,
+  );
+}
+
 /// Renders the plain-language, dismissable info toast for the CPU-fallback
 /// status. No action button: switching the GPU-acceleration setting cannot
 /// undo a fallback that already happened for the current server process, so
@@ -870,9 +1303,29 @@ bool shouldShowCpuFallbackToast(SttStatus? prev, SttStatus next) {
 void showCpuFallbackToast({required BuildContext context, required L10n l10n}) {
   WpToast.show(
     context,
-    message: l10n.cpuFallbackToast,
+    message: '${l10n.errorNoticeCpuCause} ${l10n.errorNoticeCpuNext}',
+    body: WpErrorNotice(
+      cause: l10n.errorNoticeCpuCause,
+      nextStep: l10n.errorNoticeCpuNext,
+    ),
     type: WpToastType.info,
     duration: const Duration(seconds: 5),
+  );
+}
+
+/// "Try a smaller model" found no smaller model to switch to (UIA-SHL-06).
+/// The dialog has already closed, so the reason and the next step stay on
+/// screen as an error toast instead of the outcome being silent.
+/// Wp naming: call site of WpToast, not a component (see wp_prefix_consistency_test).
+void showOomNoSmallerModelToast({
+  required BuildContext context,
+  required L10n l10n,
+}) {
+  WpToast.show(
+    context,
+    message: l10n.oomRecoveryNoSmallerModel,
+    type: WpToastType.error,
+    duration: const Duration(seconds: 8),
   );
 }
 

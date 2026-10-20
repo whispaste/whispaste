@@ -42,9 +42,9 @@ const int kOnboardingFlowVersion = 2;
 /// platform/build variant.
 ///
 /// The single source of truth for the one piece of platform variance in the
-/// flow, shared by `buildOnboardingStepIds` and by this migration — Linux has
-/// no paste controller wired, so it gets a genuine six-step flow rather than
-/// a dead page. `autoPasteSupported` is the deliberate App Review Guideline
+/// flow, shared by `buildOnboardingStepIds` and by this migration. Linux shows
+/// the page too: its hint depends on the package format (see
+/// `linuxPackageFormatFrom`). `autoPasteSupported` is the deliberate App Review Guideline
 /// 2.4.5 kill switch (`kAutoPasteSupported`, see `build_config.dart`): if it
 /// is ever flipped off, the page disappears from every platform's sequence.
 bool onboardingIncludesAutoPasteStep({
@@ -52,7 +52,9 @@ bool onboardingIncludesAutoPasteStep({
   required bool autoPasteSupported,
 }) =>
     autoPasteSupported &&
-    (platform == TargetPlatform.macOS || platform == TargetPlatform.windows);
+    (platform == TargetPlatform.macOS ||
+        platform == TargetPlatform.windows ||
+        platform == TargetPlatform.linux);
 
 /// Steps of the v0 (pre-redesign) onboarding flow. Kept private to this
 /// migration — production code never renders these again; they only exist to

@@ -115,10 +115,10 @@ class _TagManagementContentState extends State<_TagManagementContent> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColors.accent;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const borderColor = WpColors.borderSubtle;
+    final accent = WpColors.accent;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final borderColor = WpColors.borderSubtle;
 
     final unusedCount = _tags.where((t) => t.$2 == 0).length;
 
@@ -152,7 +152,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           LucideIcons.tags,
                           size: WpIconSize.md,
                           color: accent,
@@ -161,7 +161,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                         Expanded(
                           child: Text(
                             l10n.tagManageTitle,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: WpTypography.heading,
                               fontWeight: FontWeight.w600,
                               color: textPrimary,
@@ -169,7 +169,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                           ),
                         ),
                         IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             LucideIcons.x,
                             size: WpIconSize.sm,
                             color: textMuted,
@@ -185,7 +185,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                   ),
 
                   // Divider
-                  const Divider(height: 1, color: borderColor),
+                  Divider(height: 1, color: borderColor),
 
                   // Content
                   if (_loading)
@@ -205,7 +205,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
                       child: Center(
                         child: Text(
                           l10n.tagManageEmpty,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: textMuted,
                             fontSize: WpTypography.subheading,
                           ),
@@ -233,7 +233,7 @@ class _TagManagementContentState extends State<_TagManagementContent> {
 
                   // Footer with "Delete unused" action
                   if (!_loading && unusedCount > 0) ...[
-                    const Divider(height: 1, color: borderColor),
+                    Divider(height: 1, color: borderColor),
                     Padding(
                       padding: const EdgeInsets.all(WpSpacing.sm),
                       child: WpButton(
@@ -303,9 +303,9 @@ class _TagRowState extends State<_TagRow> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColors.accent;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -319,12 +319,12 @@ class _TagRowState extends State<_TagRow> {
         ),
         child: Row(
           children: [
-            const Icon(LucideIcons.hash, size: 14, color: accent),
+            Icon(LucideIcons.hash, size: WpIconSize.xs, color: accent),
             const SizedBox(width: WpSpacing.xs),
             Expanded(
               child: Text(
                 widget.tag.name,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.subheading,
                   color: textPrimary,
                 ),
@@ -334,10 +334,7 @@ class _TagRowState extends State<_TagRow> {
             const SizedBox(width: WpSpacing.sm),
             Text(
               l10n.tagUsageCount(widget.count),
-              style: const TextStyle(
-                fontSize: WpTypography.small,
-                color: textMuted,
-              ),
+              style: TextStyle(fontSize: WpTypography.small, color: textMuted),
             ),
             const SizedBox(width: WpSpacing.xs),
             AnimatedOpacity(
@@ -345,9 +342,9 @@ class _TagRowState extends State<_TagRow> {
               duration: WpMotion.durationFor(context, WpMotion.hoverOut),
               child: IconButton(
                 focusNode: _deleteFocus,
-                icon: const Icon(
+                icon: Icon(
                   LucideIcons.trash2,
-                  size: 14,
+                  size: WpIconSize.xs,
                   color: WpColors.error,
                 ),
                 onPressed: widget.onDelete,

@@ -166,7 +166,7 @@ void main() {
 
   group('chip visibility', () {
     test(
-      'an unverified user cannot hide the chip (browser clicks never do)',
+      'any user can hide the chip, and the choice survives a restart',
       () async {
         final container = await _container(
           prefs: const {},
@@ -174,8 +174,17 @@ void main() {
         );
 
         await container.read(supportStatusProvider.notifier).hideChip();
+        expect(container.read(supportStatusProvider).showsSponsorChip, isFalse);
 
-        expect(container.read(supportStatusProvider).chipHidden, isFalse);
+        final restarted = await _container(
+          prefs: const {'support_chip_hidden': true},
+          channel: DeployChannel.portable,
+        );
+        expect(restarted.read(supportStatusProvider).showsSponsorChip, isFalse);
+        expect(
+          restarted.read(supportStatusProvider).suppressesPrompts,
+          isFalse,
+        );
       },
     );
 

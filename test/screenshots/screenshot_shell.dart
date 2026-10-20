@@ -13,14 +13,14 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:whispaste/app.dart';
 import 'package:whispaste/core/config/settings_labels.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/tokens.dart';
-import 'package:whispaste/widgets/brand_wordmark.dart';
 import 'package:whispaste/widgets/recording_indicator_bar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
 
 /// Full-window visual shell — static, test-safe.
 ///
@@ -54,9 +54,9 @@ class WpScreenshotShell extends StatelessWidget {
     final navItems = wpNavItems(l10n);
     final pageTitle = wpPageTitle(activePageId, navItems, l10n);
 
-    const contentDecoration = BoxDecoration(
-      gradient: WpColorsDark.warmSurfaceGradient,
-      borderRadius: BorderRadius.only(
+    final contentDecoration = BoxDecoration(
+      gradient: WpColors.warmSurfaceGradient,
+      borderRadius: const BorderRadius.only(
         topLeft: Radius.circular(WpRadius.xl),
         bottomLeft: Radius.circular(WpRadius.xl),
       ),
@@ -65,7 +65,7 @@ class WpScreenshotShell extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: DecoratedBox(
-        decoration: const BoxDecoration(gradient: WpColorsDark.frameGradient),
+        decoration: BoxDecoration(gradient: WpColors.frame.frameGradient),
         child: Stack(
           children: [
             Column(
@@ -104,8 +104,13 @@ class WpScreenshotShell extends StatelessWidget {
                 // Same labels the real status bar builds from the default
                 // settings (local provider, Ctrl+Shift+D or Cmd+Shift+D on
                 // macOS), localized per locale.
-                WpStatusBar(
+                WpRecordingDock(
                   sttModeLabel: L10n.of(context).statusBarOnDevice,
+                  // The same three dropdowns the app dock shows (app.dart),
+                  // fixed to the default settings and localized per locale.
+                  smartMode: _storeSmartModeChoices(L10n.of(context)),
+                  language: _storeLanguageChoices(L10n.of(context)),
+                  engine: _storeEngineChoices(L10n.of(context)),
                   hotkeyLabel: formatHotkeyShortcut(
                     Theme.of(context).platform == TargetPlatform.macOS
                         ? 'meta+shift'
@@ -148,7 +153,6 @@ class _ScreenshotTitleBar extends StatelessWidget {
               const _MacTrafficLights()
             else
               const SizedBox(width: WpSpacing.sm),
-            const WpBrandWordmark(height: 34),
             const Spacer(),
             // Windows: static window control buttons.
             if (!isMacOS) ...[
@@ -212,7 +216,7 @@ class _StaticWindowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mutedColor = WpColorsDark.textMuted.withValues(alpha: 0.5);
+    final mutedColor = WpColors.frame.textMuted.withValues(alpha: 0.5);
 
     return SizedBox(
       width: 40,
@@ -242,9 +246,70 @@ class _ScreenshotPageHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(title, style: Theme.of(context).textTheme.headlineLarge),
+          // Expanded: a long title at large text scale wraps instead of
+          // overflowing the header row (the app's header wraps as well).
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.headlineLarge?.copyWith(color: WpColors.textPrimary),
+            ),
+          ),
         ],
       ),
     );
   }
 }
+
+const _storeSmartModePresets = ['off', 'cleanup', 'concise', 'translate'];
+
+WpDockChoiceSet _storeSmartModeChoices(L10n l10n) => WpDockChoiceSet(
+  id: 'smart-mode',
+  menuId: 'smart-mode',
+  overline: l10n.navSmartMode,
+  icon: LucideIcons.sparkles,
+  current: 'off',
+  currentLabel: wpSmartModePresetLabel('off', l10n),
+  choices: [
+    for (final preset in _storeSmartModePresets)
+      WpDockChoice(value: preset, label: wpSmartModePresetLabel(preset, l10n)),
+  ],
+  onChanged: (_) {},
+  searchHint: l10n.dockMenuSearchHint,
+  noMatchesLabel: l10n.dockMenuSearchNoMatches,
+);
+
+WpDockChoiceSet _storeLanguageChoices(L10n l10n) => WpDockChoiceSet(
+  id: 'language',
+  menuId: 'language',
+  overline: l10n.settingsLanguage,
+  icon: LucideIcons.languages,
+  current: AppSettings.defaults.sttLanguageCode,
+  currentLabel: sttLanguageDockLabel(AppSettings.defaults, l10n),
+  choices: [
+    WpDockChoice(value: 'auto', label: l10n.settingsLanguageAutoDetect),
+  ],
+  onChanged: (_) {},
+  searchHint: l10n.dockMenuSearchHint,
+  noMatchesLabel: l10n.dockMenuSearchNoMatches,
+);
+
+WpDockChoiceSet _storeEngineChoices(L10n l10n) => WpDockChoiceSet(
+  id: 'engine',
+  menuId: 'stt',
+  overline: l10n.settingsSpeechRecognition,
+  icon: LucideIcons.audioLines,
+  current: 'on-device',
+  currentLabel: l10n.statusBarOnDevice,
+  choices: [
+    WpDockChoice(
+      value: 'on-device',
+      label: l10n.statusBarOnDevice,
+      group: l10n.statusBarOnDevice,
+    ),
+  ],
+  onChanged: (_) {},
+  searchHint: l10n.dockMenuSearchHint,
+  noMatchesLabel: l10n.dockMenuSearchNoMatches,
+);

@@ -327,10 +327,7 @@ class _SplitViewDivider extends StatelessWidget {
               // Off-scale on purpose: the divider's thickening under the
               // cursor is a pointer affordance, not a UI transition, and
               // reads as lag at WpMotion.fast.
-              duration: WpMotion.durationFor(
-                context,
-                const Duration(milliseconds: 150),
-              ),
+              duration: WpMotion.durationFor(context, WpMotion.fast),
               width: isDragging ? 3.0 : visualWidth,
               decoration: BoxDecoration(
                 color: isDragging

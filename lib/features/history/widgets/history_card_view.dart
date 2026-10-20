@@ -31,6 +31,8 @@ class HistoryCardView extends StatelessWidget {
     required this.multiSelectMode,
     required this.selectedIds,
     this.focusedId,
+    this.onRestore,
+    this.isTrashView = false,
   });
 
   final List<DateGroup> groups;
@@ -40,6 +42,8 @@ class HistoryCardView extends StatelessWidget {
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
   final ValueChanged<HistoryEntry>? onDuplicate;
+  final ValueChanged<HistoryEntry>? onRestore;
+  final bool isTrashView;
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final String? focusedId;
@@ -116,6 +120,10 @@ class HistoryCardView extends StatelessWidget {
                       onDuplicate: onDuplicate != null
                           ? () => onDuplicate!(entry)
                           : null,
+                      onRestore: onRestore != null
+                          ? () => onRestore!(entry)
+                          : null,
+                      isTrashView: isTrashView,
                       multiSelectMode: multiSelectMode,
                       isChecked: selectedIds.contains(entry.id),
                     ),
@@ -136,6 +144,8 @@ class HistoryCardView extends StatelessWidget {
 class HistoryEntryCard extends StatefulWidget {
   const HistoryEntryCard({
     super.key,
+    this.onRestore,
+    this.isTrashView = false,
     required this.entry,
     required this.isSelected,
     required this.onTap,
@@ -155,6 +165,8 @@ class HistoryEntryCard extends StatefulWidget {
   final VoidCallback onPin;
   final VoidCallback onDelete;
   final VoidCallback? onDuplicate;
+  final VoidCallback? onRestore;
+  final bool isTrashView;
   final bool multiSelectMode;
   final bool isChecked;
   final bool isFocused;
@@ -204,7 +216,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
     Color borderColor,
   })
   _resolveColors() {
-    const accent = WpColors.accent;
+    final accent = WpColors.accent;
     final isActive = widget.isSelected || widget.isFocused || _isHovered;
     final borderColor = widget.isSelected
         ? accent.withValues(alpha: 0.5)
@@ -287,7 +299,7 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
               // This tile used to carry `WpShadows.subtle` at rest and
               // `WpShadows.card` while active; the argument for it was a
               // light-theme one — halve the black alpha on pearl so the lift
-              // isn't a dark halo — and the light theme was removed on
+              // isn't a dark outline — and the light theme was removed on
               // 2026-08-11. What was left is the case the rule exists to
               // keep out: a black shadow on a near-black ground, muddying
               // the one ambient gradient the frost fill is there to let
@@ -360,43 +372,61 @@ class _HistoryEntryCardState extends State<HistoryEntryCard> {
                           !widget.multiSelectMode,
                       dense: true,
                       children: [
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                        WpRowAction(
-                          icon: LucideIcons.copy,
-                          tooltip: l10n.historyCopyText,
-                          onTap: widget.onCopy,
-                          dense: true,
-                        ),
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                        WpRowAction(
-                          faIcon: widget.entry.pinned
-                              ? FontAwesomeIcons.solidStar
-                              : null,
-                          icon: widget.entry.pinned ? null : LucideIcons.star,
-                          activeColor: widget.entry.pinned
-                              ? WpSharedColors.pinnedAccent
-                              : null,
-                          tooltip: widget.entry.pinned
-                              ? l10n.historyUnpin
-                              : l10n.historyPinToTop,
-                          onTap: widget.onPin,
-                          dense: true,
-                        ),
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                        if (widget.onDuplicate case final onDuplicate?)
+                        if (widget.isTrashView && widget.onRestore != null) ...[
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                           WpRowAction(
-                            icon: LucideIcons.files,
-                            tooltip: l10n.actionDuplicate,
-                            onTap: onDuplicate,
+                            icon: LucideIcons.undo2,
+                            tooltip: l10n.historyRestore,
+                            onTap: widget.onRestore!,
                             dense: true,
                           ),
-                        WpRowAction(
-                          icon: LucideIcons.trash2,
-                          tooltip: l10n.actionDelete,
-                          onTap: widget.onDelete,
-                          isDestructive: true,
-                          dense: true,
-                        ),
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                          WpRowAction(
+                            icon: LucideIcons.trash2,
+                            tooltip: l10n.historyDeleteForever,
+                            onTap: widget.onDelete,
+                            isDestructive: true,
+                            dense: true,
+                          ),
+                        ] else ...[
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                          WpRowAction(
+                            icon: LucideIcons.copy,
+                            tooltip: l10n.historyCopyText,
+                            onTap: widget.onCopy,
+                            dense: true,
+                          ),
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                          WpRowAction(
+                            faIcon: widget.entry.pinned
+                                ? FontAwesomeIcons.solidStar
+                                : null,
+                            icon: widget.entry.pinned ? null : LucideIcons.star,
+                            activeColor: widget.entry.pinned
+                                ? WpSharedColors.pinnedAccent
+                                : null,
+                            tooltip: widget.entry.pinned
+                                ? l10n.historyUnpin
+                                : l10n.historyPinToTop,
+                            onTap: widget.onPin,
+                            dense: true,
+                          ),
+                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                          if (widget.onDuplicate case final onDuplicate?)
+                            WpRowAction(
+                              icon: LucideIcons.files,
+                              tooltip: l10n.actionDuplicate,
+                              onTap: onDuplicate,
+                              dense: true,
+                            ),
+                          WpRowAction(
+                            icon: LucideIcons.trash2,
+                            tooltip: l10n.actionDelete,
+                            onTap: widget.onDelete,
+                            isDestructive: true,
+                            dense: true,
+                          ),
+                        ],
                       ],
                     ),
                   ],

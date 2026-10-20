@@ -39,6 +39,7 @@ class NotesSplitView extends StatelessWidget {
     required this.onRemoveTag,
     required this.onExport,
     required this.onVoiceTranscript,
+    this.editorExtras = const NoteEditorExtras(),
   });
 
   final List<Note> notes;
@@ -96,6 +97,10 @@ class NotesSplitView extends StatelessWidget {
   /// [NoteEditorPanel]; insertion happens in `_NotesPageState`.
   final ValueChanged<String> onVoiceTranscript;
 
+  /// Title, snapshot, mark, image, versions and Textbaustein actions of the
+  /// editor — passed through to [NoteEditorPanel].
+  final NoteEditorExtras editorExtras;
+
   Widget _buildListBody(BuildContext context, String? selectedId) {
     return NotesListView(
       notes: notes,
@@ -133,6 +138,7 @@ class NotesSplitView extends StatelessWidget {
       onRemoveTag: onRemoveTag,
       onExport: onExport,
       onVoiceTranscript: onVoiceTranscript,
+      extras: editorExtras,
     );
   }
 

@@ -122,13 +122,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        makeTestable(
-          WpHeroButton(
-            label: 'Continue',
-            gradient: const LinearGradient(colors: [Colors.orange, Colors.red]),
-            onPressed: () {},
-          ),
-        ),
+        makeTestable(WpHeroButton(label: 'Continue', onPressed: () {})),
       );
       await tester.pumpAndSettle();
 
@@ -154,7 +148,6 @@ void main() {
         makeTestable(
           const WpHeroButton(
             label: 'Next',
-            gradient: LinearGradient(colors: [Colors.blue, Colors.purple]),
             onPressed: null, // disabled
           ),
         ),

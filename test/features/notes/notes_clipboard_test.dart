@@ -142,7 +142,7 @@ void main() {
         // the editor panel's field, which holds the note body.
         final field = tester.widget<TextField>(
           find.descendant(
-            of: find.byType(NoteEditorPanel),
+            of: find.byKey(const ValueKey('notes-editor-body')),
             matching: find.byType(TextField),
           ),
         );

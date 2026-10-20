@@ -365,6 +365,8 @@ void main() {
       if (repeat != null) {
         await tester.enterText(find.byKey(kHistoryPinRepeatFieldKey), repeat);
       }
+      // The primary action enables on input (UX-026): let that rebuild land.
+      await tester.pump();
       await tester.runAsync(() async {
         await tester.tap(find.byKey(kHistoryPinSubmitKey));
         await Future<void>.delayed(const Duration(milliseconds: 500));

@@ -20,7 +20,7 @@
 //        ↕              (relay / translate)        ↕
 //  public channel                          render channel (2nd engine)
 //
-// Fixed 360×420 logical-pixel panel, positioned by reading the CURRENT
+// Fixed 400×460 logical-pixel panel (360×420 card + shadow inset), positioned by reading the CURRENT
 // cursor position natively (never passed from Dart — see
 // snippet_picker_controller_interface.dart's file comment for the historical
 // vertical-mirror bug this avoids) and clamped into the cursor's monitor

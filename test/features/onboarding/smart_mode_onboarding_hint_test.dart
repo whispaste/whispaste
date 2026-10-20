@@ -9,6 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/smart_mode_onboarding_hint.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -44,7 +46,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(l10n.smartModeOnboardingHintTitle), findsOneWidget);
-    expect(find.text(l10n.smartModeOnboardingHintBody), findsOneWidget);
+    expect(
+      find.text(l10n.smartModeOnboardingHintBody(smartModeModel.sizeLabel)),
+      findsOneWidget,
+    );
     expect(find.text(l10n.smartModeOnboardingHintDownloadCta), findsOneWidget);
     expect(find.text(l10n.smartModeOnboardingHintSkipCta), findsOneWidget);
 
@@ -67,5 +72,66 @@ void main() {
     await future;
 
     expect(find.text(l10n.smartModeOnboardingHintTitle), findsNothing);
+  });
+
+  testWidgets('body names the model size from the download metadata', (
+    tester,
+  ) async {
+    final host = await _pumpHost(tester);
+
+    unawaited(showSmartModeOnboardingHint(host.context, host.ref));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining(smartModeModel.sizeLabel),
+      findsWidgets,
+      reason: 'the size shown before download must come from the model',
+    );
+
+    await tester.tap(find.byKey(const Key('onboarding-smart-mode-hint-skip')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('the download CTA is found by its key (DEV-36)', (tester) async {
+    final host = await _pumpHost(tester);
+    final l10n = L10n.of(host.context);
+
+    unawaited(showSmartModeOnboardingHint(host.context, host.ref));
+    await tester.pumpAndSettle();
+
+    final download = find.byKey(
+      const Key('onboarding-smart-mode-hint-download'),
+    );
+    expect(download, findsOneWidget);
+    expect(
+      find.descendant(
+        of: download,
+        matching: find.text(l10n.smartModeOnboardingHintDownloadCta),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byKey(const Key('onboarding-smart-mode-hint-skip')));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('later is a visible option with the same weight as download', (
+    tester,
+  ) async {
+    final host = await _pumpHost(tester);
+    final l10n = L10n.of(host.context);
+
+    unawaited(showSmartModeOnboardingHint(host.context, host.ref));
+    await tester.pumpAndSettle();
+
+    final later = tester.widget<WpButton>(
+      find.byKey(const Key('onboarding-smart-mode-hint-skip')),
+    );
+    expect(later.variant, WpButtonVariant.secondary);
+    expect(find.text(l10n.smartModeOnboardingHintSkipCta), findsOneWidget);
+    expect(l10n.smartModeOnboardingHintSkipCta, 'Later');
+
+    await tester.tap(find.byKey(const Key('onboarding-smart-mode-hint-skip')));
+    await tester.pumpAndSettle();
   });
 }

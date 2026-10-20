@@ -20,6 +20,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:whispaste/services/download_allowlist.dart';
 import 'package:whispaste/services/http_model_fetcher.dart';
 
 // ── Fake HttpClientAdapter ────────────────────────────────────────────────────
@@ -80,6 +81,20 @@ ResponseBody _bodyFor(List<int> bytes, {int? contentLength}) {
   );
 }
 
+/// Answers a ranged request the way a server honouring `Range` does: 206 with
+/// only the remaining bytes.
+ResponseBody _partialBodyFor(List<int> bytes, {int? contentLength}) {
+  final headers = <String, List<String>>{};
+  if (contentLength != null) {
+    headers['content-length'] = ['$contentLength'];
+  }
+  return ResponseBody(
+    Stream.value(Uint8List.fromList(bytes)),
+    206,
+    headers: headers,
+  );
+}
+
 /// Creates a [Dio] instance backed by [adapter].
 Dio _dioWith(_FakeAdapter adapter) {
   final dio = Dio();
@@ -115,7 +130,7 @@ void main() {
       final destPath = p.join(tempDir.path, 'model.bin');
 
       await fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: bytes.length,
       );
@@ -141,7 +156,7 @@ void main() {
         final destPath = p.join(tempDir.path, 'model.bin');
 
         await fetcher.fetch(
-          url: 'https://example.com/model.bin',
+          url: 'https://huggingface.co/model.bin',
           destPath: destPath,
           expectedSize: bytes.length,
           // Callback is wired but may not fire (500ms throttle for tiny payloads).
@@ -162,7 +177,7 @@ void main() {
       final destPath = p.join(tempDir.path, 'model.bin');
 
       await fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: bytes.length,
       );
@@ -171,7 +186,7 @@ void main() {
     });
 
     test('makes a GET request to the correct URL', () async {
-      const url = 'https://example.com/test-model.bin';
+      const url = 'https://huggingface.co/test-model.bin';
       final bytes = Uint8List.fromList([0xAB, 0xCD]);
       final adapter = _FakeAdapter(
         defaultHandler: (_) async => _bodyFor(bytes),
@@ -214,7 +229,7 @@ void main() {
       final fetcher = HttpModelFetcher(dio: _dioWith(adapter));
 
       await fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: 600,
       );
@@ -235,7 +250,7 @@ void main() {
       final fetcher = HttpModelFetcher(dio: _dioWith(adapter));
 
       await fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: bytes.length,
       );
@@ -253,12 +268,12 @@ void main() {
 
       final adapter = _FakeAdapter(
         defaultHandler: (_) async =>
-            _bodyFor(secondPart, contentLength: secondPart.length),
+            _partialBodyFor(secondPart, contentLength: secondPart.length),
       );
       final fetcher = HttpModelFetcher(dio: _dioWith(adapter));
 
       await fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: 100,
       );
@@ -267,6 +282,29 @@ void main() {
       expect(written.length, 100);
       expect(written.sublist(0, 50), firstPart);
       expect(written.sublist(50), secondPart);
+    });
+
+    // A server that ignores Range answers 200 with the complete body.
+    // Appending that body to the partial file would corrupt the download.
+    test('a 200 reply to a Range request restarts from byte 0', () async {
+      final destPath = p.join(tempDir.path, 'model.bin');
+      await File('$destPath.tmp').writeAsBytes(Uint8List(500));
+
+      final fullBytes = Uint8List.fromList(List.generate(100, (i) => i));
+      final adapter = _FakeAdapter(
+        defaultHandler: (_) async =>
+            _bodyFor(fullBytes, contentLength: fullBytes.length),
+      );
+      final fetcher = HttpModelFetcher(dio: _dioWith(adapter));
+
+      await fetcher.fetch(
+        url: 'https://huggingface.co/model.bin',
+        destPath: destPath,
+        expectedSize: 100,
+      );
+
+      expect(adapter.records.single.options.headers['Range'], 'bytes=500-');
+      expect(await File(destPath).readAsBytes(), fullBytes);
     });
   });
 
@@ -305,7 +343,7 @@ void main() {
       final fetcher = HttpModelFetcher(dio: _dioWith(adapter));
 
       await fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: 100,
       );
@@ -335,7 +373,7 @@ void main() {
 
       expect(
         () => fetcher.fetch(
-          url: 'https://example.com/model.bin',
+          url: 'https://huggingface.co/model.bin',
           destPath: destPath,
           expectedSize: 1000,
         ),
@@ -355,7 +393,7 @@ void main() {
 
       try {
         await fetcher.fetch(
-          url: 'https://example.com/model.bin',
+          url: 'https://huggingface.co/model.bin',
           destPath: destPath,
           expectedSize: 1000,
         );
@@ -369,6 +407,54 @@ void main() {
   // ────────────────────────────────────────────────────────────────────────────
   // 4. Cancellation
   // ────────────────────────────────────────────────────────────────────────────
+
+  group('fetch — one writer per file (UIA-RT-05)', () {
+    test('a second fetch of the same file waits until the first has closed '
+        'its .tmp', () async {
+      final destPath = p.join(tempDir.path, 'model.bin');
+      final bytes = List<int>.generate(100, (i) => i);
+      final firstBody = StreamController<Uint8List>();
+      final adapter = _FakeAdapter(
+        defaultHandler: (_) async => _bodyFor(bytes, contentLength: 100),
+      );
+      adapter.enqueue(
+        (_) async => ResponseBody(
+          firstBody.stream,
+          200,
+          headers: {
+            'content-length': ['100'],
+          },
+        ),
+      );
+      // Two notifiers own two fetchers, so the guard must span instances.
+      final first = HttpModelFetcher(dio: _dioWith(adapter));
+      final second = HttpModelFetcher(dio: _dioWith(adapter));
+
+      final firstFetch = first.fetch(
+        url: 'https://huggingface.co/model.bin',
+        destPath: destPath,
+        expectedSize: 100,
+      );
+      firstBody.add(Uint8List.fromList(bytes.sublist(0, 40)));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final secondFetch = second.fetch(
+        url: 'https://huggingface.co/model.bin',
+        destPath: destPath,
+        expectedSize: 100,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(adapter.records, hasLength(1));
+
+      firstBody.add(Uint8List.fromList(bytes.sublist(40)));
+      await firstBody.close();
+      await firstFetch;
+      await secondFetch;
+
+      expect(await File(destPath).readAsBytes(), bytes);
+      expect(File('$destPath.tmp').existsSync(), isFalse);
+    });
+  });
 
   group('cancel', () {
     test('cancel() before fetch() is a no-op', () {
@@ -397,7 +483,7 @@ void main() {
 
       // Start fetch — it will wait on the adapter until we cancel.
       final fetchFuture = fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: 100,
       );
@@ -433,7 +519,7 @@ void main() {
 
       final events = <FetchProgress>[];
       await fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: 99999, // Would be wrong if header ignored.
         onProgress: events.add,
@@ -458,7 +544,7 @@ void main() {
         const expectedSize = 12345;
         final events = <FetchProgress>[];
         await fetcher.fetch(
-          url: 'https://example.com/model.bin',
+          url: 'https://huggingface.co/model.bin',
           destPath: destPath,
           expectedSize: expectedSize,
           onProgress: events.add,
@@ -524,7 +610,11 @@ void main() {
   // ──────────────────────────────────────────────────────────────────────────
 
   group('fetch — connection closed while receiving data', () {
-    ResponseBody droppingBody(List<int> first, {int? contentLength}) {
+    ResponseBody droppingBody(
+      List<int> first, {
+      int? contentLength,
+      int statusCode = 200,
+    }) {
       Stream<Uint8List> body() async* {
         yield Uint8List.fromList(first);
         throw const HttpException('Connection closed while receiving data');
@@ -532,7 +622,7 @@ void main() {
 
       return ResponseBody(
         body(),
-        200,
+        statusCode,
         headers: {
           if (contentLength != null) 'content-length': ['$contentLength'],
         },
@@ -542,7 +632,7 @@ void main() {
     test('resumes from the received bytes and completes', () async {
       final bytes = List<int>.generate(8, (i) => i);
       final adapter = _FakeAdapter(
-        defaultHandler: (_) async => _bodyFor(bytes.sublist(3)),
+        defaultHandler: (_) async => _partialBodyFor(bytes.sublist(3)),
       )..enqueue((_) async => droppingBody(bytes.sublist(0, 3)));
       final fetcher = HttpModelFetcher(
         dio: _dioWith(adapter),
@@ -551,7 +641,7 @@ void main() {
       final destPath = p.join(tempDir.path, 'model.bin');
 
       await fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: bytes.length,
       );
@@ -564,7 +654,9 @@ void main() {
     test('a persistent drop surfaces as a connection-error DioException '
         'and keeps the partial file for a later resume', () async {
       final adapter = _FakeAdapter(
-        defaultHandler: (_) async => droppingBody([1]),
+        defaultHandler: (rec) async => droppingBody([
+          1,
+        ], statusCode: rec.options.headers['Range'] == null ? 200 : 206),
       );
       final fetcher = HttpModelFetcher(
         dio: _dioWith(adapter),
@@ -574,7 +666,7 @@ void main() {
 
       await expectLater(
         fetcher.fetch(
-          url: 'https://example.com/model.bin',
+          url: 'https://huggingface.co/model.bin',
           destPath: destPath,
           expectedSize: 100,
         ),
@@ -600,7 +692,7 @@ void main() {
       final destPath = p.join(tempDir.path, 'model.bin');
 
       final future = fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: 3,
       );
@@ -618,6 +710,100 @@ void main() {
         ),
       );
       expect(adapter.records, hasLength(1));
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Host allowlist — initial URL and every redirect hop
+  // ────────────────────────────────────────────────────────────────────────────
+
+  group('fetch — host allowlist', () {
+    test(
+      'a redirect into an allowlisted CDN host downloads the file',
+      () async {
+        final bytes = Uint8List.fromList([7, 8, 9]);
+        final adapter =
+            _FakeAdapter(
+              defaultHandler: (_) async => _bodyFor(bytes, contentLength: 3),
+            )..enqueue(
+              (_) async => ResponseBody.fromString(
+                '',
+                302,
+                headers: {
+                  'location': ['https://us.aws.cdn.hf.co/xet/model.bin?sig=1'],
+                },
+              ),
+            );
+        final fetcher = HttpModelFetcher(dio: _dioWith(adapter));
+        final destPath = p.join(tempDir.path, 'model.bin');
+
+        await fetcher.fetch(
+          url: 'https://huggingface.co/x/model.bin',
+          destPath: destPath,
+          expectedSize: 3,
+        );
+
+        expect(File(destPath).readAsBytesSync(), [7, 8, 9]);
+        expect(adapter.records.map((r) => r.options.uri.host), [
+          'huggingface.co',
+          'us.aws.cdn.hf.co',
+        ]);
+      },
+    );
+
+    test(
+      'a redirect to a foreign host fails closed and writes nothing',
+      () async {
+        final adapter =
+            _FakeAdapter(
+              defaultHandler: (_) async =>
+                  _bodyFor([1, 2, 3], contentLength: 3),
+            )..enqueue(
+              (_) async => ResponseBody.fromString(
+                '',
+                302,
+                headers: {
+                  'location': ['https://evil.example/model.bin'],
+                },
+              ),
+            );
+        final fetcher = HttpModelFetcher(dio: _dioWith(adapter));
+        final destPath = p.join(tempDir.path, 'model.bin');
+
+        await expectLater(
+          fetcher.fetch(
+            url: 'https://huggingface.co/x/model.bin',
+            destPath: destPath,
+            expectedSize: 3,
+          ),
+          throwsA(isA<DownloadUrlRejectedException>()),
+        );
+
+        expect(File(destPath).existsSync(), isFalse);
+        expect(File('$destPath.tmp').existsSync(), isFalse);
+        expect(
+          adapter.records,
+          hasLength(1),
+          reason: 'foreign hop not requested',
+        );
+      },
+    );
+
+    test('an initial non-allowlisted URL is never requested', () async {
+      final adapter = _FakeAdapter(
+        defaultHandler: (_) async => _bodyFor([1], contentLength: 1),
+      );
+      final fetcher = HttpModelFetcher(dio: _dioWith(adapter));
+
+      await expectLater(
+        fetcher.fetch(
+          url: 'http://huggingface.co.evil.com/model.bin',
+          destPath: p.join(tempDir.path, 'model.bin'),
+          expectedSize: 1,
+        ),
+        throwsA(isA<DownloadUrlRejectedException>()),
+      );
+      expect(adapter.records, isEmpty);
     });
   });
 }

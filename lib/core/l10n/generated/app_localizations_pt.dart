@@ -12,7 +12,7 @@ class L10nPt extends L10n {
   String get appName => 'WhisPaste';
 
   @override
-  String get navHistory => 'Histórico';
+  String get navHistory => 'Gravações';
 
   @override
   String get navNotes => 'Notas';
@@ -21,7 +21,7 @@ class L10nPt extends L10n {
   String get navSettings => 'Configurações';
 
   @override
-  String get navReplacements => 'Substituições';
+  String get navReplacements => 'Dicionário';
 
   @override
   String get navSnippets => 'Snippets';
@@ -30,45 +30,83 @@ class L10nPt extends L10n {
   String get navAnalytics => 'Estatísticas';
 
   @override
-  String get navAbout => 'Sobre';
+  String get navHelp => 'Ajuda';
+
+  @override
+  String get actionOpen => 'Abrir';
+
+  @override
+  String actionOpenNamed(String name) {
+    return 'Abrir $name';
+  }
+
+  @override
+  String get helpTabManual => 'Manual';
+
+  @override
+  String get helpTabIntro => 'Introdução';
+
+  @override
+  String get helpTabSupport => 'Apoio';
+
+  @override
+  String get helpTabDiagnostics => 'Diagnóstico';
+
+  @override
+  String get manualSearchHint => 'Pesquisar no manual';
+
+  @override
+  String get manualSearchEmpty => 'Nenhum capítulo corresponde à pesquisa.';
+
+  @override
+  String manualSearchResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count capítulos encontrados',
+      one: '1 capítulo encontrado',
+      zero: 'Nenhum capítulo encontrado',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get navFeedback => 'Feedback';
 
   @override
-  String get pageHistoryTitle => 'Histórico';
+  String get pageHistoryTitle => 'Gravações';
 
   @override
   String get pageSettingsTitle => 'Configurações';
 
   @override
-  String get pageReplacementsTitle => 'Substituições';
+  String get pageReplacementsTitle => 'Dicionário';
 
   @override
   String get pageAnalyticsTitle => 'Estatísticas';
 
   @override
-  String get pageAboutTitle => 'Sobre';
+  String get pageAboutTitle => 'Sobre o WhisPaste';
 
   @override
   String get pageFeedbackTitle => 'Feedback';
 
   @override
-  String get historyEmpty => 'Nenhuma gravação ainda';
+  String get historyEmpty => 'Ainda não há gravações';
 
   @override
   String get historyEmptyHint =>
       'Pressione o botão de gravar ou use o atalho para começar a gravar.';
 
   @override
-  String get historyPrivacyGateTitle => 'Histórico oculto';
+  String get historyPrivacyGateTitle => 'Gravações ocultas';
 
   @override
   String get historyPrivacyGateHint =>
-      'Suas transcrições anteriores ficam ocultas até você decidir mostrá-las.';
+      'As transcrições e o áudio ficam apenas ocultos, não apagados, até você decidir mostrá-los.';
 
   @override
-  String get historyPrivacyGateShow => 'Mostrar histórico';
+  String get historyPrivacyGateShow => 'Mostrar gravações';
 
   @override
   String get historySearch => 'Pesquisar…';
@@ -136,6 +174,15 @@ class L10nPt extends L10n {
   String get historyExportAction => 'Exportar…';
 
   @override
+  String historyExportDone(String path) {
+    return 'Exportado para $path';
+  }
+
+  @override
+  String get historyExportFailed =>
+      'Falha na exportação. Verifique se a pasta de destino permite gravação e tente novamente.';
+
+  @override
   String get historyCopyAsMarkdown => 'Copiar como Markdown';
 
   @override
@@ -148,7 +195,7 @@ class L10nPt extends L10n {
   String get historyDuration => 'Duração';
 
   @override
-  String get historyModel => 'Modelo';
+  String get historyModel => 'Modelo de voz';
 
   @override
   String get historyWords => 'Palavras';
@@ -187,7 +234,7 @@ class L10nPt extends L10n {
   String get historyEditing => 'Editando';
 
   @override
-  String get historySearchTranscriptions => 'Pesquisar transcrições…';
+  String get historySearchTranscriptions => 'Pesquisar nas gravações…';
 
   @override
   String get historySearchFieldLabel => 'Pesquisar transcrições';
@@ -203,15 +250,23 @@ class L10nPt extends L10n {
 
   @override
   String historyNoResultsHint(String query) {
-    return 'Nenhuma transcrição corresponde a \"$query\".\nTente outro termo de pesquisa.';
+    return 'Nenhuma entrada corresponde a \"$query\".\nTente outro termo de pesquisa.';
   }
 
   @override
   String get historyTrashEmpty => 'A lixeira está vazia';
 
   @override
-  String get historyTrashEmptyHint =>
-      'Transcrições excluídas aparecerão aqui.\nOs itens são removidos definitivamente após 30 dias.';
+  String historyTrashEmptyHint(int days) {
+    String _temp0 = intl.Intl.pluralLogic(
+      days,
+      locale: localeName,
+      other: 'Os itens são removidos definitivamente após $days dias.',
+      one: 'Os itens são removidos definitivamente após 1 dia.',
+      zero: 'Os itens ficam até você excluí-los definitivamente.',
+    );
+    return 'Transcrições excluídas aparecerão aqui.\n$_temp0';
+  }
 
   @override
   String get historyEmptyTrash => 'Esvaziar lixeira';
@@ -220,16 +275,41 @@ class L10nPt extends L10n {
   String get historyEmptyTrashConfirm => 'Esvaziar lixeira?';
 
   @override
-  String get historyEmptyTrashConfirmMessage =>
-      'Todos os itens da lixeira serão excluídos definitivamente. Esta ação não pode ser desfeita.';
+  String historyEmptyTrashConfirmMessage(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Serão excluídas definitivamente $count transcrições. Os arquivos de áudio salvos são removidos no máximo 30 dias após a gravação. Esta ação não pode ser desfeita.',
+      one:
+          'Será excluída definitivamente 1 transcrição. Qualquer arquivo de áudio salvo é removido no máximo 30 dias após a gravação. Esta ação não pode ser desfeita.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historyDeletePermanentlyConfirm => 'Excluir definitivamente?';
+
+  @override
+  String historyDeletePermanentlyConfirmMessage(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Serão excluídas definitivamente $count transcrições, junto com os áudios salvos. Esta ação não pode ser desfeita.',
+      one:
+          'Será excluída definitivamente 1 transcrição, junto com o áudio salvo. Esta ação não pode ser desfeita.',
+    );
+    return '$_temp0';
+  }
 
   @override
   String historyTrashEmptied(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Lixeira esvaziada — $count entradas excluídas',
-      one: 'Lixeira esvaziada — 1 entrada excluída',
+      other: 'Lixeira esvaziada — $count transcrições excluídas',
+      one: 'Lixeira esvaziada — 1 transcrição excluída',
     );
     return '$_temp0';
   }
@@ -272,6 +352,42 @@ class L10nPt extends L10n {
   String get historyMovedToTrash => 'Movido para a lixeira';
 
   @override
+  String get historyRestored => 'Restaurado';
+
+  @override
+  String historyBulkArchived(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transcrições arquivadas',
+      one: '1 transcrição arquivada',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String historyBulkMovedToTrash(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transcrições movidas para a lixeira',
+      one: '1 transcrição movida para a lixeira',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String historyBulkRestored(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transcrições restauradas',
+      one: '1 transcrição restaurada',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String get historyUndo => 'Desfazer';
 
   @override
@@ -303,6 +419,21 @@ class L10nPt extends L10n {
 
   @override
   String get historyUntitled => 'Sem título';
+
+  @override
+  String get historyShowAll => 'Mostrar tudo';
+
+  @override
+  String get historyMoreActions => 'Mais ações';
+
+  @override
+  String get historyMdTags => 'Etiquetas';
+
+  @override
+  String get historyMdDate => 'Data';
+
+  @override
+  String get historyMdModel => 'Modelo';
 
   @override
   String get historyPinToTop => 'Adicionar aos favoritos';
@@ -343,6 +474,14 @@ class L10nPt extends L10n {
   String get settingsInterfaceSubtitle => 'Aparência e comportamento';
 
   @override
+  String get settingsReviewPromptRestore =>
+      'Mostrar o aviso de avaliação novamente';
+
+  @override
+  String get settingsReviewPromptRestoreSubtitle =>
+      'Você escolheu «Não perguntar mais». Ativando, o aviso pode voltar; as pausas habituais continuam valendo.';
+
+  @override
   String get settingsLaunchAtStartup => 'Iniciar com o sistema';
 
   @override
@@ -370,11 +509,11 @@ class L10nPt extends L10n {
 
   @override
   String get settingsShowBackendUtilization =>
-      'Indicador de CPU/GPU na barra de status';
+      'Indicador de processamento na barra de status';
 
   @override
   String get settingsShowBackendUtilizationSubtitle =>
-      'Mostra se a transcrição está realmente rodando na CPU ou na GPU, além do uso';
+      'Mostra se o processador ou a placa de vídeo está trabalhando.';
 
   @override
   String get settingsAudio => 'Áudio';
@@ -386,7 +525,7 @@ class L10nPt extends L10n {
   String get settingsMicrophone => 'Microfone';
 
   @override
-  String get settingsGain => 'Volume do microfone';
+  String get settingsGain => 'Sensibilidade do microfone';
 
   @override
   String get settingsClippingBanner =>
@@ -423,10 +562,10 @@ class L10nPt extends L10n {
       'Qualidade e serviço do reconhecimento de voz';
 
   @override
-  String get settingsService => 'Serviço';
+  String get settingsService => 'O reconhecimento roda em';
 
   @override
-  String get settingsQuality => 'Qualidade';
+  String get settingsQuality => 'Velocidade e precisão';
 
   @override
   String get settingsRecordingSafety => 'Segurança da gravação';
@@ -517,7 +656,7 @@ class L10nPt extends L10n {
       'O que acontece com o texto transcrito';
 
   @override
-  String get settingsAfterTranscriptionActionLabel => 'Ação';
+  String get settingsAfterTranscriptionActionLabel => 'Depois de gravar';
 
   @override
   String get settingsAfterTranscriptionClipboard =>
@@ -546,11 +685,20 @@ class L10nPt extends L10n {
       'Auto-Paste bloqueado: o app de destino está sendo executado com privilégios de administrador. Reinicie o WhisPaste como administrador para colar nesse app.';
 
   @override
-  String get pasteFailureGeneric =>
-      'Falha no Auto-Paste. A transcrição está na área de transferência; cole manualmente com ⌘V / Ctrl+V.';
+  String pasteFailureGeneric(String paste) {
+    return 'Falha no Auto-Paste. A transcrição está na área de transferência; cole manualmente com $paste.';
+  }
 
   @override
   String get pasteFailureOpenSettings => 'Abrir configurações';
+
+  @override
+  String get pendingAudioSaveLater =>
+      'Não foi possível salvar a gravação em Gravações. O áudio é mantido e será salvo novamente na próxima vez que o WhisPaste for iniciado.';
+
+  @override
+  String get pendingAudioRecovered =>
+      'Uma gravação que antes não pôde ser salva já está em Gravações.';
 
   @override
   String get pasteNotificationNoTargetTitle => 'WhisPaste: Auto-Paste ignorado';
@@ -562,6 +710,14 @@ class L10nPt extends L10n {
   @override
   String get pasteNotificationNoTargetTray =>
       'Auto-Paste: app de destino ausente';
+
+  @override
+  String get silentMicrophoneNotificationTitle =>
+      'WhisPaste: sem sinal do microfone';
+
+  @override
+  String get silentMicrophoneNotificationBody =>
+      'O microfone não capta som. Verifique o microfone selecionado ou se está silenciado. A gravação continua.';
 
   @override
   String get pasteNotificationRestartNeededTitle =>
@@ -607,11 +763,29 @@ class L10nPt extends L10n {
   String get pasteNotificationFailedTitle => 'WhisPaste: falha no Auto-Paste';
 
   @override
-  String get pasteNotificationFailedBody =>
-      'O sistema rejeitou a colagem. O texto está na área de transferência — cole manualmente com ⌘V / Ctrl+V.';
+  String pasteNotificationFailedBody(String paste) {
+    return 'O sistema bloqueou a tecla de colar. O texto está na área de transferência. Cole você mesmo com $paste.';
+  }
 
   @override
   String get pasteNotificationFailedTray => 'Falha no Auto-Paste';
+
+  @override
+  String pasteNotificationLinuxUinputBody(String paste) {
+    return 'O WhisPaste ainda não pode usar o teclado virtual /dev/uinput. O texto está na área de transferência; cole-o com $paste. Clique aqui para ver o comando que configura isso uma única vez.';
+  }
+
+  @override
+  String get pasteNotificationLinuxUinputTray =>
+      'Auto-Paste bloqueado — configuração necessária';
+
+  @override
+  String pasteNotificationLinuxNoDeviceBody(String paste) {
+    return 'O Auto-Paste não está disponível: este sistema não tem o teclado virtual que ele precisa. O texto está na área de transferência; cole-o com $paste. Clique aqui para abrir as configurações do Auto-Paste.';
+  }
+
+  @override
+  String get pasteNotificationLinuxNoDeviceTray => 'Auto-Paste indisponível';
 
   @override
   String get pasteCapabilityCheckTitle => 'Um momento…';
@@ -621,7 +795,7 @@ class L10nPt extends L10n {
 
   @override
   String get pasteCapabilityReadySubtitle =>
-      'Seu ditado aparece bem no cursor.';
+      'Seu texto aparece direto no cursor.';
 
   @override
   String get pasteCapabilityPermissionMissing => 'Ainda não permitido';
@@ -629,6 +803,10 @@ class L10nPt extends L10n {
   @override
   String get pasteCapabilityUnsupported =>
       'O Auto-Paste não está disponível nesta plataforma';
+
+  @override
+  String get pasteCapabilityUnavailableLinux =>
+      'O Auto-Paste não é possível aqui agora';
 
   @override
   String get pasteCapabilityTestButton => 'Testar agora';
@@ -724,7 +902,7 @@ class L10nPt extends L10n {
 
   @override
   String get autoPasteGateAlertBody =>
-      'O WhisPaste insere seu ditado bem no cursor. Para isso, o macOS exige um interruptor que só você pode ativar: Ajustes do Sistema → Privacidade e Segurança → Acessibilidade. Confirme para abrir exatamente essa página — o WhisPaste detecta sua autorização automaticamente e, se preciso, reinicia sozinho depois.';
+      'O WhisPaste insere seu texto direto no cursor. Para isso, o macOS exige um interruptor que só você pode ativar: Ajustes do Sistema → Privacidade e Segurança → Acessibilidade. Confirme para abrir exatamente essa página — o WhisPaste detecta sua autorização automaticamente e, se preciso, reinicia sozinho depois.';
 
   @override
   String get autoPasteGateAlertConfirm => 'Abrir Ajustes do Sistema';
@@ -769,7 +947,11 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingPasteSubtitleWin =>
-      'No Windows não é preciso permissão — apenas escolha se o WhisPaste deve inserir o texto ditado para você.';
+      'No Windows não é preciso permissão — apenas escolha se o WhisPaste deve inserir o texto para você.';
+
+  @override
+  String get onboardingPasteSubtitleLinux =>
+      'No Linux nenhuma janela do sistema pede permissão. Abaixo está indicado se é preciso configurar algo para isso.';
 
   @override
   String get onboardingPasteChipReady => 'Auto-Paste pronto';
@@ -793,25 +975,50 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingPasteWhyWin =>
-      'O Auto-Paste pressiona Ctrl+V por você após cada ditado, então o texto aparece exatamente onde você está digitando. Testado e funcionando neste computador — ative abaixo.';
+      'O Auto-Paste pressiona Ctrl+V por você após cada gravação, então o texto aparece exatamente onde você está digitando. Testado e funcionando neste computador — ative abaixo.';
 
   @override
   String get onboardingPasteWhyWinUipi =>
-      'Em alguns apps com proteção UIPI/UAC, o Auto-Paste não funciona. O texto fica na área de transferência e você precisará colá-lo com Ctrl+V.';
+      'Em programas executados como administrador, o Auto-Paste não funciona. O texto fica na área de transferência e você o cola com Ctrl+V.';
 
   @override
   String get onboardingPasteWinOnTitle => 'O Auto-Paste está ativado';
 
   @override
   String get onboardingPasteWinOnDetail =>
-      'Após cada ditado, o WhisPaste pressiona Ctrl+V por você — o texto aparece direto no cursor. Uma cópia também fica na área de transferência.';
+      'Após cada gravação, o WhisPaste pressiona Ctrl+V por você — o texto aparece direto no cursor. Uma cópia também fica na área de transferência.';
+
+  @override
+  String get onboardingPasteLinuxNative =>
+      'Neste sistema, o Auto-Paste funciona automaticamente. O WhisPaste cola o texto no cursor após cada gravação.';
+
+  @override
+  String get onboardingPasteLinuxFlatpak =>
+      'Na versão Flatpak, --device=all torna /dev/input/* e /dev/uinput visíveis dentro do sandbox. O próprio WhisPaste não lê nenhum dispositivo de entrada. Se o seu usuário tiver permissão de leitura no computador (por exemplo, como membro do grupo input), o app poderia ler as teclas digitadas em outros programas. Os membros do grupo input também podem gerar entradas virtuais. O Auto-Paste também precisa de acesso de escrita a /dev/uinput no computador: instale a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/ e execute sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. A regra dá acesso de escrita ao usuário que fez login e a todo membro do grupo input. Estes comandos exigem direitos de administrador (sudo) e alteram o sistema. Se não quiser isso, deixe o Auto-Paste desligado e cole o texto manualmente.';
+
+  @override
+  String get onboardingPasteLinuxSnap =>
+      'Na versão Snap, execute isto uma vez em um terminal: sudo snap connect whispaste:uinput. Até lá, o Auto-Paste apenas copia o texto.';
+
+  @override
+  String get onboardingPasteLinuxAppImage =>
+      'O AppImage precisa de acesso a /dev/uinput (o dispositivo de teclado virtual). Recomendado: instale a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/ e execute: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. A regra dá acesso de escrita ao usuário que fez login e a todo membro do grupo input, então cada membro pode gerar entradas virtuais (p. ex. simular pressionamentos de tecla). Alternativa: sudo usermod -aG input \$USER, depois saia da sessão e entre de novo. Os membros do grupo input também podem ler as teclas digitadas em todos os dispositivos de entrada, inclusive as de outros programas. Estes comandos exigem direitos de administrador (sudo) e alteram o sistema. Até lá, o Auto-Paste apenas copia o texto.';
 
   @override
   String get onboardingPasteWinEnableCta => 'Ativar Auto-Paste';
 
   @override
   String get onboardingPasteWinAdminCaveat =>
-      'Apps executados como administrador não aceitam teclas simuladas — nesses casos, seu texto fica na área de transferência, pronto para colar com Ctrl+V.';
+      'Em programas executados como administrador, o Auto-Paste não funciona. O texto fica na área de transferência e você o cola com Ctrl+V.';
+
+  @override
+  String get onboardingPasteLinuxClipboardFallback =>
+      'O Auto-Paste está ativado. Até o acesso ser configurado, o WhisPaste coloca o texto na área de transferência e você o cola com Ctrl+V.';
+
+  @override
+  String onboardingPasteLinuxUnavailableDetail(Object shortcut) {
+    return 'O texto vai para a área de transferência. Cole-o com $shortcut.';
+  }
 
   @override
   String get onboardingPasteWaitingForGrantTitle =>
@@ -861,7 +1068,7 @@ class L10nPt extends L10n {
       'Escolha onde o feedback da gravação ao vivo aparece enquanto você grava';
 
   @override
-  String get settingsOverlayModeFloating => 'Janela flutuante (sempre visível)';
+  String get settingsOverlayModeFloating => 'Flutuante (sempre visível)';
 
   @override
   String get settingsOverlayModeOff => 'Desativado';
@@ -871,7 +1078,7 @@ class L10nPt extends L10n {
 
   @override
   String get settingsOverlayStartPositionSubtitle =>
-      'Onde o overlay flutuante aparece quando a gravação começa';
+      'Onde o overlay de gravação aparece quando a gravação começa';
 
   @override
   String get settingsOverlayStartTopCenter => 'Centro superior';
@@ -883,7 +1090,7 @@ class L10nPt extends L10n {
   String get settingsOverlayStartLastPosition => 'Lembrar última posição';
 
   @override
-  String get settingsShowFloatingButton => 'Botão flutuante de gravação';
+  String get settingsShowFloatingButton => 'Botão flutuante';
 
   @override
   String get settingsShowFloatingButtonSubtitle =>
@@ -908,12 +1115,12 @@ class L10nPt extends L10n {
 
   @override
   String settingsCustomVocabularyBudgetCounter(int count, int budget) {
-    return '~$count / $budget tokens';
+    return '~$count de $budget em uso';
   }
 
   @override
   String settingsCustomVocabularyBudgetWarning(int budget) {
-    return 'Entradas longas podem ser encurtadas automaticamente — só cerca dos primeiros $budget tokens são usados.';
+    return 'Se a lista ocupar mais de $budget, o restante é omitido automaticamente.';
   }
 
   @override
@@ -921,21 +1128,21 @@ class L10nPt extends L10n {
 
   @override
   String get settingsPunctuationPrimingSubtitle =>
-      'Leva o Whisper a gerar texto com pontuação quando nenhum vocabulário personalizado está definido. Não afeta a velocidade.';
+      'Faz o reconhecimento tender a incluir pontuação quando não há vocabulário personalizado. A velocidade não muda.';
 
   @override
   String get settingsVadEnabled => 'Remover silêncio no final';
 
   @override
   String get settingsVadEnabledSubtitle =>
-      'Remove silêncio ou ruído longos no fim da gravação antes de o Whisper decodificá-la, para que ele não invente uma frase final (por exemplo, alucinações do tipo “Obrigado por assistir”). Custo desprezível; desative se preferir a saída bruta do Whisper.';
+      'Corta silêncio longo e ruído no fim de uma gravação, para que a transcrição não invente uma frase final (por exemplo, «Obrigado por assistir»).';
 
   @override
   String get settingsStripPunctuation => 'Remover pontuação';
 
   @override
   String get settingsStripPunctuationSubtitle =>
-      'Remove pontos, vírgulas e outros sinais de pontuação de cada transcrição antes de ela ser salva ou colada. Funciona igual para todos os motores e provedores, não só para o Whisper.';
+      'Remove pontos, vírgulas e outros sinais de pontuação de cada transcrição antes de ela ser salva ou colada. Números como 3,5 não são alterados. Funciona igual para todos os métodos de reconhecimento.';
 
   @override
   String get settingsNumericOnlyMode => 'Somente números';
@@ -956,13 +1163,20 @@ class L10nPt extends L10n {
 
   @override
   String get settingsVoiceLineBreaksSubtitle =>
-      'Transforma comandos falados como «novo parágrafo» e «nova linha» em quebras de linha reais. Vale para o idioma da transcrição ou, com detecção automática, para todos os idiomas suportados.';
+      'Transforma comandos falados como “novo parágrafo” e “nova linha” em quebras de linha reais. Vale para o idioma da transcrição ou, com detecção automática, para todos os idiomas suportados.';
+
+  @override
+  String get settingsSpokenPunctuation => 'Pontuação por voz';
+
+  @override
+  String get settingsSpokenPunctuationSubtitle =>
+      'Se você disser «vírgula» ou «ponto» como palavra dentro de uma frase, revise o texto depois.';
 
   @override
   String get settingsAppLanguage => 'Idioma do app';
 
   @override
-  String get settingsSttModels => 'Modelos de reconhecimento de voz';
+  String get settingsSttModels => 'Modelos de voz';
 
   @override
   String get settingsOpenAiApiKey => 'Chave de API da OpenAI';
@@ -998,14 +1212,14 @@ class L10nPt extends L10n {
       'Configurações redefinidas para os padrões';
 
   @override
-  String get settingsFactoryReset => 'Redefinição de fábrica';
+  String get settingsFactoryReset => 'Redefinir tudo';
 
   @override
   String get settingsFactoryResetTitle => 'Redefinição de fábrica';
 
   @override
   String get settingsFactoryResetMessage =>
-      'Isso apaga PERMANENTEMENTE TODOS os dados: histórico de gravações, tags, substituições, modelos baixados, logs e configurações. O app voltará ao estado inicial.\n\nIsso não pode ser desfeito.';
+      'Isso apaga imediatamente: transcrições com suas tags e notas, arquivos de áudio salvos, Dicionário, Snippets, Estatísticas, chaves de API, modelos baixados, registros e configurações. O aplicativo voltará ao estado inicial.\n\nO aplicativo não consegue restaurar nada disso. Os arquivos são excluídos de forma comum e não são sobrescritos, então ferramentas especializadas podem recuperar partes deles.';
 
   @override
   String get settingsFactoryResetConfirm => 'Apagar tudo';
@@ -1018,11 +1232,14 @@ class L10nPt extends L10n {
 
   @override
   String get settingsFactoryResetPhaseStoppingSubprocess =>
-      'Parando o serviço de voz…';
+      'Parando o modelo de voz…';
 
   @override
   String get settingsFactoryResetPhaseDeletingModels =>
       'Apagando modelos de voz…';
+
+  @override
+  String get settingsFactoryResetPhaseDeletingAudio => 'Apagando gravações…';
 
   @override
   String get settingsFactoryResetPhaseDeletingDatabase =>
@@ -1037,8 +1254,35 @@ class L10nPt extends L10n {
       'Restaurando configurações padrão…';
 
   @override
-  String get settingsFactoryResetFailedMessage =>
-      'A redefinição de fábrica está incompleta. Reinicie o app.';
+  String settingsFactoryResetFailedMessage(String areas) {
+    return 'A redefinição não está completa. Afetado: $areas. Você pode tentar novamente.';
+  }
+
+  @override
+  String get factoryResetAreaDb =>
+      'Transcrições, Notas, Dicionário, Snippets e Estatísticas';
+
+  @override
+  String get factoryResetAreaAudio => 'Arquivos de áudio';
+
+  @override
+  String get factoryResetAreaModels => 'Modelos e registros';
+
+  @override
+  String get factoryResetAreaSecure => 'Chaves de API';
+
+  @override
+  String get factoryResetAreaSettings => 'Configurações';
+
+  @override
+  String get factoryResetAreaProcess => 'Processo em segundo plano';
+
+  @override
+  String get factoryResetRetryAction => 'Tentar novamente';
+
+  @override
+  String get factoryResetKeyringHint =>
+      'Não foi possível remover as chaves de API do chaveiro. Se necessário, apague você mesmo as entradas que começam com “wp_” no gerenciador de senhas do sistema.';
 
   @override
   String get settingsPortabilitySectionTitle => 'Backup e transferência';
@@ -1090,7 +1334,7 @@ class L10nPt extends L10n {
 
   @override
   String settingsPortabilityImportConfirmMessage(String path) {
-    return 'Isso substitui suas configurações atuais — incluindo interface, configuração de reconhecimento de voz, comportamento, substituições de texto e snippets — pelo conteúdo de $path. Suas chaves de API não são alteradas.';
+    return 'Isso substitui suas configurações atuais — incluindo interface, configuração do modelo de voz, comportamento, substituições de texto e snippets — pelo conteúdo de $path. Suas chaves de API não são alteradas.';
   }
 
   @override
@@ -1146,7 +1390,7 @@ class L10nPt extends L10n {
 
   @override
   String get groqRemovedToast =>
-      'O Groq STT foi removido. O provedor voltou para o modo no dispositivo.';
+      'O provedor na nuvem que você usava foi removido. O reconhecimento de voz agora roda neste dispositivo.';
 
   @override
   String migrationComplete(int count) {
@@ -1225,6 +1469,23 @@ class L10nPt extends L10n {
   String get actionExport => 'Exportar';
 
   @override
+  String get unsavedInputTitle => 'Descartar as alterações?';
+
+  @override
+  String get unsavedInputMessage => 'O texto digitado ainda não foi salvo.';
+
+  @override
+  String get unsavedInputDiscard => 'Descartar';
+
+  @override
+  String get trayUnavailableMinimizedHint =>
+      'O ícone da bandeja não está disponível. O WhisPaste foi minimizado e continua em execução.';
+
+  @override
+  String get settingsSaveFailedToast =>
+      'A configuração não pôde ser salva. O valor anterior foi mantido.';
+
+  @override
   String get actionCancel => 'Cancelar';
 
   @override
@@ -1268,6 +1529,9 @@ class L10nPt extends L10n {
       'Comece a gravar para ver suas estatísticas aqui.';
 
   @override
+  String get analyticsNoRecordingsInPeriod => 'Nenhuma gravação neste período';
+
+  @override
   String get analyticsOverview => 'Visão geral';
 
   @override
@@ -1290,10 +1554,10 @@ class L10nPt extends L10n {
   String get analyticsWordsDictated => 'Palavras transcritas';
 
   @override
-  String get analyticsTimeSaved => 'Tempo economizado';
+  String get analyticsTimeSaved => 'Tempo economizado (estimativa)';
 
   @override
-  String get analyticsAvgLatency => 'Velocidade média';
+  String get analyticsAvgLatency => 'Tempo médio até o texto';
 
   @override
   String get analyticsRecordingActivity => 'Atividade de gravação';
@@ -1302,7 +1566,17 @@ class L10nPt extends L10n {
   String get analyticsLast7Days => 'Últimos 7 dias';
 
   @override
-  String get analyticsModelUsage => 'Uso de modelos';
+  String get analyticsWeekEmpty => 'Nenhuma gravação nos últimos 7 dias';
+
+  @override
+  String get analyticsModelUsage => 'Uso de modelos de voz';
+
+  @override
+  String get analyticsNoModelData =>
+      'Ainda não há dados de modelos neste período';
+
+  @override
+  String get analyticsLoading => 'Carregando estatísticas';
 
   @override
   String get analyticsDurationDistribution => 'Distribuição de duração';
@@ -1315,6 +1589,10 @@ class L10nPt extends L10n {
 
   @override
   String get analyticsCloudCost => 'Custo na nuvem';
+
+  @override
+  String get analyticsEstimateNote =>
+      'Estimativa com base nos preços de tabela por transcrição';
 
   @override
   String get analyticsPeriod7d => '7 dias';
@@ -1337,6 +1615,9 @@ class L10nPt extends L10n {
   @override
   String get analyticsResetMessage =>
       'Tem certeza de que deseja apagar todos os dados estatísticos? Esta ação não pode ser desfeita.';
+
+  @override
+  String get analyticsResetDone => 'As estatísticas foram redefinidas.';
 
   @override
   String get analyticsDayMon => 'Seg';
@@ -1367,11 +1648,6 @@ class L10nPt extends L10n {
   @override
   String analyticsVsLastMonth(String delta) {
     return '$delta em relação ao mês passado';
-  }
-
-  @override
-  String analyticsDurationHoursMinutes(int hours, int minutes) {
-    return '${hours}h ${minutes}min';
   }
 
   @override
@@ -1464,10 +1740,18 @@ class L10nPt extends L10n {
   String get replacementsAddTrigger => 'Adicionar frase-gatilho';
 
   @override
+  String get replacementsMissingTrigger =>
+      'Adicione pelo menos uma frase-gatilho.';
+
+  @override
   String get replacementsRemoveTrigger => 'Remover frase-gatilho';
 
   @override
   String get replacementsReplacementLabel => 'Texto de substituição';
+
+  @override
+  String get replacementsMissingReplacement =>
+      'Digite o texto de substituição.';
 
   @override
   String get replacementsReplacementHint => 'ex.: também';
@@ -1523,7 +1807,7 @@ class L10nPt extends L10n {
 
   @override
   String get correctionLearningHowTo =>
-      'Ao gravar uma nota no Histórico, diga “correct: …” (ou “korrektur: …”) seguido do texto corrigido para sobrescrevê-la. Corrija a mesma coisa duas vezes e o WhisPaste oferece isso aqui como substituição automática.';
+      'Ao gravar uma nota nas Gravações, diga “correct: …” (ou “korrektur: …”) seguido do texto corrigido para sobrescrevê-la. Corrija a mesma coisa duas vezes e o WhisPaste oferece isso aqui como substituição automática.';
 
   @override
   String get correctionCandidatesCardTitle =>
@@ -1609,11 +1893,16 @@ class L10nPt extends L10n {
 
   @override
   String get replacementsFuzzyToleranceHint =>
-      'Quão parecida com um gatilho uma frase ditada precisa soar para ainda contar como correspondência. A rigorosa só pega formulações quase idênticas, então quase nada é substituído por acidente, mas um gatilho mal pronunciado pode passar sem correspondência. A padrão é um equilíbrio para o ditado do dia a dia. A tolerante também pega pronúncias ou formulações bem diferentes, com maior risco de corresponder a algo que você não queria substituir.';
+      'Quão parecida com um gatilho uma frase falada precisa soar para ainda contar como correspondência. A «Rigorosa» só pega formulações quase idênticas, então quase nada é substituído por acidente, mas um gatilho mal pronunciado pode passar sem correspondência. O «Padrão» é um equilíbrio para o uso do dia a dia. A «Tolerante» também pega pronúncias ou formulações bem diferentes, com maior risco de corresponder a algo que você não queria substituir.';
 
   @override
   String replacementsFuzzyTooShortWarning(int minLength) {
     return 'Frases-gatilho com menos de $minLength caracteres não podem usar correspondência semelhante — gerariam acertos falsos demais.';
+  }
+
+  @override
+  String replacementsDuplicateTrigger(String trigger, String replacement) {
+    return 'O gatilho «$trigger» já existe (substituição: «$replacement»).';
   }
 
   @override
@@ -1624,6 +1913,9 @@ class L10nPt extends L10n {
 
   @override
   String get snippetsAdd => 'Adicionar';
+
+  @override
+  String get snippetCopySuffix => '(cópia)';
 
   @override
   String get snippetsEmpty => 'Nenhum snippet ainda';
@@ -1646,7 +1938,7 @@ class L10nPt extends L10n {
 
   @override
   String get snippetsDialogHint =>
-      'Abra o seletor de snippets durante o ditado para inserir este texto.';
+      'Abra o seletor de snippets durante a gravação para inserir este texto.';
 
   @override
   String get snippetsTitleLabel => 'Título';
@@ -1720,7 +2012,17 @@ class L10nPt extends L10n {
 
   @override
   String get snippetsTemplateMissingFieldsWarning =>
-      'Nem todos os campos aparecem no modelo ainda — o texto ditado para eles não seria usado.';
+      'Nem todos os campos aparecem no modelo ainda — o texto para eles não seria usado.';
+
+  @override
+  String get snippetsSaveMissingTitle => 'Falta o título';
+
+  @override
+  String get snippetsSaveMissingBody => 'Falta o texto';
+
+  @override
+  String get snippetsFieldsDuplicateWarning =>
+      'Cada campo precisa de um nome diferente.';
 
   @override
   String get snippetsInteractiveBadge => 'Interativo';
@@ -1809,9 +2111,6 @@ class L10nPt extends L10n {
   String get aboutWhatsNew => 'Novidades';
 
   @override
-  String get aboutGitHub => 'GitHub';
-
-  @override
   String get aboutReportIssue => 'Relatar problema';
 
   @override
@@ -1872,35 +2171,23 @@ class L10nPt extends L10n {
   String get aboutParakeetGgufCredit => 'Conversão GGUF: ggml-org, MIT';
 
   @override
-  String get aboutPrivacyFirst => 'Privacidade em primeiro lugar';
-
-  @override
-  String get aboutPrivacyFirstDesc =>
-      'Reconhecimento de voz local por padrão: sua voz nunca sai do seu dispositivo, a menos que você escolha um provedor na nuvem.';
-
-  @override
-  String get aboutPrivacy => 'Privacidade e dados';
-
-  @override
-  String get aboutPrivacyLocal =>
-      'Todas as transcrições e o histórico são armazenados localmente no seu dispositivo, nunca em servidores externos.';
-
-  @override
-  String get aboutPrivacyCloud =>
-      'Provedores na nuvem (OpenAI, Deepgram) só recebem áudio quando você os usa ativamente. Valem as políticas de privacidade deles.';
-
-  @override
-  String get aboutPrivacyNoTracking =>
-      'As estatísticas de uso são anônimas e estão em conformidade com o GDPR (servidor na UE), e podem ser desativadas em Configurações → Privacidade. Não há contas de usuário. As verificações de atualização consultam o GitHub (apenas versão e IP).';
-
-  @override
-  String get aboutKeyboardShortcuts => 'Atalhos de teclado';
-
-  @override
-  String get aboutShortcutRecord => 'Iniciar / parar gravação';
-
-  @override
   String get aboutLinks => 'Links';
+
+  @override
+  String get helpLegalTitle => 'Informações legais';
+
+  @override
+  String get helpDiagnosticsPublicNote =>
+      'As issues do GitHub são públicas. Verifique o relatório antes de colá-lo.';
+
+  @override
+  String get helpDiagnosticsBuilding => 'Criando o relatório …';
+
+  @override
+  String get tabsScrollBack => 'Mostrar abas anteriores';
+
+  @override
+  String get tabsScrollForward => 'Mostrar mais abas';
 
   @override
   String get aboutWebsite => 'Site';
@@ -1915,10 +2202,16 @@ class L10nPt extends L10n {
   String get aboutMitLicense => 'Licença MIT';
 
   @override
-  String get aboutViewOnGitHub => 'Ver no GitHub';
+  String get aboutThirdPartyLicenses => 'Licenças de terceiros';
+
+  @override
+  String get aboutThirdPartyLicensesDetail => 'Fontes e modelos';
 
   @override
   String get aboutPrivacyPolicy => 'Política de privacidade';
+
+  @override
+  String get aboutImprint => 'Aviso legal';
 
   @override
   String get aboutSystemInfo => 'Informações do sistema';
@@ -1926,6 +2219,24 @@ class L10nPt extends L10n {
   @override
   String get aboutSystemInfoDesc =>
       'Copie um resumo compacto de diagnóstico para relatórios de bugs.';
+
+  @override
+  String get aboutDiagnosticsContentsTitle => 'O que o relatório contém';
+
+  @override
+  String get aboutDiagnosticsContentsDesc =>
+      'Versão do app, sistema operacional, caminho do programa sem o seu nome de usuário, modelo de voz (varianter, modelo, estado, último erro), GPU, arquivos de modelo e as últimas 40 linhas do registro. Chaves e tokens são ocultados nas linhas do registro.';
+
+  @override
+  String get aboutDiagnosticsPreviewShow => 'Mostrar';
+
+  @override
+  String get aboutDiagnosticsPreviewHide => 'Ocultar';
+
+  @override
+  String aboutDiagnosticsIncomplete(String error) {
+    return 'Diagnóstico incompleto: $error';
+  }
 
   @override
   String get aboutCopyDebugInfo => 'Copiar informações de depuração';
@@ -1947,37 +2258,11 @@ class L10nPt extends L10n {
   String get feedbackCategoryLabel => 'Sobre o que se trata?';
 
   @override
-  String get feedbackCategoryBug => 'Relatar bug';
-
-  @override
-  String get feedbackCategoryFeature => 'Ideia de recurso';
-
-  @override
-  String get feedbackCategoryGeneral => 'Geral';
-
-  @override
-  String get feedbackCategoryAiQuality => 'Qualidade da IA';
-
-  @override
   String get feedbackRatingLabel =>
       'Como você está se sentindo com o WhisPaste?';
 
   @override
   String get feedbackCommentsLabel => 'Conte mais';
-
-  @override
-  String get feedbackPlaceholderBug =>
-      'Descreva o que aconteceu e o que você esperava…';
-
-  @override
-  String get feedbackPlaceholderFeature =>
-      'O que você gostaria de ver no WhisPaste?';
-
-  @override
-  String get feedbackPlaceholderAi => 'Como foi a qualidade da transcrição?';
-
-  @override
-  String get feedbackPlaceholderGeneral => 'Compartilhe suas ideias…';
 
   @override
   String get feedbackContactEmailLabel => 'E-mail (opcional)';
@@ -2002,6 +2287,28 @@ class L10nPt extends L10n {
 
   @override
   String get feedbackSubmit => 'Enviar feedback';
+
+  @override
+  String feedbackSubmitMissing(String what) {
+    return 'Para enviar, $what.';
+  }
+
+  @override
+  String get feedbackMissingCategory => 'escolha do que se trata';
+
+  @override
+  String get feedbackMissingRating =>
+      'avalie como você se sente com o WhisPaste';
+
+  @override
+  String get feedbackMissingComment => 'escreva uma mensagem';
+
+  @override
+  String get feedbackMissingEmail =>
+      'corrija o endereço de e-mail ou deixe o campo vazio';
+
+  @override
+  String get feedbackRequiredMarker => 'Obrigatório';
 
   @override
   String get feedbackPrivacyNote =>
@@ -2073,7 +2380,16 @@ class L10nPt extends L10n {
   String get statusBarAfterNothing => 'Depois: manual';
 
   @override
-  String get sttStatusStandby => 'Em espera';
+  String get dockOutputCopy => 'Copiar';
+
+  @override
+  String get dockOutputPaste => 'Colar';
+
+  @override
+  String get dockOutputBoth => 'Copiar e colar';
+
+  @override
+  String get dockOutputNothing => 'Manual';
 
   @override
   String get sttStatusStarting => 'Iniciando…';
@@ -2085,11 +2401,11 @@ class L10nPt extends L10n {
   String get sttStatusError => 'Erro';
 
   @override
-  String get statusBarSttTooltip => 'Serviço de voz e status atual';
+  String get statusBarSttTooltip => 'Status do modelo de voz';
 
   @override
   String statusBarSttBackendTooltip(String backend) {
-    return 'Mecanismo de transcrição: $backend';
+    return 'O reconhecimento roda em: $backend';
   }
 
   @override
@@ -2100,20 +2416,16 @@ class L10nPt extends L10n {
   String get statusBarRecording => 'Gravando…';
 
   @override
-  String get statusBarTranscribing => 'Transcrevendo…';
+  String get statusBarTranscribing => 'Processando…';
 
   @override
-  String get statusBarRefining => 'Refinando…';
-
-  @override
-  String get statusBarDone => 'Concluído';
+  String get statusBarRefining => 'Processando…';
 
   @override
   String get statusBarHotkeyTooltip => 'Atalho global: clique para configurar';
 
   @override
-  String get statusBarAutoPasteOffHint =>
-      'Auto-Paste desativado; ative em Configurações';
+  String get statusBarAutoPasteOffHint => 'Ativar Auto-Paste…';
 
   @override
   String get statusBarAutoPasteOffHintTooltip =>
@@ -2124,11 +2436,11 @@ class L10nPt extends L10n {
 
   @override
   String statusBarAutomationApiChipLabel(int port) {
-    return 'API: $port';
+    return 'Automação: $port';
   }
 
   @override
-  String get statusBarAutomationApiChipLabelError => 'API: erro';
+  String get statusBarAutomationApiChipLabelError => 'Automação: erro';
 
   @override
   String statusBarAutomationApiTooltip(int port) {
@@ -2199,13 +2511,13 @@ class L10nPt extends L10n {
   String get shortcutKeyPageDown => 'Page Down';
 
   @override
-  String get modelServerReady => 'Serviço de voz pronto';
+  String get modelServerReady => 'Modelo de voz pronto';
 
   @override
-  String get modelServerMissing => 'Serviço de voz não instalado';
+  String get modelServerMissing => 'Modelo de voz não instalado';
 
   @override
-  String get modelServerWhisper => 'Serviço de voz local';
+  String get modelServerWhisper => 'Modelo de voz local';
 
   @override
   String get modelReady => 'Pronto';
@@ -2223,7 +2535,7 @@ class L10nPt extends L10n {
   String get modelDownloading => 'Baixando…';
 
   @override
-  String get modelDownloadingEngine => 'Preparando o serviço de voz…';
+  String get modelDownloadingEngine => 'Preparando o modelo de voz…';
 
   @override
   String get modelVerifying => 'Verificando…';
@@ -2232,14 +2544,30 @@ class L10nPt extends L10n {
   String get modelExtracting => 'Extraindo…';
 
   @override
-  String get modelDeleteConfirm => 'Excluir este modelo?';
+  String get modelDeleteConfirm => 'Excluir este modelo de voz?';
 
   @override
   String get modelDeleteConfirmMessage =>
-      'O arquivo do modelo será removido permanentemente. Você pode baixá-lo novamente a qualquer momento.';
+      'O arquivo do modelo de voz é excluído deste dispositivo. Você pode baixá-lo novamente a qualquer momento.';
 
   @override
-  String get qualityTierCompactLabel => 'Rápido e compacto';
+  String get modelTierDeleteConfirm => 'Excluir estes modelos?';
+
+  @override
+  String modelTierDeleteConfirmMessage(int count, String size) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count modelos ($size) são excluídos deste dispositivo. Você pode baixá-los novamente a qualquer momento.',
+      one:
+          '1 modelo ($size) é excluído deste dispositivo. Você pode baixá-lo novamente a qualquer momento.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get qualityTierCompactLabel => 'Rápido';
 
   @override
   String get qualityTierCompactDesc =>
@@ -2253,7 +2581,7 @@ class L10nPt extends L10n {
       'Preciso e confiável para gravações do dia a dia. Funciona na maioria dos dispositivos.';
 
   @override
-  String get qualityTierPremiumLabel => 'Melhor qualidade';
+  String get qualityTierPremiumLabel => 'Preciso';
 
   @override
   String get qualityTierPremiumDesc =>
@@ -2263,27 +2591,33 @@ class L10nPt extends L10n {
   String get qualityTierRecommended => 'Recomendado para o seu dispositivo';
 
   @override
+  String get qualityTierRecommendedMeasured => 'Medido para o seu dispositivo';
+
+  @override
   String qualityTierDownloadSize(String size) {
     return 'Download de $size';
   }
 
   @override
-  String get qualityTierDownloadAndContinue => 'Baixar modelo';
+  String get qualityTierDownloadAndContinue => 'Baixar modelo de voz';
 
   @override
-  String get qualityTierChooseDifferent => 'Escolher outro nível de qualidade';
+  String get qualityTierChooseDifferent => 'Escolher outro nível';
 
   @override
   String get qualityTierActive => 'Ativo';
 
   @override
-  String qualityTierInfoSlow(String ratio) {
-    return 'Melhor qualidade, leva cerca de ${ratio}x mais tempo para processar';
-  }
+  String get qualityTierInfoSlow =>
+      'Preciso, leva bem mais tempo para processar neste computador';
+
+  @override
+  String get qualityTierInfoSlowEstimate =>
+      'Preciso, provavelmente leva bem mais tempo neste computador (estimativa)';
 
   @override
   String qualityTierInfoSlowerThanCompact(String ratio) {
-    return 'Melhor qualidade, cerca de ${ratio}x mais lento que o Compacto';
+    return 'Preciso, cerca de ${ratio}x mais lento que o Rápido';
   }
 
   @override
@@ -2300,20 +2634,100 @@ class L10nPt extends L10n {
   String get qualityTierInfoBenchmarking => 'Testando desempenho…';
 
   @override
+  String get benchmarkRowSubtitle =>
+      'Mede a velocidade de cada nível instalado neste computador. Os resultados definem as dicas de velocidade e a recomendação.';
+
+  @override
+  String benchmarkRunningStep(int step, int total, String tier) {
+    return 'Em execução… passo $step de $total: $tier';
+  }
+
+  @override
+  String get benchmarkCancel => 'Cancelar teste';
+
+  @override
+  String get benchmarkCancelled =>
+      'Teste cancelado. Os níveis já medidos foram salvos.';
+
+  @override
+  String benchmarkDone(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count níveis medidos',
+      one: '1 nível medido',
+    );
+    return 'Medição concluída: $_temp0.';
+  }
+
+  @override
+  String benchmarkLastMeasured(String when) {
+    return 'Última medição: $when';
+  }
+
+  @override
+  String benchmarkBackendLine(String backend) {
+    return 'Caminho de cálculo: $backend';
+  }
+
+  @override
+  String get benchmarkBackendCpu => 'Processador (CPU)';
+
+  @override
+  String benchmarkBackendGpu(String name) {
+    return 'Placa de vídeo ($name)';
+  }
+
+  @override
+  String benchmarkTierResult(String tier, String seconds) {
+    return '$tier: $seconds s de processamento por segundo de áudio';
+  }
+
+  @override
+  String get benchmarkNoResult =>
+      'Ainda não há medição. Execute o teste para obter dicas de velocidade para este computador.';
+
+  @override
+  String get benchmarkStaleNotice =>
+      'Estes resultados são de outro computador ou de uma versão anterior. Serão medidos novamente em segundo plano.';
+
+  @override
+  String get benchmarkParakeetNotMeasured =>
+      'A medição vale para os modelos Whisper. O Parakeet não é medido.';
+
+  @override
+  String benchmarkRecommendation(String tier) {
+    return 'Recomendado após a medição: $tier';
+  }
+
+  @override
+  String benchmarkSwitchTo(String tier) {
+    return 'Mudar para $tier';
+  }
+
+  @override
+  String get benchmarkErrorBusy =>
+      'O teste não pode rodar durante uma gravação. Inicie-o novamente depois.';
+
+  @override
+  String get benchmarkErrorNoModel =>
+      'Nenhum nível está instalado. Baixe um modelo de voz primeiro.';
+
+  @override
+  String get benchmarkErrorFailed => 'Não foi possível concluir o teste.';
+
+  @override
+  String get benchmarkRetry => 'Tentar novamente';
+
+  @override
   String get qualityTierActionOverride => 'Usar mesmo assim';
 
   @override
-  String get qualityTierActionOverrideHint =>
-      'Usar este nível de qualidade apesar do aviso';
+  String get qualityTierActionOverrideHint => 'Usar este nível apesar do aviso';
 
   @override
   String qualityTierModelTooltip(String modelName, String size) {
     return 'Whisper $modelName · $size';
-  }
-
-  @override
-  String analyticsModelDisplayName(String tierLabel, String modelLabel) {
-    return '$tierLabel (Whisper $modelLabel)';
   }
 
   @override
@@ -2326,7 +2740,7 @@ class L10nPt extends L10n {
   String get settingsQualityHigh => 'Alta qualidade';
 
   @override
-  String get settingsQualityBest => 'Melhor qualidade';
+  String get settingsQualityBest => 'Preciso';
 
   @override
   String get settingsQualityMaximum => 'Máxima precisão';
@@ -2346,11 +2760,11 @@ class L10nPt extends L10n {
 
   @override
   String get settingsAdvancedModelManagement =>
-      'Configurações avançadas do modelo';
+      'Configurações avançadas do modelo de voz';
 
   @override
   String get infoEngineDownloading =>
-      'O serviço de voz está sendo preparado. Aguarde um instante.';
+      'O modelo de voz está sendo preparado. Aguarde um instante.';
 
   @override
   String get infoModelMissing =>
@@ -2365,11 +2779,11 @@ class L10nPt extends L10n {
   String get infoModelMissingDownload => 'Baixar agora';
 
   @override
-  String get statusBarModelMissing => 'Modelo ausente';
+  String get statusBarModelMissing => 'Modelo de voz ausente';
 
   @override
   String statusBarModelDownloading(int percent) {
-    return 'Baixando modelo… $percent %';
+    return 'Baixando modelo de voz… $percent %';
   }
 
   @override
@@ -2384,21 +2798,21 @@ class L10nPt extends L10n {
 
   @override
   String get infoSnippetPickerEmpty =>
-      'Palavra-gatilho reconhecida, mas você ainda não tem snippets — o texto foi inserido normalmente.';
+      'Você ainda não tem snippets. Crie um e o seletor vai abrir.';
 
   @override
   String get infoSnippetPickerEmptyAction => 'Abrir snippets';
 
   @override
   String get oomRecoveryTitle =>
-      'Falha na gravação: problema de memória da GPU';
+      'Gravação cancelada: falta memória na placa de vídeo';
 
   @override
   String get oomRecoveryMessage =>
       'Sua GPU ficou sem memória. Escolha como prosseguir:';
 
   @override
-  String get oomRecoveryTrySmaller => 'Tentar modelo menor';
+  String get oomRecoveryTrySmaller => 'Tentar modelo de voz menor';
 
   @override
   String oomRecoveryTrySmallerHint(String model) {
@@ -2409,19 +2823,22 @@ class L10nPt extends L10n {
   String get oomRecoverySwitchCloud => 'Mudar para a nuvem';
 
   @override
-  String get oomRecoverySwitchCloudHint =>
-      'Usar reconhecimento de voz na nuvem';
+  String get oomRecoverySwitchCloudHint => 'Usar modelo de voz na nuvem';
+
+  @override
+  String oomRecoveryCloudNotice(String provider) {
+    return 'As gravações são então enviadas para $provider.';
+  }
 
   @override
   String get oomRecoveryCancel => 'Cancelar';
 
   @override
-  String get oomRecoveryPermanentTitle =>
-      'Reconhecimento de voz local indisponível';
+  String get oomRecoveryPermanentTitle => 'Modelo de voz local indisponível';
 
   @override
   String get oomRecoveryPermanentMessage =>
-      'Todos os modelos locais falharam por limites de memória da GPU. Mude para o reconhecimento de voz na nuvem nas configurações.';
+      'Todos os modelos locais falharam por limites de memória da GPU. Mude para o modelo de voz na nuvem nas configurações.';
 
   @override
   String get oomRecoveryPermanentCloud => 'Abrir configurações';
@@ -2433,16 +2850,20 @@ class L10nPt extends L10n {
 
   @override
   String get oomRecoverySwitchingCloud =>
-      'Mudando para o reconhecimento de voz na nuvem…';
+      'Mudando para o modelo de voz na nuvem…';
 
   @override
   String oomRecoveryAttemptFailed(String model) {
-    return 'O modelo $model também falhou. Tentando a próxima opção…';
+    return 'O modelo de voz $model também falhou. Tentando a próxima opção…';
   }
 
   @override
+  String get oomRecoveryNoSmallerModel =>
+      'Nenhum modelo menor está disponível. Escolha outro modelo em Configurações ou use o reconhecimento de voz na nuvem.';
+
+  @override
   String get infoSttCudaOomFallbackModel =>
-      'Qualidade reduzida: sua GPU ficou sem memória. Mudado para um modelo mais leve.';
+      'Qualidade reduzida: sua GPU ficou sem memória. Mudado para um modelo de voz mais leve.';
 
   @override
   String get infoSttCudaOomFallbackCpu =>
@@ -2450,7 +2871,7 @@ class L10nPt extends L10n {
 
   @override
   String get errorSttServerConnectionLost =>
-      'O serviço de voz parou inesperadamente. Tente novamente.';
+      'O modelo de voz parou inesperadamente. Tente novamente.';
 
   @override
   String get errorSttCudaOom =>
@@ -2465,12 +2886,48 @@ class L10nPt extends L10n {
       'Limite de requisições do provedor na nuvem atingido. Aguarde um instante e tente novamente.';
 
   @override
+  String get errorCloudTimeoutLocal =>
+      'O serviço na nuvem demorou demais para responder. Verifique sua conexão ou dite offline com o modelo local.';
+
+  @override
+  String get errorCloudTimeout =>
+      'O serviço na nuvem demorou demais para responder. Verifique sua conexão e tente novamente.';
+
+  @override
+  String get errorCloudNetworkLocal =>
+      'Não foi possível conectar ao serviço na nuvem. Verifique sua conexão com a internet ou dite offline com o modelo local.';
+
+  @override
+  String get errorCloudNetwork =>
+      'Não foi possível conectar ao serviço na nuvem. Verifique sua conexão com a internet e tente novamente.';
+
+  @override
+  String get errorQuickNoteAppendFailed =>
+      'Não foi possível salvar a nota rápida, então o texto não foi adicionado. Copie o texto e cole-o na nota.';
+
+  @override
   String get errorOnboardingNotCompleted =>
       'Conclua primeiro o assistente de configuração.';
 
   @override
   String get errorSttModelNotFound =>
       'Modelo de voz não encontrado. Baixe-o em Configurações.';
+
+  @override
+  String get errorSttModelLoadFailed =>
+      'Não foi possível carregar o modelo de voz. Reinicie o WhisPaste. Se continuar falhando, baixe o modelo de voz novamente nas configurações.';
+
+  @override
+  String get errorSttModelFileMissing =>
+      'O arquivo do modelo de voz não foi encontrado. Baixe o modelo de voz nas configurações.';
+
+  @override
+  String get errorSttModelCorrupted =>
+      'O arquivo do modelo de voz está danificado. Baixe o modelo de voz novamente nas configurações.';
+
+  @override
+  String get pendingRetryFailed =>
+      'A nova transcrição falhou. A gravação fica guardada para mais uma tentativa.';
 
   @override
   String get errorSttModelUnknown =>
@@ -2488,11 +2945,7 @@ class L10nPt extends L10n {
       'A transcrição retornou texto vazio, tente novamente';
 
   @override
-  String get errorSttServerFailed => 'O serviço de voz não conseguiu iniciar';
-
-  @override
-  String get errorSttModelIncompatibleRuntime =>
-      'O modelo de voz é incompatível com o ambiente de execução instalado. Baixe o modelo de voz novamente nas configurações.';
+  String get errorSttServerFailed => 'O modelo de voz não conseguiu iniciar';
 
   @override
   String get errorSttModelCorruptedRedownloading =>
@@ -2512,7 +2965,7 @@ class L10nPt extends L10n {
 
   @override
   String get errorSttCpuFallbackFailed =>
-      'O serviço de voz falhou na GPU e na CPU. Reinicie o app ou baixe o modelo novamente.';
+      'O modelo de voz falhou na GPU e na CPU. Reinicie o app ou baixe o modelo de voz novamente.';
 
   @override
   String get errorPipelineTimeout =>
@@ -2528,7 +2981,7 @@ class L10nPt extends L10n {
 
   @override
   String get errorSttStartTimeout =>
-      'O serviço de voz ainda está iniciando. Tente novamente em instantes.';
+      'O modelo de voz ainda está iniciando. Tente novamente em instantes.';
 
   @override
   String get errorTranscriptionTimeout =>
@@ -2554,20 +3007,60 @@ class L10nPt extends L10n {
       'Falha no download. Verifique sua conexão com a internet.';
 
   @override
+  String modelDownloadDiskSpaceShort(String needed, String free) {
+    return 'Espaço em disco insuficiente para este download: necessário $needed / livre $free. O download não foi iniciado.';
+  }
+
+  @override
   String get modelDeleteInUse =>
-      'O arquivo do modelo está em uso por outro programa e não pôde ser excluído. Feche-o e tente novamente.';
+      'O arquivo do modelo de voz está em uso por outro programa e não pôde ser excluído. Feche-o e tente novamente.';
 
   @override
-  String get statusSttLoading => 'Carregando modelo…';
+  String get statusSttLoading => 'Carregando modelo de voz…';
 
   @override
-  String get statusSttReady => 'Modelo pronto';
+  String get statusSttReady => 'Modelo de voz pronto';
+
+  @override
+  String get modelDownloadFailedChecksum =>
+      'O arquivo baixado estava corrompido e foi removido. Baixe-o novamente.';
+
+  @override
+  String get modelDownloadFailedStorage =>
+      'Não foi possível salvar o arquivo. Verifique se há espaço livre suficiente no disco.';
+
+  @override
+  String get modelDownloadFailedUnknown =>
+      'Falha no download. Tente novamente.';
+
+  @override
+  String get onboardingModelDownloadCancel => 'Cancelar download';
+
+  @override
+  String get onboardingModelDiskSpaceTitle => 'Pouco espaço em disco';
+
+  @override
+  String onboardingModelDiskSpaceBody(String needed, String free) {
+    return 'O modelo precisa de $needed, mas só há $free livres. O download provavelmente vai falhar.';
+  }
+
+  @override
+  String get onboardingModelDiskSpaceContinue => 'Baixar mesmo assim';
 
   @override
   String get historyDuplicate => 'Duplicar';
 
   @override
   String get historyDuplicated => 'Entrada duplicada';
+
+  @override
+  String get historyTakeAsNote => 'Usar como nota';
+
+  @override
+  String get historyTakenAsNote => 'Transformado em nota';
+
+  @override
+  String get historyOpenNote => 'Abrir';
 
   @override
   String get historyViewRaw => 'Original';
@@ -2583,8 +3076,50 @@ class L10nPt extends L10n {
   String get historySmartModeApplied => 'Smart Mode aplicado';
 
   @override
+  String get smartModeUndoToastMessage => 'Smart Mode aplicado';
+
+  @override
+  String get smartModeUndoAction => 'Desfazer';
+
+  @override
+  String get smartModeBusy => 'O Smart Mode ainda está em execução';
+
+  @override
+  String get smartModeBusyRetry =>
+      'O Smart Mode ainda está em execução – tente novamente em instantes';
+
+  @override
+  String smartModeNameChangeToast(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count nomes alterados',
+      one: '1 nome alterado',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String selectionUndoCopiedToClipboard(String shortcut) {
+    return 'Original copiado para a área de transferência – cole com $shortcut. O conteúdo anterior da área de transferência foi substituído.';
+  }
+
+  @override
+  String get selectionUndoUnavailable => 'Desfazer não é possível agora.';
+
+  @override
+  String get smartModeCheckTimedOut =>
+      'A verificação demorou demais – seu texto permanece inalterado.';
+
+  @override
+  String get historySmartModeUndo => 'Desfazer Smart Mode';
+
+  @override
+  String get historySmartModeRestore => 'Restaurar Smart Mode';
+
+  @override
   String get historySmartModeFailedModelMissing =>
-      'Modelo do Smart Mode não baixado';
+      'Modelo de texto não baixado';
 
   @override
   String get historySmartModeFailedTimeout => 'Tempo esgotado no Smart Mode';
@@ -2649,7 +3184,8 @@ class L10nPt extends L10n {
   String get tagManageTitle => 'Gerenciar tags';
 
   @override
-  String get tagManageEmpty => 'Nenhuma tag criada ainda.';
+  String get tagManageEmpty =>
+      'Ainda não há tags. Você cria uma adicionando-a a uma gravação.';
 
   @override
   String tagUsageCount(int count) {
@@ -2691,6 +3227,11 @@ class L10nPt extends L10n {
   @override
   String tagDeleted(String name) {
     return 'Tag \"$name\" excluída';
+  }
+
+  @override
+  String tagRemoveSemanticsLabel(String tag) {
+    return 'Remover tag \"$tag\"';
   }
 
   @override
@@ -2751,6 +3292,27 @@ class L10nPt extends L10n {
   String get historyShortcutClose => 'Salvar e fechar';
 
   @override
+  String get historyShortcutListGroup => 'LISTA DE GRAVAÇÕES';
+
+  @override
+  String get historyShortcutMoveFocus => 'Selecionar entrada';
+
+  @override
+  String get historyShortcutOpenEntry => 'Abrir entrada';
+
+  @override
+  String get historyShortcutCopyEntry => 'Copiar entrada';
+
+  @override
+  String get historyShortcutDeleteEntry => 'Excluir entrada';
+
+  @override
+  String get historyShortcutSelectAll => 'Selecionar tudo';
+
+  @override
+  String get historyShortcutClearSelection => 'Limpar a seleção';
+
+  @override
   String get historyShortcutEditing => 'EDIÇÃO';
 
   @override
@@ -2770,6 +3332,9 @@ class L10nPt extends L10n {
 
   @override
   String get historyShortcutEditTitle => 'Editar título';
+
+  @override
+  String get historyShortcutDiscardEdit => 'Descartar a edição';
 
   @override
   String get historyEditTitle => 'Editar título';
@@ -2839,14 +3404,27 @@ class L10nPt extends L10n {
   String get historySearchSuggestLang => 'Filtrar por idioma';
 
   @override
-  String get settingsKeyboardShortcut => 'Atalho de teclado';
+  String get settingsKeyboardShortcut => 'Atalho';
+
+  @override
+  String get shortcutsGroupDictate => 'Ditar';
+
+  @override
+  String get shortcutsGroupNotes => 'Notas e snippets';
+
+  @override
+  String get shortcutsGroupSmartMode => 'Smart Mode e editar seleção';
+
+  @override
+  String get shortcutsAreaIntro =>
+      'Estes atalhos funcionam em todo o sistema: em qualquer app, mesmo com o WhisPaste em segundo plano. Cada combinação pertence a um único atalho.';
 
   @override
   String get settingsKeyboardShortcutSubtitle =>
-      'Atalho global para iniciar e parar a gravação';
+      'Atalho para iniciar e parar a gravação';
 
   @override
-  String get settingsHotkeyEnabled => 'Ativar atalho global';
+  String get settingsHotkeyEnabled => 'Iniciar/parar gravação';
 
   @override
   String get settingsCurrentHotkey => 'Atalho atual';
@@ -2862,8 +3440,13 @@ class L10nPt extends L10n {
       'Pressione a combinação de teclas que deseja usar…';
 
   @override
-  String get settingsHotkeyRecorderModifierHint =>
-      'Qualquer combinação com modificadores funciona, por ex. Alt+Espaço, Ctrl+Alt+V ou Ctrl+Alt+Shift+R';
+  String settingsHotkeyRecorderModifierHint(
+    String first,
+    String second,
+    String third,
+  ) {
+    return 'Qualquer combinação com modificadores funciona, por ex. $first, $second ou $third';
+  }
 
   @override
   String get settingsHotkeyRecorderCancel => 'Cancelar';
@@ -2885,17 +3468,30 @@ class L10nPt extends L10n {
   String get settingsHotkeyActionQuickNote => 'Nota rápida';
 
   @override
-  String get settingsQuickNoteHotkeyEnabled => 'Atalho de nota rápida';
+  String get settingsQuickNoteHotkeyEnabled => 'Gravar uma nota rápida';
 
   @override
   String get settingsQuickNoteHotkeyHint =>
-      'O texto ditado é acrescentado à nota marcada como sua nota rápida. Você escolhe essa nota na área de Notas.';
+      'O texto transcrito é acrescentado à nota marcada como sua nota rápida. Você escolhe essa nota na área de notas.';
 
   @override
-  String get settingsQuickNoteCurrentHotkey => 'Combinação';
+  String get settingsQuickNoteOpenInMainWindow =>
+      'Abrir notas na janela principal';
+
+  @override
+  String get settingsQuickNoteOpenInMainWindowHint =>
+      'Desligado: a nota rápida é salva em segundo plano e uma mensagem oferece «Abrir nota». Ligado: a janela principal aparece e mostra a nota.';
+
+  @override
+  String get settingsQuickNoteCurrentHotkey => 'Atalho atual';
 
   @override
   String settingsQuickNoteHotkeyCollision(String action) {
+    return 'Esta combinação já é usada para \"$action\". Escolha outra.';
+  }
+
+  @override
+  String settingsDictationHotkeyCollision(Object action) {
     return 'Esta combinação já é usada para \"$action\". Escolha outra.';
   }
 
@@ -2904,18 +3500,24 @@ class L10nPt extends L10n {
       'Não foi possível registrar esta combinação — o atalho de nota rápida está inativo no momento. Escolha outra combinação.';
 
   @override
+  String get quickNoteToastSaved => 'Nota rápida salva';
+
+  @override
+  String get quickNoteToastOpenNote => 'Abrir nota';
+
+  @override
   String get settingsHotkeyActionSnippetPicker => 'Seletor de snippets';
 
   @override
   String get settingsSnippetPickerHotkeyEnabled =>
-      'Atalho do seletor de snippets';
+      'Abrir o seletor de snippets';
 
   @override
   String get settingsSnippetPickerHotkeyHint =>
       'Abre o seletor de snippets imediatamente, sem gravação e sem a palavra-gatilho falada.';
 
   @override
-  String get settingsSnippetPickerCurrentHotkey => 'Combinação';
+  String get settingsSnippetPickerCurrentHotkey => 'Atalho atual';
 
   @override
   String settingsSnippetPickerHotkeyCollision(String action) {
@@ -2964,33 +3566,232 @@ class L10nPt extends L10n {
   String get settingsSidePanelEdgeRight => 'Borda direita';
 
   @override
+  String get settingsAppearance => 'Aparência';
+
+  @override
+  String get settingsAppearanceSubtitle =>
+      'Cores das janelas do app. A barra de gravação e o overlay continuam escuros.';
+
+  @override
+  String get settingsAppearanceSystem => 'Seguir o sistema';
+
+  @override
+  String get settingsAppearanceLight => 'Claro';
+
+  @override
+  String get settingsAppearanceDark => 'Escuro';
+
+  @override
+  String get settingsAppearanceNavy => 'Marinho';
+
+  @override
+  String get settingsAppearanceCardNavy => 'Marinho';
+
+  @override
+  String get settingsLanguageDialogSubtitle =>
+      'Escolha o idioma que o WhisPaste espera ao gravar. Com «Detectar automaticamente» ligado, ele reconhece o idioma sozinho.';
+
+  @override
+  String get settingsLanguageSearchHint => 'Pesquisar idiomas';
+
+  @override
+  String get settingsLanguageSelectedTitle => 'Selecionado';
+
+  @override
+  String get settingsLanguageSaveAndClose => 'Salvar e fechar';
+
+  @override
+  String get settingsLanguageSavePickOne =>
+      'Escolha pelo menos um idioma para salvar.';
+
+  @override
+  String get settingsLanguageNoResults => 'Nenhum idioma encontrado';
+
+  @override
+  String get settingsLanguageChange => 'Alterar';
+
+  @override
+  String get settingsLanguageCancel => 'Cancelar';
+
+  @override
   String get settingsErrorReporting => 'Relatórios de erros';
 
   @override
   String get settingsErrorReportingSubtitle =>
-      'Envia relatórios de falhas e erros com um ID de dispositivo com hash, nunca seu áudio ou texto';
+      'Envia relatórios de falhas e erros com um identificador anônimo do dispositivo. Nunca seu áudio ou texto.';
 
   @override
   String get settingsErrorReportingRestartHint =>
       'Entra em vigor após reiniciar o WhisPaste.';
 
   @override
-  String get settingsAutoPasteDelay => 'Atraso do Auto-Paste';
-
-  @override
-  String get settingsAutoPasteDelaySubtitle =>
-      'Tempo de espera antes de colar na janela ativa';
-
-  @override
   String get settingsAutoPasteBlocklist => 'Lista de bloqueio do Auto-Paste';
 
   @override
   String get settingsAutoPasteBlocklistSubtitle =>
-      'Identificadores de apps, separados por vírgula, nos quais o Auto-Paste fica desativado';
+      'Apps em que só se copia (sem colagem automática). Com o interruptor abaixo ligado, o texto vai para a área de transferência; desligado, só para as Gravações. Enquanto houver uma lista, um app não identificado conta como bloqueado.';
 
   @override
-  String get settingsAutoPasteBlocklistPlaceholder =>
-      'ex.: com.apple.Terminal, com.1password';
+  String get settingsAutoPasteBlocklistCopyToggle =>
+      'Copiar para a área de transferência em apps bloqueados';
+
+  @override
+  String get settingsAutoPasteBlocklistCopyToggleSubtitle =>
+      'Desligado: o texto só é salvo em Gravações.';
+
+  @override
+  String get settingsAutoPasteBlocklistPlaceholderMac =>
+      'com.1password.1password, com.apple.Terminal';
+
+  @override
+  String get settingsAutoPasteBlocklistPlaceholderWindows =>
+      '1password, windowsterminal';
+
+  @override
+  String get settingsAutoPasteBlocklistPlaceholderLinux =>
+      '1password, gnome-terminal-server';
+
+  @override
+  String get settingsAutoPasteBlocklistShortPrefixWarning =>
+      'No Mac use IDs de pacote, p. ex. com.apple.Terminal. Sem ponto, uma entrada só corresponde a um ID idêntico.';
+
+  @override
+  String get settingsAutoPasteBlocklistNoDetectionHintGnome =>
+      'No GNOME (Wayland), o WhisPaste só identifica o app de destino com a extensão do WhisPaste para GNOME; sem ela, com lista ativa, só se copia';
+
+  @override
+  String get settingsLinuxAlwaysShiftPaste => 'Sempre colar com Ctrl+Shift+V';
+
+  @override
+  String get settingsLinuxAlwaysShiftPasteSubtitle =>
+      'O atalho dos terminais, também em todos os outros apps. Alguns apps usam essas teclas para outra coisa; o LibreOffice, por exemplo, abre “Colar especial”';
+
+  @override
+  String get settingsLinuxTargetStatusAvailable =>
+      'Aqui o WhisPaste identifica o app de destino e cola nos terminais com Ctrl+Shift+V sozinho';
+
+  @override
+  String get settingsLinuxTargetStatusGnome =>
+      'No GNOME (Wayland), o WhisPaste só reconhece terminais com a extensão do WhisPaste para GNOME. Até lá, ative se você dita principalmente em terminais';
+
+  @override
+  String get settingsLinuxTargetStatusUnsupported =>
+      'Nesta área de trabalho, o WhisPaste não reconhece terminais. Ative se você dita principalmente em terminais';
+
+  @override
+  String get settingsLinuxPortalInputTitle =>
+      'Colar pela permissão da área de trabalho';
+
+  @override
+  String get settingsLinuxPortalInputBody =>
+      'Funciona sem configuração: sua área de trabalho pergunta uma vez se o WhisPaste pode enviar atalhos. O WhisPaste só envia assim Ctrl+V e Ctrl+C';
+
+  @override
+  String get settingsLinuxPortalInputConnect => 'Pedir permissão';
+
+  @override
+  String get settingsLinuxPortalInputRevoke => 'Retirar a permissão';
+
+  @override
+  String get settingsLinuxPortalInputConnected =>
+      'Permissão concedida. O WhisPaste já pode colar assim';
+
+  @override
+  String get settingsLinuxPortalInputCancelled =>
+      'Permissão não concedida. Você pode pedir de novo a qualquer momento';
+
+  @override
+  String get settingsLinuxPortalInputFailed =>
+      'Não foi possível pedir a permissão. Tente de novo mais tarde';
+
+  @override
+  String get settingsLinuxGnomeExtensionTitle =>
+      'Extensão do WhisPaste para GNOME';
+
+  @override
+  String get settingsLinuxGnomeExtensionBody =>
+      'No GNOME, o WhisPaste só sabe qual app está ativo com esta extensão, por exemplo para terminais e a lista de bloqueio. Ela só lê o nome do app, nunca títulos de janela ou conteúdo';
+
+  @override
+  String get settingsLinuxGnomeExtensionEnable => 'Ativar a extensão';
+
+  @override
+  String get settingsLinuxGnomeExtensionDisable => 'Desativar a extensão';
+
+  @override
+  String get settingsLinuxGnomeExtensionNotInstalled =>
+      'A extensão não está instalada aqui. O manual explica como instalá-la';
+
+  @override
+  String get settingsLinuxGnomeExtensionRelogin =>
+      'Ativada. Se o WhisPaste ainda não reconhecer o app, saia da sessão e entre de novo uma vez';
+
+  @override
+  String settingsLinuxGnomeExtensionFailed(String command) {
+    return 'Não foi possível ativar. Em um terminal: $command';
+  }
+
+  @override
+  String get settingsAutoPasteBlocklistNoDetectionHint =>
+      'No Wayland, o WhisPaste não consegue ver o app ativo. Enquanto houver apps bloqueados, o texto só é copiado, não colado.';
+
+  @override
+  String get settingsPasteWaylandFocusHint =>
+      'Com Wayland, o WhisPaste não consegue verificar se você trocou de janela durante o processamento: o texto vai para a janela ativa ao colar';
+
+  @override
+  String get settingsPasteBlocklistAdd => 'Adicionar app';
+
+  @override
+  String get settingsPasteBlocklistEmpty =>
+      'Nenhum app bloqueado: o auto-colar funciona em todos.';
+
+  @override
+  String settingsPasteBlocklistRemoveTooltip(String name) {
+    return 'Remover da lista de bloqueio: $name';
+  }
+
+  @override
+  String get settingsPasteBlocklistPickerTitle =>
+      'Adicionar app à lista de bloqueio';
+
+  @override
+  String get settingsPasteBlocklistRecentHeading => 'Ditado recente em';
+
+  @override
+  String get settingsPasteBlocklistPickerEmpty =>
+      'Ainda não há ditados com um app reconhecido. Digite abaixo o identificador do app.';
+
+  @override
+  String get settingsPasteBlocklistManualHeading =>
+      'Digitar o identificador manualmente';
+
+  @override
+  String get settingsPasteBlocklistManualAdd => 'Adicionar';
+
+  @override
+  String get historyAutoPasteOffForApp => 'Desativar o auto-colar neste app';
+
+  @override
+  String get settingsPasteClipboardAfter => 'Área de transferência após colar';
+
+  @override
+  String get settingsPasteClipboardAfterSubtitle =>
+      'Se o conteúdo anterior da área de transferência volta depois de colar. Se a colagem não puder ser confirmada a tempo, a transcrição sempre fica na área de transferência.';
+
+  @override
+  String get settingsPasteClipboardAfterKeep => 'Manter a transcrição';
+
+  @override
+  String get settingsPasteClipboardAfterRestore =>
+      'Restaurar o que você tinha copiado';
+
+  @override
+  String get pasteClipboardUnsavedHint =>
+      'Não foi possível guardar a sua área de transferência anterior: o macOS negou o acesso. Permita em Ajustes do Sistema → Privacidade e Segurança.';
+
+  @override
+  String get pasteClipboardUnsavedAction => 'Abrir Ajustes do Sistema';
 
   @override
   String get settingsCheckUpdates => 'Verificar atualizações';
@@ -3036,7 +3837,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingPrivacyHint =>
-      'Áudio e texto ficam no seu computador. Estatísticas anônimas de uso vão para um servidor próprio na UE, e os relatórios de falhas para o Sentry (região UE), em conformidade com o GDPR.';
+      'Áudio e texto ficam no seu computador. Estatísticas anônimas de uso vão para um servidor próprio na UE, e os relatórios de falhas para um serviço na UE (Sentry), em conformidade com o GDPR.';
 
   @override
   String get onboardingPrivacyToggle =>
@@ -3097,7 +3898,7 @@ class L10nPt extends L10n {
   String get onboardingMicChipAction => 'Microfone: ação necessária';
 
   @override
-  String get onboardingModelTitle => 'Configurar o reconhecimento de voz';
+  String get onboardingModelTitle => 'Configurar o modelo de voz';
 
   @override
   String get onboardingModelSubtitle =>
@@ -3111,24 +3912,50 @@ class L10nPt extends L10n {
       'Você pode ajustar a qualidade depois nas Configurações';
 
   @override
+  String get onboardingModelNextBlocked =>
+      'Baixe um modelo de voz ou use um provedor na nuvem com uma chave de API salva para continuar.';
+
+  @override
   String get onboardingModelDownloading => 'Baixando…';
 
   @override
-  String get onboardingModelReady => 'Modelo pronto';
+  String get onboardingModelReady => 'Modelo de voz pronto';
 
   @override
   String get onboardingModelGpuCpuFallback =>
       'Aceleração otimizada por GPU indisponível, o app usará a CPU';
 
   @override
-  String get onboardingModelEngineParakeetLabel => 'Rápido e europeu';
+  String get onboardingModelEngineParakeetLabel => 'Parakeet';
 
   @override
   String get onboardingModelEngineParakeetDesc =>
       'O jeito mais rápido de transformar fala em texto em cerca de 25 idiomas europeus, incluindo alemão. Roda bem em qualquer hardware, com ou sem GPU.';
 
   @override
-  String get onboardingModelEngineWhisperLabel => 'Todos os 99 idiomas';
+  String get onboardingModelDetectingHardware =>
+      'Verificando seu hardware para a recomendação certa…';
+
+  @override
+  String onboardingModelUseCloud(String provider) {
+    return 'Usar $provider';
+  }
+
+  @override
+  String onboardingModelCloudKeySaved(String provider) {
+    return 'Já existe uma chave de API salva para $provider. Você pode usá-la em vez de um modelo de voz local.';
+  }
+
+  @override
+  String onboardingModelCloudInUse(String provider) {
+    return 'Você usa $provider para o reconhecimento de voz. Não precisa de um modelo de voz local.';
+  }
+
+  @override
+  String get onboardingModelUseLocal => 'Usar um modelo de voz local';
+
+  @override
+  String get onboardingModelEngineWhisperLabel => 'Whisper';
 
   @override
   String get onboardingModelEngineWhisperDesc =>
@@ -3166,6 +3993,10 @@ class L10nPt extends L10n {
       'Sem um microfone funcionando, o WhisPaste ainda não consegue iniciar uma gravação. Você pode resolver isso a qualquer momento pelo status do microfone nesta página ou nas Configurações.';
 
   @override
+  String get onboardingTestRecordingMicBypassConsequence =>
+      'Assim, o atalho fica sem teste até você usá-lo pela primeira vez.';
+
+  @override
   String get onboardingTestRecordingPlaceholder =>
       'Seu texto falado aparecerá aqui …';
 
@@ -3193,6 +4024,16 @@ class L10nPt extends L10n {
   String get onboardingReadyTitle => 'Tudo pronto!';
 
   @override
+  String get onboardingReadyNoModelTitle => 'Falta um modelo de voz';
+
+  @override
+  String get onboardingReadyNoModelBody =>
+      'Sem um modelo de voz ou uma chave de API, o WhisPaste não consegue transcrever nada. Baixe um modelo ou salve uma chave e tudo estará pronto.';
+
+  @override
+  String get onboardingReadyBackToModel => 'Voltar ao modelo';
+
+  @override
   String get onboardingReadySubtitle => 'Veja como usar o WhisPaste';
 
   @override
@@ -3208,8 +4049,9 @@ class L10nPt extends L10n {
       'O texto vai direto para o app ativo';
 
   @override
-  String get onboardingReadyStep3CopyOnly =>
-      'O texto está na área de transferência, pressione ⌘V / Ctrl+V para colar';
+  String onboardingReadyStep3CopyOnly(String paste) {
+    return 'O texto está na área de transferência, pressione $paste para colar';
+  }
 
   @override
   String get onboardingReadyContextCarryoverHint =>
@@ -3221,7 +4063,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingReadyAutostartToggleHint =>
-      'Desativado por padrão, ative nas Configurações quando quiser';
+      'Inicia minimizado em segundo plano, pronto para o seu atalho';
 
   @override
   String get onboardingTriggerTitle => 'Como você quer iniciar a gravação?';
@@ -3283,6 +4125,12 @@ class L10nPt extends L10n {
       'O WhisPaste foi atualizado — suas configurações não mudaram.';
 
   @override
+  String get onboardingRevisionNoticeExpand => 'Mostrar todas as novidades';
+
+  @override
+  String get onboardingRevisionNoticeCollapse => 'Mostrar menos';
+
+  @override
   String get onboardingRevisionExit => 'Sair da introdução';
 
   @override
@@ -3290,7 +4138,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingRevisionExitConfirmBody =>
-      'Este guia de atualização é mostrado só uma vez, então os passos que você pular agora não serão configurados para você. Você pode reabrir os mesmos passos a qualquer momento em Configurações → Introdução, e cada configuração deles também tem seu próprio lugar nas Configurações. O que você já configurou permanece intacto.';
+      'Este guia de atualização é mostrado só uma vez, então os passos que você pular agora não serão configurados para você. Você pode reabrir os mesmos passos a qualquer momento na página Ajuda, em «Rever a introdução», e cada configuração deles também tem seu próprio lugar nas Configurações. O que você já configurou permanece intacto.';
 
   @override
   String get onboardingRevisionExitConfirmAction => 'Sair';
@@ -3299,10 +4147,13 @@ class L10nPt extends L10n {
   String get overlayRecording => 'Gravando';
 
   @override
-  String get overlayTranscribing => 'Transcrevendo…';
+  String get overlayTranscribing => 'Processando…';
 
   @override
   String get overlayRefining => 'Refinando…';
+
+  @override
+  String get overlayStarting => 'Iniciando…';
 
   @override
   String get overlayDone => 'Copiado';
@@ -3337,6 +4188,16 @@ class L10nPt extends L10n {
   }
 
   @override
+  String overlayStopAndCancelHint(String hotkey, String cancelKey) {
+    return '$hotkey para parar · $cancelKey para cancelar';
+  }
+
+  @override
+  String overlayDiscardConfirm(String cancelKey) {
+    return 'Descartar a gravação? Pressione $cancelKey novamente';
+  }
+
+  @override
   String overlayKeyboardHintNextFieldEnter(String hotkey) {
     return 'Enter ou $hotkey: próximo campo · Esc: cancelar';
   }
@@ -3361,6 +4222,9 @@ class L10nPt extends L10n {
   String overlayRecordingTargetTimer(String elapsed, String target) {
     return '$elapsed · $target';
   }
+
+  @override
+  String get overlayMicSignalLost => 'Sem sinal do microfone';
 
   @override
   String get overlayDoneQuickNote => 'Adicionado à nota';
@@ -3396,10 +4260,26 @@ class L10nPt extends L10n {
   String get trayOpenApp => 'Abrir WhisPaste';
 
   @override
+  String get trayTranscribeFile => 'Transcrever arquivo…';
+
+  @override
+  String get trayOpenSidePanel => 'Abrir painel de colagem rápida';
+
+  @override
   String get traySettings => 'Configurações';
 
   @override
   String get trayQuit => 'Sair';
+
+  @override
+  String get trayFeedback => 'Enviar feedback…';
+
+  @override
+  String get quitDuringDictationTitle => 'Uma gravação ainda está em andamento';
+
+  @override
+  String get quitDuringDictationMessage =>
+      'Ao encerrar agora, a gravação ou transcrição em andamento é interrompida e o texto se perde.';
 
   @override
   String get trayMicrophone => 'Microfone';
@@ -3444,7 +4324,7 @@ class L10nPt extends L10n {
 
   @override
   String get historyVoiceNoteButtonTooltip =>
-      'Nota de voz — diga “tag: …” para adicionar uma tag, ou “correct: …” para reescrever esta transcrição';
+      'Nota de voz — diga «tag: …» para adicionar uma tag, ou «correct: …» para substituir esta transcrição';
 
   @override
   String updateAvailable(String version) {
@@ -3478,6 +4358,21 @@ class L10nPt extends L10n {
   String get updateError => 'Falha ao verificar atualizações';
 
   @override
+  String get updateInstallAfterRecording =>
+      'A atualização será instalada após a gravação';
+
+  @override
+  String get updateInstallerMissing =>
+      'O arquivo de instalação não existe. Verifique novamente se há atualizações.';
+
+  @override
+  String get updateInstallFailed =>
+      'Não foi possível iniciar a instalação. Tente instalar a atualização novamente.';
+
+  @override
+  String get updateInstallRetry => 'Instalar novamente';
+
+  @override
   String get updateRateLimited =>
       'Muitas solicitações, tente novamente mais tarde';
 
@@ -3503,17 +4398,63 @@ class L10nPt extends L10n {
   String get settingsOverlaySizeMini => 'Mini';
 
   @override
-  String get settingsOverlayStyle => 'Estilo do overlay';
+  String get settingsOverlayColors => 'Cores do overlay';
 
   @override
-  String get settingsOverlayStyleSubtitle =>
-      'Escolha entre vidro ou um visual sólido e opaco';
+  String get settingsOverlayBackground => 'Fundo do overlay e do botão';
 
   @override
-  String get settingsOverlayStyleGlass => 'Vidro';
+  String get settingsOverlayBackgroundSubtitle =>
+      'Aplica-se ao overlay de gravação e ao botão flutuante.';
 
   @override
-  String get settingsOverlayStyleSolid => 'Sólido';
+  String get settingsOverlayBackgroundMarine => 'Marinho';
+
+  @override
+  String get settingsOverlayBackgroundGraphit => 'Grafite';
+
+  @override
+  String get settingsOverlayBackgroundGletscher => 'Geleira';
+
+  @override
+  String get settingsOverlayBackgroundAmber => 'Âmbar';
+
+  @override
+  String get settingsOverlayWave => 'Cor da onda para overlay e botão';
+
+  @override
+  String get settingsOverlayWaveSubtitle =>
+      'Aplica-se ao overlay de gravação e ao botão flutuante: onda e anel de gravação.';
+
+  @override
+  String get settingsOverlayWaveCyan => 'Ciano';
+
+  @override
+  String get settingsOverlayWaveViolett => 'Violeta';
+
+  @override
+  String get settingsOverlayWaveNeutral => 'Neutro';
+
+  @override
+  String get settingsOverlayWaveAmber => 'Âmbar';
+
+  @override
+  String get settingsOverlayWaveInk => 'Tinta';
+
+  @override
+  String get settingsOverlayWaveCoral => 'Coral';
+
+  @override
+  String get settingsOverlayWaveMint => 'Menta';
+
+  @override
+  String get settingsOverlayWaveUnavailable =>
+      'Não fica bem visível neste fundo';
+
+  @override
+  String settingsOverlayWaveReplacedToast(String from, String to) {
+    return '«$from» não fica bem visível neste fundo. A onda foi alterada para «$to».';
+  }
 
   @override
   String get settingsOverlayLiveTranscript => 'Transcrição ao vivo';
@@ -3550,7 +4491,7 @@ class L10nPt extends L10n {
   String get buttonContextStartRecording => 'Iniciar gravação';
 
   @override
-  String get buttonContextShowHistory => 'Mostrar histórico';
+  String get buttonContextShowHistory => 'Mostrar gravações';
 
   @override
   String get buttonContextSettings => 'Configurações';
@@ -3559,7 +4500,7 @@ class L10nPt extends L10n {
   String get buttonContextQuit => 'Sair do WhisPaste';
 
   @override
-  String get settingsHistory => 'Histórico';
+  String get settingsHistory => 'Gravações';
 
   @override
   String get settingsHistorySubtitle => 'Retenção e limpeza automática';
@@ -3604,18 +4545,22 @@ class L10nPt extends L10n {
   String get settingsHistoryPresetCustom => 'Personalizado';
 
   @override
-  String get settingsHistoryHideOnOpen => 'Ocultar histórico ao abrir';
+  String get settingsHistoryHideOnOpen => 'Ocultar gravações ao abrir';
 
   @override
   String get settingsHistoryHideOnOpenSubtitle =>
-      'Mostra um botão “Mostrar histórico” no lugar das suas transcrições sempre que o WhisPaste iniciar ou a janela for reaberta';
+      'Mostra um botão “Mostrar gravações” no lugar das suas transcrições sempre que o WhisPaste iniciar ou a janela for reaberta. Nada é apagado.';
 
   @override
-  String get historyPinGateTitle => 'Histórico bloqueado';
+  String get historyPinGateTitle => 'Gravações bloqueadas';
 
   @override
   String get historyPinGateHint =>
       'Digite seu PIN para mostrar suas transcrições.';
+
+  @override
+  String get historyImportUnlockHint =>
+      'Desbloqueie Gravações para transcrever o arquivo.';
 
   @override
   String get historyPinUnlock => 'Desbloquear';
@@ -3625,7 +4570,7 @@ class L10nPt extends L10n {
 
   @override
   String get historyPinDialogSubtitle =>
-      'Seu histórico está protegido por PIN.';
+      'Suas gravações estão protegidas por PIN.';
 
   @override
   String get historyPinFieldHint => 'PIN';
@@ -3645,21 +4590,40 @@ class L10nPt extends L10n {
   String get historyPinForgot => 'Esqueceu o PIN?';
 
   @override
-  String get historyPinForgotConfirmTitle => 'Excluir histórico e remover PIN?';
+  String get historyPinForgotHint =>
+      'Repor apaga de imediato todas as transcrições, os ficheiros de áudio guardados, as notas com as suas versões e as imagens das notas. Se um ficheiro não puder ser apagado, o WhisPaste mostra um aviso.';
+
+  @override
+  String get historyPinForgotConfirmTitle =>
+      'Apagar gravações e notas e remover o PIN?';
 
   @override
   String get historyPinForgotConfirmMessage =>
-      'Um PIN esquecido não pode ser recuperado. Para redefini-lo, todo o seu histórico — incluindo arquivo, lixeira e gravações mantidas — é excluído permanentemente. Configurações, notas, snippets e substituições são mantidos.';
+      'Um PIN esquecido não pode ser recuperado. Para o repor, são apagados de imediato e de forma permanente todas as transcrições e ficheiros de áudio guardados (incluindo arquivo e lixo), todas as notas com as suas versões (incluindo lixo) e todas as imagens das notas. As definições, os blocos de texto e as substituições são mantidos. Se um ficheiro não puder ser apagado, o WhisPaste mostra um aviso.';
 
   @override
-  String get historyPinForgotConfirmAction => 'Excluir histórico';
+  String get historyPinForgotLeftoverAudio =>
+      'Algumas gravações, importações ou imagens de notas não puderam ser apagadas. O WhisPaste remove-as na próxima vez que arrancar.';
+
+  @override
+  String historyPinForgotLeftoverUnqueued(String folder) {
+    return 'Algumas gravações ou importações não puderam ser excluídas, e o WhisPaste não consegue tentar novamente depois. Exclua-as manualmente. Local: $folder';
+  }
+
+  @override
+  String historyPinForgotMigrationCopyLeft(String path) {
+    return 'Não foi possível excluir uma cópia da base de dados antiga ($path). Exclua-a manualmente.';
+  }
+
+  @override
+  String get historyPinForgotConfirmAction => 'Excluir';
 
   @override
   String get historyPinSetTitle => 'Definir PIN';
 
   @override
   String get historyPinSetSubtitle =>
-      '4 a 8 dígitos. Impede que outras pessoas vejam seu histórico neste computador com facilidade — mas não o criptografa.';
+      '4 a 8 dígitos. Impede que outras pessoas vejam suas transcrições neste computador com facilidade — mas não as criptografa.';
 
   @override
   String get historyPinInvalid => 'Use de 4 a 8 dígitos.';
@@ -3672,7 +4636,7 @@ class L10nPt extends L10n {
 
   @override
   String get settingsHistoryPinSubtitle =>
-      'Exige um PIN para mostrar o histórico, incluindo painel lateral, menu do botão flutuante e API de automação.';
+      'Exigir um PIN para mostrar gravações e notas, incluindo o painel lateral, o menu do botão flutuante e a API de automação.';
 
   @override
   String get settingsHistoryPinChange => 'Alterar';
@@ -3685,7 +4649,7 @@ class L10nPt extends L10n {
 
   @override
   String get settingsHistoryAutoLockSubtitle =>
-      'Oculta o histórico novamente após este tempo sem atividade.';
+      'Oculta as gravações novamente após este tempo sem atividade.';
 
   @override
   String get settingsHistoryAutoLockNever => 'Nunca';
@@ -3696,6 +4660,10 @@ class L10nPt extends L10n {
   }
 
   @override
+  String get settingsFloatingButtonLookLocked =>
+      'Ative o botão flutuante para alterar isto.';
+
+  @override
   String get settingsFloatingButtonSection => 'Botão flutuante';
 
   @override
@@ -3703,14 +4671,38 @@ class L10nPt extends L10n {
       'Botão de gravação sempre no topo, para acesso rápido';
 
   @override
-  String get settingsSttIdleTimeout => 'Tempo de inatividade do motor';
+  String get settingsSttIdleTimeout => 'Tempo de inatividade do modelo de voz';
 
   @override
   String get settingsSttIdleTimeoutSubtitle =>
-      'Por quanto tempo o serviço de voz permanece carregado após o uso';
+      'Por quanto tempo o modelo de voz permanece carregado após o uso';
 
   @override
   String get settingsSttIdleTimeoutKeepAlive => 'Manter ativo';
+
+  @override
+  String get settingsSttKeepLoaded => 'Manter o modelo carregado';
+
+  @override
+  String get settingsSttKeepLoadedSubtitle =>
+      'Um modelo carregado inicia o ditado sem esperar pelo carregamento. Enquanto estiver carregado, ocupa memória.';
+
+  @override
+  String settingsSttKeepLoadedMemory(String size) {
+    return 'Carregado, o modelo precisa de cerca de $size de memória.';
+  }
+
+  @override
+  String get settingsSttKeepLoadedAlways => 'Sempre';
+
+  @override
+  String get settingsSttKeepLoadedAutomatic => 'Automático';
+
+  @override
+  String get settingsSttKeepLoadedAfterIdle => 'Após um período ocioso';
+
+  @override
+  String get settingsSttKeepLoadedUnloadAfter => 'Descarregar após';
 
   @override
   String settingsSttIdleTimeoutMinutes(int count) {
@@ -3740,30 +4732,16 @@ class L10nPt extends L10n {
   String get reviewPromptNever => 'Não perguntar mais';
 
   @override
-  String get reviewPromptStarGitHub => '⭐ Dar estrela no GitHub';
+  String get reviewPromptStarGitHub => 'Dar estrela no GitHub';
 
   @override
-  String get reviewPromptRateStore => '★ Avaliar na loja';
-
-  @override
-  String get reviewPromptGateBody =>
-      'Só uma pergunta rápida para nós, isto não é uma avaliação na loja.';
-
-  @override
-  String get reviewPromptGateYes => 'Sim, gosto';
-
-  @override
-  String get reviewPromptGateNo => 'Não muito';
+  String get reviewPromptRateStore => 'Avaliar na loja';
 
   @override
   String get reviewSupportEntry => 'Avalie e apoie o WhisPaste';
 
   @override
-  String get reviewSupportLabel => 'Sua avaliação';
-
-  @override
-  String get reviewSupportSubtitle =>
-      'Sua avaliação ajuda outras pessoas a encontrar o WhisPaste e apoia o projeto.';
+  String get reviewSupportLabel => 'Avaliar o app';
 
   @override
   String get reviewSupportAction => 'Avaliar';
@@ -3778,39 +4756,69 @@ class L10nPt extends L10n {
   String get feedbackIdeasLink => 'Sugira e vote em ideias';
 
   @override
-  String get insufficientRamTitle => 'Memória insuficiente';
+  String get feedbackTypeProblem => 'Problema';
 
   @override
-  String insufficientRamBody(double detectedGb, int requiredGb) {
-    final intl.NumberFormat detectedGbNumberFormat =
-        intl.NumberFormat.decimalPattern(localeName);
-    final String detectedGbString = detectedGbNumberFormat.format(detectedGb);
-
-    return 'O WhisPaste precisa de pelo menos $requiredGb GB de RAM para rodar. Seu sistema tem $detectedGbString GB.\n\nCom menos memória, o motor de transcrição por IA pode não carregar ou travar durante a sessão.';
-  }
+  String get feedbackTypeIdea => 'Ideia';
 
   @override
-  String get insufficientRamQuit => 'Sair do WhisPaste';
+  String get feedbackTypePraise => 'Elogio';
 
   @override
-  String get insufficientRamLearnMore => 'Requisitos do sistema';
+  String get feedbackTypeQuestion => 'Pergunta';
 
   @override
-  String get insufficientRamSystemCheck => 'Verificação do sistema';
+  String get feedbackPromptProblem =>
+      'O que deu errado? Conte o que você fez e o que aconteceu.';
 
   @override
-  String get insufficientRamYourSystem => 'Seu sistema';
+  String get feedbackPromptIdea =>
+      'O que tornaria o WhisPaste melhor para você?';
 
   @override
-  String get insufficientRamRequired => 'Necessário';
+  String get feedbackPromptPraise => 'O que funciona bem para você?';
+
+  @override
+  String get feedbackPromptQuestion => 'O que você gostaria de saber?';
+
+  @override
+  String get feedbackDiagnosticsLabel => 'Anexar diagnóstico';
+
+  @override
+  String get feedbackDiagnosticsExplanation =>
+      'Adiciona a versão do app, o sistema operacional, o motor de reconhecimento de voz e o backend. Seus ditados e textos nunca são anexados.';
+
+  @override
+  String get feedbackDiagnosticsPreview => 'Mostrar prévia';
+
+  @override
+  String get feedbackDiagnosticsPreviewHide => 'Ocultar prévia';
+
+  @override
+  String get feedbackDiagnosticsPreviewHeading =>
+      'Este texto exato é adicionado à sua mensagem:';
+
+  @override
+  String get feedbackIdeaBoardHint =>
+      'Você também pode publicar sua ideia no quadro público de ideias e votar nas dos outros.';
+
+  @override
+  String get feedbackTextTooLong =>
+      'O texto é longo demais para anexar o diagnóstico. Encurte-o um pouco.';
 
   @override
   String get hotkeyRegistrationFailed =>
       'Falha ao registrar o atalho. Defina sua combinação novamente nas Configurações.';
 
   @override
-  String get hotkeyRegistrationFailedDefaultActive =>
-      'Falha ao registrar o atalho, usando Ctrl+Shift+Espaço como alternativa. Defina-o novamente nas Configurações.';
+  String hotkeyFallbackActive(String taken, String active) {
+    return '$taken já está em uso por outro app. Até você escolher outra combinação, $active inicia a gravação.';
+  }
+
+  @override
+  String hotkeyConflictActive(String action) {
+    return 'Outro aplicativo está usando o atalho de $action. Ele fica desativado até você escolher uma combinação livre em Configurações.';
+  }
 
   @override
   String hotkeyConflictWarning(String platform, String note) {
@@ -3841,14 +4849,14 @@ class L10nPt extends L10n {
 
   @override
   String get recoveryExhaustedToast =>
-      'O serviço de voz não pode iniciar. Reinicie o app ou recarregue o modelo de voz.';
+      'O modelo de voz não pode iniciar. Reinicie o app ou recarregue o modelo de voz.';
 
   @override
   String get recoveryExhaustedAction => 'Abrir configurações';
 
   @override
   String get recoveryVcRuntimeToast =>
-      'O serviço de voz não pode iniciar: falta um componente do Windows (Microsoft Visual C++). Instale o Visual C++ Redistributable (x64) e reinicie o WhisPaste.';
+      'O modelo de voz não pode iniciar: falta um componente do Windows (Microsoft Visual C++). Instale o Visual C++ Redistributable (x64) e reinicie o WhisPaste.';
 
   @override
   String get recoveryVcRuntimeAction => 'Instalar';
@@ -3858,11 +4866,11 @@ class L10nPt extends L10n {
 
   @override
   String get recoveryGpuDisabledToast =>
-      'Por causa de um problema na última inicialização, o WhisPaste agora roda sem aceleração por GPU. O ditado continua funcionando normalmente.';
+      'Por causa de um problema na última inicialização, o WhisPaste agora roda sem aceleração por GPU. A gravação continua funcionando normalmente.';
 
   @override
   String get serverDownloadFailedToast =>
-      'Não foi possível baixar o serviço de voz. Verifique sua conexão com a internet?';
+      'Não foi possível baixar o modelo de voz. Verifique sua conexão com a internet?';
 
   @override
   String get serverDownloadFailedAction => 'Tentar novamente';
@@ -3876,13 +4884,6 @@ class L10nPt extends L10n {
 
   @override
   String get historyWriteFailedAction => 'Copiar diagnóstico';
-
-  @override
-  String get factoryResetFailedToast =>
-      'Redefinição de fábrica incompleta. Reiniciar o app?';
-
-  @override
-  String get factoryResetFailedAction => 'Sair do app';
 
   @override
   String get errorSttRejectEmpty =>
@@ -3905,7 +4906,7 @@ class L10nPt extends L10n {
 
   @override
   String get settingsGpuAccelerationSubtitle =>
-      'Define se o serviço de voz usa GPU ou CPU para o reconhecimento local';
+      'Automático usa a placa de vídeo quando ela está disponível. «Somente CPU» é mais lento, mas funciona em qualquer dispositivo. Escolha «GPU (forçado)» somente se o automático não funcionar.';
 
   @override
   String get settingsGpuAccelerationAuto => 'Automático (recomendado)';
@@ -3917,20 +4918,23 @@ class L10nPt extends L10n {
   String get settingsGpuAccelerationDisabled => 'Somente CPU';
 
   @override
-  String get settingsSttEngine => 'Mecanismo';
+  String get settingsSttEngine => 'Modelo de voz';
 
   @override
   String get settingsSttEngineSubtitle =>
-      'O Whisper cobre 99 idiomas e todos os backends de GPU; o Parakeet é bem mais rápido e cobre cerca de 25 idiomas, na GPU quando disponível';
+      'Whisper: 99 idiomas. Parakeet: mais rápido, cerca de 25 idiomas.';
 
   @override
   String get settingsSttEngineWhisper => 'Whisper';
 
   @override
-  String get settingsSttEngineParakeet => 'Parakeet (mais rápido, ~25 idiomas)';
+  String get settingsSttEngineParakeet => 'Parakeet';
 
   @override
-  String get parakeetModelTitle => 'Modelo Parakeet TDT';
+  String get settingsSttEngineRecommended => 'Recomendado';
+
+  @override
+  String get parakeetModelTitle => 'Modelo Parakeet';
 
   @override
   String parakeetModelSubtitle(String size) {
@@ -3989,14 +4993,29 @@ class L10nPt extends L10n {
 
   @override
   String get settingsShareUsageStatsSubtitle =>
-      'Sem cookies, com um ID aleatório por sessão e um pseudônimo que muda semanalmente — nos ajuda a entender como o WhisPaste é usado';
+      'Contagens de uso anônimas, sem cookies e sem vínculo com você. Ajudam a ver quais recursos são usados. Seu texto e seu áudio nunca são incluídos.';
 
   @override
-  String get settingsRetainRecentAudio => 'Manter gravações recentes';
+  String get settingsRetainRecentAudio => 'Manter áudio de gravações recentes';
 
   @override
-  String get settingsRetainRecentAudioSubtitle =>
-      'Mantém o áudio dos seus últimos 20 ditados neste dispositivo, para depuração ou para restaurar uma transcrição anterior; gravações mais antigas são excluídas automaticamente';
+  String settingsRetainRecentAudioSubtitle(int count, int days) {
+    return 'Mantém o áudio das suas últimas $count gravações neste dispositivo, para depuração ou para restaurar uma transcrição anterior; as gravações e os arquivos importados são excluídos automaticamente após no máximo $days dias';
+  }
+
+  @override
+  String get pendingAudioRetentionNote =>
+      'Uma gravação cuja transcrição falhou mantém o áudio por até 24 horas para você tentar de novo, mesmo com esta opção desligada.';
+
+  @override
+  String get pendingAudioSectionTitle => 'Gravações aguardando nova tentativa';
+
+  @override
+  String get pendingAudioSectionBody =>
+      'Estas gravações não puderam ser transcritas, por exemplo porque a conexão caiu. O áudio é excluído em até 24 horas, ou quando você o descarta.';
+
+  @override
+  String get pendingAudioEmpty => 'Nenhuma gravação aguarda.';
 
   @override
   String get featureSpotlightHeading => 'Novidades no WhisPaste';
@@ -4031,15 +5050,15 @@ class L10nPt extends L10n {
 
   @override
   String get featureSpotlightSmartModeDescription =>
-      'Limpe, encurte ou traduza seu ditado antes de ele ser colado — totalmente no dispositivo, com atalho, predefinição e idioma de destino próprios.';
+      'Limpe, encurte ou traduza seu texto antes de ele ser colado — totalmente no dispositivo, com atalho, predefinição e idioma de destino próprios.';
 
   @override
   String get featureSpotlightHistoryPinTitle =>
-      'Proteja seu histórico com um PIN';
+      'Proteja suas gravações com um PIN';
 
   @override
   String get featureSpotlightHistoryPinDescription =>
-      'Mantenha suas transcrições privadas atrás de um PIN — inclusive o painel lateral e o menu do botão flutuante — com bloqueio automático opcional após inatividade. Configurações → Histórico.';
+      'Mantenha suas transcrições privadas atrás de um PIN — inclusive o painel lateral e o menu do botão flutuante — com bloqueio automático opcional após inatividade. Configurações → Gravações.';
 
   @override
   String get featureSpotlightEditSelectionTitle =>
@@ -4047,7 +5066,7 @@ class L10nPt extends L10n {
 
   @override
   String get featureSpotlightEditSelectionDescription =>
-      'Selecione um texto em qualquer app, pressione o atalho “Editar seleção” e diga o que deve mudar — ou apenas “mais curto”, “melhorar” ou “traduzir”. Usa o seu motor do Smart Mode. Desativado por padrão: ative em Configurações → Smart Mode.';
+      'Selecione um texto em qualquer app, pressione o atalho “Editar seleção” e diga o que deve mudar — ou apenas “mais curto”, “melhorar” ou “traduzir”. Usa o modelo de texto do Smart Mode. Desativado por padrão: ative em Configurações → Smart Mode.';
 
   @override
   String get featureSpotlightChangelogLink => 'Ver changelog completo';
@@ -4275,7 +5294,7 @@ class L10nPt extends L10n {
 
   @override
   String get settingsSmartModeSubtitle =>
-      'Limpeza, encurtamento e tradução de texto local após o ditado';
+      'Limpeza, encurtamento e tradução de texto local após a gravação';
 
   @override
   String get smartModeStandardPreset => 'Predefinição padrão';
@@ -4285,7 +5304,7 @@ class L10nPt extends L10n {
 
   @override
   String get smartModePresetOffDescription =>
-      'Nenhum pós-processamento automático — o texto ditado é usado exatamente como foi transcrito.';
+      'Nenhum pós-processamento automático — o texto transcrito é usado exatamente como foi transcrito.';
 
   @override
   String get smartModePresetCleanup => 'Limpeza';
@@ -4306,7 +5325,7 @@ class L10nPt extends L10n {
 
   @override
   String get smartModePresetTranslateDescription =>
-      'Traduz o texto ditado para o idioma de destino definido abaixo.';
+      'Traduz o texto transcrito para o idioma de destino definido abaixo.';
 
   @override
   String get smartModeTargetLanguage => 'Idioma de destino';
@@ -4336,15 +5355,14 @@ class L10nPt extends L10n {
   String get smartModeDownload => 'Baixar';
 
   @override
-  String get smartModeDownloadComplete =>
-      'Modelo do Smart Mode pronto para uso';
+  String get smartModeDownloadComplete => 'Modelo de texto pronto para uso';
 
   @override
   String get smartModeRamWarningTitle => 'Memória limitada detectada';
 
   @override
   String get smartModeRamWarningBody =>
-      'O modelo local do Smart Mode funciona melhor com 8 GB de RAM ou mais. Pode funcionar mesmo assim, mas pode ser lento ou falhar neste computador. Baixar mesmo assim?';
+      'O modelo de texto local do Smart Mode funciona melhor com 8 GB de RAM ou mais. Pode funcionar mesmo assim, mas pode ser lento ou falhar neste computador. Baixar mesmo assim?';
 
   @override
   String get smartModeRamWarningContinue => 'Baixar mesmo assim';
@@ -4353,12 +5371,23 @@ class L10nPt extends L10n {
   String get smartModeRamWarningCancel => 'Cancelar';
 
   @override
+  String get smartModeModelDeleteConfirm => 'Excluir este modelo de texto?';
+
+  @override
+  String get smartModeModelDeleteConfirmMessage =>
+      'O arquivo do modelo de texto é excluído deste dispositivo. Você pode baixá-lo novamente a qualquer momento.';
+
+  @override
   String get smartModeMemoryFootprintInfo =>
-      'Roda totalmente no dispositivo. Enquanto ativo, usa cerca de 4–5 GB de RAM além do espaço em disco — compartilhados com o modelo de transcrição, então o uso total de memória depende de qual modelo STT você também tem carregado.';
+      'Roda totalmente no dispositivo. Enquanto ativo, o modelo de texto usa cerca de 4–5 GB de RAM além do espaço em disco — compartilhados com o modelo de voz, então o uso total de memória depende de qual modelo de voz você também tem carregado.';
+
+  @override
+  String get smartModeFactGuardHint =>
+      'O guardião de factos verifica números, datas, links, e-mails e IBANs. Os nomes do dicionário são mantidos. Instruções livres podem alterar nomes que não estão no dicionário; adicione-os ao dicionário se devem ser mantidos.';
 
   @override
   String get smartModeSpeedExampleInfo =>
-      'Exemplo: um ditado típico de 50 palavras leva cerca de 1 a 6 segundos para ser processado, dependendo do hardware do seu dispositivo.';
+      'Exemplo: uma gravação típica de 50 palavras leva cerca de 1 a 6 segundos para ser processada, dependendo do hardware do seu dispositivo.';
 
   @override
   String get smartModeLocalUnavailable =>
@@ -4368,17 +5397,17 @@ class L10nPt extends L10n {
   String get settingsHotkeyActionSmartMode => 'Smart Mode';
 
   @override
-  String get settingsSmartModeHotkeyEnabled => 'Atalho do Smart Mode';
+  String get settingsSmartModeHotkeyEnabled => 'Gravar com Smart Mode';
 
   @override
   String get settingsSmartModeHotkeyHint =>
-      'Inicia uma gravação com uma predefinição fixa, independente da predefinição padrão acima. Suporta pressionar para falar, assim como o atalho principal.';
+      'Inicia uma gravação com uma predefinição fixa, independente da predefinição padrão do Smart Mode. “Manter pressionado para gravar” também vale aqui.';
 
   @override
   String get settingsSmartModeHotkeyPreset => 'Predefinição';
 
   @override
-  String get settingsSmartModeCurrentHotkey => 'Combinação';
+  String get settingsSmartModeCurrentHotkey => 'Atalho atual';
 
   @override
   String settingsSmartModeHotkeyCollision(String action) {
@@ -4393,11 +5422,12 @@ class L10nPt extends L10n {
   String get smartModeOnboardingHintTitle => 'Experimente o Smart Mode';
 
   @override
-  String get smartModeOnboardingHintBody =>
-      'O Smart Mode pode limpar, encurtar ou traduzir seu texto ditado automaticamente — totalmente no dispositivo. Baixe o modelo local agora ou configure depois em Configurações.';
+  String smartModeOnboardingHintBody(String size) {
+    return 'O Smart Mode pode limpar, encurtar ou traduzir seu texto automaticamente, totalmente no seu dispositivo. O modelo de texto local ocupa $size no disco. Baixe agora ou configure depois nas Configurações.';
+  }
 
   @override
-  String get smartModeOnboardingHintExampleBeforeLabel => 'Ditado bruto';
+  String get smartModeOnboardingHintExampleBeforeLabel => 'Texto bruto';
 
   @override
   String get smartModeOnboardingHintExampleBefore =>
@@ -4415,15 +5445,15 @@ class L10nPt extends L10n {
   String get smartModeOnboardingHintDownloadCta => 'Baixar';
 
   @override
-  String get smartModeOnboardingHintSkipCta => 'Pular';
+  String get smartModeOnboardingHintSkipCta => 'Depois';
 
   @override
   String get smartModeUsageHintTitle =>
-      'Experimente o Smart Mode no seu próximo ditado';
+      'Experimente o Smart Mode na sua próxima gravação';
 
   @override
   String get smartModeUsageHintBody =>
-      'O Smart Mode pode limpar, encurtar ou traduzir um texto como este automaticamente, direto no seu dispositivo. Veja o que você acabou de ditar:';
+      'O Smart Mode pode limpar, encurtar ou traduzir um texto como este automaticamente, direto no seu dispositivo. Veja o que você acabou de dizer:';
 
   @override
   String get smartModeUsageHintCta => 'Configurar';
@@ -4436,7 +5466,7 @@ class L10nPt extends L10n {
 
   @override
   String get settingsAutomationApiSubtitle =>
-      'Inicie ditados a partir dos seus próprios scripts por uma API HTTP restrita ao loopback';
+      'Outros programas e scripts deste computador podem controlar o WhisPaste, por exemplo iniciar uma gravação. Outros dispositivos da rede não conseguem acessá-lo.';
 
   @override
   String get settingsAutomationApiEnable => 'Ativar API local de automação';
@@ -4538,11 +5568,11 @@ class L10nPt extends L10n {
   String get settingsHotkeyActionSelectionEdit => 'Editar seleção';
 
   @override
-  String get settingsSelectionEditHotkeyEnabled => 'Atalho para editar seleção';
+  String get settingsSelectionEditHotkeyEnabled => 'Editar seleção';
 
   @override
   String get settingsSelectionEditHotkeyHint =>
-      'Selecione texto em qualquer app, pressione este atalho e diga o que mudar — ou apenas \"mais curto\", \"melhorar\" ou \"traduzir\". O resultado substitui a seleção; desfazer no app traz o original de volta. Usa o mecanismo do Smart Mode configurado acima.';
+      'Selecione texto em qualquer app, pressione este atalho e diga o que mudar — ou apenas \"mais curto\", \"melhorar\" ou \"traduzir\". O resultado substitui a seleção; desfazer no app traz o original de volta. Usa o modelo de texto configurado no Smart Mode.';
 
   @override
   String get settingsSelectionEditHotkeyInactive =>
@@ -4570,7 +5600,7 @@ class L10nPt extends L10n {
 
   @override
   String get errorSelectionEditNoEngine =>
-      'Configure o Smart Mode primeiro (baixe o modelo local ou adicione uma chave da OpenAI) para editar seleções';
+      'Configure o Smart Mode primeiro (baixe o modelo de texto local ou adicione uma chave da OpenAI) para editar seleções';
 
   @override
   String get errorSelectionEditUnsupported =>
@@ -4585,6 +5615,15 @@ class L10nPt extends L10n {
       'A edição falhou — seu texto foi mantido sem alterações';
 
   @override
+  String get errorSelectionEditFactsChanged =>
+      'A edição alteraria dados que a sua instrução não menciona — seu texto foi mantido sem alterações';
+
+  @override
+  String errorSelectionEditFactsChangedValue(String value) {
+    return 'A edição alteraria «$value» sem que a sua instrução o mencione. Indique o valor antigo e o novo, p. ex. «troque 3 por 5»; o seu texto não mudou';
+  }
+
+  @override
   String get errorSelectionEditPasteFailed =>
       'Não foi possível substituir a seleção — seu texto foi mantido sem alterações';
 
@@ -4593,7 +5632,7 @@ class L10nPt extends L10n {
 
   @override
   String settingsCudaPackSubtitle(String size) {
-    return 'Ditado mais rápido em placas GeForce RTX e GTX 16. Download único de $size.';
+    return 'Transcrição mais rápida em placas GeForce RTX e GTX 16. Download único de $size.';
   }
 
   @override
@@ -4618,6 +5657,13 @@ class L10nPt extends L10n {
   String get settingsCudaPackRemove => 'Remover pacote CUDA';
 
   @override
+  String get settingsCudaPackRemoveConfirm => 'Remover o pacote CUDA?';
+
+  @override
+  String get settingsCudaPackRemoveConfirmMessage =>
+      'O pacote CUDA é removido deste dispositivo. Você pode baixá-lo novamente a qualquer momento.';
+
+  @override
   String get settingsCudaPackToggle => 'Usar CUDA';
 
   @override
@@ -4634,7 +5680,7 @@ class L10nPt extends L10n {
 
   @override
   String get recoveryCudaDisabledToast =>
-      'A aceleração CUDA foi desativada por causa de um problema na última inicialização. O WhisPaste agora usa Vulkan, e o ditado funciona normalmente.';
+      'A aceleração CUDA foi desativada por causa de um problema na última inicialização. O WhisPaste agora usa Vulkan, e a gravação funciona normalmente.';
 
   @override
   String get supportPromptSnooze => 'Não perguntar por 90 dias';
@@ -4648,13 +5694,10 @@ class L10nPt extends L10n {
 
   @override
   String get supportShareText =>
-      'Eu uso o WhisPaste para ditar texto direto nos meus apps. Local no meu computador e de código aberto:';
+      'Eu uso o WhisPaste para escrever com a voz direto nos meus apps. Local no meu computador e de código aberto:';
 
   @override
   String get supportPageTitle => 'Apoiar o WhisPaste';
-
-  @override
-  String get supportPageOpenAction => 'Todas as formas de apoiar';
 
   @override
   String get supportIntroDirect =>
@@ -4801,6 +5844,12 @@ class L10nPt extends L10n {
   String get supportShareCopied => 'Link copiado';
 
   @override
+  String get externalLinkOpenFailed => 'Não foi possível abrir o link';
+
+  @override
+  String get externalLinkCopyAddress => 'Copiar endereço';
+
+  @override
   String get supportShareEmail => 'E-mail';
 
   @override
@@ -4816,12 +5865,2807 @@ class L10nPt extends L10n {
   String get supportChipThanksTooltip => 'Obrigado pelo seu apoio';
 
   @override
-  String get supportChipHide => 'Ocultar';
-
-  @override
   String get settingsSponsorChip => 'Botão de apoio na barra de status';
 
   @override
   String get settingsSponsorChipSubtitle =>
-      'Mostra o caminho para a página de apoio. Você pode ocultá-lo depois de apoiar o projeto na loja ou confirmar aqui.';
+      'Mostra o caminho para a página de apoio. Você pode ocultá-lo a qualquer momento e voltar a exibi-lo aqui.';
+
+  @override
+  String get automationPreviewTitle => 'Inserir texto com várias linhas?';
+
+  @override
+  String get automationPreviewBody =>
+      'A automação quer inserir texto com quebras de linha. Verifique-o antes que chegue ao app ativo.';
+
+  @override
+  String automationPreviewLineCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count linhas',
+      one: '1 linha',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get automationPreviewInsert => 'Inserir';
+
+  @override
+  String get automationPreviewCancel => 'Cancelar';
+
+  @override
+  String get automationIntegrationsHeading => 'Integrações';
+
+  @override
+  String get automationIntegrationsHooksTitle =>
+      'Enviar eventos para outros apps';
+
+  @override
+  String get automationIntegrationsHooksSubtitle =>
+      'Envia transcrições concluídas e notas alteradas para um app neste computador. Os hooks continuam disparando mesmo com o servidor da API desligado.';
+
+  @override
+  String automationIntegrationsHooksCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count hooks',
+      one: '1 hook',
+      zero: 'Nenhum hook',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get automationIntegrationsHooksManage => 'Gerenciar';
+
+  @override
+  String get automationIntegrationsCliTitle => 'Linha de comando e MCP';
+
+  @override
+  String automationIntegrationsCliSubtitle(
+    String path,
+    String token,
+    String command,
+  ) {
+    return 'Somente a partir do código-fonte. Execute $path com $token definido; o comando $command inicia o servidor MCP.';
+  }
+
+  @override
+  String get automationHooksIntro =>
+      'Textos finalizados e notas alteradas são enviados a um app neste computador. O endereço precisa estar neste dispositivo.';
+
+  @override
+  String get automationHooksEmpty => 'Nenhuma conexão configurada ainda.';
+
+  @override
+  String get automationHooksUrlLabel =>
+      'Endereço de destino (somente este computador)';
+
+  @override
+  String get automationHooksEventsLabel => 'Eventos';
+
+  @override
+  String get automationHooksEventTranscript => 'Transcrição concluída';
+
+  @override
+  String get automationHooksEventNote => 'Nota alterada';
+
+  @override
+  String get automationHooksAdd => 'Adicionar hook';
+
+  @override
+  String get automationHooksRemove => 'Remover hook';
+
+  @override
+  String get automationHooksRemoveConfirm => 'Remover este hook?';
+
+  @override
+  String get automationHooksRemoveConfirmMessage =>
+      'O hook é removido da lista. Você pode adicioná-lo novamente depois.';
+
+  @override
+  String automationHooksInvalidUrl(
+    String ipv4,
+    String ipv6,
+    String localhost,
+    String example,
+  ) {
+    return 'Use $ipv4, $ipv6 ou $localhost com uma porta, por exemplo $example.';
+  }
+
+  @override
+  String get automationHooksNoEvents => 'Escolha pelo menos um evento.';
+
+  @override
+  String automationHooksTooMany(int max) {
+    return 'Você pode adicionar até $max hooks.';
+  }
+
+  @override
+  String get automationHooksDone => 'Concluído';
+
+  @override
+  String get navSmartMode => 'Smart Mode';
+
+  @override
+  String get dockDictate => 'Ditar';
+
+  @override
+  String get dockOverflow => 'Mais';
+
+  @override
+  String get dockMenuGroupStatus => 'Estado';
+
+  @override
+  String get dockMenuGroupNotices => 'Avisos';
+
+  @override
+  String get dockMenuHotkeyChange => 'Alterar atalho…';
+
+  @override
+  String get dockMenuSmartModeSettings => 'Configurações do Smart Mode…';
+
+  @override
+  String get dockMenuSttModels => 'Gerir modelos de voz…';
+
+  @override
+  String get dockMenuGroupCloud => 'Nuvem';
+
+  @override
+  String get dockMenuModelDownload => 'Baixar';
+
+  @override
+  String get dockMenuModelLoading => 'carregando';
+
+  @override
+  String get dockMenuSttLockedReason =>
+      'Não é possível alterar durante uma gravação';
+
+  @override
+  String get dockMenuSearchHint => 'Pesquisar…';
+
+  @override
+  String get dockMenuSearchNoMatches => 'Nenhum resultado';
+
+  @override
+  String get dockMenuAppliesNextRecording =>
+      'Vale a partir da próxima gravação';
+
+  @override
+  String get dockStopDictation => 'Parar gravação';
+
+  @override
+  String get historyImportAddFiles => 'Adicionar arquivos';
+
+  @override
+  String historyImportDescription(String formats) {
+    return 'Transcreve arquivos de áudio ($formats) neste dispositivo. Arraste os arquivos para esta página ou adicione-os.';
+  }
+
+  @override
+  String get historyImportQueueTitle => 'Fila de importação';
+
+  @override
+  String get historyImportStatusQueued => 'Aguardando';
+
+  @override
+  String get historyImportStatusCopying => 'Copiando';
+
+  @override
+  String get historyImportStatusDecoding => 'Decodificando';
+
+  @override
+  String get historyImportStatusTranscribing => 'Transcrevendo';
+
+  @override
+  String get historyImportStatusDone => 'Concluído';
+
+  @override
+  String get historyImportStatusFailed => 'Falhou';
+
+  @override
+  String get historyImportStatusCancelled => 'Cancelado';
+
+  @override
+  String get historyImportFailureCopy =>
+      'Não foi possível copiar o arquivo. Verifique se ele ainda existe e pode ser lido, e tente novamente.';
+
+  @override
+  String get historyImportFailureUnsupported =>
+      'Este formato não é compatível com esta plataforma. Converta o arquivo para WAV e importe-o novamente.';
+
+  @override
+  String get historyImportFailureDecode =>
+      'Não foi possível decodificar o arquivo. Provavelmente está danificado ou incompleto. Importe outra cópia ou converta para WAV.';
+
+  @override
+  String get historyImportFailureInputLimit =>
+      'O arquivo é grande demais ou tem mais de 6 horas. Divida-o em partes menores.';
+
+  @override
+  String get historyImportFailureTranscription =>
+      'A transcrição falhou. Verifique o reconhecimento de fala nas configurações e tente novamente.';
+
+  @override
+  String get historyImportFailureSave =>
+      'Não foi possível salvar a transcrição. Verifique o espaço livre no disco e tente novamente.';
+
+  @override
+  String get historyImportRejectedFolder =>
+      'Não é possível importar pastas. Escolha os arquivos de áudio dentro delas.';
+
+  @override
+  String get historyImportRejectedNotFound => 'O arquivo não foi encontrado.';
+
+  @override
+  String historyImportRejectedType(String formats) {
+    return 'Este tipo de arquivo não pode ser importado. Compatíveis: $formats.';
+  }
+
+  @override
+  String get historyImportDialogFailed =>
+      'Não foi possível abrir a janela de arquivos. Tente novamente ou arraste os arquivos para esta página.';
+
+  @override
+  String get historyImportDropHere =>
+      'Solte os arquivos de áudio aqui para transcrevê-los';
+
+  @override
+  String get historyImportCancel => 'Cancelar importação';
+
+  @override
+  String get historyImportRetry => 'Repetir importação';
+
+  @override
+  String get recoveryOffer =>
+      'Foi encontrada uma gravação interrompida. Recuperar o áudio e transcrevê-lo?';
+
+  @override
+  String get recoveryNoAudioKept =>
+      'Foi encontrada uma gravação interrompida, mas nenhum áudio foi guardado porque a retenção de áudio está desativada.';
+
+  @override
+  String get recoveryNoAudioCaptured =>
+      'Foi encontrada uma gravação interrompida, mas ela não contém áudio.';
+
+  @override
+  String get recoveryRestore => 'Recuperar';
+
+  @override
+  String get recoveryDiscard => 'Descartar';
+
+  @override
+  String get recoveryDiscardConfirm => 'Descartar esta gravação?';
+
+  @override
+  String get recoveryDiscardConfirmMessage =>
+      'Esta gravação interrompida é removida deste dispositivo, junto com o áudio que tiver sido guardado.';
+
+  @override
+  String get recoveryFailed =>
+      'A recuperação falhou. O áudio foi mantido e você pode tentar novamente.';
+
+  @override
+  String recoverySkippedCorrupt(int count) {
+    return '$count entradas de recuperação danificadas foram ignoradas e mantidas no disco.';
+  }
+
+  @override
+  String get settingsGroupApp => 'App';
+
+  @override
+  String get settingsGroupDictation => 'Entrada de voz';
+
+  @override
+  String get settingsGroupSystem => 'Sistema';
+
+  @override
+  String get settingsAreaGeneral => 'Geral';
+
+  @override
+  String get settingsAreaAppearance => 'Aparência';
+
+  @override
+  String get settingsAreaShortcuts => 'Atalhos de teclado';
+
+  @override
+  String settingsSmartModeShortcutLink(String combo) {
+    return 'Atalho de teclado: $combo';
+  }
+
+  @override
+  String get settingsAreaRecording => 'Gravação e áudio';
+
+  @override
+  String get settingsAreaSpeech => 'Reconhecimento de fala';
+
+  @override
+  String get settingsAreaTextInsert => 'Texto e inserção';
+
+  @override
+  String get settingsAreaPrivacy => 'Privacidade e dados';
+
+  @override
+  String get settingsAreaAdvanced => 'Avançado';
+
+  @override
+  String settingsNavVersion(String version) {
+    return 'WhisPaste $version';
+  }
+
+  @override
+  String get settingsNavUpToDate => 'Atualizado';
+
+  @override
+  String get settingsNavUpdateAvailable => 'Atualização disponível';
+
+  @override
+  String get settingsNavStoreUpdates => 'Atualizações pela loja';
+
+  @override
+  String get settingsStoreUpdatesUnavailable =>
+      'A loja entrega as atualizações desta versão. A verificação de atualizações no app não está disponível aqui.';
+
+  @override
+  String get settingsStoreBetaUnavailable =>
+      'Versões de teste não são oferecidas na versão da loja.';
+
+  @override
+  String get settingsStoreCudaUnavailable =>
+      'Não disponível na versão da loja: downloads de drivers de fora da loja não são permitidos ali.';
+
+  @override
+  String get settingsOverlayPreview => 'Pré-visualização do overlay';
+
+  @override
+  String get settingsPreviewTitle => 'Pré-visualização';
+
+  @override
+  String get settingsPreviewHint =>
+      'É assim que o overlay e o botão aparecem ao gravar. As alterações valem na hora.';
+
+  @override
+  String get settingsPreviewOverlayCaption => 'Overlay';
+
+  @override
+  String get settingsOverlayOptionsGroup => 'Overlay';
+
+  @override
+  String get settingsOverlayForm => 'Forma';
+
+  @override
+  String get settingsOverlayFormSubtitle =>
+      'Pílula ou retângulo com cantos arredondados.';
+
+  @override
+  String get settingsOverlayFormPill => 'Pílula';
+
+  @override
+  String get settingsOverlayFormRoundedRect => 'Arredondado';
+
+  @override
+  String get settingsOverlayWaveStyle => 'Estilo da onda';
+
+  @override
+  String get settingsOverlayWaveStyleSubtitle =>
+      'Como sua voz aparece no overlay.';
+
+  @override
+  String get settingsOverlayWaveBars => 'Barras';
+
+  @override
+  String get settingsOverlayWaveLine => 'Linha';
+
+  @override
+  String get settingsOverlayWaveDots => 'Pontos';
+
+  @override
+  String get settingsOverlayWaveFluid => 'Contorno fluido';
+
+  @override
+  String get settingsOverlayWaveFluidSubtitle =>
+      'A borda reage à sua voz. Desligado com «Reduzir movimento».';
+
+  @override
+  String get settingsOverlayShowTimer => 'Mostrar tempo';
+
+  @override
+  String get settingsOverlayShowTimerSubtitle =>
+      'Mostra o tempo de gravação decorrido.';
+
+  @override
+  String get settingsOverlayShowCancel => 'Símbolo de cancelar';
+
+  @override
+  String get settingsOverlayShowCancelSubtitle =>
+      'Parar fica sempre visível. Esc continua cancelando.';
+
+  @override
+  String get settingsOverlayOpacity => 'Opacidade';
+
+  @override
+  String get settingsOverlayOpacitySubtitle =>
+      'É aumentada automaticamente se a onda ficaria fraca demais.';
+
+  @override
+  String get settingsOverlayOpacityFull => '100 %';
+
+  @override
+  String get settingsOverlayOpacityReduced => '80 %';
+
+  @override
+  String get settingsOverlayOpacitySubtle => '60 %';
+
+  @override
+  String get settingsFloatingButtonSize => 'Tamanho';
+
+  @override
+  String get settingsFloatingButtonSizeSubtitle =>
+      'Diâmetro do botão flutuante';
+
+  @override
+  String get settingsFloatingButtonSizeSmall => 'Pequeno';
+
+  @override
+  String get settingsFloatingButtonSizeMedium => 'Médio';
+
+  @override
+  String get settingsFloatingButtonSizeLarge => 'Grande';
+
+  @override
+  String get settingsFloatingButtonShape => 'Forma';
+
+  @override
+  String get settingsFloatingButtonShapeSubtitle =>
+      'Redondo ou quadrado arredondado';
+
+  @override
+  String get settingsFloatingButtonShapeRound => 'Redondo';
+
+  @override
+  String get settingsFloatingButtonShapeSquare => 'Quadrado';
+
+  @override
+  String get settingsFloatingButtonRing => 'Anel de gravação';
+
+  @override
+  String get settingsFloatingButtonRingSubtitle =>
+      'Anel colorido em volta do botão durante a gravação';
+
+  @override
+  String get settingsFloatingButtonIdleOpacity => 'Opacidade em repouso';
+
+  @override
+  String get settingsFloatingButtonIdleOpacitySubtitle =>
+      'Quão visível é o botão sem gravar';
+
+  @override
+  String get settingsFloatingButtonIdleOpacityReduced => '70 %';
+
+  @override
+  String get settingsFloatingButtonIdleOpacitySubtle => '40 %';
+
+  @override
+  String get settingsOverlayColorsGroup => 'Em comum (cores)';
+
+  @override
+  String get settingsAreaSmartMode => 'Modo inteligente';
+
+  @override
+  String get settingsAreaDictionary => 'Dicionário';
+
+  @override
+  String get settingsSearchEmptyHelp => 'Pesquisar na ajuda';
+
+  @override
+  String get dictionaryTabTerms => 'Termos';
+
+  @override
+  String get dictionaryTabReplacements => 'Substituições';
+
+  @override
+  String get dictionaryTabSuggestions => 'Sugestões';
+
+  @override
+  String get dictionaryTermsEffectPrompt =>
+      'É passado ao reconhecimento de voz como dica. Ele pode preferir essas grafias, mas não altera o texto sozinho.';
+
+  @override
+  String get dictionaryTermsEffectReplacementOnly =>
+      'O mecanismo de voz ativo não aceita dicas. Só as substituições alteram o texto. Seus termos continuam salvos.';
+
+  @override
+  String get dictionaryTermsHelp =>
+      'Nomes, jargões e siglas que o reconhecimento costuma escrever errado. Separe-os com vírgulas ou quebras de linha.';
+
+  @override
+  String get dictionaryReplacementsHelp =>
+      'Adicione apenas palavras que o reconhecimento realmente escreve errado. Palavras reconhecidas corretamente não mudam.';
+
+  @override
+  String get dictionaryTestTitle => 'Testar';
+
+  @override
+  String get dictionaryTestInputLabel => 'Frase de exemplo';
+
+  @override
+  String get dictionaryTestInputHint =>
+      'Digite uma frase para ver quais substituições se aplicam.';
+
+  @override
+  String get dictionaryTestResultLabel => 'Resultado';
+
+  @override
+  String get dictionaryTestNoChange => 'Nenhuma substituição se aplica.';
+
+  @override
+  String get dictionaryCsvTitle => 'Importar e exportar (CSV)';
+
+  @override
+  String dictionaryCsvHint(String pipe) {
+    return 'Uma linha por entrada: gatilhos separados por $pipe, texto de substituição, modo (exact ou fuzzy), limite.';
+  }
+
+  @override
+  String get dictionaryCsvImport => 'Importar CSV';
+
+  @override
+  String get dictionaryCsvExport => 'Exportar CSV';
+
+  @override
+  String get dictionaryCsvExportEmpty =>
+      'Ainda não há substituições para exportar.';
+
+  @override
+  String get dictionaryCsvImportTooLarge =>
+      'O arquivo tem mais de 1 MB. Divida-o em arquivos menores.';
+
+  @override
+  String get dictionaryCsvImportReadError => 'Não foi possível ler o arquivo.';
+
+  @override
+  String get dictionaryCsvImportNothing => 'Nenhuma entrada válida encontrada.';
+
+  @override
+  String dictionaryCsvErrorSummary(int count) {
+    return '$count linhas foram ignoradas por estarem incompletas ou inválidas.';
+  }
+
+  @override
+  String dictionaryCsvTruncated(int count) {
+    return 'Somente as primeiras $count entradas foram lidas.';
+  }
+
+  @override
+  String dictionaryCsvImportDone(int added) {
+    return '$added entradas adicionadas.';
+  }
+
+  @override
+  String get dictionaryCsvExportFailed =>
+      'Não foi possível salvar o arquivo CSV.';
+
+  @override
+  String dictionaryCsvExportDone(int count) {
+    return '$count entradas exportadas.';
+  }
+
+  @override
+  String dictionaryCsvLineError(int line, String reason) {
+    return 'Linha $line: $reason';
+  }
+
+  @override
+  String get dictionaryCsvReasonMissingFields => 'Colunas insuficientes.';
+
+  @override
+  String get dictionaryCsvReasonEmptyTrigger => 'Nenhum gatilho.';
+
+  @override
+  String get dictionaryCsvReasonTriggerTooLong => 'O gatilho é longo demais.';
+
+  @override
+  String get dictionaryCsvReasonEmptyReplacement =>
+      'Nenhum texto de substituição.';
+
+  @override
+  String get dictionaryCsvReasonReplacementTooLong =>
+      'O texto de substituição é longo demais.';
+
+  @override
+  String get dictionaryCsvReasonUnknownMatchMode =>
+      'O modo deve ser exact ou fuzzy.';
+
+  @override
+  String get dictionaryCsvReasonInvalidThreshold =>
+      'O limite deve ser strict, standard, tolerant ou um número de 0,5 a 1.';
+
+  @override
+  String get dictionaryCsvPreviewTitle => 'Revisar entradas';
+
+  @override
+  String get dictionaryDuplicateBadge => 'Duplicado';
+
+  @override
+  String get dictionaryDuplicateHint =>
+      'Outra entrada usa o mesmo gatilho. Vale a entrada que aparece primeiro na lista.';
+
+  @override
+  String dictionaryUsageCount(int count) {
+    return 'Usado $count×';
+  }
+
+  @override
+  String get dictionaryFavouriteLabel => 'Favorito';
+
+  @override
+  String dictionarySuggestionsHint(int count) {
+    return 'Uma sugestão aparece quando a mesma correção se repete $count vezes. Nada é adicionado sem a sua confirmação.';
+  }
+
+  @override
+  String get dictionarySuggestionsEmpty => 'Ainda não há sugestões';
+
+  @override
+  String get dictionarySuggestionsEmptyHint =>
+      'Se você corrigir a mesma palavra duas vezes, o WhisPaste oferece aqui uma substituição.';
+
+  @override
+  String get dictionarySuggestionAccept => 'Aceitar';
+
+  @override
+  String get dictionarySuggestionReject => 'Dispensar';
+
+  @override
+  String get dictionarySuggestionAccepted => 'Substituição adicionada.';
+
+  @override
+  String get dictionarySuggestionRejected =>
+      'Sugestão dispensada. Ela não aparecerá novamente.';
+
+  @override
+  String get dictionaryCsvPreviewIntro =>
+      'As entradas marcadas como “será adicionado” vão para a sua lista. As existentes não mudam.';
+
+  @override
+  String dictionaryCsvPreviewAddCount(int count) {
+    return 'Adicionar $count entradas';
+  }
+
+  @override
+  String dictionaryCsvSkippedDuplicates(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count duplicatas serão ignoradas.',
+      one: '$count duplicata será ignorada.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dictionaryCsvRowWillAdd => 'Será adicionado';
+
+  @override
+  String get dictionaryCsvRowSkipped => 'Duplicado, será ignorado';
+
+  @override
+  String get settingsBetaGroupHeading => 'Versões prévias';
+
+  @override
+  String get analyticsWordingTitle => 'Redação';
+
+  @override
+  String get analyticsWordingPanelTitle => 'Palavras: brutas vs. revisadas';
+
+  @override
+  String get analyticsRawWords => 'Palavras brutas';
+
+  @override
+  String get analyticsRevisedWords => 'Palavras revisadas';
+
+  @override
+  String get analyticsTransformActions => 'Gravações revisadas por ações';
+
+  @override
+  String get analyticsCorrectionsTitle => 'Correções frequentes';
+
+  @override
+  String get analyticsNoCorrections => 'Ainda não há correções registradas.';
+
+  @override
+  String get errorNoticeNoModelCause => 'Nenhum modelo de voz está instalado.';
+
+  @override
+  String get errorNoticeNoModelNext =>
+      'Baixe um modelo em Configurações e tente novamente.';
+
+  @override
+  String get errorNoticeMicCause => 'O WhisPaste não tem acesso ao microfone.';
+
+  @override
+  String get errorNoticeMicNext =>
+      'Permita o acesso nas configurações do sistema e tente novamente.';
+
+  @override
+  String get errorNoticeTranscribeCause => 'A transcrição falhou.';
+
+  @override
+  String get errorNoticeTranscribeNext =>
+      'Tente novamente. Se continuar falhando, reinicie o WhisPaste ou escolha outro modelo nas configurações.';
+
+  @override
+  String get errorNoticeCpuCause =>
+      'A GPU não pôde ser usada nesta transcrição.';
+
+  @override
+  String get errorNoticeCpuNext =>
+      'Ela rodou na CPU, que é mais lenta. Verifique a aceleração por GPU nas configurações.';
+
+  @override
+  String get languageMismatchHint =>
+      'O idioma detectado não corresponde à sua configuração.';
+
+  @override
+  String get languageMismatchSwitch => 'Trocar idioma';
+
+  @override
+  String parakeetLanguageUnsupported(String language) {
+    return 'O Parakeet não consegue transcrever $language. Mudar para o Whisper?';
+  }
+
+  @override
+  String get parakeetLanguageSwitchToWhisper => 'Mudar para o Whisper';
+
+  @override
+  String get titleBarMinimizeLabel => 'Minimizar janela';
+
+  @override
+  String get titleBarCloseLabel => 'Fechar janela';
+
+  @override
+  String get titleBarMaximizeLabel => 'Maximizar janela';
+
+  @override
+  String get titleBarRestoreLabel => 'Restaurar janela';
+
+  @override
+  String get notificationSmartModeSkippedTitle =>
+      'WhisPaste: Smart Mode ignorado';
+
+  @override
+  String get notificationHotkeyFallbackTitle => 'WhisPaste: atalho ocupado';
+
+  @override
+  String get notificationSmartModeSkippedBody =>
+      'Não foi possível aplicar o pós-processamento.';
+
+  @override
+  String get notificationSmartModeSkippedNoTextModel =>
+      'Nenhum modelo de texto está carregado, por isso o pós-processamento foi ignorado.';
+
+  @override
+  String get notificationSmartModeSkippedTimedOut =>
+      'O pós-processamento demorou demais.';
+
+  @override
+  String get notificationSmartModeOutcomePasted =>
+      'O texto não editado foi colado.';
+
+  @override
+  String get notificationSmartModeOutcomeUnconfirmed =>
+      'Não foi possível confirmar se o texto não editado foi colado.';
+
+  @override
+  String get notificationSmartModeOutcomeClipboard =>
+      'O texto não editado está na área de transferência, mas não foi colado.';
+
+  @override
+  String get notificationSmartModeOutcomeNone =>
+      'O texto não editado não foi colado.';
+
+  @override
+  String get smartModeNoTextModelHint =>
+      'Nenhum modelo de texto configurado: até lá só é possível escolher “Desativado”.';
+
+  @override
+  String get smartModeLoadTextModelAction =>
+      'Sem modelo de texto: carregar agora';
+
+  @override
+  String get smartModeAddOpenAiKeyAction => 'Adicionar chave da OpenAI';
+
+  @override
+  String get settingsPortabilityErrorInvalidFile =>
+      'O arquivo não é uma exportação válida do WhisPaste.';
+
+  @override
+  String get settingsPortabilityErrorGeneric =>
+      'Não foi possível processar o arquivo ou as configurações.';
+
+  @override
+  String get historyImportAudioLabel => 'Áudio';
+
+  @override
+  String get hotkeyConflictNoteSpotlight => 'Spotlight';
+
+  @override
+  String get hotkeyConflictNoteAppSwitcher => 'Alternador de apps';
+
+  @override
+  String get hotkeyConflictNoteQuitApp => 'Sair do app';
+
+  @override
+  String get hotkeyConflictNoteCloseWindow => 'Fechar janela';
+
+  @override
+  String get hotkeyConflictNoteHideApp => 'Ocultar app';
+
+  @override
+  String get hotkeyConflictNoteMinimizeWindow => 'Minimizar janela';
+
+  @override
+  String get hotkeyConflictNoteCycleWindows => 'Alternar janelas';
+
+  @override
+  String get hotkeyConflictNoteScreenshotFullScreen =>
+      'Captura de tela (tela inteira)';
+
+  @override
+  String get hotkeyConflictNoteScreenshotSelection =>
+      'Captura de tela (seleção)';
+
+  @override
+  String get hotkeyConflictNoteScreenshotRecording =>
+      'Captura/gravação de tela';
+
+  @override
+  String get hotkeyConflictNoteEmojiPicker => 'Seletor de emoji e símbolos';
+
+  @override
+  String get hotkeyConflictNoteForceQuit => 'Forçar Encerrar';
+
+  @override
+  String get hotkeyConflictNoteLockWorkstation => 'Bloquear o computador';
+
+  @override
+  String get hotkeyConflictNoteShowDesktop =>
+      'Mostrar/ocultar área de trabalho';
+
+  @override
+  String get hotkeyConflictNoteFileExplorer => 'Explorador de Arquivos';
+
+  @override
+  String get hotkeyConflictNoteRunDialog => 'Caixa de diálogo Executar';
+
+  @override
+  String get hotkeyConflictNoteSettings => 'Configurações';
+
+  @override
+  String get hotkeyConflictNoteSearch => 'Pesquisa';
+
+  @override
+  String get hotkeyConflictNoteTaskView => 'Visão de Tarefas';
+
+  @override
+  String get hotkeyConflictNoteInputLanguageSwitch =>
+      'Alternar idioma de entrada';
+
+  @override
+  String get hotkeyConflictNoteMaximizeWindow => 'Maximizar janela';
+
+  @override
+  String get hotkeyConflictNoteSnapLeft => 'Encaixar janela à esquerda';
+
+  @override
+  String get hotkeyConflictNoteSnapRight => 'Encaixar janela à direita';
+
+  @override
+  String get hotkeyConflictNoteSecurityOptionsTaskManager =>
+      'Opções de segurança / Gerenciador de Tarefas';
+
+  @override
+  String get hotkeyConflictNoteTaskManager => 'Gerenciador de Tarefas';
+
+  @override
+  String get hotkeyConflictNoteLockScreenGnomeKde =>
+      'Bloquear tela (GNOME/KDE)';
+
+  @override
+  String get hotkeyConflictNoteRunDialogKde => 'Caixa Executar (KDE)';
+
+  @override
+  String get hotkeyConflictNoteLogoutShutdownDialog =>
+      'Diálogo de encerrar sessão/desligar';
+
+  @override
+  String get hotkeyConflictNoteOpenTerminal =>
+      'Abrir terminal (padrão do GNOME/KDE)';
+
+  @override
+  String get hotkeyConflictNoteLockScreenGnome => 'Bloquear tela (GNOME)';
+
+  @override
+  String get hotkeyConflictNoteActivityOverviewKde =>
+      'Visão geral de atividades (KDE)';
+
+  @override
+  String get settingsTextProcessingHeading => 'Processamento de texto';
+
+  @override
+  String get settingsShowNotificationsSubtitle =>
+      'Avisa sobre problemas, por exemplo um Auto-Paste bloqueado ou um sinal de microfone ausente.';
+
+  @override
+  String get settingsGainSubtitle =>
+      'Amplifica o sinal do microfone antes de ele ser gravado. Valores altos demais podem distorcer a gravação.';
+
+  @override
+  String get settingsAfterTranscriptionActionSubtitle =>
+      'O que acontece com o texto reconhecido. O Auto-Paste o coloca direto no cursor.';
+
+  @override
+  String get settingsRecognitionLanguageSubtitle =>
+      'O idioma que o reconhecimento espera. A detecção automática costuma funcionar bem. Um idioma fixo costuma ser mais preciso em gravações curtas.';
+
+  @override
+  String get settingsOpenAiApiKeySubtitle =>
+      'Sua própria chave da OpenAI. Só é necessária se você usar a OpenAI para o reconhecimento ou o Smart Mode. Áudio e texto vão então diretamente para a OpenAI e são cobrados por ela.';
+
+  @override
+  String get settingsDeepgramApiKeySubtitle =>
+      'Sua própria chave da Deepgram. Só é necessária se você usar a Deepgram para o reconhecimento. O áudio vai então diretamente para a Deepgram e é cobrado por ela.';
+
+  @override
+  String get settingsResetToDefaultsSubtitle =>
+      'Redefine todas as configurações, chaves de API e estatísticas. Gravações, notas e modelos são mantidos.';
+
+  @override
+  String get settingsFactoryResetSubtitle =>
+      'Apaga imediatamente todas as transcrições, notas, arquivos de áudio, Dicionário, Snippets, modelos, registros e configurações deste dispositivo. Não pode ser desfeito.';
+
+  @override
+  String get settingsHotkeyEnabledSubtitle =>
+      'O atalho global inicia uma gravação em qualquer app. Desativado, o WhisPaste ignora o atalho.';
+
+  @override
+  String get settingsCheckForUpdatesNowSubtitle =>
+      'Procura agora uma nova versão. Ela só é instalada depois da sua confirmação.';
+
+  @override
+  String get settingsHistoryRetentionSubtitle =>
+      'Quantas transcrições são mantidas antes de as mais antigas irem para a lixeira. Na lixeira, as transcrições são apagadas definitivamente após o tempo escolhido. Os favoritos são sempre mantidos. Os arquivos de áudio salvos são removidos no máximo 30 dias após a gravação, independentemente desta configuração.';
+
+  @override
+  String get smartModeTargetLanguageSubtitle =>
+      'Somente para a predefinição «Traduzir».';
+
+  @override
+  String get settingsPortabilityErrorTooLarge =>
+      'O arquivo é grande demais para importar (limite: cerca de 5 MB). Escolha um arquivo de configurações exportado pelo WhisPaste.';
+
+  @override
+  String get settingsSearchKeywordsInterface =>
+      'tema, modo escuro, modo claro, aparência, idioma, início automático, inicialização, minimizado, notificações, idioma do sistema, painel, painel lateral, colagem rápida, painel da área de transferência, posição do painel, borda da tela, borda, bandeja, CPU, indicador, barra de status, uso';
+
+  @override
+  String get settingsSearchKeywordsStt =>
+      'modelo, Whisper, qualidade, transcrição, reconhecimento de voz, local, no dispositivo, nuvem, idioma, tempo limite, vocabulário, dicionário, palavras, STT, reconhecimento de voz, Deepgram, OpenAI, chave de API, somente números, pontuação, motor, silêncio, cortar, palavras de preenchimento, quebra de linha, parágrafo, linha, GPU, gráficos, aceleração, processador, hardware';
+
+  @override
+  String get settingsSearchKeywordsSmartMode =>
+      'predefinição, limpeza, resumir, traduzir, Gemma, modelo, modelo de texto, baixar, pós-processamento, polir, editar seleção, seleção, texto selecionado, reescrever';
+
+  @override
+  String get settingsSearchKeywordsAudio =>
+      'microfone, gravação, ganho, volume, pressionar para falar, manter para gravar, entrada';
+
+  @override
+  String get settingsSearchKeywordsAfterTranscription =>
+      'área de transferência, colar, auto-paste, copiar, ação, saída, não fazer nada, lista de bloqueio, restaurar área de transferência, manter transcrição, conteúdo anterior';
+
+  @override
+  String get settingsSearchKeywordsOverlay =>
+      'sobreposição, flutuante, exibição, status, posição, janela, centro superior, centro inferior, posição inicial, transcrição ao vivo';
+
+  @override
+  String get settingsSearchKeywordsOverlayBackground =>
+      'fundo, cor, marinho, grafite, geleira, vidro, opaco, âmbar';
+
+  @override
+  String get settingsSearchKeywordsOverlayWave =>
+      'onda, ondas, cor, ciano, violeta, neutro, animação, âmbar';
+
+  @override
+  String get settingsSearchKeywordsFloatingButton =>
+      'botão, flutuante, sempre visível, botão de gravação, acesso rápido';
+
+  @override
+  String get settingsSearchKeywordsHotkey =>
+      'atalho de teclado, combinação de teclas, atalho global, tecla global, atalho, teclado, teclas, vinculação de teclas';
+
+  @override
+  String get settingsSearchKeywordsSound =>
+      'som, tom, áudio, sinal, bipe, volume, som de gravação, notificação, som de conclusão, aviso';
+
+  @override
+  String get settingsSearchKeywordsRecordingSafety =>
+      'segurança, silêncio, parar automaticamente, tempo limite, tempo limite do microfone, detecção de silêncio, proteção, microfone sem sinal, duração máxima';
+
+  @override
+  String get settingsSearchKeywordsHistory =>
+      'gravações, entradas, lixeira, limpeza, retenção, máximo, exclusão automática, exclusão, armazenamento, ocultar, privacidade, PIN, bloquear, bloqueio, proteger, histórico';
+
+  @override
+  String get settingsSearchKeywordsSettingsPortability =>
+      'exportar, importar, migrar, transferir, mudança, backup, restaurar, troca de dispositivo, portabilidade, novo computador, backup automático, salvamento automático';
+
+  @override
+  String get settingsSearchKeywordsAdvanced =>
+      'redefinir, padrões, redefinição de fábrica';
+
+  @override
+  String get settingsSearchKeywordsAutomationApi =>
+      'automação, API, script, token, bearer, HTTP, localhost, porta';
+
+  @override
+  String get settingsSearchKeywordsUpdates =>
+      'atualização, beta, canal, canal de lançamento, versão prévia, verificar, automático, nova versão, estável, versão';
+
+  @override
+  String get settingsSearchKeywordsOnboardingReview =>
+      'introdução, onboarding, configuração inicial, configuração, passeio, tour, novamente, de novo, primeiros passos';
+
+  @override
+  String get settingsSearchKeywordsReviewSupport =>
+      'avaliação, avaliar, estrelas, loja, apoiar, análise, classificar';
+
+  @override
+  String get settingsSearchKeywordsPrivacy =>
+      'privacidade, análise, estatísticas, rastreamento, anônimo, relatórios de erros, relatórios de falhas, estatísticas de uso, dados, compartilhar, consentimento, manter gravações, gravações recentes';
+
+  @override
+  String get manualNoticeLabel => 'Mensagem exibida no app';
+
+  @override
+  String get manualC01Title => 'Primeiros passos';
+
+  @override
+  String get manualC01S1Heading => 'Configuração no primeiro início';
+
+  @override
+  String get manualC01S1B1 =>
+      'No primeiro início, o WhisPaste guia você pela configuração. Você pode voltar a qualquer etapa e alterar tudo depois em Configurações.';
+
+  @override
+  String get manualC01S1B2I1 =>
+      'Boas-vindas: uma breve visão geral do WhisPaste.';
+
+  @override
+  String get manualC01S1B2I2 => 'Privacidade: o que fica no seu dispositivo.';
+
+  @override
+  String get manualC01S1B2I3 =>
+      'Modelo de voz: você escolhe o modelo de voz e o baixa. Se já houver uma chave de API salva para um provedor na nuvem, você pode escolher esse provedor.';
+
+  @override
+  String get manualC01S1B2I4 =>
+      'Atalho: defina a combinação de teclas que inicia uma gravação.';
+
+  @override
+  String get manualC01S1B2I5 =>
+      'Aparência: ative ou desative a abertura ao fazer login.';
+
+  @override
+  String manualC01S1B2I6(String k1) {
+    return '$k1: se o texto é colado automaticamente. No Linux, esta etapa é ignorada.';
+  }
+
+  @override
+  String get manualC01S1B2I7 =>
+      'Experimente: uma gravação de teste e pronto. Sem modelo de voz ou um provedor na nuvem escolhido com chave de API, a conclusão fica bloqueada.';
+
+  @override
+  String get manualC01S2Heading => 'Requisitos do sistema';
+
+  @override
+  String manualC01S2B1(String ram) {
+    return 'O WhisPaste precisa de um dispositivo com pelo menos $ram de memória (RAM). Em dispositivos com menos, o WhisPaste mostra apenas um aviso no lugar do app.';
+  }
+
+  @override
+  String get manualC01S2B2 =>
+      'Você precisa de um microfone para gravar. Na configuração inicial, você pode continuar sem ele, mas só poderá gravar quando houver um conectado.';
+
+  @override
+  String get manualC01S3Heading => 'Baixar o modelo de voz';
+
+  @override
+  String get manualC01S3B1 =>
+      'O WhisPaste converte sua fala em texto no seu dispositivo ou por um provedor na nuvem com a sua própria chave. No dispositivo, ele precisa de um modelo. Você inicia o download; ele não começa sozinho.';
+
+  @override
+  String manualC01S3B2I1(String k1) {
+    return 'Parakeet: rápido, para idiomas europeus, cerca de $k1.';
+  }
+
+  @override
+  String manualC01S3B2I2(String k1, String k2) {
+    return 'Whisper: todos os 99 idiomas, modelos de cerca de $k1 a $k2.';
+  }
+
+  @override
+  String manualC01S3B2I3(String k1) {
+    return 'Os modelos ficam na pasta de dados do app, na subpasta $k1.';
+  }
+
+  @override
+  String get manualC01S3B4 =>
+      'Um modelo Whisper fica carregado depois de ditar, para que o próximo início seja mais rápido. Em “Manter o modelo carregado”, na seção de reconhecimento de voz, você escolhe: Sempre (padrão) economiza tempo de espera, mas precisa de memória o tempo todo. Automático mantém o modelo carregado se o computador tiver memória suficiente; caso contrário, ele é descarregado após 5 minutos. Após um período ocioso, ele é descarregado depois do tempo que você definir. Quando a memória fica escassa, o WhisPaste descarrega o modelo automaticamente e o carrega de novo quando houver espaço.';
+
+  @override
+  String get manualC01S3B3 =>
+      'Na área Reconhecimento de fala, a opção “Executar benchmark novamente” mede a velocidade de cada nível instalado no seu computador. Os resultados mostram nos cartões de modelo quanto mais tempo cada nível leva e definem o nível recomendado do Whisper. Para idiomas europeus, o WhisPaste recomenda o Parakeet. O teste não começa durante uma gravação.';
+
+  @override
+  String get manualC02Title => 'Gravar e colar';
+
+  @override
+  String get manualC02S1Heading => 'O atalho';
+
+  @override
+  String manualC02S1B1(String k2, String k3) {
+    return 'O atalho é uma combinação de teclas que funciona em todos os programas. Padrão: $k2 no Windows e no Linux, $k3 no Mac. Você pode alterá-lo em Configurações → Atalhos de teclado.';
+  }
+
+  @override
+  String manualC02S1B2(String k2, String k3) {
+    return 'Se outro programa já usar a combinação, o WhisPaste usa $k2 para o atalho (no Mac, $k3). Os outros atalhos ficam desativados até você definir uma combinação livre.';
+  }
+
+  @override
+  String get manualC02S2Heading => 'Manter ou alternar';
+
+  @override
+  String get manualC02S2B1 =>
+      'Em Configurações → Atalhos de teclado, escolha como o atalho funciona:';
+
+  @override
+  String get manualC02S2B2I1 =>
+      '«Manter pressionado para gravar» ativado: segure o atalho, fale e solte. Ao soltar, a gravação termina.';
+
+  @override
+  String get manualC02S2B2I2 =>
+      'Desativado: um toque inicia a gravação e um segundo toque a encerra.';
+
+  @override
+  String get manualC02S3Heading => 'Ver a gravação';
+
+  @override
+  String get manualC02S3B1 =>
+      'O dock na parte inferior da janela principal mostra o estado atual. Durante a gravação, o botão passa a “Parar gravação”, e a área de status mostra a etapa atual. O dock está sempre visível e não pode ser desligado.';
+
+  @override
+  String get manualC02S3B3 =>
+      'Em uma janela estreita, o dock move os controles menos importantes para o menu “Mais”, incluindo o atalho, a dica do Auto-Paste e o aviso de atualização. Tudo continua disponível ali.';
+
+  @override
+  String get manualC02S3B2I1 =>
+      '«Overlay de gravação» em «Flutuante (sempre visível)»: uma pequena janela de forma de onda sobre todos os programas. Padrão: desativado.';
+
+  @override
+  String get manualC02S3B2I2 =>
+      '«Botão flutuante»: um botão sobre todas as janelas para gravar com um clique. Padrão: desativado.';
+
+  @override
+  String get manualC02S4Heading => 'Colar após gravar';
+
+  @override
+  String get manualC02S4B1 =>
+      'Em «Após a transcrição», escolha o que acontece após cada gravação:';
+
+  @override
+  String get manualC02S4B2I1 =>
+      '«Copiar para a área de transferência» (padrão): o texto vai para a área de transferência e você o cola.';
+
+  @override
+  String get manualC02S4B2I2 =>
+      '«Colar automaticamente no cursor»: o WhisPaste cola o texto na posição do cursor.';
+
+  @override
+  String get manualC02S4B2I3 =>
+      '«Copiar e colar automaticamente»: as duas coisas.';
+
+  @override
+  String get manualC02S4B2I4 =>
+      '«Não fazer nada»: o WhisPaste não copia nem cola o texto.';
+
+  @override
+  String get manualC02S4B3 =>
+      'Os apps na «Lista de bloqueio do Auto-Paste» não recebem colagem automática. O texto vai então para a área de transferência, ou só para as Gravações se «Copiar para a área de transferência em apps bloqueados» estiver desligado.';
+
+  @override
+  String get manualC02S4B4 =>
+      'No Windows, o Auto-Paste não funciona em programas executados com privilégios de administrador.';
+
+  @override
+  String get manualC02S4B5 =>
+      'No Linux, o WhisPaste marca o texto com uma dica que só o Klipper do KDE respeita. Outros gerenciadores da área de transferência, como GPaste ou CopyQ, também registram suas transcrições: desative lá o registro da área de transferência ou apague a entrada.';
+
+  @override
+  String get manualC02S4B6 =>
+      'Depois de colar, o WhisPaste normalmente devolve o que estava antes na área de transferência. Em «Área de transferência após colar» você pode escolher «Manter a transcrição»: então o texto transcrito fica na área de transferência. Se a colagem não puder ser confirmada a tempo, a transcrição sempre fica lá. Se o macOS negar o acesso à área de transferência, o WhisPaste não consegue guardar o conteúdo anterior e não o restaura; a transcrição fica então na área de transferência. Uma vez aparece um aviso com o caminho para os Ajustes do Sistema.';
+
+  @override
+  String get manualC03Title => 'Nota rápida';
+
+  @override
+  String get manualC03S1Heading => 'O que a nota rápida faz';
+
+  @override
+  String get manualC03S1B1 =>
+      'A nota rápida é uma nota à qual o WhisPaste acrescenta novas gravações. Assim você reúne ideias ou uma lista sem criar uma nota nova a cada vez.';
+
+  @override
+  String get manualC03S1B2 =>
+      'Se ainda não houver nenhuma nota marcada, o WhisPaste cria uma na primeira vez e a marca.';
+
+  @override
+  String get manualC03S2Heading => 'Configurar';
+
+  @override
+  String get manualC03S2B1I1 =>
+      'Abra a nota na área de notas e ative «Definir como nota rápida: o atalho acrescenta texto a ela». «Nota rápida — remover a marcação» remove a marcação.';
+
+  @override
+  String manualC03S2B1I2(String k1, String k2, String k3) {
+    return 'Ative o atalho de nota rápida em Configurações → Atalhos de teclado. Ele vem desativado por padrão. A tecla é $k1 ($k2, ou $k3 no Mac).';
+  }
+
+  @override
+  String get manualC04Title => 'Smart Mode';
+
+  @override
+  String get manualC04S1Heading => 'O que o Smart Mode faz';
+
+  @override
+  String manualC04S1B1(String k1) {
+    return 'O $k1 edita o texto reconhecido antes de colá-lo. Ele vem desativado por padrão; você o ativa.';
+  }
+
+  @override
+  String get manualC04S1B2 =>
+      'Por padrão, o processamento roda no seu dispositivo («Localmente no dispositivo»). Com «OpenAI», o texto é enviado à OpenAI. Os detalhes estão no capítulo de privacidade.';
+
+  @override
+  String get manualC04S2Heading => 'Predefinições';
+
+  @override
+  String get manualC04S2B1 =>
+      'Uma predefinição define o que acontece com o texto:';
+
+  @override
+  String get manualC04S2B2I1 =>
+      '«Desativado»: sem pós-processamento; o texto fica como foi reconhecido.';
+
+  @override
+  String get manualC04S2B2I2 =>
+      '«Limpeza»: remove palavras de preenchimento (por exemplo, hum) e corrige pontuação e maiúsculas, sem mudar as palavras, o sentido ou o idioma.';
+
+  @override
+  String get manualC04S2B2I3 =>
+      '«Conciso»: remove repetições e palavras de preenchimento, e mantém todos os fatos importantes e o idioma.';
+
+  @override
+  String get manualC04S2B2I4 =>
+      '«Traduzir»: traduz o texto para o idioma de destino escolhido.';
+
+  @override
+  String get manualC04S3Heading => 'Idioma de destino e atalho';
+
+  @override
+  String get manualC04S3B1 =>
+      'Para «Traduzir», escolha um idioma de destino: alemão, inglês, espanhol, francês, português, mandarim ou russo. O padrão é inglês.';
+
+  @override
+  String manualC04S3B2(String k1) {
+    return 'Um atalho próprio para o $k1 vem desativado por padrão. Ele usa a predefinição e o idioma de destino das configurações.';
+  }
+
+  @override
+  String get manualC04S4Heading => 'Recursos';
+
+  @override
+  String manualC04S4B1(String size, String ram) {
+    return 'A variante local baixa um modelo de texto de cerca de $size. Se o seu dispositivo tiver menos de $ram de RAM, o WhisPaste avisa antes do download, mas você pode baixar mesmo assim. Durante o uso, o modelo de texto precisa de 4 a 5 GB extras de RAM.';
+  }
+
+  @override
+  String get manualC04S4B2 =>
+      'Enquanto nenhum modelo de texto estiver configurado (local sem download, ou OpenAI sem chave), todas as predefinições exceto “Desativado” ficam bloqueadas. O dock e as configurações mostram o motivo e levam ao download ou à chave. Se o pós-processamento falhar mesmo assim, o WhisPaste avisa e diz se o texto não editado foi colado ou está só na área de transferência.';
+
+  @override
+  String get manualC05Title => 'Dicionário';
+
+  @override
+  String get manualC05S1Heading => 'Como as substituições funcionam';
+
+  @override
+  String get manualC05S1B1 =>
+      'Uma substituição troca automaticamente certas palavras ou expressões por outro texto em cada gravação.';
+
+  @override
+  String get manualC05S1B2 =>
+      'Cada substituição tem uma ou mais frases-gatilho, ou seja, as expressões a procurar, e o texto novo. Digite várias frases-gatilho para o mesmo texto em «Frases-gatilho».';
+
+  @override
+  String get manualC05S2Heading => 'Correspondência';
+
+  @override
+  String get manualC05S2B1I1 => 'Exata: só a grafia idêntica é substituída.';
+
+  @override
+  String get manualC05S2B1I2 =>
+      'Similar: grafias levemente diferentes também são substituídas. Vale só para frases-gatilho com pelo menos 4 caracteres.';
+
+  @override
+  String get manualC05S2B1I3 =>
+      'Tolerância («Rigorosa», «Padrão» ou «Tolerante»): definida por entrada, não para todas de uma vez.';
+
+  @override
+  String get manualC05S3Heading => 'Importar e exportar (CSV)';
+
+  @override
+  String manualC05S3B1(String k1, String k2, String k3, String k4) {
+    return 'Você pode salvar ou transferir suas substituições como arquivo CSV. O arquivo tem as colunas $k1. Separe várias frases-gatilho com $k2. O arquivo pode ter no máximo $k3 e $k4 linhas.';
+  }
+
+  @override
+  String get manualC06Title => 'Snippets';
+
+  @override
+  String get manualC06S1Heading => 'O que são snippets';
+
+  @override
+  String get manualC06S1B1 =>
+      'Um snippet é um bloco de texto que você insere com uma palavra-gatilho ou um atalho, como uma assinatura ou uma resposta padrão.';
+
+  @override
+  String get manualC06S1B2I1 =>
+      '«Estático»: o texto é inserido exatamente como você o salvou.';
+
+  @override
+  String get manualC06S1B2I2 =>
+      '«Interativo»: o WhisPaste pede cada campo por gravação, um após o outro, e os coloca no seu modelo.';
+
+  @override
+  String get manualC06S2Heading => 'Abrir o seletor de snippets';
+
+  @override
+  String get manualC06S2B1 => 'Há duas formas de abrir o seletor:';
+
+  @override
+  String get manualC06S2B2I1 =>
+      'Com a palavra-gatilho do seletor: diga só essa palavra. Ela só conta se a gravação inteira for exatamente essa palavra. Você a define na página Snippets; deixe vazia para desligar o seletor.';
+
+  @override
+  String get manualC06S2B2I2 =>
+      'Com o atalho do seletor: desativado por padrão; ative em «Atalho do seletor».';
+
+  @override
+  String get manualC06S3Heading => 'Criar um snippet';
+
+  @override
+  String get manualC06S3B1I1 =>
+      'Crie um snippet com «Adicionar» e escolha «Estático» ou «Interativo».';
+
+  @override
+  String manualC06S3B1I2(String k1) {
+    return 'Em «Interativo», defina os campos e escreva o modelo. Coloque os marcadores entre chaves duplas, como $k1.';
+  }
+
+  @override
+  String get manualC07Title => 'Notas';
+
+  @override
+  String get manualC07S1Heading => 'Trabalhar com notas';
+
+  @override
+  String get manualC07S1B1 =>
+      'A área de notas reúne texto, como ideias ou pesquisas. As gravações vão direto para uma nota quando você usa a nota rápida.';
+
+  @override
+  String get manualC07S1B2I1 => '«Marcar como favorita» destaca uma nota.';
+
+  @override
+  String get manualC07S1B2I2 =>
+      '«Adicionar tag» atribui uma nota a uma categoria.';
+
+  @override
+  String get manualC07S2Heading => 'Lixeira';
+
+  @override
+  String get manualC07S2B1 =>
+      '«Mover para a lixeira» coloca uma nota na lixeira. Ela fica lá até você excluí-la definitivamente. A lixeira nunca é esvaziada automaticamente.';
+
+  @override
+  String get manualC07S2B2I1 =>
+      '«Excluir definitivamente» remove a nota da lixeira.';
+
+  @override
+  String get manualC07S3Heading => 'Nota rápida';
+
+  @override
+  String get manualC07S3B1 =>
+      'A área de notas mostra qual nota é a nota rápida. Os detalhes estão no capítulo da nota rápida.';
+
+  @override
+  String get manualC07S4Heading => 'Imagens e privacidade';
+
+  @override
+  String get manualC07S4B1 =>
+      'Ao adicionar uma imagem, o WhisPaste remove metadados como a localização (GPS), os dados da câmera e as informações EXIF, XMP e IPTC. Só a cópia limpa é guardada.';
+
+  @override
+  String get notesPinGateTitle => 'As notas estão bloqueadas';
+
+  @override
+  String get notesPinGateHint =>
+      'Introduza o seu PIN para mostrar as suas notas.';
+
+  @override
+  String get manualC08Title => 'Gravações';
+
+  @override
+  String get manualC08S1Heading => 'O que as gravações contêm';
+
+  @override
+  String get manualC08S1B1 =>
+      'As gravações mostram cada entrada: o texto reconhecido, com a data. Se houver áudio salvo, o arquivo de áudio pertence a essa entrada.';
+
+  @override
+  String get manualC08S2Heading => 'Pesquisar e filtrar';
+
+  @override
+  String manualC08S2B1I1(String k1) {
+    return 'Digite $k1 para filtrar por tags.';
+  }
+
+  @override
+  String manualC08S2B1I2(String k1) {
+    return 'Digite $k1 e um idioma para filtrar por idioma.';
+  }
+
+  @override
+  String get manualC08S2B1I3 => 'Ou simplesmente digite uma palavra-chave.';
+
+  @override
+  String get manualC08S2B1I4 =>
+      'Acima da lista estão os filtros «Favoritos», «Arquivados», «Lixeira» e «Todos».';
+
+  @override
+  String get manualC08S3Heading => 'Gerenciar entradas';
+
+  @override
+  String get manualC08S3B1I1 =>
+      '«Copiar texto» copia o texto para a área de transferência novamente.';
+
+  @override
+  String get manualC08S3B1I2 =>
+      '«Adicionar aos favoritos» mantém uma entrada no topo. «Remover dos favoritos» desfaz isso.';
+
+  @override
+  String get manualC08S3B1I3 =>
+      '«Arquivo» tira uma entrada da lista principal sem excluí-la.';
+
+  @override
+  String get manualC08S3B1I4 =>
+      '«Duplicar», «Mesclar» (várias entradas em uma) e «Selecionar vários» ajudam a organizar.';
+
+  @override
+  String get manualC08S3B1I5 =>
+      '«Adicionar anotação» e «Adicionar tag…» acrescentam detalhes a uma entrada.';
+
+  @override
+  String get manualC08S4Heading => 'Nota de voz';
+
+  @override
+  String get manualC08S4B1 =>
+      'Inicie uma nota de voz na entrada. Diga «tag: nome» para definir uma tag, ou «correct: texto» para substituir o texto da entrada.';
+
+  @override
+  String get manualC08S4B2 =>
+      'Uma correção substitui todo o texto da entrada, não só uma palavra. «korrektur: texto» funciona da mesma forma. Logo depois você pode desfazer a alteração pelo aviso.';
+
+  @override
+  String get manualC08S5Heading => 'Proteção por PIN';
+
+  @override
+  String get manualC08S5B1 =>
+      'Com «Proteção por PIN», um PIN é exigido antes de mostrar as gravações. Isso vale também para o painel lateral, o menu do botão flutuante e a API de automação. O PIN impede que outros vejam suas transcrições, mas não as criptografa. As notas ficam bloqueadas da mesma forma.';
+
+  @override
+  String get manualC08S5B2 =>
+      'Um PIN esquecido não pode ser recuperado. Para o repor, são apagados de imediato todas as transcrições e ficheiros de áudio guardados (incluindo arquivo e lixo), todas as notas com as suas versões e todas as imagens das notas. As definições, os blocos de texto e as substituições são mantidos.';
+
+  @override
+  String get manualC08S6Heading => 'Esvaziamento automático';
+
+  @override
+  String get manualC08S6B1 =>
+      'Em «Excluir lixeira automaticamente após», defina por quanto tempo as entradas excluídas ficam na lixeira antes de serem removidas automaticamente.';
+
+  @override
+  String get manualC09Title => 'Importar arquivos de áudio';
+
+  @override
+  String get manualC09S1Heading => 'Transcrever arquivos de áudio';
+
+  @override
+  String manualC09S1B1(String k1) {
+    return 'Você pode transcrever arquivos de áudio que já tem. Escolha «$k1» e selecione o arquivo.';
+  }
+
+  @override
+  String manualC09S1B2(String k1, String k2, String k3, String k4) {
+    return 'Além de $k1, dependendo do sistema, você pode importar mais formatos: no Mac $k2, no Linux $k3, no Windows $k4.';
+  }
+
+  @override
+  String get manualC09S2Heading => 'Limites';
+
+  @override
+  String get manualC09S2B2 =>
+      'O que fazer: divida a gravação em partes menores e importe uma a uma.';
+
+  @override
+  String get manualC09S3Heading => 'Erros de importação';
+
+  @override
+  String manualC09S3B2(String k1) {
+    return 'O que fazer: tente novamente. Se não resolver, reinicie o WhisPaste ou escolha outro modelo em $k1.';
+  }
+
+  @override
+  String get manualC10Title => 'Estatísticas';
+
+  @override
+  String get manualC10S1Heading => 'As áreas';
+
+  @override
+  String manualC10S1B1(String k1, String k2, String k3) {
+    return 'As estatísticas têm três áreas: $k1, $k2 e $k3.';
+  }
+
+  @override
+  String manualC10S1B2(String k1, String k2) {
+    return 'Com $k1 e $k2 você escolhe o período.';
+  }
+
+  @override
+  String get manualC10S2Heading => 'O que os números significam';
+
+  @override
+  String manualC10S2B1I1(String k1, String k2) {
+    return '$k1 e $k2 contam suas gravações e o tempo gravado.';
+  }
+
+  @override
+  String manualC10S2B1I2(String k1) {
+    return '$k1 é uma estimativa aproximada: o WhisPaste considera dois terços do tempo de gravação como economizados, porque falar costuma ser mais rápido que digitar. Não é uma medição.';
+  }
+
+  @override
+  String manualC10S2B1I3(String k1, String k2) {
+    return '$k1: gravações locais economizam custos de nuvem. O WhisPaste estima isso em $k2 por minuto, uma taxa de referência fixa.';
+  }
+
+  @override
+  String get manualC10S3Heading => 'Redefinir';
+
+  @override
+  String manualC10S3B1(String k1) {
+    return '«$k1» apaga todos os dados das estatísticas. O WhisPaste pede confirmação antes, e isso não pode ser desfeito.';
+  }
+
+  @override
+  String get manualC11Title => 'Configurações';
+
+  @override
+  String get manualC11S1Heading => 'As seções';
+
+  @override
+  String get manualC11S1B1 =>
+      'As configurações são organizadas em seções. As mais importantes:';
+
+  @override
+  String manualC11S1B2I1(String k1) {
+    return '$k1: a aparência do app.';
+  }
+
+  @override
+  String manualC11S1B2I2(String k1) {
+    return '$k1: modelo e idioma de reconhecimento.';
+  }
+
+  @override
+  String manualC11S1B2I3(String k1) {
+    return '$k1: microfone e volume.';
+  }
+
+  @override
+  String manualC11S1B2I4(String k1) {
+    return '$k1: predefinição, idioma de destino e provedor.';
+  }
+
+  @override
+  String manualC11S1B2I5(String k1) {
+    return '$k1: o que acontece após uma gravação.';
+  }
+
+  @override
+  String manualC11S1B2I6(String k1) {
+    return '$k1: atalhos.';
+  }
+
+  @override
+  String manualC11S1B2I7(String k1) {
+    return '$k1: prazo da lixeira.';
+  }
+
+  @override
+  String manualC11S1B2I8(String k1) {
+    return '$k1: exportação, importação e backup automático.';
+  }
+
+  @override
+  String manualC11S1B2I9(String k1) {
+    return '$k1: API local e hooks de eventos para programas deste computador.';
+  }
+
+  @override
+  String manualC11S1B2I10(String k1) {
+    return '$k1: mais opções, como redefinir.';
+  }
+
+  @override
+  String manualC11S1B2I11(String k1) {
+    return '$k1: versão, verificação de atualizações, links e licenças.';
+  }
+
+  @override
+  String get manualC11S2Heading => 'Backup e redefinição';
+
+  @override
+  String manualC11S2B1I1(String k1) {
+    return '$k1 salva suas configurações automaticamente após as alterações. Os últimos cinco arquivos são mantidos. Vem desativado por padrão.';
+  }
+
+  @override
+  String manualC11S2B1I2(String k1) {
+    return '$k1 apaga imediatamente todas as transcrições, os arquivos de áudio e as configurações e redefine o WhisPaste. Leia a confirmação com atenção antes de confirmar.';
+  }
+
+  @override
+  String get manualC12Title => 'Privacidade e uso offline';
+
+  @override
+  String get manualC12S1Heading => 'O que fica no seu dispositivo';
+
+  @override
+  String manualC12S1B1(String k1, int count, int days) {
+    return 'Por padrão, o reconhecimento de fala roda no seu dispositivo. O áudio só vai a um serviço na nuvem se você escolher ativamente um provedor de nuvem. As transcrições ficam em um banco de dados local no seu dispositivo; os áudios salvos, como arquivos ao lado dele. O áudio das suas últimas $count gravações só é mantido se “$k1” estiver ativado, por no máximo $days dias.';
+  }
+
+  @override
+  String get manualC12S1B2 =>
+      'A verificação de atualizações consulta o GitHub por novas versões. O feedback só é enviado quando você o envia.';
+
+  @override
+  String get manualC12S1B3 =>
+      'Se uma transcrição falhar porque o servidor ou a conexão não está disponível, o áudio dessa gravação fica guardado por até 24 horas para você tentar de novo pela mensagem de erro ou em Privacidade. Isso também vale com a retenção desligada. Se ela estiver ligada, vale a retenção normal.';
+
+  @override
+  String get manualC12S2Heading => 'Provedores de nuvem';
+
+  @override
+  String manualC12S2B1(String k1) {
+    return 'Os provedores OpenAI e Deepgram precisam da sua própria chave de API. Insira-a em $k1.';
+  }
+
+  @override
+  String get manualC12S3Heading => 'Estatísticas de uso e relatórios de erro';
+
+  @override
+  String manualC12S3B1(String k1, String k2, String k3) {
+    return 'Duas opções vêm ativadas por padrão: $k1 e $k2. Você pode desativar as duas em $k3.';
+  }
+
+  @override
+  String get manualC13Title => 'Hardware e desempenho';
+
+  @override
+  String get manualC13S1Heading => 'Memória';
+
+  @override
+  String manualC13S1B1(String k1) {
+    return 'O WhisPaste recomenda pelo menos $k1 de memória. Com menos, o app inicia mesmo assim e sugere o modelo de voz “Rápido”.';
+  }
+
+  @override
+  String get manualC13S2Heading => 'Placa de vídeo';
+
+  @override
+  String get manualC13S2B1 =>
+      'O WhisPaste usa a placa de vídeo quando ela pode acelerar o reconhecimento de fala:';
+
+  @override
+  String manualC13S2B2I1(String k1, String k2) {
+    return '$k1: $k2, a interface gráfica da Apple.';
+  }
+
+  @override
+  String manualC13S2B2I2(String k1, String k2, String k3) {
+    return '$k1 e $k2 com gráficos AMD ou Intel: $k3, uma interface gráfica muito usada.';
+  }
+
+  @override
+  String manualC13S2B2I3(String k1, String k2) {
+    return 'As placas NVIDIA também usam $k1. Com o pacote CUDA opcional, o reconhecimento também usa $k2.';
+  }
+
+  @override
+  String manualC13S2B2I4(String k1) {
+    return 'Sem uma placa de vídeo adequada, o WhisPaste calcula no processador ($k1). Isso é mais lento.';
+  }
+
+  @override
+  String get manualC13S3Heading => 'O pacote CUDA';
+
+  @override
+  String manualC13S3B1(String k1, String k2, String k3, String k4, String k5) {
+    return 'O pacote CUDA é um complemento opcional para placas NVIDIA, segundo o app, para $k1 e $k2. Ele está disponível para $k3 e $k4 (x64). Ative-o em $k5.';
+  }
+
+  @override
+  String get manualC13S3B2 => 'O download é único. O app mostra o tamanho.';
+
+  @override
+  String get manualC13S4Heading => 'Aceleração gráfica';
+
+  @override
+  String manualC13S4B1(String k1) {
+    return 'Em $k1, escolha se o WhisPaste usa a placa de vídeo. Só o processador costuma ser mais lento.';
+  }
+
+  @override
+  String get manualC13S5Heading => 'Modelos e tamanho';
+
+  @override
+  String get manualC13S5B1 =>
+      'Os modelos Whisper vêm em três níveis: Rápido, Equilibrado e Preciso. Níveis mais precisos costumam reconhecer melhor, mas precisam de mais tempo de processamento.';
+
+  @override
+  String get manualC14Title => 'Solução de problemas';
+
+  @override
+  String get manualC14S1Heading => 'Como ler esta página';
+
+  @override
+  String get manualC14S1B1 =>
+      'Cada seção começa com um aviso que o WhisPaste mostra. O texto é o próprio do app. Abaixo estão a causa e o próximo passo.';
+
+  @override
+  String get manualC14S2Heading => 'Sem acesso ao microfone';
+
+  @override
+  String get manualC14S2B2 =>
+      'O que fazer: permita o acesso ao microfone para o WhisPaste nas configurações do sistema. Depois, inicie a gravação de novo.';
+
+  @override
+  String get manualC14S3Heading => 'Nenhum microfone encontrado';
+
+  @override
+  String manualC14S3B2(String k1) {
+    return 'O que fazer: conecte um microfone e escolha-o em $k1.';
+  }
+
+  @override
+  String get manualC14S4Heading => 'Nenhum áudio captado';
+
+  @override
+  String manualC14S4B2(String k1) {
+    return 'O que fazer: confira se o microfone certo está selecionado e se o $k1 não está em zero. Depois, grave de novo.';
+  }
+
+  @override
+  String get manualC14S5Heading => 'Sem modelo de voz';
+
+  @override
+  String manualC14S5B2(String k1) {
+    return 'O que fazer: baixe um modelo em $k1 e tente de novo.';
+  }
+
+  @override
+  String get manualC14S6Heading => 'Modelo desconhecido';
+
+  @override
+  String manualC14S6B2(String k1) {
+    return 'O que fazer: escolha um modelo instalado em $k1.';
+  }
+
+  @override
+  String get manualC14S7Heading => 'Transcrição falhou';
+
+  @override
+  String manualC14S7B2(String k1) {
+    return 'O que fazer: tente novamente. Se não resolver, reinicie o WhisPaste ou escolha outro modelo em $k1.';
+  }
+
+  @override
+  String get manualC14S8Heading => 'Nenhum texto reconhecido';
+
+  @override
+  String get manualC14S8B2 =>
+      'O que fazer: fale mais claramente ou um pouco mais e tente de novo. Verifique também o microfone.';
+
+  @override
+  String get manualC14S9Heading => 'Gravação ou transcrição longa demais';
+
+  @override
+  String get manualC14S9B2 => 'O que fazer: grave trechos mais curtos.';
+
+  @override
+  String get manualC14S10Heading => 'Chave da nuvem ausente ou inválida';
+
+  @override
+  String manualC14S10B2(String k1) {
+    return 'O que fazer: insira a chave novamente em $k1 ou mude para o reconhecimento no dispositivo.';
+  }
+
+  @override
+  String get manualC14S11Heading => 'Memória gráfica cheia';
+
+  @override
+  String get manualC14S11B2 =>
+      'O que fazer: nada. Depois você pode escolher o modelo de novo nas configurações.';
+
+  @override
+  String get manualC14S12Heading => 'Calculado no processador';
+
+  @override
+  String manualC14S12B2(String k1) {
+    return 'O que fazer: normalmente nada. Se acontecer com frequência, confira a opção em $k1 e atualize o driver gráfico.';
+  }
+
+  @override
+  String get manualC14S13Heading => 'Auto-Paste bloqueado (macOS)';
+
+  @override
+  String get manualC14S13B2 =>
+      'O que fazer: permita o acesso do WhisPaste à Acessibilidade nas configurações do sistema. Se o aviso continuar, reinicie o WhisPaste.';
+
+  @override
+  String get manualC14S14Heading => 'Auto-Paste bloqueado (Windows)';
+
+  @override
+  String get manualC14S14B2 =>
+      'O que fazer: inicie o WhisPaste também como administrador.';
+
+  @override
+  String get manualC14S15Heading => 'Auto-Paste no Linux';
+
+  @override
+  String get manualC14S15B1 =>
+      'No Linux, o Auto-Paste usa um dispositivo de entrada virtual (uinput). Se não funcionar, verifique se o WhisPaste pode acessar esse dispositivo.';
+
+  @override
+  String get manualC14S15B2 =>
+      'Neste sistema não é preciso configurar nada. O WhisPaste cola o texto no cursor após cada gravação.';
+
+  @override
+  String get manualC14S15B3 =>
+      'A versão Flatpak dá ao app acesso aos dispositivos de entrada do sistema, para que o Auto-Paste funcione. O próprio WhisPaste não lê nenhum dispositivo de entrada.';
+
+  @override
+  String get manualC14S15B4 =>
+      'Na versão Snap, execute isto uma vez em um terminal:';
+
+  @override
+  String get manualC14S15B5 =>
+      'O AppImage precisa de acesso a /dev/uinput. Instale a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/, ou adicione seu usuário ao grupo input e faça login de novo. Até lá, o Auto-Paste apenas copia o texto.';
+
+  @override
+  String get manualC14S15TerminalHeading => 'Terminais e Wayland';
+
+  @override
+  String get manualC14S15T1 =>
+      'No Linux, os terminais colam com Ctrl+Shift+V. O WhisPaste reconhece os terminais comuns e usa esse atalho sozinho: com X11 e XWayland, e no KDE Plasma, Sway, Hyprland, niri, labwc, Wayfire e outros desktops wlroots.';
+
+  @override
+  String get manualC14S15T2 =>
+      'No GNOME com Wayland, o WhisPaste só identifica o app de destino com a extensão opcional do WhisPaste para GNOME. Sem ela, o WhisPaste não reconhece terminais, e uma lista de bloqueio só copia o texto.';
+
+  @override
+  String manualC14S15T3(String k1, String k2) {
+    return 'Se um terminal ainda mostrar ^V em vez do texto, ative “$k1” em $k2. O WhisPaste passa a colar com Ctrl+Shift+V em todo lugar. Alguns apps usam essas teclas para outra coisa; o LibreOffice, por exemplo, abre uma caixa de diálogo.';
+  }
+
+  @override
+  String manualC14S15T4(String k1) {
+    return 'No GNOME, ative a extensão do WhisPaste nas configurações com $k1. O pacote .deb já a instala. Com Flatpak, AppImage ou o tarball, instale-a uma vez com o script do pacote Linux descompactado e depois ative-a:';
+  }
+
+  @override
+  String get manualC14S15InstallExtCmd => 'bash install-gnome-extension.sh';
+
+  @override
+  String get manualC14S15EnableExtCmd =>
+      'gnome-extensions enable whispaste-focus@whispaste.de';
+
+  @override
+  String manualC14S15T5(String k1, String k2) {
+    return 'Sem uinput configurado, por exemplo no Flatpak, o WhisPaste cola pela permissão da área de trabalho: $k1 em $k2. Sua área de trabalho pergunta uma vez; você pode retirar a permissão ali a qualquer momento';
+  }
+
+  @override
+  String settingsDesktopShortcutGnome(String shortcut) {
+    return 'Este desktop ainda não permite que apps usem atalhos de todo o sistema. O WhisPaste pode adicionar $shortcut aos atalhos de teclado do GNOME.';
+  }
+
+  @override
+  String get settingsDesktopShortcutAdd => 'Adicionar ao GNOME';
+
+  @override
+  String settingsDesktopShortcutInstalled(String shortcut) {
+    return '$shortcut está configurado nos atalhos de teclado do GNOME. Se você mudar o atalho, o WhisPaste o atualiza lá.';
+  }
+
+  @override
+  String get settingsDesktopShortcutRemove => 'Remover do GNOME';
+
+  @override
+  String get settingsDesktopShortcutFailed =>
+      'Não foi possível alterar os atalhos de teclado do GNOME.';
+
+  @override
+  String get settingsDesktopShortcutManual =>
+      'Este desktop não permite que apps usem atalhos de todo o sistema. Associe este comando a uma combinação de teclas nas configurações do sistema:';
+
+  @override
+  String get manualC14S15HotkeyHeading => 'Atalho global no Wayland';
+
+  @override
+  String manualC14S15H1(String k1, String k2) {
+    return 'No Wayland, um app só recebe atalhos de todo o sistema pelo desktop. O KDE Plasma e o GNOME 48 ou mais recente oferecem isso. Versões mais antigas do GNOME, como a do Ubuntu 24.04, não: nesse caso o WhisPaste oferece “$k1” em $k2 e adiciona o atalho aos atalhos de teclado do GNOME.';
+  }
+
+  @override
+  String manualC14S15H2(String k1) {
+    return 'Em outros desktops, como Sway ou Hyprland, associe você mesmo o comando a uma combinação de teclas. As configurações mostram o comando exato para a sua instalação em $k1.';
+  }
+
+  @override
+  String get manualC14S15FlatpakHeading => 'Flatpak';
+
+  @override
+  String get manualC14S15B3W =>
+      'Com esse acesso, o app poderia, em teoria, ler as teclas digitadas em outros programas, se o seu usuário tiver permissão de leitura nos dispositivos de entrada (por exemplo, como membro do grupo input). Os membros do grupo input também podem gerar entradas virtuais.';
+
+  @override
+  String get manualC14S15B3S =>
+      'O Auto-Paste também precisa de acesso de escrita a /dev/uinput no computador: instale a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/ e execute depois estes comandos:';
+
+  @override
+  String get manualC14S15Cmd =>
+      'sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput';
+
+  @override
+  String get manualCodeCopy => 'Copiar comando';
+
+  @override
+  String get manualCodeCopied => 'Comando copiado';
+
+  @override
+  String get manualCodeCopyFailed =>
+      'Não foi possível copiar. Selecione o comando e copie-o manualmente.';
+
+  @override
+  String get manualC14S15B3E =>
+      'A regra dá acesso de escrita ao usuário que fez login e a todo membro do grupo input. Estes comandos exigem direitos de administrador (sudo) e alteram o sistema. Se não quiser isso, deixe o Auto-Paste desligado e cole o texto manualmente.';
+
+  @override
+  String get manualC14S15SnapHeading => 'Snap';
+
+  @override
+  String get manualC14S15SnapCmd => 'sudo snap connect whispaste:uinput';
+
+  @override
+  String get manualC14S15Fallback =>
+      'Até lá, o Auto-Paste apenas copia o texto.';
+
+  @override
+  String get manualC14S15AppImageHeading => 'AppImage';
+
+  @override
+  String get manualC14S16Heading => 'O atalho já está em uso';
+
+  @override
+  String manualC14S16B2(String k1) {
+    return 'O que fazer: escolha outra combinação em $k1.';
+  }
+
+  @override
+  String get manualC14S17Heading => 'Início automático não configurado';
+
+  @override
+  String get manualC14S17B2 =>
+      'O que fazer: verifique as permissões de inicialização automática no sistema operacional. Sem isso, o WhisPaste não inicia sozinho.';
+
+  @override
+  String get manualC14S18Heading => 'Backup automático falhou';
+
+  @override
+  String manualC14S18B2(String k1) {
+    return 'O que fazer: escolha outra pasta acessível em $k1.';
+  }
+
+  @override
+  String get manualC14S19Heading => 'Redefinição de fábrica incompleta';
+
+  @override
+  String get manualC14S19B2 =>
+      'O que fazer: escolha “Tentar novamente” ou reinicie o WhisPaste e execute a redefinição novamente depois.';
+
+  @override
+  String get manualC14S20Heading => 'Nenhum som detectado';
+
+  @override
+  String manualC14S20B2(String k1) {
+    return 'O que fazer: verifique o microfone em $k1 e grave de novo.';
+  }
+
+  @override
+  String get manualC14S21Heading => 'Memória insuficiente';
+
+  @override
+  String manualC14S21B1(String k1) {
+    return 'O WhisPaste também inicia com menos memória do que a recomendada ($k1). Nesse caso, o app sugere o modelo de voz “Rápido”.';
+  }
+
+  @override
+  String get manualC15Title => 'Atalhos de teclado';
+
+  @override
+  String get manualC15S1Heading => 'Somente no WhisPaste';
+
+  @override
+  String manualC15S1B1(String k2) {
+    return 'Estes atalhos só funcionam com a janela do WhisPaste ativa. Já o atalho do sistema inteiro é definido em $k2.';
+  }
+
+  @override
+  String manualC15S1B2(String k1, String k2) {
+    return 'No Mac, $k1 normalmente substitui $k2.';
+  }
+
+  @override
+  String get manualC15S1B3I1 => 'F1 abre a ajuda.';
+
+  @override
+  String manualC15S1B3I2(String k) {
+    return '$k também abre a ajuda.';
+  }
+
+  @override
+  String get manualC15S2Heading => 'Gravações';
+
+  @override
+  String manualC15S2B1I1(String k1) {
+    return '$k1: excluir a entrada.';
+  }
+
+  @override
+  String manualC15S2B1I2(String k1) {
+    return '$k1: alternar favorito.';
+  }
+
+  @override
+  String manualC15S2B1I3(String k1) {
+    return '$k1: pesquisar.';
+  }
+
+  @override
+  String manualC15S2B1I4(String k1) {
+    return '$k1: fechar a pesquisa ou a visualização de detalhes.';
+  }
+
+  @override
+  String manualC15S2B1I5(String k1) {
+    return '$k1: copiar a entrada.';
+  }
+
+  @override
+  String manualC15S2B1I6(String k1) {
+    return '$k1: descartar a edição. Alterações não salvas pedem confirmação antes.';
+  }
+
+  @override
+  String get manualC15S3Heading => 'Notas';
+
+  @override
+  String manualC15S3B1I1(String k1) {
+    return '$k1: excluir a entrada.';
+  }
+
+  @override
+  String manualC15S3B1I2(String k1) {
+    return '$k1: criar uma nova nota.';
+  }
+
+  @override
+  String manualC15S3B1I3(String k1) {
+    return '$k1: pesquisar.';
+  }
+
+  @override
+  String get manualC15S4Heading => 'Dicionário e snippets';
+
+  @override
+  String manualC15S4B1I1(String k1) {
+    return '$k1: excluir a entrada.';
+  }
+
+  @override
+  String get manualC15S5Heading => 'Cancelar durante uma gravação';
+
+  @override
+  String manualC15S5B1(String k1, String k2) {
+    return 'Enquanto uma gravação ou transcrição está em andamento, o WhisPaste intercepta a tecla $k1 em todo o sistema para você poder cancelar. Nesse período, $k1 não faz nada em outros aplicativos. Se isso incomodar, escolha $k2 como tecla de cancelar em Configurações.';
+  }
+
+  @override
+  String get manualC16Title => 'Feedback e apoio';
+
+  @override
+  String get manualC16S1Heading => 'Enviar feedback';
+
+  @override
+  String get manualC16S1B1I1 => 'Avaliação: obrigatória.';
+
+  @override
+  String get manualC16S1B1I2 =>
+      'Tipo: obrigatório. Escolha Problema, Ideia, Elogio ou Pergunta.';
+
+  @override
+  String get manualC16S1B1I3 => 'Texto livre de até 1000 caracteres.';
+
+  @override
+  String get manualC16S1B1I4 => 'O endereço de e-mail é opcional.';
+
+  @override
+  String get manualC16S1B2 =>
+      'Se você enviou feedback recentemente, o app mostra este aviso:';
+
+  @override
+  String get manualC16S2Heading => 'Apoio';
+
+  @override
+  String manualC16S2B1(String k1) {
+    return 'A aba $k1 da ajuda mostra como você pode apoiar o WhisPaste.';
+  }
+
+  @override
+  String get manualC16S3Heading => 'Aviso de avaliação';
+
+  @override
+  String manualC16S3B1(String k1, String k2) {
+    return 'Se escolheu «Não perguntar mais» no aviso de avaliação, encontra o interruptor «$k2» em $k1. Ele só aparece nesse caso.';
+  }
+
+  @override
+  String get manualC16S4B1 =>
+      'Você pode enviar feedback pela aba Ajuda, pelo menu Ajuda da barra de menus (macOS) ou pelo menu da barra de título (Windows e Linux), e pela bandeja. O formulário fica a dois passos.';
+
+  @override
+  String get manualC16S5Heading => 'Compartilhar uma ideia';
+
+  @override
+  String get manualC16S5B1 =>
+      'Escolha Ideia ou abra Sugerir uma ideia no menu Ajuda: o tipo já vem selecionado. Você também pode publicar sua ideia no quadro público de ideias e votar nas dos outros.';
+
+  @override
+  String get manualC16S6Heading => 'Escrever por voz';
+
+  @override
+  String get manualC16S6B1 =>
+      'O botão do microfone no campo da mensagem grava sua voz e insere o texto reconhecido na posição do cursor.';
+
+  @override
+  String get manualC16S7Heading => 'O que é enviado';
+
+  @override
+  String get manualC16S7B1I1 => 'O tipo que você escolheu e sua mensagem.';
+
+  @override
+  String get manualC16S7B1I3 =>
+      'Seu e-mail somente se você o informou. Ele é usado apenas para responder e é apagado após 90 dias.';
+
+  @override
+  String get manualC16S7B1I4 =>
+      'Diagnóstico somente se você ativar Anexar diagnóstico: versão do app, sistema operacional, motor de voz e backend. Mostrar prévia exibe o texto exato antes de enviar.';
+
+  @override
+  String get manualC16S7B2 => 'Gravações e transcrições nunca são anexadas.';
+
+  @override
+  String get manualC16S4Heading => 'Onde encontrar o formulário';
+
+  @override
+  String get manualC16S7B1I2 => 'A avaliação que você escolheu.';
+
+  @override
+  String pasteFailureClipboardCopy(Object paste) {
+    return 'Não foi possível colar – o texto está na área de transferência ($paste).';
+  }
+
+  @override
+  String get pasteFailureCheckPermission => 'Verificar permissão';
+
+  @override
+  String get autoPasteResetConfirmTitle =>
+      'Redefinir a entrada e permitir novamente?';
+
+  @override
+  String get autoPasteResetConfirmBody =>
+      'O macOS guardou uma entrada antiga do WhisPaste que não se aplica mais. O WhisPaste remove apenas essa entrada de Acessibilidade. Depois o macOS vai perguntar de novo. As demais permissões não mudam.';
+
+  @override
+  String get autoPasteResetConfirmButton =>
+      'Redefinir entrada e permitir novamente';
+
+  @override
+  String get permissionRowMicTitle => 'Microfone';
+
+  @override
+  String get permissionRowMicPurpose =>
+      'Grava a sua voz. Sem essa permissão não é possível gravar nada.';
+
+  @override
+  String get permissionRowPasteTitle => 'Auto-Paste';
+
+  @override
+  String get permissionRowPastePurpose =>
+      'Coloca o texto no cursor. Sem ela, o texto fica na área de transferência.';
+
+  @override
+  String get permissionRowAllow => 'Permitir';
+
+  @override
+  String get permissionRowMissingSettings => 'Em falta – abrir Ajustes';
+
+  @override
+  String get permissionRowGranted => 'Permitido';
+
+  @override
+  String get permissionRowOptional => 'Opcional';
+
+  @override
+  String get autostartApprovalBody =>
+      'O macOS aguarda a sua aprovação: o WhisPaste só inicia no login depois de o ativar em Itens de Início de Sessão.';
+
+  @override
+  String get autostartApprovalAction => 'Abrir Itens de Início de Sessão';
+
+  @override
+  String get pasteFailureLinuxUinputHint =>
+      'A colagem automática precisa de acesso único a /dev/uinput. Copie o comando e execute-o num terminal.';
+
+  @override
+  String get pasteFailureLinuxUinputCopy => 'Copiar comando';
+
+  @override
+  String get pasteFailureLinuxNoDeviceHint =>
+      'A colagem automática não está disponível neste sistema: não há nenhum dispositivo de teclado virtual.';
+
+  @override
+  String get pasteFailureLinuxUinputSettingsHint =>
+      'A colagem automática precisa de acesso único a /dev/uinput. Abra as definições do Auto-Paste para a configuração única.';
+
+  @override
+  String get settingsSecureKeysNotRemoved =>
+      'As chaves de API não puderam ser removidas por completo.';
+
+  @override
+  String analyticsDurationHours(String hours) {
+    return '$hours h';
+  }
+
+  @override
+  String analyticsDurationMinutes(String minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String get dockErrorCauseEngine => 'O modelo de voz parou com um erro.';
+
+  @override
+  String get dockErrorCauseRecording => 'A gravação não pôde ser transcrita.';
+
+  @override
+  String get dockErrorAction =>
+      'Abra as configurações de voz para verificar o modelo de voz.';
+
+  @override
+  String get overlayDoneCopiedOnly =>
+      'Apenas copiado – app de destino bloqueado ou não reconhecido';
+
+  @override
+  String get overlayDoneNotPasted => 'Não colado – salvo em Gravações';
+
+  @override
+  String get overlayDonePasteFailed => 'Colagem não possível – copie o texto';
+
+  @override
+  String get databaseTooNewTitle => 'O WhisPaste não consegue abrir seus dados';
+
+  @override
+  String databaseTooNewCause(int storedVersion, int supportedVersion) {
+    return 'Os dados foram gravados por uma versão mais recente do WhisPaste (versão do banco de dados $storedVersion). Esta versão suporta até a versão $supportedVersion.';
+  }
+
+  @override
+  String get databaseTooNewNextStep =>
+      'Instale a versão mais recente do WhisPaste e abra o app novamente. Nada foi alterado nem apagado.';
+
+  @override
+  String get databaseTooNewQuit => 'Sair';
+
+  @override
+  String get pasteFailureTargetChanged =>
+      'Auto-colagem cancelada: você trocou de app durante o processamento. O texto está na área de transferência.';
+
+  @override
+  String pasteFailureUnconfirmed(String paste) {
+    return 'Auto-colagem não confirmada. O texto está na área de transferência, cole-o com $paste.';
+  }
+
+  @override
+  String get onboardingAppearanceSettingsHint =>
+      'Pode ser alterado a qualquer momento em Configurações → Aparência';
+
+  @override
+  String get onboardingAppearanceSettingsLink =>
+      'Abrir a pré-visualização em Configurações (encerra a configuração)';
+
+  @override
+  String get onboardingAppearanceSettingsLinkRevision =>
+      'Abrir a pré-visualização em Configurações (mostrar novamente mais tarde)';
+
+  @override
+  String get fileDialogOpenTitle => 'Abrir arquivo';
+
+  @override
+  String get fileDialogOpenFilesTitle => 'Abrir arquivos';
+
+  @override
+  String get fileDialogSaveTitle => 'Salvar arquivo';
+
+  @override
+  String get fileDialogFolderTitle => 'Escolher pasta';
+
+  @override
+  String get fileDialogSelectFolder => 'Selecionar';
+
+  @override
+  String get dockLanguageAuto => 'Automático';
+
+  @override
+  String get settingsLanguageFavoriteAdd => 'Adicionar aos favoritos';
+
+  @override
+  String get settingsLanguageFavoriteRemove => 'Remover dos favoritos';
+
+  @override
+  String get settingsLanguageFavoritesLimit =>
+      'Até 3 favoritos. Remova um para adicionar outro.';
+
+  @override
+  String get dockMenuFavorites => 'Favoritos';
+
+  @override
+  String get dockMenuAllLanguages => 'Todos os idiomas';
+
+  @override
+  String get traySpeechModel => 'Modelo de fala';
+
+  @override
+  String trayTooltipSmartMode(String preset) {
+    return 'Smart Mode: $preset';
+  }
+
+  @override
+  String get trayLinuxNoTrayHost =>
+      'O ícone da bandeja precisa de um host de bandeja. No GNOME, instale a extensão AppIndicator; até lá, o menu de troca rápida não está disponível.';
+
+  @override
+  String get trayLanguage => 'Idioma';
+
+  @override
+  String get trayLanguageMore => 'Mais…';
+
+  @override
+  String get trayProfile => 'Perfil';
+
+  @override
+  String get trayProfileAutomatic => 'Automático, por app';
+
+  @override
+  String get trayProfileNone => 'Sem perfil';
+
+  @override
+  String profileSwitchedToast(String name) {
+    return 'Perfil: $name';
+  }
+
+  @override
+  String get settingsHotkeyActionLanguageCycle => 'Próximo idioma favorito';
+
+  @override
+  String get settingsLanguageCycleHotkeyEnabled => 'Próximo idioma favorito';
+
+  @override
+  String get settingsLanguageCycleHotkeyHint =>
+      'Muda o idioma do ditado para o próximo favorito. Marque até três idiomas como favoritos em Fala para texto.';
+
+  @override
+  String settingsLanguageCycleHotkeyCollision(String action) {
+    return 'Já usado por $action. Escolha outra combinação.';
+  }
+
+  @override
+  String get settingsLanguageCycleHotkeyInactive =>
+      'O atalho está em uso por outro aplicativo ou não pôde ser registrado. Escolha outra combinação.';
+
+  @override
+  String get settingsLanguageCycleHotkeyWaylandNotice =>
+      'No Wayland, este atalho pode não funcionar em outros aplicativos. Crie um atalho de área de trabalho se ele não responder.';
+
+  @override
+  String languageCycleSwitchedToast(String language) {
+    return 'Idioma do ditado: $language';
+  }
+
+  @override
+  String languageCycleSwitchedNextRecordingToast(String language) {
+    return 'Idioma do ditado: $language. Vale a partir da próxima gravação.';
+  }
+
+  @override
+  String get languageCycleNoFavoritesToast =>
+      'Ainda não há idiomas favoritos. Marque até três idiomas em Fala para texto para usar este atalho.';
+
+  @override
+  String get languageCycleOpenSettings => 'Abrir configurações';
+
+  @override
+  String get manualLangFavHeading => 'Idiomas favoritos';
+
+  @override
+  String get manualLangFavB1 =>
+      'Nas configurações de reconhecimento de fala, marque até três idiomas como favoritos com a estrela na lista de idiomas. Os favoritos aparecem primeiro no menu de idiomas da barra de gravação e no menu da bandeja, para trocar com um clique.';
+
+  @override
+  String get manualLangTrayHeading => 'Idioma no menu da bandeja';
+
+  @override
+  String get manualLangTrayB1 =>
+      'O menu da bandeja tem um submenu Idioma. Ele lista seus favoritos e marca com um visto o idioma ativo. Mais… abre a janela com a lista completa. O Parakeet escolhe o próprio idioma, então o submenu fica oculto ali.';
+
+  @override
+  String get manualLangCycleHeading => 'Próximo idioma favorito';
+
+  @override
+  String get manualLangCycleB1 =>
+      'Na seção Ditado você pode atribuir uma combinação de teclas que troca o idioma do ditado para o próximo favorito a cada toque. O atalho fica desativado até você gravar uma combinação. Sem favoritos, o WhisPaste indica onde ajustá-los. No Linux com Wayland, outros aplicativos podem não responder ao atalho.';
+
+  @override
+  String onboardingReadyDesktopShortcutHint(String shortcut) {
+    return '$shortcut ainda não funciona em todo o sistema neste desktop. Volte à página onde você escolheu seu atalho para configurá-lo.';
+  }
+
+  @override
+  String desktopShortcutToast(String shortcut) {
+    return '$shortcut só funciona em todo o sistema depois de ser adicionado aos atalhos de teclado do GNOME.';
+  }
+
+  @override
+  String get recommendationReasonLanguage =>
+      'Recomendado porque o Parakeet suporta seu idioma e é rápido em qualquer aparelho.';
+
+  @override
+  String get recommendationReasonMeasured =>
+      'Recomendado pela medição neste aparelho.';
+
+  @override
+  String recommendationReasonApple(String memory) {
+    return 'Recomendado para seu chip da Apple (Metal) com $memory.';
+  }
+
+  @override
+  String recommendationReasonCuda(String gb) {
+    return 'Recomendado para sua placa de vídeo NVIDIA com $gb GB de memória de vídeo (CUDA).';
+  }
+
+  @override
+  String recommendationReasonVulkan(String name) {
+    return 'Recomendado para sua placa de vídeo $name (Vulkan).';
+  }
+
+  @override
+  String recommendationReasonCpu(int cores, String memory) {
+    return 'Recomendado para o processador, pois não há placa de vídeo utilizável: $cores núcleos, $memory.';
+  }
+
+  @override
+  String recommendationReasonSoftware(String name, int cores, String memory) {
+    return '$name é gráfico por software, então o processador faz o trabalho: $cores núcleos, $memory.';
+  }
+
+  @override
+  String recommendationMemory(String gb) {
+    return '$gb GB de RAM';
+  }
+
+  @override
+  String get recommendationMemoryUnknown => 'RAM desconhecida';
+
+  @override
+  String dockMenuDownloadMissing(String name, String size) {
+    return 'Sem modelo de voz – baixar $name agora ($size)';
+  }
+
+  @override
+  String get manualC01S3B5 =>
+      'Se o modelo de voz selecionado estiver faltando, o dock mostra “Modelo de voz ausente”. O menu de voz do dock então o oferece como primeira opção para baixar, tanto para Whisper quanto para Parakeet. Se você pressionar o atalho sem modelo, aparece um aviso com “Baixar agora”. Se você mudar para Whisper em Configurações e o modelo Whisper selecionado estiver faltando, o WhisPaste escolhe um já baixado.';
+
+  @override
+  String benchmarkBackendSoftwareVulkan(String name) {
+    return 'Processador (Vulkan por software, $name)';
+  }
+
+  @override
+  String get menuBarMenuEdit => 'Editar';
+
+  @override
+  String get menuBarMenuWindow => 'Janela';
+
+  @override
+  String get menuBarEditUndo => 'Desfazer';
+
+  @override
+  String get menuBarEditRedo => 'Refazer';
+
+  @override
+  String get menuBarEditCut => 'Recortar';
+
+  @override
+  String get menuBarEditCopy => 'Copiar';
+
+  @override
+  String get menuBarEditPaste => 'Colar';
+
+  @override
+  String get menuBarEditSelectAll => 'Selecionar tudo';
+
+  @override
+  String get menuBarWindowMinimize => 'Minimizar';
+
+  @override
+  String get menuBarWindowZoom => 'Ampliar';
+
+  @override
+  String get menuBarAppQuit => 'Sair do WhisPaste';
+
+  @override
+  String get menuBarMenuRecording => 'Gravação';
+
+  @override
+  String get menuBarAppSettings => 'Configurações…';
+
+  @override
+  String get menuBarHelpManual => 'Abrir o manual';
+
+  @override
+  String get menuBarHelpFeedback => 'Enviar feedback…';
+
+  @override
+  String get menuBarHelpIdea => 'Sugerir uma ideia…';
+
+  @override
+  String get manualC15S6Heading => 'Menu';
+
+  @override
+  String get manualC15S6B1 =>
+      'No Mac, os comandos mais importantes também estão na barra de menus no topo. O menu «Gravação» inicia e para uma gravação e define o idioma, o modelo de fala, o Smart Mode, o que acontece após a transcrição, o microfone e o perfil.';
+
+  @override
+  String manualC15S6B2I1(String k1) {
+    return 'WhisPaste: abrir as configurações com $k1';
+  }
+
+  @override
+  String get manualC15S6B2I2 =>
+      'Editar: recortar, copiar, colar e selecionar tudo atuam sobre o campo de texto ativo.';
+
+  @override
+  String get manualC15S6B2I3 =>
+      'Janela: minimizar e ampliar a janela principal.';
+
+  @override
+  String get manualC15S6B2I4 =>
+      'Ajuda: abrir o manual, enviar feedback e sugerir uma ideia.';
+
+  @override
+  String get manualC15S6B3 =>
+      'No Windows e no Linux, os mesmos comandos estão num botão de menu no canto superior direito da barra de título. Pressione Alt ou F10 para abri-lo, use as setas para escolher uma entrada, Enter para executá-la e Esc para fechar o menu.';
+
+  @override
+  String get menuBarAppAbout => 'Sobre o WhisPaste';
+
+  @override
+  String get menuBarAppHide => 'Ocultar';
+
+  @override
+  String get menuBarAppHideOthers => 'Ocultar outros';
+
+  @override
+  String get menuBarAppShowAll => 'Mostrar tudo';
+
+  @override
+  String get titleBarMenuLabel => 'Menu';
+
+  @override
+  String get notesTitleLabel => 'Título';
+
+  @override
+  String get notesMoreActions => 'Mais ações';
+
+  @override
+  String get notesVersionSaveNow => 'Salvar versão agora';
+
+  @override
+  String get notesMenuMark => 'Destacar';
+
+  @override
+  String get notesMenuAddImage => 'Inserir imagem';
+
+  @override
+  String get notesMenuVersions => 'Versões';
+
+  @override
+  String get notesMenuSnippet => 'Salvar como snippet';
+
+  @override
+  String get notesVersionsEmpty => 'Ainda não há versões.';
+
+  @override
+  String get notesVersionTooLarge => 'Grande demais para visualizar';
+
+  @override
+  String get notesVersionDelete => 'Excluir versão';
+
+  @override
+  String get notesVersionSaved => 'Versão salva';
+
+  @override
+  String get notesVersionUnchanged =>
+      'Não há alterações desde a última versão.';
+
+  @override
+  String get notesVersionRestored => 'Versão restaurada';
+
+  @override
+  String get notesVersionRestoreMessage =>
+      'Só o título e o texto são restaurados para esta versão. As imagens permanecem como estão.';
+
+  @override
+  String get notesVersionDeleteMessage =>
+      'Esta versão será excluída permanentemente e não pode ser recuperada.';
+
+  @override
+  String get notesImageFilesLabel => 'Imagens';
+
+  @override
+  String get notesImageRejected =>
+      'Este arquivo não é uma imagem compatível (PNG, JPEG, GIF ou WebP).';
+
+  @override
+  String get notesImageRemove => 'Remover imagem';
+
+  @override
+  String get notesSnippetCreated => 'Snippet criado';
+
+  @override
+  String get notesSnippetNothing =>
+      'Esta nota não tem texto para salvar como snippet.';
+
+  @override
+  String get notesMarkNeedsSelection => 'Selecione um texto primeiro.';
+
+  @override
+  String get notesImageLimitCount =>
+      'Esta nota já tem o número máximo de imagens.';
+
+  @override
+  String get notesImageLimitBytes =>
+      'As imagens desta nota excederiam o limite de tamanho.';
+
+  @override
+  String get notesImageLimitTotal =>
+      'O armazenamento de imagens está cheio. Remova uma imagem para adicionar outra.';
+
+  @override
+  String get historyImportFailureCopyInterrupted =>
+      'O arquivo chegou devagar demais ou mudou durante a cópia. Tente novamente.';
+
+  @override
+  String get historyImportFailureDecoderUnavailable =>
+      'Este formato não está disponível neste sistema. Converta o arquivo para WAV e importe-o novamente.';
+
+  @override
+  String get audioDropHint =>
+      'Solte aqui arquivos de áudio para transcrevê-los';
+
+  @override
+  String audioDropRejectedFolder(String names) {
+    return 'Não é possível importar pastas: $names';
+  }
+
+  @override
+  String audioDropRejectedNotFound(String names) {
+    return 'Arquivo não encontrado: $names';
+  }
+
+  @override
+  String audioDropRejectedFormat(String names, String formats) {
+    return 'Não compatível: $names. Formatos permitidos: $formats.';
+  }
+
+  @override
+  String audioDropRejectedNotRegular(Object names) {
+    return 'Não é um arquivo comum, não pode ser importado: $names';
+  }
+
+  @override
+  String audioDropRejectedTooLarge(Object names) {
+    return 'Muito grande (máximo 1 GB): $names';
+  }
+
+  @override
+  String get historyImportRejectedNotRegularFile =>
+      'Não é um arquivo comum e não pode ser importado.';
+
+  @override
+  String get historyImportRejectedTooLarge => 'O arquivo é maior que 1 GB.';
+
+  @override
+  String audioDropRejectedReservedName(Object names) {
+    return 'Nome de dispositivo reservado, não pode ser importado: $names';
+  }
+
+  @override
+  String get historyImportRejectedReservedName =>
+      'O Windows reserva este nome de arquivo e ele não pode ser importado. Renomeie o arquivo.';
+
+  @override
+  String get historyImportFailureIo =>
+      'O armazenamento está cheio ou não é gravável.';
+
+  @override
+  String get holdToRecordExplained =>
+      'Ativado: segure o atalho e fale, solte para terminar. Desativado: pressione uma vez para iniciar e de novo para terminar.';
 }

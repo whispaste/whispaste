@@ -9,6 +9,7 @@ on:
     branches: [dev]
     paths:
       - 'packaging/**'
+      - 'test/scripts/gnome_extension_test.sh'
       - '.github/workflows/packaging-validate.yml'
   # Called from release.yml after manifest-bump commits updated manifests to dev.
   # The `ref` input lets the caller pin validation to the bumped commit/branch.
@@ -238,15 +239,23 @@ jobs:
               "--socket=pulseaudio": "audio",
               # Network self-download of the Sprachdienst
               "--share=network": "network self-download",
-              # Hotkey (session bus reaches the WM / GlobalShortcuts portal)
-              "--socket=session-bus": "hotkey",
-              # Display sockets (clipboard/paste rides on these)
+              # Display sockets (clipboard/paste and the X11 hotkey ride on these)
               "--socket=wayland": "wayland display",
               "--socket=fallback-x11": "x11 display",
+              # Named session-bus services (F-18 / R-03)
+              "--talk-name=org.kde.StatusNotifierWatcher": "tray",
+              "--talk-name=org.freedesktop.Notifications": "notifications",
+              "--talk-name=org.freedesktop.secrets": "secret service",
           }
           for arg, label in required_args.items():
               if arg not in fa:
                   errors.append(f"missing finish-arg for {label}: {arg}")
+
+          # Whole session bus is a sandbox escape (F-18 / R-03).
+          if "--socket=session-bus" in fa:
+              errors.append(
+                  "--socket=session-bus is forbidden; use named --talk-name= grants"
+              )
 
           # Writable data dir for the self-downloaded + executed whisper-server.
           if not any(a.startswith("--filesystem=xdg-data/whispaste") for a in fa):
@@ -324,10 +333,14 @@ jobs:
           # against (cross-checked vs the -dev packages in release.yml).
           for dep in libgtk-3-0 libsecret-1-0 libnotify4 \
                      libayatana-appindicator3-1 libasound2 libcurl4 \
-                     libkeybinder-3.0-0; do
+                     libkeybinder-3.0-0 libxss1; do
             grep -q "$dep" "$CTRL" \
               || { echo "::error::Depends: is missing $dep"; fail=1; }
           done
+          # Runtime Depends: every required group must appear exactly (see
+          # packaging/deb/check_depends.py; libFLAC alternatives are a group).
+          python3 packaging/deb/check_depends.py "$CTRL" || fail=1
+          python3 packaging/deb/test_check_depends.py || fail=1
           [ "$fail" -eq 0 ] || exit 1
           echo "  ✓ control metadata + Depends complete"
 
@@ -350,6 +363,10 @@ jobs:
           check libasound2                  libasound2-dev
           check libcurl4                    libcurl4-openssl-dev
           check libkeybinder-3.0-0          libkeybinder-3.0-dev
+          check libxss1                     libxss-dev
+          check libopusfile0                libopusfile-dev
+          check libogg0                     libogg-dev
+          check libflac12                   libflac-dev
           [ "$fail" -eq 0 ] || exit 1
           echo "  ✓ Depends ↔ build-linux -dev packages consistent"
 
@@ -450,3 +467,19 @@ jobs:
           print("  ✓ Required keys + strict confinement + plugs present "
                 "(display/clipboard, hotkey, audio, network self-download)")
           PYEOF
+
+  # ── GNOME Shell focus extension (contract, installers, .deb payload) ──────
+  # Static checks plus a real build of the .deb from a stub bundle. The nested
+  # GNOME Shell end-to-end run (test/scripts/gnome_extension_e2e.sh) is local
+  # only and not a CI gate.
+  gnome-extension:
+    name: GNOME Shell extension (metadata, D-Bus contract, .deb payload)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Run extension checks
+        run: bash test/scripts/gnome_extension_test.sh

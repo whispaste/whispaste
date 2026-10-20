@@ -267,13 +267,7 @@ void main() {
           Column(
             children: [
               const Focus(autofocus: true, child: SizedBox.shrink()),
-              WpHeroButton(
-                label: 'Test',
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3CCBE6), Color(0xFF0A99B8)],
-                ),
-                onPressed: () {},
-              ),
+              WpHeroButton(label: 'Test', onPressed: () {}),
             ],
           ),
         ),
@@ -309,13 +303,7 @@ void main() {
           Column(
             children: [
               const Focus(autofocus: true, child: SizedBox.shrink()),
-              WpHeroButton(
-                label: 'Test',
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3CCBE6), Color(0xFF0A99B8)],
-                ),
-                onPressed: () {},
-              ),
+              WpHeroButton(label: 'Test', onPressed: () {}),
             ],
           ),
         ),

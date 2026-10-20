@@ -18,6 +18,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/services/replacements/correction_learning_service.dart';
 import 'package:whispaste/services/replacements/correction_signal.dart';
@@ -25,6 +26,8 @@ import 'package:whispaste/services/replacements/vocabulary_import_service.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart'
     show SettingRow;
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_favourite_star.dart';
+import 'package:whispaste/widgets/wp_segmented_selector.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -52,6 +55,25 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 late L10n l10n;
 
 void main() {
+  // Rows are 48 px tap areas (WP-58), about 90 px apart with their dividers.
+  // The flutter_test default view (800x600) leaves the third sample row below
+  // the fold, where the lazy list never builds it, so every test gets the
+  // 1280x800 desktop view the app runs in.
+  TestFlutterView desktopView() =>
+      TestWidgetsFlutterBinding.instance.platformDispatcher.views.single;
+
+  setUp(() {
+    desktopView()
+      ..physicalSize = const Size(1280, 800)
+      ..devicePixelRatio = 1;
+  });
+
+  tearDown(() {
+    desktopView()
+      ..resetPhysicalSize()
+      ..resetDevicePixelRatio();
+  });
+
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
@@ -79,6 +101,45 @@ void main() {
       // Arrow icon present once per row
       expect(find.byIcon(LucideIcons.arrowRightLeft), findsNWidgets(3));
     });
+
+    // -------------------------------------------------------------------------
+    // 1b. Row density (UX-033)
+    // -------------------------------------------------------------------------
+
+    testWidgets(
+      'single-line rows are sized to content, not to the action box',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+        );
+        await tester.pumpAndSettle();
+
+        // The three sample rows each hold one trigger chip on one line. The
+        // chip sits at the same offset inside every row, so the distance
+        // between two chips is the row pitch (row body + divider + margin).
+        final first = tester.getCenter(find.text('mfg')).dy;
+        final second = tester.getCenter(find.text('lg')).dy;
+        final third = tester.getCenter(find.text('tel')).dy;
+        final pitch = second - first;
+
+        expect(
+          (third - second - pitch).abs(),
+          lessThan(0.5),
+          reason: 'rows are equally spaced',
+        );
+        // A single-line row is its content plus the 14 px padding above and
+        // below (24 + 28 = 52), then 3 px resting border, 1 px divider, 2 px
+        // margin and the list's 8 px gap: 66 px. The old layout added 48 px of
+        // action box on top of the padding and measured 90 px, so a pitch of
+        // 80 or more means the padding is stacked on the 48 px box again.
+        expect(
+          pitch,
+          lessThan(80),
+          reason: 'a single-line row must not stack padding on the 48 px box',
+        );
+        expect(pitch, greaterThanOrEqualTo(WpLayout.minTouchTarget));
+      },
+    );
 
     // -------------------------------------------------------------------------
     // 2. Add dialog
@@ -587,10 +648,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text(l10n.replacementsFuzzyToleranceLabel), findsOneWidget);
-        final segmented = tester.widget<SegmentedButton<double>>(
-          find.byType(SegmentedButton<double>),
+        final segmented = tester.widget<WpSegmentedChoice<double>>(
+          find.byType(WpSegmentedChoice<double>),
         );
-        expect(segmented.selected, {0.75});
+        expect(segmented.selected, 0.75);
       },
     );
 
@@ -814,5 +875,45 @@ void main() {
         expect(await service.pendingCandidates(db), isEmpty);
       },
     );
+  });
+
+  group('ReplacementsPage row affordance (UX-009)', () {
+    testWidgets('each row shows a trailing chevron as edit affordance', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(LucideIcons.chevronRight), findsNWidgets(3));
+    });
+
+    testWidgets('the row chevron points to the reading-end in Hebrew (RTL)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('he')),
+      );
+      await tester.pumpAndSettle();
+
+      // Lucide glyphs do not mirror on their own: in RTL the row's trailing
+      // edge is on the left, so the cue must point left.
+      expect(find.byIcon(LucideIcons.chevronLeft), findsWidgets);
+      expect(find.byIcon(LucideIcons.chevronRight), findsNothing);
+    });
+
+    testWidgets('the favourite star has a "Favorit" tooltip', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(const ReplacementsPage(), locale: const Locale('de')),
+      );
+      await tester.pumpAndSettle();
+
+      final de = await L10n.delegate.load(const Locale('de'));
+      expect(de.dictionaryFavouriteLabel, 'Favorit');
+      final stars = find.byType(WpFavouriteStar).evaluate().length;
+      expect(stars, greaterThan(0));
+      expect(find.byTooltip(de.dictionaryFavouriteLabel), findsNWidgets(stars));
+    });
   });
 }

@@ -255,6 +255,42 @@ class $HistoryEntriesTable extends HistoryEntries
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _smartModeInputMeta = const VerificationMeta(
+    'smartModeInput',
+  );
+  @override
+  late final GeneratedColumn<String> smartModeInput = GeneratedColumn<String>(
+    'smart_mode_input',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _smartModeOutputMeta = const VerificationMeta(
+    'smartModeOutput',
+  );
+  @override
+  late final GeneratedColumn<String> smartModeOutput = GeneratedColumn<String>(
+    'smart_mode_output',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _smartModeAppliedMeta = const VerificationMeta(
+    'smartModeApplied',
+  );
+  @override
+  late final GeneratedColumn<bool> smartModeApplied = GeneratedColumn<bool>(
+    'smart_mode_applied',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("smart_mode_applied" IN (0, 1))',
+    ),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -278,6 +314,9 @@ class $HistoryEntriesTable extends HistoryEntries
     smartModeEditedContent,
     originalTranscript,
     targetApp,
+    smartModeInput,
+    smartModeOutput,
+    smartModeApplied,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -436,6 +475,33 @@ class $HistoryEntriesTable extends HistoryEntries
         targetApp.isAcceptableOrUnknown(data['target_app']!, _targetAppMeta),
       );
     }
+    if (data.containsKey('smart_mode_input')) {
+      context.handle(
+        _smartModeInputMeta,
+        smartModeInput.isAcceptableOrUnknown(
+          data['smart_mode_input']!,
+          _smartModeInputMeta,
+        ),
+      );
+    }
+    if (data.containsKey('smart_mode_output')) {
+      context.handle(
+        _smartModeOutputMeta,
+        smartModeOutput.isAcceptableOrUnknown(
+          data['smart_mode_output']!,
+          _smartModeOutputMeta,
+        ),
+      );
+    }
+    if (data.containsKey('smart_mode_applied')) {
+      context.handle(
+        _smartModeAppliedMeta,
+        smartModeApplied.isAcceptableOrUnknown(
+          data['smart_mode_applied']!,
+          _smartModeAppliedMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -529,6 +595,18 @@ class $HistoryEntriesTable extends HistoryEntries
         DriftSqlType.string,
         data['${effectivePrefix}target_app'],
       ),
+      smartModeInput: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}smart_mode_input'],
+      ),
+      smartModeOutput: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}smart_mode_output'],
+      ),
+      smartModeApplied: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}smart_mode_applied'],
+      ),
     );
   }
 
@@ -546,6 +624,10 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
   final double durationSec;
   final double processingDurationSec;
   final String language;
+
+  /// Language the engine detected for an `auto` recording (DEV-132); empty
+  /// when unknown. Read by retroactive Smart Mode for the fact guard's name
+  /// rule. Stored in this existing column, so no migration was needed.
   final String languageHint;
   final String tags;
   final bool pinned;
@@ -585,6 +667,21 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
   /// lookup the blocklist uses (v24, ticket 12). `null` when unavailable
   /// (Linux, no target captured, permission missing, or pre-v24 entries).
   final String? targetApp;
+
+  /// Exact input of the Smart-Mode run that produced [content] (v27). `null`
+  /// when that input equals [originalTranscript], which is then the input
+  /// (BIZ-25: the raw text is stored once).
+  final String? smartModeInput;
+
+  /// Result of that Smart-Mode run while an undo is in effect (v27): the
+  /// content holds the input, and this holds the result for a restore. `null`
+  /// when the entry shows the result.
+  final String? smartModeOutput;
+
+  /// Whether a Smart-Mode run changed this entry and no manual edit or
+  /// re-transcription has happened since (v27). This marker is what makes an
+  /// entry undoable; without it, a manual edit could be mistaken for a run.
+  final bool? smartModeApplied;
   const HistoryEntry({
     required this.id,
     required this.content,
@@ -607,6 +704,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     this.smartModeEditedContent,
     this.originalTranscript,
     this.targetApp,
+    this.smartModeInput,
+    this.smartModeOutput,
+    this.smartModeApplied,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -642,6 +742,15 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     if (!nullToAbsent || targetApp != null) {
       map['target_app'] = Variable<String>(targetApp);
     }
+    if (!nullToAbsent || smartModeInput != null) {
+      map['smart_mode_input'] = Variable<String>(smartModeInput);
+    }
+    if (!nullToAbsent || smartModeOutput != null) {
+      map['smart_mode_output'] = Variable<String>(smartModeOutput);
+    }
+    if (!nullToAbsent || smartModeApplied != null) {
+      map['smart_mode_applied'] = Variable<bool>(smartModeApplied);
+    }
     return map;
   }
 
@@ -676,6 +785,15 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       targetApp: targetApp == null && nullToAbsent
           ? const Value.absent()
           : Value(targetApp),
+      smartModeInput: smartModeInput == null && nullToAbsent
+          ? const Value.absent()
+          : Value(smartModeInput),
+      smartModeOutput: smartModeOutput == null && nullToAbsent
+          ? const Value.absent()
+          : Value(smartModeOutput),
+      smartModeApplied: smartModeApplied == null && nullToAbsent
+          ? const Value.absent()
+          : Value(smartModeApplied),
     );
   }
 
@@ -712,6 +830,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
         json['originalTranscript'],
       ),
       targetApp: serializer.fromJson<String?>(json['targetApp']),
+      smartModeInput: serializer.fromJson<String?>(json['smartModeInput']),
+      smartModeOutput: serializer.fromJson<String?>(json['smartModeOutput']),
+      smartModeApplied: serializer.fromJson<bool?>(json['smartModeApplied']),
     );
   }
   @override
@@ -741,6 +862,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
       ),
       'originalTranscript': serializer.toJson<String?>(originalTranscript),
       'targetApp': serializer.toJson<String?>(targetApp),
+      'smartModeInput': serializer.toJson<String?>(smartModeInput),
+      'smartModeOutput': serializer.toJson<String?>(smartModeOutput),
+      'smartModeApplied': serializer.toJson<bool?>(smartModeApplied),
     };
   }
 
@@ -766,6 +890,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     Value<String?> smartModeEditedContent = const Value.absent(),
     Value<String?> originalTranscript = const Value.absent(),
     Value<String?> targetApp = const Value.absent(),
+    Value<String?> smartModeInput = const Value.absent(),
+    Value<String?> smartModeOutput = const Value.absent(),
+    Value<bool?> smartModeApplied = const Value.absent(),
   }) => HistoryEntry(
     id: id ?? this.id,
     content: content ?? this.content,
@@ -792,6 +919,15 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
         ? originalTranscript.value
         : this.originalTranscript,
     targetApp: targetApp.present ? targetApp.value : this.targetApp,
+    smartModeInput: smartModeInput.present
+        ? smartModeInput.value
+        : this.smartModeInput,
+    smartModeOutput: smartModeOutput.present
+        ? smartModeOutput.value
+        : this.smartModeOutput,
+    smartModeApplied: smartModeApplied.present
+        ? smartModeApplied.value
+        : this.smartModeApplied,
   );
   HistoryEntry copyWithCompanion(HistoryEntriesCompanion data) {
     return HistoryEntry(
@@ -828,6 +964,15 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ? data.originalTranscript.value
           : this.originalTranscript,
       targetApp: data.targetApp.present ? data.targetApp.value : this.targetApp,
+      smartModeInput: data.smartModeInput.present
+          ? data.smartModeInput.value
+          : this.smartModeInput,
+      smartModeOutput: data.smartModeOutput.present
+          ? data.smartModeOutput.value
+          : this.smartModeOutput,
+      smartModeApplied: data.smartModeApplied.present
+          ? data.smartModeApplied.value
+          : this.smartModeApplied,
     );
   }
 
@@ -854,7 +999,10 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           ..write('colorSlot: $colorSlot, ')
           ..write('smartModeEditedContent: $smartModeEditedContent, ')
           ..write('originalTranscript: $originalTranscript, ')
-          ..write('targetApp: $targetApp')
+          ..write('targetApp: $targetApp, ')
+          ..write('smartModeInput: $smartModeInput, ')
+          ..write('smartModeOutput: $smartModeOutput, ')
+          ..write('smartModeApplied: $smartModeApplied')
           ..write(')'))
         .toString();
   }
@@ -882,6 +1030,9 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
     smartModeEditedContent,
     originalTranscript,
     targetApp,
+    smartModeInput,
+    smartModeOutput,
+    smartModeApplied,
   ]);
   @override
   bool operator ==(Object other) =>
@@ -907,7 +1058,10 @@ class HistoryEntry extends DataClass implements Insertable<HistoryEntry> {
           other.colorSlot == this.colorSlot &&
           other.smartModeEditedContent == this.smartModeEditedContent &&
           other.originalTranscript == this.originalTranscript &&
-          other.targetApp == this.targetApp);
+          other.targetApp == this.targetApp &&
+          other.smartModeInput == this.smartModeInput &&
+          other.smartModeOutput == this.smartModeOutput &&
+          other.smartModeApplied == this.smartModeApplied);
 }
 
 class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
@@ -932,6 +1086,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
   final Value<String?> smartModeEditedContent;
   final Value<String?> originalTranscript;
   final Value<String?> targetApp;
+  final Value<String?> smartModeInput;
+  final Value<String?> smartModeOutput;
+  final Value<bool?> smartModeApplied;
   final Value<int> rowid;
   const HistoryEntriesCompanion({
     this.id = const Value.absent(),
@@ -955,6 +1112,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.smartModeEditedContent = const Value.absent(),
     this.originalTranscript = const Value.absent(),
     this.targetApp = const Value.absent(),
+    this.smartModeInput = const Value.absent(),
+    this.smartModeOutput = const Value.absent(),
+    this.smartModeApplied = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HistoryEntriesCompanion.insert({
@@ -979,6 +1139,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     this.smartModeEditedContent = const Value.absent(),
     this.originalTranscript = const Value.absent(),
     this.targetApp = const Value.absent(),
+    this.smartModeInput = const Value.absent(),
+    this.smartModeOutput = const Value.absent(),
+    this.smartModeApplied = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        timestamp = Value(timestamp);
@@ -1004,6 +1167,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Expression<String>? smartModeEditedContent,
     Expression<String>? originalTranscript,
     Expression<String>? targetApp,
+    Expression<String>? smartModeInput,
+    Expression<String>? smartModeOutput,
+    Expression<bool>? smartModeApplied,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1030,6 +1196,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
         'smart_mode_edited_content': smartModeEditedContent,
       if (originalTranscript != null) 'original_transcript': originalTranscript,
       if (targetApp != null) 'target_app': targetApp,
+      if (smartModeInput != null) 'smart_mode_input': smartModeInput,
+      if (smartModeOutput != null) 'smart_mode_output': smartModeOutput,
+      if (smartModeApplied != null) 'smart_mode_applied': smartModeApplied,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1056,6 +1225,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     Value<String?>? smartModeEditedContent,
     Value<String?>? originalTranscript,
     Value<String?>? targetApp,
+    Value<String?>? smartModeInput,
+    Value<String?>? smartModeOutput,
+    Value<bool?>? smartModeApplied,
     Value<int>? rowid,
   }) {
     return HistoryEntriesCompanion(
@@ -1082,6 +1254,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
           smartModeEditedContent ?? this.smartModeEditedContent,
       originalTranscript: originalTranscript ?? this.originalTranscript,
       targetApp: targetApp ?? this.targetApp,
+      smartModeInput: smartModeInput ?? this.smartModeInput,
+      smartModeOutput: smartModeOutput ?? this.smartModeOutput,
+      smartModeApplied: smartModeApplied ?? this.smartModeApplied,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1156,6 +1331,15 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
     if (targetApp.present) {
       map['target_app'] = Variable<String>(targetApp.value);
     }
+    if (smartModeInput.present) {
+      map['smart_mode_input'] = Variable<String>(smartModeInput.value);
+    }
+    if (smartModeOutput.present) {
+      map['smart_mode_output'] = Variable<String>(smartModeOutput.value);
+    }
+    if (smartModeApplied.present) {
+      map['smart_mode_applied'] = Variable<bool>(smartModeApplied.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1186,6 +1370,9 @@ class HistoryEntriesCompanion extends UpdateCompanion<HistoryEntry> {
           ..write('smartModeEditedContent: $smartModeEditedContent, ')
           ..write('originalTranscript: $originalTranscript, ')
           ..write('targetApp: $targetApp, ')
+          ..write('smartModeInput: $smartModeInput, ')
+          ..write('smartModeOutput: $smartModeOutput, ')
+          ..write('smartModeApplied: $smartModeApplied, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2862,6 +3049,33 @@ class $TextReplacementsTable extends TextReplacements
     requiredDuringInsert: false,
     defaultValue: const Constant('manual'),
   );
+  static const VerificationMeta _usageCountMeta = const VerificationMeta(
+    'usageCount',
+  );
+  @override
+  late final GeneratedColumn<int> usageCount = GeneratedColumn<int>(
+    'usage_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _isFavoriteMeta = const VerificationMeta(
+    'isFavorite',
+  );
+  @override
+  late final GeneratedColumn<bool> isFavorite = GeneratedColumn<bool>(
+    'is_favorite',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_favorite" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -2871,6 +3085,8 @@ class $TextReplacementsTable extends TextReplacements
     matchMode,
     fuzzyThreshold,
     origin,
+    usageCount,
+    isFavorite,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2937,6 +3153,18 @@ class $TextReplacementsTable extends TextReplacements
         origin.isAcceptableOrUnknown(data['origin']!, _originMeta),
       );
     }
+    if (data.containsKey('usage_count')) {
+      context.handle(
+        _usageCountMeta,
+        usageCount.isAcceptableOrUnknown(data['usage_count']!, _usageCountMeta),
+      );
+    }
+    if (data.containsKey('is_favorite')) {
+      context.handle(
+        _isFavoriteMeta,
+        isFavorite.isAcceptableOrUnknown(data['is_favorite']!, _isFavoriteMeta),
+      );
+    }
     return context;
   }
 
@@ -2974,6 +3202,14 @@ class $TextReplacementsTable extends TextReplacements
         DriftSqlType.string,
         data['${effectivePrefix}origin'],
       )!,
+      usageCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}usage_count'],
+      )!,
+      isFavorite: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_favorite'],
+      )!,
     );
   }
 
@@ -3007,6 +3243,13 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
   /// scan) — display-only distinction (PRD User Story 11), no behavioral
   /// difference in matching.
   final String origin;
+
+  /// How often this entry changed a dictation (schema v26). Written after
+  /// each save, off the matching path; matching never reads it.
+  final int usageCount;
+
+  /// Pinned as a favourite in the dictionary (schema v26). Display only.
+  final bool isFavorite;
   const TextReplacement({
     required this.id,
     required this.trigger,
@@ -3015,6 +3258,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     required this.matchMode,
     this.fuzzyThreshold,
     required this.origin,
+    required this.usageCount,
+    required this.isFavorite,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -3028,6 +3273,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       map['fuzzy_threshold'] = Variable<double>(fuzzyThreshold);
     }
     map['origin'] = Variable<String>(origin);
+    map['usage_count'] = Variable<int>(usageCount);
+    map['is_favorite'] = Variable<bool>(isFavorite);
     return map;
   }
 
@@ -3042,6 +3289,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           ? const Value.absent()
           : Value(fuzzyThreshold),
       origin: Value(origin),
+      usageCount: Value(usageCount),
+      isFavorite: Value(isFavorite),
     );
   }
 
@@ -3058,6 +3307,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       matchMode: serializer.fromJson<String>(json['matchMode']),
       fuzzyThreshold: serializer.fromJson<double?>(json['fuzzyThreshold']),
       origin: serializer.fromJson<String>(json['origin']),
+      usageCount: serializer.fromJson<int>(json['usageCount']),
+      isFavorite: serializer.fromJson<bool>(json['isFavorite']),
     );
   }
   @override
@@ -3071,6 +3322,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
       'matchMode': serializer.toJson<String>(matchMode),
       'fuzzyThreshold': serializer.toJson<double?>(fuzzyThreshold),
       'origin': serializer.toJson<String>(origin),
+      'usageCount': serializer.toJson<int>(usageCount),
+      'isFavorite': serializer.toJson<bool>(isFavorite),
     };
   }
 
@@ -3082,6 +3335,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     String? matchMode,
     Value<double?> fuzzyThreshold = const Value.absent(),
     String? origin,
+    int? usageCount,
+    bool? isFavorite,
   }) => TextReplacement(
     id: id ?? this.id,
     trigger: trigger ?? this.trigger,
@@ -3092,6 +3347,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
         ? fuzzyThreshold.value
         : this.fuzzyThreshold,
     origin: origin ?? this.origin,
+    usageCount: usageCount ?? this.usageCount,
+    isFavorite: isFavorite ?? this.isFavorite,
   );
   TextReplacement copyWithCompanion(TextReplacementsCompanion data) {
     return TextReplacement(
@@ -3106,6 +3363,12 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           ? data.fuzzyThreshold.value
           : this.fuzzyThreshold,
       origin: data.origin.present ? data.origin.value : this.origin,
+      usageCount: data.usageCount.present
+          ? data.usageCount.value
+          : this.usageCount,
+      isFavorite: data.isFavorite.present
+          ? data.isFavorite.value
+          : this.isFavorite,
     );
   }
 
@@ -3118,7 +3381,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           ..write('createdAt: $createdAt, ')
           ..write('matchMode: $matchMode, ')
           ..write('fuzzyThreshold: $fuzzyThreshold, ')
-          ..write('origin: $origin')
+          ..write('origin: $origin, ')
+          ..write('usageCount: $usageCount, ')
+          ..write('isFavorite: $isFavorite')
           ..write(')'))
         .toString();
   }
@@ -3132,6 +3397,8 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
     matchMode,
     fuzzyThreshold,
     origin,
+    usageCount,
+    isFavorite,
   );
   @override
   bool operator ==(Object other) =>
@@ -3143,7 +3410,9 @@ class TextReplacement extends DataClass implements Insertable<TextReplacement> {
           other.createdAt == this.createdAt &&
           other.matchMode == this.matchMode &&
           other.fuzzyThreshold == this.fuzzyThreshold &&
-          other.origin == this.origin);
+          other.origin == this.origin &&
+          other.usageCount == this.usageCount &&
+          other.isFavorite == this.isFavorite);
 }
 
 class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
@@ -3154,6 +3423,8 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
   final Value<String> matchMode;
   final Value<double?> fuzzyThreshold;
   final Value<String> origin;
+  final Value<int> usageCount;
+  final Value<bool> isFavorite;
   final Value<int> rowid;
   const TextReplacementsCompanion({
     this.id = const Value.absent(),
@@ -3163,6 +3434,8 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     this.matchMode = const Value.absent(),
     this.fuzzyThreshold = const Value.absent(),
     this.origin = const Value.absent(),
+    this.usageCount = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   TextReplacementsCompanion.insert({
@@ -3173,6 +3446,8 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     this.matchMode = const Value.absent(),
     this.fuzzyThreshold = const Value.absent(),
     this.origin = const Value.absent(),
+    this.usageCount = const Value.absent(),
+    this.isFavorite = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        trigger = Value(trigger),
@@ -3186,6 +3461,8 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     Expression<String>? matchMode,
     Expression<double>? fuzzyThreshold,
     Expression<String>? origin,
+    Expression<int>? usageCount,
+    Expression<bool>? isFavorite,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3196,6 +3473,8 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
       if (matchMode != null) 'match_mode': matchMode,
       if (fuzzyThreshold != null) 'fuzzy_threshold': fuzzyThreshold,
       if (origin != null) 'origin': origin,
+      if (usageCount != null) 'usage_count': usageCount,
+      if (isFavorite != null) 'is_favorite': isFavorite,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3208,6 +3487,8 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     Value<String>? matchMode,
     Value<double?>? fuzzyThreshold,
     Value<String>? origin,
+    Value<int>? usageCount,
+    Value<bool>? isFavorite,
     Value<int>? rowid,
   }) {
     return TextReplacementsCompanion(
@@ -3218,6 +3499,8 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
       matchMode: matchMode ?? this.matchMode,
       fuzzyThreshold: fuzzyThreshold ?? this.fuzzyThreshold,
       origin: origin ?? this.origin,
+      usageCount: usageCount ?? this.usageCount,
+      isFavorite: isFavorite ?? this.isFavorite,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3246,6 +3529,12 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
     if (origin.present) {
       map['origin'] = Variable<String>(origin.value);
     }
+    if (usageCount.present) {
+      map['usage_count'] = Variable<int>(usageCount.value);
+    }
+    if (isFavorite.present) {
+      map['is_favorite'] = Variable<bool>(isFavorite.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3262,6 +3551,8 @@ class TextReplacementsCompanion extends UpdateCompanion<TextReplacement> {
           ..write('matchMode: $matchMode, ')
           ..write('fuzzyThreshold: $fuzzyThreshold, ')
           ..write('origin: $origin, ')
+          ..write('usageCount: $usageCount, ')
+          ..write('isFavorite: $isFavorite, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4051,8 +4342,24 @@ class $HotkeyLatencyEntriesTable extends HotkeyLatencyEntries
     type: DriftSqlType.int,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _stopToTextMsMeta = const VerificationMeta(
+    'stopToTextMs',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, recordedAt, latencyMs];
+  late final GeneratedColumn<int> stopToTextMs = GeneratedColumn<int>(
+    'stop_to_text_ms',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    recordedAt,
+    latencyMs,
+    stopToTextMs,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -4086,6 +4393,15 @@ class $HotkeyLatencyEntriesTable extends HotkeyLatencyEntries
     } else if (isInserting) {
       context.missing(_latencyMsMeta);
     }
+    if (data.containsKey('stop_to_text_ms')) {
+      context.handle(
+        _stopToTextMsMeta,
+        stopToTextMs.isAcceptableOrUnknown(
+          data['stop_to_text_ms']!,
+          _stopToTextMsMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4107,6 +4423,10 @@ class $HotkeyLatencyEntriesTable extends HotkeyLatencyEntries
         DriftSqlType.int,
         data['${effectivePrefix}latency_ms'],
       )!,
+      stopToTextMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}stop_to_text_ms'],
+      ),
     );
   }
 
@@ -4121,10 +4441,15 @@ class HotkeyLatencyEntry extends DataClass
   final String id;
   final DateTime recordedAt;
   final int latencyMs;
+
+  /// Recording stop → text delivered, without the speaking time (XP-6-09).
+  /// `null` for samples recorded before schema v30.
+  final int? stopToTextMs;
   const HotkeyLatencyEntry({
     required this.id,
     required this.recordedAt,
     required this.latencyMs,
+    this.stopToTextMs,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4132,6 +4457,9 @@ class HotkeyLatencyEntry extends DataClass
     map['id'] = Variable<String>(id);
     map['recorded_at'] = Variable<DateTime>(recordedAt);
     map['latency_ms'] = Variable<int>(latencyMs);
+    if (!nullToAbsent || stopToTextMs != null) {
+      map['stop_to_text_ms'] = Variable<int>(stopToTextMs);
+    }
     return map;
   }
 
@@ -4140,6 +4468,9 @@ class HotkeyLatencyEntry extends DataClass
       id: Value(id),
       recordedAt: Value(recordedAt),
       latencyMs: Value(latencyMs),
+      stopToTextMs: stopToTextMs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stopToTextMs),
     );
   }
 
@@ -4152,6 +4483,7 @@ class HotkeyLatencyEntry extends DataClass
       id: serializer.fromJson<String>(json['id']),
       recordedAt: serializer.fromJson<DateTime>(json['recordedAt']),
       latencyMs: serializer.fromJson<int>(json['latencyMs']),
+      stopToTextMs: serializer.fromJson<int?>(json['stopToTextMs']),
     );
   }
   @override
@@ -4161,6 +4493,7 @@ class HotkeyLatencyEntry extends DataClass
       'id': serializer.toJson<String>(id),
       'recordedAt': serializer.toJson<DateTime>(recordedAt),
       'latencyMs': serializer.toJson<int>(latencyMs),
+      'stopToTextMs': serializer.toJson<int?>(stopToTextMs),
     };
   }
 
@@ -4168,10 +4501,12 @@ class HotkeyLatencyEntry extends DataClass
     String? id,
     DateTime? recordedAt,
     int? latencyMs,
+    Value<int?> stopToTextMs = const Value.absent(),
   }) => HotkeyLatencyEntry(
     id: id ?? this.id,
     recordedAt: recordedAt ?? this.recordedAt,
     latencyMs: latencyMs ?? this.latencyMs,
+    stopToTextMs: stopToTextMs.present ? stopToTextMs.value : this.stopToTextMs,
   );
   HotkeyLatencyEntry copyWithCompanion(HotkeyLatencyEntriesCompanion data) {
     return HotkeyLatencyEntry(
@@ -4180,6 +4515,9 @@ class HotkeyLatencyEntry extends DataClass
           ? data.recordedAt.value
           : this.recordedAt,
       latencyMs: data.latencyMs.present ? data.latencyMs.value : this.latencyMs,
+      stopToTextMs: data.stopToTextMs.present
+          ? data.stopToTextMs.value
+          : this.stopToTextMs,
     );
   }
 
@@ -4188,20 +4526,22 @@ class HotkeyLatencyEntry extends DataClass
     return (StringBuffer('HotkeyLatencyEntry(')
           ..write('id: $id, ')
           ..write('recordedAt: $recordedAt, ')
-          ..write('latencyMs: $latencyMs')
+          ..write('latencyMs: $latencyMs, ')
+          ..write('stopToTextMs: $stopToTextMs')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, recordedAt, latencyMs);
+  int get hashCode => Object.hash(id, recordedAt, latencyMs, stopToTextMs);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is HotkeyLatencyEntry &&
           other.id == this.id &&
           other.recordedAt == this.recordedAt &&
-          other.latencyMs == this.latencyMs);
+          other.latencyMs == this.latencyMs &&
+          other.stopToTextMs == this.stopToTextMs);
 }
 
 class HotkeyLatencyEntriesCompanion
@@ -4209,17 +4549,20 @@ class HotkeyLatencyEntriesCompanion
   final Value<String> id;
   final Value<DateTime> recordedAt;
   final Value<int> latencyMs;
+  final Value<int?> stopToTextMs;
   final Value<int> rowid;
   const HotkeyLatencyEntriesCompanion({
     this.id = const Value.absent(),
     this.recordedAt = const Value.absent(),
     this.latencyMs = const Value.absent(),
+    this.stopToTextMs = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HotkeyLatencyEntriesCompanion.insert({
     required String id,
     required DateTime recordedAt,
     required int latencyMs,
+    this.stopToTextMs = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        recordedAt = Value(recordedAt),
@@ -4228,12 +4571,14 @@ class HotkeyLatencyEntriesCompanion
     Expression<String>? id,
     Expression<DateTime>? recordedAt,
     Expression<int>? latencyMs,
+    Expression<int>? stopToTextMs,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (recordedAt != null) 'recorded_at': recordedAt,
       if (latencyMs != null) 'latency_ms': latencyMs,
+      if (stopToTextMs != null) 'stop_to_text_ms': stopToTextMs,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4242,12 +4587,14 @@ class HotkeyLatencyEntriesCompanion
     Value<String>? id,
     Value<DateTime>? recordedAt,
     Value<int>? latencyMs,
+    Value<int?>? stopToTextMs,
     Value<int>? rowid,
   }) {
     return HotkeyLatencyEntriesCompanion(
       id: id ?? this.id,
       recordedAt: recordedAt ?? this.recordedAt,
       latencyMs: latencyMs ?? this.latencyMs,
+      stopToTextMs: stopToTextMs ?? this.stopToTextMs,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4264,6 +4611,9 @@ class HotkeyLatencyEntriesCompanion
     if (latencyMs.present) {
       map['latency_ms'] = Variable<int>(latencyMs.value);
     }
+    if (stopToTextMs.present) {
+      map['stop_to_text_ms'] = Variable<int>(stopToTextMs.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4276,6 +4626,7 @@ class HotkeyLatencyEntriesCompanion
           ..write('id: $id, ')
           ..write('recordedAt: $recordedAt, ')
           ..write('latencyMs: $latencyMs, ')
+          ..write('stopToTextMs: $stopToTextMs, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4335,8 +4686,26 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
     requiredDuringInsert: false,
     defaultValue: const Constant('static'),
   );
+  static const VerificationMeta _sourceNoteIdMeta = const VerificationMeta(
+    'sourceNoteId',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, title, body, createdAt, kind];
+  late final GeneratedColumn<String> sourceNoteId = GeneratedColumn<String>(
+    'source_note_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    title,
+    body,
+    createdAt,
+    kind,
+    sourceNoteId,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -4384,6 +4753,15 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
         kind.isAcceptableOrUnknown(data['kind']!, _kindMeta),
       );
     }
+    if (data.containsKey('source_note_id')) {
+      context.handle(
+        _sourceNoteIdMeta,
+        sourceNoteId.isAcceptableOrUnknown(
+          data['source_note_id']!,
+          _sourceNoteIdMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -4413,6 +4791,10 @@ class $SnippetsTable extends Snippets with TableInfo<$SnippetsTable, Snippet> {
         DriftSqlType.string,
         data['${effectivePrefix}kind'],
       )!,
+      sourceNoteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_note_id'],
+      ),
     );
   }
 
@@ -4436,12 +4818,17 @@ class Snippet extends DataClass implements Insertable<Snippet> {
   /// trigger time, see `interactive_snippet_composer.dart`) rather than
   /// text inserted verbatim.
   final String kind;
+
+  /// The note this Textbaustein was created from ("Als Textbaustein", schema
+  /// v29). Informational link back; NULL for snippets authored directly.
+  final String? sourceNoteId;
   const Snippet({
     required this.id,
     required this.title,
     required this.body,
     required this.createdAt,
     required this.kind,
+    this.sourceNoteId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -4451,6 +4838,9 @@ class Snippet extends DataClass implements Insertable<Snippet> {
     map['body'] = Variable<String>(body);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['kind'] = Variable<String>(kind);
+    if (!nullToAbsent || sourceNoteId != null) {
+      map['source_note_id'] = Variable<String>(sourceNoteId);
+    }
     return map;
   }
 
@@ -4461,6 +4851,9 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       body: Value(body),
       createdAt: Value(createdAt),
       kind: Value(kind),
+      sourceNoteId: sourceNoteId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sourceNoteId),
     );
   }
 
@@ -4475,6 +4868,7 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       body: serializer.fromJson<String>(json['body']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       kind: serializer.fromJson<String>(json['kind']),
+      sourceNoteId: serializer.fromJson<String?>(json['sourceNoteId']),
     );
   }
   @override
@@ -4486,6 +4880,7 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       'body': serializer.toJson<String>(body),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'kind': serializer.toJson<String>(kind),
+      'sourceNoteId': serializer.toJson<String?>(sourceNoteId),
     };
   }
 
@@ -4495,12 +4890,14 @@ class Snippet extends DataClass implements Insertable<Snippet> {
     String? body,
     DateTime? createdAt,
     String? kind,
+    Value<String?> sourceNoteId = const Value.absent(),
   }) => Snippet(
     id: id ?? this.id,
     title: title ?? this.title,
     body: body ?? this.body,
     createdAt: createdAt ?? this.createdAt,
     kind: kind ?? this.kind,
+    sourceNoteId: sourceNoteId.present ? sourceNoteId.value : this.sourceNoteId,
   );
   Snippet copyWithCompanion(SnippetsCompanion data) {
     return Snippet(
@@ -4509,6 +4906,9 @@ class Snippet extends DataClass implements Insertable<Snippet> {
       body: data.body.present ? data.body.value : this.body,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       kind: data.kind.present ? data.kind.value : this.kind,
+      sourceNoteId: data.sourceNoteId.present
+          ? data.sourceNoteId.value
+          : this.sourceNoteId,
     );
   }
 
@@ -4519,13 +4919,15 @@ class Snippet extends DataClass implements Insertable<Snippet> {
           ..write('title: $title, ')
           ..write('body: $body, ')
           ..write('createdAt: $createdAt, ')
-          ..write('kind: $kind')
+          ..write('kind: $kind, ')
+          ..write('sourceNoteId: $sourceNoteId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, body, createdAt, kind);
+  int get hashCode =>
+      Object.hash(id, title, body, createdAt, kind, sourceNoteId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -4534,7 +4936,8 @@ class Snippet extends DataClass implements Insertable<Snippet> {
           other.title == this.title &&
           other.body == this.body &&
           other.createdAt == this.createdAt &&
-          other.kind == this.kind);
+          other.kind == this.kind &&
+          other.sourceNoteId == this.sourceNoteId);
 }
 
 class SnippetsCompanion extends UpdateCompanion<Snippet> {
@@ -4543,6 +4946,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
   final Value<String> body;
   final Value<DateTime> createdAt;
   final Value<String> kind;
+  final Value<String?> sourceNoteId;
   final Value<int> rowid;
   const SnippetsCompanion({
     this.id = const Value.absent(),
@@ -4550,6 +4954,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     this.body = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.kind = const Value.absent(),
+    this.sourceNoteId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SnippetsCompanion.insert({
@@ -4558,6 +4963,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     required String body,
     required DateTime createdAt,
     this.kind = const Value.absent(),
+    this.sourceNoteId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        title = Value(title),
@@ -4569,6 +4975,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     Expression<String>? body,
     Expression<DateTime>? createdAt,
     Expression<String>? kind,
+    Expression<String>? sourceNoteId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -4577,6 +4984,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
       if (body != null) 'body': body,
       if (createdAt != null) 'created_at': createdAt,
       if (kind != null) 'kind': kind,
+      if (sourceNoteId != null) 'source_note_id': sourceNoteId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -4587,6 +4995,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     Value<String>? body,
     Value<DateTime>? createdAt,
     Value<String>? kind,
+    Value<String?>? sourceNoteId,
     Value<int>? rowid,
   }) {
     return SnippetsCompanion(
@@ -4595,6 +5004,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
       body: body ?? this.body,
       createdAt: createdAt ?? this.createdAt,
       kind: kind ?? this.kind,
+      sourceNoteId: sourceNoteId ?? this.sourceNoteId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -4617,6 +5027,9 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
     if (kind.present) {
       map['kind'] = Variable<String>(kind.value);
     }
+    if (sourceNoteId.present) {
+      map['source_note_id'] = Variable<String>(sourceNoteId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -4631,6 +5044,7 @@ class SnippetsCompanion extends UpdateCompanion<Snippet> {
           ..write('body: $body, ')
           ..write('createdAt: $createdAt, ')
           ..write('kind: $kind, ')
+          ..write('sourceNoteId: $sourceNoteId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4974,6 +5388,15 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _pinnedMeta = const VerificationMeta('pinned');
   @override
   late final GeneratedColumn<bool> pinned = GeneratedColumn<bool>(
@@ -5039,6 +5462,7 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
   List<GeneratedColumn> get $columns => [
     id,
     content,
+    title,
     pinned,
     isQuickNote,
     deletedAt,
@@ -5066,6 +5490,12 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
       context.handle(
         _contentMeta,
         content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
       );
     }
     if (data.containsKey('pinned')) {
@@ -5122,6 +5552,10 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
         DriftSqlType.string,
         data['${effectivePrefix}content'],
       )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
       pinned: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}pinned'],
@@ -5154,6 +5588,7 @@ class $NotesTable extends Notes with TableInfo<$NotesTable, Note> {
 class Note extends DataClass implements Insertable<Note> {
   final String id;
   final String content;
+  final String? title;
   final bool pinned;
   final bool isQuickNote;
   final DateTime? deletedAt;
@@ -5162,6 +5597,7 @@ class Note extends DataClass implements Insertable<Note> {
   const Note({
     required this.id,
     required this.content,
+    this.title,
     required this.pinned,
     required this.isQuickNote,
     this.deletedAt,
@@ -5173,6 +5609,9 @@ class Note extends DataClass implements Insertable<Note> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['content'] = Variable<String>(content);
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
     map['pinned'] = Variable<bool>(pinned);
     map['is_quick_note'] = Variable<bool>(isQuickNote);
     if (!nullToAbsent || deletedAt != null) {
@@ -5187,6 +5626,9 @@ class Note extends DataClass implements Insertable<Note> {
     return NotesCompanion(
       id: Value(id),
       content: Value(content),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
       pinned: Value(pinned),
       isQuickNote: Value(isQuickNote),
       deletedAt: deletedAt == null && nullToAbsent
@@ -5205,6 +5647,7 @@ class Note extends DataClass implements Insertable<Note> {
     return Note(
       id: serializer.fromJson<String>(json['id']),
       content: serializer.fromJson<String>(json['content']),
+      title: serializer.fromJson<String?>(json['title']),
       pinned: serializer.fromJson<bool>(json['pinned']),
       isQuickNote: serializer.fromJson<bool>(json['isQuickNote']),
       deletedAt: serializer.fromJson<DateTime?>(json['deletedAt']),
@@ -5218,6 +5661,7 @@ class Note extends DataClass implements Insertable<Note> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'content': serializer.toJson<String>(content),
+      'title': serializer.toJson<String?>(title),
       'pinned': serializer.toJson<bool>(pinned),
       'isQuickNote': serializer.toJson<bool>(isQuickNote),
       'deletedAt': serializer.toJson<DateTime?>(deletedAt),
@@ -5229,6 +5673,7 @@ class Note extends DataClass implements Insertable<Note> {
   Note copyWith({
     String? id,
     String? content,
+    Value<String?> title = const Value.absent(),
     bool? pinned,
     bool? isQuickNote,
     Value<DateTime?> deletedAt = const Value.absent(),
@@ -5237,6 +5682,7 @@ class Note extends DataClass implements Insertable<Note> {
   }) => Note(
     id: id ?? this.id,
     content: content ?? this.content,
+    title: title.present ? title.value : this.title,
     pinned: pinned ?? this.pinned,
     isQuickNote: isQuickNote ?? this.isQuickNote,
     deletedAt: deletedAt.present ? deletedAt.value : this.deletedAt,
@@ -5247,6 +5693,7 @@ class Note extends DataClass implements Insertable<Note> {
     return Note(
       id: data.id.present ? data.id.value : this.id,
       content: data.content.present ? data.content.value : this.content,
+      title: data.title.present ? data.title.value : this.title,
       pinned: data.pinned.present ? data.pinned.value : this.pinned,
       isQuickNote: data.isQuickNote.present
           ? data.isQuickNote.value
@@ -5262,6 +5709,7 @@ class Note extends DataClass implements Insertable<Note> {
     return (StringBuffer('Note(')
           ..write('id: $id, ')
           ..write('content: $content, ')
+          ..write('title: $title, ')
           ..write('pinned: $pinned, ')
           ..write('isQuickNote: $isQuickNote, ')
           ..write('deletedAt: $deletedAt, ')
@@ -5275,6 +5723,7 @@ class Note extends DataClass implements Insertable<Note> {
   int get hashCode => Object.hash(
     id,
     content,
+    title,
     pinned,
     isQuickNote,
     deletedAt,
@@ -5287,6 +5736,7 @@ class Note extends DataClass implements Insertable<Note> {
       (other is Note &&
           other.id == this.id &&
           other.content == this.content &&
+          other.title == this.title &&
           other.pinned == this.pinned &&
           other.isQuickNote == this.isQuickNote &&
           other.deletedAt == this.deletedAt &&
@@ -5297,6 +5747,7 @@ class Note extends DataClass implements Insertable<Note> {
 class NotesCompanion extends UpdateCompanion<Note> {
   final Value<String> id;
   final Value<String> content;
+  final Value<String?> title;
   final Value<bool> pinned;
   final Value<bool> isQuickNote;
   final Value<DateTime?> deletedAt;
@@ -5306,6 +5757,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
   const NotesCompanion({
     this.id = const Value.absent(),
     this.content = const Value.absent(),
+    this.title = const Value.absent(),
     this.pinned = const Value.absent(),
     this.isQuickNote = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -5316,6 +5768,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
   NotesCompanion.insert({
     required String id,
     this.content = const Value.absent(),
+    this.title = const Value.absent(),
     this.pinned = const Value.absent(),
     this.isQuickNote = const Value.absent(),
     this.deletedAt = const Value.absent(),
@@ -5328,6 +5781,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
   static Insertable<Note> custom({
     Expression<String>? id,
     Expression<String>? content,
+    Expression<String>? title,
     Expression<bool>? pinned,
     Expression<bool>? isQuickNote,
     Expression<DateTime>? deletedAt,
@@ -5338,6 +5792,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (content != null) 'content': content,
+      if (title != null) 'title': title,
       if (pinned != null) 'pinned': pinned,
       if (isQuickNote != null) 'is_quick_note': isQuickNote,
       if (deletedAt != null) 'deleted_at': deletedAt,
@@ -5350,6 +5805,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
   NotesCompanion copyWith({
     Value<String>? id,
     Value<String>? content,
+    Value<String?>? title,
     Value<bool>? pinned,
     Value<bool>? isQuickNote,
     Value<DateTime?>? deletedAt,
@@ -5360,6 +5816,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     return NotesCompanion(
       id: id ?? this.id,
       content: content ?? this.content,
+      title: title ?? this.title,
       pinned: pinned ?? this.pinned,
       isQuickNote: isQuickNote ?? this.isQuickNote,
       deletedAt: deletedAt ?? this.deletedAt,
@@ -5377,6 +5834,9 @@ class NotesCompanion extends UpdateCompanion<Note> {
     }
     if (content.present) {
       map['content'] = Variable<String>(content.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
     }
     if (pinned.present) {
       map['pinned'] = Variable<bool>(pinned.value);
@@ -5404,6 +5864,7 @@ class NotesCompanion extends UpdateCompanion<Note> {
     return (StringBuffer('NotesCompanion(')
           ..write('id: $id, ')
           ..write('content: $content, ')
+          ..write('title: $title, ')
           ..write('pinned: $pinned, ')
           ..write('isQuickNote: $isQuickNote, ')
           ..write('deletedAt: $deletedAt, ')
@@ -5622,6 +6083,924 @@ class NoteTagsCompanion extends UpdateCompanion<NoteTag> {
     return (StringBuffer('NoteTagsCompanion(')
           ..write('noteId: $noteId, ')
           ..write('tagId: $tagId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $NoteVersionsTable extends NoteVersions
+    with TableInfo<$NoteVersionsTable, NoteVersion> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NoteVersionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _noteIdMeta = const VerificationMeta('noteId');
+  @override
+  late final GeneratedColumn<String> noteId = GeneratedColumn<String>(
+    'note_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contentMeta = const VerificationMeta(
+    'content',
+  );
+  @override
+  late final GeneratedColumn<String> content = GeneratedColumn<String>(
+    'content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sizeBytesMeta = const VerificationMeta(
+    'sizeBytes',
+  );
+  @override
+  late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
+    'size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    noteId,
+    title,
+    content,
+    sizeBytes,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'note_versions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NoteVersion> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('note_id')) {
+      context.handle(
+        _noteIdMeta,
+        noteId.isAcceptableOrUnknown(data['note_id']!, _noteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_noteIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('content')) {
+      context.handle(
+        _contentMeta,
+        content.isAcceptableOrUnknown(data['content']!, _contentMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_contentMeta);
+    }
+    if (data.containsKey('size_bytes')) {
+      context.handle(
+        _sizeBytesMeta,
+        sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sizeBytesMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NoteVersion map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NoteVersion(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      noteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
+      content: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}content'],
+      )!,
+      sizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size_bytes'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $NoteVersionsTable createAlias(String alias) {
+    return $NoteVersionsTable(attachedDatabase, alias);
+  }
+}
+
+class NoteVersion extends DataClass implements Insertable<NoteVersion> {
+  final String id;
+  final String noteId;
+  final String? title;
+  final String content;
+  final int sizeBytes;
+  final DateTime createdAt;
+  const NoteVersion({
+    required this.id,
+    required this.noteId,
+    this.title,
+    required this.content,
+    required this.sizeBytes,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['note_id'] = Variable<String>(noteId);
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
+    map['content'] = Variable<String>(content);
+    map['size_bytes'] = Variable<int>(sizeBytes);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  NoteVersionsCompanion toCompanion(bool nullToAbsent) {
+    return NoteVersionsCompanion(
+      id: Value(id),
+      noteId: Value(noteId),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
+      content: Value(content),
+      sizeBytes: Value(sizeBytes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory NoteVersion.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NoteVersion(
+      id: serializer.fromJson<String>(json['id']),
+      noteId: serializer.fromJson<String>(json['noteId']),
+      title: serializer.fromJson<String?>(json['title']),
+      content: serializer.fromJson<String>(json['content']),
+      sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'noteId': serializer.toJson<String>(noteId),
+      'title': serializer.toJson<String?>(title),
+      'content': serializer.toJson<String>(content),
+      'sizeBytes': serializer.toJson<int>(sizeBytes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  NoteVersion copyWith({
+    String? id,
+    String? noteId,
+    Value<String?> title = const Value.absent(),
+    String? content,
+    int? sizeBytes,
+    DateTime? createdAt,
+  }) => NoteVersion(
+    id: id ?? this.id,
+    noteId: noteId ?? this.noteId,
+    title: title.present ? title.value : this.title,
+    content: content ?? this.content,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  NoteVersion copyWithCompanion(NoteVersionsCompanion data) {
+    return NoteVersion(
+      id: data.id.present ? data.id.value : this.id,
+      noteId: data.noteId.present ? data.noteId.value : this.noteId,
+      title: data.title.present ? data.title.value : this.title,
+      content: data.content.present ? data.content.value : this.content,
+      sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoteVersion(')
+          ..write('id: $id, ')
+          ..write('noteId: $noteId, ')
+          ..write('title: $title, ')
+          ..write('content: $content, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, noteId, title, content, sizeBytes, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NoteVersion &&
+          other.id == this.id &&
+          other.noteId == this.noteId &&
+          other.title == this.title &&
+          other.content == this.content &&
+          other.sizeBytes == this.sizeBytes &&
+          other.createdAt == this.createdAt);
+}
+
+class NoteVersionsCompanion extends UpdateCompanion<NoteVersion> {
+  final Value<String> id;
+  final Value<String> noteId;
+  final Value<String?> title;
+  final Value<String> content;
+  final Value<int> sizeBytes;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const NoteVersionsCompanion({
+    this.id = const Value.absent(),
+    this.noteId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.content = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  NoteVersionsCompanion.insert({
+    required String id,
+    required String noteId,
+    this.title = const Value.absent(),
+    required String content,
+    required int sizeBytes,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       noteId = Value(noteId),
+       content = Value(content),
+       sizeBytes = Value(sizeBytes),
+       createdAt = Value(createdAt);
+  static Insertable<NoteVersion> custom({
+    Expression<String>? id,
+    Expression<String>? noteId,
+    Expression<String>? title,
+    Expression<String>? content,
+    Expression<int>? sizeBytes,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (noteId != null) 'note_id': noteId,
+      if (title != null) 'title': title,
+      if (content != null) 'content': content,
+      if (sizeBytes != null) 'size_bytes': sizeBytes,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  NoteVersionsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? noteId,
+    Value<String?>? title,
+    Value<String>? content,
+    Value<int>? sizeBytes,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return NoteVersionsCompanion(
+      id: id ?? this.id,
+      noteId: noteId ?? this.noteId,
+      title: title ?? this.title,
+      content: content ?? this.content,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (noteId.present) {
+      map['note_id'] = Variable<String>(noteId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (content.present) {
+      map['content'] = Variable<String>(content.value);
+    }
+    if (sizeBytes.present) {
+      map['size_bytes'] = Variable<int>(sizeBytes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoteVersionsCompanion(')
+          ..write('id: $id, ')
+          ..write('noteId: $noteId, ')
+          ..write('title: $title, ')
+          ..write('content: $content, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $NoteAssetsTable extends NoteAssets
+    with TableInfo<$NoteAssetsTable, NoteAsset> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NoteAssetsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _noteIdMeta = const VerificationMeta('noteId');
+  @override
+  late final GeneratedColumn<String> noteId = GeneratedColumn<String>(
+    'note_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _relativePathMeta = const VerificationMeta(
+    'relativePath',
+  );
+  @override
+  late final GeneratedColumn<String> relativePath = GeneratedColumn<String>(
+    'relative_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _mimeTypeMeta = const VerificationMeta(
+    'mimeType',
+  );
+  @override
+  late final GeneratedColumn<String> mimeType = GeneratedColumn<String>(
+    'mime_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sizeBytesMeta = const VerificationMeta(
+    'sizeBytes',
+  );
+  @override
+  late final GeneratedColumn<int> sizeBytes = GeneratedColumn<int>(
+    'size_bytes',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _widthMeta = const VerificationMeta('width');
+  @override
+  late final GeneratedColumn<int> width = GeneratedColumn<int>(
+    'width',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _heightMeta = const VerificationMeta('height');
+  @override
+  late final GeneratedColumn<int> height = GeneratedColumn<int>(
+    'height',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    noteId,
+    relativePath,
+    mimeType,
+    sizeBytes,
+    width,
+    height,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'note_assets';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<NoteAsset> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('note_id')) {
+      context.handle(
+        _noteIdMeta,
+        noteId.isAcceptableOrUnknown(data['note_id']!, _noteIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_noteIdMeta);
+    }
+    if (data.containsKey('relative_path')) {
+      context.handle(
+        _relativePathMeta,
+        relativePath.isAcceptableOrUnknown(
+          data['relative_path']!,
+          _relativePathMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_relativePathMeta);
+    }
+    if (data.containsKey('mime_type')) {
+      context.handle(
+        _mimeTypeMeta,
+        mimeType.isAcceptableOrUnknown(data['mime_type']!, _mimeTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_mimeTypeMeta);
+    }
+    if (data.containsKey('size_bytes')) {
+      context.handle(
+        _sizeBytesMeta,
+        sizeBytes.isAcceptableOrUnknown(data['size_bytes']!, _sizeBytesMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sizeBytesMeta);
+    }
+    if (data.containsKey('width')) {
+      context.handle(
+        _widthMeta,
+        width.isAcceptableOrUnknown(data['width']!, _widthMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_widthMeta);
+    }
+    if (data.containsKey('height')) {
+      context.handle(
+        _heightMeta,
+        height.isAcceptableOrUnknown(data['height']!, _heightMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_heightMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  NoteAsset map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return NoteAsset(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      noteId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}note_id'],
+      )!,
+      relativePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}relative_path'],
+      )!,
+      mimeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}mime_type'],
+      )!,
+      sizeBytes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}size_bytes'],
+      )!,
+      width: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}width'],
+      )!,
+      height: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}height'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $NoteAssetsTable createAlias(String alias) {
+    return $NoteAssetsTable(attachedDatabase, alias);
+  }
+}
+
+class NoteAsset extends DataClass implements Insertable<NoteAsset> {
+  final String id;
+  final String noteId;
+  final String relativePath;
+  final String mimeType;
+  final int sizeBytes;
+  final int width;
+  final int height;
+  final DateTime createdAt;
+  const NoteAsset({
+    required this.id,
+    required this.noteId,
+    required this.relativePath,
+    required this.mimeType,
+    required this.sizeBytes,
+    required this.width,
+    required this.height,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['note_id'] = Variable<String>(noteId);
+    map['relative_path'] = Variable<String>(relativePath);
+    map['mime_type'] = Variable<String>(mimeType);
+    map['size_bytes'] = Variable<int>(sizeBytes);
+    map['width'] = Variable<int>(width);
+    map['height'] = Variable<int>(height);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  NoteAssetsCompanion toCompanion(bool nullToAbsent) {
+    return NoteAssetsCompanion(
+      id: Value(id),
+      noteId: Value(noteId),
+      relativePath: Value(relativePath),
+      mimeType: Value(mimeType),
+      sizeBytes: Value(sizeBytes),
+      width: Value(width),
+      height: Value(height),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory NoteAsset.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return NoteAsset(
+      id: serializer.fromJson<String>(json['id']),
+      noteId: serializer.fromJson<String>(json['noteId']),
+      relativePath: serializer.fromJson<String>(json['relativePath']),
+      mimeType: serializer.fromJson<String>(json['mimeType']),
+      sizeBytes: serializer.fromJson<int>(json['sizeBytes']),
+      width: serializer.fromJson<int>(json['width']),
+      height: serializer.fromJson<int>(json['height']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'noteId': serializer.toJson<String>(noteId),
+      'relativePath': serializer.toJson<String>(relativePath),
+      'mimeType': serializer.toJson<String>(mimeType),
+      'sizeBytes': serializer.toJson<int>(sizeBytes),
+      'width': serializer.toJson<int>(width),
+      'height': serializer.toJson<int>(height),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  NoteAsset copyWith({
+    String? id,
+    String? noteId,
+    String? relativePath,
+    String? mimeType,
+    int? sizeBytes,
+    int? width,
+    int? height,
+    DateTime? createdAt,
+  }) => NoteAsset(
+    id: id ?? this.id,
+    noteId: noteId ?? this.noteId,
+    relativePath: relativePath ?? this.relativePath,
+    mimeType: mimeType ?? this.mimeType,
+    sizeBytes: sizeBytes ?? this.sizeBytes,
+    width: width ?? this.width,
+    height: height ?? this.height,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  NoteAsset copyWithCompanion(NoteAssetsCompanion data) {
+    return NoteAsset(
+      id: data.id.present ? data.id.value : this.id,
+      noteId: data.noteId.present ? data.noteId.value : this.noteId,
+      relativePath: data.relativePath.present
+          ? data.relativePath.value
+          : this.relativePath,
+      mimeType: data.mimeType.present ? data.mimeType.value : this.mimeType,
+      sizeBytes: data.sizeBytes.present ? data.sizeBytes.value : this.sizeBytes,
+      width: data.width.present ? data.width.value : this.width,
+      height: data.height.present ? data.height.value : this.height,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoteAsset(')
+          ..write('id: $id, ')
+          ..write('noteId: $noteId, ')
+          ..write('relativePath: $relativePath, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    noteId,
+    relativePath,
+    mimeType,
+    sizeBytes,
+    width,
+    height,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is NoteAsset &&
+          other.id == this.id &&
+          other.noteId == this.noteId &&
+          other.relativePath == this.relativePath &&
+          other.mimeType == this.mimeType &&
+          other.sizeBytes == this.sizeBytes &&
+          other.width == this.width &&
+          other.height == this.height &&
+          other.createdAt == this.createdAt);
+}
+
+class NoteAssetsCompanion extends UpdateCompanion<NoteAsset> {
+  final Value<String> id;
+  final Value<String> noteId;
+  final Value<String> relativePath;
+  final Value<String> mimeType;
+  final Value<int> sizeBytes;
+  final Value<int> width;
+  final Value<int> height;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const NoteAssetsCompanion({
+    this.id = const Value.absent(),
+    this.noteId = const Value.absent(),
+    this.relativePath = const Value.absent(),
+    this.mimeType = const Value.absent(),
+    this.sizeBytes = const Value.absent(),
+    this.width = const Value.absent(),
+    this.height = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  NoteAssetsCompanion.insert({
+    required String id,
+    required String noteId,
+    required String relativePath,
+    required String mimeType,
+    required int sizeBytes,
+    required int width,
+    required int height,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       noteId = Value(noteId),
+       relativePath = Value(relativePath),
+       mimeType = Value(mimeType),
+       sizeBytes = Value(sizeBytes),
+       width = Value(width),
+       height = Value(height),
+       createdAt = Value(createdAt);
+  static Insertable<NoteAsset> custom({
+    Expression<String>? id,
+    Expression<String>? noteId,
+    Expression<String>? relativePath,
+    Expression<String>? mimeType,
+    Expression<int>? sizeBytes,
+    Expression<int>? width,
+    Expression<int>? height,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (noteId != null) 'note_id': noteId,
+      if (relativePath != null) 'relative_path': relativePath,
+      if (mimeType != null) 'mime_type': mimeType,
+      if (sizeBytes != null) 'size_bytes': sizeBytes,
+      if (width != null) 'width': width,
+      if (height != null) 'height': height,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  NoteAssetsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? noteId,
+    Value<String>? relativePath,
+    Value<String>? mimeType,
+    Value<int>? sizeBytes,
+    Value<int>? width,
+    Value<int>? height,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return NoteAssetsCompanion(
+      id: id ?? this.id,
+      noteId: noteId ?? this.noteId,
+      relativePath: relativePath ?? this.relativePath,
+      mimeType: mimeType ?? this.mimeType,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      width: width ?? this.width,
+      height: height ?? this.height,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (noteId.present) {
+      map['note_id'] = Variable<String>(noteId.value);
+    }
+    if (relativePath.present) {
+      map['relative_path'] = Variable<String>(relativePath.value);
+    }
+    if (mimeType.present) {
+      map['mime_type'] = Variable<String>(mimeType.value);
+    }
+    if (sizeBytes.present) {
+      map['size_bytes'] = Variable<int>(sizeBytes.value);
+    }
+    if (width.present) {
+      map['width'] = Variable<int>(width.value);
+    }
+    if (height.present) {
+      map['height'] = Variable<int>(height.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoteAssetsCompanion(')
+          ..write('id: $id, ')
+          ..write('noteId: $noteId, ')
+          ..write('relativePath: $relativePath, ')
+          ..write('mimeType: $mimeType, ')
+          ..write('sizeBytes: $sizeBytes, ')
+          ..write('width: $width, ')
+          ..write('height: $height, ')
+          ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6219,6 +7598,1428 @@ class CorrectionObservationsCompanion
   }
 }
 
+class $AppProfilesTable extends AppProfiles
+    with TableInfo<$AppProfilesTable, AppProfileRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppProfilesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _smartModeMeta = const VerificationMeta(
+    'smartMode',
+  );
+  @override
+  late final GeneratedColumn<String> smartMode = GeneratedColumn<String>(
+    'smart_mode',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('standard'),
+  );
+  static const VerificationMeta _asrLanguageMeta = const VerificationMeta(
+    'asrLanguage',
+  );
+  @override
+  late final GeneratedColumn<String> asrLanguage = GeneratedColumn<String>(
+    'asr_language',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _modelIdMeta = const VerificationMeta(
+    'modelId',
+  );
+  @override
+  late final GeneratedColumn<String> modelId = GeneratedColumn<String>(
+    'model_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _contextSourceMeta = const VerificationMeta(
+    'contextSource',
+  );
+  @override
+  late final GeneratedColumn<String> contextSource = GeneratedColumn<String>(
+    'context_source',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('none'),
+  );
+  static const VerificationMeta _hotkeyKeyMeta = const VerificationMeta(
+    'hotkeyKey',
+  );
+  @override
+  late final GeneratedColumn<String> hotkeyKey = GeneratedColumn<String>(
+    'hotkey_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _hotkeyModifiersMeta = const VerificationMeta(
+    'hotkeyModifiers',
+  );
+  @override
+  late final GeneratedColumn<String> hotkeyModifiers = GeneratedColumn<String>(
+    'hotkey_modifiers',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _afterTranscriptionMeta =
+      const VerificationMeta('afterTranscription');
+  @override
+  late final GeneratedColumn<String> afterTranscription =
+      GeneratedColumn<String>(
+        'after_transcription',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _microphoneMeta = const VerificationMeta(
+    'microphone',
+  );
+  @override
+  late final GeneratedColumn<String> microphone = GeneratedColumn<String>(
+    'microphone',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _consentProviderMeta = const VerificationMeta(
+    'consentProvider',
+  );
+  @override
+  late final GeneratedColumn<String> consentProvider = GeneratedColumn<String>(
+    'consent_provider',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _consentSelectionMeta = const VerificationMeta(
+    'consentSelection',
+  );
+  @override
+  late final GeneratedColumn<bool> consentSelection = GeneratedColumn<bool>(
+    'consent_selection',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("consent_selection" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _consentClipboardMeta = const VerificationMeta(
+    'consentClipboard',
+  );
+  @override
+  late final GeneratedColumn<bool> consentClipboard = GeneratedColumn<bool>(
+    'consent_clipboard',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("consent_clipboard" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _consentTextVersionMeta =
+      const VerificationMeta('consentTextVersion');
+  @override
+  late final GeneratedColumn<String> consentTextVersion =
+      GeneratedColumn<String>(
+        'consent_text_version',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _consentGivenAtMeta = const VerificationMeta(
+    'consentGivenAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> consentGivenAt =
+      GeneratedColumn<DateTime>(
+        'consent_given_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    position,
+    smartMode,
+    asrLanguage,
+    modelId,
+    contextSource,
+    hotkeyKey,
+    hotkeyModifiers,
+    afterTranscription,
+    microphone,
+    consentProvider,
+    consentSelection,
+    consentClipboard,
+    consentTextVersion,
+    consentGivenAt,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_profiles';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppProfileRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    }
+    if (data.containsKey('smart_mode')) {
+      context.handle(
+        _smartModeMeta,
+        smartMode.isAcceptableOrUnknown(data['smart_mode']!, _smartModeMeta),
+      );
+    }
+    if (data.containsKey('asr_language')) {
+      context.handle(
+        _asrLanguageMeta,
+        asrLanguage.isAcceptableOrUnknown(
+          data['asr_language']!,
+          _asrLanguageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('model_id')) {
+      context.handle(
+        _modelIdMeta,
+        modelId.isAcceptableOrUnknown(data['model_id']!, _modelIdMeta),
+      );
+    }
+    if (data.containsKey('context_source')) {
+      context.handle(
+        _contextSourceMeta,
+        contextSource.isAcceptableOrUnknown(
+          data['context_source']!,
+          _contextSourceMeta,
+        ),
+      );
+    }
+    if (data.containsKey('hotkey_key')) {
+      context.handle(
+        _hotkeyKeyMeta,
+        hotkeyKey.isAcceptableOrUnknown(data['hotkey_key']!, _hotkeyKeyMeta),
+      );
+    }
+    if (data.containsKey('hotkey_modifiers')) {
+      context.handle(
+        _hotkeyModifiersMeta,
+        hotkeyModifiers.isAcceptableOrUnknown(
+          data['hotkey_modifiers']!,
+          _hotkeyModifiersMeta,
+        ),
+      );
+    }
+    if (data.containsKey('after_transcription')) {
+      context.handle(
+        _afterTranscriptionMeta,
+        afterTranscription.isAcceptableOrUnknown(
+          data['after_transcription']!,
+          _afterTranscriptionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('microphone')) {
+      context.handle(
+        _microphoneMeta,
+        microphone.isAcceptableOrUnknown(data['microphone']!, _microphoneMeta),
+      );
+    }
+    if (data.containsKey('consent_provider')) {
+      context.handle(
+        _consentProviderMeta,
+        consentProvider.isAcceptableOrUnknown(
+          data['consent_provider']!,
+          _consentProviderMeta,
+        ),
+      );
+    }
+    if (data.containsKey('consent_selection')) {
+      context.handle(
+        _consentSelectionMeta,
+        consentSelection.isAcceptableOrUnknown(
+          data['consent_selection']!,
+          _consentSelectionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('consent_clipboard')) {
+      context.handle(
+        _consentClipboardMeta,
+        consentClipboard.isAcceptableOrUnknown(
+          data['consent_clipboard']!,
+          _consentClipboardMeta,
+        ),
+      );
+    }
+    if (data.containsKey('consent_text_version')) {
+      context.handle(
+        _consentTextVersionMeta,
+        consentTextVersion.isAcceptableOrUnknown(
+          data['consent_text_version']!,
+          _consentTextVersionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('consent_given_at')) {
+      context.handle(
+        _consentGivenAtMeta,
+        consentGivenAt.isAcceptableOrUnknown(
+          data['consent_given_at']!,
+          _consentGivenAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AppProfileRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppProfileRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      smartMode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}smart_mode'],
+      )!,
+      asrLanguage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}asr_language'],
+      ),
+      modelId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}model_id'],
+      ),
+      contextSource: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}context_source'],
+      )!,
+      hotkeyKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hotkey_key'],
+      ),
+      hotkeyModifiers: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hotkey_modifiers'],
+      ),
+      afterTranscription: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}after_transcription'],
+      ),
+      microphone: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}microphone'],
+      ),
+      consentProvider: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}consent_provider'],
+      ),
+      consentSelection: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}consent_selection'],
+      )!,
+      consentClipboard: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}consent_clipboard'],
+      )!,
+      consentTextVersion: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}consent_text_version'],
+      ),
+      consentGivenAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}consent_given_at'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $AppProfilesTable createAlias(String alias) {
+    return $AppProfilesTable(attachedDatabase, alias);
+  }
+}
+
+class AppProfileRow extends DataClass implements Insertable<AppProfileRow> {
+  final String id;
+  final String name;
+  final int position;
+  final String smartMode;
+  final String? asrLanguage;
+  final String? modelId;
+  final String contextSource;
+  final String? hotkeyKey;
+  final String? hotkeyModifiers;
+  final String? afterTranscription;
+  final String? microphone;
+  final String? consentProvider;
+  final bool consentSelection;
+  final bool consentClipboard;
+  final String? consentTextVersion;
+  final DateTime? consentGivenAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const AppProfileRow({
+    required this.id,
+    required this.name,
+    required this.position,
+    required this.smartMode,
+    this.asrLanguage,
+    this.modelId,
+    required this.contextSource,
+    this.hotkeyKey,
+    this.hotkeyModifiers,
+    this.afterTranscription,
+    this.microphone,
+    this.consentProvider,
+    required this.consentSelection,
+    required this.consentClipboard,
+    this.consentTextVersion,
+    this.consentGivenAt,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['position'] = Variable<int>(position);
+    map['smart_mode'] = Variable<String>(smartMode);
+    if (!nullToAbsent || asrLanguage != null) {
+      map['asr_language'] = Variable<String>(asrLanguage);
+    }
+    if (!nullToAbsent || modelId != null) {
+      map['model_id'] = Variable<String>(modelId);
+    }
+    map['context_source'] = Variable<String>(contextSource);
+    if (!nullToAbsent || hotkeyKey != null) {
+      map['hotkey_key'] = Variable<String>(hotkeyKey);
+    }
+    if (!nullToAbsent || hotkeyModifiers != null) {
+      map['hotkey_modifiers'] = Variable<String>(hotkeyModifiers);
+    }
+    if (!nullToAbsent || afterTranscription != null) {
+      map['after_transcription'] = Variable<String>(afterTranscription);
+    }
+    if (!nullToAbsent || microphone != null) {
+      map['microphone'] = Variable<String>(microphone);
+    }
+    if (!nullToAbsent || consentProvider != null) {
+      map['consent_provider'] = Variable<String>(consentProvider);
+    }
+    map['consent_selection'] = Variable<bool>(consentSelection);
+    map['consent_clipboard'] = Variable<bool>(consentClipboard);
+    if (!nullToAbsent || consentTextVersion != null) {
+      map['consent_text_version'] = Variable<String>(consentTextVersion);
+    }
+    if (!nullToAbsent || consentGivenAt != null) {
+      map['consent_given_at'] = Variable<DateTime>(consentGivenAt);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  AppProfilesCompanion toCompanion(bool nullToAbsent) {
+    return AppProfilesCompanion(
+      id: Value(id),
+      name: Value(name),
+      position: Value(position),
+      smartMode: Value(smartMode),
+      asrLanguage: asrLanguage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(asrLanguage),
+      modelId: modelId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(modelId),
+      contextSource: Value(contextSource),
+      hotkeyKey: hotkeyKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hotkeyKey),
+      hotkeyModifiers: hotkeyModifiers == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hotkeyModifiers),
+      afterTranscription: afterTranscription == null && nullToAbsent
+          ? const Value.absent()
+          : Value(afterTranscription),
+      microphone: microphone == null && nullToAbsent
+          ? const Value.absent()
+          : Value(microphone),
+      consentProvider: consentProvider == null && nullToAbsent
+          ? const Value.absent()
+          : Value(consentProvider),
+      consentSelection: Value(consentSelection),
+      consentClipboard: Value(consentClipboard),
+      consentTextVersion: consentTextVersion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(consentTextVersion),
+      consentGivenAt: consentGivenAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(consentGivenAt),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AppProfileRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppProfileRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      position: serializer.fromJson<int>(json['position']),
+      smartMode: serializer.fromJson<String>(json['smartMode']),
+      asrLanguage: serializer.fromJson<String?>(json['asrLanguage']),
+      modelId: serializer.fromJson<String?>(json['modelId']),
+      contextSource: serializer.fromJson<String>(json['contextSource']),
+      hotkeyKey: serializer.fromJson<String?>(json['hotkeyKey']),
+      hotkeyModifiers: serializer.fromJson<String?>(json['hotkeyModifiers']),
+      afterTranscription: serializer.fromJson<String?>(
+        json['afterTranscription'],
+      ),
+      microphone: serializer.fromJson<String?>(json['microphone']),
+      consentProvider: serializer.fromJson<String?>(json['consentProvider']),
+      consentSelection: serializer.fromJson<bool>(json['consentSelection']),
+      consentClipboard: serializer.fromJson<bool>(json['consentClipboard']),
+      consentTextVersion: serializer.fromJson<String?>(
+        json['consentTextVersion'],
+      ),
+      consentGivenAt: serializer.fromJson<DateTime?>(json['consentGivenAt']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'position': serializer.toJson<int>(position),
+      'smartMode': serializer.toJson<String>(smartMode),
+      'asrLanguage': serializer.toJson<String?>(asrLanguage),
+      'modelId': serializer.toJson<String?>(modelId),
+      'contextSource': serializer.toJson<String>(contextSource),
+      'hotkeyKey': serializer.toJson<String?>(hotkeyKey),
+      'hotkeyModifiers': serializer.toJson<String?>(hotkeyModifiers),
+      'afterTranscription': serializer.toJson<String?>(afterTranscription),
+      'microphone': serializer.toJson<String?>(microphone),
+      'consentProvider': serializer.toJson<String?>(consentProvider),
+      'consentSelection': serializer.toJson<bool>(consentSelection),
+      'consentClipboard': serializer.toJson<bool>(consentClipboard),
+      'consentTextVersion': serializer.toJson<String?>(consentTextVersion),
+      'consentGivenAt': serializer.toJson<DateTime?>(consentGivenAt),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  AppProfileRow copyWith({
+    String? id,
+    String? name,
+    int? position,
+    String? smartMode,
+    Value<String?> asrLanguage = const Value.absent(),
+    Value<String?> modelId = const Value.absent(),
+    String? contextSource,
+    Value<String?> hotkeyKey = const Value.absent(),
+    Value<String?> hotkeyModifiers = const Value.absent(),
+    Value<String?> afterTranscription = const Value.absent(),
+    Value<String?> microphone = const Value.absent(),
+    Value<String?> consentProvider = const Value.absent(),
+    bool? consentSelection,
+    bool? consentClipboard,
+    Value<String?> consentTextVersion = const Value.absent(),
+    Value<DateTime?> consentGivenAt = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => AppProfileRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    position: position ?? this.position,
+    smartMode: smartMode ?? this.smartMode,
+    asrLanguage: asrLanguage.present ? asrLanguage.value : this.asrLanguage,
+    modelId: modelId.present ? modelId.value : this.modelId,
+    contextSource: contextSource ?? this.contextSource,
+    hotkeyKey: hotkeyKey.present ? hotkeyKey.value : this.hotkeyKey,
+    hotkeyModifiers: hotkeyModifiers.present
+        ? hotkeyModifiers.value
+        : this.hotkeyModifiers,
+    afterTranscription: afterTranscription.present
+        ? afterTranscription.value
+        : this.afterTranscription,
+    microphone: microphone.present ? microphone.value : this.microphone,
+    consentProvider: consentProvider.present
+        ? consentProvider.value
+        : this.consentProvider,
+    consentSelection: consentSelection ?? this.consentSelection,
+    consentClipboard: consentClipboard ?? this.consentClipboard,
+    consentTextVersion: consentTextVersion.present
+        ? consentTextVersion.value
+        : this.consentTextVersion,
+    consentGivenAt: consentGivenAt.present
+        ? consentGivenAt.value
+        : this.consentGivenAt,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  AppProfileRow copyWithCompanion(AppProfilesCompanion data) {
+    return AppProfileRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      position: data.position.present ? data.position.value : this.position,
+      smartMode: data.smartMode.present ? data.smartMode.value : this.smartMode,
+      asrLanguage: data.asrLanguage.present
+          ? data.asrLanguage.value
+          : this.asrLanguage,
+      modelId: data.modelId.present ? data.modelId.value : this.modelId,
+      contextSource: data.contextSource.present
+          ? data.contextSource.value
+          : this.contextSource,
+      hotkeyKey: data.hotkeyKey.present ? data.hotkeyKey.value : this.hotkeyKey,
+      hotkeyModifiers: data.hotkeyModifiers.present
+          ? data.hotkeyModifiers.value
+          : this.hotkeyModifiers,
+      afterTranscription: data.afterTranscription.present
+          ? data.afterTranscription.value
+          : this.afterTranscription,
+      microphone: data.microphone.present
+          ? data.microphone.value
+          : this.microphone,
+      consentProvider: data.consentProvider.present
+          ? data.consentProvider.value
+          : this.consentProvider,
+      consentSelection: data.consentSelection.present
+          ? data.consentSelection.value
+          : this.consentSelection,
+      consentClipboard: data.consentClipboard.present
+          ? data.consentClipboard.value
+          : this.consentClipboard,
+      consentTextVersion: data.consentTextVersion.present
+          ? data.consentTextVersion.value
+          : this.consentTextVersion,
+      consentGivenAt: data.consentGivenAt.present
+          ? data.consentGivenAt.value
+          : this.consentGivenAt,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppProfileRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('position: $position, ')
+          ..write('smartMode: $smartMode, ')
+          ..write('asrLanguage: $asrLanguage, ')
+          ..write('modelId: $modelId, ')
+          ..write('contextSource: $contextSource, ')
+          ..write('hotkeyKey: $hotkeyKey, ')
+          ..write('hotkeyModifiers: $hotkeyModifiers, ')
+          ..write('afterTranscription: $afterTranscription, ')
+          ..write('microphone: $microphone, ')
+          ..write('consentProvider: $consentProvider, ')
+          ..write('consentSelection: $consentSelection, ')
+          ..write('consentClipboard: $consentClipboard, ')
+          ..write('consentTextVersion: $consentTextVersion, ')
+          ..write('consentGivenAt: $consentGivenAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    position,
+    smartMode,
+    asrLanguage,
+    modelId,
+    contextSource,
+    hotkeyKey,
+    hotkeyModifiers,
+    afterTranscription,
+    microphone,
+    consentProvider,
+    consentSelection,
+    consentClipboard,
+    consentTextVersion,
+    consentGivenAt,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppProfileRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.position == this.position &&
+          other.smartMode == this.smartMode &&
+          other.asrLanguage == this.asrLanguage &&
+          other.modelId == this.modelId &&
+          other.contextSource == this.contextSource &&
+          other.hotkeyKey == this.hotkeyKey &&
+          other.hotkeyModifiers == this.hotkeyModifiers &&
+          other.afterTranscription == this.afterTranscription &&
+          other.microphone == this.microphone &&
+          other.consentProvider == this.consentProvider &&
+          other.consentSelection == this.consentSelection &&
+          other.consentClipboard == this.consentClipboard &&
+          other.consentTextVersion == this.consentTextVersion &&
+          other.consentGivenAt == this.consentGivenAt &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AppProfilesCompanion extends UpdateCompanion<AppProfileRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<int> position;
+  final Value<String> smartMode;
+  final Value<String?> asrLanguage;
+  final Value<String?> modelId;
+  final Value<String> contextSource;
+  final Value<String?> hotkeyKey;
+  final Value<String?> hotkeyModifiers;
+  final Value<String?> afterTranscription;
+  final Value<String?> microphone;
+  final Value<String?> consentProvider;
+  final Value<bool> consentSelection;
+  final Value<bool> consentClipboard;
+  final Value<String?> consentTextVersion;
+  final Value<DateTime?> consentGivenAt;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const AppProfilesCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.position = const Value.absent(),
+    this.smartMode = const Value.absent(),
+    this.asrLanguage = const Value.absent(),
+    this.modelId = const Value.absent(),
+    this.contextSource = const Value.absent(),
+    this.hotkeyKey = const Value.absent(),
+    this.hotkeyModifiers = const Value.absent(),
+    this.afterTranscription = const Value.absent(),
+    this.microphone = const Value.absent(),
+    this.consentProvider = const Value.absent(),
+    this.consentSelection = const Value.absent(),
+    this.consentClipboard = const Value.absent(),
+    this.consentTextVersion = const Value.absent(),
+    this.consentGivenAt = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppProfilesCompanion.insert({
+    required String id,
+    required String name,
+    this.position = const Value.absent(),
+    this.smartMode = const Value.absent(),
+    this.asrLanguage = const Value.absent(),
+    this.modelId = const Value.absent(),
+    this.contextSource = const Value.absent(),
+    this.hotkeyKey = const Value.absent(),
+    this.hotkeyModifiers = const Value.absent(),
+    this.afterTranscription = const Value.absent(),
+    this.microphone = const Value.absent(),
+    this.consentProvider = const Value.absent(),
+    this.consentSelection = const Value.absent(),
+    this.consentClipboard = const Value.absent(),
+    this.consentTextVersion = const Value.absent(),
+    this.consentGivenAt = const Value.absent(),
+    required DateTime createdAt,
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       createdAt = Value(createdAt),
+       updatedAt = Value(updatedAt);
+  static Insertable<AppProfileRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<int>? position,
+    Expression<String>? smartMode,
+    Expression<String>? asrLanguage,
+    Expression<String>? modelId,
+    Expression<String>? contextSource,
+    Expression<String>? hotkeyKey,
+    Expression<String>? hotkeyModifiers,
+    Expression<String>? afterTranscription,
+    Expression<String>? microphone,
+    Expression<String>? consentProvider,
+    Expression<bool>? consentSelection,
+    Expression<bool>? consentClipboard,
+    Expression<String>? consentTextVersion,
+    Expression<DateTime>? consentGivenAt,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (position != null) 'position': position,
+      if (smartMode != null) 'smart_mode': smartMode,
+      if (asrLanguage != null) 'asr_language': asrLanguage,
+      if (modelId != null) 'model_id': modelId,
+      if (contextSource != null) 'context_source': contextSource,
+      if (hotkeyKey != null) 'hotkey_key': hotkeyKey,
+      if (hotkeyModifiers != null) 'hotkey_modifiers': hotkeyModifiers,
+      if (afterTranscription != null) 'after_transcription': afterTranscription,
+      if (microphone != null) 'microphone': microphone,
+      if (consentProvider != null) 'consent_provider': consentProvider,
+      if (consentSelection != null) 'consent_selection': consentSelection,
+      if (consentClipboard != null) 'consent_clipboard': consentClipboard,
+      if (consentTextVersion != null)
+        'consent_text_version': consentTextVersion,
+      if (consentGivenAt != null) 'consent_given_at': consentGivenAt,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppProfilesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<int>? position,
+    Value<String>? smartMode,
+    Value<String?>? asrLanguage,
+    Value<String?>? modelId,
+    Value<String>? contextSource,
+    Value<String?>? hotkeyKey,
+    Value<String?>? hotkeyModifiers,
+    Value<String?>? afterTranscription,
+    Value<String?>? microphone,
+    Value<String?>? consentProvider,
+    Value<bool>? consentSelection,
+    Value<bool>? consentClipboard,
+    Value<String?>? consentTextVersion,
+    Value<DateTime?>? consentGivenAt,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+    Value<int>? rowid,
+  }) {
+    return AppProfilesCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      position: position ?? this.position,
+      smartMode: smartMode ?? this.smartMode,
+      asrLanguage: asrLanguage ?? this.asrLanguage,
+      modelId: modelId ?? this.modelId,
+      contextSource: contextSource ?? this.contextSource,
+      hotkeyKey: hotkeyKey ?? this.hotkeyKey,
+      hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
+      afterTranscription: afterTranscription ?? this.afterTranscription,
+      microphone: microphone ?? this.microphone,
+      consentProvider: consentProvider ?? this.consentProvider,
+      consentSelection: consentSelection ?? this.consentSelection,
+      consentClipboard: consentClipboard ?? this.consentClipboard,
+      consentTextVersion: consentTextVersion ?? this.consentTextVersion,
+      consentGivenAt: consentGivenAt ?? this.consentGivenAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (smartMode.present) {
+      map['smart_mode'] = Variable<String>(smartMode.value);
+    }
+    if (asrLanguage.present) {
+      map['asr_language'] = Variable<String>(asrLanguage.value);
+    }
+    if (modelId.present) {
+      map['model_id'] = Variable<String>(modelId.value);
+    }
+    if (contextSource.present) {
+      map['context_source'] = Variable<String>(contextSource.value);
+    }
+    if (hotkeyKey.present) {
+      map['hotkey_key'] = Variable<String>(hotkeyKey.value);
+    }
+    if (hotkeyModifiers.present) {
+      map['hotkey_modifiers'] = Variable<String>(hotkeyModifiers.value);
+    }
+    if (afterTranscription.present) {
+      map['after_transcription'] = Variable<String>(afterTranscription.value);
+    }
+    if (microphone.present) {
+      map['microphone'] = Variable<String>(microphone.value);
+    }
+    if (consentProvider.present) {
+      map['consent_provider'] = Variable<String>(consentProvider.value);
+    }
+    if (consentSelection.present) {
+      map['consent_selection'] = Variable<bool>(consentSelection.value);
+    }
+    if (consentClipboard.present) {
+      map['consent_clipboard'] = Variable<bool>(consentClipboard.value);
+    }
+    if (consentTextVersion.present) {
+      map['consent_text_version'] = Variable<String>(consentTextVersion.value);
+    }
+    if (consentGivenAt.present) {
+      map['consent_given_at'] = Variable<DateTime>(consentGivenAt.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppProfilesCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('position: $position, ')
+          ..write('smartMode: $smartMode, ')
+          ..write('asrLanguage: $asrLanguage, ')
+          ..write('modelId: $modelId, ')
+          ..write('contextSource: $contextSource, ')
+          ..write('hotkeyKey: $hotkeyKey, ')
+          ..write('hotkeyModifiers: $hotkeyModifiers, ')
+          ..write('afterTranscription: $afterTranscription, ')
+          ..write('microphone: $microphone, ')
+          ..write('consentProvider: $consentProvider, ')
+          ..write('consentSelection: $consentSelection, ')
+          ..write('consentClipboard: $consentClipboard, ')
+          ..write('consentTextVersion: $consentTextVersion, ')
+          ..write('consentGivenAt: $consentGivenAt, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $AppProfileRulesTable extends AppProfileRules
+    with TableInfo<$AppProfileRulesTable, AppProfileRuleRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AppProfileRulesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _profileIdMeta = const VerificationMeta(
+    'profileId',
+  );
+  @override
+  late final GeneratedColumn<String> profileId = GeneratedColumn<String>(
+    'profile_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta(
+    'position',
+  );
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _identifierMeta = const VerificationMeta(
+    'identifier',
+  );
+  @override
+  late final GeneratedColumn<String> identifier = GeneratedColumn<String>(
+    'identifier',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _teamIdMeta = const VerificationMeta('teamId');
+  @override
+  late final GeneratedColumn<String> teamId = GeneratedColumn<String>(
+    'team_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    profileId,
+    position,
+    identifier,
+    teamId,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'app_profile_rules';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AppProfileRuleRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('profile_id')) {
+      context.handle(
+        _profileIdMeta,
+        profileId.isAcceptableOrUnknown(data['profile_id']!, _profileIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_profileIdMeta);
+    }
+    if (data.containsKey('position')) {
+      context.handle(
+        _positionMeta,
+        position.isAcceptableOrUnknown(data['position']!, _positionMeta),
+      );
+    }
+    if (data.containsKey('identifier')) {
+      context.handle(
+        _identifierMeta,
+        identifier.isAcceptableOrUnknown(data['identifier']!, _identifierMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_identifierMeta);
+    }
+    if (data.containsKey('team_id')) {
+      context.handle(
+        _teamIdMeta,
+        teamId.isAcceptableOrUnknown(data['team_id']!, _teamIdMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AppProfileRuleRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AppProfileRuleRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      profileId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}profile_id'],
+      )!,
+      position: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}position'],
+      )!,
+      identifier: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}identifier'],
+      )!,
+      teamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}team_id'],
+      ),
+    );
+  }
+
+  @override
+  $AppProfileRulesTable createAlias(String alias) {
+    return $AppProfileRulesTable(attachedDatabase, alias);
+  }
+}
+
+class AppProfileRuleRow extends DataClass
+    implements Insertable<AppProfileRuleRow> {
+  final String id;
+  final String profileId;
+  final int position;
+  final String identifier;
+
+  /// macOS code-signing team identifier; null when not recorded.
+  final String? teamId;
+  const AppProfileRuleRow({
+    required this.id,
+    required this.profileId,
+    required this.position,
+    required this.identifier,
+    this.teamId,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['profile_id'] = Variable<String>(profileId);
+    map['position'] = Variable<int>(position);
+    map['identifier'] = Variable<String>(identifier);
+    if (!nullToAbsent || teamId != null) {
+      map['team_id'] = Variable<String>(teamId);
+    }
+    return map;
+  }
+
+  AppProfileRulesCompanion toCompanion(bool nullToAbsent) {
+    return AppProfileRulesCompanion(
+      id: Value(id),
+      profileId: Value(profileId),
+      position: Value(position),
+      identifier: Value(identifier),
+      teamId: teamId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(teamId),
+    );
+  }
+
+  factory AppProfileRuleRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AppProfileRuleRow(
+      id: serializer.fromJson<String>(json['id']),
+      profileId: serializer.fromJson<String>(json['profileId']),
+      position: serializer.fromJson<int>(json['position']),
+      identifier: serializer.fromJson<String>(json['identifier']),
+      teamId: serializer.fromJson<String?>(json['teamId']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'profileId': serializer.toJson<String>(profileId),
+      'position': serializer.toJson<int>(position),
+      'identifier': serializer.toJson<String>(identifier),
+      'teamId': serializer.toJson<String?>(teamId),
+    };
+  }
+
+  AppProfileRuleRow copyWith({
+    String? id,
+    String? profileId,
+    int? position,
+    String? identifier,
+    Value<String?> teamId = const Value.absent(),
+  }) => AppProfileRuleRow(
+    id: id ?? this.id,
+    profileId: profileId ?? this.profileId,
+    position: position ?? this.position,
+    identifier: identifier ?? this.identifier,
+    teamId: teamId.present ? teamId.value : this.teamId,
+  );
+  AppProfileRuleRow copyWithCompanion(AppProfileRulesCompanion data) {
+    return AppProfileRuleRow(
+      id: data.id.present ? data.id.value : this.id,
+      profileId: data.profileId.present ? data.profileId.value : this.profileId,
+      position: data.position.present ? data.position.value : this.position,
+      identifier: data.identifier.present
+          ? data.identifier.value
+          : this.identifier,
+      teamId: data.teamId.present ? data.teamId.value : this.teamId,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppProfileRuleRow(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('position: $position, ')
+          ..write('identifier: $identifier, ')
+          ..write('teamId: $teamId')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, profileId, position, identifier, teamId);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AppProfileRuleRow &&
+          other.id == this.id &&
+          other.profileId == this.profileId &&
+          other.position == this.position &&
+          other.identifier == this.identifier &&
+          other.teamId == this.teamId);
+}
+
+class AppProfileRulesCompanion extends UpdateCompanion<AppProfileRuleRow> {
+  final Value<String> id;
+  final Value<String> profileId;
+  final Value<int> position;
+  final Value<String> identifier;
+  final Value<String?> teamId;
+  final Value<int> rowid;
+  const AppProfileRulesCompanion({
+    this.id = const Value.absent(),
+    this.profileId = const Value.absent(),
+    this.position = const Value.absent(),
+    this.identifier = const Value.absent(),
+    this.teamId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AppProfileRulesCompanion.insert({
+    required String id,
+    required String profileId,
+    this.position = const Value.absent(),
+    required String identifier,
+    this.teamId = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       profileId = Value(profileId),
+       identifier = Value(identifier);
+  static Insertable<AppProfileRuleRow> custom({
+    Expression<String>? id,
+    Expression<String>? profileId,
+    Expression<int>? position,
+    Expression<String>? identifier,
+    Expression<String>? teamId,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (profileId != null) 'profile_id': profileId,
+      if (position != null) 'position': position,
+      if (identifier != null) 'identifier': identifier,
+      if (teamId != null) 'team_id': teamId,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AppProfileRulesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? profileId,
+    Value<int>? position,
+    Value<String>? identifier,
+    Value<String?>? teamId,
+    Value<int>? rowid,
+  }) {
+    return AppProfileRulesCompanion(
+      id: id ?? this.id,
+      profileId: profileId ?? this.profileId,
+      position: position ?? this.position,
+      identifier: identifier ?? this.identifier,
+      teamId: teamId ?? this.teamId,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (profileId.present) {
+      map['profile_id'] = Variable<String>(profileId.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (identifier.present) {
+      map['identifier'] = Variable<String>(identifier.value);
+    }
+    if (teamId.present) {
+      map['team_id'] = Variable<String>(teamId.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AppProfileRulesCompanion(')
+          ..write('id: $id, ')
+          ..write('profileId: $profileId, ')
+          ..write('position: $position, ')
+          ..write('identifier: $identifier, ')
+          ..write('teamId: $teamId, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$HistoryDatabase extends GeneratedDatabase {
   _$HistoryDatabase(QueryExecutor e) : super(e);
   $HistoryDatabaseManager get managers => $HistoryDatabaseManager(this);
@@ -6241,8 +9042,14 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
   late final $SnippetFieldsTable snippetFields = $SnippetFieldsTable(this);
   late final $NotesTable notes = $NotesTable(this);
   late final $NoteTagsTable noteTags = $NoteTagsTable(this);
+  late final $NoteVersionsTable noteVersions = $NoteVersionsTable(this);
+  late final $NoteAssetsTable noteAssets = $NoteAssetsTable(this);
   late final $CorrectionObservationsTable correctionObservations =
       $CorrectionObservationsTable(this);
+  late final $AppProfilesTable appProfiles = $AppProfilesTable(this);
+  late final $AppProfileRulesTable appProfileRules = $AppProfileRulesTable(
+    this,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6261,7 +9068,11 @@ abstract class _$HistoryDatabase extends GeneratedDatabase {
     snippetFields,
     notes,
     noteTags,
+    noteVersions,
+    noteAssets,
     correctionObservations,
+    appProfiles,
+    appProfileRules,
   ];
 }
 
@@ -6288,6 +9099,9 @@ typedef $$HistoryEntriesTableCreateCompanionBuilder =
       Value<String?> smartModeEditedContent,
       Value<String?> originalTranscript,
       Value<String?> targetApp,
+      Value<String?> smartModeInput,
+      Value<String?> smartModeOutput,
+      Value<bool?> smartModeApplied,
       Value<int> rowid,
     });
 typedef $$HistoryEntriesTableUpdateCompanionBuilder =
@@ -6313,6 +9127,9 @@ typedef $$HistoryEntriesTableUpdateCompanionBuilder =
       Value<String?> smartModeEditedContent,
       Value<String?> originalTranscript,
       Value<String?> targetApp,
+      Value<String?> smartModeInput,
+      Value<String?> smartModeOutput,
+      Value<bool?> smartModeApplied,
       Value<int> rowid,
     });
 
@@ -6494,6 +9311,21 @@ class $$HistoryEntriesTableFilterComposer
 
   ColumnFilters<String> get targetApp => $composableBuilder(
     column: $table.targetApp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get smartModeInput => $composableBuilder(
+    column: $table.smartModeInput,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get smartModeOutput => $composableBuilder(
+    column: $table.smartModeOutput,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get smartModeApplied => $composableBuilder(
+    column: $table.smartModeApplied,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6686,6 +9518,21 @@ class $$HistoryEntriesTableOrderingComposer
     column: $table.targetApp,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get smartModeInput => $composableBuilder(
+    column: $table.smartModeInput,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get smartModeOutput => $composableBuilder(
+    column: $table.smartModeOutput,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get smartModeApplied => $composableBuilder(
+    column: $table.smartModeApplied,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HistoryEntriesTableAnnotationComposer
@@ -6771,6 +9618,21 @@ class $$HistoryEntriesTableAnnotationComposer
 
   GeneratedColumn<String> get targetApp =>
       $composableBuilder(column: $table.targetApp, builder: (column) => column);
+
+  GeneratedColumn<String> get smartModeInput => $composableBuilder(
+    column: $table.smartModeInput,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get smartModeOutput => $composableBuilder(
+    column: $table.smartModeOutput,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get smartModeApplied => $composableBuilder(
+    column: $table.smartModeApplied,
+    builder: (column) => column,
+  );
 
   Expression<T> entryNotesRefs<T extends Object>(
     Expression<T> Function($$EntryNotesTableAnnotationComposer a) f,
@@ -6903,6 +9765,9 @@ class $$HistoryEntriesTableTableManager
                 Value<String?> smartModeEditedContent = const Value.absent(),
                 Value<String?> originalTranscript = const Value.absent(),
                 Value<String?> targetApp = const Value.absent(),
+                Value<String?> smartModeInput = const Value.absent(),
+                Value<String?> smartModeOutput = const Value.absent(),
+                Value<bool?> smartModeApplied = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion(
                 id: id,
@@ -6926,6 +9791,9 @@ class $$HistoryEntriesTableTableManager
                 smartModeEditedContent: smartModeEditedContent,
                 originalTranscript: originalTranscript,
                 targetApp: targetApp,
+                smartModeInput: smartModeInput,
+                smartModeOutput: smartModeOutput,
+                smartModeApplied: smartModeApplied,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -6951,6 +9819,9 @@ class $$HistoryEntriesTableTableManager
                 Value<String?> smartModeEditedContent = const Value.absent(),
                 Value<String?> originalTranscript = const Value.absent(),
                 Value<String?> targetApp = const Value.absent(),
+                Value<String?> smartModeInput = const Value.absent(),
+                Value<String?> smartModeOutput = const Value.absent(),
+                Value<bool?> smartModeApplied = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HistoryEntriesCompanion.insert(
                 id: id,
@@ -6974,6 +9845,9 @@ class $$HistoryEntriesTableTableManager
                 smartModeEditedContent: smartModeEditedContent,
                 originalTranscript: originalTranscript,
                 targetApp: targetApp,
+                smartModeInput: smartModeInput,
+                smartModeOutput: smartModeOutput,
+                smartModeApplied: smartModeApplied,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -8151,6 +11025,8 @@ typedef $$TextReplacementsTableCreateCompanionBuilder =
       Value<String> matchMode,
       Value<double?> fuzzyThreshold,
       Value<String> origin,
+      Value<int> usageCount,
+      Value<bool> isFavorite,
       Value<int> rowid,
     });
 typedef $$TextReplacementsTableUpdateCompanionBuilder =
@@ -8162,6 +11038,8 @@ typedef $$TextReplacementsTableUpdateCompanionBuilder =
       Value<String> matchMode,
       Value<double?> fuzzyThreshold,
       Value<String> origin,
+      Value<int> usageCount,
+      Value<bool> isFavorite,
       Value<int> rowid,
     });
 
@@ -8249,6 +11127,16 @@ class $$TextReplacementsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get usageCount => $composableBuilder(
+    column: $table.usageCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> textReplacementTriggersRefs(
     Expression<bool> Function($$TextReplacementTriggersTableFilterComposer f) f,
   ) {
@@ -8319,6 +11207,16 @@ class $$TextReplacementsTableOrderingComposer
     column: $table.origin,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get usageCount => $composableBuilder(
+    column: $table.usageCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$TextReplacementsTableAnnotationComposer
@@ -8354,6 +11252,16 @@ class $$TextReplacementsTableAnnotationComposer
 
   GeneratedColumn<String> get origin =>
       $composableBuilder(column: $table.origin, builder: (column) => column);
+
+  GeneratedColumn<int> get usageCount => $composableBuilder(
+    column: $table.usageCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isFavorite => $composableBuilder(
+    column: $table.isFavorite,
+    builder: (column) => column,
+  );
 
   Expression<T> textReplacementTriggersRefs<T extends Object>(
     Expression<T> Function($$TextReplacementTriggersTableAnnotationComposer a)
@@ -8420,6 +11328,8 @@ class $$TextReplacementsTableTableManager
                 Value<String> matchMode = const Value.absent(),
                 Value<double?> fuzzyThreshold = const Value.absent(),
                 Value<String> origin = const Value.absent(),
+                Value<int> usageCount = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TextReplacementsCompanion(
                 id: id,
@@ -8429,6 +11339,8 @@ class $$TextReplacementsTableTableManager
                 matchMode: matchMode,
                 fuzzyThreshold: fuzzyThreshold,
                 origin: origin,
+                usageCount: usageCount,
+                isFavorite: isFavorite,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -8440,6 +11352,8 @@ class $$TextReplacementsTableTableManager
                 Value<String> matchMode = const Value.absent(),
                 Value<double?> fuzzyThreshold = const Value.absent(),
                 Value<String> origin = const Value.absent(),
+                Value<int> usageCount = const Value.absent(),
+                Value<bool> isFavorite = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => TextReplacementsCompanion.insert(
                 id: id,
@@ -8449,6 +11363,8 @@ class $$TextReplacementsTableTableManager
                 matchMode: matchMode,
                 fuzzyThreshold: fuzzyThreshold,
                 origin: origin,
+                usageCount: usageCount,
+                isFavorite: isFavorite,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9510,6 +12426,7 @@ typedef $$HotkeyLatencyEntriesTableCreateCompanionBuilder =
       required String id,
       required DateTime recordedAt,
       required int latencyMs,
+      Value<int?> stopToTextMs,
       Value<int> rowid,
     });
 typedef $$HotkeyLatencyEntriesTableUpdateCompanionBuilder =
@@ -9517,6 +12434,7 @@ typedef $$HotkeyLatencyEntriesTableUpdateCompanionBuilder =
       Value<String> id,
       Value<DateTime> recordedAt,
       Value<int> latencyMs,
+      Value<int?> stopToTextMs,
       Value<int> rowid,
     });
 
@@ -9541,6 +12459,11 @@ class $$HotkeyLatencyEntriesTableFilterComposer
 
   ColumnFilters<int> get latencyMs => $composableBuilder(
     column: $table.latencyMs,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get stopToTextMs => $composableBuilder(
+    column: $table.stopToTextMs,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -9568,6 +12491,11 @@ class $$HotkeyLatencyEntriesTableOrderingComposer
     column: $table.latencyMs,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get stopToTextMs => $composableBuilder(
+    column: $table.stopToTextMs,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HotkeyLatencyEntriesTableAnnotationComposer
@@ -9589,6 +12517,11 @@ class $$HotkeyLatencyEntriesTableAnnotationComposer
 
   GeneratedColumn<int> get latencyMs =>
       $composableBuilder(column: $table.latencyMs, builder: (column) => column);
+
+  GeneratedColumn<int> get stopToTextMs => $composableBuilder(
+    column: $table.stopToTextMs,
+    builder: (column) => column,
+  );
 }
 
 class $$HotkeyLatencyEntriesTableTableManager
@@ -9637,11 +12570,13 @@ class $$HotkeyLatencyEntriesTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<DateTime> recordedAt = const Value.absent(),
                 Value<int> latencyMs = const Value.absent(),
+                Value<int?> stopToTextMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HotkeyLatencyEntriesCompanion(
                 id: id,
                 recordedAt: recordedAt,
                 latencyMs: latencyMs,
+                stopToTextMs: stopToTextMs,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9649,11 +12584,13 @@ class $$HotkeyLatencyEntriesTableTableManager
                 required String id,
                 required DateTime recordedAt,
                 required int latencyMs,
+                Value<int?> stopToTextMs = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HotkeyLatencyEntriesCompanion.insert(
                 id: id,
                 recordedAt: recordedAt,
                 latencyMs: latencyMs,
+                stopToTextMs: stopToTextMs,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -9692,6 +12629,7 @@ typedef $$SnippetsTableCreateCompanionBuilder =
       required String body,
       required DateTime createdAt,
       Value<String> kind,
+      Value<String?> sourceNoteId,
       Value<int> rowid,
     });
 typedef $$SnippetsTableUpdateCompanionBuilder =
@@ -9701,6 +12639,7 @@ typedef $$SnippetsTableUpdateCompanionBuilder =
       Value<String> body,
       Value<DateTime> createdAt,
       Value<String> kind,
+      Value<String?> sourceNoteId,
       Value<int> rowid,
     });
 
@@ -9759,6 +12698,11 @@ class $$SnippetsTableFilterComposer
 
   ColumnFilters<String> get kind => $composableBuilder(
     column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceNoteId => $composableBuilder(
+    column: $table.sourceNoteId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9821,6 +12765,11 @@ class $$SnippetsTableOrderingComposer
     column: $table.kind,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get sourceNoteId => $composableBuilder(
+    column: $table.sourceNoteId,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$SnippetsTableAnnotationComposer
@@ -9846,6 +12795,11 @@ class $$SnippetsTableAnnotationComposer
 
   GeneratedColumn<String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get sourceNoteId => $composableBuilder(
+    column: $table.sourceNoteId,
+    builder: (column) => column,
+  );
 
   Expression<T> snippetFieldsRefs<T extends Object>(
     Expression<T> Function($$SnippetFieldsTableAnnotationComposer a) f,
@@ -9906,6 +12860,7 @@ class $$SnippetsTableTableManager
                 Value<String> body = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<String> kind = const Value.absent(),
+                Value<String?> sourceNoteId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SnippetsCompanion(
                 id: id,
@@ -9913,6 +12868,7 @@ class $$SnippetsTableTableManager
                 body: body,
                 createdAt: createdAt,
                 kind: kind,
+                sourceNoteId: sourceNoteId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -9922,6 +12878,7 @@ class $$SnippetsTableTableManager
                 required String body,
                 required DateTime createdAt,
                 Value<String> kind = const Value.absent(),
+                Value<String?> sourceNoteId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => SnippetsCompanion.insert(
                 id: id,
@@ -9929,6 +12886,7 @@ class $$SnippetsTableTableManager
                 body: body,
                 createdAt: createdAt,
                 kind: kind,
+                sourceNoteId: sourceNoteId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -10297,6 +13255,7 @@ typedef $$NotesTableCreateCompanionBuilder =
     NotesCompanion Function({
       required String id,
       Value<String> content,
+      Value<String?> title,
       Value<bool> pinned,
       Value<bool> isQuickNote,
       Value<DateTime?> deletedAt,
@@ -10308,6 +13267,7 @@ typedef $$NotesTableUpdateCompanionBuilder =
     NotesCompanion Function({
       Value<String> id,
       Value<String> content,
+      Value<String?> title,
       Value<bool> pinned,
       Value<bool> isQuickNote,
       Value<DateTime?> deletedAt,
@@ -10356,6 +13316,11 @@ class $$NotesTableFilterComposer
 
   ColumnFilters<String> get content => $composableBuilder(
     column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -10429,6 +13394,11 @@ class $$NotesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get pinned => $composableBuilder(
     column: $table.pinned,
     builder: (column) => ColumnOrderings(column),
@@ -10469,6 +13439,9 @@ class $$NotesTableAnnotationComposer
 
   GeneratedColumn<String> get content =>
       $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
 
   GeneratedColumn<bool> get pinned =>
       $composableBuilder(column: $table.pinned, builder: (column) => column);
@@ -10543,6 +13516,7 @@ class $$NotesTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> content = const Value.absent(),
+                Value<String?> title = const Value.absent(),
                 Value<bool> pinned = const Value.absent(),
                 Value<bool> isQuickNote = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -10552,6 +13526,7 @@ class $$NotesTableTableManager
               }) => NotesCompanion(
                 id: id,
                 content: content,
+                title: title,
                 pinned: pinned,
                 isQuickNote: isQuickNote,
                 deletedAt: deletedAt,
@@ -10563,6 +13538,7 @@ class $$NotesTableTableManager
               ({
                 required String id,
                 Value<String> content = const Value.absent(),
+                Value<String?> title = const Value.absent(),
                 Value<bool> pinned = const Value.absent(),
                 Value<bool> isQuickNote = const Value.absent(),
                 Value<DateTime?> deletedAt = const Value.absent(),
@@ -10572,6 +13548,7 @@ class $$NotesTableTableManager
               }) => NotesCompanion.insert(
                 id: id,
                 content: content,
+                title: title,
                 pinned: pinned,
                 isQuickNote: isQuickNote,
                 deletedAt: deletedAt,
@@ -10968,6 +13945,486 @@ typedef $$NoteTagsTableProcessedTableManager =
       NoteTag,
       PrefetchHooks Function({bool noteId, bool tagId})
     >;
+typedef $$NoteVersionsTableCreateCompanionBuilder =
+    NoteVersionsCompanion Function({
+      required String id,
+      required String noteId,
+      Value<String?> title,
+      required String content,
+      required int sizeBytes,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$NoteVersionsTableUpdateCompanionBuilder =
+    NoteVersionsCompanion Function({
+      Value<String> id,
+      Value<String> noteId,
+      Value<String?> title,
+      Value<String> content,
+      Value<int> sizeBytes,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$NoteVersionsTableFilterComposer
+    extends Composer<_$HistoryDatabase, $NoteVersionsTable> {
+  $$NoteVersionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get noteId => $composableBuilder(
+    column: $table.noteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NoteVersionsTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $NoteVersionsTable> {
+  $$NoteVersionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get noteId => $composableBuilder(
+    column: $table.noteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get content => $composableBuilder(
+    column: $table.content,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NoteVersionsTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $NoteVersionsTable> {
+  $$NoteVersionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get noteId =>
+      $composableBuilder(column: $table.noteId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get content =>
+      $composableBuilder(column: $table.content, builder: (column) => column);
+
+  GeneratedColumn<int> get sizeBytes =>
+      $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$NoteVersionsTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $NoteVersionsTable,
+          NoteVersion,
+          $$NoteVersionsTableFilterComposer,
+          $$NoteVersionsTableOrderingComposer,
+          $$NoteVersionsTableAnnotationComposer,
+          $$NoteVersionsTableCreateCompanionBuilder,
+          $$NoteVersionsTableUpdateCompanionBuilder,
+          (
+            NoteVersion,
+            BaseReferences<_$HistoryDatabase, $NoteVersionsTable, NoteVersion>,
+          ),
+          NoteVersion,
+          PrefetchHooks Function()
+        > {
+  $$NoteVersionsTableTableManager(
+    _$HistoryDatabase db,
+    $NoteVersionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NoteVersionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NoteVersionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NoteVersionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> noteId = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String> content = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NoteVersionsCompanion(
+                id: id,
+                noteId: noteId,
+                title: title,
+                content: content,
+                sizeBytes: sizeBytes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String noteId,
+                Value<String?> title = const Value.absent(),
+                required String content,
+                required int sizeBytes,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => NoteVersionsCompanion.insert(
+                id: id,
+                noteId: noteId,
+                title: title,
+                content: content,
+                sizeBytes: sizeBytes,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NoteVersionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $NoteVersionsTable,
+      NoteVersion,
+      $$NoteVersionsTableFilterComposer,
+      $$NoteVersionsTableOrderingComposer,
+      $$NoteVersionsTableAnnotationComposer,
+      $$NoteVersionsTableCreateCompanionBuilder,
+      $$NoteVersionsTableUpdateCompanionBuilder,
+      (
+        NoteVersion,
+        BaseReferences<_$HistoryDatabase, $NoteVersionsTable, NoteVersion>,
+      ),
+      NoteVersion,
+      PrefetchHooks Function()
+    >;
+typedef $$NoteAssetsTableCreateCompanionBuilder =
+    NoteAssetsCompanion Function({
+      required String id,
+      required String noteId,
+      required String relativePath,
+      required String mimeType,
+      required int sizeBytes,
+      required int width,
+      required int height,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$NoteAssetsTableUpdateCompanionBuilder =
+    NoteAssetsCompanion Function({
+      Value<String> id,
+      Value<String> noteId,
+      Value<String> relativePath,
+      Value<String> mimeType,
+      Value<int> sizeBytes,
+      Value<int> width,
+      Value<int> height,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$NoteAssetsTableFilterComposer
+    extends Composer<_$HistoryDatabase, $NoteAssetsTable> {
+  $$NoteAssetsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get noteId => $composableBuilder(
+    column: $table.noteId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get relativePath => $composableBuilder(
+    column: $table.relativePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get width => $composableBuilder(
+    column: $table.width,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get height => $composableBuilder(
+    column: $table.height,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NoteAssetsTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $NoteAssetsTable> {
+  $$NoteAssetsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get noteId => $composableBuilder(
+    column: $table.noteId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get relativePath => $composableBuilder(
+    column: $table.relativePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get mimeType => $composableBuilder(
+    column: $table.mimeType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get sizeBytes => $composableBuilder(
+    column: $table.sizeBytes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get width => $composableBuilder(
+    column: $table.width,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get height => $composableBuilder(
+    column: $table.height,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NoteAssetsTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $NoteAssetsTable> {
+  $$NoteAssetsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get noteId =>
+      $composableBuilder(column: $table.noteId, builder: (column) => column);
+
+  GeneratedColumn<String> get relativePath => $composableBuilder(
+    column: $table.relativePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get mimeType =>
+      $composableBuilder(column: $table.mimeType, builder: (column) => column);
+
+  GeneratedColumn<int> get sizeBytes =>
+      $composableBuilder(column: $table.sizeBytes, builder: (column) => column);
+
+  GeneratedColumn<int> get width =>
+      $composableBuilder(column: $table.width, builder: (column) => column);
+
+  GeneratedColumn<int> get height =>
+      $composableBuilder(column: $table.height, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$NoteAssetsTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $NoteAssetsTable,
+          NoteAsset,
+          $$NoteAssetsTableFilterComposer,
+          $$NoteAssetsTableOrderingComposer,
+          $$NoteAssetsTableAnnotationComposer,
+          $$NoteAssetsTableCreateCompanionBuilder,
+          $$NoteAssetsTableUpdateCompanionBuilder,
+          (
+            NoteAsset,
+            BaseReferences<_$HistoryDatabase, $NoteAssetsTable, NoteAsset>,
+          ),
+          NoteAsset,
+          PrefetchHooks Function()
+        > {
+  $$NoteAssetsTableTableManager(_$HistoryDatabase db, $NoteAssetsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NoteAssetsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NoteAssetsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NoteAssetsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> noteId = const Value.absent(),
+                Value<String> relativePath = const Value.absent(),
+                Value<String> mimeType = const Value.absent(),
+                Value<int> sizeBytes = const Value.absent(),
+                Value<int> width = const Value.absent(),
+                Value<int> height = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NoteAssetsCompanion(
+                id: id,
+                noteId: noteId,
+                relativePath: relativePath,
+                mimeType: mimeType,
+                sizeBytes: sizeBytes,
+                width: width,
+                height: height,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String noteId,
+                required String relativePath,
+                required String mimeType,
+                required int sizeBytes,
+                required int width,
+                required int height,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => NoteAssetsCompanion.insert(
+                id: id,
+                noteId: noteId,
+                relativePath: relativePath,
+                mimeType: mimeType,
+                sizeBytes: sizeBytes,
+                width: width,
+                height: height,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NoteAssetsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $NoteAssetsTable,
+      NoteAsset,
+      $$NoteAssetsTableFilterComposer,
+      $$NoteAssetsTableOrderingComposer,
+      $$NoteAssetsTableAnnotationComposer,
+      $$NoteAssetsTableCreateCompanionBuilder,
+      $$NoteAssetsTableUpdateCompanionBuilder,
+      (
+        NoteAsset,
+        BaseReferences<_$HistoryDatabase, $NoteAssetsTable, NoteAsset>,
+      ),
+      NoteAsset,
+      PrefetchHooks Function()
+    >;
 typedef $$CorrectionObservationsTableCreateCompanionBuilder =
     CorrectionObservationsCompanion Function({
       required String id,
@@ -11275,6 +14732,685 @@ typedef $$CorrectionObservationsTableProcessedTableManager =
       CorrectionObservationRow,
       PrefetchHooks Function()
     >;
+typedef $$AppProfilesTableCreateCompanionBuilder =
+    AppProfilesCompanion Function({
+      required String id,
+      required String name,
+      Value<int> position,
+      Value<String> smartMode,
+      Value<String?> asrLanguage,
+      Value<String?> modelId,
+      Value<String> contextSource,
+      Value<String?> hotkeyKey,
+      Value<String?> hotkeyModifiers,
+      Value<String?> afterTranscription,
+      Value<String?> microphone,
+      Value<String?> consentProvider,
+      Value<bool> consentSelection,
+      Value<bool> consentClipboard,
+      Value<String?> consentTextVersion,
+      Value<DateTime?> consentGivenAt,
+      required DateTime createdAt,
+      required DateTime updatedAt,
+      Value<int> rowid,
+    });
+typedef $$AppProfilesTableUpdateCompanionBuilder =
+    AppProfilesCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<int> position,
+      Value<String> smartMode,
+      Value<String?> asrLanguage,
+      Value<String?> modelId,
+      Value<String> contextSource,
+      Value<String?> hotkeyKey,
+      Value<String?> hotkeyModifiers,
+      Value<String?> afterTranscription,
+      Value<String?> microphone,
+      Value<String?> consentProvider,
+      Value<bool> consentSelection,
+      Value<bool> consentClipboard,
+      Value<String?> consentTextVersion,
+      Value<DateTime?> consentGivenAt,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+      Value<int> rowid,
+    });
+
+class $$AppProfilesTableFilterComposer
+    extends Composer<_$HistoryDatabase, $AppProfilesTable> {
+  $$AppProfilesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get smartMode => $composableBuilder(
+    column: $table.smartMode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get asrLanguage => $composableBuilder(
+    column: $table.asrLanguage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get modelId => $composableBuilder(
+    column: $table.modelId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get contextSource => $composableBuilder(
+    column: $table.contextSource,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hotkeyKey => $composableBuilder(
+    column: $table.hotkeyKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hotkeyModifiers => $composableBuilder(
+    column: $table.hotkeyModifiers,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get afterTranscription => $composableBuilder(
+    column: $table.afterTranscription,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get microphone => $composableBuilder(
+    column: $table.microphone,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get consentProvider => $composableBuilder(
+    column: $table.consentProvider,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get consentSelection => $composableBuilder(
+    column: $table.consentSelection,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get consentClipboard => $composableBuilder(
+    column: $table.consentClipboard,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get consentTextVersion => $composableBuilder(
+    column: $table.consentTextVersion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get consentGivenAt => $composableBuilder(
+    column: $table.consentGivenAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppProfilesTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $AppProfilesTable> {
+  $$AppProfilesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get smartMode => $composableBuilder(
+    column: $table.smartMode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get asrLanguage => $composableBuilder(
+    column: $table.asrLanguage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get modelId => $composableBuilder(
+    column: $table.modelId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get contextSource => $composableBuilder(
+    column: $table.contextSource,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hotkeyKey => $composableBuilder(
+    column: $table.hotkeyKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hotkeyModifiers => $composableBuilder(
+    column: $table.hotkeyModifiers,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get afterTranscription => $composableBuilder(
+    column: $table.afterTranscription,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get microphone => $composableBuilder(
+    column: $table.microphone,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get consentProvider => $composableBuilder(
+    column: $table.consentProvider,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get consentSelection => $composableBuilder(
+    column: $table.consentSelection,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get consentClipboard => $composableBuilder(
+    column: $table.consentClipboard,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get consentTextVersion => $composableBuilder(
+    column: $table.consentTextVersion,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get consentGivenAt => $composableBuilder(
+    column: $table.consentGivenAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppProfilesTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $AppProfilesTable> {
+  $$AppProfilesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<String> get smartMode =>
+      $composableBuilder(column: $table.smartMode, builder: (column) => column);
+
+  GeneratedColumn<String> get asrLanguage => $composableBuilder(
+    column: $table.asrLanguage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get modelId =>
+      $composableBuilder(column: $table.modelId, builder: (column) => column);
+
+  GeneratedColumn<String> get contextSource => $composableBuilder(
+    column: $table.contextSource,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get hotkeyKey =>
+      $composableBuilder(column: $table.hotkeyKey, builder: (column) => column);
+
+  GeneratedColumn<String> get hotkeyModifiers => $composableBuilder(
+    column: $table.hotkeyModifiers,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get afterTranscription => $composableBuilder(
+    column: $table.afterTranscription,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get microphone => $composableBuilder(
+    column: $table.microphone,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get consentProvider => $composableBuilder(
+    column: $table.consentProvider,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get consentSelection => $composableBuilder(
+    column: $table.consentSelection,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get consentClipboard => $composableBuilder(
+    column: $table.consentClipboard,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get consentTextVersion => $composableBuilder(
+    column: $table.consentTextVersion,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get consentGivenAt => $composableBuilder(
+    column: $table.consentGivenAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$AppProfilesTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $AppProfilesTable,
+          AppProfileRow,
+          $$AppProfilesTableFilterComposer,
+          $$AppProfilesTableOrderingComposer,
+          $$AppProfilesTableAnnotationComposer,
+          $$AppProfilesTableCreateCompanionBuilder,
+          $$AppProfilesTableUpdateCompanionBuilder,
+          (
+            AppProfileRow,
+            BaseReferences<_$HistoryDatabase, $AppProfilesTable, AppProfileRow>,
+          ),
+          AppProfileRow,
+          PrefetchHooks Function()
+        > {
+  $$AppProfilesTableTableManager(_$HistoryDatabase db, $AppProfilesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppProfilesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppProfilesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppProfilesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<String> smartMode = const Value.absent(),
+                Value<String?> asrLanguage = const Value.absent(),
+                Value<String?> modelId = const Value.absent(),
+                Value<String> contextSource = const Value.absent(),
+                Value<String?> hotkeyKey = const Value.absent(),
+                Value<String?> hotkeyModifiers = const Value.absent(),
+                Value<String?> afterTranscription = const Value.absent(),
+                Value<String?> microphone = const Value.absent(),
+                Value<String?> consentProvider = const Value.absent(),
+                Value<bool> consentSelection = const Value.absent(),
+                Value<bool> consentClipboard = const Value.absent(),
+                Value<String?> consentTextVersion = const Value.absent(),
+                Value<DateTime?> consentGivenAt = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppProfilesCompanion(
+                id: id,
+                name: name,
+                position: position,
+                smartMode: smartMode,
+                asrLanguage: asrLanguage,
+                modelId: modelId,
+                contextSource: contextSource,
+                hotkeyKey: hotkeyKey,
+                hotkeyModifiers: hotkeyModifiers,
+                afterTranscription: afterTranscription,
+                microphone: microphone,
+                consentProvider: consentProvider,
+                consentSelection: consentSelection,
+                consentClipboard: consentClipboard,
+                consentTextVersion: consentTextVersion,
+                consentGivenAt: consentGivenAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                Value<int> position = const Value.absent(),
+                Value<String> smartMode = const Value.absent(),
+                Value<String?> asrLanguage = const Value.absent(),
+                Value<String?> modelId = const Value.absent(),
+                Value<String> contextSource = const Value.absent(),
+                Value<String?> hotkeyKey = const Value.absent(),
+                Value<String?> hotkeyModifiers = const Value.absent(),
+                Value<String?> afterTranscription = const Value.absent(),
+                Value<String?> microphone = const Value.absent(),
+                Value<String?> consentProvider = const Value.absent(),
+                Value<bool> consentSelection = const Value.absent(),
+                Value<bool> consentClipboard = const Value.absent(),
+                Value<String?> consentTextVersion = const Value.absent(),
+                Value<DateTime?> consentGivenAt = const Value.absent(),
+                required DateTime createdAt,
+                required DateTime updatedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => AppProfilesCompanion.insert(
+                id: id,
+                name: name,
+                position: position,
+                smartMode: smartMode,
+                asrLanguage: asrLanguage,
+                modelId: modelId,
+                contextSource: contextSource,
+                hotkeyKey: hotkeyKey,
+                hotkeyModifiers: hotkeyModifiers,
+                afterTranscription: afterTranscription,
+                microphone: microphone,
+                consentProvider: consentProvider,
+                consentSelection: consentSelection,
+                consentClipboard: consentClipboard,
+                consentTextVersion: consentTextVersion,
+                consentGivenAt: consentGivenAt,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppProfilesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $AppProfilesTable,
+      AppProfileRow,
+      $$AppProfilesTableFilterComposer,
+      $$AppProfilesTableOrderingComposer,
+      $$AppProfilesTableAnnotationComposer,
+      $$AppProfilesTableCreateCompanionBuilder,
+      $$AppProfilesTableUpdateCompanionBuilder,
+      (
+        AppProfileRow,
+        BaseReferences<_$HistoryDatabase, $AppProfilesTable, AppProfileRow>,
+      ),
+      AppProfileRow,
+      PrefetchHooks Function()
+    >;
+typedef $$AppProfileRulesTableCreateCompanionBuilder =
+    AppProfileRulesCompanion Function({
+      required String id,
+      required String profileId,
+      Value<int> position,
+      required String identifier,
+      Value<String?> teamId,
+      Value<int> rowid,
+    });
+typedef $$AppProfileRulesTableUpdateCompanionBuilder =
+    AppProfileRulesCompanion Function({
+      Value<String> id,
+      Value<String> profileId,
+      Value<int> position,
+      Value<String> identifier,
+      Value<String?> teamId,
+      Value<int> rowid,
+    });
+
+class $$AppProfileRulesTableFilterComposer
+    extends Composer<_$HistoryDatabase, $AppProfileRulesTable> {
+  $$AppProfileRulesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get identifier => $composableBuilder(
+    column: $table.identifier,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get teamId => $composableBuilder(
+    column: $table.teamId,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$AppProfileRulesTableOrderingComposer
+    extends Composer<_$HistoryDatabase, $AppProfileRulesTable> {
+  $$AppProfileRulesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get profileId => $composableBuilder(
+    column: $table.profileId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get position => $composableBuilder(
+    column: $table.position,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get identifier => $composableBuilder(
+    column: $table.identifier,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get teamId => $composableBuilder(
+    column: $table.teamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$AppProfileRulesTableAnnotationComposer
+    extends Composer<_$HistoryDatabase, $AppProfileRulesTable> {
+  $$AppProfileRulesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get profileId =>
+      $composableBuilder(column: $table.profileId, builder: (column) => column);
+
+  GeneratedColumn<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => column);
+
+  GeneratedColumn<String> get identifier => $composableBuilder(
+    column: $table.identifier,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get teamId =>
+      $composableBuilder(column: $table.teamId, builder: (column) => column);
+}
+
+class $$AppProfileRulesTableTableManager
+    extends
+        RootTableManager<
+          _$HistoryDatabase,
+          $AppProfileRulesTable,
+          AppProfileRuleRow,
+          $$AppProfileRulesTableFilterComposer,
+          $$AppProfileRulesTableOrderingComposer,
+          $$AppProfileRulesTableAnnotationComposer,
+          $$AppProfileRulesTableCreateCompanionBuilder,
+          $$AppProfileRulesTableUpdateCompanionBuilder,
+          (
+            AppProfileRuleRow,
+            BaseReferences<
+              _$HistoryDatabase,
+              $AppProfileRulesTable,
+              AppProfileRuleRow
+            >,
+          ),
+          AppProfileRuleRow,
+          PrefetchHooks Function()
+        > {
+  $$AppProfileRulesTableTableManager(
+    _$HistoryDatabase db,
+    $AppProfileRulesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AppProfileRulesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AppProfileRulesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AppProfileRulesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> profileId = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<String> identifier = const Value.absent(),
+                Value<String?> teamId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppProfileRulesCompanion(
+                id: id,
+                profileId: profileId,
+                position: position,
+                identifier: identifier,
+                teamId: teamId,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String profileId,
+                Value<int> position = const Value.absent(),
+                required String identifier,
+                Value<String?> teamId = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => AppProfileRulesCompanion.insert(
+                id: id,
+                profileId: profileId,
+                position: position,
+                identifier: identifier,
+                teamId: teamId,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$AppProfileRulesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$HistoryDatabase,
+      $AppProfileRulesTable,
+      AppProfileRuleRow,
+      $$AppProfileRulesTableFilterComposer,
+      $$AppProfileRulesTableOrderingComposer,
+      $$AppProfileRulesTableAnnotationComposer,
+      $$AppProfileRulesTableCreateCompanionBuilder,
+      $$AppProfileRulesTableUpdateCompanionBuilder,
+      (
+        AppProfileRuleRow,
+        BaseReferences<
+          _$HistoryDatabase,
+          $AppProfileRulesTable,
+          AppProfileRuleRow
+        >,
+      ),
+      AppProfileRuleRow,
+      PrefetchHooks Function()
+    >;
 
 class $HistoryDatabaseManager {
   final _$HistoryDatabase _db;
@@ -11307,9 +15443,17 @@ class $HistoryDatabaseManager {
       $$NotesTableTableManager(_db, _db.notes);
   $$NoteTagsTableTableManager get noteTags =>
       $$NoteTagsTableTableManager(_db, _db.noteTags);
+  $$NoteVersionsTableTableManager get noteVersions =>
+      $$NoteVersionsTableTableManager(_db, _db.noteVersions);
+  $$NoteAssetsTableTableManager get noteAssets =>
+      $$NoteAssetsTableTableManager(_db, _db.noteAssets);
   $$CorrectionObservationsTableTableManager get correctionObservations =>
       $$CorrectionObservationsTableTableManager(
         _db,
         _db.correctionObservations,
       );
+  $$AppProfilesTableTableManager get appProfiles =>
+      $$AppProfilesTableTableManager(_db, _db.appProfiles);
+  $$AppProfileRulesTableTableManager get appProfileRules =>
+      $$AppProfileRulesTableTableManager(_db, _db.appProfileRules);
 }

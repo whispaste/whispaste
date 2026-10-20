@@ -38,7 +38,7 @@ import 'package:whispaste/features/history/widgets/history_helpers.dart';
 import 'package:whispaste/features/history/widgets/history_search_filter_bar.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
-import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_icon_button.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -66,7 +66,10 @@ void main() {
 
   setUp(() => orchestrator = _FakeOrchestrator());
 
-  Future<WpButton> pumpBar(WidgetTester tester, RecordingPhase phase) async {
+  Future<WpIconButton> pumpBar(
+    WidgetTester tester,
+    RecordingPhase phase,
+  ) async {
     final controller = TextEditingController();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
@@ -101,7 +104,7 @@ void main() {
       ),
     );
     await tester.pump();
-    return tester.widget<WpButton>(find.byType(WpButton).first);
+    return tester.widget<WpIconButton>(find.byType(WpIconButton));
   }
 
   testWidgets('History offers the same primary action its sibling list screens '
@@ -110,16 +113,11 @@ void main() {
     final l10n = lookupL10n(const Locale('en'));
 
     expect(
-      button.label,
+      button.tooltip,
       l10n.historyNewRecording,
       reason:
           'the button must name what History collects — recordings — rather '
           'than borrowing the search field\'s "transcriptions" wording',
-    );
-    expect(
-      button.variant,
-      WpButtonVariant.primary,
-      reason: 'same hierarchy as Notes\' "new note" and the Add buttons',
     );
     expect(
       button.icon,
@@ -137,7 +135,7 @@ void main() {
     // The row itself: the field is the flexible half, the button the fixed
     // one. Their order is what makes History read like Notes.
     final field = tester.getRect(find.byType(WpSearchField));
-    final buttonRect = tester.getRect(find.byType(WpButton).first);
+    final buttonRect = tester.getRect(find.byType(WpIconButton));
     expect(
       buttonRect.left,
       greaterThan(field.right - 1),
@@ -160,7 +158,7 @@ void main() {
           'and would have no way to end it',
     );
     expect(
-      button.label,
+      button.tooltip,
       l10n.historyStopRecording,
       reason: 'the button must say what pressing it now does, not what it did',
     );
@@ -172,14 +170,14 @@ void main() {
           'stop symbol in the app, not two',
     );
     expect(
-      button.tone,
-      WpButtonTone.danger,
+      button.danger,
+      isTrue,
       reason:
           'same red WpVoiceInputButton turns while recording; the tone is '
           'what makes the state readable before the label is read',
     );
 
-    await tester.tap(find.byType(WpButton).first);
+    await tester.tap(find.byType(WpIconButton));
     await tester.pump();
     expect(
       orchestrator.toggles,
@@ -197,7 +195,7 @@ void main() {
     final button = await pumpBar(tester, RecordingPhase.transcribing);
 
     expect(
-      button.isLoading,
+      button.loading,
       isTrue,
       reason: 'the pipeline is working; the button says so',
     );
@@ -209,8 +207,8 @@ void main() {
           'live button would promise something it cannot do',
     );
     expect(
-      button.disabledTooltip,
-      isNotNull,
+      button.tooltip,
+      lookupL10n(const Locale('en')).statusTranscribing,
       reason:
           'a button that stops responding without saying why reads as broken '
           '— the running phase is the explanation',

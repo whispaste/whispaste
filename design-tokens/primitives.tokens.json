@@ -36,7 +36,7 @@
     },
     "amber": {
       "200": { "$value": "#FFD99E", "$description": "Soft amber for highlighter fills behind dark text." },
-      "400": { "$value": "#FFB547", "$description": "Warm accent: markers, hints, highlights. Never a button fill." },
+      "400": { "$value": "#FFB547", "$description": "Warm accent: markers, hints, highlights, and targeted accent surfaces (AA ink on it, see README)." },
       "800": { "$value": "#8A4B00", "$description": "Amber as text on light surfaces (AA on glacier.200)." }
     },
     "green": {
@@ -120,8 +120,10 @@
   },
   "radius": {
     "$type": "dimension",
+    "xs": { "$value": "4px", "$description": "Checkbox (20 px box) and micro indicators." },
+    "sm": { "$value": "8px", "$description": "Fields, buttons, dropdowns and the segmented frame (WP-14 spec §3–4)." },
     "chip": { "$value": "6px", "$description": "Micro chips and tags under ~24px height." },
-    "control": { "$value": "10px", "$description": "Inputs, small controls, thumbnails." },
+    "control": { "$value": "8px", "$description": "Every control: buttons, input fields, banners, error notices, keycaps (UIA-FND-02, one radius on every control)." },
     "card": { "$value": "14px", "$description": "Cards (WpRadius.lg range)." },
     "surface": { "$value": "20px", "$description": "Modals, image tiles, panels (WpRadius.xl)." },
     "panel": { "$value": "24px", "$description": "Large framed panels and hero illustrations." },

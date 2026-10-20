@@ -16,6 +16,7 @@ import 'package:whispaste/features/history/data/history_pin.dart';
 import 'package:whispaste/services/floating_button/floating_button_controller.dart';
 import 'package:whispaste/services/floating_button/floating_button_events.dart';
 import 'package:whispaste/services/floating_button/floating_button_service.dart';
+import 'package:whispaste/core/theme/overlay_customization.dart';
 
 class _MenuRecordingController implements FloatingButtonController {
   final _events = StreamController<FloatingButtonEvent>.broadcast();
@@ -45,6 +46,13 @@ class _MenuRecordingController implements FloatingButtonController {
 
   @override
   Future<void> setSize(int size) async {}
+
+  @override
+  Future<void> setTheme({
+    required String background,
+    required String wave,
+    FloatingButtonLook look = FloatingButtonLook.defaults,
+  }) async {}
 
   @override
   Future<({double x, double y})?> getPosition() async => null;

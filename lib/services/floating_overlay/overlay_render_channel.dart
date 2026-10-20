@@ -1,8 +1,47 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../shared_render_engine_helpers.dart' show RenderChannel;
 import 'floating_overlay_controller_interface.dart';
+import 'overlay_waveform_payload.dart';
+
+/// Acknowledges the first painted frame after each hidden→visible show.
+///
+/// The acknowledgement is scheduled as a framework post-frame callback, so it
+/// fires after the frame that presents the show has been built. It is sent once
+/// per show: further visible snapshots within the same show do not re-ack, and
+/// a hide before the frame cancels it.
+class OverlayFrameHeartbeat {
+  OverlayFrameHeartbeat({required this.onFrame});
+
+  /// Called once per show, after its first painted frame.
+  final void Function() onFrame;
+
+  bool _visible = false;
+  bool _pending = false;
+  bool _callbackScheduled = false;
+
+  /// Feed every snapshot the render engine receives.
+  void onSnapshot({required bool visible}) {
+    if (visible && !_visible) _pending = true;
+    if (!visible) _pending = false;
+    _visible = visible;
+    if (_pending && !_callbackScheduled) {
+      _callbackScheduled = true;
+      SchedulerBinding.instance.addPostFrameCallback(_ack);
+      // Do not rely on the caller to schedule the frame that runs the callback.
+      SchedulerBinding.instance.scheduleFrame();
+    }
+  }
+
+  void _ack(Duration _) {
+    _callbackScheduled = false;
+    if (!_pending || !_visible) return;
+    _pending = false;
+    onFrame();
+  }
+}
 
 /// The render-engine side of the overlay shell seam (ADR 0002 phase 2).
 ///
@@ -70,8 +109,8 @@ class OverlayRenderChannel implements RenderChannel {
       case 'setWaveformBars':
         final args = call.arguments;
         final raw = args is Map ? args['bars'] : null;
-        if (raw is List) {
-          final bars = raw.map((e) => (e as num?)?.toDouble() ?? 0.0).toList();
+        if (raw is List || raw is Uint8List) {
+          final bars = decodeWaveformBars(raw);
           final now = _clock();
           if (_lastWaveformLog == null ||
               now.difference(_lastWaveformLog!) >= _kLogThrottle) {
@@ -99,6 +138,17 @@ class OverlayRenderChannel implements RenderChannel {
   /// Asks the native shell to show its context menu at the cursor.
   void showContextMenu() {
     _channel.invokeMethod('showContextMenu');
+  }
+
+  /// Acknowledges that this engine painted a frame for the current show (see
+  /// [OverlayFrameHeartbeat]). The shell relays it to the main engine, which
+  /// stops the re-boot deadline. Only macOS consumes it; Windows answers
+  /// NotImplemented, so the failure is swallowed here instead of escaping.
+  void frameRendered() {
+    _channel.invokeMethod('frameRendered').catchError((Object error) {
+      debugPrint('[overlay-engine] frameRendered not handled: $error');
+      return null;
+    });
   }
 
   /// Tells the native shell the inbound handler is registered, so it can flush

@@ -23,14 +23,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/app.dart'
-    show activePageProvider, wpNavItems, wpPageWidgets, wpSettingsNavItem;
+    show
+        activePageProvider,
+        wpHelpNavItem,
+        wpNavItems,
+        wpPageWidgets,
+        wpSettingsNavItem;
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
-import 'package:whispaste/features/about/about_page.dart';
+import 'package:whispaste/features/help/help_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/features/history/history_page.dart';
@@ -88,7 +93,7 @@ class _FakeSttService extends SttServerStateNotifier {
       const SttStatus(serverState: SttServerState.ready, port: 9999);
 
   @override
-  Future<void> ensureRunning() async {
+  Future<void> ensureRunning({bool warmup = true}) async {
     state = state.copyWith(serverState: SttServerState.ready);
   }
 
@@ -228,7 +233,7 @@ class _TestNavShell extends ConsumerWidget {
           items: navItems,
           activeId: activePage,
           onItemTap: (id) => ref.read(activePageProvider.notifier).setPage(id),
-          bottomItems: [wpSettingsNavItem(l10n)],
+          bottomItems: [wpHelpNavItem(l10n), wpSettingsNavItem(l10n)],
         ),
         Expanded(child: wpPageWidgets[activePage] ?? const SizedBox.shrink()),
       ],
@@ -296,6 +301,8 @@ Future<List<String>> _collectOverflowErrors(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  // A tap that misses its target fails at once instead of passing silently.
+  WidgetController.hitTestWarningShouldBeFatal = true;
 
   // =========================================================================
   // 1. Navigation Smoke
@@ -362,7 +369,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('about page renders without exception', (tester) async {
+    testWidgets('help page renders without exception', (tester) async {
       await tester.pumpWidget(
         makeTestable(
           const _TestNavShell(),
@@ -372,7 +379,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip(l10n.navAbout));
+      await tester.tap(find.byKey(const ValueKey('sidebar-nav-help')));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
@@ -388,9 +395,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip(l10n.navFeedback));
+      // Feedback is a button on the Help page's support tab, not a sidebar entry.
+      await tester.tap(find.byKey(const ValueKey('sidebar-nav-help')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('help-hub-tab-support')));
+      await tester.pumpAndSettle();
+      // At 800×600 the button sits below the fold; an unscrolled tap misses
+      // it and the test never reached the feedback page.
+      final feedbackButton = find.byKey(const ValueKey('help-feedback-button'));
+      await tester.ensureVisible(feedbackButton);
+      await tester.pumpAndSettle();
+      await tester.tap(feedbackButton);
       await tester.pumpAndSettle();
 
+      // The comment field appears once a feedback type is chosen.
+      await tester.tap(find.bySemanticsIdentifier('feedback-type-question'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('feedbackCommentField')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -607,7 +628,7 @@ void main() {
       'history': const HistoryPage(),
       'replacements': const ReplacementsPage(),
       'analytics': const AnalyticsPage(),
-      'about': const AboutPage(),
+      'help': const HelpPage(),
       'feedback': const FeedbackPage(),
       'settings': const SettingsPage(),
     };

@@ -97,6 +97,25 @@ void main() {
       expect(result, 'hello deepgram');
     });
 
+    for (final (reply, expected) in [
+      ('Thank you for watching.', ''),
+      ('(Applaus)', ''),
+      ('Ich sage (Musik) laut.', 'Ich sage (Musik) laut.'),
+    ]) {
+      test('drops silence artefacts: "$reply" → "$expected"', () async {
+        final client = MockClient(
+          (_) async => http.Response(_deepgramResponse(reply), 200),
+        );
+        final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+        addTearDown(container.dispose);
+
+        final transcriber = container.read(_testTranscriberProvider(client));
+        await transcriber.prepare();
+
+        expect(await transcriber.transcribe(_silentWav()), expected);
+      });
+    }
+
     test('returns empty string on HTTP 200 with empty transcript', () async {
       final client = MockClient(
         (_) async => http.Response(_deepgramResponse(''), 200),
@@ -218,11 +237,17 @@ void main() {
       await expectLater(
         () => transcriber.prepare(),
         throwsA(
-          isA<TranscriberException>().having(
-            (e) => e.reason,
-            'reason',
-            TranscriberFailureReason.authError,
-          ),
+          isA<TranscriberException>()
+              .having(
+                (e) => e.reason,
+                'reason',
+                TranscriberFailureReason.authError,
+              )
+              .having(
+                (e) => e.message,
+                'message',
+                contains('Settings → Speech recognition'),
+              ),
         ),
       );
     });
@@ -386,7 +411,7 @@ void main() {
         final transcriber = container.read(
           _testTranscriberProvider(realClient),
         );
-        addTearDown(transcriber.release);
+        addTearDown(realClient.close);
 
         await transcriber.prepare();
         final result = await transcriber.transcribe(
@@ -426,7 +451,7 @@ void main() {
 
       final realClient = http.Client();
       final transcriber = container.read(_testTranscriberProvider(realClient));
-      addTearDown(transcriber.release);
+      addTearDown(realClient.close);
 
       await transcriber.prepare();
 

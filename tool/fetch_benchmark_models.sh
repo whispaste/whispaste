@@ -20,12 +20,12 @@ fetch() {
   mv "$2.part" "$2"
 }
 
-WHISPER_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin"
+WHISPER_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small-q5_1.bin"
 WHISPER_SHA256="ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb"
 fetch "$WHISPER_URL" "$DEST/ggml-small-q5_1.bin"
 echo "$WHISPER_SHA256  $DEST/ggml-small-q5_1.bin" | sha256sum -c -
 
-PARAKEET_BASE="https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/main"
+PARAKEET_BASE="https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8/resolve/2bda32ec70b097a55adaa07d9a7173915b43cc78"
 for file in encoder.int8.onnx decoder.int8.onnx joiner.int8.onnx tokens.txt; do
   fetch "$PARAKEET_BASE/$file" "$DEST/parakeet-tdt-0.6b-v3/$file"
 done

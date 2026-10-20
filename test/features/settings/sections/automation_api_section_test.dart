@@ -113,12 +113,49 @@ void main() {
 
         await tester.enterText(find.byType(TextField), '8766');
         await tester.pump();
+        // Saved on Enter (UIA-SET-08), not on every keystroke.
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pump();
 
         final container = ProviderScope.containerOf(
           tester.element(find.byType(AutomationApiSection)),
         );
         final persisted = await container.read(settingsProvider.future);
         expect(persisted.automationApi.customPort, 8766);
+      },
+    );
+
+    testWidgets(
+      'typing does not persist a port per keystroke; leaving the field '
+      'does (UIA-SET-08)',
+      (tester) async {
+        await tester.pumpWidget(_pump(tester));
+        await tester.pumpAndSettle();
+
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AutomationApiSection)),
+        );
+        // "1" and "10024" are both valid prefixes of a longer port in the
+        // middle of typing; only the finished value may reach settings.
+        await tester.enterText(find.byType(TextField), '1');
+        await tester.pump();
+        await tester.enterText(find.byType(TextField), '10024');
+        await tester.pump();
+        expect(
+          (await container.read(
+            settingsProvider.future,
+          )).automationApi.customPort,
+          isNull,
+        );
+
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pump();
+        expect(
+          (await container.read(
+            settingsProvider.future,
+          )).automationApi.customPort,
+          10024,
+        );
       },
     );
 
@@ -159,6 +196,8 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), '');
+      await tester.pump();
+      await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pump();
 
       final container = ProviderScope.containerOf(

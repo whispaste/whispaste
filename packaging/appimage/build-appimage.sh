@@ -57,6 +57,11 @@ install -Dm644 "$PKG_ROOT/packaging/flatpak/$APP_ID.metainfo.xml" \
 install -Dm644 "$PKG_ROOT/assets/icons/app_icon_512.png" \
   "$APPDIR/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
 
+# Licence text of libXScrnSaver, which the app links against (BIZ-92). The Flutter
+# bundle also carries it for the in-app licences page.
+install -Dm644 "$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)/assets/licenses/libxscrnsaver-LICENSE.txt" \
+  "$APPDIR/usr/share/licenses/libXScrnSaver/COPYING"
+
 # ── 2. Run linuxdeploy ───────────────────────────────────────────────────────
 # linuxdeploy bundles the executable's shared-library dependencies. The Flutter
 # plugin .so files already sit in the AppDir at usr/bin/lib (copied above);
@@ -76,6 +81,14 @@ linuxdeploy \
   --output appimage
 
 echo "Built $OUTPUT"
+# The undo idle gate needs libXss.so.1 (XScreenSaver). linuxdeploy bundles it
+# unless its excludelist matches, so warn loudly when the release log shows no
+# bundled copy; the README then keeps libxss1 as a host dependency.
+bundled_xss=$(find "$APPDIR" -name 'libXss.so.1*' -print -quit)
+if [ -z "$bundled_xss" ]; then
+  echo "::warning::libXss.so.1 is not bundled in the AppImage; hosts need libxss1" >&2
+fi
+
 
 # Stable-name alias (mirrors WhisPaste-Setup.exe / WhisPaste-macos-arm64.dmg):
 # the website links a version-less URL under releases/latest/download/, which

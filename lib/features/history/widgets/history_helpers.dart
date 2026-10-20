@@ -93,16 +93,14 @@ WpCategorySlot historyAvatarSlot(HistoryEntry entry) =>
 /// Entry avatar — colored circle with the microphone glyph every entry shares.
 ///
 /// "Belichtete Scheibe", now made of the same material as the nav rail's icon
-/// chips: [WpAvatarTint.discGradient] is a three-stop vertical ramp whose first
-/// tenth is a *precomposited* crown over a lit stop falling to a shaded one,
-/// plus a 1px hue-tinted rim. The gloss is baked into the gradient rather than
-/// painted as a second layer for the reason the chips already give — Flutter
-/// cannot pair a non-uniform `Border` with a shape — and it is what turns a
-/// tinted circle into something that looks lit rather than filled.
+/// chips: [WpAvatarTint.discGradient] is a two-stop vertical ramp from a lit
+/// top stop to a shaded bottom stop, plus a 1px hue-tinted rim. It carries no
+/// light source of its own (UIA-VIS-12); the rim and the ramp make it read as a
+/// lit solid rather than a flat fill.
 ///
 /// **Depth has one source per theme** (*The Depth-Source Rule*): the offset
 /// shadow is light-only. Dark takes its depth from the disc's brightness delta
-/// against the plane and from the crown; a black shadow on a near-black ground
+/// against the plane; a black shadow on a near-black ground
 /// is mud, not lift. Pearl keeps `WpShadows.subtleLight`, because there is
 /// almost no room above the plane for a fill to carry objecthood on its own.
 ///
@@ -145,7 +143,7 @@ class HistoryEntryAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final iconSize = (size * 0.44).roundToDouble();
-    const tint = WpAvatarTint.dark;
+    final tint = WpAvatarTint.current;
     return SizedBox(
       width: size + 6,
       height: size + 6,
@@ -176,7 +174,7 @@ class HistoryEntryAvatar extends StatelessWidget {
               top: 0,
               child: FaIcon(
                 FontAwesomeIcons.solidStar,
-                size: 11,
+                size: WpIconSize.xxs,
                 color: WpSharedColors.pinnedAccent,
               ),
             ),
@@ -197,8 +195,8 @@ class HistoryStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const fill = WpColors.surfaceMutedFill;
-    const text = WpColors.textSecondary;
+    final fill = WpColors.surfaceMutedFill;
+    final text = WpColors.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.xxs,
@@ -207,7 +205,7 @@ class HistoryStatusChip extends StatelessWidget {
       decoration: BoxDecoration(color: fill, borderRadius: WpRadius.borderSm),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: WpTypography.micro,
           color: text,
           fontWeight: FontWeight.w500,

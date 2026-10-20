@@ -28,9 +28,11 @@ class RecordingTriggerHandler {
     required this._pushToTalkEnabled,
     required this._registrarSupportsKeyUp,
     bool Function()? holdOrTapEnabled,
+    bool Function()? doubleTapEnabled,
     bool Function()? isRecording,
     DateTime Function()? clock,
   }) : _holdOrTapEnabled = holdOrTapEnabled ?? _never,
+       _doubleTapEnabled = doubleTapEnabled ?? _never,
        _isRecording = isRecording ?? _never,
        _clock = clock ?? DateTime.now;
 
@@ -43,8 +45,15 @@ class RecordingTriggerHandler {
 
   /// Hold-or-Tap: a press released before this duration is a tap (latches
   /// the recording like Toggle); held at least this long it is push-to-talk
-  /// (release stops). Mirrors Handy's `HoldOrToggle` threshold.
-  static const holdOrTapThreshold = Duration(milliseconds: 300);
+  /// (release stops). Hold-or-Tap always runs on one shared hotkey (toggle and
+  /// push-to-talk are not separate keys in this mode), so the threshold is
+  /// generous enough for slower presses. Hold-or-Tap has no double-tap path,
+  /// so this window never overlaps [_doubleTapWindow].
+  static const holdOrTapThreshold = Duration(milliseconds: 1000);
+
+  /// Push-to-talk double tap: two taps (presses shorter than [_minHoldMs])
+  /// within this window latch the recording hands-free.
+  static const _doubleTapWindow = Duration(milliseconds: 400);
 
   /// Hold-or-Tap: a key-down arriving while the key is still considered held
   /// is OS auto-repeat — unless the previous key-down is older than this, in
@@ -58,10 +67,16 @@ class RecordingTriggerHandler {
   final bool Function() _pushToTalkEnabled;
   final bool Function() _registrarSupportsKeyUp;
   final bool Function() _holdOrTapEnabled;
+  final bool Function() _doubleTapEnabled;
   final bool Function() _isRecording;
   final DateTime Function() _clock;
 
   DateTime? _keyDownAt;
+
+  /// Double-tap latch: when the last quick tap was released, and whether the
+  /// recording is latched hands-free (release no longer stops it).
+  DateTime? _lastQuickTapReleaseAt;
+  bool _latched = false;
 
   /// Hold-or-Tap press state: whether the key is currently held, when the
   /// last key-down event (accepted or repeat) arrived, and whether the
@@ -84,8 +99,23 @@ class RecordingTriggerHandler {
       return;
     }
     if (_pushToTalkEnabled() && _registrarSupportsKeyUp()) {
+      final now = _clock();
+      if (_latched) {
+        _latched = false;
+        _keyDownAt = null;
+        _log.debug('PTT keyDown while latched → stopRecording');
+        _stopRecording();
+        return;
+      }
+      if (_doubleTapEnabled() && _isDoubleTap(now)) {
+        _lastQuickTapReleaseAt = null;
+        _keyDownAt = null;
+        _latched = true;
+        _log.debug('PTT double tap → latched hands-free');
+        return;
+      }
       _log.debug('PTT keyDown → startRecording');
-      _keyDownAt = DateTime.now();
+      _keyDownAt = now;
       _startRecording();
     } else {
       _log.debug('Toggle keyDown → toggleRecording');
@@ -106,18 +136,23 @@ class RecordingTriggerHandler {
       return; // toggle mode — keyUp is a no-op
     }
 
+    if (_latched) return; // hands-free: releasing changes nothing
+
     final pressedAt = _keyDownAt;
     _keyDownAt = null;
 
     if (pressedAt == null) return;
 
-    final heldMs = DateTime.now().difference(pressedAt).inMilliseconds;
+    final releasedAt = _clock();
+    final heldMs = releasedAt.difference(pressedAt).inMilliseconds;
     if (heldMs < _minHoldMs) {
       _log.debug(
         'PTT keyUp ignored — held only ${heldMs}ms (< $_minHoldMs ms)',
       );
+      _lastQuickTapReleaseAt = releasedAt;
       return;
     }
+    _lastQuickTapReleaseAt = null;
 
     _log.debug('PTT keyUp → stopRecording (held ${heldMs}ms)');
 
@@ -134,6 +169,16 @@ class RecordingTriggerHandler {
     }
 
     _stopRecording();
+  }
+
+  /// Whether a press at [now] completes a double tap: the previous press was
+  /// a quick tap released within [_doubleTapWindow], and a recording is
+  /// running to latch.
+  bool _isDoubleTap(DateTime now) {
+    final lastRelease = _lastQuickTapReleaseAt;
+    return lastRelease != null &&
+        now.difference(lastRelease) < _doubleTapWindow &&
+        _isRecording();
   }
 
   void _onHybridKeyDown() {

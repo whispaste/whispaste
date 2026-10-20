@@ -72,6 +72,10 @@ class _FakeWhisperEngine implements WhisperEngine {
   /// engine seam any deeper.
   String? lastPrompt;
 
+  /// The raw text [transcribe] returns; tests override it to simulate what
+  /// whisper.cpp emits on silence or noise.
+  String responseText = 'fake transcript';
+
   @override
   WhisperEngineStatus get status =>
       WhisperEngineStatus(isLoaded: _loaded, backend: backend);
@@ -96,7 +100,7 @@ class _FakeWhisperEngine implements WhisperEngine {
     if (delay != null) {
       await Future<void>.delayed(delay);
     }
-    return 'fake transcript';
+    return responseText;
   }
 
   @override
@@ -120,6 +124,47 @@ class _FakeWhisperEngineWithTokenCounter extends _FakeWhisperEngine
   Future<int> countPromptTokens(String text) async {
     if (text.isEmpty) return 0;
     return text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+  }
+}
+
+/// Like the native engine: a transcription that finds the model unloaded, or
+/// loses it while running, fails with whisper_engine_not_loaded (Sentry
+/// 120963723).
+class _UnloadAwareEngine extends _FakeWhisperEngine {
+  int _inFlight = 0;
+
+  /// True when the engine was unloaded while a transcription was running on it.
+  bool unloadedDuringTranscribe = false;
+
+  @override
+  Future<void> unload() {
+    if (_inFlight > 0) unloadedDuringTranscribe = true;
+    return super.unload();
+  }
+
+  @override
+  Future<String> transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+  }) async {
+    if (!status.isLoaded) throw StateError('whisper_engine_not_loaded');
+    _inFlight++;
+    try {
+      final text = await super.transcribe(
+        wavBytes,
+        language: language,
+        prompt: prompt,
+        vadEnabled: vadEnabled,
+        reducedThreads: reducedThreads,
+      );
+      if (!status.isLoaded) throw StateError('whisper_engine_not_loaded');
+      return text;
+    } finally {
+      _inFlight--;
+    }
   }
 }
 
@@ -583,7 +628,9 @@ void main() {
         lessThan(0.8),
         reason: 'a 60ms transcribe over a 3s clip must read as fast',
       );
-      expect(settings.benchmarkHardwareId, 'cpu');
+      // The machine key is the hardware plus the app build (see
+      // benchmarkMachineKey); this test machine has no GPU.
+      expect(settings.benchmarkHardwareId, startsWith('cpu|'));
       expect(settings.benchmarkTimestamp, isNotNull);
     });
 
@@ -671,6 +718,24 @@ void main() {
         },
       );
 
+      test('a known whisper hallucination on silence is dropped to an empty '
+          'transcript instead of being pasted', () async {
+        final engine = _FakeWhisperEngine()
+          ..responseText = 'Thanks for watching!';
+        final container = _makeContainer(
+          engine: engine,
+          settings: AppSettings.defaults.copyWith(sttModel: 'whisper-small'),
+        );
+        addTearDown(container.dispose);
+
+        await container.read(settingsProvider.future);
+        final notifier = container.read(localSttBundleProvider.notifier);
+        await notifier.ensureRunning();
+        final text = await notifier.transcribeBytes(_validWavHeader());
+
+        expect(text, isEmpty);
+      });
+
       test('a customVocabulary over the real token budget is truncated to the '
           'budget instead of being silently dropped inside whisper.cpp with '
           'no signal anywhere in the app', () async {
@@ -719,4 +784,128 @@ void main() {
       );
     },
   );
+
+  // SW-04: lifecycle stress. Interleaves ensureRunning, stop, transcribeBytes
+  // and model switches (which fire the debounced prewarm) for 100 cycles. The
+  // invariant: no unexpected StateError. A transcription that arrives while
+  // the server is stopped gets the typed "not running" rejection and is not
+  // counted.
+  group('SttServerStateNotifier — lifecycle stress (SW-04)', () {
+    late Directory tempDir;
+
+    setUp(() async {
+      tempDir = await _createFakeSttDir();
+      await _addFakeModelFile(tempDir, 'whisper-medium');
+    });
+
+    tearDown(() async {
+      paths.sttDirOverride = null;
+      await tempDir.delete(recursive: true);
+    });
+
+    test(
+      '100 cycles of parallel ensureRunning, stop, transcribeBytes and model '
+      'switches raise no StateError or whisper_engine_not_loaded',
+      () async {
+        // Transcriptions run long enough for stop() and the model switch to
+        // land while one is in flight.
+        final engine = _UnloadAwareEngine()
+          ..transcribeDelay = const Duration(milliseconds: 20);
+        final container = _makeContainer(engine: engine);
+        addTearDown(container.dispose);
+
+        await container.read(settingsProvider.future);
+        final notifier = container.read(localSttBundleProvider.notifier);
+        final failures = <String>[];
+        var transcribed = 0;
+
+        Future<void> guarded(
+          String label,
+          Future<Object?> Function() call,
+        ) async {
+          try {
+            final result = await call();
+            if (label == 'transcribeBytes' && result is String) transcribed++;
+          } catch (e) {
+            final text = '$e';
+            // A transcription that arrives while the server is stopped gets
+            // the typed "not running" rejection up front. That is the
+            // intended answer, not the race under test.
+            if (text.contains('STT server is not running')) return;
+            if (text.contains('whisper_engine_not_loaded') || e is StateError) {
+              failures.add('$label: $text');
+            }
+          }
+        }
+
+        for (var cycle = 0; cycle < 100; cycle++) {
+          final model = cycle.isEven ? 'whisper-medium' : 'whisper-small';
+          // Phase 1: start and stop race each other.
+          await Future.wait<void>([
+            guarded('ensureRunning', () => notifier.ensureRunning()),
+            guarded('stop', () => notifier.stop()),
+          ]);
+          // Phase 2: a transcription is in flight when stop() and the model
+          // switch land on top of it.
+          await guarded('ensureRunning', () => notifier.ensureRunning());
+          final transcription = guarded(
+            'transcribeBytes',
+            () => notifier.transcribeBytes(_validWavHeader()),
+          );
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+          await Future.wait<void>([
+            transcription,
+            guarded('stop', () => notifier.stop()),
+            guarded(
+              'modelSwitch',
+              () => container
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(sttModel: model)),
+            ),
+          ]);
+          await Future<void>.delayed(const Duration(milliseconds: 1));
+        }
+
+        // Let the last debounced prewarm (500 ms) run to completion.
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+        await guarded('ensureRunning', () => notifier.ensureRunning());
+
+        final byKind = <String, int>{};
+        for (final f in failures) {
+          byKind.update(f, (n) => n + 1, ifAbsent: () => 1);
+        }
+        expect(
+          failures,
+          isEmpty,
+          reason: '${failures.length} StateErrors: $byKind',
+        );
+        // Guards against a vacuous pass: some transcriptions must have run.
+        expect(transcribed, greaterThan(0));
+      },
+    );
+
+    test('a model switch whose restart starts during a running transcription '
+        'does not unload the engine under it (SW-04)', () async {
+      final engine = _UnloadAwareEngine()
+        ..transcribeDelay = const Duration(milliseconds: 2500);
+      final container = _makeContainer(engine: engine);
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+
+      final transcription = notifier.transcribeBytes(_validWavHeader());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => s.copyWith(sttModel: 'whisper-medium'));
+
+      // The restart runs while the 2.5 s transcription is still in flight,
+      // past the 1 s stop drain window.
+      await notifier.ensureRunning();
+      expect(await transcription, 'fake transcript');
+      expect(engine.unloadedDuringTranscribe, isFalse);
+    });
+  });
 }

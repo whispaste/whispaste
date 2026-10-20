@@ -102,7 +102,7 @@ void main() {
 
   group('version upgrade', () {
     test(
-      're-prompts a snoozed "not now" user after a version upgrade',
+      'a version upgrade does not override a fresh "not now" snooze (R-03)',
       () async {
         final harness = await _bootstrap(prefs: const {}, activeEntries: 12);
         addTearDown(harness.container.dispose);
@@ -121,13 +121,94 @@ void main() {
           isFalse,
         );
 
-        // Upgrade to v2.0.0 → prompt re-activates once.
+        // Upgrade to v2.0.0 while the snooze is fresh → still blocked.
+        expect(
+          await _shouldShow(harness.container, appVersion: '2.0.0'),
+          isFalse,
+        );
+      },
+    );
+
+    test('a version upgrade re-prompts once the "not now" snooze has run out '
+        '(R-03)', () async {
+      final sixtyOneDaysAgo = DateTime.now()
+          .subtract(const Duration(days: 61))
+          .millisecondsSinceEpoch;
+      final harness = await _bootstrap(
+        prefs: {_lastShownVersionKey: '1.0.0', _lastSnoozeKey: sixtyOneDaysAgo},
+        activeEntries: 12,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect(await _shouldShow(harness.container, appVersion: '2.0.0'), isTrue);
+    });
+
+    test(
+      'a version re-prompt happens at most once per 365 days (R-03)',
+      () async {
+        final hundredDaysAgo = DateTime.now()
+            .subtract(const Duration(days: 100))
+            .millisecondsSinceEpoch;
+        final tenDaysAgo = DateTime.now()
+            .subtract(const Duration(days: 10))
+            .millisecondsSinceEpoch;
+        final harness = await _bootstrap(
+          prefs: {
+            _lastShownVersionKey: '1.0.0',
+            'review_prompt_last_version_reprompt': hundredDaysAgo,
+            // A recent completed review action keeps the regular cooldown
+            // active, so only the 365-day rule could allow a prompt here.
+            _lastShownKey: tenDaysAgo,
+          },
+          activeEntries: 12,
+        );
+        addTearDown(harness.container.dispose);
+
+        expect(
+          await _shouldShow(harness.container, appVersion: '2.0.0'),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'a version re-prompt is allowed again after 365 days (R-03)',
+      () async {
+        final yearAgo = DateTime.now()
+            .subtract(const Duration(days: 366))
+            .millisecondsSinceEpoch;
+        final harness = await _bootstrap(
+          prefs: {
+            _lastShownVersionKey: '1.0.0',
+            'review_prompt_last_version_reprompt': yearAgo,
+          },
+          activeEntries: 12,
+        );
+        addTearDown(harness.container.dispose);
+
         expect(
           await _shouldShow(harness.container, appVersion: '2.0.0'),
           isTrue,
         );
       },
     );
+
+    test('a version upgrade after a completed review action waits for the '
+        '30-day cooldown (R-03)', () async {
+      final tenDaysAgo = DateTime.now()
+          .subtract(const Duration(days: 10))
+          .millisecondsSinceEpoch;
+      final harness = await _bootstrap(
+        prefs: {_lastShownVersionKey: '1.0.0', _lastShownKey: tenDaysAgo},
+        activeEntries: 12,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect(
+        await _shouldShow(harness.container, appVersion: '2.0.0'),
+        isFalse,
+      );
+    });
 
     test(
       'never re-prompts a "never again" user, even after an upgrade',
@@ -266,4 +347,187 @@ void main() {
       expect(await _shouldShow(harness.container), isFalse);
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // GR-012 — dictations whose paste failed do not count toward the threshold
+  // ---------------------------------------------------------------------------
+
+  group('dictations whose paste failed (GR-012)', () {
+    test(
+      'a failed-paste dictation is excluded from the 12-entry threshold',
+      () async {
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 12);
+        addTearDown(harness.container.dispose);
+        await harness.container
+            .read(reviewPromptProvider.notifier)
+            .countUnpastedDictation(entryId: 'entry-0');
+
+        expect(await _shouldShow(harness.container), isFalse);
+      },
+    );
+
+    test('only the unpasted dictations are excluded, not the others', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 13);
+      addTearDown(harness.container.dispose);
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .countUnpastedDictation(entryId: 'entry-0');
+
+      expect(await _shouldShow(harness.container), isTrue);
+    });
+
+    test(
+      'the same entry is excluded once, however often it is counted',
+      () async {
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 13);
+        addTearDown(harness.container.dispose);
+        final notifier = harness.container.read(reviewPromptProvider.notifier);
+        await notifier.countUnpastedDictation(entryId: 'entry-0');
+        await notifier.countUnpastedDictation(entryId: 'entry-0');
+
+        expect(await _shouldShow(harness.container), isTrue);
+      },
+    );
+
+    test('a missing entry id (nothing was saved) excludes nothing', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 12);
+      addTearDown(harness.container.dispose);
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .countUnpastedDictation(entryId: null);
+
+      expect(await _shouldShow(harness.container), isTrue);
+    });
+
+    test(
+      'failed entries that history trimming moved out do not lower the total',
+      () async {
+        // Regression (growth review O4): the old lifetime counter kept
+        // subtracting trimmed failures, so the threshold became unreachable
+        // once the history limit had removed them.
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 12);
+        addTearDown(harness.container.dispose);
+        final notifier = harness.container.read(reviewPromptProvider.notifier);
+        for (var i = 0; i < 5; i++) {
+          await harness.db.upsertEntry(
+            HistoryEntriesCompanion.insert(
+              id: 'failed-$i',
+              timestamp: DateTime(2024, 1, 1).add(Duration(minutes: i)),
+            ),
+          );
+          await notifier.countUnpastedDictation(entryId: 'failed-$i');
+          await harness.db.customStatement(
+            'UPDATE history_entries SET deleted_at = ? WHERE id = ?',
+            [DateTime(2025, 6, 1).millisecondsSinceEpoch, 'failed-$i'],
+          );
+        }
+
+        expect(await harness.db.countActive(), 12);
+        expect(await _shouldShow(harness.container), isTrue);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // GR-009 — at most 3 native store requests per 365 days
+  // ---------------------------------------------------------------------------
+
+  group('native store request cap (GR-009)', () {
+    String daysAgoMs(int days) => DateTime.now()
+        .subtract(Duration(days: days))
+        .millisecondsSinceEpoch
+        .toString();
+
+    test('a first native request is allowed', () async {
+      final harness = await _bootstrap(prefs: const {});
+      addTearDown(harness.container.dispose);
+
+      expect(
+        await harness.container
+            .read(reviewPromptProvider.notifier)
+            .nativeRequestAllowed(),
+        isTrue,
+      );
+    });
+
+    test('the third request within 365 days is still allowed', () async {
+      final harness = await _bootstrap(
+        prefs: {
+          _nativeRequestsKey: [daysAgoMs(40), daysAgoMs(100)],
+        },
+      );
+      addTearDown(harness.container.dispose);
+
+      expect(
+        await harness.container
+            .read(reviewPromptProvider.notifier)
+            .nativeRequestAllowed(),
+        isTrue,
+      );
+    });
+
+    test('a fourth request within 365 days is blocked', () async {
+      final harness = await _bootstrap(
+        prefs: {
+          _nativeRequestsKey: [daysAgoMs(40), daysAgoMs(100), daysAgoMs(200)],
+        },
+      );
+      addTearDown(harness.container.dispose);
+
+      expect(
+        await harness.container
+            .read(reviewPromptProvider.notifier)
+            .nativeRequestAllowed(),
+        isFalse,
+      );
+    });
+
+    test('a request older than 365 days no longer counts', () async {
+      final harness = await _bootstrap(
+        prefs: {
+          _nativeRequestsKey: [daysAgoMs(370), daysAgoMs(100), daysAgoMs(40)],
+        },
+      );
+      addTearDown(harness.container.dispose);
+
+      expect(
+        await harness.container
+            .read(reviewPromptProvider.notifier)
+            .nativeRequestAllowed(),
+        isTrue,
+      );
+    });
+
+    test('markNativeRequested records the request and keeps the 30-day '
+        'cooldown', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 12);
+      addTearDown(harness.container.dispose);
+      final notifier = harness.container.read(reviewPromptProvider.notifier);
+
+      await notifier.markNativeRequested();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList(_nativeRequestsKey), hasLength(1));
+      expect(await _shouldShow(harness.container), isFalse);
+    });
+
+    test('only the last three request times are kept', () async {
+      final harness = await _bootstrap(
+        prefs: {
+          _nativeRequestsKey: [daysAgoMs(300), daysAgoMs(200), daysAgoMs(100)],
+        },
+      );
+      addTearDown(harness.container.dispose);
+
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .markNativeRequested();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getStringList(_nativeRequestsKey), hasLength(3));
+    });
+  });
 }
+
+/// SharedPreferences key for the native store request times (GR-009).
+const _nativeRequestsKey = 'review_prompt_native_request_ms';

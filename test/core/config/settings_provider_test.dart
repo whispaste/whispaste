@@ -8,8 +8,10 @@ import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/l10n/initial_locale.dart';
 import 'package:whispaste/core/l10n/locale_provider.dart';
 import 'package:whispaste/core/onboarding/onboarding_revision.dart';
+import 'package:whispaste/core/theme/persisted_appearance.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/settings_portability_service.dart'
     show mergeImportedSettings;
@@ -63,6 +65,73 @@ class FakeSecureKeyStore extends SecureKeyStore {
 }
 
 void main() {
+  group('initial app language (UIA-VIS-06)', () {
+    Future<(ProviderContainer, HistoryDatabase)> buildWithSystem(
+      List<Locale> system, {
+      Map<String, String>? stored,
+    }) async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      if (stored != null) await db.writeAppSettings(stored);
+      final c = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) {
+            ref.onDispose(db.close);
+            return db;
+          }),
+          secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+          systemLocalesProvider.overrideWithValue(system),
+        ],
+      );
+      await c.read(settingsProvider.future);
+      await c.read(settingsProvider.notifier).secureKeysFuture;
+      return (c, db);
+    }
+
+    test(
+      'first start with a German system takes German and persists it',
+      () async {
+        final (c, db) = await buildWithSystem([const Locale('de', 'DE')]);
+        addTearDown(c.dispose);
+
+        expect(c.read(localeProvider).languageCode, 'de');
+        expect((await db.readAppSettings())['locale'], 'de');
+      },
+    );
+
+    test(
+      'first start with an unsupported system language takes English',
+      () async {
+        final (c, db) = await buildWithSystem([const Locale('fr', 'FR')]);
+        addTearDown(c.dispose);
+
+        expect(c.read(localeProvider).languageCode, 'en');
+        expect((await db.readAppSettings())['locale'], 'en');
+      },
+    );
+
+    test('a stored English choice survives a German system', () async {
+      final (c, db) = await buildWithSystem([
+        const Locale('de', 'DE'),
+      ], stored: AppSettings.defaults.toStorageMap());
+      addTearDown(c.dispose);
+
+      expect(c.read(localeProvider).languageCode, 'en');
+      expect((await db.readAppSettings())['locale'], 'en');
+    });
+
+    test('a stored German choice is never overridden by the system', () async {
+      final (c, _) = await buildWithSystem(
+        [const Locale('en', 'US')],
+        stored: AppSettings.defaults
+            .copyWithSections(interface_: const InterfaceSettings(locale: 'de'))
+            .toStorageMap(),
+      );
+      addTearDown(c.dispose);
+
+      expect(c.read(localeProvider).languageCode, 'de');
+    });
+  });
+
   late HistoryDatabase db;
   late FakeSecureKeyStore fakeSecureStore;
   late ProviderContainer container;
@@ -97,6 +166,32 @@ void main() {
     expect(container.read(localeProvider), const Locale('en'));
   });
 
+  test('a failed save rolls the visible settings back and reports the failure '
+      '(UIA-SET-01)', () async {
+    final throwingDb = _ThrowingSettingsDatabase(NativeDatabase.memory());
+    final failingContainer = ProviderContainer(
+      overrides: [
+        historyDatabaseProvider.overrideWith((ref) {
+          ref.onDispose(throwingDb.close);
+          return throwingDb;
+        }),
+        secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+      ],
+    );
+    addTearDown(failingContainer.dispose);
+    await failingContainer.read(settingsProvider.future);
+    await failingContainer.read(settingsProvider.notifier).secureKeysFuture;
+
+    final before = failingContainer.read(settingsProvider).value!.showOverlay;
+    throwingDb.shouldThrow = true;
+    await failingContainer
+        .read(settingsProvider.notifier)
+        .updateSettings((s) => s.copyWith(showOverlay: !before));
+
+    expect(failingContainer.read(settingsProvider).value!.showOverlay, before);
+    expect(failingContainer.read(settingsSaveFailuresProvider), 1);
+  });
+
   test('persists updates in drift and can reset to defaults', () async {
     await container
         .read(settingsProvider.notifier)
@@ -122,7 +217,8 @@ void main() {
     final rowsAfterReset = await db.readAppSettings();
     final resetState = container.read(settingsProvider).value;
 
-    expect(rowsAfterReset, isEmpty);
+    // Only the internal idle-migration marker survives; no user setting does.
+    expect(rowsAfterReset, {kSttIdleDefaultMigrationKey: '1'});
     expect(resetState, isNotNull);
     expect(resetState!.locale, 'en');
     expect(resetState.showOverlay, false);
@@ -159,6 +255,33 @@ void main() {
     expect(rows['history_pin'], r'pbkdf2-sha256$1$c2FsdA==$aGFzaA==');
   });
 
+  test('resetToDefaults falls back to navy, and the mirror follows', () async {
+    final tempDir = Directory.systemTemp.createTempSync('wp_reset_appearance');
+    final mirror = File('${tempDir.path}/appearance');
+    appearanceMirrorPathOverride = mirror.path;
+    addTearDown(() {
+      appearanceMirrorPathOverride = null;
+      tempDir.deleteSync(recursive: true);
+    });
+    await container.read(settingsProvider.future);
+    await container
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            interface_: s.interface_.copyWith(appearance: AppearanceMode.light),
+          ),
+        );
+    expect(mirror.readAsStringSync(), 'light');
+
+    await container.read(settingsProvider.notifier).resetToDefaults();
+
+    expect(
+      container.read(settingsProvider).value!.interface_.appearance,
+      AppearanceMode.navy,
+    );
+    expect(readAppearanceMirror(), AppearanceMode.navy);
+  });
+
   test('resetToDefaults without a PIN still clears every row', () async {
     await container.read(settingsProvider.future);
     await container
@@ -171,7 +294,8 @@ void main() {
 
     await container.read(settingsProvider.notifier).resetToDefaults();
 
-    expect(await db.readAppSettings(), isEmpty);
+    // Only the internal idle-migration marker survives; no user setting does.
+    expect(await db.readAppSettings(), {kSttIdleDefaultMigrationKey: '1'});
     expect(
       container.read(settingsProvider).value!.history.historyHideOnOpen,
       isFalse,
@@ -257,6 +381,22 @@ void main() {
       // Keys are gone from secure storage.
       expect(await fakeSecureStore.readKey('wp_openai_api_key'), isNull);
       expect(await fakeSecureStore.readKey('wp_deepgram_api_key'), isNull);
+    });
+
+    test('the factory reset erases the Linux portal restore token', () async {
+      await fakeSecureStore.writeKey(linuxPortalRestoreTokenKey, 'rt-1');
+
+      await container.read(settingsProvider.notifier).eraseSecureStore();
+
+      expect(await fakeSecureStore.readKey(linuxPortalRestoreTokenKey), isNull);
+    });
+
+    test('the restore token is never part of the API key export', () async {
+      await fakeSecureStore.writeKey(linuxPortalRestoreTokenKey, 'rt-1');
+      expect(
+        await fakeSecureStore.readAllApiKeys(),
+        isNot(contains(linuxPortalRestoreTokenKey)),
+      );
     });
   });
 
@@ -746,6 +886,134 @@ void main() {
           50.0,
           reason: 'migration must not reset a volume the user raised later',
         );
+      },
+    );
+  });
+
+  group('stt idle default migration (maintainer decision 1a, 2026-10-19)', () {
+    /// One app start against [db]. The caller disposes the container.
+    Future<ProviderContainer> startApp(HistoryDatabase db) async {
+      final c = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          secureKeyStoreProvider.overrideWithValue(FakeSecureKeyStore()),
+        ],
+      );
+      await c.read(settingsProvider.future);
+      await c.read(settingsProvider.notifier).secureKeysFuture;
+      return c;
+    }
+
+    Future<void> setIdle(ProviderContainer c, int minutes) {
+      return c
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              stt: s.stt.copyWith(idleTimeoutMinutes: minutes),
+            ),
+          );
+    }
+
+    int idleOf(ProviderContainer c) =>
+        c.read(settingsProvider).value!.stt.idleTimeoutMinutes;
+
+    test('a stored 5 (old default) becomes 0 on the first start and '
+        'is persisted', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.writeAppSettings({'stt_idle_timeout_minutes': '5'});
+
+      final c = await startApp(db);
+      addTearDown(c.dispose);
+
+      expect(idleOf(c), 0);
+      final persisted = AppSettings.fromStorageMap(await db.readAppSettings());
+      expect(persisted.stt.idleTimeoutMinutes, 0);
+    });
+
+    test('a stored -1 (unreleased auto default) becomes 0', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.writeAppSettings({'stt_idle_timeout_minutes': '-1'});
+
+      final c = await startApp(db);
+      addTearDown(c.dispose);
+
+      expect(idleOf(c), 0);
+    });
+
+    test('a stored 10 stays 10', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.writeAppSettings({'stt_idle_timeout_minutes': '10'});
+
+      final c = await startApp(db);
+      addTearDown(c.dispose);
+
+      expect(idleOf(c), 10);
+    });
+
+    test('a stored 0 stays 0', () async {
+      final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(db.close);
+      await db.writeAppSettings({'stt_idle_timeout_minutes': '0'});
+
+      final c = await startApp(db);
+      addTearDown(c.dispose);
+
+      expect(idleOf(c), 0);
+    });
+
+    test(
+      'runs once: a 5 set by the user after the migration is kept',
+      () async {
+        final sharedDb = HistoryDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(sharedDb.close);
+        await sharedDb.writeAppSettings({'stt_idle_timeout_minutes': '5'});
+
+        final c1 = await startApp(sharedDb);
+        expect(idleOf(c1), 0, reason: 'first start migrates the old default');
+        await setIdle(c1, 5);
+        c1.dispose();
+
+        final c2 = await startApp(sharedDb);
+        addTearDown(c2.dispose);
+        expect(idleOf(c2), 5, reason: 'a deliberate 5 must survive restarts');
+      },
+    );
+
+    test(
+      'fresh install gets 0, and a 5 set later survives a restart',
+      () async {
+        final sharedDb = HistoryDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(sharedDb.close);
+
+        final c1 = await startApp(sharedDb);
+        expect(idleOf(c1), 0);
+        await setIdle(c1, 5);
+        c1.dispose();
+
+        final c2 = await startApp(sharedDb);
+        addTearDown(c2.dispose);
+        expect(idleOf(c2), 5);
+      },
+    );
+
+    test(
+      'a factory reset followed by a deliberate 5 survives a restart',
+      () async {
+        final sharedDb = HistoryDatabase.forTesting(NativeDatabase.memory());
+        addTearDown(sharedDb.close);
+        await sharedDb.writeAppSettings({'stt_idle_timeout_minutes': '5'});
+
+        final c1 = await startApp(sharedDb);
+        await c1.read(settingsProvider.notifier).resetToDefaults();
+        await setIdle(c1, 5);
+        c1.dispose();
+
+        final c2 = await startApp(sharedDb);
+        addTearDown(c2.dispose);
+        expect(idleOf(c2), 5);
       },
     );
   });

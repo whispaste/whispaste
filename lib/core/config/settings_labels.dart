@@ -3,9 +3,16 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
+
 import '../l10n/generated/app_localizations.dart';
+import '../../services/stt_parakeet/parakeet_model_registry.dart'
+    show parakeetModelId;
+import '../recording/recording_helpers.dart' show displayNameForModel;
 import 'settings_enums.dart';
 import 'settings_provider.dart';
+import 'whisper_languages.dart';
 
 /// Immutable presentation snapshot for the bottom status bar.
 ///
@@ -14,7 +21,7 @@ import 'settings_provider.dart';
 class StatusBarModel {
   const StatusBarModel({required this.sttModeLabel});
 
-  /// Active speech-to-text mode, e.g. "On device" or "OpenAI".
+  /// Active speech-to-text mode, e.g. "Whisper · small" or "OpenAI".
   final String sttModeLabel;
 }
 
@@ -23,47 +30,123 @@ StatusBarModel buildStatusBarModel({
   required AppSettings settings,
   required L10n l10n,
 }) {
-  return StatusBarModel(
-    sttModeLabel: settings.sttProviderType.isLocal
-        ? l10n.statusBarOnDevice
-        : settings.sttProvider,
-  );
+  return StatusBarModel(sttModeLabel: sttEngineModelLabel(settings, l10n));
 }
+
+/// The speech group's value on the dock (spec §2): the model's display name,
+/// such as "Whisper · Balanced" or "Parakeet". A cloud provider shows its own
+/// name. Never the raw model ID (UIA-NAM-02).
+String sttEngineModelLabel(AppSettings settings, L10n l10n) {
+  if (!settings.sttProviderType.isLocal) return settings.sttProvider;
+  if (settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+    return displayNameForModel(parakeetModelId, l10n);
+  }
+  return displayNameForModel(settings.stt.model, l10n);
+}
+
+/// The language group's value on the dock (XP-5-14): the recognition
+/// language's name, or a short "Auto" while the engine detects it — always
+/// with Parakeet, which has no language setting. [nameOf] gives a language
+/// code's name in the app language (CLDR); without one the catalog's
+/// English name is used.
+String sttLanguageDockLabel(
+  AppSettings settings,
+  L10n l10n, {
+  String? Function(String code)? nameOf,
+}) {
+  final code = settings.sttLanguageCode;
+  if (code == 'auto' ||
+      (settings.sttProviderType.isLocal &&
+          settings.onDeviceEngine == OnDeviceEngine.parakeet)) {
+    return l10n.dockLanguageAuto;
+  }
+  return nameOf?.call(code) ?? whisperLanguages[code] ?? code;
+}
+
+/// macOS modifier glyphs with the names that map to them, in the canonical
+/// macOS order ⌃⌥⇧⌘ (whatever order the shortcut was stored in).
+const _macModifierGlyphs = <(Set<String>, String)>[
+  ({'ctrl', 'control'}, '⌃'),
+  ({'alt'}, '⌥'),
+  ({'shift'}, '⇧'),
+  ({'meta', 'cmd', 'win', 'super'}, '⌘'),
+];
 
 /// Returns display labels for the modifier portion of a shortcut.
 ///
-/// When [l10n] is provided, labels are localized (e.g. "Strg" for German).
-/// On macOS, `meta` shows as "Cmd" and `alt` as "Option".
-/// Without l10n, falls back to English labels.
-List<String> hotkeyModifierLabels(String modifiers, {L10n? l10n}) {
+/// On macOS the known modifiers become glyphs in the canonical order ⌃⌥⇧⌘
+/// (the keycap style of the dock and Settings). Any modifier without a glyph
+/// (AltGr) keeps its word after them. Windows and Linux show localized words
+/// (e.g. "Strg" for German); `meta` is "Win" there, and on macOS a word
+/// fallback reads "Cmd"/"Option".
+///
+/// [isMacOS] defaults to the running platform (`defaultTargetPlatform`, so
+/// widget tests can pin it with `debugDefaultTargetPlatformOverride`).
+List<String> hotkeyModifierLabels(
+  String modifiers, {
+  L10n? l10n,
+  bool? isMacOS,
+}) {
   if (modifiers.isEmpty) return const [];
-  final isMac = _isMacOS;
-  return modifiers
+  final mac = isMacOS ?? _isMacOS;
+  final parts = modifiers
       .split('+')
       .map((modifier) => modifier.trim())
       .where((modifier) => modifier.isNotEmpty)
-      .map(
-        (modifier) => switch (modifier.toLowerCase()) {
-          'ctrl' || 'control' => l10n?.modifierCtrl ?? 'Ctrl',
-          'shift' => l10n?.modifierShift ?? 'Shift',
-          'alt' =>
-            isMac
-                ? (l10n?.modifierOption ?? 'Option')
-                : (l10n?.modifierAlt ?? 'Alt'),
-          'meta' || 'win' || 'super' =>
-            isMac ? (l10n?.modifierCmd ?? 'Cmd') : (l10n?.modifierWin ?? 'Win'),
-          'cmd' => l10n?.modifierCmd ?? 'Cmd',
-          // AltGr (Windows): stored distinctly so it survives a save and shows
-          // as "AltGr"; registers as Ctrl+Alt (see resolveModifiers) (#39).
-          'altgr' => l10n?.modifierAltGr ?? 'AltGr',
-          _ => modifier,
-        },
-      )
       .toList();
+  if (!mac) {
+    return [for (final part in parts) _modifierWord(part, l10n, mac: false)];
+  }
+  final lowered = [for (final part in parts) part.toLowerCase()];
+  return [
+    for (final (names, glyph) in _macModifierGlyphs)
+      if (lowered.any(names.contains)) glyph,
+    for (final part in parts)
+      if (_macGlyphFor(part.toLowerCase()) == null)
+        _modifierWord(part, l10n, mac: true),
+  ];
 }
 
-/// Cached platform check to avoid repeated dart:io calls.
-bool get _isMacOS => Platform.isMacOS;
+String? _macGlyphFor(String lowerName) {
+  for (final (names, glyph) in _macModifierGlyphs) {
+    if (names.contains(lowerName)) return glyph;
+  }
+  return null;
+}
+
+String _modifierWord(String modifier, L10n? l10n, {required bool mac}) {
+  return switch (modifier.toLowerCase()) {
+    'ctrl' || 'control' => l10n?.modifierCtrl ?? 'Ctrl',
+    'shift' => l10n?.modifierShift ?? 'Shift',
+    'alt' =>
+      mac ? (l10n?.modifierOption ?? 'Option') : (l10n?.modifierAlt ?? 'Alt'),
+    'meta' || 'win' || 'super' =>
+      mac ? (l10n?.modifierCmd ?? 'Cmd') : (l10n?.modifierWin ?? 'Win'),
+    'cmd' => l10n?.modifierCmd ?? 'Cmd',
+    // AltGr (Windows): stored distinctly so it survives a save and shows
+    // as "AltGr"; registers as Ctrl+Alt (see resolveModifiers) (#39).
+    'altgr' => l10n?.modifierAltGr ?? 'AltGr',
+    _ => modifier,
+  };
+}
+
+/// Platform check for the shortcut spelling. `defaultTargetPlatform` follows
+/// the host in production and honors `debugDefaultTargetPlatformOverride` in
+/// tests.
+bool get _isMacOS => defaultTargetPlatform == TargetPlatform.macOS;
+
+/// Whether hotkeys are spelled with macOS glyphs on this platform. Keycap
+/// rows use it to drop the textual "+" between key caps.
+bool get hotkeyUsesMacGlyphs => _isMacOS;
+
+/// The paste key as copy spells it: ⌘V on macOS, the Ctrl chord (localized,
+/// "Strg+V" in German) on Windows and Linux.
+String pasteShortcutLabel({L10n? l10n, bool? isMacOS}) {
+  final mac = isMacOS ?? _isMacOS;
+  return mac
+      ? '⌘V'
+      : formatHotkeyShortcut('ctrl', 'v', l10n: l10n, isMacOS: false);
+}
 
 /// Tooltip for the disabled push-to-talk switch when the platform reports no
 /// key-up. On Linux the desktop can still trigger recording through the
@@ -75,6 +158,20 @@ String pushToTalkUnavailableMessage(L10n l10n, {String? operatingSystem}) {
       ? l10n.pushToTalkUnavailableLinuxTooltip
       : l10n.pushToTalkUnavailableTooltip;
 }
+
+/// Subtitle of the Hold-to-record switch, shared by onboarding and Settings.
+/// With key-up it explains both states in one fixed line: a subtitle that
+/// followed the live value read as contradicting the title whenever the
+/// switch was off (UIA-XP-7-12). Without key-up the switch is locked to
+/// press-to-start, so the subtitle says that plus why.
+String holdToRecordSubtitle(
+  L10n l10n, {
+  required bool supportsKeyUp,
+  String? operatingSystem,
+}) => supportsKeyUp
+    ? l10n.holdToRecordExplained
+    : '${l10n.onboardingTriggerModeToggleHint}\n'
+          '${pushToTalkUnavailableMessage(l10n, operatingSystem: operatingSystem)}';
 
 /// Returns a localized label for the primary key portion of a shortcut.
 ///
@@ -119,29 +216,92 @@ List<String> hotkeyDisplayParts(
   String key, {
   L10n? l10n,
   String? displayOverride,
+  bool? isMacOS,
 }) {
   return [
-    ...hotkeyModifierLabels(modifiers, l10n: l10n),
+    ...hotkeyModifierLabels(modifiers, l10n: l10n, isMacOS: isMacOS),
     if (key.trim().isNotEmpty || (displayOverride?.trim().isNotEmpty ?? false))
       hotkeyKeyLabel(key, l10n: l10n, displayOverride: displayOverride),
   ];
 }
 
-/// Formats a shortcut like `ctrl+shift` + `D` into `Ctrl+Shift+D`.
+/// The three example shortcuts quoted in the recorder hint, spelled for the
+/// running platform (UX-018): keycap glyphs on macOS, localized modifier words
+/// on Windows and Linux, so the hint never shows English names in German.
+List<String> hotkeyRecorderExamples({L10n? l10n, bool? isMacOS}) => [
+  for (final (modifiers, key) in const [
+    ('alt', 'space'),
+    ('ctrl+alt', 'v'),
+    ('ctrl+alt+shift', 'r'),
+  ])
+    formatHotkeyShortcut(modifiers, key, l10n: l10n, isMacOS: isMacOS),
+];
+
+/// Formats a shortcut for display, with one spelling per platform used by
+/// every hotkey display (Settings, Snippets, onboarding, dock, tooltips).
+///
+/// Windows and Linux: the words joined by [separator], e.g. `Ctrl+Shift+D`.
+/// macOS: the keycap form, e.g. `⇧⌘ D` (glyphs in canonical order, a space,
+/// then the key). [separator] only applies on the word form.
+///
+/// [isMacOS] defaults to the running platform.
 String formatHotkeyShortcut(
   String modifiers,
   String key, {
   String separator = '+',
   L10n? l10n,
   String? displayOverride,
+  bool? isMacOS,
 }) {
-  return hotkeyDisplayParts(
+  final mac = isMacOS ?? _isMacOS;
+  if (!mac || !_onlyGlyphModifiers(modifiers)) {
+    return hotkeyDisplayParts(
+      modifiers,
+      key,
+      l10n: l10n,
+      displayOverride: displayOverride,
+      isMacOS: mac,
+    ).join(separator);
+  }
+  final prefix = hotkeyModifierLabels(
     modifiers,
+    l10n: l10n,
+    isMacOS: true,
+  ).join();
+  final keyLabel = hotkeyKeyLabel(
     key,
     l10n: l10n,
     displayOverride: displayOverride,
-  ).join(separator);
+  );
+  if (prefix.isEmpty) return keyLabel;
+  if (keyLabel.isEmpty) return prefix;
+  return '$prefix $keyLabel';
 }
+
+/// Whether every modifier of [modifiers] has a macOS glyph. A modifier
+/// without one (AltGr) keeps the whole shortcut in the word form.
+bool _onlyGlyphModifiers(String modifiers) => modifiers
+    .split('+')
+    .map((modifier) => modifier.trim().toLowerCase())
+    .where((modifier) => modifier.isNotEmpty)
+    .every((modifier) => _macGlyphFor(modifier) != null);
+
+/// Keycap spelling of a shortcut (spec §2, the mockup's "⌘ Ö"). Same as
+/// [formatHotkeyShortcut], which is the single place that decides the
+/// platform form; kept as the name the dock's call site uses.
+String formatHotkeyKeycap(
+  String modifiers,
+  String key, {
+  L10n? l10n,
+  String? displayOverride,
+  bool? isMacOS,
+}) => formatHotkeyShortcut(
+  modifiers,
+  key,
+  l10n: l10n,
+  displayOverride: displayOverride,
+  isMacOS: isMacOS,
+);
 
 /// Both label flavors for [action] in one pass — the status bar's compact
 /// "After: X" form and the Settings dropdown's full descriptive form — so
@@ -185,3 +345,15 @@ String afterTranscriptionSettingsLabel(
   AfterTranscriptionAction action,
   L10n l10n,
 ) => _afterTranscriptionLabels(action, l10n).settings;
+
+/// The bare action for the dock's output selector, without the "After:" or
+/// "Danach:" prefix: the overline already names the step.
+String afterTranscriptionDockLabel(
+  AfterTranscriptionAction action,
+  L10n l10n,
+) => switch (action) {
+  AfterTranscriptionAction.clipboard => l10n.dockOutputCopy,
+  AfterTranscriptionAction.paste => l10n.dockOutputPaste,
+  AfterTranscriptionAction.clipboardAndPaste => l10n.dockOutputBoth,
+  AfterTranscriptionAction.nothing => l10n.dockOutputNothing,
+};

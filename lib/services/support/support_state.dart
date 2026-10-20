@@ -171,11 +171,10 @@ class SupportStatusNotifier extends Notifier<SupportStatus> {
     await _setBool(_keyChipHidden, true);
   }
 
-  /// Hides the sponsor chip. Allowed only with a verified or self-declared
-  /// supporter status, so a browser click alone never removes the chip.
+  /// Hides the sponsor chip for every user (growth review R-12). The choice is
+  /// persisted, and a hidden chip also silences the automatic support prompt.
   Future<void> hideChip() async {
     await _loaded;
-    if (!state.suppressesPrompts) return;
     state = state.copyWith(chipHidden: true);
     await _setBool(_keyChipHidden, true);
   }

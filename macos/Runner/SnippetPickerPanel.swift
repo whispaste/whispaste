@@ -26,7 +26,9 @@ class SnippetPickerPanel: NSPanel {
     collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
     isOpaque = false
     backgroundColor = .clear
-    hasShadow = true
+    // The shadow is drawn by the Flutter body on every platform (PAR-017);
+    // a native shadow here would double it.
+    hasShadow = false
     isMovableByWindowBackground = false
   }
 

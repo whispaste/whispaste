@@ -51,7 +51,7 @@
 /// stroke depending on which sidebar entry the user had clicked, with nothing
 /// but the call site deciding. `lib/DESIGN.md` never sanctioned it either: it
 /// knows exactly one field style (filled, 8 dp radius, 1 dp `borderSubtle`,
-/// accent focus, no glow). So all four list toolbars — History, Notes,
+/// accent focus, no light effect). So all four list toolbars — History, Notes,
 /// Replacements, Snippets — plus Settings now share [outlined], and the
 /// sidebar switch no longer moves the field's geometry under the cursor.
 /// [capsule] stays, because it answers a different question: not "which list is
@@ -183,7 +183,9 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
+import 'wp_touch_target.dart';
 
 // ---------------------------------------------------------------------------
 // Axis
@@ -345,7 +347,7 @@ class _WpSearchFieldState extends State<WpSearchField> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const palette = _WpSearchFieldPalette._palette;
+    final palette = _WpSearchFieldPalette.current();
     final spec = _WpSearchFieldSpec.of(widget.variant);
     final clearLabel = widget.clearTooltip ?? l10n.actionClearSearch;
 
@@ -386,7 +388,7 @@ class _WpSearchFieldState extends State<WpSearchField> {
       controller: widget.controller,
       focusNode: _focusNode,
       autofocus: widget.autofocus,
-      // The icon slots hold the box at 48 dp — see the constraints below,
+      // The icon slots hold the box at the field height — see the constraints below,
       // which is what makes that true rather than platform-dependent. 48 is
       // taller than the text row's own padded height, so without this the
       // input keeps its top-aligned box and the text rides 4 dp above the
@@ -412,8 +414,8 @@ class _WpSearchFieldState extends State<WpSearchField> {
         // tight: that is what puts the same 16 dp in front of the glyph that
         // `contentPadding` puts in front of the text below.
         prefixIconConstraints: const BoxConstraints.tightFor(
-          width: WpLayout.minTouchTarget,
-          height: WpLayout.minTouchTarget,
+          width: _kFieldHeight,
+          height: _kFieldHeight,
         ),
         // The suffix holds a *Row* — the clear button, plus whatever the
         // caller passed in `suffix` (History stacks its help button there).
@@ -431,9 +433,9 @@ class _WpSearchFieldState extends State<WpSearchField> {
         // the app — so anything taller than [WpLayout.minTouchTarget] belongs
         // beside the field, not inside it.
         suffixIconConstraints: const BoxConstraints(
-          minWidth: WpLayout.minTouchTarget,
-          minHeight: WpLayout.minTouchTarget,
-          maxHeight: WpLayout.minTouchTarget,
+          minWidth: _kFieldHeight,
+          minHeight: _kFieldHeight,
+          maxHeight: _kFieldHeight,
         ),
         isDense: true,
         // Horizontal: matches the 16 dp the 48 dp prefix slot already puts in
@@ -524,13 +526,23 @@ class _WpSearchFieldState extends State<WpSearchField> {
     // taller slot. A call site that ever handed down a *bounded* height would
     // need one — hence that assertion, and the cross-area height equality
     // beside it.
-    return SizedBox(width: double.infinity, child: box);
+    // The 2 px ring above and below the 44 px field focuses the field, the
+    // way a tap on the field itself does (see WpTouchTarget).
+    // loam-ignore: a11y-interactive-semantics – the wrapped child keeps its own role and label; WpTouchTarget only enlarges the tap area and is excluded from semantics (see wp_touch_target.dart).
+    return WpTouchTarget(
+      onTap: () => _focusNode.requestFocus(),
+      child: SizedBox(width: double.infinity, child: box),
+    );
   }
 }
 
 // ---------------------------------------------------------------------------
 // Resolved tokens
 // ---------------------------------------------------------------------------
+
+/// Height of the field box (WP-14 §3). Icon slots are pinned to it so the
+/// box stays exactly this tall at every text size up to the floor.
+const double _kFieldHeight = WpShellTokens.fieldHeight;
 
 /// The field's colours for one theme, resolved once instead of ternary by
 /// ternary inside `build`.
@@ -584,11 +596,11 @@ class _WpSearchFieldPalette {
   /// stack (2026-08-11). The twin was not merely unreachable — it was
   /// wrong for this app, painting white on the accent fill where the
   /// dark palette paints the near-black background colour.
-  static const _palette = _WpSearchFieldPalette(
+  static _WpSearchFieldPalette current() => _WpSearchFieldPalette(
     surface: WpColors.cardFillElevated,
     mutedFill: WpColors.surfaceMutedFill,
     border: WpColors.borderSubtle,
-    cardEdge: WpColors.cardEdgeHighlight,
+    cardEdge: WpColors.controlEdge,
     textPrimary: WpColors.textPrimary,
     textMuted: WpColors.textMuted,
     accent: WpColors.accent,
@@ -628,7 +640,7 @@ class _WpSearchFieldSpec {
       bordered ? (overlayMaterial ? p.border : p.cardEdge) : Colors.transparent;
 
   static final _outlined = _WpSearchFieldSpec(
-    radius: WpRadius.borderSm,
+    radius: BorderRadius.circular(WpRadiusTokens.sm),
     overlayMaterial: false,
     bordered: true,
   );

@@ -13,6 +13,7 @@
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 
 // ---------------------------------------------------------------------------
 // SafetyEvent sealed class
@@ -32,6 +33,14 @@ sealed class SafetyEvent {
 /// No audio detected within [SafetyGuardConfig.deadMicTimeout] seconds.
 final class DeadMicTimeoutReached extends SafetyEvent {
   const DeadMicTimeoutReached();
+}
+
+/// No sample has reached the silence threshold yet, [SafetyGuard
+/// .noSignalWarningSeconds] after the start — the microphone may be muted or
+/// the wrong input. Emitted once per recording; non-terminal, so the
+/// recording keeps running and the dead-mic timeout still applies.
+final class NoSignalWarning extends SafetyEvent {
+  const NoSignalWarning();
 }
 
 /// Speech was detected, then silence for [SafetyGuardConfig.autoStopSilence]
@@ -55,6 +64,7 @@ final class DurationLimitReached extends SafetyEvent {
 // Convenience constants so call-sites can use the sealed-class hierarchy or
 // reference the familiar enum-style names.
 const SafetyEvent deadMicTimeoutReached = DeadMicTimeoutReached();
+const SafetyEvent noSignalWarning = NoSignalWarning();
 const SafetyEvent silenceAutoStop = SilenceAutoStop();
 const SafetyEvent durationWarningAt90 = DurationWarningAt90();
 const SafetyEvent durationLimitReached = DurationLimitReached();
@@ -102,7 +112,8 @@ class SafetyGuardConfig {
 /// (`Stream<double>`) into a stream of [SafetyEvent] values.
 ///
 /// **State machine** (entirely encapsulated — callers never touch it):
-/// - `_speechDetected`       — true once a sample ≥ [_silenceThreshold] arrives
+/// - `_speechDetected`       — true once the level stays ≥ [silenceThreshold]
+///   for [speechMinDuration]
 /// - `_silentSamples`        — consecutive below-threshold samples since last speech
 /// - `_guardFired`           — true after the first terminal event (prevents double-fire)
 /// - `_durationWarningFired` — true after [DurationWarningAt90] has been emitted
@@ -120,7 +131,24 @@ class SafetyGuard extends StreamTransformerBase<double, SafetyEvent> {
   /// Matches the original orchestrator constant: peak < 0.02 ≈ silent.
   static const double silenceThreshold = 0.02;
 
+  /// How long the level must stay at or above [silenceThreshold] before the
+  /// recording counts as containing speech.
+  static const Duration speechMinDuration = Duration(milliseconds: 300);
+
+  /// Longest silent dip that does not restart the [speechMinDuration] count.
+  /// Speech dips briefly between syllables; noise spikes are further apart.
+  static const Duration speechMaxGap = Duration(milliseconds: 80);
+
+  /// Seconds without any signal after the start before [NoSignalWarning].
+  static const double noSignalWarningSeconds = 1.0;
+
   final SafetyGuardConfig config;
+
+  /// At least one sample, rounded up, for [duration] at the configured rate.
+  int _samplesFor(Duration duration) => math.max(
+    1,
+    (config.samplesPerSecond * duration.inMilliseconds / 1000).ceil(),
+  );
 
   @override
   Stream<SafetyEvent> bind(Stream<double> stream) {
@@ -132,7 +160,12 @@ class SafetyGuard extends StreamTransformerBase<double, SafetyEvent> {
     var silentSamples = 0;
     var guardFired = false;
     var durationWarningFired = false;
+    var noSignalWarningFired = false;
     var elapsedSamples = 0;
+    final speechRun = _SpeechRun(
+      minSamples: _samplesFor(speechMinDuration),
+      maxGapSamples: _samplesFor(speechMaxGap),
+    );
 
     void emitTerminal(SafetyEvent event) {
       if (guardFired) return;
@@ -168,13 +201,36 @@ class SafetyGuard extends StreamTransformerBase<double, SafetyEvent> {
       final isSilent = level < silenceThreshold;
 
       if (!isSilent) {
-        speechDetected = true;
-        silentSamples = 0;
+        if (speechDetected) {
+          silentSamples = 0;
+          return;
+        }
+        // A click or a noise spike is loud for a sample or two; only a
+        // sustained level counts as speech. Until then the dead-mic count
+        // keeps running, so one spike cannot disarm it for the session.
+        if (speechRun.addLoud()) {
+          speechDetected = true;
+          silentSamples = 0;
+        }
         return;
       }
 
       // Silent sample.
+      speechRun.addSilent();
       silentSamples++;
+
+      // ── No-signal hint (no speech yet, non-terminal, once) ──────────────
+      // Only while dead-mic detection is enabled and fires later than the
+      // hint: the hint is a warning ahead of the terminal stop, never a
+      // second event on the same sample.
+      if (!speechDetected &&
+          !noSignalWarningFired &&
+          config.deadMicTimeout > noSignalWarningSeconds &&
+          silentSamples >=
+              (noSignalWarningSeconds * config.samplesPerSecond).round()) {
+        noSignalWarningFired = true;
+        controller.add(noSignalWarning);
+      }
 
       // ── Dead-mic detection (no speech yet) ──────────────────────────────
       if (!speechDetected && config.deadMicTimeout > 0) {
@@ -211,5 +267,26 @@ class SafetyGuard extends StreamTransformerBase<double, SafetyEvent> {
     );
 
     return controller.stream;
+  }
+}
+
+/// Counts a run of loud samples towards [SafetyGuard.speechMinDuration],
+/// tolerating silent dips of up to [maxGapSamples].
+class _SpeechRun {
+  _SpeechRun({required this.minSamples, required this.maxGapSamples});
+
+  final int minSamples;
+  final int maxGapSamples;
+  int _loud = 0;
+  int _gap = 0;
+
+  /// Returns true once the run is long enough to count as speech.
+  bool addLoud() {
+    _gap = 0;
+    return ++_loud >= minSamples;
+  }
+
+  void addSilent() {
+    if (++_gap > maxGapSamples) _loud = 0;
   }
 }

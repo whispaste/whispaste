@@ -21,6 +21,7 @@ import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
+import 'wp_touch_target.dart';
 
 final _log = AppLogger('DiscoverabilityHint');
 
@@ -93,23 +94,24 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
   Widget build(BuildContext context) {
     if (_seen != false) return const SizedBox.shrink();
 
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
 
     return Padding(
       padding: const EdgeInsets.only(top: WpSpacing.xxs),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        // Centred, so the text and the dismiss target share one middle line
+        // now that the target is 48 px tall.
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(LucideIcons.lightbulb, size: WpIconSize.xs, color: accent),
+          Icon(LucideIcons.lightbulb, size: WpIconSize.xs, color: accent),
           const SizedBox(width: WpSpacing.xxs),
           Expanded(
             child: Text(
               widget.text,
-              style: const TextStyle(
-                fontSize: WpTypography.caption,
-                color: textMuted,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: textMuted),
             ),
           ),
           const SizedBox(width: WpSpacing.xxs),
@@ -118,23 +120,26 @@ class _WpDiscoverabilityHintState extends State<WpDiscoverabilityHint> {
             button: true,
             child: Tooltip(
               message: L10n.of(context).hintDismiss,
-              child: WpFocusRing(
-                focusNode: _focusNode,
-                radius: WpRadius.sm,
-                child: InkWell(
-                  onTap: _dismiss,
+              child: WpTouchTarget(
+                onTap: _dismiss,
+                child: WpFocusRing(
                   focusNode: _focusNode,
-                  borderRadius: WpRadius.borderSm,
-                  focusColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  child: const Padding(
-                    padding: EdgeInsets.all(WpSpacing.xxs),
-                    child: Icon(
-                      LucideIcons.x,
-                      size: WpIconSize.xs,
-                      color: textMuted,
+                  radius: WpRadius.sm,
+                  child: InkWell(
+                    onTap: _dismiss,
+                    focusNode: _focusNode,
+                    borderRadius: WpRadius.borderSm,
+                    focusColor: Colors.transparent,
+                    hoverColor: Colors.transparent,
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    child: Padding(
+                      padding: const EdgeInsets.all(WpSpacing.xxs),
+                      child: Icon(
+                        LucideIcons.x,
+                        size: WpIconSize.xs,
+                        color: textMuted,
+                      ),
                     ),
                   ),
                 ),

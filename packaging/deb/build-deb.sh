@@ -69,6 +69,16 @@ install -d "$STAGE/usr/lib/modules-load.d"
 printf 'uinput\n' > "$STAGE/usr/lib/modules-load.d/whispaste-uinput.conf"
 chmod 644 "$STAGE/usr/lib/modules-load.d/whispaste-uinput.conf"
 
+# GNOME Shell focus extension. It is installed system-wide but stays disabled:
+# the user turns it on with `gnome-extensions enable <uuid>`, and the app asks
+# for consent later. It tells WhisPaste which window has focus under GNOME on
+# Wayland (see packaging/linux/gnome-shell-extension/).
+GNOME_EXT_UUID="whispaste-focus@whispaste.de"
+GNOME_EXT_SRC="$PKG_ROOT/packaging/linux/gnome-shell-extension/$GNOME_EXT_UUID"
+install -d "$STAGE/usr/share/gnome-shell/extensions/$GNOME_EXT_UUID"
+install -m644 "$GNOME_EXT_SRC/metadata.json" "$GNOME_EXT_SRC/extension.js" \
+  "$STAGE/usr/share/gnome-shell/extensions/$GNOME_EXT_UUID/"
+
 # ── 2. Control metadata ──────────────────────────────────────────────────────
 install -d "$STAGE/DEBIAN"
 sed "s/__VERSION__/$VERSION/" "$SCRIPT_DIR/control.template" \

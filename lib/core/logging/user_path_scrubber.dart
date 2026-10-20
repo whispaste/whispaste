@@ -25,7 +25,9 @@ String scrubUserPaths(String input, {String? home, String? userName}) {
 
   var out = input;
   if (home != null && home.length > 1) {
-    out = out.replaceAll(home, '~');
+    // Match whole path segments only: a home of `C:\Users\silvi` must not
+    // rewrite the prefix of `C:\Users\silvio`.
+    out = out.replaceAll(RegExp('${RegExp.escape(home)}(?![A-Za-z0-9_])'), '~');
   }
   out = out.replaceAllMapped(_profileDir, (m) => '${m[1]}<user>');
   if (userName != null && userName.length >= _minBareNameLength) {

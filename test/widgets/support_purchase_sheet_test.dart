@@ -149,19 +149,45 @@ void main() {
     expect(find.text(l10n.supportSheetPending), findsOneWidget);
   });
 
-  testWidgets('server error offers a retry that returns to the amounts', (
+  testWidgets(
+    'server error offers a retry that repeats the purchase (UIA-FBK-07)',
+    (tester) async {
+      final notifier = await _open(
+        tester,
+        purchaseResult: SupportPurchaseStatus.serverError,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('support-purchase-button')));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.supportSheetPurchaseError), findsOneWidget);
+
+      await tester.tap(find.byKey(const ValueKey('support-purchase-retry')));
+      await tester.pumpAndSettle();
+
+      // "Retry" buys the same amount again instead of going back to the amounts.
+      expect(notifier.calls, [
+        'purchase:whispaste.support.once.2',
+        'purchase:whispaste.support.once.2',
+      ]);
+      expect(find.text(l10n.supportSheetPurchaseError), findsOneWidget);
+    },
+  );
+
+  testWidgets('the purchase error is announced as a live region (UIA-FBK-07)', (
     tester,
   ) async {
     await _open(tester, purchaseResult: SupportPurchaseStatus.serverError);
 
     await tester.tap(find.byKey(const ValueKey('support-purchase-button')));
     await tester.pumpAndSettle();
-    expect(find.text(l10n.supportSheetPurchaseError), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('support-purchase-retry')));
-    await tester.pumpAndSettle();
     expect(
-      find.byKey(const ValueKey('support-purchase-button')),
+      find.ancestor(
+        of: find.text(l10n.supportSheetPurchaseError),
+        matching: find.byWidgetPredicate(
+          (w) => w is Semantics && w.properties.liveRegion == true,
+        ),
+      ),
       findsOneWidget,
     );
   });

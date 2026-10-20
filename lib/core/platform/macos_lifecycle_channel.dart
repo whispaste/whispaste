@@ -25,6 +25,23 @@ class MacOSLifecycleChannel {
 
   static const _channel = MethodChannel('com.whispaste.app_lifecycle');
 
+  /// Hides every application except WhisPaste (the standard Cmd+Option+H).
+  static Future<void> hideOtherApplications() =>
+      _invoke('hideOtherApplications');
+
+  /// Unhides every hidden application (the standard "Show All").
+  static Future<void> unhideAllApplications() =>
+      _invoke('unhideAllApplications');
+
+  static Future<void> _invoke(String method) async {
+    if (!Platform.isMacOS) return;
+    try {
+      await _channel.invokeMethod<void>(method);
+    } on PlatformException catch (e) {
+      _log.debug('$method failed', e);
+    }
+  }
+
   /// Show the app in Dock and App Switcher (normal app mode).
   static Future<void> setRegular() async {
     if (!Platform.isMacOS) return;

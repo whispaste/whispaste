@@ -14,6 +14,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
+import 'package:whispaste/features/notes/widgets/notes_list_tile.dart';
 import 'package:whispaste/widgets/find_replace_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -59,7 +60,7 @@ Note _sampleNote({
 }
 
 Finder _editorTextField() => find.descendant(
-  of: find.byType(NoteEditorPanel),
+  of: find.byKey(const ValueKey('notes-editor-body')),
   matching: find.byType(TextField),
 );
 
@@ -110,6 +111,51 @@ void main() {
       },
     );
 
+    testWidgets('Arrow Down/Up move the highlighted row one note at a time and '
+        'stop at both ends (UIA-R-NOT-025)', (tester) async {
+      final notes = [
+        _sampleNote(id: 'n1', content: 'First note'),
+        _sampleNote(id: 'n2', content: 'Second note'),
+        _sampleNote(id: 'n3', content: 'Third note'),
+      ];
+      await tester.pumpWidget(
+        makeTestable(
+          const NotesPage(),
+          overrides: [
+            notesProvider.overrideWith((ref) => Stream.value(notes)),
+            ..._noTagOverrides,
+          ],
+          locale: const Locale('en'),
+        ),
+      );
+      await _settle(tester);
+
+      String? highlighted() {
+        final tiles = tester.widgetList<NotesListTile>(
+          find.byType(NotesListTile),
+        );
+        final focused = tiles.where((t) => t.isFocused).toList();
+        return focused.length == 1 ? focused.single.note.id : null;
+      }
+
+      Future<void> press(LogicalKeyboardKey key) async {
+        await tester.sendKeyEvent(key);
+        await _settle(tester);
+      }
+
+      await press(LogicalKeyboardKey.arrowDown);
+      expect(highlighted(), 'n1');
+      await press(LogicalKeyboardKey.arrowDown);
+      expect(highlighted(), 'n2');
+      await press(LogicalKeyboardKey.arrowDown);
+      expect(highlighted(), 'n3');
+      // Clamps at the last row instead of wrapping to the first.
+      await press(LogicalKeyboardKey.arrowDown);
+      expect(highlighted(), 'n3');
+      await press(LogicalKeyboardKey.arrowUp);
+      expect(highlighted(), 'n2');
+    });
+
     testWidgets('Enter opens the focused note in the editor', (tester) async {
       final notes = [_sampleNote(id: 'n1', content: 'First note')];
       await tester.pumpWidget(
@@ -156,8 +202,10 @@ void main() {
 
       expect(find.text(l10n.notesMovedToTrash), findsOneWidget);
 
-      // Drain the toast's 4s auto-dismiss timer so no Timer outlives the test.
-      await tester.pumpAndSettle(const Duration(seconds: 5));
+      // Drain the undo toast's 10 s auto-dismiss timer (actionable minimum)
+      // so no Timer outlives the test.
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pumpAndSettle();
     });
 
     testWidgets(
@@ -183,7 +231,8 @@ void main() {
         await _settle(tester);
 
         expect(find.text(l10n.notesMovedToTrash), findsOneWidget);
-        await tester.pumpAndSettle(const Duration(seconds: 5));
+        await tester.pump(const Duration(seconds: 11));
+        await tester.pumpAndSettle();
       },
     );
 

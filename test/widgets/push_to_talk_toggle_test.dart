@@ -10,7 +10,7 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/features/settings/sections/feedback_section.dart';
+import 'package:whispaste/features/settings/sections/shortcuts_section.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/keyboard_up_monitor.dart';
 
@@ -117,7 +117,7 @@ void main() {
     });
 
     testWidgets(
-      'supportsKeyUp=false: Tooltip with unavailable message is present',
+      'supportsKeyUp=false: the unavailable reason is visible text, not only a tooltip',
       (tester) async {
         await tester.pumpWidget(_makeSection(supportsKeyUp: false));
         await tester.pump();
@@ -126,16 +126,17 @@ void main() {
           await L10n.delegate.load(const Locale('en')),
         );
 
-        final tooltips = tester
-            .widgetList<Tooltip>(find.byType(Tooltip))
-            .where((t) => t.message != null && t.message == expected)
-            .toList();
-
         expect(
-          tooltips,
-          isNotEmpty,
-          reason:
-              'A Tooltip with the platform\'s unavailable message must exist',
+          find.textContaining(expected),
+          findsWidgets,
+          reason: 'The reason must be printed under the row (UIA-SET-05)',
+        );
+        expect(
+          find
+              .byType(Tooltip)
+              .evaluate()
+              .where((e) => (e.widget as Tooltip).message == expected),
+          isEmpty,
         );
       },
     );

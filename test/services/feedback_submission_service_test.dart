@@ -8,7 +8,7 @@
 ///   2. [FeedbackSkippedNotConfigured] — empty key
 ///   3. [FeedbackSent] — HTTP 2xx
 ///   4. [FeedbackRateLimitedServer] — HTTP 429
-///   5. [FeedbackRateLimitedServer] — HTTP 400 body contains "rate_limited"
+///   5. [FeedbackRateLimitedServer] — HTTP 400 with a rate-limit trigger code
 ///   6. [FeedbackServerError] — HTTP 5xx
 ///   7. [FeedbackNetworkError] — SocketException
 library;
@@ -19,6 +19,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:logging/logging.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'package:whispaste/services/feedback_submission_service.dart';
@@ -143,19 +144,43 @@ void main() {
       expect(result, isA<FeedbackRateLimitedServer>());
     });
 
-    test(
-      'returns FeedbackRateLimitedServer on HTTP 400 with rate_limited body',
-      () async {
-        final client = MockClient(
-          (_) async =>
-              http.Response('{"message":"rate_limited","code":"P0001"}', 400),
-        );
-        final service = _makeService(client: client);
-        final result = await service.submit(_testPayload());
+    for (final message in [
+      'rate_limited',
+      'rate_limited: max 3 feedback submissions per 24 hours',
+      'ip_rate_limit_exceeded',
+      'device_rate_limit_exceeded',
+    ]) {
+      test(
+        'returns FeedbackRateLimitedServer on HTTP 400 with "$message"',
+        () async {
+          final messages = <CapturedMessage>[];
+          final client = MockClient(
+            (_) async => http.Response(
+              jsonEncode({'message': message, 'code': 'P0001'}),
+              400,
+            ),
+          );
+          final service = _makeService(client: client, messages: messages);
+          final result = await service.submit(_testPayload());
 
-        expect(result, isA<FeedbackRateLimitedServer>());
-      },
-    );
+          expect(result, isA<FeedbackRateLimitedServer>());
+          expect(messages, isEmpty);
+        },
+      );
+    }
+
+    test('does not treat a look-alike code as a rate limit', () async {
+      final client = MockClient(
+        (_) async => http.Response(
+          jsonEncode({'message': 'not_rate_limited_really', 'code': 'P0001'}),
+          400,
+        ),
+      );
+      final service = _makeService(client: client);
+      final result = await service.submit(_testPayload());
+
+      expect(result, isA<FeedbackServerError>());
+    });
 
     // ── FeedbackServerError ───────────────────────────────────────────────
 
@@ -236,6 +261,44 @@ void main() {
         expect(messages.first.level, SentryLevel.warning);
         expect(messages.first.extras['status_code'], 500);
         expect(messages.first.extras['body'], 'Internal Server Error');
+      },
+    );
+
+    test(
+      'a PostgREST error keeps code and message but not the failing row',
+      () async {
+        final messages = <CapturedMessage>[];
+        final logged = <String>[];
+        final sub = Logger.root.onRecord.listen((r) => logged.add(r.message));
+        addTearDown(sub.cancel);
+        final client = MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'code': '23514',
+              'message':
+                  'new row for relation "user_feedback" violates check '
+                  'constraint "user_feedback_text_len"',
+              'details':
+                  'Failing row contains (5, Great app!, user@example.com).',
+              'hint': null,
+            }),
+            400,
+          ),
+        );
+        final service = _makeService(client: client, messages: messages);
+        final result = await service.submit(_testPayload());
+
+        final extra = messages.single.extras['body'] as String;
+        expect(extra, contains('23514'));
+        expect(extra, contains('user_feedback_text_len'));
+        for (final text in [
+          extra,
+          (result as FeedbackServerError).body,
+          ...logged,
+        ]) {
+          expect(text, isNot(contains('Great app!')));
+          expect(text, isNot(contains('user@example.com')));
+        }
       },
     );
 

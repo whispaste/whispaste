@@ -73,7 +73,7 @@ class _BarIconButtonState extends State<_BarIconButton> {
         enabled: enabled,
         child: Tooltip(
           message: widget.label,
-          waitDuration: const Duration(milliseconds: 400),
+          waitDuration: WpMotion.tooltipWait,
           child: MouseRegion(
             cursor: enabled
                 ? SystemMouseCursors.click
@@ -100,7 +100,7 @@ class _BarIconButtonState extends State<_BarIconButton> {
                         : null,
                     borderRadius: WpRadius.borderSm,
                   ),
-                  child: Icon(widget.icon, size: 14, color: color),
+                  child: Icon(widget.icon, size: WpIconSize.xs, color: color),
                 ),
               ),
             ),
@@ -448,7 +448,7 @@ class _MatchCounter extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: WpColors.textMuted),
+            style: TextStyle(fontSize: 12, color: WpColors.textMuted),
           ),
         ),
       ),

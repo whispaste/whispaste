@@ -4,15 +4,24 @@ Zusätzliche Installationskanäle für WhisPaste neben Microsoft Store, Website-
 und GitHub Releases. Alle Manifeste zeigen auf die Assets der GitHub Releases
 (`whispaste/whispaste`, Tag `v<version>`).
 
+Linux-Formate im Repo: `.deb` (`packaging/deb/`), AppImage (`packaging/appimage/`),
+Snap (`packaging/snap/`), Flatpak (`packaging/flatpak/`). Es gibt **kein RPM-Spec**;
+ein RPM-Kanal existiert nicht. Die Laufzeitabhängigkeit `libxss1` steht in `.deb`
+`Depends`, im Snap-`runtime-libs` und ist für Flatpak noch nicht gegen die
+GNOME-Runtime geprüft (beim ersten Flatpak-Build prüfen).
+
 | Kanal | Datei | Plattform | Status |
 |---|---|---|---|
 | Scoop | `scoop/whispaste.json` | Windows x64 | ✅ sofort nutzbar |
 | winget | `winget/SilvioLindstedt.WhisPaste.*.yaml` | Windows x64 | ⚠️ PR an `microsoft/winget-pkgs` nötig |
 | Homebrew Cask | `homebrew/whispaste.rb` | macOS arm64 | ✅ veröffentlicht (Developer-ID-Notarization live seit v1.2.75) — `whispaste/homebrew-tap` |
 | Flatpak / Flathub | `flatpak/de.whispaste.app.yml` | Linux x86_64 | ⚠️ PR an `flathub/flathub` nötig — Runbook: `flatpak/README.md` |
+
+> **Flatpak caveat:** whether the GNOME 50 runtime ships libopusfile and libFLAC is not verified. Until it is, voice-note import (Ogg/Opus, FLAC, M4A) may be unavailable in the Flatpak build. The release notes say so (`CHANGELOG.md`, Unreleased).
 | AppImage | `appimage/build-appimage.sh` | Linux x86_64 | ✅ in `release.yml` gebaut, als Release-Asset angehängt — Runbook: `appimage/README.md` |
 | `.deb` (Debian/Ubuntu) | `deb/build-deb.sh` + `deb/control.template` | Linux x86_64 | ✅ in `release.yml` gebaut, als Release-Asset angehängt — Runbook: `deb/README.md` |
 | Snap (Snap Store / Ubuntu App Center) | `snap/snapcraft.yaml` | Linux x86_64 | ⚠️ `snapcraft upload` an den Snap Store nötig — Runbook: `snap/README.md` |
+| GNOME-Shell-Fokus-Erweiterung (optional) | `linux/gnome-shell-extension/` + `linux/install-gnome-extension.sh` | Linux, GNOME 45–50 | ✅ im `.deb` (deaktiviert) und im Linux-Tarball; EGO-Zip: `linux/make-gnome-extension-zip.sh` (vorbereitet, **nicht eingereicht**) |
 
 Beim Release einer neuen Version müssen `version` + `hash`/`sha256` in jedem
 Manifest aktualisiert werden (Scoop kann das via `checkver`/`autoupdate` selbst).
@@ -93,6 +102,36 @@ Cask nutzt das versionierte ZIP (`WhisPaste-<version>-macos-arm64.zip`), nicht d
 unversionierte DMG — saubere URL fürs Versionstracking.
 
 ---
+
+## Auto-Paste je Linux-Format
+
+Auto-Paste schickt den Einfügetastendruck über ein virtuelles Eingabegerät
+(`/dev/uinput`). Wie viel Zutun der Nutzer braucht, hängt vom Format ab. Der
+Onboarding-Hinweis wählt den Text nach dem erkannten Format
+(`lib/services/desktop_paste/linux_package_format.dart`).
+
+| Format | Auto-Paste | Schritt für Nutzer |
+|---|---|---|
+| `.deb` / nativ | funktioniert sofort | keiner |
+| Flatpak | über `--device=all` | udev-Regel `71-whispaste-uinput.rules` oder Gruppe `input` auf dem Host (Befehle brauchen Administratorrechte, sudo). WhisPaste selbst liest keine Eingabegeräte. Mit `--device=all` sind `/dev/input/*` in der Sandbox aber sichtbar: Hat der Benutzer auf dem Rechner Leserechte (z. B. als Mitglied der Gruppe `input`), könnte die App Tastatureingaben anderer Programme lesen. Mitglieder der Gruppe `input` können außerdem Tastatureingaben lesen und virtuelle Eingaben erzeugen. Wer das nicht möchte: Auto-Paste aus lassen, Text von Hand einfügen |
+| Snap | braucht die Schnittstelle `uinput` | einmal `sudo snap connect whispaste:uinput` |
+| AppImage | braucht Zugriff auf `/dev/uinput` | empfohlen: udev-Regel `71-whispaste-uinput.rules` nach `/etc/udev/rules.d/`, dann `sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput`. Alternative: `sudo usermod -aG input $USER`, danach ab- und wieder anmelden. Die Gruppe `input` kann virtuelle Eingaben erzeugen **und alle Tastatureingaben lesen**, auch die anderer Programme. Die Befehle brauchen **Administratorrechte** (sudo) |
+
+**Warum kein engeres Recht für Flatpak:** `--device=input` gibt in Flatpak nur
+`/dev/input` frei (Quelle: `common/flatpak-run.c`, Stand Flatpak-`main` am
+2026-10-18, dev-bind von `/dev/input`; Doku `doc/flatpak-run.xml`, `--device`).
+`/dev/uinput` liegt nicht darin, deshalb ist `--device=all` nötig. Ob der
+Schreibzugriff auf dem Host klappt, hängt zusätzlich an der udev-Regel bzw.
+der Gruppe `input`. Der Flatpak-Build ist auf einem echten System noch nicht
+geprüft (offenes Release-Tor, siehe `flatpak/README.md`, Abschnitt „Release-Tor“).
+
+**Lizenz:** `libXScrnSaver` 1.2.4 (X11, MIT-style) wird im Flatpak-Build gebaut
+und dort unter `/app/share/licenses/libXScrnSaver/COPYING` installiert; der
+Lizenztext liegt auch in `assets/licenses/libxscrnsaver-LICENSE.txt`.
+
+Erkannt wird das Format am Pfad der laufenden Programmdatei und an Markern, die
+nur die jeweilige Laufzeit setzt (`/.flatpak-info`, `SNAP`, `APPIMAGE` plus
+`APPDIR`). Umgebungsvariablen allein reichen nicht, weil Kindprozesse sie erben.
 
 ## Linux Direkt-Download (AppImage + `.deb`) — als Release-Asset angehängt
 

@@ -13,7 +13,6 @@ import 'package:whispaste/core/data/notes_providers.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
-import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 import 'package:whispaste/features/notes/widgets/notes_search_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -38,8 +37,10 @@ Note _note({required String id, required String content, DateTime? deletedAt}) {
   );
 }
 
+/// The note body. The panel's title field comes first in the tree now, so
+/// `.first` on the panel's fields would type into the title instead.
 Finder _editorTextFields() => find.descendant(
-  of: find.byType(NoteEditorPanel),
+  of: find.byKey(const ValueKey('notes-editor-body')),
   matching: find.byType(TextField),
 );
 

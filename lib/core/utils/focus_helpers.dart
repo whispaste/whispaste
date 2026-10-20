@@ -25,3 +25,12 @@ bool isTextFieldFocused() {
   if (context.widget is EditableText) return true;
   return context.findAncestorWidgetOfExactType<EditableText>() != null;
 }
+
+/// Index of the item [delta] steps away from [currentIndex] in a list of
+/// [length] items, clamped to the ends. A [currentIndex] of -1 (nothing
+/// focused yet) starts at the first item going forward and at the last going
+/// backward. [length] must be positive.
+int nextFocusIndex(int currentIndex, int delta, int length) {
+  if (currentIndex < 0) return delta > 0 ? 0 : length - 1;
+  return (currentIndex + delta).clamp(0, length - 1);
+}

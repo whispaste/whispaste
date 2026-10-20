@@ -6,6 +6,7 @@
 /// — plus the threshold gating that filters out transient peaks.
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -110,9 +111,15 @@ void main() {
       final future = probe.start();
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      // One loud chunk, then nothing — the sustained window resets the next
-      // poll because subsequent samples drop back to silence.
+      // One loud chunk, then the microphone keeps delivering silence — the
+      // sustained window resets at the next poll. (A source that delivers
+      // nothing at all holds its last level briefly; see AmplitudeFromPcm.)
       recorder.emitPcm(_pcmAtDbFs(-6));
+      final quiet = Timer.periodic(
+        const Duration(milliseconds: 20),
+        (_) => recorder.emitPcm(Uint8List(128)),
+      );
+      addTearDown(quiet.cancel);
 
       expect(await future, MicProbeOutcome.silence);
     });

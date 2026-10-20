@@ -5,6 +5,8 @@
 /// record daily stat, trim to max entries.
 library;
 
+import 'dart:math' as math;
+
 export 'drift_recording_store.dart';
 
 /// Input to [RecordingStore.save].
@@ -23,6 +25,11 @@ class RecordingInput {
     this.recordDailyStat = true,
     this.originalTranscript,
     this.targetApp,
+    this.entryId,
+    this.createdAt,
+    this.smartModeInput,
+    this.smartModeApplied = false,
+    this.detectedLanguage,
   });
 
   final String transcript;
@@ -30,6 +37,10 @@ class RecordingInput {
   final String modelId;
   final bool isLocal;
   final String languageCode;
+
+  /// Language the engine detected, when [languageCode] was `auto` (DEV-132).
+  /// Stored in the entry's `languageHint` column for retroactive runs.
+  final String? detectedLanguage;
   final bool applyTextReplacements;
 
   /// Transcript before live Smart-Mode refinement was applied (ticket 12) —
@@ -43,6 +54,13 @@ class RecordingInput {
   /// be pasted into (ticket 12) — `null` when no target was captured or the
   /// lookup is unsupported (Linux, quick note, interactive snippet).
   final String? targetApp;
+
+  /// Input of the Smart-Mode run that produced [transcript] (v27 undo). `null`
+  /// when it equals [originalTranscript] (BIZ-25) or no run changed the text.
+  final String? smartModeInput;
+
+  /// Whether a Smart-Mode run changed [transcript] (v27 undo marker).
+  final bool smartModeApplied;
 
   /// False for a quick-note dictation: text replacements still apply (below)
   /// but no row is written to `history_entries` — a quick note lives only in
@@ -60,7 +78,21 @@ class RecordingInput {
   final int historyMaxEntries;
   final int wordCount;
   final int processingDurationSec;
+
+  /// Fixed history entry ID. Set when the caller may save this recording
+  /// again later (see `PendingAudioQueue`), so a retry can detect an entry
+  /// that already exists. `null` lets the store generate one.
+  final String? entryId;
+
+  /// Capture time of the dictation. Set together with [entryId] for a
+  /// deferred save; `null` means "now".
+  final DateTime? createdAt;
 }
+
+/// Generates a history entry ID: `<epoch-ms>-<4 random digits>`.
+String newRecordingEntryId(DateTime now) =>
+    '${now.millisecondsSinceEpoch}-'
+    '${math.Random().nextInt(9999).toString().padLeft(4, '0')}';
 
 /// Result of [RecordingStore.save].
 class SavedRecording {
@@ -82,5 +114,13 @@ class SavedRecording {
 
 /// Saves a completed transcription to the history database.
 abstract class RecordingStore {
+  /// Applies the dictionary replacements to [text] and counts their usage.
+  /// Non-fatal: returns [text] unchanged if the replacements cannot be read.
+  Future<String> applyReplacements(String text);
+
+  /// Dictionary targets (the correct spellings), used as protected names by
+  /// the Smart-Mode fact guard. Non-fatal: empty when they cannot be read.
+  Future<List<String>> dictionaryTerms();
+
   Future<SavedRecording> save(RecordingInput input);
 }

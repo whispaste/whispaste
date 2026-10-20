@@ -110,7 +110,8 @@ class _SupportPurchaseContentState
       _SheetView.pending => _StatusText(text: l10n.supportSheetPending),
       _SheetView.purchaseError => _RetryText(
         text: l10n.supportSheetPurchaseError,
-        onRetry: () => setState(() => _purchaseView = null),
+        // Retry repeats the purchase of the chosen amount (UIA-FBK-07).
+        onRetry: () => _buy(_selected),
       ),
       _SheetView.succeeded => _ThankYou(l10n: l10n),
       _SheetView.products => _ProductList(
@@ -260,26 +261,29 @@ class _StatusText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        if (showSpinner) ...[
-          const SizedBox(
-            width: WpIconSize.sm,
-            height: WpIconSize.sm,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: WpSpacing.sm),
-        ],
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: WpColors.textSecondary,
-              fontSize: WpTypography.body,
+    return Semantics(
+      liveRegion: true,
+      child: Row(
+        children: [
+          if (showSpinner) ...[
+            const SizedBox(
+              width: WpIconSize.sm,
+              height: WpIconSize.sm,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: WpSpacing.sm),
+          ],
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: WpColors.textSecondary,
+                fontSize: WpTypography.body,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -339,7 +343,7 @@ class _ThankYou extends StatelessWidget {
         const SizedBox(height: WpSpacing.xs),
         Text(
           l10n.supportSheetThanksDetail,
-          style: const TextStyle(
+          style: TextStyle(
             color: WpColors.textSecondary,
             fontSize: WpTypography.body,
           ),

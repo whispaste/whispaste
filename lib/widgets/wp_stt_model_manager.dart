@@ -11,11 +11,13 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_info.dart' as app;
 import '../core/config/settings_provider.dart';
 import '../core/l10n/generated/app_localizations.dart';
 import '../features/settings/stt_model_selector.dart';
 import '../services/hardware_info_service.dart' as hw;
 import '../services/model_download_service.dart';
+import '../services/stt/benchmark_freshness.dart';
 import 'toast.dart';
 
 /// Settings-aware wrapper around [SttModelSelector].
@@ -52,10 +54,18 @@ class WpSttModelManager extends ConsumerWidget {
     final gpu = gpuAsync.value;
     final settings = ref.watch(settingsProvider).value;
     final currentModelId = settings?.effectiveModelId;
+    // Only results measured on this machine, build and compute path count.
+    final benchmarkRtf = settings == null || gpu == null
+        ? null
+        : benchmarkRtfForMachine(
+            benchmark: settings.benchmark,
+            gpu: gpu,
+            appVersion: app.appVersion,
+          );
 
     return SttModelSelector(
       currentModelId: currentModelId,
-      benchmarkRtf: settings?.tierBenchmarkRtf,
+      benchmarkRtf: benchmarkRtf,
       gpu: gpu,
       onModelSelected: (modelId) => ref
           .read(settingsProvider.notifier)

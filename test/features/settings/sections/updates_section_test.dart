@@ -3,7 +3,6 @@
 /// sinnvoll aus").
 library;
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,9 +15,9 @@ import 'package:whispaste/services/auto_updater_service.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/stable_revert_hint_service.dart';
 import 'package:whispaste/services/update_channel_service.dart';
-import 'package:whispaste/services/update_service.dart';
 
 import '../../../fixtures/test_helpers.dart';
+import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
 
 /// Fake for [StableRevertHintNotifier] — [checkAfterSwitchToStable] normally
 /// fetches+parses+compares against the real network; the pure logic is
@@ -63,22 +62,11 @@ class FakeSettingsNotifier extends SettingsNotifier {
   }
 }
 
-/// Rejects every request instantly — keeps the manual-check test hermetic
-/// (no real network call left pending after the test ends).
-class _RejectInterceptor extends Interceptor {
-  @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    handler.reject(
-      DioException(requestOptions: options, message: 'test: no network'),
-    );
-  }
-}
-
 /// Taps the [Switch] inside the [SettingRow] that shows [label].
 Future<void> _tapRowSwitch(WidgetTester tester, String label) async {
   final row = find.ancestor(
     of: find.text(label),
-    matching: find.byType(SettingRow),
+    matching: find.byType(WpSettingsRow),
   );
   await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));
   await tester.pump();
@@ -112,7 +100,12 @@ void main() {
     ) async {
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: UpdatesSection()),
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
           overrides: [
             settingsProvider.overrideWith(() => FakeSettingsNotifier()),
             deployChannelProvider.overrideWith((ref) => DeployChannel.portable),
@@ -132,7 +125,12 @@ void main() {
     testWidgets('toggling Beta-Updates off returns to stable', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: UpdatesSection()),
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
           overrides: [
             settingsProvider.overrideWith(() => FakeSettingsNotifier()),
             deployChannelProvider.overrideWith((ref) => DeployChannel.portable),
@@ -156,7 +154,12 @@ void main() {
       final notifier = FakeSettingsNotifier(); // checkUpdates defaults true
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: UpdatesSection()),
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
           overrides: [
             settingsProvider.overrideWith(() => notifier),
             deployChannelProvider.overrideWith((ref) => DeployChannel.portable),
@@ -170,12 +173,16 @@ void main() {
       expect(notifier.state.value!.updates.checkUpdates, isFalse);
     });
 
-    testWidgets('AC-4: section is hidden on the store deploy channel', (
-      tester,
-    ) async {
+    testWidgets('AC-4: store channel keeps the rows, disabled with the reason '
+        '(WP-23g)', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: UpdatesSection()),
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
           overrides: [
             deployChannelProvider.overrideWith((ref) => DeployChannel.store),
           ],
@@ -183,8 +190,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.settingsBetaUpdates), findsNothing);
-      expect(find.text(l10n.settingsCheckUpdates), findsNothing);
+      expect(find.text(l10n.settingsBetaUpdates), findsOneWidget);
+      expect(find.text(l10n.settingsCheckUpdates), findsOneWidget);
+      expect(find.text(l10n.settingsStoreUpdatesUnavailable), findsWidgets);
+      expect(find.text(l10n.settingsStoreBetaUnavailable), findsOneWidget);
+
+      final checkToggle = tester.widget<Switch>(
+        find.byKey(const ValueKey('settings-updates-check-toggle')),
+      );
+      final betaToggle = tester.widget<Switch>(
+        find.byKey(const ValueKey('settings-updates-beta-toggle')),
+      );
+      expect(checkToggle.onChanged, isNull);
+      expect(betaToggle.onChanged, isNull);
+      expect(
+        find.byKey(const ValueKey('settings-updates-check-now')),
+        findsNothing,
+      );
     });
 
     testWidgets(
@@ -192,7 +214,12 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
-            const SingleChildScrollView(child: UpdatesSection()),
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
             overrides: [
               deployChannelProvider.overrideWith(
                 (ref) => DeployChannel.packageManaged,
@@ -210,7 +237,12 @@ void main() {
     testWidgets('renders both controls on a non-store channel', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: UpdatesSection()),
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
           overrides: [
             settingsProvider.overrideWith(() => FakeSettingsNotifier()),
             deployChannelProvider.overrideWith((ref) => DeployChannel.portable),
@@ -221,58 +253,9 @@ void main() {
 
       expect(find.text(l10n.settingsCheckUpdates), findsOneWidget);
       expect(find.text(l10n.settingsBetaUpdates), findsOneWidget);
-      expect(find.text(l10n.settingsCheckForUpdatesNow), findsOneWidget);
+      expect(find.text(l10n.settingsCheckForUpdatesNow), findsNothing);
       expect(find.byType(Switch), findsNWidgets(2));
     });
-
-    testWidgets(
-      'PRD Bug 5: manual "check for updates now" button routes through the '
-      'shared triggerUpdateAction — before this fix, Settings had no manual '
-      'check at all',
-      (tester) async {
-        // Force the non-Sparkle branch so the tap deterministically calls
-        // `UpdateNotifier.checkForUpdate()` (observable via the phase
-        // transition) rather than the native Sparkle dialog.
-        platformSupportsSparkle = () => false;
-        // Instant-reject network — the assertion only needs the synchronous
-        // `checking` state set before the await, not a real round trip.
-        UpdateNotifier.dioOverrideForTesting = Dio()
-          ..interceptors.add(_RejectInterceptor());
-        addTearDown(() => UpdateNotifier.dioOverrideForTesting = null);
-
-        await tester.pumpWidget(
-          makeTestable(
-            const SingleChildScrollView(child: UpdatesSection()),
-            overrides: [
-              settingsProvider.overrideWith(() => FakeSettingsNotifier()),
-              deployChannelProvider.overrideWith(
-                (ref) => DeployChannel.portable,
-              ),
-            ],
-          ),
-        );
-        await tester.pumpAndSettle();
-
-        final container = ProviderScope.containerOf(
-          tester.element(find.byType(UpdatesSection)),
-        );
-        expect(container.read(updateProvider).phase, UpdatePhase.idle);
-
-        final row = find.ancestor(
-          of: find.text(l10n.settingsCheckForUpdatesNow),
-          matching: find.byType(SettingRow),
-        );
-        await tester.tap(
-          find.descendant(of: row, matching: find.byType(OutlinedButton)),
-        );
-        await tester.pump();
-
-        expect(container.read(updateProvider).phase, UpdatePhase.checking);
-
-        // Drain the rejected request so no timer is left pending at teardown.
-        await tester.pumpAndSettle();
-      },
-    );
   });
 
   group('UpdatesSection — stable-revert hint (Issue 06, AC-7/AC-3)', () {
@@ -283,7 +266,12 @@ void main() {
         final fake = FakeStableRevertHintNotifier();
         await tester.pumpWidget(
           makeTestable(
-            const SingleChildScrollView(child: UpdatesSection()),
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
             overrides: [
               settingsProvider.overrideWith(() => FakeSettingsNotifier()),
               deployChannelProvider.overrideWith(
@@ -315,7 +303,12 @@ void main() {
         final fake = FakeStableRevertHintNotifier(shouldShow: false);
         await tester.pumpWidget(
           makeTestable(
-            const SingleChildScrollView(child: UpdatesSection()),
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
             overrides: [
               settingsProvider.overrideWith(() => FakeSettingsNotifier()),
               deployChannelProvider.overrideWith(
@@ -343,7 +336,12 @@ void main() {
         final fake = FakeStableRevertHintNotifier();
         await tester.pumpWidget(
           makeTestable(
-            const SingleChildScrollView(child: UpdatesSection()),
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
             overrides: [
               settingsProvider.overrideWith(() => FakeSettingsNotifier()),
               deployChannelProvider.overrideWith(
@@ -374,7 +372,12 @@ void main() {
         final fake = FakeStableRevertHintNotifier();
         await tester.pumpWidget(
           makeTestable(
-            const SingleChildScrollView(child: UpdatesSection()),
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
             overrides: [
               settingsProvider.overrideWith(() => FakeSettingsNotifier()),
               deployChannelProvider.overrideWith(
@@ -409,7 +412,12 @@ void main() {
       final fake = FakeStableRevertHintNotifier();
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: UpdatesSection()),
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
           locale: const Locale('de'),
           overrides: [
             settingsProvider.overrideWith(() => FakeSettingsNotifier()),
@@ -424,14 +432,20 @@ void main() {
       expect(betaLabel, findsOneWidget);
       await tester.tap(
         find.descendant(
-          of: find.ancestor(of: betaLabel, matching: find.byType(SettingRow)),
+          of: find.ancestor(
+            of: betaLabel,
+            matching: find.byType(WpSettingsRow),
+          ),
           matching: find.byType(Switch),
         ),
       );
       await tester.pump();
       await tester.tap(
         find.descendant(
-          of: find.ancestor(of: betaLabel, matching: find.byType(SettingRow)),
+          of: find.ancestor(
+            of: betaLabel,
+            matching: find.byType(WpSettingsRow),
+          ),
           matching: find.byType(Switch),
         ),
       );

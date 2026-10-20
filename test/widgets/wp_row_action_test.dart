@@ -91,7 +91,7 @@ void main() {
         ),
       );
 
-      const muted = WpColorsDark.textMuted;
+      final muted = WpColors.textMuted;
       expect(
         _iconColor(tester),
         muted,
@@ -102,7 +102,7 @@ void main() {
 
       expect(
         _iconColor(tester),
-        WpColorsDark.error,
+        WpColors.error,
         reason: 'each theme must contribute its own error colour',
       );
     });

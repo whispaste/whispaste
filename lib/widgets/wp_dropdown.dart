@@ -16,13 +16,10 @@
 /// ## Why there is no size variant
 ///
 /// Merging the two wrappers left a `WpDropdownSize` enum behind, and the
-/// 32px `dense` trigger it offered made every settings row shorter than the
-/// search fields, form fields and buttons on the pages around it. There is
-/// now exactly one trigger, and it carries the app's single control
-/// geometry: [WpLayout.minTouchTarget] tall, [WpRadius.borderSm] round,
-/// [WpTypography.body] text — the same three values `WpButton`,
-/// `WpTextFieldVariant.form` and `WpSearchField` settle at, so a dropdown
-/// lines up with any of them on a shared line.
+/// 32px `dense` trigger it offered made every settings row shorter than its
+/// neighbours. There is now exactly one trigger: [WpShellTokens.controlHeight]
+/// (40, WP-14 §4) tall, [WpRadiusTokens.sm] round, [WpTypography.body] text.
+/// Buttons (48) and the search field (44) keep their own heights.
 ///
 /// ## What it fixes in the opened menu
 ///
@@ -50,21 +47,22 @@ import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
+import 'wp_touch_target.dart';
 
 // ---------------------------------------------------------------------------
 // Geometry
 // ---------------------------------------------------------------------------
 //
-// One trigger, one geometry — see the library docs. These four values are the
-// app's control family, not this widget's private taste: `WpButton`,
-// `WpTextFieldVariant.form` and `WpSearchField` all resolve to the same
-// height, radius and text size, which is what lets a dropdown share a line
-// with any of them.
+// One trigger, one geometry — see the library docs. WP-14 §4 fixes the closed
+// trigger's visible box at 40 px with an 8 px radius. Its tap area is the
+// 48 px touch target (`WpLayout.minTouchTarget`): the 4 px above and below
+// the box are a transparent `WpTouchTarget` ring that opens the menu.
 
-/// Resting height of the closed trigger.
-const double _kTriggerHeight = WpLayout.minTouchTarget;
+/// Resting height of the closed trigger (WP-14 §4).
+const double _kTriggerHeight = WpShellTokens.controlHeight;
 
 /// Chevron glyph — the same [WpIconSize.sm] every other 48px control puts in
 /// its icon slot.
@@ -81,6 +79,37 @@ const FontWeight _kActiveWeight = FontWeight.w600;
 /// glyph, and compensated for by [_WpDropdownState._menuWidth] so reserving
 /// it never costs label width.
 const double _kCheckGutter = WpIconSize.sm + WpSpacing.xs;
+
+/// Width of the trigger's outline. It sits inside the box, so it takes space
+/// from the label on each side.
+const double _kTriggerBorderWidth = 1;
+
+/// Width a trigger needs to show its widest of [labels] in one piece.
+///
+/// Measures every label in the trigger's own text style at the ambient text
+/// scaler, adds the trigger chrome (the horizontal inset, the gap before the
+/// chevron and the chevron itself) and rounds up to the 4 px grid. It is not
+/// capped: a caller caps it by the space its row has. Used by settings groups,
+/// where all dropdowns of one group must share one width.
+double wpDropdownFitWidth(BuildContext context, Iterable<String> labels) {
+  final style = Theme.of(context).textTheme.bodyLarge ?? const TextStyle();
+  final scaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  var widest = 0.0;
+  for (final label in labels) {
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: style),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    widest = math.max(widest, painter.width);
+    painter.dispose();
+  }
+  const chrome =
+      (WpSpacing.sm + _kTriggerBorderWidth) * 2 + WpSpacing.xs + _kChevronSize;
+  return ((widest + chrome) / 4).ceil() * 4.0;
+}
 
 // ---------------------------------------------------------------------------
 // Item model
@@ -197,7 +226,7 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
     });
 
     final theme = Theme.of(context);
-    const palette = _WpDropdownPalette._palette;
+    final palette = _WpDropdownPalette.current();
 
     // `bodyLarge`, not `titleMedium`: the trigger shows a *value*, exactly as
     // a text field does, and 13/w400 is what `WpTextFieldVariant.form` and
@@ -216,7 +245,7 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
     final menuSurface = palette.menuSurface;
     final focusWash = palette.focusWash;
     final hoverWash = palette.hoverWash;
-    final radius = WpRadius.borderSm;
+    final radius = BorderRadius.circular(WpRadiusTokens.sm);
 
     final dropdown = DropdownButton<T>(
       key: _buttonKey,
@@ -295,27 +324,43 @@ class _WpDropdownState<T> extends State<WpDropdown<T>> {
       ),
     );
 
-    return WpFocusRing(
-      focusNode: _focusNode,
-      radius: WpRadius.sm,
-      child: Container(
-        height: _kTriggerHeight,
-        decoration: BoxDecoration(
-          color: surface,
-          borderRadius: radius,
-          border: Border.all(color: border),
-        ),
-        child: DropdownButtonHideUnderline(
-          // Re-tints the row washes of the opened menu (Material captures the
-          // themes from this context for the menu route) as well as the
-          // trigger's own hover ink.
-          child: Theme(
-            data: theme.copyWith(focusColor: focusWash, hoverColor: hoverWash),
-            child: dropdown,
+    // loam-ignore: a11y-interactive-semantics – the wrapped child keeps its own role and label; WpTouchTarget only enlarges the tap area and is excluded from semantics (see wp_touch_target.dart).
+    return WpTouchTarget(
+      onTap: widget.onChanged == null ? null : _openMenu,
+      child: WpFocusRing(
+        focusNode: _focusNode,
+        radius: WpRadiusTokens.sm,
+        child: Container(
+          height: _kTriggerHeight,
+          decoration: BoxDecoration(
+            color: surface,
+            borderRadius: radius,
+            border: Border.all(color: border, width: _kTriggerBorderWidth),
+          ),
+          child: DropdownButtonHideUnderline(
+            // Re-tints the row washes of the opened menu (Material captures the
+            // themes from this context for the menu route) as well as the
+            // trigger's own hover ink.
+            child: Theme(
+              data: theme.copyWith(
+                focusColor: focusWash,
+                hoverColor: hoverWash,
+              ),
+              child: dropdown,
+            ),
           ),
         ),
       ),
     );
+  }
+
+  /// Opens the menu from the hit area around the trigger. It runs the same
+  /// action the trigger's own InkWell runs for Enter and Space, so the ring
+  /// and the trigger cannot drift apart.
+  void _openMenu() {
+    final context = _focusNode.context;
+    if (context == null) return;
+    Actions.maybeInvoke<ActivateIntent>(context, const ActivateIntent());
   }
 }
 
@@ -366,7 +411,7 @@ class _WpDropdownPalette {
   /// carries the control's shape. The **menu** is a route overlay floating
   /// over arbitrary content with no ambient underneath, so it takes the
   /// pre-composited [WpColors.floatingSurface] instead.
-  static const _palette = _WpDropdownPalette(
+  static _WpDropdownPalette current() => _WpDropdownPalette(
     surface: WpColors.cardFillElevated,
     border: WpColors.cardEdgeHighlight,
     textPrimary: WpColors.textPrimary,

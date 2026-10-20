@@ -150,9 +150,18 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(find.text(l10n.qualityTierCompactLabel), findsOneWidget);
-      expect(find.text(l10n.qualityTierBalancedLabel), findsOneWidget);
-      expect(find.text(l10n.qualityTierPremiumLabel), findsOneWidget);
+      expect(
+        find.text('Whisper · ${l10n.qualityTierCompactLabel}'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Whisper · ${l10n.qualityTierBalancedLabel}'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Whisper · ${l10n.qualityTierPremiumLabel}'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('no Drift database required — renders in isolation', (
@@ -184,7 +193,9 @@ void main() {
         await tester.pumpAndSettle();
 
         // Tap the Compact card (it's downloaded → triggers onModelSelected).
-        await tester.tap(find.text(l10n.qualityTierCompactLabel));
+        await tester.tap(
+          find.text('Whisper · ${l10n.qualityTierCompactLabel}'),
+        );
         await tester.pumpAndSettle();
 
         expect(selected, bestModelForTier(QualityTier.compact).id);
@@ -261,7 +272,7 @@ void main() {
     testWidgets('Compact tier tap downloads whisper-small', (tester) async {
       await assertTierDownloadsModel(
         tester,
-        tierLabel: 'Quick & Compact',
+        tierLabel: 'Whisper · Fast',
         expectedModelId: 'whisper-small',
       );
     });
@@ -269,7 +280,7 @@ void main() {
     testWidgets('Balanced tier tap downloads whisper-medium', (tester) async {
       await assertTierDownloadsModel(
         tester,
-        tierLabel: 'Balanced',
+        tierLabel: 'Whisper · Balanced',
         expectedModelId: 'whisper-medium',
       );
     });
@@ -279,7 +290,7 @@ void main() {
     ) async {
       await assertTierDownloadsModel(
         tester,
-        tierLabel: 'Best Quality',
+        tierLabel: 'Whisper · Accurate',
         expectedModelId: 'whisper-large-v3-turbo',
       );
     });
@@ -289,9 +300,9 @@ void main() {
       '(active highlight)',
       (tester) async {
         for (final entry in <String, String>{
-          'whisper-small': 'Quick & Compact',
-          'whisper-medium': 'Balanced',
-          'whisper-large-v3-turbo': 'Best Quality',
+          'whisper-small': 'Whisper · Fast',
+          'whisper-medium': 'Whisper · Balanced',
+          'whisper-large-v3-turbo': 'Whisper · Accurate',
         }.entries) {
           await tester.pumpWidget(
             _makeTestable(
@@ -348,6 +359,33 @@ void main() {
     );
 
     testWidgets(
+      'a recommendation from this machine\'s measurements says so on the badge',
+      (tester) async {
+        // The VRAM estimate alone would pick Compact; the measurement says
+        // Balanced is the best fast-enough tier here, so the badge follows it.
+        const gpu = hw.GpuInfo(
+          vendor: hw.GpuVendor.nvidia,
+          name: 'Test GPU',
+          vramMB: 1000,
+        );
+
+        await tester.pumpWidget(
+          _makeTestable(
+            gpu: gpu,
+            benchmarkRtf: const {
+              QualityTier.compact: 0.9,
+              QualityTier.balanced: 0.4,
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.qualityTierRecommendedMeasured), findsOneWidget);
+        expect(find.text(l10n.qualityTierRecommended), findsNothing);
+      },
+    );
+
+    testWidgets(
       'recommended badge renders only on the tier recommendTier() picks for '
       'this hardware',
       (tester) async {
@@ -368,7 +406,7 @@ void main() {
         // It sits on the Compact tier card, not Balanced or Premium.
         final compactRow = find
             .ancestor(
-              of: find.text(l10n.qualityTierCompactLabel),
+              of: find.text('Whisper · ${l10n.qualityTierCompactLabel}'),
               matching: find.byType(Row),
             )
             .first;
@@ -383,7 +421,7 @@ void main() {
 
         final balancedRow = find
             .ancestor(
-              of: find.text(l10n.qualityTierBalancedLabel),
+              of: find.text('Whisper · ${l10n.qualityTierBalancedLabel}'),
               matching: find.byType(Row),
             )
             .first;
@@ -487,7 +525,9 @@ void main() {
         await tester.pumpAndSettle();
 
         // --- Step 1: Tap the Compact tier card (not downloaded) ---
-        await tester.tap(find.text(l10n.qualityTierCompactLabel));
+        await tester.tap(
+          find.text('Whisper · ${l10n.qualityTierCompactLabel}'),
+        );
         await tester.pump();
 
         // downloadModel was called — download started.
@@ -528,6 +568,41 @@ void main() {
   // house-wide regression guard in
   // test/core/accessibility/no_double_announcement_test.dart).
   // -------------------------------------------------------------------------
+  group('recommendation reason (MV-03)', () {
+    testWidgets('names the CUDA card under the tiers', (tester) async {
+      await tester.pumpWidget(
+        _makeTestable(
+          gpu: const hw.GpuInfo(
+            vendor: hw.GpuVendor.nvidia,
+            name: 'NVIDIA GeForce RTX 3060',
+            vramMB: 12288,
+            cudaAvailable: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('settings-stt-recommendation-reason')),
+            )
+            .data,
+        l10n.recommendationReasonCuda('12'),
+      );
+    });
+
+    testWidgets('shows no reason without GPU info', (tester) async {
+      await tester.pumpWidget(_makeTestable());
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('settings-stt-recommendation-reason')),
+        findsNothing,
+      );
+    });
+  });
+
   group('tier row accessibility', () {
     /// How often [needle] occurs in [haystack].
     int occurrences(String haystack, String needle) =>
@@ -542,10 +617,13 @@ void main() {
           await tester.pumpAndSettle();
 
           final node = tester.getSemantics(
-            find.text(l10n.qualityTierCompactLabel),
+            find.text('Whisper · ${l10n.qualityTierCompactLabel}'),
           );
           expect(
-            occurrences(node.label, l10n.qualityTierCompactLabel),
+            occurrences(
+              node.label,
+              'Whisper · ${l10n.qualityTierCompactLabel}',
+            ),
             1,
             reason:
                 'a Semantics label here would double-announce the tier '
@@ -573,7 +651,7 @@ void main() {
           await tester.pumpAndSettle();
 
           final node = tester.getSemantics(
-            find.text(l10n.qualityTierCompactLabel),
+            find.text('Whisper · ${l10n.qualityTierCompactLabel}'),
           );
           expect(
             node.flagsCollection.isButton,
@@ -655,7 +733,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        lineColor(tester, l10n.qualityTierInfoSlow('2.0')),
+        lineColor(tester, l10n.qualityTierInfoSlow),
         WpCategorySlot.orchid.ramp(5)[4],
         reason:
             'the heaviest rung of the one hue, not a second hue — weight '
@@ -677,7 +755,7 @@ void main() {
 
       expect(
         lineColor(tester, l10n.qualityTierInfoBenchmarking),
-        WpColorsDark.textMuted,
+        WpColors.textMuted,
         reason:
             'an unmeasured tier has no position on an ordinal scale, so it '
             'takes no rung of the ramp at all',
@@ -705,7 +783,7 @@ void main() {
 
       expect(
         lineColor(tester, l10n.qualityTierInfoBenchmarking),
-        WpColorsDark.textMuted,
+        WpColors.textMuted,
         reason:
             'while measuring, the line must read as "no verdict yet", not '
             'as the estimate it is about to replace',

@@ -6,13 +6,16 @@
 /// test runs never collide on `kAutomationApiDefaultPort`.
 library;
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:shelf/shelf.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
@@ -22,12 +25,14 @@ import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/features/history/data/history_lock.dart';
 import 'package:whispaste/features/history/data/history_pin.dart';
 import 'package:whispaste/core/recording/recording_state.dart'
-    show recordingProvider;
+    show RecordingPhase, recordingPhaseProvider, recordingProvider;
+import 'package:whispaste/services/automation_api/multiline_paste_confirmation.dart';
 import 'package:whispaste/services/automation_api/automation_api_controller.dart';
 import 'package:whispaste/services/automation_api/automation_api_router.dart'
     show DictationTriggerResult;
 import 'package:whispaste/services/automation_api/automation_api_server.dart';
 import 'package:whispaste/services/paste/paster.dart';
+import 'package:whispaste/services/transcription/transcriber.dart';
 
 /// Delays only the *first-ever* call to [start] before delegating to the
 /// real bind logic — used to deterministically reproduce the race where a
@@ -127,6 +132,78 @@ Future<HttpClientResponse> _post(
   return request.close();
 }
 
+/// A valid 16 kHz mono 16-bit WAV header with 32 bytes of silence.
+final _tinyWav = <int>[
+  ...'RIFF'.codeUnits,
+  68,
+  0,
+  0,
+  0,
+  ...'WAVE'.codeUnits,
+  ...'fmt '.codeUnits,
+  16,
+  0,
+  0,
+  0,
+  1,
+  0,
+  1,
+  0,
+  0x80,
+  0x3e,
+  0,
+  0,
+  0,
+  0x7d,
+  0,
+  0,
+  2,
+  0,
+  16,
+  0,
+  ...'data'.codeUnits,
+  32,
+  0,
+  0,
+  0,
+  ...List<int>.filled(32, 0),
+];
+
+Future<HttpClientResponse> _postWav(
+  int port,
+  List<int> wav, {
+  String? bearer,
+}) async {
+  final client = HttpClient();
+  client.connectionTimeout = const Duration(seconds: 2);
+  final request = await client.post('127.0.0.1', port, '/v1/transcriptions');
+  request.headers.contentType = ContentType('audio', 'wav');
+  if (bearer != null) {
+    request.headers.set('authorization', 'Bearer $bearer');
+  }
+  request.add(wav);
+  return request.close();
+}
+
+Future<Object?> _readJson(HttpClientResponse response) async =>
+    jsonDecode(await utf8.decodeStream(response));
+
+class _FakeTranscriber implements Transcriber {
+  int calls = 0;
+
+  @override
+  Future<void> prepare() async {}
+
+  @override
+  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+    calls++;
+    return 'fake transcript';
+  }
+
+  @override
+  void release() {}
+}
+
 Future<HttpClientResponse> _postJson(
   int port,
   String path,
@@ -154,6 +231,7 @@ void main() {
   var triggerResult = const DictationTriggerResult(recording: true);
 
   ProviderContainer buildContainer({
+    List<Override> extra = const [],
     HistoryDatabase? db,
     _FakePaster? paster,
     // Ephemeral (OS-assigned) by default, same as every other test in this
@@ -177,6 +255,7 @@ void main() {
             return db;
           }),
         if (paster != null) pasterProvider.overrideWithValue(paster),
+        ...extra,
         automationApiControllerProvider.overrideWith(
           () => AutomationApiController(
             port: port,
@@ -346,6 +425,79 @@ void main() {
     expect(firstPort, secondPort);
   });
 
+  // XP-2-08: the stop log named its caller with a captured stack trace, which
+  // read like a crash in every SIGTERM shutdown log.
+  group('stop logging names the reason, without a stack trace', () {
+    late List<LogRecord> stopLogs;
+    late StreamSubscription<LogRecord> logSub;
+    late Level previousLevel;
+
+    setUp(() {
+      previousLevel = Logger.root.level;
+      Logger.root.level = Level.ALL;
+      stopLogs = [];
+      logSub = Logger.root.onRecord
+          .where((r) => r.message.startsWith('_stop:'))
+          .listen(stopLogs.add);
+    });
+
+    tearDown(() async {
+      await logSub.cancel();
+      Logger.root.level = previousLevel;
+    });
+
+    test('shutdown() of a server that never ran', () async {
+      container = buildContainer();
+      await container.read(automationApiControllerProvider.notifier).shutdown();
+
+      expect(stopLogs, hasLength(1));
+      expect(stopLogs.single.message, contains('app shutdown'));
+      expect(stopLogs.single.stackTrace, isNull);
+      expect(
+        container.read(automationApiControllerProvider).runState,
+        AutomationApiRunState.stopped,
+      );
+    });
+
+    test('shutdown() of a running server stops it', () async {
+      container = buildContainer();
+      final controller = container.read(
+        automationApiControllerProvider.notifier,
+      );
+      await controller.syncWithSettings(
+        AppSettings.defaults.copyWithSections(
+          automationApi: const AutomationApiSettings(enabled: true),
+        ),
+      );
+
+      await controller.shutdown();
+
+      expect(
+        container.read(automationApiControllerProvider).isRunning,
+        isFalse,
+      );
+      expect(stopLogs.single.message, contains('app shutdown'));
+      expect(stopLogs.single.stackTrace, isNull);
+    });
+
+    test('disabling in the settings', () async {
+      container = buildContainer();
+      final controller = container.read(
+        automationApiControllerProvider.notifier,
+      );
+      await controller.syncWithSettings(
+        AppSettings.defaults.copyWithSections(
+          automationApi: const AutomationApiSettings(enabled: true),
+        ),
+      );
+
+      await controller.syncWithSettings(AppSettings.defaults);
+
+      expect(stopLogs.single.message, contains('settings disabled'));
+      expect(stopLogs.single.stackTrace, isNull);
+    });
+  });
+
   group('port fallback (port robustness ticket)', () {
     test('the target port is already bound → the controller falls back to '
         'the next free port and reports both the actual and requested port '
@@ -507,6 +659,136 @@ void main() {
       expect(state.port, targetPort);
       expect(state.requestedPort, targetPort);
     });
+  });
+
+  group('POST /v1/transcriptions — dictation has priority', () {
+    Future<int> startEnabled(ProviderContainer c) async {
+      await c
+          .read(automationApiControllerProvider.notifier)
+          .syncWithSettings(
+            AppSettings.defaults.copyWithSections(
+              automationApi: const AutomationApiSettings(enabled: true),
+            ),
+          );
+      return c.read(automationApiControllerProvider).port!;
+    }
+
+    test('while a recording runs, the route answers 409 busy and the '
+        'transcriber is never used', () async {
+      final transcriber = _FakeTranscriber();
+      container = buildContainer(
+        extra: [
+          recordingPhaseProvider.overrideWithValue(RecordingPhase.recording),
+          transcriberProvider.overrideWithValue(transcriber),
+        ],
+      );
+      final port = await startEnabled(container);
+      final token = container.read(automationApiControllerProvider).token!;
+
+      final response = await _postWav(port, _tinyWav, bearer: token);
+
+      expect(response.statusCode, 409);
+      expect(await _readJson(response), {'error': 'busy'});
+      expect(transcriber.calls, 0);
+    });
+
+    test(
+      'while a dictation is being transcribed, the route is also busy',
+      () async {
+        final transcriber = _FakeTranscriber();
+        container = buildContainer(
+          extra: [
+            recordingPhaseProvider.overrideWithValue(
+              RecordingPhase.transcribing,
+            ),
+            transcriberProvider.overrideWithValue(transcriber),
+          ],
+        );
+        final port = await startEnabled(container);
+        final token = container.read(automationApiControllerProvider).token!;
+
+        final response = await _postWav(port, _tinyWav, bearer: token);
+
+        expect(response.statusCode, 409);
+        expect(transcriber.calls, 0);
+      },
+    );
+
+    for (final phase in [RecordingPhase.done, RecordingPhase.error]) {
+      test('an end state of ${phase.name} does not block the route', () async {
+        final transcriber = _FakeTranscriber();
+        container = buildContainer(
+          extra: [
+            recordingPhaseProvider.overrideWithValue(phase),
+            transcriberProvider.overrideWithValue(transcriber),
+          ],
+        );
+        final port = await startEnabled(container);
+        final token = container.read(automationApiControllerProvider).token!;
+
+        final response = await _postWav(port, _tinyWav, bearer: token);
+
+        expect(response.statusCode, 200);
+        expect(transcriber.calls, 1);
+      });
+
+      test('status for ${phase.name} agrees: busy false', () async {
+        container = buildContainer(
+          extra: [recordingPhaseProvider.overrideWithValue(phase)],
+        );
+        final port = await startEnabled(container);
+        final token = container.read(automationApiControllerProvider).token!;
+
+        final response = await _get(port, path: '/v1/status', bearer: token);
+        final json = await _readJson(response) as Map;
+
+        expect((json['dictation'] as Map)['busy'], isFalse);
+      });
+    }
+
+    test(
+      'status for transcribing agrees: busy true, and the route gives 409',
+      () async {
+        container = buildContainer(
+          extra: [
+            recordingPhaseProvider.overrideWithValue(
+              RecordingPhase.transcribing,
+            ),
+          ],
+        );
+        final port = await startEnabled(container);
+        final token = container.read(automationApiControllerProvider).token!;
+
+        final status =
+            await _readJson(await _get(port, path: '/v1/status', bearer: token))
+                as Map;
+        final upload = await _postWav(port, _tinyWav, bearer: token);
+
+        expect((status['dictation'] as Map)['busy'], isTrue);
+        expect(upload.statusCode, 409);
+      },
+    );
+
+    test(
+      'when idle, the WAV is transcribed and the transcript returned',
+      () async {
+        final transcriber = _FakeTranscriber();
+        container = buildContainer(
+          extra: [
+            recordingPhaseProvider.overrideWithValue(RecordingPhase.idle),
+            transcriberProvider.overrideWithValue(transcriber),
+          ],
+        );
+        final port = await startEnabled(container);
+        final token = container.read(automationApiControllerProvider).token!;
+
+        final response = await _postWav(port, _tinyWav, bearer: token);
+
+        expect(response.statusCode, 200);
+        expect(await _readJson(response), {'transcript': 'fake transcript'});
+        expect(transcriber.calls, 1);
+      },
+    );
   });
 
   group('POST /v1/dictation/trigger — wait & language', () {
@@ -916,6 +1198,46 @@ void main() {
       expect(response.statusCode, 401);
     });
 
+    test(
+      'a PIN-locked history also locks the notes routes → 423 '
+      'history_locked, nothing written, served again once unlocked (GS-149)',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await db.writeAppSettings({
+          'history_hide_on_open': 'true',
+          'history_pin': hashHistoryPin('4711', iterations: 10),
+        });
+        container = buildContainer(db: db);
+        await container.read(settingsProvider.future);
+        final port = await startEnabled(container);
+        final token = container.read(automationApiControllerProvider).token!;
+
+        final locked = await _get(port, path: '/v1/notes', bearer: token);
+        expect(locked.statusCode, 423);
+        expect(
+          (jsonDecode(await locked.transform(utf8.decoder).join())
+              as Map<String, dynamic>)['error'],
+          'history_locked',
+        );
+
+        final write = await _postJson(port, '/v1/notes', {
+          'content': 'geheim',
+        }, bearer: token);
+        expect(write.statusCode, 423);
+        await write.drain<void>();
+
+        await container
+            .read(historyRevealedProvider.notifier)
+            .unlockWithPin('4711');
+        final unlocked = await _get(port, path: '/v1/notes', bearer: token);
+        expect(unlocked.statusCode, 200);
+        final body =
+            jsonDecode(await unlocked.transform(utf8.decoder).join())
+                as Map<String, dynamic>;
+        expect(body['notes'], isEmpty);
+      },
+    );
+
     test('succeeds against a real background-isolate database — '
         'in-memory tests\' single-isolate DB round-trips too fast to expose '
         'this, but production hit exactly this timing: historyDetailProvider '
@@ -1014,7 +1336,7 @@ void main() {
         await db.upsertSnippet(
           id: 'sig-1',
           title: 'Signature',
-          body: 'Best regards,\nSilvio',
+          body: 'Best regards, Silvio',
           createdAt: DateTime.utc(2026, 9, 1),
         );
         final paster = _FakePaster();
@@ -1032,7 +1354,74 @@ void main() {
             jsonDecode(await response.transform(utf8.decoder).join())
                 as Map<String, dynamic>;
         expect(body['status'], 'inserted');
-        expect(paster.texts, ['Best regards,\nSilvio']);
+        expect(paster.texts, ['Best regards, Silvio']);
+      },
+    );
+
+    Future<void> seedMultilineSnippet(HistoryDatabase db) => db.upsertSnippet(
+      id: 'sig-2',
+      title: 'Address',
+      body: 'Line one\nLine two',
+      createdAt: DateTime.utc(2026, 9, 1),
+    );
+
+    /// Waits until the multiline preview is open, then answers it.
+    Future<void> answerPreview(
+      ProviderContainer c, {
+      required bool confirm,
+    }) async {
+      while (c.read(multilinePasteConfirmationProvider) == null) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      final notifier = c.read(multilinePasteConfirmationProvider.notifier);
+      confirm ? notifier.confirm() : notifier.cancel();
+    }
+
+    test(
+      'a multiline snippet waits for the preview and pastes once confirmed',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await seedMultilineSnippet(db);
+        final paster = _FakePaster();
+
+        container = buildContainer(db: db, paster: paster);
+        final port = await startEnabled(container);
+        final token = container.read(automationApiControllerProvider).token!;
+
+        final pending = _postJson(port, '/v1/snippets/insert', {
+          'name': 'Address',
+        }, bearer: token);
+        await answerPreview(container, confirm: true);
+        final response = await pending;
+
+        expect(response.statusCode, 200);
+        expect(paster.texts, ['Line one\nLine two']);
+      },
+    );
+
+    test(
+      'a multiline snippet the user cancels returns 409 and pastes nothing',
+      () async {
+        final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+        await seedMultilineSnippet(db);
+        final paster = _FakePaster();
+
+        container = buildContainer(db: db, paster: paster);
+        final port = await startEnabled(container);
+        final token = container.read(automationApiControllerProvider).token!;
+
+        final pending = _postJson(port, '/v1/snippets/insert', {
+          'name': 'Address',
+        }, bearer: token);
+        await answerPreview(container, confirm: false);
+        final response = await pending;
+
+        expect(response.statusCode, 409);
+        final body =
+            jsonDecode(await response.transform(utf8.decoder).join())
+                as Map<String, dynamic>;
+        expect(body['error'], 'preview_cancelled');
+        expect(paster.texts, isEmpty);
       },
     );
 

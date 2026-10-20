@@ -89,6 +89,13 @@ class _OverlayRenderAppState
   );
   List<double> _bars = const [];
 
+  /// Acknowledges the first painted frame of each show to the native shell
+  /// (WP-84 phase 2 frame heartbeat). Created lazily: `channel` exists only
+  /// after [initState].
+  late final OverlayFrameHeartbeat _heartbeat = OverlayFrameHeartbeat(
+    onFrame: () => channel.frameRendered(),
+  );
+
   @override
   OverlayRenderChannel createChannel() => OverlayRenderChannel(
     name: _renderChannelName,
@@ -102,6 +109,7 @@ class _OverlayRenderAppState
   void _onSnapshot(FloatingOverlaySnapshot s) {
     final previous = _snapshot;
     setState(() => _snapshot = s);
+    _heartbeat.onSnapshot(visible: s.visible);
     // The main engine pre-localises [FloatingOverlaySnapshot.label] for the
     // active locale, so it's announced verbatim — only on an actual state
     // change while the overlay is visible, never on every relayed snapshot

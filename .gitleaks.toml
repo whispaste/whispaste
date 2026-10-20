@@ -23,7 +23,7 @@ title = "WhisPaste gitleaks config"
   path = '''\.(rb|sh|ps1|py|mjs|yml|yaml)$'''
 
   [rules.allowlist]
-    description = "GCP service-account email — identifies a dedicated, minimal-scope service account (Full access to only sc-domain:whispaste.de, no other IAM roles), not a secret. The actual credential (private key) is never in the file, only in the GSC_SA_KEY GitHub Actions secret."
+    description = "GCP service-account email — identifies a dedicated, minimal-scope service account (Full access to only sc-domain:whispaste.de, no other IAM roles), not a secret. The actual credential (private key) is never in the file, only in the GSC_SA_KEY GitHub Actions secret. The GNOME Shell extension UUID whispaste-focus@whispaste.de is an extension identifier, not a mailbox."
     regexTarget = "match"
     # Second entry: the GNOME Shell extension UUID (an extension id in
     # email-like form, required by GNOME), not an account address.

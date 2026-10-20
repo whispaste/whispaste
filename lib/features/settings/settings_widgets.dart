@@ -22,6 +22,9 @@ import '../../widgets/wp_text_field.dart';
 /// put it on the same start edge instead of guessing the value.
 const double kSettingRowInset = WpSpacing.sm;
 
+/// Widest a settings dropdown may be in a [SettingRow]; its label ellipsizes.
+const double kSettingDropdownMaxWidth = 240;
+
 /// Width of the leading icon column plus the gap after it, measured from the
 /// row's own inset. [SettingRow] draws its label on this offset.
 const double kSettingRowContentOffset = WpIconSize.sm + WpSpacing.sm;
@@ -232,20 +235,27 @@ class HotkeyDisplay extends StatelessWidget {
       displayOverride: hotkeyKeyDisplay,
     );
 
+    // macOS spells the caps as glyphs side by side (⌃ ⇧ E), so the "+" stays
+    // on the word platforms only.
+    final macGlyphs = hotkeyUsesMacGlyphs;
     final caps = <Widget>[
       for (int i = 0; i < parts.length; i++) ...[
         if (i > 0)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: WpSpacing.xxs),
-            child: Text(
-              '+',
-              style: TextStyle(
-                fontSize: WpTypography.body,
-                fontWeight: FontWeight.w500,
-                color: WpColors.textMuted,
-              ),
-            ),
-          ),
+          macGlyphs
+              ? const SizedBox(width: WpSpacing.xxs)
+              : Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: WpSpacing.xxs,
+                  ),
+                  child: Text(
+                    '+',
+                    style: TextStyle(
+                      fontSize: WpTypography.body,
+                      fontWeight: FontWeight.w500,
+                      color: WpColors.textMuted,
+                    ),
+                  ),
+                ),
         Container(
           // A key cap stands beside a dense "Change" button in every place
           // it is used, so it takes that height rather than whatever its
@@ -269,10 +279,10 @@ class HotkeyDisplay extends StatelessWidget {
             widthFactor: 1,
             child: Text(
               parts[i],
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.body,
                 fontWeight: FontWeight.w600,
-                fontFeatures: [FontFeature.tabularFigures()],
+                fontFeatures: [const FontFeature.tabularFigures()],
                 color: WpColors.textPrimary,
               ),
             ),
@@ -405,10 +415,14 @@ Widget settingsDropdown({
   String? disabledTooltip,
   String? hint,
   bool expanded = false,
+  String? keyPrefix,
 }) {
-  return WpDropdown<String>(
+  final dropdown = WpDropdown<String>(
+    key: keyPrefix == null ? null : ValueKey<String>(keyPrefix),
     value: value,
-    expanded: expanded,
+    // Always fills its box: a content-width trigger overflows when its widest
+    // item is wider than the cap, so the cap below is what sizes it.
+    expanded: true,
     hint: hint,
     items: [
       for (final (index, item) in items.indexed)
@@ -417,10 +431,56 @@ Widget settingsDropdown({
           label: labels != null ? labels[index] : item,
           enabled: !(disabledItems?.contains(item) ?? false),
           disabledTooltip: disabledTooltip,
+          itemKey: keyPrefix == null
+              ? null
+              : ValueKey<String>('$keyPrefix-item-$item'),
         ),
     ],
     onChanged: onChanged,
   );
+  // Capped so a narrow settings row keeps room for its label; the trigger
+  // ellipsizes a longer value. A caller that asks for an expanded dropdown
+  // gets its full slot.
+  if (expanded) return dropdown;
+  return ConstrainedBox(
+    constraints: const BoxConstraints(maxWidth: kSettingDropdownMaxWidth),
+    child: dropdown,
+  );
+}
+
+/// Trailing slot for a dropdown that shares its width with the other dropdowns
+/// of its group.
+///
+/// Every group member passes the same [labels] (all labels of the group's
+/// dropdowns), so they all get one width: the widest label, see
+/// [wpDropdownFitWidth]. The row caps that width by its own space, through the
+/// constraints the slot receives. Only a row too narrow for it ellipsizes the
+/// label.
+class SharedWidthDropdown extends StatelessWidget {
+  const SharedWidthDropdown({
+    super.key,
+    required this.labels,
+    required this.selectedLabel,
+    required this.child,
+  });
+
+  /// Every label any dropdown of the group can show.
+  final List<String> labels;
+
+  /// The label the trigger shows right now, unshortened. Given to assistive
+  /// technology as the value, so a truncated label still reads in full.
+  final String selectedLabel;
+
+  /// The dropdown itself, filling the width this slot gives it.
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: wpDropdownFitWidth(context, labels),
+      child: Semantics(value: selectedLabel, child: child),
+    );
+  }
 }
 
 /// Themed slider with value label for settings.
@@ -434,7 +494,7 @@ Widget settingsSlider({
   required ValueChanged<double> onChanged,
   ValueChanged<double>? onChangeEnd,
 }) {
-  const accent = WpColors.accent;
+  final accent = WpColors.accent;
   return Row(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -475,11 +535,11 @@ Widget settingsSlider({
         child: Text(
           valueLabel,
           textAlign: TextAlign.right,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: WpTypography.body,
             fontWeight: FontWeight.w500,
             color: WpColors.textSecondary,
-            fontFeatures: [FontFeature.tabularFigures()],
+            fontFeatures: [const FontFeature.tabularFigures()],
           ),
         ),
       ),
@@ -614,6 +674,24 @@ const Widget settingsSectionBreak = SizedBox(height: WpSpacing.lg);
 /// would have fused the sub-groups into one list instead of separating them.
 const Widget settingsInlineBreak = SizedBox(height: WpSpacing.md);
 
+/// Dims a settings row while [enabled] is false and makes it inert for mouse
+/// and keyboard alike. The row stays readable; the controls above it are never
+/// dimmed by this. Shared by the hotkey rows and the overlay look rows.
+Widget settingsDimmedWhen(
+  BuildContext context, {
+  required bool enabled,
+  required Widget child,
+}) {
+  return AnimatedOpacity(
+    opacity: enabled ? 1.0 : WpDisabledTokens.rowOpacity,
+    duration: WpMotion.durationFor(context, WpMotion.normal),
+    child: ExcludeFocus(
+      excluding: !enabled,
+      child: IgnorePointer(ignoring: !enabled, child: child),
+    ),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Inline notice
 // ---------------------------------------------------------------------------
@@ -650,60 +728,57 @@ Widget settingsInlineNotice({
     vertical: WpSpacing.xs,
   ),
 }) {
-  const warning = WpColors.warning;
-  const textPrimary = WpColors.textPrimary;
+  final warning = WpColors.warning;
+  final textPrimary = WpColors.textPrimary;
 
-  return Container(
-    margin: margin,
-    padding: const EdgeInsets.all(WpSpacing.md),
-    decoration: BoxDecoration(
-      color: warning.withValues(alpha: 0.12),
-      borderRadius: WpRadius.borderMd,
-      border: Border.all(color: warning.withValues(alpha: 0.4)),
-    ),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Icon(
-          LucideIcons.triangleAlert,
-          size: WpIconSize.sm,
-          color: warning,
-        ),
-        const SizedBox(width: WpSpacing.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                message,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: textPrimary),
-              ),
-              if (action != null) ...[
-                const SizedBox(height: WpSpacing.xxs),
-                action,
+  // A notice appears after an action (clipping, autostart failure); a live
+  // region makes screen readers announce it without a focus change (UIA-SET-12).
+  return Semantics(
+    liveRegion: true,
+    child: Container(
+      margin: margin,
+      padding: const EdgeInsets.all(WpSpacing.md),
+      decoration: BoxDecoration(
+        color: warning.withValues(alpha: 0.12),
+        borderRadius: WpRadius.borderMd,
+        border: Border.all(color: warning.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.triangleAlert, size: WpIconSize.sm, color: warning),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  message,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: textPrimary),
+                ),
+                if (action != null) ...[
+                  const SizedBox(height: WpSpacing.xxs),
+                  action,
+                ],
               ],
-            ],
-          ),
-        ),
-        if (onDismiss != null)
-          IconButton(
-            icon: const Icon(
-              LucideIcons.x,
-              size: WpIconSize.sm,
-              color: warning,
-            ),
-            tooltip: dismissTooltip,
-            onPressed: onDismiss,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(
-              minWidth: WpLayout.minTouchTarget,
-              minHeight: WpLayout.minTouchTarget,
             ),
           ),
-      ],
+          if (onDismiss != null)
+            IconButton(
+              icon: Icon(LucideIcons.x, size: WpIconSize.sm, color: warning),
+              tooltip: dismissTooltip,
+              onPressed: onDismiss,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                minWidth: WpLayout.minTouchTarget,
+                minHeight: WpLayout.minTouchTarget,
+              ),
+            ),
+        ],
+      ),
     ),
   );
 }

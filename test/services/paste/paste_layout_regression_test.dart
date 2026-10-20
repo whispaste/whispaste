@@ -200,7 +200,7 @@ void main() {
           const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
         );
 
-        expect(outcome, PasteOutcome.success);
+        expect(outcome, PasteOutcome.unconfirmed);
         expect(controller.typeCalls, 1);
         expect(
           controller.lastTypedText,
@@ -249,7 +249,7 @@ void main() {
 
             expect(controller.pasteCalls, 1);
             if (Platform.isMacOS || Platform.isWindows) {
-              expect(outcome, PasteOutcome.success);
+              expect(outcome, PasteOutcome.unconfirmed);
               expect(controller.typeCalls, 1);
               expect(controller.lastTypedText, entry.value);
             } else {

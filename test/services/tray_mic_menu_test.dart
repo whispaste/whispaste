@@ -24,45 +24,45 @@ void main() {
     test(
       'puts the system-default entry first, then separator, then devices',
       () {
-        final items = buildMicrophoneMenuItems(
+        final items = buildMicrophoneCommands(
           deviceLabels: labels,
           selectedLabel: micDefaultLabel,
-          systemDefaultLabel: 'System Default',
+          systemDefaultLabelKey: 'System Default',
         );
         expect(items, hasLength(4));
-        expect(items[0].key, micMenuKey(micDefaultLabel));
-        expect(items[0].label, 'System Default');
-        expect(items[1].type, 'separator');
-        expect(items[2].label, 'MacBook Pro Microphone');
-        expect(items[3].label, 'Razer Seiren Mini');
+        expect(items[0].id, micMenuKey(micDefaultLabel));
+        expect(items[0].labelKey, 'System Default');
+        expect(items[1].isSeparator, isTrue);
+        expect(items[2].labelKey, 'MacBook Pro Microphone');
+        expect(items[3].labelKey, 'Razer Seiren Mini');
       },
     );
 
     test(
       'checks exactly the system-default entry when Default is selected',
       () {
-        final items = buildMicrophoneMenuItems(
+        final items = buildMicrophoneCommands(
           deviceLabels: labels,
           selectedLabel: micDefaultLabel,
-          systemDefaultLabel: 'System Default',
+          systemDefaultLabelKey: 'System Default',
         );
         final checked = items
             .where((i) => i.checked == true)
-            .map((i) => i.key)
+            .map((i) => i.id)
             .toList();
         expect(checked, [micMenuKey(micDefaultLabel)]);
       },
     );
 
     test('checks exactly the selected device (radio behavior)', () {
-      final items = buildMicrophoneMenuItems(
+      final items = buildMicrophoneCommands(
         deviceLabels: labels,
         selectedLabel: 'Razer Seiren Mini',
-        systemDefaultLabel: 'System Default',
+        systemDefaultLabelKey: 'System Default',
       );
       final checked = items
           .where((i) => i.checked == true)
-          .map((i) => i.label)
+          .map((i) => i.labelKey)
           .toList();
       expect(checked, ['Razer Seiren Mini']);
       expect(items[0].checked, isFalse);
@@ -71,33 +71,36 @@ void main() {
     test(
       'appends a selected-but-unplugged device so the checkmark survives',
       () {
-        final items = buildMicrophoneMenuItems(
+        final items = buildMicrophoneCommands(
           deviceLabels: const ['Default', 'MacBook Pro Microphone'],
           selectedLabel: 'Razer Seiren Mini',
-          systemDefaultLabel: 'System Default',
+          systemDefaultLabelKey: 'System Default',
         );
-        expect(items.last.label, 'Razer Seiren Mini');
+        expect(items.last.labelKey, 'Razer Seiren Mini');
         expect(items.last.checked, isTrue);
       },
     );
 
     test('omits the separator when no real devices exist', () {
-      final items = buildMicrophoneMenuItems(
+      final items = buildMicrophoneCommands(
         deviceLabels: const ['Default'],
         selectedLabel: micDefaultLabel,
-        systemDefaultLabel: 'System Default',
+        systemDefaultLabelKey: 'System Default',
       );
       expect(items, hasLength(1));
       expect(items.single.checked, isTrue);
     });
 
     test('filters empty labels from the enumeration', () {
-      final items = buildMicrophoneMenuItems(
+      final items = buildMicrophoneCommands(
         deviceLabels: const ['Default', '', 'MacBook Pro Microphone'],
         selectedLabel: micDefaultLabel,
-        systemDefaultLabel: 'System Default',
+        systemDefaultLabelKey: 'System Default',
       );
-      expect(items.map((i) => i.label), isNot(contains('')));
+      expect(
+        items.where((i) => !i.isSeparator).map((i) => i.labelKey),
+        isNot(contains('')),
+      );
     });
   });
 }

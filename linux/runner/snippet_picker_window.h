@@ -9,8 +9,9 @@
 // snippet_picker_controller_interface.dart). Unlike the Windows shell, GTK
 // window sizes are already expressed in application pixels; GDK applies the
 // per-monitor scale factor itself, so no manual DPI math is needed here.
-constexpr int kSnippetPickerWidth = 360;
-constexpr int kSnippetPickerHeight = 420;
+// 360×420 card plus a 20 px transparent margin per side for the Dart shadow.
+constexpr int kSnippetPickerWidth = 400;
+constexpr int kSnippetPickerHeight = 460;
 
 // Lifecycle-only decorationless GtkWindow that hosts the second Flutter
 // engine for the Snippet-Picker (ADR 0002 phase 2, Linux — visual-refresh-2026

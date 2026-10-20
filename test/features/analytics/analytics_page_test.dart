@@ -5,21 +5,27 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
-import 'package:whispaste/core/data/database.dart' show AnalyticsModelUsage;
+import 'package:drift/native.dart';
+import 'package:whispaste/core/data/database.dart'
+    show
+        AnalyticsCorrection,
+        AnalyticsModelUsage,
+        AnalyticsWording,
+        HistoryDatabase;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
+import 'package:golden_screenshot/golden_screenshot.dart' show loadAppFonts;
 
 // ---------------------------------------------------------------------------
 // Mock analytics data — non-empty so the dashboard branch renders
@@ -59,22 +65,11 @@ late L10n l10n;
 /// filter chips draw at w500 resting and w600 active; registering Regular
 /// alone would let the engine synthesise the bolder faces, which measure
 /// narrower than the real ones and would bias this test optimistic.
-Future<void> _loadInter() async {
-  final loader = FontLoader('Inter');
-  for (final weight in const ['Regular', 'Medium', 'SemiBold', 'Bold']) {
-    loader.addFont(
-      File(
-        'assets/fonts/Inter-$weight.ttf',
-      ).readAsBytes().then(ByteData.sublistView),
-    );
-  }
-  await loader.load();
-}
 
 void main() {
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
-    await _loadInter();
+    await loadAppFonts();
   });
 
   group('AnalyticsPage', () {
@@ -97,6 +92,44 @@ void main() {
       expect(find.text(l10n.analyticsEmptyTitle), findsOneWidget);
       expect(find.text(l10n.analyticsEmptySubtitle), findsOneWidget);
       expect(find.byIcon(LucideIcons.chartNoAxesColumn), findsOneWidget);
+    });
+
+    testWidgets('shows wording totals and frequent corrections (9.7)', (
+      tester,
+    ) async {
+      const withWording = AnalyticsData(
+        totalRecordings: 3,
+        totalDurationMinutes: 4,
+        totalWords: 20,
+        timeSavedMinutes: 2,
+        weeklyActivity: [1.0, 0, 0, 0, 0, 0, 0],
+        modelUsage: <AnalyticsModelUsage>[],
+        durationBuckets: [3, 0, 0, 0, 0],
+        localSavingsUsd: 0,
+        cloudCostUsd: 0,
+        wording: AnalyticsWording(
+          rawWords: 42,
+          revisedWords: 37,
+          actionCount: 2,
+        ),
+        topCorrections: [
+          AnalyticsCorrection(sourceText: 'gaus', targetText: 'Gauß', count: 4),
+        ],
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(withWording),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.analyticsWordingTitle), findsOneWidget);
+      expect(find.text('42'), findsOneWidget);
+      expect(find.text('37'), findsOneWidget);
+      expect(find.text('gaus → Gauß'), findsOneWidget);
+      expect(find.text('4×'), findsOneWidget);
     });
 
     // -------------------------------------------------------------------------
@@ -138,7 +171,7 @@ void main() {
           durationBuckets: [5, 3, 2, 1, 0],
           localSavingsUsd: 2.50,
           cloudCostUsd: 0.75,
-          averageHotkeyLatencyMs: 1830,
+          averageStopToTextMs: 1830,
         );
 
         await tester.pumpWidget(
@@ -152,13 +185,15 @@ void main() {
 
         expect(find.text(l10n.analyticsAvgLatency), findsOneWidget);
         expect(find.text('1.8s'), findsOneWidget);
+        // The tile measures from the stop, not a speed (XP-6-09).
+        expect(l10n.analyticsAvgLatency, 'Avg. time to text');
       },
     );
 
     testWidgets('gracefully omits the latency stat when no samples exist yet', (
       tester,
     ) async {
-      // _mockData has no averageHotkeyLatencyMs set — defaults to null,
+      // _mockData has no averageStopToTextMs set — defaults to null,
       // simulating recordings that exist but predate the latency KPI
       // (or a period with no successful pipeline completions yet).
       await tester.pumpWidget(
@@ -344,6 +379,53 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
 
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a successful reset reports the outcome, not the dialog title '
+        '(UIA-ANA-02)', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(_mockData),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(WpButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(WpButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.analyticsReset).last);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text(l10n.analyticsResetDone), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 4));
+    });
+
+    testWidgets('a failed reset shows an error toast and keeps the page '
+        '(UIA-ANA-02)', (tester) async {
+      final db = _FailingResetDb();
+      addTearDown(db.close);
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(_mockData),
+          db: db,
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(WpButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(WpButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.analyticsReset).last);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.text(l10n.errorGeneric), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 4));
     });
 
     // -------------------------------------------------------------------------
@@ -577,7 +659,7 @@ void main() {
       expect(
         decorationGradients(
           tester,
-        ).where((g) => g == WpColorsDark.accentWarmGradient).length,
+        ).where((g) => g == WpColors.accentWarmGradient).length,
         0,
         reason:
             'the accent gradient is back on the analytics page. It marks the '
@@ -641,7 +723,7 @@ void main() {
       durationBuckets: [1234, 5678, 910, 1112, 1314],
       localSavingsUsd: 123.45,
       cloudCostUsd: 67.89,
-      averageHotkeyLatencyMs: 1234,
+      averageStopToTextMs: 1234,
     );
 
     /// Number of laid-out lines the [text] occupies — the direct read of
@@ -958,4 +1040,175 @@ void main() {
       });
     }
   });
+
+  // UIA-ANA-01: an empty period keeps the period selector and says that this
+  // period has no recordings, instead of the whole-page "no recordings yet".
+  testWidgets(
+    'an empty period keeps the selector and names the period (UIA-ANA-01)',
+    (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(AnalyticsData.empty),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AnalyticsPage)),
+      );
+      container
+          .read(analyticsPeriodProvider.notifier)
+          .setPeriod(
+            AnalyticsPeriod.values.firstWhere(
+              (p) => p != AnalyticsPeriod.allTime,
+            ),
+          );
+      await tester.pumpAndSettle();
+
+      expect(find.text('No recordings in this period'), findsOneWidget);
+      expect(find.text(l10n.analyticsEmptyTitle), findsNothing);
+    },
+  );
+
+  // UIA-ANA-04: the cost and savings figures say they are estimates.
+  testWidgets('the cost panel marks its figures as estimates (UIA-ANA-04)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      makeTestable(
+        const AnalyticsPage(),
+        overrides: _dataOverrides(_mockData),
+        locale: const Locale('en'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Estimated from list prices per transcription'),
+      findsOneWidget,
+    );
+  });
+
+  // UIA-ANA-05: a screen reader hears the seven day values, not a blank image.
+  testWidgets(
+    'the activity chart announces its seven day values (UIA-ANA-05)',
+    (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(_mockData),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel(RegExp(r'1.*2.*3.*4.*5.*6.*7')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  // UIA-ANA-06: a quiet week says so instead of showing an empty chart.
+  testWidgets(
+    'a week without recordings says so above the chart (UIA-ANA-06)',
+    (tester) async {
+      const quietWeek = AnalyticsData(
+        totalRecordings: 3,
+        totalDurationMinutes: 4,
+        totalWords: 20,
+        timeSavedMinutes: 2,
+        weeklyActivity: [0, 0, 0, 0, 0, 0, 0],
+        modelUsage: <AnalyticsModelUsage>[],
+        durationBuckets: [3, 0, 0, 0, 0],
+        localSavingsUsd: 0,
+        cloudCostUsd: 0,
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(quietWeek),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('No recordings in the last 7 days'), findsOneWidget);
+    },
+  );
+
+  // UIA-ANA-07: counts share the thousands separator used by the hero stats.
+  testWidgets(
+    'counts in every panel use the same thousands separator (UIA-ANA-07)',
+    (tester) async {
+      const big = AnalyticsData(
+        totalRecordings: 42,
+        totalDurationMinutes: 120,
+        totalWords: 5000,
+        timeSavedMinutes: 80,
+        weeklyActivity: [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0],
+        modelUsage: <AnalyticsModelUsage>[],
+        durationBuckets: [1234, 0, 0, 0, 0],
+        localSavingsUsd: 2.50,
+        cloudCostUsd: 0.75,
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(big),
+          locale: const Locale('de'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('1234'), findsNothing);
+      expect(find.text('1.234'), findsWidgets);
+    },
+  );
+
+  // UIA-ANA-08: an empty model list says that there is no model data yet.
+  testWidgets(
+    'an empty model list says so instead of a bare dash (UIA-ANA-08)',
+    (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: _dataOverrides(_mockData),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('—'), findsNothing);
+      expect(find.text('No model data in this period'), findsOneWidget);
+    },
+  );
+
+  // UIA-ANA-11: the loading skeleton is announced to screen readers.
+  testWidgets(
+    'the loading skeleton is announced to screen readers (UIA-ANA-11)',
+    (tester) async {
+      final pending = Completer<AnalyticsData>();
+      await tester.pumpWidget(
+        makeTestable(
+          const AnalyticsPage(),
+          overrides: [analyticsProvider.overrideWith((ref) => pending.future)],
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.bySemanticsLabel('Loading statistics'), findsOneWidget);
+    },
+  );
+}
+
+class _FailingResetDb extends HistoryDatabase {
+  _FailingResetDb() : super.forTesting(NativeDatabase.memory());
+
+  @override
+  Future<void> resetDailyStats() async {
+    throw StateError('database is locked');
+  }
 }

@@ -51,6 +51,13 @@ describe("brand-glossary", () => {
     }
   });
 
+  it("allows dictation wording again (maintainer decision 2026-10-18)", () => {
+    const forbidden = antiVocabulary.map((entry) => entry.term.toLowerCase());
+    for (const term of ["dictation", "dictate", "diktat", "diktieren", "diktiert"]) {
+      expect(forbidden).not.toContain(term);
+    }
+  });
+
   it("structures every anti-vocabulary entry with term, replacement and rationale", () => {
     expect(antiVocabulary.length).toBeGreaterThan(0);
     for (const entry of antiVocabulary) {

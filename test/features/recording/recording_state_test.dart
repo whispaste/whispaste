@@ -4,6 +4,8 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/model_download_service.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
+import 'package:whispaste/core/config/selectable_speech_models.dart';
 
 // ---------------------------------------------------------------------------
 // Helper: create a ProviderContainer for pure-logic tests (no widget needed).
@@ -15,7 +17,7 @@ ProviderContainer makeContainer() {
 }
 
 // ---------------------------------------------------------------------------
-// Fakes for recordingReadinessProvider tests — settings + model-download
+// Fakes for missingSelectedSpeechModelProvider tests — settings + model-download
 // state without touching disk or the real notifiers' side effects.
 // ---------------------------------------------------------------------------
 
@@ -395,77 +397,13 @@ void main() {
     });
   });
 
-  // -------------------------------------------------------------------------
-  // recordingReadinessProvider — post server-binary-stack teardown (Issue 07)
-  // the only pre-conditions left are onboarding + the selected model file.
-  // -------------------------------------------------------------------------
-  group('recordingReadinessProvider', () {
-    test('RecordingReadiness only exposes ready and modelMissing — '
-        'the server-binary states were retired', () {
-      expect(RecordingReadiness.values, [
-        RecordingReadiness.ready,
-        RecordingReadiness.modelMissing,
-      ]);
-    });
-
-    test(
-      'reports ready once onboarding is done and the model is downloaded',
-      () async {
-        final c = ProviderContainer(
-          overrides: [
-            settingsProvider.overrideWith(
-              () => _FakeSettingsNotifier(
-                const AppSettings(
-                  onboarding: OnboardingSettings(onboardingCompleted: true),
-                  stt: SttSettings(model: 'whisper-medium'),
-                ),
-              ),
-            ),
-            modelDownloadProvider.overrideWith(
-              () => _FakeModelDownloadNotifier({'whisper-medium'}),
-            ),
-          ],
-        );
-        addTearDown(c.dispose);
-        await c.read(settingsProvider.future);
-
-        expect(c.read(recordingReadinessProvider), RecordingReadiness.ready);
-      },
-    );
-
-    test('reports modelMissing when the effective model is not downloaded — '
-        'no server-binary check is consulted anymore', () async {
-      final c = ProviderContainer(
-        overrides: [
-          settingsProvider.overrideWith(
-            () => _FakeSettingsNotifier(
-              const AppSettings(
-                onboarding: OnboardingSettings(onboardingCompleted: true),
-                stt: SttSettings(model: 'whisper-medium'),
-              ),
-            ),
-          ),
-          modelDownloadProvider.overrideWith(
-            () => _FakeModelDownloadNotifier(const {}),
-          ),
-        ],
-      );
-      addTearDown(c.dispose);
-      await c.read(settingsProvider.future);
-
-      expect(
-        c.read(recordingReadinessProvider),
-        RecordingReadiness.modelMissing,
-      );
-    });
-  });
-
-  group('missingSttModelProvider', () {
-    Future<SttModelInfo?> read({
+  group('missingSelectedSpeechModelProvider', () {
+    Future<SelectableSpeechModel?> read({
       SttSettings stt = const SttSettings(model: 'whisper-large-v3-turbo'),
       Set<String> downloaded = const {},
       bool scanned = true,
       String? downloadingModelId,
+      bool parakeetInstalled = true,
     }) async {
       final c = ProviderContainer(
         overrides: [
@@ -484,16 +422,19 @@ void main() {
               downloadingModelId: downloadingModelId,
             ),
           ),
+          parakeetDownloadProvider.overrideWith(
+            () => _FakeParakeetDownloadNotifier(installed: parakeetInstalled),
+          ),
         ],
       );
       addTearDown(c.dispose);
       await c.read(settingsProvider.future);
-      return c.read(missingSttModelProvider);
+      return c.read(missingSelectedSpeechModelProvider);
     }
 
     test('names the selected Whisper model when its file is missing', () async {
       final missing = await read();
-      expect(missing?.id, 'whisper-large-v3-turbo');
+      expect(missing?.modelId, 'whisper-large-v3-turbo');
     });
 
     test('nothing is missing before the initial disk scan has landed — the '
@@ -521,7 +462,22 @@ void main() {
       );
     });
 
-    test('Parakeet has its own bundle and is not judged here', () async {
+    // UIA-MDL-GATE b: Parakeet is judged by its bundle, like Whisper by its
+    // file, so the dock and the hotkey say so for it too.
+    test('Parakeet without its bundle is missing', () async {
+      final missing = await read(
+        stt: const SttSettings(
+          engine: 'parakeet',
+          model: 'whisper-large-v3-turbo',
+        ),
+        downloaded: {'whisper-large-v3-turbo'},
+        parakeetInstalled: false,
+      );
+      expect(missing?.engine, SpeechModelEngine.parakeet);
+    });
+
+    test('Parakeet with its bundle is not missing, whatever Whisper file '
+        'is absent', () async {
       expect(
         await read(
           stt: const SttSettings(
@@ -734,4 +690,13 @@ void main() {
       expect(c.read(recordingTargetProvider), RecordingTarget.clipboard);
     });
   });
+}
+
+class _FakeParakeetDownloadNotifier extends ParakeetDownloadNotifier {
+  _FakeParakeetDownloadNotifier({required this.installed});
+
+  final bool installed;
+
+  @override
+  ParakeetDownloadState build() => ParakeetDownloadState(installed: installed);
 }

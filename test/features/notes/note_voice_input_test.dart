@@ -16,6 +16,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -26,6 +27,7 @@ import 'package:whispaste/widgets/wp_voice_input_button.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
+import 'package:whispaste/services/transcription/transcriber.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -39,8 +41,34 @@ late L10n l10n;
 /// mutations plus a `recordingProvider` phase read, so they work unchanged
 /// against the real (un-overridden) `recordingProvider`'s default idle state.
 class _FakeRecordingOrchestrator extends RecordingOrchestrator {
+  _FakeRecordingOrchestrator([this.preflightError]);
+
+  /// What the dictation preflight reports — `null` means ready.
+  final String? preflightError;
+
   @override
   void build() {}
+
+  @override
+  Future<String?> checkTranscriptionReady() async => preflightError;
+}
+
+/// Stands in for whichever engine [transcriberProvider] picks — Parakeet in
+/// the engine test below.
+class _FakeTranscriber implements Transcriber {
+  int transcribeCalls = 0;
+
+  @override
+  Future<void> prepare() async {}
+
+  @override
+  Future<String> transcribe(List<int> wavBytes, {String? language}) async {
+    transcribeCalls++;
+    return 'from the active engine';
+  }
+
+  @override
+  void release() {}
 }
 
 class _FakeAudioServiceNotifier extends AudioServiceNotifier {
@@ -109,7 +137,7 @@ class _FakeSttServerStateNotifier extends SttServerStateNotifier {
   );
 
   @override
-  Future<void> ensureRunning() async {
+  Future<void> ensureRunning({bool warmup = true}) async {
     ensureRunningCalled = true;
     if (ensureRunningHangs) await Completer<void>().future;
   }
@@ -129,6 +157,8 @@ Widget _makeTestableButton({
   required _FakeAudioServiceNotifier fakeAudio,
   required _FakeSttServerStateNotifier fakeStt,
   required ValueChanged<String> onTranscript,
+  Transcriber? transcriber,
+  String? preflightError,
 }) {
   return makeTestable(
     WpVoiceInputButton(onTranscript: onTranscript),
@@ -136,12 +166,20 @@ Widget _makeTestableButton({
       audioServiceProvider.overrideWith(() => fakeAudio),
       localSttBundleProvider.overrideWith(() => fakeStt),
       recordingOrchestratorProvider.overrideWith(
-        _FakeRecordingOrchestrator.new,
+        () => _FakeRecordingOrchestrator(preflightError),
       ),
+      if (transcriber != null)
+        transcriberProvider.overrideWithValue(transcriber),
     ],
     locale: const Locale('en'),
   );
 }
+
+/// Messages the toasts announced to screen readers. A toast raised from the
+/// [WidgetTester.runAsync] stop tap lives on the real clock, so it has expired
+/// by the time [_recordStopAndDrain] returns; the announcement shows it was
+/// raised.
+final List<String> _announced = [];
 
 /// Taps to start recording, then taps again to stop+transcribe — the second
 /// tap runs inside [WidgetTester.runAsync] so the real WAV-file read (and
@@ -178,6 +216,17 @@ void main() {
   });
 
   setUp(() async {
+    _announced.clear();
+    TestWidgetsFlutterBinding.ensureInitialized().defaultBinaryMessenger
+        .setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, (
+          message,
+        ) async {
+          final data = (message as Map<Object?, Object?>)['data'];
+          if (data is Map<Object?, Object?> && data['message'] is String) {
+            _announced.add(data['message']! as String);
+          }
+          return null;
+        });
     wavDir = await Directory.systemTemp.createTemp('note_voice_input_test_');
     wavPath = '${wavDir.path}/note.wav';
     // Non-empty is all `_stopAndTranscribe` checks for — no WAV-header
@@ -186,6 +235,11 @@ void main() {
   });
 
   tearDown(() async {
+    TestWidgetsFlutterBinding.ensureInitialized().defaultBinaryMessenger
+        .setMockDecodedMessageHandler<dynamic>(
+          SystemChannels.accessibility,
+          null,
+        );
     await wavDir.delete(recursive: true);
   });
 
@@ -279,7 +333,7 @@ void main() {
     );
 
     expect(lastTranscript, isNull);
-    expect(find.text(l10n.voiceNoteEmpty), findsOneWidget);
+    expect(_announced, contains(l10n.voiceNoteEmpty));
     expect(find.byIcon(LucideIcons.mic), findsOneWidget);
   });
 
@@ -305,7 +359,10 @@ void main() {
     );
 
     expect(lastTranscript, isNull);
-    expect(find.text(l10n.voiceNoteError), findsOneWidget);
+    // The engine's own failure, not the generic "voice note failed". The toast
+    // is raised on the real clock, so it is asserted by its announcement.
+    expect(_announced, contains(l10n.errorSttServerFailed));
+    expect(_announced, isNot(contains(l10n.voiceNoteError)));
   });
 
   testWidgets(
@@ -390,7 +447,7 @@ void main() {
       );
 
       expect(lastTranscript, isNull);
-      expect(find.text(l10n.voiceNoteError), findsOneWidget);
+      expect(_announced, contains(l10n.voiceNoteError));
       expect(audio.cleanedUpPath, wavPath);
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);
       expect(find.byIcon(LucideIcons.loader), findsNothing);
@@ -424,7 +481,7 @@ void main() {
       );
 
       expect(lastTranscript, isNull);
-      expect(find.text(l10n.voiceNoteError), findsOneWidget);
+      expect(_announced, contains(l10n.voiceNoteError));
       expect(audio.cleanedUpPath, wavPath);
       expect(find.byIcon(LucideIcons.mic), findsOneWidget);
     },
@@ -515,6 +572,56 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets('transcribes with the active engine, not always whisper', (
+    tester,
+  ) async {
+    // XP-6-08: with Parakeet as the only model, the button went to the
+    // whisper server and failed with "model file not found".
+    final audio = _FakeAudioServiceNotifier()..wavPathToReturn = wavPath;
+    final whisper = _FakeSttServerStateNotifier();
+    final engine = _FakeTranscriber();
+    String? lastTranscript;
+    await tester.pumpWidget(
+      _makeTestableButton(
+        fakeAudio: audio,
+        fakeStt: whisper,
+        transcriber: engine,
+        onTranscript: (t) => lastTranscript = t,
+      ),
+    );
+
+    await _recordStopAndDrain(tester, pipelineWait: Duration.zero);
+
+    expect(engine.transcribeCalls, 1);
+    expect(whisper.transcribeCalled, isFalse);
+    expect(lastTranscript, 'from the active engine');
+  });
+
+  testWidgets('a missing model says so before anything is recorded', (
+    tester,
+  ) async {
+    final audio = _FakeAudioServiceNotifier()..wavPathToReturn = wavPath;
+    await tester.pumpWidget(
+      _makeTestableButton(
+        fakeAudio: audio,
+        fakeStt: _FakeSttServerStateNotifier(),
+        preflightError: 'stt_model_not_found',
+        onTranscript: (_) {},
+      ),
+    );
+
+    await tester.tap(find.byIcon(LucideIcons.mic));
+    await tester.pump();
+
+    expect(find.text(l10n.errorSttModelNotFound), findsOneWidget);
+    // Never started: no stop button, the mic stays on offer.
+    expect(find.byIcon(LucideIcons.square), findsNothing);
+    expect(find.byIcon(LucideIcons.mic), findsOneWidget);
+    // Let the error toast run out.
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+  });
 }
 
 // ─── Note-switch harness ──────────────────────────────────────────────────

@@ -30,7 +30,7 @@ class WpTriggerChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: TextStyle(
           color: WpColors.accent,
           fontWeight: FontWeight.w600,
           fontSize: WpTypography.small,

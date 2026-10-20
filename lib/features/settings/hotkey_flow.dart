@@ -87,6 +87,14 @@ List<HotkeyBinding> activeHotkeyBindings(AppSettings settings, L10n l10n) => [
       key: settings.snippetPickerHotkey.snippetPickerHotkeyKey,
       modifiers: settings.snippetPickerHotkey.snippetPickerHotkeyModifiers,
     ),
+  if (settings.stt.languageCycleHotkeyEnabled)
+    HotkeyBinding(
+      // Muss zeichengleich zur Action-ID in `HotkeyService` sein.
+      actionId: 'languageCycle',
+      actionLabel: l10n.settingsHotkeyActionLanguageCycle,
+      key: settings.stt.languageCycleHotkeyKey,
+      modifiers: settings.stt.languageCycleHotkeyModifiers,
+    ),
   if (settings.smartModeHotkey.smartModeHotkeyEnabled)
     HotkeyBinding(
       // Muss zeichengleich zur Action-ID in `HotkeyService`
@@ -200,4 +208,29 @@ mixin HotkeyCollisionNotice<T extends ConsumerStatefulWidget>
     if (result.change == HotkeyChange.cancelled) return;
     setState(() => _collidingAction = result.collidingActionLabel);
   }
+}
+
+/// Öffnet den Aufzeichnungs-Dialog für den Diktat-Hotkey und speichert das
+/// Ergebnis — sofern die Kombination frei ist. Derselbe Weg wie bei den
+/// übrigen Hotkeys (UIA-SET-02), damit eine doppelte Belegung nicht still
+/// einen der beiden Hotkeys abschaltet.
+Future<HotkeyRecordResult> recordDictationHotkey({
+  required BuildContext context,
+  required WidgetRef ref,
+  required AppSettings settings,
+}) {
+  return recordHotkey(
+    context: context,
+    ref: ref,
+    settings: settings,
+    actionId: 'global',
+    initialKey: settings.hotkeyKey,
+    initialDisplayKey: settings.hotkey.hotkeyKeyDisplay,
+    initialModifiers: settings.hotkeyModifiers,
+    apply: (s, result) => s.copyWith(
+      hotkeyKey: result.key,
+      hotkeyKeyDisplay: result.displayKey,
+      hotkeyModifiers: result.modifiers,
+    ),
+  );
 }

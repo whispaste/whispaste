@@ -5,15 +5,15 @@
 /// Use [showWpFormDialog] + [WpFormDialogShell] for dialogs with form fields.
 library;
 
-import 'dart:io' show Platform;
 import 'dart:math' as math;
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'wp_button.dart';
+import 'wp_toast_dock.dart';
 
 /// How much room a dialog card asks for.
 ///
@@ -58,6 +58,9 @@ const double _kWideDialogWidth = 760;
 /// [useRootNavigator] pushes onto the root navigator — needed when the dialog
 /// must outlive a nested navigator (e.g. a settings page being torn down by
 /// the very operation the dialog reports on).
+///
+/// [transition] is the open and close animation; pass a shorter token for a
+/// dialog that should appear at once. Reduce motion still makes it instant.
 Future<T?> showWpDialog<T>({
   required BuildContext context,
   required String title,
@@ -65,13 +68,14 @@ Future<T?> showWpDialog<T>({
   List<Widget>? actions,
   bool dismissible = true,
   bool useRootNavigator = false,
+  Duration transition = WpMotion.smooth,
 }) {
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: dismissible,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
     barrierColor: Colors.transparent, // painted by the transition builder
-    transitionDuration: WpMotion.durationFor(context, WpMotion.smooth),
+    transitionDuration: WpMotion.durationFor(context, transition),
     useRootNavigator: useRootNavigator,
     pageBuilder: (_, a2, a3) => const SizedBox.shrink(),
     transitionBuilder: (ctx, animation, secondaryAnimation, child) {
@@ -128,6 +132,66 @@ Future<bool> showWpConfirmDialog({
   return result ?? false;
 }
 
+/// Confirmation for an irreversible action (permanent delete, reset, removal
+/// of downloaded data). Cancel is focused by default; [message] states what is
+/// lost, so callers pass counts and sizes. Returns `true` only on an explicit
+/// confirm.
+Future<bool> confirmDestructive({
+  required BuildContext context,
+  required String title,
+  required String message,
+  required String confirmLabel,
+  required String cancelLabel,
+}) {
+  return showWpConfirmDialog(
+    context: context,
+    title: title,
+    message: message,
+    confirmLabel: confirmLabel,
+    cancelLabel: cancelLabel,
+    destructive: true,
+  );
+}
+
+/// Keeps a form dialog open while it holds typed input that is not saved yet:
+/// a tap outside, Esc or system back asks first (UIA-CMP-03). Dismissing
+/// without typed input closes at once.
+class WpUnsavedInputGuard extends StatelessWidget {
+  const WpUnsavedInputGuard({
+    super.key,
+    required this.dirty,
+    required this.child,
+  });
+
+  final bool dirty;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (!dirty) {
+          Navigator.of(context).pop();
+          return;
+        }
+        final l10n = L10n.of(context);
+        final discard = await showWpConfirmDialog(
+          context: context,
+          title: l10n.unsavedInputTitle,
+          message: l10n.unsavedInputMessage,
+          confirmLabel: l10n.unsavedInputDiscard,
+          cancelLabel: l10n.actionCancel,
+          destructive: true,
+        );
+        if (discard && context.mounted) Navigator.of(context).pop();
+      },
+      child: child,
+    );
+  }
+}
+
 /// Shows a form dialog with the WhisPaste glass barrier.
 ///
 /// Use for dialogs that contain form fields (text inputs, dropdowns, etc.)
@@ -166,25 +230,12 @@ class _WpDialogBarrier extends StatelessWidget {
   Widget build(BuildContext context) {
     final opacity = CurvedAnimation(parent: animation, curve: Curves.easeOut);
 
-    // On Windows frameless windows, BackdropFilter + ImageFilter.blur is
-    // broken, so fall back to a solid semi-transparent overlay.
-    final bool useBlur = !Platform.isWindows;
-
-    final barrierColor = WpColors.background.withValues(alpha: 0.92);
-
     return FadeTransition(
       opacity: opacity,
       child: Stack(
         children: [
           // Barrier layer
-          Positioned.fill(
-            child: useBlur
-                ? BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                    child: ColoredBox(color: wpDialogBarrierColor()),
-                  )
-                : ColoredBox(color: barrierColor),
-          ),
+          Positioned.fill(child: ColoredBox(color: wpDialogBarrierColor())),
           // Dialog
           child,
         ],
@@ -315,7 +366,13 @@ class _WpDialogContainer extends StatelessWidget {
           // Actions
           if (actions != null && actions!.isNotEmpty) ...[
             const SizedBox(height: WpSpacing.lg),
-            Row(mainAxisAlignment: MainAxisAlignment.end, children: actions!),
+            WpToastDockReserve(
+              animation: animation,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: actions!,
+              ),
+            ),
           ],
         ],
       ),
@@ -391,7 +448,13 @@ class WpFormDialogShell extends StatelessWidget {
             ),
           ),
           const SizedBox(height: WpSpacing.lg),
-          Row(mainAxisAlignment: MainAxisAlignment.end, children: actions),
+          WpToastDockReserve(
+            animation: animation,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: actions,
+            ),
+          ),
         ],
       ),
     );
@@ -442,23 +505,31 @@ class _WpConfirmContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: WpSpacing.lg),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              WpButton(
-                label: resolvedCancel,
-                variant: WpButtonVariant.ghost,
-                onPressed: () => Navigator.of(context).pop(false),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              WpButton(
-                label: resolvedConfirm,
-                variant: WpButtonVariant.primary,
-                tone: destructive ? WpButtonTone.danger : WpButtonTone.accent,
-                autofocus: true,
-                onPressed: () => Navigator.of(context).pop(true),
-              ),
-            ],
+          WpToastDockReserve(
+            animation: animation,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                WpButton(
+                  key: const ValueKey('confirm-dialog-cancel'),
+                  label: resolvedCancel,
+                  variant: WpButtonVariant.ghost,
+                  // A destructive confirmation starts on Cancel: Enter (or a
+                  // key still held while the dialog opens) must not delete.
+                  autofocus: destructive,
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+                const SizedBox(width: WpSpacing.sm),
+                WpButton(
+                  key: const ValueKey('confirm-dialog-confirm'),
+                  label: resolvedConfirm,
+                  variant: WpButtonVariant.primary,
+                  tone: destructive ? WpButtonTone.danger : WpButtonTone.accent,
+                  autofocus: !destructive,
+                  onPressed: () => Navigator.of(context).pop(true),
+                ),
+              ],
+            ),
           ),
         ],
       ),

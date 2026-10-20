@@ -199,18 +199,15 @@ describe("brand vocabulary compliance (Issue 02 gate)", () => {
   });
 
   it("buildTermRegex catches a planted anti-vocab term in llms.txt-style output", () => {
-    // Sanity check: if a future regression sneaks `dictation` into the
-    // hardcoded description, the scan must catch it. (`dictation` is a
-    // contrastive-allowed term in the live glossary, but the scanner sees
-    // it as a finding outside contrastive markers — which is exactly the
-    // production behaviour for `dist/llms.txt`.)
+    // Sanity check: if a future regression sneaks an anti-vocab term into
+    // the hardcoded description, the scan must catch it.
     const planted =
-      "# WhisPaste\n\n> This is a dictation tool.\n\n## Download\n\n- [D](https://x)\n";
+      "# WhisPaste\n\n> This is a voice assistant.\n\n## Download\n\n- [D](https://x)\n";
     const findings = scanHtml(planted, antiVocabulary);
     expect(findings.length).toBeGreaterThan(0);
-    expect(findings[0].term).toBe("dictation");
+    expect(findings[0].term).toBe("Voice assistant");
     // The regex builder is the same one production uses — confirm it for
     // record-keeping in this spec.
-    expect(buildTermRegex("dictation").flags).toContain("i");
+    expect(buildTermRegex("Voice assistant").flags).toContain("i");
   });
 });

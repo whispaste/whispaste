@@ -227,6 +227,7 @@ import PageSheet from "../PageSheet.astro";
               data-i18n="download.linux.deb.button"
               onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
             >{t(lang, "download.linux.deb.button")}</a>
+            <p class="text-ink-subtle text-xs text-center max-w-sm" data-testid="linux-autopaste-note" data-i18n="download.linux.autopaste">{t(lang, "download.linux.autopaste")}</p>
             {/* Erklär-Seite: benennt die drei Artefakte beim Namen und
                 beantwortet „ohne Installation? ohne Python?" ausführlicher,
                 als es in eine Download-Karte passt.
@@ -342,8 +343,9 @@ import PageSheet from "../PageSheet.astro";
             </summary>
 
             <div class="tech-helper__body px-5 pb-5">
-              <!-- Smart App Control blocks unsigned installers outright (no
-                   "Run anyway"), so the Store is the only way there. -->
+              <!-- Smart App Control may block unsigned installers (and then
+                   "Run anyway" may be unavailable), so the Store is the
+                   hurdle-free path. Wording is hedged on purpose. -->
               <div class="ml-8 mb-4 rounded-lg border border-[color:var(--wp-border-subtle)] p-3" data-testid="download-sac-note">
                 <p class="text-ink-muted text-xs leading-relaxed" data-i18n="download.sac.desc">{t(lang, "download.sac.desc")}</p>
                 <a

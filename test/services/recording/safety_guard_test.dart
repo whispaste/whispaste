@@ -6,12 +6,18 @@ library;
 
 import 'dart:async';
 
+import 'dart:math';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/recording/safety_guard.dart';
 
 // ---------------------------------------------------------------------------
 // Helper
 // ---------------------------------------------------------------------------
+
+/// 300 ms of level above the threshold at 10 samples/s: the shortest run
+/// that counts as speech.
+const _speech = [0.5, 0.5, 0.5];
 
 /// Runs [amplitudes] through a [SafetyGuard] configured with [config] and
 /// returns all [SafetyEvent]s emitted before the stream completes.
@@ -95,8 +101,8 @@ void main() {
         maxDurationSeconds: 0,
         samplesPerSecond: 10,
       );
-      // 1 loud sample (speech), then 15 silent samples.
-      final amplitudes = [0.5, ...List.filled(15, 0.0)];
+      // Speech, then 15 silent samples.
+      final amplitudes = [..._speech, ...List.filled(15, 0.0)];
       final events = await collectEvents(config, amplitudes);
 
       expect(events.whereType<DeadMicTimeoutReached>(), isEmpty);
@@ -128,8 +134,8 @@ void main() {
           maxDurationSeconds: 0,
           samplesPerSecond: 10,
         );
-        // 1 loud sample (arms speechDetected) + 10 silent samples.
-        final amplitudes = [0.5, ...List.filled(10, 0.0)];
+        // Speech (arms speechDetected) + 10 silent samples.
+        final amplitudes = [..._speech, ...List.filled(10, 0.0)];
         final events = await collectEvents(config, amplitudes);
 
         expect(events, hasLength(1));
@@ -162,7 +168,7 @@ void main() {
       );
       // Pattern: 1 speech + 5 silence, repeated 4 times → max consecutive = 5.
       final amplitudes = [
-        for (var i = 0; i < 4; i++) ...[0.5, ...List.filled(5, 0.0)],
+        for (var i = 0; i < 4; i++) ...[..._speech, ...List.filled(5, 0.0)],
       ];
       final events = await collectEvents(config, amplitudes);
 
@@ -177,7 +183,10 @@ void main() {
         maxDurationSeconds: 0,
         samplesPerSecond: 10,
       );
-      final amplitudes = [0.5, ...List.filled(10, 0.0)]; // exactly 10 silent
+      final amplitudes = [
+        ..._speech,
+        ...List.filled(10, 0.0),
+      ]; // exactly 10 silent
       final events = await collectEvents(config, amplitudes);
 
       expect(events.single, isA<SilenceAutoStop>());
@@ -191,7 +200,7 @@ void main() {
         samplesPerSecond: 10,
       );
       // Speech then long silence — no auto-stop guard.
-      final amplitudes = [0.5, ...List.filled(20, 0.0)];
+      final amplitudes = [..._speech, ...List.filled(20, 0.0)];
       final events = await collectEvents(config, amplitudes);
 
       expect(events.whereType<SilenceAutoStop>(), isEmpty);
@@ -351,6 +360,108 @@ void main() {
         expect(terminalCount, equals(1));
       },
     );
+  });
+
+  // ── Clicks and noise are not speech ──────────────────────────────────────
+
+  group('Speech needs a sustained level', () {
+    const config = SafetyGuardConfig(
+      deadMicTimeout: 1.0,
+      autoStopSilence: 0,
+      maxDurationSeconds: 0,
+      samplesPerSecond: 10,
+    );
+
+    test('one loud sample in silence keeps the dead-mic guard armed', () async {
+      final events = await collectEvents(config, [
+        0.05,
+        ...List.filled(10, 0.0),
+      ]);
+      expect(events.single, isA<DeadMicTimeoutReached>());
+    });
+
+    test('a two-sample click (200 ms) is not speech either', () async {
+      final events = await collectEvents(config, [
+        ...List.filled(4, 0.0),
+        0.9,
+        0.9,
+        ...List.filled(6, 0.0),
+      ]);
+      expect(events.single, isA<DeadMicTimeoutReached>());
+    });
+
+    test('noise with short spikes still reads as a dead microphone', () async {
+      // Deterministic: low noise below the threshold, with a one-sample
+      // spike roughly every fourth sample.
+      final random = Random(42);
+      final amplitudes = [
+        for (var i = 0; i < 40; i++)
+          i % 4 == 3
+              ? 0.03 + random.nextDouble() * 0.2
+              : random.nextDouble() * 0.019,
+      ];
+      final events = await collectEvents(config, amplitudes);
+      expect(events.single, isA<DeadMicTimeoutReached>());
+    });
+
+    test('300 ms of level counts as speech and disarms the guard', () async {
+      final events = await collectEvents(config, [
+        ..._speech,
+        ...List.filled(15, 0.0),
+      ]);
+      expect(events, isEmpty);
+    });
+
+    test('speech with single silent gaps still disarms the guard', () async {
+      // Real speech has brief dips between syllables; one silent sample
+      // between loud ones must not restart the 300 ms count.
+      final events = await collectEvents(config, [
+        0.5,
+        0.5,
+        0.0,
+        0.5,
+        0.5,
+        0.0,
+        ...List.filled(15, 0.0),
+      ]);
+      expect(events, isEmpty);
+    });
+
+    test('a dip longer than speechMaxGap restarts the count', () async {
+      // At 10 samples/s the tolerated dip is one sample (80 ms rounds up to
+      // 100 ms); two silent samples (200 ms) restart the 300 ms count.
+      final events = await collectEvents(config, [
+        0.5,
+        0.5,
+        0.0,
+        0.0,
+        0.5,
+        0.5,
+        ...List.filled(10, 0.0),
+      ]);
+      expect(events.single, isA<DeadMicTimeoutReached>());
+    });
+
+    test('speech scales with the sample rate', () async {
+      const fast = SafetyGuardConfig(
+        deadMicTimeout: 1.0,
+        autoStopSilence: 0,
+        maxDurationSeconds: 0,
+        samplesPerSecond: 20,
+      );
+      // 5 samples at 20/s are 250 ms: not yet speech.
+      final short = await collectEvents(fast, [
+        ...List.filled(5, 0.5),
+        ...List.filled(20, 0.0),
+      ]);
+      expect(short.single, isA<DeadMicTimeoutReached>());
+      // 6 samples are 300 ms.
+      final long = await collectEvents(fast, [
+        ...List.filled(6, 0.5),
+        ...List.filled(20, 0.0),
+      ]);
+      expect(long, isEmpty);
+    });
   });
 
   // ── Silence threshold boundary ───────────────────────────────────────────

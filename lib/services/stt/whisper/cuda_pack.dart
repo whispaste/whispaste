@@ -209,11 +209,19 @@ bool isCudaPackInstalled(CudaPackInfo pack, {required String rootDir}) {
 ///
 /// Turing (RTX 20xx, GTX 16xx) or newer only: the pack carries kernels for
 /// sm_75 and up, and an older card would fail at the first kernel launch.
+/// Store builds see the row too, disabled with the reason (spec §6, AR-19):
+/// the download itself is blocked there, see [activeCudaPackDirProvider].
 bool isCudaPackOffered({
   required bool packAvailable,
-  required bool isStoreBuild,
   required bool turingOrNewerNvidia,
-}) => packAvailable && !isStoreBuild && turingOrNewerNvidia;
+}) => packAvailable && turingOrNewerNvidia;
+
+/// Whether a CUDA pack may be downloaded or loaded in this build. Store
+/// builds never do (Store policy 10.2.2, AR-19); the row shows the reason
+/// instead. Checked hard in [CudaPackNotifier.install] and in
+/// [activeCudaPackDirProvider], so no UI path can bypass it.
+bool isCudaPackDownloadAllowed({required DeployChannel channel}) =>
+    channel != DeployChannel.store;
 
 // ---------------------------------------------------------------------------
 // Install / remove
@@ -451,6 +459,9 @@ class CudaPackNotifier extends Notifier<CudaPackState> {
   Future<void> install() async {
     final pack = state.pack;
     if (pack == null || state.isBusy || state.installed) return;
+    if (!isCudaPackDownloadAllowed(channel: ref.read(deployChannelProvider))) {
+      return;
+    }
     final store = _store;
     if (store.cancelPendingRemoval(pack)) {
       state = state.copyWith(installed: true, clearError: true);
@@ -518,7 +529,6 @@ final cudaPackOfferedProvider = Provider<bool>((ref) {
   final gpu = ref.watch(gpuInfoProvider).value;
   return isCudaPackOffered(
     packAvailable: ref.watch(cudaPackProvider.select((s) => s.pack != null)),
-    isStoreBuild: ref.watch(deployChannelProvider) == DeployChannel.store,
     // supportsFlashAttn is the existing Turing-or-newer name check
     // (RTX branding, GTX 16xx, Turing+ workstation cards).
     turingOrNewerNvidia:
@@ -531,6 +541,10 @@ final cudaPackOfferedProvider = Provider<bool>((ref) {
 /// GPU-load crash recovery).
 final activeCudaPackDirProvider = Provider<String?>((ref) {
   if (!ref.watch(cudaPackOfferedProvider)) return null;
+  // Store builds never load a driver pack: the download is not allowed there.
+  if (!isCudaPackDownloadAllowed(channel: ref.watch(deployChannelProvider))) {
+    return null;
+  }
   final enabled = ref.watch(
     settingsProvider.select((s) => s.value?.behavior.cudaAcceleration ?? true),
   );

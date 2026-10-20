@@ -96,7 +96,7 @@ void main() {
 
       final destPath = p.join(tempDir.path, 'model.bin');
       final fetchFuture = fetcher.fetch(
-        url: 'https://example.com/model.bin',
+        url: 'https://huggingface.co/model.bin',
         destPath: destPath,
         expectedSize: 1000,
       );
@@ -147,7 +147,7 @@ void main() {
 
         final destPath = p.join(tempDir.path, 'model.bin');
         final fetchFuture = fetcher.fetch(
-          url: 'https://example.com/model.bin',
+          url: 'https://huggingface.co/model.bin',
           destPath: destPath,
           expectedSize: totalChunks * chunkSize,
         );
@@ -182,7 +182,7 @@ void main() {
   // ─────────────────────────────────────────────────────────────────────────
 
   group('describeDioError', () {
-    RequestOptions opts() => RequestOptions(path: 'https://example.com/x');
+    RequestOptions opts() => RequestOptions(path: 'https://huggingface.co/x');
 
     test('cancel + "stalled" → stall message', () {
       final e = DioException(

@@ -68,8 +68,8 @@ void main() {
     test('English labels', () {
       final menu = _menu(const Locale('en'));
       expect(_label(menu, '__open__'), 'Open WhisPaste');
-      expect(_label(menu, '__new_recording__'), '⏺  Start Recording');
-      expect(_label(menu, '__history__'), 'Show History');
+      expect(_label(menu, '__new_recording__'), '⏺  Start recording');
+      expect(_label(menu, '__history__'), 'Show recordings');
       expect(_label(menu, '__settings__'), 'Settings');
       expect(_label(menu, '__quit__'), 'Quit WhisPaste');
     });
@@ -78,7 +78,7 @@ void main() {
       final menu = _menu(const Locale('de'));
       expect(_label(menu, '__open__'), 'WhisPaste öffnen');
       expect(_label(menu, '__new_recording__'), '⏺  Aufnahme starten');
-      expect(_label(menu, '__history__'), 'Verlauf anzeigen');
+      expect(_label(menu, '__history__'), 'Aufnahmen anzeigen');
       expect(_label(menu, '__settings__'), 'Einstellungen');
       expect(_label(menu, '__quit__'), 'WhisPaste beenden');
     });

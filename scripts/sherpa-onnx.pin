@@ -1,0 +1,27 @@
+# Pinned sherpa-onnx source for the TTS-free native build. Read by
+# scripts/build-sherpa-onnx.sh, scripts/build-sherpa-onnx.ps1 and
+# scripts/check-sherpa-stage.cmake. The tag's version must equal the
+# sherpa_onnx version in pubspec.lock; the check fails the build otherwise.
+SHERPA_TAG=v1.13.4
+SHERPA_COMMIT=142807252687d81b40d6315f23470a1512a00de3
+# Reference hashes (GS-013) of the native C API library. Reference only, not a
+# release gate: the build is reproducible within one checkout path but not across
+# checkout paths (ThinLTO bitcode embeds the object path). Measured values are in
+# BUILD.md. A mismatch is a warning from check-sherpa-stage.cmake; empty = none.
+SHERPA_C_API_SHA256_MACOS=
+SHERPA_C_API_SHA256_WINDOWS_X64=
+SHERPA_C_API_SHA256_LINUX_X64=
+SHERPA_C_API_SHA256_LINUX_AARCH64=
+# onnxruntime archives (csukuangfj/onnxruntime-libs release v1.27.0). The build
+# fetches each one itself and verifies SHA-256 before cmake runs (GS-008); the
+# hashes must equal the ones in sherpa-onnx's cmake/onnxruntime-*.cmake, which
+# the build checks. Windows uses the default CRT (MD) and Release.
+ORT_VERSION=1.27.0
+ORT_OSX_UNIVERSAL=onnxruntime-osx-universal2-1.27.0.zip
+ORT_OSX_UNIVERSAL_SHA256=70f8d24701d9c219f76687c54c0060aabeb5cf27aa84aa0a7f87582d450bb83a
+ORT_LINUX_X64=onnxruntime-linux-x64-glibc2_17-Release-1.27.0.zip
+ORT_LINUX_X64_SHA256=9f0c0a6998f1b94c399eeddcb443beb4a922c9a4fd431fdc9cd6de67a1935d00
+ORT_LINUX_AARCH64=onnxruntime-linux-aarch64-glibc2_17-Release-1.27.0.zip
+ORT_LINUX_AARCH64_SHA256=06e6dbe506fae40d8d735cf22378f7009bfe662cfffca76cb1d8ecea18a63826
+ORT_WIN_X64_MD_RELEASE=onnxruntime-win-x64-MD-Release-1.27.0.tar.bz2
+ORT_WIN_X64_MD_RELEASE_SHA256=b849a863b6b61e5d73115994aad6cd08d92ebdda163336b1e434129caa986743

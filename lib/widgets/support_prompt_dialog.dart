@@ -12,15 +12,15 @@ library;
 
 import 'dart:async';
 
+import 'external_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_urls.dart';
 import '../core/l10n/generated/app_localizations.dart';
-import '../core/logging/app_logger.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../services/nudge_gate.dart';
 import '../services/prompt_display_arbiter.dart';
 import '../services/prompt_timing.dart';
 import '../services/support/support_capabilities.dart';
@@ -28,8 +28,6 @@ import '../services/support/support_state.dart';
 import '../services/support_prompt_service.dart';
 import '../services/telemetry_service.dart';
 import 'wp_button.dart';
-
-final _log = AppLogger('SupportPromptDialog');
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -70,7 +68,16 @@ class _WpSupportPromptWatcherState
         _dialogShowing = false;
         return;
       }
-      unawaited(_present(context, state.kind));
+      // Central nudge gate (R-11): no dictation running, 30 s idle in the app.
+      unawaited(
+        ref.read(nudgeGateProvider).whenAllowed().then((_) {
+          if (!mounted || !context.mounted) {
+            _dialogShowing = false;
+            return;
+          }
+          unawaited(_present(context, state.kind));
+        }),
+      );
     });
   }
 
@@ -102,14 +109,8 @@ class _WpSupportPromptWatcherState
 
     _SupportAction? chosen;
     try {
-      await notifier.markPresented();
-      recordSupportEvent(
-        telemetry,
-        SupportTelemetryEvent.promptShown,
-        name: kind.name,
-      );
       if (!context.mounted) return;
-      await showGeneralDialog<void>(
+      final closed = showGeneralDialog<void>(
         context: context,
         barrierDismissible: true,
         barrierLabel: barrierLabel,
@@ -143,6 +144,19 @@ class _WpSupportPromptWatcherState
           );
         },
       );
+      // Count the impression only once the dialog is painted (UIA-FBK-09): a
+      // prompt that never reaches the screen must not use up the 3-impression cap.
+      unawaited(
+        WidgetsBinding.instance.endOfFrame.then((_) async {
+          await notifier.markPresented();
+          recordSupportEvent(
+            telemetry,
+            SupportTelemetryEvent.promptShown,
+            name: kind.name,
+          );
+        }),
+      );
+      await closed;
       await _resolve(
         chosen,
         closedByHotkey: closedByHotkey,
@@ -193,14 +207,15 @@ class _WpSupportPromptWatcherState
   }
 
   /// Records the link only after the browser launch succeeded. A failed
-  /// launch counts as a dismissal, so the prompt does not come back at once.
+  /// launch shows the address in a toast (UIA-FBK-08) and counts as a
+  /// dismissal, so the prompt does not come back at once.
   Future<void> _openLink(
     String url, {
     required String target,
     required SupportPromptNotifier notifier,
     required TelemetryService telemetry,
   }) async {
-    if (await _launch(url)) {
+    if (await openExternalUrl(context, url)) {
       recordSupportEvent(
         telemetry,
         SupportTelemetryEvent.linkOpened,
@@ -209,18 +224,6 @@ class _WpSupportPromptWatcherState
       await notifier.markLinkOpened();
     } else {
       await notifier.dismiss();
-    }
-  }
-
-  Future<bool> _launch(String url) async {
-    try {
-      return await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
-    } on Exception catch (e) {
-      _log.error('launch failed: $e', e);
-      return false;
     }
   }
 
@@ -330,7 +333,6 @@ class _SupportPromptDialog extends StatelessWidget {
                     variant: index == 0
                         ? WpButtonVariant.primary
                         : WpButtonVariant.secondary,
-                    autofocus: index == 0,
                     onPressed: () => onResult(action),
                   ),
                 ],
@@ -340,6 +342,8 @@ class _SupportPromptDialog extends StatelessWidget {
                   label: l10n.supportPromptSnooze,
                   variant: WpButtonVariant.ghost,
                   tone: WpButtonTone.neutral,
+                  // Focus starts on "later": Enter must not open a browser (UIA-FBK-01).
+                  autofocus: true,
                   onPressed: () => onResult(_SupportAction.dismiss),
                 ),
               ],

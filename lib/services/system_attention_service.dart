@@ -25,7 +25,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
 
 import '../core/config/settings_provider.dart';
+import '../core/config/settings_sections.dart';
 import '../core/logging/app_logger.dart';
+import '../core/platform/linux_session_bus.dart';
 import '../core/platform/macos_lifecycle_channel.dart';
 
 /// Identity of an attention request — used to throttle duplicate alerts
@@ -47,12 +49,66 @@ enum AttentionKind {
   /// every other [AttentionKind] here (see ADR 0009 — Smart Mode never
   /// blocks the paste).
   smartModeFallback,
+
+  /// WP-39 (9.3): no microphone signal shortly after the start. Recording
+  /// continues; the dead-mic timeout still stops it if nothing arrives.
+  silentMicrophone,
+
+  /// XP-5-09: another app holds the configured hotkey and the safe default
+  /// starts dictation instead. Only the master switch gates it: without a
+  /// working hotkey nothing else in the app is reachable from outside.
+  hotkeyFallback,
+
+  /// Linux without a tray host (GNOME without AppIndicator): the tray quick
+  /// switch is not visible, so the app says so once per start.
+  trayHostMissing,
 }
 
+/// Whether the native OS notification for [kind] may be shown.
+///
+/// The master switch [InterfaceSettings.showNotifications] gates everything;
+/// below it, each category has its own switch. Dock bounce and taskbar flash
+/// are deliberately outside this gate (see [SystemAttentionService]).
+bool attentionNotificationAllowed(
+  AttentionKind kind,
+  InterfaceSettings settings,
+) {
+  if (!settings.showNotifications) return false;
+  return switch (kind) {
+    AttentionKind.smartModeFallback => settings.notifySmartModeFallback,
+    AttentionKind.silentMicrophone => settings.notifyMicrophoneProblems,
+    AttentionKind.hotkeyFallback => true,
+    AttentionKind.trayHostMissing => true,
+    AttentionKind.pasteBlockedPermission ||
+    AttentionKind.pasteBlockedNoTarget ||
+    AttentionKind.pasteFailedUnknown ||
+    AttentionKind.pasteBlockedElevation => settings.notifyPasteProblems,
+  };
+}
+
+/// Whether a notification server owns `org.freedesktop.Notifications`.
+/// Always true off Linux.
+Future<bool> notificationServerRunning() =>
+    linuxSessionBusNameHasOwner('org.freedesktop.Notifications');
+
 class SystemAttentionService {
-  SystemAttentionService(this._ref);
+  SystemAttentionService(
+    this._ref, {
+    Future<bool> Function()? isNotificationServerRunning,
+    DateTime Function()? clock,
+  }) : _notificationServerRunning =
+           isNotificationServerRunning ?? notificationServerRunning,
+       _clock = clock ?? DateTime.now;
 
   final Ref _ref;
+  final Future<bool> Function() _notificationServerRunning;
+  final DateTime Function() _clock;
+
+  /// How long one answer of [_notificationServerRunning] holds. A server
+  /// started later (mako, dunst) is picked up after this.
+  static const Duration _serverCheckTtl = Duration(seconds: 30);
+  bool? _serverRunning;
+  DateTime? _serverCheckedAt;
 
   static final _log = AppLogger('SystemAttention');
   static const _windowsChannel = MethodChannel('com.whispaste.attention');
@@ -99,7 +155,12 @@ class SystemAttentionService {
     _lastFired[kind] = now;
 
     await _ensureInit();
-    await _fireNotification(title: title, body: body, onClick: onClick);
+    await _fireNotification(
+      kind: kind,
+      title: title,
+      body: body,
+      onClick: onClick,
+    );
     await _fireDockOrTaskbar();
   }
 
@@ -123,16 +184,25 @@ class SystemAttentionService {
   }
 
   Future<void> _fireNotification({
+    required AttentionKind kind,
     required String title,
     required String body,
     void Function()? onClick,
   }) async {
-    // Respect the user's "show notifications" preference. Dock-bounce /
-    // taskbar-flash stay active in either case — those are the fallback
-    // attention path that survives even when notifications are suppressed.
+    // Respect the user's notification switches (master and per category).
+    // Dock-bounce / taskbar-flash stay active in either case — those are the
+    // fallback attention path that survives even when notifications are
+    // suppressed.
     final settings = _ref.read(settingsProvider).value ?? AppSettings.defaults;
-    if (!settings.interface_.showNotifications) {
-      _log.debug('Notification suppressed by showNotifications=false');
+    if (!attentionNotificationAllowed(kind, settings.interface_)) {
+      _log.debug('Notification suppressed for $kind by user settings');
+      return;
+    }
+    if (!await _notificationServerAvailable()) {
+      // libnotify would start the server synchronously on the GTK main
+      // thread and freeze the app for the 25 s D-Bus timeout (XP-7-19). The
+      // in-app toast and the overlay still carry the message.
+      _log.info('No notification server on the session bus; skipped $kind');
       return;
     }
     try {
@@ -144,6 +214,20 @@ class SystemAttentionService {
       // is exactly why we also fire the dock-bounce / taskbar-flash.
       _log.debug('Native notification failed (non-fatal)', e);
     }
+  }
+
+  Future<bool> _notificationServerAvailable() async {
+    final checkedAt = _serverCheckedAt;
+    final now = _clock();
+    if (_serverRunning != null &&
+        checkedAt != null &&
+        now.difference(checkedAt) < _serverCheckTtl) {
+      return _serverRunning!;
+    }
+    final running = await _notificationServerRunning();
+    _serverRunning = running;
+    _serverCheckedAt = now;
+    return running;
   }
 
   Future<void> _fireDockOrTaskbar() async {

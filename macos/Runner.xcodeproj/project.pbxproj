@@ -41,10 +41,16 @@
 		AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0006002044A3C60003C045 /* AudioRoutingHost.swift */; };
 		AA0007012044A3C60003C045 /* BundleIdMigrationHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */; };
 		1B902E470889FBF4F29B228B /* AutostartHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EE32718BA61789B0C68DFFB /* AutostartHost.swift */; };
+		A1F0D3C0DE0000000000B001 /* AudioFileDecodeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A001 /* AudioFileDecodeHost.swift */; };
+		A1F0D3C0DE0000000000B002 /* WhispasteOpusDecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A002 /* WhispasteOpusDecode.cc */; settings = {COMPILER_FLAGS = "-std=c++17"; }; };
+		A1F0D3C0DE0000000000B003 /* audio_file_decode_core.cc in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A005 /* audio_file_decode_core.cc */; settings = {COMPILER_FLAGS = "-std=c++17 -DWP_WITH_FLAC=0"; }; };
+		A1F0D3C0DE0000000000B004 /* audio_file_decode_gst.cc in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A006 /* audio_file_decode_gst.cc */; settings = {COMPILER_FLAGS = "-std=c++17"; }; };
 		4250664C229E1BBC8A051063 /* SecureBookmarkHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66CE74FAC21AEADD0B7C8662 /* SecureBookmarkHost.swift */; };
 		A5C0F1000000000000000011 /* SupportStoreHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C0F1000000000000000012 /* SupportStoreHost.swift */; };
+		A5C0F1000000000000000021 /* StoreReviewHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5C0F1000000000000000022 /* StoreReviewHost.swift */; };
 		AA1001000000000000000007 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AA1001000000000000000006 /* PrivacyInfo.xcprivacy */; };
 		B0286F67A32AA2FDEAEC2B2A /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0B114D31172F69CA9A787753 /* Pods_RunnerTests.framework */; };
+		AA2001000000000000000001 /* MainMenu.strings in Resources */ = {isa = PBXBuildFile; fileRef = AA2001000000000000000010 /* MainMenu.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -117,12 +123,25 @@
 		AA0006002044A3C60003C045 /* AudioRoutingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutingHost.swift; sourceTree = "<group>"; };
 		AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleIdMigrationHost.swift; sourceTree = "<group>"; };
 		1EE32718BA61789B0C68DFFB /* AutostartHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutostartHost.swift; sourceTree = "<group>"; };
+		A1F0D3C0DE0000000000A001 /* AudioFileDecodeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFileDecodeHost.swift; sourceTree = "<group>"; };
+		A1F0D3C0DE0000000000A002 /* WhispasteOpusDecode.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WhispasteOpusDecode.cc; sourceTree = "<group>"; };
+		A1F0D3C0DE0000000000A003 /* WhispasteOpusDecode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WhispasteOpusDecode.h; sourceTree = "<group>"; };
+		A1F0D3C0DE0000000000A004 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
+		A1F0D3C0DE0000000000A005 /* audio_file_decode_core.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ../linux/runner/audio_file_decode_core.cc; sourceTree = SOURCE_ROOT; };
+		A1F0D3C0DE0000000000A006 /* audio_file_decode_gst.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ../linux/runner/audio_file_decode_gst.cc; sourceTree = SOURCE_ROOT; };
+		A1F0D3C0DE0000000000A007 /* Opus.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Opus.xcconfig; sourceTree = "<group>"; };
 		66CE74FAC21AEADD0B7C8662 /* SecureBookmarkHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureBookmarkHost.swift; sourceTree = "<group>"; };
 		A5C0F1000000000000000012 /* SupportStoreHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SupportStoreHost.swift; sourceTree = "<group>"; };
+		A5C0F1000000000000000022 /* StoreReviewHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreReviewHost.swift; sourceTree = "<group>"; };
 		AA1001000000000000000005 /* AppStore.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = AppStore.entitlements; sourceTree = "<group>"; };
 		AA1001000000000000000006 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = file.xcprivacy; name = PrivacyInfo.xcprivacy; path = Runner/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		C572D7F41B3EE36C7D716613 /* Pods-RunnerTests.mas.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.mas.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.mas.xcconfig"; sourceTree = "<group>"; };
 		F518BCBF13BA40121A89A04B /* Pods-RunnerTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.release.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.release.xcconfig"; sourceTree = "<group>"; };
+		AA2001000000000000000101 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		AA2001000000000000000102 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		AA2001000000000000000103 /* he */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = he; path = he.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		AA2001000000000000000104 /* pt */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pt; path = pt.lproj/MainMenu.strings; sourceTree = "<group>"; };
+		AA2001000000000000000105 /* ru */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ru; path = ru.lproj/MainMenu.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -160,6 +179,7 @@
 				9740EEB21CF90195004384FC /* Debug.xcconfig */,
 				7AFA3C8E1D35360C0083082E /* Release.xcconfig */,
 				333000ED22D3DE5D00554162 /* Warnings.xcconfig */,
+				A1F0D3C0DE0000000000A007 /* Opus.xcconfig */,
 			);
 			path = Configs;
 			sourceTree = "<group>";
@@ -190,6 +210,7 @@
 			children = (
 				33CC10F22044A3C60003C045 /* Assets.xcassets */,
 				33CC10F42044A3C60003C045 /* MainMenu.xib */,
+				AA2001000000000000000010 /* MainMenu.strings */,
 				33CC10F72044A3C60003C045 /* Info.plist */,
 				AA1001000000000000000006 /* PrivacyInfo.xcprivacy */,
 			);
@@ -226,8 +247,15 @@
 				AA0006002044A3C60003C045 /* AudioRoutingHost.swift */,
 				AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */,
 				1EE32718BA61789B0C68DFFB /* AutostartHost.swift */,
+				A1F0D3C0DE0000000000A001 /* AudioFileDecodeHost.swift */,
+				A1F0D3C0DE0000000000A002 /* WhispasteOpusDecode.cc */,
+				A1F0D3C0DE0000000000A003 /* WhispasteOpusDecode.h */,
+				A1F0D3C0DE0000000000A004 /* Runner-Bridging-Header.h */,
+				A1F0D3C0DE0000000000A005 /* audio_file_decode_core.cc */,
+				A1F0D3C0DE0000000000A006 /* audio_file_decode_gst.cc */,
 				66CE74FAC21AEADD0B7C8662 /* SecureBookmarkHost.swift */,
 				A5C0F1000000000000000012 /* SupportStoreHost.swift */,
+				A5C0F1000000000000000022 /* StoreReviewHost.swift */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				AA1001000000000000000005 /* AppStore.entitlements */,
@@ -290,6 +318,7 @@
 			buildPhases = (
 				519F586741910051FC326956 /* [CP] Check Pods Manifest.lock */,
 				AA2002010000000000000001 /* [WP] Guard MAS plugin registrant */,
+				A1F0D3C0DE0000000000D001 /* [WP] Build Opus/Ogg static libs */,
 				33CC10E92044A3C60003C045 /* Sources */,
 				33CC10EA2044A3C60003C045 /* Frameworks */,
 				33CC10EB2044A3C60003C045 /* Resources */,
@@ -298,6 +327,7 @@
 				8F97BE17E79C7E54F9E0BFA5 /* [CP] Embed Pods Frameworks */,
 				AAB1C2D3E4F5060718293A4B /* [WP] Embed & Sign libwhisper */,
 				AAB1C2D3E4F5060718293A4C /* [WP] Embed & Sign libllama */,
+				AAB1C2D3E4F5060718293A4D /* [WP] Embed sherpa-onnx (no TTS) */,
 				D7FEBF1B71704F4EB00AEF0A /* [WP] Strip MAS-incompatible frameworks */,
 			);
 			buildRules = (
@@ -348,6 +378,11 @@
 			knownRegions = (
 				en,
 				Base,
+				de,
+				es,
+				he,
+				pt,
+				ru,
 			);
 			mainGroup = 33CC10E42044A3C60003C045;
 			productRefGroup = 33CC10EE2044A3C60003C045 /* Products */;
@@ -375,6 +410,7 @@
 			files = (
 				33CC10F32044A3C60003C045 /* Assets.xcassets in Resources */,
 				33CC10F62044A3C60003C045 /* MainMenu.xib in Resources */,
+				AA2001000000000000000001 /* MainMenu.strings in Resources */,
 				AA1001000000000000000007 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -412,6 +448,22 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${SRCROOT}/embed_libllama.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		AAB1C2D3E4F5060718293A4D /* [WP] Embed sherpa-onnx (no TTS) */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "[WP] Embed sherpa-onnx (no TTS)";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/embed_sherpa_onnx.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		AA2002010000000000000001 /* [WP] Guard MAS plugin registrant */ = {
@@ -545,6 +597,25 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		A1F0D3C0DE0000000000D001 /* [WP] Build Opus/Ogg static libs */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 0;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../scripts/build-opus-macos.sh",
+			);
+			name = "[WP] Build Opus/Ogg static libs";
+			outputPaths = (
+				"$(SRCROOT)/../.build/opus-macos/lib/libogg.a",
+				"$(SRCROOT)/../.build/opus-macos/lib/libopus.a",
+				"$(SRCROOT)/../.build/opus-macos/lib/libopusfile.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${SRCROOT}/../scripts/build-opus-macos.sh\"\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -576,8 +647,13 @@
 				AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */,
 				AA0007012044A3C60003C045 /* BundleIdMigrationHost.swift in Sources */,
 				1B902E470889FBF4F29B228B /* AutostartHost.swift in Sources */,
+				A1F0D3C0DE0000000000B001 /* AudioFileDecodeHost.swift in Sources */,
+				A1F0D3C0DE0000000000B002 /* WhispasteOpusDecode.cc in Sources */,
+				A1F0D3C0DE0000000000B003 /* audio_file_decode_core.cc in Sources */,
+				A1F0D3C0DE0000000000B004 /* audio_file_decode_gst.cc in Sources */,
 				4250664C229E1BBC8A051063 /* SecureBookmarkHost.swift in Sources */,
 				A5C0F1000000000000000011 /* SupportStoreHost.swift in Sources */,
+				A5C0F1000000000000000021 /* StoreReviewHost.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -603,6 +679,19 @@
 				33CC10F52044A3C60003C045 /* Base */,
 			);
 			name = MainMenu.xib;
+			path = Runner;
+			sourceTree = "<group>";
+		};
+		AA2001000000000000000010 /* MainMenu.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				AA2001000000000000000101 /* de */,
+				AA2001000000000000000102 /* es */,
+				AA2001000000000000000103 /* he */,
+				AA2001000000000000000104 /* pt */,
+				AA2001000000000000000105 /* ru */,
+			);
+			name = MainMenu.strings;
 			path = Runner;
 			sourceTree = "<group>";
 		};
@@ -705,7 +794,7 @@
 		};
 		338D0CEA231458BD00FA5F75 /* Profile */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 33E5194F232828860026EE4D /* AppInfo.xcconfig */;
+			baseConfigurationReference = A1F0D3C0DE0000000000A007 /* Opus.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -837,7 +926,7 @@
 		};
 		33CC10FC2044A3C60003C045 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 33E5194F232828860026EE4D /* AppInfo.xcconfig */;
+			baseConfigurationReference = A1F0D3C0DE0000000000A007 /* Opus.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -857,7 +946,7 @@
 		};
 		33CC10FD2044A3C60003C045 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 33E5194F232828860026EE4D /* AppInfo.xcconfig */;
+			baseConfigurationReference = A1F0D3C0DE0000000000A007 /* Opus.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
@@ -942,7 +1031,7 @@
 		};
 		AA1001000000000000000002 /* MAS */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 33E5194F232828860026EE4D /* AppInfo.xcconfig */;
+			baseConfigurationReference = A1F0D3C0DE0000000000A007 /* Opus.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;

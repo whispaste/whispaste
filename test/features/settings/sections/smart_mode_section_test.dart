@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/features/settings/sections/shortcuts_section.dart';
 import 'package:whispaste/features/settings/sections/smart_mode_section.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLocalEngineAvailableProvider;
@@ -62,7 +63,7 @@ void main() {
       final notifier = _FakeSettingsNotifier(AppSettings.defaults);
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: SmartModeSection()),
+          const SingleChildScrollView(child: KeyboardShortcutSection()),
           overrides: _overrides(settings: notifier),
         ),
       );
@@ -118,7 +119,10 @@ void main() {
       await tester.pumpWidget(
         makeTestable(
           const SingleChildScrollView(child: SmartModeSection()),
-          overrides: _overrides(settings: notifier),
+          overrides: _overrides(
+            settings: notifier,
+            download: const SmartModeDownloadState(modelDownloaded: true),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -153,7 +157,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Download'), findsNothing);
-      expect(find.textContaining(smartModeModel.label), findsNothing);
+      expect(find.textContaining('Q4_K_M'), findsNothing);
     });
 
     testWidgets('local engine missing: the on-device option cannot be '
@@ -178,7 +182,7 @@ void main() {
 
       await tester.tap(find.text('OpenAI'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Locally on Device').last);
+      await tester.tap(find.text('Locally on device').last);
       await tester.pumpAndSettle();
 
       expect(notifier.state.value!.smartMode.provider, 'openai');
@@ -241,7 +245,8 @@ void main() {
 
       expect(find.text('Delete'), findsOneWidget);
       expect(find.text('Download'), findsNothing);
-      expect(find.textContaining(smartModeModel.label), findsOneWidget);
+      expect(find.textContaining('Gemma 4 E2B'), findsOneWidget);
+      expect(find.textContaining('Q4_K_M'), findsNothing);
     });
 
     testWidgets(
@@ -319,7 +324,7 @@ void main() {
       );
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: SmartModeSection()),
+          const SingleChildScrollView(child: KeyboardShortcutSection()),
           overrides: _overrides(settings: notifier),
         ),
       );
@@ -342,11 +347,11 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(
-          find.textContaining('shared with the transcription model'),
+          find.textContaining('shared with the speech model'),
           findsOneWidget,
         );
         expect(
-          find.textContaining('typical 50-word dictation'),
+          find.textContaining('typical 50-word recording'),
           findsOneWidget,
         );
       },

@@ -16,6 +16,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/theme/colors.dart';
+import 'package:whispaste/core/theme/generated/wp_tokens.g.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
@@ -222,13 +223,14 @@ void main() {
       // a translucent frost with the tinted card rim. The capsule below is
       // deliberately *not*, because it lives in the floating overlay, which
       // has no ambient of the main window's to be translucent against.
-      expect(_boxDecoration(tester).borderRadius, WpRadius.borderSm);
-      expect(_boxDecoration(tester).color, WpColorsDark.cardFillElevated);
-      expect(_boxDecoration(tester).boxShadow, isNull);
       expect(
-        _borderDecoration(tester).border!.top.color,
-        WpColorsDark.cardEdgeHighlight,
+        _boxDecoration(tester).borderRadius,
+        BorderRadius.circular(WpRadiusTokens.sm),
       );
+      expect(_boxDecoration(tester).color, WpColors.cardFillElevated);
+      expect(_boxDecoration(tester).boxShadow, isNull);
+      // FND-01: the resting edge is controlEdge (>= 3:1) on the field surface.
+      expect(_borderDecoration(tester).border!.top.color, WpColors.controlEdge);
     });
 
     // Removed 2026-08-11 (dark-only build): 'outlined: the light theme keeps
@@ -251,10 +253,10 @@ void main() {
       );
 
       expect(_boxDecoration(tester).borderRadius, WpRadius.borderFull);
-      expect(_boxDecoration(tester).color, WpColorsDark.surfaceMutedFill);
+      expect(_boxDecoration(tester).color, WpColors.surfaceMutedFill);
       expect(
         _borderDecoration(tester).border!.top.color,
-        WpColorsDark.borderSubtle,
+        WpColors.borderSubtle,
       );
     });
   });
@@ -281,7 +283,7 @@ void main() {
       node.requestFocus();
       await tester.pumpAndSettle();
 
-      expect(_borderDecoration(tester).border!.top.color, WpColorsDark.accent);
+      expect(_borderDecoration(tester).border!.top.color, WpColors.accent);
       expect(_borderDecoration(tester).border!.top.width, 1.5);
       // foregroundDecoration paints over the child rather than insetting it.
       expect(tester.getSize(find.byType(WpSearchField)), restingSize);

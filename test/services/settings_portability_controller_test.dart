@@ -365,7 +365,7 @@ void main() {
     expect(toaster.calls.single.type, WpToastType.error);
     expect(
       toaster.calls.single.message,
-      l10n.settingsPortabilityExportError('db unavailable'),
+      l10n.settingsPortabilityExportError(l10n.settingsPortabilityErrorGeneric),
     );
     // gather() fails before any path is resolved — the user should not be
     // made to pick a save location just to be shown an error afterwards.
@@ -480,6 +480,38 @@ void main() {
     expect(applyCalled, isFalse);
     expect(toaster.calls, hasLength(1));
     expect(toaster.calls.single.type, WpToastType.error);
+  });
+
+  testWidgets('import names the size limit for an oversized file', (
+    tester,
+  ) async {
+    final toaster = _FakeToaster();
+    var applyCalled = false;
+    final sut = _controller(
+      fs: fs,
+      toaster: toaster,
+      downloads: Directory(_downloadsPath),
+      apply: (_) async => applyCalled = true,
+    );
+
+    await fs.directory(_downloadsPath).create(recursive: true);
+    await fs
+        .file(p.join(_downloadsPath, settingsExportFileName))
+        .writeAsString('x' * (settingsImportMaxBytes + 1));
+
+    await _withContext(tester, (ctx) async {
+      await sut.import(ctx);
+    });
+
+    expect(applyCalled, isFalse);
+    expect(toaster.calls, hasLength(1));
+    expect(toaster.calls.single.type, WpToastType.error);
+    expect(
+      toaster.calls.single.message,
+      l10n.settingsPortabilityImportError(
+        l10n.settingsPortabilityErrorTooLarge,
+      ),
+    );
   });
 
   // ───────────────────────────────────────────────────────────────────────

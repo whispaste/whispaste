@@ -120,7 +120,7 @@ class _FakeLifecycle implements OnDeviceEngineLifecycle {
       EngineLifecycleStatus(isReady: ready, errorMessage: error);
 
   @override
-  Future<void> ensureRunning() async {}
+  Future<void> ensureRunning({bool warmup = true}) async {}
 
   @override
   Future<void> prewarm() async {}

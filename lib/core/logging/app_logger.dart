@@ -10,7 +10,8 @@
 /// `%LOCALAPPDATA%/Whispaste/logs/whispaste.log` (or platform equivalent).
 /// The file is rotated when it exceeds 2 MB, keeping up to 5 numbered
 /// backups (`whispaste.log.1` … `.5`, oldest deleted) — bounded at ~12 MB
-/// total. Lines are redacted for known secret patterns before hitting disk
+/// total. Lines older than [logMaxAge] are dropped on every start, however
+/// little was logged since (R-10). Lines are redacted for known secret patterns before hitting disk
 /// and single-lined to prevent log injection via attacker-controlled text.
 library;
 
@@ -24,6 +25,7 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart' as diag;
 import '../../services/path_service.dart' as paths;
 import 'breadcrumbs.dart';
+import 'crash_error_redaction.dart';
 import 'crash_fingerprints.dart';
 import 'crash_reporter.dart';
 
@@ -80,6 +82,78 @@ void shiftRotatedLogFiles(String basePath, {int maxRotations = 5}) {
   if (primary.existsSync()) primary.renameSync('$basePath.1');
 }
 
+/// How long log lines are kept, regardless of the size-based rotation.
+const logMaxAge = Duration(days: 14);
+
+final _lineTime = RegExp(
+  r'^(?:--- Log session started \()?(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?)',
+);
+
+DateTime? _timeOfLine(String line) {
+  final m = _lineTime.firstMatch(line);
+  return m == null ? null : DateTime.tryParse(m[1]!);
+}
+
+/// Removes log lines older than [maxAge] from the primary log at [basePath]
+/// and its numbered backups. A file whose last write is past the limit is
+/// deleted outright; a file that spans the limit is cut to its first line
+/// within it (lines are in time order). Files without expired lines are
+/// only opened for their first line, so a normal start costs a few reads.
+@visibleForTesting
+void pruneExpiredLogFiles(
+  String basePath, {
+  required DateTime now,
+  Duration maxAge = logMaxAge,
+  int maxRotations = 5,
+}) {
+  final cutoff = now.subtract(maxAge);
+  for (final path in [
+    basePath,
+    for (var i = 1; i <= maxRotations; i++) '$basePath.$i',
+  ]) {
+    try {
+      final file = File(path);
+      if (!file.existsSync()) continue;
+      if (file.lastModifiedSync().isBefore(cutoff)) {
+        file.deleteSync();
+        continue;
+      }
+      if (!_startsBefore(file, cutoff)) continue;
+      final lines = const LineSplitter().convert(
+        utf8.decode(file.readAsBytesSync(), allowMalformed: true),
+      );
+      final keepFrom = lines.indexWhere((line) {
+        final time = _timeOfLine(line);
+        return time != null && !time.isBefore(cutoff);
+      });
+      if (keepFrom < 0) {
+        file.writeAsStringSync('');
+      } else {
+        file.writeAsStringSync('${lines.sublist(keepFrom).join('\n')}\n');
+      }
+    } on FileSystemException catch (e) {
+      // debugPrint, not the logger: logging is not configured yet.
+      debugPrint('LogFileSink: prune failed for $path: $e');
+    }
+  }
+}
+
+/// Whether the first timestamped line in the head of [file] is before
+/// [cutoff].
+bool _startsBefore(File file, DateTime cutoff) {
+  final raf = file.openSync();
+  try {
+    final head = utf8.decode(raf.readSync(4096), allowMalformed: true);
+    for (final line in const LineSplitter().convert(head)) {
+      final time = _timeOfLine(line);
+      if (time != null) return time.isBefore(cutoff);
+    }
+    return false;
+  } finally {
+    raf.closeSync();
+  }
+}
+
 /// Prevents log injection (forged fake log lines) and keeps a single
 /// physical line per record: control characters and newlines in
 /// caller-supplied content are escaped rather than written verbatim.
@@ -92,7 +166,8 @@ String sanitizeLogLineForInjection(String s) {
       .replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), '');
 }
 
-/// Manages a log file with rotation (max 2 MB) and bounded retention.
+/// Manages a log file with rotation (max 2 MB) and bounded retention
+/// (size, plus [logMaxAge] applied at start).
 ///
 /// Rotation scheme: `whispaste.log` → `whispaste.log.1` → … →
 /// `whispaste.log.$_maxRotations` (oldest, deleted on next rotation).
@@ -120,6 +195,7 @@ class _LogFileSink {
   // point of view.
   RandomAccessFile? _raf;
   int _bytesWritten = 0;
+  DateTime _nextPrune = DateTime.now();
 
   /// Initializes the file sink. Safe to call from main isolate only.
   Future<void> init() async {
@@ -130,9 +206,7 @@ class _LogFileSink {
         logDir.createSync(recursive: true);
       }
       _file = File('${logDir.path}${Platform.pathSeparator}whispaste.log');
-      _bytesWritten = _file!.existsSync() ? _file!.lengthSync() : 0;
-      _rotateIfNeeded();
-      _raf = _file!.openSync(mode: FileMode.append);
+      _pruneAndOpen();
       _writeLine(
         '--- Log session started '
         '(${DateTime.now().toIso8601String()}) ---',
@@ -141,6 +215,21 @@ class _LogFileSink {
       // File logging is best-effort — don't crash the app.
       debugPrint('LogFileSink: init failed: $e');
     }
+  }
+
+  /// Applies [logMaxAge], then (re)opens the primary file for appending.
+  /// Runs at start and again once a day, since the app often stays open
+  /// for weeks.
+  void _pruneAndOpen() {
+    final file = _file!;
+    _raf?.closeSync();
+    _raf = null;
+    final now = DateTime.now();
+    pruneExpiredLogFiles(file.path, now: now, maxRotations: _maxRotations);
+    _nextPrune = now.add(const Duration(days: 1));
+    _bytesWritten = file.existsSync() ? file.lengthSync() : 0;
+    _rotateIfNeeded();
+    _raf = _file!.openSync(mode: FileMode.append);
   }
 
   void _rotateIfNeeded() {
@@ -161,6 +250,7 @@ class _LogFileSink {
   void _writeLine(String line) {
     if (_raf == null) return;
     try {
+      if (DateTime.now().isAfter(_nextPrune)) _pruneAndOpen();
       final redacted = diag.redactSensitive(line);
       final bytes = utf8.encode('$redacted\n');
       _raf!.writeFromSync(bytes);
@@ -177,12 +267,19 @@ class _LogFileSink {
 
   void write(LogRecord record) {
     final ts = record.time.toIso8601String().substring(0, 23);
-    final message = sanitizeLogLineForInjection(record.message);
+    // Log lines interpolate `$e`, so a SqliteException can arrive here with
+    // its bound parameters (transcript text). Redact before anything is kept.
+    final message = sanitizeLogLineForInjection(
+      redactSqliteParametersInText(record.message),
+    );
     final buf = StringBuffer(
       '$ts [${record.level.name}] ${record.loggerName}: $message',
     );
     if (record.error != null) {
-      buf.write('\n  Error: ${sanitizeLogLineForInjection('${record.error}')}');
+      final error = redactForCrashReport(record.error!);
+      buf.write(
+        '\n  Error: ${sanitizeLogLineForInjection(redactSqliteParametersInText('$error'))}',
+      );
     }
     if (record.stackTrace != null) buf.write('\n${record.stackTrace}');
     _writeLine(buf.toString());
@@ -247,19 +344,27 @@ Future<void> configureLogging() async {
   }
 
   Logger.root.onRecord.listen((record) {
+    // Interpolated exceptions can carry SqliteException bound parameters
+    // (transcript text). Every sink below (ring buffer = Sentry breadcrumb
+    // context, DevTools, stdout, file, Sentry breadcrumb) gets the redacted
+    // text. See redactSqliteParametersInText.
+    final message = redactSqliteParametersInText(record.message);
+    final error = record.error == null
+        ? null
+        : redactForCrashReport(record.error!);
+
     // Format: "[LEVEL] LoggerName: message"
-    final line =
-        '[${record.level.name}] ${record.loggerName}: ${record.message}';
+    final line = '[${record.level.name}] ${record.loggerName}: $message';
 
     // Always feed breadcrumb ring.
     breadcrumbRing.add(line);
 
     // Print to Dart DevTools (visible in DevTools log tab).
     dev.log(
-      record.message,
+      message,
       name: record.loggerName,
       level: record.level.value,
-      error: record.error,
+      error: error,
       stackTrace: record.stackTrace,
     );
 
@@ -268,7 +373,9 @@ Future<void> configureLogging() async {
     // info+ in debug mode covers toast messages, recording state, etc.
     if (!kReleaseMode && record.level >= Level.INFO) {
       final buf = StringBuffer(line);
-      if (record.error != null) buf.write('\n  Error: ${record.error}');
+      if (error != null) {
+        buf.write('\n  Error: ${redactSqliteParametersInText('$error')}');
+      }
       if (record.stackTrace != null) {
         buf.write('\n${record.stackTrace}');
       }
@@ -292,7 +399,7 @@ Future<void> configureLogging() async {
       };
       Sentry.addBreadcrumb(
         Breadcrumb(
-          message: '${record.loggerName}: ${record.message}',
+          message: '${record.loggerName}: $message',
           level: sentryLevel,
           category: record.loggerName,
           timestamp: record.time,

@@ -5,23 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../core/config/secure_key_store.dart';
+import '../stt/transcript_hallucination_filter.dart';
+import 'cloud_request.dart';
 import 'transcriber_interface.dart';
 
 /// Calls the Deepgram Speech-to-Text REST API (`/v1/listen`).
 ///
 /// Requires `deepgramApiKey` to be set in secure storage.
 class DeepgramTranscriber implements Transcriber {
-  DeepgramTranscriber({
-    required this.ref,
-    http.Client? httpClient,
-    Duration? timeout,
-  }) : _client = httpClient ?? http.Client(),
-       _ownsClient = httpClient == null,
-       _timeout = timeout ?? const Duration(seconds: 60);
+  DeepgramTranscriber({required this.ref, this._httpClient, Duration? timeout})
+    : _timeout = timeout ?? const Duration(seconds: 60);
 
   final Ref ref;
-  final http.Client _client;
-  final bool _ownsClient;
+  final http.Client? _httpClient;
   final Duration _timeout;
 
   static const _baseEndpoint = 'https://api.deepgram.com/v1/listen';
@@ -35,7 +31,7 @@ class DeepgramTranscriber implements Transcriber {
     final key = await _apiKey;
     if (key == null || key.trim().isEmpty) {
       throw const TranscriberException(
-        'Deepgram API key not set. Add your key in Settings → Cloud Providers.',
+        'Deepgram API key not set. Add your key in Settings → Speech recognition.',
         reason: TranscriberFailureReason.authError,
       );
     }
@@ -80,9 +76,14 @@ class DeepgramTranscriber implements Transcriber {
       // the network send — on the Hotkey→Text critical path.
       ..bodyBytes = wavBytes;
 
-    final http.StreamedResponse streamed;
+    final int status;
+    final String body;
     try {
-      streamed = await _client.send(request).timeout(_timeout);
+      (status, body) = await sendCloudSttRequest(
+        request,
+        timeout: _timeout,
+        client: _httpClient,
+      );
     } on TimeoutException {
       throw const TranscriberException(
         'Deepgram request timed out.',
@@ -95,9 +96,7 @@ class DeepgramTranscriber implements Transcriber {
       );
     }
 
-    final body = await streamed.stream.bytesToString();
-
-    switch (streamed.statusCode) {
+    switch (status) {
       case 200:
         final json = jsonDecode(body) as Map<String, dynamic>;
         final channels =
@@ -109,7 +108,10 @@ class DeepgramTranscriber implements Transcriber {
         final transcript =
             (alternatives?.firstOrNull as Map<String, dynamic>?)?['transcript']
                 as String?;
-        return (transcript ?? '').trim();
+        final text = (transcript ?? '').trim();
+        // Same silence artefacts the on-device path drops (stock phrases,
+        // a lone sound annotation); empty reads as a blank recording.
+        return isNonSpeechTranscript(text) ? '' : text;
       case 401:
         throw const TranscriberException(
           'Deepgram API key is invalid or expired.',
@@ -122,14 +124,12 @@ class DeepgramTranscriber implements Transcriber {
         );
       default:
         throw TranscriberException(
-          'Deepgram API error (HTTP ${streamed.statusCode}): $body',
+          'Deepgram API error (HTTP $status): $body',
           reason: TranscriberFailureReason.unknown,
         );
     }
   }
 
   @override
-  void release() {
-    if (_ownsClient) _client.close();
-  }
+  void release() {}
 }

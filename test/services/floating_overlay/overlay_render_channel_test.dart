@@ -48,6 +48,28 @@ void main() {
       expect(received!.elapsed, '0:03');
     });
 
+    test(
+      'setWaveformBars decodes the one-byte-per-bar macOS payload',
+      () async {
+        List<double>? bars;
+        final channel = OverlayRenderChannel(
+          name: name,
+          onSnapshot: (_) {},
+          onWaveformBars: (b) => bars = b,
+        );
+        addTearDown(channel.dispose);
+
+        await sendFromNative('setWaveformBars', {
+          'bars': Uint8List.fromList([0, 128, 255]),
+        });
+
+        expect(bars, hasLength(3));
+        expect(bars![0], 0.0);
+        expect(bars![1], closeTo(128 / 255, 1e-9));
+        expect(bars![2], 1.0);
+      },
+    );
+
     test('setWaveformBars forwards a normalised double list', () async {
       List<double>? bars;
       final channel = OverlayRenderChannel(
@@ -238,5 +260,36 @@ void main() {
         reason: 'notifyReady must log on every call — no throttle',
       );
     });
+  });
+
+  group('OverlayRenderChannel — frame acknowledgement (WP-84 phase 2)', () {
+    test(
+      'frameRendered does not raise when the shell rejects the call (Windows)',
+      () async {
+        // Windows answers unknown render methods with NotImplemented, which the
+        // engine surfaces as MissingPluginException. The heartbeat must never
+        // turn that into an unhandled error inside the render engine.
+        binaryMessenger.setMockMethodCallHandler(
+          const MethodChannel(name),
+          (call) async => throw MissingPluginException(call.method),
+        );
+        addTearDown(
+          () => binaryMessenger.setMockMethodCallHandler(
+            const MethodChannel(name),
+            null,
+          ),
+        );
+        final channel = OverlayRenderChannel(
+          name: name,
+          onSnapshot: (_) {},
+          onWaveformBars: (_) {},
+        );
+        addTearDown(channel.dispose);
+
+        channel.frameRendered();
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+      },
+    );
   });
 }

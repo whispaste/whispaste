@@ -2,7 +2,7 @@
 
 #include <gdk/gdk.h>
 
-#include "flutter/generated_plugin_registrant.h"
+#include "secondary_plugin_registrant.h"
 
 SnippetPickerWindow::SnippetPickerWindow() = default;
 
@@ -54,7 +54,7 @@ void SnippetPickerWindow::Create() {
 
   gtk_container_add(GTK_CONTAINER(window_), GTK_WIDGET(fl_view_));
 
-  fl_register_plugins(FL_PLUGIN_REGISTRY(fl_view_));
+  fl_register_secondary_plugins(FL_PLUGIN_REGISTRY(fl_view_));
 
   gtk_widget_show(GTK_WIDGET(fl_view_));
 

@@ -10,6 +10,7 @@ import 'package:whispaste/services/clipboard_history/app_clipboard.dart';
 import 'package:whispaste/services/clipboard_history/clipboard_fingerprint.dart';
 import 'package:whispaste/services/clipboard_history/self_write_suppression_registry.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
+import 'package:whispaste/services/desktop_paste/macos_desktop_paste_controller.dart';
 import 'package:whispaste/services/paste/paster.dart';
 
 class _FakeController implements DesktopPasteController {
@@ -37,11 +38,23 @@ class _FakeController implements DesktopPasteController {
   );
   String? bundleIdToReturn;
 
+  /// When set, [getTargetBundleId] throws it (AUF-1: lookup failure).
+  Object? bundleLookupError;
+
   /// Defaults to `false` (unsupported), matching macOS/Linux and Windows
   /// builds without the native exclusion — existing tests exercise the
   /// `Clipboard.setData` fallback via the mocked platform channel below.
   /// Tests for issue #146's native path opt in explicitly.
   bool writeExcludingHistoryResult = false;
+
+  /// Runs inside the paste shortcut, i.e. while the paste window is open.
+  void Function()? onPasteShortcut;
+
+  /// When set, the first native paste waits on it before answering.
+  Completer<void>? firstPasteGate;
+
+  /// Mirrors a successful native write into the test's clipboard model.
+  void Function(String text)? onSystemClipboardWrite;
   final List<String> writeExcludingHistoryCalls = <String>[];
 
   @override
@@ -51,12 +64,18 @@ class _FakeController implements DesktopPasteController {
   }
 
   @override
-  Future<String?> getTargetBundleId() async => bundleIdToReturn;
+  Future<String?> getTargetBundleId() async {
+    final error = bundleLookupError;
+    if (error != null) throw error;
+    return bundleIdToReturn;
+  }
 
   @override
   Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
     pasteCalls++;
+    if (pasteCalls == 1) await firstPasteGate?.future;
     lastDelay = delay;
+    onPasteShortcut?.call();
     return pasteResult;
   }
 
@@ -78,6 +97,9 @@ class _FakeController implements DesktopPasteController {
   @override
   Future<bool> writeClipboardTextExcludingHistory(String text) async {
     writeExcludingHistoryCalls.add(text);
+    // A successful native write lands on the system clipboard, which the
+    // Flutter read in the restore check sees as well.
+    if (writeExcludingHistoryResult) onSystemClipboardWrite?.call(text);
     return writeExcludingHistoryResult;
   }
 
@@ -116,8 +138,12 @@ class _FakeReceiptBridge implements ClipboardReceiptBridge {
   Future<bool> writeClipboardTextWithReceipt(String text) async {
     receiptWrites.add(text);
     if (writeError != null) throw writeError!;
+    if (writeResult) onSystemClipboardWrite?.call(text);
     return writeResult;
   }
+
+  /// Mirrors a successful receipt write into the test's clipboard model.
+  void Function(String text)? onSystemClipboardWrite;
 
   @override
   Future<ClipboardReadReceipt> waitForClipboardRead() => read.future;
@@ -158,19 +184,138 @@ void main() {
         .setMockMethodCallHandler(SystemChannels.platform, null);
   });
 
-  group('DesktopPaster', () {
-    test('returns success and calls paste once', () async {
-      final controller = _FakeController();
+  group('copy-to-clipboard switch off (maintainer 4a+c)', () {
+    test(
+      'a listed target writes nothing to any clipboard and pastes nothing',
+      () async {
+        final controller = _FakeController()
+          ..bundleIdToReturn = 'com.example.app';
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.paste(
+          'secret text',
+          const PasteOptions(
+            autoPasteDelayMs: 0,
+            blocklist: 'com.example.app',
+            copyBlockedToClipboard: false,
+          ),
+        );
+
+        expect(outcome, PasteOutcome.blocked);
+        expect(controller.pasteCalls, 0);
+        expect(controller.writeExcludingHistoryCalls, isEmpty);
+        expect(clipboardContent, isNull);
+      },
+    );
+
+    test('an unknown target writes nothing to any clipboard', () async {
+      final controller = _FakeController()..bundleIdToReturn = null;
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.paste(
+        'secret text',
+        const PasteOptions(
+          autoPasteDelayMs: 0,
+          blocklist: 'com.example.app',
+          copyBlockedToClipboard: false,
+        ),
+      );
+
+      expect(outcome, PasteOutcome.blocked);
+      expect(controller.pasteCalls, 0);
+      expect(controller.writeExcludingHistoryCalls, isEmpty);
+      expect(clipboardContent, isNull);
+    });
+
+    test(
+      'typing into a listed target writes nothing and types nothing',
+      () async {
+        final controller = _FakeController()
+          ..bundleIdToReturn = 'com.example.app';
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.typeText(
+          'secret text',
+          const PasteOptions(
+            autoPasteDelayMs: 0,
+            blocklist: 'com.example.app',
+            copyBlockedToClipboard: false,
+          ),
+        );
+
+        expect(outcome, PasteOutcome.blocked);
+        expect(controller.typeCalls, 0);
+        expect(controller.writeExcludingHistoryCalls, isEmpty);
+        expect(clipboardContent, isNull);
+      },
+    );
+
+    test('typing into an unknown target writes nothing', () async {
+      final controller = _FakeController()..bundleIdToReturn = null;
+      final paster = DesktopPaster(controller);
+
+      await paster.typeText(
+        'secret text',
+        const PasteOptions(
+          autoPasteDelayMs: 0,
+          blocklist: 'com.example.app',
+          copyBlockedToClipboard: false,
+        ),
+      );
+
+      expect(controller.typeCalls, 0);
+      expect(controller.writeExcludingHistoryCalls, isEmpty);
+      expect(clipboardContent, isNull);
+    });
+
+    test('the switch on still copies a blocked paste (default)', () async {
+      final controller = _FakeController()
+        ..bundleIdToReturn = 'com.example.app';
+      final paster = DesktopPaster(controller);
+
+      await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: 'com.example.app'),
+      );
+
+      expect(controller.pasteCalls, 0);
+      expect(controller.writeExcludingHistoryCalls, ['hello']);
+    });
+
+    test('an empty blocklist with an unknown target pastes normally', () async {
+      final controller = _FakeController()..bundleIdToReturn = null;
       final paster = DesktopPaster(controller);
 
       final outcome = await paster.paste(
         'hello',
-        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        const PasteOptions(
+          autoPasteDelayMs: 0,
+          blocklist: '',
+          copyBlockedToClipboard: false,
+        ),
       );
 
-      expect(outcome, PasteOutcome.success);
+      expect(outcome, isNot(PasteOutcome.blocked));
       expect(controller.pasteCalls, 1);
     });
+  });
+
+  group('DesktopPaster', () {
+    test(
+      'a sent shortcut without a read receipt on a platform without a receipt bridge is unconfirmedNoBridge, and calls paste once',
+      () async {
+        final controller = _FakeController();
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.unconfirmedNoBridge);
+        expect(controller.pasteCalls, 1);
+      },
+    );
 
     test('delay passthrough: autoPasteDelayMs=0 → Duration.zero', () async {
       final controller = _FakeController();
@@ -195,6 +340,56 @@ void main() {
 
       expect(controller.lastDelay, const Duration(milliseconds: 300));
     });
+
+    test(
+      'GS-075: a blocked paste leaves the transcript on the clipboard',
+      () async {
+        final controller = _FakeController()
+          ..bundleIdToReturn = 'com.example.app';
+        final paster = DesktopPaster(controller);
+
+        await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: 'com.example.app'),
+        );
+
+        expect(controller.pasteCalls, 0);
+        expect(controller.writeExcludingHistoryCalls, ['hello']);
+      },
+    );
+
+    test(
+      'GS-075: a blocked typing leaves the transcript on the clipboard',
+      () async {
+        final controller = _FakeController()
+          ..bundleIdToReturn = 'com.example.app';
+        final paster = DesktopPaster(controller);
+
+        await paster.typeText(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: 'com.example.app'),
+        );
+
+        expect(controller.typeCalls, 0);
+        expect(controller.writeExcludingHistoryCalls, ['hello']);
+      },
+    );
+
+    test(
+      'GS-075: an unknown target also leaves the transcript on the clipboard',
+      () async {
+        final controller = _FakeController()..bundleIdToReturn = null;
+        final paster = DesktopPaster(controller);
+
+        await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: 'com.example.app'),
+        );
+
+        expect(controller.pasteCalls, 0);
+        expect(controller.writeExcludingHistoryCalls, ['hello']);
+      },
+    );
 
     test('returns blocked when bundle ID matches blocklist', () async {
       final controller = _FakeController()
@@ -226,6 +421,48 @@ void main() {
       expect(outcome, PasteOutcome.blocked);
     });
 
+    test(
+      'AUF-1: an unknown target fails closed when the list is set',
+      () async {
+        final controller = _FakeController();
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: 'com.example.app'),
+        );
+
+        expect(outcome, PasteOutcome.blocked);
+        expect(controller.pasteCalls, 0);
+      },
+    );
+
+    test('AUF-1: a failing target lookup fails closed as well', () async {
+      final controller = _FakeController()
+        ..bundleLookupError = MissingPluginException();
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: '1password'),
+      );
+
+      expect(outcome, PasteOutcome.blocked);
+      expect(controller.pasteCalls, 0);
+    });
+
+    test('AUF-1: an unknown target does not block an empty list', () async {
+      final controller = _FakeController();
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ' , '),
+      );
+
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
+    });
+
     test('empty blocklist does not block', () async {
       final controller = _FakeController()
         ..bundleIdToReturn = 'com.example.app';
@@ -236,7 +473,7 @@ void main() {
         const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
       );
 
-      expect(outcome, PasteOutcome.success);
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
     });
 
     test('prime calls capturePasteTarget', () async {
@@ -282,6 +519,30 @@ void main() {
         );
 
         expect(outcome, PasteOutcome.elevationBlocked);
+      },
+    );
+
+    test(
+      'permissionMissing keeps the transcript on the clipboard for a manual paste',
+      () async {
+        clipboardContent = null;
+        final controller = _FakeController()
+          ..pasteResult = const NativePasteResult(
+            status: NativePasteStatus.permissionMissing,
+          );
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.permissionMissing);
+        expect(
+          clipboardContent,
+          'hello',
+          reason: 'the failure message promises the text is on the clipboard',
+        );
       },
     );
 
@@ -334,9 +595,52 @@ void main() {
     });
   });
 
+  group(
+    'DesktopPaster.paste — restore only over an unchanged clipboard (WP-39, 9.9)',
+    () {
+      test(
+        'a copy the user makes during the paste window is not overwritten',
+        () async {
+          clipboardContent = 'previous clipboard value';
+          final controller = _FakeController()
+            ..onPasteShortcut = () => clipboardContent = 'copied by the user';
+          final paster = DesktopPaster(controller);
+
+          final outcome = await paster.paste(
+            'hello',
+            const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+          );
+
+          expect(outcome, PasteOutcome.unconfirmedNoBridge);
+          expect(controller.pasteCalls, 1);
+          expect(clipboardContent, 'copied by the user');
+        },
+      );
+
+      test(
+        'a receipt timeout (unconfirmed) keeps the transcript on the clipboard instead of restoring',
+        () async {
+          clipboardContent = 'previous clipboard value';
+          final bridge = _FakeReceiptBridge()
+            ..onSystemClipboardWrite = (text) => clipboardContent = text;
+          final paster = DesktopPaster(_FakeController(), receipts: bridge);
+
+          final outcome = await paster.paste(
+            'hello',
+            const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+          );
+
+          expect(outcome, PasteOutcome.unconfirmed);
+          expect(bridge.restores, isEmpty);
+          expect(clipboardContent, 'hello');
+        },
+      );
+    },
+  );
+
   group('DesktopPaster.paste — clipboard-history exclusion (issue #146)', () {
-    test('falls back to Clipboard.setData for both the write and the restore '
-        'when the native exclusion is unsupported (returns false)', () async {
+    test('falls back to Clipboard.setData for the transcript write when the '
+        'native exclusion is unsupported (returns false)', () async {
       clipboardContent = 'previous clipboard value';
       final controller = _FakeController();
       final paster = DesktopPaster(controller);
@@ -346,42 +650,30 @@ void main() {
         const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
       );
 
-      expect(outcome, PasteOutcome.success);
-      // Both the transient write and the restore went through the
-      // (unsupported-on-this-platform) native path first...
-      expect(controller.writeExcludingHistoryCalls, [
-        'hello',
-        'previous clipboard value',
-      ]);
-      // ...then fell back to the plain channel, ending with the restored
-      // value back on the clipboard.
-      expect(clipboardContent, 'previous clipboard value');
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
+      // The transcript went through the native path first, then the plain
+      // channel. Without a receipt it stays there (PAR-033).
+      expect(controller.writeExcludingHistoryCalls, ['hello']);
+      expect(clipboardContent, 'hello');
     });
 
-    test(
-      'never touches Clipboard.setData when the native exclusion succeeds, '
-      'and still restores the previous value through the native call',
-      () async {
-        clipboardContent = 'previous clipboard value';
-        final controller = _FakeController()
-          ..writeExcludingHistoryResult = true;
-        final paster = DesktopPaster(controller);
+    test('never touches Clipboard.setData when the native exclusion succeeds, '
+        'and writes the transcript through the native call only', () async {
+      clipboardContent = 'previous clipboard value';
+      final controller = _FakeController()
+        ..writeExcludingHistoryResult = true
+        ..onSystemClipboardWrite = (text) => clipboardContent = text;
+      final paster = DesktopPaster(controller);
 
-        final outcome = await paster.paste(
-          'hello',
-          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
-        );
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
 
-        expect(outcome, PasteOutcome.success);
-        expect(controller.writeExcludingHistoryCalls, [
-          'hello',
-          'previous clipboard value',
-        ]);
-        // The mocked Clipboard.setData handler was never hit, so the value
-        // it captured is still the pre-paste snapshot, not the transcript.
-        expect(clipboardContent, 'previous clipboard value');
-      },
-    );
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
+      expect(controller.writeExcludingHistoryCalls, ['hello']);
+      expect(clipboardContent, 'hello');
+    });
 
     test(
       'does not clear the clipboard when there was no prior plain text '
@@ -396,7 +688,7 @@ void main() {
           const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
         );
 
-        expect(outcome, PasteOutcome.success);
+        expect(outcome, PasteOutcome.unconfirmedNoBridge);
         expect(controller.writeExcludingHistoryCalls, ['hello']);
         expect(clipboardContent, 'hello');
       },
@@ -424,7 +716,7 @@ void main() {
         const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
       );
 
-      expect(outcome, PasteOutcome.success);
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
       expect(controller.writeExcludingHistoryCalls, ['hello']);
       // Only the transcript went to the clipboard; no restore followed.
       expect(writes, ['hello']);
@@ -451,7 +743,7 @@ void main() {
 
   group('DesktopPaster.paste — typing fallback restores the clipboard', () {
     test(
-      'native paste fails, typing lands: previous clipboard is restored',
+      'native paste fails, typing lands: unconfirmed, transcript kept on the clipboard',
       () async {
         clipboardContent = 'previous clipboard value';
         final controller = _FakeController()
@@ -468,9 +760,9 @@ void main() {
           const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
         );
 
-        expect(outcome, PasteOutcome.success);
+        expect(outcome, PasteOutcome.unconfirmed);
         expect(controller.typeCalls, 1);
-        expect(clipboardContent, 'previous clipboard value');
+        expect(clipboardContent, 'hello');
       },
       skip: !(Platform.isMacOS || Platform.isWindows)
           ? 'typing fallback is macOS/Windows only'
@@ -491,10 +783,12 @@ void main() {
           .listen(warnings.add);
     });
 
-    tearDown(() => sub.cancel());
+    tearDown(() {
+      sub.cancel();
+    });
 
     test(
-      'warns for each plain fallback write where a history-excluded '
+      'warns for the plain fallback write where a history-excluded '
       'write was expected (Windows), so a log shows the Win+V leak',
       () async {
         clipboardContent = 'previous clipboard value';
@@ -506,8 +800,9 @@ void main() {
           const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
         );
 
-        expect(outcome, PasteOutcome.success);
-        expect(warnings, hasLength(2));
+        expect(outcome, PasteOutcome.unconfirmedNoBridge);
+        // The transcript write takes the plain path; nothing is restored.
+        expect(warnings, hasLength(1));
         expect(warnings.map((r) => r.message), everyElement(contains('Win+V')));
       },
     );
@@ -525,11 +820,53 @@ void main() {
       expect(warnings, isEmpty);
     });
 
-    test('marks the transcript and the restore as transient writes, so a '
-        'later re-copy by another app can be recognized', () async {
+    test('warns for each plain fallback write where a history-excluded write '
+        'is expected, so a log shows where clipboard history may record the '
+        'dictation', () async {
       clipboardContent = 'previous clipboard value';
-      final controller = _FakeController()..writeExcludingHistoryResult = true;
+      final controller = _FakeController();
       final paster = DesktopPaster(controller, expectsHistoryExclusion: true);
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+      await paster.copyOriginalToClipboard('original');
+
+      // The transcript write and the undo copy are the two plain writes, and
+      // each one warns.
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
+      expect(warnings, hasLength(2));
+      expect(
+        warnings.map((r) => r.message),
+        everyElement(contains('clipboard history')),
+      );
+    });
+
+    test('logs the plain fallback by default: a warning on Windows and macOS, '
+        'an info line on Linux (the plain write is its only path)', () async {
+      final controller = _FakeController();
+      final paster = DesktopPaster(controller);
+
+      await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      if (Platform.isLinux) {
+        expect(warnings, isEmpty);
+      } else {
+        expect(warnings, isNotEmpty);
+      }
+    });
+
+    test('marks the transcript as a transient write, so a later re-copy by '
+        'another app can be recognized', () async {
+      clipboardContent = 'previous clipboard value';
+      final controller = _FakeController()
+        ..writeExcludingHistoryResult = true
+        ..onSystemClipboardWrite = (text) => clipboardContent = text;
+      final paster = DesktopPaster(controller);
 
       await paster.paste(
         'hello',
@@ -540,12 +877,6 @@ void main() {
       expect(
         AppClipboard.transientWrites.shouldSuppress(
           ClipboardFingerprint.ofText('hello'),
-        ),
-        isTrue,
-      );
-      expect(
-        AppClipboard.transientWrites.shouldSuppress(
-          ClipboardFingerprint.ofText('previous clipboard value'),
         ),
         isTrue,
       );
@@ -575,7 +906,7 @@ void main() {
 
   group('DesktopPaster.typeText', () {
     test(
-      'returns success and calls typeText once, not pasteClipboard',
+      'returns unconfirmed (keystrokes, no proof) and calls typeText once, not pasteClipboard',
       () async {
         final controller = _FakeController()
           ..typeResult = const NativePasteResult(
@@ -588,7 +919,7 @@ void main() {
           const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
         );
 
-        expect(outcome, PasteOutcome.success);
+        expect(outcome, PasteOutcome.unconfirmed);
         expect(controller.typeCalls, 1);
         expect(controller.pasteCalls, 0);
       },
@@ -619,6 +950,29 @@ void main() {
 
       expect(clipboardContent, 'untouched');
     });
+
+    // Briefing B3 criterion 5: insert is never send. Typing "\n" arrives as a
+    // Return keystroke that chat UIs read as "submit", so multi-line text is
+    // refused here, not only on the paste() retry path.
+    test(
+      'refuses multi-line text and never types a Return (criterion 5)',
+      () async {
+        final controller = _FakeController()
+          ..typeResult = const NativePasteResult(
+            status: NativePasteStatus.success,
+          );
+        final paster = DesktopPaster(controller);
+
+        for (final text in ['first\nsecond', 'first\rsecond']) {
+          final outcome = await paster.typeText(
+            text,
+            const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+          );
+          expect(outcome, PasteOutcome.failed, reason: 'text: $text');
+        }
+        expect(controller.typeCalls, 0);
+      },
+    );
 
     test('returns blocked when bundle ID matches blocklist', () async {
       final controller = _FakeController()
@@ -709,7 +1063,7 @@ void main() {
         const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
       );
 
-      expect(outcome, PasteOutcome.success);
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
       expect(controller.pasteCalls, 1);
       expect(controller.typeCalls, 0);
     });
@@ -734,7 +1088,7 @@ void main() {
 
         expect(controller.pasteCalls, 1);
         if (Platform.isMacOS || Platform.isWindows) {
-          expect(outcome, PasteOutcome.success);
+          expect(outcome, PasteOutcome.unconfirmed);
           expect(controller.typeCalls, 1);
         } else {
           expect(outcome, PasteOutcome.failed);
@@ -760,6 +1114,111 @@ void main() {
       );
 
       expect(outcome, PasteOutcome.noTarget);
+    });
+
+    // Briefing B3 criterion 1: the target app changed between recording start
+    // and paste. The native side refuses; Dart must neither retype the text
+    // into the new app (macOS/Windows typing fallback) nor restore the
+    // clipboard, so the transcript stays available for a manual paste.
+    test('a changed target is refused, keeps the transcript on the clipboard '
+        'and is never retyped into the new app (criterion 1)', () async {
+      final controller = _FakeController()
+        ..pasteResult = const NativePasteResult(
+          status: NativePasteStatus.targetChanged,
+        )
+        ..typeResult = const NativePasteResult(
+          status: NativePasteStatus.success,
+        );
+      final paster = DesktopPaster(controller);
+      clipboardContent = 'previous';
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(outcome, PasteOutcome.targetChanged);
+      expect(controller.typeCalls, 0);
+      expect(clipboardContent, 'hello');
+    });
+
+    // Briefing N12 / criterion 2: a sent paste shortcut is not proof. Only a
+    // read receipt from the target proves the text was delivered.
+    test('without a read receipt the paste is unconfirmed, not success, and '
+        'the transcript stays on the clipboard (PAR-033)', () async {
+      final controller = _FakeController();
+      final paster = DesktopPaster(controller);
+      clipboardContent = 'previous';
+
+      final outcome = await paster.paste(
+        'hello',
+        const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+      );
+
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
+      expect(clipboardContent, 'hello');
+    });
+
+    test(
+      'a target read receipt confirms the paste and restores the clipboard',
+      () async {
+        final controller = _FakeController();
+        final receipts = _FakeReceiptBridge();
+        final paster = DesktopPaster(controller, receipts: receipts);
+        clipboardContent = 'previous';
+        receipts.read.complete(ClipboardReadReceipt.read);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.success);
+        expect(receipts.restores, ['previous']);
+      },
+    );
+
+    test(
+      'a receipt timeout is unconfirmed and does not restore the clipboard',
+      () async {
+        final controller = _FakeController();
+        final receipts = _FakeReceiptBridge();
+        final paster = DesktopPaster(controller, receipts: receipts);
+
+        final outcome = await paster.paste(
+          'hello',
+          const PasteOptions(autoPasteDelayMs: 0, blocklist: ''),
+        );
+
+        expect(outcome, PasteOutcome.unconfirmed);
+        expect(receipts.restores, isEmpty);
+      },
+    );
+
+    // Briefing N12: two dictations in quick succession must not interleave
+    // their clipboard writes and restores (the second snapshot would otherwise
+    // read the first transcript as the user's clipboard).
+    test('overlapping pastes run one after the other', () async {
+      final gate = Completer<void>();
+      final controller = _FakeController()..firstPasteGate = gate;
+      final paster = DesktopPaster(controller);
+      const options = PasteOptions(autoPasteDelayMs: 0, blocklist: '');
+
+      final first = paster.paste('one', options);
+      final second = paster.paste('two', options);
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.pasteCalls, 1, reason: 'second paste waits for first');
+
+      gate.complete();
+      await Future.wait([first, second]);
+      expect(controller.pasteCalls, 2);
+    });
+
+    test('the native target_changed code maps to its own status', () {
+      expect(
+        NativePasteStatus.fromCode('target_changed'),
+        NativePasteStatus.targetChanged,
+      );
     });
 
     test('a failed native paste with multi-line text never falls back to '
@@ -800,6 +1259,204 @@ void main() {
       expect(controller.typeCalls, 0);
       expect(controller.pasteCalls, 0);
     });
+  });
+
+  group('DesktopPaster.paste — Zwischenablage nach dem Einfügen', () {
+    const keep = PasteOptions(
+      autoPasteDelayMs: 0,
+      blocklist: '',
+      restoreClipboardAfterPaste: false,
+    );
+
+    test(
+      'keep: a confirmed paste leaves the dictation on the clipboard',
+      () async {
+        clipboardContent = 'previous clipboard value';
+        final bridge = _FakeReceiptBridge()
+          ..onSystemClipboardWrite = (text) {
+            clipboardContent = text;
+          };
+        bridge.read.complete(ClipboardReadReceipt.read);
+        final paster = DesktopPaster(_FakeController(), receipts: bridge);
+
+        final outcome = await paster.paste('hello', keep);
+
+        expect(outcome, PasteOutcome.success);
+        expect(bridge.restores, isEmpty);
+        expect(clipboardContent, 'hello');
+      },
+    );
+
+    test(
+      'keep: without a receipt bridge the dictation stays on the clipboard',
+      () async {
+        clipboardContent = 'previous clipboard value';
+        final paster = DesktopPaster(_FakeController());
+
+        final outcome = await paster.paste('hello', keep);
+
+        expect(outcome, PasteOutcome.unconfirmedNoBridge);
+        expect(clipboardContent, 'hello');
+      },
+    );
+
+    test('keep: a receipt timeout keeps the transcript (unchanged)', () async {
+      clipboardContent = 'previous clipboard value';
+      final bridge = _FakeReceiptBridge()
+        ..onSystemClipboardWrite = (text) => clipboardContent = text;
+      final paster = DesktopPaster(_FakeController(), receipts: bridge);
+
+      final outcome = await paster.paste('hello', keep);
+
+      expect(outcome, PasteOutcome.unconfirmed);
+      expect(bridge.restores, isEmpty);
+      expect(clipboardContent, 'hello');
+    });
+  });
+
+  group('DesktopPaster.paste — unreadable previous clipboard (RE2-15)', () {
+    const restore = PasteOptions(autoPasteDelayMs: 0, blocklist: '');
+
+    test(
+      'an unreadable (null) snapshot is never restored and raises the notice',
+      () async {
+        clipboardContent = null;
+        final bridge = _FakeReceiptBridge()
+          ..onSystemClipboardWrite = (text) {
+            clipboardContent = text;
+          };
+        bridge.read.complete(ClipboardReadReceipt.read);
+        var notices = 0;
+        final paster = DesktopPaster(
+          _FakeController(),
+          receipts: bridge,
+          onSnapshotUnavailable: () => notices++,
+        );
+
+        final outcome = await paster.paste('hello', restore);
+
+        expect(outcome, PasteOutcome.success);
+        expect(bridge.restores, isEmpty);
+        expect(clipboardContent, 'hello');
+        expect(notices, 1);
+      },
+    );
+
+    test(
+      'an empty snapshot is treated as unknown: no restore, notice raised',
+      () async {
+        clipboardContent = '';
+        final bridge = _FakeReceiptBridge()
+          ..onSystemClipboardWrite = (text) {
+            clipboardContent = text;
+          };
+        bridge.read.complete(ClipboardReadReceipt.read);
+        var notices = 0;
+        final paster = DesktopPaster(
+          _FakeController(),
+          receipts: bridge,
+          onSnapshotUnavailable: () => notices++,
+        );
+
+        await paster.paste('hello', restore);
+
+        expect(bridge.restores, isEmpty);
+        expect(notices, 1);
+      },
+    );
+
+    test('no notice when the user chose to keep the dictation', () async {
+      clipboardContent = null;
+      final bridge = _FakeReceiptBridge()
+        ..onSystemClipboardWrite = (text) {
+          clipboardContent = text;
+        };
+      bridge.read.complete(ClipboardReadReceipt.read);
+      var notices = 0;
+      final paster = DesktopPaster(
+        _FakeController(),
+        receipts: bridge,
+        onSnapshotUnavailable: () => notices++,
+      );
+
+      await paster.paste(
+        'hello',
+        const PasteOptions(
+          autoPasteDelayMs: 0,
+          blocklist: '',
+          restoreClipboardAfterPaste: false,
+        ),
+      );
+
+      expect(notices, 0);
+    });
+
+    test('no notice when the previous clipboard was readable', () async {
+      clipboardContent = 'previous clipboard value';
+      final bridge = _FakeReceiptBridge()
+        ..onSystemClipboardWrite = (text) {
+          clipboardContent = text;
+        };
+      bridge.read.complete(ClipboardReadReceipt.read);
+      var notices = 0;
+      final paster = DesktopPaster(
+        _FakeController(),
+        receipts: bridge,
+        onSnapshotUnavailable: () => notices++,
+      );
+
+      await paster.paste('hello', restore);
+
+      expect(notices, 0);
+    });
+  });
+
+  group('DesktopPaster.paste — no read receipt (receipts == null)', () {
+    const options = PasteOptions(autoPasteDelayMs: 0, blocklist: '');
+
+    test('keeps the transcript on the clipboard, restore setting on or off '
+        '(PAR-033)', () async {
+      for (final restore in [true, false]) {
+        clipboardContent = 'A';
+        final paster = DesktopPaster(_FakeController());
+
+        final outcome = await paster.paste(
+          'B',
+          PasteOptions(
+            autoPasteDelayMs: 0,
+            blocklist: '',
+            restoreClipboardAfterPaste: restore,
+          ),
+        );
+
+        expect(outcome, PasteOutcome.unconfirmedNoBridge);
+        expect(clipboardContent, 'B', reason: 'restore=$restore');
+      }
+    });
+
+    test('keeps a copy the user made during the paste window', () async {
+      clipboardContent = 'A';
+      final controller = _FakeController()
+        ..onPasteShortcut = () => clipboardContent = 'C';
+      final paster = DesktopPaster(controller);
+
+      final outcome = await paster.paste('B', options);
+
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
+      expect(clipboardContent, 'C');
+    });
+
+    test(
+      'without a previous plain-text clipboard the transcript stays',
+      () async {
+        clipboardContent = null;
+        final paster = DesktopPaster(_FakeController());
+
+        await paster.paste('B', options);
+
+        expect(clipboardContent, 'B');
+      },
+    );
   });
 
   group('DesktopPaster.paste — receipt-based clipboard restore', () {
@@ -848,39 +1505,44 @@ void main() {
       });
     });
 
-    test('falls back to the fixed buffer when no read receipt arrives, and '
-        'still restores only through the ownership check', () {
+    test('without a read receipt nothing is restored after the fixed buffer, '
+        'and the outcome is unconfirmed', () {
       fakeAsync((async) {
         clipboardContent = 'previous clipboard value';
         final bridge = _FakeReceiptBridge();
         final paster = DesktopPaster(_FakeController(), receipts: bridge);
-        paster.paste('hello', options);
+        PasteOutcome? outcome;
+        paster.paste('hello', options).then((o) => outcome = o);
         async.flushMicrotasks();
 
         async.elapse(const Duration(milliseconds: 499));
-        expect(bridge.restores, isEmpty);
-
+        expect(outcome, isNull);
         async.elapse(const Duration(milliseconds: 1));
-        expect(bridge.restores, hasLength(1));
+        expect(outcome, PasteOutcome.unconfirmed);
+        expect(bridge.restores, isEmpty);
       });
     });
 
-    test('the timeout fallback keeps the old delay-dependent buffer', () {
+    test('the timeout keeps the delay-dependent wait and never restores', () {
       fakeAsync((async) {
         clipboardContent = 'previous clipboard value';
         final bridge = _FakeReceiptBridge();
         final paster = DesktopPaster(_FakeController(), receipts: bridge);
-        paster.paste(
-          'hello',
-          const PasteOptions(autoPasteDelayMs: 300, blocklist: ''),
-        );
+        PasteOutcome? outcome;
+        paster
+            .paste(
+              'hello',
+              const PasteOptions(autoPasteDelayMs: 300, blocklist: ''),
+            )
+            .then((o) => outcome = o);
         async.flushMicrotasks();
 
         // max(500, 300 + 350) = 650 ms.
         async.elapse(const Duration(milliseconds: 649));
-        expect(bridge.restores, isEmpty);
+        expect(outcome, isNull);
         async.elapse(const Duration(milliseconds: 1));
-        expect(bridge.restores, hasLength(1));
+        expect(outcome, PasteOutcome.unconfirmed);
+        expect(bridge.restores, isEmpty);
       });
     });
 
@@ -893,7 +1555,7 @@ void main() {
 
       final outcome = await paster.paste('hello', options);
 
-      expect(outcome, PasteOutcome.success);
+      expect(outcome, PasteOutcome.unconfirmed);
       expect(bridge.restores, isEmpty);
     });
 
@@ -906,7 +1568,7 @@ void main() {
       expect(await paster.paste('hello', options), PasteOutcome.success);
     });
 
-    test('falls back to the classic write + fixed-delay restore when the '
+    test('falls back to the classic write and keeps the transcript when the '
         'receipt write is unavailable', () async {
       clipboardContent = 'previous clipboard value';
       final controller = _FakeController();
@@ -915,13 +1577,11 @@ void main() {
 
       final outcome = await paster.paste('hello', options);
 
-      expect(outcome, PasteOutcome.success);
-      expect(controller.writeExcludingHistoryCalls, [
-        'hello',
-        'previous clipboard value',
-      ]);
+      expect(outcome, PasteOutcome.unconfirmedNoBridge);
+      // Only the transcript write: no receipt, no restore (PAR-033).
+      expect(controller.writeExcludingHistoryCalls, ['hello']);
       expect(bridge.restores, isEmpty);
-      expect(clipboardContent, 'previous clipboard value');
+      expect(clipboardContent, 'hello');
     });
 
     test(
@@ -933,8 +1593,11 @@ void main() {
           ..writeError = MissingPluginException('no handler');
         final paster = DesktopPaster(controller, receipts: bridge);
 
-        expect(await paster.paste('hello', options), PasteOutcome.success);
-        expect(controller.writeExcludingHistoryCalls, hasLength(2));
+        expect(
+          await paster.paste('hello', options),
+          PasteOutcome.unconfirmedNoBridge,
+        );
+        expect(controller.writeExcludingHistoryCalls, ['hello']);
         expect(bridge.restores, isEmpty);
       },
     );
@@ -952,5 +1615,261 @@ void main() {
       expect(await paster.paste('hello', options), PasteOutcome.noTarget);
       expect(bridge.restores, isEmpty);
     });
+  });
+
+  group('DesktopPaster undo bridge (DEV-165, DEV-185)', () {
+    const options = PasteOptions(autoPasteDelayMs: 0, blocklist: '');
+
+    // A paste counts as an insert only with the target's read receipt
+    // (briefing N12). A completed read is returned on every wait, so one
+    // bridge serves several pastes.
+    _FakeReceiptBridge confirmingBridge() =>
+        _FakeReceiptBridge()..read.complete(ClipboardReadReceipt.read);
+
+    test(
+      'a clean native paste sets the serial, a second paste replaces it',
+      () async {
+        final paster = DesktopPaster(
+          _FakeController(),
+          receipts: confirmingBridge(),
+        );
+        expect(paster.cleanPasteSerial, isNull);
+
+        await paster.paste('one', options);
+        final first = paster.cleanPasteSerial;
+        await paster.paste('two', options);
+
+        expect(first, isNotNull);
+        expect(paster.cleanPasteSerial, isNot(first));
+      },
+    );
+
+    test('a failed paste clears the serial', () async {
+      final controller = _FakeController();
+      final paster = DesktopPaster(controller, receipts: confirmingBridge());
+      await paster.paste('one', options);
+      expect(paster.cleanPasteSerial, isNotNull);
+
+      controller.pasteResult = const NativePasteResult(
+        status: NativePasteStatus.postFailed,
+      );
+      final outcome = await paster.paste('two', options);
+
+      expect(outcome, isNot(PasteOutcome.success));
+      expect(paster.cleanPasteSerial, isNull);
+    });
+
+    test('recording start (prime) clears the serial', () async {
+      final paster = DesktopPaster(_FakeController());
+      await paster.paste('one', options);
+
+      await paster.prime();
+
+      expect(paster.cleanPasteSerial, isNull);
+    });
+
+    test('a typed insert clears the serial', () async {
+      final controller = _FakeController()
+        ..typeResult = const NativePasteResult(
+          status: NativePasteStatus.success,
+        );
+      final paster = DesktopPaster(controller, receipts: confirmingBridge());
+      await paster.paste('one', options);
+      expect(paster.cleanPasteSerial, isNotNull);
+
+      final outcome = await paster.typeText('two', options);
+
+      // Typed keystrokes have no receipt, so the outcome is unconfirmed.
+      expect(outcome, PasteOutcome.unconfirmed);
+      expect(paster.cleanPasteSerial, isNull);
+    });
+
+    test(
+      'a paste that lands only through the typing fallback is not clean',
+      () async {
+        final controller = _FakeController()
+          ..pasteResult = const NativePasteResult(
+            status: NativePasteStatus.postFailed,
+          )
+          ..typeResult = const NativePasteResult(
+            status: NativePasteStatus.success,
+          );
+        final paster = DesktopPaster(controller);
+
+        final outcome = await paster.paste('one', options);
+
+        // Typing has no read receipt: the fallback lands unconfirmed (N12).
+        expect(outcome, PasteOutcome.unconfirmed);
+        expect(controller.typeCalls, 1);
+        expect(paster.cleanPasteSerial, isNull);
+      },
+      skip: !(Platform.isMacOS || Platform.isWindows),
+    );
+
+    test(
+      'without the channel the input check answers unknown (counts as typed)',
+      () async {
+        final paster = DesktopPaster(_FakeController());
+
+        final snapshot = await paster.inputIdleSnapshot();
+        expect(snapshot, isNull);
+        expect(userInputSince(const Duration(seconds: 1), snapshot), isTrue);
+        expect(await paster.sendUndoShortcut(), isFalse);
+      },
+    );
+
+    test(
+      'the original text goes through the transient history-excluded write',
+      () async {
+        final controller = _FakeController()
+          ..writeExcludingHistoryResult = true;
+        final paster = DesktopPaster(controller);
+
+        final copied = await paster.copyOriginalToClipboard('Original');
+
+        expect(copied, isTrue);
+        expect(controller.writeExcludingHistoryCalls, ['Original']);
+      },
+    );
+  });
+
+  group('DesktopPaster copy path on macOS (BIZ-61)', () {
+    const channel = MethodChannel('com.whispaste.desktop_paste');
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null);
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    void mockPlatform(
+      Future<Object?> Function(MethodCall call) handler,
+      List<String> plainClipboardWrites,
+    ) {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, handler);
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          plainClipboardWrites.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      });
+    }
+
+    test(
+      'the copy goes through the native transient write, never '
+      'Clipboard.setData',
+      skip: !Platform.isMacOS,
+      () async {
+        final channelCalls = <String>[];
+        final plainWrites = <String>[];
+        mockPlatform((call) async {
+          channelCalls.add(call.method);
+          return call.method == 'writeClipboardText' ? true : null;
+        }, plainWrites);
+
+        final paster = DesktopPaster(MacOSDesktopPasteController());
+        final copied = await paster.copyOriginalToClipboard('Original');
+
+        expect(copied, isTrue);
+        expect(channelCalls, contains('writeClipboardText'));
+        expect(plainWrites, isEmpty);
+      },
+    );
+
+    test(
+      'a failed native write is logged as a warning and never silent',
+      skip: !Platform.isMacOS,
+      () async {
+        final warnings = <LogRecord>[];
+        Logger.root.level = Level.ALL;
+        final sub = Logger.root.onRecord
+            .where((r) => r.level >= Level.WARNING)
+            .listen(warnings.add);
+        addTearDown(sub.cancel);
+        final plainWrites = <String>[];
+        mockPlatform((call) async {
+          if (call.method == 'writeClipboardText') {
+            // A failed write, not a missing handler: the missing-handler case
+            // trips the debug assert in ChannelDesktopPasteController (GS-106).
+            throw PlatformException(code: 'write_failed');
+          }
+          return null;
+        }, plainWrites);
+
+        final paster = DesktopPaster(MacOSDesktopPasteController());
+        await paster.copyOriginalToClipboard('Original');
+
+        expect(warnings, isNotEmpty);
+        expect(
+          warnings.map((r) => r.message),
+          everyElement(contains('clipboard history')),
+        );
+      },
+    );
+  });
+  // XP-6-06: the block list had no effect on Windows and Linux, because only
+  // macOS reported a target. Windows reports the exe base name, Linux the X11
+  // WM_CLASS; both must match the list exactly like a macOS bundle id.
+  group('block list matches the target app on every platform', () {
+    const cases = [
+      (name: 'Windows exe', target: 'notepad', entry: 'notepad.exe'),
+      (
+        name: 'Windows exe, other case',
+        target: 'WindowsTerminal',
+        entry: 'windowsterminal',
+      ),
+      (name: 'Linux WM_CLASS', target: 'google-chrome', entry: 'google-chrome'),
+    ];
+    for (final c in cases) {
+      test(
+        '${c.name}: a listed target is blocked and nothing is pasted',
+        () async {
+          final controller = _FakeController()..bundleIdToReturn = c.target;
+          final outcome = await DesktopPaster(controller).paste(
+            'hello',
+            PasteOptions(autoPasteDelayMs: 0, blocklist: c.entry),
+          );
+
+          expect(outcome, PasteOutcome.blocked);
+          expect(controller.pasteCalls, 0);
+        },
+      );
+
+      test('${c.name}: an unlisted target still pastes', () async {
+        final controller = _FakeController()..bundleIdToReturn = c.target;
+        final outcome = await DesktopPaster(controller).paste(
+          'hello',
+          const PasteOptions(
+            autoPasteDelayMs: 0,
+            blocklist: 'some-other-app',
+            copyBlockedToClipboard: false,
+          ),
+        );
+
+        expect(outcome, isNot(PasteOutcome.blocked));
+        expect(controller.pasteCalls, 1);
+      });
+    }
+
+    test(
+      'Wayland or any unknown target fails closed while the list is set',
+      () async {
+        final controller = _FakeController()..bundleIdToReturn = null;
+        final outcome = await DesktopPaster(controller).paste(
+          'hello',
+          const PasteOptions(
+            autoPasteDelayMs: 0,
+            blocklist: 'notepad.exe',
+            copyBlockedToClipboard: false,
+          ),
+        );
+
+        expect(outcome, PasteOutcome.blocked);
+        expect(controller.pasteCalls, 0);
+      },
+    );
   });
 }

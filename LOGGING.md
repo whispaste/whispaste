@@ -68,13 +68,24 @@ Security-/Fehler-Logging (`warning`/`error`, immer ≥ `INFO`) betroffen ist.
 
 ## Speicherort, Rotation, Retention
 
-- Datei: `<AppData>/Whispaste/logs/whispaste.log` (Pfad aus
-  `whispaste_diagnostics`' `appDataDir()`, plattformabhängig unter
-  `%LOCALAPPDATA%`/`~/Library/Application Support`/`~/.local/share`).
+- Datei: `<AppData>/logs/whispaste.log`. `<AppData>` ist das Verzeichnis aus
+  `whispaste_diagnostics`' `appDataDir()`: `%APPDATA%\WhisPaste` (Windows; bei
+  MSIX-Installation der virtualisierte Pfad unter `LocalCache\Roaming`),
+  `~/Library/Application Support/WhisPaste` (macOS), `$XDG_CONFIG_HOME/whispaste`
+  bzw. `~/.config/whispaste` (Linux).
 - Rotation: bei 2 MB wird `whispaste.log` → `whispaste.log.1` verschoben,
   ältere Backups rutschen eine Nummer weiter (`.1`→`.2` … bis `.5`), das
   älteste (`.6`) wird gelöscht. Bounded auf max. ~12 MB (6 × 2 MB) pro
   Installation — kein unbegrenztes Wachstum.
+- Aufbewahrung: Zeilen älter als 14 Tage (`logMaxAge` in `app_logger.dart`)
+  entfernt der Sink beim Start und danach einmal täglich aus `whispaste.log`
+  und den Backups, unabhängig von der Größe (Security-Review R-10). Ein
+  Backup, dessen jüngste Zeile älter ist, wird gelöscht, eine Datei über
+  die Grenze hinweg auf ihre jüngeren Zeilen gekürzt.
+- Kein Transkripttext in Logaufrufen: `test/core/logging/no_transcript_in_logs_test.dart`
+  schlägt fehl, wenn ein Logaufruf in `lib/` einen Transkript-Namen
+  (`transcript*`, `*Text`, `dictation` …) als Wert statt nur als `.length`
+  ausgibt.
 - Diese Nummerierung ist bewusst identisch zu dem Schema, das
   `packages/whispaste_diagnostics/lib/src/probes/log_reader.dart`
   (`rotatedLogPaths`, `maxRotations: 5`) beim Einlesen für die
@@ -153,7 +164,7 @@ Server-seitig (Supabase RLS + Trigger).
 
 ## Debugging-Nutzung
 
-- **Lokal**: Logfile direkt öffnen (`<AppData>/Whispaste/logs/whispaste.log`)
+- **Lokal**: Logfile direkt öffnen (`<AppData>/logs/whispaste.log`)
   oder `flutter run` → stdout (Debug-Build zeigt info+ live).
 - **Von Nutzern gemeldete Probleme**: In-App-Diagnostik bzw.
   WhisPaste-Diagnose-CLI (`packages/whispaste_diagnostics`) — liest

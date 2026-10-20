@@ -10,7 +10,7 @@
 ///
 /// Every dimension, colour, gradient and timing comes from [OverlayDesignSpec]
 /// — there are deliberately **no** design constants in this file. Calm-UI rules
-/// (ADR 0002): no glows, no shimmer, no privacy badge.
+/// (ADR 0002): no light effects, no shimmer, no privacy badge.
 ///
 /// The content layer — text, dot, waveform, stop square, timeline, status icons
 /// — is always fully opaque. The chrome (fill gradient, shadow, border) uses
@@ -21,6 +21,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import '../../core/theme/overlay_customization.dart';
 import '../../core/theme/overlay_design_spec.dart';
 import 'live_text_tail.dart';
 
@@ -44,18 +45,47 @@ class WpOverlayPainter extends CustomPainter {
     required this.timerText,
     required this.statusText,
     this.secondaryText = '',
+    this.languageChip,
+    this.profileChip,
     required this.progress,
     required this.dotPulse,
     this.paintFill = true,
     this.paintContent = true,
     this.pillWidth,
     this.iconRevealFraction = 1.0,
+    this.donePasteFailed = false,
     this.glassPhase = 0.0,
     this.liquidMotion = 0.0,
     this.liquidLevel = 0.0,
-    this.style = OverlayStyleVariant.glass,
     this.tailFirstText = false,
+    this.form = OverlayForm.pill,
+    this.waveStyle = OverlayWaveStyle.bars,
+    this.showTimer = true,
+    this.showCancel = true,
+    this.fillOpacity = 1.0,
   });
+
+  /// Done state of a run whose paste failed: draws a neutral notice glyph
+  /// instead of the green check, so "not pasted" never reads as success.
+  final bool donePasteFailed;
+
+  /// Opacity of the capsule fill, `(0, 1]`. Text, icons, waveform and border
+  /// keep full opacity, so the contrast gate only lowers the fill.
+  final double fillOpacity;
+
+  /// Outline of the capsule. Only [OverlayForm.roundedRect] changes the
+  /// painted shape; the other forms paint the pill for now (WP-95).
+  final OverlayForm form;
+
+  /// Drawing style of the live recording waveform. Bars are the default.
+  final OverlayWaveStyle waveStyle;
+
+  /// Whether the elapsed-time text is drawn while recording. The space stays
+  /// reserved only where the waveform starts, so the layout does not jump.
+  final bool showTimer;
+
+  /// Whether the leading cancel glyph is drawn. Stop is always drawn.
+  final bool showCancel;
 
   /// The visual state being rendered.
   final OverlayDesignState state;
@@ -88,6 +118,12 @@ class WpOverlayPainter extends CustomPainter {
   /// Empty keeps the classic single centred line; the minimal (mini)
   /// composition never paints it.
   final String secondaryText;
+
+  /// Frozen dictation-language chip (SW-10); null hides it.
+  final String? languageChip;
+
+  /// Manually chosen profile name, shown in the same chip after the language.
+  final String? profileChip;
 
   /// Recording progress toward the max duration (0–1); 0 hides the timeline.
   final double progress;
@@ -138,12 +174,6 @@ class WpOverlayPainter extends CustomPainter {
   /// wish, 2026-07-30 interview). 0 outside recording.
   final double liquidLevel;
 
-  /// The chrome style to render — [OverlayStyleVariant.glass] (default) or
-  /// [OverlayStyleVariant.solid]. Only affects [_drawFill]/[_drawGlassSheen];
-  /// the shadow, border, content, waveform and liquid silhouette wobble are
-  /// identical in both styles and for all three [sizeSpec] variants.
-  final OverlayStyleVariant style;
-
   /// Whether the primary text is a live transcript. Overflowing live text is
   /// cut at its START (`…newest words`) instead of the classic trailing
   /// ellipsis, so the words just spoken stay visible (live-preview spike).
@@ -163,7 +193,9 @@ class WpOverlayPainter extends CustomPainter {
       effectiveWidth,
       sizeSpec.height,
     );
-    final radius = sizeSpec.capsuleRadius;
+    final radius = form == OverlayForm.roundedRect
+        ? OverlayDesignSpec.roundedRectRadius
+        : sizeSpec.capsuleRadius;
     final rrect = RRect.fromRectAndRadius(
       pill.deflate(1),
       Radius.circular(radius),
@@ -182,10 +214,7 @@ class WpOverlayPainter extends CustomPainter {
 
     if (paintFill) {
       _drawShadow(canvas, shape);
-      _drawFill(canvas, shape, pill);
-      if (style == OverlayStyleVariant.glass) {
-        _drawGlassSheen(canvas, shape, rrect, baseAmp, audioAmp, pill);
-      }
+      _drawFill(canvas, shape);
       _drawBorder(canvas, shape);
     }
 
@@ -281,9 +310,7 @@ class WpOverlayPainter extends CustomPainter {
     canvas.drawPath(
       shape.shift(OverlayDesignSpec.shadowOffset),
       Paint()
-        ..color = OverlayDesignSpec.shadowColor.withValues(
-          alpha: OverlayDesignSpec.shadowOpacity,
-        )
+        ..color = colors.shadow
         ..maskFilter = const MaskFilter.blur(
           BlurStyle.normal,
           OverlayDesignSpec.shadowBlur,
@@ -292,238 +319,23 @@ class WpOverlayPainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _drawFill(Canvas canvas, Path shape, Rect pill) {
-    if (style == OverlayStyleVariant.solid) {
-      // Fully opaque brand fill — same gradient for all three sizes, no
-      // per-size tuning (mirrors the glass fill's "one material" rule).
-      canvas.drawPath(
-        shape,
-        Paint()
-          ..shader = OverlayDesignSpec.solidFillGradient.createShader(pill),
-      );
-      return;
-    }
-    // ONE glass material for all three sizes (design pass) — the sizes
-    // must read as the same slab of glass, only smaller.
-    const a = OverlayDesignSpec.fillOpacityFactor;
+  void _drawFill(Canvas canvas, Path shape) {
+    // One flat, opaque preset colour for every state (UX-013, WP-75 flat pass):
+    // no gradient, no sheen, no specular streak. The content stays legible over
+    // any desktop because the fill is opaque.
     canvas.drawPath(
       shape,
       Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colors.capsuleFillStart.withValues(alpha: a),
-            colors.capsuleFillEnd.withValues(alpha: a),
-          ],
-        ).createShader(pill),
-    );
-  }
-
-  /// Faux-glass sheen (task #38, refined in the Dock-glass polish pass): a
-  /// top-down white highlight with a softer three-stop falloff, a faint
-  /// counter-sheen rising from the bottom edge (light catching the lower glass
-  /// rim — the macOS-Dock mood reference), plus a bright inner rim that reads
-  /// as a glass edge. All without any OS blur; cross-platform — drawn
-  /// identically everywhere. Neutral white-to-clear in every state (ADR 0002:
-  /// no glow, no colour bleed) — the chrome stays state-neutral; state
-  /// identity is carried by the content glyphs only.
-  void _drawGlassSheen(
-    Canvas canvas,
-    Path shape,
-    RRect baseRRect,
-    double baseAmp,
-    double audioAmp,
-    Rect pill,
-  ) {
-    const sheen = OverlayDesignSpec.glassSheenOpacity;
-    // Liquid-glass drift: one slow sinusoidal cycle moves the light layers a
-    // few pixels; secondary modulations run at double frequency so all of
-    // them are 0 at phase 0 (static baseline frame).
-    final wave = math.sin(2 * math.pi * glassPhase);
-    final breathe = math.sin(4 * math.pi * glassPhase);
-    final drift = wave * OverlayDesignSpec.liquidSpecularDriftPx;
-    // Top-down highlight on CURVED glass: the shader rect is pulled in from
-    // the rounded end caps so the light tapers off horizontally instead of
-    // running as a full-width band through the curves (Dock reference). The
-    // sheen follows the specular drift at half parallax (depth cue).
-    final capInset =
-        sizeSpec.capsuleRadius * OverlayDesignSpec.glassSheenCapInsetFactor;
-    final sheenRect = Rect.fromLTRB(
-      pill.left + capInset,
-      pill.top,
-      pill.right - capInset,
-      pill.bottom,
-    ).shift(Offset(drift * OverlayDesignSpec.liquidSheenParallaxFactor, 0));
-    canvas.drawPath(
-      shape,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFFFFFFFF).withValues(alpha: sheen),
-            const Color(0xFFFFFFFF).withValues(alpha: sheen * 0.35),
-            const Color(0x00FFFFFF),
-          ],
-          stops: OverlayDesignSpec.glassSheenStops,
-        ).createShader(sheenRect),
-    );
-    // Hair-thin neutral inner shade above the bottom light — the "mass" of
-    // the glass slab; without it the fill jumps straight into the bottom
-    // sheen and the capsule reads flat.
-    canvas.drawPath(
-      shape,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0x00000000),
-            const Color(
-              0xFF000000,
-            ).withValues(alpha: OverlayDesignSpec.glassInnerShadeOpacity),
-          ],
-          stops: OverlayDesignSpec.glassInnerShadeStops,
-        ).createShader(pill),
-    );
-    // Faint bottom counter-sheen — light catching the lower rim of the glass.
-    const bottomSheen = sheen * OverlayDesignSpec.glassBottomSheenFactor;
-    canvas.drawPath(
-      shape,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0x00FFFFFF),
-            const Color(0xFFFFFFFF).withValues(alpha: bottomSheen),
-          ],
-          stops: OverlayDesignSpec.glassBottomSheenStops,
-        ).createShader(pill),
-    );
-    // Fresnel edge treatment (Dock-glass research pass): with a near-clear
-    // fill the EDGES carry the glass identity — glass reflects most at
-    // grazing angles.
-    //
-    // 1) Soft inner Fresnel band just inside the rim: the refracting
-    //    "thickness" of the slab, fading downward.
-    canvas.drawPath(
-      _liquidShape(
-        baseRRect.deflate(OverlayDesignSpec.glassInnerRimInset),
-        baseAmp * 0.8,
-        audioAmp * 0.8,
-      ),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = OverlayDesignSpec.glassInnerRimWidth
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(
-              0xFFFFFFFF,
-            ).withValues(alpha: OverlayDesignSpec.glassInnerRimOpacity),
-            const Color(0x00FFFFFF),
-          ],
-        ).createShader(pill),
-    );
-    // 2) Crisp specular streak along the top edge — the Dock's signature
-    //    reflection. Drifts ±12 px, breathes in length AND brightness with
-    //    the liquid-glass phase (visibility pass 2026-07-30); still an
-    //    anchored highlight, never a sweeping band (ADR 0002).
-    final specularHalf =
-        (pill.width * OverlayDesignSpec.glassSpecularWidthFactor) /
-        2 *
-        (1 + OverlayDesignSpec.liquidSpecularBreatheFactor * breathe);
-    final specularY = pill.top + OverlayDesignSpec.glassSpecularInsetTop;
-    final specularCx = pill.center.dx + drift;
-    // Soft dark under-halo: the measured fix for light desktops — white on
-    // near-white saturates to Δ0, so the streak brings its own local
-    // contrast floor (same principle as the glyph shadows).
-    canvas.drawLine(
-      Offset(
-        specularCx - specularHalf,
-        specularY + OverlayDesignSpec.glassSpecularHaloOffsetY,
-      ),
-      Offset(
-        specularCx + specularHalf,
-        specularY + OverlayDesignSpec.glassSpecularHaloOffsetY,
-      ),
-      Paint()
-        ..color = OverlayDesignSpec.glyphShadowColor.withValues(
-          alpha: OverlayDesignSpec.glassSpecularHaloOpacity,
-        )
-        ..strokeWidth = OverlayDesignSpec.glassSpecularHaloStrokeWidth
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = const MaskFilter.blur(
-          BlurStyle.normal,
-          OverlayDesignSpec.glassSpecularHaloBlurSigma,
+        ..color = colors.capsuleFill.withValues(
+          alpha: colors.capsuleFill.a * fillOpacity,
         ),
-    );
-    canvas.drawLine(
-      Offset(specularCx - specularHalf, specularY),
-      Offset(specularCx + specularHalf, specularY),
-      Paint()
-        ..strokeWidth = OverlayDesignSpec.glassSpecularStrokeWidth
-        ..strokeCap = StrokeCap.round
-        ..shader =
-            LinearGradient(
-              colors: [
-                const Color(0x00FFFFFF),
-                const Color(0xFFFFFFFF).withValues(
-                  alpha:
-                      (OverlayDesignSpec.glassSpecularOpacity *
-                              (1 +
-                                  OverlayDesignSpec
-                                          .liquidSpecularBrightBreatheFactor *
-                                      breathe))
-                          .clamp(0.0, 1.0),
-                ),
-                const Color(0x00FFFFFF),
-              ],
-              stops: const [0.0, 0.5, 1.0],
-            ).createShader(
-              Rect.fromLTWH(
-                pill.center.dx - specularHalf,
-                specularY - 1,
-                specularHalf * 2,
-                2,
-              ),
-            ),
-    );
-    // 3) 1 px outer rim, lit from above: bright top edge fading to nearly
-    //    off at the bottom — a uniform white outline would read as a stroke,
-    //    not as edge light. Follows the liquid silhouette.
-    canvas.drawPath(
-      shape,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.0
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            const Color(0xFFFFFFFF).withValues(
-              alpha:
-                  (OverlayDesignSpec.glassRimTopOpacity *
-                          (1 +
-                              OverlayDesignSpec.liquidRimBreatheFactor *
-                                  breathe))
-                      .clamp(0.0, 1.0),
-            ),
-            const Color(
-              0xFFFFFFFF,
-            ).withValues(alpha: OverlayDesignSpec.glassRimBottomOpacity),
-          ],
-        ).createShader(pill),
     );
   }
 
   /// Fixed accent hairline capsule border — deliberately state-NEUTRAL
   /// (maintainer decision, 2026-07-28): the former per-state re-hue read as a
-  /// diffuse red/pink glow on the small translucent capsule, so the chrome
-  /// (fill, sheen, border, shadow) carries no state colour anywhere. State
+  /// diffuse red/pink light on the small translucent capsule, so the chrome
+  /// (fill, border, shadow) carries no state colour anywhere. State
   /// identity lives only in the crisp content glyphs (dot, waveform, icons).
   void _drawBorder(Canvas canvas, Path shape) {
     canvas.drawPath(
@@ -533,6 +345,16 @@ class WpOverlayPainter extends CustomPainter {
         ..strokeWidth = 1.0
         ..color = colors.capsuleBorder,
     );
+    // UX-048: the dark presets get a 1 px light outer edge on top of the hairline.
+    if (colors.edge.a > 0) {
+      canvas.drawPath(
+        shape,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0
+          ..color = colors.edge,
+      );
+    }
   }
 
   // ── Content (always opaque) ─────────────────────────────────────────────────
@@ -546,7 +368,9 @@ class WpOverlayPainter extends CustomPainter {
     final cy = pill.center.dy;
     final base = pill.left + layout.padH;
 
-    _drawClose(canvas, Offset(base + layout.closeOffset, cy));
+    if (showCancel) {
+      _drawClose(canvas, Offset(base + layout.closeOffset, cy));
+    }
 
     // Transcribing has its own shared composition (label in the amber
     // processing stream) — identical across all three sizes.
@@ -564,7 +388,7 @@ class WpOverlayPainter extends CustomPainter {
       case OverlayDesignState.transcribing:
         break; // Handled by _drawTranscribing above.
       case OverlayDesignState.done:
-        _drawCheckIcon(canvas, leadCenter, colors.success, iconRevealFraction);
+        _drawDoneIcon(canvas, leadCenter);
       case OverlayDesignState.error:
         _drawErrorIcon(canvas, leadCenter, colors.error, iconRevealFraction);
     }
@@ -573,19 +397,21 @@ class WpOverlayPainter extends CustomPainter {
     // glyphs with a dark outline (subtitle/map-label technique) so it stays
     // readable over any desktop behind the near-clear glass. State semantics
     // live in the dot and the done/error icons, not in text colour.
-    const textColor = OverlayDesignSpec.contentGlyphFill;
+    final textColor = colors.ink;
     final textLeft = leadCenter.dx + layout.timerGap;
     final maxTextWidth = _isRecording
         ? recordingTextMaxWidth(pill, textLeft)
         : pill.right - layout.padH - textLeft;
-    final textWidth = _drawText(
-      canvas,
-      fittedTextFor(_isRecording ? timerText : statusText, maxTextWidth),
-      Offset(textLeft, cy),
-      layout.timerFontSize,
-      textColor,
-      maxWidth: maxTextWidth,
-    );
+    final textWidth = _isRecording && !showTimer
+        ? 0.0
+        : _drawText(
+            canvas,
+            fittedTextFor(_isRecording ? timerText : statusText, maxTextWidth),
+            Offset(textLeft, cy),
+            layout.timerFontSize,
+            textColor,
+            maxWidth: maxTextWidth,
+          );
 
     // Waveform + stop square (recording only — live bars).
     if (_isRecording) {
@@ -600,6 +426,44 @@ class WpOverlayPainter extends CustomPainter {
     if (_isRecording && progress > 0) {
       _drawTimeline(canvas, pill);
     }
+
+    _drawLanguageChip(canvas, pill);
+  }
+
+  /// Centre point of the language chip for [pill]: horizontally centred, on
+  /// the top edge, above the waveform bars.
+  static Offset languageChipCentreFor(Rect pill) => Offset(
+    pill.center.dx,
+    pill.top +
+        OverlayDesignSpec.languageChipTopInset +
+        OverlayDesignSpec.languageChipFontSize / 2,
+  );
+
+  /// Paints [languageChip] as a small top-centre label. Shown only in the
+  /// recording composition and only when the pill is tall enough for the
+  /// chip to clear the waveform.
+  void _drawLanguageChip(Canvas canvas, Rect pill) {
+    if (!_isRecording || sizeSpec.minimalContent) return;
+    if (pill.height < OverlayDesignSpec.languageChipMinPillHeight) return;
+
+    const fontSize = OverlayDesignSpec.languageChipFontSize;
+    final label = overlayChipLabelFor(
+      language: languageChip,
+      profile: profileChip,
+      fits: (text) =>
+          _layoutTextPainter(text, _textStyle(fontSize), null).width <=
+          pill.width * OverlayDesignSpec.chipMaxWidthFraction,
+    );
+    if (label == null) return;
+    final width = _layoutTextPainter(label, _textStyle(fontSize), null).width;
+    final centre = languageChipCentreFor(pill);
+    _drawText(
+      canvas,
+      label,
+      Offset(centre.dx - width / 2, centre.dy),
+      fontSize,
+      colors.ink.withValues(alpha: OverlayDesignSpec.languageChipInkAlpha),
+    );
   }
 
   /// Mini (waveform-first) content: the waveform IS the overlay while
@@ -630,7 +494,7 @@ class WpOverlayPainter extends CustomPainter {
       case OverlayDesignState.transcribing:
         _drawTranscribing(canvas, pill);
       case OverlayDesignState.done:
-        _drawCheckIcon(canvas, pill.center, colors.success, iconRevealFraction);
+        _drawDoneIcon(canvas, pill.center);
       case OverlayDesignState.error:
         _drawErrorIcon(canvas, pill.center, colors.error, iconRevealFraction);
     }
@@ -676,7 +540,7 @@ class WpOverlayPainter extends CustomPainter {
         ? null
         : _layoutTextPainter(
             shownStatus,
-            baseStyle.copyWith(color: OverlayDesignSpec.contentGlyphFill),
+            baseStyle.copyWith(color: colors.ink),
             maxTextWidth,
           );
     final secondaryStyle = _textStyle(
@@ -686,7 +550,7 @@ class WpOverlayPainter extends CustomPainter {
         ? _layoutTextPainter(
             secondaryText,
             secondaryStyle.copyWith(
-              color: OverlayDesignSpec.contentGlyphFill.withValues(
+              color: colors.ink.withValues(
                 alpha: OverlayDesignSpec.secondaryTextOpacity,
               ),
             ),
@@ -741,7 +605,7 @@ class WpOverlayPainter extends CustomPainter {
     strokes(
       center + OverlayDesignSpec.glyphShadowOffset,
       Paint()
-        ..color = OverlayDesignSpec.glyphShadowColor.withValues(
+        ..color = colors.inkOutline.withValues(
           alpha: OverlayDesignSpec.glyphShadowOpacity,
         )
         ..strokeWidth = layout.closeStroke
@@ -754,7 +618,7 @@ class WpOverlayPainter extends CustomPainter {
     strokes(
       center,
       Paint()
-        ..color = OverlayDesignSpec.contentGlyphFill
+        ..color = colors.ink
         ..strokeWidth = layout.closeStroke
         ..strokeCap = StrokeCap.round,
     );
@@ -826,7 +690,7 @@ class WpOverlayPainter extends CustomPainter {
     canvas.drawRRect(
       rrect.shift(OverlayDesignSpec.glyphShadowOffset),
       Paint()
-        ..color = OverlayDesignSpec.glyphShadowColor.withValues(
+        ..color = colors.inkOutline.withValues(
           alpha: OverlayDesignSpec.glyphShadowOpacity,
         )
         ..maskFilter = const MaskFilter.blur(
@@ -837,7 +701,7 @@ class WpOverlayPainter extends CustomPainter {
     canvas.drawRRect(
       rrect,
       Paint()
-        ..color = OverlayDesignSpec.contentGlyphFill.withValues(
+        ..color = colors.ink.withValues(
           alpha: OverlayDesignSpec.stopSquareOpacity,
         ),
     );
@@ -884,6 +748,61 @@ class WpOverlayPainter extends CustomPainter {
     return floor + (1 - floor) * smooth;
   }
 
+  /// Line and dot waveform for the recording state (WP-95). Both mirror the
+  /// level samples around the centre line, like the bar style does.
+  void _drawWaveAlternative(
+    Canvas canvas,
+    double left,
+    double right,
+    double cy,
+    double maxH,
+  ) {
+    final count = OverlayDesignSpec.waveform.barCount;
+    final pitch = (right - left) / count;
+    final accent = colors.accent;
+    final levels = [
+      for (var i = 0; i < count; i++)
+        i < waveformBars.length ? waveformBars[i].clamp(0.0, 1.0) : 0.0,
+    ];
+    if (waveStyle == OverlayWaveStyle.line) {
+      final stroke = Paint()
+        ..color = accent
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = _waveLineStrokeWidth
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..isAntiAlias = true;
+      final upper = Path();
+      final lower = Path();
+      for (var i = 0; i < count; i++) {
+        final x = left + i * pitch + pitch / 2;
+        final amp = levels[i] * maxH / 2;
+        if (i == 0) {
+          upper.moveTo(x, cy - amp);
+          lower.moveTo(x, cy + amp);
+        } else {
+          upper.lineTo(x, cy - amp);
+          lower.lineTo(x, cy + amp);
+        }
+      }
+      canvas.drawPath(upper, stroke);
+      canvas.drawPath(lower, stroke);
+      return;
+    }
+    final fill = Paint()
+      ..color = accent
+      ..isAntiAlias = true;
+    for (var i = 0; i < count; i++) {
+      final x = left + i * pitch + pitch / 2;
+      final amp = levels[i] * maxH / 2;
+      final radius =
+          _waveDotMinRadius +
+          levels[i] * (_waveDotMaxRadius - _waveDotMinRadius);
+      canvas.drawCircle(Offset(x, cy - amp), radius, fill);
+      canvas.drawCircle(Offset(x, cy + amp), radius, fill);
+    }
+  }
+
   void _drawWaveform(
     Canvas canvas,
     double left,
@@ -903,9 +822,13 @@ class WpOverlayPainter extends CustomPainter {
     // default keeps the spike's height-factor behaviour for normal/compact.
     final maxH =
         maxHeight ?? pillHeight * OverlayDesignSpec.waveformHeightFactor;
+    if (_isRecording && waveStyle != OverlayWaveStyle.bars) {
+      _drawWaveAlternative(canvas, left, right, cy, maxH);
+      return;
+    }
     // Mirrored-bar construction (Maintainer decision, 2026-07-29): fully
     // opaque filled capsules mirrored around the centre axis — hard, crisp
-    // edges; no glow, no alpha wash. The "energy axis" gradient (bright
+    // edges; no light effect, no alpha wash. The "energy axis" gradient (bright
     // core at the centre line, shaded tips) is shared per bar class via one
     // shader across the wave zone, so every bar reads lit from its middle
     // and the light stays consistent while bars move.
@@ -1027,6 +950,12 @@ class WpOverlayPainter extends CustomPainter {
   /// 0→1 (glass polish pass) so it draws on as the done state fades in
   /// instead of appearing instantly fully formed. `reveal = 1.0` (every
   /// steady-state paint) draws the complete glyph exactly as before.
+  /// The done glyph: the green check, or for a failed paste the error glyph
+  /// in the neutral ink colour (XP-5-07).
+  void _drawDoneIcon(Canvas canvas, Offset center) => donePasteFailed
+      ? _drawErrorIcon(canvas, center, colors.ink, iconRevealFraction)
+      : _drawCheckIcon(canvas, center, colors.success, iconRevealFraction);
+
   void _drawCheckIcon(Canvas canvas, Offset center, Color tint, double reveal) {
     final r = sizeSpec.statusIconSize / 2;
     final paint = Paint()
@@ -1197,7 +1126,7 @@ class WpOverlayPainter extends CustomPainter {
       text,
       baseStyle.copyWith(
         foreground: Paint()
-          ..color = OverlayDesignSpec.glyphShadowColor.withValues(
+          ..color = colors.inkOutline.withValues(
             alpha: OverlayDesignSpec.glyphShadowOpacity,
           )
           ..maskFilter = const MaskFilter.blur(
@@ -1234,8 +1163,14 @@ class WpOverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant WpOverlayPainter old) {
-    return old.state != state ||
+    return old.fillOpacity != fillOpacity ||
+        old.form != form ||
+        old.waveStyle != waveStyle ||
+        old.showTimer != showTimer ||
+        old.showCancel != showCancel ||
+        old.state != state ||
         old.theme != theme ||
+        old.colors != colors ||
         old.sizeSpec != sizeSpec ||
         old.layout != layout ||
         old.timerText != timerText ||
@@ -1247,11 +1182,36 @@ class WpOverlayPainter extends CustomPainter {
         old.paintContent != paintContent ||
         old.pillWidth != pillWidth ||
         old.iconRevealFraction != iconRevealFraction ||
+        old.donePasteFailed != donePasteFailed ||
         old.glassPhase != glassPhase ||
         old.liquidMotion != liquidMotion ||
         old.liquidLevel != liquidLevel ||
-        old.style != style ||
         old.tailFirstText != tailFirstText ||
         !identical(old.waveformBars, waveformBars);
   }
+}
+
+// Line and dot waveform geometry (WP-95). Kept private to the painter: they
+// are only read by the alternative wave styles.
+const double _waveLineStrokeWidth = 2.0;
+const double _waveDotMinRadius = 1.0;
+const double _waveDotMaxRadius = 2.5;
+
+/// The top-centre chip text: the language, then the profile when both are set.
+/// [fits] tells whether a candidate text stays inside the pill; the profile
+/// part is dropped first when the joined text does not fit, and the language
+/// alone is kept whenever it is set.
+String? overlayChipLabelFor({
+  required String? language,
+  required String? profile,
+  required bool Function(String text) fits,
+}) {
+  final hasLanguage = language != null && language.isNotEmpty;
+  final hasProfile = profile != null && profile.isNotEmpty;
+  if (hasLanguage && hasProfile) {
+    final joined = '$language · $profile';
+    if (fits(joined)) return joined;
+  }
+  if (hasLanguage) return language;
+  return hasProfile ? profile : null;
 }

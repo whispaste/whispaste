@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/stt/whisper/cuda_pack.dart';
 import 'package:whispaste/services/stt/whisper/whisper_engine.dart'
     show WhisperBackend;
@@ -119,39 +120,29 @@ void main() {
   });
 
   group('isCudaPackOffered', () {
-    test('only for a published pack, outside the Store, on Turing+', () {
+    test('only for a published pack on Turing+, in every channel', () {
       expect(
-        isCudaPackOffered(
-          packAvailable: true,
-          isStoreBuild: false,
-          turingOrNewerNvidia: true,
-        ),
+        isCudaPackOffered(packAvailable: true, turingOrNewerNvidia: true),
         isTrue,
       );
       expect(
-        isCudaPackOffered(
-          packAvailable: true,
-          isStoreBuild: true,
-          turingOrNewerNvidia: true,
-        ),
+        isCudaPackOffered(packAvailable: true, turingOrNewerNvidia: false),
         isFalse,
       );
       expect(
-        isCudaPackOffered(
-          packAvailable: true,
-          isStoreBuild: false,
-          turingOrNewerNvidia: false,
-        ),
+        isCudaPackOffered(packAvailable: false, turingOrNewerNvidia: true),
         isFalse,
       );
-      expect(
-        isCudaPackOffered(
-          packAvailable: false,
-          isStoreBuild: false,
-          turingOrNewerNvidia: true,
-        ),
-        isFalse,
-      );
+    });
+  });
+
+  group('isCudaPackDownloadAllowed', () {
+    test('never in the Microsoft Store build, always elsewhere', () {
+      expect(isCudaPackDownloadAllowed(channel: DeployChannel.store), isFalse);
+      for (final channel in DeployChannel.values) {
+        if (channel == DeployChannel.store) continue;
+        expect(isCudaPackDownloadAllowed(channel: channel), isTrue);
+      }
     });
   });
 

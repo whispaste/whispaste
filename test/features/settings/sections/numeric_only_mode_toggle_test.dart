@@ -1,4 +1,4 @@
-/// Widget tests for the "Numbers only" toggle inside [SpeechRecognitionSection]
+/// Widget tests for the "Numbers only" toggle inside [TextProcessingSection]
 /// (itn-cad-zahlen Ticket 06). Mirrors the cloud-mode settings override
 /// approach from `stt_language_dropdown_test.dart` so the local-only
 /// WpSttModelManager / BenchmarkButton stay out of the tree.
@@ -9,12 +9,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/features/settings/sections/stt_section.dart';
+import 'package:whispaste/features/settings/sections/text_processing_section.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart';
 
 import '../../../fixtures/test_helpers.dart';
+import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier(this._settings);
@@ -74,7 +74,7 @@ Future<_FakeSettingsNotifier> _pumpSectionWith(
       ValueListenableBuilder<bool>(
         valueListenable: visible,
         builder: (context, show, _) => show
-            ? _scrollable(const SpeechRecognitionSection())
+            ? _scrollable(const TextProcessingSection())
             : const SizedBox.shrink(),
       ),
       overrides: [settingsProvider.overrideWith(() => notifier)],
@@ -98,10 +98,8 @@ Future<_FakeSettingsNotifier> _pumpSection(
 /// The toggle's own [SettingRow], found via its icon (locale-independent,
 /// unlike matching on the label text) so the assertion doesn't depend on
 /// how many other Switches are on the page.
-Finder _toggleRow() => find.ancestor(
-  of: find.byWidgetPredicate((w) => w is Icon && w.icon == LucideIcons.hash),
-  matching: find.byType(SettingRow),
-);
+Finder _toggleRow() =>
+    find.byKey(const ValueKey('settings-row-text-numeric-only'));
 
 Switch _toggleSwitch(WidgetTester tester) => tester.widget<Switch>(
   find.descendant(of: _toggleRow(), matching: find.byType(Switch)),
@@ -154,7 +152,7 @@ void main() {
         // reopened (section remounted), against the same persisted state.
         visible.value = false;
         await tester.pumpAndSettle();
-        expect(find.byType(SpeechRecognitionSection), findsNothing);
+        expect(find.byType(TextProcessingSection), findsNothing);
 
         visible.value = true;
         await tester.pumpAndSettle();
@@ -207,7 +205,7 @@ void main() {
     // settings-pane width, in every supported locale (DoD Punkt 5).
     //
     // Isolates just this row's own [SettingRow] (icon + label + subtitle +
-    // toggle) rather than pumping the whole [SpeechRecognitionSection]: the
+    // toggle) rather than pumping the whole [TextProcessingSection]: the
     // full section already overflows at 480px/1.8x from unrelated,
     // pre-existing rows (dropdowns, model cards) regardless of this ticket's
     // change, which would make the assertion fail for a reason outside this
@@ -230,9 +228,9 @@ void main() {
                       size: Size(480, 200),
                       textScaler: TextScaler.linear(1.8),
                     ),
-                    child: SettingRow(
-                      icon: LucideIcons.hash,
-                      label: rowL10n.settingsNumericOnlyMode,
+                    child: WpSettingsRow(
+                      rowId: 'text-numeric-only',
+                      title: rowL10n.settingsNumericOnlyMode,
                       subtitle: rowL10n.settingsNumericOnlyModeSubtitle,
                       semanticToggledValue: false,
                       trailing: settingsToggle(value: false, onChanged: (_) {}),
@@ -245,7 +243,7 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          expect(find.byType(SettingRow), findsOneWidget);
+          expect(find.byType(WpSettingsRow), findsOneWidget);
           expect(tester.takeException(), isNull);
         },
       );

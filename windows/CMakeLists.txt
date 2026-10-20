@@ -71,6 +71,25 @@ add_subdirectory("runner")
 # them to the application.
 include(flutter/generated_plugins.cmake)
 
+# sherpa-onnx without TTS: replace the pub plugin's prebuilt DLLs (the C API
+# statically contains espeak-ng, GPL-3.0-or-later) with the TTS-free build
+# staged by scripts/build-sherpa-onnx.ps1. Only onnxruntime.dll is needed, not
+# onnxruntime_providers_shared.dll. A missing stage is a warning here; the
+# release pipeline stages it and scripts/check-no-espeak.sh guards the bundle.
+set(WP_SHERPA_STAGE "${CMAKE_CURRENT_SOURCE_DIR}/../.build/sherpa-onnx/windows")
+file(GLOB WP_SHERPA_DLLS
+  "${WP_SHERPA_STAGE}/sherpa-onnx-c-api.dll"
+  "${WP_SHERPA_STAGE}/onnxruntime.dll")
+if(WP_SHERPA_DLLS)
+  # A stale stage (pin or pubspec.lock moved without a rebuild) fails here.
+  include("${CMAKE_CURRENT_SOURCE_DIR}/../scripts/check-sherpa-stage.cmake")
+  wp_check_sherpa_stage("${WP_SHERPA_STAGE}" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+  list(FILTER PLUGIN_BUNDLED_LIBRARIES EXCLUDE REGEX "/(sherpa-onnx-c-api|onnxruntime)\\.dll$")
+  list(APPEND PLUGIN_BUNDLED_LIBRARIES ${WP_SHERPA_DLLS})
+else()
+  message(WARNING "sherpa-onnx TTS-free build not staged in ${WP_SHERPA_STAGE}: bundling the pub original (contains espeak-ng). Run: pwsh -File scripts\\build-sherpa-onnx.ps1")
+endif()
+
 
 # === Installation ===
 # Support files are copied into place next to the executable, so that it can

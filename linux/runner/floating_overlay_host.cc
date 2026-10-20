@@ -346,32 +346,15 @@ void FloatingOverlayHost::HandleRenderMethodCall(FlMethodCall* method_call) {
   } else if (strcmp(method, "startDrag") == 0) {
     // ── startDrag ─────────────────────────────────────────────────────────
     // The user began a pan gesture on the overlay pill (Dart onPanStart).
-    // We initiate a WM-level window move via gdk_window_begin_move_drag,
-    // which sends _NET_WM_MOVERESIZE to the X11 WM (GNOME Shell via XWayland).
-    // The WM then handles the interactive drag; configure-event fires on
-    // position changes and OnWindowMoved reports them as onDragEnded events.
+    // WindowDragMover follows the pointer until the button is released and
+    // reports the final position once via OnDragEnded. Not a WM move:
+    // KWin refuses to move NOTIFICATION windows (see window_drag_mover.h).
     //
-    // TUNING: gdk_window_begin_move_drag is X11-only and only reliable when
-    // GDK_BACKEND=x11 is set (see main.cc). On a bare Wayland session without
-    // XWayland it will be a no-op — ensure XWayland is running.
-    //
-    // TUNING: There is a latency of ~1 MethodChannel round-trip between the
-    // Dart gesture and this call, so root_x/root_y is the pointer position at
-    // handler time, not at the exact pan-start instant. This is accurate enough
-    // for WM interactive-move initiation in practice.
+    // TUNING: X11-only, like every window move here (GDK_BACKEND=x11, see
+    // main.cc); without XWayland the pointer cannot be queried.
     if (overlay_window_ && overlay_window_->IsCreated()) {
-      GtkWidget* gtk_win = overlay_window_->GetGtkWindow();
-      GdkWindow* gdk_win = gtk_win ? gtk_widget_get_window(gtk_win) : nullptr;
-      if (gdk_win) {
-        GdkDisplay* display = gdk_display_get_default();
-        GdkSeat* seat = gdk_display_get_default_seat(display);
-        GdkDevice* pointer = gdk_seat_get_pointer(seat);
-        gint root_x = 0, root_y = 0;
-        gdk_device_get_position(pointer, nullptr, &root_x, &root_y);
-        // Button 1 = left mouse button. GDK_CURRENT_TIME lets the X server
-        // use the most recent event timestamp (avoids focus-theft rejection).
-        gdk_window_begin_move_drag(gdk_win, 1, root_x, root_y,
-                                    GDK_CURRENT_TIME);
+      if (!drag_mover_.Start(GTK_WINDOW(overlay_window_->GetGtkWindow()))) {
+        g_print("[overlay-host] startDrag after the button was released\n");
       }
       pending_anchor_mode_ = "topLeft";
     }
@@ -451,6 +434,10 @@ void FloatingOverlayHost::OnWindowMoved(int x, int y, void* user_data) {
     self->suppress_next_configure_ = false;
     return;
   }
+  // The drag mover's own steps; it reports the end position itself.
+  if (self->drag_mover_.IsActive()) return;
+  // The configure-event of the mover's last step, already reported.
+  if (x == self->pending_x_ && y == self->pending_y_) return;
 
   // Store the new raw position (drag mode = "topLeft").
   self->pending_x_ = x;
@@ -461,6 +448,26 @@ void FloatingOverlayHost::OnWindowMoved(int x, int y, void* user_data) {
   g_autoptr(FlValue) args = fl_value_new_map();
   fl_value_set_string_take(args, "x", fl_value_new_float(static_cast<double>(x)));
   fl_value_set_string_take(args, "y", fl_value_new_float(static_cast<double>(y)));
+  fl_value_set_string_take(args, "anchorMode", fl_value_new_string("topLeft"));
+  self->InvokeMainChannel("onDragEnded", args);
+}
+
+// static
+void FloatingOverlayHost::OnDragEnded(int x, int y, void* user_data) {
+  auto* self = static_cast<FloatingOverlayHost*>(user_data);
+  // A pill dropped half off-screen snaps back inside the work area.
+  auto [rx, ry] = self->ResolvePosition(x, y, "topLeft");
+  if (rx != x || ry != y) {
+    self->suppress_next_configure_ = true;
+    self->overlay_window_->MoveTo(rx, ry);
+  }
+  self->pending_x_ = rx;
+  self->pending_y_ = ry;
+  self->pending_anchor_mode_ = "topLeft";
+
+  g_autoptr(FlValue) args = fl_value_new_map();
+  fl_value_set_string_take(args, "x", fl_value_new_float(static_cast<double>(rx)));
+  fl_value_set_string_take(args, "y", fl_value_new_float(static_cast<double>(ry)));
   fl_value_set_string_take(args, "anchorMode", fl_value_new_string("topLeft"));
   self->InvokeMainChannel("onDragEnded", args);
 }

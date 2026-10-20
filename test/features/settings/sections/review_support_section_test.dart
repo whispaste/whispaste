@@ -25,6 +25,52 @@ import '../../../fixtures/test_helpers.dart';
 const _launcherChannel = MethodChannel('plugins.flutter.io/url_launcher');
 
 void main() {
+  group('GitHub fallback after a failed store page (growth review R-15)', () {
+    test('a non-MAS build falls back to GitHub when the store page fails', () {
+      expect(
+        shouldFallBackToGitHub(
+          launched: false,
+          url: kMacAppStoreReviewUrl,
+          isMasBuild: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('a MAS build never falls back to GitHub', () {
+      expect(
+        shouldFallBackToGitHub(
+          launched: false,
+          url: kMacAppStoreReviewUrl,
+          isMasBuild: true,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a successful launch never falls back', () {
+      expect(
+        shouldFallBackToGitHub(
+          launched: true,
+          url: kMacAppStoreReviewUrl,
+          isMasBuild: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('the GitHub URL itself never falls back to itself', () {
+      expect(
+        shouldFallBackToGitHub(
+          launched: false,
+          url: kGitHubRepoUrl,
+          isMasBuild: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
   late L10n l10n;
   late String? capturedUrl;
 
@@ -90,4 +136,35 @@ void main() {
 
     expect(capturedUrl, kGitHubRepoUrl);
   });
+
+  testWidgets(
+    'when the store page cannot be opened, the rate action falls back to GitHub',
+    skip: !io.Platform.isMacOS,
+    (tester) async {
+      final opened = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_launcherChannel, (call) async {
+            final url = (call.arguments as Map)['url'] as String?;
+            if (call.method == 'canLaunch') return url != kMacAppStoreReviewUrl;
+            if (call.method == 'launch' && url != null) opened.add(url);
+            return true;
+          });
+
+      await tester.pumpWidget(
+        makeTestable(
+          const ReviewSupportSection(),
+          locale: const Locale('en'),
+          overrides: [
+            deployChannelProvider.overrideWith((ref) => DeployChannel.store),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(l10n.reviewSupportAction));
+      await tester.pumpAndSettle();
+
+      expect(opened, [kGitHubRepoUrl]);
+    },
+  );
 }

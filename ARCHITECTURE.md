@@ -14,7 +14,7 @@ WhisPaste is a Flutter desktop app (macOS, Windows, Linux) with platform runners
 | `windows/runner/` | C++ Win32 hosts for the same channels, plus the RawInput keyboard monitor |
 | `linux/runner/` | C/GTK hosts for the same channels, plus the XInput2 / GlobalShortcuts portal keyboard monitor |
 | `native/smart_mode/` | C++ shim between Dart FFI and llama.cpp, used by on-device Smart Mode |
-| `test/`, `integration_test/` | Unit, widget and golden tests; integration tests |
+| `test/`, `integration_test/` | Unit and widget tests; integration tests |
 | `website/` | The Astro project website, separate from the app |
 
 State management is [Riverpod](https://riverpod.dev). Services are exposed as providers, and widgets read them through `ref`.

@@ -38,9 +38,9 @@ void main() {
     });
 
     test('findSttModel returns correct model by ID', () {
-      expect(findSttModel('whisper-small')?.label, 'Small');
-      expect(findSttModel('whisper-medium')?.label, 'Medium');
-      expect(findSttModel('whisper-large-v3-turbo')?.label, 'Large v3 Turbo');
+      expect(findSttModel('whisper-small')?.label, 'small');
+      expect(findSttModel('whisper-medium')?.label, 'medium');
+      expect(findSttModel('whisper-large-v3-turbo')?.label, 'large-v3-turbo');
       expect(findSttModel('nonexistent'), isNull);
     });
 

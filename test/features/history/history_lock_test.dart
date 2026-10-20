@@ -53,7 +53,14 @@ class _Harness {
       overrides: [
         settingsProvider.overrideWith(() => notifier),
         historyLockClockProvider.overrideWithValue(() => clock),
-        historyWiperProvider.overrideWithValue(() async => wipes++),
+        historyWiperProvider.overrideWithValue(() async {
+          wipes++;
+          return const HistoryWipeOutcome(
+            leftovers: 0,
+            queued: true,
+            folder: '',
+          );
+        }),
       ],
     );
   }

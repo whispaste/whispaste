@@ -12,6 +12,7 @@ import '../../services/replacements/text_replacement_matcher.dart'
         fuzzyThresholdStrict,
         fuzzyThresholdStandard,
         fuzzyThresholdTolerant;
+import '../../services/dictionary/replacement_duplicates.dart';
 import '../../services/replacements/correction_learning_service.dart';
 import '../../services/replacements/vocabulary_import_service.dart';
 import '../../services/telemetry_service.dart';
@@ -25,8 +26,11 @@ import '../../widgets/toast.dart';
 import '../../widgets/trigger_chip.dart';
 import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_favourite_star.dart';
+import '../../widgets/wp_segmented_selector.dart';
 import '../../widgets/wp_text_field.dart';
 import '../settings/settings_widgets.dart' show SettingRow, settingsToggle;
+import 'correction_cards.dart';
 import 'vocabulary_import_review_page.dart';
 import 'package:whispaste/core/data/database.dart';
 
@@ -42,6 +46,8 @@ class Replacement {
     this.matchMode = TextReplacementMatchMode.exact,
     this.fuzzyThreshold,
     this.origin = 'manual',
+    this.isFavorite = false,
+    this.usageCount = 0,
   });
 
   final String id;
@@ -61,11 +67,20 @@ class Replacement {
   /// `manual` (user-created) or `imported` (via vocabulary-folder import) —
   /// display-only, no behavioral difference (PRD.md User Story 11).
   final String origin;
+
+  /// Pinned by the user in the dictionary (schema v26). Display only.
+  final bool isFavorite;
+
+  /// Dictations this entry changed so far (schema v26). Display only.
+  final int usageCount;
 }
 
 // ---------------------------------------------------------------------------
 // State management (Riverpod AsyncNotifier — persisted in Drift DB)
 // ---------------------------------------------------------------------------
+
+/// app_settings key recording that the first-start samples were handled.
+const _kSamplesSeededKey = 'replacementsSamplesSeeded';
 
 class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
     with ReloadableListNotifier<Replacement> {
@@ -79,9 +94,16 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
   Future<List<Replacement>> build() async {
     final db = ref.read(historyDatabaseProvider);
     final rows = await db.readAllReplacements();
-    if (rows.isEmpty) {
-      await _insertSampleData(db);
-      return readAll();
+    // Samples are a first-start courtesy only. Once the flag is set, an empty
+    // list stays empty; otherwise clearing it would bring the samples back
+    // the next time the page loads (UIA-DIC-04).
+    final settings = await db.readAppSettings();
+    if (settings[_kSamplesSeededKey] != '1') {
+      if (rows.isEmpty) {
+        await _insertSampleData(db);
+      }
+      await db.writeAppSettings({_kSamplesSeededKey: '1'});
+      if (rows.isEmpty) return readAll();
     }
     return rows.map(_fromDb).toList();
   }
@@ -184,6 +206,12 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
     await reload();
   }
 
+  Future<void> setFavourite(String id, {required bool value}) async {
+    final db = ref.read(historyDatabaseProvider);
+    await db.setReplacementFavourite(id, value: value);
+    await reload();
+  }
+
   /// Replaces the entire set of replacements with [items] — used by settings
   /// import (Cluster 5 portability) so the imported file becomes the exact
   /// new contents rather than being merged with existing entries.
@@ -193,20 +221,48 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
   // rejected for the same reason.
   Future<void> replaceAll(List<Replacement> items) async {
     final db = ref.read(historyDatabaseProvider);
-    await db.deleteAllReplacements();
     final now = DateTime.now();
-    for (var i = 0; i < items.length; i++) {
-      final item = items[i];
-      await db.upsertReplacementWithTriggers(
-        id: '${now.millisecondsSinceEpoch}_$i',
-        triggers: item.triggers,
-        replacement: item.replacement,
-        createdAt: now,
-        matchMode: item.matchMode.name,
-        fuzzyThreshold: item.fuzzyThreshold,
-        origin: item.origin,
-      );
-    }
+    await db.writeReplacements([
+      for (var i = 0; i < items.length; i++)
+        ReplacementWrite(
+          id: '${now.millisecondsSinceEpoch}_$i',
+          triggers: items[i].triggers,
+          replacement: items[i].replacement,
+          createdAt: now,
+          matchMode: items[i].matchMode.name,
+          fuzzyThreshold: items[i].fuzzyThreshold,
+          origin: items[i].origin,
+        ),
+    ], replaceAll: true);
+    await reload();
+  }
+
+  /// Adds several entries in one transaction (CSV batch import, C-M-4): a
+  /// failing row adds none of them.
+  Future<void> addAll(
+    Iterable<
+      ({
+        List<String> triggers,
+        String replacement,
+        TextReplacementMatchMode matchMode,
+        double? fuzzyThreshold,
+      })
+    >
+    entries,
+  ) async {
+    final db = ref.read(historyDatabaseProvider);
+    final now = DateTime.now();
+    await db.writeReplacements([
+      for (final e in entries)
+        ReplacementWrite(
+          id: generateV4Uuid(),
+          triggers: e.triggers,
+          replacement: e.replacement,
+          createdAt: now,
+          matchMode: e.matchMode.name,
+          fuzzyThreshold: e.fuzzyThreshold,
+        ),
+    ]);
     await reload();
   }
 
@@ -219,6 +275,8 @@ class ReplacementsNotifier extends AsyncNotifier<List<Replacement>>
         : TextReplacementMatchMode.exact,
     fuzzyThreshold: joined.row.fuzzyThreshold,
     origin: joined.row.origin,
+    isFavorite: joined.row.isFavorite,
+    usageCount: joined.row.usageCount,
   );
 }
 
@@ -250,7 +308,12 @@ final pendingCorrectionCandidatesProvider =
 
 /// Replacements page — auto-replace words during dictation.
 class ReplacementsPage extends ConsumerStatefulWidget {
-  const ReplacementsPage({super.key});
+  const ReplacementsPage({super.key, this.showSuggestionCards = true});
+
+  /// Whether the correction-learning switch and the pending-suggestions card
+  /// sit above the list. The dictionary's Suggestions tab shows them instead,
+  /// so the Replacements tab passes `false` to avoid showing them twice.
+  final bool showSuggestionCards;
 
   @override
   ConsumerState<ReplacementsPage> createState() => _ReplacementsPageState();
@@ -282,6 +345,13 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
     final pendingCorrectionCandidates = ref
         .watch(pendingCorrectionCandidatesProvider)
         .maybeWhen(data: (c) => c, orElse: () => const <CorrectionCandidate>[]);
+    final allReplacements = ref
+        .watch(replacementsProvider)
+        .maybeWhen(data: (r) => r, orElse: () => const <Replacement>[]);
+    final duplicateIds = duplicateReplacementIds([
+      for (final r in allReplacements)
+        TriggerOwner(id: r.id, triggers: r.triggers),
+    ]);
 
     return WpSearchableListPage<Replacement>(
       // The master switch lives in a header card, not in the toolbar.
@@ -315,18 +385,22 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
             onImport: _importFromFolder,
             importing: _importing,
           ),
-          _CorrectionLearningToggleCard(
-            enabled: correctionLearningEnabled,
-            onChanged: (v) => ref
-                .read(settingsProvider.notifier)
-                .updateSettings(
-                  (s) => s.copyWithSections(
-                    behavior: s.behavior.copyWith(correctionLearningEnabled: v),
+          if (widget.showSuggestionCards)
+            CorrectionLearningToggleCard(
+              enabled: correctionLearningEnabled,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      behavior: s.behavior.copyWith(
+                        correctionLearningEnabled: v,
+                      ),
+                    ),
                   ),
-                ),
-          ),
-          if (pendingCorrectionCandidates.isNotEmpty)
-            _CorrectionCandidatesCard(
+            ),
+          if (widget.showSuggestionCards &&
+              pendingCorrectionCandidates.isNotEmpty)
+            CorrectionCandidatesCard(
               count: pendingCorrectionCandidates.length,
               reviewing: _reviewingCorrections,
               onReview: () =>
@@ -365,10 +439,14 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
         return _ReplacementTile(
           replacement: r,
           isCursor: isCursor,
+          isDuplicate: duplicateIds.contains(r.id),
           onTap: () => _showAddEditDialog(existing: r),
           onCopy: () => _copyReplacement(r),
           onDuplicate: () => _duplicateReplacement(r),
           onDelete: () => _confirmDelete(r),
+          onToggleFavourite: () => ref
+              .read(replacementsProvider.notifier)
+              .setFavourite(r.id, value: !r.isFavorite),
         );
       },
     );
@@ -377,36 +455,69 @@ class _ReplacementsPageState extends ConsumerState<ReplacementsPage> {
   // ── Add / Edit dialog ────────────────────────────────────────────────
 
   Future<void> _showAddEditDialog({Replacement? existing}) async {
-    final result =
-        await showWpFormDialog<
-          (List<String>, String, TextReplacementMatchMode, double?)
-        >(
-          context: context,
-          builder: (_, a) =>
-              _ReplacementDialog(animation: a, existing: existing),
-        );
-    if (result == null) return;
-    final (triggers, replacement, matchMode, fuzzyThreshold) = result;
+    await showWpFormDialog<void>(
+      context: context,
+      builder: (_, a) => _ReplacementDialog(
+        animation: a,
+        existing: existing,
+        onSave: (draft) => _saveReplacement(existing, draft),
+        findClash: (triggers) => _findTriggerClash(existing?.id, triggers),
+      ),
+    );
+  }
+
+  /// Another entry that already owns one of [triggers]. Compared with the same
+  /// normalisation the list uses to flag duplicates, so the dialog and the
+  /// list never disagree about what collides (UIA-DIC-06).
+  ({String trigger, String replacement})? _findTriggerClash(
+    String? ownId,
+    List<String> triggers,
+  ) {
+    final keys = {for (final t in triggers) normalizeTriggerKey(t)}..remove('');
+    final others = ref.read(replacementsProvider).value ?? const [];
+    for (final entry in others) {
+      if (entry.id == ownId) continue;
+      for (final trigger in entry.triggers) {
+        if (keys.contains(normalizeTriggerKey(trigger))) {
+          return (trigger: trigger, replacement: entry.replacement);
+        }
+      }
+    }
+    return null;
+  }
+
+  /// Writes the dialog's draft. Returns `false` when the write fails, so the
+  /// dialog stays open with the typed input and the user is told (UIA-DIC-03).
+  Future<bool> _saveReplacement(
+    Replacement? existing,
+    _ReplacementDraft draft,
+  ) async {
+    final (triggers, replacement, matchMode, fuzzyThreshold) = draft;
     final notifier = ref.read(replacementsProvider.notifier);
-    if (existing != null) {
-      notifier.updateReplacement(
-        existing.id,
-        triggers: triggers,
-        replacement: replacement,
-        matchMode: matchMode,
-        fuzzyThreshold: fuzzyThreshold,
-        origin: existing.origin,
-      );
-    } else {
-      notifier.add(
-        triggers,
-        replacement,
-        matchMode: matchMode,
-        fuzzyThreshold: fuzzyThreshold,
-      );
-      ref
-          .read(telemetrySessionAggregatorProvider)
-          .count(category: 'replacements', action: 'create');
+    try {
+      if (existing != null) {
+        await notifier.updateReplacement(
+          existing.id,
+          triggers: triggers,
+          replacement: replacement,
+          matchMode: matchMode,
+          fuzzyThreshold: fuzzyThreshold,
+          origin: existing.origin,
+        );
+      } else {
+        await notifier.add(
+          triggers,
+          replacement,
+          matchMode: matchMode,
+          fuzzyThreshold: fuzzyThreshold,
+        );
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'replacements', action: 'create');
+      }
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -651,6 +762,7 @@ class _VocabularyImportCard extends StatelessWidget {
               : l10n.replacementsImportHint,
           // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
           trailing: WpButton(
+            key: const ValueKey('replacements-import-folder'),
             label: l10n.replacementsImportFromFolder,
             variant: WpButtonVariant.secondary,
             size: WpButtonSize.dense,
@@ -672,132 +784,44 @@ class _VocabularyImportCard extends StatelessWidget {
 /// it. Turning this off only stops new candidates from being *observed*; it
 /// never touches already-learned entries or candidates already pending
 /// review (see `BehaviorSettings.correctionLearningEnabled` doc comment).
-class _CorrectionLearningToggleCard extends StatelessWidget {
-  const _CorrectionLearningToggleCard({
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.xxs,
-        WpSpacing.xl,
-        0,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(WpSpacing.xxs),
-        decoration: BoxDecoration(
-          color: WpColors.cardFill,
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: WpColors.borderSubtle),
-        ),
-        child: SettingRow(
-          icon: LucideIcons.sparkles,
-          label: l10n.correctionLearningToggleLabel,
-          subtitle: enabled
-              ? l10n.correctionLearningToggleEnabled
-              : l10n.correctionLearningToggleDisabled,
-          semanticToggledValue: enabled,
-          // The subtitle only says *that* corrections are watched, never
-          // *how* to trigger one -- a user landing on this page cold has no
-          // other way to discover the `correct:`/`korrektur:` voice-command
-          // syntax (the only other explanation lives behind a one-shot,
-          // permanently-dismissible hint in the History panel, see
-          // `history_notes_section.dart`). An info tooltip next to the
-          // toggle -- same pattern as `stt_model_selector.dart` -- adds that
-          // without growing the row for everyone who already knows it.
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Tooltip(
-                message: l10n.correctionLearningHowTo,
-                child: const Icon(
-                  LucideIcons.info,
-                  size: WpIconSize.xs,
-                  color: WpColors.textMuted,
-                ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              settingsToggle(value: enabled, onChanged: onChanged),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Shown only while there is at least one correction candidate awaiting
-/// review — opens the shared vocabulary-import review page (PRD.md
-/// decision: reuse it rather than build a second review UI).
-class _CorrectionCandidatesCard extends StatelessWidget {
-  const _CorrectionCandidatesCard({
-    required this.count,
-    required this.reviewing,
-    required this.onReview,
-  });
-
-  final int count;
-  final bool reviewing;
-  final VoidCallback onReview;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        WpSpacing.xl,
-        WpSpacing.xxs,
-        WpSpacing.xl,
-        0,
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(WpSpacing.xxs),
-        decoration: BoxDecoration(
-          color: WpColors.cardFill,
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: WpColors.borderSubtle),
-        ),
-        child: SettingRow(
-          icon: LucideIcons.lightbulb,
-          label: l10n.correctionCandidatesCardTitle,
-          subtitle: l10n.correctionCandidatesCardHint(count),
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-          trailing: WpButton(
-            label: l10n.correctionCandidatesReviewButton,
-            variant: WpButtonVariant.secondary,
-            size: WpButtonSize.dense,
-            isLoading: reviewing,
-            onPressed: reviewing ? null : onReview,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Add / Edit dialog
 // ---------------------------------------------------------------------------
 
+/// What the add/edit dialog hands to the page: trigger phrases, replacement
+/// text, match mode and fuzzy threshold.
+typedef _ReplacementDraft = (
+  List<String>,
+  String,
+  TextReplacementMatchMode,
+  double?,
+);
+
 class _ReplacementDialog extends StatefulWidget {
-  const _ReplacementDialog({required this.animation, this.existing});
+  const _ReplacementDialog({
+    required this.animation,
+    required this.onSave,
+    required this.findClash,
+    this.existing,
+  });
 
   final Animation<double> animation;
   final Replacement? existing;
+
+  /// Returns whether the draft was stored; the dialog closes only then.
+  final Future<bool> Function(_ReplacementDraft draft) onSave;
+
+  /// The other entry that already owns one of [triggers], if any (UIA-DIC-06).
+  final ({String trigger, String replacement})? Function(List<String> triggers)
+  findClash;
 
   @override
   State<_ReplacementDialog> createState() => _ReplacementDialogState();
 }
 
 class _ReplacementDialogState extends State<_ReplacementDialog> {
+  bool _saving = false;
+
   /// Maximum height of the trigger list before it scrolls, so the dialog
   /// stays on screen when a shortcut has many trigger phrases. Derived from
   /// the row height rather than guessed, so it always ends on a row edge
@@ -840,7 +864,18 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
     _fuzzyThreshold =
         widget.existing?.fuzzyThreshold ??
         vocabularyImportDefaultFuzzyThreshold;
+    _openedDraft = _draftText;
   }
+
+  late final String _openedDraft;
+
+  String get _draftText => [
+    for (final c in _triggerCtrls) c.text,
+    _replacementCtrl.text,
+  ].join('\u0000');
+
+  /// Typed text that a dismiss would throw away (UIA-CMP-03).
+  bool get _hasUnsavedInput => _draftText != _openedDraft;
 
   @override
   void dispose() {
@@ -881,215 +916,277 @@ class _ReplacementDialogState extends State<_ReplacementDialog> {
     });
   }
 
-  void _submit() {
-    if (!_isValid) return;
+  Future<void> _submit() async {
+    if (!_isValid || _saving) return;
     final triggers = _triggerCtrls
         .map((c) => c.text.trim())
         .where((t) => t.isNotEmpty)
         .toList();
+    // A Similar entry whose trigger fell below the minimum is not saved as
+    // exact behind the user's back: the mode switches visibly and the save
+    // stops until they look at it (UIA-DIC-05).
+    if (_matchMode == TextReplacementMatchMode.fuzzy && !_fuzzyAllowed) {
+      setState(() => _matchMode = TextReplacementMatchMode.exact);
+      WpToast.show(
+        context,
+        message: L10n.of(
+          context,
+        ).replacementsFuzzyTooShortWarning(fuzzyMinTriggerLength),
+        type: WpToastType.warning,
+      );
+      return;
+    }
+    final clash = widget.findClash(triggers);
+    if (clash != null) {
+      WpToast.show(
+        context,
+        message: L10n.of(
+          context,
+        ).replacementsDuplicateTrigger(clash.trigger, clash.replacement),
+        type: WpToastType.error,
+      );
+      return;
+    }
     // A trigger edit that drops below the fuzzy minimum length must not
     // leave a stale fuzzy mode behind it.
     final matchMode = _fuzzyAllowed
         ? _matchMode
         : TextReplacementMatchMode.exact;
-    Navigator.of(context).pop((
+    _saving = true;
+    final saved = await widget.onSave((
       triggers,
       _replacementCtrl.text.trim(),
       matchMode,
       matchMode == TextReplacementMatchMode.fuzzy ? _fuzzyThreshold : null,
     ));
+    _saving = false;
+    if (!mounted) return;
+    if (saved) {
+      Navigator.of(context).pop();
+    } else {
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    const textMuted = WpColors.textMuted;
+    final textMuted = WpColors.textMuted;
     final l10n = L10n.of(context);
 
-    return WpFormDialogShell(
-      animation: widget.animation,
-      title: _isEditing
-          ? l10n.replacementsEditShortcut
-          : l10n.replacementsNewShortcut,
-      subtitle: l10n.replacementsDialogHint,
-      fields: [
-        // Trigger phrases — dynamic list, one text field per phrase
-        Text(l10n.replacementsTriggerLabel, style: theme.textTheme.titleSmall),
-        const SizedBox(height: WpSpacing.xxs),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: _triggerListMaxHeight),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < _triggerCtrls.length; i++)
-                  Padding(
-                    key: ObjectKey(_triggerCtrls[i]),
-                    padding: EdgeInsets.only(top: i == 0 ? 0 : WpSpacing.xxs),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: WpTextField(
-                            controller: _triggerCtrls[i],
-                            variant: WpTextFieldVariant.form,
-                            focusNode: _triggerFocusNodes[i],
-                            autofocus: i == 0,
-                            hintText: l10n.replacementsTriggerHint,
-                            onChanged: (_) => setState(() {}),
-                            onSubmitted: (_) => _submit(),
-                          ),
-                        ),
-                        // The last remaining trigger cannot be
-                        // removed — a shortcut always keeps at
-                        // least one phrase.
-                        if (_triggerCtrls.length > 1) ...[
-                          const SizedBox(width: WpSpacing.xxs),
-                          // Full 48 dp tap target, spelled as the token so it
-                          // moves with it. Costs no height: the row is already
-                          // 48 dp tall because the neighbouring
-                          // `WpTextField.form` is, and `_triggerListMaxHeight`
-                          // above already counts 48 dp per row.
-                          IconButton(
-                            tooltip: l10n.replacementsRemoveTrigger,
-                            icon: const Icon(
-                              LucideIcons.x,
-                              size: WpIconSize.sm,
-                              color: textMuted,
-                            ),
-                            onPressed: () => _removeTrigger(i),
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(
-                              minWidth: WpLayout.minTouchTarget,
-                              minHeight: WpLayout.minTouchTarget,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: WpSpacing.xxs),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-          child: WpButton(
-            label: l10n.replacementsAddTrigger,
-            variant: WpButtonVariant.ghost,
-            size: WpButtonSize.dense,
-            icon: LucideIcons.plus,
-            onPressed: _addTrigger,
-          ),
-        ),
-        const SizedBox(height: WpSpacing.md),
-
-        // Replacement field
-        Text(
-          l10n.replacementsReplacementLabel,
-          style: theme.textTheme.titleSmall,
-        ),
-        const SizedBox(height: WpSpacing.xxs),
-        WpTextField(
-          controller: _replacementCtrl,
-          variant: WpTextFieldVariant.form,
-          hintText: l10n.replacementsReplacementHint,
-          onChanged: (_) => setState(() {}),
-          onSubmitted: (_) => _submit(),
-        ),
-        const SizedBox(height: WpSpacing.xxs),
-        Text(
-          l10n.replacementsReplacementHelper,
-          key: const Key('replacementsReplacementHelper'),
-          style: theme.textTheme.bodySmall,
-        ),
-        const SizedBox(height: WpSpacing.md),
-
-        // Match mode: Exact / Similar (PRD.md vocabulary-fuzzy-replacements)
-        Text(
-          l10n.replacementsMatchModeLabel,
-          style: theme.textTheme.titleSmall,
-        ),
-        const SizedBox(height: WpSpacing.xxs),
-        SegmentedButton<TextReplacementMatchMode>(
-          segments: [
-            ButtonSegment(
-              value: TextReplacementMatchMode.exact,
-              label: Text(l10n.replacementsMatchModeExact),
-            ),
-            ButtonSegment(
-              value: TextReplacementMatchMode.fuzzy,
-              label: Text(l10n.replacementsMatchModeFuzzy),
-              enabled: _fuzzyAllowed,
-            ),
-          ],
-          selected: {_matchMode},
-          onSelectionChanged: (selection) =>
-              setState(() => _matchMode = selection.first),
-        ),
-        if (!_fuzzyAllowed) ...[
-          const SizedBox(height: WpSpacing.xxs),
+    return WpUnsavedInputGuard(
+      dirty: _hasUnsavedInput,
+      child: WpFormDialogShell(
+        animation: widget.animation,
+        title: _isEditing
+            ? l10n.replacementsEditShortcut
+            : l10n.replacementsNewShortcut,
+        subtitle: l10n.replacementsDialogHint,
+        fields: [
+          // Trigger phrases — dynamic list, one text field per phrase
           Text(
-            l10n.replacementsFuzzyTooShortWarning(fuzzyMinTriggerLength),
-            style: const TextStyle(
-              color: WpColors.textMuted,
-              fontSize: WpTypography.caption,
-            ),
-          ),
-        ],
-        if (_matchMode == TextReplacementMatchMode.fuzzy) ...[
-          const SizedBox(height: WpSpacing.md),
-          Text(
-            l10n.replacementsFuzzyToleranceLabel,
+            l10n.replacementsTriggerLabel,
             style: theme.textTheme.titleSmall,
           ),
           const SizedBox(height: WpSpacing.xxs),
-          SegmentedButton<double>(
-            segments: [
-              ButtonSegment(
-                value: fuzzyThresholdStrict,
-                label: Text(l10n.replacementsFuzzyToleranceStrict),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: _triggerListMaxHeight),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < _triggerCtrls.length; i++)
+                    Padding(
+                      key: ObjectKey(_triggerCtrls[i]),
+                      padding: EdgeInsets.only(top: i == 0 ? 0 : WpSpacing.xxs),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: WpTextField(
+                              key: ValueKey('replacements-trigger-field-$i'),
+                              controller: _triggerCtrls[i],
+                              variant: WpTextFieldVariant.form,
+                              focusNode: _triggerFocusNodes[i],
+                              autofocus: i == 0,
+                              hintText: l10n.replacementsTriggerHint,
+                              onChanged: (_) => setState(() {}),
+                              onSubmitted: (_) => _submit(),
+                            ),
+                          ),
+                          // The last remaining trigger cannot be
+                          // removed — a shortcut always keeps at
+                          // least one phrase.
+                          if (_triggerCtrls.length > 1) ...[
+                            const SizedBox(width: WpSpacing.xxs),
+                            // Full 48 dp tap target, spelled as the token so it
+                            // moves with it. Costs no height: the row is already
+                            // 48 dp tall because the neighbouring
+                            // `WpTextField.form` is, and `_triggerListMaxHeight`
+                            // above already counts 48 dp per row.
+                            IconButton(
+                              key: ValueKey('replacements-trigger-remove-$i'),
+                              tooltip: l10n.replacementsRemoveTrigger,
+                              icon: Icon(
+                                LucideIcons.x,
+                                size: WpIconSize.sm,
+                                color: textMuted,
+                              ),
+                              onPressed: () => _removeTrigger(i),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: WpLayout.minTouchTarget,
+                                minHeight: WpLayout.minTouchTarget,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                ],
               ),
-              ButtonSegment(
-                value: fuzzyThresholdStandard,
-                label: Text(l10n.replacementsFuzzyToleranceStandard),
-              ),
-              ButtonSegment(
-                value: fuzzyThresholdTolerant,
-                label: Text(l10n.replacementsFuzzyToleranceTolerant),
-              ),
-            ],
-            selected: {_fuzzyThreshold},
-            onSelectionChanged: (selection) =>
-                setState(() => _fuzzyThreshold = selection.first),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xxs),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+            child: WpButton(
+              key: const ValueKey('replacements-trigger-add'),
+              label: l10n.replacementsAddTrigger,
+              variant: WpButtonVariant.ghost,
+              size: WpButtonSize.dense,
+              icon: LucideIcons.plus,
+              onPressed: _addTrigger,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.md),
+
+          // Replacement field
+          Text(
+            l10n.replacementsReplacementLabel,
+            style: theme.textTheme.titleSmall,
+          ),
+          const SizedBox(height: WpSpacing.xxs),
+          WpTextField(
+            key: const ValueKey('replacements-replacement-field'),
+            controller: _replacementCtrl,
+            variant: WpTextFieldVariant.form,
+            hintText: l10n.replacementsReplacementHint,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: WpSpacing.xxs),
           Text(
-            l10n.replacementsFuzzyToleranceHint,
-            style: const TextStyle(
-              color: WpColors.textMuted,
-              fontSize: WpTypography.caption,
+            l10n.replacementsReplacementHelper,
+            key: const Key('replacementsReplacementHelper'),
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: WpSpacing.md),
+
+          // Match mode: Exact / Similar (PRD.md vocabulary-fuzzy-replacements)
+          Text(
+            l10n.replacementsMatchModeLabel,
+            style: theme.textTheme.titleSmall,
+          ),
+          const SizedBox(height: WpSpacing.xxs),
+          WpSegmentedChoice<TextReplacementMatchMode>(
+            key: const ValueKey('replacements-match-mode-choice'),
+            options: [
+              WpSegmentOption(
+                value: TextReplacementMatchMode.exact,
+                label: l10n.replacementsMatchModeExact,
+              ),
+              WpSegmentOption(
+                value: TextReplacementMatchMode.fuzzy,
+                label: l10n.replacementsMatchModeFuzzy,
+                enabled: _fuzzyAllowed,
+              ),
+            ],
+            selected: _matchMode,
+            onChanged: (value) => setState(() => _matchMode = value),
+          ),
+          if (!_fuzzyAllowed) ...[
+            const SizedBox(height: WpSpacing.xxs),
+            Text(
+              l10n.replacementsFuzzyTooShortWarning(fuzzyMinTriggerLength),
+              style: TextStyle(
+                color: WpColors.textMuted,
+                fontSize: WpTypography.caption,
+              ),
             ),
+          ],
+          if (_matchMode == TextReplacementMatchMode.fuzzy) ...[
+            const SizedBox(height: WpSpacing.md),
+            Text(
+              l10n.replacementsFuzzyToleranceLabel,
+              style: theme.textTheme.titleSmall,
+            ),
+            const SizedBox(height: WpSpacing.xxs),
+            WpSegmentedChoice<double>(
+              key: const ValueKey('replacements-fuzzy-tolerance-choice'),
+              options: [
+                WpSegmentOption(
+                  value: fuzzyThresholdStrict,
+                  label: l10n.replacementsFuzzyToleranceStrict,
+                ),
+                WpSegmentOption(
+                  value: fuzzyThresholdStandard,
+                  label: l10n.replacementsFuzzyToleranceStandard,
+                ),
+                WpSegmentOption(
+                  value: fuzzyThresholdTolerant,
+                  label: l10n.replacementsFuzzyToleranceTolerant,
+                ),
+              ],
+              selected: _fuzzyThreshold,
+              onChanged: (value) => setState(() => _fuzzyThreshold = value),
+            ),
+            const SizedBox(height: WpSpacing.xxs),
+            Text(
+              l10n.replacementsFuzzyToleranceHint,
+              style: TextStyle(
+                color: WpColors.textMuted,
+                fontSize: WpTypography.caption,
+              ),
+            ),
+          ],
+          // Says why save is off, as visible text (UIA-DIC-07).
+          if (!_isValid) ...[
+            const SizedBox(height: WpSpacing.xs),
+            Text(
+              _triggerCtrls.any((c) => c.text.trim().isNotEmpty)
+                  ? l10n.replacementsMissingReplacement
+                  : l10n.replacementsMissingTrigger,
+              style: TextStyle(
+                color: WpColors.textMuted,
+                fontSize: WpTypography.caption,
+              ),
+            ),
+          ],
+        ],
+        actions: [
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          WpButton(
+            key: const ValueKey('replacements-cancel'),
+            label: l10n.actionCancel,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          WpButton(
+            key: const ValueKey('replacements-save'),
+            label: _isEditing ? l10n.actionSave : l10n.replacementsAdd,
+            variant: WpButtonVariant.primary,
+            onPressed: _isValid ? _submit : null,
           ),
         ],
-      ],
-      actions: [
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-        WpButton(
-          label: l10n.actionCancel,
-          variant: WpButtonVariant.ghost,
-          tone: WpButtonTone.neutral,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        const SizedBox(width: WpSpacing.sm),
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-        WpButton(
-          label: _isEditing ? l10n.actionSave : l10n.replacementsAdd,
-          variant: WpButtonVariant.primary,
-          onPressed: _isValid ? _submit : null,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -1102,10 +1199,12 @@ class _ReplacementTile extends StatefulWidget {
   const _ReplacementTile({
     required this.replacement,
     required this.isCursor,
+    required this.isDuplicate,
     required this.onTap,
     required this.onCopy,
     required this.onDuplicate,
     required this.onDelete,
+    required this.onToggleFavourite,
   });
 
   final Replacement replacement;
@@ -1113,10 +1212,14 @@ class _ReplacementTile extends StatefulWidget {
   /// This row is the list's arrow cursor — same contract, same two outlets
   /// and same reasoning as `_SnippetTile.isCursor`, which see.
   final bool isCursor;
+
+  /// Another entry uses one of this entry's trigger phrases (matrix 4.5).
+  final bool isDuplicate;
   final VoidCallback onTap;
   final VoidCallback onCopy;
   final VoidCallback onDuplicate;
   final VoidCallback onDelete;
+  final VoidCallback onToggleFavourite;
 
   @override
   State<_ReplacementTile> createState() => _ReplacementTileState();
@@ -1146,6 +1249,7 @@ class _ReplacementTileState extends State<_ReplacementTile> {
   }
 
   Widget _buildRow(BuildContext context) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
     return Semantics(
       button: true,
       // Affordance as `hint:`, identity from the rendered trigger chips —
@@ -1179,36 +1283,72 @@ class _ReplacementTileState extends State<_ReplacementTile> {
           child: GestureDetector(
             onTap: widget.onTap,
             child: WpListTileSurface(
-              variant: WpListTileVariant.card,
+              // Dictionary rows rest flat with an indented rule; only the
+              // current row becomes a white card (spec §3, COMPONENTS.md).
+              variant: WpListTileVariant.panel,
               isHovered: _isHovered,
+              // The cursor is drawn through isFocused (keyboard contract, see
+              // searchable_list_keyboard_cursor_test); isSelected only makes
+              // the row a card.
               isFocused: _isFocused || widget.isCursor,
-              actions: WpRowActions(
-                visible: _isActive,
+              isSelected: widget.isCursor,
+              actions: Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                  WpRowAction(
-                    icon: LucideIcons.copy,
-                    tooltip: L10n.of(context).actionCopy,
-                    onTap: widget.onCopy,
+                  Tooltip(
+                    message: L10n.of(context).dictionaryFavouriteLabel,
+                    child: WpFavouriteStar(
+                      isFavourite: widget.replacement.isFavorite,
+                      semanticsLabel: L10n.of(context).dictionaryFavouriteLabel,
+                      onToggle: widget.onToggleFavourite,
+                    ),
                   ),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                  WpRowAction(
-                    icon: LucideIcons.files,
-                    tooltip: L10n.of(context).actionDuplicate,
-                    onTap: widget.onDuplicate,
+                  // Trailing chevron: the row opens an editor on tap, so it
+                  // carries the same cue as other navigable list rows.
+                  const SizedBox(width: WpSpacing.xxs),
+                  Icon(
+                    rtl ? LucideIcons.chevronLeft : LucideIcons.chevronRight,
+                    size: WpIconSize.sm,
+                    color: WpColors.textMuted,
                   ),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                  WpRowAction(
-                    icon: LucideIcons.trash2,
-                    tooltip: L10n.of(context).actionDelete,
-                    onTap: widget.onDelete,
-                    isDestructive: true,
+                  WpRowActions(
+                    visible: _isActive,
+                    children: [
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                      WpRowAction(
+                        key: ValueKey(
+                          'replacements-copy-${widget.replacement.id}',
+                        ),
+                        icon: LucideIcons.copy,
+                        tooltip: L10n.of(context).actionCopy,
+                        onTap: widget.onCopy,
+                      ),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                      WpRowAction(
+                        key: ValueKey(
+                          'replacements-duplicate-${widget.replacement.id}',
+                        ),
+                        icon: LucideIcons.files,
+                        tooltip: L10n.of(context).actionDuplicate,
+                        onTap: widget.onDuplicate,
+                      ),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                      WpRowAction(
+                        key: ValueKey(
+                          'replacements-delete-${widget.replacement.id}',
+                        ),
+                        icon: LucideIcons.trash2,
+                        tooltip: L10n.of(context).actionDelete,
+                        onTap: widget.onDelete,
+                        isDestructive: true,
+                      ),
+                    ],
                   ),
                 ],
               ),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     LucideIcons.arrowRightLeft,
                     size: WpIconSize.sm,
                     color: WpColors.accent,
@@ -1236,20 +1376,33 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                     const SizedBox(width: WpSpacing.xxs),
                     WpAccentBadge(
                       label: L10n.of(context).replacementsLearnedBadge,
+                      tone: WpAccentBadgeTone.highlight,
+                    ),
+                  ],
+                  if (widget.isDuplicate) ...[
+                    const SizedBox(width: WpSpacing.xxs),
+                    Tooltip(
+                      message: L10n.of(context).dictionaryDuplicateHint,
+                      child: WpAccentBadge(
+                        label: L10n.of(context).dictionaryDuplicateBadge,
+                        tone: WpAccentBadgeTone.highlight,
+                      ),
                     ),
                   ],
                   const SizedBox(width: WpSpacing.sm),
-                  const Icon(
-                    LucideIcons.arrowRight,
+                  Icon(
+                    // Lucide glyphs do not mirror on their own: pick the
+                    // direction of the reading flow.
+                    rtl ? LucideIcons.arrowLeft : LucideIcons.arrowRight,
                     size: WpIconSize.xs,
                     color: WpColors.textMuted,
                   ),
                   const SizedBox(width: WpSpacing.sm),
                   // Replacement
-                  Expanded(
+                  Flexible(
                     child: Text(
                       '"${widget.replacement.replacement}"',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: WpColors.textSecondary,
                         fontSize: WpTypography.body,
                       ),
@@ -1273,6 +1426,19 @@ class _ReplacementTileState extends State<_ReplacementTile> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  if (widget.replacement.usageCount > 0) ...[
+                    const SizedBox(width: WpSpacing.sm),
+                    Text(
+                      L10n.of(
+                        context,
+                      ).dictionaryUsageCount(widget.replacement.usageCount),
+                      style: TextStyle(
+                        color: WpColors.textMuted,
+                        fontSize: WpTypography.small,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ],
                 ],
               ),
             ),

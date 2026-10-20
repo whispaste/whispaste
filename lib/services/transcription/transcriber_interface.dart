@@ -28,3 +28,11 @@ abstract class Transcriber {
   /// For cloud: no-op (HTTP connections are stateless).
   void release();
 }
+
+/// Optional capability: an adapter that can report the language the last
+/// [Transcriber.transcribe] call decoded in (9.10). Only the local whisper
+/// adapter has one; cloud adapters do not implement it.
+abstract class LanguageReportingTranscriber {
+  /// Whisper code such as `de`, or `null` when unknown.
+  String? get lastDetectedLanguage;
+}

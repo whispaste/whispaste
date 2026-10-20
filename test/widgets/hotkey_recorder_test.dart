@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/services/hotkey_conflicts.dart';
 import 'package:whispaste/widgets/hotkey_recorder.dart';
@@ -104,8 +105,15 @@ void main() {
       final context = tester.element(find.byType(WpHotkeyRecorderDialog));
       final l10n = L10n.of(context);
 
+      final examples = hotkeyRecorderExamples(l10n: l10n);
       expect(
-        find.text(l10n.settingsHotkeyRecorderModifierHint),
+        find.text(
+          l10n.settingsHotkeyRecorderModifierHint(
+            examples[0],
+            examples[1],
+            examples[2],
+          ),
+        ),
         findsOneWidget,
       );
     });
@@ -147,6 +155,36 @@ void main() {
 
       // After clear the placeholder '—' should appear
       expect(find.text('—'), findsOneWidget);
+    });
+
+    testWidgets('inline mode: Escape discards the recorded combo and restores '
+        'the initial one without submitting (UIA-ONB-08)', (tester) async {
+      final submitted = <WpHotkeyResult>[];
+      await tester.pumpWidget(
+        makeTestable(
+          WpHotkeyRecorderDialog(
+            initialKey: 'R',
+            initialModifiers: 'ctrl+shift',
+            onSubmit: submitted.add,
+          ),
+          size: const Size(800, 600),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.f5);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.f5);
+      await tester.pumpAndSettle();
+      expect(find.text('F5'), findsOneWidget);
+      expect(find.text('R'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.text('F5'), findsNothing);
+      expect(find.text('R'), findsOneWidget);
+      expect(submitted, isEmpty);
+      expect(tester.takeException(), isNull);
     });
 
     // ── Whitelist key recording ──────────────────────────────────────────

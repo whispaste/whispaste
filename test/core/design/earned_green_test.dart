@@ -47,16 +47,23 @@ void main() {
         'the toast component itself — a toast exists only for the moment '
         'after an action and disappears on its own, which is the rule\'s '
         'definition of earned',
-    'lib/widgets/status_bar.dart':
+    'lib/widgets/recording_dock.dart':
         'the app\'s status-chip group (Ticket 10): the phase dot reports what '
-        'the recording pipeline just did. Only `RecordingPhase.done` paints '
-        'green; the resting `SttServerState.ready` idle dot is neutral '
-        '(`textMuted`) since the Ticket 32 pass',
+        'the recording pipeline just did. `RecordingPhase.done` paints green, '
+        'and so does the ready state when dictation provably runs locally '
+        '("Lokal bereit", spec §2, `localReady`). Every other ready engine '
+        'stays neutral (`textMuted`). The WP-14 status-dot entry below carries '
+        'the same green',
     'lib/widgets/paste_capability_indicator.dart':
         'the paste-capability status badge — one chip reporting the outcome '
         'of the permission handshake the user just went through. Same '
         'reservation as the status bar above: `PasteCapabilityStatus.ready` '
         '(:329) is a resting state wearing the outcome colour',
+
+    'lib/widgets/wp_status_dot.dart':
+        'dock ready state, successor of the status bar. The status dot '
+        'primitive\'s `success` tone is the only dot that paints green, and '
+        'only the dock\'s ready state uses it; every other dot stays accent',
 
     // ── Debt: screens still to come through the refresh ───────────────────
     // Each row names the ticket that owes its removal. When that ticket
@@ -88,7 +95,7 @@ void main() {
     'lib/features/replacements',
     // Ticket 15 — the narrative family.
     'lib/features/onboarding',
-    'lib/features/about',
+    'lib/features/help',
     // Ticket 14 — the form family. Settings had three resting greens on one
     // row (tier icon, size badge, "Ready" chip), all saying the same
     // already-true thing; analytics had an all-time savings total wearing the
@@ -110,8 +117,12 @@ void main() {
   /// comment is not counted as painting it.
   final lineComment = RegExp(r'//.*$', multiLine: true);
 
+  // `_dock` is the navy stage palette the recording dock reads (wpStagePalette),
+  // so its success field is the same token family.
   final successReference = RegExp(
-    r'\bWpColors(?:Dark)?\.(?:' + successTokens.join('|') + r')\b',
+    r'\b(?:WpColors(?:Dark)?\.(?:(?:frame|current)\.)?|_dock\.)(?:' +
+        successTokens.join('|') +
+        r')\b',
   );
 
   List<String> dartFilesUnder(String dir) {
@@ -137,6 +148,8 @@ void main() {
     final offenders = <String>[];
     for (final relPath in files) {
       if (relPath == 'lib/core/theme/colors.dart') continue; // the definitions
+      if (relPath == 'lib/core/theme/theme_colors.dart') continue;
+      if (relPath == 'lib/core/theme/colors_dark.dart') continue;
       if (allowedFiles.containsKey(relPath)) continue;
 
       final source = File(
@@ -194,7 +207,7 @@ void main() {
   test('the guarded tokens still exist under these names', () {
     // Anti-vacuum guard: the gate matches on token *names*, so renaming
     // `successActiveFill` would leave it green while guarding nothing.
-    final colors = File('lib/core/theme/colors.dart');
+    final colors = File('lib/core/theme/colors_dark.dart');
     expect(colors.existsSync(), isTrue);
     final source = colors.readAsStringSync();
 
@@ -203,7 +216,7 @@ void main() {
         source,
         contains('$token ='),
         reason:
-            '`$token` is no longer declared in colors.dart. The Earned-Green '
+            '`$token` is no longer declared in colors_dark.dart. The Earned-Green '
             'gate greps for that name — rename it there and the gate silently '
             'stops guarding anything.',
       );

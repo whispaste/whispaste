@@ -31,36 +31,36 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderListenable;
-import 'package:shelf/shelf.dart';
 
 import '../../core/config/settings_provider.dart';
+import '../../core/data/database.dart';
 import '../../core/data/history_providers.dart';
 import '../../core/logging/app_logger.dart';
 import '../../features/history/data/history_lock.dart';
 import '../../core/recording/recording_state.dart'
-    show RecordingPhase, recordingPhaseProvider;
+    show isDictationBusy, recordingPhaseProvider;
 import '../../features/history/data/history_detail_provider.dart';
+import '../../features/notes/data/notes_actions.dart';
 import '../snippet_picker/snippet_picker_service.dart';
-import 'automation_api_auth_middleware.dart';
-import 'automation_api_host_guard.dart';
+import '../transcription/transcriber.dart';
 import 'automation_api_dictation_status_routes.dart';
+import 'automation_api_pipeline.dart';
+import 'automation_api_port.dart';
 import 'automation_api_history_routes.dart';
+import 'automation_api_notes_routes.dart';
 import 'automation_api_router.dart';
 import 'automation_api_server.dart';
+import 'automation_api_snippet_list_routes.dart';
 import 'automation_api_snippet_routes.dart';
+import 'automation_api_status_routes.dart';
 import 'automation_api_token_store.dart';
+import 'automation_api_transcribe_routes.dart';
+import 'multiline_paste_confirmation.dart';
+import 'automation_snippet_render.dart';
+
+export 'automation_api_port.dart' show kAutomationApiDefaultPort;
 
 final _log = AppLogger('AutomationApiController');
-
-/// Default port the automation API targets when the user hasn't set
-/// [AutomationApiSettings.customPort] — high enough to avoid the most
-/// common local dev-server collisions (3000/5173/8080/…).
-///
-/// This is only the *first* port tried: if binding to the target port
-/// (`customPort ?? kAutomationApiDefaultPort`) fails — most commonly
-/// `EADDRINUSE` — [AutomationApiController] automatically tries the next
-/// [kAutomationApiPortFallbackAttempts] consecutive ports before giving up.
-const kAutomationApiDefaultPort = 8765;
 
 /// Number of consecutive ports (starting at the target port) that
 /// [AutomationApiController] tries to bind before entering
@@ -187,7 +187,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
       // instead — it's the only thing that actually tracks "error".
       if (state.runState == AutomationApiRunState.stopped) return;
       _log.info('syncWithSettings: stopping (settings.enabled=false)');
-      await _stop();
+      await _stop(reason: 'settings disabled');
       return;
     }
     if (_server.isRunning) return;
@@ -200,29 +200,39 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     var token = await tokenStore.readToken();
     token ??= await tokenStore.regenerate();
 
-    final router = buildAutomationApiRouter([
-      dictationTriggerRoutes(
-        triggerDictation:
-            ({wait = false, language, smartModePreset, silenceTimeout}) =>
-                _triggerDictation(
-                  ref,
-                  wait: wait,
-                  language: language,
-                  smartModePreset: smartModePreset,
-                  silenceTimeout: silenceTimeout,
-                ),
-      ),
-      dictationStatusRoutes(readStatus: _readDictationStatus),
-      historyLatestRoutes(
-        fetchLatestEntry: _fetchLatestHistoryEntry,
-        isHistoryLocked: () => ref.read(historyContentHiddenProvider),
-      ),
-      snippetInsertRoutes(insertSnippetByName: _insertSnippetByName),
-    ]);
-    final handler = const Pipeline()
-        .addMiddleware(loopbackHostGuard())
-        .addMiddleware(bearerTokenAuth(currentToken: tokenStore.readToken))
-        .addHandler(router.handler);
+    final handler = buildAutomationApiHandler(
+      currentToken: tokenStore.readToken,
+      routeGroups: [
+        dictationTriggerRoutes(
+          triggerDictation:
+              ({wait = false, language, smartModePreset, silenceTimeout}) =>
+                  _triggerDictation(
+                    ref,
+                    wait: wait,
+                    language: language,
+                    smartModePreset: smartModePreset,
+                    silenceTimeout: silenceTimeout,
+                  ),
+        ),
+        dictationStatusRoutes(readStatus: _readDictationStatus),
+        historyLatestRoutes(
+          fetchLatestEntry: _fetchLatestHistoryEntry,
+          isHistoryLocked: () => ref.read(historyContentHiddenProvider),
+        ),
+        snippetInsertRoutes(insertSnippetByName: _insertSnippetByName),
+        automationStatusRoutes(readStatus: _readApiStatus),
+        automationNotesRoutes(
+          listNotes: _listNotes,
+          createNote: _createNote,
+          isHistoryLocked: () => ref.read(historyContentHiddenProvider),
+        ),
+        automationSnippetCatalogRoutes(
+          listSnippets: _listSnippets,
+          renderSnippet: _renderSnippet,
+        ),
+        automationTranscribeRoutes(transcribe: _transcribeWav),
+      ],
+    );
 
     final targetPort = settings.automationApi.customPort ?? port;
 
@@ -266,12 +276,11 @@ class AutomationApiController extends Notifier<AutomationApiState> {
     );
   }
 
-  Future<void> _stop() async {
-    _log.info(
-      '_stop: stopping server (was ${state.runState})',
-      null,
-      StackTrace.current,
-    );
+  /// [reason] names the caller in the log (settings vs. app shutdown); a
+  /// captured stack trace did that before and read like a crash in every
+  /// shutdown log.
+  Future<void> _stop({required String reason}) async {
+    _log.info('_stop: stopping server ($reason, was ${state.runState})');
     await _server.stop();
     state = AutomationApiState(
       runState: AutomationApiRunState.stopped,
@@ -346,11 +355,97 @@ class AutomationApiController extends Notifier<AutomationApiState> {
   /// `recording_orchestrator.dart` itself can't be imported directly).
   Map<String, Object?> _readDictationStatus() {
     final phase = ref.read(recordingPhaseProvider);
-    final busy =
-        phase == RecordingPhase.recording ||
-        phase == RecordingPhase.transcribing ||
-        phase == RecordingPhase.refining;
-    return {'phase': phase.name, 'busy': busy};
+    return {'phase': phase.name, 'busy': isDictationBusy(phase)};
+  }
+
+  /// Backs `GET /v1/status`: API version, dictation phase, history lock.
+  Map<String, Object?> _readApiStatus() => {
+    'dictation': _readDictationStatus(),
+    'history_locked': ref.read(historyContentHiddenProvider),
+  };
+
+  /// Backs `GET /v1/notes`: newest-first, pinned first, as the Notizen page
+  /// orders them. Reads the stream once; never writes.
+  Future<List<Map<String, Object?>>> _listNotes(int limit) async {
+    final notes = await ref.read(historyDatabaseProvider).watchNotes().first;
+    return [for (final note in notes.take(limit)) _noteJson(note)];
+  }
+
+  /// Backs `POST /v1/notes`. Uses a [NotesActions] without the app's change
+  /// notifier, so an API write never fires a `note.changed` hook (this is
+  /// the loop guard: a hook that writes a note cannot re-trigger itself).
+  Future<Map<String, Object?>> _createNote(String content) async {
+    final db = ref.read(historyDatabaseProvider);
+    final actions = NotesActions(db);
+    final created = await actions.create();
+    await actions.save(created.id, content);
+    final stored = await db.getNote(created.id);
+    return _noteJson(stored ?? created);
+  }
+
+  Map<String, Object?> _noteJson(Note note) => {
+    'id': note.id,
+    'content': note.content,
+    'pinned': note.pinned,
+    'updated_at': note.updatedAt.toIso8601String(),
+  };
+
+  /// Backs `GET /v1/snippets`: every snippet by title, with its kind and
+  /// declared field names. Read-only.
+  Future<List<Map<String, Object?>>> _listSnippets() async {
+    final rows = await ref
+        .read(historyDatabaseProvider)
+        .readAllSnippetsWithFields();
+    return [
+      for (final row in rows)
+        {'name': row.row.title, 'kind': row.row.kind, 'fields': row.fields},
+    ];
+  }
+
+  /// Backs `POST /v1/snippets/render`. Returns the text only; the paste
+  /// path is deliberately not involved. `null` means no snippet has that
+  /// exact title.
+  Future<SnippetRenderOutcome?> _renderSnippet(
+    String name,
+    Map<String, String> values,
+  ) async {
+    final rows = await ref
+        .read(historyDatabaseProvider)
+        .readAllSnippetsWithFields();
+    for (final row in rows) {
+      if (row.row.title != name) continue;
+      return renderSnippetBody(
+        kind: row.row.kind,
+        body: row.row.body,
+        fieldNames: row.fields,
+        values: values,
+      );
+    }
+    return null;
+  }
+
+  /// Backs `POST /v1/transcriptions`: the same transcriber adapter the
+  /// hotkey path uses, prepared and released around one call. Only WAV
+  /// bytes reach this point; the route checks the format first. A dictation
+  /// that is recording or transcribing owns the transcriber, so the call is
+  /// refused as busy instead of queued behind it.
+  Future<String> _transcribeWav(List<int> wavBytes) async {
+    if (isDictationBusy(ref.read(recordingPhaseProvider))) {
+      throw const AutomationTranscriptionBusyException();
+    }
+    final transcriber = ref.read(transcriberProvider);
+    await transcriber.prepare();
+    // A dictation may have started while prepare() was awaited. Re-check
+    // before using the transcriber, so the call never runs beside it.
+    if (isDictationBusy(ref.read(recordingPhaseProvider))) {
+      transcriber.release();
+      throw const AutomationTranscriptionBusyException();
+    }
+    try {
+      return await transcriber.transcribe(wavBytes);
+    } finally {
+      transcriber.release();
+    }
   }
 
   /// Backs `POST /v1/snippets/insert` (ticket 04) — delegates entirely to
@@ -363,7 +458,12 @@ class AutomationApiController extends Notifier<AutomationApiState> {
   ) async {
     final result = await ref
         .read(snippetPickerServiceProvider.notifier)
-        .insertByName(name);
+        .insertByName(
+          name,
+          confirmMultiline: (body) => ref
+              .read(multilinePasteConfirmationProvider.notifier)
+              .request(body, timeout: kAutomationPreviewWait),
+        );
     switch (result) {
       case SnippetInsertByNameResult.success:
         return AutomationApiSnippetInsertOutcome.success;
@@ -373,6 +473,8 @@ class AutomationApiController extends Notifier<AutomationApiState> {
         return AutomationApiSnippetInsertOutcome.interactiveNotSupported;
       case SnippetInsertByNameResult.pasteFailed:
         return AutomationApiSnippetInsertOutcome.pasteFailed;
+      case SnippetInsertByNameResult.previewCancelled:
+        return AutomationApiSnippetInsertOutcome.previewCancelled;
     }
   }
 
@@ -381,7 +483,7 @@ class AutomationApiController extends Notifier<AutomationApiState> {
   /// is "close every socket now", not "reconcile with settings". Goes
   /// through the same [_serialized] queue as [syncWithSettings] so it can't
   /// race an in-flight [_start].
-  Future<void> shutdown() => _serialized(_stop);
+  Future<void> shutdown() => _serialized(() => _stop(reason: 'app shutdown'));
 
   /// Generates a fresh token, immediately invalidating the previous one —
   /// the auth middleware reads the token store on every request, so this

@@ -2,42 +2,31 @@
 library;
 
 import 'dart:async';
-import 'dart:io' as io;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:path/path.dart' as p;
 
+import '../../../core/config/secure_key_store.dart'
+    show SecureKeysNotRemovedException;
 import '../../../core/config/settings_provider.dart';
 import '../../../core/data/analytics_provider.dart';
 import '../../../core/logging/app_logger.dart';
-import '../../../core/data/database.dart' show historyDatabaseProvider;
+import '../../../core/data/database.dart' show eraseHistoryForReset;
 import '../../../core/data/history_providers.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/navigation/page_state.dart' show activePageProvider;
 import '../../../core/theme/tokens.dart';
 import '../../../services/factory_reset/factory_reset_coordinator.dart';
 import '../../../services/hardware_info_service.dart';
+import '../../../services/linux_desktop_shortcut.dart';
 import '../../../services/model_download_service.dart';
 import '../../../services/path_service.dart' as paths;
 import '../../../services/stt/stt_bundle.dart';
 import '../../../widgets/dialog.dart';
-import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
-import '../settings_widgets.dart';
-
-// ---------------------------------------------------------------------------
-// Test seam: the „App schließen" action on the factory-reset-failed toast
-// calls [factoryResetExitFn]. Production wires it to `dart:io`'s `exit(…)`;
-// widget tests overwrite it with a spy so they can assert the action
-// fires without actually terminating the test isolate. Kept at the
-// top-level (rather than passed through the widget tree) so the single
-// `WpToastAction` callback stays trivial — the seam is documented at the
-// only call site below.
-typedef ExitFn = void Function(int code);
-ExitFn factoryResetExitFn = io.exit;
+import '../widgets/wp_settings_group.dart';
 
 final _log = AppLogger('AdvancedSection');
 
@@ -51,36 +40,32 @@ class AdvancedSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
-    final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
 
-    return WpSection(
-      title: l10n.settingsAdvanced,
-      subtitle: l10n.settingsAdvancedSubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          _AutoPasteBlocklistField(settings: settings, ref: ref),
-          SettingRow(
-            icon: LucideIcons.rotateCcw,
-            label: l10n.settingsResetToDefaults,
-            trailing: WpButton(
-              label: l10n.settingsResetConfirm,
-              variant: WpButtonVariant.secondary,
-              onPressed: () => _confirmReset(context, ref),
-            ),
+    return WpSettingsGroup(
+      heading: l10n.settingsAdvanced,
+      children: [
+        WpSettingsRow(
+          rowId: 'advanced-reset-defaults',
+          title: l10n.settingsResetToDefaults,
+          subtitle: l10n.settingsResetToDefaultsSubtitle,
+          trailing: WpButton(
+            label: l10n.settingsResetConfirm,
+            variant: WpButtonVariant.secondary,
+            onPressed: () => _confirmReset(context, ref),
           ),
-          SettingRow(
-            icon: LucideIcons.trash2,
-            label: l10n.settingsFactoryReset,
-            trailing: WpButton(
-              label: l10n.settingsFactoryResetConfirm,
-              variant: WpButtonVariant.secondary,
-              tone: WpButtonTone.danger,
-              onPressed: () => _confirmFactoryReset(context, ref),
-            ),
+        ),
+        WpSettingsRow(
+          rowId: 'advanced-factory-reset',
+          title: l10n.settingsFactoryReset,
+          subtitle: l10n.settingsFactoryResetSubtitle,
+          trailing: WpButton(
+            label: l10n.settingsFactoryResetConfirm,
+            variant: WpButtonVariant.secondary,
+            tone: WpButtonTone.danger,
+            onPressed: () => _confirmFactoryReset(context, ref),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -96,7 +81,19 @@ class AdvancedSection extends ConsumerWidget {
     );
     if (!confirmed) return;
 
-    await ref.read(settingsProvider.notifier).resetToDefaults();
+    try {
+      await ref.read(settingsProvider.notifier).resetToDefaults();
+    } on SecureKeysNotRemovedException {
+      // Settings were reset; the keys stayed behind. Never report success.
+      if (!context.mounted) return;
+      WpToast.show(
+        context,
+        message: L10n.of(context).settingsSecureKeysNotRemoved,
+        type: WpToastType.error,
+        duration: const Duration(seconds: 8),
+      );
+      return;
+    }
     if (!context.mounted) return;
     WpToast.show(
       context,
@@ -116,6 +113,25 @@ class AdvancedSection extends ConsumerWidget {
       destructive: true,
     );
     if (!confirmed) return;
+    if (!context.mounted) return;
+    final overlayContext = Overlay.of(context, rootOverlay: true).context;
+    final container = ProviderScope.containerOf(context);
+    await _runFactoryReset(overlayContext, container);
+  }
+
+  /// Runs the reset under the progress dialog and reports the outcome.
+  ///
+  /// Takes the root overlay context and the app container instead of the
+  /// section's own context and [WidgetRef]: the navigation after the reset can
+  /// unmount this section, and a failed reset offers a retry from its toast.
+  Future<void> _runFactoryReset(
+    BuildContext context,
+    ProviderContainer container,
+  ) async {
+    // Resetting the settings can switch the app language mid-reset; the
+    // dialog and the outcome stay in the language the reset started in
+    // (XP-6-11).
+    final l10n = L10n.of(context);
 
     // Clear GPU detection cache — this is in-memory only, cheap, and
     // there is no reason to defer it into the coordinator.
@@ -125,13 +141,13 @@ class AdvancedSection extends ConsumerWidget {
     // subprocess-stop ↔ delete-models ↔ erase-db ↔ erase-secure-store ↔
     // reset-settings sequence; the UI only orchestrates the modal
     // progress dialog and the post-reset navigation.
-    final settingsNotifier = ref.read(settingsProvider.notifier);
+    final settingsNotifier = container.read(settingsProvider.notifier);
     final coordinator = FactoryResetCoordinator(
       subprocess: WhisperServerSubprocessController(
         pidFilePath: p.join(paths.appDataDir(), '.whisper-server.pid'),
         cooperativeStop: () async {
           try {
-            ref.read(localSttBundleProvider.notifier).stop();
+            container.read(localSttBundleProvider.notifier).stop();
           } catch (e) {
             _log.debug(
               'STT cooperative stop failed during factory reset (non-fatal): $e',
@@ -141,62 +157,65 @@ class AdvancedSection extends ConsumerWidget {
       ),
       modelDirPath: paths.sttDir(),
       logsDirPath: defaultLogsDirPath(paths.appDataDir()),
+      // A failure must reach the coordinator, which marks the phase failed.
       eraseDatabase: () async {
         try {
-          await ref.read(historyDatabaseProvider).deleteAllData();
+          await eraseHistoryForReset(container, paths.appDataDir());
         } catch (e) {
-          _log.warning(
-            'DB erase failed during factory reset (partial wipe continues): $e',
-          );
+          _log.warning('DB erase failed during factory reset: $e');
+          rethrow;
         }
       },
       eraseSecureStore: () => settingsNotifier.eraseSecureStore(),
-      resetSettings: () => settingsNotifier.factoryResetFinalize(),
+      resetSettings: () async {
+        try {
+          await removeDesktopShortcutForReset(
+            container.read(gnomeToggleShortcutProvider),
+          );
+        } finally {
+          await settingsNotifier.factoryResetFinalize();
+        }
+      },
     );
 
-    if (!context.mounted) return;
-    final result = await _runFactoryResetWithDialog(context, coordinator);
+    final result = await _runFactoryResetWithDialog(context, coordinator, l10n);
     if (!context.mounted) return;
 
     // Invalidate all data-backed providers so UI reflects the empty state.
-    ref.invalidate(historyEntriesProvider);
-    ref.invalidate(archivedEntriesProvider);
-    ref.invalidate(trashEntriesProvider);
-    ref.invalidate(analyticsProvider);
-    ref.invalidate(modelDownloadProvider);
+    container.invalidate(historyEntriesProvider);
+    container.invalidate(archivedEntriesProvider);
+    container.invalidate(trashEntriesProvider);
+    container.invalidate(analyticsProvider);
+    container.invalidate(modelDownloadProvider);
 
     // Navigate back to history page so the onboarding overlay is visible.
     // Done regardless of outcome — even on partial failure, the in-memory
     // state has been reset to defaults (settingsResettingPhase persists
     // the in-memory AppSettings.defaults before any throw can land).
-    ref.read(activePageProvider.notifier).setPage('history');
+    container.read(activePageProvider.notifier).setPage('history');
 
     if (!context.mounted) return;
     if (result == ResetPhase.done) {
       WpToast.show(
         context,
-        message: L10n.of(context).settingsFactoryResetSuccess,
+        message: l10n.settingsFactoryResetSuccess,
         type: WpToastType.success,
       );
-    } else {
-      final failL10n = L10n.of(context);
-      WpToast.show(
-        context,
-        message: failL10n.factoryResetFailedToast,
-        type: WpToastType.error,
-        duration: const Duration(seconds: 8),
-        // loam-ignore: a11y-interactive-semantics – semantics provided by TextButton in WpToast._ToastCard.build
-        action: WpToastAction(
-          label: failL10n.factoryResetFailedAction,
-          // [factoryResetExitFn] is a test seam (see top of this file).
-          // Production: `dart:io`'s `exit(0)` — the desktop platforms
-          // collapse the OS process cleanly; the user can re-launch from
-          // their dock / start menu, which is the recovery path the PRD
-          // hands them.
-          onPressed: () => factoryResetExitFn(0),
-        ),
-      );
+      return;
     }
+    // Never a success message after a partial failure: name the areas that
+    // still hold data and offer to run the reset again.
+    WpToast.show(
+      context,
+      message: factoryResetFailureMessage(coordinator.failedPhases, l10n),
+      type: WpToastType.error,
+      duration: const Duration(seconds: 8),
+      action: WpToastAction(
+        label: l10n.factoryResetRetryAction,
+        testId: 'settings-factory-reset-retry',
+        onPressed: () => unawaited(_runFactoryReset(context, container)),
+      ),
+    );
   }
 
   /// Drives [coordinator.run] under a modal progress dialog and returns
@@ -208,6 +227,7 @@ class AdvancedSection extends ConsumerWidget {
   Future<ResetPhase> _runFactoryResetWithDialog(
     BuildContext context,
     FactoryResetCoordinator coordinator,
+    L10n l10n,
   ) async {
     final stream = coordinator.run().asBroadcastStream();
     final terminalFuture = stream.firstWhere(
@@ -221,12 +241,12 @@ class AdvancedSection extends ConsumerWidget {
     unawaited(
       showWpDialog<void>(
         context: context,
-        title: L10n.of(context).settingsFactoryResetProgressTitle,
+        title: l10n.settingsFactoryResetProgressTitle,
         // A reset in flight must not be walked away from — no barrier tap,
         // no Esc. The dialog pops itself on the terminal phase.
         dismissible: false,
         useRootNavigator: true,
-        content: _FactoryResetProgressContent(phaseStream: stream),
+        content: _FactoryResetProgressContent(phaseStream: stream, l10n: l10n),
       ),
     );
 
@@ -244,77 +264,6 @@ class AdvancedSection extends ConsumerWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Auto-paste blocklist field (moved here from AfterTranscriptionSection)
-// ---------------------------------------------------------------------------
-
-/// Text field for per-app auto-paste blocklist (comma-separated bundle IDs).
-/// Rendered inside [AdvancedSection] so it is visually scoped as a niche option.
-class _AutoPasteBlocklistField extends StatefulWidget {
-  const _AutoPasteBlocklistField({required this.settings, required this.ref});
-
-  final AppSettings settings;
-  final WidgetRef ref;
-
-  @override
-  State<_AutoPasteBlocklistField> createState() =>
-      _AutoPasteBlocklistFieldState();
-}
-
-class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
-  late final TextEditingController _controller;
-  Timer? _debounce;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(
-      text: widget.settings.autoPasteBlocklist,
-    );
-  }
-
-  @override
-  void didUpdateWidget(_AutoPasteBlocklistField old) {
-    super.didUpdateWidget(old);
-    if (old.settings.autoPasteBlocklist != widget.settings.autoPasteBlocklist) {
-      _controller.text = widget.settings.autoPasteBlocklist;
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 600), () {
-      widget.ref
-          .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(autoPasteBlocklist: value));
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return SettingRow(
-      icon: LucideIcons.shieldBan,
-      label: l10n.settingsAutoPasteBlocklist,
-      subtitle: l10n.settingsAutoPasteBlocklistSubtitle,
-      trailing: settingsTextField(
-        context: context,
-        controller: _controller,
-        hintText: l10n.settingsAutoPasteBlocklistPlaceholder,
-        onChanged: _onChanged,
-        semanticLabel: l10n.settingsAutoPasteBlocklist,
-      ),
-    );
-  }
-}
-
 /// Body of the modal progress dialog rendered during
 /// [FactoryResetCoordinator.run]. Subscribes to the phase stream and
 /// re-renders a labelled progress indicator on every emission. Pops itself
@@ -324,13 +273,16 @@ class _AutoPasteBlocklistFieldState extends State<_AutoPasteBlocklistField> {
 /// The card, the title and the "cannot be dismissed" behaviour come from
 /// [showWpDialog] — this widget only owns the progress content.
 class _FactoryResetProgressContent extends StatelessWidget {
-  const _FactoryResetProgressContent({required this.phaseStream});
+  const _FactoryResetProgressContent({
+    required this.phaseStream,
+    required this.l10n,
+  });
 
   final Stream<ResetPhase> phaseStream;
+  final L10n l10n;
 
   @override
   Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
     return StreamBuilder<ResetPhase>(
       stream: phaseStream,
       builder: (context, snapshot) {
@@ -369,6 +321,7 @@ class _FactoryResetProgressContent extends StatelessWidget {
       ResetPhase.stoppingSubprocess =>
         l10n.settingsFactoryResetPhaseStoppingSubprocess,
       ResetPhase.deletingModels => l10n.settingsFactoryResetPhaseDeletingModels,
+      ResetPhase.deletingAudio => l10n.settingsFactoryResetPhaseDeletingAudio,
       ResetPhase.deletingDatabase =>
         l10n.settingsFactoryResetPhaseDeletingDatabase,
       ResetPhase.resettingSecureStore =>
@@ -379,7 +332,37 @@ class _FactoryResetProgressContent extends StatelessWidget {
       // last running phase's label until the post-frame pop fires so the
       // dialog does not flash blank.
       ResetPhase.done => l10n.settingsFactoryResetPhaseResettingSettings,
-      ResetPhase.failed => l10n.settingsFactoryResetFailedMessage,
+      ResetPhase.failed => l10n.settingsFactoryResetPhaseResettingSettings,
     };
   }
+}
+
+/// The fixed UI terms of the areas a failed reset phase left behind, joined
+/// for the failure message. Duplicates are dropped; a failure with no data
+/// area (the subprocess stop) names the background process.
+String factoryResetFailedAreas(Iterable<ResetPhase> phases, L10n l10n) {
+  final names = <String>[];
+  for (final phase in phases) {
+    final name = switch (phase) {
+      ResetPhase.stoppingSubprocess => l10n.factoryResetAreaProcess,
+      ResetPhase.deletingModels => l10n.factoryResetAreaModels,
+      ResetPhase.deletingAudio => l10n.factoryResetAreaAudio,
+      ResetPhase.deletingDatabase => l10n.factoryResetAreaDb,
+      ResetPhase.resettingSecureStore => l10n.factoryResetAreaSecure,
+      ResetPhase.resettingSettings => l10n.factoryResetAreaSettings,
+      ResetPhase.done || ResetPhase.failed => null,
+    };
+    if (name != null && !names.contains(name)) names.add(name);
+  }
+  return names.join(', ');
+}
+
+/// The message after a partial reset. When the API keys stayed in the
+/// keyring, it tells the user how to remove them by hand (XP-6-11).
+String factoryResetFailureMessage(Iterable<ResetPhase> phases, L10n l10n) {
+  final message = l10n.settingsFactoryResetFailedMessage(
+    factoryResetFailedAreas(phases, l10n),
+  );
+  if (!phases.contains(ResetPhase.resettingSecureStore)) return message;
+  return '$message ${l10n.factoryResetKeyringHint}';
 }

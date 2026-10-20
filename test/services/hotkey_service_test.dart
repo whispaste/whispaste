@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/services/hotkey_key_resolver.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/keyboard_up_monitor.dart';
@@ -144,6 +145,20 @@ class GatedHotKeyRegistrar extends FakeHotKeyRegistrar {
 ///
 /// Does NOT use Riverpod — we call [updateHotkey] directly so there is no
 /// [build] lifecycle to manage.
+class _MutableSettingsNotifier extends SettingsNotifier {
+  _MutableSettingsNotifier(this._settings);
+  AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    _settings = updater(state.value ?? _settings);
+    state = AsyncData(_settings);
+  }
+}
+
 HotkeyService _makeService(FakeHotKeyRegistrar registrar) {
   final service = HotkeyService();
   service.injectRegistrar(registrar);
@@ -334,6 +349,105 @@ void main() {
 
     test('has at least one modifier', () {
       expect(safeDefaultHotKey.modifiers, isNotEmpty);
+    });
+
+    test('its settings strings resolve to the same combination', () {
+      // Settings and dock display the active fallback from these strings.
+      expect(resolveKey(safeDefaultHotkeyKey), safeDefaultHotKey.logicalKey);
+      // Modifier order carries no meaning; storage keeps its canonical order.
+      expect(
+        resolveModifiers(safeDefaultHotkeyModifiers),
+        unorderedEquals(safeDefaultHotKey.modifiers!),
+      );
+    });
+  });
+
+  group('activeGlobalHotkey (XP-5-09)', () {
+    final configured = AppSettings.defaults.copyWith(
+      hotkeyKey: ';',
+      hotkeyKeyDisplay: 'Ö',
+      hotkeyModifiers: 'ctrl+alt',
+    );
+
+    test('is the configured combination without a fallback', () {
+      final active = activeGlobalHotkey(configured, fallback: false);
+      expect(active.key, ';');
+      expect(active.display, 'Ö');
+      expect(active.modifiers, 'ctrl+alt');
+    });
+
+    test('is the safe default while it stands in', () {
+      final active = activeGlobalHotkey(configured, fallback: true);
+      expect(active.key, safeDefaultHotkeyKey);
+      expect(active.display, isEmpty);
+      expect(active.modifiers, safeDefaultHotkeyModifiers);
+    });
+  });
+
+  group('globalHotkeyFallbackActiveProvider (XP-5-09)', () {
+    // The fallback used to be silent: settings and dock kept showing the
+    // configured combination although only the safe default listened.
+    ProviderContainer makeContainer(FakeHotKeyRegistrar registrar) {
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _MutableSettingsNotifier(
+              AppSettings.defaults.copyWith(hotkeyEnabled: false),
+            ),
+          ),
+          hotkeyServiceProvider.overrideWith(() {
+            final service = HotkeyService()..injectRegistrar(registrar);
+            return service..injectMonitor(NoopKeyboardUpMonitor());
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('is set when the safe default replaces a taken hotkey', () async {
+      final registrar = FakeHotKeyRegistrar()
+        ..throwOnFirstRegister = PlatformException(code: 'hotkey_unavailable');
+      final container = makeContainer(registrar);
+      final service = container.read(hotkeyServiceProvider.notifier);
+      expect(container.read(globalHotkeyFallbackActiveProvider), isFalse);
+
+      await service.updateHotkey(
+        key: LogicalKeyboardKey.keyD,
+        modifiers: [HotKeyModifier.control, HotKeyModifier.shift],
+      );
+
+      expect(registrar.registered.single.logicalKey, LogicalKeyboardKey.space);
+      expect(container.read(globalHotkeyFallbackActiveProvider), isTrue);
+    });
+
+    test('is cleared once the configured hotkey registers', () async {
+      final registrar = FakeHotKeyRegistrar()
+        ..throwOnFirstRegister = PlatformException(code: 'hotkey_unavailable');
+      final container = makeContainer(registrar);
+      final service = container.read(hotkeyServiceProvider.notifier);
+
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      await service.updateHotkey(key: LogicalKeyboardKey.keyE);
+
+      expect(container.read(globalHotkeyFallbackActiveProvider), isFalse);
+    });
+
+    test('is cleared when the user switches the hotkey off', () async {
+      final registrar = FakeHotKeyRegistrar()
+        ..throwOnFirstRegister = PlatformException(code: 'hotkey_unavailable');
+      final container = makeContainer(registrar);
+      await container.read(settingsProvider.future);
+      container.read(hotkeyServiceProvider);
+      final settings = container.read(settingsProvider.notifier);
+
+      await settings.updateSettings((s) => s.copyWith(hotkeyEnabled: true));
+      await pumpEventQueue();
+      expect(container.read(globalHotkeyFallbackActiveProvider), isTrue);
+
+      await settings.updateSettings((s) => s.copyWith(hotkeyEnabled: false));
+      await pumpEventQueue();
+      expect(container.read(globalHotkeyFallbackActiveProvider), isFalse);
     });
   });
 

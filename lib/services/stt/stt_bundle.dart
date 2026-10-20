@@ -11,6 +11,7 @@ import 'stt_server_state_notifier.dart';
 export 'inference_client_rejected.dart';
 export 'local_transcriber.dart';
 export 'stt_benchmark.dart';
+export 'stt_benchmark_run.dart';
 export 'stt_exit_classifier.dart';
 export 'stt_gpu_fallback_policy.dart';
 export 'stt_idle_timer.dart';

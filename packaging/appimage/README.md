@@ -8,6 +8,14 @@ Linux-Kanal laut PRD §8.3 (Flatpak → AppImage → `.deb` → Snap).
 |---|---|
 | `build-appimage.sh` | Baut das AppImage aus dem fertigen Linux-Release-Bundle via `linuxdeploy` |
 
+**Laufzeit-Abhängigkeit `libxss1` (XScreenSaver, Undo-Idle-Quelle):** Ob
+`linuxdeploy` `libXss.so.1` mitbündelt, ist im Repo nicht verifiziert (der
+Build läuft nur in CI). Bis das im Release-Build geprüft ist, gilt `libxss1` als
+optionale Host-Abhängigkeit. Die Binary lädt `libXss.so.1` zur Laufzeit per
+`dlopen` (`linux/runner/`), sie ist nicht dagegen gelinkt. Fehlt die Bibliothek,
+startet die App normal; nur der Undo-Idle-Gate meldet „nicht verfügbar“ und
+fällt sicher zurück (kein automatisches Rückgängig über die Tastatur).
+
 `.desktop`-Entry, AppStream-`metainfo.xml` und Icon werden **nicht** dupliziert,
 sondern verbatim aus `packaging/flatpak/` bzw. `assets/icons/app_icon.png`
 übernommen — eine einzige Quelle für App-ID (`de.whispaste.app`).

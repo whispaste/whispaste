@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_provider.dart';
 import '../../../core/config/settings_sections.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../widgets/section.dart';
 import '../../../widgets/wp_button.dart';
 import '../../history/data/history_lock.dart';
 import '../../history/widgets/history_pin_dialogs.dart';
 import '../settings_widgets.dart';
+import '../widgets/wp_settings_group.dart';
 
 // ---------------------------------------------------------------------------
 // Retention preset — maps the two raw fields to a named UX preset.
@@ -84,109 +83,106 @@ class HistorySection extends ConsumerWidget {
         HistoryRetentionPreset.custom,
     ];
 
-    return WpSection(
-      title: l10n.settingsHistory,
-      subtitle: l10n.settingsHistorySubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          SettingRow(
-            icon: LucideIcons.clock,
-            label: l10n.settingsHistoryRetentionPreset,
+    return WpSettingsGroup(
+      heading: l10n.settingsHistory,
+      children: [
+        WpSettingsRow(
+          rowId: 'privacy-history-retention',
+          title: l10n.settingsHistoryRetentionPreset,
+          subtitle: l10n.settingsHistoryRetentionSubtitle,
+          trailing: settingsDropdown(
+            context: context,
+            value: currentPreset.name,
+            items: presetItems.map((p) => p.name).toList(),
+            labels: presetItems.map(labelFor).toList(),
+            onChanged: (v) {
+              if (v == null || v == HistoryRetentionPreset.custom.name) {
+                return;
+              }
+              final preset = HistoryRetentionPreset.values.firstWhere(
+                (p) => p.name == v,
+              );
+              final vals = presetValues(preset);
+              if (vals == null) return;
+              final (maxE, trashD) = vals;
+              ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      history: s.history.copyWith(
+                        historyMaxEntries: maxE,
+                        historyAutoTrashDays: trashD,
+                      ),
+                    ),
+                  );
+            },
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'privacy-history-hide-on-open',
+          title: l10n.settingsHistoryHideOnOpen,
+          subtitle: l10n.settingsHistoryHideOnOpenSubtitle,
+          semanticToggledValue: history.historyHideOnOpen,
+          trailing: settingsToggle(
+            value: history.historyHideOnOpen,
+            onChanged: (v) => _setHideOnOpen(context, ref, v),
+          ),
+        ),
+        if (history.historyHideOnOpen || hasPin) ...[
+          WpSettingsRow(
+            rowId: 'privacy-history-pin',
+            title: l10n.settingsHistoryPin,
+            subtitle: l10n.settingsHistoryPinSubtitle,
+            trailing: hasPin
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      WpButton(
+                        label: l10n.settingsHistoryPinChange,
+                        variant: WpButtonVariant.secondary,
+                        onPressed: () => _changePin(context, ref),
+                      ),
+                      const SizedBox(width: WpSpacing.sm),
+                      WpButton(
+                        label: l10n.settingsHistoryPinRemove,
+                        variant: WpButtonVariant.secondary,
+                        tone: WpButtonTone.danger,
+                        onPressed: () => _removePin(context, ref),
+                      ),
+                    ],
+                  )
+                : WpButton(
+                    label: l10n.historyPinSetTitle,
+                    variant: WpButtonVariant.secondary,
+                    onPressed: () => _setPin(context, ref),
+                  ),
+          ),
+          WpSettingsRow(
+            rowId: 'privacy-history-auto-lock',
+            title: l10n.settingsHistoryAutoLock,
+            subtitle: l10n.settingsHistoryAutoLockSubtitle,
             trailing: settingsDropdown(
               context: context,
-              value: currentPreset.name,
-              items: presetItems.map((p) => p.name).toList(),
-              labels: presetItems.map(labelFor).toList(),
+              value: '${history.historyAutoLockMinutes}',
+              items: [for (final m in _autoLockChoices(history)) '$m'],
+              labels: [
+                for (final m in _autoLockChoices(history))
+                  m == 0
+                      ? l10n.settingsHistoryAutoLockNever
+                      : l10n.settingsHistoryAutoLockMinutes(m),
+              ],
               onChanged: (v) {
-                if (v == null || v == HistoryRetentionPreset.custom.name) {
-                  return;
-                }
-                final preset = HistoryRetentionPreset.values.firstWhere(
-                  (p) => p.name == v,
+                final minutes = int.tryParse(v ?? '');
+                if (minutes == null) return;
+                _updateHistory(
+                  ref,
+                  (h) => h.copyWith(historyAutoLockMinutes: minutes),
                 );
-                final vals = presetValues(preset);
-                if (vals == null) return;
-                final (maxE, trashD) = vals;
-                ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWithSections(
-                        history: s.history.copyWith(
-                          historyMaxEntries: maxE,
-                          historyAutoTrashDays: trashD,
-                        ),
-                      ),
-                    );
               },
             ),
           ),
-          SettingRow(
-            icon: LucideIcons.eyeOff,
-            label: l10n.settingsHistoryHideOnOpen,
-            subtitle: l10n.settingsHistoryHideOnOpenSubtitle,
-            semanticToggledValue: history.historyHideOnOpen,
-            trailing: settingsToggle(
-              value: history.historyHideOnOpen,
-              onChanged: (v) => _setHideOnOpen(context, ref, v),
-            ),
-          ),
-          if (history.historyHideOnOpen || hasPin) ...[
-            SettingRow(
-              icon: LucideIcons.lock,
-              label: l10n.settingsHistoryPin,
-              subtitle: l10n.settingsHistoryPinSubtitle,
-              trailing: hasPin
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        WpButton(
-                          label: l10n.settingsHistoryPinChange,
-                          variant: WpButtonVariant.secondary,
-                          onPressed: () => _changePin(context, ref),
-                        ),
-                        const SizedBox(width: WpSpacing.sm),
-                        WpButton(
-                          label: l10n.settingsHistoryPinRemove,
-                          variant: WpButtonVariant.secondary,
-                          tone: WpButtonTone.danger,
-                          onPressed: () => _removePin(context, ref),
-                        ),
-                      ],
-                    )
-                  : WpButton(
-                      label: l10n.historyPinSetTitle,
-                      variant: WpButtonVariant.secondary,
-                      onPressed: () => _setPin(context, ref),
-                    ),
-            ),
-            SettingRow(
-              icon: LucideIcons.timer,
-              label: l10n.settingsHistoryAutoLock,
-              subtitle: l10n.settingsHistoryAutoLockSubtitle,
-              trailing: settingsDropdown(
-                context: context,
-                value: '${history.historyAutoLockMinutes}',
-                items: [for (final m in _autoLockChoices(history)) '$m'],
-                labels: [
-                  for (final m in _autoLockChoices(history))
-                    m == 0
-                        ? l10n.settingsHistoryAutoLockNever
-                        : l10n.settingsHistoryAutoLockMinutes(m),
-                ],
-                onChanged: (v) {
-                  final minutes = int.tryParse(v ?? '');
-                  if (minutes == null) return;
-                  _updateHistory(
-                    ref,
-                    (h) => h.copyWith(historyAutoLockMinutes: minutes),
-                  );
-                },
-              ),
-            ),
-          ],
         ],
-      ),
+      ],
     );
   }
 

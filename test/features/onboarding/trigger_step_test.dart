@@ -19,6 +19,8 @@ import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
+import 'package:whispaste/features/settings/sections/linux_desktop_shortcut_block.dart'
+    show manualToggleCommandProvider;
 import 'package:whispaste/services/hotkey_service.dart'
     show
         HotKeyRegistrar,
@@ -28,6 +30,7 @@ import 'package:whispaste/services/hotkey_service.dart'
         hotkeyRegistrationStatusProvider,
         hotkeyServiceProvider;
 import 'package:whispaste/services/keyboard_up_monitor.dart';
+import 'package:whispaste/services/linux_desktop_shortcut.dart';
 import 'package:whispaste/widgets/hotkey_recorder.dart';
 
 import '../../fixtures/test_helpers.dart';
@@ -121,6 +124,8 @@ Future<_FakeSettingsNotifier> _pumpStep(
   HotkeyRegistrationStatus hotkeyStatus = HotkeyRegistrationStatus.success,
   bool supportsKeyUp = true,
   bool experimental = false,
+  DesktopShortcutFallback fallback = DesktopShortcutFallback.notNeeded,
+  bool gnomeShortcutInstalled = false,
 }) async {
   final s = settings ?? _FakeSettingsNotifier();
   await tester.pumpWidget(
@@ -138,6 +143,13 @@ Future<_FakeSettingsNotifier> _pumpStep(
             supportsKeyUp: supportsKeyUp,
             experimental: experimental,
           ),
+        ),
+        desktopShortcutFallbackProvider.overrideWith((ref) async => fallback),
+        gnomeToggleShortcutInstalledProvider.overrideWith(
+          (ref) async => gnomeShortcutInstalled,
+        ),
+        manualToggleCommandProvider.overrideWithValue(
+          "'/usr/bin/whispaste' --toggle",
         ),
       ],
     ),
@@ -176,7 +188,8 @@ void main() {
     );
 
     testWidgets(
-      'supportsKeyUp=false: disabled (onChanged null) + tooltip shown',
+      'supportsKeyUp=false: disabled (onChanged null) + reason visible '
+      '(UIA-ONB-06)',
       (tester) async {
         await _pumpStep(tester, supportsKeyUp: false);
 
@@ -189,12 +202,20 @@ void main() {
           reason: 'toggle must be disabled when the platform has no key-up',
         );
 
-        final tooltips = tester
-            .widgetList<Tooltip>(find.byType(Tooltip))
-            // Host-specific copy (Linux gets its own hint), same as the app shows.
-            .where((t) => t.message == pushToTalkUnavailableMessage(l10n))
-            .toList();
-        expect(tooltips, isNotEmpty);
+        // On screen, not only in a hover tooltip: keyboard and screen-reader
+        // users never see a tooltip. Host-specific copy (Linux gets its own
+        // hint), same as the app shows.
+        expect(
+          find.textContaining(pushToTalkUnavailableMessage(l10n)),
+          findsOneWidget,
+        );
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is Tooltip && w.message == pushToTalkUnavailableMessage(l10n),
+          ),
+          findsNothing,
+        );
       },
     );
   });
@@ -295,6 +316,50 @@ void main() {
 
       expect(find.byKey(kTriggerStepConflictWarnBoxKey), findsNothing);
       expect(find.byKey(kTriggerStepInlineRecorderKey), findsNothing);
+    });
+  });
+
+  // XP-6-14 / XP-6-13: without the GlobalShortcuts portal (or with GTK
+  // forced onto native Wayland) the hotkey does not work system-wide until
+  // the desktop's own shortcut carries it. The page must not promise
+  // otherwise, and it offers the same block as the settings.
+  group('TriggerStep — desktop shortcut needed (XP-6-14)', () {
+    const block = ValueKey('general-desktop-shortcut');
+
+    testWidgets('GNOME without the entry: offers "Add to GNOME", no promise', (
+      tester,
+    ) async {
+      await _pumpStep(tester, fallback: DesktopShortcutFallback.gnome);
+      expect(find.text(l10n.onboardingTriggerSystemWideHint), findsNothing);
+      expect(find.byKey(block), findsOneWidget);
+      expect(find.text(l10n.settingsDesktopShortcutAdd), findsOneWidget);
+    });
+
+    testWidgets('GNOME with the entry set up: works system-wide again', (
+      tester,
+    ) async {
+      await _pumpStep(
+        tester,
+        fallback: DesktopShortcutFallback.gnome,
+        gnomeShortcutInstalled: true,
+      );
+      expect(find.text(l10n.onboardingTriggerSystemWideHint), findsOneWidget);
+    });
+
+    testWidgets('other desktops: shows the command to bind, no promise', (
+      tester,
+    ) async {
+      await _pumpStep(tester, fallback: DesktopShortcutFallback.manual);
+      expect(find.text(l10n.onboardingTriggerSystemWideHint), findsNothing);
+      expect(find.text("'/usr/bin/whispaste' --toggle"), findsOneWidget);
+    });
+
+    testWidgets('with the portal or on X11: the promise stays, no block', (
+      tester,
+    ) async {
+      await _pumpStep(tester);
+      expect(find.text(l10n.onboardingTriggerSystemWideHint), findsOneWidget);
+      expect(find.byKey(block), findsNothing);
     });
   });
 }

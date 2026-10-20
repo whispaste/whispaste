@@ -53,6 +53,18 @@ class AutostartHost {
       }
       setEnabled(enabled, result: result)
 
+    // WhisPaste-specific additions on the plugin's channel. `register()` on a
+    // login item that the user has not approved yet succeeds silently and the
+    // status stays `.requiresApproval`, so Dart needs its own answer for it.
+    case "launchAtStartupRequiresApproval":
+      result(requiresApproval())
+
+    case "launchAtStartupOpenLoginItems":
+      if #available(macOS 13.0, *) {
+        SMAppService.openSystemSettingsLoginItems()
+      }
+      result(nil)
+
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -61,6 +73,13 @@ class AutostartHost {
   private func isEnabled() -> Bool {
     if #available(macOS 13.0, *) {
       return SMAppService.mainApp.status == .enabled
+    }
+    return false
+  }
+
+  private func requiresApproval() -> Bool {
+    if #available(macOS 13.0, *) {
+      return SMAppService.mainApp.status == .requiresApproval
     }
     return false
   }

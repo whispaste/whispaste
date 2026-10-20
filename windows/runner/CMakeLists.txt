@@ -10,6 +10,10 @@ add_executable(${BINARY_NAME} WIN32
   "attention_host.cpp"
   "clipboard_monitor_host.cpp"
   "desktop_paste_host.cpp"
+  "audio_file_decode_host.cpp"
+  "audio_file_decode_mf.cpp"
+  "../../linux/runner/audio_file_decode_core.cc"
+  "../../linux/runner/mp4_gapless.cc"
   "flutter_window.cpp"
   "floating_button_host.cpp"
   "floating_button_window.cpp"
@@ -18,10 +22,12 @@ add_executable(${BINARY_NAME} WIN32
   "gdiplus_helper.cpp"
   "keyboard_monitor_host.cpp"
   "main.cpp"
+  "power_event_host.cpp"
   "side_panel_host.cpp"
   "side_panel_window.cpp"
   "snippet_picker_host.cpp"
   "snippet_picker_window.cpp"
+  "store_review_channel.cpp"
   "support_store_channel.cpp"
   "utils.cpp"
   "win32_window.cpp"
@@ -64,6 +70,11 @@ target_link_options(${BINARY_NAME} PRIVATE
 # Disable Windows macros that collide with C++ standard library functions.
 target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 
+# Shared Linux/Windows decoder core (Ogg/Opus and MP3). FLAC stays with Media
+# Foundation on Windows, so the core is built without libFLAC.
+target_compile_definitions(${BINARY_NAME} PRIVATE "WP_WITH_FLAC=0")
+target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/../../linux/runner")
+
 # C++/WinRT (support_store_channel.cpp) needs C++20 coroutines; under C++17 it
 # falls back to <experimental/coroutine>, which current MSVC toolsets reject.
 target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)
@@ -71,7 +82,9 @@ target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)
 # Add dependency libraries and include directories. Add any application-specific
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
-target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib" "ole32.lib" "windowsapp.lib")
+include("${CMAKE_CURRENT_SOURCE_DIR}/opus_audio.cmake")
+target_link_libraries(${BINARY_NAME} PRIVATE whispaste_opusfile)
+target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib" "gdiplus.lib" "dwrite.lib" "comctl32.lib" "ole32.lib" "windowsapp.lib" "mfplat.lib" "mfreadwrite.lib" "mfuuid.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Copy the dedicated tray icon next to the executable for dev runs.

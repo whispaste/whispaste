@@ -1,6 +1,6 @@
-/// Updates settings section — consolidates every update-related control in
-/// one place: the automatic update check (`checkUpdates`) and the release
-/// channel toggle (`beta`/`stable`).
+/// Updates settings section: the automatic update check (`checkUpdates`). The
+/// manual check moved to the About area (WP-78), where the version and the
+/// update status are; the release channel toggle lives under Erweitert.
 ///
 /// Store builds have no self-updater and no release channel at all (PRD §6.3:
 /// stores are stable-only), so the whole section hides for
@@ -13,7 +13,6 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_urls.dart';
@@ -25,13 +24,10 @@ import '../../../core/theme/tokens.dart';
 import '../../../services/deploy_channel_service.dart';
 import '../../../services/stable_revert_hint_service.dart';
 import '../../../services/telemetry_service.dart';
-import '../../../services/update_actions.dart';
 import '../../../services/update_channel_service.dart';
-import '../../../services/update_service.dart';
-import '../../../widgets/section.dart';
-import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_focus_ring.dart';
 import '../settings_widgets.dart';
+import '../widgets/wp_settings_group.dart';
 
 class UpdatesSection extends ConsumerWidget {
   const UpdatesSection({super.key});
@@ -44,117 +40,51 @@ class UpdatesSection extends ConsumerWidget {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final channel = ref.watch(deployChannelProvider);
 
-    // Store / package-managed builds: no self-updater, no release channel →
-    // hide the section entirely rather than rendering an empty shell.
-    if (isExternallyManaged(channel)) return const SizedBox.shrink();
+    // Package-managed builds (Homebrew, Scoop, Snap, Flatpak): the package
+    // manager owns updates, so the section stays hidden. Store builds keep
+    // the rows, disabled with their reason (WP-23g, AR-19).
+    if (channel == DeployChannel.packageManaged) {
+      return const SizedBox.shrink();
+    }
+    final storeBuild = channel == DeployChannel.store;
 
-    final updateChannel =
-        ref.watch(updateChannelProvider).value ?? UpdateChannel.stable;
-    final isBeta = updateChannel == UpdateChannel.beta;
-    final revertHint = ref.watch(stableRevertHintProvider);
-    final updateState = ref.watch(updateProvider);
-    final (checkIcon, checkLabel) = resolveUpdateActionDisplay(
-      phase: updateState.phase,
-      channel: channel,
-      state: updateState,
-      l10n: l10n,
-    );
-
-    return WpSection(
-      title: l10n.settingsUpdates,
-      subtitle: l10n.settingsUpdatesSubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          SettingRow(
-            icon: LucideIcons.refreshCw,
-            label: l10n.settingsCheckUpdates,
-            subtitle: l10n.settingsCheckUpdatesSubtitle,
-            semanticToggledValue: settings.updates.checkUpdates,
-            trailing: settingsToggle(
-              value: settings.updates.checkUpdates,
-              onChanged: (v) {
-                ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(checkUpdates: v));
-                try {
-                  ref
-                      .read(telemetryProvider)
-                      .trackSettingChange('check_updates');
-                } catch (e) {
-                  _log.debug('telemetry failed: $e');
-                }
-              },
-            ),
-          ),
-          // Manual check — routes identically to the About page and status
-          // bar chip via `triggerUpdateAction` (PRD Bug 5: this used to be
-          // the only surface with a working manual check).
-          SettingRow(
-            icon: LucideIcons.downloadCloud,
-            label: l10n.settingsCheckForUpdatesNow,
-            trailing: WpButton(
-              label: checkLabel,
-              variant: WpButtonVariant.secondary,
-              icon: checkIcon,
-              onPressed: updateState.isBusy
-                  ? null
-                  : () => triggerUpdateAction(
-                      ref: ref,
-                      updateState: updateState,
-                      channel: channel,
-                    ),
-            ),
-          ),
-          SettingRow(
-            icon: LucideIcons.flaskConical,
-            label: l10n.settingsBetaUpdates,
-            subtitle: l10n.settingsBetaUpdatesSubtitle,
-            semanticToggledValue: isBeta,
-            trailing: settingsToggle(
-              value: isBeta,
-              onChanged: (v) {
-                ref
-                    .read(updateChannelProvider.notifier)
-                    .setChannel(v ? UpdateChannel.beta : UpdateChannel.stable);
-                try {
-                  ref
-                      .read(telemetryProvider)
-                      .trackSettingChange('beta_updates');
-                } catch (e) {
-                  _log.debug('telemetry failed: $e');
-                }
-                if (!v) {
-                  // Switching back to Stable: check once whether the
-                  // installed beta is ahead of the current stable-latest
-                  // (PRD §7.3, AC-7) — Sparkle can't downgrade, so surface a
-                  // one-time manual-download hint instead of doing nothing.
-                  unawaited(
+    return WpSettingsGroup(
+      heading: l10n.settingsUpdates,
+      children: [
+        WpSettingsRow(
+          rowId: 'general-updates-auto',
+          title: l10n.settingsCheckUpdates,
+          subtitle: storeBuild
+              ? l10n.settingsStoreUpdatesUnavailable
+              : l10n.settingsCheckUpdatesSubtitle,
+          semanticToggledValue: settings.updates.checkUpdates,
+          trailing: settingsToggle(
+            key: const ValueKey('settings-updates-check-toggle'),
+            value: settings.updates.checkUpdates,
+            onChanged: storeBuild
+                ? null
+                : (v) {
                     ref
-                        .read(stableRevertHintProvider.notifier)
-                        .checkAfterSwitchToStable(),
-                  );
-                } else {
-                  ref.read(stableRevertHintProvider.notifier).dismiss();
-                }
-              },
-            ),
+                        .read(settingsProvider.notifier)
+                        .updateSettings((s) => s.copyWith(checkUpdates: v));
+                    try {
+                      ref
+                          .read(telemetryProvider)
+                          .trackSettingChange('check_updates');
+                    } catch (e) {
+                      _log.debug('telemetry failed: $e');
+                    }
+                  },
           ),
-          if (revertHint.visible)
-            _StableRevertHintNotice(
-              stableVersion: revertHint.stableVersion!,
-              onDismiss: () =>
-                  ref.read(stableRevertHintProvider.notifier).dismiss(),
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
 /// One-time "beta ahead of stable" hint (PRD §7.3, AC-7) — a reuse
 /// composition of the existing warning-badge visual pattern already
-/// established in `insufficient_ram_screen.dart` (warning-tinted surface,
+/// established in the removed low-RAM screen (warning-tinted surface,
 /// icon, text), token-bound throughout. No new component, no new visual
 /// language.
 /// The "go back to stable vX" link inside [_StableRevertHintNotice].
@@ -248,7 +178,7 @@ class _StableRevertHintNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const warning = WpColors.warning;
+    final warning = WpColors.warning;
 
     return settingsInlineNotice(
       context: context,
@@ -260,6 +190,84 @@ class _StableRevertHintNotice extends StatelessWidget {
       ),
       onDismiss: onDismiss,
       dismissTooltip: l10n.actionDismiss,
+    );
+  }
+}
+
+/// Beta channel switch and its revert hint, under Erweitert › Vorabversionen
+/// (spec `07-settings-ia.md` §2, #79 and #80).
+class BetaChannelSection extends ConsumerWidget {
+  const BetaChannelSection({super.key});
+
+  static final _log = AppLogger('BetaChannelSection');
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final channel = ref.watch(deployChannelProvider);
+    if (channel == DeployChannel.packageManaged) {
+      return const SizedBox.shrink();
+    }
+    final storeBuild = channel == DeployChannel.store;
+    final updateChannel =
+        ref.watch(updateChannelProvider).value ?? UpdateChannel.stable;
+    final isBeta = updateChannel == UpdateChannel.beta;
+    final revertHint = ref.watch(stableRevertHintProvider);
+
+    return WpSettingsGroup(
+      heading: l10n.settingsBetaGroupHeading,
+      children: [
+        WpSettingsRow(
+          rowId: 'advanced-beta',
+          title: l10n.settingsBetaUpdates,
+          subtitle: storeBuild
+              ? l10n.settingsStoreBetaUnavailable
+              : l10n.settingsBetaUpdatesSubtitle,
+          semanticToggledValue: isBeta,
+          trailing: settingsToggle(
+            key: const ValueKey('settings-updates-beta-toggle'),
+            value: isBeta,
+            onChanged: storeBuild
+                ? null
+                : (v) {
+                    ref
+                        .read(updateChannelProvider.notifier)
+                        .setChannel(
+                          v ? UpdateChannel.beta : UpdateChannel.stable,
+                        );
+                    try {
+                      ref
+                          .read(telemetryProvider)
+                          .trackSettingChange('beta_updates');
+                    } catch (e) {
+                      _log.debug('telemetry failed: $e');
+                    }
+                    if (!v) {
+                      // Switching back to Stable: check once whether the
+                      // installed beta is ahead of the current stable-latest
+                      // (PRD §7.3, AC-7) — Sparkle can't downgrade, so surface a
+                      // one-time manual-download hint instead of doing nothing.
+                      unawaited(
+                        ref
+                            .read(stableRevertHintProvider.notifier)
+                            .checkAfterSwitchToStable(),
+                      );
+                    } else {
+                      ref.read(stableRevertHintProvider.notifier).dismiss();
+                    }
+                  },
+          ),
+        ),
+        if (revertHint.visible)
+          SettingsRowFrame(
+            rowId: 'advanced-beta-rollback-hint',
+            child: _StableRevertHintNotice(
+              stableVersion: revertHint.stableVersion!,
+              onDismiss: () =>
+                  ref.read(stableRevertHintProvider.notifier).dismiss(),
+            ),
+          ),
+      ],
     );
   }
 }

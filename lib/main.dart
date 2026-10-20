@@ -8,15 +8,16 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hotkey_manager/hotkey_manager.dart' show hotKeyManager;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
+import 'core/licenses/third_party_licenses.dart';
 import 'core/app_info.dart';
 import 'core/config/ram_gate_config.dart';
 import 'core/config/settings_provider.dart';
-import 'core/data/database.dart';
-import 'core/l10n/generated/app_localizations.dart';
-import 'core/l10n/locale_provider.dart';
+import 'core/data/history_vacuum.dart';
+import 'core/navigation/last_page.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/app_monitoring.dart';
 import 'core/logging/crash_reporter.dart';
@@ -25,18 +26,22 @@ import 'core/platform/desktop_window_geometry.dart';
 import 'core/platform/display_bounds.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
 import 'core/platform/window_position_clamp.dart';
-import 'core/recording/recording_state.dart' show recordingProvider;
-import 'core/theme/theme.dart';
+import 'core/recording/recording_state.dart'
+    show isDictationBusy, recordingPhaseProvider, recordingProvider;
 import 'core/theme/tokens.dart';
 import 'floating_button_render_entrypoint.dart';
 import 'floating_overlay_render_entrypoint.dart';
 import 'side_panel_render_entrypoint.dart';
 import 'snippet_picker_render_entrypoint.dart';
+import 'services/audio/retention/retention_schedule.dart';
 import 'services/audio_service.dart';
+import 'services/speech_recommendation.dart' show ramMBProvider;
+import 'services/audio/user_audio_dirs.dart';
+import 'services/pending_audio/pending_audio_providers.dart';
 import 'services/auto_updater_service.dart';
 import 'services/automation_api/automation_api_controller.dart';
 import 'services/automation_api/automation_api_router.dart'
-    show DictationTriggerResult;
+    show AutomationDictationBusyException, DictationTriggerResult;
 import 'services/bundle_id_migration_adapters.dart';
 import 'services/bundle_id_migration_service.dart';
 import 'services/deploy_channel_service.dart';
@@ -55,12 +60,12 @@ import 'services/smart_mode/smart_mode_presets.dart'
     show smartModePresetFromSettingsValue;
 import 'services/sound_feedback_service.dart';
 import 'services/stt/whisper/gpu_load_crash_guard.dart';
+import 'services/stt_parakeet/parakeet_language_support.dart';
 import 'services/stt_parakeet/parakeet_model_registry.dart';
 import 'services/telemetry_service.dart';
 import 'services/tmp_reaper.dart';
 import 'services/update_channel_service.dart';
 import 'services/update_service.dart';
-import 'widgets/insufficient_ram_screen.dart';
 
 /// Secondary Dart entrypoint booted by name from the native overlay shell
 /// (ADR 0002 phase 2). macOS `FloatingOverlayHost` runs a dedicated Flutter
@@ -128,6 +133,12 @@ Future<ProviderContainer> bootstrapAppContainer({
                 // *before* calling it to know which branch it took, since the
                 // call itself doesn't report that back.
                 final wasRecording = ref.read(recordingProvider).isRecording;
+                // Toggling while a transcription runs is a no-op, so answer
+                // busy rather than claim a recording started.
+                if (!wasRecording &&
+                    isDictationBusy(ref.read(recordingPhaseProvider))) {
+                  throw const AutomationDictationBusyException();
+                }
                 await ref
                     .read(recordingOrchestratorProvider.notifier)
                     .toggleRecording(
@@ -146,7 +157,13 @@ Future<ProviderContainer> bootstrapAppContainer({
                     transcript: ref.read(recordingProvider).transcript,
                   );
                 }
-                return const DictationTriggerResult(recording: true);
+                return DictationTriggerResult(
+                  recording: true,
+                  unsupportedLanguage: parakeetUnsupportedLanguage(
+                    ref.read(settingsProvider).value ?? AppSettings.defaults,
+                    languageOverride: language,
+                  ),
+                );
               },
         ),
       ),
@@ -155,6 +172,7 @@ Future<ProviderContainer> bootstrapAppContainer({
     observers: observers,
   );
   await container.read(settingsProvider.future);
+  container.read(historyVacuumSchedulerProvider);
   return container;
 }
 
@@ -254,6 +272,8 @@ Future<void> main(List<String> args) async {
 /// Executes the full application startup sequence inside the Sentry-guarded
 /// zone established by [AppMonitoring.bootstrap].
 Future<void> _runApp(List<String> args) async {
+  // Temp WAVs modified before this instant are leftovers of an earlier run.
+  final launchedAt = DateTime.now();
   // Cold-start t₀: stamp before ensureInitialized so we capture the full
   // Flutter bootstrap time. Log is emitted in the first-frame callback below.
   // HUMAN GATE (issue 16): read '[PERF] cold-start → first-frame: Xms' log
@@ -262,6 +282,7 @@ Future<void> _runApp(List<String> args) async {
   PerfMarkers.instance.markColdStartBegin();
 
   WidgetsFlutterBinding.ensureInitialized();
+  registerThirdPartyLicenses();
 
   // No-op for CI release builds (--dart-define=APP_VERSION=… makes
   // appVersion compile-time-constant). For local dev, populates the
@@ -302,6 +323,7 @@ Future<void> _runApp(List<String> args) async {
   final container = await bootstrapAppContainer(
     observers: const [CrashProviderObserver()],
   );
+  await restoreLastPage(container);
   final settings =
       container.read(settingsProvider).value ?? AppSettings.defaults;
 
@@ -337,27 +359,32 @@ Future<void> _runApp(List<String> args) async {
     await _initDesktopWindow(settings, args);
   }
 
-  // Clean up stale WAV files from previous sessions (fire-and-forget).
-  unawaited(AudioServiceNotifier.cleanupStaleFiles());
+  // Clean up stale WAV files from previous sessions (fire-and-forget), now
+  // and once more after the age guard has passed.
+  AudioServiceNotifier.scheduleStaleFileCleanup(launchedAt: launchedAt);
 
-  // RAM preflight — fail fast if system is below the 8 GB minimum.
+  // Tighten the folders that hold user audio to 0700 (fire-and-forget; a
+  // folder that cannot be made private is used as it is, with a warning).
+  unawaited(userAudioDirs.hardenExisting());
+
+  // Save dictations whose history write failed in an earlier session. Fire
+  // and forget: startup does not wait for it.
+  unawaited(
+    recoverPendingAudio(
+      container,
+      retainAudio: settings.privacy.retainRecentAudio,
+    ),
+  );
+
+  // RAM check. Low RAM never blocks the app (decision 22, 2026-10-20): the
+  // speech recommendation reads the same figure and picks the compact tier.
+  // Fail-open: if detection returns null, nothing is advised.
   // Only runs on desktop (mobile/web have different resource models).
-  // Fail-open: if detection returns null, proceed normally.
-  // kRamCheckThresholdMB (7500) accounts for OS memory reservations on
-  // Windows/Linux; kMinRamMB (8192) is the user-facing requirement shown
-  // in the error UI.
   if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
     final ramMB = await hw.detectRamMB();
-    final ramThresholds = resolveRamThresholds();
-    if (ramMB != null && ramMB < ramThresholds.thresholdMB) {
-      final detectedGb = ramMB / 1024.0;
-      runApp(
-        UncontrolledProviderScope(
-          container: container,
-          child: _InsufficientRamApp(detectedGb: detectedGb),
-        ),
-      );
-      return;
+    container.read(ramMBProvider.notifier).set(ramMB);
+    if (ramStartupAdvice(ramMB) == RamStartupAdvice.compactSpeechModel) {
+      _log.info('RAM below the threshold: compact speech model recommended');
     }
   }
 
@@ -451,13 +478,29 @@ bool shouldMinimize({
 /// platform guard.
 Future<void> _initDesktopWindow(AppSettings settings, List<String> args) async {
   await windowManager.ensureInitialized();
+  // A hot restart keeps the native hotkey registrations of the previous
+  // isolate, which then swallow the shortcuts the new isolate registers
+  // (the plugin reports success either way). Clear them before the hotkey
+  // service registers again; a fresh process has nothing to clear.
+  if (kDebugMode) await hotKeyManager.unregisterAll();
   final macosLoginItemSignal = Platform.isMacOS
       ? await MacOSLifecycleChannel.wasLaunchedAsLoginItem()
       : null;
 
   final geometry = resolveDesktopWindowGeometry(settings);
-  final windowOptions = WindowOptions(
+  // The start size is not bounded by `minimumSize` (that only limits
+  // resizing), so it is raised to the minimum and capped to the work area
+  // here: a window taller than the work area hides its dock behind the
+  // taskbar, and a window shorter than the minimum clips the dock itself.
+  final placement = WindowPositionClamp.place(
+    position: geometry.position,
     size: geometry.size,
+    minimum: const Size(WpLayout.minWindowWidth, WpLayout.minWindowHeight),
+    displays: await currentDisplayBounds(),
+    primary: await currentPrimaryWorkArea(),
+  );
+  final windowOptions = WindowOptions(
+    size: placement.size,
     // Derived, not guessed: the height is the nav rail's own budget plus
     // title bar, status bar and what the platform window frame eats before
     // the engine sees it (see [WpLayout.minWindowHeight]). At the old 550 the
@@ -465,23 +508,17 @@ Future<void> _initDesktopWindow(AppSettings settings, List<String> args) async {
     // anything below the new value is handled by the rail's scroll fallback,
     // for the window managers that ignore this request.
     minimumSize: const Size(WpLayout.minWindowWidth, WpLayout.minWindowHeight),
-    center: geometry.position == null,
+    center: placement.position == null,
     title: 'WhisPaste',
     titleBarStyle: TitleBarStyle.hidden,
   );
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
-    final position = geometry.position;
+    // A position saved before a monitor was unplugged (or from a settings
+    // backup restored on different hardware) is already clamped onto a
+    // connected display by [WindowPositionClamp.place].
+    final position = placement.position;
     if (position != null) {
-      // A position saved before a monitor was unplugged (or from a settings
-      // backup restored on different hardware) must never start the window
-      // off every currently connected display.
-      final displays = await currentDisplayBounds();
-      final clamped = WindowPositionClamp.clamp(
-        position: position,
-        size: geometry.size,
-        displays: displays,
-      );
-      await windowManager.setPosition(clamped);
+      await windowManager.setPosition(position);
     }
     if (geometry.maximized) {
       await windowManager.maximize();
@@ -527,11 +564,8 @@ void _scheduleStartupSideEffects(
   ProviderContainer container,
   AppSettings settings,
 ) {
-  // Purge old trash entries on startup (fire-and-forget).
-  if (settings.historyAutoTrashDays > 0) {
-    final db = container.read(historyDatabaseProvider);
-    unawaited(db.purgeTrash(days: settings.historyAutoTrashDays));
-  }
+  // Retention: trash purge and expired-audio sweep, now and then daily.
+  startRetentionSchedule(container);
 
   // Boot the audio engine off the hotkey path. Delayed so the native init
   // lands after the first frames rather than competing with them — see
@@ -634,32 +668,6 @@ void _installShutdownSignalHandlers(ProviderContainer container) {
   ProcessSignal.sigint.watch().listen((_) => shutdownAndExit());
   if (!Platform.isWindows) {
     ProcessSignal.sigterm.watch().listen((_) => shutdownAndExit());
-  }
-}
-
-/// Minimal app shown when RAM is below the 8 GB minimum.
-///
-/// Always uses the dark theme — the screen uses [WpColorsDark] tokens.
-/// Locale is respected so EN/DE strings load correctly.
-class _InsufficientRamApp extends ConsumerWidget {
-  const _InsufficientRamApp({required this.detectedGb});
-
-  final double detectedGb;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final locale = ref.watch(localeProvider);
-
-    return MaterialApp(
-      title: 'WhisPaste',
-      debugShowCheckedModeBanner: false,
-      theme: wpDarkTheme(),
-      locale: locale,
-      localizationsDelegates: L10n.localizationsDelegates,
-      supportedLocales: L10n.supportedLocales,
-      navigatorObservers: [SentryNavigatorObserver()],
-      home: WpInsufficientRamScreen(detectedGb: detectedGb),
-    );
   }
 }
 

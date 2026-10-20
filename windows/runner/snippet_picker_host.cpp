@@ -19,8 +19,9 @@ constexpr char kRenderChannelName[] = "com.whispaste.snippet_picker_render";
 
 // Fixed panel size (logical px) — see snippet_picker_controller_interface
 // .dart's cross-platform shell contract. Never content-measured.
-constexpr int kLogicalWidth = 360;
-constexpr int kLogicalHeight = 420;
+// 360×420 card plus a 20 px transparent margin per side for the Dart shadow.
+constexpr int kLogicalWidth = 400;
+constexpr int kLogicalHeight = 460;
 
 }  // namespace
 
@@ -224,8 +225,8 @@ void SnippetPickerHost::Dismiss(bool fire_cancelled) {
   is_dismissing_ = true;
 
   window_->Hide();
-  // Tell the render engine the panel left the screen — same "stop glass
-  // animations while hidden" signal as SnippetPickerHost.swift's
+  // Tell the render engine the panel left the screen — same "stop animations
+  // while hidden" signal as SnippetPickerHost.swift's
   // panelHidden (its doc explains why: the render engine's frames are
   // never lifecycle-gated).
   if (render_channel_) {

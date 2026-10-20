@@ -86,6 +86,26 @@ void main() {
       expect(applyFuzzyReplacements(text, [tolerant]), 'getUserById');
     });
 
+    test('a window scoring exactly at the threshold is accepted', () {
+      // "über" vs "uber" scores exactly 0.75 (LCS 3 over 4+4 code points).
+      const text = 'die über';
+      const atThreshold = TextReplacementRule(
+        triggers: ['uber'],
+        replacement: 'Uber',
+        matchMode: TextReplacementMatchMode.fuzzy,
+        fuzzyThreshold: 0.75,
+      );
+      const justAbove = TextReplacementRule(
+        triggers: ['uber'],
+        replacement: 'Uber',
+        matchMode: TextReplacementMatchMode.fuzzy,
+        fuzzyThreshold: 0.76,
+      );
+
+      expect(applyFuzzyReplacements(text, [atThreshold]), 'die Uber');
+      expect(applyFuzzyReplacements(text, [justAbove]), text);
+    });
+
     test('target phrases below the minimum length are never fuzzy-matched', () {
       const text = 'the id is missing';
       const rule = TextReplacementRule(

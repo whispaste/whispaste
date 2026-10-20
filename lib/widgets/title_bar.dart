@@ -2,16 +2,22 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:window_manager/window_manager.dart';
+import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
-import 'brand_wordmark.dart';
 
-/// Gaming-launcher–style title bar with brand wordmark PNG.
+/// Clearance for the native macOS traffic lights (about 14 px in, ~70 px wide).
+const double _macTrafficLightClearance = 80;
+
+/// Window title bar of the app shell (chat-08): one row across the whole frame.
 ///
-/// Seamless dark background, real brand wordmark image (theme-aware),
-/// subtle window controls. No borders — flows into the content.
-/// [actions] are placed left of the window controls (e.g. theme toggle).
+/// It stands on the window frame gradient and carries only the window title
+/// ("WhisPaste", centred) and, on Windows and Linux, the window controls. The
+/// brand lock-up lives in the sidebar, not here. On macOS the native traffic
+/// lights sit in the clearance at the reading start; that row is forced to LTR
+/// so the clearance always lands on the physical left, also in Hebrew. The whole
+/// bar is a drag area, double-tap zooms or restores.
 class WpTitleBar extends StatelessWidget {
   const WpTitleBar({super.key, this.actions = const []});
 
@@ -20,45 +26,66 @@ class WpTitleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (Platform.isMacOS) return _MacOSTitleBar(actions: actions);
+    final isMac = Platform.isMacOS;
+    final l10n = L10n.of(context);
+    final titleStyle = Theme.of(
+      context,
+    ).textTheme.bodyLarge!.copyWith(color: WpColors.frame.textSecondary);
+
+    final row = Row(
+      children: [
+        if (isMac) const SizedBox(width: _macTrafficLightClearance),
+        Expanded(
+          child: Center(
+            child: Text(
+              'WhisPaste',
+              style: titleStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+        ...actions,
+        if (!isMac) ...[
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _WindowButton.build
+          _WindowButton(
+            icon: LucideIcons.minus,
+            onPressed: () => windowManager.minimize(),
+            semanticLabel: l10n.titleBarMinimizeLabel,
+          ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _MaximizeButton.build
+          const _MaximizeButton(),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _WindowButton.build
+          _WindowButton(
+            icon: LucideIcons.x,
+            onPressed: () => windowManager.close(),
+            semanticLabel: l10n.titleBarCloseLabel,
+          ),
+        ],
+      ],
+    );
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onPanStart: (_) => windowManager.startDragging(),
       onDoubleTap: () async {
+        // macOS convention: double-tap the title bar to zoom.
         if (await windowManager.isMaximized()) {
           await windowManager.unmaximize();
         } else {
           await windowManager.maximize();
         }
       },
-      child: Container(
+      child: SizedBox(
         height: WpLayout.appBarHeight,
-        padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
-        child: Row(
-          children: [
-            // Brand wordmark PNG — prominent, gaming-launcher scale
-            const WpBrandWordmark(height: 34),
-            const Spacer(),
-            // Custom actions (theme toggle, etc.)
-            ...actions,
-            if (actions.isNotEmpty) const SizedBox(width: WpSpacing.sm),
-            // Window controls — all subtle gray, no red close
-            // loam-ignore: a11y-interactive-semantics – semantics provided in _WindowButton.build
-            _WindowButton(
-              icon: LucideIcons.minus,
-              onPressed: () => windowManager.minimize(),
-              semanticLabel: 'Minimize window',
-            ),
-            // loam-ignore: a11y-interactive-semantics – semantics provided in _MaximizeButton.build
-            const _MaximizeButton(),
-            // loam-ignore: a11y-interactive-semantics – semantics provided in _WindowButton.build
-            _WindowButton(
-              icon: LucideIcons.x,
-              onPressed: () => windowManager.close(),
-              semanticLabel: 'Close window',
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: WpSpacing.sm),
+          // On Windows and Linux the row follows the text direction on
+          // purpose: a right-to-left window there mirrors its caption buttons
+          // to the left, as Windows and GNOME do for RTL apps (UIA-VIS-03).
+          child: isMac
+              ? Directionality(textDirection: TextDirection.ltr, child: row)
+              : row,
         ),
       ),
     );
@@ -104,9 +131,9 @@ class _WindowButtonState extends State<_WindowButton> {
 
   @override
   Widget build(BuildContext context) {
-    const mutedColor = WpColors.textMuted;
-    const hoverBg = WpColors.hover;
-    const hoverFg = WpColors.textSecondary;
+    final mutedColor = WpColors.frame.textMuted;
+    final hoverBg = WpColors.frame.hover;
+    final hoverFg = WpColors.frame.textSecondary;
 
     return Semantics(
       label: widget.semanticLabel,
@@ -134,13 +161,13 @@ class _WindowButtonState extends State<_WindowButton> {
               decoration: BoxDecoration(
                 color: _isHovered || _focusNode.hasFocus
                     ? hoverBg
-                    : WpColors.hoverTransparent,
+                    : WpColors.frame.hoverTransparent,
                 borderRadius: BorderRadius.circular(WpRadius.sm),
               ),
               alignment: Alignment.center,
               child: Icon(
                 widget.icon,
-                size: 15,
+                size: WpIconSize.sm,
                 color: _isHovered || _focusNode.hasFocus ? hoverFg : mutedColor,
               ),
             ),
@@ -185,12 +212,15 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
 
   @override
   Widget build(BuildContext context) {
-    const mutedColor = WpColors.textMuted;
-    const hoverBg = WpColors.hover;
-    const hoverFg = WpColors.textSecondary;
+    final mutedColor = WpColors.frame.textMuted;
+    final hoverBg = WpColors.frame.hover;
+    final hoverFg = WpColors.frame.textSecondary;
 
+    final l10n = L10n.of(context);
     return Semantics(
-      label: _isMaximized ? 'Restore window' : 'Maximize window',
+      label: _isMaximized
+          ? l10n.titleBarRestoreLabel
+          : l10n.titleBarMaximizeLabel,
       button: true,
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
@@ -222,64 +252,15 @@ class _MaximizeButtonState extends State<_MaximizeButton> {
               decoration: BoxDecoration(
                 color: _isHovered || _focusNode.hasFocus
                     ? hoverBg
-                    : WpColors.hoverTransparent,
+                    : WpColors.frame.hoverTransparent,
                 borderRadius: BorderRadius.circular(WpRadius.sm),
               ),
               alignment: Alignment.center,
               child: Icon(
                 _isMaximized ? LucideIcons.minimize2 : LucideIcons.maximize2,
-                size: 14,
+                size: WpIconSize.xs,
                 color: _isHovered || _focusNode.hasFocus ? hoverFg : mutedColor,
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// macOS title bar with drag support and traffic-light clearance.
-///
-/// The native traffic lights sit at ~14px inset. A 56px left padding
-/// clears them plus a comfortable margin. No custom window controls
-/// are rendered — macOS traffic lights handle minimize/maximize/close.
-class _MacOSTitleBar extends StatelessWidget {
-  const _MacOSTitleBar({required this.actions});
-
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    // Force LTR so the 56-px traffic-light clearance always sits on the
-    // physical left, regardless of the app locale (e.g. Hebrew RTL).
-    // The native macOS traffic lights are always top-left — they are not
-    // affected by Flutter's Directionality — so the Row must stay LTR here.
-    return Directionality(
-      textDirection: TextDirection.ltr,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (_) => windowManager.startDragging(),
-        onDoubleTap: () async {
-          // macOS convention: double-tap title bar toggles zoom.
-          if (await windowManager.isMaximized()) {
-            await windowManager.unmaximize();
-          } else {
-            await windowManager.maximize();
-          }
-        },
-        child: SizedBox(
-          height: WpLayout.appBarHeight,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
-            child: Row(
-              children: [
-                // Clear native traffic lights (~68px + margin).
-                const SizedBox(width: 56),
-                const WpBrandWordmark(height: 34),
-                const Spacer(),
-                ...actions,
-              ],
             ),
           ),
         ),

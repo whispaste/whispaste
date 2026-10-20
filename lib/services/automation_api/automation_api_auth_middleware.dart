@@ -22,23 +22,37 @@ import 'package:shelf/shelf.dart';
 Middleware bearerTokenAuth({required Future<String?> Function() currentToken}) {
   return (Handler innerHandler) {
     return (Request request) async {
-      final expected = await currentToken();
+      // Without a header there is nothing to compare, so the token store (and
+      // with it the keyring) is not touched for unauthenticated traffic.
       final header = request.headers['authorization'];
+      if (header == null) return _unauthorized();
+      final String? expected;
+      try {
+        expected = await currentToken();
+      } on Object {
+        // A locked or failing keyring fails closed with a status, not an
+        // unhandled error inside the server.
+        return Response(
+          503,
+          body: jsonEncode({'error': 'token_unavailable'}),
+          headers: {'content-type': 'application/json'},
+        );
+      }
       final isValid =
           expected != null &&
           expected.isNotEmpty &&
           constantTimeEquals(header, 'Bearer $expected');
-      if (!isValid) {
-        return Response(
-          401,
-          body: jsonEncode({'error': 'unauthorized'}),
-          headers: {'content-type': 'application/json'},
-        );
-      }
+      if (!isValid) return _unauthorized();
       return innerHandler(request);
     };
   };
 }
+
+Response _unauthorized() => Response(
+  401,
+  body: jsonEncode({'error': 'unauthorized'}),
+  headers: {'content-type': 'application/json'},
+);
 
 /// Compares [provided] against [expected] in time that depends only on the
 /// lengths of the inputs, never on the position of the first mismatching

@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/model_download_service.dart'
     show QualityTier;
 
@@ -232,9 +233,13 @@ void main() {
       expect(_roundtrip(s).overlaySize, 'compact');
     });
 
-    test('overlayStyle solid survives roundtrip', () {
-      final s = AppSettings.defaults.copyWith(overlayStyle: 'solid');
-      expect(_roundtrip(s).overlayStyle, 'solid');
+    test('overlay theme presets survive roundtrip', () {
+      final s = AppSettings.defaults.copyWith(
+        overlayBackground: 'gletscher',
+        overlayWave: 'violett',
+      );
+      expect(_roundtrip(s).overlay.overlayBackground, 'gletscher');
+      expect(_roundtrip(s).overlay.overlayWave, 'violett');
     });
 
     test('showFloatingButton true survives roundtrip', () {
@@ -671,7 +676,8 @@ void main() {
         overlayMode: 'floating',
         overlayStartPosition: 'last-position',
         overlaySize: 'compact',
-        overlayStyle: 'solid',
+        overlayBackground: 'graphit',
+        overlayWave: 'neutral',
         showFloatingButton: true,
       );
       final map = s.toStorageMap();
@@ -679,7 +685,9 @@ void main() {
       expect(map['overlay_mode'], 'floating');
       expect(map['overlay_start_position'], 'last-position');
       expect(map['overlay_size'], 'compact');
-      expect(map['overlay_style'], 'solid');
+      expect(map['overlay_background'], 'graphit');
+      expect(map['overlay_wave'], 'neutral');
+      expect(map.containsKey('overlay_style'), isFalse);
       expect(map['show_floating_button'], 'true');
       // Size and opacity keys are no longer written (issue 11).
       expect(map.containsKey('floating_button_size'), isFalse);
@@ -693,7 +701,8 @@ void main() {
         overlayMode: OverlayMode.floating.value,
         overlayStartPosition: OverlayStartPosition.lastPosition.value,
         overlaySize: FloatingOverlaySize.compact.value,
-        overlayStyle: OverlayStyle.solid.value,
+        overlayBackground: OverlayBackground.gletscher.value,
+        overlayWave: OverlayWave.violett.value,
         showFloatingButton: true,
       );
       final r = _roundtrip(s);
@@ -701,7 +710,8 @@ void main() {
       expect(r.overlayMode, OverlayMode.floating.value);
       expect(r.overlayStartPosition, OverlayStartPosition.lastPosition.value);
       expect(r.overlaySize, FloatingOverlaySize.compact.value);
-      expect(r.overlayStyle, OverlayStyle.solid.value);
+      expect(r.overlay.overlayBackground, OverlayBackground.gletscher.value);
+      expect(r.overlay.overlayWave, OverlayWave.violett.value);
       expect(r.showFloatingButton, isTrue);
     });
 

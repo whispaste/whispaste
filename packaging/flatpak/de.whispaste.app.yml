@@ -17,6 +17,10 @@
 app-id: de.whispaste.app
 # GNOME runtime (not bare freedesktop): it already ships GTK3, libsecret,
 # libnotify, libcurl and the ogg/opus/vorbis codecs the bundle links against.
+# NOT VERIFIED: whether this runtime also ships libopusfile and libFLAC (the
+# Linux build requires both via pkg-config). Confirm with a flatpak-builder run
+# and `ldd` on the installed bundle before Flathub submission; if they are
+# missing, add them as modules below.
 # The remaining non-runtime libs (libkeybinder-3.0 + the ayatana-appindicator
 # stack the tray/hotkey plugins need) are built from source as modules below.
 runtime: org.gnome.Platform
@@ -32,15 +36,26 @@ finish-args:
   - --socket=fallback-x11
   - --device=dri
   # ── Global Hotkey (CONTEXT.md §2.5) ─────────────────────────────────────────
-  # X11 grabs the global hotkey directly; under Wayland the GlobalShortcuts
-  # portal + the keybinder path both need the session bus to talk to the WM/
-  # portal frontend.
-  - --socket=session-bus
+  # No session-bus grant: the whole session bus would be a sandbox escape
+  # (F-18 / R-03). The toggle hotkey is an X11 grab (keybinder over
+  # fallback-x11 / XWayland). Push-to-talk under Wayland uses the GlobalShortcuts
+  # portal, and org.freedesktop.portal.* is reachable from a Flatpak without a
+  # permission.
   # ── Clipboard / Paste (CONTEXT.md §2.4) ─────────────────────────────────────
-  # Clipboard inject runs over the Wayland/X11 sockets above; no extra arg is
-  # needed for clipboard write. (Auto-Paste keystroke synthesis is unsupported
-  # on Linux — PasteCapabilityStatus.unsupported, CONTEXT.md §2.7 — so we do not
-  # request input-device injection here.)
+  # Clipboard write runs over the Wayland/X11 sockets above. Auto-Paste sends
+  # its keystroke through a uinput virtual keyboard, which needs /dev/uinput.
+  # --device=input does not cover it: that option only exposes /dev/input
+  # (flatpak-run.c, dev-bind of /dev/input), so --device=all is the only
+  # Flatpak device option that makes /dev/uinput visible.
+  # WhisPaste itself reads no input devices. With --device=all they are visible
+  # inside the sandbox: if the user has read rights on the host (e.g. as a member
+  # of the input group), the app could read keystrokes of other programs.
+  # Members of the input group can also generate virtual input. Evidence: a grep
+  # for /dev/input/evdev in linux/ and lib/ finds no reader in WhisPaste's code.
+  # This device scope is a deliberate trade-off for Auto-Paste. The host still
+  # needs the udev rule or the input group for write access; the in-app
+  # onboarding hint names both.
+  - --device=all
   # ── Audio (Aufnahme — CONTEXT.md §2.2) ──────────────────────────────────────
   - --socket=pulseaudio
   # ── Network: self-download of the Sprachdienst (whisper-server) + model ─────
@@ -54,9 +69,28 @@ finish-args:
   # sandbox; we expose it explicitly so the contract is auditable. No host
   # filesystem access beyond the app's own per-app data dir is requested.
   - --filesystem=xdg-data/whispaste:create
-  # System tray / app indicator (libayatana-appindicator) used by the Linux build.
+  # ── Named session-bus services (replace --socket=session-bus) ──────────────
+  # System tray / app indicator (libayatana-appindicator): registers its item
+  # with the StatusNotifier watcher; the item object lives on the app's unique
+  # bus name, so no --own-name is needed.
   - --talk-name=org.kde.StatusNotifierWatcher
+  # Desktop notifications (libnotify, used by local_notifier).
   - --talk-name=org.freedesktop.Notifications
+  # Secret Service (libsecret, used by flutter_secure_storage). Without this
+  # grant the host keyring is unreachable inside the sandbox and libsecret falls
+  # back to the portal file backend, which does not see existing entries.
+  # Deliberate maintainer decision (R-03, 2026-10-19): the grant reaches every
+  # item of the user's unlocked keyring, not only WhisPaste's. Dropping it
+  # would lose the stored API keys on update; the broad access was weighed
+  # against that and accepted.
+  - --talk-name=org.freedesktop.secrets
+  # ── Power safety net (PAR-030) ─────────────────────────────────────────────
+  # The Linux runner subscribes to suspend/resume on the system bus
+  # (linux/runner/power_event_host.cc, org.freedesktop.login1). The sandbox has
+  # no system bus without a grant, so the subscription would fail silently and
+  # the events would never reach the app. Narrow on purpose: this one service,
+  # no other system-bus name.
+  - --system-talk-name=org.freedesktop.login1
 
 modules:
   # ── Native libs not in the GNOME runtime ───────────────────────────────────
@@ -157,6 +191,26 @@ modules:
       - type: archive
         url: https://github.com/kupferlauncher/keybinder/releases/download/keybinder-3.0-v0.3.2/keybinder-3.0-0.3.2.tar.gz
         sha256: e6e3de4e1f3b201814a956ab8f16dfc8a262db1937ff1eee4d855365398c6020
+
+  # libXScrnSaver (XScreenSaver): the Linux undo idle gate reads X idle time
+  # through libXss (CMake: pkg_check_modules xscrnsaver). Not verified to be in
+  # org.gnome.Platform 50, so it is built here. Needs the scrnsaverproto
+  # headers from the SDK. Unverified until a flatpak-builder run succeeds.
+  - name: libXScrnSaver
+    buildsystem: autotools
+    config-opts:
+      - --disable-static
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - '*.la'
+    post-install:
+      # X11 (MIT-style) licence of the bundled library, shipped with the app.
+      - install -Dm644 COPYING /app/share/licenses/libXScrnSaver/COPYING
+    sources:
+      - type: archive
+        url: https://xorg.freedesktop.org/archive/individual/lib/libXScrnSaver-1.2.4.tar.xz
+        sha256: 75cd2859f38e207a090cac980d76bc71e9da99d48d09703584e00585abc920fe
 
   - name: whispaste
     buildsystem: simple

@@ -188,7 +188,7 @@ void main() {
 
         expect(
           container.read(settingsScrollTargetProvider),
-          equals(matches[0].sectionKey),
+          equals(matches[0].rowId),
         );
       },
     );

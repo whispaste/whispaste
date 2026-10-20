@@ -30,10 +30,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
+import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/settings/sections/overlay_button_section.dart';
-import 'package:whispaste/features/settings/settings_widgets.dart'
-    show settingsInlineBreak;
+import 'package:whispaste/features/settings/widgets/wp_settings_group.dart'
+    show WpSettingsGroup, settingsRowKey;
 import 'package:whispaste/features/settings/widgets/overlay_size_selector.dart';
+import 'package:whispaste/features/settings/widgets/overlay_theme_swatches.dart';
 import 'package:whispaste/widgets/floating_button/floating_button_view.dart';
 import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
 import 'package:whispaste/widgets/overlay_preview.dart';
@@ -61,6 +64,13 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 // ---------------------------------------------------------------------------
 // Platform guards (evaluated at runtime, not at compile time)
 // ---------------------------------------------------------------------------
+
+/// The start-position dropdown: WP-95 added more dropdowns (form, wave style,
+/// opacity) to the same section, so the count-based checks are scoped to it.
+Finder _startPositionDropdown() => find.descendant(
+  of: find.byKey(settingsRowKey('appearance-overlay-start')),
+  matching: find.byType(DropdownButton<String>),
+);
 
 bool get _isDesktop =>
     Platform.isWindows || Platform.isMacOS || Platform.isLinux;
@@ -98,9 +108,9 @@ void main() {
 
         if (_isDesktop) {
           // Start-position dropdown (with 'Aus' as first entry) always visible.
-          expect(find.byType(DropdownButton<String>), findsOneWidget);
+          expect(_startPositionDropdown(), findsOneWidget);
         } else {
-          expect(find.byType(DropdownButton<String>), findsNothing);
+          expect(_startPositionDropdown(), findsNothing);
         }
       },
     );
@@ -125,7 +135,7 @@ void main() {
 
         // Start-position dropdown is always visible on desktop; it shows
         // the 'Aus' (off) entry when the overlay is disabled.
-        expect(find.byType(DropdownButton<String>), findsOneWidget);
+        expect(_startPositionDropdown(), findsOneWidget);
         // Size dropdown hidden — overlay is off.
         expect(find.byType(WpOverlayRealPreview), findsNothing);
       },
@@ -150,7 +160,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Initially: 1 dropdown, no size row.
-        expect(find.byType(DropdownButton<String>), findsOneWidget);
+        expect(_startPositionDropdown(), findsOneWidget);
         expect(notifier.state.value!.overlay.overlayMode, 'off');
 
         // Simulate selecting a real start position → overlay enabled.
@@ -168,9 +178,12 @@ void main() {
           OverlayMode.floating.value,
         );
         expect(notifier.state.value!.overlay.showOverlay, isTrue);
-        // Start-position + style dropdowns visible; the size setting is now
-        // the WpOverlaySizeSelector card control (Ticket 13), not a dropdown.
-        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+        // Start-position dropdown stays; background and wave are swatch rows
+        // (WP-75), and the size setting is the WpOverlaySizeSelector card
+        // control (Ticket 13), not a dropdown.
+        expect(_startPositionDropdown(), findsOneWidget);
+        expect(find.byType(WpOverlayBackgroundSwatches), findsOneWidget);
+        expect(find.byType(WpOverlayWaveSwatches), findsOneWidget);
         expect(find.byType(WpOverlaySizeSelector), findsOneWidget);
       },
     );
@@ -196,10 +209,51 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      // Floating mode reveals start-position + style dropdowns and the
-      // overlay-size card selector.
-      expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+      // Floating mode reveals the start-position dropdown, the background and
+      // wave swatch rows (WP-75) and the overlay-size card selector.
+      expect(_startPositionDropdown(), findsOneWidget);
       expect(find.byType(WpOverlaySizeSelector), findsOneWidget);
+    });
+
+    testWidgets('picking a background swatch updates the real preview at once, '
+        'without a save step', (tester) async {
+      if (!_isDesktop) return; // Platform guard.
+
+      final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: OverlaySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<WpOverlayRealPreview>(find.byType(WpOverlayRealPreview))
+            .background,
+        OverlayBackground.marine,
+      );
+
+      // The preview sits at the top of the section (WP-95), so the swatch is
+      // scrolled into view before the tap.
+      final swatch = find.byKey(const ValueKey('overlay-background-graphit'));
+      await tester.ensureVisible(swatch);
+      await tester.pump();
+      await tester.tap(swatch);
+      await tester.pump();
+
+      expect(
+        tester
+            .widget<WpOverlayRealPreview>(find.byType(WpOverlayRealPreview))
+            .background,
+        OverlayBackground.graphit,
+      );
+      expect(
+        notifier.state.value!.overlay.overlayBackground,
+        OverlayBackground.graphit.value,
+      );
     });
 
     // -- AC (a) ---------------------------------------------------------------
@@ -223,9 +277,8 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        // Floating: start-position + style dropdowns, and the size card
-        // selector.
-        expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+        // Floating: start-position dropdown, and the size card selector.
+        expect(_startPositionDropdown(), findsOneWidget);
         expect(find.byType(WpOverlaySizeSelector), findsOneWidget);
 
         // Simulate 'Aus' selection callback.
@@ -240,7 +293,7 @@ void main() {
         expect(notifier.state.value!.overlay.overlayMode, 'off');
         expect(notifier.state.value!.overlay.showOverlay, isFalse);
         // Only start-position dropdown remains; size row hidden.
-        expect(find.byType(DropdownButton<String>), findsOneWidget);
+        expect(_startPositionDropdown(), findsOneWidget);
         expect(find.byType(WpOverlaySizeSelector), findsNothing);
         expect(find.byType(WpOverlayRealPreview), findsNothing);
       },
@@ -264,7 +317,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(DropdownButton<String>), findsOneWidget);
+      expect(_startPositionDropdown(), findsOneWidget);
 
       // Simulate selecting 'top-center' from the dropdown.
       notifier.updateSettings(
@@ -281,7 +334,7 @@ void main() {
         OverlayMode.floating.value,
       );
       expect(notifier.state.value!.overlay.showOverlay, isTrue);
-      expect(find.byType(DropdownButton<String>), findsNWidgets(2));
+      expect(_startPositionDropdown(), findsOneWidget);
       expect(find.byType(WpOverlaySizeSelector), findsOneWidget);
     });
 
@@ -292,10 +345,10 @@ void main() {
         if (!_isDesktop) return; // Platform guard.
 
         // Even with overlay enabled, no *show/hide-overlay* Switch should
-        // appear — that toggle was consolidated into the position dropdown
-        // above. Ticket 11 adds one legitimate, differently-purposed Switch
-        // (the live-transcript opt-in), so exactly one Switch is now
-        // expected here, not zero.
+        // appear in the start-position row — that toggle was consolidated
+        // into the position dropdown. The other switches in this section
+        // (live transcript, WP-95 fluid outline, timer, cancel) are
+        // differently purposed and live in their own rows.
         final notifier = _FakeSettingsNotifier(
           AppSettings.defaults.copyWithSections(
             overlay: const OverlaySettings(overlayMode: 'floating'),
@@ -310,7 +363,80 @@ void main() {
         await tester.pump();
         await tester.pump();
 
-        expect(find.byType(Switch), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(settingsRowKey('appearance-overlay-start')),
+            matching: find.byType(Switch),
+          ),
+          findsNothing,
+        );
+      },
+    );
+
+    // -- WP-95 option rows ----------------------------------------------------
+    testWidgets(
+      'form, wave style, fluid outline, timer, cancel and opacity rows '
+      'write their setting',
+      (tester) async {
+        if (!_isDesktop) return; // Platform guard.
+
+        final notifier = _FakeSettingsNotifier(
+          AppSettings.defaults.copyWithSections(
+            overlay: const OverlaySettings(overlayMode: 'floating'),
+          ),
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(child: OverlaySection()),
+            overrides: [settingsProvider.overrideWith(() => notifier)],
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        for (final rowId in [
+          'appearance-overlay-form',
+          'appearance-overlay-wave-style',
+          'appearance-overlay-wave-fluid',
+          'appearance-overlay-show-timer',
+          'appearance-overlay-show-cancel',
+          'appearance-overlay-opacity',
+        ]) {
+          expect(
+            find.byKey(settingsRowKey(rowId)),
+            findsOneWidget,
+            reason: rowId,
+          );
+        }
+
+        // Fluid outline, timer and cancel are switches: flipping them writes
+        // the setting.
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('overlay-wave-fluid-toggle')),
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('overlay-wave-fluid-toggle')),
+        );
+        await tester.pump();
+        expect(notifier.state.value!.overlay.overlayWaveFluid, isFalse);
+
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('overlay-show-timer-toggle')),
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('overlay-show-timer-toggle')),
+        );
+        await tester.pump();
+        expect(notifier.state.value!.overlay.overlayShowTimer, isFalse);
+
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('overlay-show-cancel-toggle')),
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('overlay-show-cancel-toggle')),
+        );
+        await tester.pump();
+        expect(notifier.state.value!.overlay.overlayShowCancel, isFalse);
       },
     );
 
@@ -336,16 +462,13 @@ void main() {
 
         // Preview is present as its own row, rendered at real (1:1) size …
         expect(find.byType(WpOverlayRealPreview), findsOneWidget);
-        // … set off by its own break: one before the size row, one before
-        // the style row, one before the live-transcript toggle row (ticket
-        // 11), one before the standalone preview row → four breaks in the
-        // floating sub-section.
-        //
-        // These were `Divider`s until Ticket 08 turned every non-load-bearing
-        // settings rule into spacing; what the assertion is about — that the
-        // preview is a *separated row* and not a trailing part of the size
-        // row — is unchanged, only the thing doing the separating is.
-        expect(find.byWidget(settingsInlineBreak), findsNWidgets(4));
+        // … in its own card: preview, shared colours and overlay options are
+        // three WpSettingsGroup cards, each with its heading above the card.
+        // Within the options card the group draws one rule between each pair
+        // of its nine rows (start, size, transcript, form, wave style, fluid,
+        // timer, cancel, opacity), so eight rules there.
+        expect(find.byType(WpSettingsGroup), findsNWidgets(3));
+        expect(find.byType(Divider), findsNWidgets(9));
       },
     );
 
@@ -412,13 +535,97 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          // Section should render with at least the toggle Switch on Windows.
-          expect(find.byType(Switch), findsOneWidget);
+          // The show toggle and the recording-ring switch, plus the four look
+          // rows (size, shape, ring, resting opacity) on Windows.
+          expect(find.byType(Switch), findsNWidgets(2));
+          for (final id in [
+            'appearance-button-size',
+            'appearance-button-shape',
+            'appearance-button-ring',
+            'appearance-button-idle-opacity',
+          ]) {
+            expect(find.byKey(settingsRowKey(id)), findsOneWidget);
+          }
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
       },
     );
+
+    // UX-051: the four look rows describe a button that is not shown. While the
+    // floating button is off they are dimmed and inert; the switch above them
+    // stays live.
+    const lookRows = [
+      'appearance-button-size',
+      'appearance-button-shape',
+      'appearance-button-ring',
+      'appearance-button-idle-opacity',
+    ];
+    for (final shown in [false, true]) {
+      testWidgets(
+        'look rows follow the floating button switch (shown: $shown) (UX-051)',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+          try {
+            final notifier = _FakeSettingsNotifier(
+              AppSettings.defaults.copyWithSections(
+                overlay: OverlaySettings(showFloatingButton: shown),
+              ),
+            );
+            await tester.pumpWidget(
+              makeTestable(
+                const SingleChildScrollView(child: FloatingButtonSection()),
+                overrides: [settingsProvider.overrideWith(() => notifier)],
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            for (final id in lookRows) {
+              final row = find.byKey(settingsRowKey(id));
+              final fade = tester.widget<AnimatedOpacity>(
+                find.ancestor(of: row, matching: find.byType(AnimatedOpacity)),
+              );
+              expect(
+                fade.opacity,
+                shown ? 1.0 : WpDisabledTokens.rowOpacity,
+                reason: '$id should be dimmed only while the button is off',
+              );
+              final blocked = tester
+                  .widgetList<IgnorePointer>(
+                    find.ancestor(
+                      of: row,
+                      matching: find.byType(IgnorePointer),
+                    ),
+                  )
+                  .any((w) => w.ignoring);
+              expect(
+                blocked,
+                !shown,
+                reason: '$id should ignore pointers only while off',
+              );
+            }
+
+            // The switch itself is never dimmed or blocked.
+            final toggle = find.byKey(
+              settingsRowKey('appearance-floating-button'),
+            );
+            expect(
+              tester
+                  .widgetList<AnimatedOpacity>(
+                    find.ancestor(
+                      of: toggle,
+                      matching: find.byType(AnimatedOpacity),
+                    ),
+                  )
+                  .isEmpty,
+              isTrue,
+            );
+          } finally {
+            debugDefaultTargetPlatformOverride = null;
+          }
+        },
+      );
+    }
 
     testWidgets(
       'floating button toggle round-trip updates overlay.showFloatingButton',
@@ -472,7 +679,7 @@ void main() {
             await tester.pumpAndSettle();
 
             expect(
-              find.byType(DropdownButton<String>),
+              _startPositionDropdown(),
               findsNothing,
               reason: 'showFloatingButton=$show: no dropdown expected',
             );
@@ -692,6 +899,9 @@ void main() {
 
       expect(notifier.state.value!.overlay.overlaySize, 'normal');
 
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('overlay-size-card-compact')),
+      );
       await tester.tap(find.byKey(const ValueKey('overlay-size-card-compact')));
       await tester.pump();
 
@@ -725,6 +935,9 @@ void main() {
       await tester.pump();
       await tester.pump();
 
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('overlay-size-card-mini')),
+      );
       await tester.tap(find.byKey(const ValueKey('overlay-size-card-mini')));
       await tester.pump();
 

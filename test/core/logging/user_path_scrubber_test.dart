@@ -47,6 +47,16 @@ void main() {
       );
     });
 
+    test('a home directory is not matched inside a longer account name', () {
+      expect(
+        scrubUserPaths(
+          r'Adreno GPU C:\Users\silvio\drv',
+          home: r'C:\Users\silvi',
+        ),
+        r'Adreno GPU C:\Users\<user>\drv',
+      );
+    });
+
     test('the bare account name is replaced as a whole word', () {
       expect(
         scrubUserPaths('host erin-mbp user erin', userName: 'erin'),

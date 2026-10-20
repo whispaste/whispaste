@@ -21,10 +21,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/database.dart';
+import '../l10n/initial_locale.dart';
 import '../logging/app_logger.dart';
 import '../onboarding/onboarding_revision.dart';
+import '../theme/overlay_customization.dart'
+    show FloatingButtonLook, OverlayAppearance;
+import '../theme/overlay_design_spec.dart' show OverlayBackground, OverlayWave;
+import '../../services/factory_reset/reset_preferences.dart';
 import '../../services/path_service.dart';
 import '../../services/stt_parakeet/parakeet_model_registry.dart'
     show parakeetModelId;
@@ -39,6 +45,14 @@ import 'settings_sections.dart';
 /// Fields are grouped into 16 immutable section objects.  Every legacy
 /// top-level field is available as a `@Deprecated` getter for backward
 /// compatibility until all call-sites are migrated to the section API.
+/// Moves a stored wave that is invalid on its background to the replacement
+/// (WP-75b), once, on load, so the render path only sees valid pairings.
+OverlaySettings _withValidWave(OverlaySettings overlay) {
+  final background = OverlayBackground.fromValue(overlay.overlayBackground);
+  final wave = OverlayWave.fromValue(overlay.overlayWave).validOn(background);
+  return overlay.copyWith(overlayWave: wave.value);
+}
+
 class AppSettings {
   const AppSettings({
     this.interface_ = const InterfaceSettings(),
@@ -231,9 +245,6 @@ class AppSettings {
   @Deprecated('Use overlay.overlaySize instead')
   String get overlaySize => overlay.overlaySize;
 
-  @Deprecated('Use overlay.overlayStyle instead')
-  String get overlayStyle => overlay.overlayStyle;
-
   @Deprecated('Use overlay.showFloatingButton instead')
   bool get showFloatingButton => overlay.showFloatingButton;
 
@@ -347,8 +358,27 @@ class AppSettings {
       OverlayStartPosition.fromValue(overlay.overlayStartPosition);
   FloatingOverlaySize get overlaySizeType =>
       FloatingOverlaySize.fromValue(overlay.overlaySize);
-  OverlayStyle get overlayStyleType =>
-      OverlayStyle.fromValue(overlay.overlayStyle);
+  OverlayBackground get overlayBackgroundType =>
+      OverlayBackground.fromValue(overlay.overlayBackground);
+  OverlayWave get overlayWaveType => OverlayWave.fromValue(overlay.overlayWave);
+
+  /// The WP-95 appearance options as one value for the overlay snapshot.
+  OverlayAppearance get overlayAppearance => OverlayAppearance.fromValues(
+    form: overlay.overlayForm,
+    waveStyle: overlay.overlayWaveStyle,
+    waveFluid: overlay.overlayWaveFluid,
+    showTimer: overlay.overlayShowTimer,
+    showCancel: overlay.overlayShowCancel,
+    opacity: overlay.overlayOpacity,
+  );
+
+  /// The WP-95 floating-button look (size, shape, ring, resting opacity).
+  FloatingButtonLook get floatingButtonLook => FloatingButtonLook.fromValues(
+    size: overlay.floatingButtonSize,
+    shape: overlay.floatingButtonShape,
+    ring: overlay.floatingButtonRing,
+    idleOpacity: overlay.floatingButtonIdleOpacity,
+  );
 
   /// Whether the overlay shows the live/partial recognized text (ticket 11).
   bool get overlayShowLiveTranscript => overlay.overlayShowLiveTranscript;
@@ -415,7 +445,7 @@ class AppSettings {
       stt: SttSettings.fromMap(values),
       sound: SoundSettings.fromMap(values),
       afterTranscriptionSection: AfterTranscriptionSettings.fromMap(values),
-      overlay: OverlaySettings.fromMap(values),
+      overlay: _withValidWave(OverlaySettings.fromMap(values)),
       cloudProvider: CloudProviderSettings.fromMap(values),
       behavior: BehaviorSettings.fromMap(values),
       audioProcessing: AudioProcessingSettings.fromMap(values),
@@ -701,7 +731,18 @@ class AppSettings {
     String? overlayMode,
     String? overlayStartPosition,
     String? overlaySize,
-    String? overlayStyle,
+    String? overlayBackground,
+    String? overlayWave,
+    String? overlayForm,
+    String? overlayWaveStyle,
+    bool? overlayWaveFluid,
+    bool? overlayShowTimer,
+    bool? overlayShowCancel,
+    String? overlayOpacity,
+    String? floatingButtonSize,
+    String? floatingButtonShape,
+    bool? floatingButtonRing,
+    String? floatingButtonIdleOpacity,
     bool? showFloatingButton,
     bool? overlayShowLiveTranscript,
     String? openAiApiKey,
@@ -730,11 +771,13 @@ class AppSettings {
     double? windowWidth,
     double? windowHeight,
     bool? windowMaximized,
+    String? overlayPositionsByMonitor,
     bool? onboardingCompleted,
     bool? autoPasteOffHintDismissed,
     Map<QualityTier, double>? tierBenchmarkRtf,
     String? benchmarkHardwareId,
     DateTime? benchmarkTimestamp,
+    String? benchmarkBackend,
     bool? shareUsageStats,
     bool? retainRecentAudio,
     String? cohortPseudonymSalt,
@@ -778,7 +821,18 @@ class AppSettings {
         overlayMode: overlayMode,
         overlayStartPosition: overlayStartPosition,
         overlaySize: overlaySize,
-        overlayStyle: overlayStyle,
+        overlayBackground: overlayBackground,
+        overlayWave: overlayWave,
+        overlayForm: overlayForm,
+        overlayWaveStyle: overlayWaveStyle,
+        overlayWaveFluid: overlayWaveFluid,
+        overlayShowTimer: overlayShowTimer,
+        overlayShowCancel: overlayShowCancel,
+        overlayOpacity: overlayOpacity,
+        floatingButtonSize: floatingButtonSize,
+        floatingButtonShape: floatingButtonShape,
+        floatingButtonRing: floatingButtonRing,
+        floatingButtonIdleOpacity: floatingButtonIdleOpacity,
         showFloatingButton: showFloatingButton,
         overlayShowLiveTranscript: overlayShowLiveTranscript,
       ),
@@ -818,6 +872,7 @@ class AppSettings {
         windowWidth: windowWidth,
         windowHeight: windowHeight,
         windowMaximized: windowMaximized,
+        overlayPositionsByMonitor: overlayPositionsByMonitor,
       ),
       onboarding: onboarding.copyWith(
         onboardingCompleted: onboardingCompleted,
@@ -827,6 +882,7 @@ class AppSettings {
         tierBenchmarkRtf: tierBenchmarkRtf,
         benchmarkHardwareId: benchmarkHardwareId,
         benchmarkTimestamp: benchmarkTimestamp,
+        benchmarkBackend: benchmarkBackend,
       ),
       privacy: privacy.copyWith(
         shareUsageStats: shareUsageStats,
@@ -934,6 +990,36 @@ String _settingLanguageFromConfig(String languageCode) {
   return whisperLanguages.containsKey(languageCode) ? languageCode : 'auto';
 }
 
+/// How long the factory reset waits for the keyring before it moves on.
+const kDefaultSecureStoreEraseTimeout = Duration(seconds: 5);
+
+/// The limit in effect; tests shorten it.
+@visibleForTesting
+Duration secureStoreEraseTimeout = kDefaultSecureStoreEraseTimeout;
+
+/// Counts settings saves that did not reach storage. The app shell listens and
+/// tells the user about each failure (UIA-SET-01).
+class SettingsSaveFailures extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void record() => state = state + 1;
+}
+
+final settingsSaveFailuresProvider =
+    NotifierProvider<SettingsSaveFailures, int>(SettingsSaveFailures.new);
+
+/// One-shot marker in `app_settings` for the idle-timeout default move
+/// (maintainer decision 1a, 2026-10-19). Once present, the stored
+/// `stt_idle_timeout_minutes` is never rewritten by the migration again, so
+/// a value the user picks later (including 5) is kept.
+const kSttIdleDefaultMigrationKey = 'stt_idle_default_migrated';
+
+/// Stored `stt_idle_timeout_minutes` values the one-time migration maps to
+/// the new default 0 (keep loaded): 5 was the old default, -1 the unreleased
+/// "auto" default. Every other value is kept.
+const _kLegacyIdleTimeoutMinutes = {5, -1};
+
 /// Central settings notifier — loads from and persists to Drift/SQLite.
 ///
 /// API keys are stored in platform-native secure storage and merged into
@@ -955,6 +1041,7 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     AppSettings settings;
     if (values.isNotEmpty) {
       settings = AppSettings.fromStorageMap(values);
+      settings = await _migrateSttIdleDefault(db, settings, values);
       // One-time migration (issue 12): users who muted sounds via the old
       // master toggle had all four sound bools set to false but soundVolume
       // still at the default (80). Under the new scheme soundVolume==0 is
@@ -1034,11 +1121,34 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
       if (migrated != null) {
         settings = migrated;
         // Persist immediately so migration never re-runs.
-        await db.writeAppSettings(settings.toStorageMap());
+        await db.writeAppSettings({
+          ...settings.toStorageMap(),
+          kSttIdleDefaultMigrationKey: '1',
+        });
         _log.info('Migrated Go config persisted to SQLite');
       } else {
         settings = AppSettings.defaults;
+        // Fresh install: stamp the marker now, so a 5 the user chooses later
+        // is not mistaken for the legacy default on the next start.
+        try {
+          await db.writeAppSettings({kSttIdleDefaultMigrationKey: '1'});
+        } catch (e) {
+          _log.warning('Idle default marker not persisted: $e');
+        }
       }
+    }
+
+    // First start: no `locale` row was ever written, so the language was
+    // never chosen. Take the system language once and persist it, so a
+    // later system change does not move the app and an explicit choice
+    // (even English) is always kept. Existing rows are never touched.
+    if (!values.containsKey('locale')) {
+      final locale = initialLocaleCode(ref.read(systemLocalesProvider));
+      settings = settings.copyWithSections(
+        interface_: settings.interface_.copyWith(locale: locale),
+      );
+      await db.writeAppSettings(settings.toStorageMap());
+      _log.info('Initial app language set from the system: $locale');
     }
 
     // Defer slow secure store operations to after initial load.
@@ -1073,39 +1183,86 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     return settings;
   }
 
+  /// One-time move of the speech-model idle default (maintainer decision 1a,
+  /// 2026-10-19): a stored 5 (old default) or -1 (unreleased auto) becomes 0
+  /// (keep loaded). Runs once per install, guarded by
+  /// [kSttIdleDefaultMigrationKey]; the marker is written in the same call
+  /// as the value, so an interrupted start retries instead of skipping.
+  Future<AppSettings> _migrateSttIdleDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values,
+  ) async {
+    if (values.containsKey(kSttIdleDefaultMigrationKey)) return settings;
+    final stored = settings.stt.idleTimeoutMinutes;
+    final migrate = _kLegacyIdleTimeoutMinutes.contains(stored);
+    final result = migrate
+        ? settings.copyWithSections(
+            stt: settings.stt.copyWith(idleTimeoutMinutes: 0),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (migrate) 'stt_idle_timeout_minutes': '0',
+        kSttIdleDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the stored value in memory too, so this session and the disk
+      // agree; the next start retries the whole step. Never blocks startup.
+      _log.warning('Speech model idle default migration not persisted: $e');
+      return settings;
+    }
+    if (migrate) {
+      _log.info('Speech model idle default moved from $stored to 0 (once)');
+    }
+    return result;
+  }
+
   /// Update one or more settings and persist the change.
   Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
     final current = state.value ?? const AppSettings();
     final updated = updater(current);
     state = AsyncData(updated);
 
-    // Persist API key changes to secure storage.
-    final secureStore = ref.read(secureKeyStoreProvider);
-    await _syncApiKeysToSecureStorage(current, updated, secureStore);
+    try {
+      // Persist API key changes to secure storage.
+      final secureStore = ref.read(secureKeyStoreProvider);
+      await _syncApiKeysToSecureStorage(current, updated, secureStore);
 
-    // Persist all non-key settings to SQLite (toStorageMap writes '' for keys).
-    await ref
-        .read(historyDatabaseProvider)
-        .writeAppSettings(updated.toStorageMap());
+      // Persist all non-key settings to SQLite (toStorageMap writes '' for keys).
+      await ref
+          .read(historyDatabaseProvider)
+          .writeAppSettings(updated.toStorageMap());
+    } catch (e, st) {
+      _log.error('Could not save settings', e, st);
+      // Show what is stored, not the value that failed to save: the next
+      // launch loads the stored one (UIA-SET-01).
+      if (identical(state.value, updated)) state = AsyncData(current);
+      ref.read(settingsSaveFailuresProvider.notifier).record();
+    }
   }
 
   /// Restore all settings to factory defaults.
   ///
   /// Clears secure-storage API keys, persisted settings (including window
   /// position/size and floating-button position), and daily analytics stats.
+  /// Throws [SecureKeysNotRemovedException] after the rest of the reset has
+  /// run, when at least one API key could not be removed.
   Future<void> resetToDefaults() async {
-    // Clear secure storage API keys (best-effort — keychain may be locked).
-    try {
-      final secureStore = ref.read(secureKeyStoreProvider);
-      for (final secureKey in apiKeyMapping.values) {
-        await secureStore.deleteKey(secureKey);
-      }
-    } catch (e) {
-      _log.warning('resetToDefaults: secure store cleanup failed: $e', e);
+    final failedKeys = await _eraseApiKeys();
+    await _resetSettingsAndData();
+    if (failedKeys.isNotEmpty) {
+      throw SecureKeysNotRemovedException(failedKeys);
     }
+  }
+
+  Future<void> _resetSettingsAndData() async {
     final db = ref.read(historyDatabaseProvider);
     final previous = (state.value ?? AppSettings.defaults).history;
     await db.resetAppSettings();
+    // The wipe removed the idle-migration marker. Re-stamp it, or a 5 chosen
+    // after the reset would be moved to 0 by the next start.
+    await db.writeAppSettings({kSttIdleDefaultMigrationKey: '1'});
     await db.resetDailyStats();
     // A History PIN survives the reset, together with its gate and throttle
     // state — otherwise "Reset to defaults" would be a one-click way around
@@ -1126,56 +1283,34 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     await db.writeAppSettings(kept.toStorageMap());
   }
 
-  /// Full factory reset — deletes ALL user data, models, and settings.
-  ///
-  /// The caller MUST stop the STT subprocess before calling this method
-  /// (to avoid file-locking on the whisper-server binary).
-  ///
-  /// Prefer routing user-triggered resets through [FactoryResetCoordinator]
-  /// (see `lib/services/factory_reset/factory_reset_coordinator.dart`):
-  /// it splits the destructive work into phases the UI can render and
-  /// performs the multi-GB directory deletes off-isolate so the app does
-  /// not appear frozen (the Idmir-Junio 1★ store cluster). This monolithic
-  /// method remains for non-UI callers and tests that want the entire
-  /// reset in one shot.
-  Future<void> factoryReset() async {
-    final db = ref.read(historyDatabaseProvider);
-
-    // 1. Clear ALL secure storage API keys (best-effort).
-    await eraseSecureStore();
-
-    // 2. Delete all database content (history, tags, projects, etc.).
-    try {
-      await db.deleteAllData();
-    } catch (e) {
-      _log.error('Factory reset: deleteAllData failed: $e', e);
+  /// Secure-store cleanup for the [FactoryResetCoordinator]'s
+  /// `eraseSecureStore` hook.
+  /// Throws [SecureKeysNotRemovedException] when any key stays behind.
+  Future<void> eraseSecureStore() async {
+    // A locked keyring can leave the delete waiting on an unlock prompt that
+    // never appears; the reset goes on after a few seconds (XP-6-11).
+    final failedKeys = await _eraseApiKeys().timeout(
+      secureStoreEraseTimeout,
+      onTimeout: () {
+        _log.error('Secure storage did not answer during factory reset');
+        return apiKeyMapping.values.toList();
+      },
+    );
+    if (failedKeys.isNotEmpty) {
+      throw SecureKeysNotRemovedException(failedKeys);
     }
-
-    // 3. Delete downloaded models directory.
-    _tryDeleteDir(sttDir());
-
-    // 4. Delete log files.
-    final logsDir = p.join(appDataDir(), 'logs');
-    _tryDeleteDir(logsDir);
-
-    // 5–9 — small-file cleanup + in-memory state reset. Extracted so that
-    // [FactoryResetCoordinator]'s `resetSettings` hook can reuse exactly
-    // this tail without duplicating the file list.
-    await factoryResetFinalize();
   }
 
-  /// Best-effort secure-store cleanup. Extracted from [factoryReset] so
-  /// the [FactoryResetCoordinator]'s `eraseSecureStore` hook can call it
-  /// directly.
-  Future<void> eraseSecureStore() async {
-    try {
-      final secureStore = ref.read(secureKeyStoreProvider);
-      for (final secureKey in apiKeyMapping.values) {
-        await secureStore.deleteKey(secureKey);
-      }
-    } catch (e) {
-      _log.warning('Factory reset: secure store cleanup failed: $e', e);
+  /// Deletes all API keys and logs the storage names of any that stayed
+  /// behind. Values and exception texts are never logged.
+  Future<List<String>> _eraseApiKeys() async {
+    final failedKeys = await deleteAllApiKeys(ref.read(secureKeyStoreProvider));
+    if (failedKeys.isNotEmpty) {
+      _log.error(
+        'API keys not removed from secure storage: ${failedKeys.join(', ')}',
+      );
     }
+    return failedKeys;
   }
 
   /// Tail of the factory-reset sequence: deletes PID/crash-queue/legacy
@@ -1206,16 +1341,14 @@ class SettingsNotifier extends AsyncNotifier<AppSettings> {
     // Temp WAV files.
     _cleanupTempWavFiles();
 
-    _log.info('Factory reset complete');
-  }
-
-  static void _tryDeleteDir(String path) {
+    // App preferences: prompt counters, recent searches, seen hints (XP-6-12).
     try {
-      final dir = Directory(path);
-      if (dir.existsSync()) dir.deleteSync(recursive: true);
+      await clearPreferencesForReset(await SharedPreferences.getInstance());
     } catch (e) {
-      _log.warning('Factory reset: failed to delete dir $path: $e', e);
+      _log.warning('Factory reset: failed to clear preferences: $e', e);
     }
+
+    _log.info('Factory reset complete');
   }
 
   static void _tryDeleteFile(String path) {

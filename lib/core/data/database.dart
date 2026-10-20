@@ -16,15 +16,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:sentry_drift/sentry_drift.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:sqlite3/sqlite3.dart' show Database;
 import '../../services/path_service.dart' as paths;
 
 import '../../services/snippets/interactive_snippet_composer.dart'
     show legacyInteractiveSnippetTemplate;
+import '../config/settings_enums.dart';
 import '../l10n/persisted_locale.dart';
 import '../logging/app_logger.dart';
+import '../theme/persisted_appearance.dart';
+import 'note_asset_storage.dart';
+import 'note_version_limits.dart';
 import 'sqlite_write_coordinator.dart';
 import 'tables.dart';
 import '../utils/word_count.dart';
+import 'database_too_new_exception.dart';
+
+export 'database_too_new_exception.dart';
 
 part 'database.g.dart';
 
@@ -50,6 +58,16 @@ class SnippetWithFields {
   final List<String> fields;
 }
 
+/// User order for a table with a `position` column: `position`, then insertion
+/// order (rowid), so equal positions keep the order they were written in.
+List<OrderClauseGenerator<T>> _userOrder<T extends Table>(
+  GeneratedColumn<int> position,
+  String tableName,
+) => [
+  (_) => OrderingTerm.asc(position),
+  (_) => OrderingTerm(expression: CustomExpression<int>('$tableName.rowid')),
+];
+
 @DriftDatabase(
   tables: [
     HistoryEntries,
@@ -65,14 +83,43 @@ class SnippetWithFields {
     SnippetFields,
     Notes,
     NoteTags,
+    NoteVersions,
+    NoteAssets,
     CorrectionObservations,
+    AppProfiles,
+    AppProfileRules,
   ],
 )
 class HistoryDatabase extends _$HistoryDatabase {
-  HistoryDatabase() : super(_openConnection());
+  HistoryDatabase()
+    : _migrationCopyDir = paths.appDataDir,
+      super(_openConnection());
 
-  /// For testing — accepts an in-memory or custom executor.
-  HistoryDatabase.forTesting(super.e);
+  /// For testing — accepts an in-memory or custom executor. [migrationCopyDir]
+  /// names the folder whose pre-migration copy is removed on open; null skips it.
+  HistoryDatabase.forTesting(super.e, [this._migrationCopyDir]);
+
+  /// Folder whose `history.db.pre-migration` copy is removed once the database
+  /// has opened, see [_discardMigrationCopy].
+  final String? Function()? _migrationCopyDir;
+
+  /// Deletes the plaintext copy that the Windows path migration leaves behind.
+  /// It runs at the end of [beforeOpen], so a migration that throws keeps the
+  /// copy as the rescue anchor. A failed delete is retried on the next start.
+  Future<void> _discardMigrationCopy() async {
+    final dir = _migrationCopyDir?.call();
+    if (dir == null) return;
+    final copy = File(p.join(dir, 'history.db.pre-migration'));
+    try {
+      if (copy.existsSync()) copy.deleteSync();
+    } catch (e, st) {
+      _log.warning(
+        'Could not delete ${copy.path}; retrying on the next start',
+        e,
+        st,
+      );
+    }
+  }
 
   /// Serialises every mutation method through a single-writer lock with
   /// `SQLITE_BUSY` retry/backoff. See `sqlite_write_coordinator.dart` and
@@ -110,7 +157,52 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   @override
-  int get schemaVersion => 25;
+  int get schemaVersion => 31;
+
+  /// Schema steps 2 to 16. Split out of [migration] so its branch count
+  /// stays within the complexity budget; the order is unchanged.
+  Future<void> _upgradeLegacySteps(Migrator m, int from) async {
+    if (from < 2) {
+      await _createAppSettingsTable();
+    }
+    if (from < 3) {
+      await m.createTable(textReplacements);
+    }
+    if (from < 4) {
+      await m.createTable(tags);
+      await m.createTable(entryTags);
+      await _recreateFtsWithTags();
+      await _migrateJsonTags();
+    }
+    if (from < 5) {
+      await _addDailyStatsDurationColumns();
+    }
+    if (from < 10) {
+      await _runV10Migration();
+    }
+    if (from < 11) {
+      await m.createTable(hotkeyLatencyEntries);
+    }
+    if (from < 12) {
+      await _backfillNullableHistoryColumns();
+    }
+    if (from < 13) {
+      await m.createTable(textReplacementTriggers);
+      await _backfillReplacementTriggers();
+    }
+    if (from < 15) {
+      await m.createTable(snippets);
+    }
+    if (from < 16) {
+      // The trigger-phrase-driven "automation" feature (dictation-
+      // automations tickets 02-04, schema version 14) was retired: full
+      // parity between the sandboxed Mac App Store build and the
+      // Direct-Download build turned out unreachable within Apple's
+      // sandbox rules. `IF EXISTS` covers DBs that never passed through
+      // version 14 at all.
+      await customStatement('DROP TABLE IF EXISTS automations');
+    }
+  }
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -119,48 +211,18 @@ class HistoryDatabase extends _$HistoryDatabase {
       // Create FTS5 virtual table and sync triggers via raw SQL
       await _createFts(m);
       await _createAppSettingsTable();
+      await _createAppMetaTable();
     },
     onUpgrade: (m, from, to) async {
-      if (from < 2) {
-        await _createAppSettingsTable();
+      // drift also calls onUpgrade for downgrades (from > to). Refusing here
+      // rolls the open back, so the file keeps its version and its data.
+      if (from > schemaVersion) {
+        throw DatabaseTooNewException(
+          storedVersion: from,
+          supportedVersion: schemaVersion,
+        );
       }
-      if (from < 3) {
-        await m.createTable(textReplacements);
-      }
-      if (from < 4) {
-        await m.createTable(tags);
-        await m.createTable(entryTags);
-        await _recreateFtsWithTags();
-        await _migrateJsonTags();
-      }
-      if (from < 5) {
-        await _addDailyStatsDurationColumns();
-      }
-      if (from < 10) {
-        await _runV10Migration();
-      }
-      if (from < 11) {
-        await m.createTable(hotkeyLatencyEntries);
-      }
-      if (from < 12) {
-        await _backfillNullableHistoryColumns();
-      }
-      if (from < 13) {
-        await m.createTable(textReplacementTriggers);
-        await _backfillReplacementTriggers();
-      }
-      if (from < 15) {
-        await m.createTable(snippets);
-      }
-      if (from < 16) {
-        // The trigger-phrase-driven "automation" feature (dictation-
-        // automations tickets 02-04, schema version 14) was retired: full
-        // parity between the sandboxed Mac App Store build and the
-        // Direct-Download build turned out unreachable within Apple's
-        // sandbox rules. `IF EXISTS` covers DBs that never passed through
-        // version 14 at all.
-        await customStatement('DROP TABLE IF EXISTS automations');
-      }
+      await _upgradeLegacySteps(m, from);
       if (from < 17) {
         await m.createTable(notes);
         await m.createTable(noteTags);
@@ -190,8 +252,39 @@ class HistoryDatabase extends _$HistoryDatabase {
       if (from < 25) {
         await m.createTable(correctionObservations);
       }
+      if (from < 26) {
+        await _addReplacementUsageAndFavouriteColumns();
+      }
+      // v27: WP-32a Smart Mode undo columns (additive, nullable, idempotent).
+      if (from < 27) {
+        await _addSmartModeUndoColumns();
+      }
+      // v28: app_meta (UIA-ANA-02) and WP-33a app profiles, both idempotent.
+      if (from < 28) {
+        await _createAppMetaTable();
+        await _ensureAppProfileSchema(m);
+      }
+      // v30: XP-6-09 stop-to-text time (additive, nullable, idempotent).
+      if (from < 30) {
+        await _addStopToTextColumn();
+      }
+      if (from < 31) {
+        await _addNoteTitleVersionsAssetsAndSnippetSource(m);
+      }
     },
     beforeOpen: (details) async {
+      // Runs on every open, not only on upgrades: a v28 file written by
+      // e1b523d2 has the old consent column and no upgrade step will touch it.
+      // Both helpers are idempotent (PRAGMA-checked), so a development file
+      // at an older version number that lacks either set gets it here.
+      await _addSmartModeUndoColumns();
+      await _ensureAppProfileSchema(Migrator(this));
+      // Also on every open: a file stamped v29 or later by another branch
+      // skips the v30 step but may still lack the column.
+      await _addStopToTextColumn();
+      // A v28 file from a build that had the app profiles but not app_meta
+      // (both landed as v28 on parallel branches) gets the table here.
+      await _createAppMetaTable();
       // Reconcile Go-era schema if DB was created by the old Go backend
       // (column "text" instead of "content", TEXT timestamps instead of
       // INTEGER). Must run BEFORE any Drift queries touch the table.
@@ -204,10 +297,13 @@ class HistoryDatabase extends _$HistoryDatabase {
       await _ensureHistoryEntriesIndexes();
       // Ensure index on entry_notes for fast per-entry "Anmerkung" lookups.
       await _ensureEntryNotesIndexes();
+      // Ensure indexes on note_versions / note_assets (per-note lookups).
+      await _ensureNoteVersionAndAssetIndexes();
       // One-time backfill: populate DailyStats from existing history
       // entries so that stats are correct for users upgrading from
       // a version that never wrote to DailyStats.
       await backfillDailyStats();
+      await _discardMigrationCopy();
       // One-time Groq removal migration (v1.2.13):
       //   1. Drop the groq_api_key column from app_settings (SQLite ≥ 3.35).
       //   2. Rewrite stt_provider = 'Groq' → 'On Device'.
@@ -258,6 +354,18 @@ class HistoryDatabase extends _$HistoryDatabase {
     await customStatement('''
       CREATE TABLE IF NOT EXISTS app_settings (
         key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+  }
+
+  /// Key-value table for database-level flags (for example that the
+  /// DailyStats backfill has run). `IF NOT EXISTS` keeps databases that got
+  /// it from an earlier build at runtime intact.
+  Future<void> _createAppMetaTable() async {
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS app_meta (
+        key TEXT NOT NULL PRIMARY KEY,
         value TEXT NOT NULL
       )
     ''');
@@ -417,6 +525,62 @@ class HistoryDatabase extends _$HistoryDatabase {
     }
   }
 
+  /// Makes the app-profile tables match the current definitions (v28, DEV-259,
+  /// DEV-294). Idempotent: every table and column is checked first, so a
+  /// second run changes nothing.
+  ///
+  /// Databases written by e1b523d2 carry a single `context_consent_given`
+  /// column instead of the five consent columns. That flag is not valid
+  /// consent evidence (it is not bound to a text version), so it is not
+  /// migrated. The column stays in place, unused: migrations are additive
+  /// only (R7-3), and its `DEFAULT 0` keeps Drift inserts, which do not name
+  /// it, working.
+  Future<void> _ensureAppProfileSchema(Migrator m) async {
+    if (!await _tableExists('app_profiles')) {
+      await m.createTable(appProfiles);
+    } else {
+      final columns = await _columnNames('app_profiles');
+      for (final column in [
+        appProfiles.hotkeyKey,
+        appProfiles.hotkeyModifiers,
+        appProfiles.afterTranscription,
+        appProfiles.microphone,
+        appProfiles.consentProvider,
+        appProfiles.consentSelection,
+        appProfiles.consentClipboard,
+        appProfiles.consentTextVersion,
+        appProfiles.consentGivenAt,
+      ]) {
+        if (!columns.contains(column.name)) {
+          await m.addColumn(appProfiles, column);
+        }
+      }
+    }
+    if (!await _tableExists('app_profile_rules')) {
+      await m.createTable(appProfileRules);
+    } else {
+      final columns = await _columnNames('app_profile_rules');
+      if (!columns.contains(appProfileRules.teamId.name)) {
+        await m.addColumn(appProfileRules, appProfileRules.teamId);
+      }
+    }
+  }
+
+  /// Column names of a table, from PRAGMA table_info. [table] is a constant.
+  Future<Set<String>> _columnNames(String table) async {
+    final rows = await customSelect("PRAGMA table_info('$table')").get();
+    return {for (final row in rows) row.data['name'] as String};
+  }
+
+  /// Whether a table exists in the open database (checked via sqlite_master).
+  Future<bool> _tableExists(String name) async {
+    final rows = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
+      variables: [Variable.withString(name)],
+    ).get();
+    return rows.isNotEmpty;
+  }
+
   /// Adds duration bucket columns to daily_stats if missing (v5 migration).
   ///
   /// Safe to call multiple times (idempotent). Checks PRAGMA table_info
@@ -483,6 +647,53 @@ class HistoryDatabase extends _$HistoryDatabase {
   @visibleForTesting
   Future<void> addHistoryColorSlotColumnForTesting() =>
       _addHistoryColorSlotColumn();
+
+  /// Schema v31 (notes core, WP-31a): explicit note title, local version
+  /// history and image assets, plus the Textbaustein back-link to its source
+  /// note. Additive only: one nullable column each, two new tables. Existing
+  /// notes keep their content and get `title = NULL`, which means "derive the
+  /// title from the first line" as before.
+  Future<void> _addNoteTitleVersionsAssetsAndSnippetSource(Migrator m) async {
+    if (!await _tableHasColumn('notes', 'title')) {
+      await customStatement('ALTER TABLE notes ADD COLUMN title TEXT NULL');
+    }
+    // Each step checks first, so a database that already has part of v31
+    // (an interrupted or repeated upgrade) skips that part instead of failing.
+    if (!await _tableExists('note_versions')) {
+      await m.createTable(noteVersions);
+    }
+    if (!await _tableExists('note_assets')) {
+      await m.createTable(noteAssets);
+    }
+    if (!await _tableHasColumn('snippets', 'source_note_id')) {
+      await customStatement(
+        'ALTER TABLE snippets ADD COLUMN source_note_id TEXT NULL',
+      );
+    }
+  }
+
+  Future<bool> _tableHasColumn(String table, String column) async {
+    final cols = await customSelect("PRAGMA table_info('$table')").get();
+    return cols.any((r) => r.data['name'] == column);
+  }
+
+  /// Idempotent indexes for the v31 tables. Runs in [beforeOpen] like the
+  /// other index guards, so fresh databases (created by `createAll`) get them
+  /// too.
+  Future<void> _ensureNoteVersionAndAssetIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_note_versions_note_created '
+        'ON note_versions(note_id, created_at)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_note_assets_note '
+        'ON note_assets(note_id)',
+      );
+    } catch (e, st) {
+      _log.debug('_ensureNoteVersionAndAssetIndexes skipped', e, st);
+    }
+  }
 
   /// Adds the `is_quick_note` column to notes if missing (v19 migration).
   /// No backfill needed — the column defaults to false, and at most one row
@@ -579,25 +790,48 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<void> addOriginalTranscriptAndTargetAppColumnsForTesting() =>
       _addOriginalTranscriptAndTargetAppColumns();
 
+  /// Adds the Smart-Mode undo columns (v27, additive, nullable). Existing rows
+  /// keep `null` and have no undo: `smart_mode_applied` is NULL for them.
+  Future<void> _addSmartModeUndoColumns() async {
+    await _addNullableColumns('history_entries', [
+      'smart_mode_input',
+      'smart_mode_output',
+    ]);
+    await _addNullableColumns('history_entries', [
+      'smart_mode_applied',
+    ], type: 'INTEGER');
+  }
+
+  /// Adds the stop-to-text column (v30, additive, nullable). Older samples
+  /// keep `null` and stay out of [analyticsAverageStopToTextMs].
+  Future<void> _addStopToTextColumn() => _addNullableColumns(
+    'hotkey_latency_entries',
+    ['stop_to_text_ms'],
+    type: 'INTEGER',
+  );
+
+  /// Adds nullable columns of SQL [type] to [table] that do not exist yet.
+  /// Idempotent: each column is checked with PRAGMA table_info first.
+  Future<void> _addNullableColumns(
+    String table,
+    List<String> columns, {
+    String type = 'TEXT',
+  }) async {
+    final cols = await customSelect("PRAGMA table_info('$table')").get();
+    final existing = cols.map((r) => r.data['name'] as String).toSet();
+    for (final column in columns) {
+      if (existing.contains(column)) continue;
+      _log.info('Adding column "$column" to $table');
+      await customStatement('ALTER TABLE $table ADD COLUMN $column $type');
+    }
+  }
+
   Future<void> _addOriginalTranscriptAndTargetAppColumns() async {
     try {
-      final cols = await customSelect(
-        "PRAGMA table_info('history_entries')",
-      ).get();
-      final colNames = cols.map((r) => r.data['name'] as String).toSet();
-
-      if (!colNames.contains('original_transcript')) {
-        _log.info('Adding column "original_transcript" to history_entries');
-        await customStatement(
-          'ALTER TABLE history_entries ADD COLUMN original_transcript TEXT',
-        );
-      }
-      if (!colNames.contains('target_app')) {
-        _log.info('Adding column "target_app" to history_entries');
-        await customStatement(
-          'ALTER TABLE history_entries ADD COLUMN target_app TEXT',
-        );
-      }
+      await _addNullableColumns('history_entries', [
+        'original_transcript',
+        'target_app',
+      ]);
     } catch (e) {
       // Table may not exist yet during initial creation — skip.
       _log.warning(
@@ -668,6 +902,58 @@ class HistoryDatabase extends _$HistoryDatabase {
       // Table may not exist yet during initial creation — skip.
       _log.warning('Could not add text_replacements fuzzy columns: $e', e);
     }
+  }
+
+  /// Adds the dictionary's usage counter and favourite flag to
+  /// `text_replacements` (schema v26). Both are additive: existing rows get
+  /// `usage_count = 0` and `is_favorite = 0`, so nothing that matched before
+  /// changes behaviour. Idempotent on re-runs, like the v20 helper above.
+  Future<void> _addReplacementUsageAndFavouriteColumns() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('text_replacements')",
+    ).get();
+    final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+    if (!colNames.contains('usage_count')) {
+      _log.info('Adding column "usage_count" to text_replacements');
+      await customStatement(
+        'ALTER TABLE text_replacements ADD COLUMN usage_count '
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (!colNames.contains('is_favorite')) {
+      _log.info('Adding column "is_favorite" to text_replacements');
+      await customStatement(
+        'ALTER TABLE text_replacements ADD COLUMN is_favorite '
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+  }
+
+  /// Adds per-entry hit counts recorded by one dictation save. Keys are
+  /// replacement ids; unknown ids simply match no row.
+  Future<void> addReplacementUsage(Map<String, int> hitsById) async {
+    if (hitsById.isEmpty) return;
+    await transaction(() async {
+      for (final entry in hitsById.entries) {
+        await customUpdate(
+          'UPDATE text_replacements SET usage_count = usage_count + ? '
+          'WHERE id = ?',
+          variables: [
+            Variable.withInt(entry.value),
+            Variable.withString(entry.key),
+          ],
+          updates: {textReplacements},
+        );
+      }
+    });
+  }
+
+  /// Sets the dictionary favourite flag of one replacement entry.
+  Future<void> setReplacementFavourite(String id, {required bool value}) {
+    return (update(textReplacements)..where((t) => t.id.equals(id))).write(
+      TextReplacementsCompanion(isFavorite: Value(value)),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -1215,7 +1501,7 @@ class HistoryDatabase extends _$HistoryDatabase {
 
       if (rowIds.isEmpty) return [];
 
-      return (select(historyEntries)
+      return await (select(historyEntries)
             ..where((e) => e.rowId.isIn(rowIds.toList()) & e.deletedAt.isNull())
             ..orderBy([
               (e) =>
@@ -1226,8 +1512,9 @@ class HistoryDatabase extends _$HistoryDatabase {
               ),
             ]))
           .get();
-    } catch (_) {
-      return [];
+    } catch (e, st) {
+      _log.warning('History search failed: $e');
+      Error.throwWithStackTrace(e, st);
     }
   }
 
@@ -1309,9 +1596,10 @@ class HistoryDatabase extends _$HistoryDatabase {
         (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
       ]);
 
-      return finalQuery.get();
-    } catch (_) {
-      return [];
+      return await finalQuery.get();
+    } catch (e, st) {
+      _log.warning('History search failed: $e');
+      Error.throwWithStackTrace(e, st);
     }
   }
 
@@ -1342,8 +1630,95 @@ class HistoryDatabase extends _$HistoryDatabase {
     )..where((e) => e.id.equals(entryId))).getSingleOrNull();
   }
 
+  /// Smart-Mode undo. Swaps [HistoryEntry.content] with the Smart-Mode input:
+  /// the content becomes the input and the result moves to `smartModeOutput`.
+  /// The input is `smartModeInput`, or `originalTranscript` when that was
+  /// identical (BIZ-25). Read and write run in one transaction, and the update
+  /// only matches while the entry still holds the state that was read, so a
+  /// concurrent edit cannot be overwritten (DEV-69). Returns false otherwise.
+  Future<bool> undoSmartMode(String entryId) {
+    return _writeCoordinator.write<bool>(
+      () => transaction(() async {
+        final entry = await getEntry(entryId);
+        if (entry == null || entry.smartModeApplied != true) return false;
+        if (entry.deletedAt != null) return false;
+        if (entry.smartModeOutput != null) return false;
+        final input = entry.smartModeInput ?? entry.originalTranscript;
+        if (input == null) return false;
+        await beforeConditionalWrite?.call();
+        final changed =
+            await (update(historyEntries)..where(
+                  (e) =>
+                      e.id.equals(entryId) &
+                      e.smartModeApplied.equals(true) &
+                      e.deletedAt.isNull() &
+                      e.smartModeOutput.isNull() &
+                      e.content.equals(entry.content),
+                ))
+                .write(
+                  HistoryEntriesCompanion(
+                    content: Value(input),
+                    smartModeOutput: Value(entry.content),
+                  ),
+                );
+        return changed > 0;
+      }),
+    );
+  }
+
+  /// Reverses [undoSmartMode]: the stored result becomes the content again and
+  /// `smartModeOutput` is cleared. Conditional like the undo (DEV-69). Returns
+  /// false when no undo is in effect.
+  Future<bool> restoreSmartModeOutput(String entryId) {
+    return _writeCoordinator.write<bool>(
+      () => transaction(() async {
+        final entry = await getEntry(entryId);
+        final output = entry?.smartModeOutput;
+        if (entry == null || output == null) return false;
+        if (entry.smartModeApplied != true || entry.deletedAt != null) {
+          return false;
+        }
+        await beforeConditionalWrite?.call();
+        final changed =
+            await (update(historyEntries)..where(
+                  (e) =>
+                      e.id.equals(entryId) &
+                      e.smartModeApplied.equals(true) &
+                      e.deletedAt.isNull() &
+                      e.smartModeOutput.isNotNull() &
+                      e.content.equals(entry.content),
+                ))
+                .write(
+                  HistoryEntriesCompanion(
+                    content: Value(output),
+                    smartModeOutput: const Value(null),
+                  ),
+                );
+        return changed > 0;
+      }),
+    );
+  }
+
   /// Partial update of an existing entry (only writes provided fields).
+  ///
+  /// Writing [HistoryEntriesCompanion.content] is a manual edit or a
+  /// re-transcription, so it ends any Smart-Mode run: all three undo columns
+  /// are cleared and the entry can no longer be undone (DEV-54).
   Future<int> updateEntry(String entryId, HistoryEntriesCompanion companion) {
+    final changesContent = companion.content.present;
+    return _writeEntry(
+      entryId,
+      changesContent
+          ? companion.copyWith(
+              smartModeInput: const Value(null),
+              smartModeOutput: const Value(null),
+              smartModeApplied: const Value(null),
+            )
+          : companion,
+    );
+  }
+
+  Future<int> _writeEntry(String entryId, HistoryEntriesCompanion companion) {
     return _writeCoordinator.write<int>(
       () => (update(
         historyEntries,
@@ -1351,23 +1726,41 @@ class HistoryDatabase extends _$HistoryDatabase {
     );
   }
 
-  /// Soft-delete an entry (move to trash).
-  Future<int> softDeleteEntry(String entryId) {
+  /// Test seam (DEV-89): runs inside the undo transaction after the read and
+  /// before the conditional update, so a racing write can be simulated.
+  @visibleForTesting
+  static Future<void> Function()? beforeConditionalWrite;
+
+  /// VACUUM, serialised by the write coordinator so it never races a write
+  /// (SQLITE_BUSY). See `HistoryVacuum` for when it runs.
+  Future<void> vacuum() {
+    return _writeCoordinator.write<void>(() => customStatement('VACUUM'));
+  }
+
+  /// Writes [values] to the rows of [table] matching [where].
+  Future<int> _writeRows<T extends Table, D>(
+    TableInfo<T, D> table,
+    Expression<bool> Function(T row) where,
+    Insertable<D> values,
+  ) {
     return _writeCoordinator.write<int>(
-      () => (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
-        HistoryEntriesCompanion(deletedAt: Value(DateTime.now())),
-      ),
+      () => (update(table)..where(where)).write(values),
     );
   }
 
+  /// Soft-delete an entry (move to trash).
+  Future<int> softDeleteEntry(String entryId) => _writeRows(
+    historyEntries,
+    (e) => e.id.equals(entryId),
+    HistoryEntriesCompanion(deletedAt: Value(DateTime.now())),
+  );
+
   /// Restore a soft-deleted entry from trash.
-  Future<int> restoreEntry(String entryId) {
-    return _writeCoordinator.write<int>(
-      () => (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
-        const HistoryEntriesCompanion(deletedAt: Value(null)),
-      ),
-    );
-  }
+  Future<int> restoreEntry(String entryId) => _writeRows(
+    historyEntries,
+    (e) => e.id.equals(entryId),
+    const HistoryEntriesCompanion(deletedAt: Value(null)),
+  );
 
   /// Permanently delete a single entry.
   Future<int> permanentDeleteEntry(String entryId) {
@@ -1421,13 +1814,13 @@ class HistoryDatabase extends _$HistoryDatabase {
           OrderingTerm(expression: historyEntries.id, mode: OrderingMode.desc),
         ]);
 
-      final rows = await activeQuery.get();
-      if (rows.length <= max) return 0;
+      // Fetch only the rows beyond [max]: SQLite skips the newest [max] itself.
+      // Loading every active id on each save made the trim O(n) per dictation
+      // for a result that is almost always empty or a single row.
+      final excess = await (activeQuery..limit(-1, offset: max)).get();
+      if (excess.isEmpty) return 0;
 
-      final idsToTrash = rows
-          .skip(max)
-          .map((r) => r.read(historyEntries.id)!)
-          .toList();
+      final idsToTrash = excess.map((r) => r.read(historyEntries.id)!).toList();
 
       final now = DateTime.now();
       await (update(historyEntries)..where((e) => e.id.isIn(idsToTrash))).write(
@@ -1550,6 +1943,11 @@ class HistoryDatabase extends _$HistoryDatabase {
       durationSec: Value(totalDuration),
       tags: Value(tagsJson),
       pinned: Value(entries.any((e) => e.pinned)),
+      // New merged text: the base entry's Smart-Mode run no longer describes
+      // it, so its undo drafts end here (BIZ-24, same as a manual edit).
+      smartModeInput: const Value(null),
+      smartModeOutput: const Value(null),
+      smartModeApplied: const Value(null),
     );
     await into(historyEntries).insertOnConflictUpdate(companion);
 
@@ -1656,7 +2054,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   /// is deleted (no `PRAGMA foreign_keys`), so an entry's deletion can
   /// orphan its attachment row — harmless here, since this cap bounds total
   /// retained rows regardless of whether their entries still exist.
-  Future<List<String>> enforceAudioAttachmentCap({int max = 20}) {
+  Future<List<String>> enforceAudioAttachmentCap({int max = kAudioCap}) {
     return _writeCoordinator.write<List<String>>(() async {
       final rows =
           await (select(entryAttachments)
@@ -1675,6 +2073,37 @@ class HistoryDatabase extends _$HistoryDatabase {
       )..where((a) => a.id.isIn(excess.map((r) => r.id)))).go();
       return [for (final row in excess) row.filepath];
     });
+  }
+
+  /// Every retained `audio/wav` attachment, oldest first. The audio retention
+  /// sweep decides from these rows which files to delete.
+  Future<List<EntryAttachment>> listAudioAttachments() {
+    return (select(entryAttachments)
+          ..where((a) => a.mimeType.equals('audio/wav'))
+          ..orderBy([(a) => OrderingTerm(expression: a.createdAt)]))
+        .get();
+  }
+
+  /// Removes the attachment rows [ids]. The caller deletes the files first.
+  Future<void> deleteAudioAttachments(List<String> ids) {
+    if (ids.isEmpty) return Future.value();
+    return _writeCoordinator.write<void>(() async {
+      await (delete(entryAttachments)..where((a) => a.id.isIn(ids))).go();
+    });
+  }
+
+  /// Newest retained audio of [entryId], or null when the entry has none.
+  Future<EntryAttachment?> latestAudioAttachment(String entryId) {
+    return (select(entryAttachments)
+          ..where(
+            (a) => a.entryId.equals(entryId) & a.mimeType.equals('audio/wav'),
+          )
+          ..orderBy([
+            (a) =>
+                OrderingTerm(expression: a.createdAt, mode: OrderingMode.desc),
+          ])
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   /// Duplicate an entry with a new ID and "(copy)" title suffix.
@@ -1762,6 +2191,26 @@ class HistoryDatabase extends _$HistoryDatabase {
       'WHERE deleted_at IS NULL AND archived = 0',
     ).getSingle();
     return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// For each of [ids] whose row still exists, whether it is active (not
+  /// trashed, not archived). Ids of rows that were hard-deleted are absent.
+  Future<Map<String, bool>> activeStateOfEntries(List<String> ids) async {
+    final states = <String, bool>{};
+    // Chunked: SQLite caps the number of bound variables per statement.
+    for (var start = 0; start < ids.length; start += 500) {
+      final chunk = ids.sublist(start, min(start + 500, ids.length));
+      final rows = await customSelect(
+        'SELECT id, (deleted_at IS NULL AND archived = 0) AS active '
+        'FROM history_entries '
+        'WHERE id IN (${List.filled(chunk.length, '?').join(',')})',
+        variables: [for (final id in chunk) Variable.withString(id)],
+      ).get();
+      for (final row in rows) {
+        states[row.read<String>('id')] = row.read<int>('active') == 1;
+      }
+    }
+    return states;
   }
 
   /// Count archived entries.
@@ -1858,29 +2307,50 @@ class HistoryDatabase extends _$HistoryDatabase {
     return (select(tags)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
   }
 
-  /// Tags for a specific entry (via join).
-  Future<List<Tag>> tagsForEntry(String entryId) async {
-    final query =
-        select(
-            tags,
-          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
-          ..where(entryTags.entryId.equals(entryId))
-          ..orderBy([OrderingTerm.asc(tags.name)]);
+  /// Tags joined through [link] and filtered by [where], sorted by name.
+  JoinedSelectStatement<HasResultSet, dynamic> _tagsLinkedVia(
+    TableInfo<Table, dynamic> link,
+    Expression<bool> onTag,
+    Expression<bool> where,
+  ) {
+    return select(tags).join([innerJoin(link, onTag)])
+      ..where(where)
+      ..orderBy([OrderingTerm.asc(tags.name)]);
+  }
+
+  Future<List<Tag>> _tagsOf(
+    JoinedSelectStatement<HasResultSet, dynamic> query,
+  ) async {
     final rows = await query.get();
     return rows.map((r) => r.readTable(tags)).toList();
   }
 
+  Stream<List<Tag>> _watchTagsOf(
+    JoinedSelectStatement<HasResultSet, dynamic> query,
+  ) {
+    return query.watch().map(
+      (rows) => rows.map((r) => r.readTable(tags)).toList(),
+    );
+  }
+
+  /// Tags for a specific entry (via join).
+  Future<List<Tag>> tagsForEntry(String entryId) => _tagsOf(
+    _tagsLinkedVia(
+      entryTags,
+      entryTags.tagId.equalsExp(tags.id),
+      entryTags.entryId.equals(entryId),
+    ),
+  );
+
   /// Reactive stream of tags for a specific entry.
   Stream<List<Tag>> watchTagsForEntry(String entryId) {
     if (_isClosed) return const Stream.empty();
-    final query =
-        select(
-            tags,
-          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
-          ..where(entryTags.entryId.equals(entryId))
-          ..orderBy([OrderingTerm.asc(tags.name)]);
-    return query.watch().map(
-      (rows) => rows.map((r) => r.readTable(tags)).toList(),
+    return _watchTagsOf(
+      _tagsLinkedVia(
+        entryTags,
+        entryTags.tagId.equalsExp(tags.id),
+        entryTags.entryId.equals(entryId),
+      ),
     );
   }
 
@@ -2016,9 +2486,10 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Reads all persisted app settings from the local key-value table.
   ///
-  /// Also refreshes the `locale` sidecar mirror — this is the read the main
-  /// engine performs at startup, so it heals a missing or stale mirror before
-  /// any secondary engine boots. See [writeLocaleMirror].
+  /// Also refreshes the `locale` and `appearance` sidecar mirrors — this is
+  /// the read the main engine performs at startup, so it heals a missing or
+  /// stale mirror before any secondary engine boots. See [writeLocaleMirror]
+  /// and [writeAppearanceMirror].
   Future<Map<String, String>> readAppSettings() async {
     final rows = await customSelect(
       'SELECT key, value FROM app_settings',
@@ -2029,6 +2500,7 @@ class HistoryDatabase extends _$HistoryDatabase {
         row.read<String>('key'): row.read<String>('value'),
     };
     writeLocaleMirror(values['locale']);
+    writeAppearanceMirror(values['appearance']);
     return values;
   }
 
@@ -2046,13 +2518,17 @@ class HistoryDatabase extends _$HistoryDatabase {
     // Keep the sidecar the secondary engines read in sync with the row that
     // just landed, so they never have to open SQLite for it.
     writeLocaleMirror(values['locale']);
+    writeAppearanceMirror(values['appearance']);
   }
 
   /// Removes all persisted settings, causing the app to fall back to defaults.
-  Future<void> resetAppSettings() {
-    return _writeCoordinator.write<void>(
+  Future<void> resetAppSettings() async {
+    await _writeCoordinator.write<void>(
       () => customStatement('DELETE FROM app_settings'),
     );
+    // The defaults apply again, so the mirror must fall back to the default
+    // mode too; otherwise secondary engines keep the pre-reset appearance.
+    writeAppearanceMirror(AppearanceMode.navy.value);
   }
 
   /// Removes all accumulated daily analytics stats.
@@ -2080,6 +2556,25 @@ class HistoryDatabase extends _$HistoryDatabase {
     });
   }
 
+  /// Deletes every standalone note, trashed ones included, with its version
+  /// history, tag links and image rows; part of the "Forgot PIN?" wipe.
+  /// Snippets keep their text and lose the link to a deleted source note.
+  /// This layer never touches the filesystem: the caller removes the image
+  /// files.
+  Future<void> deleteAllNotes() {
+    return _writeCoordinator.write<void>(() async {
+      await transaction(() async {
+        await update(
+          snippets,
+        ).write(const SnippetsCompanion(sourceNoteId: Value<String?>(null)));
+        await delete(noteTags).go();
+        await delete(noteAssets).go();
+        await delete(noteVersions).go();
+        await delete(notes).go();
+      });
+    });
+  }
+
   /// Deletes ALL user data from ALL tables — used by Factory Reset.
   ///
   /// Wrapped in a transaction so partial failure never leaves the DB in
@@ -2092,15 +2587,23 @@ class HistoryDatabase extends _$HistoryDatabase {
     return _writeCoordinator.write<void>(() async {
       await transaction(() async {
         await delete(entryTags).go();
+        await delete(noteTags).go();
+        await delete(noteVersions).go();
+        await delete(noteAssets).go();
         await delete(entryNotes).go();
         await delete(entryAttachments).go();
         await delete(tags).go();
+        await delete(notes).go();
         await delete(historyEntries).go();
         await delete(dailyStats).go();
+        await delete(hotkeyLatencyEntries).go();
         await delete(textReplacementTriggers).go();
         await delete(textReplacements).go();
+        await delete(snippetFields).go();
         await delete(snippets).go();
         await delete(correctionObservations).go();
+        await delete(appProfileRules).go();
+        await delete(appProfiles).go();
         await customStatement('DELETE FROM app_settings');
       });
     });
@@ -2221,13 +2724,26 @@ class HistoryDatabase extends _$HistoryDatabase {
     });
   }
 
-  Future<void> deleteReplacement(String id) {
+  /// Deletes the child rows, then the parent row, in one transaction.
+  Future<void> _deleteRowWithChildren<C extends Table, CD, P extends Table, PD>(
+    TableInfo<C, CD> children,
+    Expression<bool> Function(C) matchChildren,
+    TableInfo<P, PD> parent,
+    Expression<bool> Function(P) matchParent,
+  ) {
     return transaction(() async {
-      await (delete(
-        textReplacementTriggers,
-      )..where((t) => t.replacementId.equals(id))).go();
-      await (delete(textReplacements)..where((t) => t.id.equals(id))).go();
+      await (delete(children)..where(matchChildren)).go();
+      await (delete(parent)..where(matchParent)).go();
     });
+  }
+
+  Future<void> deleteReplacement(String id) {
+    return _deleteRowWithChildren(
+      textReplacementTriggers,
+      (t) => t.replacementId.equals(id),
+      textReplacements,
+      (t) => t.id.equals(id),
+    );
   }
 
   /// Deletes all text replacements (and their triggers). Used by settings
@@ -2323,6 +2839,52 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   // ---------------------------------------------------------------------------
+  // App profiles (WP-33a)
+  // ---------------------------------------------------------------------------
+
+  /// Every app profile in the user's order (`position`, then insertion).
+  Future<List<AppProfileRow>> readAppProfiles() {
+    return (select(
+      appProfiles,
+    )..orderBy(_userOrder(appProfiles.position, 'app_profiles'))).get();
+  }
+
+  /// Every matching rule, grouped by nothing: the caller groups by
+  /// [AppProfileRuleRow.profileId] and keeps the order given here.
+  Future<List<AppProfileRuleRow>> readAppProfileRules() {
+    return (select(appProfileRules)
+          ..orderBy(_userOrder(appProfileRules.position, 'app_profile_rules')))
+        .get();
+  }
+
+  /// Writes one profile and replaces its rules in a single transaction.
+  Future<void> saveAppProfile(
+    AppProfilesCompanion row,
+    List<AppProfileRulesCompanion> rules,
+  ) {
+    return transaction(() async {
+      final profileId = row.id.value;
+      await into(appProfiles).insertOnConflictUpdate(row);
+      await (delete(
+        appProfileRules,
+      )..where((t) => t.profileId.equals(profileId))).go();
+      for (final rule in rules) {
+        await into(appProfileRules).insert(rule);
+      }
+    });
+  }
+
+  /// Removes one profile and its rules. A missing id is a no-op.
+  Future<void> deleteAppProfile(String id) {
+    return _deleteRowWithChildren(
+      appProfileRules,
+      (t) => t.profileId.equals(id),
+      appProfiles,
+      (t) => t.id.equals(id),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Snippets (dictation-automations ticket 05)
   // ---------------------------------------------------------------------------
 
@@ -2395,12 +2957,15 @@ class HistoryDatabase extends _$HistoryDatabase {
     ];
   }
 
+  /// [sourceNoteId] is set only when given: an absent value leaves an
+  /// existing back-link untouched on update.
   Future<void> upsertSnippet({
     required String id,
     required String title,
     required String body,
     required DateTime createdAt,
     String kind = 'static',
+    String? sourceNoteId,
   }) {
     return into(snippets).insertOnConflictUpdate(
       SnippetsCompanion(
@@ -2409,6 +2974,9 @@ class HistoryDatabase extends _$HistoryDatabase {
         body: Value(body),
         createdAt: Value(createdAt),
         kind: Value(kind),
+        sourceNoteId: sourceNoteId == null
+            ? const Value.absent()
+            : Value(sourceNoteId),
       ),
     );
   }
@@ -2677,34 +3245,35 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// Soft-delete a note (move to notes trash).
-  Future<int> softDeleteNote(String noteId) {
-    return _writeCoordinator.write<int>(
-      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
-        NotesCompanion(deletedAt: Value(DateTime.now())),
-      ),
-    );
-  }
+  Future<int> softDeleteNote(String noteId) => _writeRows(
+    notes,
+    (n) => n.id.equals(noteId),
+    NotesCompanion(deletedAt: Value(DateTime.now())),
+  );
 
   /// Restore a soft-deleted note from the notes trash.
-  Future<int> restoreNote(String noteId) {
-    return _writeCoordinator.write<int>(
-      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
-        const NotesCompanion(deletedAt: Value(null)),
-      ),
-    );
-  }
+  Future<int> restoreNote(String noteId) => _writeRows(
+    notes,
+    (n) => n.id.equals(noteId),
+    const NotesCompanion(deletedAt: Value(null)),
+  );
 
   Future<int> permanentDeleteNote(String noteId) {
-    return _writeCoordinator.write<int>(
-      () => (delete(notes)..where((n) => n.id.equals(noteId))).go(),
-    );
+    return _writeCoordinator.write<int>(() async {
+      await _deleteNoteDependents([noteId]);
+      return (delete(notes)..where((n) => n.id.equals(noteId))).go();
+    });
   }
 
   /// Permanently removes ALL trashed notes (empty the notes trash).
   Future<int> emptyNotesTrash() {
-    return _writeCoordinator.write<int>(
-      () => (delete(notes)..where((n) => n.deletedAt.isNotNull())).go(),
-    );
+    return _writeCoordinator.write<int>(() async {
+      final trashed = await (select(
+        notes,
+      )..where((n) => n.deletedAt.isNotNull())).get();
+      await _deleteNoteDependents(trashed.map((n) => n.id).toList());
+      return (delete(notes)..where((n) => n.deletedAt.isNotNull())).go();
+    });
   }
 
   /// Permanently deletes active notes whose content is blank
@@ -2725,6 +3294,7 @@ class HistoryDatabase extends _$HistoryDatabase {
           .map((n) => n.id)
           .toList();
       if (emptyIds.isEmpty) return 0;
+      await _deleteNoteDependents(emptyIds);
       await (delete(notes)..where((n) => n.id.isIn(emptyIds))).go();
       return emptyIds.length;
     });
@@ -2743,6 +3313,7 @@ class HistoryDatabase extends _$HistoryDatabase {
       if (note == null || note.content.trim().isNotEmpty || note.isQuickNote) {
         return false;
       }
+      await _deleteNoteDependents([noteId]);
       await (delete(notes)..where((n) => n.id.equals(noteId))).go();
       return true;
     });
@@ -2769,28 +3340,23 @@ class HistoryDatabase extends _$HistoryDatabase {
   }
 
   /// Tags for a specific note (via join), sorted alphabetically.
-  Future<List<Tag>> tagsForNote(String noteId) async {
-    final query =
-        select(
-            tags,
-          ).join([innerJoin(noteTags, noteTags.tagId.equalsExp(tags.id))])
-          ..where(noteTags.noteId.equals(noteId))
-          ..orderBy([OrderingTerm.asc(tags.name)]);
-    final rows = await query.get();
-    return rows.map((r) => r.readTable(tags)).toList();
-  }
+  Future<List<Tag>> tagsForNote(String noteId) => _tagsOf(
+    _tagsLinkedVia(
+      noteTags,
+      noteTags.tagId.equalsExp(tags.id),
+      noteTags.noteId.equals(noteId),
+    ),
+  );
 
   /// Reactive stream of tags for a specific note.
   Stream<List<Tag>> watchTagsForNote(String noteId) {
     if (_isClosed) return const Stream.empty();
-    final query =
-        select(
-            tags,
-          ).join([innerJoin(noteTags, noteTags.tagId.equalsExp(tags.id))])
-          ..where(noteTags.noteId.equals(noteId))
-          ..orderBy([OrderingTerm.asc(tags.name)]);
-    return query.watch().map(
-      (rows) => rows.map((r) => r.readTable(tags)).toList(),
+    return _watchTagsOf(
+      _tagsLinkedVia(
+        noteTags,
+        noteTags.tagId.equalsExp(tags.id),
+        noteTags.noteId.equals(noteId),
+      ),
     );
   }
 
@@ -2812,6 +3378,260 @@ class HistoryDatabase extends _$HistoryDatabase {
       }
       return grouped;
     });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Notes core (WP-31a, schema v31): title, version history, image assets.
+  // Every mutator funnels through [_writeCoordinator]. Image bytes are files
+  // and live outside the database; these rows only describe them.
+  // ---------------------------------------------------------------------------
+
+  /// Deletes the version and asset rows of [noteIds]. Called inside the
+  /// caller's write block, before the note rows themselves are removed. The
+  /// asset files are removed by the feature layer (`NoteAssetStore`).
+  Future<void> _deleteNoteDependents(List<String> noteIds) async {
+    if (noteIds.isEmpty) return;
+    await (delete(noteVersions)..where((v) => v.noteId.isIn(noteIds))).go();
+    await (delete(noteAssets)..where((a) => a.noteId.isIn(noteIds))).go();
+  }
+
+  /// Sets the explicit title of [noteId]; `null` or blank clears it, so the
+  /// list and editor fall back to the first line again. Bumps `updatedAt`.
+  Future<int> setNoteTitle(String noteId, String? title) {
+    final trimmed = title?.trim();
+    final value = (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(title: Value(value), updatedAt: Value(DateTime.now())),
+      ),
+    );
+  }
+
+  /// Local version history of [noteId], newest first.
+  Future<List<NoteVersion>> noteVersionsFor(String noteId) {
+    return (select(noteVersions)
+          ..where((v) => v.noteId.equals(noteId))
+          ..orderBy([
+            (v) =>
+                OrderingTerm(expression: v.createdAt, mode: OrderingMode.desc),
+            // Same-second snapshots tie on createdAt (drift stores seconds);
+            // rowid is insertion order and breaks the tie deterministically.
+            (v) => OrderingTerm(
+              expression: const CustomExpression<int>('rowid'),
+              mode: OrderingMode.desc,
+            ),
+          ]))
+        .get();
+  }
+
+  /// Reactive variant of [noteVersionsFor] for the version panel.
+  Stream<List<NoteVersion>> watchNoteVersions(String noteId) {
+    if (_isClosed) return const Stream.empty();
+    return (select(noteVersions)
+          ..where((v) => v.noteId.equals(noteId))
+          ..orderBy([
+            (v) =>
+                OrderingTerm(expression: v.createdAt, mode: OrderingMode.desc),
+            // Same-second snapshots tie on createdAt (drift stores seconds);
+            // rowid is insertion order and breaks the tie deterministically.
+            (v) => OrderingTerm(
+              expression: const CustomExpression<int>('rowid'),
+              mode: OrderingMode.desc,
+            ),
+          ]))
+        .watch();
+  }
+
+  /// Stores a snapshot of [noteId] unless it equals the newest one or is too
+  /// large (see [shouldStoreNoteVersion]), then prunes the history to the
+  /// count and byte limits. Returns whether a version was stored.
+  Future<bool> recordNoteVersionIfChanged(
+    String noteId, {
+    required String? title,
+    required String content,
+    NoteVersionLimits limits = NoteVersionLimits.standard,
+    DateTime? now,
+  }) {
+    return _writeCoordinator.write<bool>(() async {
+      return transaction(() async {
+        final versions = await noteVersionsFor(noteId);
+        final newest = versions.isEmpty ? null : versions.first;
+        final store = shouldStoreNoteVersion(
+          title: title,
+          content: content,
+          newestTitle: newest?.title,
+          newestContent: newest?.content,
+          hasNewest: newest != null,
+          limits: limits,
+        );
+        if (!store) return false;
+
+        await into(noteVersions).insert(
+          NoteVersionsCompanion.insert(
+            id: _uuid(),
+            noteId: noteId,
+            title: Value(title),
+            content: content,
+            sizeBytes: noteVersionSizeBytes(title, content),
+            createdAt: now ?? DateTime.now(),
+          ),
+        );
+        final all = await noteVersionsFor(noteId);
+        final drop = noteVersionIdsToPrune([
+          for (final v in all)
+            NoteVersionSize(id: v.id, sizeBytes: v.sizeBytes),
+        ], limits: limits);
+        if (drop.isNotEmpty) {
+          await (delete(noteVersions)..where((v) => v.id.isIn(drop))).go();
+        }
+        return true;
+      });
+    });
+  }
+
+  /// Deletes one version. Does not touch the note.
+  Future<int> deleteNoteVersion(String versionId) =>
+      _writeCoordinator.write<int>(
+        () => (delete(noteVersions)..where((v) => v.id.equals(versionId))).go(),
+      );
+
+  /// Restores [versionId] as the current state of its note. The current
+  /// state is stored as a version first, so the restore is itself undoable
+  /// (restore the snapshot it created). Returns false when the version or
+  /// its note no longer exists.
+  Future<bool> restoreNoteVersion(String versionId) {
+    return _writeCoordinator.write<bool>(() async {
+      return transaction(() async {
+        final version = await (select(
+          noteVersions,
+        )..where((v) => v.id.equals(versionId))).getSingleOrNull();
+        if (version == null) return false;
+        final note = await (select(
+          notes,
+        )..where((n) => n.id.equals(version.noteId))).getSingleOrNull();
+        if (note == null) return false;
+
+        final current = await noteVersionsFor(version.noteId);
+        final newest = current.isEmpty ? null : current.first;
+        if (shouldStoreNoteVersion(
+          title: note.title,
+          content: note.content,
+          newestTitle: newest?.title,
+          newestContent: newest?.content,
+          hasNewest: newest != null,
+        )) {
+          await into(noteVersions).insert(
+            NoteVersionsCompanion.insert(
+              id: _uuid(),
+              noteId: version.noteId,
+              title: Value(note.title),
+              content: note.content,
+              sizeBytes: noteVersionSizeBytes(note.title, note.content),
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
+
+        await (update(notes)..where((n) => n.id.equals(version.noteId))).write(
+          NotesCompanion(
+            title: Value(version.title),
+            content: Value(version.content),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+        return true;
+      });
+    });
+  }
+
+  /// Image assets of [noteId], oldest first (order of insertion).
+  Future<List<NoteAsset>> noteAssetsFor(String noteId) {
+    return (select(noteAssets)
+          ..where((a) => a.noteId.equals(noteId))
+          ..orderBy([(a) => OrderingTerm(expression: a.createdAt)]))
+        .get();
+  }
+
+  /// Reactive variant of [noteAssetsFor].
+  Stream<List<NoteAsset>> watchNoteAssets(String noteId) {
+    if (_isClosed) return const Stream.empty();
+    return (select(noteAssets)
+          ..where((a) => a.noteId.equals(noteId))
+          ..orderBy([(a) => OrderingTerm(expression: a.createdAt)]))
+        .watch();
+  }
+
+  Future<NoteAsset?> getNoteAsset(String assetId) {
+    return (select(
+      noteAssets,
+    )..where((a) => a.id.equals(assetId))).getSingleOrNull();
+  }
+
+  /// Inserts an image row without any check. Internal: app code goes through
+  /// [insertNoteAssetWithinLimits], which enforces the limits in the same
+  /// write. Kept for tests that build rows directly.
+  Future<void> insertNoteAsset(NoteAssetsCompanion asset) {
+    return _writeCoordinator.write<void>(() => into(noteAssets).insert(asset));
+  }
+
+  /// Inserts an image row only if the note and the whole library stay within
+  /// [limits]. The checks and the insert run in one transaction, so two
+  /// imports cannot both pass. Throws [NoteAssetLimitException] and writes
+  /// nothing when a limit would be exceeded.
+  Future<void> insertNoteAssetWithinLimits(
+    NoteAssetsCompanion asset,
+    NoteAssetLimits limits,
+  ) {
+    return _writeCoordinator.write<void>(
+      () => transaction(() async {
+        final countExpr = noteAssets.id.count();
+        final sumExpr = noteAssets.sizeBytes.sum();
+        final noteId = asset.noteId.value;
+        final perNote =
+            await (selectOnly(noteAssets)
+                  ..addColumns([countExpr, sumExpr])
+                  ..where(noteAssets.noteId.equals(noteId)))
+                .getSingle();
+        final total = await (selectOnly(
+          noteAssets,
+        )..addColumns([sumExpr])).getSingle();
+        final noteCount = perNote.read(countExpr) ?? 0;
+        final noteBytes = perNote.read(sumExpr) ?? 0;
+        final allBytes = total.read(sumExpr) ?? 0;
+        final size = asset.sizeBytes.value;
+
+        if (noteCount + 1 > limits.maxCountPerNote) {
+          throw const NoteAssetLimitException(NoteAssetLimit.perNoteCount);
+        }
+        if (noteBytes + size > limits.maxBytesPerNote) {
+          throw const NoteAssetLimitException(NoteAssetLimit.perNoteBytes);
+        }
+        if (allBytes + size > limits.maxTotalBytes) {
+          throw const NoteAssetLimitException(NoteAssetLimit.globalBytes);
+        }
+        await into(noteAssets).insert(asset);
+      }),
+    );
+  }
+
+  /// Relative paths of every image row. Used by the orphan sweep.
+  Future<Set<String>> allNoteAssetPaths() async {
+    final rows = await (selectOnly(
+      noteAssets,
+    )..addColumns([noteAssets.relativePath])).get();
+    return {for (final r in rows) r.read(noteAssets.relativePath)!};
+  }
+
+  /// Removes the row of [assetId]. The caller removes the file.
+  Future<int> deleteNoteAsset(String assetId) => _writeCoordinator.write<int>(
+    () => (delete(noteAssets)..where((a) => a.id.equals(assetId))).go(),
+  );
+
+  /// Ids of all notes, trashed or not. Used to sweep asset folders whose note
+  /// no longer exists.
+  Future<Set<String>> allNoteIds() async {
+    final rows = await (selectOnly(notes)..addColumns([notes.id])).get();
+    return {for (final r in rows) r.read(notes.id)!};
   }
 
   // ---------------------------------------------------------------------------
@@ -2872,12 +3692,25 @@ class HistoryDatabase extends _$HistoryDatabase {
 
   /// Backfill DailyStats from existing HistoryEntries (one-time migration).
   Future<void> backfillDailyStats() async {
-    // Check if DailyStats already has data — skip if already backfilled.
+    // A persisted flag, not the emptiness of DailyStats, marks a finished
+    // backfill: `resetDailyStats()` empties the table on purpose, and that
+    // reset must not be undone by the next launch (UIA-ANA-02).
+    final flag = await customSelect(
+      'SELECT value FROM app_meta WHERE key = ?',
+      variables: [Variable.withString(_dailyStatsBackfilledKey)],
+    ).get();
+    if (flag.isNotEmpty) return;
+
+    // Check if DailyStats already has data — an upgrade from before the flag
+    // existed. Record the flag so a later reset stays a reset.
     final existing = await (selectOnly(
       dailyStats,
     )..addColumns([dailyStats.count.sum()])).getSingle();
     final existingCount = existing.read(dailyStats.count.sum()) ?? 0;
-    if (existingCount > 0) return;
+    if (existingCount > 0) {
+      await _markDailyStatsBackfilled();
+      return;
+    }
 
     // Read ALL history entries (including deleted/archived) for backfill.
     final entries = await select(historyEntries).get();
@@ -2904,8 +3737,16 @@ class HistoryDatabase extends _$HistoryDatabase {
           costUsd: e.costUsd,
         );
       }
+      await _markDailyStatsBackfilled();
     });
   }
+
+  static const _dailyStatsBackfilledKey = 'daily_stats_backfilled';
+
+  Future<void> _markDailyStatsBackfilled() => customStatement(
+    'INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)',
+    [_dailyStatsBackfilledKey, '1'],
+  );
 
   static String _dateKey(DateTime dt) =>
       '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
@@ -2965,6 +3806,66 @@ class HistoryDatabase extends _$HistoryDatabase {
     final row = await q.getSingle();
     final totalSec = row.read(total) ?? 0.0;
     return (totalSec / 60.0) * ratePerMinute;
+  }
+
+  /// Raw versus revised word counts plus the number of transform actions.
+  ///
+  /// Raw text is `originalTranscript` where a smart-mode or LLM action changed
+  /// the text, otherwise the stored text itself. Soft-deleted rows are skipped.
+  Future<AnalyticsWording> analyticsWording({DateTime? since}) async {
+    final q = selectOnly(historyEntries)
+      ..addColumns([historyEntries.content, historyEntries.originalTranscript])
+      ..where(historyEntries.deletedAt.isNull());
+    if (since != null) {
+      q.where(historyEntries.timestamp.isBiggerOrEqualValue(since));
+    }
+    var raw = 0;
+    var revised = 0;
+    var actions = 0;
+    for (final row in await q.get()) {
+      final content = row.read(historyEntries.content) ?? '';
+      final original = row.read(historyEntries.originalTranscript);
+      final revisedWords = computeWordCountFast(content);
+      revised += revisedWords;
+      if (original == null) {
+        raw += revisedWords;
+      } else {
+        actions++;
+        raw += computeWordCountFast(original);
+      }
+    }
+    return AnalyticsWording(
+      rawWords: raw,
+      revisedWords: revised,
+      actionCount: actions,
+    );
+  }
+
+  /// Most frequent corrections, rejected ones excluded.
+  Future<List<AnalyticsCorrection>> analyticsTopCorrections({
+    DateTime? since,
+    int limit = 5,
+  }) async {
+    final q = select(correctionObservations)
+      ..where((c) => c.status.equals('rejected').not())
+      ..orderBy([
+        (c) => OrderingTerm.desc(c.occurrenceCount),
+        (c) => OrderingTerm.asc(c.sourceText),
+      ])
+      ..limit(limit);
+    if (since != null) {
+      q.where((c) => c.lastSeenAt.isBiggerOrEqualValue(since));
+    }
+    final rows = await q.get();
+    return rows
+        .map(
+          (r) => AnalyticsCorrection(
+            sourceText: r.sourceText,
+            targetText: r.targetText,
+            count: r.occurrenceCount,
+          ),
+        )
+        .toList();
   }
 
   /// Per-model usage stats.
@@ -3069,6 +3970,7 @@ class HistoryDatabase extends _$HistoryDatabase {
   Future<void> recordHotkeyLatency({
     required DateTime recordedAt,
     required int latencyMs,
+    int? stopToTextMs,
   }) async {
     await _writeCoordinator.write<void>(
       () => into(hotkeyLatencyEntries).insert(
@@ -3076,6 +3978,7 @@ class HistoryDatabase extends _$HistoryDatabase {
           id: _uuid(),
           recordedAt: recordedAt,
           latencyMs: latencyMs,
+          stopToTextMs: Value(stopToTextMs),
         ),
       ),
     );
@@ -3117,6 +4020,66 @@ class HistoryDatabase extends _$HistoryDatabase {
     final row = await q.getSingle();
     return row.read(avg);
   }
+
+  /// Average time from the recording stop to the delivered text, in
+  /// milliseconds (XP-6-09). Samples without a stop time (recorded before
+  /// v30) are left out, so old values are never reinterpreted. `null` when
+  /// no sample has one.
+  Future<double?> analyticsAverageStopToTextMs({DateTime? since}) async {
+    final avg = hotkeyLatencyEntries.stopToTextMs.avg();
+    final q = selectOnly(hotkeyLatencyEntries)..addColumns([avg]);
+    q.where(hotkeyLatencyEntries.stopToTextMs.isNotNull());
+    if (since != null) {
+      q.where(hotkeyLatencyEntries.recordedAt.isBiggerOrEqualValue(since));
+    }
+    final row = await q.getSingle();
+    return row.read(avg);
+  }
+
+  /// Writes several replacements in one transaction (WP-43a C-M-4). With
+  /// [replaceAll] the existing list is removed first, inside the same
+  /// transaction: if any row fails, nothing changes. Upserts nest inside the
+  /// outer transaction, so the whole batch is atomic.
+  Future<void> writeReplacements(
+    List<ReplacementWrite> items, {
+    bool replaceAll = false,
+  }) {
+    return transaction(() async {
+      if (replaceAll) {
+        await delete(textReplacementTriggers).go();
+        await delete(textReplacements).go();
+      }
+      for (final item in items) {
+        await upsertReplacementWithTriggers(
+          id: item.id,
+          triggers: item.triggers,
+          replacement: item.replacement,
+          createdAt: item.createdAt,
+          matchMode: item.matchMode,
+          fuzzyThreshold: item.fuzzyThreshold,
+          origin: item.origin,
+        );
+      }
+    });
+  }
+
+  /// Last top-level page the user was on, or null before the first visit.
+  /// See `kLastPageSettingKey` in `core/navigation/page_state.dart`.
+  Future<String?> readLastPage() async {
+    final rows = await customSelect(
+      'SELECT value FROM app_settings WHERE key = ?',
+      variables: [const Variable<String>('last_page')],
+    ).get();
+    return rows.isEmpty ? null : rows.first.read<String>('value');
+  }
+
+  /// Remembers [pageId]. Upserts one row, so a full settings write never
+  /// clears it and a settings reset does.
+  Future<void> writeLastPage(String pageId) => customStatement(
+    'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+    'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+    ['last_page', pageId],
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -3124,6 +4087,40 @@ class HistoryDatabase extends _$HistoryDatabase {
 // ---------------------------------------------------------------------------
 
 /// Model usage row for analytics.
+/// Raw versus revised wording totals for the analytics insights card.
+class AnalyticsWording {
+  const AnalyticsWording({
+    required this.rawWords,
+    required this.revisedWords,
+    required this.actionCount,
+  });
+
+  static const zero = AnalyticsWording(
+    rawWords: 0,
+    revisedWords: 0,
+    actionCount: 0,
+  );
+
+  final int rawWords;
+  final int revisedWords;
+
+  /// Recordings whose text a transform action (smart mode or LLM) changed.
+  final int actionCount;
+}
+
+/// One frequent correction the user made, with how often it was seen.
+class AnalyticsCorrection {
+  const AnalyticsCorrection({
+    required this.sourceText,
+    required this.targetText,
+    required this.count,
+  });
+
+  final String sourceText;
+  final String targetText;
+  final int count;
+}
+
 class AnalyticsModelUsage {
   const AnalyticsModelUsage({
     required this.model,
@@ -3140,6 +4137,16 @@ class AnalyticsModelUsage {
 // Connection factory
 // ---------------------------------------------------------------------------
 
+/// Per-connection setup for the history database. `secure_delete` makes
+/// SQLite overwrite freed pages, so deleted transcripts and Smart-Mode texts
+/// do not stay readable in the file (GS-017). Limits: the journal, flash
+/// wear-levelling, filesystem snapshots and backups are not touched.
+///
+/// Runs in the `setup` callback, i.e. before the first migration or query.
+void configureHistoryConnection(Database db) {
+  db.execute('PRAGMA secure_delete = ON');
+}
+
 QueryExecutor _openConnection() {
   // LazyDatabase opens the underlying NativeDatabase on first use; the
   // SentryQueryInterceptor emits a child span per query when a transaction
@@ -3149,10 +4156,11 @@ QueryExecutor _openConnection() {
   return LazyDatabase(() async {
     final dir = Directory(paths.appDataDir());
     if (!dir.existsSync()) dir.createSync(recursive: true);
-    await _migrateFromNestedPath(dir.path);
+    await migrateFromNestedPath(dir.path);
     final file = File(p.join(dir.path, 'history.db'));
     return NativeDatabase.createInBackground(
       file,
+      setup: configureHistoryConnection,
     ).interceptWith(SentryQueryInterceptor(databaseName: 'history'));
   });
 }
@@ -3161,8 +4169,9 @@ QueryExecutor _openConnection() {
 /// `%APPDATA%\WhisPaste\WhisPaste\` path to the correct single-level
 /// `%APPDATA%\WhisPaste\` path. If a Go-era DB already occupies the
 /// target, back it up and prefer the Flutter DB (correct Drift schema).
-Future<void> _migrateFromNestedPath(String correctDir) async {
-  if (!Platform.isWindows) return;
+@visibleForTesting
+Future<void> migrateFromNestedPath(String correctDir, {bool? isWindows}) async {
+  if (!(isWindows ?? Platform.isWindows)) return;
   final nestedDb = File(p.join(correctDir, 'WhisPaste', 'history.db'));
   if (!nestedDb.existsSync()) return;
 
@@ -3203,6 +4212,73 @@ Future<void> _migrateFromNestedPath(String correctDir) async {
   }
 }
 
+/// Removes the history database's companion files during a factory reset,
+/// after [HistoryDatabase.deleteAllData]. Production runs in rollback-journal
+/// mode, so the WAL checkpoint is normally a no-op; it matters only when WAL is
+/// on. The checkpoint moves committed deletions into the main file first. The
+/// database is then closed in every case: Windows refuses to delete a -wal or
+/// -shm that a live connection still holds open, even after a checkpoint.
+/// Any file left behind fails the reset, because the pre-migration copy is
+/// plaintext history.
+Future<void> eraseHistoryDatabaseFiles(HistoryDatabase db, String dir) async {
+  try {
+    await db.customSelect('PRAGMA wal_checkpoint(TRUNCATE)').get();
+  } catch (e, st) {
+    _log.warning(
+      'History WAL checkpoint failed; closing before removal',
+      e,
+      st,
+    );
+  }
+  await db.close();
+
+  final names = [
+    'history.db-wal',
+    'history.db-shm',
+    'history.db-journal',
+    'history.db.pre-migration',
+  ];
+  final remaining = <String>[];
+  for (final name in names) {
+    final path = p.join(dir, name);
+    try {
+      if (FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound) {
+        File(path).deleteSync();
+      }
+    } catch (e, st) {
+      _log.warning('Factory reset: could not delete $path', e, st);
+    }
+    if (FileSystemEntity.typeSync(path) != FileSystemEntityType.notFound) {
+      remaining.add(path);
+    }
+  }
+  if (remaining.isNotEmpty) {
+    throw FileSystemException(
+      'Factory reset left files behind',
+      remaining.join(', '),
+    );
+  }
+}
+
+/// Erases the database behind [historyDatabaseProvider] for a factory reset.
+/// The erase always closes that instance, and the app keeps running after a
+/// reset, so the provider is replaced on success and on failure alike: the
+/// next read (or a retry) then opens a fresh database instead of a closed one.
+Future<void> eraseHistoryForReset(
+  ProviderContainer container,
+  String dir,
+) async {
+  try {
+    final db = container.read(historyDatabaseProvider);
+    await db.deleteAllData();
+    // Image files live outside the database; a reset removes them too.
+    await eraseNoteAssetRoot(dir);
+    await eraseHistoryDatabaseFiles(db, dir);
+  } finally {
+    container.invalidate(historyDatabaseProvider);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Riverpod provider
 // ---------------------------------------------------------------------------
@@ -3228,3 +4304,28 @@ String generateV4Uuid() {
   return '${h.substring(0, 8)}-${h.substring(8, 12)}-'
       '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
 }
+
+/// One replacement and its trigger list, written by
+/// [HistoryDatabase.writeReplacements] inside a single transaction.
+class ReplacementWrite {
+  const ReplacementWrite({
+    required this.id,
+    required this.triggers,
+    required this.replacement,
+    required this.createdAt,
+    this.matchMode = 'exact',
+    this.fuzzyThreshold,
+    this.origin = 'manual',
+  });
+
+  final String id;
+  final List<String> triggers;
+  final String replacement;
+  final DateTime createdAt;
+  final String matchMode;
+  final double? fuzzyThreshold;
+  final String origin;
+}
+
+/// How many of the newest recordings keep their audio when retention is on.
+const int kAudioCap = 20;

@@ -34,6 +34,7 @@ class WpTagInput extends StatefulWidget {
     required this.hintText,
     required this.searchHintText,
     this.inlineLabel,
+    this.readOnly = false,
   });
 
   final List<Tag> tags;
@@ -42,6 +43,9 @@ class WpTagInput extends StatefulWidget {
   final List<Tag> suggestions;
   final Map<String, int> suggestionCounts;
   final ValueChanged<String>? onSearchChanged;
+
+  /// Shows the tags without the add field, suggestions or remove buttons.
+  final bool readOnly;
 
   /// Required rather than defaulted, for the reason spelled out on
   /// [WpSection.padding]: a default no caller wants is not a default, it is a
@@ -232,11 +236,11 @@ class WpTagInputState extends State<WpTagInput> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const surfaceEl = WpColors.surfaceElevated;
-    const borderCol = WpColors.borderSubtle;
+    final accent = WpColors.accent;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final surfaceEl = WpColors.surfaceElevated;
+    final borderCol = WpColors.borderSubtle;
     final l10n = L10n.of(context);
 
     // Collapse tags when not editing.
@@ -249,7 +253,10 @@ class WpTagInputState extends State<WpTagInput> {
 
     final suggestions = _filteredSuggestions;
     final showCreate = _isAddMode && _canCreateNewTag;
-    final showDropdown = _isAddMode && (suggestions.isNotEmpty || showCreate);
+    final showDropdown =
+        !widget.readOnly &&
+        _isAddMode &&
+        (suggestions.isNotEmpty || showCreate);
 
     return TapRegion(
       onTapOutside: _isAddMode ? (_) => _closeAddMode() : null,
@@ -265,24 +272,30 @@ class WpTagInputState extends State<WpTagInput> {
             children: [
               if (widget.inlineLabel != null) widget.inlineLabel!,
               for (final tag in visibleTags)
-                _TagChip(tag: tag, onRemove: () => widget.onRemove(tag.id)),
+                _TagChip(
+                  tag: tag,
+                  onRemove: widget.readOnly
+                      ? null
+                      : () => widget.onRemove(tag.id),
+                ),
               if (hiddenCount > 0)
                 // loam-ignore: a11y-interactive-semantics – semantics provided in _OverflowChip.build
                 _OverflowChip(count: hiddenCount, onTap: enterAddMode),
-              if (_isAddMode)
-                _buildInlineField(
-                  textPrimary: textPrimary,
-                  textMuted: textMuted,
-                  accent: accent,
-                  borderCol: borderCol,
-                  l10n: l10n,
-                )
-              else
-                // loam-ignore: a11y-interactive-semantics – semantics provided in _AddTagTrigger.build
-                _AddTagTrigger(
-                  label: widget.tags.isEmpty ? widget.hintText : null,
-                  onTap: enterAddMode,
-                ),
+              if (!widget.readOnly)
+                if (_isAddMode)
+                  _buildInlineField(
+                    textPrimary: textPrimary,
+                    textMuted: textMuted,
+                    accent: accent,
+                    borderCol: borderCol,
+                    l10n: l10n,
+                  )
+                else
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _AddTagTrigger.build
+                  _AddTagTrigger(
+                    label: widget.tags.isEmpty ? widget.hintText : null,
+                    onTap: enterAddMode,
+                  ),
             ],
           ),
 
@@ -296,7 +309,7 @@ class WpTagInputState extends State<WpTagInput> {
                   color: surfaceEl,
                   borderRadius: WpRadius.borderSm,
                   border: Border.all(color: borderCol),
-                  boxShadow: WpShadows.card,
+                  boxShadow: WpShadows.elevated,
                 ),
                 child: ListView(
                   shrinkWrap: true,
@@ -368,7 +381,7 @@ class WpTagInputState extends State<WpTagInput> {
                           padding: const EdgeInsets.only(right: WpSpacing.xxs),
                           child: Icon(
                             LucideIcons.cornerDownLeft,
-                            size: 14,
+                            size: WpIconSize.xs,
                             color: textMuted,
                           ),
                         ),
@@ -406,10 +419,10 @@ class WpTagInputState extends State<WpTagInput> {
 // ---------------------------------------------------------------------------
 
 class _TagChip extends StatefulWidget {
-  const _TagChip({required this.tag, required this.onRemove});
+  const _TagChip({required this.tag, this.onRemove});
 
   final Tag tag;
-  final VoidCallback onRemove;
+  final VoidCallback? onRemove;
 
   @override
   State<_TagChip> createState() => _TagChipState();
@@ -427,9 +440,9 @@ class _TagChipState extends State<_TagChip> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
-    const chipFill = WpColors.accentChipFill;
-    const chipFillHover = WpColors.accentChipFillHover;
+    final accent = WpColors.accent;
+    final chipFill = WpColors.accentChipFill;
+    final chipFillHover = WpColors.accentChipFillHover;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
@@ -449,47 +462,52 @@ class _TagChipState extends State<_TagChip> {
           children: [
             Text(
               widget.tag.name,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.body,
                 color: accent,
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(width: WpSpacing.xxs),
-            Semantics(
-              button: true,
-              label: 'Remove ${widget.tag.name}',
-              child: WpFocusRing(
-                focusNode: _focusNode,
-                radius: WpRadius.sm,
-                child: InkWell(
-                  onTap: widget.onRemove,
+            if (widget.onRemove != null)
+              Semantics(
+                button: true,
+                label: L10n.of(
+                  context,
+                ).tagRemoveSemanticsLabel(widget.tag.name),
+                child: WpFocusRing(
                   focusNode: _focusNode,
-                  borderRadius: WpRadius.borderFull,
-                  focusColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  child: Padding(
-                    // 2px pad enlarges the remove icon's tap area without
-                    // inflating the compact chip height.
-                    padding: const EdgeInsets.all(2),
-                    child: AnimatedOpacity(
-                      opacity: _isHovered ? 0.9 : 0.35,
-                      duration: WpMotion.durationFor(
-                        context,
-                        _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
-                      ),
-                      child: const Icon(
-                        LucideIcons.x,
-                        size: WpIconSize.xs,
-                        color: accent,
+                  radius: WpRadius.sm,
+                  child: InkWell(
+                    onTap: widget.onRemove,
+                    focusNode: _focusNode,
+                    borderRadius: WpRadius.borderFull,
+                    focusColor: Colors.transparent,
+                    hoverColor: Colors.transparent,
+                    splashColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    child: Padding(
+                      // 2px pad enlarges the remove icon's tap area without
+                      // inflating the compact chip height.
+                      padding: const EdgeInsets.all(2),
+                      child: AnimatedOpacity(
+                        // 0.6 at rest puts the glyph near 3:1 on the chip, the
+                        // only visible delete affordance on touch and keyboard (UIA-CMP-04).
+                        opacity: _isHovered ? 0.9 : 0.6,
+                        duration: WpMotion.durationFor(
+                          context,
+                          _isHovered ? WpMotion.hoverIn : WpMotion.hoverOut,
+                        ),
+                        child: Icon(
+                          LucideIcons.x,
+                          size: WpIconSize.xs,
+                          color: accent,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -509,7 +527,7 @@ class _OverflowChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColors.textMuted;
+    final textMuted = WpColors.textMuted;
 
     // Keep an explicit label here and exclude the visible text instead (the
     // `SettingRow` shape rather than the `MergeSemantics` one): "+12" is a
@@ -535,7 +553,7 @@ class _OverflowChip extends StatelessWidget {
           child: ExcludeSemantics(
             child: Text(
               '+$count',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.small,
                 color: textMuted,
                 fontWeight: FontWeight.w500,
@@ -567,8 +585,8 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
 
     // Two shapes in one control, so the semantics has to branch with it.
     // With a label the trigger renders that same string as `Text`, so the
@@ -613,7 +631,7 @@ class _AddTagTriggerState extends State<_AddTagTrigger> {
                     const SizedBox(width: WpSpacing.xxs),
                     Text(
                       widget.label!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: WpTypography.small,
                         color: textMuted,
                       ),
@@ -655,9 +673,9 @@ class _SuggestionTileState extends State<_SuggestionTile> {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const accent = WpColors.accent;
-    const hoverBg = WpColors.hover;
+    final textPrimary = WpColors.textPrimary;
+    final accent = WpColors.accent;
+    final hoverBg = WpColors.hover;
 
     // House idiom (`section.dart`): MergeSemantics + a *label-less*
     // Semantics — a `label:` is prepended to the subtree's text, not a
@@ -700,7 +718,7 @@ class _SuggestionTileState extends State<_SuggestionTile> {
                   Expanded(
                     child: Text(
                       widget.tag.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: WpTypography.body,
                         color: textPrimary,
                       ),
@@ -759,9 +777,9 @@ class _CreateTagTileState extends State<_CreateTagTile> {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const accent = WpColors.accent;
-    const hoverBg = WpColors.hover;
+    final textPrimary = WpColors.textPrimary;
+    final accent = WpColors.accent;
+    final hoverBg = WpColors.hover;
 
     // Same construction and same reasoning as `_SuggestionRow` above: the
     // create-row is the last stop of the very same arrow-key walk
@@ -789,16 +807,12 @@ class _CreateTagTileState extends State<_CreateTagTile> {
                   : Colors.transparent,
               child: Row(
                 children: [
-                  const Icon(
-                    LucideIcons.plus,
-                    size: WpIconSize.sm,
-                    color: accent,
-                  ),
+                  Icon(LucideIcons.plus, size: WpIconSize.sm, color: accent),
                   const SizedBox(width: WpSpacing.xs),
                   Expanded(
                     child: Text(
                       widget.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: WpTypography.body,
                         color: textPrimary,
                         fontWeight: FontWeight.w500,

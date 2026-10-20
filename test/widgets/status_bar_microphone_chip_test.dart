@@ -1,4 +1,4 @@
-/// Widget tests for the `WpStatusBar` microphone quick-switch chip.
+/// Widget tests for the `WpRecordingDock` microphone quick-switch chip.
 ///
 /// The chip mirrors the tray submenu: visible only when real devices were
 /// enumerated, system-default entry first, and selection routed through the
@@ -7,11 +7,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/microphone_selection_service.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
 
 import '../fixtures/test_helpers.dart';
 
@@ -32,7 +31,7 @@ void main() {
       Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          WpStatusBar(
+          WpRecordingDock(
             sttModeLabel: 'On device',
             sttState: SttServerState.ready,
             microphoneLabel: microphoneLabel,
@@ -61,7 +60,7 @@ void main() {
   });
 
   L10n l10nOf(WidgetTester tester) =>
-      L10n.of(tester.element(find.byType(WpStatusBar)));
+      L10n.of(tester.element(find.byType(WpRecordingDock)));
 
   testWidgets('shows the localized system-default label when selected', (
     tester,
@@ -75,7 +74,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(LucideIcons.mic), findsOneWidget);
+    expect(find.byKey(const ValueKey('dock-microphone')), findsOneWidget);
     expect(find.text(l10nOf(tester).settingsMicSystemDefault), findsOneWidget);
   });
 
@@ -104,7 +103,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.byIcon(LucideIcons.mic), findsNothing);
+    expect(find.byKey(const ValueKey('dock-microphone')), findsNothing);
   });
 
   testWidgets('opening the popup lists every option and reports onOpened', (

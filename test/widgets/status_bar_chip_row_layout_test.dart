@@ -1,29 +1,29 @@
-/// Layout tests for the `WpStatusBar` chip row.
+/// Layout tests for the `WpRecordingDock` row.
 ///
-/// The row used to be start-anchored, deliberately, because a centred row
-/// re-flows every chip sideways whenever one arrives or leaves. That decision
-/// was reversed (see the comment on the content-area span in
-/// `status_bar.dart`): the row is centred over the content column now, and the
-/// jump the old comment objected to is answered by an `AnimatedSize` that
-/// resolves the membership change as one damped ~200 ms reflow.
-///
-/// These tests pin the four properties that are easy to break silently while
-/// refactoring the bar: the centring itself, the sidebar-width spacer the
-/// chips align against, the damped (not instant) reflow, and the fact that no
-/// chip sits in a reserved fixed-width slot. Horizontal scrolling in a narrow
-/// window is covered too — centring is implemented *inside* the scroll
-/// viewport, which is exactly where scrolling is easiest to break.
+/// The dock lays its groups out from the start edge (dictate, status, then the
+/// selectors) and the status and selector groups take the width the row
+/// leaves. Optional entries (hints, updates, automation API) live in the Mehr
+/// menu, so showing or hiding them never moves the groups. These tests pin the
+/// properties that are easy to break silently while refactoring the dock:
+/// start-anchored order, no reserved fixed-width slot per selector, no
+/// scrolling, and the minimum-width behaviour.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:golden_screenshot/golden_screenshot.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/tokens.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
 
 import '../fixtures/test_helpers.dart';
 
 void main() {
+  // The dark default paints a 1 dp rim on the dock, which shifts the group by
+  // one pixel. This layout test pins the light appearance it was written for.
+  setUp(() => WpColors.activate(wpLightColors));
+
   Widget buildStatusBar({
     bool showAutoPasteOffHint = false,
     String? microphoneLabel,
@@ -42,7 +42,7 @@ void main() {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              WpStatusBar(
+              WpRecordingDock(
                 sttModeLabel: 'On device',
                 sttState: SttServerState.ready,
                 showAutoPasteOffHint: showAutoPasteOffHint,
@@ -60,20 +60,15 @@ void main() {
     );
   }
 
-  /// The chip group — the `AnimatedSize` that shrink-wraps the chip `Row`.
-  /// Asserted unique so the geometry below can never silently measure some
-  /// other animated box that a future refactor drops into this subtree.
-  Rect groupRect(WidgetTester tester) {
-    expect(find.byType(AnimatedSize), findsOneWidget);
-    return tester.getRect(find.byType(AnimatedSize));
-  }
-
   void setWindow(Size size) {
     final view =
         TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
     view.devicePixelRatio = 1.0;
     view.physicalSize = size;
   }
+
+  // Measure with the bundled fonts, as the goldens and the shell tests do.
+  setUpAll(loadAppFonts);
 
   setUp(() {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -87,80 +82,63 @@ void main() {
     view.resetPhysicalSize();
   });
 
-  testWidgets('chip group is centred over the content column, not anchored to '
-      'its start', (tester) async {
-    await tester.pumpWidget(buildStatusBar(hotkeyLabel: 'Ctrl+Shift+D'));
+  testWidgets('the status group follows the dictate button, never over it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildStatusBar(hotkeyLabel: 'Ctrl+Shift+D', updateVersion: '9.9.9'),
+    );
     await tester.pump();
 
-    final group = groupRect(tester);
-    final barWidth = tester.getSize(find.byType(WpStatusBar)).width;
-
-    // Centre of the content column — the window minus the sidebar spacer. The
-    // symmetric gutter cancels out, so the expected centre is independent of
-    // WpSpacing.xl.
-    final contentCentre = (WpLayout.sidebarWidth + barWidth) / 2;
-    expect(group.center.dx, moreOrLessEquals(contentCentre, epsilon: 0.5));
-
-    // Guards against a regression to start alignment passing by accident: a
-    // start-anchored group would sit at the gutter, far left of centre.
+    final status = tester.getRect(find.byKey(const ValueKey('dock-status')));
+    final dictate = tester.getRect(find.byKey(const ValueKey('dock-dictate')));
     expect(
-      group.left,
-      greaterThan(WpLayout.sidebarWidth + WpSpacing.xl + 1),
-      reason: 'group must not be flush against the start gutter',
+      status.left,
+      greaterThan(dictate.right),
+      reason: 'the status comes after the dictate button, never over it',
     );
   });
 
-  testWidgets('sidebar-width spacer survives — the chip viewport starts at the '
-      'content column, inset by the page gutter', (tester) async {
-    await tester.pumpWidget(buildStatusBar());
+  testWidgets('the groups start at the dock gutter, not the sidebar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildStatusBar(updateVersion: '9.9.9'));
     await tester.pump();
 
-    expect(find.byType(SingleChildScrollView), findsOneWidget);
-    final viewport = tester.getRect(find.byType(SingleChildScrollView));
+    final dock = tester.getRect(find.byKey(const ValueKey('dock-surface')));
+    final dictate = tester.getRect(find.byKey(const ValueKey('dock-dictate')));
     expect(
-      viewport.left,
-      moreOrLessEquals(WpLayout.sidebarWidth + WpSpacing.xl, epsilon: 0.01),
+      dictate.left,
+      moreOrLessEquals(dock.left + WpSpacing.md, epsilon: 0.01),
     );
   });
 
-  testWidgets('a chip appearing reflows the group over ~200 ms instead of '
-      'jumping to its new width', (tester) async {
+  testWidgets('a hint appearing in Mehr does not move the groups', (
+    tester,
+  ) async {
     await tester.pumpWidget(buildStatusBar(showAutoPasteOffHint: false));
     await tester.pump();
-    final before = groupRect(tester).width;
+    final status = tester.getRect(find.byKey(const ValueKey('dock-status')));
+    final dictate = tester.getRect(find.byKey(const ValueKey('dock-dictate')));
 
-    await tester.pumpWidget(buildStatusBar(showAutoPasteOffHint: true));
-    // First frame after the membership change: AnimatedSize has only just
-    // learned the new child size, so the box itself has not moved yet.
-    await tester.pump();
-    expect(groupRect(tester).width, moreOrLessEquals(before, epsilon: 0.01));
-
-    await tester.pump(const Duration(milliseconds: 100));
-    final midway = groupRect(tester).width;
-
+    await tester.pumpWidget(
+      buildStatusBar(showAutoPasteOffHint: true, updateVersion: '9.9.9'),
+    );
     await tester.pumpAndSettle();
-    final settled = groupRect(tester).width;
 
     expect(
-      settled,
-      greaterThan(before),
-      reason: 'the extra chip must widen the group',
+      tester.getRect(find.byKey(const ValueKey('dock-status'))),
+      status,
+      reason: 'the status group keeps its place and width',
     );
     expect(
-      midway,
-      greaterThan(before),
-      reason: 'the reflow must have started by 100 ms',
-    );
-    expect(
-      midway,
-      lessThan(settled),
-      reason:
-          'the reflow must still be running at 100 ms — a jump would '
-          'already be at its final width on the first frame',
+      tester.getRect(find.byKey(const ValueKey('dock-dictate'))),
+      dictate,
+      reason: 'the dictate button keeps its place and width',
     );
   });
 
-  testWidgets('chip widths follow their content — no reserved fixed-width '
+  testWidgets('selector widths follow their content — no reserved fixed-width '
       'slots', (tester) async {
     await tester.pumpWidget(
       buildStatusBar(
@@ -169,7 +147,9 @@ void main() {
       ),
     );
     await tester.pump();
-    final withShortName = groupRect(tester).width;
+    final withShortName = tester
+        .getSize(find.byKey(const ValueKey('dock-microphone')))
+        .width;
 
     await tester.pumpWidget(
       buildStatusBar(
@@ -178,31 +158,39 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final withLongerName = groupRect(tester).width;
+    final withLongerName = tester
+        .getSize(find.byKey(const ValueKey('dock-microphone')))
+        .width;
 
     expect(
       withLongerName,
       greaterThan(withShortName),
       reason:
-          'a longer device name must grow the group; equal widths would '
-          'mean the chip sits in a reserved slot',
+          'a longer device name must grow the selector; equal widths would '
+          'mean it sits in a reserved slot',
     );
   });
 
-  testWidgets('wide window does not scroll — the centred group must not leave '
-      'a phantom scroll extent', (tester) async {
-    await tester.pumpWidget(buildStatusBar(hotkeyLabel: 'Ctrl+Shift+D'));
+  testWidgets('the dock never scrolls', (tester) async {
+    await tester.pumpWidget(
+      buildStatusBar(hotkeyLabel: 'Ctrl+Shift+D', updateVersion: '9.9.9'),
+    );
     await tester.pump();
 
-    final position = tester
-        .state<ScrollableState>(find.byType(Scrollable))
-        .position;
-    expect(position.maxScrollExtent, 0);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('dock-surface')),
+        matching: find.byType(Scrollable),
+      ),
+      findsNothing,
+    );
   });
 
-  testWidgets('narrow window still scrolls horizontally with the row centred '
-      'inside the viewport', (tester) async {
-    setWindow(const Size(420, 800));
+  testWidgets('a narrow window keeps the groups whole inside the dock', (
+    tester,
+  ) async {
+    // 800 px is the minimum window width: the groups must stay whole there.
+    setWindow(const Size(800, 800));
     await tester.pumpWidget(
       buildStatusBar(
         microphoneLabel: 'Studio Mic 42',
@@ -214,18 +202,12 @@ void main() {
     );
     await tester.pump();
 
-    final position = tester
-        .state<ScrollableState>(find.byType(Scrollable))
-        .position;
-    expect(
-      position.maxScrollExtent,
-      greaterThan(0),
-      reason: 'over-wide content must stay scrollable',
-    );
-
-    await tester.drag(find.byType(SingleChildScrollView), const Offset(-80, 0));
-    await tester.pump();
-    expect(position.pixels, greaterThan(0));
+    final dock = tester.getRect(find.byKey(const ValueKey('dock-surface')));
+    for (final key in ['dock-dictate', 'dock-status']) {
+      final group = tester.getRect(find.byKey(ValueKey(key)));
+      expect(group.right, lessThanOrEqualTo(dock.right));
+    }
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

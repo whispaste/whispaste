@@ -433,18 +433,17 @@ void main() {
   // ── AC4: Anti-goals ───────────────────────────────────────────────────────
 
   group('AC4 — anti-goals: no glow, no decorative / scattered motion', () {
-    test('button spec explicitly has hasGlow = false', () {
-      expect(OverlayDesignSpec.button.hasGlow, isFalse);
-    });
-
     test('OverlayThemeColors has no glow color field', () {
       // Structural: there is no field named "glow" in the theme color set.
       // If a glow field were added, the Flutter analyzer would catch it via
       // dead-code or the AC4 assertion here would fail on inspection.
-      const colors = OverlayDesignSpec.light;
-      // All defined fields: capsuleFillStart, capsuleFillEnd, capsuleBorder,
-      // text, accent, success, error, recordingDot. None is "glow".
-      expect(colors.accent, isNotNull); // accent is teal, not a glow tint
+      final colors = OverlayDesignSpec.colorsFor();
+      // All defined fields: capsuleFill, capsuleFillEnd, capsuleBorder,
+      // ink, accent, success, error, recordingDot. None is "glow".
+      expect(
+        colors.accent,
+        isNotNull,
+      ); // accent is the wave colour, not a glow tint
     });
 
     test('arc appear duration is within Phase-0 hard-cap (≤ 700 ms)', () {

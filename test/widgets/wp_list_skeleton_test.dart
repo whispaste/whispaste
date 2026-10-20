@@ -19,7 +19,7 @@ import 'package:whispaste/widgets/wp_list_skeleton.dart';
 import '../fixtures/test_helpers.dart';
 
 /// Mirrors `_historySkeletonRowHeight` in `lib/features/history/history_page.dart`.
-const _historySkeletonRowHeight = 112.0;
+const _historySkeletonRowHeight = 120.0;
 
 /// Mirrors `_notesSkeletonRowHeight` in `lib/features/notes/notes_page.dart`.
 const _notesSkeletonRowHeight = 139.0;

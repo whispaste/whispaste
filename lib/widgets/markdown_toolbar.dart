@@ -294,8 +294,8 @@ class _ButtonRow extends StatelessWidget {
       controller: controller,
       focusNode: focusNode,
     );
-    const mutedColor = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final mutedColor = WpColors.textMuted;
+    final accent = WpColors.accent;
     final divColor = mutedColor.withValues(alpha: 0.2);
 
     return Container(
@@ -462,7 +462,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
       toggled: widget.isActive ? true : null,
       child: Tooltip(
         message: widget.tooltip,
-        waitDuration: const Duration(milliseconds: 400),
+        waitDuration: WpMotion.tooltipWait,
         child: MouseRegion(
           cursor: SystemMouseCursors.click,
           onEnter: (_) => setState(() => _hovered = true),
@@ -489,7 +489,7 @@ class _ToolbarButtonState extends State<_ToolbarButton> {
                 ),
                 child: Icon(
                   widget.icon,
-                  size: 14,
+                  size: WpIconSize.xs,
                   color: highlighted ? widget.accent : widget.muted,
                 ),
               ),

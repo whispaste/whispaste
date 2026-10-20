@@ -13,8 +13,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:golden_screenshot/golden_screenshot.dart' show loadAppFonts;
 import 'package:whispaste/app.dart'
-    show wpNavDividerAfterIds, wpNavItems, wpSettingsNavItem;
+    show wpHelpNavItem, wpNavDividerAfterIds, wpNavItems, wpSettingsNavItem;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/widgets/sidebar.dart';
@@ -22,7 +23,11 @@ import 'package:whispaste/widgets/sidebar.dart';
 import '../fixtures/test_helpers.dart';
 
 void main() {
-  /// The real production rail (7 nav items + group break + pinned settings)
+  // Real glyph widths: the default test font draws every glyph one em wide,
+  // which wraps labels that fit on one line in the app and skews the budget.
+  setUpAll(() async => loadAppFonts());
+
+  /// The real production rail (6 working areas + 2 group breaks + pinned Help and Settings)
   /// inside a box of exactly [height] — the room the app shell leaves it
   /// between title bar and status bar.
   Widget railInBox(double height) => makeTestable(
@@ -38,7 +43,10 @@ void main() {
                 dividerAfterIds: wpNavDividerAfterIds,
                 activeId: 'history',
                 onItemTap: (_) {},
-                bottomItems: [wpSettingsNavItem(L10n.of(context))],
+                bottomItems: [
+                  wpHelpNavItem(L10n.of(context)),
+                  wpSettingsNavItem(L10n.of(context)),
+                ],
               ),
             ],
           ),
@@ -72,14 +80,14 @@ void main() {
       // The group break was 17 dp (a 1 px hairline in 2 × 8 dp of padding)
       // until Ticket 08 removed the line. Spacing has to say what the line
       // said, so it got 7 dp more — and the enforced window minimum grew with
-      // it, 621 → 628, which is the direction this file's second test says to
+      // it, 621 → 628 (later 732, once the dock joined the frame chrome; 716 after the WP-79 dock shrank to 76 px), which is the direction this file's second test says to
       // take when the rail legitimately needs more room.
-      expect(WpNavRail.rowHeight, 58);
+      expect(WpNavRail.rowHeight, 52);
       expect(WpNavRail.groupBreakHeight, 24);
-      expect(WpNavRail.productionContentHeight, 504);
-      expect(WpLayout.frameChromeHeight, 112);
+      expect(WpNavRail.productionContentHeight, 576);
+      expect(WpLayout.frameChromeHeight, 128);
       expect(WpLayout.windowFrameAllowance, 12);
-      expect(WpLayout.minWindowHeight, 628);
+      expect(WpLayout.minWindowHeight, 716);
       expect(
         WpLayout.minWindowHeight -
             WpLayout.frameChromeHeight -
@@ -120,7 +128,7 @@ void main() {
       );
     });
 
-    testWidgets('no overflow at the enforced window minimum (800×621)', (
+    testWidgets('no overflow at the enforced window minimum (800×732)', (
       tester,
     ) async {
       final overflows = captureOverflows(tester);

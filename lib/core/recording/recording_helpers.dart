@@ -18,15 +18,26 @@ import '../../services/stt_parakeet/parakeet_model_registry.dart'
 /// diesen Vorgang also gar nichts aus (Ticket 25). Voreinstellung ist
 /// [RecordingTarget.clipboard], damit alle bisherigen Aufrufer unverändert
 /// bleiben.
+///
+/// [pasteFailed] ist das reale Ergebnis des Einfügeversuchs: ein fehlgeschlagenes
+/// Einfügen darf nie als „Eingefügt“ erscheinen, auch wenn die Einstellung
+/// einfügt. Ob der Text zusätzlich in der Zwischenablage liegt, meldet der
+/// Fehlerpfad nicht, daher steht hier bewusst nur „nicht eingefügt“.
 String doneMessageFor(
   String? afterAction,
   L10n l10n, {
   RecordingTarget target = RecordingTarget.clipboard,
+  bool pasteFailed = false,
+  bool copiedOnly = false,
+  bool historyOnly = false,
 }) {
   if (target == RecordingTarget.quickNote) return l10n.overlayDoneQuickNote;
   if (target == RecordingTarget.selectionEdit) {
     return l10n.overlayDoneSelectionEdit;
   }
+  if (historyOnly) return l10n.overlayDoneNotPasted;
+  if (copiedOnly) return l10n.overlayDoneCopiedOnly;
+  if (pasteFailed) return l10n.overlayDonePasteFailed;
   return switch (afterAction) {
     'paste' => l10n.overlayDonePasted,
     'copy_and_paste' || 'clipboard_and_paste' => l10n.overlayDoneBoth,
@@ -35,26 +46,29 @@ String doneMessageFor(
   };
 }
 
-/// Maps a raw model ID (e.g. "whisper-small") to a user-facing label
-/// showing the quality tier as primary and the Whisper model in parentheses.
+/// Family names of the local speech models. These are proper nouns and are
+/// never translated (CONTEXT.md §5.3a, UIA-NAM-01).
+const String sttWhisperFamilyName = 'Whisper';
+const String sttParakeetFamilyName = 'Parakeet';
+
+/// The localized tier word of [tier] ("Fast" / "Balanced" / "Accurate").
+String sttTierLabel(QualityTier tier, L10n l10n) => switch (tier) {
+  QualityTier.compact => l10n.qualityTierCompactLabel,
+  QualityTier.balanced => l10n.qualityTierBalancedLabel,
+  QualityTier.premium => l10n.qualityTierPremiumLabel,
+};
+
+/// The one display name of a speech model, used by every surface (dock,
+/// settings, onboarding, statistics, history, toasts). Main name is always
+/// `<Family> · <Tier>`, e.g. "Whisper · Balanced"; Parakeet has no tier and is
+/// just "Parakeet". Technical IDs, sizes and quantisation never appear here.
 ///
-/// Example: "Ausgewogen (Whisper Medium)" for "whisper-medium".
-/// Parakeet has no quality tiers — it maps directly to its display title.
-/// Falls back to [modelId] when no matching tier or model is found.
+/// Falls back to [modelId] when the model is unknown.
 String displayNameForModel(String modelId, L10n l10n) {
-  if (modelId == parakeetModelId) return l10n.parakeetModelTitle;
+  if (modelId == parakeetModelId) return sttParakeetFamilyName;
 
   final tier = tierForModel(modelId);
   if (tier == null) return modelId;
 
-  final tierLabel = switch (tier) {
-    QualityTier.compact => l10n.qualityTierCompactLabel,
-    QualityTier.balanced => l10n.qualityTierBalancedLabel,
-    QualityTier.premium => l10n.qualityTierPremiumLabel,
-  };
-
-  final model = findSttModel(modelId);
-  if (model == null) return tierLabel;
-
-  return l10n.analyticsModelDisplayName(tierLabel, model.label);
+  return '$sttWhisperFamilyName · ${sttTierLabel(tier, l10n)}';
 }

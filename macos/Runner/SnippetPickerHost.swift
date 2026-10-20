@@ -43,11 +43,12 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
   /// Fixed panel content size — part of the cross-platform Snippet-Picker
   /// contract (visual-refresh-2026 ticket 28), not a stopgap: every native
   /// shell (this one, and the Windows/Linux shells that reuse the same Dart
-  /// panel) hosts the same 360×420 surface. The Dart panel itself
-  /// (`lib/snippet_picker_render_entrypoint.dart`) does not report a
+  /// panel) hosts the same 400×460 window: a 360×420 card plus the shadow
+  /// inset. The Dart panel itself (`lib/snippet_picker_render_entrypoint.dart`)
+  /// does not report a
   /// measured size back to its host, so each shell fixes this size rather
   /// than sizing to content.
-  private static let contentSize = NSSize(width: 360, height: 420)
+  private static let contentSize = NSSize(width: 400, height: 460)
 
   private var channel: FlutterMethodChannel
 
@@ -487,12 +488,12 @@ class SnippetPickerHost: NSObject, NSWindowDelegate {
     keyReclaimDeadline = nil
     p.orderOut(nil)
     // Tell the render engine the panel left the screen so it can stop its
-    // glass animations. Needed since the engine was detached from the
+    // entrance animation. Needed since the engine was detached from the
     // embedder's app lifecycle (the arrow-key frame-starvation fix, see
     // `detachFromEmbedderAppLifecycle` in
     // snippet_picker_render_entrypoint.dart): frames are never
     // lifecycle-disabled in that engine any more, so without this signal an
-    // un-gated drift animation would keep repainting the ordered-out panel
+    // un-gated animation would keep repainting the ordered-out panel
     // for the rest of the app session. `setItems` (sent by every `show`) is
     // the matching "panel shown" signal.
     renderChannel?.invokeMethod("panelHidden", arguments: nil)

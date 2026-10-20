@@ -194,6 +194,7 @@ class _WpFilterChipState extends State<WpFilterChip> {
             highlightColor: Colors.transparent,
             child: ConstrainedBox(
               constraints: const BoxConstraints(
+                minWidth: WpLayout.minTouchTarget,
                 minHeight: WpLayout.minTouchTarget,
               ),
               child: Center(

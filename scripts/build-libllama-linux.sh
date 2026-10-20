@@ -95,7 +95,7 @@ cmake -S "$LLAMA_SRC" -B "$BUILD_DIR" \
   -DLLAMA_OPENSSL=OFF
 # BUILD_JOBS caps parallelism: the CPU-variant + Vulkan-shader compile peaks
 # at well over 1 GB per job, so an unbounded -j on a small-RAM box (verified:
-# 8 jobs on an 8 GB WSL2 VM) gets cc1plus OOM-killed.
+# 8 jobs on an 8 GB Ubuntu VM) gets cc1plus OOM-killed.
 cmake --build "$BUILD_DIR" --config Release -j "${BUILD_JOBS:-$(nproc)}"
 echo "      built."
 

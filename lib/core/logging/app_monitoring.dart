@@ -115,6 +115,10 @@ class AppMonitoring {
   static void configureSentryOptions(SentryFlutterOptions options) {
     options.dsn = _sentryDsn;
     options.environment = kReleaseMode ? 'production' : 'development';
+    // A debug hot restart runs main() again, and re-initialising the native
+    // Cocoa SDK inside the live process segfaults in its binary-image cache
+    // (crash 2026-10-18). Debug builds keep the Dart-side capture only.
+    options.autoInitializeNativeSdk = !kDebugMode;
     options.release = sentryRelease;
     options.dist = currentArchTag();
     options.sendDefaultPii = false;

@@ -105,6 +105,19 @@ void main() {
     expect(find.text('result=true'), findsOneWidget);
   });
 
+  // Maintainer decision 12 (2026-10-20): no glass, no glow. The barrier behind
+  // a dialog is a flat scrim on every platform.
+  testWidgets('the dialog barrier is a flat scrim, not a backdrop blur', (
+    tester,
+  ) async {
+    await tester.pumpWidget(makeTestable(_contentDialogOpener()));
+    await tester.tap(find.text('Open dialog'));
+    await tester.pumpAndSettle();
+    expect(find.text('Resetting WhisPaste'), findsOneWidget);
+
+    expect(find.byType(BackdropFilter), findsNothing);
+  });
+
   group('dismissible', () {
     // The factory-reset progress dialog leans on this: a destructive
     // operation in flight must not be walked away from, and the capability

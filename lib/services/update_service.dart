@@ -19,6 +19,7 @@ import '../core/logging/app_logger.dart';
 import '../core/recording/recording_state.dart';
 import '../core/semver.dart' as semver;
 import 'deploy_channel_service.dart';
+import 'download_allowlist.dart';
 import 'http_model_fetcher.dart' show buildDioWithSentry;
 import 'telemetry_service.dart';
 import 'update/mac_update_installer.dart';
@@ -77,6 +78,17 @@ enum UpdatePhase {
   error,
 }
 
+/// Why the installation step failed. Set only together with
+/// [UpdatePhase.error] after [UpdateNotifier.installUpdate] ran, so the UI can
+/// tell an install failure apart from a failed update check (UIA-FLW-08).
+enum InstallFailure {
+  /// The downloaded installer is gone; the user needs a fresh check.
+  installerMissing,
+
+  /// The installer exists but could not be started; retrying is meaningful.
+  launchFailed,
+}
+
 /// Immutable snapshot of the update lifecycle.
 class UpdateState {
   const UpdateState({
@@ -87,6 +99,8 @@ class UpdateState {
     this.downloadedPath,
     this.progressPercent = 0,
     this.errorMessage,
+    this.installFailure,
+    this.installDeferred = false,
   });
 
   final UpdatePhase phase;
@@ -96,6 +110,26 @@ class UpdateState {
   final String? downloadedPath;
   final double progressPercent;
   final String? errorMessage;
+
+  /// Set when [phase] is [UpdatePhase.error] because the installation failed.
+  final InstallFailure? installFailure;
+
+  /// The user asked to install during a dictation; the install starts once
+  /// the dictation has ended (see [UpdateNotifier.installUpdate]).
+  final bool installDeferred;
+
+  /// This state without the deferred-install request. [copyWith] cannot clear
+  /// a flag, so this is the way back to `false`.
+  UpdateState withoutDeferredInstall() => UpdateState(
+    phase: phase,
+    latestVersion: latestVersion,
+    downloadUrl: downloadUrl,
+    releaseNotesUrl: releaseNotesUrl,
+    downloadedPath: downloadedPath,
+    progressPercent: progressPercent,
+    errorMessage: errorMessage,
+    installFailure: installFailure,
+  );
 
   bool get isBusy =>
       phase == UpdatePhase.checking || phase == UpdatePhase.downloading;
@@ -108,6 +142,9 @@ class UpdateState {
     String? downloadedPath,
     double? progressPercent,
     String? errorMessage,
+    InstallFailure? installFailure,
+    bool? installDeferred,
+    // loam-ignore: code-duplicates – the repo-wide copyWith(field: field ?? this.field, ...) shape, shared by RecordingState and UpdateState.
   }) {
     return UpdateState(
       phase: phase ?? this.phase,
@@ -117,6 +154,8 @@ class UpdateState {
       downloadedPath: downloadedPath ?? this.downloadedPath,
       progressPercent: progressPercent ?? this.progressPercent,
       errorMessage: errorMessage ?? this.errorMessage,
+      installFailure: installFailure ?? this.installFailure,
+      installDeferred: installDeferred ?? this.installDeferred,
     );
   }
 }
@@ -128,6 +167,9 @@ class UpdateState {
 class UpdateNotifier extends Notifier<UpdateState> {
   CancelToken? _cancelToken;
   late final Dio _dio;
+
+  /// Watches the dictation phase while an install waits for it to end.
+  ProviderSubscription<RecordingPhase>? _deferredInstallSub;
 
   /// Test-only override for the Dio client. When set BEFORE the notifier is
   /// first observed, `build()` uses this instance instead of constructing a
@@ -171,6 +213,7 @@ class UpdateNotifier extends Notifier<UpdateState> {
     _dio = dioOverrideForTesting ?? buildUpdateDio();
     ref.onDispose(() {
       _cancelToken?.cancel('disposed');
+      _closeDeferredInstall();
       _dio.close();
     });
     return const UpdateState();
@@ -232,7 +275,8 @@ class UpdateNotifier extends Notifier<UpdateState> {
         // release is exactly what a beta-channel user opted into. Non-app
         // releases (e.g. the `cuda-…` pack prereleases) are skipped: only
         // `v`-prefixed tags are app versions.
-        final response = await _dio.get<List<dynamic>>(
+        final response = await getWithAllowlistedRedirects<List<dynamic>>(
+          _dio,
           _releasesListApiUrl,
           options: Options(
             headers: {'Accept': 'application/vnd.github.v3+json'},
@@ -243,12 +287,14 @@ class UpdateNotifier extends Notifier<UpdateState> {
             .where((r) => (r['tag_name'] as String?)?.startsWith('v') ?? false)
             .firstOrNull;
       } else {
-        final response = await _dio.get<Map<String, dynamic>>(
-          _releasesApiUrl,
-          options: Options(
-            headers: {'Accept': 'application/vnd.github.v3+json'},
-          ),
-        );
+        final response =
+            await getWithAllowlistedRedirects<Map<String, dynamic>>(
+              _dio,
+              _releasesApiUrl,
+              options: Options(
+                headers: {'Accept': 'application/vnd.github.v3+json'},
+              ),
+            );
         data = response.data;
       }
 
@@ -436,8 +482,12 @@ class UpdateNotifier extends Notifier<UpdateState> {
   /// The NSIS installer will kill the running process, overwrite files,
   /// and optionally restart the app from its Finish page.
   Future<void> installUpdate() async {
-    if (state.phase != UpdatePhase.readyToInstall ||
-        state.downloadedPath == null) {
+    // A launch failure keeps the installer, so the user can retry it.
+    final canInstall =
+        state.phase == UpdatePhase.readyToInstall ||
+        (state.phase == UpdatePhase.error &&
+            state.installFailure == InstallFailure.launchFailed);
+    if (!canInstall || state.downloadedPath == null) {
       return;
     }
 
@@ -456,17 +506,34 @@ class UpdateNotifier extends Notifier<UpdateState> {
         'installUpdate deferred — recording in progress '
         '($recordingPhase)',
       );
+      // Install right after the dictation, not in the middle of it. Only the
+      // guarded phases count as busy, so the install starts exactly when the
+      // existing guard would let it through. The user gets a visible note
+      // (see `about_section.dart`) and the app restarts only after that click.
+      state = state.copyWith(installDeferred: true);
+      _deferredInstallSub ??= ref.listen<RecordingPhase>(
+        recordingProvider.select((s) => s.phase),
+        (_, next) {
+          if (isDictationBusy(next)) return;
+          _closeDeferredInstall();
+          unawaited(installUpdate());
+        },
+      );
       return;
     }
+    _closeDeferredInstall();
+    if (state.installDeferred) state = state.withoutDeferredInstall();
 
     final installerPath = state.downloadedPath!;
 
-    // Verify the file still exists before trying to launch it.
+    // Verify the file still exists before trying to launch it. Without the
+    // file a retry cannot help, so the next step is a fresh check.
     final installerFile = File(installerPath);
     if (!installerFile.existsSync()) {
       _log.error('Installer file not found: $installerPath');
       state = const UpdateState(
         phase: UpdatePhase.error,
+        installFailure: InstallFailure.installerMissing,
         errorMessage: 'Installer file not found. Please download again.',
       );
       return;
@@ -523,9 +590,15 @@ class UpdateNotifier extends Notifier<UpdateState> {
       _log.error('Failed to launch installer', e, st);
       state = state.copyWith(
         phase: UpdatePhase.error,
+        installFailure: InstallFailure.launchFailed,
         errorMessage: 'Could not launch installer: $e',
       );
     }
+  }
+
+  void _closeDeferredInstall() {
+    _deferredInstallSub?.close();
+    _deferredInstallSub = null;
   }
 
   // -----------------------------------------------------------------------

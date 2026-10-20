@@ -1,12 +1,12 @@
-/// Widget tests for the `WpStatusBar` Automation API chip.
+/// Widget tests for the Automation API entry in the dock's Mehr menu.
 ///
-/// The chip mirrors the update/hotkey chips: it is entirely absent while
-/// [WpStatusBar.automationApiRunState] is `null` or `stopped` — the API is
+/// The entry is absent while
+/// [WpRecordingDock.automationApiRunState] is `null` or `stopped` — the API is
 /// off by default (see `AutomationApiController`), so a persistent chip for
 /// most users, who never enable it, would be noise. It appears for
 /// `running` (plain, or with the fallback-port hint when the bound port
 /// differs from the requested one) and `error` (no free port found), and
-/// forwards a tap to [WpStatusBar.onAutomationApiTap].
+/// forwards a tap to [WpRecordingDock.onAutomationApiTap].
 library;
 
 import 'package:flutter/material.dart';
@@ -14,11 +14,42 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/services/automation_api/automation_api_controller.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
+
+import 'package:golden_screenshot/golden_screenshot.dart';
 
 import '../fixtures/test_helpers.dart';
 
 void main() {
+  // Measure with the bundled fonts: the default Ahem test font is far wider
+  // than the app's, which would make the chips fall back to icon form.
+  setUpAll(loadAppFonts);
+
+  setUp(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    final view =
+        TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
+    view.devicePixelRatio = 1.0;
+    view.physicalSize = const Size(1280, 800);
+  });
+
+  tearDown(() {
+    final view =
+        TestWidgetsFlutterBinding.instance.platformDispatcher.views.first;
+    view.resetDevicePixelRatio();
+    view.resetPhysicalSize();
+  });
+
+  Future<void> openMehr(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('dock-overflow')));
+    await tester.pumpAndSettle();
+  }
+
+  Finder inEntry(Finder finder) => find.descendant(
+    of: find.byKey(const ValueKey('dock-menu-automation')),
+    matching: finder,
+  );
+
   Widget buildStatusBar({
     AutomationApiRunState? automationApiRunState,
     int? automationApiPort,
@@ -29,7 +60,7 @@ void main() {
       Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          WpStatusBar(
+          WpRecordingDock(
             sttModeLabel: 'On device',
             sttState: SttServerState.ready,
             automationApiRunState: automationApiRunState,
@@ -45,7 +76,7 @@ void main() {
   testWidgets('hidden when automationApiRunState is null', (tester) async {
     await tester.pumpWidget(buildStatusBar());
     await tester.pump();
-
+    expect(find.byKey(const ValueKey('dock-overflow')), findsNothing);
     expect(find.byIcon(LucideIcons.terminal), findsNothing);
     expect(find.byIcon(LucideIcons.circleAlert), findsNothing);
   });
@@ -55,7 +86,7 @@ void main() {
       buildStatusBar(automationApiRunState: AutomationApiRunState.stopped),
     );
     await tester.pump();
-
+    expect(find.byKey(const ValueKey('dock-overflow')), findsNothing);
     expect(find.byIcon(LucideIcons.terminal), findsNothing);
   });
 
@@ -70,9 +101,9 @@ void main() {
       ),
     );
     await tester.pump();
-
-    expect(find.byIcon(LucideIcons.terminal), findsOneWidget);
-    expect(find.text('API: 8765'), findsOneWidget);
+    await openMehr(tester);
+    expect(inEntry(find.byIcon(LucideIcons.terminal)), findsOneWidget);
+    expect(inEntry(find.text('Automation: 8765')), findsOneWidget);
   });
 
   testWidgets(
@@ -87,17 +118,16 @@ void main() {
         ),
       );
       await tester.pump();
+      await openMehr(tester);
 
-      expect(find.byIcon(LucideIcons.terminal), findsOneWidget);
-      expect(find.text('API: 8766'), findsOneWidget);
+      expect(inEntry(find.byIcon(LucideIcons.terminal)), findsOneWidget);
+      expect(inEntry(find.text('Automation: 8766')), findsOneWidget);
 
       final tooltipWidget = tester.widget<Tooltip>(
-        find
-            .ancestor(
-              of: find.byIcon(LucideIcons.terminal),
-              matching: find.byType(Tooltip),
-            )
-            .first,
+        find.descendant(
+          of: find.byKey(const ValueKey('dock-menu-automation')),
+          matching: find.byType(Tooltip),
+        ),
       );
       expect(
         tooltipWidget.message,
@@ -111,12 +141,13 @@ void main() {
       buildStatusBar(automationApiRunState: AutomationApiRunState.error),
     );
     await tester.pump();
+    await openMehr(tester);
 
-    expect(find.byIcon(LucideIcons.circleAlert), findsOneWidget);
-    expect(find.text('API: error'), findsOneWidget);
+    expect(inEntry(find.byIcon(LucideIcons.circleAlert)), findsOneWidget);
+    expect(inEntry(find.text('Automation: error')), findsOneWidget);
   });
 
-  testWidgets('tapping the chip invokes onAutomationApiTap', (tester) async {
+  testWidgets('selecting the entry invokes onAutomationApiTap', (tester) async {
     var tapped = false;
     await tester.pumpWidget(
       buildStatusBar(
@@ -127,9 +158,9 @@ void main() {
       ),
     );
     await tester.pump();
-
-    await tester.tap(find.text('API: 8765'));
-    await tester.pump();
+    await openMehr(tester);
+    await tester.tap(find.byKey(const ValueKey('dock-menu-automation')));
+    await tester.pumpAndSettle();
 
     expect(tapped, isTrue);
   });

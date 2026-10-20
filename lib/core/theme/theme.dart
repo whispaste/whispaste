@@ -1,56 +1,78 @@
 /// WhisPaste ThemeData builder — constructs Material 3 themes from design tokens.
 ///
-/// Premium aesthetic: clean surfaces, crisp typography, refined spacing,
-/// warm tonal gradients. No glow effects — depth via layered surfaces,
-/// clean soft shadows, and chromatic temperature, not alpha-blended light.
+/// One builder for every appearance (ADR 0016, AR-21): [wpThemeFor] turns a
+/// [WpThemeColors] set into [ThemeData]; [wpLightTheme] and [wpDarkTheme]
+/// are its two fixed uses.
 library;
 
 import 'package:flutter/material.dart';
 import 'colors.dart';
+import 'generated/wp_tokens.g.dart';
 import 'tokens.dart';
 
-/// Build the complete WhisPaste dark [ThemeData].
-ThemeData wpDarkTheme() {
-  const colorScheme = ColorScheme(
-    brightness: Brightness.dark,
-    primary: WpColors.accent,
-    onPrimary: WpColors.background,
-    primaryContainer: WpColors.accentSubtle,
-    onPrimaryContainer: WpColors.accent,
-    secondary: WpColors.textSecondary,
-    onSecondary: WpColors.background,
-    secondaryContainer: WpColors.surfaceVariant,
-    onSecondaryContainer: WpColors.textPrimary,
-    surface: WpColors.surface,
-    onSurface: WpColors.textPrimary,
-    surfaceContainerHighest: WpColors.surfaceVariant,
-    error: WpColors.error,
-    onError: WpColors.background,
-    outline: WpColors.borderDefault,
-    outlineVariant: WpColors.borderSubtle,
-    shadow: Color(0xFF000000),
+/// UI face (ADR 0018). Neither Hanken nor Bricolage covers Cyrillic or
+/// Hebrew, so the bundled Inter is the first fallback.
+const String kWpUiFont = 'Hanken Grotesk';
+
+/// Display face for page and section titles (ADR 0018).
+const String kWpDisplayFont = 'Bricolage Grotesque';
+
+const List<String> kWpFontFallback = [
+  'Inter',
+  'Helvetica Neue',
+  'Segoe UI',
+  'Arial',
+  'sans-serif',
+];
+
+/// Light journal [ThemeData] (the light appearance; navy is the default).
+ThemeData wpLightTheme() => wpThemeFor(wpLightColors);
+
+/// Navy [ThemeData]: dark appearance and the stage-only surfaces.
+ThemeData wpDarkTheme() => wpThemeFor(wpDarkColors);
+
+/// [ThemeData] for one colour set (AR-21). The navy set paints its content
+/// light; only its frame is navy, which the shell reads via `WpColors.frame`.
+ThemeData wpThemeFor(WpThemeColors c) {
+  final colorScheme = ColorScheme(
+    brightness: c.brightness,
+    primary: c.action,
+    onPrimary: c.onAction,
+    primaryContainer: c.accentSubtle,
+    onPrimaryContainer: c.accent,
+    secondary: c.textSecondary,
+    onSecondary: c.surfaceElevated,
+    secondaryContainer: c.surfaceVariant,
+    onSecondaryContainer: c.textPrimary,
+    tertiary: c.accent,
+    surface: c.surface,
+    onSurface: c.textPrimary,
+    onSurfaceVariant: c.textMuted,
+    surfaceContainerHigh: c.surfaceElevated,
+    surfaceContainerHighest: c.surfaceVariant,
+    error: c.error,
+    onError: c.onError,
+    outline: c.borderDefault,
+    outlineVariant: c.borderSubtle,
+    shadow: c.brightness == Brightness.dark
+        ? const Color(0xFF000000)
+        : const Color(0x1F0B122A),
+    scrim: const Color(0x660B122A),
   );
 
-  return _buildTheme(colorScheme);
+  return _buildTheme(colorScheme, background: c.background, c: c);
 }
 
-/// Turns the [ColorScheme] above into the full [ThemeData].
-///
-/// `wpLightTheme()` stood beside [wpDarkTheme] here until 2026-08-11 and is
-/// gone with the light stack. It had already stopped being a second theme:
-/// once `WpColorsLight` went, every surface it named resolved through
-/// [WpColors] to the same dark tokens, and what still differed was four
-/// literals — `Colors.white` where dark used `WpColors.background`, and a
-/// 10 %-black shadow — i.e. white text painted on dark surfaces. It was not
-/// a light theme any more, it was a broken dark one.
-///
-/// This stays split out from [wpDarkTheme] even with one caller left. The
-/// split is not a leftover of the theme pair: it separates the colour
-/// contract (the [ColorScheme] literal, which is the part a reader looks up)
-/// from ~240 lines of component styling derived from it. Merging them would
-/// bury the first in the second.
-ThemeData _buildTheme(ColorScheme colorScheme) {
-  const bg = WpColors.background;
+/// Turns a [ColorScheme] into the full [ThemeData]. Reads colours only
+/// from [colorScheme] so the same component styling serves both surfaces.
+ThemeData _buildTheme(
+  ColorScheme colorScheme, {
+  required Color background,
+  required WpThemeColors c,
+}) {
+  final bg = background;
+  final elevated = colorScheme.surfaceContainerHigh;
+  final muted = colorScheme.onSurfaceVariant;
   // Build textTheme first so component themes can reference it (e.g. snackBar).
   final textTheme = _textTheme(colorScheme);
 
@@ -58,8 +80,8 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
     useMaterial3: true,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: bg,
-    fontFamily: 'Inter',
-    fontFamilyFallback: const ['Helvetica Neue', 'Arial', 'sans-serif'],
+    fontFamily: kWpUiFont,
+    fontFamilyFallback: kWpFontFallback,
 
     // Typography
     textTheme: textTheme,
@@ -81,7 +103,7 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
 
     // Cards
     cardTheme: CardThemeData(
-      color: WpColors.surfaceElevated,
+      color: elevated,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: WpRadius.borderMd,
@@ -117,7 +139,8 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
           // Explicit fontFamily ensures buttons render correctly in tests.
           // Flutter's _ButtonStyleButton replaces DefaultTextStyle entirely,
           // so the ThemeData.fontFamily cascade is severed without this.
-          fontFamily: 'Inter',
+          fontFamily: kWpUiFont,
+          fontFamilyFallback: kWpFontFallback,
         ),
       ),
     ),
@@ -139,7 +162,8 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
           fontSize: WpTypography.body,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
-          fontFamily: 'Inter',
+          fontFamily: kWpUiFont,
+          fontFamilyFallback: kWpFontFallback,
         ),
       ),
     ),
@@ -158,7 +182,8 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
           fontSize: WpTypography.body,
           fontWeight: FontWeight.w600,
           letterSpacing: -0.1,
-          fontFamily: 'Inter',
+          fontFamily: kWpUiFont,
+          fontFamilyFallback: kWpFontFallback,
         ),
       ),
     ),
@@ -175,7 +200,8 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
         textStyle: const TextStyle(
           fontSize: WpTypography.body,
           fontWeight: FontWeight.w500,
-          fontFamily: 'Inter',
+          fontFamily: kWpUiFont,
+          fontFamilyFallback: kWpFontFallback,
         ),
       ),
     ),
@@ -196,7 +222,7 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
     // Input fields
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: WpColors.surfaceVariant,
+      fillColor: colorScheme.surfaceContainerHighest,
       contentPadding: const EdgeInsets.symmetric(
         horizontal: WpSpacing.md,
         vertical: WpSpacing.sm,
@@ -213,24 +239,35 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
         borderRadius: WpRadius.borderSm,
         borderSide: BorderSide(color: colorScheme.primary, width: 1.5),
       ),
-      hintStyle: const TextStyle(
-        color: WpColors.textMuted,
-        fontSize: WpTypography.body,
-      ),
+      hintStyle: TextStyle(color: muted, fontSize: WpTypography.body),
     ),
 
-    // Switch / Toggle
+    // Switch / Toggle (WP-14 §4): petrol track when on, white thumb in both
+    // states. The off track is the muted text tone rather than the hairline
+    // border: a border sits at 1.3–1.8:1 against its surface, a switch needs
+    // 3:1 as a UI component boundary (UX-008).
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) return colorScheme.primary;
-        return WpColors.textMuted;
-      }),
+      thumbColor: const WidgetStatePropertyAll(WpPalette.white),
       trackColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.selected)) {
-          return colorScheme.primary.withValues(alpha: 0.3);
-        }
-        return colorScheme.outlineVariant;
+        if (states.contains(WidgetState.selected)) return c.accent;
+        return c.switchTrackOff;
       }),
+      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+    ),
+
+    // Checkbox theme (WP-14 §4): 4 px corner, petrol fill with a contrasting tick.
+    checkboxTheme: CheckboxThemeData(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(WpRadiusTokens.xs),
+      ),
+      side: BorderSide(color: c.borderDefault, width: 1.5),
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return c.accent;
+        return Colors.transparent;
+      }),
+      checkColor: WidgetStatePropertyAll(
+        c.brightness == Brightness.dark ? c.onAction : WpPalette.white,
+      ),
     ),
 
     // Divider
@@ -243,14 +280,16 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
     // Tooltip
     tooltipTheme: TooltipThemeData(
       decoration: BoxDecoration(
-        color: WpColors.surfaceElevated,
+        color: c.floatingSurface,
         borderRadius: WpRadius.borderSm,
-        border: Border.all(color: WpColors.borderDefault),
+        border: Border.all(color: c.cardEdgeHighlight),
       ),
-      textStyle: const TextStyle(
-        color: WpColors.textPrimary,
-        fontSize: WpTypography.small,
-        fontWeight: FontWeight.w500,
+      // Explicit family: a tooltip's text is not merged with DefaultTextStyle,
+      // so it would otherwise fall back to the platform default.
+      textStyle: textTheme.labelMedium?.copyWith(
+        color: c.textPrimary,
+        fontFamily: kWpUiFont,
+        fontFamilyFallback: kWpFontFallback,
       ),
       waitDuration: const Duration(milliseconds: 400),
       padding: const EdgeInsets.symmetric(
@@ -259,11 +298,25 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
       ),
     ),
 
+    // Popup menus share the floating-surface family of tooltips and dialogs.
+    popupMenuTheme: PopupMenuThemeData(
+      color: c.floatingSurface,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: c.shadow,
+      shape: RoundedRectangleBorder(
+        borderRadius: WpRadius.borderSm,
+        side: BorderSide(color: c.cardEdgeHighlight),
+      ),
+      textStyle: textTheme.bodyMedium?.copyWith(
+        color: c.textPrimary,
+        fontFamily: kWpUiFont,
+        fontFamilyFallback: kWpFontFallback,
+      ),
+    ),
+
     // Scrollbar
     scrollbarTheme: ScrollbarThemeData(
-      thumbColor: WidgetStateProperty.all(
-        (WpColors.textMuted).withValues(alpha: 0.3),
-      ),
+      thumbColor: WidgetStateProperty.all(muted.withValues(alpha: 0.3)),
       radius: const Radius.circular(WpRadius.full),
       thickness: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.hovered)) return 6;
@@ -273,7 +326,7 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
 
     // Snackbar
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: WpColors.surfaceElevated,
+      backgroundColor: elevated,
       contentTextStyle: textTheme.labelMedium?.copyWith(
         color: colorScheme.onSurface,
       ),
@@ -284,7 +337,7 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
 
     // Dialog
     dialogTheme: DialogThemeData(
-      backgroundColor: WpColors.surfaceElevated,
+      backgroundColor: elevated,
       shape: RoundedRectangleBorder(borderRadius: WpRadius.borderLg),
       elevation: 8,
       titleTextStyle: TextStyle(
@@ -299,26 +352,29 @@ ThemeData _buildTheme(ColorScheme colorScheme) {
 
 /// WhisPaste type scale — all roles mapped to SF-grade tracking + line-height.
 ///
-/// Design tokens, Code = SSOT. Inter is the bundled app font (OFL 4.001);
-/// it renders identically on Windows, macOS and Linux.
+/// Hanken Grotesk for UI text, Bricolage Grotesque for the three title
+/// roles (ADR 0018); all bundled, so they render identically on Windows,
+/// macOS and Linux. Sizes are unchanged until the shell rework (WP-20/21).
 ///
 /// | Role           | Size | Weight | LS    | LH  |
 /// |----------------|------|--------|-------|-----|
 /// | headlineLarge  | 22   | 700    | -0.60 | 1.2 |
 /// | headlineMedium | 16   | 600    | -0.35 | 1.3 |
 /// | titleLarge     | 17   | 600    | -0.20 | 1.3 |
-/// | titleMedium    | 14   | 600    | -0.20 | —   |
+/// | titleMedium    | 14   | 600    | -0.20 | 1.2 |
 /// | titleSmall     | 13   | 600    | -0.10 | 1.4 |
 /// | bodyLarge      | 13   | 400    |  0    | 1.5 |
 /// | bodyMedium     | 13   | 400    |  0    | 1.5 |
 /// | bodySmall      | 12   | 400    |  0    | 1.4 |
-/// | labelLarge     | 16   | 700    | -0.30 | —   |
+/// | labelLarge     | 16   | 700    | -0.30 | 1.2 |
 /// | labelMedium    | 13   | 500    |  0    | 1.4 |
-/// | labelSmall     | 11   | 500    | +0.20 | —   |
+/// | labelSmall     | 11   | 500    | +0.20 | 1.2 |
 TextTheme _textTheme(ColorScheme cs) {
   return TextTheme(
     // Display → Page titles (22px / 700)
     headlineLarge: TextStyle(
+      fontFamily: kWpDisplayFont,
+      fontFamilyFallback: kWpFontFallback,
       fontSize: WpTypography.headline,
       fontWeight: FontWeight.w700,
       color: cs.onSurface,
@@ -327,6 +383,8 @@ TextTheme _textTheme(ColorScheme cs) {
     ),
     // Heading → Section headers (16px / 600)
     headlineMedium: TextStyle(
+      fontFamily: kWpDisplayFont,
+      fontFamilyFallback: kWpFontFallback,
       fontSize: WpTypography.heading,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
@@ -335,6 +393,8 @@ TextTheme _textTheme(ColorScheme cs) {
     ),
     // Dialog / panel title (17px / 600) — WpDialog, review prompts, export picker
     titleLarge: TextStyle(
+      fontFamily: kWpDisplayFont,
+      fontFamilyFallback: kWpFontFallback,
       fontSize: WpTypography.title,
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
@@ -347,6 +407,9 @@ TextTheme _textTheme(ColorScheme cs) {
       fontWeight: FontWeight.w600,
       color: cs.onSurface,
       letterSpacing: -0.2,
+      // Pinned rather than left to the face's own line box (Hanken's is
+      // 1.30 em), so layout budgets do not depend on font metrics.
+      height: 1.2,
     ),
     // Form field label / section subheading (13px / 600)
     titleSmall: TextStyle(
@@ -383,6 +446,9 @@ TextTheme _textTheme(ColorScheme cs) {
       fontWeight: FontWeight.w700,
       color: cs.onSurface,
       letterSpacing: -0.3,
+      // Pinned rather than left to the face's own line box (Hanken's is
+      // 1.30 em), so layout budgets do not depend on font metrics.
+      height: 1.2,
     ),
     // Toast / snackbar message (13px / 500)
     labelMedium: TextStyle(
@@ -398,6 +464,9 @@ TextTheme _textTheme(ColorScheme cs) {
       fontWeight: FontWeight.w500,
       color: cs.secondary,
       letterSpacing: 0.2,
+      // Pinned rather than left to the face's own line box (Hanken's is
+      // 1.30 em), so layout budgets do not depend on font metrics.
+      height: 1.2,
     ),
   );
 }

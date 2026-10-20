@@ -77,7 +77,7 @@ class _NotesListTileState extends State<NotesListTile> {
   // toggles this tile's own setState on every mouse enter/exit, and
   // re-deriving title/preview from a potentially long content string on each
   // of those would be wasted work (same pattern as _HistoryEntryRowState).
-  late String? _title = _deriveTitle(widget.note.content);
+  late String? _title = _titleOf(widget.note);
   late String _preview = _derivePreview(widget.note.content);
 
   /// The title may wrap to two lines, so it keeps far more of the first line
@@ -85,8 +85,13 @@ class _NotesListTileState extends State<NotesListTile> {
   /// capped here; the stored content is never touched.
   static const _titleMaxLength = 240;
 
-  static String? _deriveTitle(String content) =>
-      deriveNoteTitle(content, maxLength: _titleMaxLength);
+  /// The explicit title when the note has one (WP-31a), otherwise the first
+  /// content line.
+  static String? _titleOf(Note note) {
+    final explicit = note.title?.trim();
+    if (explicit != null && explicit.isNotEmpty) return explicit;
+    return deriveNoteTitle(note.content, maxLength: _titleMaxLength);
+  }
 
   /// Cap for how much content the preview derivation scans — the preview
   /// shows at most two ellipsized lines, so scanning a multi-kilobyte note
@@ -117,7 +122,7 @@ class _NotesListTileState extends State<NotesListTile> {
   void didUpdateWidget(NotesListTile oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.note != widget.note) {
-      _title = _deriveTitle(widget.note.content);
+      _title = _titleOf(widget.note);
       _preview = _derivePreview(widget.note.content);
     }
   }
@@ -146,34 +151,39 @@ class _NotesListTileState extends State<NotesListTile> {
     }
   }
 
-  /// Relative label for [Note.updatedAt]: today → HH:MM, yesterday →
-  /// localized "Yesterday", else a short localized date (year only when it
-  /// differs). Minimal local analogue of the history tile's time labeling —
-  /// history has no exported relative-date helper to reuse.
+  /// Label for [Note.updatedAt]: today shows the time (HH:MM); any other day
+  /// shows the day in front of it, "Yesterday" or a short localized date (year
+  /// only when it differs), e.g. "Yesterday · 14:20".
   String _relativeDateLabel(BuildContext context) {
     final t = widget.note.updatedAt;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(t.year, t.month, t.day);
-    if (day == today) {
-      return '${t.hour.toString().padLeft(2, '0')}:'
-          '${t.minute.toString().padLeft(2, '0')}';
-    }
+    // Formats HH:MM locally on purpose: the history feature's
+    // formatHistoryTime would make notes depend on history, which CONTEXT.md
+    // §5.5 forbids. Keep both in step if the time format changes.
+    final time =
+        '${t.hour.toString().padLeft(2, '0')}:'
+        '${t.minute.toString().padLeft(2, '0')}';
+    if (day == today) return time;
+    final String date;
     if (day == today.subtract(const Duration(days: 1))) {
-      return L10n.of(context).historyYesterday;
+      date = L10n.of(context).historyYesterday;
+    } else {
+      date = t.year == now.year
+          ? _monthDayFormat.format(t)
+          : _yearMonthDayFormat.format(t);
     }
-    return t.year == now.year
-        ? _monthDayFormat.format(t)
-        : _yearMonthDayFormat.format(t);
+    return '$date · $time';
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
-    const textMuted = WpColors.textMuted;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
 
     final title = _title ?? l10n.notesUntitled;
     // Metadata drops from muted to secondary on any tinted row state: muted
@@ -216,154 +226,145 @@ class _NotesListTileState extends State<NotesListTile> {
             isHovered: _isHovered,
             isFocused: widget.isFocused,
             isSelected: widget.isSelected,
-            // Actions stay inside the content: the trash pair belongs to the
-            // title line next to the relative date, not to the envelope.
+            // The favourite star, the quick-note mark and the row actions form
+            // the trailing group. They sit in the surface's actions slot, so the
+            // body holds only the text and its metadata, and the 48 px touch
+            // boxes set the row's minimum height instead of adding to its
+            // padding (see WpListTileSurface's actions notes).
+            actions: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!widget.isTrashView) ...[
+                  // Deliberately exempt from the hover/focus reveal that
+                  // trailing row actions follow (see WpRowAction's library
+                  // comment): a note's favourite state has no other carrier in
+                  // this list, so the star stays put and is always tappable.
+                  // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                  WpRowAction(
+                    key: ValueKey('notes-favorite-${widget.note.id}'),
+                    faIcon: widget.note.pinned
+                        ? FontAwesomeIcons.solidStar
+                        : FontAwesomeIcons.star,
+                    activeColor: widget.note.pinned
+                        ? WpSharedColors.pinnedAccent
+                        : null,
+                    tooltip: widget.note.pinned
+                        ? l10n.notesUnfavorite
+                        : l10n.notesFavorite,
+                    onTap: widget.onFavoriteToggle,
+                    dense: true,
+                  ),
+                  const SizedBox(width: WpSpacing.xxs),
+                  if (widget.note.isQuickNote) ...[
+                    // The quick-note mark, and the only way to drop it. Colour
+                    // and glyph differ from the star on purpose: amber solid
+                    // star vs. the interaction accent on a bolt, the hotkey
+                    // symbol. Permanent, like the star, because it is this row's
+                    // only carrier of the state. Setting the mark lives in the
+                    // row actions below, only on notes that do not hold it.
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                    WpRowAction(
+                      key: ValueKey('notes-quick-note-clear-${widget.note.id}'),
+                      faIcon: FontAwesomeIcons.bolt,
+                      activeColor: WpColors.accent,
+                      tooltip: l10n.notesQuickNoteClear,
+                      onTap: widget.onQuickNoteClear,
+                      dense: true,
+                    ),
+                    const SizedBox(width: WpSpacing.xxs),
+                  ],
+                ],
+                WpRowActions(
+                  visible: _isHovered || widget.isFocused,
+                  dense: true,
+                  children: [
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                    WpRowAction(
+                      key: ValueKey('notes-copy-${widget.note.id}'),
+                      icon: LucideIcons.copy,
+                      tooltip: l10n.notesCopy,
+                      onTap: widget.onCopy,
+                      dense: true,
+                    ),
+                    if (widget.onDuplicate case final onDuplicate?)
+                      WpRowAction(
+                        key: ValueKey('notes-duplicate-${widget.note.id}'),
+                        icon: LucideIcons.files,
+                        tooltip: l10n.actionDuplicate,
+                        onTap: onDuplicate,
+                        dense: true,
+                      ),
+                    if (!widget.isTrashView)
+                      if (!widget.note.isQuickNote)
+                        // Setting the mark is an ordinary trailing row action,
+                        // revealed on hover/focus like every other one, and
+                        // absent from the note that already holds the mark, so
+                        // "marking it again" is structurally impossible instead
+                        // of being a behavioural special case.
+                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                        WpRowAction(
+                          key: ValueKey(
+                            'notes-quick-note-set-${widget.note.id}',
+                          ),
+                          icon: LucideIcons.zap,
+                          tooltip: l10n.notesQuickNoteSet,
+                          onTap: widget.onQuickNoteSet,
+                          dense: true,
+                        ),
+                    if (widget.isTrashView) ...[
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                      WpRowAction(
+                        key: ValueKey('notes-restore-${widget.note.id}'),
+                        // Same restore glyph as the editor toolbar and
+                        // history's per-item restore action.
+                        icon: LucideIcons.undo2,
+                        tooltip: l10n.notesRestore,
+                        onTap: widget.onRestore,
+                        dense: true,
+                      ),
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+                      WpRowAction(
+                        key: ValueKey('notes-delete-forever-${widget.note.id}'),
+                        icon: LucideIcons.trash2,
+                        tooltip: l10n.notesDeleteForever,
+                        onTap: widget.onDeleteForever,
+                        isDestructive: true,
+                        dense: true,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Row 1: favourite toggle + title (up to two lines) + row
-                // actions (trash actions when the trash filter is active)
-                Row(
-                  children: [
-                    if (!widget.isTrashView) ...[
-                      // Deliberately exempt from the hover/focus reveal that
-                      // trailing row actions follow (see WpRowAction's library
-                      // comment): a note's favourite state has no other
-                      // carrier in this list — history shows it on the entry
-                      // avatar instead — so the star is an indicator that
-                      // happens to be tappable, and it stays put.
-                      // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                      WpRowAction(
-                        faIcon: widget.note.pinned
-                            ? FontAwesomeIcons.solidStar
-                            : FontAwesomeIcons.star,
-                        activeColor: widget.note.pinned
-                            ? WpSharedColors.pinnedAccent
-                            : null,
-                        tooltip: widget.note.pinned
-                            ? l10n.notesUnfavorite
-                            : l10n.notesFavorite,
-                        onTap: widget.onFavoriteToggle,
-                        dense: true,
-                      ),
-                      const SizedBox(width: WpSpacing.xxs),
-                      if (widget.note.isQuickNote) ...[
-                        // The quick-note mark, and the only way to drop it.
-                        //
-                        // Colour and glyph both differ from the star on
-                        // purpose: amber solid star vs. the generic
-                        // interaction accent (cyan, ADR 0013) on a bolt — a
-                        // different glyph family, a different palette entry,
-                        // no new brand accent invented for it. The bolt is the
-                        // hotkey, which is the whole meaning of this mark.
-                        //
-                        // Permanent, like the star: it is this row's only
-                        // carrier of the state, and "which note is the quick
-                        // note" has to be readable without hovering every row
-                        // (the leading-glyph exception WpRowAction's library
-                        // comment already grants the star).
-                        //
-                        // It clears the mark rather than re-setting it. A
-                        // default value does not flip by being chosen again,
-                        // so setting lives elsewhere entirely — in the
-                        // trailing group below, and only on notes that are not
-                        // already the quick note. No screen position ever
-                        // carries both meanings, which is what keeps this from
-                        // feeling like the favourite toggle next to it.
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                        WpRowAction(
-                          faIcon: FontAwesomeIcons.bolt,
-                          activeColor: WpColors.accent,
-                          tooltip: l10n.notesQuickNoteClear,
-                          onTap: widget.onQuickNoteClear,
-                          dense: true,
-                        ),
-                        const SizedBox(width: WpSpacing.xxs),
-                      ],
-                    ],
-                    Expanded(
-                      child: Text(
-                        title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: WpTypography.subheading,
-                          fontWeight: FontWeight.w600,
-                          color: textPrimary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: WpSpacing.xs),
-                    WpRowActions(
-                      visible: _isHovered || widget.isFocused,
-                      dense: true,
-                      children: [
-                        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                        WpRowAction(
-                          icon: LucideIcons.copy,
-                          tooltip: l10n.notesCopy,
-                          onTap: widget.onCopy,
-                          dense: true,
-                        ),
-                        if (widget.onDuplicate case final onDuplicate?)
-                          WpRowAction(
-                            icon: LucideIcons.files,
-                            tooltip: l10n.actionDuplicate,
-                            onTap: onDuplicate,
-                            dense: true,
-                          ),
-                        if (!widget.isTrashView)
-                          if (!widget.note.isQuickNote)
-                            // Setting the mark is an ordinary trailing row action —
-                            // revealed on hover/focus like every other one, and
-                            // absent from the note that already holds the mark, so
-                            // "marking it again" is structurally impossible instead
-                            // of being a behavioural special case.
-                            // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                            WpRowAction(
-                              icon: LucideIcons.zap,
-                              tooltip: l10n.notesQuickNoteSet,
-                              onTap: widget.onQuickNoteSet,
-                              dense: true,
-                            ),
-                        if (widget.isTrashView) ...[
-                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                          WpRowAction(
-                            // Same restore glyph as the editor toolbar and
-                            // history's per-item restore action.
-                            icon: LucideIcons.undo2,
-                            tooltip: l10n.notesRestore,
-                            onTap: widget.onRestore,
-                            dense: true,
-                          ),
-                          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-                          WpRowAction(
-                            icon: LucideIcons.trash2,
-                            tooltip: l10n.notesDeleteForever,
-                            onTap: widget.onDeleteForever,
-                            isDestructive: true,
-                            dense: true,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
+                // Title, up to two lines
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: WpTypography.subheading,
+                    fontWeight: FontWeight.w600,
+                    color: textPrimary,
+                  ),
                 ),
-                // Row 2: content preview — hidden when the note is title-only
+                // Content preview, hidden when the note is title-only
                 if (_preview.isNotEmpty) ...[
                   const SizedBox(height: 3),
                   Text(
                     _preview,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.body,
                       color: textSecondary,
                       height: 1.35,
                     ),
                   ),
                 ],
-                // Row 3: update time as metadata
+                // Update time as metadata, with the date for notes not from today
                 const SizedBox(height: WpSpacing.xxs),
                 Text(
                   _relativeDateLabel(context),
@@ -372,8 +373,8 @@ class _NotesListTileState extends State<NotesListTile> {
                     color: isTinted ? textSecondary : textMuted,
                   ),
                 ),
-                // Row 4: compact tag pills — informative only (no tap;
-                // tag filtering may come in a later ticket)
+                // Compact tag pills, informative only (no tap; tag filtering
+                // may come in a later ticket)
                 if (widget.tags.isNotEmpty) ...[
                   const SizedBox(height: WpSpacing.xxs),
                   _NoteTagChips(tags: widget.tags),
@@ -399,8 +400,8 @@ class _NoteTagChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
     return Wrap(
       spacing: 4,
       runSpacing: 2,
@@ -410,10 +411,7 @@ class _NoteTagChips extends StatelessWidget {
         if (tags.length > 3)
           Text(
             '+${tags.length - 3}',
-            style: const TextStyle(
-              fontSize: WpTypography.micro,
-              color: textMuted,
-            ),
+            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
           ),
       ],
     );

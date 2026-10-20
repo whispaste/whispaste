@@ -14,6 +14,7 @@ import 'package:sentry_dio/sentry_dio.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
+import 'download_allowlist.dart';
 
 final _log = AppLogger('HttpModelFetcher');
 
@@ -82,6 +83,10 @@ class FetchProgress {
 
 /// Downloads a single file from [url] to [destPath] with resume support.
 ///
+/// Every URL, including each redirect target, must pass the host allowlist in
+/// `download_allowlist.dart`; a disallowed one throws
+/// [DownloadUrlRejectedException] before any byte is written.
+///
 /// Public interface:
 /// - [fetch]: starts (or resumes) a download and streams progress events.
 /// - [cancel]: cancels the active fetch.
@@ -118,6 +123,11 @@ class HttpModelFetcher {
 
   final Dio _dio;
   CancelToken? _cancelToken;
+
+  /// Fetches in flight per destination, across fetcher instances: a second
+  /// fetch of the same file waits until the first has closed its `.tmp`, so
+  /// two writers never append to one fragment (UIA-RT-05).
+  static final Map<String, Future<void>> _inFlight = {};
 
   /// Maximum gap between received chunks before a stall-cancel fires.
   ///
@@ -156,6 +166,38 @@ class HttpModelFetcher {
   }) async {
     final token = CancelToken();
     _cancelToken = token;
+    final key = File(destPath).absolute.path;
+    for (
+      var previous = _inFlight[key];
+      previous != null;
+      previous = _inFlight[key]
+    ) {
+      await previous;
+    }
+    if (token.isCancelled) throw token.cancelError!;
+    final done = Completer<void>();
+    _inFlight[key] = done.future;
+    try {
+      await _fetchWithRetries(
+        token: token,
+        url: url,
+        destPath: destPath,
+        expectedSize: expectedSize,
+        onProgress: onProgress,
+      );
+    } finally {
+      _inFlight.remove(key);
+      done.complete();
+    }
+  }
+
+  Future<void> _fetchWithRetries({
+    required CancelToken token,
+    required String url,
+    required String destPath,
+    required int expectedSize,
+    void Function(FetchProgress)? onProgress,
+  }) async {
     for (var attempt = 0; ; attempt++) {
       try {
         await _fetchInternal(
@@ -215,7 +257,7 @@ class HttpModelFetcher {
       tmpFile: tmpFile,
       startByte: startByte,
     );
-    startByte = resolvedStartByte;
+    startByte = _bodyStartByte(response, resolvedStartByte);
 
     final totalBytes = _resolveTotal(response, startByte, expectedSize);
 
@@ -349,7 +391,8 @@ class HttpModelFetcher {
     required int startByte,
   }) async {
     try {
-      final response = await _dio.get<ResponseBody>(
+      final response = await getWithAllowlistedRedirects<ResponseBody>(
+        _dio,
         url,
         cancelToken: _cancelToken,
         options: Options(
@@ -362,13 +405,27 @@ class HttpModelFetcher {
       if (startByte == 0 || e.response?.statusCode != 416) rethrow;
       _log.warning('Stale .tmp rejected with 416 — restarting from byte 0');
       await tmpFile.delete();
-      final response = await _dio.get<ResponseBody>(
+      final response = await getWithAllowlistedRedirects<ResponseBody>(
+        _dio,
         url,
         cancelToken: _cancelToken,
         options: Options(responseType: ResponseType.stream),
       );
       return (response, 0);
     }
+  }
+
+  /// The offset the body really starts at. A server that ignores Range answers
+  /// 200 with the complete body; appending that to the partial file would
+  /// corrupt the download, so the body is written from byte 0 instead.
+  int _bodyStartByte(Response<ResponseBody> response, int requestedStart) {
+    if (requestedStart == 0 || response.statusCode == 206) {
+      return requestedStart;
+    }
+    _log.warning(
+      'Server ignored Range (HTTP ${response.statusCode}) — restarting from byte 0',
+    );
+    return 0;
   }
 
   int _resolveTotal(Response<ResponseBody> resp, int start, int expected) {

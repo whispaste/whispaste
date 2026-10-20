@@ -11,13 +11,14 @@ import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
 import 'highlighted_text.dart';
 import 'history_date_header.dart';
+import 'history_focus_reveal.dart';
 import 'history_helpers.dart';
 
 // ---------------------------------------------------------------------------
 // Compact view — dense power-user list
 // ---------------------------------------------------------------------------
 
-class HistoryCompactView extends StatelessWidget {
+class HistoryCompactView extends StatefulWidget {
   HistoryCompactView({
     super.key,
     required this.groups,
@@ -29,6 +30,8 @@ class HistoryCompactView extends StatelessWidget {
     this.onDuplicate,
     required this.multiSelectMode,
     required this.selectedIds,
+    this.onRestore,
+    this.isTrashView = false,
     this.focusedId,
   });
 
@@ -39,6 +42,8 @@ class HistoryCompactView extends StatelessWidget {
   final ValueChanged<HistoryEntry> onPin;
   final ValueChanged<HistoryEntry> onDelete;
   final ValueChanged<HistoryEntry>? onDuplicate;
+  final ValueChanged<HistoryEntry>? onRestore;
+  final bool isTrashView;
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final String? focusedId;
@@ -47,9 +52,31 @@ class HistoryCompactView extends StatelessWidget {
   late final List<HistoryFlatItem> _flatItems = buildHistoryFlatItems(groups);
 
   @override
+  State<HistoryCompactView> createState() => _HistoryCompactViewState();
+}
+
+class _HistoryCompactViewState extends State<HistoryCompactView> {
+  final HistoryFocusReveal _reveal = HistoryFocusReveal();
+
+  @override
+  void didUpdateWidget(covariant HistoryCompactView old) {
+    super.didUpdateWidget(old);
+    if (widget.focusedId != null && widget.focusedId != old.focusedId) {
+      _reveal.schedule(widget._flatItems, widget.focusedId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _reveal.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     return ListView.builder(
+      controller: _reveal.scroll,
       // The list owns the horizontal page inset — see HistoryEntryList
       // (ticket 03, point 5): all three view modes line up with the bar.
       padding: const EdgeInsets.fromLTRB(
@@ -58,30 +85,39 @@ class HistoryCompactView extends StatelessWidget {
         WpSpacing.xl,
         WpSpacing.xxl,
       ),
-      itemCount: _flatItems.length,
+      itemCount: widget._flatItems.length,
       itemBuilder: (_, i) {
-        final item = _flatItems[i];
+        final item = widget._flatItems[i];
         if (item.headerLabel != null) {
           return HistoryCompactDateHeader(
             label: resolveDateLabel(item.headerLabel!, l10n),
           );
         }
         final entry = item.entry!;
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryCompactRowState.build
-        return HistoryCompactRow(
-          key: ValueKey(entry.id),
-          entry: entry,
-          isSelected: multiSelectMode
-              ? selectedIds.contains(entry.id)
-              : entry.id == selectedId,
-          isFocused: !multiSelectMode && entry.id == focusedId,
-          onTap: () => onEntryTap(entry),
-          onCopy: () => onCopy(entry),
-          onPin: () => onPin(entry),
-          onDelete: () => onDelete(entry),
-          onDuplicate: onDuplicate != null ? () => onDuplicate!(entry) : null,
-          multiSelectMode: multiSelectMode,
-          isChecked: selectedIds.contains(entry.id),
+        return _reveal.wrap(
+          entry.id,
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryCompactRowState.build
+          HistoryCompactRow(
+            key: ValueKey(entry.id),
+            entry: entry,
+            isSelected: widget.multiSelectMode
+                ? widget.selectedIds.contains(entry.id)
+                : entry.id == widget.selectedId,
+            isFocused: !widget.multiSelectMode && entry.id == widget.focusedId,
+            onTap: () => widget.onEntryTap(entry),
+            onCopy: () => widget.onCopy(entry),
+            onPin: () => widget.onPin(entry),
+            onDelete: () => widget.onDelete(entry),
+            onDuplicate: widget.onDuplicate != null
+                ? () => widget.onDuplicate!(entry)
+                : null,
+            onRestore: widget.onRestore != null
+                ? () => widget.onRestore!(entry)
+                : null,
+            isTrashView: widget.isTrashView,
+            multiSelectMode: widget.multiSelectMode,
+            isChecked: widget.selectedIds.contains(entry.id),
+          ),
         );
       },
     );
@@ -95,6 +131,8 @@ class HistoryCompactView extends StatelessWidget {
 class HistoryCompactRow extends StatefulWidget {
   const HistoryCompactRow({
     super.key,
+    this.onRestore,
+    this.isTrashView = false,
     required this.entry,
     required this.isSelected,
     required this.onTap,
@@ -114,6 +152,8 @@ class HistoryCompactRow extends StatefulWidget {
   final VoidCallback onPin;
   final VoidCallback onDelete;
   final VoidCallback? onDuplicate;
+  final VoidCallback? onRestore;
+  final bool isTrashView;
   final bool multiSelectMode;
   final bool isChecked;
   final bool isFocused;
@@ -127,9 +167,9 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
 
     final Color bg;
     if (widget.isSelected) {
@@ -210,7 +250,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                     padding: EdgeInsets.only(right: 6),
                     child: FaIcon(
                       FontAwesomeIcons.solidStar,
-                      size: 10,
+                      size: WpIconSize.xxs,
                       color: WpSharedColors.pinnedAccent,
                     ),
                   ),
@@ -226,7 +266,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                           : l10n.historyUntitledRecording,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: WpTypography.body,
                         fontWeight: FontWeight.w500,
                         color: textPrimary,
@@ -244,12 +284,14 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                   onPin: widget.onPin,
                   onDelete: widget.onDelete,
                   onDuplicate: widget.onDuplicate,
+                  onRestore: widget.onRestore,
+                  isTrashView: widget.isTrashView,
                 ),
                 const SizedBox(width: WpSpacing.sm),
                 // Duration
                 Text(
                   formatHistoryDuration(widget.entry.durationSec),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.caption,
                     color: textMuted,
                   ),
@@ -259,7 +301,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                   const SizedBox(width: WpSpacing.sm),
                   Text(
                     widget.entry.language.toUpperCase(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.caption,
                       color: textMuted,
                       fontWeight: FontWeight.w500,
@@ -270,7 +312,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
                 // Time
                 Text(
                   formatHistoryTime(widget.entry.timestamp),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.caption,
                     color: textMuted,
                   ),
@@ -299,6 +341,8 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
 class HistoryCompactRowActions extends StatelessWidget {
   const HistoryCompactRowActions({
     super.key,
+    this.onRestore,
+    this.isTrashView = false,
     required this.entry,
     required this.visible,
     required this.onCopy,
@@ -313,10 +357,35 @@ class HistoryCompactRowActions extends StatelessWidget {
   final VoidCallback onPin;
   final VoidCallback onDelete;
   final VoidCallback? onDuplicate;
+  final VoidCallback? onRestore;
+  final bool isTrashView;
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final restore = onRestore;
+    // In the trash only restore and permanent delete make sense (UIA-HIS-09).
+    if (isTrashView && restore != null) {
+      return WpRowActions(
+        visible: visible,
+        dense: true,
+        children: [
+          WpRowAction(
+            icon: LucideIcons.undo2,
+            tooltip: l10n.historyRestore,
+            onTap: restore,
+            dense: true,
+          ),
+          WpRowAction(
+            icon: LucideIcons.trash2,
+            tooltip: l10n.historyDeleteForever,
+            onTap: onDelete,
+            isDestructive: true,
+            dense: true,
+          ),
+        ],
+      );
+    }
     final pinned = entry.pinned;
     return WpRowActions(
       visible: visible,

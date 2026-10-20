@@ -8,19 +8,28 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../core/l10n/generated/app_localizations.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
+import '../features/onboarding/steps/auto_paste_step.dart'
+    show linuxPasteFormatForOnboarding;
+import '../services/desktop_paste/linux_desktop_paste_controller.dart'
+    show linuxUinputCopyCommand;
+import '../services/desktop_paste/linux_package_format.dart';
 import '../services/paste/paste_capability_notifier.dart';
 import '../services/permissions/stale_entry_removal_guide.dart';
+import '../services/permissions/tcc_entry_reset_confirm.dart';
 import '../services/paste/paster.dart';
 import 'paste_capability_restart_banner.dart';
 import 'toast.dart';
 import 'wp_button.dart';
+import 'wp_command_box.dart';
 
 class WpPasteCapabilityIndicator extends ConsumerStatefulWidget {
   const WpPasteCapabilityIndicator({super.key});
@@ -34,14 +43,25 @@ class _WpPasteCapabilityIndicatorState
     extends ConsumerState<WpPasteCapabilityIndicator> {
   bool _busy = false;
   bool _showTroubleshoot = false;
+  late final void Function() _releaseWatch;
 
   @override
   void initState() {
     super.initState();
+    // Keep the status live while this card is on screen (30 s recheck).
+    _releaseWatch = ref
+        .read(pasteCapabilityNotifierProvider.notifier)
+        .watchWhileVisible();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _run(() => ref.read(pasteCapabilityNotifierProvider.notifier).check());
     });
+  }
+
+  @override
+  void dispose() {
+    _releaseWatch();
+    super.dispose();
   }
 
   Future<void> _run(Future<void> Function() action) async {
@@ -66,9 +86,18 @@ class _WpPasteCapabilityIndicatorState
       );
       return;
     }
+    // Without evidence of a stale entry the only honest action is the
+    // Settings deep-link: a reset would wipe a grant that is not even stale.
+    if (!notifier.staleEntryResetCandidate) {
+      await notifier.openAccessibilitySettings();
+      return;
+    }
     await _run(() async {
-      final result = await notifier.repair();
-      if (!mounted) return;
+      final result = await notifier.resetStaleEntry(
+        confirmReset: () => confirmTccEntryReset(l10n: L10n.of(context)),
+      );
+      // Declined in the dialog: nothing was reset, nothing to report.
+      if (!mounted || result == null) return;
       final l10n = L10n.of(context);
       final cleared =
           result.accessibilityCleared.clamp(0, 999) +
@@ -92,8 +121,28 @@ class _WpPasteCapabilityIndicatorState
     });
   }
 
+  /// Shown only when the user has to act (permission missing, restart needed,
+  /// Wayland or unsupported). A ready capability renders nothing, the way other
+  /// apps stay quiet when everything works; a status that is still unknown
+  /// renders nothing either.
   @override
   Widget build(BuildContext context) {
+    final cap = ref.watch(pasteCapabilityNotifierProvider).capability;
+    if (cap == null || cap.status == PasteCapabilityStatus.ready) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.sm,
+        WpSpacing.sm,
+        WpSpacing.sm,
+        WpSpacing.xs,
+      ),
+      child: _buildCard(context),
+    );
+  }
+
+  Widget _buildCard(BuildContext context) {
     final l10n = L10n.of(context);
     final capState = ref.watch(pasteCapabilityNotifierProvider);
     final cap = capState.capability;
@@ -101,7 +150,13 @@ class _WpPasteCapabilityIndicatorState
 
     final missing =
         cap?.status == PasteCapabilityStatus.permissionMissing &&
-        Platform.isMacOS;
+        defaultTargetPlatform == TargetPlatform.macOS;
+    // Linux: the uinput device needs a one-time udev rule that only the user
+    // can install. The failed-paste notification leads here (XP-5-06), so the
+    // card hands over the command instead of the macOS grant flow.
+    final linuxSetupNeeded =
+        cap?.status == PasteCapabilityStatus.permissionMissing &&
+        defaultTargetPlatform == TargetPlatform.linux;
     final waiting =
         _busy || capState.pollingPhase == PollingPhase.awaitingGrant;
 
@@ -134,10 +189,11 @@ class _WpPasteCapabilityIndicatorState
     // the copy, not by flooding the whole surface with a status colour —
     // matches the onboarding cards and the quiet macOS-Settings register.
     final surface = (WpColors.surfaceVariant).withValues(alpha: 0.5);
-    const border = WpColors.borderSubtle;
-    const textSecondary = WpColors.textSecondary;
+    final border = WpColors.borderSubtle;
+    final textSecondary = WpColors.textSecondary;
 
     return Container(
+      key: const ValueKey('settings-paste-capability-card'),
       width: double.infinity,
       padding: const EdgeInsets.all(WpSpacing.md),
       decoration: BoxDecoration(
@@ -207,6 +263,7 @@ class _WpPasteCapabilityIndicatorState
             Align(
               alignment: Alignment.centerLeft,
               child: WpButton(
+                key: const ValueKey('settings-paste-grant-button'),
                 label: l10n.pasteCapabilityGrantButton,
                 variant: WpButtonVariant.primary,
                 icon: LucideIcons.shield,
@@ -219,8 +276,46 @@ class _WpPasteCapabilityIndicatorState
             ),
             _buildTroubleshoot(context, l10n, notifier),
           ],
+          if (linuxSetupNeeded) ...[
+            const SizedBox(height: WpSpacing.sm),
+            // The command runs with sudo, so it is shown, not only copied.
+            WpCommandBox(
+              command: linuxUinputCopyCommand(
+                linuxPasteFormatForOnboarding() ?? LinuxPackageFormat.native,
+              ),
+              textKey: const ValueKey('settings-paste-linux-command'),
+            ),
+            const SizedBox(height: WpSpacing.sm),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: WpButton(
+                key: const ValueKey('settings-paste-linux-copy-command'),
+                label: l10n.pasteFailureLinuxUinputCopy,
+                variant: WpButtonVariant.primary,
+                icon: LucideIcons.copy,
+                onPressed: () => _copyLinuxSetupCommand(l10n),
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Future<void> _copyLinuxSetupCommand(L10n l10n) async {
+    await Clipboard.setData(
+      ClipboardData(
+        text: linuxUinputCopyCommand(
+          linuxPasteFormatForOnboarding() ?? LinuxPackageFormat.native,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: l10n.historyCopiedToClipboard,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 3),
     );
   }
 
@@ -240,6 +335,7 @@ class _WpPasteCapabilityIndicatorState
         Align(
           alignment: Alignment.centerLeft,
           child: WpButton(
+            key: const ValueKey('settings-paste-troubleshoot-toggle'),
             label: l10n.pasteCapabilityTroubleshoot,
             variant: WpButtonVariant.ghost,
             tone: WpButtonTone.neutral,
@@ -273,6 +369,7 @@ class _WpPasteCapabilityIndicatorState
             runSpacing: 6,
             children: [
               WpButton(
+                key: const ValueKey('settings-paste-test-button'),
                 label: l10n.pasteCapabilityTestButton,
                 variant: WpButtonVariant.ghost,
                 tone: WpButtonTone.neutral,
@@ -281,6 +378,7 @@ class _WpPasteCapabilityIndicatorState
                 onPressed: _busy ? null : () => _run(() => notifier.check()),
               ),
               WpButton(
+                key: const ValueKey('settings-paste-repair-button'),
                 label: l10n.pasteCapabilityRepairButton,
                 variant: WpButtonVariant.ghost,
                 tone: WpButtonTone.neutral,
@@ -297,8 +395,9 @@ class _WpPasteCapabilityIndicatorState
               // here rather than only after the polling-timeout heuristic
               // fires, since that heuristic only engages if the user went
               // through the Grant button first.
-              if (Platform.isMacOS)
+              if (defaultTargetPlatform == TargetPlatform.macOS)
                 WpButton(
+                  key: const ValueKey('settings-paste-restart-button'),
                   label: l10n.pasteCapabilityRestartButton,
                   variant: WpButtonVariant.ghost,
                   tone: WpButtonTone.neutral,
@@ -352,12 +451,18 @@ class _WpPasteCapabilityIndicatorState
             : l10n.pasteCapabilityPermissionMissing,
         subtitle: restartIneffective
             ? l10n.pasteCapabilityRestartIneffectiveSubtitle
-            : (Platform.isMacOS ? l10n.pasteCapabilityWhyMac : null),
+            : defaultTargetPlatform == TargetPlatform.macOS
+            ? l10n.pasteCapabilityWhyMac
+            : defaultTargetPlatform == TargetPlatform.linux
+            ? l10n.pasteFailureLinuxUinputHint
+            : null,
       ),
       PasteCapabilityStatus.unsupported => (
         icon: LucideIcons.info,
         color: WpColors.textMuted,
-        title: l10n.pasteCapabilityUnsupported,
+        title: defaultTargetPlatform == TargetPlatform.linux
+            ? l10n.pasteCapabilityUnavailableLinux
+            : l10n.pasteCapabilityUnsupported,
         subtitle: null,
       ),
     };

@@ -11,7 +11,7 @@ import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLibraryPathFor;
 import 'package:whispaste/services/stt/native_call_guard.dart';
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart'
-    show whisperLibraryPathFor;
+    show whisperLibraryPathFor, whisperVadModelFileName, whisperVadModelPathFor;
 
 String? _noCpuBackend(ffi.DynamicLibrary dylib, String libraryPath) => null;
 
@@ -58,6 +58,7 @@ void main() {
         ]);
         expect(libs[0].path, whisperLibraryPathFor(exe));
         expect(libs[0].symbols, contains('whisper_full'));
+        expect(libs[0].selfCheck, selfCheckWhisperVadModel);
         expect(
           libs[1].path,
           NativeCallGuard.pathNextTo(whisperLibraryPathFor(exe)),
@@ -67,6 +68,41 @@ void main() {
         expect(libs[2].symbols, contains('smart_mode_load'));
       },
     );
+  });
+
+  group('selfCheckWhisperVadModel', () {
+    late Directory dir;
+    late String library;
+
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('wp_diag_vad_');
+      library = p.join(dir.path, 'libwhisper.so');
+    });
+    tearDown(() => dir.deleteSync(recursive: true));
+
+    test('fails when the VAD model is not next to libwhisper', () {
+      expect(
+        () => selfCheckWhisperVadModel(library),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains(whisperVadModelFileName),
+          ),
+        ),
+      );
+    });
+
+    test('passes where the engine looks for the VAD model', () {
+      final exe = p.join(dir.path, 'whispaste');
+      File(whisperVadModelPathFor(exe))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([0]);
+      expect(
+        () => selfCheckWhisperVadModel(whisperLibraryPathFor(exe)),
+        returnsNormally,
+      );
+    });
   });
 
   group('runPackageDiagnose', () {

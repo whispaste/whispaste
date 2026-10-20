@@ -263,7 +263,7 @@ class _AlwaysReadyEngineLifecycle implements OnDeviceEngineLifecycle {
       const EngineLifecycleStatus(isReady: true);
 
   @override
-  Future<void> ensureRunning() async {}
+  Future<void> ensureRunning({bool warmup = true}) async {}
 
   @override
   Future<void> prewarm() async {}

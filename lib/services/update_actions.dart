@@ -38,7 +38,8 @@ import 'update_service.dart';
 /// Linux/portable (the GitHub-API mechanism) drives its own explicit
 /// download + local-file install flow: [UpdatePhase.available] opens the
 /// release notes URL, [UpdatePhase.readyToInstall] launches the downloaded
-/// installer, anything else triggers a fresh check.
+/// installer, a failed launch retries it, anything else triggers a fresh
+/// check.
 void triggerUpdateAction({
   required WidgetRef ref,
   required UpdateState updateState,
@@ -57,6 +58,10 @@ void triggerUpdateAction({
       final url = updateState.releaseNotesUrl;
       if (url != null) launchUrl(Uri.parse(url));
     case UpdatePhase.readyToInstall:
+      notifier.installUpdate();
+    // A failed launch keeps the installer, so the same action retries it.
+    case UpdatePhase.error
+        when updateState.installFailure == InstallFailure.launchFailed:
       notifier.installUpdate();
     default:
       notifier.checkForUpdate();
@@ -91,6 +96,16 @@ void triggerUpdateAction({
       l10n.updateInstall,
     ),
     UpdatePhase.upToDate => (LucideIcons.circleCheck, l10n.updateUpToDate),
-    UpdatePhase.error => (LucideIcons.triangleAlert, l10n.updateError),
+    UpdatePhase.error => switch (state.installFailure) {
+      InstallFailure.launchFailed => (
+        LucideIcons.download,
+        l10n.updateInstallRetry,
+      ),
+      InstallFailure.installerMissing => (
+        LucideIcons.refreshCw,
+        l10n.updateCheckNow,
+      ),
+      null => (LucideIcons.triangleAlert, l10n.updateError),
+    },
   };
 }

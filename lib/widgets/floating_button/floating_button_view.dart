@@ -6,7 +6,7 @@
 /// hardware-in-the-loop). It takes the button's [FloatingButtonVisualState],
 /// the resolved dark flag, the settings-owned disc diameter and the master
 /// opacity, then feeds the shared [WpFloatingButtonPainter] that reproduces the
-/// approved spike V2 button (white disc, dark mic, hairline border — no glow).
+/// approved spike V2 button (white disc, dark mic, hairline border — no light effect).
 ///
 /// ## Native window sizing
 ///
@@ -16,29 +16,30 @@
 /// same total, not to the bare disc.
 ///
 /// All design values come from [OverlayDesignSpec]; this widget contributes no
-/// constants of its own and renders no glow/accent ring.
+/// constants of its own and renders no light effect or accent ring.
 library;
 
 import 'package:flutter/widgets.dart';
 
+import '../../core/theme/overlay_customization.dart';
 import '../../core/theme/overlay_design_spec.dart';
 import '../../services/floating_button/floating_button_controller_interface.dart';
 import 'floating_button_painter.dart';
 
 /// Hosts the shared [WpFloatingButtonPainter].
+///
+/// The disc, the mic ink and the recording ring follow the same
+/// [OverlayBackground] and [OverlayWave] presets as the recording pill
+/// (WP-75, ADR 0024).
 class WpFloatingButtonView extends StatelessWidget {
   /// Creates the button view.
-  ///
-  /// There is deliberately no theme parameter: the V2 disc (white disc, dark
-  /// mic) is theme-independent by design. That was already true when the app
-  /// had two themes — the service used to resolve a brightness and forward it
-  /// to the native shell, which relayed it to a render channel that ignored
-  /// it. With the light theme gone (2026-08-11) the whole relay is gone with
-  /// it; the disc is unchanged, having never read the flag.
   const WpFloatingButtonView({
     super.key,
     required this.state,
     this.diameter = 56,
+    this.background = OverlayBackground.marine,
+    this.wave = OverlayWave.cyan,
+    this.look = FloatingButtonLook.defaults,
   });
 
   /// Current button visual state (idle / recording / … / disabled).
@@ -47,8 +48,18 @@ class WpFloatingButtonView extends StatelessWidget {
   /// Disc diameter in logical pixels (settings-owned: 44 / 56 / 80).
   final double diameter;
 
+  /// Background preset of the disc (WP-75).
+  final OverlayBackground background;
+
+  /// Wave colour preset: the ring while recording (WP-75).
+  final OverlayWave wave;
+
+  /// Shape, recording ring and resting opacity (WP-95). The size is
+  /// [diameter].
+  final FloatingButtonLook look;
+
   /// Maps a button visual state onto the design-spec state that owns its mic
-  /// tint gradient, or null for states with no gradient (idle/disabled).
+  /// tint, or null for states with no tint (idle/disabled).
   static OverlayDesignState? designStateFor(FloatingButtonVisualState s) =>
       switch (s) {
         FloatingButtonVisualState.recording => OverlayDesignState.recording,
@@ -60,40 +71,67 @@ class WpFloatingButtonView extends StatelessWidget {
         FloatingButtonVisualState.disabled => null,
       };
 
-  /// Per-state mic-tint gradient stops from the SSOT, or null for idle/disabled.
-  static List<Color>? iconGradientFor(FloatingButtonVisualState s) {
+  /// Per-state mic colour stops for the resolved [colors] of a background, or
+  /// null for idle/disabled (which paint the ink colour instead).
+  static List<Color>? iconGradientFor(
+    FloatingButtonVisualState s,
+    OverlayThemeColors colors,
+  ) {
     final design = designStateFor(s);
     if (design == null) return null;
-    return OverlayDesignSpec.stateGradients[design]?.stops;
+    return OverlayDesignSpec.glyphStopsFor(design, colors);
   }
 
   /// Builds the spec-sourced [WpFloatingButtonPainter] for the given inputs.
   ///
-  /// The whole painter configuration is derived from [OverlayDesignSpec] here —
-  /// nothing platform-local feeds the renderer. Exposed statically so the
-  /// wiring is directly unit-testable (mirrors `WpFloatingOverlayView.painterFor`).
+  /// Nothing platform-local feeds the renderer: the colours come from the
+  /// presets through [OverlayDesignSpec]. Exposed statically so the wiring is
+  /// directly unit-testable (mirrors `WpFloatingOverlayView.painterFor`).
   static WpFloatingButtonPainter painterFor({
     required FloatingButtonVisualState state,
     double diameter = 56,
+    OverlayBackground background = OverlayBackground.marine,
+    OverlayWave wave = OverlayWave.cyan,
+    FloatingButtonLook look = FloatingButtonLook.defaults,
   }) {
+    final colors = OverlayDesignSpec.colorsFor(
+      background: background,
+      wave: wave,
+    );
     return WpFloatingButtonPainter(
-      spec: OverlayDesignSpec.button,
+      spec: OverlayDesignSpec.buttonSpecFor(
+        colors,
+        ringed: look.ring && state == FloatingButtonVisualState.recording,
+      ),
       diameter: diameter,
-      iconColor: OverlayDesignSpec.button.iconColor,
-      iconGradient: iconGradientFor(state),
+      iconColor: colors.ink,
+      iconGradient: iconGradientFor(state, colors),
+      square: look.square,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final window = OverlayDesignSpec.buttonWindowSize(diameter);
-    return RepaintBoundary(
-      child: SizedBox(
-        width: window.width,
-        height: window.height,
-        child: CustomPaint(
-          size: window,
-          painter: painterFor(state: state, diameter: diameter),
+    final idle = state == FloatingButtonVisualState.idle;
+    return Opacity(
+      // Resting opacity applies only while idle; a recording or a result is
+      // always shown at full strength.
+      opacity: idle ? look.idleAlpha : 1.0,
+      child: RepaintBoundary(
+        child: SizedBox(
+          width: window.width,
+          height: window.height,
+          child: CustomPaint(
+            size: window,
+            painter: painterFor(
+              state: state,
+              diameter: diameter,
+              background: background,
+              wave: wave,
+              look: look,
+            ),
+          ),
         ),
       ),
     );

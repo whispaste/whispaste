@@ -2,8 +2,12 @@
 
 #include <flutter/encodable_value.h>
 
+#include "utils.h"
+
 #include <chrono>
 #include <thread>
+#include <utility>
+#include <wchar.h>
 
 using flutter::EncodableMap;
 using flutter::EncodableValue;
@@ -241,6 +245,11 @@ void DesktopPasteHost::HandleMethodCall(
     return;
   }
 
+  if (method == "getTargetBundleId") {
+    result->Success(TargetBundleId());
+    return;
+  }
+
   if (method == "pasteClipboard") {
     const int delay_ms = map ? GetInt(*map, "delayMs", 0) : 0;
     result->Success(PasteClipboard(delay_ms));
@@ -307,6 +316,31 @@ void DesktopPasteHost::HandleMethodCall(
 
   if (method == "destroy") {
     Destroy();
+    result->Success();
+    return;
+  }
+
+  if (method == "inputIdleSnapshot") {
+    result->Success(InputIdleSnapshot());
+    return;
+  }
+
+  // Portal keyboard input is Linux-only (RemoteDesktop/libei). Windows keeps
+  // the methods answering "unavailable" so the channel stays uniform.
+  if (method == "portalInputAvailable") {
+    result->Success(EncodableValue(false));
+    return;
+  }
+
+  if (method == "portalInputConnect") {
+    EncodableMap answer;
+    answer[EncodableValue("status")] = EncodableValue("unavailable");
+    answer[EncodableValue("restoreToken")] = EncodableValue();
+    result->Success(EncodableValue(answer));
+    return;
+  }
+
+  if (method == "portalInputDisconnect") {
     result->Success();
     return;
   }
@@ -654,6 +688,58 @@ flutter::EncodableValue DesktopPasteHost::DiagnosticPaste(
   return MakeResultMap("success", "");
 }
 
+// Executable base name of the captured target without ".exe"; null without a
+// readable target.
+EncodableValue DesktopPasteHost::TargetBundleId() const {
+  if (!target_window_ || !::IsWindow(target_window_)) return EncodableValue();
+  DWORD process_id = 0;
+  ::GetWindowThreadProcessId(target_window_, &process_id);
+  if (process_id == 0) return EncodableValue();
+
+  // Elevated targets refuse this access right; they report null, which the
+  // block list treats as an unknown target (fail-closed).
+  HANDLE process =
+      ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, process_id);
+  if (!process) return EncodableValue();
+  wchar_t path[32768];
+  DWORD size = static_cast<DWORD>(sizeof(path) / sizeof(path[0]));
+  std::string name;
+  if (::QueryFullProcessImageNameW(process, 0, path, &size)) {
+    std::wstring full(path, size);
+    const size_t slash = full.find_last_of(L"\\/");
+    std::wstring base =
+        slash == std::wstring::npos ? full : full.substr(slash + 1);
+    if (base.size() > 4 && _wcsicmp(base.c_str() + base.size() - 4, L".exe") == 0) {
+      base.resize(base.size() - 4);
+    }
+    name = Utf8FromUtf16(base.c_str());
+  }
+  ::CloseHandle(process);
+  if (name.empty()) return EncodableValue();
+  return EncodableValue(name);
+}
+
+// Idle ages in seconds for the undo gate. GetLastInputInfo counts injected
+// input too and does not tell keyboard from mouse, so keyIdle and mouseIdle
+// share one conservative value: any input since the insert counts as typing.
+EncodableValue DesktopPasteHost::InputIdleSnapshot() const {
+  LASTINPUTINFO info = {};
+  info.cbSize = sizeof(info);
+  if (!::GetLastInputInfo(&info)) return EncodableValue();
+
+  const double idle = static_cast<DWORD>(::GetTickCount() - info.dwTime) / 1000.0;
+  double synthetic = 1e9;
+  if (has_synthetic_key_) {
+    synthetic =
+        static_cast<DWORD>(::GetTickCount() - last_synthetic_tick_) / 1000.0;
+  }
+  EncodableMap map;
+  map[EncodableValue("keyIdle")] = EncodableValue(idle);
+  map[EncodableValue("mouseIdle")] = EncodableValue(idle);
+  map[EncodableValue("syntheticIdle")] = EncodableValue(synthetic);
+  return EncodableValue(std::move(map));
+}
+
 bool DesktopPasteHost::SendPasteShortcut() const {
   return SendCtrlShortcut('V');
 }
@@ -662,6 +748,8 @@ bool DesktopPasteHost::SendPasteShortcut() const {
 // paste ('V') and copySelection ('C').
 bool DesktopPasteHost::SendCtrlShortcut(WORD key) const {
   INPUT inputs[4] = {};
+  last_synthetic_tick_ = ::GetTickCount();
+  has_synthetic_key_ = true;
 
   inputs[0].type = INPUT_KEYBOARD;
   inputs[0].ki.wVk = VK_CONTROL;

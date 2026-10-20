@@ -130,9 +130,16 @@ class OnboardingPageFill extends StatelessWidget {
 
   final Widget child;
 
+  /// The height the enclosing page is offered, or null outside a page (the
+  /// step widgets are also mounted standalone in their own tests). Lets a step
+  /// leave out a block that would not fit the viewport without scrolling.
+  static double? availableHeightOf(BuildContext context) =>
+      _OnboardingFillScope.availableHeightOf(context);
+
   @override
   Widget build(BuildContext context) {
     return _OnboardingFillScope(
+      availableHeight: availableHeight,
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: availableHeight),
         child: IntrinsicHeight(child: child),
@@ -183,12 +190,22 @@ class OnboardingPageBody extends StatelessWidget {
 }
 
 class _OnboardingFillScope extends InheritedWidget {
-  const _OnboardingFillScope({required super.child});
+  const _OnboardingFillScope({
+    required this.availableHeight,
+    required super.child,
+  });
 
-  static bool isFilling(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_OnboardingFillScope>() !=
-      null;
+  final double availableHeight;
+
+  static _OnboardingFillScope? _maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_OnboardingFillScope>();
+
+  static bool isFilling(BuildContext context) => _maybeOf(context) != null;
+
+  static double? availableHeightOf(BuildContext context) =>
+      _maybeOf(context)?.availableHeight;
 
   @override
-  bool updateShouldNotify(_OnboardingFillScope oldWidget) => false;
+  bool updateShouldNotify(_OnboardingFillScope oldWidget) =>
+      oldWidget.availableHeight != availableHeight;
 }

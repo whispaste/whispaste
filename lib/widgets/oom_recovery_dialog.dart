@@ -9,11 +9,27 @@ import 'package:whispaste/core/theme/tokens.dart';
 import 'dialog.dart';
 import 'wp_button.dart';
 
+/// Key of the notice under the cloud action: the recordings leave the device.
+const Key kOomRecoveryCloudNoticeKey = Key('oomRecoveryCloudNotice');
+
 enum WpOomRecoveryChoice {
   trySmallerModel,
   switchToCloud,
   openSettings,
   cancel,
+}
+
+/// The one primary action of the recovery dialog (UX-019): the smaller model
+/// when it is offered, otherwise the cloud switch, otherwise the settings
+/// route. Every other choice renders as secondary.
+WpOomRecoveryChoice oomRecoveryPrimaryChoice({
+  required bool isPermanentFail,
+  required bool hasModel,
+  required bool hasCloudConfigured,
+}) {
+  if (!isPermanentFail && hasModel) return WpOomRecoveryChoice.trySmallerModel;
+  if (hasCloudConfigured) return WpOomRecoveryChoice.switchToCloud;
+  return WpOomRecoveryChoice.openSettings;
 }
 
 Future<WpOomRecoveryChoice?> showWpOomRecoveryDialog({
@@ -22,6 +38,7 @@ Future<WpOomRecoveryChoice?> showWpOomRecoveryDialog({
   required String? modelName,
   required bool hasCloudConfigured,
   required bool isPermanentFail,
+  String? cloudProviderName,
 }) {
   return showWpFormDialog<WpOomRecoveryChoice>(
     context: context,
@@ -32,6 +49,7 @@ Future<WpOomRecoveryChoice?> showWpOomRecoveryDialog({
         modelName: modelName,
         hasCloudConfigured: hasCloudConfigured,
         isPermanentFail: isPermanentFail,
+        cloudProviderName: cloudProviderName,
       );
     },
   );
@@ -44,6 +62,7 @@ class _OomRecoveryDialog extends StatelessWidget {
     required this.modelName,
     required this.hasCloudConfigured,
     required this.isPermanentFail,
+    required this.cloudProviderName,
   });
 
   final Animation<double> animation;
@@ -51,6 +70,18 @@ class _OomRecoveryDialog extends StatelessWidget {
   final String? modelName;
   final bool hasCloudConfigured;
   final bool isPermanentFail;
+  final String? cloudProviderName;
+
+  WpButtonVariant _variantFor(WpOomRecoveryChoice choice) {
+    final primary = oomRecoveryPrimaryChoice(
+      isPermanentFail: isPermanentFail,
+      hasModel: modelName != null,
+      hasCloudConfigured: hasCloudConfigured,
+    );
+    return choice == primary
+        ? WpButtonVariant.primary
+        : WpButtonVariant.secondary;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,11 +91,11 @@ class _OomRecoveryDialog extends StatelessWidget {
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
 
-    const surface = WpColors.surfaceElevated;
-    const border = WpColors.borderDefault;
-    const titleColor = WpColors.textPrimary;
-    const bodyColor = WpColors.textSecondary;
-    const warningColor = WpColors.warning;
+    final surface = WpColors.surfaceElevated;
+    final border = WpColors.borderDefault;
+    final titleColor = WpColors.textPrimary;
+    final bodyColor = WpColors.textSecondary;
+    final warningColor = WpColors.warning;
 
     return Center(
       child: SlideTransition(
@@ -97,7 +128,7 @@ class _OomRecoveryDialog extends StatelessWidget {
                             color: warningColor.withValues(alpha: 0.14),
                             borderRadius: WpRadius.borderMd,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             LucideIcons.triangleAlert,
                             color: warningColor,
                             size: WpIconSize.lg,
@@ -138,7 +169,9 @@ class _OomRecoveryDialog extends StatelessWidget {
                       _RecoveryChoice(
                         label: l10n.oomRecoveryTrySmaller,
                         hint: l10n.oomRecoveryTrySmallerHint(modelName!),
-                        variant: WpButtonVariant.primary,
+                        variant: _variantFor(
+                          WpOomRecoveryChoice.trySmallerModel,
+                        ),
                         onPressed: () => Navigator.of(
                           context,
                         ).pop(WpOomRecoveryChoice.trySmallerModel),
@@ -150,9 +183,12 @@ class _OomRecoveryDialog extends StatelessWidget {
                       _RecoveryChoice(
                         label: l10n.oomRecoverySwitchCloud,
                         hint: l10n.oomRecoverySwitchCloudHint,
-                        variant: isPermanentFail
-                            ? WpButtonVariant.primary
-                            : WpButtonVariant.secondary,
+                        // The configured provider gets the audio, so say so
+                        // right next to the action that sends it there.
+                        notice: cloudProviderName == null
+                            ? null
+                            : l10n.oomRecoveryCloudNotice(cloudProviderName!),
+                        variant: _variantFor(WpOomRecoveryChoice.switchToCloud),
                         onPressed: () => Navigator.of(
                           context,
                         ).pop(WpOomRecoveryChoice.switchToCloud),
@@ -164,9 +200,7 @@ class _OomRecoveryDialog extends StatelessWidget {
                       _RecoveryChoice(
                         label: l10n.oomRecoveryPermanentCloud,
                         hint: null,
-                        variant: hasCloudConfigured
-                            ? WpButtonVariant.secondary
-                            : WpButtonVariant.primary,
+                        variant: _variantFor(WpOomRecoveryChoice.openSettings),
                         onPressed: () => Navigator.of(
                           context,
                         ).pop(WpOomRecoveryChoice.openSettings),
@@ -209,12 +243,14 @@ class _RecoveryChoice extends StatelessWidget {
     required this.hint,
     required this.variant,
     required this.onPressed,
+    this.notice,
   });
 
   final String label;
   final String? hint;
   final WpButtonVariant variant;
   final VoidCallback onPressed;
+  final String? notice;
 
   @override
   Widget build(BuildContext context) {
@@ -231,6 +267,17 @@ class _RecoveryChoice extends StatelessWidget {
           Text(
             hint!,
             style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ],
+        if (notice != null) ...[
+          const SizedBox(height: WpSpacing.xxs),
+          Text(
+            notice!,
+            key: kOomRecoveryCloudNoticeKey,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: WpColors.warning),
             textAlign: TextAlign.center,
           ),
         ],

@@ -281,6 +281,8 @@ class SidePanelService
     final options = PasteOptions(
       autoPasteDelayMs: settings.behavior.autoPasteDelay,
       blocklist: settings.behavior.autoPasteBlocklist,
+      copyBlockedToClipboard: settings.behavior.copyBlockedToClipboard,
+      restoreClipboardAfterPaste: settings.behavior.restoreClipboardAfterPaste,
     );
     final stopwatch = Stopwatch()..start();
     final outcome = await paster.paste(content, options);

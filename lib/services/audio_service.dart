@@ -7,6 +7,7 @@ library;
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/services.dart' show PlatformException;
@@ -18,11 +19,20 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/mic_start_trace.dart';
 import 'audio/amplitude_from_pcm.dart';
+import 'audio/capture/capture_dir.dart';
+import 'audio/user_audio_dirs.dart';
+import 'audio/input_device_lookup.dart';
+import 'audio/mic_start_cache.dart';
 import 'audio/pcm_gain_processor.dart';
 import 'audio/recording_start_stop_arbiter.dart';
+import 'audio/recovery/recording_journal.dart';
+import 'audio/recovery/recording_journal_provider.dart';
+import 'audio/signal_loss_detector.dart';
 import 'audio/speech_level_mapper.dart';
 import 'audio/wav_file_writer.dart';
 import 'audio_routing_service.dart';
+import 'microphone_priority.dart';
+import 'path_service.dart';
 
 final _log = AppLogger('AudioService');
 
@@ -80,6 +90,7 @@ class AudioStatus {
     this.captureState = AudioCaptureState.idle,
     this.filePath,
     this.errorMessage,
+    this.hasLiveSamples = false,
   });
 
   final AudioCaptureState captureState;
@@ -89,7 +100,19 @@ class AudioStatus {
 
   final String? errorMessage;
 
+  /// True once the current capture delivered its first non-silent sample. The
+  /// capture can be open for a moment before that (device warm-up), and the
+  /// overlay keeps its "starting" state until then.
+  final bool hasLiveSamples;
+
   bool get isRecording => captureState == AudioCaptureState.recording;
+
+  AudioStatus withLiveSamples() => AudioStatus(
+    captureState: captureState,
+    filePath: filePath,
+    errorMessage: errorMessage,
+    hasLiveSamples: true,
+  );
 
   @override
   String toString() => 'AudioStatus($captureState, file=$filePath)';
@@ -134,6 +157,14 @@ RecordConfig _whisperConfig({InputDevice? device, required bool autoGain}) =>
 class AudioServiceNotifier extends Notifier<AudioStatus> {
   AudioRecorder? _recorder;
 
+  /// Permission and device listing reused across recording starts. See
+  /// [MicStartCache] for what is kept and when it is dropped.
+  final MicStartCache _micCache = MicStartCache();
+
+  /// Drops the cached permission and device listing. The power service calls
+  /// this after a wake: devices may have come or gone during sleep.
+  void forgetMicStartCache() => _micCache.invalidate();
+
   /// macOS-only: switches the system default input device for the recording
   /// duration, because `record_macos` cannot route via its own `device` field
   /// (silently ignored on macOS 15/26).
@@ -161,6 +192,10 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
   /// Active WAV-container writer for the current recording. `null` when idle.
   WavFileWriter? _wavWriter;
+
+  /// Id of the recovery journal entry for the live recording, if one was written.
+  RecordingJournalWriter? _journalWriter;
+  static bool _retainedDirReady = false;
 
   /// Active user-gain processor for the current recording. `null` when idle
   /// or when the user is on the default 1.0 gain (identity passthrough).
@@ -203,6 +238,17 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// `null` before the first [startRecording]; never completes for a
   /// recording that stays digitally silent.
   Future<void>? get firstSampleArrived => _firstSample?.future;
+
+  /// Completes the first-sample future of the capture that owns [firstSample]
+  /// and flags the status, unless that capture has already been stopped.
+  void _markLiveSamples(Completer<void> firstSample) {
+    firstSample.complete();
+    if (identical(_firstSample, firstSample) &&
+        state.captureState == AudioCaptureState.recording) {
+      state = state.withLiveSamples();
+    }
+  }
+
   Completer<void>? _firstSample;
 
   @override
@@ -256,7 +302,9 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       final recorder = _recorder!;
 
       // Check / request microphone permission.
-      final hasPermission = await recorder.hasPermission();
+      final hasPermission = await _micCache.hasPermission(
+        recorder.hasPermission,
+      );
       if (!hasPermission) {
         state = const AudioStatus(
           captureState: AudioCaptureState.error,
@@ -268,6 +316,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       // ── Resolve selected microphone from settings ────────────────────
       final settings = ref.read(settingsProvider).value;
       final micLabel = settings?.microphone ?? 'Default';
+      final retainAudio = settings?.privacy.retainRecentAudio ?? false;
       // Snapshot the gain at start — mid-recording slider changes do not
       // affect the in-flight recording. Threshold against `1.0` is exact:
       // the slider produces discrete 5 %-step values so tolerant float
@@ -275,22 +324,44 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       final inputGain = settings?.audioInput.inputGain ?? 1.0;
       final useUserGain = inputGain != 1.0;
 
-      final selectedDevice = await _resolveInputDevice(recorder, micLabel);
+      final micPriority =
+          settings?.audioInput.microphonePriority ?? const <String>[];
+      final selectedDevice = await _resolveInputDevice(
+        recorder,
+        micLabel,
+        micPriority,
+      );
 
       final libraryAutoGain = !useUserGain;
 
-      // Generate a temp file path for the WAV. Directory.systemTemp (not
-      // path_provider's getTemporaryDirectory) deliberately — the latter's
-      // macOS backend resolves via package:objective_c FFI bindings to
-      // Foundation, which can lose a symbol-resolution race
-      // (OBJC_CLASS_$_NSArray dlsym failure) when called from a
-      // fire-and-forget Future this early in startup (see cleanupStaleFiles
-      // below, the actual first-observed crash site). Directory.systemTemp
-      // is pure dart:io and resolves to the same per-user temp dir on macOS
-      // (TMPDIR).
-      final tempDir = Directory.systemTemp;
+      // The WAV goes into a private per-user folder, never the shared system
+      // temp folder (predictable name, other local users can see it). The
+      // folder is resolved via pure dart:io/env, not path_provider: its macOS
+      // backend goes through package:objective_c FFI, which can lose a
+      // symbol-resolution race when called this early in startup (see
+      // cleanupStaleFiles below, the actual first-observed crash site).
+      // With audio retention on, the WAV goes into the app-data folder so a
+      // crash leaves it where recovery finds it.
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      wavPath = p.join(tempDir.path, 'whispaste_$timestamp.wav');
+      final String captureDir;
+      try {
+        captureDir = retainAudio
+            ? retainedAudioDir()
+            : await currentCaptureDir();
+      } on CaptureDirUnavailableException catch (e) {
+        // Fail closed: no private folder means no recording, never /tmp.
+        _log.error('Recording not started: $e', e);
+        state = const AudioStatus(
+          captureState: AudioCaptureState.error,
+          errorMessage: 'recording_start_failed',
+        );
+        return;
+      }
+      wavPath = p.join(
+        captureDir,
+        captureWavFileName(timestamp, Random.secure()),
+      );
+      if (retainAudio) _ensureRetainedDir();
 
       // macOS workaround: AVAudioEngine ignores `setDeviceID()` for
       // non-default devices, so the `device:` field in RecordConfig is
@@ -299,12 +370,12 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       // `_originalDefaultInputUid` is also our "active override" flag.
       await _applyInputRoutingOverride(selectedDevice);
 
-      _log.info(
-        'Start recording → $wavPath | '
-        'Mic: ${selectedDevice?.label ?? "System Default"} '
-        '(setting: "$micLabel"'
-        '${selectedDevice != null ? ', id: ${selectedDevice.id}' : ''})'
-        ' | inputGain: $inputGain (autoGain=$libraryAutoGain)',
+      _logRecordingStart(
+        wavPath,
+        selectedDevice,
+        micLabel,
+        inputGain,
+        libraryAutoGain,
       );
 
       // Reset clipping bookkeeping for this recording and instantiate the
@@ -335,6 +406,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
           bitsPerSample: 16,
         );
         _wavWriter = wavWriter;
+        _beginJournal(timestamp, wavPath, retainAudio);
         pcmStream = await recorder.startStream(
           _whisperConfig(device: selectedDevice, autoGain: libraryAutoGain),
         );
@@ -348,6 +420,8 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
         } else {
           _log.error('startStream failed: $e', e);
         }
+        // The permission or the device listing may be what failed.
+        _micCache.invalidate();
         await _ampSub?.cancel();
         _ampSub = null;
         await _amplitudeFromPcm?.dispose();
@@ -362,6 +436,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
         }
         _wavWriter = null;
         _gainProcessor = null;
+        await _endJournal();
         await cleanupFile(wavPath);
         _amplitudeController?.close();
         _amplitudeController = null;
@@ -384,7 +459,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       final firstSampleDetector = FirstSampleDetector();
       _pcmSub = pcmStream.listen(
         (chunk) {
-          if (firstSampleDetector.observe(chunk)) firstSample.complete();
+          if (firstSampleDetector.observe(chunk)) _markLiveSamples(firstSample);
           final scaled = gainProcessor == null
               ? chunk
               : gainProcessor.process(chunk);
@@ -460,6 +535,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       _log.error('Closing WAV after start/stop race failed: $e', e);
     }
     _wavWriter = null;
+    await _endJournal();
     _lastRecordingClippedSamples = 0;
     _gainProcessor = null;
     await _amplitudeController?.close();
@@ -485,39 +561,73 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
   /// Number of input devices the recorder can see, or `null` when the
   /// enumeration itself fails.
   Future<int?> _countInputDevices(AudioRecorder recorder) async {
-    try {
-      return (await recorder.listInputDevices()).length;
-    } on Exception catch (e) {
-      _log.warning('Failed to enumerate input devices: $e');
-      return null;
-    }
+    final devices = await lookupInputDevices(recorder.listInputDevices);
+    return devices?.length;
   }
 
   /// Resolves the configured microphone label to an [InputDevice] by
   /// enumerating available inputs. Returns `null` when the label is
   /// `'Default'` or when the named device is not found (falls back to
   /// the system default).
+  /// Picks the input device for this recording. Without a priority list, the
+  /// system default ("Default") costs no enumeration, as before. With a
+  /// priority list, one enumeration decides between the explicit device, the
+  /// first present priority entry (virtual inputs excluded) and the system
+  /// default. See [resolveMicrophoneChoice].
+  void _logRecordingStart(
+    String wavPath,
+    InputDevice? selectedDevice,
+    String micLabel,
+    double inputGain,
+    bool libraryAutoGain,
+  ) {
+    final device = selectedDevice == null
+        ? 'System Default'
+        : '${selectedDevice.label}, id: ${selectedDevice.id}';
+    _log.info(
+      'Start recording → $wavPath | Mic: $device (setting: "$micLabel")'
+      ' | inputGain: $inputGain (autoGain=$libraryAutoGain)',
+    );
+  }
+
   Future<InputDevice?> _resolveInputDevice(
     AudioRecorder recorder,
     String micLabel,
+    List<String> priority,
   ) async {
-    if (micLabel == 'Default') return null;
+    if (micLabel == 'Default' && priority.isEmpty) return null;
 
-    try {
-      final devices = await recorder.listInputDevices();
-      _log.info(
-        'Enumerated ${devices.length} input devices: '
-        '[${devices.map((d) => '"${d.label}"#${d.id}').join(", ")}]',
-      );
-      for (final d in devices) {
-        if (d.label == micLabel) return d;
+    final devices = await _micCache.inputDevices(
+      () => lookupInputDevices(recorder.listInputDevices),
+    );
+    if (devices == null) return null;
+    _log.info(
+      'Enumerated ${devices.length} input devices: '
+      '[${devices.map((d) => '"${d.label}"#${d.id}').join(", ")}]',
+    );
+    final choice = resolveMicrophoneChoice(
+      selected: micLabel,
+      priority: priority,
+      available: [for (final d in devices) d.label],
+    );
+    final label = choice.label;
+    if (label == null) {
+      if (micLabel != 'Default') {
+        _log.warning(
+          'Configured mic "$micLabel" NOT found — falling back to system default',
+        );
       }
-      _log.warning(
-        'Configured mic "$micLabel" NOT found — falling back to system default',
-      );
-    } on Exception catch (e) {
-      _log.warning('Failed to enumerate input devices: $e');
+      return null;
     }
+    if (choice.source == MicrophoneChoiceSource.priority) {
+      _log.info('Priority pick "$label" (selected: "$micLabel")');
+    }
+    for (final d in devices) {
+      if (d.label == label) return d;
+    }
+    _log.warning(
+      'Configured mic "$micLabel" NOT found — falling back to system default',
+    );
     return null;
   }
 
@@ -571,16 +681,31 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _amplitudeFromPcm = amplitudeFromPcm;
 
     const levelMapper = SpeechLevelMapper();
+    final lossDetector = SignalLossDetector(
+      samplesPerSecond: amplitudeSamplesPerSecond,
+    );
+    _setMicSignalLost(false);
     _ampSub?.cancel();
     _ampSub = amplitudeFromPcm.stream.listen(
       (dbFs) {
         _amplitudeController?.add(levelMapper.map(dbFs));
+        final lost = lossDetector.observe(dbFs);
+        if (lost != null) _setMicSignalLost(lost);
       },
       onError: (Object e) {
         _log.error('Amplitude error: $e', e);
       },
     );
     return amplitudeFromPcm;
+  }
+
+  void _setMicSignalLost(bool lost) {
+    try {
+      ref.read(micSignalLostProvider.notifier).set(lost);
+    } on Object catch (e) {
+      // Only a disposed container lands here; the recording itself is fine.
+      _log.debug('Mic signal state update skipped: $e');
+    }
   }
 
   /// Tears down active recording resources after a fatal mid-recording
@@ -602,6 +727,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       _log.error('Closing WAV after error failed: $e', e);
     }
     _wavWriter = null;
+    await _endJournal();
     _lastRecordingClippedSamples = _gainProcessor?.clippedSamples ?? 0;
     _gainProcessor = null;
     await _amplitudeController?.close();
@@ -684,6 +810,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
       _log.error('Error closing WAV writer: $e', e);
     }
     _wavWriter = null;
+    await _endJournal();
 
     // Capture the user-gain clipping counter before tearing the processor
     // down. Slice #04 will read this via [lastRecordingClippedSamples].
@@ -692,6 +819,10 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
     await _ampSub?.cancel();
     _ampSub = null;
+    final gap = _amplitudeFromPcm?.longestChunkGap;
+    if (gap != null) {
+      _log.info('Longest gap between PCM chunks: ${gap.inMilliseconds} ms');
+    }
     await _amplitudeFromPcm?.dispose();
     _amplitudeFromPcm = null;
     await _amplitudeController?.close();
@@ -747,6 +878,44 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     _log.info('Routing restore: default input → $original (ok=$ok)');
   }
 
+  RecordingJournal get _journal => ref.read(recordingJournalProvider);
+
+  /// Journals the live recording so a crash leaves a trace for recovery. The
+  /// write runs in the background: the microphone must not wait for the disk.
+  /// Best-effort: a failed journal write must never stop the recording.
+  void _beginJournal(int timestamp, String? wavPath, bool retainAudio) {
+    final writer = RecordingJournalWriter(
+      journal: _journal,
+      onError: (Object e) => _log.warning('Recovery journal not written: $e'),
+    );
+    _journalWriter = writer;
+    writer.beginInBackground(
+      id: 'rec-$timestamp',
+      startedAt: DateTime.fromMillisecondsSinceEpoch(timestamp),
+      wavPath: retainAudio ? wavPath : null,
+    );
+  }
+
+  /// Removes the journal entry after the recording ended in any way. Waits for
+  /// a still-pending begin, so the entry is never removed before it exists.
+  Future<void> _endJournal() async {
+    final writer = _journalWriter;
+    _journalWriter = null;
+    await writer?.endAndWait();
+  }
+
+  /// Creates the retained-audio folder once per process. A synchronous call on
+  /// purpose: it is a single `mkdir` that runs once, and the start path must not
+  /// await file IO before the microphone starts. The 0700 check runs in the
+  /// background; an existing folder was already tightened at startup.
+  void _ensureRetainedDir() {
+    if (_retainedDirReady) return;
+    final dir = retainedAudioDir();
+    Directory(dir).createSync(recursive: true);
+    unawaited(userAudioDirs.ensure(dir));
+    _retainedDirReady = true;
+  }
+
   /// Deletes the temporary WAV file if it exists.
   Future<void> cleanupFile(String? path) async {
     if (path == null) return;
@@ -761,28 +930,68 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     }
   }
 
-  /// Removes stale `whispaste_*.wav` files from the system temp directory.
+  /// Runs [cleanupStaleFiles] now and once more shortly after [maxAge].
   ///
-  /// Called once at startup to clean up leftovers from crashes or interrupted
-  /// recordings. Only deletes files older than [maxAge] (default: 5 minutes)
-  /// to avoid removing a WAV that's currently being recorded.
+  /// The first sweep skips a crash leftover younger than [maxAge] (it might
+  /// belong to a concurrent instance), which then used to survive until the
+  /// next launch — with "do not keep audio" that is raw audio on disk for
+  /// days. The second sweep catches it. Both only delete files last modified
+  /// before [launchedAt], so a WAV of this session (being recorded, or still
+  /// being transcribed after [maxAge]) is never touched. The 2 s margin covers
+  /// file systems with coarse modification times.
+  static Timer scheduleStaleFileCleanup({
+    required DateTime launchedAt,
+    Duration maxAge = const Duration(minutes: 5),
+    Future<void> Function({DateTime? modifiedBefore})? sweep,
+    Future<void> Function({required DateTime modifiedBefore})? legacySweep,
+  }) {
+    final run = sweep ?? cleanupStaleFiles;
+    final modifiedBefore = launchedAt.subtract(const Duration(seconds: 2));
+    unawaited(run(modifiedBefore: modifiedBefore));
+    // One-time cleanup of WAVs earlier versions left in the shared temp folder.
+    unawaited(
+      (legacySweep ?? runLegacyTempWavSweepOnce)(
+        modifiedBefore: modifiedBefore,
+      ),
+    );
+    return Timer(
+      maxAge + const Duration(seconds: 30),
+      () => unawaited(run(modifiedBefore: modifiedBefore)),
+    );
+  }
+
+  /// Removes stale capture WAVs (`whispaste_*.wav`) from the private capture
+  /// folder.
+  ///
+  /// Cleans up leftovers from crashes or interrupted recordings (see
+  /// [scheduleStaleFileCleanup]). Only deletes files older than [maxAge]
+  /// (default: 5 minutes) to avoid removing a WAV that's currently being
+  /// recorded, and with [modifiedBefore] only files last modified before it.
+  /// [directory] and [now] are for tests.
   static Future<void> cleanupStaleFiles({
     Duration maxAge = const Duration(minutes: 5),
+    DateTime? modifiedBefore,
+    Directory? directory,
+    DateTime Function() now = DateTime.now,
   }) async {
     try {
-      final tempDir = Directory.systemTemp;
-      final now = DateTime.now();
+      final tempDir = directory ?? Directory(await currentCaptureDir());
+      final at = now();
       var cleaned = 0;
       var freedBytes = 0;
 
       await for (final entity in tempDir.list()) {
         if (entity is! File) continue;
         final name = p.basename(entity.path);
-        if (!name.startsWith('whispaste_') || !name.endsWith('.wav')) continue;
+        if (!isCaptureWavName(name)) continue;
 
         try {
           final stat = await entity.stat();
-          if (now.difference(stat.modified) > maxAge) {
+          if (modifiedBefore != null &&
+              !stat.modified.isBefore(modifiedBefore)) {
+            continue;
+          }
+          if (at.difference(stat.modified) > maxAge) {
             final size = stat.size;
             await entity.delete();
             cleaned++;
@@ -796,7 +1005,7 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
 
       if (cleaned > 0) {
         _log.info(
-          'Startup cleanup: removed $cleaned stale WAV file(s) '
+          'Stale WAV cleanup: removed $cleaned file(s) '
           '(${(freedBytes / 1024 / 1024).toStringAsFixed(1)} MB)',
         );
       }
@@ -839,16 +1048,13 @@ final audioInputDevicesProvider = FutureProvider<List<String>>((ref) async {
   try {
     final recorder = AudioRecorder();
     try {
-      final devices = await recorder.listInputDevices();
-      return [
-        'Default',
-        ...devices.where((d) => d.label.isNotEmpty).map((d) => d.label),
-      ];
+      final devices = await lookupInputDevices(recorder.listInputDevices);
+      return inputDeviceLabelsFrom(devices);
     } finally {
       recorder.dispose();
     }
   } catch (e) {
-    _log.error('Failed to enumerate input devices: $e', e);
-    return ['Default'];
+    _log.warning('Input device recorder unavailable: $e');
+    return inputDeviceLabelsFrom(null);
   }
 });

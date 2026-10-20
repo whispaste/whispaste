@@ -47,6 +47,11 @@ class DesktopPasteHost {
   bool BringTargetToForeground() const;
   bool SendPasteShortcut() const;
   bool SendCtrlShortcut(WORD key) const;
+  // Idle ages for the undo gate (DEV-185, GS-056, DEV-232); null when unknown.
+  flutter::EncodableValue InputIdleSnapshot() const;
+  // Executable base name of the captured target without ".exe" (the identifier
+  // the block list and app profiles compare); null without a readable target.
+  flutter::EncodableValue TargetBundleId() const;
 
   flutter::FlutterEngine* engine_;
   HWND owner_;
@@ -57,6 +62,10 @@ class DesktopPasteHost {
   // touched on the window's UI thread only (method channel + WndProc).
   std::wstring receipt_text_;
   bool receipt_active_ = false;
+  // Tick of our own last synthetic key burst (GetTickCount), for the undo gate.
+  // Mutable: SendCtrlShortcut is const and records the burst it sends.
+  mutable DWORD last_synthetic_tick_ = 0;
+  mutable bool has_synthetic_key_ = false;
   bool receipt_keystroke_posted_ = false;
   bool receipt_read_ = false;
   std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> pending_read_;

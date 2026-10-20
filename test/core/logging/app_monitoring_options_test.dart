@@ -46,5 +46,11 @@ void main() {
     test('never propagates trace headers to any host', () {
       expect(options.tracePropagationTargets, isEmpty);
     });
+
+    test('debug builds skip the native SDK, which crashes when a hot '
+        'restart initialises it a second time', () {
+      // Tests run in debug mode; release builds keep native capture.
+      expect(options.autoInitializeNativeSdk, isFalse);
+    });
   });
 }

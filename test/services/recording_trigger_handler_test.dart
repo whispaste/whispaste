@@ -137,9 +137,21 @@ void main() {
   group('RecordingTriggerHandler — hold-or-tap mode (hybrid)', () {
     const threshold = RecordingTriggerHandler.holdOrTapThreshold;
 
-    test('threshold is ~300 ms', () {
-      expect(threshold, const Duration(milliseconds: 300));
+    test('threshold is 1 s for the shared hold-or-tap hotkey', () {
+      expect(threshold, const Duration(milliseconds: 1000));
     });
+
+    test(
+      'H4: a deliberate but not very long press of 600 ms still latches',
+      () {
+        final h = _Hybrid();
+        h.handler.onKeyDown();
+        h.advance(const Duration(milliseconds: 600));
+        h.handler.onKeyUp();
+        expect(h.stop, 0, reason: 'slower tap stays latched below 1 s');
+        expect(h.recording, isTrue);
+      },
+    );
 
     test('H1: short tap toggles on and keeps recording (latched)', () {
       final h = _Hybrid();
@@ -209,7 +221,7 @@ void main() {
       expect(h.toggle, 1, reason: 'repeats must not toggle again');
       expect(h.recording, isTrue);
 
-      h.advance(const Duration(milliseconds: 400));
+      h.advance(const Duration(milliseconds: 700));
       h.handler.onKeyUp();
       expect(h.stop, 1);
       expect(h.recording, isFalse);

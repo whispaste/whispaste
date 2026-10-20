@@ -39,14 +39,70 @@ class FloatingButtonHost {
   // `ready`, relayed messages would be dropped — so we cache the latest render
   // state here and flush it the moment the engine announces itself.
   private var renderReady: Bool = false
+
+// Logical position = disc origin. The panel is larger than the disc by
+// shadowPadding on every side (OverlayDesignSpec.shadowPadding), so the panel
+// origin is the logical origin minus this value. Every reader and writer of
+// the position below must go through `panelOrigin` / `logicalOrigin`; mixing
+// the two drifts the saved position by 8 px per save/restore cycle.
+private static let shadowPadding: CGFloat = 8
+
+private static let slowPanelOpThresholdMs: Double = 50
+
+private static func timedPanelOp(_ name: String, _ operation: () -> Void) {
+    let start = CFAbsoluteTimeGetCurrent()
+    operation()
+    let elapsedMs = (CFAbsoluteTimeGetCurrent() - start) * 1000
+    if elapsedMs > slowPanelOpThresholdMs {
+        NSLog("[button] slow panel op %@ took %.1f ms", name, elapsedMs)
+    }
+}
+
+private static func logicalOrigin(of panel: NSPanel) -> NSPoint {
+    NSPoint(x: panel.frame.origin.x + shadowPadding, y: panel.frame.origin.y + shadowPadding)
+}
+
+private static func panelOrigin(forLogical x: Double, _ y: Double) -> NSPoint {
+    NSPoint(x: CGFloat(x) - shadowPadding, y: CGFloat(y) - shadowPadding)
+}
   private var latestState: String?
   private var latestDiameter: Double = 56
+  // Last `setTheme` arguments ({background, wave}, WP-75). Cached like the
+  // state so the first frame after the boot race already has the preset.
+  private var latestTheme: [String: Any]?
 
   // Boot-race hardening: if `ready` never arrives (same class of race as
   // FloatingOverlayHost's — see its comment), a timeout tears down the stuck
   // engine and boots a fresh one rather than leaving the button permanently
   // blank for the rest of the app session.
   private static let renderReadyTimeout: TimeInterval = 3.0
+
+  // Preset ids the render engine understands (overlay_design_spec.dart). Any
+  // other value from the method channel is replaced by the default.
+  private static let backgroundPresets: Set<String> = ["marine", "graphit", "gletscher", "amber"]
+  private static let wavePresets: Set<String> = ["cyan", "violett", "neutral", "ink", "amber", "coral", "mint"]
+
+  private static func sanitizedTheme(_ args: [String: Any]) -> [String: Any] {
+    let background = (args["background"] as? String).flatMap {
+      backgroundPresets.contains($0) ? $0 : nil
+    } ?? "marine"
+    let wave = (args["wave"] as? String).flatMap {
+      wavePresets.contains($0) ? $0 : nil
+    } ?? "cyan"
+    // WP-95 button look: shape, recording ring and resting opacity. The
+    // opacity is clamped to the presets the render engine knows (40-100 %).
+    let shape = (args["shape"] as? String) == "square" ? "square" : "round"
+    let ring = (args["ring"] as? Bool) ?? true
+    let idle = (args["idleOpacity"] as? NSNumber)?.doubleValue ?? 1.0
+    let idleOpacity = min(max(idle, 0.4), 1.0)
+    return [
+      "background": background,
+      "wave": wave,
+      "shape": shape,
+      "ring": ring,
+      "idleOpacity": idleOpacity,
+    ]
+  }
   private static let maxRenderReadyRetries = 2
   private var renderReadyTimeoutTimer: Timer?
   private var renderReadyRetryCount = 0
@@ -96,7 +152,7 @@ class FloatingButtonHost {
 
     if origin != p.frame.origin {
       p.setFrameOrigin(origin)
-      let adjusted = p.frame.origin
+      let adjusted = Self.logicalOrigin(of: p)
       channel.invokeMethod("onDragEnded", arguments: [
         "x": Double(adjusted.x),
         "y": Double(adjusted.y),
@@ -128,9 +184,6 @@ class FloatingButtonHost {
         return
       }
       latestState = stateName
-      // [DEBUG-a1] hypothesis 3: is a setState relay ever dropped because
-      // renderReady is false (boot-race / stuck-engine window)?
-      NSLog("[button][DEBUG-a1] setState(\(stateName)) renderReady=\(renderReady) renderChannel=\(renderChannel != nil)")
       if renderReady {
         renderChannel?.invokeMethod("setState", arguments: ["state": stateName])
       }
@@ -141,9 +194,10 @@ class FloatingButtonHost {
         result(nil)
         return
       }
-      // Relay to render engine (V2 disc is theme-independent, render ignores).
+      let theme = Self.sanitizedTheme(args)
+      latestTheme = theme
       if renderReady {
-        renderChannel?.invokeMethod("setTheme", arguments: args)
+        renderChannel?.invokeMethod("setTheme", arguments: theme)
       }
       result(nil)
 
@@ -154,7 +208,7 @@ class FloatingButtonHost {
       }
       let x = (args["x"] as? NSNumber)?.doubleValue ?? 0
       let y = (args["y"] as? NSNumber)?.doubleValue ?? 0
-      panel?.setFrameOrigin(NSPoint(x: x, y: y))
+      panel?.setFrameOrigin(Self.panelOrigin(forLogical: x, y))
       result(nil)
 
     case "setSize":
@@ -168,7 +222,7 @@ class FloatingButtonHost {
       if let p = panel {
         var frame = p.frame
         frame.size = NSSize(width: totalSize, height: totalSize)
-        p.setFrame(frame, display: true)
+        Self.timedPanelOp("setSize.setFrame") { p.setFrame(frame, display: true) }
       }
       if renderReady {
         renderChannel?.invokeMethod("setDiameter", arguments: ["diameter": size])
@@ -180,7 +234,7 @@ class FloatingButtonHost {
         result(nil)
         return
       }
-      let origin = p.frame.origin
+      let origin = Self.logicalOrigin(of: p)
       result(["x": Double(origin.x), "y": Double(origin.y)])
 
     case "setContextMenuItems":
@@ -198,6 +252,13 @@ class FloatingButtonHost {
 
     case "destroy":
       teardown()
+      result(nil)
+
+    case "rebootRenderEngine":
+      // Dart's frame heartbeat found no painted frame after its re-push.
+      // Re-boots only the render engine; the panel keeps its position and
+      // visibility, and the new engine's `ready` flushes the cached state.
+      rebootRenderEngine()
       result(nil)
 
     default:
@@ -314,11 +375,11 @@ class FloatingButtonHost {
       }
     }
 
-    // Offset the panel origin so the logical position (x, y) aligns with the
-    // disc center: (totalSize - size) / 2 == shadowPadding == 8.
-    let shadowPadding = (totalSize - size) / 2
-    panel?.setFrameOrigin(NSPoint(x: x - shadowPadding, y: y - shadowPadding))
-    panel?.orderFront(nil)
+    if let p = panel {
+      let origin = Self.panelOrigin(forLogical: x, y)
+      Self.timedPanelOp("show.setFrameOrigin") { p.setFrameOrigin(origin) }
+      Self.timedPanelOp("show.orderFront") { p.orderFront(nil) }
+    }
   }
 
   // MARK: - Render-engine interactions (button engine → native → main engine)
@@ -337,6 +398,9 @@ class FloatingButtonHost {
         renderChannel?.invokeMethod("setState", arguments: ["state": state])
       }
       renderChannel?.invokeMethod("setDiameter", arguments: ["diameter": latestDiameter])
+      if let theme = latestTheme {
+        renderChannel?.invokeMethod("setTheme", arguments: theme)
+      }
       result(nil)
 
     case "startDrag":
@@ -344,7 +408,7 @@ class FloatingButtonHost {
         p.performDrag(with: event)
         // The drag loop has ended — persist the final origin via the existing
         // main-engine event.
-        let origin = p.frame.origin
+        let origin = Self.logicalOrigin(of: p)
         channel.invokeMethod("onDragEnded", arguments: [
           "x": Double(origin.x),
           "y": Double(origin.y),
@@ -360,13 +424,21 @@ class FloatingButtonHost {
       showNativeContextMenu()
       result(nil)
 
+    case "frameRendered":
+      // The render engine painted the frame for its latest state message
+      // (frame heartbeat). Relayed so the Dart side can stop its stall deadline.
+      channel.invokeMethod("onRenderFrame", arguments: nil)
+      result(nil)
+
     case "reportError":
       // Uncaught Dart error inside the render engine — relay it through the
       // existing diagnostic pipeline into the main engine's persistent
       // AppLogger, exactly like the boot-race timeout below. See
       // `shared_render_engine_helpers.dart`'s `RenderChannel.reportError`.
       if let args = call.arguments as? [String: Any], let message = args["message"] as? String {
-        NSLog("[button] render engine reported an error: \(message)")
+        // Only a fixed category goes to the unified log; the text itself is
+        // passed to Dart below, where AppLogger redacts it.
+        NSLog("[button] render engine reported an error (category: render-engine)")
         channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": true])
       }
       result(nil)
@@ -374,6 +446,26 @@ class FloatingButtonHost {
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  /// Re-boots only the render engine inside the existing panel (frame
+  /// heartbeat, see `FloatingButtonService`). The Dart side owns the session
+  /// budget and the logging; the cached state, diameter and theme are flushed
+  /// again by the new engine's `ready`.
+  private func rebootRenderEngine() {
+    guard panel != nil else { return }
+    NSLog("[button] rebootRenderEngine: re-booting render engine on request")
+    renderReadyTimeoutTimer?.invalidate()
+    renderReadyTimeoutTimer = nil
+    renderReadyRetryCount = 0
+    renderChannel?.setMethodCallHandler(nil)
+    renderEngine?.shutDownEngine()
+    renderEngine = nil
+    renderViewController = nil
+    renderChannel = nil
+    renderReady = false
+    // Same total size as `show` / `setSize`: disc + shadowPadding on each side.
+    bootRenderEngine(totalSize: latestDiameter + 16)
   }
 
   private func showNativeContextMenu() {

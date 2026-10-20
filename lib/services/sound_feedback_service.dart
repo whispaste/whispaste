@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
@@ -15,6 +16,47 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 
 final _log = AppLogger('SoundFeedback');
+
+/// The cue files under `assets/sounds/`.
+const soundCueAssets = [
+  'start.wav',
+  'stop.wav',
+  'success.wav',
+  'error.wav',
+  'warning.wav',
+];
+
+/// Loads every cue in [soundCueAssets]: [readAsset] gets the asset key,
+/// [load] its bytes. A cue that fails is reported to [onFailure] and left
+/// out, so one broken file never silences the others.
+///
+/// Cues go to SoLoud from memory (`loadMem`), not through `loadAsset`:
+/// that writes each asset to a temp file in a fixed, machine-wide folder
+/// (`/tmp/SoLoudLoader-Temp-Files` on Linux). When another user on the
+/// machine created that folder first, every write failed and all cues
+/// stayed silent (XP-2-07).
+@visibleForTesting
+Future<Map<String, S>> loadSoundCues<S>({
+  required Future<Uint8List> Function(String key) readAsset,
+  required Future<S> Function(String key, Uint8List bytes) load,
+  required void Function(String name, Object error) onFailure,
+}) async {
+  final sources = <String, S>{};
+  for (final name in soundCueAssets) {
+    final key = 'assets/sounds/$name';
+    try {
+      sources[name] = await load(key, await readAsset(key));
+    } catch (e) {
+      onFailure(name, e);
+    }
+  }
+  return sources;
+}
+
+Future<Uint8List> _readBundledAsset(String key) async {
+  final data = await rootBundle.load(key);
+  return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+}
 
 // ---------------------------------------------------------------------------
 // Service
@@ -133,23 +175,8 @@ class SoundFeedbackService extends Notifier<void> {
         await _engine.init(bufferSize: 1024, channels: Channels.mono);
         _log.info('SoLoud engine initialized');
       }
-      // Preload all sound assets
-      const assets = [
-        'start.wav',
-        'stop.wav',
-        'success.wav',
-        'error.wav',
-        'warning.wav',
-      ];
-      _sources.clear();
-      for (final name in assets) {
-        try {
-          _sources[name] = await _engine.loadAsset('assets/sounds/$name');
-        } catch (e) {
-          _log.warning('Failed to preload $name: $e');
-        }
-      }
-      // Recovery: if all preloads failed (e.g. temp dir invalidated),
+      await _loadCues((name, e) => _log.warning('Failed to preload $name: $e'));
+      // Recovery: if all preloads failed (e.g. the engine lost its state),
       // restart the engine from scratch and retry.
       if (_sources.isEmpty) {
         _log.warning('All preloads failed — restarting engine for recovery');
@@ -159,21 +186,32 @@ class SoundFeedbackService extends Notifier<void> {
           _log.debug('SoLoud deinit failed during recovery (non-fatal): $e');
         }
         await _engine.init(bufferSize: 1024, channels: Channels.mono);
-        for (final name in assets) {
-          try {
-            _sources[name] = await _engine.loadAsset('assets/sounds/$name');
-          } catch (e) {
-            _log.warning('Recovery preload failed for $name: $e');
-          }
-        }
-        _log.info('Recovery preload: ${_sources.length}/5');
+        await _loadCues(
+          (name, e) => _log.warning('Recovery preload failed for $name: $e'),
+        );
+        _log.info(
+          'Recovery preload: ${_sources.length}/${soundCueAssets.length}',
+        );
       }
       _initialized = _sources.isNotEmpty;
-      _log.info('Sound assets preloaded (${_sources.length}/5)');
+      _log.info(
+        'Sound assets preloaded (${_sources.length}/${soundCueAssets.length})',
+      );
       if (_initialized) _armIdleTimer();
     } catch (e) {
       _log.warning('SoLoud init failed: $e');
     }
+  }
+
+  Future<void> _loadCues(void Function(String name, Object e) onFailure) async {
+    final sources = await loadSoundCues<AudioSource>(
+      readAsset: _readBundledAsset,
+      load: (key, bytes) => _engine.loadMem(key, bytes),
+      onFailure: onFailure,
+    );
+    _sources
+      ..clear()
+      ..addAll(sources);
   }
 
   Future<void> _play(String assetName, bool enabled) async {

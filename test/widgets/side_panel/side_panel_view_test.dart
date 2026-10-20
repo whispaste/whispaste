@@ -56,7 +56,7 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.clipboardList).first);
       await tester.pumpAndSettle();
-      expect(find.text('Clipboard History'), findsOneWidget);
+      expect(find.text('Clipboard history'), findsOneWidget);
       expect(find.text('Copied text'), findsOneWidget);
       expect(find.text('My signature'), findsNothing);
     });

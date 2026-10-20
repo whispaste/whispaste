@@ -210,6 +210,13 @@ class FloatingOverlayHost {
       teardown()
       result(nil)
 
+    case "rebootRenderEngine":
+      // Dart's frame heartbeat (WP-84 phase 2) found no painted frame after a
+      // show. Re-boots the render engine inside the existing panel; the Dart
+      // side owns the session budget and the logging.
+      rebootRenderEngine()
+      result(nil)
+
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -251,9 +258,15 @@ class FloatingOverlayHost {
     // (see `panelOperationStallThreshold`), so it also goes through the
     // watchdog. `orderOut` is not — hiding never waits on a fresh committed
     // frame, so it isn't a wedge risk.
+    // Dart re-sends `visible: true` on every elapsed tick (~1 Hz). Re-ordering
+    // an already visible panel is redundant and, on the shared main thread, can
+    // wait on a frame (WP-84 analysis: 90 redundant calls per debug run), so
+    // only a hidden panel is ordered front.
     if visible {
-      runPanelOperation("orderFront") { [weak self] in
-        self?.panel?.orderFront(nil)
+      if panel?.isVisible != true {
+        runPanelOperation("orderFront") { [weak self] in
+          self?.panel?.orderFront(nil)
+        }
       }
     } else {
       panel?.orderOut(nil)
@@ -289,6 +302,25 @@ class FloatingOverlayHost {
     NSLog("[overlay] \(message)")
     channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": false])
     recoverStuckPanel()
+  }
+
+  /// Re-boots only the render engine, keeping the panel, its position and its
+  /// visibility. Requested by Dart when a shown overlay produced no frame
+  /// (see `OverlayRenderRecovery`). Each request starts a fresh boot-race
+  /// budget; the session-wide budget lives on the Dart side.
+  private func rebootRenderEngine() {
+    guard panel != nil else { return }
+    NSLog("[overlay] rebootRenderEngine: re-booting render engine on request")
+    renderReadyTimeoutTimer?.invalidate()
+    renderReadyTimeoutTimer = nil
+    renderReadyRetryCount = 0
+    renderChannel?.setMethodCallHandler(nil)
+    renderEngine?.shutDownEngine()
+    renderEngine = nil
+    renderViewController = nil
+    renderChannel = nil
+    renderReady = false
+    bootRenderEngine()
   }
 
   /// Blackbox recovery for a suspected-wedged shell: tears down the panel
@@ -455,11 +487,12 @@ class FloatingOverlayHost {
       bootRenderEngine()
     } else {
       let message =
-        "render engine never signaled ready after \(Self.maxRenderReadyRetries) retries — overlay content will stay blank until the app restarts"
+        "render engine never signaled ready after \(Self.maxRenderReadyRetries) retries — the next show re-boots it (session budget applies)"
       NSLog("[overlay] \(message)")
       channel.invokeMethod("onRenderEngineDiagnostic", arguments: ["message": message, "isError": true])
-      // Don't keep a permanently-stuck engine's thread/GPU resources alive
-      // for the rest of the session — it will never become useful.
+      // Free the stuck engine's thread/GPU resources now. This is no longer a
+      // permanent give-up: the Dart frame heartbeat re-boots the engine on the
+      // next show, within the session budget.
       renderEngine?.shutDownEngine()
       renderEngine = nil
     }
@@ -467,6 +500,9 @@ class FloatingOverlayHost {
 
   private func resizePanelToContent() {
     guard let p = panel else { return }
+    // Resize only when needed (WP-84 phase 2, plan item 2): a synchronous
+    // content-size change waits on a frame at the new size.
+    guard p.contentView?.frame.size != contentSize() else { return }
     let origin = p.frame.origin
     p.setContentSize(contentSize())
     // Re-anchor: a top/bottom-centre overlay must stay centred after the size
@@ -486,12 +522,10 @@ class FloatingOverlayHost {
       NSLog("[overlay] render engine ready — flushing cached state")
       renderReadyTimeoutTimer?.invalidate()
       renderReadyTimeoutTimer = nil
-      renderReadyRetryCount = 0
-      // A clean ready-signal means the shell is healthy again — let future
-      // genuine stalls get the full retry budget rather than staying
-      // permanently exhausted after one bad patch of jank earlier in a long
-      // session.
-      panelRecoveryRetryCount = 0
+      // `ready` does NOT reset the recovery counters (WP-84 phase 2, plan
+      // item 4): a reset here let each successful boot re-arm the stall
+      // rebuild cascade. The budget is per session; `ready` only proves the
+      // handshake, not that a frame reached the screen.
       renderReady = true
       if let bars = latestBars {
         renderChannel?.invokeMethod("setWaveformBars", arguments: bars)
@@ -518,6 +552,13 @@ class FloatingOverlayHost {
 
     case "bodyClicked":
       channel.invokeMethod("onBodyClicked", arguments: nil)
+      result(nil)
+
+    case "frameRendered":
+      // First painted frame of the current show (frame heartbeat, WP-84
+      // phase 2). Relayed so the Dart side can stop its re-boot deadline and
+      // record the first-frame latency.
+      channel.invokeMethod("onRenderFrame", arguments: nil)
       result(nil)
 
     case "showContextMenu":

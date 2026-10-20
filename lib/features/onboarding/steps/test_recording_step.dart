@@ -9,6 +9,8 @@ import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../features/settings/settings_widgets.dart';
 import 'mic_permission_chip.dart';
+import '../../../services/hotkey_service.dart'
+    show activeGlobalHotkey, globalHotkeyFallbackActiveProvider;
 import '../../../services/recording_orchestrator.dart';
 import '../../../widgets/wp_button.dart';
 import '../onboarding_completion_gate.dart';
@@ -19,7 +21,10 @@ import '../onboarding_completion_gate.dart';
 const kTestRecordingStepFieldKey = Key('testRecordingStepSandboxField');
 @visibleForTesting
 const kTestRecordingStepRecordButtonKey = Key('testRecordingStepRecordButton');
-@visibleForTesting
+
+/// The "continue without a microphone" escape hatch. It is rendered by the
+/// onboarding shell's footer beside the "Los geht's" CTA, not by this step,
+/// so the key is shared with production code and is not test-only.
 const kTestRecordingStepMicBypassButtonKey = Key(
   'testRecordingStepMicBypassButton',
 );
@@ -90,10 +95,6 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
     ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
   }
 
-  void _onMicBypassPressed() {
-    ref.read(onboardingMicBypassProvider.notifier).activate();
-  }
-
   @override
   void dispose() {
     _orchestrator?.sandboxTranscriptSink = null;
@@ -110,17 +111,20 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
     );
     final micBypassed = ref.watch(onboardingMicBypassProvider);
 
-    final isDone = _sandboxText != null;
+    // A blank transcript (silence) is not a result: the field stays on its
+    // placeholder and the page asks for another try instead of celebrating.
+    final isDone = _sandboxText?.trim().isNotEmpty ?? false;
+    final nothingRecognised = _sandboxText != null && !isDone;
     final isRecording =
         !isDone &&
         (phase == RecordingPhase.recording ||
             phase == RecordingPhase.transcribing);
 
-    const textSecondary = WpColors.textSecondary;
-    const textMuted = WpColors.textMuted;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
     // Recording family: this colour has exactly one job below — the live
     // border of the sandbox field while the test recording runs.
-    const recordingAccent = WpColors.recordingAccent;
+    final recordingAccent = WpColors.recordingAccent;
     // Accent, not `success` (Ticket 15, *The Earned-Green Rule*). This is
     // the closest thing in the app to an earned green — the user pressed
     // record, spoke, and the transcript arrived — but the line does not
@@ -130,7 +134,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
     // sanctions for reporting an outcome. Green that sits there is green
     // spent. The completion itself is still unmistakable: the sandbox field
     // fills with what was said, and the shell's Next button unlocks.
-    const done = WpColors.accent;
+    final done = WpColors.accent;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -172,15 +176,20 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               // the line instead of a fourth item in it.
               Text(
                 l10n.onboardingTestRecordingHotkeyLabel,
-                style: const TextStyle(
-                  fontSize: WpTypography.body,
-                  color: textMuted,
-                ),
+                style: TextStyle(fontSize: WpTypography.body, color: textMuted),
               ),
-              HotkeyDisplay(
-                hotkeyKey: settings.hotkeyKey,
-                hotkeyModifiers: settings.hotkeyModifiers,
-                hotkeyKeyDisplay: settings.hotkey.hotkeyKeyDisplay,
+              Builder(
+                builder: (context) {
+                  final active = activeGlobalHotkey(
+                    settings,
+                    fallback: ref.watch(globalHotkeyFallbackActiveProvider),
+                  );
+                  return HotkeyDisplay(
+                    hotkeyKey: active.key,
+                    hotkeyModifiers: active.modifiers,
+                    hotkeyKeyDisplay: active.display,
+                  );
+                },
               ),
               // Self-gates to nothing on Linux (no Settings deep-link there).
               const MicPermissionChip(),
@@ -241,16 +250,33 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
           ),
         ),
 
+        if (nothingRecognised) ...[
+          const SizedBox(height: WpSpacing.xs),
+          Row(
+            children: [
+              const SizedBox(width: kSettingRowInset),
+              Icon(LucideIcons.info, size: WpIconSize.sm, color: textSecondary),
+              const SizedBox(width: WpSpacing.xs),
+              Flexible(
+                child: Text(
+                  l10n.errorTranscriptionEmpty,
+                  textAlign: TextAlign.start,
+                  style: TextStyle(
+                    fontSize: WpTypography.body,
+                    color: textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+
         if (isDone) ...[
           const SizedBox(height: WpSpacing.xs),
           Row(
             children: [
               const SizedBox(width: kSettingRowInset),
-              const Icon(
-                LucideIcons.circleCheck,
-                size: WpIconSize.sm,
-                color: done,
-              ),
+              Icon(LucideIcons.circleCheck, size: WpIconSize.sm, color: done),
               const SizedBox(width: WpSpacing.xs),
               // Flexible so long translations wrap instead of overflowing
               // the row (surfaced by the walkthrough test's Ahem metrics).
@@ -258,7 +284,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                 child: Text(
                   l10n.onboardingTestRecordingDoneMessage,
                   textAlign: TextAlign.start,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.body,
                     fontWeight: FontWeight.w600,
                     color: done,
@@ -304,8 +330,8 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (settings.behavior.maxRecordDuration > 0) ...[
-                const Padding(
-                  padding: EdgeInsets.only(top: 1),
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
                   child: Icon(
                     LucideIcons.info,
                     size: WpIconSize.xs,
@@ -323,7 +349,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                         )
                       : l10n.onboardingTestRecordingReassurance,
                   textAlign: TextAlign.start,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.small,
                     color: textMuted,
                     height: 1.35,
@@ -348,10 +374,10 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
         // `sm` the column read as five evenly stacked strips with no
         // discernible grouping — the single densest spot in the flow.
         //
-        // The escape hatch itself stays deliberately restrained (plain ghost
-        // button, never the accent gradient). It only bypasses the microphone
-        // condition; a confirmed hotkey conflict still keeps the CTA disabled
-        // (heads-up rendered by ReadyStep).
+        // The escape hatch itself is rendered by the shell footer, beside the
+        // CTA, as a plain ghost button (never the accent gradient). It only
+        // bypasses the microphone condition; a confirmed hotkey conflict still
+        // keeps the CTA disabled (heads-up rendered by ReadyStep).
         if (!testRecordingSucceeded) ...[
           const SizedBox(height: WpSpacing.lg),
           if (!micBypassed) ...[
@@ -366,21 +392,27 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               child: Text(
                 l10n.onboardingTestRecordingCompletionHint,
                 textAlign: TextAlign.start,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.small,
                   color: textSecondary,
                 ),
               ),
             ),
             const SizedBox(height: WpSpacing.xs),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: WpButton(
-                key: kTestRecordingStepMicBypassButtonKey,
-                label: l10n.onboardingTestRecordingMicBypassCta,
-                variant: WpButtonVariant.ghost,
-                tone: WpButtonTone.neutral,
-                onPressed: _onMicBypassPressed,
+            // The consequence of the escape hatch in the footer, stated before
+            // anyone takes it: the hotkey is only proven by a real use.
+            Padding(
+              padding: const EdgeInsetsDirectional.only(
+                start: kSettingRowInset,
+              ),
+              child: Text(
+                l10n.onboardingTestRecordingMicBypassConsequence,
+                textAlign: TextAlign.start,
+                style: TextStyle(
+                  fontSize: WpTypography.small,
+                  color: textMuted,
+                  height: 1.35,
+                ),
               ),
             ),
           ] else
@@ -391,8 +423,8 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(width: kSettingRowInset),
-                const Padding(
-                  padding: EdgeInsets.only(top: 1),
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
                   child: Icon(
                     LucideIcons.info,
                     size: WpIconSize.xs,
@@ -404,7 +436,7 @@ class _TestRecordingStepState extends ConsumerState<TestRecordingStep> {
                   child: Text(
                     l10n.onboardingTestRecordingMicBypassHint,
                     textAlign: TextAlign.start,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.small,
                       color: textMuted,
                       height: 1.35,
@@ -446,10 +478,10 @@ class _SandboxField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const error = WpColors.error;
-    const borderDefault = WpColors.borderDefault;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final error = WpColors.error;
+    final borderDefault = WpColors.borderDefault;
 
     final borderColor = isRecording ? recordingAccent : borderDefault;
 
@@ -471,7 +503,7 @@ class _SandboxField extends StatelessWidget {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: error,
                     shape: BoxShape.circle,
                   ),
@@ -480,7 +512,7 @@ class _SandboxField extends StatelessWidget {
                 Expanded(
                   child: Text(
                     l10n.onboardingTestRecordingInProgress,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.body,
                       color: textPrimary,
                     ),

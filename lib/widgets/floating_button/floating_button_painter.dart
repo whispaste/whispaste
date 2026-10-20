@@ -3,16 +3,17 @@
 /// One [CustomPainter] draws the V2 floating button for **every** platform that
 /// hosts it in a thin native window shell (macOS/Windows now, Linux via issue
 /// 09). It reproduces the approved spike design (`spike/lib/main.dart`
-/// `_drawButton` / `_mic`): a white tint-gradient disc with a painted soft
+/// `_drawButton` / `_mic`), flattened in the WP-75 flat pass: a single-colour disc with a painted soft
 /// shadow, a thin neutral hairline border and a dark mic glyph — explicitly
-/// **no** accent ring and **no** glow (ADR 0002, calm UI).
+/// **no** accent ring and **no** light effect (ADR 0002, calm UI).
 ///
 /// Every dimension, colour and gradient comes from [OverlayDesignSpec.button]
-/// (disc gradient, border, mic geometry as ratios of the disc diameter) and
-/// [OverlayDesignSpec.stateGradients] (per-state mic tint, e.g. the done green
-/// `#30C065`) — there are deliberately **no** design constants in this file.
+/// (flat disc colour, border, mic geometry as ratios of the disc diameter) and
+/// [OverlayDesignSpec.glyphStopsFor] (per-state mic tint, resolved per
+/// background tone, WP-75) — there are deliberately **no** design constants in
+/// this file.
 ///
-/// The disc chrome (fill gradient + painted shadow) uses the intrinsic
+/// The disc chrome (flat fill + painted shadow) uses the intrinsic
 /// per-element opacity from [OverlayDesignSpec]. The mic glyph stays fully opaque.
 library;
 
@@ -28,7 +29,12 @@ class WpFloatingButtonPainter extends CustomPainter {
     required this.diameter,
     required this.iconColor,
     required this.iconGradient,
+    this.square = false,
   });
+
+  /// Draws a rounded square ([OverlayDesignSpec.buttonSquareCornerRatio])
+  /// instead of the round disc (WP-95 button shape).
+  final bool square;
 
   /// The V2 button appearance tokens, from the spec.
   final FloatingButtonSpec spec;
@@ -58,16 +64,34 @@ class WpFloatingButtonPainter extends CustomPainter {
     _drawMic(canvas, center);
   }
 
+  /// The disc, the shadow and the border share one outline: a circle, or a
+  /// rounded square of the same size when [square] is set.
+  void _outline(Canvas canvas, Offset center, double r, Paint paint) {
+    if (!square) {
+      canvas.drawCircle(center, r, paint);
+      return;
+    }
+    final radius = Radius.circular(
+      r * OverlayDesignSpec.buttonSquareCornerRatio,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCircle(center: center, radius: r),
+        radius,
+      ),
+      paint,
+    );
+  }
+
   // ── Chrome ────────────────────────────────────────────────────────────────────
 
   void _drawShadow(Canvas canvas, Offset center, double r) {
-    canvas.drawCircle(
+    _outline(
+      canvas,
       center + OverlayDesignSpec.shadowOffset,
       r,
       Paint()
-        ..color = OverlayDesignSpec.shadowColor.withValues(
-          alpha: OverlayDesignSpec.shadowOpacity,
-        )
+        ..color = spec.shadowColor
         ..maskFilter = const MaskFilter.blur(
           BlurStyle.normal,
           OverlayDesignSpec.shadowBlur,
@@ -76,25 +100,18 @@ class WpFloatingButtonPainter extends CustomPainter {
   }
 
   void _drawDisc(Canvas canvas, Offset center, double r) {
-    final a = spec.discFillOpacity;
-    final rect = Rect.fromCircle(center: center, radius: r);
-    canvas.drawCircle(
+    // Flat disc (WP-75 flat pass): one colour, no tint gradient.
+    _outline(
+      canvas,
       center,
       r,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            spec.discColor.withValues(alpha: a),
-            spec.discGradientEnd.withValues(alpha: a),
-          ],
-        ).createShader(rect),
+      Paint()..color = spec.discColor.withValues(alpha: spec.discFillOpacity),
     );
   }
 
   void _drawBorder(Canvas canvas, Offset center, double r) {
-    canvas.drawCircle(
+    _outline(
+      canvas,
       center,
       r - spec.borderInset,
       Paint()
@@ -102,6 +119,19 @@ class WpFloatingButtonPainter extends CustomPainter {
         ..strokeWidth = spec.borderWidth
         ..color = spec.borderColor,
     );
+    // UX-048: the dark presets get a 1 px light outer edge around the disc,
+    // following the button's shape like the border above.
+    if (spec.edgeColor.a > 0) {
+      _outline(
+        canvas,
+        center,
+        r - 0.5,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.0
+          ..color = spec.edgeColor,
+      );
+    }
   }
 
   // ── Mic glyph (always opaque) ───────────────────────────────────────────────
@@ -173,6 +203,7 @@ class WpFloatingButtonPainter extends CustomPainter {
     return old.spec != spec ||
         old.diameter != diameter ||
         old.iconColor != iconColor ||
+        old.square != square ||
         !_sameGradient(old.iconGradient, iconGradient);
   }
 

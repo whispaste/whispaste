@@ -109,10 +109,17 @@ void main() {
 
       expect(find.text('#work'), findsOneWidget);
 
-      // Row is neither hovered nor focused → the tag chip is the only
-      // focusable element inside the row.
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pump();
+      // Row is neither hovered nor focused → its row actions are reached by
+      // one Tab stop placed before the tag chip (UIA-KBD-01, title line
+      // first); the chip follows it in reading order.
+      for (var i = 0; i < 10; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        if (FocusManager.instance.primaryFocus?.debugLabel == 'EntryTagChip') {
+          break;
+        }
+      }
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'EntryTagChip');
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pump();
       expect(tappedTag, 'work');

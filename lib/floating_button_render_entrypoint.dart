@@ -24,6 +24,8 @@ library;
 import 'package:flutter/widgets.dart';
 
 import 'core/l10n/generated/app_localizations.dart';
+import 'core/theme/overlay_customization.dart';
+import 'core/theme/overlay_design_spec.dart';
 import 'services/floating_button/floating_button_controller_interface.dart';
 import 'services/floating_button/floating_button_render_channel.dart';
 import 'shared_render_engine_helpers.dart';
@@ -63,12 +65,20 @@ class _ButtonRenderAppState
 
   FloatingButtonVisualState _state = FloatingButtonVisualState.idle;
   double _diameter = 56;
+  OverlayBackground _background = OverlayBackground.marine;
+  OverlayWave _wave = OverlayWave.cyan;
+  FloatingButtonLook _look = FloatingButtonLook.defaults;
 
   @override
   FloatingButtonRenderChannel createChannel() => FloatingButtonRenderChannel(
     name: _renderChannelName,
     onState: _onState,
     onDiameter: (d) => setState(() => _diameter = d),
+    onTheme: (background, wave) => setState(() {
+      _background = background;
+      _wave = wave;
+    }),
+    onLook: (look) => setState(() => _look = look),
   );
 
   @override
@@ -91,7 +101,9 @@ class _ButtonRenderAppState
     return switch (s) {
       FloatingButtonVisualState.recording => l10n.statusBarRecording,
       FloatingButtonVisualState.transcribing => l10n.statusBarTranscribing,
-      FloatingButtonVisualState.done => l10n.statusBarDone,
+      // Neutral on purpose: this engine only receives the visual state, not
+      // the outcome, so it must not claim "Pasted" for a copy-only result.
+      FloatingButtonVisualState.done => l10n.overlayDoneReady,
       FloatingButtonVisualState.error => l10n.sttStatusError,
       FloatingButtonVisualState.idle => null,
       FloatingButtonVisualState.disabled => null,
@@ -114,6 +126,12 @@ class _ButtonRenderAppState
     onTap: channel.clicked,
     onPanStart: channel.startDrag,
     onSecondaryOrLongPress: channel.showContextMenu,
-    child: WpFloatingButtonView(state: _state, diameter: _diameter),
+    child: WpFloatingButtonView(
+      state: _state,
+      diameter: _diameter,
+      background: _background,
+      wave: _wave,
+      look: _look,
+    ),
   );
 }

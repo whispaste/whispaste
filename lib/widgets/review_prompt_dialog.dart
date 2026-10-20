@@ -1,7 +1,8 @@
 /// Review prompt dialog — surfaces a rating/star nudge based on the deploy channel.
 ///
-/// For store builds: opens the Microsoft Store review deep-link via url_launcher.
-/// For portable/installer builds: shows links to GitHub star and Store review.
+/// Store builds (Mac App Store, Microsoft Store) do not get this dialog: they
+/// make the OS rating request instead. Portable and installer builds get the
+/// dialog with links to the GitHub star and, on Windows, the Store review page.
 library;
 
 import 'dart:async';
@@ -9,18 +10,21 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../core/app_urls.dart';
 import '../core/l10n/generated/app_localizations.dart';
-import '../core/navigation/page_state.dart';
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/deploy_channel_service.dart';
+import '../services/nudge_gate.dart';
 import '../services/prompt_display_arbiter.dart';
 import '../services/review_prompt_service.dart';
+import '../services/store_review_request_service.dart';
+import '../services/telemetry_service.dart';
 import 'animated_prompt_dialog.dart';
 import 'wp_button.dart';
+import 'wp_toast_dock.dart';
+import 'external_link.dart';
 
 /// Override for testing. When non-null, [WpReviewPromptWatcher] uses this value
 /// instead of [Platform.isWindows].
@@ -31,6 +35,22 @@ import 'wp_button.dart';
 /// than public component API.
 @visibleForTesting
 bool? platformIsWindowsOverride;
+
+/// Override for testing. When non-null, [WpReviewPromptWatcher] uses this value
+/// instead of [Platform.isMacOS] to decide whether to make the native request.
+@visibleForTesting
+bool? platformIsMacOsOverride;
+
+/// Whether the review prompt asks through the OS rating request instead of
+/// showing its own dialog: the store channel on macOS or Windows only. Linux
+/// has no store listing and never requests a store rating (growth review
+/// GR-011); its GitHub star dialog is unaffected.
+@visibleForTesting
+bool usesNativeStoreRequest({
+  required DeployChannel channel,
+  required bool isMacOs,
+  required bool isWindows,
+}) => channel == DeployChannel.store && (isMacOs || isWindows);
 
 // ---------------------------------------------------------------------------
 // Public entry point
@@ -54,13 +74,73 @@ class WpReviewPromptWatcher extends ConsumerStatefulWidget {
 
 class _WpReviewPromptWatcherState extends ConsumerState<WpReviewPromptWatcher>
     with WpPostRecordingPromptDelay<WpReviewPromptWatcher> {
+  @override
+  Future<void> waitForNudgeGate() => ref.read(nudgeGateProvider).whenAllowed();
+
   bool get _isWindows => platformIsWindowsOverride ?? Platform.isWindows;
+  bool get _isMacOs => platformIsMacOsOverride ?? Platform.isMacOS;
+
+  /// Store builds (Mac App Store, Microsoft Store) ask through the OS rating
+  /// request instead of showing our own dialog: a custom prompt is not allowed
+  /// there, and the system request is the sanctioned way to ask for a rating.
+  /// Unpackaged Windows builds keep the dialog and its Settings link.
+  bool _usesNativeRequest(DeployChannel channel) => usesNativeStoreRequest(
+    channel: channel,
+    isMacOs: _isMacOs,
+    isWindows: _isWindows,
+  );
 
   void _maybeShow(ReviewPromptState state, BuildContext context) {
-    maybeShowAfterDelay(
-      state.shouldShowPrompt,
-      () => _showDialog(context, state.channel),
-    );
+    maybeShowAfterDelay(state.shouldShowPrompt, () {
+      if (_usesNativeRequest(state.channel)) {
+        unawaited(_requestNative());
+      } else {
+        unawaited(_showDialog(context, state.channel));
+      }
+    });
+  }
+
+  /// Opt-out telemetry for the review funnel (growth review R-10). Only closed
+  /// labels are sent: no transcript, no text, no identifiers.
+  void _track(String action, String name) => ref
+      .read(telemetryProvider)
+      .trackEvent(category: 'review', action: action, name: name);
+
+  Future<void> _requestNative() async {
+    final arbiter = ref.read(promptDisplayArbiterProvider);
+    final notifier = ref.read(reviewPromptProvider.notifier);
+    final claimed = arbiter.tryClaim(PromptOwner.review, close: () {});
+    if (!claimed) {
+      notifier.deferPrompt();
+      markPromptDialogClosed();
+      return;
+    }
+    final store = _isMacOs ? 'mas' : 'msstore';
+    try {
+      // At most 3 store requests per 365 days (growth review GR-009). A capped
+      // request is not made at all and does not show a dialog either.
+      if (!await notifier.nativeRequestAllowed()) {
+        notifier.deferPrompt();
+        return;
+      }
+      // "native_requested" counts requests made to the OS. The OS does not
+      // report whether it displayed a sheet, so this is not a display count.
+      _track('native_requested', store);
+      final outcome = await ref.read(nativeStoreReviewRequestProvider)();
+      switch (outcome) {
+        case NativeReviewOutcome.requested:
+          await notifier.markNativeRequested();
+        case NativeReviewOutcome.unavailable:
+          _track('native_unavailable', store);
+          notifier.deferPrompt();
+        case NativeReviewOutcome.failed:
+          _track('native_failed', store);
+          notifier.deferPrompt();
+      }
+    } finally {
+      arbiter.release(PromptOwner.review);
+      markPromptDialogClosed();
+    }
   }
 
   Future<void> _showDialog(BuildContext context, DeployChannel channel) async {
@@ -81,10 +161,10 @@ class _WpReviewPromptWatcherState extends ConsumerState<WpReviewPromptWatcher>
     }
     _ReviewAction? chosen;
     try {
+      _track('dialog_opened', channel.name);
       await showWpAnimatedPromptDialog<void>(
         context: context,
         contentBuilder: (ctx, animation) => _ReviewPromptDialog(
-          channel: channel,
           isWindows: _isWindows,
           animation: animation,
           onResult: (action) {
@@ -97,10 +177,13 @@ class _WpReviewPromptWatcherState extends ConsumerState<WpReviewPromptWatcher>
       // support prompt. A hotkey close records nothing.
       final action = chosen;
       if (action != null) {
-        await _handleAction(action, channel);
+        _track('choice', action.name);
+        await _handleAction(action);
       } else if (closedByHotkey) {
+        _track('closed', 'hotkey');
         notifier.deferPrompt();
       } else {
+        _track('closed', 'dismissed');
         await notifier.dismiss(permanent: false);
       }
     } finally {
@@ -109,50 +192,21 @@ class _WpReviewPromptWatcherState extends ConsumerState<WpReviewPromptWatcher>
     }
   }
 
-  Future<void> _handleAction(
-    _ReviewAction action,
-    DeployChannel channel,
-  ) async {
+  Future<void> _handleAction(_ReviewAction action) async {
     final notifier = ref.read(reviewPromptProvider.notifier);
     switch (action) {
       case _ReviewAction.rateStore:
         await notifier.markShown();
-        await _launchUrl(_storeUrl(channel));
+        if (!mounted) return;
+        await openExternalUrl(context, kWindowsStoreReviewUrl);
       case _ReviewAction.starGitHub:
         await notifier.markShown();
-        await _launchUrl(kGitHubRepoUrl);
+        if (!mounted) return;
+        await openExternalUrl(context, kGitHubRepoUrl);
       case _ReviewAction.notNow:
         await notifier.dismiss(permanent: false);
       case _ReviewAction.never:
         await notifier.dismiss(permanent: true);
-      case _ReviewAction.gateNegative:
-        // Negative sentiment → route to the internal feedback page (not the
-        // store). Snooze the prompt via the SharedPreferences-backed cooldown
-        // so it does not re-ask on the next session.
-        await notifier.dismiss(permanent: false);
-        ref.read(activePageProvider.notifier).setPage('feedback');
-    }
-  }
-
-  // The rateStore action is reachable either from the store-channel CTA
-  // (macOS MAS build or Windows Store build) or from the Windows
-  // installer/portable CTA (which is only ever shown on Windows, see
-  // `_portableButtons`) — so a MAS install (store channel, not Windows) is
-  // the only case that must not fall through to the Windows Store
-  // deep-link. Branches on [_isWindows] (the same testable seam every other
-  // platform check in this file uses) rather than `Platform.isMacOS`
-  // directly, so this stays overridable in tests.
-  String _storeUrl(DeployChannel channel) {
-    if (!_isWindows && channel == DeployChannel.store) {
-      return kMacAppStoreReviewUrl;
-    }
-    return kWindowsStoreReviewUrl;
-  }
-
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
   }
 
@@ -169,13 +223,7 @@ class _WpReviewPromptWatcherState extends ConsumerState<WpReviewPromptWatcher>
 // Action enum
 // ---------------------------------------------------------------------------
 
-enum _ReviewAction { rateStore, starGitHub, notNow, never, gateNegative }
-
-/// Two-stage flow of the dialog: the neutral sentiment question is shown
-/// first ([_GateStage.gate]); a positive answer reveals the review CTAs
-/// ([_GateStage.review]). A negative answer never reaches the review stage —
-/// it routes the user to the internal feedback page instead.
-enum _GateStage { gate, review }
+enum _ReviewAction { rateStore, starGitHub, notNow, never }
 
 // ---------------------------------------------------------------------------
 // Dialog widget
@@ -183,13 +231,11 @@ enum _GateStage { gate, review }
 
 class _ReviewPromptDialog extends StatefulWidget {
   const _ReviewPromptDialog({
-    required this.channel,
     required this.isWindows,
     required this.animation,
     required this.onResult,
   });
 
-  final DeployChannel channel;
   final bool isWindows;
   final Animation<double> animation;
   final void Function(_ReviewAction) onResult;
@@ -199,8 +245,6 @@ class _ReviewPromptDialog extends StatefulWidget {
 }
 
 class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
-  _GateStage _stage = _GateStage.gate;
-
   @override
   Widget build(BuildContext context) {
     final slide = Tween<Offset>(
@@ -237,38 +281,38 @@ class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
                 ),
                 const SizedBox(height: WpSpacing.sm),
                 Text(
-                  // The gate stage frames the question as internal feedback
-                  // (Microsoft Code of Conduct §3); only the review stage
-                  // mentions the store rating.
-                  _stage == _GateStage.gate
-                      ? l10n.reviewPromptGateBody
-                      : l10n.reviewPromptBody,
+                  l10n.reviewPromptBody,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: WpColors.textSecondary,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: WpSpacing.lg),
-                ..._stageButtons(l10n),
+                ..._portableButtons(l10n),
                 const SizedBox(height: WpSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(
-                      child: WpButton(
-                        label: l10n.reviewPromptNotNow,
-                        variant: WpButtonVariant.ghost,
-                        onPressed: () => widget.onResult(_ReviewAction.notNow),
+                WpToastDockReserve(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: WpButton(
+                          label: l10n.reviewPromptNotNow,
+                          variant: WpButtonVariant.ghost,
+                          // Enter on the default focus must not open the store (UIA-FBK-01).
+                          autofocus: true,
+                          onPressed: () =>
+                              widget.onResult(_ReviewAction.notNow),
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: WpButton(
-                        label: l10n.reviewPromptNever,
-                        variant: WpButtonVariant.ghost,
-                        tone: WpButtonTone.neutral,
-                        onPressed: () => widget.onResult(_ReviewAction.never),
+                      Expanded(
+                        child: WpButton(
+                          label: l10n.reviewPromptNever,
+                          variant: WpButtonVariant.ghost,
+                          tone: WpButtonTone.neutral,
+                          onPressed: () => widget.onResult(_ReviewAction.never),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -278,56 +322,6 @@ class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
     );
   }
 
-  // Resolves the middle button row to the current stage: the neutral gate
-  // answers first, then — after a positive answer — the channel-specific
-  // review CTAs.
-  List<Widget> _stageButtons(L10n l10n) {
-    switch (_stage) {
-      case _GateStage.gate:
-        return _gateButtons(l10n);
-      case _GateStage.review:
-        return widget.channel == DeployChannel.store
-            ? _storeButtons(l10n)
-            : _portableButtons(l10n);
-    }
-  }
-
-  // Neutral sentiment answers — positive reveals the review CTAs, negative
-  // routes to the internal feedback page (never to the store).
-  List<Widget> _gateButtons(L10n l10n) => [
-    WpButton(
-      label: l10n.reviewPromptGateYes,
-      variant: WpButtonVariant.primary,
-      autofocus: true,
-      onPressed: () => setState(() => _stage = _GateStage.review),
-    ),
-    const SizedBox(height: WpSpacing.xs),
-    WpButton(
-      label: l10n.reviewPromptGateNo,
-      variant: WpButtonVariant.secondary,
-      onPressed: () => widget.onResult(_ReviewAction.gateNegative),
-    ),
-  ];
-
-  // Store channel: the primary Store-Review button is accompanied by a
-  // secondary GitHub-Stern button (GitHub-Stern-Doppelspur) so store users
-  // can also support the open-source project. Mirrors the portable Windows
-  // layout (primary store review, secondary GitHub star).
-  List<Widget> _storeButtons(L10n l10n) => [
-    WpButton(
-      label: l10n.reviewPromptYes,
-      variant: WpButtonVariant.primary,
-      autofocus: true,
-      onPressed: () => widget.onResult(_ReviewAction.rateStore),
-    ),
-    const SizedBox(height: WpSpacing.xs),
-    WpButton(
-      label: l10n.reviewPromptStarGitHub,
-      variant: WpButtonVariant.secondary,
-      onPressed: () => widget.onResult(_ReviewAction.starGitHub),
-    ),
-  ];
-
   List<Widget> _portableButtons(L10n l10n) {
     if (widget.isWindows) {
       // Windows non-store: both Store review and GitHub star are valid targets.
@@ -335,7 +329,6 @@ class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
         WpButton(
           label: l10n.reviewPromptRateStore,
           variant: WpButtonVariant.primary,
-          autofocus: true,
           onPressed: () => widget.onResult(_ReviewAction.rateStore),
         ),
         const SizedBox(height: WpSpacing.xs),
@@ -351,7 +344,6 @@ class _ReviewPromptDialogState extends State<_ReviewPromptDialog> {
       WpButton(
         label: l10n.reviewPromptStarGitHub,
         variant: WpButtonVariant.primary,
-        autofocus: true,
         onPressed: () => widget.onResult(_ReviewAction.starGitHub),
       ),
     ];

@@ -216,6 +216,24 @@ void main() {
 
   tearDownAll(() => semantics.dispose());
 
+  // Rows are 48 px tap areas (WP-58), so the Replacements list does not fit
+  // the flutter_test default view (800x600): its third row would never be
+  // built. Both pages run in the 1280x800 desktop view here.
+  TestFlutterView desktopView() =>
+      TestWidgetsFlutterBinding.instance.platformDispatcher.views.single;
+
+  setUp(() {
+    desktopView()
+      ..physicalSize = const Size(1280, 800)
+      ..devicePixelRatio = 1;
+  });
+
+  tearDown(() {
+    desktopView()
+      ..resetPhysicalSize()
+      ..resetDevicePixelRatio();
+  });
+
   for (final page in _pages) {
     group('${page.name} — keyboard cursor', () {
       testWidgets('ArrowDown enters the list at the first row, in both the '

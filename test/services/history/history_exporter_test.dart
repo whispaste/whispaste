@@ -1,9 +1,8 @@
-import 'dart:io';
-
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/data/export_service.dart';
 import 'package:whispaste/services/history/history_exporter.dart';
 import 'package:whispaste/widgets/toast.dart';
@@ -19,6 +18,22 @@ class _FakePicker {
   Future<ExportFormat?> call(BuildContext context) async {
     callCount++;
     return _result;
+  }
+}
+
+/// Records each save-dialog invocation and answers with the queued path, or
+/// `null` when the dialog is cancelled.
+class _FakeSaveLocation {
+  _FakeSaveLocation(this._path);
+  final String? _path;
+  final List<({ExportFormat format, String suggestedName})> calls = [];
+
+  Future<String?> call({
+    required ExportFormat format,
+    required String suggestedName,
+  }) async {
+    calls.add((format: format, suggestedName: suggestedName));
+    return _path;
   }
 }
 
@@ -107,9 +122,11 @@ Future<void> _withContext(
 ) async {
   late BuildContext capturedContext;
   await tester.pumpWidget(
-    Directionality(
-      textDirection: TextDirection.ltr,
-      child: Builder(
+    MaterialApp(
+      locale: const Locale('en'),
+      localizationsDelegates: L10n.localizationsDelegates,
+      supportedLocales: L10n.supportedLocales,
+      home: Builder(
         builder: (ctx) {
           capturedContext = ctx;
           return const SizedBox.shrink();
@@ -124,14 +141,13 @@ HistoryExporter _exporter({
   required _FakePicker picker,
   required _FakeExporter export,
   required _FakeToaster toaster,
-  Directory? downloads,
-  Directory? documents,
+  _FakeSaveLocation? saveLocation,
 }) {
   return HistoryExporter(
     pickerFn: picker.call,
     exporter: export.call,
-    downloadsDirFn: () async => downloads,
-    documentsDirFn: () async => documents,
+    saveLocationFn:
+        (saveLocation ?? _FakeSaveLocation('/fake/save/export')).call,
     toaster: toaster.call,
   );
 }
@@ -164,12 +180,7 @@ void main() {
     final picker = _FakePicker(null);
     final export = _FakeExporter();
     final toaster = _FakeToaster();
-    final sut = _exporter(
-      picker: picker,
-      export: export,
-      toaster: toaster,
-      downloads: Directory.systemTemp,
-    );
+    final sut = _exporter(picker: picker, export: export, toaster: toaster);
 
     await _withContext(tester, (ctx) async {
       await sut.exportEntries(ctx, [_entry()]);
@@ -189,12 +200,11 @@ void main() {
     final picker = _FakePicker(ExportFormat.txt);
     final export = _FakeExporter();
     final toaster = _FakeToaster();
-    final dir = Directory('/fake/downloads');
     final sut = _exporter(
       picker: picker,
       export: export,
       toaster: toaster,
-      downloads: dir,
+      saveLocation: _FakeSaveLocation('/fake/downloads/Hello.txt'),
     );
 
     await _withContext(tester, (ctx) async {
@@ -221,12 +231,7 @@ void main() {
     final picker = _FakePicker(ExportFormat.json);
     final export = _FakeExporter();
     final toaster = _FakeToaster();
-    final sut = _exporter(
-      picker: picker,
-      export: export,
-      toaster: toaster,
-      downloads: Directory('/tmp'),
-    );
+    final sut = _exporter(picker: picker, export: export, toaster: toaster);
 
     await _withContext(tester, (ctx) async {
       await sut.exportEntries(ctx, [_entry(tags: '["a","b"]')]);
@@ -243,12 +248,7 @@ void main() {
     final picker = _FakePicker(ExportFormat.json);
     final export = _FakeExporter();
     final toaster = _FakeToaster();
-    final sut = _exporter(
-      picker: picker,
-      export: export,
-      toaster: toaster,
-      downloads: Directory('/tmp'),
-    );
+    final sut = _exporter(picker: picker, export: export, toaster: toaster);
 
     await _withContext(tester, (ctx) async {
       await sut.exportEntries(ctx, [_entry(tags: '')]);
@@ -265,12 +265,7 @@ void main() {
     final picker = _FakePicker(ExportFormat.json);
     final export = _FakeExporter();
     final toaster = _FakeToaster();
-    final sut = _exporter(
-      picker: picker,
-      export: export,
-      toaster: toaster,
-      downloads: Directory('/tmp'),
-    );
+    final sut = _exporter(picker: picker, export: export, toaster: toaster);
 
     await _withContext(tester, (ctx) async {
       await sut.exportEntries(ctx, [_entry(tags: 'not-json')]);
@@ -292,12 +287,7 @@ void main() {
     final picker = _FakePicker(ExportFormat.json);
     final export = _FakeExporter();
     final toaster = _FakeToaster();
-    final sut = _exporter(
-      picker: picker,
-      export: export,
-      toaster: toaster,
-      downloads: Directory('/tmp'),
-    );
+    final sut = _exporter(picker: picker, export: export, toaster: toaster);
 
     await _withContext(tester, (ctx) async {
       await sut.exportEntries(ctx, [_entry()]);
@@ -315,11 +305,31 @@ void main() {
     final picker = _FakePicker(ExportFormat.txt);
     final export = _FakeExporter(throwError: Exception('disk full'));
     final toaster = _FakeToaster();
-    final sut = _exporter(
-      picker: picker,
-      export: export,
-      toaster: toaster,
-      downloads: Directory('/tmp'),
+    final sut = _exporter(picker: picker, export: export, toaster: toaster);
+
+    await _withContext(tester, (ctx) async {
+      await sut.exportEntries(ctx, [_entry()]);
+    });
+
+    expect(toaster.calls, hasLength(1));
+    expect(toaster.calls.single.type, WpToastType.error);
+    // The raw system error stays out of the toast (UIA-HIS-12).
+    final l10n = await L10n.delegate.load(const Locale('en'));
+    expect(toaster.calls.single.message, l10n.historyExportFailed);
+  });
+
+  // UIA-HIS-12: a failing format picker or save dialog is reported like an
+  // export failure instead of escaping the flow.
+  testWidgets('picker throws: error toast, no crash (UIA-HIS-12)', (
+    tester,
+  ) async {
+    final toaster = _FakeToaster();
+    final sut = HistoryExporter(
+      pickerFn: (_) async => throw Exception('picker broke'),
+      saveLocationFn: ({required format, required suggestedName}) async =>
+          '/unused.txt',
+      exporter: (entries, format, path) async => 0,
+      toaster: toaster.call,
     );
 
     await _withContext(tester, (ctx) async {
@@ -328,7 +338,6 @@ void main() {
 
     expect(toaster.calls, hasLength(1));
     expect(toaster.calls.single.type, WpToastType.error);
-    expect(toaster.calls.single.message, 'disk full');
   });
 
   // ───────────────────────────────────────────────────────────────────────
@@ -339,11 +348,12 @@ void main() {
     final picker = _FakePicker(ExportFormat.csv);
     final export = _FakeExporter();
     final toaster = _FakeToaster();
+    final saveLocation = _FakeSaveLocation('/chosen/bundle.csv');
     final sut = _exporter(
       picker: picker,
       export: export,
       toaster: toaster,
-      downloads: Directory('/tmp'),
+      saveLocation: saveLocation,
     );
 
     await _withContext(tester, (ctx) async {
@@ -357,14 +367,17 @@ void main() {
     final call = export.calls.single;
     expect(call.entries, hasLength(3));
     // defaultFilename collapses multi-entry to 'whispaste-export.<ext>'.
-    expect(call.path, endsWith('/whispaste-export.csv'));
+    expect(saveLocation.calls.single.suggestedName, 'whispaste-export.csv');
+    expect(call.path, '/chosen/bundle.csv');
   });
 
   // ───────────────────────────────────────────────────────────────────────
-  // AC10: Downloads first; falls back to Documents when Downloads is null.
+  // Save dialog: cancel is silent; the chosen path is the one written.
   // ───────────────────────────────────────────────────────────────────────
 
-  testWidgets('uses Downloads directory when available', (tester) async {
+  testWidgets('save dialog cancelled: no export and no error toast', (
+    tester,
+  ) async {
     final picker = _FakePicker(ExportFormat.txt);
     final export = _FakeExporter();
     final toaster = _FakeToaster();
@@ -372,33 +385,37 @@ void main() {
       picker: picker,
       export: export,
       toaster: toaster,
-      downloads: Directory('/downloads'),
-      documents: Directory('/documents'),
+      saveLocation: _FakeSaveLocation(null),
     );
 
     await _withContext(tester, (ctx) async {
       await sut.exportEntries(ctx, [_entry()]);
     });
 
-    expect(export.calls.single.path, startsWith('/downloads/'));
+    expect(export.calls, isEmpty);
+    expect(toaster.calls, isEmpty);
   });
 
-  testWidgets('falls back to Documents when Downloads is null', (tester) async {
-    final picker = _FakePicker(ExportFormat.txt);
+  testWidgets('save dialog gets the format and default filename, and the '
+      'chosen path is written', (tester) async {
+    final picker = _FakePicker(ExportFormat.md);
     final export = _FakeExporter();
     final toaster = _FakeToaster();
+    final saveLocation = _FakeSaveLocation('/chosen/place/notes.md');
     final sut = _exporter(
       picker: picker,
       export: export,
       toaster: toaster,
-      downloads: null,
-      documents: Directory('/documents'),
+      saveLocation: saveLocation,
     );
 
     await _withContext(tester, (ctx) async {
-      await sut.exportEntries(ctx, [_entry()]);
+      await sut.exportEntries(ctx, [_entry(title: 'Team call')]);
     });
 
-    expect(export.calls.single.path, startsWith('/documents/'));
+    expect(saveLocation.calls.single.format, ExportFormat.md);
+    expect(saveLocation.calls.single.suggestedName, 'Team call.md');
+    expect(export.calls.single.path, '/chosen/place/notes.md');
+    expect(toaster.calls.single.message, 'Exported to /chosen/place/notes.md');
   });
 }

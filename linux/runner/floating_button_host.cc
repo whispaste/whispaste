@@ -3,6 +3,26 @@
 #include <gdk/gdk.h>
 
 #include <cstring>
+#include <string>
+
+namespace {
+
+// Preset ids the render engine understands (overlay_design_spec.dart). Any
+// other value from the method channel is replaced by the default before it is
+// cached or relayed.
+const char* const kBackgroundPresets[] = {"marine", "graphit", "gletscher", "amber"};
+const char* const kWavePresets[] = {"cyan", "violett", "neutral", "ink", "amber", "coral", "mint"};
+
+template <size_t N>
+std::string KnownPreset(const std::string& value,
+                        const char* const (&known)[N], const char* fallback) {
+  for (const char* id : known) {
+    if (value == id) return value;
+  }
+  return fallback;
+}
+
+}  // namespace
 
 // ── Construction / destruction ───────────────────────────────────────────────
 
@@ -118,10 +138,56 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
 
   } else if (strcmp(method, "setTheme") == 0) {
     // ── setTheme ──────────────────────────────────────────────────────────
-    // args: { isDark: bool }
-    // Relay to the render engine (it currently ignores this — the Dart painter
-    // is theme-independent — but forward it so the channel contract is intact).
-    if (render_ready_) InvokeRenderChannel("setTheme", args);
+    // args: { background: string, wave: string } (WP-75). Cached so the ready
+    // flush can replay them.
+    // A missing or non-string id resets to the default, like macOS and
+    // Windows; an unknown string is replaced by the default as well.
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* bv = fl_value_lookup_string(args, "background");
+      FlValue* wv = fl_value_lookup_string(args, "wave");
+      const char* background =
+          (bv && fl_value_get_type(bv) == FL_VALUE_TYPE_STRING)
+              ? fl_value_get_string(bv)
+              : "";
+      const char* wave = (wv && fl_value_get_type(wv) == FL_VALUE_TYPE_STRING)
+                             ? fl_value_get_string(wv)
+                             : "";
+      pending_background_ =
+          KnownPreset(background, kBackgroundPresets, "marine");
+      pending_wave_ = KnownPreset(wave, kWavePresets, "cyan");
+      // WP-95 button look: shape, recording ring, resting opacity (40-100 %).
+      FlValue* shv = fl_value_lookup_string(args, "shape");
+      pending_shape_ = (shv && fl_value_get_type(shv) == FL_VALUE_TYPE_STRING &&
+                        strcmp(fl_value_get_string(shv), "square") == 0)
+                           ? "square"
+                           : "round";
+      FlValue* rv = fl_value_lookup_string(args, "ring");
+      pending_ring_ = (rv && fl_value_get_type(rv) == FL_VALUE_TYPE_BOOL)
+                          ? fl_value_get_bool(rv)
+                          : true;
+      double idle = 1.0;
+      FlValue* ov = fl_value_lookup_string(args, "idleOpacity");
+      if (ov && fl_value_get_type(ov) == FL_VALUE_TYPE_FLOAT) {
+        idle = fl_value_get_float(ov);
+      } else if (ov && fl_value_get_type(ov) == FL_VALUE_TYPE_INT) {
+        idle = static_cast<double>(fl_value_get_int(ov));
+      }
+      pending_idle_opacity_ = idle < 0.4 ? 0.4 : (idle > 1.0 ? 1.0 : idle);
+    }
+    if (render_ready_) {
+      g_autoptr(FlValue) theme_args = fl_value_new_map();
+      fl_value_set_string_take(theme_args, "background",
+                               fl_value_new_string(pending_background_.c_str()));
+      fl_value_set_string_take(theme_args, "wave",
+                               fl_value_new_string(pending_wave_.c_str()));
+      fl_value_set_string_take(theme_args, "shape",
+                               fl_value_new_string(pending_shape_.c_str()));
+      fl_value_set_string_take(theme_args, "ring",
+                               fl_value_new_bool(pending_ring_));
+      fl_value_set_string_take(theme_args, "idleOpacity",
+                               fl_value_new_float(pending_idle_opacity_));
+      InvokeRenderChannel("setTheme", theme_args);
+    }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else if (strcmp(method, "setPosition") == 0) {
@@ -322,6 +388,20 @@ void FloatingButtonHost::HandleRenderMethodCall(FlMethodCall* method_call) {
                               fl_value_new_int(pending_diameter_));
     InvokeRenderChannel("setDiameter", diam_args);
 
+    // Flush pending theme presets.
+    g_autoptr(FlValue) theme_args = fl_value_new_map();
+    fl_value_set_string_take(theme_args, "background",
+                              fl_value_new_string(pending_background_.c_str()));
+    fl_value_set_string_take(theme_args, "wave",
+                              fl_value_new_string(pending_wave_.c_str()));
+    fl_value_set_string_take(theme_args, "shape",
+                              fl_value_new_string(pending_shape_.c_str()));
+    fl_value_set_string_take(theme_args, "ring",
+                              fl_value_new_bool(pending_ring_));
+    fl_value_set_string_take(theme_args, "idleOpacity",
+                              fl_value_new_float(pending_idle_opacity_));
+    InvokeRenderChannel("setTheme", theme_args);
+
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
   } else if (strcmp(method, "clicked") == 0) {
@@ -333,28 +413,14 @@ void FloatingButtonHost::HandleRenderMethodCall(FlMethodCall* method_call) {
   } else if (strcmp(method, "startDrag") == 0) {
     // ── startDrag ─────────────────────────────────────────────────────────
     // The user began a pan gesture on the button disc (Dart onPanStart).
-    // We initiate a WM-level window move via gdk_window_begin_move_drag,
-    // which sends _NET_WM_MOVERESIZE to the X11 WM (GNOME Shell via XWayland).
-    // The WM then handles the interactive drag; configure-event fires on
-    // position changes and OnWindowMoved reports them as onDragEnded events.
+    // WindowDragMover follows the pointer until the button is released and
+    // reports the final position once via OnDragEnded. Not a WM move:
+    // KWin refuses to move NOTIFICATION windows (see window_drag_mover.h).
     //
-    // TUNING: gdk_window_begin_move_drag is X11-only and only reliable when
-    // GDK_BACKEND=x11 is set (see main.cc). On a bare Wayland session without
-    // XWayland it will be a no-op — ensure XWayland is running.
+    // TUNING: X11-only, like every window move here (GDK_BACKEND=x11, see
+    // main.cc); without XWayland the pointer cannot be queried.
     if (button_window_ && button_window_->IsCreated()) {
-      GtkWidget* gtk_win = button_window_->GetGtkWindow();
-      GdkWindow* gdk_win = gtk_win ? gtk_widget_get_window(gtk_win) : nullptr;
-      if (gdk_win) {
-        GdkDisplay* display = gdk_display_get_default();
-        GdkSeat* seat = gdk_display_get_default_seat(display);
-        GdkDevice* pointer = gdk_seat_get_pointer(seat);
-        gint root_x = 0, root_y = 0;
-        gdk_device_get_position(pointer, nullptr, &root_x, &root_y);
-        // Button 1 = left mouse button. GDK_CURRENT_TIME lets the X server
-        // use the most recent event timestamp (avoids focus-theft rejection).
-        gdk_window_begin_move_drag(gdk_win, 1, root_x, root_y,
-                                    GDK_CURRENT_TIME);
-      }
+      drag_mover_.Start(GTK_WINDOW(button_window_->GetGtkWindow()));
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
 
@@ -432,12 +498,30 @@ void FloatingButtonHost::OnWindowMoved(int x, int y, void* user_data) {
     self->suppress_next_configure_ = false;
     return;
   }
+  // The drag mover's own steps; it reports the end position itself.
+  if (self->drag_mover_.IsActive()) return;
+  // The configure-event of the mover's last step, already reported.
+  if (x == self->current_x_ && y == self->current_y_) return;
 
   // Store the new position.
   self->current_x_ = x;
   self->current_y_ = y;
 
   // Report the final drag position to the main engine.
+  g_autoptr(FlValue) args = fl_value_new_map();
+  fl_value_set_string_take(args, "x",
+                            fl_value_new_float(static_cast<double>(x)));
+  fl_value_set_string_take(args, "y",
+                            fl_value_new_float(static_cast<double>(y)));
+  self->InvokeMainChannel("onDragEnded", args);
+}
+
+// static
+void FloatingButtonHost::OnDragEnded(int x, int y, void* user_data) {
+  auto* self = static_cast<FloatingButtonHost*>(user_data);
+  self->current_x_ = x;
+  self->current_y_ = y;
+
   g_autoptr(FlValue) args = fl_value_new_map();
   fl_value_set_string_take(args, "x",
                             fl_value_new_float(static_cast<double>(x)));

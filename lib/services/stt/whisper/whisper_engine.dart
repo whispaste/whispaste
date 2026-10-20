@@ -285,3 +285,11 @@ abstract class PromptTokenCounter {
   /// is loaded yet.
   Future<int> countPromptTokens(String text);
 }
+
+/// Optional capability: an engine that reports the language its last
+/// [WhisperEngine.transcribe] decoded in, as a whisper code such as `de`.
+/// `null` means unknown (older library builds, a failed decode). Kept out of
+/// [WhisperEngine] for the same reason as [PartialTranscriptSource].
+abstract class DetectedLanguageSource {
+  String? get lastDetectedLanguage;
+}

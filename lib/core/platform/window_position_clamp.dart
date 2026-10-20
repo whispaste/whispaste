@@ -13,7 +13,74 @@ library;
 
 import 'package:flutter/widgets.dart';
 
+/// Where and how large a window opens: the size fitted into a work area and
+/// the top-left position (`null` = let the platform center it).
+typedef WindowPlacement = ({Size size, Offset? position});
+
 abstract final class WindowPositionClamp {
+  /// Resolves the start or restore placement of a window of [size].
+  ///
+  /// The size is raised to [minimum] and then capped to the work area of the
+  /// display it lands on, so it never extends under a taskbar, Dock or menu
+  /// bar. A stored [position] is clamped onto that display; a missing one
+  /// centers the window in the [primary] work area. Without any [displays]
+  /// (enumeration failed) only the minimum is applied.
+  static WindowPlacement place({
+    Offset? position,
+    required Size size,
+    required Size minimum,
+    required List<Rect> displays,
+    Rect? primary,
+  }) {
+    final raised = Size(
+      size.width < minimum.width ? minimum.width : size.width,
+      size.height < minimum.height ? minimum.height : size.height,
+    );
+    if (displays.isEmpty) {
+      return (size: raised, position: position);
+    }
+    if (position != null) {
+      final target = _displayFor(position, raised, displays);
+      final fitted = _fit(raised, minimum, target);
+      return (
+        size: fitted,
+        position: clamp(position: position, size: fitted, displays: displays),
+      );
+    }
+    final target = primary ?? displays.first;
+    final fitted = _fit(raised, minimum, target);
+    return (
+      size: fitted,
+      position: Offset(
+        target.left + (target.width - fitted.width) / 2,
+        target.top + (target.height - fitted.height) / 2,
+      ),
+    );
+  }
+
+  /// Work area wins over the minimum: a window never extends past it.
+  static Size _fit(Size size, Size minimum, Rect workArea) => Size(
+    _lower(_higher(size.width, minimum.width), workArea.width),
+    _lower(_higher(size.height, minimum.height), workArea.height),
+  );
+
+  static double _higher(double value, double floor) =>
+      value < floor ? floor : value;
+
+  static double _lower(double value, double limit) =>
+      value > limit ? limit : value;
+
+  static Rect _displayFor(Offset position, Size size, List<Rect> displays) {
+    final center = Offset(
+      position.dx + size.width / 2,
+      position.dy + size.height / 2,
+    );
+    return displays.firstWhere(
+      (d) => d.contains(center),
+      orElse: () => _nearest(displays, center),
+    );
+  }
+
   /// Clamps [position] (top-left origin) for a window/panel of [size] onto
   /// whichever of [displays] the position belongs to.
   ///
@@ -30,14 +97,7 @@ abstract final class WindowPositionClamp {
     required List<Rect> displays,
   }) {
     if (displays.isEmpty) return position;
-    final center = Offset(
-      position.dx + size.width / 2,
-      position.dy + size.height / 2,
-    );
-    final target = displays.firstWhere(
-      (d) => d.contains(center),
-      orElse: () => _nearest(displays, center),
-    );
+    final target = _displayFor(position, size, displays);
     final minX = target.left;
     final minY = target.top;
     final maxX = target.right - size.width;

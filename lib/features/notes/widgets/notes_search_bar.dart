@@ -4,7 +4,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_filter_chip.dart';
 import '../../../widgets/wp_search_field.dart';
 import '../data/providers.dart';
@@ -26,7 +26,6 @@ class NotesSearchBar extends StatelessWidget {
     required this.resultCount,
     required this.showResultCount,
     required this.onCreate,
-    this.createIsLoud = true,
   });
 
   final NotesFilter currentFilter;
@@ -43,20 +42,10 @@ class NotesSearchBar extends StatelessWidget {
   /// Creates a new note — rendered as the trailing "new note" button.
   final VoidCallback onCreate;
 
-  /// Whether that button is this screen's one loud action.
-  ///
-  /// False while the content area below shows an empty state that carries a
-  /// CTA of its own — the base empty state offers "New note" with the very
-  /// same label, the search-found-nothing state offers "Clear search". *The
-  /// One-Loud-Action Rule* allows one `primary` per screen, and a centred CTA
-  /// on an otherwise blank page is the louder of the two; this button keeps
-  /// the action and gives up the volume.
-  final bool createIsLoud;
-
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
+    final textMuted = WpColors.textMuted;
 
     return Padding(
       // Same side inset as every other list area's search bar (History,
@@ -77,6 +66,7 @@ class NotesSearchBar extends StatelessWidget {
             children: [
               Expanded(
                 child: WpSearchField(
+                  key: const ValueKey('notes-search-field'),
                   controller: searchController,
                   focusNode: searchFocusNode,
                   hintText: l10n.notesSearchPlaceholder,
@@ -86,12 +76,13 @@ class NotesSearchBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: WpSpacing.sm),
-              WpButton(
-                label: l10n.notesNewNote,
-                variant: createIsLoud
-                    ? WpButtonVariant.primary
-                    : WpButtonVariant.secondary,
+              // Beside the 44 px field: an icon button of the same height
+              // (WP-14 spec §4). The label becomes the tooltip and the
+              // accessible name.
+              WpIconButton(
+                key: const ValueKey('notes-new-note'),
                 icon: LucideIcons.plus,
+                tooltip: l10n.notesNewNote,
                 onPressed: onCreate,
               ),
             ],
@@ -119,7 +110,7 @@ class NotesSearchBar extends StatelessWidget {
                   padding: const EdgeInsets.only(left: WpSpacing.sm),
                   child: Text(
                     l10n.notesResultCount(resultCount),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.small,
                       color: textMuted,
                     ),

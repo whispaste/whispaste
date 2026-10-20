@@ -41,12 +41,14 @@ class WpOverlaySizeSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
 
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    // Wrap, not Row: at large text scales the card labels grow and the three
+    // cards reflow onto a second line instead of overflowing the row (WP-95).
+    return Wrap(
+      alignment: WrapAlignment.end,
+      spacing: WpSpacing.xs,
+      runSpacing: WpSpacing.xs,
       children: [
-        for (final size in FloatingOverlaySize.values) ...[
-          if (size != FloatingOverlaySize.values.first)
-            const SizedBox(width: WpSpacing.xs),
+        for (final size in FloatingOverlaySize.values)
           _OverlaySizeCard(
             key: ValueKey('overlay-size-card-${size.value}'),
             size: size,
@@ -54,7 +56,6 @@ class WpOverlaySizeSelector extends StatelessWidget {
             selected: size == value,
             onTap: () => onChanged(size),
           ),
-        ],
       ],
     );
   }

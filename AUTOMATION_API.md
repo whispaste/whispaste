@@ -168,6 +168,147 @@ curl -X POST http://127.0.0.1:8765/v1/snippets/insert \
   -d '{"name": "My Snippet"}'
 ```
 
+### Multiline text needs confirmation
+
+`POST /v1/snippets/insert` and any snippet whose body contains a line break
+wait for you. WhisPaste shows the text in the main window with its line count
+(bringing the window forward first if it is hidden or minimized), and only
+inserts it after you press **Insert**. **Cancel**, Escape, closing the
+dialog, or 60 seconds without an answer all cancel the request. A cancelled
+request returns `409 {"error": "preview_cancelled"}` and nothing is pasted.
+A second multiline request while one is still open is refused at once.
+
+Inserting text uses the existing paste path, the same one the Snippet Picker
+uses. That path sends the paste shortcut (Cmd+V / Ctrl+V) to the captured
+target app. This is the one place where the API causes a keystroke. It is kept
+as it was before the integrations work. The API never sends Enter or other
+keystrokes of its own, the new endpoints send none, and it never runs a shell
+command. The paste lands in the app that was captured when the last recording
+or Side Panel opened; the API does not capture a new target itself.
+
+### `GET /v1/status`
+
+Returns the API version, the dictation status (the same object as
+`GET /v1/dictation/status`) and whether the history is locked.
+
+```json
+{ "api_version": 1, "dictation": { … }, "history_locked": false }
+```
+
+### `GET /v1/notes?limit=N`
+
+Lists notes, newest and pinned first. `limit` is 1 to 200 (default 50).
+
+```json
+{ "notes": [ { "id": "…", "content": "…", "pinned": false, "updated_at": "…" } ] }
+```
+
+### `POST /v1/notes`
+
+Creates a note with the given text. Body: `{"content": "<text>"}`, at most
+100 000 characters. Answers `201` with the note. Writes made through the API do
+not fire the `note.changed` hook, so a hook cannot trigger itself.
+
+### `GET /v1/snippets`
+
+Lists snippets by title with their kind and field names.
+
+```json
+{ "snippets": [ { "name": "Greeting", "kind": "static", "fields": [] } ] }
+```
+
+### `POST /v1/snippets/render`
+
+Renders a snippet with field values and returns the text. Nothing is pasted.
+Body: `{"name": "<title>", "values": {"<field>": "<value>"}}`. Values are
+inserted once and are not expanded again. Missing or unknown fields give
+`400` with `missing_fields` or `unknown_fields` plus the field names.
+
+### `POST /v1/transcriptions`
+
+Transcribes one audio file. The body is the raw WAV file, sent with
+`Content-Type: audio/wav`. Only 16 kHz, mono, 16-bit PCM WAV is accepted; other
+formats get `415 {"error": "unsupported_format", "reason": "…"}`. The body limit
+is 64 MiB. Answers `200 {"transcript": "…"}`. Other JSON endpoints accept at
+most 64 KiB.
+
+Dictation has priority. While a recording or a transcription is running, the
+endpoint answers `409 {"error": "busy"}` and does not queue the upload. The CLI
+reports this as a message and exits with status 1.
+
+### Errors shared by all endpoints
+
+| Status | Body | Meaning |
+| --- | --- | --- |
+| 401 | `{"error": "unauthorized"}` | Missing or wrong token |
+| 403 | — | `Host` header is not a loopback name |
+| 409 | `{"error": "busy"}` | Only `POST /v1/transcriptions`: a dictation is running |
+| 413 | `{"error": "payload_too_large"}` | Body is over the endpoint's limit |
+
+## Event hooks
+
+WhisPaste can POST a JSON event to up to eight URLs you configure under
+**Settings → Local Automation API → Integrations → Event hooks**.
+
+Hooks are independent of the API switch. Once at least one hook is saved, it
+fires even when the local API server is off, and a fired event leaves the app
+without the token or any other secret.
+
+- **Events:** `transcript.finished` (after a dictation, with `transcript` and
+  `origin`) and `note.changed` (after a note is saved in the app, with
+  `note_id` and `content`).
+- **Targets:** only `http` URLs on a loopback address: `127.0.0.0/8` as a
+  dotted-quad literal, `[::1]`, or exactly `localhost`. Decimal, hex and
+  shortened IPv4 forms, IPv4-mapped IPv6, `localhost.example.com` and URLs with
+  a user part are refused when you save them. `localhost` is checked again at
+  send time and must resolve only to loopback addresses; the connection is then
+  pinned to that address. Redirects are not followed.
+- **Payload:** `Content-Type: application/json`, body
+  `{"schema": "whispaste.automation-event", "version": 1, "event": "…", "occurred_at": "…", "data": {…}}`.
+- **Delivery:** 3 second timeout. A timeout, network error or 5xx answer is
+  retried once after 500 ms. Other failures are logged without the full URL.
+
+## Command-line interface
+
+`tool/whispaste.dart` talks to a running app over the same API. It is available
+in source checkouts (`dart run tool/whispaste.dart <command>`) and is not part of
+the store builds.
+
+```bash
+export WHISPASTE_API_TOKEN=<TOKEN>      # required; the port defaults to 8765
+dart run tool/whispaste.dart status
+dart run tool/whispaste.dart note create "Buy milk"
+dart run tool/whispaste.dart note list --limit 10
+dart run tool/whispaste.dart snippet list
+dart run tool/whispaste.dart snippet render Greeting --field name=Ada
+dart run tool/whispaste.dart transcribe clip.wav
+```
+
+`--port N` or `WHISPASTE_API_PORT` select another port. The token is read only
+from the environment, so it does not appear in the command line.
+
+## MCP server
+
+`dart run tool/whispaste.dart mcp` runs a stdio MCP server (protocol revision
+2025-03-26, tools only). Point an MCP client at it with the token in the
+environment:
+
+```json
+{
+  "mcpServers": {
+    "whispaste": {
+      "command": "dart",
+      "args": ["run", "tool/whispaste.dart", "mcp"],
+      "cwd": "/path/to/whispaste",
+      "env": { "WHISPASTE_API_TOKEN": "<TOKEN>" }
+    }
+  }
+}
+```
+
+Tools: `notes_list`, `notes_create`, `snippets_list`, `snippets_render`,
+`last_dictation` and `trigger_dictation`. Diagnostics go to stderr only.
+
 ## Security
 
 - **Loopback-only** — the server binds exclusively to `127.0.0.1` and `::1`.

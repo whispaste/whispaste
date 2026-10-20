@@ -56,6 +56,7 @@ Die Laufzeit-`Depends:` entsprechen den `-dev`-Paketen, gegen die der
 | `libnotify-dev` | `libnotify4` |
 | `libayatana-appindicator3-dev` | `libayatana-appindicator3-1` |
 | `libasound2-dev` | `libasound2` |
+| `libxss-dev` | `libxss1` |
 | `libcurl4-openssl-dev` | `libcurl4` |
 | `libkeybinder-3.0-dev` | `libkeybinder-3.0-0` |
 | `liblzma-dev` | `liblzma5` |

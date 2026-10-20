@@ -12,6 +12,8 @@ import '../../core/config/settings_provider.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
+import '../../core/theme/colors.dart';
+import '../../core/theme/tokens.dart';
 import '../../core/utils/focus_helpers.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/empty_state.dart';
@@ -19,11 +21,15 @@ import '../../widgets/page_shell.dart';
 import '../../widgets/toast.dart';
 import '../../widgets/wp_list_skeleton.dart';
 import 'package:whispaste/core/data/database.dart';
+import '../../services/audio/import/audio_import_providers.dart';
 import '../../services/clipboard_history/app_clipboard.dart';
 import '../../services/history/history_exporter.dart' as history_exporter;
 import 'data/history_detail_provider.dart';
 import 'data/history_lock.dart';
 import 'data/providers.dart';
+import 'widgets/audio_import_drop_zone.dart';
+import 'widgets/audio_import_panel.dart';
+import 'widgets/recovery_banner.dart';
 import 'widgets/history_pin_dialogs.dart';
 import 'widgets/widgets.dart';
 
@@ -38,17 +44,18 @@ typedef HistoryPageExportFn =
     Future<void> Function(BuildContext context, List<HistoryEntry> entries);
 
 /// Placeholder-bar height of the loading skeleton, matched to the real
-/// [HistoryEntryRow]. Measured at a 340 dp list column: 110 dp with the
-/// usual two-line preview since the metadata collapsed into one line.
-/// 112 tracks the populated case — the one a skeleton has to reserve for —
+/// [HistoryEntryRow]. Measured at a 340 dp list column: 123 dp with the
+/// two-line preview, 48 dp action targets and the whole metadata line.
+/// 120 tracks the populated case — the one a skeleton has to reserve for —
 /// on the repo's 8 dp rhythm. The former 52 reserved less than half a row.
-const _historySkeletonRowHeight = 112.0;
+const _historySkeletonRowHeight = 120.0;
 
 /// Key of the privacy gate the page shows instead of entries while
 /// `HistorySettings.historyHideOnOpen` is on and the user has not revealed
 /// the history yet.
 @visibleForTesting
 const kHistoryPrivacyGateKey = Key('historyPrivacyGate');
+const kHistoryImportRequestHintKey = Key('historyImportRequestHint');
 
 /// History page — recorded transcriptions with search, filter, and grouping.
 ///
@@ -139,6 +146,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     }
   }
 
+  // loam-ignore: code-duplicates – twin of `_moveFocus` in notes_page.dart; the list cursor logic is intentionally kept per page
   void _moveFocus(int delta, List<HistoryEntry> flat) {
     if (flat.isEmpty) return;
     final currentIdx = flat.indexWhere((e) => e.id == _focusedEntryId);
@@ -248,7 +256,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         _deleteSelected();
       } else {
         final entry = _focusedEntry(flat);
-        if (entry != null) _deleteEntry(entry);
+        if (entry != null) {
+          _deleteEntry(entry, focusAfter: _neighbourEntryId(flat, entry.id));
+        }
       }
       return KeyEventResult.handled;
     }
@@ -393,7 +403,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             onEntryTap: (entry) => _handleEntryTap(entry, flat),
             onCopy: _copyEntry,
             onPin: _togglePin,
-            onDelete: _deleteEntry,
+            onDelete: (entry) => _deleteEntry(entry),
             onArchive: _archiveEntry,
             onRestore: _restoreEntry,
             onDuplicate: _duplicateEntry,
@@ -426,28 +436,49 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       return null;
     }
     final l10n = L10n.of(context);
+    final importWaiting = ref.watch(audioImportRequestPendingProvider);
+    final gate = hasPin
+        ? WpEmptyState(
+            key: kHistoryPrivacyGateKey,
+            icon: LucideIcons.lock,
+            title: l10n.historyPinGateTitle,
+            hint: l10n.historyPinGateHint,
+            actionLabel: l10n.historyPinUnlock,
+            onAction: () =>
+                showHistoryPinUnlockDialog(context, offerForgot: true),
+          )
+        : WpEmptyState(
+            key: kHistoryPrivacyGateKey,
+            icon: LucideIcons.eyeOff,
+            title: l10n.historyPrivacyGateTitle,
+            hint: l10n.historyPrivacyGateHint,
+            actionLabel: l10n.historyPrivacyGateShow,
+            onAction: () => ref.read(historyRevealedProvider.notifier).reveal(),
+          );
     return WpPageShell(
       scrollable: false,
       padding: EdgeInsets.zero,
-      child: hasPin
-          ? WpEmptyState(
-              key: kHistoryPrivacyGateKey,
-              icon: LucideIcons.lock,
-              title: l10n.historyPinGateTitle,
-              hint: l10n.historyPinGateHint,
-              actionLabel: l10n.historyPinUnlock,
-              onAction: () =>
-                  showHistoryPinUnlockDialog(context, offerForgot: true),
-            )
-          : WpEmptyState(
-              key: kHistoryPrivacyGateKey,
-              icon: LucideIcons.eyeOff,
-              title: l10n.historyPrivacyGateTitle,
-              hint: l10n.historyPrivacyGateHint,
-              actionLabel: l10n.historyPrivacyGateShow,
-              onAction: () =>
-                  ref.read(historyRevealedProvider.notifier).reveal(),
+      child: Column(
+        children: [
+          Expanded(child: gate),
+          if (importWaiting)
+            Padding(
+              padding: const EdgeInsets.all(WpSpacing.md),
+              child: Semantics(
+                identifier: 'history-import-request-hint',
+                child: Text(
+                  l10n.historyImportUnlockHint,
+                  key: kHistoryImportRequestHintKey,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: WpTypography.small,
+                    color: WpColors.textMuted,
+                  ),
+                ),
+              ),
             ),
+        ],
+      ),
     );
   }
 
@@ -475,6 +506,26 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
+  /// Drops selected ids that the current results do not show (UIA-HIS-17), so
+  /// batch actions never reach entries the user cannot see. Runs only once the
+  /// results have loaded, never on the stale list of the previous query.
+  void _dropSelectionOutsideResults(
+    AsyncValue<List<HistoryEntry>> filteredAsync,
+    List<HistoryEntry> filteredEntries,
+  ) {
+    if (_selectedIds.isEmpty || filteredAsync.isLoading) return;
+    final visible = {for (final e in filteredEntries) e.id};
+    final hidden = _selectedIds.where((id) => !visible.contains(id)).toList();
+    if (hidden.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _selectedIds.removeAll(hidden);
+        if (_selectedIds.isEmpty) _multiSelectMode = false;
+      });
+    });
+  }
+
   Widget _buildHistory(BuildContext context) {
     final activeFilter = ref.watch(historyFilterProvider);
     final groupedAsync = ref.watch(groupedHistoryProvider);
@@ -484,6 +535,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
     // Resolve the flat filtered list (for selection lookup & shift-click)
     final filteredEntries = filteredAsync.value ?? [];
+    _dropSelectionOutsideResults(filteredAsync, filteredEntries);
 
     // Look up selected entry from current filtered list
     HistoryEntry? selectedEntry;
@@ -495,60 +547,63 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     return WpPageShell(
       scrollable: false,
       padding: EdgeInsets.zero,
-      child: CallbackShortcuts(
-        bindings: <ShortcutActivator, VoidCallback>{
-          // Ctrl+F / Cmd+F: Focus search field
-          SingleActivator(
-            LogicalKeyboardKey.keyF,
-            control: !Platform.isMacOS,
-            meta: Platform.isMacOS,
-          ): () {
-            _searchFocusNode.requestFocus();
+      child: AudioImportDropZone(
+        child: CallbackShortcuts(
+          bindings: <ShortcutActivator, VoidCallback>{
+            // Ctrl+F / Cmd+F: Focus search field
+            SingleActivator(
+              LogicalKeyboardKey.keyF,
+              control: !Platform.isMacOS,
+              meta: Platform.isMacOS,
+            ): () {
+              _searchFocusNode.requestFocus();
+            },
           },
-        },
-        child: Focus(
-          autofocus: false,
-          child: Column(
-            children: [
-              // Multi-select action bar (shown when items are selected)
-              if (_multiSelectMode && _selectedIds.isNotEmpty)
-                HistoryMultiSelectBar(
-                  selectedCount: _selectedIds.length,
-                  totalCount: filteredEntries.length,
-                  isTrashView: isTrashView,
-                  isArchiveView: isArchiveView,
-                  onMerge: _selectedIds.length >= 2 ? _mergeSelected : null,
-                  onBatchCopy: _selectedIds.isNotEmpty
-                      ? () => _copySelectedEntries(filteredEntries)
-                      : null,
-                  onBatchCopyMarkdown: _selectedIds.isNotEmpty
-                      ? () => _copySelectedEntriesAsMarkdown(filteredEntries)
-                      : null,
-                  onExport: _selectedIds.isNotEmpty
-                      ? () => _exportSelectedEntries(filteredEntries)
-                      : null,
-                  onArchive: !isTrashView ? _archiveSelected : null,
-                  onDelete: _deleteSelected,
-                  onRestore: isTrashView ? _restoreSelected : null,
-                  onSelectAll: () => setState(() {
-                    if (_selectedIds.length >= filteredEntries.length) {
-                      // All selected → deselect all
-                      _selectedIds.clear();
+          child: Focus(
+            autofocus: false,
+            child: Column(
+              children: [
+                // Multi-select action bar (shown when items are selected)
+                if (_multiSelectMode && _selectedIds.isNotEmpty)
+                  HistoryMultiSelectBar(
+                    selectedCount: _selectedIds.length,
+                    totalCount: filteredEntries.length,
+                    isTrashView: isTrashView,
+                    isArchiveView: isArchiveView,
+                    onMerge: _selectedIds.length >= 2 ? _mergeSelected : null,
+                    onBatchCopy: _selectedIds.isNotEmpty
+                        ? () => _copySelectedEntries(filteredEntries)
+                        : null,
+                    onBatchCopyMarkdown: _selectedIds.isNotEmpty
+                        ? () => _copySelectedEntriesAsMarkdown(filteredEntries)
+                        : null,
+                    onExport: _selectedIds.isNotEmpty
+                        ? () => _exportSelectedEntries(filteredEntries)
+                        : null,
+                    onArchive: !isTrashView ? _archiveSelected : null,
+                    onDelete: _deleteSelected,
+                    onRestore: isTrashView ? _restoreSelected : null,
+                    onSelectAll: () => setState(() {
+                      if (_selectedIds.length >= filteredEntries.length) {
+                        // All selected → deselect all
+                        _selectedIds.clear();
+                        _multiSelectMode = false;
+                      } else {
+                        // Select all visible
+                        _selectedIds
+                          ..clear()
+                          ..addAll(filteredEntries.map((e) => e.id));
+                      }
+                    }),
+                    onCancelSelection: () => setState(() {
                       _multiSelectMode = false;
-                    } else {
-                      // Select all visible
-                      _selectedIds
-                        ..clear()
-                        ..addAll(filteredEntries.map((e) => e.id));
-                    }
-                  }),
-                  onCancelSelection: () => setState(() {
-                    _multiSelectMode = false;
-                    _selectedIds.clear();
-                  }),
-                ),
-              // Search & filter bar
-              if (!_multiSelectMode || _selectedIds.isEmpty)
+                      _selectedIds.clear();
+                    }),
+                  ),
+                const RecoveryBanner(),
+                const AudioImportPanel(),
+                // Search & filter bar. Stays up while selecting so the search
+                // can be narrowed without giving the selection up (UIA-HIS-17).
                 HistorySearchFilterBar(
                   controller: _searchController,
                   searchFocusNode: _searchFocusNode,
@@ -567,11 +622,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     ref
                         .read(historySearchProvider.notifier)
                         .set(_searchController.text);
-                    // Clear all selection state when search changes so the detail
-                    // panel closes and keyboard navigation resets.
+                    // The selection survives a search change; entries the new
+                    // results no longer show are dropped once they load (UIA-HIS-17).
+                    // The detail panel and keyboard focus still reset.
                     setState(() {
-                      _selectedIds.clear();
-                      _multiSelectMode = false;
                       _selectedEntryId = null;
                       _focusedEntryId = null;
                     });
@@ -589,48 +643,38 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   onEmptyTrash: isTrashView && filteredEntries.isNotEmpty
                       ? _emptyTrash
                       : null,
-                  // *The One-Loud-Action Rule*: two of the states the content
-                  // area below can be in put a CTA of their own on screen —
-                  // "Clear search" when a query found nothing, "Try again"
-                  // after a load error. Everything else (a populated list, the
-                  // loading skeleton, and the empty states that deliberately
-                  // offer no action) leaves "New recording" as the page's one
-                  // loud thing. See `_emptyStateForFilter`.
-                  newRecordingIsLoud:
-                      !(groupedAsync.hasError ||
-                          (groupedAsync.value?.isEmpty == true &&
-                              _searchController.text.isNotEmpty)),
                 ),
-              // Master-detail content
-              Expanded(
-                child: groupedAsync.when(
-                  data: (groups) {
-                    if (groups.isEmpty) {
-                      return _emptyStateForFilter(activeFilter);
-                    }
-                    return _buildLoadedView(
-                      groups,
-                      filteredEntries,
-                      selectedEntry,
-                      isTrashView,
-                      isArchiveView,
-                    );
-                  },
-                  loading: () => const WpListSkeleton(
-                    rowHeight: _historySkeletonRowHeight,
+                // Master-detail content
+                Expanded(
+                  child: groupedAsync.when(
+                    data: (groups) {
+                      if (groups.isEmpty) {
+                        return _emptyStateForFilter(activeFilter);
+                      }
+                      return _buildLoadedView(
+                        groups,
+                        filteredEntries,
+                        selectedEntry,
+                        isTrashView,
+                        isArchiveView,
+                      );
+                    },
+                    loading: () => const WpListSkeleton(
+                      rowHeight: _historySkeletonRowHeight,
+                    ),
+                    error: (e, _) {
+                      final l10n = L10n.of(context);
+                      return WpEmptyState(
+                        icon: LucideIcons.triangleAlert,
+                        title: l10n.errorGeneric,
+                        actionLabel: l10n.actionRetry,
+                        onAction: () => _retryFilter(activeFilter),
+                      );
+                    },
                   ),
-                  error: (e, _) {
-                    final l10n = L10n.of(context);
-                    return WpEmptyState(
-                      icon: LucideIcons.triangleAlert,
-                      title: l10n.errorGeneric,
-                      actionLabel: l10n.actionRetry,
-                      onAction: () => ref.invalidate(historyEntriesProvider),
-                    );
-                  },
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -651,10 +695,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       );
     }
     if (activeFilter == HistoryFilter.trash) {
+      // The period the app really applies, so the copy cannot drift from the
+      // setting (BIZ-15). 0 means the trash is never purged automatically.
+      final trashDays =
+          ref.watch(settingsProvider).value?.history.historyAutoTrashDays ??
+          AppSettings.defaults.history.historyAutoTrashDays;
       return WpEmptyState(
         icon: LucideIcons.trash2,
         title: l10n.historyTrashEmpty,
-        hint: l10n.historyTrashEmptyHint,
+        hint: l10n.historyTrashEmptyHint(trashDays),
       );
     }
     if (activeFilter == HistoryFilter.archived) {
@@ -662,6 +711,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         icon: LucideIcons.archive,
         title: l10n.historyNoArchivedItems,
         hint: l10n.historyNoArchivedItemsHint,
+        actionLabel: l10n.historyShowAll,
+        onAction: () =>
+            ref.read(historyFilterProvider.notifier).set(HistoryFilter.all),
       );
     }
     if (activeFilter == HistoryFilter.pinned) {
@@ -669,6 +721,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         icon: LucideIcons.star,
         title: l10n.historyNoPinned,
         hint: l10n.historyNoPinnedHint,
+        actionLabel: l10n.historyShowAll,
+        onAction: () =>
+            ref.read(historyFilterProvider.notifier).set(HistoryFilter.all),
       );
     }
     if (activeFilter == HistoryFilter.today) {
@@ -676,6 +731,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         icon: LucideIcons.calendar,
         title: l10n.historyNoToday,
         hint: l10n.historyNoTodayHint,
+        actionLabel: l10n.historyShowAll,
+        onAction: () =>
+            ref.read(historyFilterProvider.notifier).set(HistoryFilter.all),
       );
     }
     if (activeFilter == HistoryFilter.week) {
@@ -683,6 +741,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         icon: LucideIcons.calendarRange,
         title: l10n.historyNoThisWeek,
         hint: l10n.historyNoThisWeekHint,
+        actionLabel: l10n.historyShowAll,
+        onAction: () =>
+            ref.read(historyFilterProvider.notifier).set(HistoryFilter.all),
       );
     }
     return WpEmptyState(
@@ -711,8 +772,40 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     }
   }
 
-  void _deleteEntry(HistoryEntry entry) async {
+  /// Asks before a permanent delete (trash only). The purge cannot be undone,
+  /// so the dialog names how many entries it removes (UIA-HIS-01).
+  Future<bool> _confirmPermanentDelete(int count) {
+    final l10n = L10n.of(context);
+    return confirmDestructive(
+      context: context,
+      title: l10n.historyDeletePermanentlyConfirm,
+      message: l10n.historyDeletePermanentlyConfirmMessage(count),
+      confirmLabel: l10n.historyDeletePermanently,
+      cancelLabel: l10n.actionCancel,
+    );
+  }
+
+  /// Deletes [entry]. [focusAfter] takes the keyboard focus when the focused
+  /// entry is the one removed (UIA-HIS-08).
+  /// Reloads the source of the filter that failed (UIA-HIS-11). Retrying the
+  /// all-entries list left trash/archive/search errors in place.
+  void _retryFilter(HistoryFilter filter) {
+    switch (filter) {
+      case HistoryFilter.trash:
+        ref.invalidate(trashEntriesProvider);
+      case HistoryFilter.archived:
+        ref.invalidate(archivedEntriesProvider);
+      default:
+        ref.invalidate(historyEntriesProvider);
+    }
+    ref.invalidate(filteredHistoryProvider);
+  }
+
+  void _deleteEntry(HistoryEntry entry, {String? focusAfter}) async {
     final isTrash = ref.read(historyFilterProvider) == HistoryFilter.trash;
+    if (isTrash) {
+      if (!await _confirmPermanentDelete(1) || !mounted) return;
+    }
     try {
       if (isTrash) {
         await ref.read(historyDatabaseProvider).permanentDeleteEntry(entry.id);
@@ -723,9 +816,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       _showHistoryWriteFailedToast();
       return;
     }
-    if (_selectedEntryId == entry.id) {
-      setState(() => _selectedEntryId = null);
-    }
+    if (!mounted) return;
+    setState(() {
+      if (_selectedEntryId == entry.id) _selectedEntryId = null;
+      if (_focusedEntryId == entry.id) _focusedEntryId = focusAfter;
+    });
     if (!mounted || isTrash) return;
     final l10n = L10n.of(context);
     WpToast.show(
@@ -738,22 +833,62 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
+  /// Archives or un-archives [entry], confirms the move and offers undo
+  /// (UIA-HIS-25).
   void _archiveEntry(HistoryEntry entry) async {
+    final archiving = !entry.archived;
+    if (!await _toggleArchive(entry)) return;
+    if (_selectedEntryId == entry.id) {
+      setState(() => _selectedEntryId = null);
+    }
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: archiving
+          ? L10n.of(context).historyArchived
+          : L10n.of(context).historyRestored,
+      type: WpToastType.info,
+      duration: const Duration(seconds: 4),
+      actionLabel: L10n.of(context).historyUndo,
+      onAction: () => _toggleArchive(entry),
+    );
+  }
+
+  Future<bool> _toggleArchive(HistoryEntry entry) async {
     try {
       await ref.read(historyDatabaseProvider).toggleArchive(entry.id);
+      ref.invalidate(historyDetailProvider(entry.id));
+      return true;
+    } catch (e) {
+      _showHistoryWriteFailedToast();
+      return false;
+    }
+  }
+
+  /// Takes [entry] out of the trash and confirms it (UIA-HIS-25). Undo puts
+  /// it back in the trash.
+  void _restoreEntry(HistoryEntry entry) async {
+    try {
+      await ref.read(historyDatabaseProvider).restoreEntry(entry.id);
       ref.invalidate(historyDetailProvider(entry.id));
     } catch (e) {
       _showHistoryWriteFailedToast();
       return;
     }
-    if (_selectedEntryId == entry.id) {
-      setState(() => _selectedEntryId = null);
-    }
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: L10n.of(context).historyRestored,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 4),
+      actionLabel: L10n.of(context).historyUndo,
+      onAction: () => _moveToTrashQuietly(entry),
+    );
   }
 
-  void _restoreEntry(HistoryEntry entry) async {
+  Future<void> _moveToTrashQuietly(HistoryEntry entry) async {
     try {
-      await ref.read(historyDatabaseProvider).restoreEntry(entry.id);
+      await ref.read(historyDatabaseProvider).softDeleteEntry(entry.id);
       ref.invalidate(historyDetailProvider(entry.id));
     } catch (e) {
       _showHistoryWriteFailedToast();
@@ -778,26 +913,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     }
   }
 
-  String _formatEntryAsMarkdown(HistoryEntry entry) {
-    final md = StringBuffer();
-    md.writeln('# ${entry.title.isNotEmpty ? entry.title : "Untitled"}');
-    md.writeln();
-    md.writeln(entry.content);
-    md.writeln();
-    md.writeln('---');
-    md.writeln();
-    final tags = _parseTags(entry.tags);
-    if (tags.isNotEmpty) {
-      md.writeln('**Tags:** ${tags.map((t) => '#$t').join(', ')}');
-    }
-    md.writeln(
-      '**Date:** ${DateFormat.yMMMd().add_Hm().format(entry.timestamp)}',
-    );
-    if (entry.model.isNotEmpty) {
-      md.writeln('**Model:** ${entry.model}');
-    }
-    return md.toString();
-  }
+  String _formatEntryAsMarkdown(HistoryEntry entry) =>
+      formatHistoryEntryAsMarkdown(entry, L10n.of(context));
 
   void _copyAsMarkdown(HistoryEntry entry) {
     AppClipboard.setText(_formatEntryAsMarkdown(entry));
@@ -851,20 +968,26 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
     final db = ref.read(historyDatabaseProvider);
     final ids = _selectedIds.toList();
-    db.mergeEntries(ids).then((merged) {
-      if (!mounted) return;
-      setState(() {
-        _selectedIds.clear();
-        _multiSelectMode = false;
-        if (merged != null) _selectedEntryId = merged.id;
-      });
-      WpToast.show(
-        context,
-        message: l10n.historyEntriesMerged,
-        type: WpToastType.success,
-        duration: const Duration(seconds: 2),
-      );
+    final HistoryEntry? merged;
+    try {
+      merged = await db.mergeEntries(ids);
+    } catch (e) {
+      // Keep the selection so the user can retry; say why nothing changed.
+      _showHistoryWriteFailedToast();
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _selectedIds.clear();
+      _multiSelectMode = false;
+      if (merged != null) _selectedEntryId = merged.id;
     });
+    WpToast.show(
+      context,
+      message: l10n.historyEntriesMerged,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 2),
+    );
   }
 
   void _clearSelection() {
@@ -876,33 +999,66 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
   void _archiveSelected() async {
     final db = ref.read(historyDatabaseProvider);
+    final ids = _selectedIds.toList();
+    final message = L10n.of(context).historyBulkArchived(ids.length);
     try {
-      await db.batchArchive(_selectedIds.toList());
+      await db.batchArchive(ids);
     } catch (e) {
       _showHistoryWriteFailedToast();
       return;
     }
     _clearSelection();
+    _showBulkUndoToast(message, ids);
+  }
+
+  /// Confirms a bulk action and offers to take it back (UIA-HIS-06).
+  void _showBulkUndoToast(String message, List<String> ids) {
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: message,
+      type: WpToastType.info,
+      duration: const Duration(seconds: 4),
+      actionLabel: L10n.of(context).historyUndo,
+      onAction: () => _undoBulkRestore(ids),
+    );
+  }
+
+  void _undoBulkRestore(List<String> ids) async {
+    try {
+      await ref.read(historyDatabaseProvider).batchRestore(ids);
+    } catch (e) {
+      _showHistoryWriteFailedToast();
+    }
   }
 
   void _deleteSelected() async {
     final db = ref.read(historyDatabaseProvider);
     final isTrash = ref.read(historyFilterProvider) == HistoryFilter.trash;
+    if (isTrash) {
+      final count = _selectedIds.length;
+      if (!await _confirmPermanentDelete(count) || !mounted) return;
+    }
+    final ids = _selectedIds.toList();
+    final message = L10n.of(context).historyBulkMovedToTrash(ids.length);
     try {
       if (isTrash) {
-        await db.batchPermanentDelete(_selectedIds.toList());
+        await db.batchPermanentDelete(ids);
       } else {
-        await db.softDeleteEntries(_selectedIds.toList());
+        await db.softDeleteEntries(ids);
       }
     } catch (e) {
       _showHistoryWriteFailedToast();
       return;
     }
     _clearSelection();
+    // Permanent delete stays without undo; it was confirmed above.
+    if (!isTrash) _showBulkUndoToast(message, ids);
   }
 
   void _restoreSelected() async {
     final db = ref.read(historyDatabaseProvider);
+    final count = _selectedIds.length;
     try {
       await db.batchRestore(_selectedIds.toList());
     } catch (e) {
@@ -910,6 +1066,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       return;
     }
     _clearSelection();
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: L10n.of(context).historyBulkRestored(count),
+      type: WpToastType.success,
+      duration: const Duration(seconds: 3),
+    );
   }
 
   /// Run the export flow for the currently selected entries.
@@ -985,10 +1148,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   /// Permanently delete all items in trash after confirmation.
   Future<void> _emptyTrash() async {
     final l10n = L10n.of(context);
+    // Count what the purge will delete, not the rows on screen: a search can
+    // hide part of the trash, and the purge takes all of it (UX-028).
+    final pending = await ref.read(historyDatabaseProvider).countTrash();
+    if (!mounted) return;
     final confirmed = await showWpConfirmDialog(
       context: context,
       title: l10n.historyEmptyTrashConfirm,
-      message: l10n.historyEmptyTrashConfirmMessage,
+      message: l10n.historyEmptyTrashConfirmMessage(pending),
       confirmLabel: l10n.historyEmptyTrash,
       cancelLabel: l10n.actionCancel,
       destructive: true,
@@ -1010,3 +1177,40 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     });
   }
 }
+
+/// The entry that takes the focus when [id] leaves the list: the row below,
+/// or the row above when [id] is the last one.
+String? _neighbourEntryId(List<HistoryEntry> flat, String id) {
+  final idx = flat.indexWhere((e) => e.id == id);
+  if (idx < 0 || flat.length < 2) return null;
+  return idx + 1 < flat.length ? flat[idx + 1].id : flat[idx - 1].id;
+}
+
+/// The Markdown copy of one history entry, with field labels in [l10n].
+String formatHistoryEntryAsMarkdown(HistoryEntry entry, L10n l10n) {
+  final md = StringBuffer();
+  md.writeln(
+    '# ${entry.title.isNotEmpty ? entry.title : l10n.historyUntitled}',
+  );
+  md.writeln();
+  md.writeln(entry.content);
+  md.writeln();
+  md.writeln('---');
+  md.writeln();
+  final tags = _HistoryPageState._parseTags(entry.tags);
+  if (tags.isNotEmpty) {
+    md.writeln(
+      '**${l10n.historyMdTags}:** ${tags.map((t) => '#$t').join(', ')}',
+    );
+  }
+  md.writeln(
+    '**${l10n.historyMdDate}:** ${DateFormat.yMMMd().add_Hm().format(entry.timestamp)}',
+  );
+  if (entry.model.isNotEmpty) {
+    md.writeln('**${l10n.historyMdModel}:** ${entry.model}');
+  }
+  return md.toString();
+}
+
+/// History page — recorded transcriptions with search, filter, and grouping.
+///

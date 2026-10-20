@@ -10,9 +10,12 @@ import '../../../core/theme/tokens.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/tag_input.dart';
 import '../../../widgets/toast.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../../../widgets/wp_voice_input_button.dart';
 import '../data/note_title.dart';
+import 'note_image_strip.dart';
+import 'note_title_field.dart';
 import 'quick_note_hotkey_line.dart';
 
 // ---------------------------------------------------------------------------
@@ -28,6 +31,31 @@ import 'quick_note_hotkey_line.dart';
 /// extent — give that button a `visualDensity` or `padding` without changing
 /// this, and the cap drifts and the row overflows again.
 const double _quickNoteMarkExtent = kMinInteractiveDimension;
+
+/// Actions the editor offers beyond the core toolbar (WP-31a). Each callback is
+/// optional: a control whose callback is null is not shown.
+class NoteEditorExtras {
+  const NoteEditorExtras({
+    this.onSaveTitle,
+    this.onSaveVersionNow,
+    this.onMarkSelection,
+    this.onAddImage,
+    this.onShowVersions,
+    this.onCreateSnippet,
+    this.titleRevision = 0,
+  });
+
+  final void Function(String noteId, String title)? onSaveTitle;
+  final VoidCallback? onSaveVersionNow;
+  final VoidCallback? onMarkSelection;
+  final VoidCallback? onAddImage;
+  final VoidCallback? onShowVersions;
+  final VoidCallback? onCreateSnippet;
+
+  /// Bumped after a version restore, so the title field reloads the restored
+  /// title instead of keeping what was typed before.
+  final int titleRevision;
+}
 
 class NoteEditorPanel extends StatelessWidget {
   const NoteEditorPanel({
@@ -49,6 +77,7 @@ class NoteEditorPanel extends StatelessWidget {
     required this.onRemoveTag,
     required this.onExport,
     required this.onVoiceTranscript,
+    this.extras = const NoteEditorExtras(),
   });
 
   final Note note;
@@ -90,12 +119,15 @@ class NoteEditorPanel extends StatelessWidget {
   /// (cursor position lives in the shared controller/selection, not here).
   final ValueChanged<String> onVoiceTranscript;
 
+  /// Title saving, snapshots, marks, images, versions and Textbausteine.
+  final NoteEditorExtras extras;
+
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const errorColor = WpColors.error;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final errorColor = WpColors.error;
     final isTrashed = note.deletedAt != null;
     final showQuickNoteMark = !isTrashed && note.isQuickNote;
 
@@ -144,7 +176,7 @@ class NoteEditorPanel extends StatelessWidget {
                       child: IconButton(
                         onPressed: onQuickNoteClear,
                         tooltip: l10n.notesQuickNoteClear,
-                        icon: const FaIcon(
+                        icon: FaIcon(
                           FontAwesomeIcons.bolt,
                           size: WpIconSize.sm,
                           color: WpColors.accent,
@@ -153,16 +185,30 @@ class NoteEditorPanel extends StatelessWidget {
                     ),
                   ),
                 Expanded(
-                  child: Text(
-                    deriveNoteTitle(note.content) ?? l10n.notesUntitled,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: WpTypography.title,
-                      fontWeight: FontWeight.w600,
-                      color: textPrimary,
-                    ),
-                  ),
+                  child: extras.onSaveTitle == null
+                      ? Text(
+                          note.title ??
+                              deriveNoteTitle(note.content) ??
+                              l10n.notesUntitled,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: WpTypography.title,
+                            fontWeight: FontWeight.w600,
+                            color: textPrimary,
+                          ),
+                        )
+                      : NoteTitleField(
+                          key: ValueKey(
+                            'notes-editor-title-${note.id}-${extras.titleRevision}',
+                          ),
+                          noteId: note.id,
+                          initialTitle: note.title,
+                          hintText:
+                              deriveNoteTitle(note.content) ??
+                              l10n.notesUntitled,
+                          onSave: extras.onSaveTitle!,
+                        ),
                 ),
                 const SizedBox(width: WpSpacing.xs),
                 // The action cluster is inflexible — a Row hands its
@@ -204,58 +250,40 @@ class NoteEditorPanel extends StatelessWidget {
                         // IconButton's tooltip: only yields a semantics HINT, not a
                         // NAME, so screen readers would otherwise announce an unnamed
                         // button (and bySemanticsLabel tests could not find it).
-                        Semantics(
-                          label: l10n.actionDuplicate,
-                          button: true,
-                          child: IconButton(
-                            onPressed: onDuplicate,
-                            tooltip: l10n.actionDuplicate,
-                            icon: const Icon(
-                              LucideIcons.files,
-                              size: WpIconSize.md,
-                              color: textMuted,
-                            ),
-                          ),
+                        WpIconButton(
+                          key: ValueKey('notes-editor-duplicate-${note.id}'),
+                          icon: LucideIcons.copyPlus,
+                          tooltip: l10n.actionDuplicate,
+                          onPressed: onDuplicate,
+                          color: textMuted,
                         ),
-                        Semantics(
-                          label: l10n.notesCopy,
-                          button: true,
-                          child: IconButton(
-                            onPressed: () {
-                              // Deliberately no telemetry here: note contents are on
-                              // the telemetry negative list (CONTEXT.md) — unlike the
-                              // history copy action, this stays event-free.
-                              Clipboard.setData(
-                                ClipboardData(text: controller.text),
-                              );
-                              WpToast.show(
-                                context,
-                                message: l10n.notesCopied,
-                                type: WpToastType.success,
-                                duration: const Duration(seconds: 2),
-                              );
-                            },
-                            tooltip: l10n.notesCopy,
-                            icon: const Icon(
-                              LucideIcons.copy,
-                              size: WpIconSize.md,
-                              color: textMuted,
-                            ),
-                          ),
+                        WpIconButton(
+                          icon: LucideIcons.copy,
+                          tooltip: l10n.notesCopy,
+                          onPressed: () {
+                            // Deliberately no telemetry here: note contents are on
+                            // the telemetry negative list (CONTEXT.md) — unlike the
+                            // history copy action, this stays event-free.
+                            Clipboard.setData(
+                              ClipboardData(text: controller.text),
+                            );
+                            WpToast.show(
+                              context,
+                              message: l10n.notesCopied,
+                              type: WpToastType.success,
+                              duration: const Duration(seconds: 2),
+                            );
+                          },
+                          color: textMuted,
                         ),
-                        Semantics(
-                          label: l10n.notesExport,
-                          button: true,
-                          child: IconButton(
-                            onPressed: onExport,
-                            tooltip: l10n.notesExport,
-                            icon: const Icon(
-                              LucideIcons.download,
-                              size: WpIconSize.md,
-                              color: textMuted,
-                            ),
-                          ),
+                        WpIconButton(
+                          icon: LucideIcons.download,
+                          tooltip: l10n.notesExport,
+                          onPressed: onExport,
+                          color: textMuted,
                         ),
+                        if (!isTrashed)
+                          _NoteEditorMenu(noteId: note.id, extras: extras),
                         WpVoiceInputButton(
                           // Keyed per note — see the note on the body field
                           // below. A dictation started here delivers its
@@ -271,31 +299,17 @@ class NoteEditorPanel extends StatelessWidget {
                           // Trash view: restore + delete forever instead of the
                           // favourite/move-to-trash pair (copy stays — it's harmless
                           // and occasionally useful for salvaging trashed text).
-                          Semantics(
-                            label: l10n.notesRestore,
-                            button: true,
-                            child: IconButton(
-                              onPressed: onRestore,
-                              tooltip: l10n.notesRestore,
-                              icon: const Icon(
-                                LucideIcons.undo2,
-                                size: WpIconSize.md,
-                                color: textMuted,
-                              ),
-                            ),
+                          WpIconButton(
+                            icon: LucideIcons.undo2,
+                            tooltip: l10n.notesRestore,
+                            onPressed: onRestore,
+                            color: textMuted,
                           ),
-                          Semantics(
-                            label: l10n.notesDeleteForever,
-                            button: true,
-                            child: IconButton(
-                              onPressed: onDeleteForever,
-                              tooltip: l10n.notesDeleteForever,
-                              icon: const Icon(
-                                LucideIcons.trash2,
-                                size: WpIconSize.md,
-                                color: errorColor,
-                              ),
-                            ),
+                          WpIconButton(
+                            icon: LucideIcons.trash2,
+                            tooltip: l10n.notesDeleteForever,
+                            onPressed: onDeleteForever,
+                            color: errorColor,
                           ),
                         ] else ...[
                           Semantics(
@@ -304,20 +318,21 @@ class NoteEditorPanel extends StatelessWidget {
                                 : l10n.notesFavorite,
                             button: true,
                             child: IconButton(
+                              key: ValueKey('notes-editor-favorite-${note.id}'),
                               onPressed: onToggleFavorite,
                               tooltip: note.pinned
                                   ? l10n.notesUnfavorite
                                   : l10n.notesFavorite,
                               // Solid amber star when pinned, Lucide outline star
-                              // otherwise — same pinned/unpinned glyph pair as
-                              // history's detail-panel pin action.
+                              // otherwise. The solid star exists only as a Font
+                              // Awesome glyph, which WpIconButton cannot take.
                               icon: note.pinned
                                   ? const FaIcon(
                                       FontAwesomeIcons.solidStar,
                                       size: WpIconSize.sm,
                                       color: WpSharedColors.pinnedAccent,
                                     )
-                                  : const Icon(
+                                  : Icon(
                                       LucideIcons.star,
                                       size: WpIconSize.md,
                                       color: textMuted,
@@ -330,45 +345,32 @@ class NoteEditorPanel extends StatelessWidget {
                             // this button is simply absent, so re-marking
                             // is impossible rather than a silent no-op.
                             // Removing the mark lives on the title side.
-                            Semantics(
-                              label: l10n.notesQuickNoteSet,
-                              button: true,
-                              child: IconButton(
-                                onPressed: onQuickNoteSet,
-                                tooltip: l10n.notesQuickNoteSet,
-                                icon: const Icon(
-                                  LucideIcons.zap,
-                                  size: WpIconSize.md,
-                                  color: textMuted,
-                                ),
+                            WpIconButton(
+                              key: ValueKey(
+                                'notes-editor-quicknote-${note.id}',
                               ),
-                            ),
-                          Semantics(
-                            label: l10n.notesMoveToTrash,
-                            button: true,
-                            child: IconButton(
-                              onPressed: onMoveToTrash,
-                              tooltip: l10n.notesMoveToTrash,
-                              icon: const Icon(
-                                LucideIcons.trash2,
-                                size: WpIconSize.md,
-                                color: textMuted,
-                              ),
-                            ),
-                          ),
-                        ],
-                        Semantics(
-                          label: l10n.historyClose,
-                          button: true,
-                          child: IconButton(
-                            onPressed: onClose,
-                            tooltip: l10n.historyClose,
-                            icon: const Icon(
-                              LucideIcons.x,
-                              size: WpIconSize.md,
+                              icon: LucideIcons.zap,
+                              tooltip: l10n.notesQuickNoteSet,
+                              onPressed: onQuickNoteSet,
                               color: textMuted,
                             ),
+                          WpIconButton(
+                            key: ValueKey('notes-editor-trash-${note.id}'),
+                            icon: LucideIcons.trash2,
+                            tooltip: l10n.notesMoveToTrash,
+                            onPressed: onMoveToTrash,
+                            color: textMuted,
                           ),
+                        ],
+                        // Trash is destructive and sits one step from close:
+                        // keep a clear gap so reaching for X never lands on it.
+                        const SizedBox(width: WpSpacing.lg),
+                        WpIconButton(
+                          key: ValueKey('notes-editor-close-${note.id}'),
+                          icon: LucideIcons.x,
+                          tooltip: l10n.historyClose,
+                          onPressed: onClose,
+                          color: textMuted,
                         ),
                       ],
                     ),
@@ -453,6 +455,17 @@ class NoteEditorPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: WpSpacing.xs),
+        // ── Attached images ──
+        // Above the body and out of its way: nothing is shown without images,
+        // and images never take part in the text the field edits.
+        if (!isTrashed)
+          Semantics(
+            identifier: 'notes-images-${note.id}',
+            child: NoteImageStrip(
+              key: ValueKey('notes-images-${note.id}'),
+              noteId: note.id,
+            ),
+          ),
         // ── Editor ──
         // Nothing else shares the region below the divider, so the field
         // *is* the surface: no stroke at rest (it takes the accent one on
@@ -468,11 +481,22 @@ class NoteEditorPanel extends StatelessWidget {
         // a key pressed inside the tag field never reaches this Focus.
         Expanded(
           child: CallbackShortcuts(
-            bindings: WpMarkdownFormatting(
-              controller: controller,
-              focusNode: focusNode,
-            ).shortcutBindings(),
+            bindings: {
+              ...WpMarkdownFormatting(
+                controller: controller,
+                focusNode: focusNode,
+              ).shortcutBindings(),
+              // Ctrl/Cmd+S saves a version now, the way a document's save key
+              // does; the body also saves on its own after a pause.
+              if (extras.onSaveVersionNow != null) ...{
+                const SingleActivator(LogicalKeyboardKey.keyS, control: true):
+                    extras.onSaveVersionNow!,
+                const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
+                    extras.onSaveVersionNow!,
+              },
+            },
             child: WpTextField(
+              key: const ValueKey('notes-editor-body'),
               controller: controller,
               focusNode: focusNode,
               scrollToEnd: scrollEditorToEnd,
@@ -482,6 +506,68 @@ class NoteEditorPanel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Entries of the overflow menu. Kept out of the toolbar row, which is already
+/// capped for the narrowest panel (FLUTTER_WHISPASTE-64).
+class _NoteEditorMenu extends StatelessWidget {
+  const _NoteEditorMenu({required this.noteId, required this.extras});
+
+  final String noteId;
+  final NoteEditorExtras extras;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final entries = [
+      (
+        'notes-editor-menu-save-version',
+        l10n.notesVersionSaveNow,
+        extras.onSaveVersionNow,
+      ),
+      ('notes-editor-menu-mark', l10n.notesMenuMark, extras.onMarkSelection),
+      (
+        'notes-editor-menu-add-image',
+        l10n.notesMenuAddImage,
+        extras.onAddImage,
+      ),
+      (
+        'notes-editor-menu-versions',
+        l10n.notesMenuVersions,
+        extras.onShowVersions,
+      ),
+      (
+        'notes-editor-menu-snippet',
+        l10n.notesMenuSnippet,
+        extras.onCreateSnippet,
+      ),
+    ].where((entry) => entry.$3 != null).toList();
+    if (entries.isEmpty) return const SizedBox.shrink();
+
+    return Semantics(
+      label: l10n.notesMoreActions,
+      button: true,
+      child: PopupMenuButton<String>(
+        key: ValueKey('notes-editor-more-$noteId'),
+        tooltip: l10n.notesMoreActions,
+        icon: Icon(
+          LucideIcons.ellipsis,
+          size: WpIconSize.md,
+          color: WpColors.textMuted,
+        ),
+        onSelected: (testId) =>
+            entries.firstWhere((entry) => entry.$1 == testId).$3!.call(),
+        itemBuilder: (_) => [
+          for (final entry in entries)
+            PopupMenuItem<String>(
+              key: ValueKey(entry.$1),
+              value: entry.$1,
+              child: Text(entry.$2),
+            ),
+        ],
+      ),
     );
   }
 }

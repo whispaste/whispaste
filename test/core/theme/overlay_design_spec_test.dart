@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/generated/wp_tokens.g.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
 
 void main() {
@@ -16,58 +17,59 @@ void main() {
       ]);
     });
 
-    test('state gradients are defined for every state', () {
+    test('glyph stops are defined for every state and background', () {
       for (final state in OverlayDesignState.values) {
-        final gradient = OverlayDesignSpec.stateGradients[state];
-        expect(gradient, isNotNull, reason: 'missing gradient for $state');
-        expect(gradient!.stops.length, greaterThanOrEqualTo(2));
+        for (final background in OverlayBackground.values) {
+          final colors = OverlayDesignSpec.colorsFor(background: background);
+          expect(
+            OverlayDesignSpec.glyphStopsFor(state, colors).length,
+            greaterThanOrEqualTo(2),
+            reason: 'missing glyph stops for $state on ${background.value}',
+          );
+        }
       }
     });
 
-    test('done gradient middle stop is the canonical green #30C065', () {
-      final done = OverlayDesignSpec.stateGradients[OverlayDesignState.done]!;
-      expect(done.stops, hasLength(3));
-      expect(done.stops[1], const Color(0xFF30C065));
+    test('done glyph is the signal green of each tone', () {
+      expect(
+        OverlayDesignSpec.glyphStopsFor(
+          OverlayDesignState.done,
+          OverlayDesignSpec.colorsFor(),
+        ).first,
+        WpOverlayTokens.overlaySignalDarkDone,
+      );
+      expect(
+        OverlayDesignSpec.glyphStopsFor(
+          OverlayDesignState.done,
+          OverlayDesignSpec.colorsFor(background: OverlayBackground.gletscher),
+        ).first,
+        WpOverlayTokens.overlaySignalLightDone,
+      );
     });
   });
 
   group('OverlayDesignSpec — themes', () {
-    test('both theme variants exist and resolve', () {
+    test('both tones exist', () {
       expect(OverlayDesignTheme.values, <OverlayDesignTheme>[
         OverlayDesignTheme.dark,
         OverlayDesignTheme.light,
       ]);
-      expect(
-        OverlayDesignSpec.colors(OverlayDesignTheme.dark),
-        same(OverlayDesignSpec.dark),
-      );
-      expect(
-        OverlayDesignSpec.colors(OverlayDesignTheme.light),
-        same(OverlayDesignSpec.light),
-      );
     });
 
-    test('colorsForDark matches the boolean snapshot flag', () {
-      expect(
-        OverlayDesignSpec.colorsForDark(true),
-        same(OverlayDesignSpec.dark),
-      );
-      expect(
-        OverlayDesignSpec.colorsForDark(false),
-        same(OverlayDesignSpec.light),
-      );
+    test('default colour set is marine x cyan on the dark tone', () {
+      final colors = OverlayDesignSpec.colorsFor();
+      expect(colors.tone, OverlayDesignTheme.dark);
+      expect(colors.capsuleFill, WpOverlayTokens.overlayMarineSurface);
+      expect(colors.accent, WpOverlayTokens.overlayWaveCyanDark);
     });
 
-    test('dark and light resolve to the SAME single spike design', () {
-      // ADR 0002 / the approved spike (web-parity-board) defines one capsule
-      // design — a light teal tint-gradient capsule shown identically over
-      // light AND dark backgrounds. There is no separate dark variant.
-      expect(OverlayDesignSpec.dark, same(OverlayDesignSpec.light));
-    });
-
-    test('accent is the finalised spike teal in BOTH themes', () {
-      expect(OverlayDesignSpec.light.accent, const Color(0xFF0887A8));
-      expect(OverlayDesignSpec.dark.accent, const Color(0xFF0887A8));
+    test('a light background takes the light tone', () {
+      expect(
+        OverlayDesignSpec.colorsFor(
+          background: OverlayBackground.gletscher,
+        ).tone,
+        OverlayDesignTheme.light,
+      );
     });
   });
 
@@ -224,15 +226,10 @@ void main() {
       expect(OverlayDesignSpec.compactSize.minimalContent, isFalse);
     });
 
-    test('ONE glass material across all three sizes (design pass)', () {
-      // Glass fill/sheen are global constants consumed identically for every
-      // size — mini no longer carries its own, more transparent material.
-      // Dock-glass values (Maintainer, 2026-07-29, round 2 "noch zu grau"):
-      // near-clear fill, soft sheen — the Fresnel edge constants carry the
-      // glass identity, and the painted shadow is knocked out under the
-      // capsule so no shadow ink greys the glass from behind.
+    test('ONE flat fill across all three sizes', () {
+      // The fill factor is a global constant consumed identically for every
+      // size — mini no longer carries its own, more transparent fill.
       expect(OverlayDesignSpec.fillOpacityFactor, 0.14);
-      expect(OverlayDesignSpec.glassSheenOpacity, 0.15);
     });
 
     test('mini windowSize = pill box + shadow padding on every side', () {
@@ -341,52 +338,15 @@ void main() {
       // Subtitle technique, Maintainer-Entscheid nach Varianten-Vergleich:
       // white glyphs over a soft blurred dark drop shadow — readable over
       // any desktop, no hard ring.
-      expect(OverlayDesignSpec.contentGlyphFill, const Color(0xFFFFFFFF));
+      expect(OverlayDesignSpec.colorsFor().ink, const Color(0xFFFFFFFF));
       expect(OverlayDesignSpec.glyphShadowColor, const Color(0xFF14202E));
       expect(OverlayDesignSpec.glyphShadowOpacity, 0.85);
       expect(OverlayDesignSpec.glyphShadowBlurSigma, 1.75);
       expect(OverlayDesignSpec.glyphShadowOffset, const Offset(0, 0.75));
-      expect(OverlayDesignSpec.light.text, const Color(0xFF14202E));
     });
 
-    test('glass polish constants (Dock-glass pass) are wired', () {
-      expect(OverlayDesignSpec.glassBottomSheenFactor, 0.25);
-      expect(OverlayDesignSpec.glassSheenCapInsetFactor, 0.35);
-      expect(OverlayDesignSpec.glassInnerShadeOpacity, 0.04);
-      expect(OverlayDesignSpec.glassSheenStops, [0.0, 0.32, 0.55]);
-      expect(OverlayDesignSpec.glassBottomSheenStops, [0.78, 1.0]);
-      expect(OverlayDesignSpec.glassInnerShadeStops, [0.85, 1.0]);
-      // Fresnel edge treatment (research pass 2026-07-29): the edges carry
-      // the glass identity over the near-clear fill.
-      expect(OverlayDesignSpec.glassRimTopOpacity, 0.55);
-      expect(OverlayDesignSpec.glassRimBottomOpacity, 0.10);
-      expect(OverlayDesignSpec.glassInnerRimWidth, 2.5);
-      expect(OverlayDesignSpec.glassInnerRimInset, 1.25);
-      expect(OverlayDesignSpec.glassInnerRimOpacity, 0.10);
-      // Specular values after the visibility debug (2026-07-30): measured
-      // fixes — wider streak, clear of the rim, with a dark under-halo for
-      // guaranteed local contrast on light desktops.
-      expect(OverlayDesignSpec.glassSpecularOpacity, 0.5);
-      expect(OverlayDesignSpec.glassSpecularStrokeWidth, 2.6);
-      expect(OverlayDesignSpec.glassSpecularWidthFactor, 0.55);
-      expect(OverlayDesignSpec.glassSpecularInsetTop, 5.5);
-      expect(OverlayDesignSpec.glassSpecularHaloOpacity, 0.16);
-      expect(OverlayDesignSpec.glassSpecularHaloBlurSigma, 2.0);
-      expect(OverlayDesignSpec.glassSpecularHaloStrokeWidth, 5.0);
-      expect(OverlayDesignSpec.glassSpecularHaloOffsetY, 1.5);
-    });
-
-    test('liquid-glass drift constants (calm bounds, phase-0 neutral)', () {
-      // An anchored highlight oscillating over one slow cycle; a repeating
-      // bright sweep would be a shimmer (ADR 0002) and stays impossible
-      // with these parameters. Values raised in the visibility pass
-      // (2026-07-30: the drift was imperceptible in live use).
+    test('overlay cycle is 8 s', () {
       expect(OverlayDesignSpec.liquidDriftPeriod, const Duration(seconds: 8));
-      expect(OverlayDesignSpec.liquidSpecularDriftPx, 12.0);
-      expect(OverlayDesignSpec.liquidSheenParallaxFactor, 0.5);
-      expect(OverlayDesignSpec.liquidSpecularBreatheFactor, 0.18);
-      expect(OverlayDesignSpec.liquidSpecularBrightBreatheFactor, 0.25);
-      expect(OverlayDesignSpec.liquidRimBreatheFactor, 0.15);
     });
 
     test('liquid silhouette wobble constants (Gummibärchen im Windhauch)', () {
@@ -402,34 +362,6 @@ void main() {
         lessThan(OverlayDesignSpec.shadowPadding),
       );
       expect(OverlayDesignSpec.liquidWobbleSamples, 28);
-    });
-
-    test('recording bars clear WCAG 1.4.11 (3:1) over worst-case white in '
-        'EVERY size — computed, not felt', () {
-      // Fully opaque bars: the solid accent and the shaded tip must both
-      // stay discernible over a pure white desktop (the worst case for the
-      // teal accent). Alphas are 1.0 by decision; the check still guards
-      // any future colour drift.
-      const white = Color(0xFFFFFFFF);
-      final accent = OverlayDesignSpec.light.accent;
-      for (final alpha in [
-        OverlayDesignSpec.waveformMutedLineOpacity,
-        OverlayDesignSpec.waveformActiveOpacity,
-      ]) {
-        final composited = Color.lerp(white, accent, alpha)!;
-        final contrast = 1.05 / (composited.computeLuminance() + 0.05);
-        expect(
-          contrast,
-          greaterThanOrEqualTo(3.0),
-          reason:
-              'bar at alpha $alpha must reach >=3:1 over white '
-              '(got ${contrast.toStringAsFixed(2)}:1)',
-        );
-      }
-      // The old spike muted alpha (0.50) demonstrably failed this bar —
-      // that is why the whole ladder was raised, not just mini's.
-      final oldMuted = Color.lerp(white, accent, 0.50)!;
-      expect(1.05 / (oldMuted.computeLuminance() + 0.05), lessThan(3.0));
     });
   });
 
@@ -451,35 +383,21 @@ void main() {
       expect(OverlayDesignSpec.compactSize.capsuleRadius, 20);
     });
 
-    test(
-      'tint-gradient fill stops + accent border are the verbatim spike set',
-      () {
-        // The single approved spike palette (used for both themes).
-        expect(
-          OverlayDesignSpec.light.capsuleFillStart,
-          const Color(0xFFF7FAFD),
-        );
-        expect(OverlayDesignSpec.light.capsuleFillEnd, const Color(0xFFE6EEF5));
-        expect(OverlayDesignSpec.light.capsuleBorder, const Color(0x330887A8));
-        // Dark renders the same single design.
-        expect(
-          OverlayDesignSpec.dark.capsuleFillStart,
-          OverlayDesignSpec.light.capsuleFillStart,
-        );
-        expect(
-          OverlayDesignSpec.dark.capsuleFillEnd,
-          OverlayDesignSpec.light.capsuleFillEnd,
-        );
-      },
-    );
+    test('fill stops and border follow the background and wave presets', () {
+      final gletscher = OverlayDesignSpec.colorsFor(
+        background: OverlayBackground.gletscher,
+      );
+      expect(gletscher.capsuleFill, WpOverlayTokens.overlayGletscherSurface);
+      expect(gletscher.capsuleBorder, gletscher.accent.withValues(alpha: 0.2));
+    });
 
     test('painted-shadow tokens: spike offset/padding, softened blur '
         '(glass polish pass) plus a tight contact-shadow layer', () {
       expect(OverlayDesignSpec.shadowOpacity, 0.20);
-      // Softened from the spike's 7.0 — mirrors the large-blur half of
-      // WpShadows.card's two-layer ambient-depth language.
-      expect(OverlayDesignSpec.shadowBlur, 9.0);
-      expect(OverlayDesignSpec.shadowOffset, const Offset(0, 3));
+      // Tight enough to fade out inside the 8 px native window padding
+      // (overlay_shadow_fits_window_test.dart checks the bound).
+      expect(OverlayDesignSpec.shadowBlur, 2.0);
+      expect(OverlayDesignSpec.shadowOffset, const Offset(0, 1.25));
       expect(OverlayDesignSpec.shadowPadding, 8.0);
       // Contact-shadow layer — the small-blur half of the same two-layer
       // shadow language, grounding the capsule against the desktop.
@@ -554,19 +472,25 @@ void main() {
   });
 
   group('OverlayDesignSpec — floating button (V2)', () {
-    test('white disc, dark mic, hairline border, no glow', () {
-      const b = OverlayDesignSpec.button;
-      expect(b.discColor, const Color(0xFFFFFFFF));
-      expect(b.iconColor, const Color(0xFF101828));
-      expect(b.borderColor, const Color(0x1A101828));
-      expect(b.borderWidth, 1.0);
-      expect(b.iconRatio, 24 / 56);
-      expect(b.hasGlow, isFalse);
+    test('default disc is the marine surface with a white mic, no glow', () {
+      final spec = OverlayDesignSpec.buttonSpecFor(
+        OverlayDesignSpec.colorsFor(),
+      );
+      expect(spec.discColor, WpOverlayTokens.overlayMarineSurface);
+      expect(spec.iconColor, WpOverlayTokens.overlayMarineInk);
+    });
+
+    test('recording rings the disc in the wave colour', () {
+      final spec = OverlayDesignSpec.buttonSpecFor(
+        OverlayDesignSpec.colorsFor(),
+        ringed: true,
+      );
+      expect(spec.borderColor, WpOverlayTokens.overlayWaveCyanDark);
+      expect(spec.borderWidth, 2.0);
     });
 
     test('additive V2 disc-gradient / border tokens (issue 08)', () {
       const b = OverlayDesignSpec.button;
-      expect(b.discGradientEnd, const Color(0xFFEDF1F6));
       expect(b.discFillOpacity, 0.95);
       expect(b.borderInset, 0.5);
       expect(b.mic, same(FloatingButtonMicSpec.spike));
@@ -596,18 +520,16 @@ void main() {
 
   group('OverlayDesignSpec — transcribing state identity '
       '(state-distinction pass)', () {
-    test('transcribing owns its own amber accent, distinct from the cyan '
-        'accent and aligned with the stateGradients amber pair', () {
-      const c = OverlayDesignSpec.light;
+    test('transcribing owns its own accent, distinct from the wave accent', () {
+      final c = OverlayDesignSpec.colorsFor();
       expect(c.transcribingAccent, isNot(c.accent));
       expect(c.transcribingAccent, isNot(c.recordingDot));
-      // One colour language with the floating button's mic tint: the accent
-      // is the dark stop of the transcribing state gradient.
+      // One colour language with the floating button's mic tint.
       expect(
-        OverlayDesignSpec
-            .stateGradients[OverlayDesignState.transcribing]!
-            .stops
-            .last,
+        OverlayDesignSpec.glyphStopsFor(
+          OverlayDesignState.transcribing,
+          OverlayDesignSpec.colorsFor(),
+        ).first,
         c.transcribingAccent,
       );
     });

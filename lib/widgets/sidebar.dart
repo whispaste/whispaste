@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+
 import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart' show WpTypeScaleTokens;
 import '../core/theme/tokens.dart';
+import 'brand_wordmark.dart';
 import 'wp_focus_ring.dart';
 
 /// Navigation item data for the sidebar.
@@ -27,13 +30,24 @@ class WpNavItem {
   final String? badgeHint;
 }
 
-/// Gaming-launcher sidebar — icon-only rail, seamless with content.
+/// Navigation sidebar of the app shell (chat-08, chat-10).
 ///
-/// Icons positioned in the upper portion (not dead center), generous spacing,
-/// and every icon on a frosted chip: a top-lit gradient tile with a
-/// precomposited gloss, the active one tinted with the accent. The bloom is
-/// fill, chroma and a lit edge — never a colored shadow at offset 0, which
-/// *The Depth-Source Rule* forbids as a glow.
+/// A 232 px column on the window frame: the brand lock-up at the top, then the
+/// working areas with an outline icon and a label, a hairline between groups,
+/// and the pinned bottom group. The active entry is a soft cyan fill with a
+/// 3 px petrol bar on its reading-start edge; the label and icon take the
+/// accent colour too, so selection never rests on colour alone.
+///
+/// At text scales above 1.0 the expanded column widens, up to
+/// [WpNavRail.maxTextScaleWidthFactor] times its width, and labels wrap onto
+/// further lines instead of being ellipsised (UX-033).
+///
+/// Below the shell's compact breakpoint (960 px) the sidebar collapses to an
+/// icon-only rail ([compact]); every entry then keeps its label as tooltip.
+///
+/// The sidebar paints no ground of its own: it stands on the window frame
+/// gradient painted by the shell, so the title bar, sidebar and frame read as
+/// one surface.
 class WpSidebar extends StatelessWidget {
   const WpSidebar({
     super.key,
@@ -42,101 +56,86 @@ class WpSidebar extends StatelessWidget {
     required this.onItemTap,
     this.bottomItems = const [],
     this.dividerAfterIds = const <String>{},
+    this.compact = false,
   });
 
+  /// Entries of the working areas, top to bottom.
   final List<WpNavItem> items;
+
+  /// Id of the entry to show as selected.
   final String activeId;
+
   final ValueChanged<String> onItemTap;
 
-  /// Rail entries pinned to the bottom (e.g. Settings).
-  ///
-  /// Same type and same renderer as [items] — they only differ in where the
-  /// rail puts them. They used to be arbitrary `Widget`s, which is how a
-  /// second copy of the nav-item look grew its own RTL bug and its own
-  /// vertical rhythm; there is now exactly one implementation.
+  /// Entries pinned to the bottom (Hilfe, Einstellungen). Same type and same
+  /// renderer as [items]; they differ only in where the rail places them.
   final List<WpNavItem> bottomItems;
 
-  /// Item ids after which a subtle group divider is rendered.
-  ///
-  /// Empty by default, which reproduces the original flat rail exactly —
-  /// callers opt in to grouping without affecting existing layouts.
+  /// Item ids after which a group divider is drawn.
   final Set<String> dividerAfterIds;
+
+  /// Icon-only rail below the compact breakpoint.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    final column = Column(
-      children: [
-        // Weighted spacers: ~40% above, ~60% below → slightly above center
-        const Spacer(flex: 4),
-        // Nav items with generous spacing
-        for (final item in items) ...[
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
-          _NavItemWidget(
-            item: item,
-            isActive: item.id == activeId,
-            onTap: () => onItemTap(item.id),
-          ),
-          if (dividerAfterIds.contains(item.id))
-            const SizedBox(height: WpNavRail.groupBreakHeight),
-        ],
-        const Spacer(flex: 6),
-        // Bottom items pinned to bottom
-        for (final item in bottomItems)
-          // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
-          _NavItemWidget(
-            item: item,
-            isActive: item.id == activeId,
-            onTap: () => onItemTap(item.id),
-          ),
-        const SizedBox(height: WpNavRail.bottomInset),
-      ],
-    );
+    // UX-033: the expanded rail widens with the text scale (capped) so that
+    // labels keep their words whole; the compact rail never grows.
+    final growth = MediaQuery.textScalerOf(
+      context,
+    ).scale(1).clamp(1.0, WpNavRail.maxTextScaleWidthFactor);
+    final railWidth = compact
+        ? WpLayout.sidebarWidthCompact
+        : WpLayout.sidebarWidth * growth;
+    final itemWidth = railWidth - 2 * WpNavRail.inset;
 
     return SizedBox(
-      width: WpLayout.sidebarWidth,
-      // **The rail paints no ground.** It stands on the frame's diagonal
-      // ambient, which runs on through the title bar above it and the status
-      // bar below it as one light source — so any fill here, however quiet,
-      // would cut a seam down the frame at x = 72 dp. It carried the
-      // decorative chrome wash until Ticket 06; the wash's job was to make the
-      // chrome its own plate, and `frameGradient` now does that itself and for
-      // all three bars at once. See *The Decorative Color Rule* in
-      // `lib/DESIGN.md` for the narrowing, and
-      // `test/widgets/frame_single_paint_test.dart` for the gate.
-      //
-      // Scroll fallback, second half of the height-budget fix (the first is
-      // WpLayout.minWindowHeight). The rail's rows are fixed-height and its
-      // spacers cannot go negative, so any window shorter than the rail
-      // needs used to produce a hard RenderFlex overflow. `minimumSize` is
-      // only a request — tiling window managers (sway/i3) ignore it
-      // outright, and at fractional display scales the client area can land
-      // a fraction of a dp short — so the rail has to survive being handed
-      // less room than it asked for.
-      //
-      // No scrollbar: the rail *is* chrome, 72 dp wide and icon-only; a
-      // track running down it would read as a second border on every page.
-      // It also never appears in the normal case — with the minimum window
-      // enforced, the scroll extent is zero and this whole branch is inert.
-      child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
+      width: railWidth,
+      // The rail must survive being handed less height than it asks for
+      // (tiling window managers, fractional scales): when the rows no longer
+      // fit, the column scrolls instead of overflowing. With the minimum
+      // window height enforced the scroll extent is zero and this is inert.
+      child: LayoutBuilder(
+        builder: (context, constraints) => ScrollConfiguration(
+          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          child: SingleChildScrollView(
             child: ConstrainedBox(
-              // Keeps the Spacer rhythm intact whenever there *is* room: the
-              // column still fills the rail's full height, and only grows
-              // past it (into scrollable overflow) once the rows no longer
-              // fit.
               constraints: BoxConstraints(
                 minHeight: constraints.hasBoundedHeight
                     ? constraints.maxHeight
                     : 0,
               ),
-              // The scroll view offers unbounded height, which a Column with
-              // Spacers cannot lay out in. IntrinsicHeight resolves the
-              // column to its natural height (flex children contribute 0),
-              // which the ConstrainedBox above then lifts back to the
-              // available height whenever that is larger.
-              child: IntrinsicHeight(child: column),
+              child: IntrinsicHeight(
+                child: Column(
+                  children: [
+                    _BrandHeader(compact: compact),
+                    for (final item in items) ...[
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
+                      _NavItemWidget(
+                        item: item,
+                        isActive: item.id == activeId,
+                        compact: compact,
+                        itemWidth: itemWidth,
+                        onTap: () => onItemTap(item.id),
+                      ),
+                      if (dividerAfterIds.contains(item.id))
+                        const _GroupDivider(),
+                    ],
+                    const Spacer(),
+                    if (bottomItems.isNotEmpty) const _GroupDivider(),
+                    for (final item in bottomItems)
+                      // loam-ignore: a11y-interactive-semantics – semantics provided in _NavItemWidget.build
+                      _NavItemWidget(
+                        item: item,
+                        isActive: item.id == activeId,
+                        compact: compact,
+                        itemWidth: itemWidth,
+                        onTap: () => onItemTap(item.id),
+                      ),
+                    const SizedBox(height: WpNavRail.bottomInset),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -145,26 +144,83 @@ class WpSidebar extends StatelessWidget {
   }
 }
 
-// Removed with Ticket 08: `_SidebarGroupDivider`, a 36 × 1 px `borderDefault`
-// hairline between nav groups.
-//
-// It was not load-bearing — it separated two groups that a gap separates just
-// as well — and it was a *line on the ambient*: the frame's gradient runs
-// uninterrupted from the title bar through the rail to the status bar, and a
-// horizontal rule across it is the one mark that reads as a seam in that
-// surface. `WpNavRail.groupBreakHeight` (24 dp, up from the hairline's 17 dp
-// row) now carries the break on its own; see the comment on that token for
-// why it is *more* space rather than the same amount.
+/// Brand lock-up: the original artwork, never a re-typeset name. Expanded:
+/// the full word-and-image mark; compact rail: the logo mark alone, centred.
+/// Both use the variant drawn for the frame's brightness.
+class _BrandHeader extends StatelessWidget {
+  const _BrandHeader({required this.compact});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final onDark = WpColors.frame.brightness == Brightness.dark;
+    final Widget art = compact
+        ? Image.asset(
+            onDark
+                ? 'assets/icons/logo-dark.png'
+                : 'assets/icons/logo-light.png',
+            width: WpNavRail.brandHeight,
+            height: WpNavRail.brandHeight,
+            filterQuality: FilterQuality.high,
+            excludeFromSemantics: true,
+          )
+        : WpBrandWordmark(height: WpNavRail.brandHeight, onDark: onDark);
+
+    return Semantics(
+      label: 'WhisPaste',
+      image: true,
+      child: Padding(
+        padding: compact
+            ? const EdgeInsets.only(
+                top: WpNavRail.brandTop,
+                bottom: WpNavRail.brandGap,
+              )
+            : const EdgeInsetsDirectional.only(
+                start: WpNavRail.inset + WpNavRail.contentStart,
+                top: WpNavRail.brandTop,
+                bottom: WpNavRail.brandGap,
+              ),
+        child: Align(
+          alignment: compact
+              ? Alignment.center
+              : AlignmentDirectional.centerStart,
+          child: art,
+        ),
+      ),
+    );
+  }
+}
+
+/// Hairline between two groups of entries.
+class _GroupDivider extends StatelessWidget {
+  const _GroupDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: WpNavRail.groupBreakHeight,
+      thickness: 1,
+      indent: WpNavRail.inset + WpNavRail.contentStart,
+      endIndent: WpNavRail.inset + WpSpacing.xs,
+      color: WpColors.frame.borderSubtle,
+    );
+  }
+}
 
 class _NavItemWidget extends StatefulWidget {
   const _NavItemWidget({
     required this.item,
     required this.isActive,
+    required this.compact,
+    required this.itemWidth,
     required this.onTap,
   });
 
   final WpNavItem item;
   final bool isActive;
+  final bool compact;
+  final double itemWidth;
   final VoidCallback onTap;
 
   @override
@@ -174,184 +230,182 @@ class _NavItemWidget extends StatefulWidget {
 class _NavItemWidgetState extends State<_NavItemWidget> {
   bool _isHovered = false;
   final _focusNode = FocusNode();
+  final _tooltipKey = GlobalKey<TooltipState>();
+  bool _shownByFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onFocusChanged);
+  }
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChanged);
     _focusNode.dispose();
     super.dispose();
   }
 
+  /// On the icon-only rail the name is not on screen, so keyboard focus shows
+  /// it as tooltip (hover alone did before; UX-010). Flutter keeps a tooltip
+  /// shown by ensureTooltipVisible until it is dismissed, so losing focus must
+  /// dismiss it again; only the tooltip focus itself opened is dismissed.
+  void _onFocusChanged() {
+    if (_focusNode.hasFocus) {
+      if (widget.compact) {
+        _tooltipKey.currentState?.ensureTooltipVisible();
+        _shownByFocus = true;
+      }
+    } else if (_shownByFocus) {
+      _shownByFocus = false;
+      Tooltip.dismissAllToolTips();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // **Every item stands on a chip.** The tile is *material*, not a state:
-    // a top-lit frost gradient with a precomposited gloss on its first tenth,
-    // worn by resting, hovered and active items alike. That is what keeps the
-    // accent-tinted tile the single marking of selection (*The One Highlight
-    // Per State Rule*) — the rail no longer says "you are here" by being the
-    // only row with a fill at all, it says it in the accent's hue.
-    //
-    // Active:  accent tile (36→25 % dark / 20→12 % light) + accent hairline +
-    //          bright icon + reading-start indicator bar
-    // Hovered: the same tile one step along (brighter on dark, deeper on
-    //          pearl — the light theme has ~0.03 of luminance left above the
-    //          resting tile and 1.07:1 below it) + text-primary icon
-    // Resting: the frost tile + muted icon
-    //
-    // The icon on the active tile is `textPrimary`, not `accent`: the tile it
-    // stands on is now accent-tinted, and an accent glyph on an accent fill
-    // falls to ≈3.5:1 where a bright one holds ≈9:1. Selection is carried by
-    // the tile's hue and the indicator bar; the glyph's job is to be legible.
-    final Color iconColor;
+    final item = widget.item;
+    final active = widget.isActive;
+    final badgeHint = item.badgeHint;
+    // The dot is decorative: the reason it appeared travels in the label.
+    final description = badgeHint == null
+        ? item.label
+        : '${item.label}, $badgeHint';
 
-    if (widget.isActive || _isHovered) {
-      iconColor = WpColors.textPrimary;
-    } else {
-      iconColor = WpColors.textSecondary;
-    }
-
-    // Everything the chip fills is routed through the *gradient* channel,
-    // never `color`. `BoxDecoration.lerp` interpolates `color` and `gradient`
-    // independently, so a `color -> gradient` cross-fade produces a frame
-    // where both are non-null — which the BoxDecoration constructor asserts
-    // against. All three states are three-stop gradients on one axis with
-    // identical stops, which also keeps `LinearGradient.lerp` on its cheap
-    // same-shape path.
-    final Gradient pillGradient = widget.isActive
-        ? (WpColors.navPillActiveGradient)
+    final Color foreground = active
+        ? WpColors.frame.accent
         : _isHovered
-        ? (WpColors.navChipGradientHover)
-        : (WpColors.navChipGradient);
+        ? WpColors.frame.textPrimary
+        : WpColors.frame.textSecondary;
+    final Color? fill = active
+        ? WpColors.frame.accentActiveFill
+        : _isHovered
+        ? WpColors.frame.hover
+        : null;
 
-    // The resting hairline: `borderSubtle` on dark, `borderDefault` on light.
-    // Not a copy-paste slip — on pearl the tile has only ≈1.03:1 of fill lift
-    // to work with, so the hairline is carrying objecthood there, the same
-    // reason `_SidebarGroupDivider` below takes the default weight.
-    final Color chipBorder = widget.isActive
-        ? (WpColors.accentBorder20)
-        : (WpColors.borderSubtle);
+    final labelStyle = Theme.of(context).textTheme.bodyLarge!.copyWith(
+      fontSize: WpTypeScaleTokens.bodyLg,
+      fontWeight: FontWeight.w400,
+      color: foreground,
+    );
 
-    const Color accent = WpColors.accent;
-    final String? badgeHint = widget.item.badgeHint;
-    // The dot is decorative — it carries no semantics of its own, so the
-    // reason it appeared has to travel in the label the item already has.
-    final String description = badgeHint == null
-        ? widget.item.label
-        : '${widget.item.label}, $badgeHint';
-
-    return Semantics(
-      label: description,
-      button: true,
-      selected: widget.isActive,
-      child: Tooltip(
-        message: description,
-        preferBelow: false,
-        waitDuration: const Duration(milliseconds: 400),
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          child: WpFocusRing(
-            focusNode: _focusNode,
-            radius: WpRadius.md,
-            child: InkWell(
-              onTap: widget.onTap,
-              focusNode: _focusNode,
-              // WpFocusRing owns all focus visuals — suppress InkWell's own.
-              focusColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: WpNavRail.rowPadding,
-                ),
-                child: SizedBox(
-                  width: WpNavRail.itemWidth,
-                  height: WpNavRail.itemHeight,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Accent indicator bar for active item.
-                      // PositionedDirectional(start: 0) so it appears on the
-                      // left in LTR and on the right in RTL (e.g. Hebrew).
-                      if (widget.isActive)
-                        PositionedDirectional(
-                          start: 0,
-                          child: Container(
-                            width: WpNavRail.indicatorWidth,
-                            height: WpNavRail.indicatorHeight,
-                            decoration: const BoxDecoration(
-                              gradient: WpColors.accentWarmGradient,
-                              // Directional, like the `start: 0` above it:
-                              // the bar is flush with the window edge and
-                              // rounds on its *inner* side. With the plain
-                              // `topRight`/`bottomRight` it used to round on
-                              // the outer edge in RTL (Hebrew) — the shape
-                              // flipped while the position did not.
-                              borderRadius: BorderRadiusDirectional.only(
-                                topEnd: Radius.circular(WpRadius.sm),
-                                bottomEnd: Radius.circular(WpRadius.sm),
-                              ),
-                            ),
-                          ),
-                        ),
-                      // Icon pill
-                      AnimatedContainer(
-                        duration: WpMotion.durationFor(
-                          context,
-                          WpMotion.hoverIn,
-                        ),
-                        curve: WpMotion.defaultCurve,
-                        width: WpNavRail.pillSize,
-                        height: WpNavRail.pillSize,
-                        decoration: BoxDecoration(
-                          gradient: pillGradient,
-                          borderRadius: BorderRadius.circular(WpRadius.md),
-                          // Always a 1 px border, only its colour animates —
-                          // a null->Border cross-fade scales the *width* up
-                          // from zero, which would nudge the glyph by half a
-                          // pixel mid-transition.
-                          border: Border.all(color: chipBorder),
-                          // **One depth source per theme** (*The Depth-Source
-                          // Rule*): on light the tile's lift is this offset
-                          // shadow, worn by every chip in every state so
-                          // nothing animates here; on dark it is the tile's
-                          // own brightness delta against the frame and there
-                          // is no shadow at all. The dark theme used to put
-                          // `WpShadows.subtle` under the active pill alone —
-                          // black ink on a near-black ground, which is the
-                          // mud that rule exists to keep out, and it now sits
-                          // on a frame saturated enough to show it.
-                          boxShadow: null,
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          widget.item.icon,
-                          color: iconColor,
-                          size: WpIconSize.md,
-                        ),
-                      ),
-                      // Attention dot on the pill's reading-end top corner.
-                      if (badgeHint != null)
-                        PositionedDirectional(
-                          top: WpNavRail.badgeTop,
-                          end: WpNavRail.badgeEnd,
-                          child: Container(
-                            width: WpNavRail.badgeSize,
-                            height: WpNavRail.badgeSize,
-                            decoration: const BoxDecoration(
-                              color: accent,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                    ],
+    final row = SizedBox(
+      width: widget.compact ? WpNavRail.compactItemWidth : widget.itemWidth,
+      child: Stack(
+        children: [
+          // Soft fill: the selection colour when active, a hover wash otherwise.
+          Positioned.fill(
+            child: AnimatedContainer(
+              duration: WpMotion.durationFor(context, WpMotion.hoverIn),
+              curve: WpMotion.defaultCurve,
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(WpNavRail.activeRadius),
+              ),
+            ),
+          ),
+          // 3 px petrol bar on the reading-start edge (flips in RTL).
+          if (active)
+            PositionedDirectional(
+              start: 0,
+              top: WpSpacing.xs,
+              bottom: WpSpacing.xs,
+              child: Container(
+                width: WpNavRail.indicatorWidth,
+                decoration: BoxDecoration(
+                  color: WpColors.frame.accent,
+                  borderRadius: const BorderRadiusDirectional.horizontal(
+                    end: Radius.circular(WpNavRail.indicatorWidth),
                   ),
                 ),
               ),
             ),
+          // Sizes the entry: at least the 44 px box (so icon and label sit on
+          // its middle line), taller when a label wraps at a large text
+          // scale. The label is never ellipsised (UX-033, WCAG 1.4.4).
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: WpNavRail.itemHeight),
+            child: Padding(
+              padding: widget.compact
+                  ? EdgeInsets.zero
+                  : const EdgeInsetsDirectional.only(
+                      start: WpNavRail.contentStart,
+                    ),
+              child: Row(
+                mainAxisAlignment: widget.compact
+                    ? MainAxisAlignment.center
+                    : MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(item.icon, size: WpNavRail.iconSize, color: foreground),
+                  if (!widget.compact) ...[
+                    const SizedBox(width: WpNavRail.iconLabelGap),
+                    Flexible(child: Text(item.label, style: labelStyle)),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (badgeHint != null)
+            PositionedDirectional(
+              top: WpSpacing.xs,
+              end: WpSpacing.xs,
+              child: Container(
+                width: WpNavRail.badgeSize,
+                height: WpNavRail.badgeSize,
+                decoration: BoxDecoration(
+                  color: WpColors.frame.accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    final interactive = Semantics(
+      label: description,
+      button: true,
+      selected: active,
+      identifier: 'sidebar-nav-${item.id}',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: WpFocusRing(
+          focusNode: _focusNode,
+          radius: WpNavRail.activeRadius,
+          child: InkWell(
+            key: ValueKey('sidebar-nav-${item.id}'),
+            onTap: widget.onTap,
+            focusNode: _focusNode,
+            borderRadius: BorderRadius.circular(WpNavRail.activeRadius),
+            // WpFocusRing owns the focus visuals; suppress InkWell's own.
+            focusColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: ExcludeSemantics(child: row),
           ),
         ),
+      ),
+    );
+
+    // Every entry keeps its tooltip, labelled or not: the tooltip is the
+    // announcement of a badge reason, and the rail has always had it.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpNavRail.inset,
+        0,
+        WpNavRail.inset,
+        WpNavRail.itemGap,
+      ),
+      child: Tooltip(
+        key: _tooltipKey,
+        message: description,
+        preferBelow: false,
+        waitDuration: WpMotion.tooltipWait,
+        child: interactive,
       ),
     );
   }

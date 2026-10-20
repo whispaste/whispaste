@@ -8,9 +8,6 @@
 /// Escape).
 library;
 
-import 'dart:io' show Platform;
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -108,10 +105,6 @@ class _PickerBarrier extends StatelessWidget {
   Widget build(BuildContext context) {
     final opacity = CurvedAnimation(parent: animation, curve: Curves.easeOut);
 
-    final bool useBlur = !Platform.isWindows;
-
-    final barrierColor = WpColors.background.withValues(alpha: 0.92);
-
     return FadeTransition(
       opacity: opacity,
       child: Stack(
@@ -122,12 +115,7 @@ class _PickerBarrier extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () => Navigator.of(context).pop<ExportFormat>(),
-              child: useBlur
-                  ? BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: ColoredBox(color: wpDialogBarrierColor()),
-                    )
-                  : ColoredBox(color: barrierColor),
+              child: ColoredBox(color: wpDialogBarrierColor()),
             ),
           ),
           child,
@@ -328,9 +316,9 @@ class _FormatOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    const highlightColor = WpColors.surfaceVariant;
+    final highlightColor = WpColors.surfaceVariant;
 
-    const mutedText = WpColors.textMuted;
+    final mutedText = WpColors.textMuted;
 
     // Same construction as the snippet picker, and for the same two reasons.
     // House idiom (`section.dart`): MergeSemantics + a *label-less*
@@ -354,6 +342,7 @@ class _FormatOption extends StatelessWidget {
             cursor: SystemMouseCursors.click,
             onEnter: (_) => onHover(),
             child: InkWell(
+              key: ValueKey('export-format-${format.name}'),
               borderRadius: WpRadius.borderMd,
               onTap: onTap,
               child: AnimatedContainer(

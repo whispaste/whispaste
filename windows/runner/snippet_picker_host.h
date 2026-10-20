@@ -17,8 +17,8 @@
 //                                                   cancel/reportError from
 //                                                   render.
 //
-// Panel size is fixed at 360×420 logical px (never content-measured — see
-// the interface doc). Position is read natively (GetCursorPos), never
+// Panel size is fixed at 400×460 logical px (360×420 card + shadow inset,
+// never content-measured — see the interface doc). Position is read natively (GetCursorPos), never
 // passed from Dart, and clamped to the cursor's own monitor's work area —
 // same rationale as SnippetPickerHost.swift's clampToVisibleScreen.
 //

@@ -26,7 +26,8 @@ class ParakeetEngineLifecycleAdapter implements OnDeviceEngineLifecycle {
   }
 
   @override
-  Future<void> ensureRunning() => _notifier.ensureRunning();
+  // Parakeet has no warm-up inference to skip; [warmup] is ignored.
+  Future<void> ensureRunning({bool warmup = true}) => _notifier.ensureRunning();
 
   @override
   Future<void> prewarm() => _notifier.prewarm();

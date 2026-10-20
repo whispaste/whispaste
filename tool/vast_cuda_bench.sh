@@ -433,7 +433,7 @@ apt-get install -y -qq --no-install-recommends \
   ca-certificates curl git rsync python3 xz-utils unzip \
   clang cmake ninja-build pkg-config g++ patchelf binutils \
   libgtk-3-dev liblzma-dev libsecret-1-dev libkeybinder-3.0-dev libnotify-dev \
-  libayatana-appindicator3-dev libasound2-dev libcurl4-openssl-dev zlib1g-dev \
+  libayatana-appindicator3-dev libasound2-dev libxss-dev libcurl4-openssl-dev zlib1g-dev \
   libflac-dev libogg-dev libopus-dev libvorbis-dev default-jdk \
   libvulkan-dev glslang-tools glslc spirv-headers >/dev/null
 git config --global --add safe.directory '*'

@@ -29,6 +29,7 @@ class HistoryEntryRow extends StatefulWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onRestore,
     this.onDuplicate,
     this.multiSelectMode = false,
     this.isChecked = false,
@@ -44,6 +45,7 @@ class HistoryEntryRow extends StatefulWidget {
   final VoidCallback onCopy;
   final VoidCallback onPin;
   final VoidCallback onDelete;
+  final VoidCallback? onRestore;
   final VoidCallback? onDuplicate;
   final bool multiSelectMode;
   final bool isChecked;
@@ -115,6 +117,50 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
     return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
   }
 
+  /// Right-click menu: the same actions as the hover buttons, so a row can
+  /// be handled without hovering its trailing icons (UIA-HIS-32).
+  Future<void> _showContextMenu(Offset globalPosition) async {
+    final l10n = L10n.of(context);
+    final entry = widget.entry;
+    final overlay =
+        Overlay.of(context).context.findRenderObject()! as RenderBox;
+    final choice = await showMenu<VoidCallback>(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        if (widget.isTrashView) ...[
+          if (widget.onRestore case final onRestore?)
+            PopupMenuItem(value: onRestore, child: Text(l10n.historyRestore)),
+          PopupMenuItem(
+            value: widget.onDelete,
+            child: Text(l10n.historyDeleteForever),
+          ),
+        ] else ...[
+          PopupMenuItem(
+            value: widget.onCopy,
+            child: Text(l10n.historyCopyText),
+          ),
+          PopupMenuItem(
+            value: widget.onPin,
+            child: Text(
+              entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
+            ),
+          ),
+          if (widget.onDuplicate case final onDuplicate?)
+            PopupMenuItem(
+              value: onDuplicate,
+              child: Text(l10n.actionDuplicate),
+            ),
+          PopupMenuItem(value: widget.onDelete, child: Text(l10n.actionDelete)),
+        ],
+      ],
+    );
+    choice?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final showActions =
@@ -155,6 +201,9 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
         onExit: (_) => setState(() => _isHovered = false),
         child: GestureDetector(
           onTap: widget.onTap,
+          onSecondaryTapUp: widget.multiSelectMode
+              ? null
+              : (details) => _showContextMenu(details.globalPosition),
           child: WpListTileSurface(
             variant: widget.inSplitView
                 ? WpListTileVariant.panel
@@ -209,6 +258,8 @@ class _HistoryEntryRowState extends State<HistoryEntryRow> {
                     onCopy: widget.onCopy,
                     onPin: widget.onPin,
                     onDelete: widget.onDelete,
+                    onRestore: widget.onRestore,
+                    isTrashView: widget.isTrashView,
                     onDuplicate: widget.onDuplicate,
                     onTagTap: widget.onTagTap,
                   ),
@@ -238,6 +289,8 @@ class _EntryRowContent extends StatelessWidget {
     required this.onCopy,
     required this.onPin,
     required this.onDelete,
+    this.onRestore,
+    this.isTrashView = false,
     this.onDuplicate,
     this.onTagTap,
   });
@@ -252,76 +305,108 @@ class _EntryRowContent extends StatelessWidget {
   final VoidCallback onCopy;
   final VoidCallback onPin;
   final VoidCallback onDelete;
+  final VoidCallback? onRestore;
+  final bool isTrashView;
   final VoidCallback? onDuplicate;
   final void Function(String tag)? onTagTap;
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    // In the trash only restore and permanent delete make sense (UIA-HIS-09).
+    final restore = onRestore;
     final actions = WpRowActions(
       visible: showActions,
       dense: true,
       children: [
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-        WpRowAction(
-          icon: LucideIcons.copy,
-          tooltip: l10n.historyCopyText,
-          onTap: onCopy,
-          dense: true,
-        ),
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-        WpRowAction(
-          faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
-          icon: entry.pinned ? null : LucideIcons.star,
-          activeColor: entry.pinned ? WpSharedColors.pinnedAccent : null,
-          tooltip: entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
-          onTap: onPin,
-          dense: true,
-        ),
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
-        if (onDuplicate case final onDuplicate?)
+        if (isTrashView && restore != null) ...[
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
           WpRowAction(
-            icon: LucideIcons.files,
-            tooltip: l10n.actionDuplicate,
-            onTap: onDuplicate,
+            icon: LucideIcons.undo2,
+            tooltip: l10n.historyRestore,
+            onTap: restore,
             dense: true,
           ),
-        WpRowAction(
-          icon: LucideIcons.trash2,
-          tooltip: l10n.actionDelete,
-          onTap: onDelete,
-          isDestructive: true,
-          dense: true,
-        ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+          WpRowAction(
+            icon: LucideIcons.trash2,
+            tooltip: l10n.historyDeleteForever,
+            onTap: onDelete,
+            isDestructive: true,
+            dense: true,
+          ),
+        ] else ...[
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+          WpRowAction(
+            icon: LucideIcons.copy,
+            tooltip: l10n.historyCopyText,
+            onTap: onCopy,
+            dense: true,
+          ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+          WpRowAction(
+            faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
+            icon: entry.pinned ? null : LucideIcons.star,
+            activeColor: entry.pinned ? WpSharedColors.pinnedAccent : null,
+            tooltip: entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop,
+            onTap: onPin,
+            dense: true,
+          ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
+          if (onDuplicate case final onDuplicate?)
+            WpRowAction(
+              icon: LucideIcons.files,
+              tooltip: l10n.actionDuplicate,
+              onTap: onDuplicate,
+              dense: true,
+            ),
+          WpRowAction(
+            icon: LucideIcons.trash2,
+            tooltip: l10n.actionDelete,
+            onTap: onDelete,
+            isDestructive: true,
+            dense: true,
+          ),
+        ],
       ],
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Row 1: the title takes the whole line. The row actions used to sit
-        // here and reserved ~112 dp, which starved the title to nothing at the
-        // 240 px panel minimum; they now share the metadata line below, where
-        // the least critical facts give way first.
-        ExcludeSemantics(
-          // Excluded because the row's Semantics wrapper already carries this
-          // exact string as its label; without this the title was announced
-          // twice. The preview and metadata stay announced — they are content.
-          child: HighlightedText(
-            text: entry.title.isNotEmpty
-                ? entry.title
-                : l10n.historyUntitledRecording,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: WpTypography.subheading,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.2,
-              color: textPrimary,
+        // Row 1: the title, with the row actions at its end. The actions take
+        // width only while the row is active (selected, hovered or focused),
+        // and then the title gives way. The metadata line below keeps the full
+        // row width: time and duration are what tell recordings apart when the
+        // title is long, so they must never be squeezed into a stub.
+        Row(
+          children: [
+            Expanded(
+              child: ExcludeSemantics(
+                // Excluded because the row's Semantics wrapper already carries
+                // this exact string as its label; without this the title was
+                // announced twice. The preview and metadata stay announced —
+                // they are content.
+                child: HighlightedText(
+                  text: entry.title.isNotEmpty
+                      ? entry.title
+                      : l10n.historyUntitledRecording,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: WpTypography.subheading,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: textPrimary,
+                  ),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: WpSpacing.xs),
+            actions,
+          ],
         ),
         const SizedBox(height: 3),
         // Row 2: content preview. Two lines in a split panel, one in the
@@ -330,28 +415,20 @@ class _EntryRowContent extends StatelessWidget {
           text: entry.content,
           maxLines: inSplitView ? 2 : 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: WpTypography.body,
             color: textSecondary,
             height: 1.5,
           ),
         ),
         const SizedBox(height: 4),
-        // Row 3: metadata, with the row actions on the same line at the end.
-        Row(
-          children: [
-            Expanded(
-              child: _EntryMetaRow(
-                timeLabel: timeLabel,
-                durationLabel: durationLabel,
-                wordCount: wordCount,
-                language: entry.language,
-                isLocal: entry.isLocal,
-              ),
-            ),
-            const SizedBox(width: WpSpacing.xs),
-            actions,
-          ],
+        // Row 3: metadata, full width.
+        _EntryMetaRow(
+          timeLabel: timeLabel,
+          durationLabel: durationLabel,
+          wordCount: wordCount,
+          language: entry.language,
+          isLocal: entry.isLocal,
         ),
         // Tag chips — only rendered when entry has tags
         if (tags.isNotEmpty) ...[
@@ -381,30 +458,27 @@ class _EntryMetaRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
-    const textSecondary = WpColors.textSecondary;
-    const metaStyle = TextStyle(
+    final textMuted = WpColors.textMuted;
+    final textSecondary = WpColors.textSecondary;
+    final metaStyle = TextStyle(
       fontSize: WpTypography.caption,
       color: textMuted,
     );
     // One text run, so the line ellipsizes as a whole and can never overflow
     // the space beside the row actions. Icons and the status chip sit inline
     // as widget spans. Every fact is joined by the same separator.
-    const separator = TextSpan(text: ' · ', style: metaStyle);
+    final separator = TextSpan(text: ' · ', style: metaStyle);
     final spans = <InlineSpan>[
-      const WidgetSpan(
+      WidgetSpan(
         alignment: PlaceholderAlignment.middle,
         child: Padding(
-          padding: EdgeInsets.only(right: 3),
+          padding: const EdgeInsets.only(right: 3),
           child: Icon(LucideIcons.clock, size: WpIconSize.xs, color: textMuted),
         ),
       ),
       TextSpan(
         text: timeLabel,
-        style: const TextStyle(
-          fontSize: WpTypography.caption,
-          color: textSecondary,
-        ),
+        style: TextStyle(fontSize: WpTypography.caption, color: textSecondary),
       ),
       separator,
       TextSpan(text: durationLabel, style: metaStyle),
@@ -421,15 +495,17 @@ class _EntryMetaRow extends StatelessWidget {
       ],
       if (!isLocal) ...[
         separator,
-        const WidgetSpan(
+        WidgetSpan(
           alignment: PlaceholderAlignment.middle,
           child: Icon(LucideIcons.cloud, size: WpIconSize.xs, color: textMuted),
         ),
       ],
     ];
+    // Two lines, not one: the facts are what tell recordings apart, so a
+    // narrow row wraps them rather than cutting off the duration or words.
     return Text.rich(
       TextSpan(children: spans),
-      maxLines: 1,
+      maxLines: 2,
       overflow: TextOverflow.ellipsis,
     );
   }
@@ -443,7 +519,7 @@ class _EntryTagChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textMuted = WpColors.textMuted;
+    final textMuted = WpColors.textMuted;
     return Wrap(
       spacing: 4,
       runSpacing: 2,
@@ -458,10 +534,7 @@ class _EntryTagChips extends StatelessWidget {
         if (tags.length > 3)
           Text(
             '+${tags.length - 3}',
-            style: const TextStyle(
-              fontSize: WpTypography.micro,
-              color: textMuted,
-            ),
+            style: TextStyle(fontSize: WpTypography.micro, color: textMuted),
           ),
       ],
     );
@@ -514,7 +587,7 @@ class _EntryTagChipState extends State<_EntryTagChip> {
       ),
       child: Text(
         '#${widget.tag}',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: WpTypography.micro,
           color: WpColors.textSecondary,
           fontWeight: FontWeight.w500,

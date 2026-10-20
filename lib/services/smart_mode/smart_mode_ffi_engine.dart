@@ -34,6 +34,7 @@ import '../../core/logging/app_logger.dart';
 import '../../core/utils/windows_dll_search_path.dart';
 import '../hardware_info_service.dart' as hw;
 import '../path_service.dart';
+import '../stt/idle_unload_policy.dart';
 import '../stt/isolate_shutdown_helper.dart';
 import '../stt/stt_idle_timer.dart';
 import 'smart_mode_engine.dart';
@@ -862,11 +863,17 @@ final smartModeEngineProvider = Provider<SmartModeEngine>((ref) {
   switch (providerType) {
     case SmartModeProviderType.local:
       final engine = SmartModeFfiEngine(
-        idleTimeout: () => Duration(
-          minutes: (ref.read(settingsProvider).value ?? AppSettings.defaults)
-              .stt
-              .idleTimeoutMinutes,
-        ),
+        idleTimeout: () {
+          final minutes =
+              (ref.read(settingsProvider).value ?? AppSettings.defaults)
+                  .stt
+                  .idleTimeoutMinutes;
+          return Duration(
+            minutes: minutes == kSttIdleAutomatic
+                ? kSttIdleFallbackMinutes
+                : minutes,
+          );
+        },
         gpuLayers: () => smartModeGpuLayersFor(
           (ref.read(settingsProvider).value ?? AppSettings.defaults)
               .behavior

@@ -136,7 +136,8 @@ void main() {
           'ambient gradient the frost fills exist to let through. Separate '
           'the surface with fill brightness (`cardFill` → `cardFillElevated`) '
           'or with `cardEdgeHighlight` instead. If a surface genuinely floats '
-          'above the plane, add it to `floatingSurfaces` with the reason.',
+          'above the plane, add it to `floatingSurfaces` with the reason. The '
+          'selected row marks itself with a border instead (UIA-FND-13 V2).',
     );
   });
 
@@ -147,7 +148,7 @@ void main() {
     expect(tokens.existsSync(), isTrue);
     final source = tokens.readAsStringSync();
 
-    for (final name in <String>['subtle', 'card', 'elevated']) {
+    for (final name in <String>['card', 'elevated']) {
       expect(
         source,
         contains('$name ='),
@@ -162,7 +163,6 @@ void main() {
     // the rule keeps out of the plane rather than a glow (which Ticket 04's
     // offset audit in `wcag_contrast_test.dart` owns).
     for (final shadow in <List<dynamic>>[
-      ['subtle', WpShadows.subtle],
       ['card', WpShadows.card],
       ['elevated', WpShadows.elevated],
     ]) {

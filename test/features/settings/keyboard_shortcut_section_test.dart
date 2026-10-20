@@ -7,19 +7,23 @@ import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/l10n/ltr_isolate.dart';
 import 'package:whispaste/services/hotkey_conflicts.dart';
 import 'package:whispaste/services/hotkey_service.dart';
 import 'package:whispaste/services/keyboard_up_monitor.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
-import 'package:whispaste/features/settings/sections/feedback_section.dart';
+import 'package:whispaste/features/settings/sections/shortcuts_section.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart';
 import 'package:whispaste/features/settings/sections/recording_sections.dart';
 
 import '../../fixtures/test_helpers.dart';
+import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
+import '../../fixtures/record_device_listing_stub.dart';
 
 late L10n l10n;
 
 void main() {
+  stubRecordDeviceListing();
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
@@ -72,7 +76,7 @@ void main() {
       final row = tester.getSemantics(
         find.ancestor(
           of: find.text(l10n.settingsHoldToRecord),
-          matching: find.byType(SettingRow),
+          matching: find.byType(WpSettingsRow),
         ),
       );
       // Both branches are asserted on purpose: a bare `if (supportsKeyUp)`
@@ -83,7 +87,7 @@ void main() {
           row,
           matchesSemantics(
             label: l10n.settingsHoldToRecord,
-            hint: l10n.onboardingTriggerModeHoldHint,
+            hint: l10n.holdToRecordExplained,
             hasToggledState: true,
             isToggled: true,
           ),
@@ -95,7 +99,9 @@ void main() {
           row,
           matchesSemantics(
             label: l10n.settingsHoldToRecord,
-            hint: l10n.onboardingTriggerModeToggleHint,
+            hint:
+                '${l10n.onboardingTriggerModeToggleHint}\n'
+                '${pushToTalkUnavailableMessage(l10n)}',
           ),
         );
       }
@@ -145,6 +151,73 @@ void main() {
   // ---------------------------------------------------------------------------
   // Schnellnotiz-Hotkey — der zweite, nachgeordnete Eintrag
   // ---------------------------------------------------------------------------
+
+  group('KeyboardShortcutSection — safe-default fallback (XP-5-09)', () {
+    Widget subject({required bool fallback}) => makeTestable(
+      const SingleChildScrollView(child: KeyboardShortcutSection()),
+      locale: const Locale('en'),
+      overrides: [
+        settingsProvider.overrideWith(
+          () => _FakeSettings(AppSettings.defaults),
+        ),
+        globalHotkeyFallbackActiveProvider.overrideWith(
+          () => _FakeFallback(fallback),
+        ),
+      ],
+    );
+
+    HotkeyDisplay mainDisplay(WidgetTester tester) => tester.widget(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('settings-row-general-hotkey-combo')),
+            matching: find.byType(HotkeyDisplay),
+          )
+          .first,
+    );
+
+    testWidgets('shows the active fallback and says why', (tester) async {
+      await tester.pumpWidget(subject(fallback: true));
+      await tester.pumpAndSettle();
+
+      final display = mainDisplay(tester);
+      expect(display.hotkeyKey, safeDefaultHotkeyKey);
+      expect(display.hotkeyModifiers, safeDefaultHotkeyModifiers);
+      final defaults = AppSettings.defaults;
+      expect(
+        find.text(
+          // Both combinations are LTR isolates, as in the toast (UIA-VIS-08).
+          l10n.hotkeyFallbackActive(
+            ltrIsolate(
+              formatHotkeyKeycap(
+                defaults.hotkeyModifiers,
+                defaults.hotkeyKey,
+                l10n: l10n,
+              ),
+            ),
+            ltrIsolate(
+              formatHotkeyKeycap(
+                safeDefaultHotkeyModifiers,
+                safeDefaultHotkeyKey,
+                l10n: l10n,
+              ),
+            ),
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('mainHotkeyFallbackNotice')), findsOneWidget);
+    });
+
+    testWidgets('without a fallback the configured hotkey shows, no notice', (
+      tester,
+    ) async {
+      await tester.pumpWidget(subject(fallback: false));
+      await tester.pumpAndSettle();
+
+      expect(mainDisplay(tester).hotkeyKey, AppSettings.defaults.hotkeyKey);
+      expect(find.byKey(const Key('mainHotkeyFallbackNotice')), findsNothing);
+    });
+  });
 
   group('KeyboardShortcutSection — hold-or-tap (ticket handy-catchup/07)', () {
     const toggleKey = Key('holdOrTapToggle');
@@ -214,13 +287,18 @@ void main() {
       expect(toggle(tester).onChanged, isNull);
     });
 
-    testWidgets('without key-up support (Linux) it is disabled with a hint', (
-      tester,
-    ) async {
+    testWidgets('without key-up support (Linux) it is disabled with a visible '
+        'reason (UIA-SET-05)', (tester) async {
       await tester.pumpWidget(subject(supportsKeyUp: false, pushToTalk: true));
       await tester.pumpAndSettle();
 
       expect(toggle(tester).onChanged, isNull);
+      // The reason is printed under the row, not only in a hover tooltip.
+      // Both dependent rows (push-to-talk and hold-or-tap) explain it.
+      expect(
+        find.textContaining(pushToTalkUnavailableMessage(l10n)),
+        findsNWidgets(2),
+      );
       expect(
         find.ancestor(
           of: find.byKey(toggleKey),
@@ -229,7 +307,7 @@ void main() {
                 w is Tooltip && w.message == pushToTalkUnavailableMessage(l10n),
           ),
         ),
-        findsOneWidget,
+        findsNothing,
       );
     });
   });
@@ -295,11 +373,12 @@ void main() {
         'directions', (tester) async {
       // Dependent blocks sit on the same label edge as the rows above them
       // (no nested indent), so the start edge must match in LTR and RTL.
-      Rect rowsFor(WidgetTester t) => t.getRect(find.byType(SettingRow).first);
+      Rect rowsFor(WidgetTester t) =>
+          t.getRect(find.byType(WpSettingsRow).first);
       Rect quickNoteFor(WidgetTester t) => t.getRect(
         find.ancestor(
           of: find.byKey(const Key('quickNoteHotkeyToggle')),
-          matching: find.byType(SettingRow),
+          matching: find.byType(WpSettingsRow),
         ),
       );
 
@@ -308,7 +387,7 @@ void main() {
       final ltrMain = rowsFor(tester);
       final ltrQuickNote = quickNoteFor(tester);
       expect(
-        Directionality.of(tester.element(find.byType(SettingRow).first)),
+        Directionality.of(tester.element(find.byType(WpSettingsRow).first)),
         TextDirection.ltr,
       );
       expect(ltrQuickNote.left, closeTo(ltrMain.left, 0.01));
@@ -321,7 +400,7 @@ void main() {
       // Erst belegen, dass die Sprache überhaupt spiegelt — sonst prüfte der
       // Rest unten nur eine zweite LTR-Darstellung.
       expect(
-        Directionality.of(tester.element(find.byType(SettingRow).first)),
+        Directionality.of(tester.element(find.byType(WpSettingsRow).first)),
         TextDirection.rtl,
       );
       expect(rtlQuickNote.right, closeTo(rtlMain.right, 0.01));
@@ -338,7 +417,13 @@ void main() {
       // Die Ziel-Notiz wird im Notizen-Bereich bestimmt — hier steht die
       // Taste, nicht die Notiz. Ein Auswahlfeld wäre genau die Platzierung,
       // die das Ticket ausschließt.
-      expect(find.byType(DropdownButton<String>), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('shortcutBlock-quickNote')),
+          matching: find.byType(DropdownButton<String>),
+        ),
+        findsNothing,
+      );
     });
 
     testWidgets('the toggle writes the quick-note setting, not the main one', (
@@ -360,6 +445,9 @@ void main() {
         reason: 'default is off — an update must never claim a hotkey silently',
       );
 
+      await tester.ensureVisible(
+        find.byKey(const Key('quickNoteHotkeyToggle')),
+      );
       await tester.tap(find.byKey(const Key('quickNoteHotkeyToggle')));
       await tester.pumpAndSettle();
 
@@ -378,11 +466,14 @@ void main() {
       await tester.pumpWidget(subject());
       await tester.pumpAndSettle();
 
-      // Zwei „Ändern"-Buttons: der zweite gehört zum Schnellnotiz-Hotkey.
-      final buttons = find.text(l10n.settingsChangeHotkey);
-      expect(buttons, findsNWidgets(2));
+      // The quick-note block has exactly one „Ändern" button.
+      final buttons = find.descendant(
+        of: find.byKey(const ValueKey('shortcutBlock-quickNote')),
+        matching: find.text(l10n.settingsChangeHotkey),
+      );
+      expect(buttons, findsOneWidget);
 
-      final node = Focus.of(tester.element(buttons.at(1)));
+      final node = Focus.of(tester.element(buttons));
       node.requestFocus();
       await tester.pump();
       expect(
@@ -436,7 +527,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(l10n.settingsChangeHotkey).at(1));
+      await tester.ensureVisible(
+        find.byKey(const Key('quickNoteHotkeyChange')),
+      );
+      await tester.tap(find.byKey(const Key('quickNoteHotkeyChange')));
       await tester.pumpAndSettle();
 
       // Genau die Kombination des Haupt-Hotkeys aufzeichnen.
@@ -494,7 +588,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(l10n.settingsChangeHotkey).at(1));
+      await tester.ensureVisible(
+        find.byKey(const Key('quickNoteHotkeyChange')),
+      );
+      await tester.tap(find.byKey(const Key('quickNoteHotkeyChange')));
       await tester.pumpAndSettle();
 
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -546,7 +643,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(l10n.settingsChangeHotkey).at(1));
+      await tester.ensureVisible(
+        find.byKey(const Key('quickNoteHotkeyChange')),
+      );
+      await tester.tap(find.byKey(const Key('quickNoteHotkeyChange')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('hotkeyConflictWarning')), findsOneWidget);
@@ -617,7 +717,13 @@ void main() {
         // Kombinations-Anzeige, Hinweiszeile und Warnung sind gleichzeitig
         // sichtbar — genau die drei Elemente, die das Ticket bei vergrößerter
         // Systemschrift ungeschnitten verlangt.
-        expect(find.text(l10n.settingsQuickNoteCurrentHotkey), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('shortcutBlock-quickNote')),
+            matching: find.text(l10n.settingsQuickNoteCurrentHotkey),
+          ),
+          findsOneWidget,
+        );
         expect(find.text(l10n.settingsQuickNoteHotkeyInactive), findsOneWidget);
 
         final overflow = _quickNoteOverflow(tester);
@@ -691,11 +797,12 @@ void main() {
         'directions', (tester) async {
       // Same contract as the quick-note block: no nested indent, so the
       // start edge matches the main row in LTR and RTL alike.
-      Rect rowsFor(WidgetTester t) => t.getRect(find.byType(SettingRow).first);
+      Rect rowsFor(WidgetTester t) =>
+          t.getRect(find.byType(WpSettingsRow).first);
       Rect snippetFor(WidgetTester t) => t.getRect(
         find.ancestor(
           of: find.byKey(const Key('snippetPickerHotkeyToggle')),
-          matching: find.byType(SettingRow),
+          matching: find.byType(WpSettingsRow),
         ),
       );
 
@@ -709,7 +816,7 @@ void main() {
       await tester.pumpWidget(subject(locale: const Locale('he')));
       await tester.pumpAndSettle();
       expect(
-        Directionality.of(tester.element(find.byType(SettingRow).first)),
+        Directionality.of(tester.element(find.byType(WpSettingsRow).first)),
         TextDirection.rtl,
       );
       final rtlMain = rowsFor(tester);
@@ -1150,6 +1257,15 @@ class _FakeSettings extends SettingsNotifier {
   Future<AppSettings> build() async => _settings;
 }
 
+class _FakeFallback extends GlobalHotkeyFallbackController {
+  _FakeFallback(this._active);
+
+  final bool _active;
+
+  @override
+  bool build() => _active;
+}
+
 class _FakeSnippetPickerStatus
     extends SnippetPickerHotkeyRegistrationStatusController {
   _FakeSnippetPickerStatus(this._status);
@@ -1215,9 +1331,15 @@ String? _quickNoteOverflow(WidgetTester tester) {
   final frame = tester.getRect(find.byKey(const Key('probeFrame')));
   final probes = <String, Finder>{
     'Hinweiszeile': find.text(l10n.settingsQuickNoteHotkeyHint),
-    'Kombinations-Label': find.text(l10n.settingsQuickNoteCurrentHotkey),
-    'Tastenkappen': find.byType(HotkeyDisplay).at(1),
-    'Ändern-Button': find.text(l10n.settingsChangeHotkey).at(1),
+    'Kombinations-Label': find.descendant(
+      of: find.byKey(const ValueKey('shortcutBlock-quickNote')),
+      matching: find.text(l10n.settingsQuickNoteCurrentHotkey),
+    ),
+    'Tastenkappen': find.descendant(
+      of: find.byKey(const ValueKey('shortcutBlock-quickNote')),
+      matching: find.byType(HotkeyDisplay),
+    ),
+    'Ändern-Button': find.byKey(const Key('quickNoteHotkeyChange')),
     'Nicht-aktiv-Warnung': find.text(l10n.settingsQuickNoteHotkeyInactive),
   };
   for (final probe in probes.entries) {

@@ -18,7 +18,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/logging/app_logger.dart';
+import '../download_disk_space.dart';
 import '../file_verification_service.dart';
+import '../free_disk_space.dart';
 import '../http_model_fetcher.dart';
 import '../model_download_service.dart' show formatModelSizeLabel;
 import '../tmp_reaper.dart';
@@ -59,11 +61,11 @@ class SmartModeModelInfo {
 
 const smartModeModel = SmartModeModelInfo(
   id: 'gemma-4-E2B-it-Q4_K_M',
-  label: 'Gemma-4-E2B-it (Q4_K_M)',
+  label: 'Gemma 4 E2B',
   filename: 'gemma-4-E2B-it-Q4_K_M.gguf',
   sizeBytes: 3106738272,
   url:
-      'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/gemma-4-E2B-it-Q4_K_M.gguf',
+      'https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/gemma-4-E2B-it-Q4_K_M.gguf',
   sha256: '740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8',
 );
 
@@ -86,6 +88,7 @@ class SmartModeDownloadState {
     this.etaSeconds,
     this.errorMessage,
     this.modelDownloaded = false,
+    this.scanned = true,
   });
 
   final SmartModeDownloadPhase phase;
@@ -99,6 +102,11 @@ class SmartModeDownloadState {
   /// Whether the model file exists on disk (updated by the initial async
   /// disk scan and by [SmartModeDownloadNotifier.deleteModel]).
   final bool modelDownloaded;
+
+  /// Whether [modelDownloaded] is known: `false` only until the notifier's
+  /// initial disk scan has landed, so the text model does not read as
+  /// missing for the first moments after start (UIA-XP-7-05).
+  final bool scanned;
 
   bool get isError => phase == SmartModeDownloadPhase.error;
   bool get isBusy =>
@@ -114,6 +122,7 @@ class SmartModeDownloadState {
     int? etaSeconds,
     String? errorMessage,
     bool? modelDownloaded,
+    bool? scanned,
   }) {
     return SmartModeDownloadState(
       phase: phase ?? this.phase,
@@ -124,6 +133,7 @@ class SmartModeDownloadState {
       etaSeconds: etaSeconds ?? this.etaSeconds,
       errorMessage: errorMessage,
       modelDownloaded: modelDownloaded ?? this.modelDownloaded,
+      scanned: scanned ?? this.scanned,
     );
   }
 }
@@ -170,7 +180,9 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
   bool _mounted = false;
   Completer<void>? _initialScanCompleter;
 
-  HttpModelFetcher get _fetcher => fetcherOverride ?? HttpModelFetcher();
+  // One fetcher per notifier: cancel and dispose must reach the one that is
+  // downloading (UIA-RT-05).
+  late final HttpModelFetcher _fetcher = fetcherOverride ?? HttpModelFetcher();
 
   FileVerificationService get _verifier =>
       verifierOverride ?? const FileVerificationService();
@@ -195,10 +207,12 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
       try {
         final downloaded = await _scanExistingModelAsync(checker);
         if (_mounted) {
-          state = state.copyWith(modelDownloaded: downloaded);
+          state = state.copyWith(modelDownloaded: downloaded, scanned: true);
         }
       } catch (e, st) {
         _log.warning('Initial disk scan failed', e, st);
+        // An unreadable disk counts as known-missing, not as unknown forever.
+        if (_mounted) state = state.copyWith(scanned: true);
       } finally {
         if (!(_initialScanCompleter?.isCompleted ?? true)) {
           _initialScanCompleter!.complete();
@@ -207,7 +221,7 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
       }
     });
 
-    return const SmartModeDownloadState();
+    return const SmartModeDownloadState(scanned: false);
   }
 
   Future<void> awaitInitialScan() async {
@@ -233,7 +247,7 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
           phase: SmartModeDownloadPhase.verifying,
           errorMessage: null,
         );
-        final result = await _verifier.verify(
+        final result = await _verifier.verifyStamped(
           File(destPath),
           smartModeModel.sha256,
         );
@@ -252,6 +266,23 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
         errorMessage: null,
       );
 
+      final shortage = await checkDownloadDiskSpace(
+        dir: smartModeModelDir(),
+        downloadBytes: smartModeModel.sizeBytes,
+        probe: ref.read(freeDiskSpaceProbeProvider),
+      );
+      if (shortage != null) {
+        _log.warning(
+          'Not enough disk space for Smart Mode model: '
+          'needs ${shortage.neededBytes} B, free ${shortage.freeBytes} B',
+        );
+        state = state.copyWith(
+          phase: SmartModeDownloadPhase.error,
+          errorMessage: shortage.errorCode,
+        );
+        return;
+      }
+
       await _fetcher.fetch(
         url: smartModeModel.url,
         destPath: destPath,
@@ -269,7 +300,7 @@ class SmartModeDownloadNotifier extends Notifier<SmartModeDownloadState> {
         phase: SmartModeDownloadPhase.verifying,
         progressPercent: 99,
       );
-      final result = await _verifier.verify(
+      final result = await _verifier.verifyStamped(
         File(destPath),
         smartModeModel.sha256,
       );

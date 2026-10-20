@@ -7,14 +7,21 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logging/logging.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/config/secure_key_store.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -22,9 +29,12 @@ import 'package:whispaste/core/logging/mic_start_trace.dart';
 import 'package:whispaste/core/logging/perf_instrumentation.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/recording/recording_helpers.dart';
+import 'package:whispaste/features/history/data/history_lock.dart';
 import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
+import 'package:whispaste/services/drift_recording_store.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paste_failure_notifier.dart';
@@ -37,7 +47,17 @@ import 'package:whispaste/services/path_service.dart'
         retainedAudioDirOverride,
         retainedAudioDir;
 import 'package:whispaste/services/hotkey_service.dart';
+import 'package:whispaste/services/pending_audio/pending_audio_providers.dart';
+import 'package:whispaste/services/pending_audio/pending_audio_queue.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
+import 'package:whispaste/services/stt/on_device_engine_lifecycle.dart';
+import 'package:whispaste/services/stt_engine_lifecycle_provider.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_language_support.dart';
+import 'package:whispaste/services/stt_parakeet/parakeet_model_registry.dart'
+    show parakeetFileExistsOverride;
+import 'package:whispaste/services/review_prompt_service.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_fact_guard.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_undo_notice.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_engine.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
     show
@@ -46,6 +66,7 @@ import 'package:whispaste/services/smart_mode/smart_mode_ffi_engine.dart'
         smartModeModelDirOverride;
 import 'package:whispaste/services/smart_mode/smart_mode_model_download_service.dart';
 import 'package:whispaste/services/smart_mode/smart_mode_presets.dart';
+import 'package:whispaste/services/smart_mode/smart_mode_text_model.dart';
 import 'package:whispaste/services/snippets/interactive_snippet_composer.dart'
     show legacyInteractiveSnippetTemplate;
 import 'package:whispaste/services/snippets/interactive_snippet_controller.dart';
@@ -53,6 +74,7 @@ import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart
 import 'package:whispaste/services/snippet_picker/snippet_picker_events.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_service.dart';
 import 'package:whispaste/services/sound_feedback_service.dart';
+import 'package:whispaste/services/support_prompt_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/system_attention_service.dart';
 import 'package:whispaste/services/telemetry_service.dart';
@@ -98,6 +120,31 @@ class FakeSessionKeyRegistrar implements HotKeyRegistrar {
 }
 
 /// Fake audio service — no real hardware interaction.
+/// Lifecycle stand-in: the Parakeet test must not load the native library.
+class _IdleEngineLifecycle implements OnDeviceEngineLifecycle {
+  @override
+  EngineLifecycleStatus get status =>
+      const EngineLifecycleStatus(isReady: true);
+
+  @override
+  Future<void> ensureRunning({bool warmup = true}) async {}
+
+  @override
+  Future<void> prewarm() async {}
+
+  @override
+  Future<void> stop() async {}
+
+  @override
+  void notifyRecordingStarted() {}
+
+  @override
+  void notifyRecordingStopped() {}
+
+  @override
+  void notifyTranscriptionCompleted() {}
+}
+
 class FakeAudioService extends AudioServiceNotifier {
   String? wavPathToReturn;
   bool errorOnStart = false;
@@ -126,11 +173,23 @@ class FakeAudioService extends AudioServiceNotifier {
   @override
   Future<void>? get firstSampleArrived => firstSampleCompleter?.future;
 
+  /// When set, [startRecording] suspends here before the capture opens, like
+  /// a microphone setup that is slow on a busy main thread. A stop that lands
+  /// meanwhile aborts the just-opened capture, as the production service does.
+  Completer<void>? startGate;
+  bool _stopArrivedDuringStart = false;
+
   @override
   Future<void> startRecording({bool streamRawPcm = false}) async {
     if (state.isRecording) {
       // Mirror the audio service's logged no-op — do NOT throw.
       return;
+    }
+    final gate = startGate;
+    if (gate != null) {
+      _stopArrivedDuringStart = false;
+      await gate.future;
+      if (_stopArrivedDuringStart) return;
     }
     if (errorOnStart) {
       state = const AudioStatus(
@@ -149,27 +208,45 @@ class FakeAudioService extends AudioServiceNotifier {
 
   @override
   Future<String?> stopRecording() async {
+    if (startGate != null && !startGate!.isCompleted) {
+      _stopArrivedDuringStart = true;
+    }
     _ampCtrl?.close();
     _ampCtrl = null;
     state = AudioStatus(filePath: wavPathToReturn);
     return wavPathToReturn;
   }
 
+  /// When set, cleanup really deletes the file, like the production service.
+  bool deleteOnCleanup = false;
+
   @override
-  Future<void> cleanupFile(String? path) async {}
+  Future<void> cleanupFile(String? path) async {
+    if (!deleteOnCleanup || path == null) return;
+    final file = File(path);
+    if (file.existsSync()) file.deleteSync();
+  }
 }
 
 /// Fake STT service — returns configurable transcripts, no subprocess.
 class FakeSttService extends SttServerStateNotifier {
   String transcriptToReturn = 'Hello world';
+
+  /// Called when the engine load starts, before any result is decided.
+  void Function()? onEnsureRunning;
   bool ensureRunningThrows = false;
   bool throwTimeoutException = false;
   bool transcribeThrows = false;
+  Object? transcribeError;
 
   /// When set, [transcribeBytes] awaits this instead of returning
   /// immediately — lets a test hold the pipeline in [RecordingPhase
   /// .transcribing] long enough to call `cancelRecording()` mid-flight.
   Completer<String>? transcribeGate;
+
+  /// When set, [ensureRunning] waits for this before reporting ready, so a
+  /// test can hold a cold model load open.
+  Completer<void>? loadGate;
 
   /// Language the orchestrator handed to the last [transcribeBytes] call.
   String? lastLanguage;
@@ -177,12 +254,27 @@ class FakeSttService extends SttServerStateNotifier {
   /// Counts how many times [transcribeBytes] was invoked.
   int transcribeCallCount = 0;
 
+  /// Language the engine reports for its last transcription (DEV-83).
+  String? detectedLanguageToReturn;
+
+  @override
+  String? get lastDetectedLanguage => detectedLanguageToReturn;
+
   @override
   SttStatus build() =>
       const SttStatus(serverState: SttServerState.ready, port: 9999);
 
+  /// Warm-up requests seen by [ensureRunning], in call order.
+  final List<bool> warmupRequests = [];
+
+  /// Number of [prewarm] calls (the hotkey path must not make one).
+  int prewarmCallCount = 0;
+
   @override
-  Future<void> ensureRunning() async {
+  Future<void> ensureRunning({bool warmup = true}) async {
+    warmupRequests.add(warmup);
+    onEnsureRunning?.call();
+    await loadGate?.future;
     if (throwTimeoutException) {
       throw TimeoutException(
         'STT start timed out',
@@ -199,6 +291,7 @@ class FakeSttService extends SttServerStateNotifier {
   Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
     transcribeCallCount++;
     lastLanguage = language;
+    if (transcribeError != null) throw transcribeError!;
     if (transcribeThrows) {
       throw Exception('Transcription failed');
     }
@@ -210,7 +303,9 @@ class FakeSttService extends SttServerStateNotifier {
   }
 
   @override
-  Future<void> prewarm() async {}
+  Future<void> prewarm() async {
+    prewarmCallCount++;
+  }
 }
 
 /// Fake settings notifier — returns test defaults without DB or secure store.
@@ -252,8 +347,13 @@ class FakeSecureKeyStore extends SecureKeyStore {
 }
 
 /// Fake desktop paste bridge that records capture/paste calls.
-class FakeDesktopPasteController extends DesktopPasteController {
+class FakeDesktopPasteController extends DesktopPasteController
+    implements ClipboardReceiptBridge {
   int captureCalls = 0;
+
+  /// When set, [capturePasteTarget] stays pending until the test completes it
+  /// — lets a test prove the mic start does not wait for the paster prime.
+  Completer<bool>? captureGate;
   int pasteCalls = 0;
   int typeCalls = 0;
   Duration? lastDelay;
@@ -279,6 +379,10 @@ class FakeDesktopPasteController extends DesktopPasteController {
   /// Takes priority over [pasteResult] when set.
   NativePasteStatus? pasteStatusOverride;
 
+  /// Test seam: the native paste channel is not registered on this platform,
+  /// so the call throws [MissingPluginException] (-> platformUnavailable).
+  bool throwMissingPlugin = false;
+
   /// Same idea as [pasteStatusOverride], for [typeText]. Takes priority over
   /// [typeResult] when set.
   NativePasteStatus? typeStatusOverride;
@@ -291,23 +395,54 @@ class FakeDesktopPasteController extends DesktopPasteController {
   @override
   Future<bool> capturePasteTarget() async {
     captureCalls += 1;
+    final gate = captureGate;
+    if (gate != null) return gate.future;
     if (captureResults.isNotEmpty) {
       return captureResults.removeAt(0);
     }
     return captureResult;
   }
 
+  /// The target app reads the clipboard after a successful native paste. A real
+  /// target does this too, and only this read proves the paste (briefing N12),
+  /// so the paster may restore the clipboard afterwards.
+  Completer<ClipboardReadReceipt> _read = Completer<ClipboardReadReceipt>();
+
+  /// Mirrors the receipt-path clipboard writes into the test's clipboard.
+  void Function(String text)? onClipboardWrite;
+
+  @override
+  Future<bool> writeClipboardTextWithReceipt(String text) async {
+    _read = Completer<ClipboardReadReceipt>();
+    onClipboardWrite?.call(text);
+    return true;
+  }
+
+  @override
+  Future<ClipboardReadReceipt> waitForClipboardRead() => _read.future;
+
+  @override
+  Future<ClipboardRestoreOutcome> restoreClipboardTextIfOwner(
+    String text,
+  ) async {
+    onClipboardWrite?.call(text);
+    return ClipboardRestoreOutcome.restored;
+  }
+
   @override
   Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
     pasteCalls += 1;
+    if (throwMissingPlugin) throw MissingPluginException();
     lastDelay = delay;
     onPasteClipboard?.call();
     if (pasteStatusOverride != null) {
       return NativePasteResult(status: pasteStatusOverride!);
     }
-    return pasteResult
-        ? const NativePasteResult(status: NativePasteStatus.success)
-        : const NativePasteResult(status: NativePasteStatus.postFailed);
+    if (!pasteResult) {
+      return const NativePasteResult(status: NativePasteStatus.postFailed);
+    }
+    if (!_read.isCompleted) _read.complete(ClipboardReadReceipt.read);
+    return const NativePasteResult(status: NativePasteStatus.success);
   }
 
   /// Edit selection by voice: how the simulated target app reacts to the
@@ -509,9 +644,14 @@ class FakeTrayActionService extends TrayService {
   }
 
   @override
-  void clearActionNeeded() {
+  void clearActionNeeded({String? ifKey}) {
     clearActionNeededCalls++;
   }
+
+  final openActionNeededKeys = <String>[];
+
+  @override
+  void openActionNeeded(String key) => openActionNeededKeys.add(key);
 }
 
 /// Fake system-attention service for issue 02 — records calls without
@@ -596,6 +736,15 @@ class FakeSoundFeedbackService extends SoundFeedbackService {
 /// Directory for scratch files used during tests.
 final _scratchDir = Directory('test${Platform.pathSeparator}.scratch');
 
+/// Pending-audio queue for the orchestrator tests, kept out of the user's
+/// audio folder (UIA-FLW-01).
+final _pendingTestDir = Directory.systemTemp.createTempSync('uia-w1-pending');
+final _pendingTestQueue = PendingAudioQueue(
+  directory: () => _pendingTestDir.path,
+  save: (input) async => throw UnimplementedError('not used in these tests'),
+  entryExists: (id) async => false,
+);
+
 /// Creates a fake WAV file with a minimal RIFF header + padding.
 /// Returns the file with an absolute path.
 File createFakeWav(String name) {
@@ -643,7 +792,77 @@ Future<T> withFakeSttModel<T>(Future<T> Function() body) async {
 // Tests
 // ---------------------------------------------------------------------------
 
+/// A recording store whose dictionary read fails (DEV-146).
+class _ThrowingDictionaryStore extends DriftRecordingStore {
+  _ThrowingDictionaryStore(super.db);
+
+  @override
+  Future<List<String>> dictionaryTerms() async =>
+      throw StateError('dictionary unavailable');
+}
+
+/// Counts the review prompt calls the orchestrator makes after a dictation
+/// (GR-012). Never shows anything.
+class _CountingReviewPrompt extends ReviewPromptNotifier {
+  int checkCalls = 0;
+  int unpastedCalls = 0;
+
+  @override
+  ReviewPromptState build() => const ReviewPromptState();
+
+  @override
+  Future<void> checkAndMaybePrompt({String? appVersion}) async => checkCalls++;
+
+  @override
+  Future<void> countUnpastedDictation({String? entryId}) async =>
+      unpastedCalls++;
+}
+
+/// Counts the support prompt checks the orchestrator makes (GR-012).
+class _CountingSupportPrompt extends SupportPromptNotifier {
+  int checkCalls = 0;
+
+  @override
+  SupportPromptState build() => const SupportPromptState();
+
+  @override
+  Future<void> checkAndMaybePrompt() async => checkCalls++;
+}
+
 void main() {
+  // UIA-XP-7-12: the log names the fix of the platform it runs on.
+  group('pasteInjectionDeniedLogMessage', () {
+    test('only macOS points to System Settings', () {
+      expect(
+        pasteInjectionDeniedLogMessage(TargetPlatform.macOS),
+        contains('System Settings'),
+      );
+      for (final platform in [TargetPlatform.linux, TargetPlatform.windows]) {
+        expect(
+          pasteInjectionDeniedLogMessage(platform),
+          isNot(contains('macOS')),
+          reason: platform.name,
+        );
+        expect(
+          pasteInjectionDeniedLogMessage(platform),
+          isNot(contains('System Settings')),
+          reason: platform.name,
+        );
+      }
+    });
+
+    test('Linux names uinput, Windows names UIPI', () {
+      expect(
+        pasteInjectionDeniedLogMessage(TargetPlatform.linux),
+        contains('/dev/uinput'),
+      );
+      expect(
+        pasteInjectionDeniedLogMessage(TargetPlatform.windows),
+        contains('UIPI'),
+      );
+    });
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late ProviderContainer container;
@@ -669,9 +888,14 @@ void main() {
     );
   }
 
-  ProviderContainer buildContainer(AppSettings settings) {
+  ProviderContainer buildContainer(
+    AppSettings settings, {
+    List<Override> extraOverrides = const [],
+  }) {
     return ProviderContainer(
       overrides: [
+        pendingAudioQueueProvider.overrideWithValue(_pendingTestQueue),
+        ...extraOverrides,
         historyDatabaseProvider.overrideWith((ref) {
           ref.onDispose(db.close);
           return db;
@@ -706,7 +930,8 @@ void main() {
 
     fakeAudio = FakeAudioService()..wavPathToReturn = wavFile.absolute.path;
     fakeStt = FakeSttService();
-    fakeDesktopPaste = FakeDesktopPasteController();
+    fakeDesktopPaste = FakeDesktopPasteController()
+      ..onClipboardWrite = (text) => clipboardText = text;
     db = HistoryDatabase.forTesting(NativeDatabase.memory());
     clipboardText = null;
 
@@ -799,6 +1024,78 @@ void main() {
   }
 
   // =========================================================================
+  // Cold hotkey path: the model never gates the microphone (cold-hotkey fix, A/B)
+  // =========================================================================
+
+  group('Cold hotkey path', () {
+    test(
+      'a hotkey press does not prewarm the model before the microphone '
+      'opens, and the post-capture load skips the warm-up inference',
+      () async {
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        await withFakeSttModel(() => orch.toggleRecording());
+        await Future<void>.delayed(Duration.zero);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(fakeAudio.startCallCount, 1);
+        expect(
+          fakeStt.prewarmCallCount,
+          0,
+          reason: 'a prewarm competes with the microphone setup for the thread',
+        );
+        expect(
+          fakeStt.warmupRequests,
+          [false],
+          reason: 'the real transcription follows the load, so no warm-up',
+        );
+      },
+    );
+  });
+
+  // =========================================================================
+  // A press is never lost to an aborted start (cold-hotkey fix, D)
+  // =========================================================================
+
+  group('Press after a start that was released mid-startup', () {
+    test('the second press starts a new recording instead of being dropped '
+        'as busy', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      fakeAudio.startGate = Completer<void>();
+
+      await withFakeSttModel(() async {
+        // Press 1: the capture setup is still suspended ...
+        final press1 = orch.startRecording();
+        await Future<void>.delayed(Duration.zero);
+        // ... when the release arrives and runs the no-audio pipeline.
+        fakeAudio.wavPathToReturn = null;
+        await orch.stopRecording();
+        expect(
+          container.read(recordingProvider).phase,
+          isNot(RecordingPhase.recording),
+        );
+
+        // Press 2 arrives while press 1's setup has not yet unwound.
+        fakeAudio.wavPathToReturn = wavFile.absolute.path;
+        final press2 = orch.startRecording();
+
+        fakeAudio.startGate!.complete();
+        await press1;
+        await press2;
+      });
+
+      expect(
+        container.read(recordingProvider).phase,
+        RecordingPhase.recording,
+        reason: 'press 2 must start a recording, not be rejected as busy',
+      );
+      expect(fakeAudio.startCallCount, 1);
+    });
+  });
+
+  // =========================================================================
   // Recognition language (store-review regression, June 2026)
   // =========================================================================
 
@@ -822,7 +1119,11 @@ void main() {
         ),
       );
       await container.read(settingsProvider.future);
-      final orch = await startRecordingPhase();
+      // Through startRecording, as production does, so the language is
+      // frozen into the recording's session (SW-03).
+      final orch = await startRecordingPhaseWithTarget(
+        target: RecordingTarget.clipboard,
+      );
       await orch.stopRecording();
       return fakeStt.lastLanguage;
     }
@@ -885,6 +1186,256 @@ void main() {
       },
     );
 
+    group('app profile language (SW-07)', () {
+      Future<void> seedProfile({
+        required String id,
+        required int position,
+        required String identifier,
+        required String? asrLanguage,
+      }) async {
+        final now = DateTime.utc(2026, 10, 19);
+        await db.saveAppProfile(
+          AppProfilesCompanion(
+            id: Value(id),
+            name: Value(id),
+            position: Value(position),
+            asrLanguage: Value(asrLanguage),
+            createdAt: Value(now),
+            updatedAt: Value(now),
+          ),
+          [
+            AppProfileRulesCompanion(
+              id: Value('$id#0'),
+              profileId: Value(id),
+              position: const Value(0),
+              identifier: Value(identifier),
+            ),
+          ],
+        );
+      }
+
+      Future<void> seedTwoProfiles() async {
+        await seedProfile(
+          id: 'app-a',
+          position: 0,
+          identifier: 'com.example.a',
+          asrLanguage: 'de',
+        );
+        await seedProfile(
+          id: 'app-b',
+          position: 1,
+          identifier: 'com.example.b',
+          asrLanguage: 'en',
+        );
+      }
+
+      const globalRussian = SttSettings(model: 'whisper-small', language: 'ru');
+
+      test('app A with a German profile dictates German', () async {
+        await seedTwoProfiles();
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.example.a';
+        expect(await languageSeenByTranscriber(stt: globalRussian), 'de');
+      });
+
+      test('app B with an English profile dictates English', () async {
+        await seedTwoProfiles();
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.example.b';
+        expect(await languageSeenByTranscriber(stt: globalRussian), 'en');
+      });
+
+      test('an app without a profile uses the global language', () async {
+        await seedTwoProfiles();
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.example.other';
+        expect(await languageSeenByTranscriber(stt: globalRussian), 'ru');
+      });
+
+      test('an explicit override beats the profile language', () async {
+        await seedTwoProfiles();
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.example.a';
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            stt: globalRussian,
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        await orch.startRecording(languageOverride: 'fr');
+        await orch.stopRecording();
+
+        expect(fakeStt.lastLanguage, 'fr');
+      });
+
+      Future<void> pumpSettingsWith(AppSettings settings) async {
+        container.dispose();
+        container = buildContainer(settings);
+        await container.read(settingsProvider.future);
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      const quietAfterTranscription = AfterTranscriptionSettings(
+        afterTranscription: 'nothing',
+      );
+      const onboardingDone = OnboardingSettings(onboardingCompleted: true);
+
+      test('the chip language is the global language at start (SW-10), then '
+          'the profile language once it resolves', () async {
+        await seedTwoProfiles();
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.example.b';
+        await pumpSettingsWith(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'de'),
+            afterTranscriptionSection: quietAfterTranscription,
+            onboarding: onboardingDone,
+          ),
+        );
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+
+        await withFakeSttModel(() => orch.startRecording());
+        await orch.stopRecording();
+
+        expect(container.read(recordingLanguageProvider), 'en');
+        expect(fakeStt.lastLanguage, 'en');
+      });
+
+      test('a settings change during the recording does not move the chip '
+          'language (SW-03)', () async {
+        await pumpSettingsWith(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'de'),
+            afterTranscriptionSection: quietAfterTranscription,
+            onboarding: onboardingDone,
+          ),
+        );
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+
+        await orch.startRecording();
+        await container
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWithSections(
+                stt: const SttSettings(model: 'whisper-small', language: 'en'),
+              ),
+            );
+        expect(container.read(recordingLanguageProvider), 'de');
+        await orch.stopRecording();
+
+        expect(container.read(recordingLanguageProvider), 'de');
+        expect(fakeStt.lastLanguage, 'de');
+      });
+
+      test('an explicit override is the chip language', () async {
+        await seedTwoProfiles();
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.example.a';
+        await pumpSettingsWith(
+          const AppSettings(
+            stt: globalRussian,
+            afterTranscriptionSection: quietAfterTranscription,
+            onboarding: onboardingDone,
+          ),
+        );
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+
+        await orch.startRecording(languageOverride: 'fr');
+        await orch.stopRecording();
+
+        expect(container.read(recordingLanguageProvider), 'fr');
+      });
+
+      Future<RecordingOrchestrator> startWithSettings(
+        SttSettings stt, {
+        List<Override> extraOverrides = const [],
+      }) async {
+        container.dispose();
+        container = buildContainer(
+          extraOverrides: extraOverrides,
+          AppSettings(
+            stt: stt,
+            afterTranscriptionSection: const AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: const OnboardingSettings(onboardingCompleted: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+        return orch;
+      }
+
+      test('the mic starts before the paste target capture finishes', () async {
+        await withFakeSttModel(() async {
+          await seedTwoProfiles();
+          fakeDesktopPaste.targetBundleIdToReturn = 'com.example.a';
+          final gate = Completer<bool>();
+          fakeDesktopPaste.captureGate = gate;
+          final orch = await startWithSettings(globalRussian);
+
+          // Would hang here if the start waited for the capture (SW-07 perf).
+          await orch.startRecording().timeout(const Duration(seconds: 2));
+          expect(fakeAudio.startCallCount, 1);
+
+          gate.complete(true);
+          await orch.stopRecording();
+          expect(fakeStt.lastLanguage, 'de');
+        });
+      });
+
+      test('the paste target is captured once per start', () async {
+        await withFakeSttModel(() async {
+          await seedTwoProfiles();
+          fakeDesktopPaste.targetBundleIdToReturn = 'com.example.a';
+          final orch = await startWithSettings(globalRussian);
+
+          await orch.startRecording();
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          expect(fakeDesktopPaste.captureCalls, 1);
+
+          await orch.stopRecording();
+          expect(fakeStt.lastLanguage, 'de');
+        });
+      });
+
+      test('the Parakeet notice names the profile language', () async {
+        parakeetFileExistsOverride = (_) => true;
+        addTearDown(() => parakeetFileExistsOverride = null);
+        await seedProfile(
+          id: 'app-ar',
+          position: 0,
+          identifier: 'com.example.ar',
+          asrLanguage: 'ar',
+        );
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.example.ar';
+        final orch = await startWithSettings(
+          SttSettings(
+            model: 'parakeet-tdt-v3',
+            engine: OnDeviceEngine.parakeet.value,
+            language: 'en',
+          ),
+          extraOverrides: [
+            onDeviceEngineLifecycleProvider.overrideWithValue(
+              _IdleEngineLifecycle(),
+            ),
+          ],
+        );
+
+        await orch.startRecording();
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(
+          container.read(parakeetLanguageNoticeProvider)?.languageCode,
+          'ar',
+        );
+        await orch.stopRecording();
+      });
+    });
+
     test('no languageOverride falls back to the configured settings '
         'language, exactly as before this field existed', () async {
       container.dispose();
@@ -905,6 +1456,39 @@ void main() {
       await orch.stopRecording();
 
       expect(fakeStt.lastLanguage, 'de');
+    });
+
+    test('a language change during a recording applies to the next '
+        'recording only (SW-03): the running one keeps the language it '
+        'started with', () async {
+      container.dispose();
+      container = buildContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'de'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'nothing',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      await orch.startRecording();
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              stt: const SttSettings(model: 'whisper-small', language: 'en'),
+            ),
+          );
+      await orch.stopRecording();
+      expect(fakeStt.lastLanguage, 'de');
+
+      await orch.startRecording();
+      await orch.stopRecording();
+      expect(fakeStt.lastLanguage, 'en');
     });
 
     test(
@@ -987,6 +1571,48 @@ void main() {
       expect(entries.first.isLocal, isTrue);
       expect(entries.first.source, 'dictation');
     });
+
+    test(
+      'a retained WAV survives the stop and stays linked to its entry',
+      () async {
+        container.dispose();
+        container = buildContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'nothing',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            privacy: PrivacySettings(retainRecentAudio: true),
+          ),
+        );
+        await container.read(settingsProvider.future);
+
+        // Recording writes its WAV into the retained folder when retention is on.
+        final retainedWav =
+            File(
+                '${retainedAudioDirOverride!}${Platform.pathSeparator}whispaste_retained.wav',
+              )
+              ..createSync(recursive: true)
+              ..writeAsBytesSync(wavFile.readAsBytesSync());
+        fakeAudio
+          ..wavPathToReturn = retainedWav.absolute.path
+          ..deleteOnCleanup = true;
+        fakeStt.transcriptToReturn = 'Retained text';
+
+        final orch = await startRecordingPhase();
+        await orch.stopRecording();
+
+        final rows = await db.listAudioAttachments();
+        expect(rows, hasLength(1));
+        expect(rows.single.filepath.endsWith('whispaste_retained.wav'), isTrue);
+        expect(
+          retainedWav.existsSync(),
+          isTrue,
+          reason: 'the save kept the audio, so the stop must not delete it',
+        );
+      },
+    );
 
     test('toggleRecording from recording state runs pipeline', () async {
       fakeStt.transcriptToReturn = 'Toggle result';
@@ -1356,6 +1982,55 @@ void main() {
       );
 
       expect(clipboardText, 'Hallo neue Zeile du');
+    });
+  });
+
+  group('Spoken punctuation (spokenPunctuation)', () {
+    Future<void> runCase({
+      required SttSettings stt,
+      required String transcript,
+    }) async {
+      container.dispose();
+      container = buildContainer(
+        AppSettings(
+          stt: stt,
+          afterTranscriptionSection: const AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: const OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = transcript;
+      await orch.stopRecording();
+    }
+
+    test('off by default: the spoken words stay in the paste', () async {
+      await runCase(
+        stt: const SttSettings(model: 'whisper-small', language: 'German'),
+        transcript: 'Hallo Komma wie geht es dir',
+      );
+
+      expect(clipboardText, 'Hallo Komma wie geht es dir');
+    });
+
+    test('on: "Komma" becomes a comma, false positives stay text', () async {
+      await runCase(
+        stt: const SttSettings(
+          model: 'whisper-small',
+          language: 'German',
+          spokenPunctuation: true,
+        ),
+        transcript:
+            'Hallo Komma wie geht es dir. Das Kommando bleibt, '
+            'der Punkt ist wichtig',
+      );
+
+      expect(
+        clipboardText,
+        'Hallo, wie geht es dir. Das Kommando bleibt, der Punkt ist wichtig',
+      );
     });
   });
 
@@ -2040,6 +2715,31 @@ void main() {
   // =========================================================================
 
   group('Error during transcription', () {
+    test(
+      'cloud network and timeout failures keep their own codes (UIA-FLW-05)',
+      () {
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        expect(
+          orch.transcriberErrorCode(
+            const TranscriberException(
+              'Network error',
+              reason: TranscriberFailureReason.networkError,
+            ),
+          ),
+          'cloud_network_error',
+        );
+        expect(
+          orch.transcriberErrorCode(
+            const TranscriberException(
+              'timed out',
+              reason: TranscriberFailureReason.timeout,
+            ),
+          ),
+          'cloud_timeout',
+        );
+      },
+    );
+
     test('transcribeBytes() throws → state is error', () async {
       fakeStt.transcribeThrows = true;
       final orch = await startRecordingPhase();
@@ -2049,6 +2749,51 @@ void main() {
       final state = container.read(recordingProvider);
       expect(state.phase, RecordingPhase.error);
       expect(state.errorMessage, contains('Transcription failed'));
+    });
+
+    group('kept audio after a failed transcription (UIA-FLW-01)', () {
+      setUp(() {
+        for (final f in _pendingTestDir.listSync()) {
+          f.deleteSync();
+        }
+      });
+
+      test(
+        'a repeatable failure keeps the audio for a retry without the retention setting',
+        () async {
+          fakeStt.transcribeError = const TranscriberException(
+            'Network error',
+            reason: TranscriberFailureReason.networkError,
+          );
+          final orch = await startRecordingPhase();
+
+          await orch.stopRecording();
+
+          expect(
+            container.read(recordingProvider).errorMessage,
+            'cloud_network_error',
+          );
+          final kept = await _pendingTestQueue.retryEntries();
+          expect(kept, hasLength(1));
+          expect(kept.single.errorCode, 'cloud_network_error');
+        },
+      );
+
+      test('a non-repeatable failure keeps no audio', () async {
+        fakeStt.transcribeError = const TranscriberException(
+          'Bad key',
+          reason: TranscriberFailureReason.authError,
+        );
+        final orch = await startRecordingPhase();
+
+        await orch.stopRecording();
+
+        expect(
+          container.read(recordingProvider).errorMessage,
+          'cloud_auth_error',
+        );
+        expect(await _pendingTestQueue.retryEntries(), isEmpty);
+      });
     });
 
     test('no history entry is saved on transcription error', () async {
@@ -3563,6 +4308,33 @@ void main() {
       expect((await db.getNote(note.id))?.content, isEmpty);
     });
 
+    test(
+      'a failed append ends in error, never done: no success toast, and '
+      'the transcript stays on the state so it can be copied (UIA-FLW-02)',
+      () async {
+        final note = await db.createNote();
+        await db.setQuickNote(note.id);
+        fakeStt.transcriptToReturn = 'Thought that must not be lost';
+
+        final orch = await startRecordingPhaseWithTarget(
+          target: RecordingTarget.quickNote,
+        );
+        orch.quickNoteLiveEditorOverride = (_, _) =>
+            throw StateError('database write failed');
+
+        var fired = false;
+        orch.onQuickNoteAppended = (_) => fired = true;
+
+        await orch.stopRecording();
+
+        final state = container.read(recordingProvider);
+        expect(state.phase, RecordingPhase.error);
+        expect(state.errorMessage, 'quick_note_append_failed');
+        expect(state.transcript, 'Thought that must not be lost');
+        expect(fired, isFalse);
+      },
+    );
+
     test('quickNoteEditorFlush runs BEFORE the note is read back, so content '
         'the editor had not persisted yet is part of the append', () async {
       final note = await db.createNote();
@@ -4232,6 +5004,158 @@ void main() {
       await orch.stopRecording();
     });
 
+    test('primes the paster in parallel: the mic starts while the paste '
+        'target capture is still pending', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      final capture = Completer<bool>();
+      fakeDesktopPaste.captureGate = capture;
+
+      final start = orch.startRecording();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(fakeAudio.startCallCount, 1);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      expect(
+        orch.debugLastMicStartTrace!.elapsedMs(MicStartStage.captureStarted),
+        isNotNull,
+      );
+      expect(
+        orch.debugLastMicStartTrace!.elapsedMs(MicStartStage.pasterPrimed),
+        isNull,
+      );
+
+      capture.complete(true);
+      await start;
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        orch.debugLastMicStartTrace!.elapsedMs(MicStartStage.pasterPrimed),
+        isNotNull,
+      );
+      await orch.stopRecording();
+    });
+
+    test(
+      'loads the speech model only after the microphone capture started',
+      () async {
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+        int? capturesWhenLoadBegan;
+        fakeStt.onEnsureRunning = () =>
+            capturesWhenLoadBegan ??= fakeAudio.startCallCount;
+
+        await orch.startRecording();
+        await Future<void>.delayed(Duration.zero);
+
+        expect(capturesWhenLoadBegan, 1);
+        await orch.stopRecording();
+      },
+    );
+
+    test(
+      'overlay and capture do not wait for a slow model load (guard)',
+      () async {
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+        // Stands in for a model load that takes 5 s: it never completes here.
+        fakeStt.loadGate = Completer<void>();
+
+        final start = orch.startRecording();
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        // The overlay is shown and paints its first frame while the load is
+        // still pending.
+        PerfMarkers.instance.markOverlayShown();
+        PerfMarkers.instance.markOverlayFirstFrame();
+        await start.timeout(const Duration(milliseconds: 250));
+
+        final trace = orch.debugLastMicStartTrace!;
+        expect(
+          trace.elapsedMs(MicStartStage.captureStarted),
+          lessThanOrEqualTo(250),
+        );
+        expect(trace.elapsedMs(MicStartStage.overlayVisible), isNotNull);
+        expect(trace.elapsedMs(MicStartStage.engineLoaded), isNull);
+        fakeStt.loadGate!.complete();
+        await orch.stopRecording();
+      },
+    );
+
+    test('starts the capture while a cold model load is still pending, so '
+        'hotkey to recording does not depend on the model state', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      fakeStt.loadGate = Completer<void>();
+
+      await orch.startRecording().timeout(const Duration(seconds: 2));
+
+      expect(fakeAudio.startCallCount, 1);
+      expect(container.read(recordingProvider).phase, RecordingPhase.recording);
+      expect(
+        orch.debugLastMicStartTrace!.elapsedMs(MicStartStage.captureStarted),
+        isNotNull,
+      );
+      fakeStt.loadGate!.complete();
+      await orch.stopRecording();
+    });
+
+    test('keeps a recording made during a cold model load and transcribes it '
+        'once the model is ready', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      final gate = fakeStt.loadGate = Completer<void>();
+
+      await orch.startRecording();
+      final stopped = orch.stopRecording();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(fakeStt.transcribeCallCount, 0);
+
+      gate.complete();
+      for (var i = 0; i < 50 && fakeStt.transcribeCallCount == 0; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(fakeStt.transcribeCallCount, 1);
+      await stopped;
+    });
+
+    test(
+      'logs the span summary at info level, so release builds carry it',
+      () async {
+        final records = <LogRecord>[];
+        final sub = Logger.root.onRecord.listen(records.add);
+        addTearDown(sub.cancel);
+        final orch = container.read(recordingOrchestratorProvider.notifier);
+        await Future<void>.delayed(Duration.zero);
+        fakeAudio.firstSampleCompleter = Completer<void>()..complete();
+
+        await orch.startRecording();
+        await Future<void>.delayed(Duration.zero);
+
+        final spans = records
+            .where((r) => r.message.contains('mic-start from'))
+            .toList();
+        expect(spans, hasLength(1));
+        expect(spans.single.level, Level.INFO);
+        expect(spans.single.message, contains('overlay visible'));
+        await orch.stopRecording();
+      },
+    );
+
+    test('stamps the overlay from its first painted frame', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      fakeAudio.firstSampleCompleter = Completer<void>();
+
+      PerfMarkers.instance.markHotkeyPressed();
+      PerfMarkers.instance.markOverlayShown();
+      await orch.startRecording();
+      PerfMarkers.instance.markOverlayFirstFrame();
+
+      final trace = orch.debugLastMicStartTrace!;
+      expect(trace.elapsedMs(MicStartStage.overlayVisible), isNotNull);
+      expect(trace.isComplete, isFalse);
+      await orch.stopRecording();
+    });
+
     test(
       'never stamps a first sample when the capture fails to start',
       () async {
@@ -4295,6 +5219,47 @@ void main() {
       expect(rows, hasLength(1));
       final latencyMs = rows.first.data['latency_ms'] as int;
       expect(latencyMs, greaterThanOrEqualTo(60));
+    });
+
+    test('also persists the time from the stop to the text, without the '
+        'speaking time (XP-6-09)', () async {
+      final orch = container.read(recordingOrchestratorProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+
+      PerfMarkers.instance.markHotkeyPressed();
+      await orch.startRecording();
+      // The speaking time between start and stop belongs to the user, not
+      // to the app: it counts toward latency_ms but not stop_to_text_ms.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      fakeStt.transcriptToReturn = 'Stop to text';
+      await orch.stopRecording();
+
+      final rows = await db
+          .customSelect('SELECT * FROM hotkey_latency_entries')
+          .get();
+      expect(rows, hasLength(1));
+      final latencyMs = rows.first.data['latency_ms'] as int;
+      final stopToTextMs = rows.first.data['stop_to_text_ms'] as int;
+      expect(latencyMs, greaterThanOrEqualTo(200));
+      expect(stopToTextMs, greaterThanOrEqualTo(0));
+      expect(stopToTextMs, lessThanOrEqualTo(latencyMs - 200));
+    });
+
+    test('the stop-to-text average skips samples without that value', () async {
+      await db.recordHotkeyLatency(recordedAt: DateTime.now(), latencyMs: 5000);
+      await db.recordHotkeyLatency(
+        recordedAt: DateTime.now(),
+        latencyMs: 3000,
+        stopToTextMs: 200,
+      );
+      await db.recordHotkeyLatency(
+        recordedAt: DateTime.now(),
+        latencyMs: 3000,
+        stopToTextMs: 400,
+      );
+
+      expect(await db.analyticsAverageStopToTextMs(), 300.0);
     });
 
     test('does not persist a sample when no hotkey press preceded the start '
@@ -4469,10 +5434,12 @@ void main() {
     late FakeTrayActionService fakeTray;
     late FakeSystemAttentionService fakeAttention;
     late FakeSoundFeedbackService fakeSoundFeedback;
+    late L10n l10n;
 
     ProviderContainer buildPasteContainer(
       AppSettings settings, {
       PasteCapabilityNotifier Function()? capabilityNotifier,
+      List<Override> extraOverrides = const [],
     }) {
       return ProviderContainer(
         overrides: [
@@ -4505,12 +5472,65 @@ void main() {
           }),
           if (capabilityNotifier != null)
             pasteCapabilityNotifierProvider.overrideWith(capabilityNotifier),
+          ...extraOverrides,
         ],
       );
     }
 
-    setUp(() {
+    setUp(() async {
       fakeTray = FakeTrayActionService();
+      l10n = await L10n.delegate.load(const Locale('en'));
+    });
+
+    group('GR-012 prompt gating after a dictation', () {
+      late _CountingReviewPrompt review;
+      late _CountingSupportPrompt support;
+
+      Future<void> dictate({required bool pasteSucceeds}) async {
+        if (!pasteSucceeds) {
+          fakeDesktopPaste.pasteStatusOverride = NativePasteStatus.postFailed;
+          fakeDesktopPaste.typeStatusOverride = NativePasteStatus.postFailed;
+        }
+        review = _CountingReviewPrompt();
+        support = _CountingSupportPrompt();
+        container.dispose();
+        container = buildPasteContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+          ),
+          extraOverrides: [
+            reviewPromptProvider.overrideWith(() => review),
+            supportPromptProvider.overrideWith(() => support),
+          ],
+        );
+        await container.read(settingsProvider.future);
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'prompt gating test';
+        await orch.stopRecording();
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      test('a pasted dictation checks both prompts and counts nothing as '
+          'unpasted', () async {
+        await dictate(pasteSucceeds: true);
+
+        expect(review.checkCalls, 1);
+        expect(support.checkCalls, 1);
+        expect(review.unpastedCalls, 0);
+      });
+
+      test('a failed paste skips both prompt checks and is counted as '
+          'unpasted', () async {
+        await dictate(pasteSucceeds: false);
+
+        expect(review.checkCalls, 0);
+        expect(support.checkCalls, 0);
+        expect(review.unpastedCalls, 1);
+      });
     });
 
     test('AC1 — a real paste failure (OS denies event injection, e.g. macOS '
@@ -4548,6 +5568,38 @@ void main() {
         reason: 'A real (non-blocklist) paste failure must be reported',
       );
       expect(failure!.outcome, PasteOutcome.permissionMissing);
+    });
+
+    test('a missing native paste channel reports a failure, so the run does '
+        'not finish as a success over text that never landed', () async {
+      fakeDesktopPaste.throwMissingPlugin = true;
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'No channel test';
+
+      await orch.stopRecording();
+
+      final failure = container.read(pasteFailureNotifierProvider);
+      expect(failure, isNotNull);
+      expect(failure!.outcome, PasteOutcome.platformUnavailable);
+      expect(
+        container.read(recordingProvider).pasteFailed,
+        isTrue,
+        reason: 'the done state must not take the success path',
+      );
     });
 
     test('issue 11 — a native foreground_blocked (Windows UIPI: target window '
@@ -4627,6 +5679,121 @@ void main() {
       );
       expect(fakeTray.setActionNeededCalls, isEmpty);
       expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
+    test(
+      'GS-075 pipeline — a blocklisted target ends the recording in the '
+      'copiedOnly state, which drives the "Nur kopiert" overlay label',
+      () async {
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.blocked.app';
+
+        container.dispose();
+        container = buildPasteContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            behavior: BehaviorSettings(autoPasteBlocklist: 'com.blocked.app'),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'Pipeline copied only test';
+
+        await orch.stopRecording();
+
+        final state = container.read(recordingProvider);
+        expect(
+          state.copiedOnly,
+          isTrue,
+          reason:
+              'A blocked paste must flag the finished recording as copiedOnly',
+        );
+        expect(state.historyOnly, isFalse);
+        expect(
+          doneMessageFor(null, l10n, copiedOnly: state.copiedOnly),
+          l10n.overlayDoneCopiedOnly,
+        );
+        expect(fakeDesktopPaste.pasteCalls, 0);
+      },
+    );
+
+    test(
+      'maintainer 4a+c — with the copy switch off a blocked paste is only in '
+      'the history, the overlay says so and nothing is pasted',
+      () async {
+        fakeDesktopPaste.targetBundleIdToReturn = 'com.blocked.app';
+
+        container.dispose();
+        container = buildPasteContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'English'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'paste',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            behavior: BehaviorSettings(
+              autoPasteBlocklist: 'com.blocked.app',
+              copyBlockedToClipboard: false,
+            ),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'History only test';
+
+        await orch.stopRecording();
+
+        final state = container.read(recordingProvider);
+        expect(state.historyOnly, isTrue);
+        expect(state.copiedOnly, isFalse);
+        expect(
+          doneMessageFor(null, l10n, historyOnly: state.historyOnly),
+          l10n.overlayDoneNotPasted,
+        );
+        expect(fakeDesktopPaste.pasteCalls, 0);
+      },
+    );
+
+    test('PIN lock — a blocked paste does not reveal the transcript in the '
+        'overlay while history content is hidden', () async {
+      fakeDesktopPaste.targetBundleIdToReturn = 'com.blocked.app';
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          behavior: BehaviorSettings(autoPasteBlocklist: 'com.blocked.app'),
+        ),
+        extraOverrides: [historyContentHiddenProvider.overrideWithValue(true)],
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      expect(container.read(historyContentHiddenProvider), isTrue);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'PIN-PROTECTED-SECRET';
+
+      await orch.stopRecording();
+
+      final state = container.read(recordingProvider);
+      final label = doneMessageFor(
+        null,
+        l10n,
+        copiedOnly: state.copiedOnly,
+        historyOnly: state.historyOnly,
+      );
+      expect(label, isNot(contains('PIN-PROTECTED')));
     });
 
     test(
@@ -4714,7 +5881,7 @@ void main() {
         // Default test settings use the (English) locale default — issue
         // overlay-status-l10n/01 root cause 2: this used to be a hardcoded
         // German literal regardless of the app's language setting.
-        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste Blocked');
+        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste blocked');
 
         // Baseline: the handoff bit is not yet set.
         expect(
@@ -4774,7 +5941,7 @@ void main() {
 
         expect(
           fakeAttention.lastTitle,
-          'WhisPaste: Restart Needed',
+          'WhisPaste: Restart needed',
           reason:
               'When needsRestart is true the notification must point at a '
               'restart, not another trip to Settings.',
@@ -4782,24 +5949,132 @@ void main() {
       },
     );
 
+    test('XP-5-06: on Linux the notification names /dev/uinput instead of the '
+        'macOS Accessibility permission, and clicking it opens the Auto-Paste '
+        'settings instead of a macOS deep-link', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      fakeDesktopPaste.pasteStatusOverride =
+          NativePasteStatus.permissionMissing;
+
+      final notifier = _SeededPasteCapabilityNotifier(
+        const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: false,
+          ),
+        ),
+      );
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+        capabilityNotifier: () => notifier,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'linux uinput test';
+      await orch.stopRecording();
+      await Future<void>.delayed(Duration.zero);
+
+      final en = lookupL10n(const Locale('en'));
+      expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste blocked');
+      expect(
+        fakeAttention.lastBody,
+        en.pasteNotificationLinuxUinputBody('Ctrl+V'),
+      );
+      expect(fakeAttention.lastBody, isNot(contains('macOS')));
+      expect(
+        fakeTray.setActionNeededCalls.single,
+        en.pasteNotificationLinuxUinputTray,
+      );
+      expect(fakeTray.setActionNeededKeys.single, kTrayPasteActionNeededKey);
+
+      fakeAttention.lastOnClick?.call();
+      expect(fakeTray.openActionNeededKeys, [kTrayPasteActionNeededKey]);
+      expect(
+        container.read(pasteCapabilityNotifierProvider).sentToOsGrantFlow,
+        isFalse,
+        reason:
+            'Linux has no OS grant flow; recording a handoff would turn '
+            'the next failure into a bogus "Restart needed".',
+      );
+    });
+
+    test('PAR-025: on Linux without any /dev/uinput device the notice says the '
+        'device is missing; it does not ask for the udev setup that cannot '
+        'help', () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      fakeDesktopPaste.pasteStatusOverride =
+          NativePasteStatus.permissionMissing;
+
+      final notifier = _SeededPasteCapabilityNotifier(
+        const PasteCapabilityState(
+          capability: PasteCapability(
+            status: PasteCapabilityStatus.unsupported,
+            canPrompt: false,
+          ),
+        ),
+      );
+
+      container.dispose();
+      container = buildPasteContainer(
+        const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'English'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'paste',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+        ),
+        capabilityNotifier: () => notifier,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'linux no device test';
+      await orch.stopRecording();
+      await Future<void>.delayed(Duration.zero);
+
+      final en = lookupL10n(const Locale('en'));
+      expect(fakeAttention.lastBody, isNot(contains('/dev/uinput')));
+      expect(
+        fakeAttention.lastBody,
+        isNot(en.pasteNotificationLinuxUinputBody('Ctrl+V')),
+      );
+      expect(
+        fakeTray.setActionNeededCalls.single,
+        isNot(en.pasteNotificationLinuxUinputTray),
+      );
+    });
+
     test(
-      'live-probe build: the permissionMissing notification offers the entry '
-      'reset instead of a Settings trip, and clicking it actually resets',
+      'live-probe build: a stale entry is named in the notification, and the '
+      'click resets only after the confirmation (declined here, no native '
+      'dialog in tests)',
       () async {
         fakeDesktopPaste.pasteStatusOverride =
             NativePasteStatus.permissionMissing;
 
-        // Same seed as the "routes to Settings (grant)" test above — only the
-        // build leg differs. On the live-probe leg a missing permission can be
-        // a TCC entry pinned to a binary that no longer exists, and Settings
-        // then shows the toggle already ON with nothing to do (the reported
-        // dead end), so the notification must clear the entry first.
+        // Stale evidence: this process already handed the user to Settings and
+        // the permission still reads missing. Only then may the entry reset
+        // be offered, and it still needs the user's confirmation.
         final notifier = _SeededPasteCapabilityNotifier(
           const PasteCapabilityState(
             capability: PasteCapability(
               status: PasteCapabilityStatus.permissionMissing,
               canPrompt: true,
             ),
+            sentToOsGrantFlow: true,
           ),
           cachedProbe: false,
         );
@@ -4823,7 +6098,7 @@ void main() {
         await orch.stopRecording();
         await Future<void>.delayed(Duration.zero);
 
-        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste Blocked');
+        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste blocked');
         expect(
           fakeAttention.lastBody,
           contains('stale entry'),
@@ -4835,7 +6110,6 @@ void main() {
 
         expect(fakeDesktopPaste.repairCalls, 0);
         fakeAttention.lastOnClick?.call();
-        // repair() -> requestGrant() is a two-step async chain.
         for (var i = 0; i < 8; i++) {
           await Future<void>.delayed(Duration.zero);
         }
@@ -4843,11 +6117,10 @@ void main() {
 
         expect(
           fakeDesktopPaste.repairCalls,
-          1,
+          0,
           reason:
-              'Clicking the notification must clear the stale TCC entry, not '
-              'just deep-link into Settings — the deep-link alone is what '
-              'showed the user an already-enabled toggle.',
+              'The native confirmation is unavailable in tests, so it counts '
+              'as declined. No reset may run without the user saying yes.',
         );
       },
       skip: !Platform.isMacOS,
@@ -5022,7 +6295,7 @@ void main() {
           'locale, not German', () async {
         await failPasteWithLocale(NativePasteStatus.noTarget, 'en');
 
-        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste Skipped');
+        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste skipped');
         expect(
           fakeAttention.lastBody,
           'No target app detected. Focus the destination app first, then '
@@ -5030,7 +6303,7 @@ void main() {
         );
         expect(
           fakeTray.setActionNeededCalls.single,
-          'Auto-Paste: Target App Missing',
+          'Auto-Paste: Target app missing',
         );
       });
 
@@ -5038,13 +6311,10 @@ void main() {
           'locale', () async {
         await failPasteWithLocale(NativePasteStatus.noTarget, 'de');
 
-        expect(
-          fakeAttention.lastTitle,
-          'WhisPaste: Auto-Einfügen übersprungen',
-        );
+        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste übersprungen');
         expect(
           fakeTray.setActionNeededCalls.single,
-          'Auto-Einfügen: Ziel-App fehlte',
+          'Auto-Paste: Ziel-App fehlte',
         );
       });
 
@@ -5052,7 +6322,7 @@ void main() {
           'under an English locale, not German', () async {
         await failPasteWithLocale(NativePasteStatus.foregroundBlocked, 'en');
 
-        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste Blocked');
+        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste blocked');
         expect(
           fakeAttention.lastBody,
           'The target app is running with administrator rights. Restart '
@@ -5060,7 +6330,7 @@ void main() {
         );
         expect(
           fakeTray.setActionNeededCalls.single,
-          'Auto-Paste Blocked — Administrator Needed',
+          'Auto-Paste blocked — administrator needed',
         );
       });
 
@@ -5068,8 +6338,8 @@ void main() {
           'English locale, not German', () async {
         await failPasteWithLocale(NativePasteStatus.postFailed, 'en');
 
-        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste Failed');
-        expect(fakeTray.setActionNeededCalls.single, 'Auto-Paste Failed');
+        expect(fakeAttention.lastTitle, 'WhisPaste: Auto-Paste failed');
+        expect(fakeTray.setActionNeededCalls.single, 'Auto-Paste failed');
       });
     });
   });
@@ -5661,6 +6931,9 @@ void main() {
       final orch = await setUpSelectionEdit(scanHook: (_) => scan.future);
       fakeDesktopPaste.onCopySelection = () => clipboardText = 'Ein Absatz.';
       fakeStt.transcriptToReturn = 'shorter';
+      // Keeps the selection's capitalised word: the fact guard (matrix 2.5)
+      // checks it for non-German selections.
+      engine.resultToReturn = 'Ein Absatz, kurz.';
 
       // Hotkey pressed while the startup scan is still in flight (the
       // model file exists on disk, the scan just has not reported yet).
@@ -5741,9 +7014,11 @@ void main() {
     ProviderContainer buildSmartModeContainer(
       AppSettings settings, {
       bool modelDownloaded = true,
+      List<Override> extraOverrides = const [],
     }) {
       return ProviderContainer(
         overrides: [
+          ...extraOverrides,
           historyDatabaseProvider.overrideWith((ref) {
             ref.onDispose(db.close);
             return db;
@@ -5958,6 +7233,327 @@ void main() {
       expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
     });
 
+    for (final blank in ['', '  \n']) {
+      test(
+        'an empty engine answer ${blank.isEmpty ? '(empty string)' : '(newline-only)'} '
+        'falls back to the raw transcript with an honest notice',
+        () async {
+          container.dispose();
+          container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+          await container.read(settingsProvider.future);
+          container.read(systemAttentionServiceProvider);
+          fakeSmartModeEngine.resultToReturn = blank;
+
+          final orch = await startRecordingPhase();
+          fakeStt.transcriptToReturn = 'raw text, empty answer';
+          await orch.stopRecording();
+
+          expect(clipboardText, 'raw text, empty answer');
+          expect(fakeAttention.requestAttentionCalls, 1);
+          expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+        },
+      );
+    }
+
+    test('a runaway engine result that repeats far beyond the input falls '
+        'back to the raw transcript instead of being pasted', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'and then more text ' * 40;
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, looping model';
+      await orch.stopRecording();
+
+      expect(clipboardText, 'raw text, looping model');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test('a Smart Mode dictation announces its undo (Block C)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Cleaned text.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text with um filler';
+      await orch.stopRecording();
+
+      final notice = container.read(smartModeUndoNoticeProvider);
+      expect(notice, isNotNull);
+      expect(
+        await db.getEntry(notice!.entryId),
+        isNotNull,
+        reason: 'the announced entry must exist in history',
+      );
+    });
+
+    test('a throwing fact guard keeps the raw transcript on the live path '
+        'and fires the Smart Mode fallback hint (DEV-141)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Sie kommen um 14 Uhr.';
+      debugSmartModeFactGuardOverride =
+          ({
+            required input,
+            required output,
+            required checkNames,
+            required knownTerms,
+            required singleCapitalisedWordsAreNames,
+          }) => throw StateError('boom');
+      addTearDown(() => debugSmartModeFactGuardOverride = null);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'Sie kommen um 14 Uhr.';
+      await orch.stopRecording();
+
+      expect(clipboardText, 'Sie kommen um 14 Uhr.');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test(
+      'a dictionary read that throws keeps the raw transcript (DEV-146)',
+      () async {
+        container.dispose();
+        container = buildSmartModeContainer(
+          settingsWithPreset('cleanup'),
+          extraOverrides: [
+            recordingStoreProvider.overrideWith(
+              (ref) => _ThrowingDictionaryStore(db),
+            ),
+          ],
+        );
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+        fakeSmartModeEngine.resultToReturn = 'Sie kommen um 14 Uhr.';
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'Sie kommen um 14 Uhr.';
+        await orch.stopRecording();
+
+        expect(clipboardText, 'Sie kommen um 14 Uhr.');
+        expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      },
+    );
+
+    test('a timed-out fact check keeps the raw transcript and says it timed '
+        'out, not that facts changed (DEV-151)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Sie kommen um 14 Uhr.';
+      debugSmartModeFactGuardOverride =
+          ({
+            required input,
+            required output,
+            required checkNames,
+            required knownTerms,
+            required singleCapitalisedWordsAreNames,
+          }) => throw TimeoutException('slow guard');
+      addTearDown(() => debugSmartModeFactGuardOverride = null);
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'Sie kommen um 14 Uhr.';
+      await orch.stopRecording();
+
+      expect(clipboardText, 'Sie kommen um 14 Uhr.');
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      expect(
+        fakeAttention.lastBody,
+        smartModeFallbackNoticeBody(
+          lookupL10n(const Locale('en')),
+          reason: SmartModeFallbackReason.timedOut,
+          delivery: SmartModeDelivery.clipboard,
+        ),
+      );
+    });
+
+    test('a result that changes a protected number falls back to the raw '
+        'transcript (fact guard, matrix 2.5)', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('cleanup'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeSmartModeEngine.resultToReturn = 'Sie kommen um 15 Uhr.';
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'Sie kommen um 14 Uhr.';
+      await orch.stopRecording();
+
+      expect(clipboardText, 'Sie kommen um 14 Uhr.');
+      expect(fakeAttention.requestAttentionCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+    });
+
+    test(
+      'a dictionary name at the start of a sentence is protected (DEV-57)',
+      () async {
+        await db.upsertReplacementWithTriggers(
+          id: 'r-mueller',
+          triggers: ['mueller'],
+          replacement: 'Müller',
+          createdAt: DateTime.now(),
+        );
+        container.dispose();
+        container = buildSmartModeContainer(
+          const AppSettings(
+            stt: SttSettings(model: 'whisper-small', language: 'German'),
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'clipboard',
+            ),
+            onboarding: OnboardingSettings(onboardingCompleted: true),
+            behavior: BehaviorSettings(textReplacementsEnabled: true),
+            smartMode: SmartModeSettings(standardPreset: 'cleanup'),
+          ),
+        );
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+        fakeSmartModeEngine.resultToReturn = 'Mueller kommt morgen.';
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'Mueller kommt morgen.';
+        await orch.stopRecording();
+
+        expect(clipboardText, 'Müller kommt morgen.');
+        expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      },
+    );
+
+    group('fact guard name rule follows the spoken language (DEV-83)', () {
+      AppSettings autoSettings() => const AppSettings(
+        stt: SttSettings(model: 'whisper-small', language: 'auto'),
+        afterTranscriptionSection: AfterTranscriptionSettings(
+          afterTranscription: 'clipboard',
+        ),
+        onboarding: OnboardingSettings(onboardingCompleted: true),
+        smartMode: SmartModeSettings(standardPreset: 'cleanup'),
+      );
+
+      Future<void> runAuto({required String detected}) async {
+        container.dispose();
+        container = buildSmartModeContainer(autoSettings());
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+        fakeStt.detectedLanguageToReturn = detected;
+        fakeStt.transcriptToReturn = 'Ich habe den Vortrag gehalten.';
+        fakeSmartModeEngine.resultToReturn = 'Ich habe die Rede gehalten.';
+        final orch = await startRecordingPhase();
+        await orch.stopRecording();
+      }
+
+      test('a German recording keeps the Smart Mode result', () async {
+        await runAuto(detected: 'de');
+
+        expect(clipboardText, 'Ich habe die Rede gehalten.');
+        expect(fakeAttention.lastKind, isNot(AttentionKind.smartModeFallback));
+      });
+
+      test('a non-German recording checks single capitalised words', () async {
+        await runAuto(detected: 'en');
+
+        expect(clipboardText, 'Ich habe den Vortrag gehalten.');
+        expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      });
+    });
+
+    group('dictionary replacements run before Smart Mode', () {
+      late AppSettings replacingSettings;
+
+      setUp(() async {
+        await db.upsertReplacementWithTriggers(
+          id: 'r-mfg',
+          triggers: ['mfg'],
+          replacement: 'Mit freundlichen Grüßen',
+          createdAt: DateTime.now(),
+        );
+        replacingSettings = const AppSettings(
+          stt: SttSettings(model: 'whisper-small', language: 'German'),
+          afterTranscriptionSection: AfterTranscriptionSettings(
+            afterTranscription: 'clipboard',
+          ),
+          onboarding: OnboardingSettings(onboardingCompleted: true),
+          behavior: BehaviorSettings(textReplacementsEnabled: true),
+          smartMode: SmartModeSettings(standardPreset: 'cleanup'),
+        );
+      });
+
+      test(
+        'the engine receives the replaced text, not the raw transcript',
+        () async {
+          container.dispose();
+          container = buildSmartModeContainer(replacingSettings);
+          await container.read(settingsProvider.future);
+          container.read(systemAttentionServiceProvider);
+          fakeSmartModeEngine.resultToReturn = 'Cleaned.';
+
+          final orch = await startRecordingPhase();
+          fakeStt.transcriptToReturn = 'bitte mfg schicken';
+          await orch.stopRecording();
+
+          expect(
+            fakeSmartModeEngine.lastUserText,
+            'bitte Mit freundlichen Grüßen schicken',
+          );
+          expect(clipboardText, 'Cleaned.');
+        },
+      );
+
+      test('a runaway engine result falls back to the replaced text, not the '
+          'raw transcript', () async {
+        container.dispose();
+        container = buildSmartModeContainer(replacingSettings);
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+        fakeSmartModeEngine.resultToReturn = 'and then more text ' * 40;
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'bitte mfg schicken';
+        await orch.stopRecording();
+
+        expect(clipboardText, 'bitte Mit freundlichen Grüßen schicken');
+        expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      });
+
+      test('the engine output is not replaced a second time', () async {
+        container.dispose();
+        container = buildSmartModeContainer(replacingSettings);
+        await container.read(settingsProvider.future);
+        container.read(systemAttentionServiceProvider);
+        fakeSmartModeEngine.resultToReturn = 'Bitte mfg schicken.';
+
+        final orch = await startRecordingPhase();
+        fakeStt.transcriptToReturn = 'bitte Mit freundlichen Grüßen schicken';
+        await orch.stopRecording();
+
+        expect(clipboardText, 'Bitte mfg schicken.');
+      });
+    });
+
+    test('a long translation is not mistaken for a loop, because the target '
+        'language may be much longer than the source', () async {
+      container.dispose();
+      container = buildSmartModeContainer(settingsWithPreset('translate'));
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      final translated = 'translated sentence number one. ' * 12;
+      fakeSmartModeEngine.resultToReturn = translated;
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'kurzer Satz';
+      await orch.stopRecording();
+
+      expect(clipboardText, translated);
+      expect(fakeAttention.requestAttentionCalls, 0);
+    });
+
     test('standard preset "concise" with a downloaded model replaces the '
         'pasted text with the shortened engine result', () async {
       container.dispose();
@@ -6110,6 +7706,95 @@ void main() {
       );
       expect(clipboardText, 'Texte traduit.');
     });
+
+    // UIA-XP-7-05: the notice fires after the paste step and describes what
+    // actually happened to the text; it never claims an insertion that did
+    // not happen, and it names the missing text model as the reason.
+    AppSettings cleanupSettings(String afterAction) => AppSettings(
+      stt: const SttSettings(model: 'whisper-small', language: 'English'),
+      afterTranscriptionSection: AfterTranscriptionSettings(
+        afterTranscription: afterAction,
+      ),
+      onboarding: const OnboardingSettings(onboardingCompleted: true),
+      smartMode: const SmartModeSettings(standardPreset: 'cleanup'),
+    );
+
+    test('no text model and a confirmed paste: the notice names the reason '
+        'and says the raw text was pasted', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        cleanupSettings('clipboard_and_paste'),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeDesktopPaste.pasteResult = true;
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, no model';
+      await orch.stopRecording();
+
+      final en = lookupL10n(const Locale('en'));
+      expect(fakeDesktopPaste.pasteCalls, 1);
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      expect(
+        fakeAttention.lastBody,
+        '${en.notificationSmartModeSkippedNoTextModel} '
+        '${en.notificationSmartModeOutcomePasted}',
+      );
+    });
+
+    test('no text model and a refused paste with the copy kept on the '
+        'clipboard: the notice says clipboard only, never pasted', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        cleanupSettings('clipboard_and_paste'),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeDesktopPaste.pasteResult = false;
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, refused paste';
+      await orch.stopRecording();
+
+      final en = lookupL10n(const Locale('en'));
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      expect(
+        fakeAttention.lastBody,
+        '${en.notificationSmartModeSkippedNoTextModel} '
+        '${en.notificationSmartModeOutcomeClipboard}',
+      );
+      expect(
+        fakeAttention.lastBody,
+        isNot(contains(en.notificationSmartModeOutcomePasted)),
+      );
+    });
+
+    test('no text model, paste-only action and a refused paste: the notice '
+        'says nothing was inserted', () async {
+      container.dispose();
+      container = buildSmartModeContainer(
+        cleanupSettings('paste'),
+        modelDownloaded: false,
+      );
+      await container.read(settingsProvider.future);
+      container.read(systemAttentionServiceProvider);
+      fakeDesktopPaste.pasteResult = false;
+
+      final orch = await startRecordingPhase();
+      fakeStt.transcriptToReturn = 'raw text, paste only';
+      await orch.stopRecording();
+
+      final en = lookupL10n(const Locale('en'));
+      expect(fakeAttention.lastKind, AttentionKind.smartModeFallback);
+      expect(
+        fakeAttention.lastBody,
+        '${en.notificationSmartModeSkippedNoTextModel} '
+        '${en.notificationSmartModeOutcomeNone}',
+      );
+    });
   });
 }
 
@@ -6149,7 +7834,7 @@ class _NotReadySttService extends SttServerStateNotifier {
       const SttStatus(serverState: SttServerState.stopped, port: 0);
 
   @override
-  Future<void> ensureRunning() async {
+  Future<void> ensureRunning({bool warmup = true}) async {
     state = statusAfterEnsure;
   }
 

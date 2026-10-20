@@ -23,6 +23,7 @@ import 'package:whispaste/services/update_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../fixtures/record_device_listing_stub.dart';
 
 // ---------------------------------------------------------------------------
 // No-op fakes — avoid platform-channel and subprocess side effects
@@ -79,6 +80,7 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 // ---------------------------------------------------------------------------
 
 void main() {
+  stubRecordDeviceListing();
   TestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('_AppShell Scaffold has no FloatingActionButton in widget tree', (

@@ -22,7 +22,8 @@ import 'package:file/file.dart';
 import 'package:file/local.dart';
 
 import '../core/config/settings_provider.dart' show AppSettings;
-import '../core/config/settings_sections.dart' show HotkeySettings;
+import '../core/config/settings_sections.dart'
+    show HotkeySettings, migrateLegacyOverlayStyle;
 import '../features/replacements/replacements_page.dart' show Replacement;
 import '../features/snippets/snippets_page.dart' show SnippetItem;
 
@@ -45,6 +46,7 @@ const Set<String> settingsPortabilityDenyList = {
   'tier_benchmark_rtf',
   'benchmark_hardware_id',
   'benchmark_timestamp',
+  'benchmark_backend',
   // WindowPositionSettings — monitorgebunden.
   'floating_button_x',
   'floating_button_y',
@@ -55,6 +57,8 @@ const Set<String> settingsPortabilityDenyList = {
   'window_width',
   'window_height',
   'window_maximized',
+  // Monitor-bound overlay positions (WP-39, 9.4): meaningless on another machine.
+  'overlay_positions_by_monitor',
   // OnboardingSettings — Fortschritt/Zustand, keine Präferenz.
   'onboarding_completed',
   'onboarding_current_step',
@@ -136,14 +140,25 @@ const Set<String> settingsPortabilityDenyList = {
 /// reconstructed from reading section classes by eye.
 const Set<String> settingsPortabilityPortableKeysForTest = {
   'after_transcription',
+  // ADR 0023: light/dark/brand/system appearance — a display preference.
+  'appearance',
   'auto_paste_blocklist',
   'auto_paste_delay',
+  // Maintainer 4a+c: travels with the blocklist it belongs to.
+  'copy_blocked_to_clipboard',
+  // V1 Wayland: how this user wants Linux to paste; no machine state.
+  'linux_always_shift_paste',
+  // Clipboard after pasting: restore the previous content or keep the dictation.
+  'restore_clipboard_after_paste',
   // Local Automation API (`.scratch/local-automation-api/`) — the user's own
   // choice to run/expose the loopback server and which port to request; the
   // bearer token itself lives in secure storage and is never part of this
   // map, so importing these two carries no secret.
   'automation_api_custom_port',
   'automation_api_enabled',
+  // Loopback-only hook URLs and event choices: the user's own integration
+  // config, no token or secret.
+  'automation_hooks',
   'auto_stop_silence',
   'check_updates',
   'close_to_tray',
@@ -172,6 +187,12 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'hotkey_key_display',
   'hotkey_modifiers',
   'input_gain',
+  // User-ordered microphone fallback list — a preference, travels with the
+  // selected microphone.
+  'microphone_priority',
+  // WP-39, 9.1: recording controls — preferences.
+  'double_tap_hands_free',
+  'cancel_dictation_key',
   'launch_at_startup',
   'locale',
   'max_record_duration',
@@ -181,7 +202,21 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'overlay_show_live_transcript',
   'overlay_size',
   'overlay_start_position',
-  'overlay_style',
+  'overlay_background',
+  'overlay_wave',
+  // WP-95: overlay shape, waveform style, content and opacity — display
+  // preferences like the 'overlay_*' keys around them.
+  'overlay_form',
+  'overlay_wave_style',
+  'overlay_wave_fluid',
+  'overlay_show_timer',
+  'overlay_show_cancel',
+  'overlay_opacity',
+  // WP-95 floating-button look: size, shape, recording ring, resting opacity.
+  'overlay_button_size',
+  'overlay_button_shape',
+  'overlay_button_ring',
+  'overlay_button_idle_opacity',
   'push_to_talk',
   // Ticket handy-catchup/07: hold-or-tap sub-option of push-to-talk — same
   // behavior-preference portability as 'push_to_talk' itself.
@@ -192,6 +227,9 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'quick_note_hotkey_key',
   'quick_note_hotkey_key_display',
   'quick_note_hotkey_modifiers',
+  // Where a quick note opens after saving: a behavior preference like the
+  // hotkey keys above (SHL-08).
+  'quick_note_open_in_main_window',
   'record_start_sound',
   'record_stop_sound',
   // PrivacySettings — a behavior preference, not the audio data itself
@@ -222,6 +260,10 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'show_backend_utilization',
   'show_floating_button',
   'show_notifications',
+  // WP-39 category switches for native notifications — display preferences.
+  'notify_paste_problems',
+  'notify_smart_mode_fallback',
+  'notify_microphone_problems',
   'show_overlay',
   // Ticket 26: third, independently configurable hotkey (opens the
   // Snippet-Picker panel) — same portability rationale as 'hotkey_*'/
@@ -253,13 +295,21 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'sound_volume',
   'start_minimized',
   'stt_engine',
+  // Favorite languages and the next-favorite-language hotkey (SW-01/SW-02):
+  // plain user preferences, like the other stt_* keys.
+  'stt_favorite_languages',
   'stt_idle_timeout_minutes',
   'stt_language',
+  'stt_language_cycle_hotkey_enabled',
+  'stt_language_cycle_hotkey_key',
+  'stt_language_cycle_hotkey_key_display',
+  'stt_language_cycle_hotkey_modifiers',
   'stt_model',
   'stt_numeric_only_mode',
   'stt_provider',
   'stt_punctuation_priming',
   'stt_remove_filler_words',
+  'stt_spoken_punctuation',
   'stt_strip_punctuation',
   'stt_vad_enabled',
   'stt_voice_line_breaks',
@@ -369,7 +419,7 @@ AppSettings mergeImportedSettings(
   Map<String, String> imported,
 ) {
   final filteredImported = <String, String>{
-    for (final entry in imported.entries)
+    for (final entry in migrateLegacyOverlayStyle(imported).entries)
       if (!settingsPortabilityDenyList.contains(entry.key))
         entry.key: entry.value,
   };
@@ -396,6 +446,14 @@ class SettingsImportFormatException implements Exception {
   String toString() => 'SettingsImportFormatException: $message';
 }
 
+/// The file exceeds [settingsImportMaxBytes]. A subtype of
+/// [SettingsImportFormatException] so generic format handling still applies,
+/// while the UI can name the size limit as the reason.
+class SettingsImportTooLargeException extends SettingsImportFormatException {
+  const SettingsImportTooLargeException()
+    : super('Export file is larger than 5 MiB');
+}
+
 /// Thrown by `importFromFile` when no file exists at the given path.
 ///
 /// A dedicated type (rather than relying on the underlying [FileSystem]
@@ -418,6 +476,20 @@ class SettingsImportFileNotFoundException implements Exception {
 /// Encodes/decodes [SettingsExportBundle] as JSON and reads/writes it via an
 /// injectable [FileSystem] (production: [LocalFileSystem]; tests: a
 /// `MemoryFileSystem`) — mirrors the seam used by `FactoryResetCoordinator`.
+/// Settings files above this size are refused before they are read (C-M-3).
+const int settingsImportMaxBytes = 5 * 1024 * 1024;
+
+/// Replacements, snippets or settings entries above this count are refused.
+const int settingsImportMaxEntries = 5000;
+
+/// Keys a file may carry on export but that import never applies (WP-43a
+/// C-M-5). Turning on the automation API or its hooks must be a deliberate
+/// choice in the settings UI, not a side effect of opening a file.
+const Set<String> settingsImportRefusedKeys = {
+  'automation_api_enabled',
+  'automation_hooks',
+};
+
 class SettingsPortabilityService {
   const SettingsPortabilityService({FileSystem? fileSystem})
     : _fileSystem = fileSystem ?? const LocalFileSystem();
@@ -473,6 +545,9 @@ class SettingsPortabilityService {
   /// [SettingsImportFormatException] for malformed or structurally invalid
   /// content.
   SettingsExportBundle decode(String jsonString) {
+    if (jsonString.length > settingsImportMaxBytes) {
+      throw const SettingsImportTooLargeException();
+    }
     final Object? raw;
     try {
       raw = jsonDecode(jsonString);
@@ -502,6 +577,11 @@ class SettingsPortabilityService {
     if (replacementsRaw is! List) {
       throw const SettingsImportFormatException('Missing "replacements" list');
     }
+    if (replacementsRaw.length > settingsImportMaxEntries) {
+      throw const SettingsImportFormatException(
+        'Too many replacements in the export file',
+      );
+    }
 
     // v1 lift: `custom_vocabulary` is literally the storage key
     // `SttSettings.toMap()` writes, and the `hotkey` object's entries are
@@ -517,7 +597,15 @@ class SettingsPortabilityService {
         for (final entry in settingsRaw.entries)
           '${entry.key}': '${entry.value}',
     };
+    if (settings.length > settingsImportMaxEntries) {
+      throw const SettingsImportFormatException(
+        'Too many settings entries in the export file',
+      );
+    }
     for (final key in settingsPortabilityDenyList) {
+      settings.remove(key);
+    }
+    for (final key in settingsImportRefusedKeys) {
       settings.remove(key);
     }
 
@@ -530,6 +618,11 @@ class SettingsPortabilityService {
     // "absent" and "malformed" into `null` and only a real JSON list
     // (including `[]`) decodes to a list.
     final snippetsRaw = raw['snippets'];
+    if (snippetsRaw is List && snippetsRaw.length > settingsImportMaxEntries) {
+      throw const SettingsImportFormatException(
+        'Too many snippets in the export file',
+      );
+    }
 
     return SettingsExportBundle(
       settings: settings,
@@ -603,6 +696,9 @@ class SettingsPortabilityService {
     final file = _fileSystem.file(path);
     if (!await file.exists()) {
       throw SettingsImportFileNotFoundException(path);
+    }
+    if (await file.length() > settingsImportMaxBytes) {
+      throw const SettingsImportTooLargeException();
     }
     final content = await file.readAsString();
     return decode(content);

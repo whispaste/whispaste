@@ -17,7 +17,7 @@
 # install-uinput-rule.sh (run once with sudo). AppImage, Flatpak and Snap do not
 # ship it yet; for those, install it by hand:
 #   sudo cp packaging/linux/71-whispaste-uinput.rules /etc/udev/rules.d/
-#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#   sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput
 #   sudo usermod -aG input "$USER"   # only needed as the GROUP= fallback
 #   # then log out/in (or reboot) for the group membership to take effect
 KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input", TAG+="uaccess"

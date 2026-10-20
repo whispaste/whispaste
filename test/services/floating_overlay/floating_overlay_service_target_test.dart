@@ -20,10 +20,12 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/recording/discard_confirmation.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart'
     show OverlayDesignSpec, OverlaySizeVariant;
+import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
@@ -133,6 +135,7 @@ AppSettings _settings({
   String afterTranscription = 'paste',
   QuickNoteHotkeySettings quickNote = _quickNoteHotkey,
   HotkeySettings hotkey = const HotkeySettings(),
+  AudioInputSettings audioInput = const AudioInputSettings(),
 }) => AppSettings(
   overlay: OverlaySettings(overlaySize: size.value),
   afterTranscriptionSection: AfterTranscriptionSettings(
@@ -140,6 +143,7 @@ AppSettings _settings({
   ),
   quickNoteHotkey: quickNote,
   hotkey: hotkey,
+  audioInput: audioInput,
 );
 
 _Harness _build(FakeAsync async, {AppSettings? settings}) {
@@ -150,6 +154,7 @@ _Harness _build(FakeAsync async, {AppSettings? settings}) {
       settingsProvider.overrideWith(
         () => _CapturingSettingsNotifier(settings ?? _settings()),
       ),
+      audioServiceProvider.overrideWith(_MicOpenAudioNotifier.new),
       floatingOverlayServiceProvider.overrideWith(
         () => _TestableService(fake, now: () => epoch.add(async.elapsed)),
       ),
@@ -182,6 +187,18 @@ void _record(
   rec.completeTranscription('hallo welt');
   async.elapse(const Duration(milliseconds: 5));
   async.flushMicrotasks();
+}
+
+/// Mic-open precondition for snapshot-content tests (briefing criterion 4):
+/// the recording content is only shown once the capture runs, so these tests
+/// model an opened microphone. The start-feedback rule itself is covered in
+/// `floating_overlay_service_recovery_test.dart`.
+class _MicOpenAudioNotifier extends AudioServiceNotifier {
+  @override
+  AudioStatus build() => const AudioStatus(
+    captureState: AudioCaptureState.recording,
+    hasLiveSamples: true,
+  );
 }
 
 void main() {
@@ -242,6 +259,45 @@ void main() {
       }
     });
 
+    test(
+      'shows the discard prompt while a long recording awaits confirmation',
+      () {
+        FakeAsync().run((async) {
+          final h = _build(async);
+          try {
+            _record(h, async, target: RecordingTarget.quickNote);
+            h.container
+                .read(discardConfirmProvider.notifier)
+                .onCancelPressed(const Duration(seconds: 40));
+            async.elapse(const Duration(milliseconds: 5));
+            async.flushMicrotasks();
+
+            expect(h.snapshot.hint, _l10n.overlayDiscardConfirm('Esc'));
+          } finally {
+            h.dispose();
+          }
+        });
+      },
+    );
+
+    test('names F12 as the cancel key when it is the configured one', () {
+      FakeAsync().run((async) {
+        final h = _build(
+          async,
+          settings: _settings(
+            audioInput: const AudioInputSettings(cancelDictationKey: 'f12'),
+          ),
+        );
+        try {
+          _record(h, async, target: RecordingTarget.quickNote);
+
+          expect(h.snapshot.hint, endsWith('· F12 to cancel'));
+        } finally {
+          h.dispose();
+        }
+      });
+    });
+
     test('nennt im Stopp-Hinweis die Schnellnotiz-Kombination', () {
       FakeAsync().run((async) {
         final h = _build(async);
@@ -254,7 +310,10 @@ void main() {
             l10n: _l10n,
             displayOverride: _quickNoteHotkey.quickNoteHotkeyKeyDisplay,
           );
-          expect(h.snapshot.hint, _l10n.overlayKeyboardHint(expected));
+          expect(
+            h.snapshot.hint,
+            _l10n.overlayStopAndCancelHint(expected, 'Esc'),
+          );
 
           final mainHotkey = formatHotkeyShortcut(
             const AppSettings().hotkeyModifiers,
@@ -741,12 +800,13 @@ void main() {
           expect(h.snapshot.elapsed, '0:00');
           expect(
             h.snapshot.hint,
-            _l10n.overlayKeyboardHint(
+            _l10n.overlayStopAndCancelHint(
               formatHotkeyShortcut(
                 const AppSettings().hotkeyModifiers,
                 const AppSettings().hotkeyKey,
                 l10n: _l10n,
               ),
+              'Esc',
             ),
           );
         } finally {

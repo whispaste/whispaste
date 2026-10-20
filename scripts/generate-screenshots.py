@@ -3,11 +3,12 @@
 WhisPaste screenshot pipeline — cross-platform (macOS / Windows / Linux).
 
 Generates all store composites, website screenshots, and OG images
-from Flutter golden tests in a single clean run.
+from the store screenshot generator (Flutter test tagged `store`) in a single
+clean run.
 
 Pipeline:
   1. Clean all output directories
-  2. flutter test --update-goldens  →  generates golden PNGs
+  2. flutter test --tags=store --update-goldens  →  regenerates the store PNGs
   3. Copy goldens → website/public/screenshots/{locale}/{theme}/{name}.png
   4. node tools/appstore-screens/render-hero-device.cjs  →  approved photographic
      hero (laptop + hand, real app UI) — a hard dependency of step 5, MUST run
@@ -150,14 +151,14 @@ def step_clean() -> None:
 
 
 def step_generate(flutter: str) -> bool:
-    """Run flutter test --update-goldens to regenerate golden PNGs."""
-    print("\n🧪 Running golden tests (flutter test --update-goldens)...")
+    """Run the store screenshot generator (tag `store`) to regenerate the PNGs."""
+    print("\n🧪 Generating store screenshots (flutter test --tags=store --update-goldens)...")
     result = subprocess.run(
-        [flutter, "test", "--update-goldens", TEST_PATH],
+        [flutter, "test", "--tags=store", "--update-goldens", TEST_PATH],
         cwd=str(ROOT),
     )
     if result.returncode != 0:
-        print("\n❌ Golden tests failed — check output above.")
+        print("\n❌ Store screenshot generation failed — check output above.")
         return False
     return True
 
@@ -274,10 +275,10 @@ def main() -> None:
         if not step_generate(flutter):
             sys.exit(1)
     else:
-        print("\n⏭  Skipping golden regen (--no-regen)")
+        print("\n⏭  Skipping store screenshot regen (--no-regen)")
 
     if not WINDOWS_GOLDENS_DIR.exists() or not any(WINDOWS_GOLDENS_DIR.glob("*.png")):
-        print("\n❌ No goldens found. Run without --no-regen first.")
+        print("\n❌ No store PNGs found. Run without --no-regen first.")
         sys.exit(1)
 
     print(f"\n🌐 Copying to website/public/screenshots/")

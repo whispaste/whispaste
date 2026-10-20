@@ -6,11 +6,14 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../services/deploy_channel_service.dart';
 import '../../../services/model_download_service.dart'
     show formatModelSizeLabel;
 import '../../../services/stt/whisper/cuda_pack.dart';
 import '../../../widgets/wp_button.dart';
+import '../../../widgets/dialog.dart';
 import '../settings_widgets.dart';
+import '../widgets/wp_settings_group.dart';
 
 /// Settings row for the optional NVIDIA CUDA pack (see `cuda_pack.dart`):
 /// download with progress and cancel, then an on/off switch and a remove
@@ -24,6 +27,21 @@ class CudaPackRow extends ConsumerWidget {
     final state = ref.watch(cudaPackProvider);
     final pack = state.pack;
     if (pack == null) return const SizedBox.shrink();
+    // Store builds: the driver download is not allowed there (AR-19). The row
+    // stays visible, disabled, with the reason (WP-23g).
+    if (ref.watch(deployChannelProvider) == DeployChannel.store) {
+      return WpSettingsRow(
+        rowId: 'speech-cuda-pack',
+        title: l10n.settingsCudaPackTitle,
+        key: const ValueKey('settings-row-speech-cuda-pack'),
+        subtitle: l10n.settingsStoreCudaUnavailable,
+        trailing: WpButton(
+          label: l10n.settingsCudaPackDownload,
+          variant: WpButtonVariant.secondary,
+          onPressed: null,
+        ),
+      );
+    }
     final notifier = ref.read(cudaPackProvider.notifier);
 
     if (state.installed && !state.isBusy) {
@@ -32,10 +50,10 @@ class CudaPackRow extends ConsumerWidget {
           (s) => s.value?.behavior.cudaAcceleration ?? true,
         ),
       );
-      return SettingRow(
+      return WpSettingsRow(
+        rowId: 'speech-cuda-pack',
+        title: l10n.settingsCudaPackTitle,
         key: const Key('settings-cuda-pack-row'),
-        icon: LucideIcons.gauge,
-        label: l10n.settingsCudaPackTitle,
         subtitle: l10n.settingsCudaPackInstalledSubtitle,
         semanticToggledValue: enabled,
         trailing: Row(
@@ -62,7 +80,16 @@ class CudaPackRow extends ConsumerWidget {
                 key: const Key('settings-cuda-pack-remove'),
                 icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
                 tooltip: l10n.settingsCudaPackRemove,
-                onPressed: notifier.remove,
+                onPressed: () async {
+                  final confirmed = await confirmDestructive(
+                    context: context,
+                    title: l10n.settingsCudaPackRemoveConfirm,
+                    message: l10n.settingsCudaPackRemoveConfirmMessage,
+                    confirmLabel: l10n.settingsCudaPackRemove,
+                    cancelLabel: l10n.actionCancel,
+                  );
+                  if (confirmed) notifier.remove();
+                },
               ),
             ),
           ],
@@ -132,7 +159,7 @@ class CudaPackRow extends ConsumerWidget {
                   error,
                   key: const Key('settings-cuda-pack-error'),
                   textAlign: TextAlign.end,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.caption,
                     color: WpColors.error,
                   ),
@@ -150,10 +177,10 @@ class CudaPackRow extends ConsumerWidget {
       );
     }
 
-    return SettingRow(
+    return WpSettingsRow(
+      rowId: 'speech-cuda-pack',
+      title: l10n.settingsCudaPackTitle,
       key: const Key('settings-cuda-pack-row'),
-      icon: LucideIcons.gauge,
-      label: l10n.settingsCudaPackTitle,
       subtitle: l10n.settingsCudaPackSubtitle(
         formatModelSizeLabel(pack.archiveSizeBytes),
       ),

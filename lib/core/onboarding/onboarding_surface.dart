@@ -89,6 +89,22 @@ final onboardingManuallyOpenProvider =
       OnboardingManuallyOpenNotifier.new,
     );
 
+/// Asks the onboarding overlay to show the speech model step. A "model
+/// missing" notice raised while the flow is on screen points back into it
+/// instead of out to Settings (UIA-RT-01). Each [request] bumps the count, so
+/// a repeated request still reaches the listener.
+class OnboardingModelStepRequestNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void request() => state++;
+}
+
+final onboardingModelStepRequestProvider =
+    NotifierProvider<OnboardingModelStepRequestNotifier, int>(
+      OnboardingModelStepRequestNotifier.new,
+    );
+
 /// Whether an onboarding revision run (`.scratch/onboarding-revisions/
 /// issues/02`, started by `.scratch/onboarding-revisions/issues/03`) is
 /// currently in progress — session state, **never persisted**, for the
@@ -133,6 +149,21 @@ class OnboardingRevisionRunNotifier extends Notifier<bool> {
   /// back to zero, and clears the flag — in that order, so a failure
   /// between the settings write and the flag clear leaves the run still
   /// "in progress" rather than silently losing the stamp.
+  /// Leaves a run without stamping it: the flag clears, the stored version
+  /// stays where it was, so the next start offers the run again in full.
+  /// Used when a link leaves onboarding mid-run (`markRevisionSeen: false` on
+  /// [leaveOnboardingSurface]); the visible exit still goes through [complete].
+  Future<void> abandon() async {
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            onboarding: s.onboarding.copyWith(onboardingCurrentStep: 0),
+          ),
+        );
+    state = false;
+  }
+
   Future<void> complete() async {
     final registry = ref.read(onboardingRevisionRegistryProvider);
     final target = targetOnboardingContentVersion(
@@ -190,13 +221,25 @@ final onboardingSurfaceActiveProvider = Provider<bool>((ref) {
 /// Those only flip `activePageProvider` — which the overlay, still on top per
 /// [onboardingSurfaceActiveProvider], keeps invisible. Calling this first
 /// makes the overlay unmount so the requested page is actually seen.
-Future<void> leaveOnboardingSurface(WidgetRef ref) async {
+///
+/// [markRevisionSeen] `false` lets a link out of a revision run leave the run
+/// unstamped, so the next start offers the revision again (including the
+/// steps the user skipped). The regular end of the flow stamps it as before.
+Future<void> leaveOnboardingSurface(
+  WidgetRef ref, {
+  bool markRevisionSeen = true,
+}) async {
   if (ref.read(onboardingManuallyOpenProvider)) {
     ref.read(onboardingManuallyOpenProvider.notifier).close();
     return;
   }
   if (ref.read(onboardingRevisionRunProvider)) {
-    await ref.read(onboardingRevisionRunProvider.notifier).complete();
+    final run = ref.read(onboardingRevisionRunProvider.notifier);
+    if (markRevisionSeen) {
+      await run.complete();
+    } else {
+      await run.abandon();
+    }
     return;
   }
   final onboarding = ref.read(settingsProvider).value?.onboarding;

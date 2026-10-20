@@ -2,6 +2,8 @@
 /// themed styling, icon, and smooth animation. Replaces default SnackBars.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
@@ -14,6 +16,9 @@ import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
 import '../services/telemetry_service.dart';
 import 'wp_button.dart';
+import 'wp_focus_ring.dart';
+import 'wp_toast_dock.dart';
+import 'wp_touch_target.dart';
 
 /// Toast severity levels — controls icon, color, and animation style.
 enum WpToastType { success, error, info, warning }
@@ -47,7 +52,7 @@ void copyToClipboardWithToast({
 ///
 /// Use with [WpToast.show]'s [WpToast.show.action] parameter to render a
 /// trailing text-button on the toast card. The PRD-driven actions are
-/// things like „Einstellungen öffnen", „Erneut versuchen", „App schließen"
+/// things like „Einstellungen öffnen", „Erneut versuchen", „Schließen"
 /// and „Diagnose kopieren" — each one points the user at a single concrete
 /// next step instead of a generic „Etwas ist schiefgelaufen"-Meldung.
 ///
@@ -56,10 +61,64 @@ void copyToClipboardWithToast({
 /// sites cannot forget one half. Tapping the button fires [onPressed] and
 /// dismisses the toast.
 class WpToastAction {
-  const WpToastAction({required this.label, required this.onPressed});
+  const WpToastAction({
+    required this.label,
+    required this.onPressed,
+    this.testId,
+  });
 
   final String label;
   final VoidCallback onPressed;
+
+  /// Stable id for the action button (`ValueKey`), so a call site with several
+  /// toasts can address its own action. Falls back to `toast-action`.
+  final String? testId;
+}
+
+/// Open popup routes (dialogs, menus) per navigator, kept by
+/// [WpToastPopupObserver] and read by [WpToast.show].
+final Expando<ValueNotifier<int>> _openPopups = Expando('wpToastOpenPopups');
+
+ValueNotifier<int> _openPopupsOf(NavigatorState navigator) =>
+    _openPopups[navigator] ??= ValueNotifier<int>(0);
+
+/// Lets toasts step back behind dialogs.
+///
+/// A navigator keeps overlay entries that are not its own routes on top of
+/// every route, so a toast would cover a dialog opened before or after it,
+/// down to the dialog's buttons. With this observer on the navigator, a
+/// toast raised from a page hides and lets taps through while any popup
+/// route is open; one raised from inside a dialog stays visible above it and
+/// steps back only behind dialogs opened later.
+/// Register a fresh instance in every `MaterialApp.navigatorObservers`.
+class WpToastPopupObserver extends NavigatorObserver {
+  void _shift(Route<dynamic>? route, int delta) {
+    final nav = navigator;
+    if (route is! PopupRoute || nav == null) return;
+    final open = _openPopupsOf(nav);
+    // Navigator callbacks can run during a build; notify after it.
+    scheduleMicrotask(
+      () => open.value = (open.value + delta).clamp(0, 1 << 20),
+    );
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _shift(route, 1);
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _shift(route, -1);
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _shift(route, -1);
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    _shift(oldRoute, -1);
+    _shift(newRoute, 1);
+  }
 }
 
 /// Show a premium toast notification.
@@ -72,6 +131,30 @@ class WpToast {
   WpToast._();
 
   static final _log = AppLogger('Toast');
+
+  /// Toasts on screen now, oldest first (UIA-SHL-10).
+  static final List<_ActiveToast> _active = [];
+
+  /// Keeps the stack short. At large text size only one toast fits beside the
+  /// stacked layout (UX-050), so a new toast replaces the current one.
+  /// Otherwise two may show. When the stack is full, a non-error toast
+  /// leaves first, so an error is not pushed out by a success. An error
+  /// never waits behind a success. Returns false when the new toast must be
+  /// dropped to keep an error on screen.
+  static bool _makeRoomFor(BuildContext context, WpToastType type) {
+    final maxVisible = _ToastCard._isLargeText(context) ? 1 : 2;
+    while (_active.length >= maxVisible) {
+      final nonError = _active.where((t) => t.type != WpToastType.error);
+      if (nonError.isNotEmpty) {
+        nonError.first.dismiss();
+      } else if (type == WpToastType.error) {
+        _active.first.dismiss();
+      } else {
+        return false;
+      }
+    }
+    return true;
+  }
 
   /// Show a toast.
   ///
@@ -87,11 +170,15 @@ class WpToast {
     String? actionLabel,
     VoidCallback? onAction,
     WpToastAction? action,
+    Widget? body,
+    String? messageTestId,
+    VoidCallback? onDismissed,
   }) {
     // The bundled [WpToastAction] is the canonical surface — fall back to
     // the legacy split pair so older call sites keep working unchanged.
     final String? resolvedLabel = action?.label ?? actionLabel;
     final VoidCallback? resolvedOnAction = action?.onPressed ?? onAction;
+    final String? resolvedTestId = action?.testId;
     // Route toast messages through the logging pipeline so they appear
     // in the `flutter run` terminal in debug mode.
     //
@@ -112,6 +199,8 @@ class WpToast {
         _log.info('TOAST: $message');
     }
 
+    if (!_makeRoomFor(context, type)) return;
+
     // Screen readers get no visual cue that a toast appeared, so announce it
     // explicitly — the toast card itself is only a visual overlay, not a
     // focusable widget a screen reader would land on.
@@ -122,17 +211,38 @@ class WpToast {
     );
 
     final overlay = Overlay.of(context);
+    final navigator = Navigator.maybeOf(context);
+    final openPopups = navigator == null ? null : _openPopupsOf(navigator);
+    // A toast belongs to the surface that raised it: from a page it steps
+    // back behind any dialog, from inside a dialog only behind later ones.
+    final raisedInPopup = ModalRoute.of(context) is PopupRoute;
+    final popupsAtShow = raisedInPopup ? (openPopups?.value ?? 0) : 0;
     late final OverlayEntry entry;
     late final AnimationController controller;
+    late final _ToastTimer timer;
+    late final _ActiveToast handle;
     var dismissed = false;
+    var removed = false;
+
+    // OverlayEntry.remove() also works for an entry that is inserted but not
+    // built yet, which `mounted` reports as false. Eviction (UIA-SHL-10) can
+    // dismiss a toast in the frame it was raised, so do not wait for a mount.
+    void removeEntry() {
+      if (removed) return;
+      removed = true;
+      entry.remove();
+    }
 
     void dismiss() {
+      _active.remove(handle);
       if (dismissed) return;
       dismissed = true;
+      timer.cancel();
+      onDismissed?.call();
       try {
         controller.reverse().then((_) {
           try {
-            if (entry.mounted) entry.remove();
+            removeEntry();
           } catch (e) {
             _log.debug('Toast overlay entry remove failed (non-fatal): $e');
           }
@@ -148,7 +258,7 @@ class WpToast {
         // Controller already disposed or in bad state — force cleanup.
         _log.debug('Toast reverse animation failed, forcing cleanup: $e');
         try {
-          if (entry.mounted) entry.remove();
+          removeEntry();
         } catch (e2) {
           _log.debug(
             'Toast force-cleanup entry remove failed (non-fatal): $e2',
@@ -159,32 +269,127 @@ class WpToast {
 
     controller = AnimationController(
       vsync: overlay,
-      duration: WpMotion.durationFor(
-        context,
-        const Duration(milliseconds: 300),
-      ),
-      reverseDuration: WpMotion.durationFor(
-        context,
-        const Duration(milliseconds: 200),
-      ),
+      duration: WpMotion.durationFor(context, WpMotion.smooth),
+      reverseDuration: WpMotion.durationFor(context, WpMotion.normal),
     );
 
     entry = OverlayEntry(
-      builder: (context) => _WpToastOverlay(
-        message: message,
-        type: type,
-        animation: controller,
-        actionLabel: resolvedLabel,
-        onAction: resolvedOnAction,
-        onDismiss: dismiss,
-      ),
+      builder: (context) {
+        final toast = _WpToastOverlay(
+          message: message,
+          type: type,
+          animation: controller,
+          actionLabel: resolvedLabel,
+          onAction: resolvedOnAction,
+          actionTestId: resolvedTestId,
+          onDismiss: dismiss,
+          onHover: (value) => timer.hover(value),
+          onFocus: (value) => timer.focus(value),
+          body: body,
+          messageTestId: messageTestId,
+        );
+        if (openPopups == null) return toast;
+        return ValueListenableBuilder<int>(
+          valueListenable: openPopups,
+          child: toast,
+          // A dialog opened over the toast's surface: step back until it
+          // closes. The auto-dismiss timer keeps running.
+          builder: (context, open, child) =>
+              open > popupsAtShow ? const SizedBox.shrink() : child!,
+        );
+      },
     );
 
+    timer = _ToastTimer(
+      onExpire: dismiss,
+      duration: duration,
+      actionable: resolvedOnAction != null,
+    );
+
+    handle = _ActiveToast(type, dismiss);
+    _active.add(handle);
     overlay.insert(entry);
     controller.forward();
+    timer.start();
+  }
+}
 
-    // Auto-dismiss after duration — guarded by the same `dismissed` flag.
-    Future.delayed(duration, dismiss);
+/// One toast on screen, with the way to take it down early (UIA-SHL-10).
+class _ActiveToast {
+  const _ActiveToast(this.type, this.dismiss);
+
+  final WpToastType type;
+  final void Function() dismiss;
+}
+
+/// Shortest life of a toast with an action button.
+const Duration _actionableMinimum = Duration(seconds: 10);
+
+/// Shortest time a toast stays after the pointer or focus left it, so a
+/// hold that ended late does not dismiss it at once.
+const Duration _resumeFloor = Duration(seconds: 5);
+
+/// Auto-dismiss timer that holds while the pointer or keyboard focus is on
+/// the toast and resumes with the time that was left (WCAG 2.2.1).
+class _ToastTimer {
+  /// An actionable toast stays long enough to be read and used (WCAG 2.2.1).
+  _ToastTimer({
+    required this.onExpire,
+    required Duration duration,
+    required bool actionable,
+  }) : _remaining = actionable && duration < _actionableMinimum
+           ? _actionableMinimum
+           : duration;
+
+  final VoidCallback onExpire;
+  Duration _remaining;
+  final Stopwatch _running = Stopwatch();
+  Timer? _timer;
+  bool _held = false;
+  bool _hovered = false;
+  bool _focused = false;
+
+  void start() => _arm();
+
+  void hover(bool value) {
+    _hovered = value;
+    hold(_hovered || _focused);
+  }
+
+  void focus(bool value) {
+    _focused = value;
+    hold(_hovered || _focused);
+  }
+
+  void hold(bool held) {
+    if (held == _held) return;
+    _held = held;
+    if (held) {
+      _disarm();
+    } else {
+      if (_remaining < _resumeFloor) _remaining = _resumeFloor;
+      _arm();
+    }
+  }
+
+  void cancel() => _disarm();
+
+  void _arm() {
+    if (_held || _timer != null) return;
+    _running
+      ..reset()
+      ..start();
+    _timer = Timer(_remaining, onExpire);
+  }
+
+  void _disarm() {
+    final timer = _timer;
+    if (timer == null) return;
+    timer.cancel();
+    _timer = null;
+    _running.stop();
+    _remaining -= _running.elapsed;
+    if (_remaining < Duration.zero) _remaining = Duration.zero;
   }
 }
 
@@ -194,40 +399,76 @@ class _WpToastOverlay extends StatelessWidget {
     required this.type,
     required this.animation,
     required this.onDismiss,
+    required this.onHover,
+    required this.onFocus,
     this.actionLabel,
     this.onAction,
+    this.actionTestId,
+    this.body,
+    this.messageTestId,
   });
 
   final String message;
   final WpToastType type;
   final Animation<double> animation;
+  final String? messageTestId;
   final VoidCallback onDismiss;
+
+  /// Pointer over the toast (true/false); holds the auto-dismiss timer.
+  final ValueChanged<bool> onHover;
+
+  /// Keyboard focus inside the toast (true/false); holds the timer too.
+  final ValueChanged<bool> onFocus;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final String? actionTestId;
+
+  /// Replaces the icon and message line; see [WpToast.show].
+  final Widget? body;
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      bottom: 56,
+      bottom: 0,
       right: WpSpacing.lg,
       left: null,
-      child: SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0, 1.5), end: Offset.zero)
-            .animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutCubic,
-                reverseCurve: Curves.easeInCubic,
+      // Lifts the card above a bottom action row (see WpToastDockReserve).
+      child: ValueListenableBuilder<double>(
+        valueListenable: WpToastDock.reserved,
+        builder: (context, reserved, child) => Padding(
+          padding: EdgeInsets.only(bottom: WpToastDock.bottomFor(reserved)),
+          child: child,
+        ),
+        child: SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, 1.5), end: Offset.zero)
+              .animate(
+                CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                  reverseCurve: Curves.easeInCubic,
+                ),
+              ),
+          child: FadeTransition(
+            opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+            child: MouseRegion(
+              onEnter: (_) => onHover(true),
+              onExit: (_) => onHover(false),
+              child: Focus(
+                canRequestFocus: false,
+                skipTraversal: true,
+                onFocusChange: onFocus,
+                child: _ToastCard(
+                  message: message,
+                  type: type,
+                  onDismiss: onDismiss,
+                  actionLabel: actionLabel,
+                  onAction: onAction,
+                  actionTestId: actionTestId,
+                  body: body,
+                  messageTestId: messageTestId,
+                ),
               ),
             ),
-        child: FadeTransition(
-          opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
-          child: _ToastCard(
-            message: message,
-            type: type,
-            onDismiss: onDismiss,
-            actionLabel: actionLabel,
-            onAction: onAction,
           ),
         ),
       ),
@@ -242,33 +483,65 @@ class _ToastCard extends StatelessWidget {
     required this.onDismiss,
     this.actionLabel,
     this.onAction,
+    this.actionTestId,
+    this.body,
+    this.messageTestId,
   });
 
   final String message;
   final WpToastType type;
   final VoidCallback onDismiss;
+  final String? messageTestId;
   final String? actionLabel;
   final VoidCallback? onAction;
+  final String? actionTestId;
+  final Widget? body;
+
+  /// From this text scale on the action and close buttons move under the
+  /// message instead of beside it (UX-050). Beside it they leave the message a
+  /// narrow column: at 2.0 the hotkey-fallback text became eight short lines,
+  /// and the active combination at its end was lost.
+  static bool _isLargeText(BuildContext context) =>
+      MediaQuery.textScalerOf(context).scale(100) >= 130;
 
   /// Line budget for the message, grown in step with the system text size.
   ///
   /// The card is capped at 400 px wide, so a long message is wrapped rather
   /// than widened, and the cap exists to stop a toast from turning into a
-  /// wall of text. But a *fixed* cap silently shrinks how much of the message
-  /// survives as the user raises the system text size: the same string that
-  /// fits four lines at 1.0× needs six at 1.6×, and the tail — usually the
-  /// actionable half, e.g. „Bitte WhisPaste manuell aus Systemeinstellungen →
-  /// Bedienungshilfen entfernen" — is what the ellipsis eats. Users who need
-  /// large text are the last ones who should get the abbreviated instruction.
+  /// wall of text. The budget scales with the text scaler, so raising the text
+  /// size does not cut off the tail of the message. The upper clamp keeps a
+  /// pathologically long message (an interpolated exception string) from
+  /// filling the screen. With the stacked layout (see [_isLargeText]) the
+  /// message has the full card width, so the clamp is only reached by strings
+  /// far longer than any the app ships.
   ///
-  /// So the budget scales with the text scaler and only the *ratio* stays
-  /// fixed: the card grows to roughly the same fraction of the window it
-  /// occupies at 1.0×. The upper clamp keeps a pathologically long message
-  /// (an interpolated exception string) from filling the screen.
-  ///
-  /// Screen-reader users were never affected — the `Semantics(label:)` below
-  /// and `sendAnnouncement()` in [WpToast.show] both carry the full string
-  /// regardless of what the ellipsis hides. This is a sighted-user-only fix.
+  /// Screen-reader users were never affected: the `Semantics(label:)` below and
+  /// `sendAnnouncement()` in [WpToast.show] carry the full string.
+  /// Whether [message] needs more than two lines at the stacked layout's full
+  /// width. Beside an action and the close button the message column is about
+  /// half as wide, so such a message would run past the four-line budget and
+  /// lose its end (XP-6-05: the Linux paste hint stopped at "braucht einm…").
+  static bool _crowdedBesideAction(
+    BuildContext context,
+    String message,
+    TextStyle? style,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: message, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 2,
+    )..layout(maxWidth: _stackedMessageWidth);
+    final crowded = painter.didExceedMaxLines;
+    painter.dispose();
+    return crowded;
+  }
+
+  /// Message width in the stacked layout: the 426 px card minus its padding,
+  /// the accent line and the icon (each with its gap).
+  static const double _stackedMessageWidth =
+      426 - 2 * WpSpacing.md - (3 + WpSpacing.sm) - (18 + WpSpacing.sm);
+
   static int _maxLines(BuildContext context) {
     final scale = MediaQuery.textScalerOf(context).scale(100) / 100;
     return (4 * scale).ceil().clamp(4, 8);
@@ -291,9 +564,94 @@ class _ToastCard extends StatelessWidget {
     // ambient it would let through is unknowable. The rim is the tinted card
     // edge — a neutral `borderDefault` hairline over a chromatic fill is the
     // "reads grey" failure the frost exists to fix.
-    const surfaceBg = WpColors.floatingSurface;
-    const textPrimary = WpColors.textPrimary;
-    const borderColor = WpColors.cardEdgeHighlight;
+    final surfaceBg = WpColors.floatingSurface;
+    final textPrimary = WpColors.textPrimary;
+    final borderColor = WpColors.cardEdgeHighlight;
+
+    // The card row has two layouts: one line (accent, icon, message, buttons)
+    // and a stacked one with the buttons below the text. The stacked layout is
+    // used when a [body] is given (it is never squeezed by the buttons) and at
+    // large text sizes (the message keeps its width, see [_isLargeText]).
+    final accentLine = <Widget>[
+      // Accent line
+      Container(
+        width: 3,
+        height: 28,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+      const SizedBox(width: WpSpacing.sm),
+    ];
+    // labelMedium = Type/label role (13 / 500). Compact line-height (1.3 vs
+    // theme's 1.4) preserved for the tight toast card layout.
+    final messageStyle = Theme.of(
+      context,
+    ).textTheme.labelMedium?.copyWith(color: textPrimary, height: 1.3);
+    final hasAction = actionLabel != null && onAction != null;
+    final iconAndMessage = <Widget>[
+      // Icon
+      Icon(icon, size: WpIconSize.smMd, color: color),
+      const SizedBox(width: WpSpacing.sm),
+      // Message
+      Flexible(
+        child: ExcludeSemantics(
+          child: Text(
+            message,
+            key: ValueKey<String>(messageTestId ?? 'toast-message'),
+            style: messageStyle,
+            maxLines: _maxLines(context),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    ];
+    void fireAction() {
+      onAction?.call();
+      onDismiss();
+    }
+
+    final trailing = <Widget>[
+      // Action button (optional)
+      if (hasAction) ...[
+        const SizedBox(width: WpSpacing.sm),
+        // The status colour stays on the icon and the accent line;
+        // the action reads as an action, in the one colour every
+        // other action in the app uses.
+        // The dense label is 32 px high; WpTouchTarget widens the tap area to
+        // the 48 px rule, as it does for the close button. The card grows by
+        // the same amount, so the message keeps its width.
+        Semantics(
+          button: true,
+          label: actionLabel!,
+          child: WpTouchTarget(
+            onTap: fireAction,
+            child: WpButton(
+              key: ValueKey(actionTestId ?? 'toast-action'),
+              label: actionLabel!,
+              variant: WpButtonVariant.ghost,
+              size: WpButtonSize.dense,
+              onPressed: fireAction,
+            ),
+          ),
+        ),
+      ],
+      const SizedBox(width: WpSpacing.xs),
+      // Close button
+      _ToastCloseButton(
+        label: L10n.of(context).actionDismiss,
+        onPressed: onDismiss,
+      ),
+    ];
+
+    // A message is never cut off (UX-050): at large text, and when a long
+    // message would be squeezed by an action button, the trailing buttons move
+    // under it, and the card grows with the text.
+    final stacked =
+        body != null ||
+        _isLargeText(context) ||
+        (hasAction && _crowdedBesideAction(context, message, messageStyle));
 
     return Semantics(
       // Not a liveRegion: WpToast.show() already calls sendAnnouncement()
@@ -312,7 +670,9 @@ class _ToastCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400, minWidth: 200),
+          // 400 px of message room, plus the 26 px the 48 px close tap area adds
+          // over its 22 px glyph box, so the message wraps exactly as before.
+          constraints: const BoxConstraints(maxWidth: 426, minWidth: 200),
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: WpSpacing.md,
@@ -322,84 +682,100 @@ class _ToastCard extends StatelessWidget {
               color: surfaceBg,
               borderRadius: BorderRadius.circular(WpRadius.md),
               border: Border.all(color: borderColor),
-              // Exactly one shadow — neutral, offset, wide. The toast really
-              // does float, so it earns a shadow; it used to carry a *second*
-              // one tinted with the severity colour at a near-zero offset,
-              // which is a glow: a second light source on the same element,
-              // and on a success toast a ring of decorative green nobody had
-              // earned. Removed with Ticket 08.
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.4),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              // Exactly one shadow, the overlay token. The toast really does
+              // float, so it earns a shadow; it used to carry a second one
+              // tinted with the severity colour, which is a coloured light effect (Ticket 08).
+              boxShadow: WpShadows.elevated,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Accent line
-                Container(
-                  width: 3,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(width: WpSpacing.sm),
-                // Icon
-                Icon(icon, size: 18, color: color),
-                const SizedBox(width: WpSpacing.sm),
-                // Message
-                Flexible(
-                  child: ExcludeSemantics(
-                    child: Text(
-                      message,
-                      // labelMedium = Type/label role (13 / 500). Compact
-                      // line-height (1.3 vs theme's 1.4) preserved for the
-                      // tight toast card layout.
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: textPrimary,
-                        height: 1.3,
+            child: stacked
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          ...accentLine,
+                          ...(body == null
+                              ? iconAndMessage
+                              : <Widget>[
+                                  Flexible(
+                                    child: ExcludeSemantics(child: body!),
+                                  ),
+                                ]),
+                        ],
                       ),
-                      maxLines: _maxLines(context),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: trailing,
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [...accentLine, ...iconAndMessage, ...trailing],
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Close control on the toast card: a labelled button with the shared focus
+/// ring, so keyboard users can reach and see it.
+class _ToastCloseButton extends StatefulWidget {
+  const _ToastCloseButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  State<_ToastCloseButton> createState() => _ToastCloseButtonState();
+}
+
+class _ToastCloseButtonState extends State<_ToastCloseButton> {
+  final FocusNode _focusNode = FocusNode(debugLabel: 'WpToastClose');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: widget.label,
+      child: Tooltip(
+        message: widget.label,
+        // A 14 px glyph alone is a 22 px target. WpTouchTarget widens the tap
+        // area to the 48 px rule; the card grows by the same 26 px, so the
+        // message keeps its width (see the card's maxWidth).
+        child: WpTouchTarget(
+          onTap: widget.onPressed,
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.full,
+            child: InkWell(
+              onTap: widget.onPressed,
+              focusNode: _focusNode,
+              borderRadius: BorderRadius.circular(WpRadius.full),
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: Padding(
+                padding: const EdgeInsets.all(WpSpacing.xxs),
+                child: Icon(
+                  LucideIcons.x,
+                  size: WpIconSize.xs,
+                  color: WpColors.textMuted,
                 ),
-                // Action button (optional)
-                if (actionLabel != null && onAction != null) ...[
-                  const SizedBox(width: WpSpacing.sm),
-                  // The status colour stays on the icon and the accent line;
-                  // the action reads as an action, in the one colour every
-                  // other action in the app uses.
-                  WpButton(
-                    label: actionLabel!,
-                    variant: WpButtonVariant.ghost,
-                    size: WpButtonSize.dense,
-                    onPressed: () {
-                      onAction!();
-                      onDismiss();
-                    },
-                  ),
-                ],
-                const SizedBox(width: WpSpacing.xs),
-                // Close button
-                InkWell(
-                  onTap: onDismiss,
-                  borderRadius: BorderRadius.circular(WpRadius.full),
-                  child: const Padding(
-                    padding: EdgeInsets.all(WpSpacing.xxs),
-                    child: Icon(
-                      LucideIcons.x,
-                      size: 14,
-                      color: WpColors.textMuted,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),

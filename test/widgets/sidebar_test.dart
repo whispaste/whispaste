@@ -13,7 +13,7 @@ void main() {
       icon: LucideIcons.settings,
       label: 'Settings',
     ),
-    const WpNavItem(id: 'about', icon: LucideIcons.info, label: 'About'),
+    const WpNavItem(id: 'help', icon: LucideIcons.circleHelp, label: 'Help'),
   ];
 
   group('WpSidebar', () {
@@ -79,8 +79,8 @@ void main() {
         ),
       );
 
-      await tester.tap(find.byTooltip('About'));
-      expect(tappedId, 'about');
+      await tester.tap(find.byTooltip('Help'));
+      expect(tappedId, 'help');
     });
 
     testWidgets('WpNavItem data class stores id, icon, and label', (_) async {

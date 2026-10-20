@@ -15,6 +15,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/smart_mode_usage_hint.dart';
 
 import '../../fixtures/test_helpers.dart';
+import '../../test_helpers/nudge_gate_open.dart';
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier(this._settings);
@@ -78,6 +79,7 @@ void main() {
           const SmartModeUsageHintWatcher(child: SizedBox.shrink()),
           locale: const Locale('en'),
           overrides: [
+            nudgeGateOpenOverride(),
             settingsProvider.overrideWith(() => settings),
             historyEntriesProvider.overrideWith((ref) => controller.stream),
           ],
@@ -124,6 +126,7 @@ void main() {
         const SmartModeUsageHintWatcher(child: SizedBox.shrink()),
         locale: const Locale('en'),
         overrides: [
+          nudgeGateOpenOverride(),
           settingsProvider.overrideWith(() => settings),
           historyEntriesProvider.overrideWith((ref) => controller.stream),
         ],
@@ -159,6 +162,7 @@ void main() {
         const SmartModeUsageHintWatcher(child: SizedBox.shrink()),
         locale: const Locale('en'),
         overrides: [
+          nudgeGateOpenOverride(),
           settingsProvider.overrideWith(() => settings),
           historyEntriesProvider.overrideWith((ref) => controller.stream),
         ],

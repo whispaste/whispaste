@@ -20,6 +20,7 @@ import '../../core/theme/tokens.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_row_checkbox.dart';
 import '../../widgets/wp_text_field.dart';
+import '../../widgets/wp_toast_dock.dart';
 
 /// Pushed via `Navigator.push`; pops with the list of terms the user selected
 /// to import, or `null` if they cancelled without importing anything.
@@ -121,10 +122,11 @@ class _VocabularyImportReviewPageState
               Row(
                 children: [
                   IconButton(
+                    key: const ValueKey('dictionary-import-review-back'),
                     tooltip: MaterialLocalizations.of(
                       context,
                     ).backButtonTooltip,
-                    icon: const Icon(
+                    icon: Icon(
                       LucideIcons.arrowLeft,
                       color: WpColors.textPrimary,
                     ),
@@ -146,7 +148,7 @@ class _VocabularyImportReviewPageState
                               l10n.replacementsImportReviewSubtitle(
                                 widget.candidates.length,
                               ),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: WpColors.textMuted,
                             fontSize: WpTypography.caption,
                           ),
@@ -158,6 +160,7 @@ class _VocabularyImportReviewPageState
               ),
               const SizedBox(height: WpSpacing.lg),
               WpTextField(
+                key: const ValueKey('dictionary-import-review-search'),
                 controller: _searchCtrl,
                 variant: WpTextFieldVariant.form,
                 hintText: l10n.replacementsImportReviewSearchHint,
@@ -168,16 +171,20 @@ class _VocabularyImportReviewPageState
                 children: [
                   // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
                   WpButton(
+                    key: const Key('vocabulary-import-select-all'),
                     label: l10n.replacementsImportReviewSelectAllFiltered,
-                    variant: WpButtonVariant.ghost,
+                    variant: WpButtonVariant.secondary,
+                    tone: WpButtonTone.neutral,
                     size: WpButtonSize.dense,
                     onPressed: _filtered.isEmpty ? null : _selectAllFiltered,
                   ),
                   const SizedBox(width: WpSpacing.xs),
                   // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
                   WpButton(
+                    key: const Key('vocabulary-import-deselect-all'),
                     label: l10n.replacementsImportReviewDeselectAll,
-                    variant: WpButtonVariant.ghost,
+                    variant: WpButtonVariant.secondary,
+                    tone: WpButtonTone.neutral,
                     size: WpButtonSize.dense,
                     onPressed: _selected.isEmpty ? null : _deselectAll,
                   ),
@@ -187,7 +194,7 @@ class _VocabularyImportReviewPageState
                       _selected.length,
                       widget.candidates.length,
                     ),
-                    style: const TextStyle(color: WpColors.textMuted),
+                    style: TextStyle(color: WpColors.textMuted),
                   ),
                 ],
               ),
@@ -205,7 +212,7 @@ class _VocabularyImportReviewPageState
                             _query.isEmpty
                                 ? l10n.replacementsImportNothingFound
                                 : l10n.replacementsImportReviewNoMatches,
-                            style: const TextStyle(color: WpColors.textMuted),
+                            style: TextStyle(color: WpColors.textMuted),
                           ),
                         )
                       : ListView.builder(
@@ -217,6 +224,9 @@ class _VocabularyImportReviewPageState
                             final term = _filtered[index];
                             final checked = _selected.contains(term);
                             return InkWell(
+                              key: ValueKey(
+                                'dictionary-import-review-row-$term',
+                              ),
                               onTap: () => _toggle(term),
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -227,13 +237,14 @@ class _VocabularyImportReviewPageState
                                   children: [
                                     WpRowCheckbox(
                                       value: checked,
+                                      semanticsLabel: term,
                                       onChanged: () => _toggle(term),
                                     ),
                                     const SizedBox(width: WpSpacing.sm),
                                     Expanded(
                                       child: Text(
                                         term,
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           color: WpColors.textPrimary,
                                           fontFamily: 'monospace',
                                         ),
@@ -249,28 +260,34 @@ class _VocabularyImportReviewPageState
                 ),
               ),
               const SizedBox(height: WpSpacing.md),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: MaterialLocalizations.of(context).cancelButtonLabel,
-                    variant: WpButtonVariant.ghost,
-                    tone: WpButtonTone.neutral,
-                    onPressed: () => Navigator.of(context).pop(null),
-                  ),
-                  const SizedBox(width: WpSpacing.sm),
-                  // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-                  WpButton(
-                    label: l10n.replacementsImportReviewImportButton(
-                      _selected.length,
+              WpToastDockReserve(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                    WpButton(
+                      key: const ValueKey('dictionary-import-review-cancel'),
+                      label: MaterialLocalizations.of(
+                        context,
+                      ).cancelButtonLabel,
+                      variant: WpButtonVariant.ghost,
+                      tone: WpButtonTone.neutral,
+                      onPressed: () => Navigator.of(context).pop(null),
                     ),
-                    variant: WpButtonVariant.primary,
-                    onPressed: _selected.isEmpty
-                        ? null
-                        : () => Navigator.of(context).pop(_selected.toList()),
-                  ),
-                ],
+                    const SizedBox(width: WpSpacing.sm),
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                    WpButton(
+                      key: const Key('vocabulary-import-confirm'),
+                      label: l10n.replacementsImportReviewImportButton(
+                        _selected.length,
+                      ),
+                      variant: WpButtonVariant.primary,
+                      onPressed: _selected.isEmpty
+                          ? null
+                          : () => Navigator.of(context).pop(_selected.toList()),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

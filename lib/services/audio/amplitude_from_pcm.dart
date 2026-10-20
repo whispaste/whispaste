@@ -40,6 +40,32 @@ class AmplitudeFromPcm {
   /// range `[0, 32768]`.
   int _peakAbs = 0;
 
+  /// Whether any chunk arrived since the last flush.
+  bool _sawChunk = false;
+
+  /// Time since the last chunk, advanced by one [pollInterval] per empty
+  /// tick.
+  Duration _sinceChunk = Duration.zero;
+
+  /// Longest gap between chunks that still repeats the last level. Past it
+  /// the source has stalled, and reporting silence lets the silence guards
+  /// see the stall instead of a level frozen at the last loud value.
+  static const Duration maxHold = Duration(milliseconds: 500);
+
+  bool _hadChunk = false;
+  Duration _longestChunkGap = Duration.zero;
+
+  /// The longest time between two chunks, at [pollInterval] resolution. A
+  /// diagnostic for how far apart the platform delivers its batches, which
+  /// [maxHold] must stay above.
+  Duration get longestChunkGap => _longestChunkGap;
+
+  /// The value emitted by the last flush that saw a chunk. The platform
+  /// delivers PCM in batches longer than [pollInterval], so a tick without
+  /// data repeats it instead of reporting silence. Starts silent, so a
+  /// stream that never delivers still reads as a dead microphone.
+  double _lastDbFs = double.negativeInfinity;
+
   Timer? _timer;
   bool _disposed = false;
 
@@ -57,6 +83,7 @@ class AmplitudeFromPcm {
   /// plugin emits whole samples).
   void addChunk(Uint8List bytes) {
     if (_disposed) return;
+    _sawChunk = true;
     final usable = bytes.length & ~1; // drop trailing byte if odd
     for (var i = 0; i < usable; i += 2) {
       // Manual little-endian int16 decode: bytes[i] is low byte, bytes[i+1]
@@ -73,13 +100,23 @@ class AmplitudeFromPcm {
   }
 
   /// Emits the dBFS value for the accumulated peak since the last flush and
-  /// resets the accumulator.
+  /// resets the accumulator. Without a new chunk it repeats the last value
+  /// for up to [maxHold].
   void _flush() {
     if (_controller.isClosed) return;
-    final peak = _peakAbs;
-    _peakAbs = 0;
-    final dbFs = _peakToDbFs(peak);
-    _controller.add(dbFs);
+    if (_sawChunk) {
+      final gap = _sinceChunk + pollInterval;
+      if (_hadChunk && gap > _longestChunkGap) _longestChunkGap = gap;
+      _hadChunk = true;
+      _lastDbFs = _peakToDbFs(_peakAbs);
+      _peakAbs = 0;
+      _sawChunk = false;
+      _sinceChunk = Duration.zero;
+    } else {
+      _sinceChunk += pollInterval;
+      if (_sinceChunk > maxHold) _lastDbFs = double.negativeInfinity;
+    }
+    _controller.add(_lastDbFs);
   }
 
   /// Converts an int16 peak amplitude to dBFS. Silence (`peak == 0`) is

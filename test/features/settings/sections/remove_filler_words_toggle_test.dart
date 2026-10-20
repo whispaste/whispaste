@@ -1,5 +1,5 @@
 /// Widget tests for the "Remove filler words" toggle inside
-/// [SpeechRecognitionSection] (handy-catchup ticket 16). Same cloud-mode
+/// [TextProcessingSection] (handy-catchup ticket 16). Same cloud-mode
 /// setup as `numeric_only_mode_toggle_test.dart`, so the local-only model
 /// manager stays out of the tree.
 library;
@@ -7,14 +7,14 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/features/settings/sections/stt_section.dart';
+import 'package:whispaste/features/settings/sections/text_processing_section.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart';
 
 import '../../../fixtures/test_helpers.dart';
+import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
 
 class _FakeSettingsNotifier extends SettingsNotifier {
   _FakeSettingsNotifier(this._settings);
@@ -42,7 +42,7 @@ Future<_FakeSettingsNotifier> _pumpSection(
   final notifier = _FakeSettingsNotifier(settings);
   await tester.pumpWidget(
     makeTestable(
-      const SingleChildScrollView(child: SpeechRecognitionSection()),
+      const SingleChildScrollView(child: TextProcessingSection()),
       overrides: [settingsProvider.overrideWith(() => notifier)],
       locale: const Locale('en'),
     ),
@@ -127,9 +127,9 @@ void main() {
                     size: Size(480, 200),
                     textScaler: TextScaler.linear(1.8),
                   ),
-                  child: SettingRow(
-                    icon: LucideIcons.messageSquareOff,
-                    label: rowL10n.settingsRemoveFillerWords,
+                  child: WpSettingsRow(
+                    rowId: 'text-remove-filler',
+                    title: rowL10n.settingsRemoveFillerWords,
                     subtitle: rowL10n.settingsRemoveFillerWordsSubtitle,
                     semanticToggledValue: false,
                     trailing: settingsToggle(value: false, onChanged: (_) {}),

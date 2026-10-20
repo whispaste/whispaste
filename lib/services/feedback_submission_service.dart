@@ -11,7 +11,7 @@
 /// |---|---|
 /// | [FeedbackSent] | HTTP 2xx — row written to Supabase |
 /// | [FeedbackSkippedNotConfigured] | URL or key is empty — no HTTP call made |
-/// | [FeedbackRateLimitedServer] | HTTP 429 or DB trigger 400 `rate_limited` |
+/// | [FeedbackRateLimitedServer] | HTTP 429 or a DB trigger 400 with a code from [feedbackRateLimitCodes] |
 /// | [FeedbackServerError] | Other non-2xx HTTP response |
 /// | [FeedbackNetworkError] | Socket / timeout / other network failure |
 ///
@@ -27,11 +27,19 @@ library;
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../core/app_info.dart';
 import '../core/logging/app_logger.dart';
+
+// ---------------------------------------------------------------------------
+// Server contract
+// ---------------------------------------------------------------------------
+
+/// The longest `feedback_text` the anon insert policy accepts.
+const kFeedbackTextMaxLength = 1000;
 
 // ---------------------------------------------------------------------------
 // FeedbackPayload
@@ -50,6 +58,7 @@ final class FeedbackPayload {
     this.contactLocale,
   });
 
+  /// The star rating, 1 to 5. Required by the form.
   final int rating;
   final String feedbackText;
   final String category;
@@ -98,7 +107,8 @@ final class FeedbackSkippedNotConfigured extends FeedbackSubmissionResult {
   const FeedbackSkippedNotConfigured();
 }
 
-/// Server-side rate limit: HTTP 429 or DB trigger 400 `rate_limited`.
+/// Server-side rate limit: HTTP 429 or a DB trigger 400 whose message is one
+/// of [feedbackRateLimitCodes].
 final class FeedbackRateLimitedServer extends FeedbackSubmissionResult {
   const FeedbackRateLimitedServer();
 }
@@ -187,16 +197,14 @@ final class FeedbackSubmissionService {
         _emitBreadcrumb('rate_limited_server');
         return const FeedbackRateLimitedServer();
       }
-      if (response.statusCode == 400 &&
-          response.body.contains('rate_limited')) {
+      if (response.statusCode == 400 && isRateLimitBody(response.body)) {
         _log.info('Feedback rate-limited by DB trigger');
         _emitBreadcrumb('rate_limited_server');
         return const FeedbackRateLimitedServer();
       }
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        _log.warning(
-          'Feedback submission error: ${response.statusCode} ${response.body}',
-        );
+        final body = errorBodyWithoutRowData(response.body);
+        _log.warning('Feedback submission error: ${response.statusCode} $body');
         _emitBreadcrumb('server_error');
         // Escalate to a Sentry event so a broken backend (schema drift, RLS
         // misconfig, missing column) surfaces within hours instead of weeks.
@@ -207,9 +215,9 @@ final class FeedbackSubmissionService {
         _captureMessage(
           'feedback_server_error',
           statusCode: response.statusCode,
-          body: response.body,
+          body: body,
         );
-        return FeedbackServerError(response.statusCode, response.body);
+        return FeedbackServerError(response.statusCode, body);
       }
 
       _log.info('Feedback submitted successfully');
@@ -246,6 +254,55 @@ final class FeedbackSubmissionService {
       'body': truncated,
     });
   }
+}
+
+/// Error codes the feedback triggers raise when a rate limit is hit.
+///
+/// `rate_limited` is the original per-device trigger; the hardened triggers
+/// raise `ip_rate_limit_exceeded` and `device_rate_limit_exceeded`
+/// (migration 20260421_fix_security_advisor_findings.sql).
+const feedbackRateLimitCodes = {
+  'rate_limited',
+  'ip_rate_limit_exceeded',
+  'device_rate_limit_exceeded',
+};
+
+/// Whether a PostgREST error [body] carries one of [feedbackRateLimitCodes].
+///
+/// Matches the code exactly, not as a substring: the message is either the
+/// bare code or the code followed by `:` and a human-readable reason.
+@visibleForTesting
+bool isRateLimitBody(String body) {
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(body);
+  } on FormatException {
+    return false;
+  }
+  if (decoded is! Map<String, dynamic>) return false;
+  final message = decoded['message'];
+  if (message is! String) return false;
+  final code = message.split(':').first.trim();
+  return feedbackRateLimitCodes.contains(code);
+}
+
+/// [body] of a failed insert without the submitted values. A PostgREST
+/// error carries the rejected row in `details`
+/// (`Failing row contains (…, <feedback text>, <email>)`) and sometimes in
+/// `hint`; only `code` and
+/// `message` name the cause. Other bodies (proxy or gateway pages) are kept.
+@visibleForTesting
+String errorBodyWithoutRowData(String body) {
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(body);
+  } on FormatException {
+    return body; // a proxy or gateway page, not a PostgREST error
+  }
+  if (decoded is Map<String, Object?> && decoded.containsKey('code')) {
+    return jsonEncode({'code': decoded['code'], 'message': decoded['message']});
+  }
+  return body;
 }
 
 // ---------------------------------------------------------------------------

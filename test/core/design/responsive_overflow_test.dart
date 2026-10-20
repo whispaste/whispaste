@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/widgets/empty_state.dart';
-import 'package:whispaste/features/about/about_page.dart';
+import 'package:whispaste/features/help/help_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
@@ -27,7 +27,7 @@ import 'package:whispaste/services/hardware_info_service.dart' as hw;
 // Window sizes to test — covers common desktop form factors
 //
 // The narrow entry deliberately sits *below* the window minimum the app
-// enforces ([WpLayout.minWindowHeight], 628 dp): these cases pump a bare page
+// enforces ([WpLayout.minWindowHeight], 732 dp): these cases pump a bare page
 // without the app chrome, so a page that survives 800 × 600 here has more room
 // than it will ever get inside the real shell. The nav rail's own height
 // budget, which is what sets that minimum, is pinned separately in
@@ -50,7 +50,7 @@ final _pages = <MapEntry<String, Widget>>[
   const MapEntry('Settings', SettingsPage()),
   const MapEntry('Replacements', ReplacementsPage()),
   const MapEntry('Analytics', AnalyticsPage()),
-  const MapEntry('About', AboutPage()),
+  const MapEntry('Help', HelpPage()),
   const MapEntry('Feedback', FeedbackPage()),
 ];
 
@@ -78,7 +78,7 @@ const _populatedAnalytics = AnalyticsData(
   durationBuckets: [1234, 5678, 910, 1112, 1314],
   localSavingsUsd: 123.45,
   cloudCostUsd: 67.89,
-  averageHotkeyLatencyMs: 1234,
+  averageStopToTextMs: 1234,
 );
 
 /// Wraps page in the real theme + ProviderScope at a given size.
@@ -269,7 +269,7 @@ void main() {
   // the rows inside used to have and no longer do, which is exactly the
   // budget an accessibility text size spends first.
   for (final page in const <MapEntry<String, Widget>>[
-    MapEntry('About', AboutPage()),
+    MapEntry('Help', HelpPage()),
     MapEntry('Settings', SettingsPage()),
     MapEntry('Analytics', AnalyticsPage()),
     MapEntry('Feedback', FeedbackPage()),
@@ -321,6 +321,9 @@ void main() {
       // short lines. If this page ever degrades to something else, the case
       // below stops measuring what it was added for.
       if (page.key == 'Feedback') {
+        // The comment field appears once a feedback type is chosen.
+        await tester.tap(find.bySemanticsIdentifier('feedback-type-idea'));
+        await tester.pumpAndSettle();
         expect(
           find.byKey(const Key('feedbackCommentField')),
           findsOneWidget,

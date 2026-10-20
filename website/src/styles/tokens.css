@@ -80,8 +80,10 @@
   --wp-space-16: 64px;
   --wp-space-24: 96px;
   --wp-space-32: 128px;
+  --wp-radius-xs: 4px;
+  --wp-radius-sm: 8px;
   --wp-radius-chip: 6px;
-  --wp-radius-control: 10px;
+  --wp-radius-control: 8px;
   --wp-radius-card: 14px;
   --wp-radius-surface: 20px;
   --wp-radius-panel: 24px;

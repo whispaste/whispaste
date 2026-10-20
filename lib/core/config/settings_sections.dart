@@ -17,6 +17,9 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show listEquals;
+
+import 'automation_hooks.dart';
 import 'quality_tier.dart' show QualityTier;
 import 'settings_enums.dart';
 
@@ -36,10 +39,31 @@ double _readDouble(Map<String, String> v, String key, double fallback) =>
 int _readInt(Map<String, String> v, String key, int fallback) =>
     int.tryParse(v[key] ?? '') ?? fallback;
 
-/// Like [_readInt], but for a field whose absence means "unset" (`null`)
-/// rather than falling back to a default value.
+bool _sameStrings(List<String> a, List<String> b) =>
+    a.length == b.length &&
+    Iterable<int>.generate(a.length).every((i) => a[i] == b[i]);
+
+/// JSON-array string list. Anything that is not a list of strings (missing
+/// key, corrupt value) reads as the empty list.
+List<String> _readStringList(Map<String, String> v, String key) {
+  final raw = v[key];
+  if (raw == null || raw.isEmpty) return const [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) return const [];
+    return [
+      for (final item in decoded)
+        if (item is String) item,
+    ];
+  } on FormatException {
+    return const [];
+  }
+}
+
+/// Like [_readInt] for an absent "unset" field; a port outside 1024..65535
+/// is dropped on load (WP-43a A-N9, C-N-3).
 int? _readNullableInt(Map<String, String> v, String key) =>
-    int.tryParse(v[key] ?? '');
+    _portInRange(int.tryParse(v[key] ?? ''));
 
 /// Sentinel for `copyWith` parameters that must distinguish "not passed"
 /// from "explicitly set to null" — see [AutomationApiSettings.copyWith].
@@ -101,15 +125,32 @@ class InterfaceSettings {
     this.launchAtStartup = false,
     this.startMinimized = false,
     this.showNotifications = true,
+    this.notifyPasteProblems = true,
+    this.notifySmartModeFallback = true,
+    this.notifyMicrophoneProblems = true,
     this.showBackendUtilization = true,
     this.sidePanelEnabled = true,
     this.sidePanelEdge = SidePanelEdge.left,
+    this.appearance = AppearanceMode.navy,
   });
 
   final String locale;
   final bool launchAtStartup;
   final bool startMinimized;
   final bool showNotifications;
+
+  /// Category switch under [showNotifications]: native notifications for
+  /// paste problems (blocked, no target, elevated target, unknown failure).
+  /// Dock bounce and taskbar flash are not affected; they stay the fallback.
+  final bool notifyPasteProblems;
+
+  /// Category switch under [showNotifications]: informational notice that
+  /// Smart Mode fell back to the raw transcript. The paste itself succeeded.
+  final bool notifySmartModeFallback;
+
+  /// Category switch under [showNotifications]: the microphone delivers no
+  /// signal shortly after the start (possibly muted or the wrong input).
+  final bool notifyMicrophoneProblems;
 
   /// Whether the status bar shows the CPU/GPU backend-utilization chip
   /// (`_BackendUtilizationChip` in `status_bar.dart`). Default on: the
@@ -130,6 +171,10 @@ class InterfaceSettings {
   /// #150) can move it to the right instead.
   final SidePanelEdge sidePanelEdge;
 
+  /// Appearance mode (AR-21). Stored under `appearance`, not the retired
+  /// `theme_mode` key, so values left over from the old toggle stay inert.
+  final AppearanceMode appearance;
+
   static const InterfaceSettings defaults = InterfaceSettings();
 
   factory InterfaceSettings.fromMap(Map<String, String> v) => InterfaceSettings(
@@ -145,6 +190,21 @@ class InterfaceSettings {
       'show_notifications',
       defaults.showNotifications,
     ),
+    notifyPasteProblems: _readBool(
+      v,
+      'notify_paste_problems',
+      defaults.notifyPasteProblems,
+    ),
+    notifySmartModeFallback: _readBool(
+      v,
+      'notify_smart_mode_fallback',
+      defaults.notifySmartModeFallback,
+    ),
+    notifyMicrophoneProblems: _readBool(
+      v,
+      'notify_microphone_problems',
+      defaults.notifyMicrophoneProblems,
+    ),
     showBackendUtilization: _readBool(
       v,
       'show_backend_utilization',
@@ -156,6 +216,7 @@ class InterfaceSettings {
       defaults.sidePanelEnabled,
     ),
     sidePanelEdge: SidePanelEdge.fromValue(v['side_panel_edge']),
+    appearance: AppearanceMode.fromValue(v['appearance']),
   );
 
   // No `theme_mode` entry since 2026-08-11. The key's row in `app_settings`
@@ -167,9 +228,13 @@ class InterfaceSettings {
     'launch_at_startup': '$launchAtStartup',
     'start_minimized': '$startMinimized',
     'show_notifications': '$showNotifications',
+    'notify_paste_problems': '$notifyPasteProblems',
+    'notify_smart_mode_fallback': '$notifySmartModeFallback',
+    'notify_microphone_problems': '$notifyMicrophoneProblems',
     'show_backend_utilization': '$showBackendUtilization',
     'side_panel_enabled': '$sidePanelEnabled',
     'side_panel_edge': sidePanelEdge.value,
+    'appearance': appearance.value,
   };
 
   InterfaceSettings copyWith({
@@ -177,19 +242,29 @@ class InterfaceSettings {
     bool? launchAtStartup,
     bool? startMinimized,
     bool? showNotifications,
+    bool? notifyPasteProblems,
+    bool? notifySmartModeFallback,
+    bool? notifyMicrophoneProblems,
     bool? showBackendUtilization,
     bool? sidePanelEnabled,
     SidePanelEdge? sidePanelEdge,
+    AppearanceMode? appearance,
     // loam-ignore: code-duplicates – every settings-section class in this file shares this exact copyWith(field: field ?? this.field, ...) return shape by deliberate convention, established repo-wide boilerplate.
   }) => InterfaceSettings(
     locale: locale ?? this.locale,
     launchAtStartup: launchAtStartup ?? this.launchAtStartup,
     startMinimized: startMinimized ?? this.startMinimized,
     showNotifications: showNotifications ?? this.showNotifications,
+    notifyPasteProblems: notifyPasteProblems ?? this.notifyPasteProblems,
+    notifySmartModeFallback:
+        notifySmartModeFallback ?? this.notifySmartModeFallback,
+    notifyMicrophoneProblems:
+        notifyMicrophoneProblems ?? this.notifyMicrophoneProblems,
     showBackendUtilization:
         showBackendUtilization ?? this.showBackendUtilization,
     sidePanelEnabled: sidePanelEnabled ?? this.sidePanelEnabled,
     sidePanelEdge: sidePanelEdge ?? this.sidePanelEdge,
+    appearance: appearance ?? this.appearance,
   );
 
   // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
@@ -203,9 +278,13 @@ class InterfaceSettings {
           launchAtStartup == other.launchAtStartup &&
           startMinimized == other.startMinimized &&
           showNotifications == other.showNotifications &&
+          notifyPasteProblems == other.notifyPasteProblems &&
+          notifySmartModeFallback == other.notifySmartModeFallback &&
+          notifyMicrophoneProblems == other.notifyMicrophoneProblems &&
           showBackendUtilization == other.showBackendUtilization &&
           sidePanelEnabled == other.sidePanelEnabled &&
-          sidePanelEdge == other.sidePanelEdge;
+          sidePanelEdge == other.sidePanelEdge &&
+          appearance == other.appearance;
 
   @override
   int get hashCode => Object.hash(
@@ -213,9 +292,13 @@ class InterfaceSettings {
     launchAtStartup,
     startMinimized,
     showNotifications,
+    notifyPasteProblems,
+    notifySmartModeFallback,
+    notifyMicrophoneProblems,
     showBackendUtilization,
     sidePanelEnabled,
     sidePanelEdge,
+    appearance,
   );
 }
 
@@ -223,15 +306,35 @@ class InterfaceSettings {
 // Section 2 — Audio Input
 // ===========================================================================
 
+/// Keys offered for cancelling a dictation. Escape is the default; F12 is the
+/// alternative for users whose apps already bind Escape.
+const cancelDictationKeyEscape = 'escape';
+const cancelDictationKeyChoices = [cancelDictationKeyEscape, 'f12'];
+
 class AudioInputSettings {
   const AudioInputSettings({
     this.microphone = 'Default',
     this.pushToTalk = false,
     this.holdOrTap = false,
+    this.doubleTapHandsFree = false,
+    this.cancelDictationKey = cancelDictationKeyEscape,
     this.inputGain = 1.0,
+    this.microphonePriority = const [],
   });
 
+  /// Push-to-talk only: two quick taps latch the recording hands-free.
+  final bool doubleTapHandsFree;
+
+  /// Key that cancels a running dictation. One of [cancelDictationKeyChoices].
+  final String cancelDictationKey;
+
   final String microphone;
+
+  /// Ordered device labels, most preferred first. Used when the explicit
+  /// [microphone] is absent (unplugged) or set to "Default". Virtual and
+  /// loopback inputs are never picked from this list.
+  final List<String> microphonePriority;
+
   final bool pushToTalk;
 
   /// Hold-or-Tap hybrid (sub-option of [pushToTalk]): with both on, a short
@@ -254,26 +357,46 @@ class AudioInputSettings {
         microphone: v['microphone'] ?? defaults.microphone,
         pushToTalk: _readBool(v, 'push_to_talk', defaults.pushToTalk),
         holdOrTap: _readBool(v, 'hold_or_tap', defaults.holdOrTap),
+        doubleTapHandsFree: _readBool(
+          v,
+          'double_tap_hands_free',
+          defaults.doubleTapHandsFree,
+        ),
+        cancelDictationKey:
+            cancelDictationKeyChoices.contains(v['cancel_dictation_key'])
+            ? v['cancel_dictation_key']!
+            : defaults.cancelDictationKey,
         inputGain: _readDouble(v, 'input_gain', defaults.inputGain),
+        microphonePriority: _readStringList(v, 'microphone_priority'),
       );
 
   Map<String, String> toMap() => {
     'microphone': microphone,
     'push_to_talk': '$pushToTalk',
     'hold_or_tap': '$holdOrTap',
+    'double_tap_hands_free': '$doubleTapHandsFree',
+    'cancel_dictation_key': cancelDictationKey,
     'input_gain': '$inputGain',
+    'microphone_priority': jsonEncode(microphonePriority),
   };
 
   AudioInputSettings copyWith({
     String? microphone,
     bool? pushToTalk,
     bool? holdOrTap,
+    bool? doubleTapHandsFree,
+    String? cancelDictationKey,
     double? inputGain,
+    List<String>? microphonePriority,
+    // loam-ignore: code-duplicates – same copyWith return shape by design as every other settings-section class in this file.
   }) => AudioInputSettings(
     microphone: microphone ?? this.microphone,
     pushToTalk: pushToTalk ?? this.pushToTalk,
     holdOrTap: holdOrTap ?? this.holdOrTap,
+    doubleTapHandsFree: doubleTapHandsFree ?? this.doubleTapHandsFree,
+    cancelDictationKey: cancelDictationKey ?? this.cancelDictationKey,
     inputGain: inputGain ?? this.inputGain,
+    microphonePriority: microphonePriority ?? this.microphonePriority,
   );
 
   @override
@@ -283,10 +406,21 @@ class AudioInputSettings {
           microphone == other.microphone &&
           pushToTalk == other.pushToTalk &&
           holdOrTap == other.holdOrTap &&
-          inputGain == other.inputGain;
+          doubleTapHandsFree == other.doubleTapHandsFree &&
+          cancelDictationKey == other.cancelDictationKey &&
+          inputGain == other.inputGain &&
+          _sameStrings(microphonePriority, other.microphonePriority);
 
   @override
-  int get hashCode => Object.hash(microphone, pushToTalk, holdOrTap, inputGain);
+  int get hashCode => Object.hash(
+    microphone,
+    pushToTalk,
+    holdOrTap,
+    doubleTapHandsFree,
+    cancelDictationKey,
+    inputGain,
+    Object.hashAll(microphonePriority),
+  );
 }
 
 // ===========================================================================
@@ -351,7 +485,7 @@ class SttSettings {
     this.provider = 'On Device',
     this.model = 'whisper-medium',
     this.language = 'Auto-detect',
-    this.idleTimeoutMinutes = 5,
+    this.idleTimeoutMinutes = 0,
     this.customVocabulary = '',
     this.engine = 'whisper',
     this.punctuationPriming = true,
@@ -360,13 +494,34 @@ class SttSettings {
     this.numericOnlyMode = false,
     this.removeFillerWords = false,
     this.voiceLineBreaks = true,
+    this.spokenPunctuation = false,
+    this.favoriteLanguages = const [],
+    this.languageCycleHotkeyEnabled = false,
+    this.languageCycleHotkeyKey = 'L',
+    this.languageCycleHotkeyKeyDisplay = '',
+    this.languageCycleHotkeyModifiers = 'ctrl+shift',
   });
 
   final String provider;
   final String model;
   final String language;
 
-  /// Minutes before idle STT server is shut down (0 = keep alive).
+  /// Up to [maxFavoriteLanguages] recognition-language codes the user marked
+  /// as favorites. They feed the dock's favorites block, the tray submenu and
+  /// the "next favorite language" hotkey. Empty by default.
+  final List<String> favoriteLanguages;
+
+  /// Off by default. When on, the "next favorite language" hotkey cycles the
+  /// recognition language through [favoriteLanguages]. Stored like the other
+  /// secondary hotkeys (see [SnippetPickerHotkeySettings]).
+  final bool languageCycleHotkeyEnabled;
+  final String languageCycleHotkeyKey;
+  final String languageCycleHotkeyKeyDisplay;
+  final String languageCycleHotkeyModifiers;
+
+  static const int maxFavoriteLanguages = 3;
+
+  /// Minutes before idle STT server is shut down (0 = keep alive, default; -1 = auto).
   final int idleTimeoutMinutes;
 
   /// User-defined vocabulary terms (names, jargon) passed as Whisper prompt
@@ -433,11 +588,30 @@ class SttSettings {
   /// Whether spoken line-break commands ("new paragraph", "neue Zeile", ...)
   /// are turned into real line breaks, after filler removal and before Smart
   /// Mode and text replacements — see `applyVoiceLineBreaks` in
-  /// `voice_line_breaks.dart`. Default on: the Dragon-style behaviour is the
+  /// `voice_line_breaks.dart`. Default on: spoken paragraph commands are the
   /// point of the feature, and a dictation without those phrases is untouched.
   final bool voiceLineBreaks;
 
+  /// Whether spoken punctuation commands ("Komma", "comma", "punto", ...)
+  /// become the marks they name, after line breaks in the pipeline — see
+  /// `applyVoicePunctuation` in `voice_punctuation.dart`. Default off: a
+  /// dictation keeps the words it was spoken with unless the user opts in.
+  final bool spokenPunctuation;
+
   static const SttSettings defaults = SttSettings();
+
+  /// Parses the persisted comma-separated codes: trimmed, de-duplicated,
+  /// empty entries dropped and capped at [maxFavoriteLanguages].
+  static List<String> parseFavoriteLanguages(String raw) {
+    final codes = <String>[];
+    for (final part in raw.split(',')) {
+      final code = part.trim();
+      if (code.isEmpty || codes.contains(code)) continue;
+      codes.add(code);
+      if (codes.length == maxFavoriteLanguages) break;
+    }
+    return List.unmodifiable(codes);
+  }
 
   factory SttSettings.fromMap(Map<String, String> v) => SttSettings(
     provider: v['stt_provider'] ?? defaults.provider,
@@ -476,6 +650,24 @@ class SttSettings {
       'stt_voice_line_breaks',
       defaults.voiceLineBreaks,
     ),
+    spokenPunctuation: _readBool(
+      v,
+      'stt_spoken_punctuation',
+      defaults.spokenPunctuation,
+    ),
+    favoriteLanguages: parseFavoriteLanguages(
+      v['stt_favorite_languages'] ?? '',
+    ),
+    languageCycleHotkeyEnabled: _readBool(
+      v,
+      'stt_language_cycle_hotkey_enabled',
+      false,
+    ),
+    languageCycleHotkeyKey: v['stt_language_cycle_hotkey_key'] ?? 'L',
+    languageCycleHotkeyKeyDisplay:
+        v['stt_language_cycle_hotkey_key_display'] ?? '',
+    languageCycleHotkeyModifiers:
+        v['stt_language_cycle_hotkey_modifiers'] ?? 'ctrl+shift',
   );
 
   Map<String, String> toMap() => {
@@ -491,6 +683,12 @@ class SttSettings {
     'stt_numeric_only_mode': '$numericOnlyMode',
     'stt_remove_filler_words': '$removeFillerWords',
     'stt_voice_line_breaks': '$voiceLineBreaks',
+    'stt_spoken_punctuation': '$spokenPunctuation',
+    'stt_favorite_languages': favoriteLanguages.join(','),
+    'stt_language_cycle_hotkey_enabled': '$languageCycleHotkeyEnabled',
+    'stt_language_cycle_hotkey_key': languageCycleHotkeyKey,
+    'stt_language_cycle_hotkey_key_display': languageCycleHotkeyKeyDisplay,
+    'stt_language_cycle_hotkey_modifiers': languageCycleHotkeyModifiers,
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -510,6 +708,12 @@ class SttSettings {
     bool? numericOnlyMode,
     bool? removeFillerWords,
     bool? voiceLineBreaks,
+    bool? spokenPunctuation,
+    List<String>? favoriteLanguages,
+    bool? languageCycleHotkeyEnabled,
+    String? languageCycleHotkeyKey,
+    String? languageCycleHotkeyKeyDisplay,
+    String? languageCycleHotkeyModifiers,
   }) => SttSettings(
     provider: provider ?? this.provider,
     model: model ?? this.model,
@@ -523,6 +727,18 @@ class SttSettings {
     numericOnlyMode: numericOnlyMode ?? this.numericOnlyMode,
     removeFillerWords: removeFillerWords ?? this.removeFillerWords,
     voiceLineBreaks: voiceLineBreaks ?? this.voiceLineBreaks,
+    spokenPunctuation: spokenPunctuation ?? this.spokenPunctuation,
+    favoriteLanguages: favoriteLanguages == null
+        ? this.favoriteLanguages
+        : List.unmodifiable(favoriteLanguages),
+    languageCycleHotkeyEnabled:
+        languageCycleHotkeyEnabled ?? this.languageCycleHotkeyEnabled,
+    languageCycleHotkeyKey:
+        languageCycleHotkeyKey ?? this.languageCycleHotkeyKey,
+    languageCycleHotkeyKeyDisplay:
+        languageCycleHotkeyKeyDisplay ?? this.languageCycleHotkeyKeyDisplay,
+    languageCycleHotkeyModifiers:
+        languageCycleHotkeyModifiers ?? this.languageCycleHotkeyModifiers,
   );
 
   // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
@@ -543,7 +759,14 @@ class SttSettings {
           vadEnabled == other.vadEnabled &&
           numericOnlyMode == other.numericOnlyMode &&
           removeFillerWords == other.removeFillerWords &&
-          voiceLineBreaks == other.voiceLineBreaks;
+          voiceLineBreaks == other.voiceLineBreaks &&
+          spokenPunctuation == other.spokenPunctuation &&
+          listEquals(favoriteLanguages, other.favoriteLanguages) &&
+          languageCycleHotkeyEnabled == other.languageCycleHotkeyEnabled &&
+          languageCycleHotkeyKey == other.languageCycleHotkeyKey &&
+          languageCycleHotkeyKeyDisplay ==
+              other.languageCycleHotkeyKeyDisplay &&
+          languageCycleHotkeyModifiers == other.languageCycleHotkeyModifiers;
 
   @override
   int get hashCode => Object.hash(
@@ -559,6 +782,12 @@ class SttSettings {
     numericOnlyMode,
     removeFillerWords,
     voiceLineBreaks,
+    spokenPunctuation,
+    Object.hashAll(favoriteLanguages),
+    languageCycleHotkeyEnabled,
+    languageCycleHotkeyKey,
+    languageCycleHotkeyKeyDisplay,
+    languageCycleHotkeyModifiers,
   );
 }
 
@@ -695,6 +924,33 @@ class AfterTranscriptionSettings {
   int get hashCode => afterTranscription.hashCode;
 }
 
+/// Background preset for each retired `overlay_style` value (ADR 0024,
+/// migration table). Glass and solid drew the same opaque navy pill (UX-013),
+/// so both map to marine. Unknown values get no entry and fall back to the
+/// default, like every other unknown preset name.
+const Map<String, String> _legacyOverlayStyleBackground = {
+  'glass': 'marine',
+  'solid': 'marine',
+};
+
+/// Carries a retired `overlay_style` entry into the preset keys. An explicit
+/// `overlay_background` or `overlay_wave` in [raw] always wins; the retired key
+/// is removed either way. Used when reading stored settings (upgrade) and when
+/// importing an export from an older version.
+Map<String, String> migrateLegacyOverlayStyle(Map<String, String> raw) {
+  if (!raw.containsKey('overlay_style')) return raw;
+  final migrated = {...raw}..remove('overlay_style');
+  migrated.putIfAbsent(
+    'overlay_background',
+    () =>
+        _legacyOverlayStyleBackground[raw['overlay_style']] ??
+        OverlaySettings.defaults.overlayBackground,
+  );
+  // The retired style had no wave colour; it always drew the cyan wave.
+  migrated.putIfAbsent('overlay_wave', () => 'cyan');
+  return migrated;
+}
+
 // ===========================================================================
 // Section 7 — Overlay
 // ===========================================================================
@@ -705,9 +961,20 @@ class OverlaySettings {
     this.overlayMode = 'floating',
     this.overlayStartPosition = 'top-center',
     this.overlaySize = 'normal',
-    this.overlayStyle = 'glass',
+    this.overlayBackground = 'marine',
+    this.overlayWave = 'cyan',
     this.showFloatingButton = false,
     this.overlayShowLiveTranscript = false,
+    this.overlayForm = 'pill',
+    this.overlayWaveStyle = 'bars',
+    this.overlayWaveFluid = true,
+    this.overlayShowTimer = true,
+    this.overlayShowCancel = true,
+    this.overlayOpacity = '100',
+    this.floatingButtonSize = 'medium',
+    this.floatingButtonShape = 'round',
+    this.floatingButtonRing = true,
+    this.floatingButtonIdleOpacity = '100',
   });
 
   final bool showOverlay;
@@ -721,8 +988,46 @@ class OverlaySettings {
   /// 'normal' or 'compact'.
   final String overlaySize;
 
-  /// 'glass' or 'solid'.
-  final String overlayStyle;
+  /// Background preset: 'marine', 'graphit', 'gletscher' or 'amber' (ADR 0024).
+  /// Replaces the retired `overlay_style` key, which is no longer written.
+  final String overlayBackground;
+
+  /// Wave colour preset: 'cyan', 'violett' or 'neutral' (ADR 0024).
+  final String overlayWave;
+
+  /// Window shape: 'pill', 'rounded-rect', 'compact-circle' or 'edge-bar'
+  /// (WP-95, see `OverlayForm` in `overlay_customization.dart`).
+  final String overlayForm;
+
+  /// Waveform drawing: 'bars', 'line' or 'dots' (`OverlayWaveStyle`).
+  final String overlayWaveStyle;
+
+  /// Fluid, speech-reactive outline. Off gives a static outline. Reduce
+  /// motion in the system overrides this (`OverlayPolicy`).
+  final bool overlayWaveFluid;
+
+  /// Elapsed-time label in the overlay.
+  final bool overlayShowTimer;
+
+  /// Cancel button in the overlay. Esc cancels regardless of this setting.
+  final bool overlayShowCancel;
+
+  /// Fill opacity as a percentage string: '100', '80' or '60'
+  /// (`OverlayOpacity`). Clamped by `OverlayOpacityGate` at render time.
+  final String overlayOpacity;
+
+  /// Floating button disc size: 'small' (44), 'medium' (56) or 'large' (80).
+  final String floatingButtonSize;
+
+  /// Floating button shape: 'round' (disc) or 'square' (rounded square).
+  final String floatingButtonShape;
+
+  /// Recording ring around the floating button while recording.
+  final bool floatingButtonRing;
+
+  /// Resting opacity of the floating button when idle, as a percentage
+  /// string: '100', '70' or '40'.
+  final String floatingButtonIdleOpacity;
 
   final bool showFloatingButton;
 
@@ -737,37 +1042,82 @@ class OverlaySettings {
 
   static const OverlaySettings defaults = OverlaySettings();
 
-  factory OverlaySettings.fromMap(Map<String, String> v) => OverlaySettings(
-    showOverlay: _readBool(v, 'show_overlay', defaults.showOverlay),
-    overlayMode:
-        v['overlay_mode'] ??
-        (_readBool(v, 'show_overlay', defaults.showOverlay)
-            ? defaults.overlayMode
-            : OverlayMode.off.value),
-    overlayStartPosition:
-        v['overlay_start_position'] ?? defaults.overlayStartPosition,
-    overlaySize: v['overlay_size'] ?? defaults.overlaySize,
-    overlayStyle: v['overlay_style'] ?? defaults.overlayStyle,
-    showFloatingButton: _readBool(
-      v,
-      'show_floating_button',
-      defaults.showFloatingButton,
-    ),
-    // 'floating_button_size' is intentionally not read — removed in issue 11.
-    // Old configs may have it; the key is silently ignored (no migration needed).
-    overlayShowLiveTranscript: _readBool(
-      v,
-      'overlay_show_live_transcript',
-      defaults.overlayShowLiveTranscript,
-    ),
-  );
+  factory OverlaySettings.fromMap(Map<String, String> raw) {
+    final v = migrateLegacyOverlayStyle(raw);
+    return OverlaySettings(
+      showOverlay: _readBool(v, 'show_overlay', defaults.showOverlay),
+      overlayMode:
+          v['overlay_mode'] ??
+          (_readBool(v, 'show_overlay', defaults.showOverlay)
+              ? defaults.overlayMode
+              : OverlayMode.off.value),
+      overlayStartPosition:
+          v['overlay_start_position'] ?? defaults.overlayStartPosition,
+      overlaySize: v['overlay_size'] ?? defaults.overlaySize,
+      overlayBackground: v['overlay_background'] ?? defaults.overlayBackground,
+      overlayWave: v['overlay_wave'] ?? defaults.overlayWave,
+      overlayForm: v['overlay_form'] ?? defaults.overlayForm,
+      overlayWaveStyle: v['overlay_wave_style'] ?? defaults.overlayWaveStyle,
+      overlayWaveFluid: _readBool(
+        v,
+        'overlay_wave_fluid',
+        defaults.overlayWaveFluid,
+      ),
+      overlayShowTimer: _readBool(
+        v,
+        'overlay_show_timer',
+        defaults.overlayShowTimer,
+      ),
+      overlayShowCancel: _readBool(
+        v,
+        'overlay_show_cancel',
+        defaults.overlayShowCancel,
+      ),
+      overlayOpacity: v['overlay_opacity'] ?? defaults.overlayOpacity,
+      floatingButtonSize:
+          v['overlay_button_size'] ?? defaults.floatingButtonSize,
+      floatingButtonShape:
+          v['overlay_button_shape'] ?? defaults.floatingButtonShape,
+      floatingButtonRing: _readBool(
+        v,
+        'overlay_button_ring',
+        defaults.floatingButtonRing,
+      ),
+      floatingButtonIdleOpacity:
+          v['overlay_button_idle_opacity'] ??
+          defaults.floatingButtonIdleOpacity,
+      showFloatingButton: _readBool(
+        v,
+        'show_floating_button',
+        defaults.showFloatingButton,
+      ),
+      // 'floating_button_size' is intentionally not read — removed in issue 11.
+      // Old configs may have it; the key is silently ignored (no migration needed).
+      overlayShowLiveTranscript: _readBool(
+        v,
+        'overlay_show_live_transcript',
+        defaults.overlayShowLiveTranscript,
+      ),
+    );
+  }
 
   Map<String, String> toMap() => {
     'show_overlay': '$showOverlay',
     'overlay_mode': overlayMode,
     'overlay_start_position': overlayStartPosition,
     'overlay_size': overlaySize,
-    'overlay_style': overlayStyle,
+    'overlay_background': overlayBackground,
+    'overlay_wave': overlayWave,
+    'overlay_form': overlayForm,
+    'overlay_wave_style': overlayWaveStyle,
+    'overlay_wave_fluid': '$overlayWaveFluid',
+    'overlay_show_timer': '$overlayShowTimer',
+    'overlay_show_cancel': '$overlayShowCancel',
+    'overlay_opacity': overlayOpacity,
+    'overlay_button_size': floatingButtonSize,
+    'overlay_button_shape': floatingButtonShape,
+    'overlay_button_ring': '$floatingButtonRing',
+    'overlay_button_idle_opacity': floatingButtonIdleOpacity,
     'show_floating_button': '$showFloatingButton',
     'overlay_show_live_transcript': '$overlayShowLiveTranscript',
   };
@@ -777,7 +1127,18 @@ class OverlaySettings {
     String? overlayMode,
     String? overlayStartPosition,
     String? overlaySize,
-    String? overlayStyle,
+    String? overlayBackground,
+    String? overlayWave,
+    String? overlayForm,
+    String? overlayWaveStyle,
+    bool? overlayWaveFluid,
+    bool? overlayShowTimer,
+    bool? overlayShowCancel,
+    String? overlayOpacity,
+    String? floatingButtonSize,
+    String? floatingButtonShape,
+    bool? floatingButtonRing,
+    String? floatingButtonIdleOpacity,
     bool? showFloatingButton,
     bool? overlayShowLiveTranscript,
   }) => OverlaySettings(
@@ -785,7 +1146,19 @@ class OverlaySettings {
     overlayMode: overlayMode ?? this.overlayMode,
     overlayStartPosition: overlayStartPosition ?? this.overlayStartPosition,
     overlaySize: overlaySize ?? this.overlaySize,
-    overlayStyle: overlayStyle ?? this.overlayStyle,
+    overlayBackground: overlayBackground ?? this.overlayBackground,
+    overlayWave: overlayWave ?? this.overlayWave,
+    overlayForm: overlayForm ?? this.overlayForm,
+    overlayWaveStyle: overlayWaveStyle ?? this.overlayWaveStyle,
+    overlayWaveFluid: overlayWaveFluid ?? this.overlayWaveFluid,
+    overlayShowTimer: overlayShowTimer ?? this.overlayShowTimer,
+    overlayShowCancel: overlayShowCancel ?? this.overlayShowCancel,
+    overlayOpacity: overlayOpacity ?? this.overlayOpacity,
+    floatingButtonSize: floatingButtonSize ?? this.floatingButtonSize,
+    floatingButtonShape: floatingButtonShape ?? this.floatingButtonShape,
+    floatingButtonRing: floatingButtonRing ?? this.floatingButtonRing,
+    floatingButtonIdleOpacity:
+        floatingButtonIdleOpacity ?? this.floatingButtonIdleOpacity,
     showFloatingButton: showFloatingButton ?? this.showFloatingButton,
     overlayShowLiveTranscript:
         overlayShowLiveTranscript ?? this.overlayShowLiveTranscript,
@@ -799,7 +1172,18 @@ class OverlaySettings {
           overlayMode == other.overlayMode &&
           overlayStartPosition == other.overlayStartPosition &&
           overlaySize == other.overlaySize &&
-          overlayStyle == other.overlayStyle &&
+          overlayBackground == other.overlayBackground &&
+          overlayWave == other.overlayWave &&
+          overlayForm == other.overlayForm &&
+          overlayWaveStyle == other.overlayWaveStyle &&
+          overlayWaveFluid == other.overlayWaveFluid &&
+          overlayShowTimer == other.overlayShowTimer &&
+          overlayShowCancel == other.overlayShowCancel &&
+          overlayOpacity == other.overlayOpacity &&
+          floatingButtonSize == other.floatingButtonSize &&
+          floatingButtonShape == other.floatingButtonShape &&
+          floatingButtonRing == other.floatingButtonRing &&
+          floatingButtonIdleOpacity == other.floatingButtonIdleOpacity &&
           showFloatingButton == other.showFloatingButton &&
           overlayShowLiveTranscript == other.overlayShowLiveTranscript;
 
@@ -809,7 +1193,18 @@ class OverlaySettings {
     overlayMode,
     overlayStartPosition,
     overlaySize,
-    overlayStyle,
+    overlayBackground,
+    overlayWave,
+    overlayForm,
+    overlayWaveStyle,
+    overlayWaveFluid,
+    overlayShowTimer,
+    overlayShowCancel,
+    overlayOpacity,
+    floatingButtonSize,
+    floatingButtonShape,
+    floatingButtonRing,
+    floatingButtonIdleOpacity,
     showFloatingButton,
     overlayShowLiveTranscript,
   );
@@ -886,6 +1281,9 @@ class BehaviorSettings {
     this.snippetPickerTrigger = '',
     this.correctionLearningEnabled = true,
     this.cudaAcceleration = true,
+    this.copyBlockedToClipboard = true,
+    this.linuxAlwaysShiftPaste = false,
+    this.restoreClipboardAfterPaste = true,
   });
 
   final int maxRecordDuration;
@@ -923,6 +1321,25 @@ class BehaviorSettings {
   /// pack or with `gpuAcceleration` set to CPU only.
   final bool cudaAcceleration;
 
+  /// When a block-listed target blocks auto-paste, still copy the transcript
+  /// to the clipboard (true, default) or leave the clipboard untouched; the
+  /// transcript is then only kept in the history (AUF-1, maintainer 4a+c).
+  final bool copyBlockedToClipboard;
+
+  /// Linux only (V1 Wayland): paste and copy with Ctrl+Shift+V/C everywhere,
+  /// not only in recognised terminals. The fallback for sessions where the
+  /// target app cannot be named (GNOME without the WhisPaste extension, an
+  /// unsupported compositor, Flatpak without the compositor socket). Off by
+  /// default: some apps bind Ctrl+Shift+V to something else (LibreOffice
+  /// opens Paste Special).
+  final bool linuxAlwaysShiftPaste;
+
+  /// After a paste, put the user's previous clipboard content back (true,
+  /// default) or keep the dictation on the clipboard (false). Only applies
+  /// when the paste is confirmed or cannot be confirmed; a receipt timeout
+  /// always keeps the transcript.
+  final bool restoreClipboardAfterPaste;
+
   static const BehaviorSettings defaults = BehaviorSettings();
 
   factory BehaviorSettings.fromMap(Map<String, String> v) => BehaviorSettings(
@@ -954,6 +1371,21 @@ class BehaviorSettings {
       'cuda_acceleration',
       defaults.cudaAcceleration,
     ),
+    copyBlockedToClipboard: _readBool(
+      v,
+      'copy_blocked_to_clipboard',
+      defaults.copyBlockedToClipboard,
+    ),
+    linuxAlwaysShiftPaste: _readBool(
+      v,
+      'linux_always_shift_paste',
+      defaults.linuxAlwaysShiftPaste,
+    ),
+    restoreClipboardAfterPaste: _readBool(
+      v,
+      'restore_clipboard_after_paste',
+      defaults.restoreClipboardAfterPaste,
+    ),
   );
 
   Map<String, String> toMap() => {
@@ -967,6 +1399,9 @@ class BehaviorSettings {
     'snippet_picker_trigger': snippetPickerTrigger,
     'correction_learning_enabled': '$correctionLearningEnabled',
     'cuda_acceleration': '$cudaAcceleration',
+    'copy_blocked_to_clipboard': '$copyBlockedToClipboard',
+    'linux_always_shift_paste': '$linuxAlwaysShiftPaste',
+    'restore_clipboard_after_paste': '$restoreClipboardAfterPaste',
   };
 
   BehaviorSettings copyWith({
@@ -980,6 +1415,10 @@ class BehaviorSettings {
     String? snippetPickerTrigger,
     bool? correctionLearningEnabled,
     bool? cudaAcceleration,
+    bool? copyBlockedToClipboard,
+    bool? linuxAlwaysShiftPaste,
+    bool? restoreClipboardAfterPaste,
+    // loam-ignore: code-duplicates – same copyWith return shape by design as every other settings-section class in this file.
   }) => BehaviorSettings(
     maxRecordDuration: maxRecordDuration ?? this.maxRecordDuration,
     closeToTray: closeToTray ?? this.closeToTray,
@@ -993,6 +1432,11 @@ class BehaviorSettings {
     correctionLearningEnabled:
         correctionLearningEnabled ?? this.correctionLearningEnabled,
     cudaAcceleration: cudaAcceleration ?? this.cudaAcceleration,
+    copyBlockedToClipboard:
+        copyBlockedToClipboard ?? this.copyBlockedToClipboard,
+    linuxAlwaysShiftPaste: linuxAlwaysShiftPaste ?? this.linuxAlwaysShiftPaste,
+    restoreClipboardAfterPaste:
+        restoreClipboardAfterPaste ?? this.restoreClipboardAfterPaste,
   );
 
   @override
@@ -1008,7 +1452,10 @@ class BehaviorSettings {
         textReplacementsEnabled == other.textReplacementsEnabled &&
         snippetPickerTrigger == other.snippetPickerTrigger &&
         correctionLearningEnabled == other.correctionLearningEnabled &&
-        cudaAcceleration == other.cudaAcceleration;
+        cudaAcceleration == other.cudaAcceleration &&
+        copyBlockedToClipboard == other.copyBlockedToClipboard &&
+        linuxAlwaysShiftPaste == other.linuxAlwaysShiftPaste &&
+        restoreClipboardAfterPaste == other.restoreClipboardAfterPaste;
   }
 
   @override
@@ -1023,6 +1470,9 @@ class BehaviorSettings {
     snippetPickerTrigger,
     correctionLearningEnabled,
     cudaAcceleration,
+    copyBlockedToClipboard,
+    linuxAlwaysShiftPaste,
+    restoreClipboardAfterPaste,
   );
 }
 
@@ -1296,11 +1746,17 @@ class QuickNoteHotkeySettings {
     this.quickNoteHotkeyKey = 'N',
     this.quickNoteHotkeyKeyDisplay = '',
     this.quickNoteHotkeyModifiers = 'ctrl+shift',
+    this.openNoteInMainWindow = false,
   });
 
   /// Off by default — an existing user must opt in, never gets a system-wide
   /// shortcut silently claimed by an update.
   final bool quickNoteHotkeyEnabled;
+
+  /// When a quick note was saved: bring the main window forward and open the
+  /// note in the Notizen area. Off by default: the note is saved in the
+  /// background and a toast offers "Open note" (UIA-SHL-08).
+  final bool openNoteInMainWindow;
 
   /// Canonical storage token for the non-modifier key, as consumed by
   /// `resolveKey` (see [HotkeySettings.hotkeyKey]).
@@ -1330,6 +1786,11 @@ class QuickNoteHotkeySettings {
         quickNoteHotkeyModifiers:
             v['quick_note_hotkey_modifiers'] ??
             buildDefaultQuickNoteHotkeySettings().quickNoteHotkeyModifiers,
+        openNoteInMainWindow: _readBool(
+          v,
+          'quick_note_open_in_main_window',
+          defaults.openNoteInMainWindow,
+        ),
       );
 
   Map<String, String> toMap() => {
@@ -1337,6 +1798,7 @@ class QuickNoteHotkeySettings {
     'quick_note_hotkey_key': quickNoteHotkeyKey,
     'quick_note_hotkey_key_display': quickNoteHotkeyKeyDisplay,
     'quick_note_hotkey_modifiers': quickNoteHotkeyModifiers,
+    'quick_note_open_in_main_window': '$openNoteInMainWindow',
   };
 
   // loam-ignore: code-duplicates – every settings-section class in this file
@@ -1349,6 +1811,7 @@ class QuickNoteHotkeySettings {
     String? quickNoteHotkeyKey,
     String? quickNoteHotkeyKeyDisplay,
     String? quickNoteHotkeyModifiers,
+    bool? openNoteInMainWindow,
   }) => QuickNoteHotkeySettings(
     quickNoteHotkeyEnabled:
         quickNoteHotkeyEnabled ?? this.quickNoteHotkeyEnabled,
@@ -1357,6 +1820,7 @@ class QuickNoteHotkeySettings {
         quickNoteHotkeyKeyDisplay ?? this.quickNoteHotkeyKeyDisplay,
     quickNoteHotkeyModifiers:
         quickNoteHotkeyModifiers ?? this.quickNoteHotkeyModifiers,
+    openNoteInMainWindow: openNoteInMainWindow ?? this.openNoteInMainWindow,
   );
 
   // loam-ignore: code-duplicates – same repo-wide operator==/hashCode
@@ -1369,7 +1833,8 @@ class QuickNoteHotkeySettings {
           quickNoteHotkeyEnabled == other.quickNoteHotkeyEnabled &&
           quickNoteHotkeyKey == other.quickNoteHotkeyKey &&
           quickNoteHotkeyKeyDisplay == other.quickNoteHotkeyKeyDisplay &&
-          quickNoteHotkeyModifiers == other.quickNoteHotkeyModifiers;
+          quickNoteHotkeyModifiers == other.quickNoteHotkeyModifiers &&
+          openNoteInMainWindow == other.openNoteInMainWindow;
 
   @override
   int get hashCode => Object.hash(
@@ -1377,6 +1842,7 @@ class QuickNoteHotkeySettings {
     quickNoteHotkeyKey,
     quickNoteHotkeyKeyDisplay,
     quickNoteHotkeyModifiers,
+    openNoteInMainWindow,
   );
 }
 
@@ -1497,7 +1963,12 @@ class WindowPositionSettings {
     this.windowWidth = 1100.0,
     this.windowHeight = 750.0,
     this.windowMaximized = false,
+    this.overlayPositionsByMonitor = '',
   });
+
+  /// Raw JSON `{monitorKey: [dx, dy]}`: the overlay position relative to each
+  /// monitor it was dragged to. Decoded by `MonitorRelativePosition`.
+  final String overlayPositionsByMonitor;
 
   final double floatingButtonX;
   final double floatingButtonY;
@@ -1511,38 +1982,37 @@ class WindowPositionSettings {
 
   static const WindowPositionSettings defaults = WindowPositionSettings();
 
-  factory WindowPositionSettings.fromMap(Map<String, String> v) =>
-      WindowPositionSettings(
-        floatingButtonX: _readDouble(
-          v,
-          'floating_button_x',
-          defaults.floatingButtonX,
-        ),
-        floatingButtonY: _readDouble(
-          v,
-          'floating_button_y',
-          defaults.floatingButtonY,
-        ),
-        floatingOverlayX: _readDouble(
-          v,
-          'floating_overlay_x',
-          defaults.floatingOverlayX,
-        ),
-        floatingOverlayY: _readDouble(
-          v,
-          'floating_overlay_y',
-          defaults.floatingOverlayY,
-        ),
-        windowX: _readDouble(v, 'window_x', defaults.windowX),
-        windowY: _readDouble(v, 'window_y', defaults.windowY),
-        windowWidth: _readDouble(v, 'window_width', defaults.windowWidth),
-        windowHeight: _readDouble(v, 'window_height', defaults.windowHeight),
-        windowMaximized: _readBool(
-          v,
-          'window_maximized',
-          defaults.windowMaximized,
-        ),
-      );
+  factory WindowPositionSettings.fromMap(
+    Map<String, String> v,
+  ) => WindowPositionSettings(
+    floatingButtonX: _readDouble(
+      v,
+      'floating_button_x',
+      defaults.floatingButtonX,
+    ),
+    floatingButtonY: _readDouble(
+      v,
+      'floating_button_y',
+      defaults.floatingButtonY,
+    ),
+    floatingOverlayX: _readDouble(
+      v,
+      'floating_overlay_x',
+      defaults.floatingOverlayX,
+    ),
+    floatingOverlayY: _readDouble(
+      v,
+      'floating_overlay_y',
+      defaults.floatingOverlayY,
+    ),
+    windowX: _readDouble(v, 'window_x', defaults.windowX),
+    windowY: _readDouble(v, 'window_y', defaults.windowY),
+    windowWidth: _readDouble(v, 'window_width', defaults.windowWidth),
+    windowHeight: _readDouble(v, 'window_height', defaults.windowHeight),
+    windowMaximized: _readBool(v, 'window_maximized', defaults.windowMaximized),
+    overlayPositionsByMonitor:
+        v['overlay_positions_by_monitor'] ?? defaults.overlayPositionsByMonitor,
+  );
 
   Map<String, String> toMap() => {
     'floating_button_x': '$floatingButtonX',
@@ -1554,6 +2024,7 @@ class WindowPositionSettings {
     'window_width': '$windowWidth',
     'window_height': '$windowHeight',
     'window_maximized': '$windowMaximized',
+    'overlay_positions_by_monitor': overlayPositionsByMonitor,
   };
 
   WindowPositionSettings copyWith({
@@ -1566,6 +2037,7 @@ class WindowPositionSettings {
     double? windowWidth,
     double? windowHeight,
     bool? windowMaximized,
+    String? overlayPositionsByMonitor,
   }) => WindowPositionSettings(
     floatingButtonX: floatingButtonX ?? this.floatingButtonX,
     floatingButtonY: floatingButtonY ?? this.floatingButtonY,
@@ -1576,6 +2048,8 @@ class WindowPositionSettings {
     windowWidth: windowWidth ?? this.windowWidth,
     windowHeight: windowHeight ?? this.windowHeight,
     windowMaximized: windowMaximized ?? this.windowMaximized,
+    overlayPositionsByMonitor:
+        overlayPositionsByMonitor ?? this.overlayPositionsByMonitor,
   );
 
   @override
@@ -1590,7 +2064,8 @@ class WindowPositionSettings {
           windowY == other.windowY &&
           windowWidth == other.windowWidth &&
           windowHeight == other.windowHeight &&
-          windowMaximized == other.windowMaximized;
+          windowMaximized == other.windowMaximized &&
+          overlayPositionsByMonitor == other.overlayPositionsByMonitor;
 
   @override
   int get hashCode => Object.hash(
@@ -1603,6 +2078,7 @@ class WindowPositionSettings {
     windowWidth,
     windowHeight,
     windowMaximized,
+    overlayPositionsByMonitor,
   );
 }
 
@@ -1779,6 +2255,7 @@ class BenchmarkSettings {
     this.tierBenchmarkRtf,
     this.benchmarkHardwareId,
     this.benchmarkTimestamp,
+    this.benchmarkBackend,
   });
 
   /// Real-time factor (RTF) for each quality tier from last benchmark.
@@ -1791,39 +2268,54 @@ class BenchmarkSettings {
   /// When the benchmark was last run.
   final DateTime? benchmarkTimestamp;
 
+  /// Compute backend the last measurement ran on (`cpu`, `metal`, `cuda`,
+  /// `vulkan`). Persisted so the result can name its hardware path later.
+  final String? benchmarkBackend;
+
   factory BenchmarkSettings.fromMap(Map<String, String> v) => BenchmarkSettings(
     tierBenchmarkRtf: _readBenchmarkRtf(v['tier_benchmark_rtf']),
     benchmarkHardwareId: v['benchmark_hardware_id'],
     benchmarkTimestamp: _readDateTime(v['benchmark_timestamp']),
+    benchmarkBackend: v['benchmark_backend'],
   );
 
   Map<String, String> toMap() => {
     'tier_benchmark_rtf': _writeBenchmarkRtf(tierBenchmarkRtf),
     'benchmark_hardware_id': benchmarkHardwareId ?? '',
     'benchmark_timestamp': benchmarkTimestamp?.toIso8601String() ?? '',
+    'benchmark_backend': benchmarkBackend ?? '',
   };
 
   BenchmarkSettings copyWith({
     Map<QualityTier, double>? tierBenchmarkRtf,
     String? benchmarkHardwareId,
     DateTime? benchmarkTimestamp,
+    String? benchmarkBackend,
   }) => BenchmarkSettings(
     tierBenchmarkRtf: tierBenchmarkRtf ?? this.tierBenchmarkRtf,
     benchmarkHardwareId: benchmarkHardwareId ?? this.benchmarkHardwareId,
     benchmarkTimestamp: benchmarkTimestamp ?? this.benchmarkTimestamp,
+    benchmarkBackend: benchmarkBackend ?? this.benchmarkBackend,
   );
 
+  // loam-ignore: code-duplicates – same operator==/hashCode boilerplate
+  // shape as every other settings-section class in this file.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is BenchmarkSettings &&
           tierBenchmarkRtf == other.tierBenchmarkRtf &&
           benchmarkHardwareId == other.benchmarkHardwareId &&
-          benchmarkTimestamp == other.benchmarkTimestamp;
+          benchmarkTimestamp == other.benchmarkTimestamp &&
+          benchmarkBackend == other.benchmarkBackend;
 
   @override
-  int get hashCode =>
-      Object.hash(tierBenchmarkRtf, benchmarkHardwareId, benchmarkTimestamp);
+  int get hashCode => Object.hash(
+    tierBenchmarkRtf,
+    benchmarkHardwareId,
+    benchmarkTimestamp,
+    benchmarkBackend,
+  );
 }
 
 // ===========================================================================
@@ -2422,7 +2914,11 @@ class SelectionEditHotkeySettings {
 /// `AutomationApiController`), not a persisted setting — only the user's
 /// requested [customPort] is.
 class AutomationApiSettings {
-  const AutomationApiSettings({this.enabled = false, this.customPort});
+  const AutomationApiSettings({
+    this.enabled = false,
+    this.customPort,
+    this.hooks = const [],
+  });
 
   /// Whether the local automation API server should be running. Off by
   /// default — the ticket's first acceptance criterion.
@@ -2434,17 +2930,24 @@ class AutomationApiSettings {
   /// `AutomationApiController._start`).
   final int? customPort;
 
+  /// Outbound event hooks (WP-38 / 8.3). Loopback-only; see
+  /// `automation_hooks.dart`. Stored under the additive key
+  /// `automation_hooks`.
+  final List<AutomationHook> hooks;
+
   static const AutomationApiSettings defaults = AutomationApiSettings();
 
   factory AutomationApiSettings.fromMap(Map<String, String> v) =>
       AutomationApiSettings(
         enabled: _readBool(v, 'automation_api_enabled', defaults.enabled),
         customPort: _readNullableInt(v, 'automation_api_custom_port'),
+        hooks: decodeAutomationHooks(v[kAutomationHooksSettingsKey]),
       );
 
   Map<String, String> toMap() => {
     'automation_api_enabled': '$enabled',
     'automation_api_custom_port': customPort?.toString() ?? '',
+    kAutomationHooksSettingsKey: encodeAutomationHooks(hooks),
   };
 
   /// [customPort] defaults to the private [_unset] sentinel so
@@ -2455,11 +2958,13 @@ class AutomationApiSettings {
   AutomationApiSettings copyWith({
     bool? enabled,
     Object? customPort = _unset,
+    List<AutomationHook>? hooks,
   }) => AutomationApiSettings(
     enabled: enabled ?? this.enabled,
     customPort: identical(customPort, _unset)
         ? this.customPort
         : customPort as int?,
+    hooks: hooks ?? this.hooks,
   );
 
   @override
@@ -2467,10 +2972,15 @@ class AutomationApiSettings {
       identical(this, other) ||
       other is AutomationApiSettings &&
           enabled == other.enabled &&
-          customPort == other.customPort;
+          customPort == other.customPort &&
+          _sameHooks(hooks, other.hooks);
 
   @override
-  int get hashCode => Object.hash(enabled, customPort);
+  int get hashCode => Object.hash(enabled, customPort, Object.hashAll(hooks));
+
+  static bool _sameHooks(List<AutomationHook> a, List<AutomationHook> b) =>
+      a.length == b.length &&
+      Iterable.generate(a.length).every((i) => a[i] == b[i]);
 }
 
 // ===========================================================================
@@ -2513,3 +3023,6 @@ SelectionEditHotkeySettings buildDefaultSelectionEditHotkeySettings() =>
           ? 'meta+shift'
           : 'ctrl+shift',
     );
+
+int? _portInRange(int? port) =>
+    port != null && port >= 1024 && port <= 65535 ? port : null;

@@ -150,11 +150,8 @@ void main() {
           .widget<FilledButton>(find.byType(FilledButton))
           .style!;
 
-      expect(style.foregroundColor!.resolve(const {}), WpColorsDark.textMuted);
-      expect(
-        style.backgroundColor!.resolve(const {}),
-        WpColorsDark.surfaceVariant,
-      );
+      expect(style.foregroundColor!.resolve(const {}), WpColors.textMuted);
+      expect(style.backgroundColor!.resolve(const {}), WpColors.surfaceVariant);
     });
 
     testWidgets(
@@ -175,7 +172,7 @@ void main() {
             .widget<FilledButton>(find.byType(FilledButton))
             .style!;
 
-        expect(style.side!.resolve(const {})!.color, WpColorsDark.borderSubtle);
+        expect(style.side!.resolve(const {})!.color, WpColors.borderSubtle);
       },
     );
 
@@ -305,8 +302,8 @@ void main() {
           .widget<OutlinedButton>(find.byType(OutlinedButton))
           .style!;
 
-      expect(style.foregroundColor!.resolve(const {}), WpColorsDark.error);
-      expect(style.side!.resolve(const {})!.color, WpColorsDark.errorBorder30);
+      expect(style.foregroundColor!.resolve(const {}), WpColors.error);
+      expect(style.side!.resolve(const {})!.color, WpColors.errorBorder30);
     });
 
     testWidgets('primary fills with the error token', (tester) async {
@@ -325,7 +322,7 @@ void main() {
           .widget<FilledButton>(find.byType(FilledButton))
           .style!;
 
-      expect(style.backgroundColor!.resolve(const {}), WpColorsDark.error);
+      expect(style.backgroundColor!.resolve(const {}), WpColors.error);
     });
 
     // Removed 2026-08-11 (dark-only build): 'light theme resolves its own
@@ -528,7 +525,7 @@ void main() {
 
         expect(
           ringColorOf(tester),
-          WpColorsDark.textPrimary,
+          WpColors.textPrimary,
           reason: 'a filled button rings in textPrimary, not in its tone',
         );
         expect(
@@ -601,7 +598,7 @@ void main() {
       expect(painter, isA<WpFocusRingPainter>());
       expect(
         (painter! as WpFocusRingPainter).color,
-        WpColorsDark.textPrimary,
+        WpColors.textPrimary,
         reason: 'AC7: the focused filled button paints the override colour',
       );
     });

@@ -15,6 +15,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart'
     show Breadcrumb, Sentry, SentryLevel;
 
+import '../../core/app_info.dart' as app;
 import '../../core/config/punctuation_priming_prompts.dart';
 import '../../core/config/settings_enums.dart' show OnDeviceEngine;
 import '../../core/config/settings_provider.dart';
@@ -23,15 +24,24 @@ import '../../core/logging/app_logger.dart';
 import '../../core/logging/crash_fingerprints.dart';
 import '../../core/logging/crash_reporter.dart';
 import '../../core/recording/recording_state.dart'
-    show SttServerState, transcriptionStuckBudget;
+    show
+        SttServerState,
+        isDictationBusy,
+        recordingPhaseProvider,
+        transcriptionStuckBudget;
 import '../hardware_info_service.dart' as hw;
 import '../model_download_service.dart';
 import '../path_service.dart';
+import 'benchmark_freshness.dart';
+import 'idle_unload_policy.dart';
 import 'inference_client_rejected.dart';
 import 'inference_request_validator.dart';
 import 'live_preview/live_transcript_previewer.dart';
+import 'memory_pressure.dart';
 import 'prompt_token_budget.dart';
 import 'stt_benchmark.dart' show SttBenchmark;
+import 'stt_benchmark_run.dart';
+import 'transcript_hallucination_filter.dart';
 import 'wav_header_repair.dart';
 import 'whisper/cuda_pack.dart';
 import 'whisper/gpu_load_crash_guard.dart';
@@ -247,12 +257,23 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// see [_scheduleBenchmark]. Null when nothing is pending.
   String? _pendingBenchmarkModelId;
   Timer? _benchmarkDeferTimer;
+  // Bumped by stop(): a freshness check started before stop() must not queue
+  // a benchmark for the engine that stop() just retired.
+  int _benchmarkGeneration = 0;
 
   /// Number of [transcribeBytes] calls currently holding the worker. Covers
   /// the request paths that never touch [notifyRecordingStarted] (voice
   /// notes, re-transcription from the history), which [_isRecordingActive]
   /// alone would miss.
   int _transcribeInFlight = 0;
+
+  /// Set when a load skipped its warm-up and its GPU crash-guard marker is
+  /// still pending; cleared by the first real inference that completes.
+  bool _crashProofPending = false;
+
+  /// True while [runBenchmark] measures its tiers; suppresses the automatic
+  /// post-load benchmark for the models that run loads.
+  bool _benchmarkSuiteActive = false;
 
   /// Resolved once [_transcribeInFlight] drops back to zero. Lets [stop]
   /// wait out a request already past the [transcribeBytes] readiness check
@@ -433,7 +454,10 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   // Public API
   // ---------------------------------------------------------------------------
 
-  Future<void> ensureRunning() async {
+  /// [warmup] = false skips the warm-up inference after the load. Used when the
+  /// load runs after a capture start: the real transcription follows and runs
+  /// the same first inference, so the silent warm-up would only delay it.
+  Future<void> ensureRunning({bool warmup = true}) async {
     if (_startCompleter != null) {
       return _startCompleter!.future;
     }
@@ -443,7 +467,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     if (_activeModel != null && _activeModel != modelId) {
       _log.info('STT model changed ($_activeModel → $modelId), restarting');
-      stop();
+      await _stopForRestart();
     }
 
     if (state.isReady && state.modelId == modelId) {
@@ -454,19 +478,19 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     if (_modelLoadFailedIds.contains(modelId)) {
       _fail(
-        'STT model file is corrupted. '
-        'Please re-download the model in Settings.',
+        'stt_model_corrupted',
+        detail: 'model $modelId failed to load before; file treated as corrupt',
       );
       return;
     }
 
     if (state.serverState != SttServerState.stopped) {
-      stop();
+      await _stopForRestart();
     }
 
     _startCompleter = Completer<void>();
     try {
-      await _start(modelId: modelId);
+      await _start(modelId: modelId, warmup: warmup);
       _startCompleter?.complete();
     } on Exception catch (e) {
       _startCompleter?.completeError(e);
@@ -474,6 +498,22 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     } finally {
       _startCompleter = null;
     }
+  }
+
+  /// Stops the engine ahead of a restart (model switch, prewarm, start over
+  /// a stale one). Unlike [stop], it waits for an in-flight transcription to
+  /// finish, bounded by [stuckGuardTimeout], so a restart never unloads the
+  /// model underneath a running request (FLUTTER_WHISPASTE-6X, SW-04).
+  /// [stop] keeps its short drain on purpose: app quit must not stall.
+  Future<void> _stopForRestart() async {
+    if (_transcribeInFlight > 0) {
+      _drainCompleter ??= Completer<void>();
+      await _drainCompleter!.future.timeout(
+        stuckGuardTimeout,
+        onTimeout: () {},
+      );
+    }
+    await stop();
   }
 
   Future<void> prewarm() async {
@@ -485,19 +525,132 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
   }
 
+  /// Measures every installed quality tier (one model each) and leaves the
+  /// user's own model loaded again. Progress, cancel and errors go through
+  /// [sttBenchmarkRunProvider]; each tier's RTF is stored as soon as it is
+  /// measured, so the model-card hints update while the run is still going.
   Future<void> runBenchmark() async {
-    final currentModelId = state.modelId;
-    if (currentModelId.isEmpty) {
-      _log.debug('Cannot run benchmark: no model is currently active');
+    final run = ref.read(sttBenchmarkRunProvider.notifier);
+    if (ref.read(sttBenchmarkRunProvider).isRunning) return;
+    if (_isRecordingActive || _transcribeInFlight > 0) {
+      run.fail(BenchmarkRunError.busy);
       return;
     }
-    stop();
-    try {
-      await _start(modelId: currentModelId);
-      _log.info('Re-benchmark completed for $currentModelId');
-    } on Exception catch (e) {
-      _log.debug('Re-benchmark failed: $e');
+
+    final original =
+        ref.read(settingsProvider).value?.effectiveModelId ?? state.modelId;
+    final tiers = _benchmarkTierOrder(original);
+    if (tiers.isEmpty) {
+      run.fail(BenchmarkRunError.noModel);
+      return;
     }
+
+    run.begin(total: tiers.length);
+    _benchmarkSuiteActive = true;
+    var outcome = _BenchmarkOutcome.completed;
+    try {
+      stop();
+      for (var i = 0; i < tiers.length; i++) {
+        if (_benchmarkShouldStop()) {
+          outcome = _BenchmarkOutcome.cancelled;
+          break;
+        }
+        run.step(done: i, tier: tiers[i]);
+        if (!await _measureTierInSuite(tiers[i])) {
+          outcome = _BenchmarkOutcome.failed;
+          break;
+        }
+        run.step(done: i + 1, tier: tiers[i]);
+      }
+    } catch (e) {
+      // Any error, not only Exceptions: the engine reports an unloaded engine
+      // as a StateError (an Error). Escaping here skipped the restore and left
+      // the run in its running phase for good.
+      _log.debug('Benchmark run failed: $e');
+      outcome = _BenchmarkOutcome.failed;
+    } finally {
+      _benchmarkSuiteActive = false;
+    }
+
+    await _restoreModelAfterBenchmark(original);
+    if (!ref.mounted) return;
+    switch (outcome) {
+      case _BenchmarkOutcome.failed:
+        run.fail(BenchmarkRunError.failed);
+      case _BenchmarkOutcome.cancelled:
+        run.finish(cancelled: true);
+      case _BenchmarkOutcome.completed:
+        run.finish(cancelled: false);
+    }
+  }
+
+  /// Installed tiers to measure. The user's own tier goes last, so the run
+  /// ends with the model the user selected and needs no reload to restore it.
+  List<QualityTier> _benchmarkTierOrder(String originalModelId) {
+    final originalTier = tierForModel(originalModelId);
+    final installed = [
+      for (final tier in QualityTier.values)
+        if (_isModelInstalled(bestModelForTier(tier).id)) tier,
+    ];
+    return [
+      ...installed.where((t) => t != originalTier),
+      if (installed.contains(originalTier)) originalTier!,
+    ];
+  }
+
+  /// A cancel request or a dictation starting ends the run after the step in
+  /// progress: a native inference cannot be interrupted.
+  bool _benchmarkShouldStop() =>
+      ref.read(sttBenchmarkRunProvider).cancelRequested ||
+      _isRecordingActive ||
+      _transcribeInFlight > 0;
+
+  /// Loads [tier]'s model, measures it and stores the result. Returns false
+  /// when the model did not come up ready.
+  Future<bool> _measureTierInSuite(QualityTier tier) async {
+    final modelId = bestModelForTier(tier).id;
+    await _start(modelId: modelId);
+    if (state.serverState != SttServerState.ready) return false;
+    state = state.copyWith(isBenchmarking: true, benchmarkingTier: tier);
+    final double rtf;
+    try {
+      rtf = await _measureRtf();
+    } finally {
+      if (ref.mounted) {
+        state = state.copyWith(
+          isBenchmarking: false,
+          clearBenchmarkingTier: true,
+        );
+      }
+    }
+    _log.info('Benchmark completed for $modelId: RTF=$rtf');
+    if (ref.mounted) await _storeBenchmarkResult(modelId, rtf);
+    return true;
+  }
+
+  /// An early stop leaves another tier loaded: put the user's model back.
+  Future<void> _restoreModelAfterBenchmark(String original) async {
+    if (state.modelId == original || !_isModelInstalled(original)) return;
+    try {
+      await _start(modelId: original);
+    } on Exception catch (e) {
+      _log.debug('Restoring the user model after a benchmark failed: $e');
+    }
+  }
+
+  bool _isModelInstalled(String modelId) {
+    final path = sttModelPath(modelId);
+    return path != null && File(path).existsSync();
+  }
+
+  /// Times one 3 s benchmark inference on the loaded engine and returns the
+  /// real-time factor (processing time / audio duration).
+  Future<double> _measureRtf() async {
+    final sw = Stopwatch()..start();
+    await _engine!.transcribe(SttBenchmark.generateBenchmarkWav());
+    sw.stop();
+    const audioDurationMs = 3000;
+    return sw.elapsedMilliseconds / audioDurationMs;
   }
 
   void notifyRecordingStarted() {
@@ -517,7 +670,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   }
 
   void notifyTranscriptionCompleted() {
-    _isRecordingActive = false;
+    // Background transcriptions (automation API, file import) report here too.
+    // While a dictation is still busy, the flag stays set: the live-preview
+    // and reduced-thread gates depend on it. Idle handling is unchanged.
+    if (!isDictationBusy(ref.read(recordingPhaseProvider))) {
+      _isRecordingActive = false;
+    }
     _idleExtended = false;
     _resetIdleTimer(extendAfterTranscription: true);
     _rearmPendingBenchmark();
@@ -538,6 +696,14 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     return transcribeBytes(await file.readAsBytes(), language: language);
   }
 
+  /// Language the current engine decoded its last transcription in, when the
+  /// engine reports one (9.10). `null` when unknown.
+  String? get lastDetectedLanguage {
+    final engine = _engine;
+    if (engine is! DetectedLanguageSource) return null;
+    return (engine as DetectedLanguageSource).lastDetectedLanguage;
+  }
+
   Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
     if (!state.isReady) {
       throw StateError('STT server is not running');
@@ -555,6 +721,17 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         _drainCompleter = null;
       }
     }
+  }
+
+  /// A load that skipped its warm-up leaves the GPU crash-guard marker set.
+  /// The first real inference that completes proves the GPU path survived the
+  /// first compute dispatch, so only then the marker is cleared.
+  void _settleCrashGuardAfterInference() {
+    if (!_crashProofPending) return;
+    _crashProofPending = false;
+    final crashGuard = ref.read(gpuLoadCrashGuardProvider);
+    crashGuard.clearAttempt();
+    crashGuard.resetCrashStreak();
   }
 
   Future<String> _transcribeBytesInner(
@@ -644,6 +821,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         audioDurationMs,
         settings?.stt.vadEnabled ?? true,
       );
+      _settleCrashGuardAfterInference();
     } catch (e) {
       stopwatch.stop();
       // The resilience wrapper already classified the failure and (for
@@ -674,6 +852,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     var text = rawText.trim();
     text = _stripNonSpeechMarkers(text);
+    if (isNonSpeechTranscript(text)) {
+      // The whole transcript is a stock phrase or a sound annotation from
+      // silence, not dictation.
+      // Empty output takes the same path as a blank recording.
+      _log.info('Dropped non-speech transcript');
+      text = '';
+    }
     text = _collapseRepetitions(text);
 
     if (text.isNotEmpty) {
@@ -711,6 +896,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _benchmarkDeferTimer?.cancel();
     _benchmarkDeferTimer = null;
     _pendingBenchmarkModelId = null;
+    _benchmarkGeneration++;
     _activeModel = null;
     _lastPrompt = null;
     _lastPromptTime = null;
@@ -820,13 +1006,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         return combined;
       }
       if (vocab == null || vocab.isEmpty) {
-        return truncatePromptToTokenBudget(
+        return await truncatePromptToTokenBudget(
           combined,
           _promptTokenBudget,
           engine.countPromptTokens,
         );
       }
-      return truncatePromptToTokenBudget(
+      return await truncatePromptToTokenBudget(
         vocab,
         _promptTokenBudget,
         engine.countPromptTokens,
@@ -1137,7 +1323,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _idleTimer = null;
 
     final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-    final baseMinutes = settings.sttIdleTimeoutMinutes;
+    final baseMinutes = resolveIdleUnloadMinutes(
+      configured: settings.stt.idleTimeoutMinutes,
+      snapshot: ref.read(memorySnapshotStoreProvider).latest,
+      modelMB: hw.sttModelVramMB[settings.effectiveModelId],
+    );
 
     if (baseMinutes <= 0) return;
 
@@ -1173,7 +1363,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         return;
       }
 
-      if (state.serverState != SttServerState.stopped) stop();
+      if (state.serverState != SttServerState.stopped) {
+        await _stopForRestart();
+      }
       try {
         await ensureRunning();
         _log.info('Pre-warm after model change complete');
@@ -1215,23 +1407,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     state = state.copyWith(isBenchmarking: true, benchmarkingTier: tier);
 
-    final sw = Stopwatch()..start();
     try {
-      final benchmarkWav = SttBenchmark.generateBenchmarkWav();
-      await _engine!.transcribe(benchmarkWav);
-      sw.stop();
-
-      const audioDurationMs = 3000;
-      final rtf = sw.elapsedMilliseconds / audioDurationMs;
-
-      _log.info(
-        'Benchmark completed for $modelId: ${sw.elapsedMilliseconds}ms '
-        '(RTF=$rtf)',
-      );
+      final rtf = await _measureRtf();
+      _log.info('Benchmark completed for $modelId: RTF=$rtf');
 
       if (ref.mounted) await _storeBenchmarkResult(modelId, rtf);
     } catch (e) {
-      sw.stop();
       _log.debug('Benchmark failed: $e');
     } finally {
       if (ref.mounted) {
@@ -1254,6 +1435,33 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   void _scheduleBenchmark(String modelId) {
     _pendingBenchmarkModelId = modelId;
     _maybeRunPendingBenchmark();
+  }
+
+  /// Queues a benchmark for [modelId] unless this machine already has a
+  /// current result for its tier, so a normal start does not re-measure.
+  Future<void> _scheduleBenchmarkIfStale(String modelId) async {
+    final tier = tierForModel(modelId);
+    if (tier == null) return;
+    final generation = _benchmarkGeneration;
+    try {
+      final gpu = await ref.read(hw.gpuInfoProvider.future);
+      if (!ref.mounted) return;
+      final settings = ref.read(settingsProvider).value;
+      final fresh = settings == null
+          ? null
+          : benchmarkRtfForMachine(
+              benchmark: settings.benchmark,
+              gpu: gpu,
+              backend: _engine?.status.backend.name,
+              appVersion: app.appVersion,
+            );
+      if (fresh != null && fresh.containsKey(tier)) return;
+    } on Exception catch (e) {
+      _log.debug('Benchmark freshness check failed: $e');
+    }
+    if (!ref.mounted || _benchmarkSuiteActive) return;
+    if (generation != _benchmarkGeneration) return;
+    _scheduleBenchmark(modelId);
   }
 
   /// Runs the pending benchmark if nothing else needs the worker; otherwise
@@ -1279,30 +1487,38 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   }
 
   Future<void> _storeBenchmarkResult(String modelId, double rtf) async {
+    final backend = _engine?.status.backend.name;
     try {
       final tier = tierForModel(modelId);
       if (tier == null) return;
       if (!ref.mounted) return;
 
-      final currentSettings = ref.read(settingsProvider).value;
-      final currentRtfMap = Map<QualityTier, double>.from(
-        currentSettings?.tierBenchmarkRtf ?? {},
-      );
-      currentRtfMap[tier] = rtf;
-
       final gpuInfo = await ref.read(hw.gpuInfoProvider.future);
       if (!ref.mounted) return;
-      final hwId = gpuInfo.vendor == hw.GpuVendor.none
-          ? 'cpu'
-          : '${gpuInfo.vendor.name}_${gpuInfo.vramMB ?? 0}';
+      final machineKey = benchmarkMachineKey(
+        hardwareKey: benchmarkHardwareKey(gpuInfo),
+        appVersion: app.appVersion,
+      );
+
+      // Results from another machine, build or compute path are not comparable
+      // with this one: keep only the tiers measured under the same setup.
+      final previous = ref.read(settingsProvider).value?.benchmark;
+      final sameSetup =
+          previous?.benchmarkHardwareId == machineKey &&
+          previous?.benchmarkBackend == backend;
+      final currentRtfMap = Map<QualityTier, double>.from(
+        sameSetup ? previous?.tierBenchmarkRtf ?? {} : {},
+      );
+      currentRtfMap[tier] = rtf;
 
       await ref
           .read(settingsProvider.notifier)
           .updateSettings(
             (s) => s.copyWith(
               tierBenchmarkRtf: currentRtfMap,
-              benchmarkHardwareId: hwId,
+              benchmarkHardwareId: machineKey,
               benchmarkTimestamp: DateTime.now(),
+              benchmarkBackend: backend,
             ),
           );
 
@@ -1357,21 +1573,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     return buffer;
   }
 
-  Future<void> _start({required String modelId}) async {
+  Future<void> _start({required String modelId, bool warmup = true}) async {
     _transition(const SttStatus(serverState: SttServerState.starting));
 
     final modelPath = sttModelPath(modelId);
     if (modelPath == null) {
-      _fail('Unknown STT model: $modelId');
+      _fail('stt_model_unknown', detail: 'no model file path for $modelId');
       return;
     }
 
     final modelFile = File(modelPath);
     if (!await modelFile.exists()) {
-      _fail(
-        'STT model file not found at $modelPath. '
-        'Download the model first.',
-      );
+      _fail('stt_model_file_missing', detail: 'not found at $modelPath');
       return;
     }
 
@@ -1464,7 +1677,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       // (_transcribeResilient) — degrade once, don't just surface the raw
       // timeout to the user.
       if (_engine!.status.backend == WhisperBackend.cpu) {
-        _fail('Failed to load STT model: $e');
+        _fail('stt_model_load_failed', detail: '$e');
         return;
       }
       _log.warning(
@@ -1478,7 +1691,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           vadModelPath: defaultWhisperVadModelPath(),
         );
       } catch (cpuError) {
-        _fail('Failed to load STT model: $cpuError');
+        _fail('stt_model_load_failed', detail: 'CPU retry: $cpuError');
         return;
       }
       unawaited(_engine!.unload());
@@ -1492,7 +1705,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _activeModel = modelId;
     _resetIdleTimer();
 
-    final warmupOk = await _warmupInference();
+    final warmupOk = warmup ? await _warmupInference() : null;
     // Reaching here proves the process survived the first GPU compute
     // dispatch, not just the weight load — see the crash-loop-breaker
     // comment above. Only fires if the catch branch above didn't already
@@ -1500,12 +1713,17 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // marker is cleared either way (a Dart-level warmup exception is not a
     // native crash), but the consecutive-crash streak is only reset when the
     // warmup actually succeeded: a failed warmup is not proof the GPU works.
-    if (gpuAttemptPending) {
+    if (gpuAttemptPending && warmup) {
       crashGuard.clearAttempt();
-      if (warmupOk) crashGuard.resetCrashStreak();
+      if (warmupOk ?? false) crashGuard.resetCrashStreak();
       gpuAttemptPending = false;
     }
-    _scheduleBenchmark(modelId);
+    // Without the warm-up the marker stays set until the first real inference
+    // completes (see [_settleCrashGuardAfterInference]).
+    _crashProofPending = gpuAttemptPending;
+    // A user-triggered run measures its own tiers; it must not also queue the
+    // automatic post-load benchmark.
+    if (!_benchmarkSuiteActive) unawaited(_scheduleBenchmarkIfStale(modelId));
 
     _transition(
       SttStatus(
@@ -1599,12 +1817,17 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     return result.join(' ');
   }
 
-  void _fail(String message) {
-    _log.error('STT error: $message');
+  /// Enters the error state with a stable [code] (shown localized by the UI).
+  /// Free text and paths go to the log only, never into the code.
+  void _fail(String code, {String? detail}) {
+    _log.error('STT error: $code${detail == null ? '' : ' ($detail)'}');
     _transition(
-      SttStatus(serverState: SttServerState.error, errorMessage: message),
+      SttStatus(serverState: SttServerState.error, errorMessage: code),
     );
   }
 }
 
 // Providers are defined in stt_providers.dart and re-exported via stt_bundle.dart.
+
+/// How a user-triggered benchmark run ended.
+enum _BenchmarkOutcome { completed, cancelled, failed }

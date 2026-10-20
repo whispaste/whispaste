@@ -20,7 +20,7 @@ import 'voice_note_button.dart';
 // ---------------------------------------------------------------------------
 // Inline notes section (progressive disclosure)
 //
-// Mobile-first: actions always visible (reduced opacity), touch targets ≥ 48px,
+// Actions always visible (reduced opacity); hit areas ≥ 48px,
 // interactive icons ≥ 20px.
 // ---------------------------------------------------------------------------
 
@@ -53,26 +53,43 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
     super.dispose();
   }
 
-  void _addNote() {
+  Future<void> _addNote() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
     final db = ref.read(historyDatabaseProvider);
     final now = DateTime.now();
-    db.upsertNote(
-      EntryNotesCompanion(
-        id: Value(now.millisecondsSinceEpoch.toString()),
-        entryId: Value(widget.entryId),
-        content: Value(text),
-        createdAt: Value(now),
-        updatedAt: Value(now),
-      ),
-    );
+    try {
+      await db.upsertNote(
+        EntryNotesCompanion(
+          id: Value(now.millisecondsSinceEpoch.toString()),
+          entryId: Value(widget.entryId),
+          content: Value(text),
+          createdAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+    } catch (_) {
+      // Keep the text in the input so the user can retry (UIA-HIS-05).
+      if (mounted) {
+        WpToast.show(
+          context,
+          message: L10n.of(context).historyWriteFailedToast,
+          type: WpToastType.error,
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
     _controller.clear();
     setState(() => _isAdding = false);
   }
 
-  Future<void> _deleteNote(String noteId, String noteContent) async {
+  Future<void> _deleteNote(
+    String noteId,
+    String noteContent,
+    DateTime noteCreatedAt,
+  ) async {
     final l10n = L10n.of(context);
     final savedNote = noteContent;
 
@@ -93,7 +110,9 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                   id: Value(noteId),
                   entryId: Value(widget.entryId),
                   content: Value(savedNote),
-                  createdAt: Value(DateTime.now()),
+                  // Keep the original date, so the note returns to its place
+                  // in the timeline (UIA-HIS-24).
+                  createdAt: Value(noteCreatedAt),
                   updatedAt: Value(DateTime.now()),
                 ),
               );
@@ -133,14 +152,14 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     final notes = ref.watch(entryNotesProvider(widget.entryId));
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
-    const borderColor = WpColors.borderSubtle;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final borderColor = WpColors.borderSubtle;
     // Card material for both the add-note row and every saved note below it
     // — the notes are plates inside the detail panel, and `surfaceElevated`
     // was the last opaque fill left in this panel.
-    const cardFill = WpColors.cardFill;
+    final cardFill = WpColors.cardFill;
 
     return notes.when(
       loading: () => const SizedBox.shrink(),
@@ -169,8 +188,8 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                     child: InkWell(
                       onTap: () => setState(() => _isAdding = true),
                       borderRadius: WpRadius.borderSm,
-                      child: const Padding(
-                        padding: EdgeInsets.all(WpSpacing.xs),
+                      child: Padding(
+                        padding: const EdgeInsets.all(WpSpacing.xs),
                         child: Icon(
                           LucideIcons.plus,
                           size: WpIconSize.md,
@@ -223,7 +242,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                       label: l10n.actionSave,
                       button: true,
                       child: IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           LucideIcons.check,
                           size: WpIconSize.md,
                           color: accent,
@@ -237,7 +256,7 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                       label: l10n.actionCancel,
                       button: true,
                       child: IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           LucideIcons.x,
                           size: WpIconSize.md,
                           color: textMuted,
@@ -275,7 +294,8 @@ class HistoryNotesSectionState extends ConsumerState<HistoryNotesSection> {
                 onSave: () => _saveEditedNote(note.id),
                 onCancel: _cancelEditing,
                 onStartEdit: () => _startEditing(note.id, note.content),
-                onDelete: () => _deleteNote(note.id, note.content),
+                onDelete: () =>
+                    _deleteNote(note.id, note.content, note.createdAt),
                 onCopy: () => _copyNote(note.content),
               ),
             ],
@@ -351,7 +371,7 @@ class _NoteItemState extends State<_NoteItem> {
     // The card material's hover rung, the same one `WpListTileSurface`
     // lifts a card row to — not `surfaceVariant`, which was an opaque tile
     // colour from the old system.
-    const hoverBg = WpColors.cardFillElevated;
+    final hoverBg = WpColors.cardFillElevated;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
@@ -570,7 +590,7 @@ class _AddNoteHeaderTapTargetState extends State<_AddNoteHeaderTapTarget> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textSecondary = WpColors.textSecondary;
+    final textSecondary = WpColors.textSecondary;
 
     return MergeSemantics(
       child: Semantics(
@@ -594,7 +614,7 @@ class _AddNoteHeaderTapTargetState extends State<_AddNoteHeaderTapTarget> {
                 // the section label is inert, and the two controls that
                 // *are* operable (microphone, "+") sit on the same line and
                 // keep the accent to themselves.
-                const Icon(
+                Icon(
                   LucideIcons.stickyNote,
                   size: WpIconSize.sm,
                   color: textSecondary,
@@ -606,7 +626,7 @@ class _AddNoteHeaderTapTargetState extends State<_AddNoteHeaderTapTarget> {
                       widget.noteListLength == 0
                           ? l10n.historyAddNote
                           : '${l10n.historyNotes} (${widget.noteListLength})',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: WpTypography.body,
                         fontWeight: FontWeight.w600,
                         color: textSecondary,

@@ -7,6 +7,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 
 void main() {
+  group('SttSettings.idleTimeoutMinutes', () {
+    test('defaults to 0 (keep the speech model loaded)', () {
+      expect(SttSettings.defaults.idleTimeoutMinutes, 0);
+    });
+
+    test('an explicitly stored value wins over the default', () {
+      final settings = SttSettings.fromMap({
+        ...SttSettings.defaults.toMap(),
+        'stt_idle_timeout_minutes': '5',
+      });
+      expect(settings.idleTimeoutMinutes, 5);
+    });
+  });
+
   group('SttSettings.numericOnlyMode', () {
     test('defaults to false', () {
       expect(SttSettings.defaults.numericOnlyMode, isFalse);
@@ -120,6 +134,42 @@ void main() {
 
     test('two instances differing only in removeFillerWords are unequal', () {
       const a = SttSettings(removeFillerWords: true);
+      const b = SttSettings();
+      expect(a == b, isFalse);
+      expect(a.hashCode == b.hashCode, isFalse);
+    });
+  });
+
+  group('SttSettings.spokenPunctuation', () {
+    test('defaults to off', () {
+      expect(SttSettings.defaults.spokenPunctuation, isFalse);
+    });
+
+    test('round-trips through toMap/fromMap', () {
+      const settings = SttSettings(spokenPunctuation: true);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.spokenPunctuation, isTrue);
+    });
+
+    test('is persisted under stt_spoken_punctuation', () {
+      const settings = SttSettings(spokenPunctuation: true);
+      expect(settings.toMap()['stt_spoken_punctuation'], 'true');
+    });
+
+    test('a missing key reads as off', () {
+      final map = const SttSettings().toMap()..remove('stt_spoken_punctuation');
+      expect(SttSettings.fromMap(map).spokenPunctuation, isFalse);
+    });
+
+    test('copyWith changes no other field', () {
+      const original = SttSettings();
+      final updated = original.copyWith(spokenPunctuation: true);
+      expect(updated.spokenPunctuation, isTrue);
+      expect(updated.copyWith(spokenPunctuation: false), original);
+    });
+
+    test('two instances differing only in spokenPunctuation are unequal', () {
+      const a = SttSettings(spokenPunctuation: true);
       const b = SttSettings();
       expect(a == b, isFalse);
       expect(a.hashCode == b.hashCode, isFalse);

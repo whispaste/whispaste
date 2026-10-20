@@ -1,5 +1,5 @@
 /// Tests confirming:
-/// - The language picker inside [InterfaceSection] uses [WpLanguageSelector]
+/// - The language picker inside [InterfaceGeneralSection] uses [WpLanguageSelector]
 ///   and renders at the same row height as its dropdown siblings.
 /// - The autostart 3-way dropdown maps bool combinations correctly and writes
 ///   both fields on selection.
@@ -11,12 +11,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/core/theme/tokens.dart';
+import 'package:whispaste/core/theme/generated/wp_tokens.g.dart';
+import 'package:whispaste/features/settings/sections/interface_appearance_section.dart';
 import 'package:whispaste/features/settings/sections/interface_section.dart';
-import 'package:whispaste/features/settings/settings_widgets.dart';
 import 'package:whispaste/widgets/language_selector.dart';
+import 'package:whispaste/widgets/wp_dropdown.dart';
 
 import '../../../fixtures/test_helpers.dart';
+import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
 
 class FakeSettingsNotifier extends SettingsNotifier {
   FakeSettingsNotifier([AppSettings? settings])
@@ -40,7 +42,14 @@ class FakeSettingsNotifier extends SettingsNotifier {
 
 Widget _pump(WidgetTester tester, FakeSettingsNotifier notifier) {
   return makeTestable(
-    const SingleChildScrollView(child: InterfaceSection()),
+    const SingleChildScrollView(child: InterfaceGeneralSection()),
+    overrides: [settingsProvider.overrideWith(() => notifier)],
+  );
+}
+
+Widget _pumpAppearance(WidgetTester tester, FakeSettingsNotifier notifier) {
+  return makeTestable(
+    const SingleChildScrollView(child: InterfaceAppearanceSection()),
     overrides: [settingsProvider.overrideWith(() => notifier)],
   );
 }
@@ -66,11 +75,11 @@ void main() {
 
   // ── Language picker ────────────────────────────────────────────────────────
 
-  group('InterfaceSection language picker', () {
+  group('InterfaceGeneralSection language picker', () {
     testWidgets('renders a WpLanguageSelector widget', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: InterfaceSection()),
+          const SingleChildScrollView(child: InterfaceGeneralSection()),
           overrides: [
             settingsProvider.overrideWith(
               () => FakeSettingsNotifier(
@@ -94,7 +103,7 @@ void main() {
 
       await tester.pumpWidget(
         makeTestable(
-          const SingleChildScrollView(child: InterfaceSection()),
+          const SingleChildScrollView(child: InterfaceGeneralSection()),
           overrides: [settingsProvider.overrideWith(() => notifier)],
         ),
       );
@@ -130,28 +139,108 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Row order in InterfaceSection: theme, language, autostart.
-      final rows = find.byType(SettingRow);
-      final themeHeight = tester.getSize(rows.at(0)).height;
-      final languageHeight = tester.getSize(rows.at(1)).height;
-      final autostartHeight = tester.getSize(rows.at(2)).height;
+      // Row order in InterfaceGeneralSection: language, autostart, ... The
+      // autostart dropdown row is the subtitle-less like-for-like sibling.
+      final rows = find.byType(WpSettingsRow);
+      final languageHeight = tester.getSize(rows.at(0)).height;
+      final autostartHeight = tester.getSize(rows.at(1)).height;
 
-      expect(languageHeight, themeHeight);
       expect(languageHeight, autostartHeight);
       // Parity alone would still hold if all three rows moved together, so
-      // pin the trigger itself at the app's single control height — the same
-      // WpLayout.minTouchTarget WpButton, WpSearchField and
-      // WpTextFieldVariant.form all settle at.
+      // pin the visible trigger at the dropdown height (spec §4: 40 px). The
+      // layout box around it is the 48 px touch target, so measure the trigger
+      // itself rather than the selector's outer box.
       expect(
-        tester.getSize(find.byType(WpLanguageSelector)).height,
-        WpLayout.minTouchTarget,
+        tester
+            .getSize(
+              find
+                  .ancestor(
+                    of: find.descendant(
+                      of: find.byType(WpLanguageSelector),
+                      matching: find.byType(DropdownButtonHideUnderline),
+                    ),
+                    matching: find.byType(Container),
+                  )
+                  .first,
+            )
+            .height,
+        WpShellTokens.controlHeight,
       );
+    });
+  });
+
+  // ── Trailing control width ─────────────────────────────────────────────────
+
+  group('InterfaceGeneralSection trailing dropdown widths', () {
+    // Both trailing dropdowns of this group take one width from the longest
+    // label of either (see SharedWidthDropdown). The exact width is pinned by
+    // interface_language_fit_test.dart.
+    testWidgets('language and autostart dropdowns share one width', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _pump(
+          tester,
+          FakeSettingsNotifier(
+            const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final rows = find.byType(WpSettingsRow);
+      final languageWidth = tester
+          .getSize(
+            find.descendant(
+              of: rows.at(0),
+              matching: find.byType(WpDropdown<String>),
+            ),
+          )
+          .width;
+      final autostartWidth = tester
+          .getSize(
+            find.descendant(
+              of: rows.at(1),
+              matching: find.byType(WpDropdown<String>),
+            ),
+          )
+          .width;
+
+      expect(languageWidth, autostartWidth);
+    });
+
+    // WpSettingsGroup puts one divider between each pair of children. The
+    // approval hint is a child that renders nothing unless macOS holds the
+    // login item back, so it used to stack two dividers 1 px apart under the
+    // autostart row. Without a pending approval there must be exactly one
+    // divider between two rows.
+    testWidgets('no two dividers stack when the autostart hint is idle', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _pump(
+          tester,
+          FakeSettingsNotifier(
+            const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final dividers = find.byType(Divider);
+      // Four rows (language, autostart, notifications, close to tray).
+      expect(dividers, findsNWidgets(3));
+      for (var i = 1; i < 3; i++) {
+        final previous = tester.getRect(dividers.at(i - 1));
+        final current = tester.getRect(dividers.at(i));
+        expect(current.top - previous.bottom, greaterThan(1));
+      }
     });
   });
 
   // ── Autostart dropdown ─────────────────────────────────────────────────────
 
-  group('InterfaceSection autostart dropdown', () {
+  group('InterfaceGeneralSection autostart dropdown', () {
     // AC: dropdown reflects loaded state — launchAtStartup=false → "Never"
     testWidgets('AC: shows "Never" when launchAtStartup=false', (tester) async {
       final notifier = FakeSettingsNotifier(
@@ -315,7 +404,7 @@ void main() {
 
   // ── Backend utilization toggle ─────────────────────────────────────────────
 
-  group('InterfaceSection backend utilization toggle', () {
+  group('InterfaceAppearanceSection backend utilization toggle', () {
     // Regression: an earlier version of this handler called the wrong
     // AppSettings mutation API (`copyWith(interface_: ...)`, which has no
     // such parameter) — a compile error that a shallower test wouldn't have
@@ -329,12 +418,11 @@ void main() {
           interface_: InterfaceSettings(showBackendUtilization: true),
         ),
       );
-      await tester.pumpWidget(_pump(tester, notifier));
+      await tester.pumpWidget(_pumpAppearance(tester, notifier));
       await tester.pumpAndSettle();
 
-      final row = find.widgetWithText(
-        SettingRow,
-        l10n.settingsShowBackendUtilization,
+      final row = find.byKey(
+        const ValueKey('settings-row-appearance-backend-utilization'),
       );
       expect(row, findsOneWidget);
       await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));

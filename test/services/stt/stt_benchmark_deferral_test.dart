@@ -225,6 +225,22 @@ void main() {
     expect(engine.transcribedSizes.last, _benchmarkBytes);
   });
 
+  test('a load without warm-up sends no silent inference, so the dictation '
+      'that follows is the first request the worker sees', () async {
+    final engine = _QueueRecordingEngine();
+    final container = _makeContainer(engine);
+    addTearDown(container.dispose);
+    await container.read(settingsProvider.future);
+    final notifier = container.read(localSttBundleProvider.notifier);
+
+    await notifier.ensureRunning(warmup: false);
+    expect(engine.transcribedSizes, isEmpty);
+
+    final text = await notifier.transcribeBytes(_validWav(), language: 'en');
+    expect(text, 'fake transcript');
+    expect(engine.transcribedSizes.first, _dictationBytes);
+  });
+
   test(
     'with an idle pipeline the benchmark still runs right after the load',
     () async {

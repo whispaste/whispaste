@@ -143,7 +143,7 @@ class _WpSidePanelRowTileState extends State<WpSidePanelRowTile> {
                               row.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: WpColors.textPrimary,
                                 fontSize: WpTypography.body,
                                 fontWeight: FontWeight.w600,
@@ -155,7 +155,7 @@ class _WpSidePanelRowTileState extends State<WpSidePanelRowTile> {
                                 row.subtitle,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: WpColors.textMuted,
                                   fontSize: WpTypography.caption,
                                 ),
@@ -197,7 +197,7 @@ class _RowGlyphDisc extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const tint = WpAvatarTint.dark;
+    final tint = WpAvatarTint.current;
     final slot = colorSlot;
     const categories = WpCategorySlot.categories;
     final resolvedSlot = (slot != null && slot >= 0 && slot < categories.length)

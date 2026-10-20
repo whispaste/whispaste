@@ -22,6 +22,7 @@ import '../../core/data/history_providers.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/onboarding/onboarding_surface.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/nudge_gate.dart';
 import '../../services/smart_mode/smart_mode_model_download_service.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/wp_button.dart';
@@ -72,6 +73,18 @@ class _SmartModeUsageHintWatcherState
             onboarding: s.onboarding.copyWith(smartModeUsageHintShown: true),
           ),
         );
+  }
+
+  /// Central nudge gate (R-11): waits for no dictation and 30 s of idle app
+  /// input before the hint may open.
+  Future<void> _showHintWhenAllowed(String dictatedText) async {
+    _dialogShowing = true;
+    await ref.read(nudgeGateProvider).whenAllowed();
+    if (!mounted) {
+      _dialogShowing = false;
+      return;
+    }
+    await _showHint(dictatedText);
   }
 
   Future<void> _showHint(String dictatedText) async {
@@ -151,7 +164,7 @@ class _SmartModeUsageHintWatcherState
       if (_dialogShowing) return;
       final settings = settingsAsync.value;
       if (settings == null || !_eligible(settings)) return;
-      unawaited(_showHint(entries.first.content));
+      unawaited(_showHintWhenAllowed(entries.first.content));
     });
     return widget.child;
   }

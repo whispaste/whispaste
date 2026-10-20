@@ -21,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/floating_button/floating_button_controller.dart';
 import 'package:whispaste/services/floating_button/floating_button_events.dart';
 import 'package:whispaste/services/floating_button/floating_button_service.dart';
+import 'package:whispaste/core/theme/overlay_customization.dart';
 
 // ── Fake controller ───────────────────────────────────────────────────────────
 
@@ -68,6 +69,13 @@ class _FakeController implements FloatingButtonController {
 
   @override
   Future<void> setSize(int size) async {}
+
+  @override
+  Future<void> setTheme({
+    required String background,
+    required String wave,
+    FloatingButtonLook look = FloatingButtonLook.defaults,
+  }) async {}
 
   @override
   @override

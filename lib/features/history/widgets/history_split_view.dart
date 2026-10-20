@@ -84,6 +84,7 @@ class HistorySplitView extends StatelessWidget {
           multiSelectMode: multiSelectMode,
           selectedIds: selectedIds,
           isTrashView: isTrashView,
+          onRestore: onRestore,
           onTagTap: onTagTap,
         );
       case HistoryViewMode.cards:
@@ -99,6 +100,8 @@ class HistorySplitView extends StatelessWidget {
           onDuplicate: onDuplicate,
           multiSelectMode: multiSelectMode,
           selectedIds: selectedIds,
+          isTrashView: isTrashView,
+          onRestore: onRestore,
         );
       case HistoryViewMode.compact:
         body = HistoryCompactView(
@@ -113,6 +116,8 @@ class HistorySplitView extends StatelessWidget {
           onDuplicate: onDuplicate,
           multiSelectMode: multiSelectMode,
           selectedIds: selectedIds,
+          isTrashView: isTrashView,
+          onRestore: onRestore,
         );
     }
     // Stays here, not in WpSplitView: this fade covers the *view-mode*

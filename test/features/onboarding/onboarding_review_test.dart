@@ -20,7 +20,6 @@ library;
 import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride, defaultTargetPlatform;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -29,15 +28,17 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/onboarding/onboarding_surface.dart';
 import 'package:whispaste/features/onboarding/onboarding_flow_migration.dart'
     show kOnboardingFlowVersion;
+import 'package:whispaste/features/help/help_page.dart';
+import 'package:whispaste/features/help/help_target.dart';
 import 'package:whispaste/features/onboarding/onboarding_overlay.dart';
 import 'package:whispaste/features/settings/sections/onboarding_review_section.dart';
-import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/permissions/mic_permission_notifier.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
+import 'package:golden_screenshot/golden_screenshot.dart' show loadAppFonts;
 
 late L10n l10n;
 
@@ -141,18 +142,19 @@ Future<void> _tapNext(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// Opens the Help hub on the introduction tab, the way a settings deep link does.
+class _IntroTarget extends HelpTargetNotifier {
+  @override
+  HelpTarget? build() => const HelpTarget(tab: HelpTab.intro);
+}
+
 void main() {
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
     // Real Inter metrics. With the default square-glyph test font every
     // string is roughly twice as wide as it ships, which makes the Try & Go
     // page's chips report overflows the app never has.
-    final fontLoader = FontLoader('Inter')
-      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
-    await fontLoader.load();
+    await loadAppFonts();
   });
 
   group('the reopened introduction — position', () {
@@ -308,61 +310,65 @@ void main() {
     );
   });
 
-  group('the Settings entry', () {
+  group('the Help entry', () {
     testWidgets('is absent until the first-run setup is finished', (
       tester,
     ) async {
       await tester.pumpWidget(
         makeTestable(
-          const SettingsPage(),
+          const HelpPage(),
           locale: const Locale('en'),
           overrides: [
             settingsProvider.overrideWith(
               () => _FakeSettingsNotifier(AppSettings.defaults),
             ),
+            helpTargetProvider.overrideWith(_IntroTarget.new),
           ],
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(find.byType(OnboardingReviewSection), findsNothing);
+      // The section is in the tree but renders nothing until setup is done.
+      expect(find.text(l10n.onboardingReviewAction), findsNothing);
     });
 
-    testWidgets('opens the review for a user who finished setup', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const SettingsPage(),
-          locale: const Locale('en'),
-          overrides: [
-            settingsProvider.overrideWith(
-              () => _FakeSettingsNotifier(_returningUser()),
-            ),
-          ],
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'opens the review on the Help page for a user who finished setup',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const HelpPage(),
+            locale: const Locale('en'),
+            overrides: [
+              settingsProvider.overrideWith(
+                () => _FakeSettingsNotifier(_returningUser()),
+              ),
+              helpTargetProvider.overrideWith(_IntroTarget.new),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      final section = find.byType(OnboardingReviewSection);
-      expect(section, findsOneWidget);
+        final section = find.byType(OnboardingReviewSection);
+        expect(section, findsOneWidget);
 
-      final action = find.descendant(
-        of: section,
-        matching: find.text(l10n.onboardingReviewAction),
-      );
-      await tester.ensureVisible(action);
-      await tester.pumpAndSettle();
-      await tester.tap(action);
-      await tester.pumpAndSettle();
+        final action = find.descendant(
+          of: section,
+          matching: find.text(l10n.onboardingReviewAction),
+        );
+        await tester.ensureVisible(action);
+        await tester.pumpAndSettle();
+        await tester.tap(action);
+        await tester.pumpAndSettle();
 
-      expect(
-        ProviderScope.containerOf(
-          tester.element(find.byType(SettingsPage)),
-        ).read(onboardingManuallyOpenProvider),
-        isTrue,
-      );
-    });
+        expect(
+          ProviderScope.containerOf(
+            tester.element(find.byType(HelpPage)),
+          ).read(onboardingManuallyOpenProvider),
+          isTrue,
+        );
+      },
+    );
   });
 
   group('onboardingSurfaceActive', () {

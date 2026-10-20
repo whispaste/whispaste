@@ -20,7 +20,7 @@
 ///   the sanctioned exception: a waveform-first micro capsule with explicit
 ///   hand-tuned anchors, extra-translucent chrome and minimal content. The
 ///   waveform bar count stays identical across ALL sizes.
-/// - **Calm UI** — no glows, no harsh effects; soft/slow timings.
+/// - **Calm UI** — no light effects, no harsh effects; soft/slow timings.
 /// - **Accessibility:** the opacity setting affects ONLY the pill fill
 ///   ([OverlayDesignSpec.fillOpacityFactor] × opacity); text, icons and the
 ///   waveform stay fully opaque. The recommended slider floor is
@@ -29,9 +29,10 @@ library;
 
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
-import 'colors.dart' show WpColorsDark;
+import 'generated/wp_tokens.g.dart';
 
 /// The four real recording states the overlay and button render.
 ///
@@ -71,21 +72,198 @@ enum OverlayDesignTheme { dark, light }
 
 /// The two chrome styles the overlay pill can render.
 ///
-/// [glass] is the default translucent no-blur "Dock glass" chrome. [solid] is
-/// the fully opaque alternative (Settings: "Overlay-Stil") — same geometry,
-/// same waveform, same liquid silhouette wobble, but the sheen/rim/specular
-/// glass layers are skipped and the fill is the app's own [WpColorsDark.
-/// frameGradient] instead of a near-clear tint. Applies identically to all
-/// three [OverlaySizeVariant]s.
-enum OverlayStyleVariant {
-  glass,
-  solid;
+/// Background presets of the recording overlay and the floating button
+/// (WP-75, ADR 0024). Each preset is a flat token set from
+/// `design-tokens/app.tokens.json` (`overlay.*`, [WpOverlayTokens]); its
+/// [tone] decides which wave and signal values pair with it.
+///
+/// Replaces the old glass/solid chrome switch: both rendered the same opaque
+/// fill, so the switch only toggled a faint highlight.
+enum OverlayBackground {
+  marine(
+    'marine',
+    OverlayDesignTheme.dark,
+    WpOverlayTokens.overlayMarineSurface,
+    WpOverlayTokens.overlayMarineInk,
+    WpOverlayTokens.overlayMarineInkOutline,
+    WpOverlayTokens.overlayMarineEdge,
+  ),
+  graphit(
+    'graphit',
+    OverlayDesignTheme.dark,
+    WpOverlayTokens.overlayGraphitSurface,
+    WpOverlayTokens.overlayGraphitInk,
+    WpOverlayTokens.overlayGraphitInkOutline,
+    WpOverlayTokens.overlayGraphitEdge,
+  ),
+  gletscher(
+    'gletscher',
+    OverlayDesignTheme.light,
+    WpOverlayTokens.overlayGletscherSurface,
+    WpOverlayTokens.overlayGletscherInk,
+    WpOverlayTokens.overlayGletscherInkOutline,
+    WpOverlayTokens.overlayGletscherEdge,
+  ),
 
-  /// Resolves a persisted/serialised name; unknown or null → [glass].
-  static OverlayStyleVariant fromName(String? name) => values.firstWhere(
-    (v) => v.name == name,
-    orElse: () => OverlayStyleVariant.glass,
+  /// Bernstein: the warm accent as a surface. Light tone, so the dark ink and
+  /// the light wave/signal set apply; [OverlayThemeColors.resolve] keeps every
+  /// foreground at 3:1 (dark ink takes over where it cannot).
+  amber(
+    'amber',
+    OverlayDesignTheme.light,
+    WpOverlayTokens.overlayAmberSurface,
+    WpOverlayTokens.overlayAmberInk,
+    WpOverlayTokens.overlayAmberInkOutline,
+    WpOverlayTokens.overlayAmberEdge,
   );
+
+  const OverlayBackground(
+    this.value,
+    this.tone,
+    this.surfaceStart,
+    this.ink,
+    this.inkOutline,
+    this.edge,
+  );
+
+  /// Persisted name (`overlay_background`).
+  final String value;
+
+  /// Whether this background is dark or light; selects the wave and signal set.
+  final OverlayDesignTheme tone;
+
+  /// The flat pill and button fill (WP-75 flat pass: one colour, no gradient).
+  final Color surfaceStart;
+
+  /// Glyph fill (timer, status text, close glyph, stop square).
+  final Color ink;
+
+  /// Outline drawn behind the glyphs.
+  final Color inkOutline;
+
+  /// The 1 px outer edge of the pill and button (UX-048). Translucent white on
+  /// the dark presets so they read on a dark desktop; transparent on the light
+  /// presets, which need no edge.
+  final Color edge;
+
+  /// Resolves a persisted name; unknown or null falls back to [marine].
+  static OverlayBackground fromValue(String? name) => values.firstWhere(
+    (v) => v.value == name,
+    orElse: () => OverlayBackground.marine,
+  );
+}
+
+/// Wave colour presets (WP-75, ADR 0024; palette and validity WP-75b). A wave
+/// has one value per tone. A background × wave pairing is valid only when the
+/// wave, or its darker light step, reaches 3:1 on the fill ([effectiveOn]).
+/// Invalid pairings are disabled in the settings, never drawn in a stand-in
+/// colour.
+enum OverlayWave {
+  cyan(
+    'cyan',
+    WpOverlayTokens.overlayWaveCyanDark,
+    WpOverlayTokens.overlayWaveCyanLight,
+    WpOverlayTokens.overlayWaveCyanLightStrong,
+  ),
+  violett(
+    'violett',
+    WpOverlayTokens.overlayWaveViolettDark,
+    WpOverlayTokens.overlayWaveViolettLight,
+    WpOverlayTokens.overlayWaveViolettLightStrong,
+  ),
+  neutral(
+    'neutral',
+    WpOverlayTokens.overlayWaveNeutralDark,
+    WpOverlayTokens.overlayWaveNeutralLight,
+    WpOverlayTokens.overlayWaveNeutralLightStrong,
+  ),
+
+  /// Tinte: the dark counterpart of [neutral]. Black, so it is valid only on
+  /// the light backgrounds.
+  ink(
+    'ink',
+    WpOverlayTokens.overlayWaveInkDark,
+    WpOverlayTokens.overlayWaveInkLight,
+    WpOverlayTokens.overlayWaveInkLightStrong,
+  ),
+
+  /// Bernstein wave (WP-75 flat pass). Amber on dark, dark amber on light.
+  amber(
+    'amber',
+    WpOverlayTokens.overlayWaveAmberDark,
+    WpOverlayTokens.overlayWaveAmberLight,
+    WpOverlayTokens.overlayWaveAmberLightStrong,
+  ),
+
+  /// Koralle (WP-75b).
+  coral(
+    'coral',
+    WpOverlayTokens.overlayWaveCoralDark,
+    WpOverlayTokens.overlayWaveCoralLight,
+    WpOverlayTokens.overlayWaveCoralLightStrong,
+  ),
+
+  /// Mint (WP-75b).
+  mint(
+    'mint',
+    WpOverlayTokens.overlayWaveMintDark,
+    WpOverlayTokens.overlayWaveMintLight,
+    WpOverlayTokens.overlayWaveMintLightStrong,
+  );
+
+  const OverlayWave(
+    this.value,
+    this._onDark,
+    this._onLight,
+    this._onLightStrong,
+  );
+
+  /// Persisted name (`overlay_wave`).
+  final String value;
+
+  final Color _onDark;
+  final Color _onLight;
+
+  /// Darker step of the same hue on a light background. Used only when the
+  /// base light step falls below 3:1 on the fill.
+  final Color _onLightStrong;
+
+  /// The wave colour on a background of [tone].
+  Color valueOn(OverlayDesignTheme tone) =>
+      tone == OverlayDesignTheme.dark ? _onDark : _onLight;
+
+  /// The colour this wave is drawn with on [background], or null when the
+  /// pairing is invalid. Tries the base step first and, on a light tone, the
+  /// darker step of the same hue second. The pill and the settings swatch both
+  /// read this one value, so what the swatch shows is what gets drawn.
+  Color? effectiveOn(OverlayBackground background) {
+    final candidates = background.tone == OverlayDesignTheme.dark
+        ? [_onDark]
+        : [_onLight, _onLightStrong];
+    for (final color in candidates) {
+      if (contrastRatio(color, background.surfaceStart) >= 3.0) return color;
+    }
+    return null;
+  }
+
+  /// Whether this wave may be chosen on [background] (WP-75b).
+  bool isValidOn(OverlayBackground background) =>
+      effectiveOn(background) != null;
+
+  /// The wave to use on [background]: this wave when valid, otherwise a fixed
+  /// replacement. Tinte becomes Neutral (its counterpart), every other wave
+  /// becomes Cyan, and the first valid wave is the last resort. Deterministic,
+  /// so a stored or switched choice always lands on the same wave.
+  OverlayWave validOn(OverlayBackground background) {
+    if (isValidOn(background)) return this;
+    final preferred = this == OverlayWave.ink ? OverlayWave.neutral : cyan;
+    if (preferred.isValidOn(background)) return preferred;
+    return OverlayWave.values.firstWhere((wave) => wave.isValidOn(background));
+  }
+
+  /// Resolves a persisted name; unknown or null falls back to [cyan].
+  static OverlayWave fromValue(String? name) =>
+      values.firstWhere((v) => v.value == name, orElse: () => OverlayWave.cyan);
 }
 
 /// Supported anchor positions for the overlay window.
@@ -94,17 +272,29 @@ enum OverlayStyleVariant {
 /// anchor or the user's last dragged position.
 enum OverlayAnchor { topCenter, bottomCenter, lastPosition }
 
-/// A complete, theme-resolved colour set for one theme (dark or light).
-///
-/// Every field is non-null for both themes — the spec never leaves a theme
-/// half-defined.
+/// WCAG 2.x contrast ratio of [a] over [b] (1:1 to 21:1). Shared with
+/// `OverlayOpacityGate` in `overlay_customization.dart`.
+double contrastRatio(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/// A complete, resolved colour set for one background × wave pairing
+/// (WP-75, ADR 0024). Build it with [OverlayThemeColors.resolve] or
+/// [OverlayDesignSpec.colorsFor]; every field is non-null for every pairing.
 @immutable
 class OverlayThemeColors {
   const OverlayThemeColors({
-    required this.capsuleFillStart,
-    required this.capsuleFillEnd,
+    required this.tone,
+    required this.capsuleFill,
+    required this.ink,
+    required this.inkOutline,
+    required this.edge,
+    required this.shadow,
     required this.capsuleBorder,
-    required this.text,
     required this.accent,
     required this.transcribingAccent,
     required this.success,
@@ -112,56 +302,120 @@ class OverlayThemeColors {
     required this.recordingDot,
   });
 
-  /// Top-left stop of the capsule's tint gradient fill (approved spike design:
-  /// light `#F7FAFD`). The gradient runs top-left → bottom-right and is part of
-  /// the translucent pill chrome scaled by the opacity setting.
-  final Color capsuleFillStart;
+  /// Resolves the colour set for [background] paired with [wave].
+  factory OverlayThemeColors.resolve({
+    required OverlayBackground background,
+    required OverlayWave wave,
+  }) {
+    assert(
+      wave.isValidOn(background),
+      '${wave.value} is not valid on ${background.value}: '
+      'replace it with OverlayWave.validOn first',
+    );
+    final dark = background.tone == OverlayDesignTheme.dark;
+    final surface = background.surfaceStart;
+    // Every non-text foreground (wave, signals) must reach 3:1 on the fill.
+    // The wave steps down to the darker step of its own hue before it gives
+    // way to the dark ink. Other signals fall straight back to the ink.
+    Color legible(Color color) =>
+        contrastRatio(color, surface) >= 3.0 ? color : background.ink;
+    final accent =
+        wave.effectiveOn(background) ?? wave.valueOn(background.tone);
+    return OverlayThemeColors(
+      tone: background.tone,
+      capsuleFill: surface,
+      ink: background.ink,
+      inkOutline: background.inkOutline,
+      edge: background.edge,
+      shadow: dark
+          ? WpOverlayTokens.overlayShadowDark
+          : WpOverlayTokens.overlayShadowLight,
+      capsuleBorder: accent.withValues(alpha: 0.2),
+      accent: accent,
+      transcribingAccent: legible(
+        dark
+            ? WpOverlayTokens.overlaySignalDarkTranscribing
+            : WpOverlayTokens.overlaySignalLightTranscribing,
+      ),
+      success: legible(
+        dark
+            ? WpOverlayTokens.overlaySignalDarkDone
+            : WpOverlayTokens.overlaySignalLightDone,
+      ),
+      error: legible(
+        dark
+            ? WpOverlayTokens.overlaySignalDarkError
+            : WpOverlayTokens.overlaySignalLightError,
+      ),
+      recordingDot: legible(
+        dark
+            ? WpOverlayTokens.overlaySignalDarkDot
+            : WpOverlayTokens.overlaySignalLightDot,
+      ),
+    );
+  }
 
-  /// Bottom-right stop of the capsule's tint gradient fill (light `#E6EEF5`).
-  final Color capsuleFillEnd;
+  /// Dark or light: the tone of the chosen background.
+  final OverlayDesignTheme tone;
 
-  /// Accent-tinted hairline capsule border (light `#330887A8`).
+  /// The flat pill and button fill (the background surface).
+  final Color capsuleFill;
+
+  /// Glyph fill: timer, status text, close glyph, stop square.
+  final Color ink;
+
+  /// Outline behind the glyphs; keeps them legible on any desktop.
+  final Color inkOutline;
+
+  /// The 1 px outer edge (UX-048); transparent on light presets.
+  final Color edge;
+
+  /// Painted drop shadow of the pill and the button, alpha included (UX-048).
+  final Color shadow;
+
+  /// Hairline border of the pill: the wave colour at 20 percent.
   final Color capsuleBorder;
 
-  /// Content ink — since the universal-legibility scheme (2026-07-29) no
-  /// longer the glyph FILL but the dark OUTLINE around the white glyphs
-  /// ([OverlayDesignSpec.contentGlyphFill]).
-  final Color text;
-
-  /// Cyan accent — spinner, waveform active bars, unlimited-progress line.
+  /// Wave colour: live waveform bars, recording dot and progress timeline.
   final Color accent;
 
-  /// Amber accent owned by the transcribing state (state-distinction pass,
-  /// 2026-08-17): the processing spinner and the transcribing waveform
-  /// ripple render in this colour so "working" is tellable from "listening"
-  /// (cyan [accent]) at a glance. Deliberately the dark stop of the amber
-  /// pair [OverlayDesignSpec.stateGradients] already assigns to
-  /// [OverlayDesignState.transcribing] — the floating button tints its mic
-  /// glyph from that same pair, so overlay and button speak one colour
-  /// language. Mid-tone on purpose: `#D97706` holds ≥3:1 against both white
-  /// (≈3.2:1) and black (≈6.6:1) desktops, so it needs no glyph shadow
-  /// (same rule as the other semantic mid-tones).
+  /// Amber owned by the transcribing state (processing spinner and ripple).
+  /// Fixed per tone, not themeable, so "working" stays distinct from
+  /// "listening" by colour and motion.
   final Color transcribingAccent;
 
-  /// Success colour — done check + message.
+  /// Success colour: done check and message.
   final Color success;
 
-  /// Error colour — error icon + message.
+  /// Error colour: error icon and message.
   final Color error;
 
-  /// Recording dot — fixed across themes.
+  /// Recording dot.
   final Color recordingDot;
-}
 
-/// A per-state accent gradient (2 or 3 colour stops).
-///
-/// Theme-independent: these sit on the pill surface and read in both themes.
-@immutable
-class OverlayStateGradient {
-  const OverlayStateGradient(this.stops);
+  /// Every colour in declaration order; equality and hashing run over this.
+  List<Object> get _values => [
+    tone,
+    capsuleFill,
+    ink,
+    inkOutline,
+    edge,
+    shadow,
+    capsuleBorder,
+    accent,
+    transcribingAccent,
+    success,
+    error,
+    recordingDot,
+  ];
 
-  /// Ordered colour stops, top-left → bottom-right.
-  final List<Color> stops;
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OverlayThemeColors && listEquals(_values, other._values);
+
+  @override
+  int get hashCode => Object.hashAll(_values);
 }
 
 /// Waveform render parameters. Bar count is **shared** across sizes — compact
@@ -298,10 +552,9 @@ class OverlaySizeSpec {
 
   // -- Per-size derived chrome metrics (design layout pass) ------------------
   //
-  // Glass material (fill alpha, sheen alpha) and the waveform alpha ladder
-  // are deliberately NOT per-size any more: all three sizes share ONE glass
-  // and ONE ladder ([OverlayDesignSpec.fillOpacityFactor] /
-  // [OverlayDesignSpec.glassSheenOpacity] / the waveform*Opacity constants),
+  // Fill alpha and the waveform alpha ladder are deliberately NOT per-size
+  // any more: all three sizes share ONE fill and ONE ladder
+  // ([OverlayDesignSpec.fillOpacityFactor] / the waveform*Opacity constants),
   // so the sizes read as one material — only geometry and content density
   // vary. The timeline metrics below scale per size because the shared
   // absolute values collided with the waveform inside the 28 px mini pill
@@ -689,7 +942,7 @@ class OverlayArcMotion {
   );
 }
 
-/// Calm animation timings. No glow, no shimmer — soft and slow by brand rule.
+/// Calm animation timings. No light effects, no shimmer — soft and slow by brand rule.
 @immutable
 class OverlayMotion {
   const OverlayMotion({
@@ -805,13 +1058,13 @@ class FloatingButtonMicSpec {
 }
 
 /// Floating-button appearance — the V2 style (ADR 0002): a white disc with a
-/// dark mic glyph and a hairline border. No accent ring, no glow.
+/// dark mic glyph and a hairline border. No accent ring, no light effect.
 ///
 /// The button diameter is fixed at [buttonDiameter] (56 dp) — the approved
 /// design-token value. The former size picker (Small/Normal/Large) was removed
 /// in issue 11 because the Zielgruppe does not benefit from micro-tuning the
 /// button chrome. Per-state icon tinting reuses
-/// [OverlayDesignSpec.stateGradients] (consumed in issue 08).
+/// [OverlayDesignSpec.glyphStopsFor] (consumed in issue 08).
 @immutable
 class FloatingButtonSpec {
   /// Fixed button disc diameter in logical pixels (design-token value, ADR 0002).
@@ -823,24 +1076,28 @@ class FloatingButtonSpec {
 
   const FloatingButtonSpec({
     required this.discColor,
-    required this.discGradientEnd,
     required this.discFillOpacity,
     required this.iconColor,
     required this.borderColor,
     required this.borderWidth,
     required this.borderInset,
     required this.iconRatio,
-    required this.hasGlow,
     required this.mic,
+    required this.edgeColor,
+    required this.shadowColor,
   });
 
-  /// Disc fill gradient start — white (top-left), spike `Colors.white`.
+  /// 1 px outer edge of the disc (UX-048); transparent on light presets.
+  final Color edgeColor;
+
+  /// Painted drop shadow of the disc, alpha included (UX-048).
+  final Color shadowColor;
+
+  /// Flat disc fill (WP-75 flat pass: no tint gradient). White on the default
+  /// button; the preset's surface colour for a background.
   final Color discColor;
 
-  /// Disc fill gradient end — `#EDF1F6` (bottom-right), spike value.
-  final Color discGradientEnd;
-
-  /// Base opacity of the disc fill gradient (spike `0.95`). The opacity setting
+  /// Base opacity of the flat disc fill (spike `0.95`). The opacity setting
   /// scales the disc chrome (fill + shadow) by `discFillOpacity × opacity`; the
   /// mic glyph stays fully opaque (accessibility, mirrors the overlay).
   final double discFillOpacity;
@@ -859,9 +1116,6 @@ class FloatingButtonSpec {
 
   /// Glyph size as a fraction of the disc diameter (24 in a 56 disc).
   final double iconRatio;
-
-  /// Always false — the V2 button has no glow/accent ring.
-  final bool hasGlow;
 
   /// Mic-glyph geometry (ratios of the disc diameter).
   final FloatingButtonMicSpec mic;
@@ -898,151 +1152,16 @@ abstract final class OverlayDesignSpec {
   /// together with the shadow knock-out under the capsule, see
   /// [WpOverlayPainter], the pill now reads as a bare glass body. The content
   /// no longer depends on the fill at all: every dark-ink glyph became a
-  /// white glyph with a dark outline — see [contentGlyphFill].)
+  /// white glyph with a dark outline — see [OverlayBackground.ink].)
+  /// Superseded for the fill by the opaque flat fill (UX-013, 2026-10-17; WP-75
+  /// flat pass): no longer applied to any painted layer; kept only as a
+  /// documented value.
   static const double fillOpacityFactor = 0.14;
 
-  /// Fill gradient for [OverlayStyleVariant.solid] — reuses
-  /// [WpColorsDark.frameGradient] verbatim (the same navy→violet arc the
-  /// title bar/nav rail/status bar paint) so the "solid" overlay reads as cut
-  /// from the same brand chrome rather than inventing a nearby blue.
-  static const LinearGradient solidFillGradient = WpColorsDark.frameGradient;
-
-  /// Alpha of the white glass sheen painted over the capsule fill (task #38):
-  /// a top-down highlight that reads as light on curved glass. Lowered with
-  /// the Dock-glass fill (0.40 → 0.28): over the much clearer capsule a
-  /// strong white wash reads as milk, not glass.
-  static const double glassSheenOpacity = 0.15;
-
-  /// Fraction of [glassSheenOpacity] used for the faint counter-sheen rising
-  /// from the capsule's bottom edge (glass polish pass, macOS-Dock mood
-  /// reference): light catching the lower glass rim. Neutral white like
-  /// every sheen — never state-tinted (ADR 0002).
-  static const double glassBottomSheenFactor = 0.25;
-
-  // -- Dock-glass refinement (design layout pass, 2026-07-28) ----------------
-  //
-  // The sheen now behaves like light on CURVED glass instead of a flat
-  // vertical wash: the top highlight tapers away from the rounded end caps,
-  // the bright rim is lit from above (fading toward the bottom), and a
-  // hair-thin dark inner shade above the bottom counter-sheen gives the
-  // glass physical thickness. All neutral white/black — no state colour in
-  // the chrome, no OS blur, identical on every platform.
-
-  /// Horizontal inset of the top-sheen gradient rect, as a fraction of the
-  /// capsule radius — pulls the highlight off the rounded end caps so it
-  /// reads as light on a curved surface, not a full-width band.
-  static const double glassSheenCapInsetFactor = 0.35;
-
-  /// Colour stops of the top-down sheen (bright → soft → clear).
-  static const List<double> glassSheenStops = [0.0, 0.32, 0.55];
-
-  /// Colour stops of the bottom counter-sheen (clear → faint white).
-  static const List<double> glassBottomSheenStops = [0.78, 1.0];
-
-  /// Alpha of the hair-thin neutral dark inner shade painted just above the
-  /// bottom counter-sheen — the "mass" of the glass slab.
-  static const double glassInnerShadeOpacity = 0.04;
-
-  /// Colour stops of the inner bottom shade (clear → faint black).
-  static const List<double> glassInnerShadeStops = [0.85, 1.0];
-
-  // Fresnel edge treatment (Dock-glass research pass, 2026-07-29): glass
-  // reflects most at grazing angles, so a believable no-blur glass body is
-  // carried by its EDGES — a bright 1 px rim lit from above, a soft wider
-  // inner band just inside it (the refracting "thickness" of the slab), and
-  // one crisp specular streak along the top edge (the Dock's signature
-  // reflection). All neutral white, all static — no shimmer, no state tint.
-
-  /// Alpha of the 1 px outer rim at the TOP edge (absolute, no longer tied
-  /// to the sheen — the rim now carries the glass identity).
-  static const double glassRimTopOpacity = 0.55;
-
-  /// Alpha of the 1 px outer rim at the BOTTOM edge.
-  static const double glassRimBottomOpacity = 0.10;
-
-  /// Stroke width of the soft inner Fresnel band just inside the rim.
-  static const double glassInnerRimWidth = 2.5;
-
-  /// Inset of the inner Fresnel band from the capsule edge.
-  static const double glassInnerRimInset = 1.25;
-
-  /// Peak alpha of the inner Fresnel band (fades to clear toward the bottom).
-  static const double glassInnerRimOpacity = 0.10;
-
-  // Specular streak — debugged 2026-07-30 after two invisible rounds.
-  // Pixel measurement of rendered frames found TWO structural causes, not a
-  // value problem: (1) over light desktops the alpha chain saturated (streak
-  // row 250 vs. surroundings 250 — white on near-white, Δ0); (2) over dark
-  // desktops the 1.2 px streak sat 1 px under the static bright rim and
-  // perceptually fused with it (its drift read as nothing). Fixes: the
-  // streak moved AWAY from the edge, got wider, and carries a soft dark
-  // under-halo that guarantees local contrast on light backgrounds.
-
-  /// Alpha of the crisp specular streak.
-  static const double glassSpecularOpacity = 0.5;
-
-  /// Stroke width of the specular streak (1.2 → 2.6: one hairline row could
-  /// never read as a distinct reflection).
-  static const double glassSpecularStrokeWidth = 2.6;
-
-  /// Length of the specular streak as a fraction of the pill width.
-  static const double glassSpecularWidthFactor = 0.55;
-
-  /// Distance of the specular streak below the top edge (2.5 → 5.5: clear
-  /// of the static rim, so its drift is distinguishable from the edge).
-  static const double glassSpecularInsetTop = 5.5;
-
-  /// Alpha of the soft dark under-halo beneath the streak — the local
-  /// contrast floor that keeps the white streak visible over light desktops
-  /// (measured: without it the streak is Δ0 on white).
-  static const double glassSpecularHaloOpacity = 0.16;
-
-  /// Blur sigma of the under-halo.
-  static const double glassSpecularHaloBlurSigma = 2.0;
-
-  /// Stroke width of the under-halo (wider than the streak).
-  static const double glassSpecularHaloStrokeWidth = 5.0;
-
-  /// Vertical offset of the under-halo below the streak.
-  static const double glassSpecularHaloOffsetY = 1.5;
-
-  // -- Liquid-glass drift (Maintainer-Wunsch 2026-07-29, research pass) ------
-  //
-  // The glass material itself moves — barely. Researched guidance (Liquid-
-  // Glass web implementations, premium-shimmer practice): specular highlights
-  // may DRIFT a few pixels, slowly ("specular highlight amplitude ≤ 6 px";
-  // "a few-pixel highlight drift feels premium"), while a repeating bright
-  // SWEEP reads as a loading shimmer — which ADR 0002 forbids. So: the
-  // specular streak drifts sinusoidally ±[liquidSpecularDriftPx], the top
-  // sheen follows at half parallax (layer-depth cue), and the rim light
-  // breathes ±[liquidRimBreatheFactor]. Everything is phase-locked to one
-  // slow [liquidDriftPeriod] cycle and neutral-white only. Phase 0 renders
-  // EXACTLY the static frame — reduced-motion and the goldens live there.
+  /// One slow overlay cycle. Phase-locks the transcribing bars and the
+  /// silhouette wobble; phase 0 renders the static frame (reduced motion and
+  /// the goldens live there).
   static const Duration liquidDriftPeriod = Duration(seconds: 8);
-
-  /// Peak horizontal drift of the specular streak. Raised 6 → 12 px after
-  /// live feedback ("überhaupt nicht sichtbar") — still an anchored
-  /// highlight oscillating around its resting spot over a slow 8 s cycle,
-  /// NOT a band traversing the surface (that would be the forbidden
-  /// shimmer sweep; the boundary stays).
-  static const double liquidSpecularDriftPx = 12.0;
-
-  /// Fraction of the specular drift applied to the top sheen — the two
-  /// light layers move at different speeds (micro-parallax = depth).
-  static const double liquidSheenParallaxFactor = 0.5;
-
-  /// Peak relative length-breathing of the specular streak (raised with the
-  /// visibility pass).
-  static const double liquidSpecularBreatheFactor = 0.18;
-
-  /// Peak relative alpha-breathing of the specular streak — the drifting
-  /// light also visibly brightens/dims across the cycle (0.35 base alpha
-  /// swings ±25 %, still far from any flash).
-  static const double liquidSpecularBrightBreatheFactor = 0.25;
-
-  /// Peak relative alpha-breathing of the rim's top light (raised with the
-  /// visibility pass).
-  static const double liquidRimBreatheFactor = 0.15;
 
   // -- Liquid-glass silhouette wobble (Maintainer-Interview 2026-07-30) ------
   //
@@ -1093,9 +1212,6 @@ abstract final class OverlayDesignSpec {
   // and done/error icons keep their semantic mid-tone colours (mid-tones
   // hold ≥3:1 against both white and black extremes and need no shadow).
 
-  /// Fill colour of all neutral content glyphs (text, close ✕, stop square).
-  static const Color contentGlyphFill = Color(0xFFFFFFFF);
-
   /// Shadow ink beneath the white glyphs.
   static const Color glyphShadowColor = Color(0xFF14202E);
 
@@ -1117,14 +1233,16 @@ abstract final class OverlayDesignSpec {
   /// Painted-shadow opacity at full master opacity (spike `0.20`).
   static const double shadowOpacity = 0.20;
 
-  /// Painted-shadow Gaussian blur sigma. Softened from the spike's `7.0`
-  /// (cross-platform glass polish pass) so the capsule reads as hovering
-  /// rather than sitting flush — mirrors the large-blur half of
-  /// [WpShadows.card]'s two-layer ambient-depth language.
-  static const double shadowBlur = 9.0;
+  /// Painted-shadow Gaussian blur sigma, shared by the pill and the floating
+  /// button. A Gaussian stays visible up to about three sigma, and the native
+  /// windows reserve only [shadowPadding] around the shape — the former 9.0
+  /// reached about 27 px and ended in a hard edge at the window border. 2.0
+  /// plus [shadowOffset] fades out inside the padding.
+  static const double shadowBlur = 2.0;
 
-  /// Painted-shadow offset (spike `(0, 3)`, i.e. cast downward).
-  static const Offset shadowOffset = Offset(0, 3);
+  /// Painted-shadow offset (cast downward; the spike's `(0, 3)` shortened so
+  /// the shadow stays inside [shadowPadding]).
+  static const Offset shadowOffset = Offset(0, 1.25);
 
   /// Second, tight contact-shadow layer painted beneath [shadowBlur]/
   /// [shadowOpacity] (cross-platform glass polish pass) — the small-blur half
@@ -1182,6 +1300,10 @@ abstract final class OverlayDesignSpec {
   /// Stop-square corner radius (spike `2`).
   static const double stopSquareRadius = 2.0;
 
+  /// Corner radius of the rounded-rect form (WP-95). The pill uses half its
+  /// height instead.
+  static const double roundedRectRadius = 12.0;
+
   /// Stop-square fill opacity over the content colour (spike `0.9`).
   static const double stopSquareOpacity = 0.9;
 
@@ -1210,7 +1332,7 @@ abstract final class OverlayDesignSpec {
   // Mirrored-bar waveform (Maintainer decision, 2026-07-29): the bars are
   // FULLY OPAQUE filled capsules, mirrored around the centre axis
   // (Spotify/Voice-Memos register, in WhisPaste's own accent language) —
-  // no alpha wash, no glow (explicitly rejected: "macht das nur
+  // no alpha wash, no light effect (explicitly rejected: "macht das nur
   // schwammiger"), hard crisp edges. Identity lives in the "energy axis":
   // every bar carries a vertical in-bar gradient that is brightest at the
   // centre line and shades toward the tips, so quiet bars still show a
@@ -1261,6 +1383,19 @@ abstract final class OverlayDesignSpec {
 
   /// Fraction of the pill height the loudest bar may reach (spike `0.6`).
   static const double waveformHeightFactor = 0.60;
+
+  /// Language chip (SW-10): small frozen-language label at the top centre of
+  /// the normal pill, above the waveform bars (the bars stay about 13 px clear
+  /// of the top edge). Only painted when the pill is at least this tall, so the
+  /// compact and mini pills stay unchanged.
+  static const double languageChipFontSize = 8.0;
+  static const double languageChipTopInset = 1.5;
+  static const double languageChipMinPillHeight = 64.0;
+  static const double languageChipInkAlpha = 0.8;
+
+  /// Share of the pill width the chip text may take; a longer joined text drops
+  /// the profile name first.
+  static const double chipMaxWidthFraction = 0.8;
 
   /// Flat rest level used for the faint waveform outside recording (spike
   /// `0.06`) — the baseline the transcribing ripple (below) oscillates
@@ -1395,68 +1530,35 @@ abstract final class OverlayDesignSpec {
   // and the shadow is always neutral black. A per-state border re-hue
   // (formerly `borderColorFor`) was removed after live feedback: over a small
   // translucent capsule the red recording stroke read as a diffuse pink
-  // "glow" — exactly the effect ADR 0002 forbids. State identity lives ONLY
+  // "light effect" — exactly the effect ADR 0002 forbids. State identity lives ONLY
   // in crisp content glyphs: the pulsing dot, the live waveform, the done
   // check (green) and the error icon/text (red).
 
   // -- Theme colours ---------------------------------------------------------
 
-  /// The approved spike (`spike/lib/main.dart` `kFinalDesign`, mirrored by the
-  /// web `web-parity-board`) defines a **single** capsule design — a light
-  /// tint-gradient teal capsule — shown identically over light AND dark
-  /// backgrounds. There is deliberately no separate dark capsule variant; the
-  /// translucent fill carries the design over any desktop. So [light] holds the
-  /// spike tokens and [dark] resolves to the exact same set (1:1 parity).
-  ///
-  /// Colours come verbatim from `kFinalDesign`: content `#14202E`,
-  /// accent `#0887A8`, fill `#F7FAFD → #E6EEF5`, border `#330887A8`.
-  static const OverlayThemeColors light = OverlayThemeColors(
-    capsuleFillStart: Color(0xFFF7FAFD),
-    capsuleFillEnd: Color(0xFFE6EEF5),
-    capsuleBorder: Color(0x330887A8),
-    text: Color(0xFF14202E),
-    accent: Color(0xFF0887A8),
-    transcribingAccent: Color(0xFFD97706),
-    success: Color(0xFF05875C),
-    error: Color(0xFFCC1C1C),
-    recordingDot: Color(0xFFFF5252),
-  );
+  /// The colour set for [background] paired with [wave] (WP-75, ADR 0024).
+  static OverlayThemeColors colorsFor({
+    OverlayBackground background = OverlayBackground.marine,
+    OverlayWave wave = OverlayWave.cyan,
+  }) => OverlayThemeColors.resolve(background: background, wave: wave);
 
-  /// Dark theme colour set — identical to [light]: the spike has one design.
-  static const OverlayThemeColors dark = light;
+  /// Glyph colour stops of the floating button's mic for [state], taken from
+  /// the resolved [colors] of the background, so an amber background gets the
+  /// legible signal (WP-75). Flat: both stops are the same colour (ADR 0024).
+  static List<Color> glyphStopsFor(
+    OverlayDesignState state,
+    OverlayThemeColors colors,
+  ) {
+    final color = switch (state) {
+      OverlayDesignState.recording => colors.recordingDot,
+      OverlayDesignState.transcribing => colors.transcribingAccent,
+      OverlayDesignState.done => colors.success,
+      OverlayDesignState.error => colors.error,
+    };
+    return [color, color];
+  }
 
-  /// Resolves the colour set for [theme].
-  static OverlayThemeColors colors(OverlayDesignTheme theme) =>
-      theme == OverlayDesignTheme.dark ? dark : light;
-
-  /// Convenience resolver for a boolean dark flag (matches the snapshot).
-  static OverlayThemeColors colorsForDark(bool isDark) => isDark ? dark : light;
-
-  // -- Per-state accent gradients --------------------------------------------
-
-  /// Accent gradient per state. The done gradient's middle stop is the
-  /// canonical green `#30C065`.
-  static const Map<OverlayDesignState, OverlayStateGradient> stateGradients = {
-    OverlayDesignState.recording: OverlayStateGradient([
-      Color(0xFFEF4444),
-      Color(0xFFDC2626),
-    ]),
-    OverlayDesignState.transcribing: OverlayStateGradient([
-      Color(0xFFF59E0B),
-      Color(0xFFD97706),
-    ]),
-    OverlayDesignState.done: OverlayStateGradient([
-      Color(0xFF4ADE80),
-      Color(0xFF30C065),
-      Color(0xFF16A34A),
-    ]),
-    OverlayDesignState.error: OverlayStateGradient([
-      Color(0xFFEF4444),
-      Color(0xFFB91C1C),
-    ]),
-  };
-
-  // -- Waveform --------------------------------------------------------------
+  // -- Waveform --------  // -- Waveform --------------------------------------------------------------
 
   /// Waveform parameters. 22 bars, shared across both sizes.
   static const WaveformSpec waveform = WaveformSpec(
@@ -1681,21 +1783,44 @@ abstract final class OverlayDesignSpec {
   /// V2 floating-button appearance.
   static const FloatingButtonSpec button = FloatingButtonSpec(
     discColor: Color(0xFFFFFFFF),
-    discGradientEnd: Color(0xFFEDF1F6),
     discFillOpacity: 0.95,
     iconColor: Color(0xFF101828),
     borderColor: Color(0x1A101828),
     borderWidth: 1.0,
     borderInset: 0.5,
     iconRatio: 24 / 56,
-    hasGlow: false,
     mic: FloatingButtonMicSpec.spike,
+    edgeColor: Color(0x00000000),
+    shadowColor: WpOverlayTokens.overlayShadowLight,
+  );
+
+  /// The floating button's appearance for [colors] (WP-75, ADR 0024): disc
+  /// from the background, mic glyph in its ink, and the hairline in the wave
+  /// colour while [ringed] (recording).
+  static FloatingButtonSpec buttonSpecFor(
+    OverlayThemeColors colors, {
+    bool ringed = false,
+  }) => FloatingButtonSpec(
+    discColor: colors.capsuleFill,
+    discFillOpacity: button.discFillOpacity,
+    iconColor: colors.ink,
+    borderColor: ringed ? colors.accent : colors.ink.withValues(alpha: 0.1),
+    borderWidth: ringed ? 2.0 : button.borderWidth,
+    borderInset: ringed ? 1.0 : button.borderInset,
+    iconRatio: button.iconRatio,
+    mic: button.mic,
+    edgeColor: colors.edge,
+    shadowColor: colors.shadow,
   );
 
   /// Full native-window size for a button disc of [diameter] = disc +
   /// [shadowPadding] on every side, so the painted soft shadow is not clipped
   /// (mirrors [windowSize] for the overlay). The disc centre is painted at
   /// `Offset(shadowPadding + diameter / 2, shadowPadding + diameter / 2)`.
+  /// Corner radius of the rounded-square button, as a share of its half
+  /// diameter (0 = square, 1 = disc). WP-95 button shape.
+  static const double buttonSquareCornerRatio = 0.45;
+
   static Size buttonWindowSize(double diameter) =>
       Size(diameter + 2 * shadowPadding, diameter + 2 * shadowPadding);
 }

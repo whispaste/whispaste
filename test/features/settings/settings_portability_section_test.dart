@@ -47,12 +47,15 @@ import 'package:whispaste/features/settings/search/settings_search_provider.dart
 import 'package:whispaste/features/settings/sections/settings_portability_section.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
 import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
+import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
 import 'package:whispaste/services/secure_bookmark_service.dart';
 import 'package:whispaste/services/settings_autosave_folder_chooser.dart';
 import 'package:whispaste/services/settings_portability_controller.dart';
 import 'package:whispaste/services/settings_portability_service.dart';
 
 import '../../fixtures/test_helpers.dart';
+import 'search/settings_legacy_row_ids.dart';
+import '../../fixtures/record_device_listing_stub.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes for the Ticket 05 remembered-location group
@@ -157,6 +160,7 @@ final _basePath = Platform.isWindows
     : '/Users/tester/Documents';
 
 void main() {
+  stubRecordDeviceListing();
   group('SettingsPortabilitySection', () {
     testWidgets('renders without error', (tester) async {
       await tester.pumpWidget(makeTestable(const SettingsPortabilitySection()));
@@ -175,7 +179,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Backup & Transfer'), findsOneWidget);
+      expect(find.text('Backup & transfer'), findsOneWidget);
       expect(find.byKey(const ValueKey(kPortabilityExportRowKey)), findsOne);
       expect(find.byKey(const ValueKey(kPortabilityImportRowKey)), findsOne);
       expect(find.widgetWithText(OutlinedButton, 'Export'), findsOneWidget);
@@ -292,7 +296,7 @@ void main() {
           kSettingsSearchTable,
           query,
           locale,
-        ).map((e) => e.sectionKey).toList();
+        ).map((e) => e.rowId).toList();
 
     test('EN queries (export, import, migrate, backup, restore) match', () {
       for (final query in [
@@ -306,7 +310,7 @@ void main() {
       ]) {
         expect(
           sectionKeysFor(query),
-          contains('settingsPortability'),
+          containsAnyOf(legacyRowIds('settingsPortability')),
           reason: '"$query" must find the portability section',
         );
       }
@@ -322,7 +326,7 @@ void main() {
       ]) {
         expect(
           sectionKeysFor(query, locale: 'de'),
-          contains('settingsPortability'),
+          containsAnyOf(legacyRowIds('settingsPortability')),
           reason: '"$query" must find the portability section',
         );
       }
@@ -354,13 +358,13 @@ void main() {
 
         final matches = container.read(settingsSearchMatchesProvider);
         expect(
-          matches.map((e) => e.sectionKey),
-          contains('settingsPortability'),
+          matches.map((e) => e.rowId),
+          containsAnyOf(legacyRowIds('settingsPortability')),
           reason: '"migrate" must surface the portability suggestion',
         );
         expect(
-          matches.first.sectionKey,
-          'settingsPortability',
+          matches.first.rowId,
+          legacyRowId('settingsPortability'),
           reason: '"migrate" must match only the portability entry',
         );
 
@@ -374,29 +378,24 @@ void main() {
 
         expect(
           container.read(settingsHighlightTargetProvider),
-          'settingsPortability',
+          'privacy-backup-export',
           reason: 'Selecting the suggestion must set the highlight target',
         );
 
         // Let the scroll-jump and the highlight animation play out.
         await tester.pumpAndSettle();
 
-        // The sectionWithHighlight wrapper (settings_page.dart) renders the
-        // highlight as a bordered BoxDecoration on an AnimatedContainer
-        // directly around the section widget — in the *foreground* decoration,
-        // so the ring is painted over the section instead of insetting it by
-        // its own 2 px (see settings_highlight_layout_shift_test.dart).
-        final wrapperFinder = find
-            .ancestor(
-              of: find.byType(SettingsPortabilitySection),
-              matching: find.byType(AnimatedContainer),
-            )
-            .first;
-        final highlighted = tester.widget<AnimatedContainer>(wrapperFinder);
+        // The row paints a tint fill behind itself; there is no outline ring
+        // (settings-search-highlight design, see settings_highlight_layout_shift_test).
+        final fillFinder = find.descendant(
+          of: find.byKey(const ValueKey('settings-row-privacy-backup-export')),
+          matching: find.byKey(const ValueKey('settings-row-highlight-fill')),
+        );
+        final fill = tester.widget<DecoratedBox>(fillFinder);
         expect(
-          highlighted.foregroundDecoration,
-          isA<BoxDecoration>().having((d) => d.border, 'border', isNotNull),
-          reason: 'Jump target must carry the highlight border',
+          (fill.decoration as BoxDecoration).color,
+          isNotNull,
+          reason: 'Jump target must carry the highlight fill',
         );
 
         // The highlight clears itself after 1.5 s (SettingsPage timer).
@@ -404,12 +403,6 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(container.read(settingsHighlightTargetProvider), isNull);
-        final cleared = tester.widget<AnimatedContainer>(wrapperFinder);
-        expect(
-          (cleared.foregroundDecoration as BoxDecoration?)?.border,
-          isNull,
-          reason: 'Highlight border must be gone after the clear timer',
-        );
       },
     );
   });
@@ -692,6 +685,7 @@ void main() {
       _FakeSettingsNotifier notifier, {
       List<String?> folderResponses = const [],
       Locale locale = const Locale('en'),
+      Widget? after,
     }) async {
       final exportPicker = _FakePicker([]);
       final prompts = <String?>[];
@@ -708,22 +702,29 @@ void main() {
         bookmarks: const _NoBookmarks(),
       );
 
+      final section = SettingsPortabilitySection(
+        controllerOverride: _testController(
+          notifier: notifier,
+          picker: exportPicker,
+          fs: MemoryFileSystem.test(
+            style: Platform.isWindows
+                ? FileSystemStyle.windows
+                : FileSystemStyle.posix,
+          ),
+          log: [],
+        ),
+        autosaveFolderChooserOverride: chooser,
+      );
       await tester.pumpWidget(
         makeTestable(
           SingleChildScrollView(
-            child: SettingsPortabilitySection(
-              controllerOverride: _testController(
-                notifier: notifier,
-                picker: exportPicker,
-                fs: MemoryFileSystem.test(
-                  style: Platform.isWindows
-                      ? FileSystemStyle.windows
-                      : FileSystemStyle.posix,
-                ),
-                log: [],
-              ),
-              autosaveFolderChooserOverride: chooser,
-            ),
+            child: after == null
+                ? section
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [section, after],
+                  ),
           ),
           overrides: [settingsProvider.overrideWith(() => notifier)],
           locale: locale,
@@ -733,6 +734,15 @@ void main() {
       return (exportPicker: exportPicker, folderPrompts: prompts);
     }
 
+    testWidgets(
+      'the backup folder is announced in full, not only by its tooltip (UIA-SET-16)',
+      (tester) async {
+        await pump(tester, seededAutosave(enabled: true, folder: backupFolder));
+
+        expect(find.bySemanticsLabel(backupFolder), findsOneWidget);
+      },
+    );
+
     Finder switchIn(Finder row) =>
         find.descendant(of: row, matching: find.byType(Switch));
 
@@ -740,6 +750,43 @@ void main() {
     final statusLine = find.byKey(
       const ValueKey(kPortabilityAutosaveStatusKey),
     );
+
+    testWidgets('its switch and the direction choosers sit on the same right '
+        'edge as a settings-row switch', (tester) async {
+      await pump(
+        tester,
+        seededAutosave(),
+        after: WpSettingsGroup(
+          children: [
+            WpSettingsRow(
+              rowId: 'test-reference-switch',
+              title: 'Reference',
+              trailing: Switch(
+                key: const ValueKey('test-reference-switch'),
+                value: false,
+                onChanged: (_) {},
+              ),
+            ),
+          ],
+        ),
+      );
+
+      final referenceSwitch = tester.getRect(
+        find.byKey(const ValueKey('test-reference-switch')),
+      );
+      final autosaveSwitch = tester.getRect(switchIn(autosaveRow));
+      expect(autosaveSwitch.right, closeTo(referenceSwitch.right, 0.5));
+      for (final chooserKey in [
+        kPortabilityExportChooserKey,
+        kPortabilityImportChooserKey,
+      ]) {
+        expect(
+          tester.getRect(find.byKey(ValueKey(chooserKey))).right,
+          closeTo(referenceSwitch.right, 0.5),
+          reason: '$chooserKey must sit on the card edge',
+        );
+      }
+    });
 
     testWidgets('off by default, and off costs the section one quiet line — '
         'no destination, no chooser, no status', (tester) async {

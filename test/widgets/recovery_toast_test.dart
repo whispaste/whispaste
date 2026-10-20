@@ -225,9 +225,9 @@ void main() {
       expect(find.text(lEn.recoveryExhaustedToast), findsOneWidget);
       expect(find.text(lEn.recoveryExhaustedAction), findsOneWidget);
 
-      // Drain the toast's 8s auto-dismiss timer so no Timer outlives
-      // the test.
-      await tester.pumpAndSettle(const Duration(seconds: 9));
+      // Drain the toast's auto-dismiss timer (actionable toast: at least
+      // 10 s) so no Timer outlives the test.
+      await tester.pumpAndSettle(const Duration(seconds: 11));
     });
   });
 }

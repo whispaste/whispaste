@@ -7,6 +7,7 @@
 library;
 
 import 'floating_button_events.dart';
+import '../../core/theme/overlay_customization.dart';
 
 /// Visual state of the floating button (matches C++ FloatingButtonState).
 enum FloatingButtonVisualState {
@@ -33,7 +34,13 @@ abstract class FloatingButtonController {
   /// Update the visual state (gradient, icon, animation).
   Future<void> setState(FloatingButtonVisualState state);
 
-  /// Switch between dark/light theme (affects idle/muted gradients).
+  /// Relays the overlay presets to the render engine (WP-75, ADR 0024): the
+  /// persisted preset names, e.g. `marine` and `cyan`.
+  Future<void> setTheme({
+    required String background,
+    required String wave,
+    FloatingButtonLook look = FloatingButtonLook.defaults,
+  });
 
   /// Move the button to a new position (logical pixels).
   Future<void> setPosition(double x, double y);

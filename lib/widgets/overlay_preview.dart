@@ -14,6 +14,9 @@ library;
 import 'package:flutter/material.dart';
 
 import '../core/config/settings_enums.dart';
+import '../core/l10n/generated/app_localizations.dart';
+import '../core/theme/overlay_customization.dart';
+import '../core/theme/overlay_design_spec.dart';
 import '../core/theme/tokens.dart';
 import '../services/floating_overlay/floating_overlay_controller_interface.dart';
 import 'floating_overlay/floating_overlay_view.dart';
@@ -33,14 +36,33 @@ class WpOverlayRealPreview extends StatelessWidget {
   const WpOverlayRealPreview({
     super.key,
     required this.size,
-    this.style = OverlayStyle.glass,
+    this.background = OverlayBackground.marine,
+    this.wave = OverlayWave.cyan,
+    this.compact = false,
+    this.shrinkWrap = false,
+    this.appearance = OverlayAppearance.defaults,
   });
 
   final FloatingOverlaySize size;
 
-  /// Chrome style (glass/solid) the preview renders — reactive to the
-  /// Settings page's "Overlay-Stil" picker, independent of [size].
-  final OverlayStyle style;
+  /// WP-95 appearance options the preview renders (form, wave style, timer,
+  /// cancel glyph, opacity), so the preview matches the live overlay.
+  final OverlayAppearance appearance;
+
+  /// Background preset the preview renders (WP-75, ADR 0024), reactive to
+  /// the Settings swatches, independent of [size].
+  final OverlayBackground background;
+
+  /// Wave colour preset the preview renders (WP-75, ADR 0024).
+  final OverlayWave wave;
+
+  /// Pill only: no surrounding padding, so a short box shows the pill itself.
+  /// Used where the page has no room for the framed preview.
+  final bool compact;
+
+  /// Sizes the preview to the pill instead of the available width, so it can
+  /// share a row with other previews (settings preview stage).
+  final bool shrinkWrap;
 
   // 22 bars — matches OverlayDesignSpec.waveform.barCount.
   // Non-flat values so the waveform renders visibly in the preview.
@@ -54,28 +76,40 @@ class WpOverlayRealPreview extends StatelessWidget {
       visible: true,
       state: OverlayVisualState.recording,
       size: size.variant,
-      style: style.variant,
-      label: 'Recording',
-      elapsed: '0:05',
+      background: background,
+      wave: wave,
+      label: L10n.of(context).overlayRecording,
+      elapsed: formatOverlayElapsed(const Duration(seconds: 5)),
+      appearance: appearance,
     );
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.md,
-        vertical: WpSpacing.sm,
-      ),
-      child: Center(
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: WpFloatingOverlayView(
-            key: ValueKey('overlay-real-preview-${size.value}'),
-            snapshot: snapshot,
-            waveformBars: _sampleBars,
-            // Static preview — no perpetual pulse, so pumpAndSettle settles.
-            animate: false,
-          ),
+    final pill = Center(
+      widthFactor: shrinkWrap ? 1 : null,
+      heightFactor: shrinkWrap ? 1 : null,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: WpFloatingOverlayView(
+          key: ValueKey('overlay-real-preview-${size.value}'),
+          snapshot: snapshot,
+          waveformBars: _sampleBars,
+          // Static preview — no perpetual pulse, so pumpAndSettle settles.
+          animate: false,
         ),
       ),
+    );
+
+    return Semantics(
+      label: L10n.of(context).settingsOverlayPreview,
+      container: true,
+      child: compact
+          ? pill
+          : Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: WpSpacing.md,
+                vertical: WpSpacing.sm,
+              ),
+              child: pill,
+            ),
     );
   }
 }

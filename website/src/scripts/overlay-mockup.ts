@@ -11,15 +11,16 @@
  * because the spike proved 98.45 % cross-engine pixel parity with it, whereas
  * CSS `backdrop-filter`/`box-shadow`/gradients diverge per engine (ADR 0002).
  *
- * The app ships two overlay chromes (`OverlayStyleVariant`, Settings:
- * "Overlay-Stil") and this file mirrors both, but the website only ever
- * paints **solid** (2026-08-26, maintainer: no glass/frost material anywhere
+ * The app takes its overlay colours from two presets (`OverlayBackground` and
+ * `OverlayWave`, ADR 0024). The former Glas/Volldeckend switch is retired. This
+ * file mirrors both former chromes, but the website only ever paints the
+ * **opaque** pill (2026-08-26, maintainer: no glass/frost material anywhere
  * on the site) — see {@link RENDER_GLASS_SHEEN}:
  *
- *   - `solid` (what the site renders): fully opaque pill filled with
+ *   - opaque (what the site renders, the marine preset): fully opaque pill filled with
  *     {@link OVERLAY_SOLID_FILL} (the navy gradient of the design tokens'
  *     `overlay` group) — no sheen, no rim light, no specular drift;
- *   - `glass` (mirrored, not rendered): near-clear capsule fill
+ *   - glass (former Glas chrome, mirrored, not rendered): near-clear capsule fill
  *     (`fillOpacityFactor 0.14`) plus a Fresnel edge treatment — bright 1 px
  *     top rim, soft inner rim band, a crisp specular streak with a dark
  *     under-halo — and an 8 s "glass drift" loop (the streak drifts ±12 px
@@ -159,12 +160,13 @@ export const OVERLAY_CHROME = {
 } as const;
 
 /**
- * Fill for `OverlayStyleVariant.solid` — the tokens' flat navy
+ * Fill for the opaque pill (former Volldeckend chrome, marine preset) — the tokens' flat navy
  * (`overlay.fill`; a one-colour "gradient" keeps the painter unchanged).
  * Painted fully opaque (no `fillOpacity`),
  * unlike `OVERLAY_TOKENS`' near-clear glass tint: "no sheen, no rim light, no
  * specular drift... the fill is the app's own frame gradient instead of a
- * near-clear tint" (`OverlayStyleVariant.solid` doc comment). Theme-invariant,
+ * near-clear tint" (former `OverlayStyleVariant.solid` doc comment, removed in
+ * WP-75). Theme-invariant,
  * same precedent as `OVERLAY_TOKENS` (`dark = light`) — the SSOT declares one
  * gradient, not a per-theme pair.
  */
@@ -175,8 +177,8 @@ export const OVERLAY_SOLID_FILL = {
 
 /**
  * The maintainer has ruled the Dock-glass sheen/rim/specular stack out
- * sitewide (2026-08-26) — the website shows the app's real `solid` overlay
- * style, not `glass`. {@link drawGlassSheen} still mirrors the SSOT's glass
+ * sitewide (2026-08-26) — the website shows the app's opaque overlay, not the
+ * former glass chrome. {@link drawGlassSheen} still mirrors the SSOT's glass
  * constants verbatim (kept in step with `OverlayDesignSpec`, covered by the
  * AC1 unit tests); this switch is the one place that decides whether
  * {@link drawOverlayPill} actually paints it.

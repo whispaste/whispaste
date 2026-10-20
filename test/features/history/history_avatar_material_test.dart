@@ -58,36 +58,19 @@ Future<BoxDecoration> _pumpAvatar(
 
 void main() {
   group('The disc is the nav chip\'s material on a circle', () {
-    testWidgets('dark: three stops on one vertical axis', (tester) async {
+    testWidgets('dark: two stops on one vertical axis', (tester) async {
       final d = await _pumpAvatar(tester);
       final gradient = d.gradient! as LinearGradient;
 
       expect(
         (gradient.colors.length, gradient.stops, gradient.begin),
-        (3, const [0.0, WpAvatarTint.glossStop, 1.0], Alignment.topCenter),
+        (2, const [0.0, 1.0], Alignment.topCenter),
         reason:
             'dark: the disc is not the nav chip\'s three-stop vertical '
             'shape. The gloss is a *stop*, not a second painted layer — a '
             'two-stop diagonal fill is the flat disc this replaced, and a '
             'highlight drawn on top of it would be the second element the '
             'chip\'s own gate forbids',
-      );
-    });
-
-    testWidgets('dark: the gloss is a lit crown, not a shaded one', (
-      tester,
-    ) async {
-      final d = await _pumpAvatar(tester);
-      final gradient = d.gradient! as LinearGradient;
-
-      expect(
-        gradient.colors[0].a,
-        greaterThan(gradient.colors[1].a),
-        reason:
-            'dark: the first stop is thinner than the fill under it, so '
-            'the crown was not precomposited *over* the lit stop — the '
-            'source-over of a highlight can only ever raise the alpha it '
-            'lands on',
       );
     });
 

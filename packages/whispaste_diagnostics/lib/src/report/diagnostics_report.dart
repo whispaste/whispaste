@@ -39,7 +39,7 @@ export '../probes/path_service.dart'
 // ModelLoadProbeResult — inline definition for the core
 //
 // The full model-load probe (launching whisper-server) lives in the app layer
-// (`lib/features/about/model_load_probe.dart`) because it depends on
+// (`lib/features/help/diagnostics_report.dart`) because it depends on
 // `ProcessRunner` (an app-level abstraction). The core accepts only the
 // result value type, not the runner.
 // ---------------------------------------------------------------------------
@@ -461,7 +461,7 @@ Future<String> gatherDiagnosticsReport({
   // back to the same GPU-detection input that selection is a pure function
   // of (`optimalBackend` — 'cuda'/'metal'/'vulkan'/'cpu'). The In-App-
   // Diagnostik overrides this with the engine's real, live-loaded backend
-  // (see `lib/features/about/about_page.dart`).
+  // (see `lib/features/help/help_page.dart`, Diagnose tab).
   final backend = gpu?.optimalBackend;
 
   final sttFiles = listServerDirFiles(sttDirPath);

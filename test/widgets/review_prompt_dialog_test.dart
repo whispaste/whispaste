@@ -10,19 +10,22 @@
 ///  AC5  GitHub URL is sourced from a single constant — no duplication.
 library;
 
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/app_urls.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/prompt_timing.dart';
 import 'package:whispaste/services/review_prompt_service.dart';
+import 'package:whispaste/services/store_review_request_service.dart';
 import 'package:whispaste/widgets/review_prompt_dialog.dart';
 
 import '../fixtures/test_helpers.dart';
+import '../test_helpers/nudge_gate_open.dart';
 
 // ---------------------------------------------------------------------------
 // Fake notifier
@@ -36,7 +39,7 @@ class _FakeReviewPromptNotifier extends ReviewPromptNotifier {
 
   /// Recorder for the persistence seam — the real notifier writes the
   /// cooldown to SharedPreferences inside [dismiss]; the fake just records
-  /// that the gate's negative path invoked it.
+  /// that the not-now path invoked it.
   bool dismissCalled = false;
   bool? dismissPermanent;
 
@@ -57,6 +60,19 @@ class _FakeReviewPromptNotifier extends ReviewPromptNotifier {
   Future<void> dismiss({required bool permanent}) async {
     dismissCalled = true;
     dismissPermanent = permanent;
+    state = state.copyWith(shouldShowPrompt: false);
+  }
+
+  /// Whether the GR-009 store-request cap still has room. Tests set this.
+  bool nativeAllowed = true;
+  bool nativeRequestMarked = false;
+
+  @override
+  Future<bool> nativeRequestAllowed() async => nativeAllowed;
+
+  @override
+  Future<void> markNativeRequested() async {
+    nativeRequestMarked = true;
     state = state.copyWith(shouldShowPrompt: false);
   }
 }
@@ -82,7 +98,10 @@ Future<_FakeReviewPromptNotifier> _showDialog(
     makeTestable(
       const WpReviewPromptWatcher(child: SizedBox()),
       locale: const Locale('en'),
-      overrides: [reviewPromptProvider.overrideWith(() => notifier)],
+      overrides: [
+        nudgeGateOpenOverride(),
+        reviewPromptProvider.overrideWith(() => notifier),
+      ],
     ),
   );
   await tester.pump(); // initial build, ref.listen registered
@@ -99,14 +118,6 @@ Future<_FakeReviewPromptNotifier> _showDialog(
 /// leaked timers or pending futures.
 Future<void> _dismiss(WidgetTester tester, L10n l10n) async {
   await tester.tap(find.text(l10n.reviewPromptNotNow));
-  await tester.pumpAndSettle();
-}
-
-/// Taps the positive gate answer to advance from the neutral-question stage
-/// to the review-buttons stage (AC2). No-op if the dialog already shows the
-/// review buttons.
-Future<void> _answerGateYes(WidgetTester tester, L10n l10n) async {
-  await tester.tap(find.text(l10n.reviewPromptGateYes));
   await tester.pumpAndSettle();
 }
 
@@ -130,17 +141,18 @@ void main() {
 
   tearDown(() {
     platformIsWindowsOverride = null;
+    platformIsMacOsOverride = null;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_launcherChannel, null);
   });
 
   // ---------------------------------------------------------------------------
-  // AC1 / AC5 — sentiment gate renders first
+  // No sentiment gate — the review options are offered directly
   // ---------------------------------------------------------------------------
 
-  group('sentiment gate', () {
-    testWidgets('renders the neutral gate question first — no review buttons '
-        'visible until answered (AC1)', (tester) async {
+  group('direct review options', () {
+    testWidgets('shows the review question and the review buttons at once, '
+        'with no sentiment question in between', (tester) async {
       await _showDialog(
         tester,
         DeployChannel.installer,
@@ -148,73 +160,19 @@ void main() {
         l10n: l10n,
       );
 
-      // Neutral question + internal-feedback declaration are visible.
       expect(find.text(l10n.reviewPromptTitle), findsOneWidget);
-      expect(find.text(l10n.reviewPromptGateBody), findsOneWidget);
-      // The two sentiment answers are present.
-      expect(find.text(l10n.reviewPromptGateYes), findsOneWidget);
-      expect(find.text(l10n.reviewPromptGateNo), findsOneWidget);
-
-      // No review CTA is reachable yet — they only appear after a positive
-      // answer (AC2), so the user is never pushed straight to the store.
-      expect(find.text(l10n.reviewPromptRateStore), findsNothing);
-      expect(find.text(l10n.reviewPromptStarGitHub), findsNothing);
-      expect(find.text(l10n.reviewPromptYes), findsNothing);
-
-      await _dismiss(tester, l10n);
-    });
-
-    testWidgets('positive answer reveals the channel-specific review buttons '
-        '(AC2)', (tester) async {
-      await _showDialog(
-        tester,
-        DeployChannel.installer,
-        isWindows: true,
-        l10n: l10n,
-      );
-      await _answerGateYes(tester, l10n);
-
-      // The gate answers are gone and the review CTAs are now reachable.
-      expect(find.text(l10n.reviewPromptGateYes), findsNothing);
-      expect(find.text(l10n.reviewPromptGateNo), findsNothing);
+      expect(find.text(l10n.reviewPromptBody), findsOneWidget);
       expect(find.text(l10n.reviewPromptRateStore), findsOneWidget);
       expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
+      expect(find.text(l10n.reviewPromptNotNow), findsOneWidget);
+      expect(find.text(l10n.reviewPromptNever), findsOneWidget);
 
       await _dismiss(tester, l10n);
     });
 
-    testWidgets('negative answer navigates to the feedback page — never '
-        'launches a store URL (AC3)', (tester) async {
-      String? capturedUrl;
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(_launcherChannel, (call) async {
-            if (call.method == 'canLaunch' || call.method == 'launch') {
-              capturedUrl = (call.arguments as Map)['url'] as String?;
-            }
-            return true;
-          });
-
-      await _showDialog(
-        tester,
-        DeployChannel.installer,
-        isWindows: true,
-        l10n: l10n,
-      );
-
-      await tester.tap(find.text(l10n.reviewPromptGateNo));
-      await tester.pumpAndSettle();
-
-      // Routed to the internal feedback page — not the store.
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(WpReviewPromptWatcher)),
-      );
-      expect(container.read(activePageProvider), 'feedback');
-      // No store (or any) URL was launched on the negative path.
-      expect(capturedUrl, isNull);
-    });
-
-    testWidgets('negative answer snoozes the prompt so it does not re-ask '
-        'across sessions (AC4)', (tester) async {
+    testWidgets('"not now" snoozes the prompt; no gate step is involved', (
+      tester,
+    ) async {
       final notifier = await _showDialog(
         tester,
         DeployChannel.installer,
@@ -222,11 +180,8 @@ void main() {
         l10n: l10n,
       );
 
-      await tester.tap(find.text(l10n.reviewPromptGateNo));
-      await tester.pumpAndSettle();
+      await _dismiss(tester, l10n);
 
-      // The SharedPreferences-backed dismiss seam was invoked (non-permanent
-      // snooze) and the prompt is no longer surfacing.
       expect(notifier.dismissCalled, isTrue);
       expect(notifier.dismissPermanent, isFalse);
       expect(notifier.state.shouldShowPrompt, isFalse);
@@ -246,13 +201,34 @@ void main() {
         isWindows: false,
         l10n: l10n,
       );
-      await _answerGateYes(tester, l10n);
 
       expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
       expect(find.text(l10n.reviewPromptRateStore), findsNothing);
 
       await _dismiss(tester, l10n);
     });
+
+    // UIA-FBK-10: screen readers would speak the star glyphs as "Stern".
+    test(
+      'the review button labels carry no star glyph in any language (UIA-FBK-10)',
+      () {
+        for (final lang in ['de', 'en', 'es', 'pt', 'he', 'ru']) {
+          final arb =
+              jsonDecode(File('lib/core/l10n/app_$lang.arb').readAsStringSync())
+                  as Map<String, dynamic>;
+          for (final key in [
+            'reviewPromptStarGitHub',
+            'reviewPromptRateStore',
+          ]) {
+            expect(
+              arb[key] as String,
+              isNot(matches(RegExp('[\u2605\u2B50]'))),
+              reason: '$lang $key',
+            );
+          }
+        }
+      },
+    );
 
     testWidgets(
       'Windows installer (isWindows): both Rate-on-Store and Star-on-GitHub',
@@ -263,7 +239,6 @@ void main() {
           isWindows: true,
           l10n: l10n,
         );
-        await _answerGateYes(tester, l10n);
 
         expect(find.text(l10n.reviewPromptRateStore), findsOneWidget);
         expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
@@ -281,33 +256,9 @@ void main() {
           isWindows: true,
           l10n: l10n,
         );
-        await _answerGateYes(tester, l10n);
 
         expect(find.text(l10n.reviewPromptRateStore), findsOneWidget);
         expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
-
-        await _dismiss(tester, l10n);
-      },
-    );
-
-    testWidgets(
-      'Windows store: primary Store-Review button plus secondary GitHub-Stern '
-      'button (Doppelspur) — AC3',
-      (tester) async {
-        await _showDialog(
-          tester,
-          DeployChannel.store,
-          isWindows: true,
-          l10n: l10n,
-        );
-        await _answerGateYes(tester, l10n);
-
-        // Primary store-review button (store-channel wording "Loving it!").
-        expect(find.text(l10n.reviewPromptYes), findsOneWidget);
-        // Secondary GitHub-Stern button next to it (GitHub-Stern-Doppelspur).
-        expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
-        // The portable "Rate on the Store" wording is still NOT used here.
-        expect(find.text(l10n.reviewPromptRateStore), findsNothing);
 
         await _dismiss(tester, l10n);
       },
@@ -342,31 +293,12 @@ void main() {
         isWindows: true,
         l10n: l10n,
       );
-      await _answerGateYes(tester, l10n);
 
       await tester.tap(find.text(l10n.reviewPromptRateStore));
       await tester.pumpAndSettle();
 
       expect(capturedUrl, kWindowsStoreReviewUrl);
     });
-
-    testWidgets(
-      'Windows store Yes-button → Windows Store review URL (channel-agnostic)',
-      (tester) async {
-        await _showDialog(
-          tester,
-          DeployChannel.store,
-          isWindows: true,
-          l10n: l10n,
-        );
-        await _answerGateYes(tester, l10n);
-
-        await tester.tap(find.text(l10n.reviewPromptYes));
-        await tester.pumpAndSettle();
-
-        expect(capturedUrl, kWindowsStoreReviewUrl);
-      },
-    );
 
     testWidgets('macOS/Linux Star-on-GitHub tap → GitHub repo URL', (
       tester,
@@ -377,7 +309,6 @@ void main() {
         isWindows: false,
         l10n: l10n,
       );
-      await _answerGateYes(tester, l10n);
 
       await tester.tap(find.text(l10n.reviewPromptStarGitHub));
       await tester.pumpAndSettle();
@@ -395,7 +326,6 @@ void main() {
         isWindows: true,
         l10n: l10n,
       );
-      await _answerGateYes(tester, l10n);
 
       await tester.tap(find.text(l10n.reviewPromptRateStore));
       await tester.pumpAndSettle();
@@ -407,24 +337,278 @@ void main() {
     // the Windows Store review URL regardless of platform, so a Mac App
     // Store install (channel == store, !isWindows) silently failed to open
     // anything (ms-windows-store:// does not resolve on macOS).
+  });
+
+  // ---------------------------------------------------------------------------
+  // Mac App Store build: native StoreKit request instead of the own dialog
+  // ---------------------------------------------------------------------------
+
+  group('macOS Mac App Store build', () {
+    Future<({int calls, _FakeReviewPromptNotifier notifier})> pumpMacStore(
+      WidgetTester tester, {
+      required NativeReviewOutcome nativeResult,
+    }) async {
+      platformIsWindowsOverride = false;
+      platformIsMacOsOverride = true;
+      var calls = 0;
+      final notifier = _FakeReviewPromptNotifier(DeployChannel.store);
+
+      await tester.pumpWidget(
+        makeTestable(
+          const WpReviewPromptWatcher(child: SizedBox()),
+          locale: const Locale('en'),
+          overrides: [
+            nudgeGateOpenOverride(),
+            reviewPromptProvider.overrideWith(() => notifier),
+            nativeStoreReviewRequestProvider.overrideWithValue(() async {
+              calls++;
+              return nativeResult;
+            }),
+          ],
+        ),
+      );
+      await tester.pump();
+      notifier.triggerShow();
+      await tester.pump();
+      await tester.pump(kPostRecordingPromptDelay);
+      await tester.pumpAndSettle();
+      return (calls: calls, notifier: notifier);
+    }
+
     testWidgets(
-      'macOS store Yes-button → Mac App Store review URL, not the Windows '
-      'Store URL',
+      'a due prompt makes one native request and shows no own dialog',
       (tester) async {
-        await _showDialog(
+        final result = await pumpMacStore(
           tester,
-          DeployChannel.store,
-          isWindows: false,
-          l10n: l10n,
+          nativeResult: NativeReviewOutcome.requested,
         );
-        await _answerGateYes(tester, l10n);
 
-        await tester.tap(find.text(l10n.reviewPromptYes));
-        await tester.pumpAndSettle();
-
-        expect(capturedUrl, kMacAppStoreReviewUrl);
-        expect(capturedUrl, isNot(kWindowsStoreReviewUrl));
+        expect(result.calls, 1);
+        expect(find.text(l10n.reviewPromptTitle), findsNothing);
+        expect(result.notifier.state.shouldShowPrompt, isFalse);
+        expect(result.notifier.dismissCalled, isFalse);
       },
     );
+
+    testWidgets('a failed native request defers the prompt without a dialog', (
+      tester,
+    ) async {
+      final result = await pumpMacStore(
+        tester,
+        nativeResult: NativeReviewOutcome.failed,
+      );
+
+      expect(result.calls, 1);
+      expect(find.text(l10n.reviewPromptTitle), findsNothing);
+      expect(result.notifier.state.shouldShowPrompt, isFalse);
+      expect(result.notifier.dismissCalled, isFalse);
+    });
+
+    testWidgets('the portable macOS build keeps its own GitHub dialog', (
+      tester,
+    ) async {
+      platformIsMacOsOverride = true;
+      await _showDialog(
+        tester,
+        DeployChannel.portable,
+        isWindows: false,
+        l10n: l10n,
+      );
+
+      expect(find.text(l10n.reviewPromptTitle), findsOneWidget);
+      await _dismiss(tester, l10n);
+    });
+  });
+
+  group('Windows Microsoft Store build', () {
+    Future<({int calls, _FakeReviewPromptNotifier notifier})> pumpWindowsStore(
+      WidgetTester tester, {
+      required NativeReviewOutcome nativeResult,
+    }) async {
+      platformIsWindowsOverride = true;
+      platformIsMacOsOverride = false;
+      var calls = 0;
+      final notifier = _FakeReviewPromptNotifier(DeployChannel.store);
+
+      await tester.pumpWidget(
+        makeTestable(
+          const WpReviewPromptWatcher(child: SizedBox()),
+          locale: const Locale('en'),
+          overrides: [
+            nudgeGateOpenOverride(),
+            reviewPromptProvider.overrideWith(() => notifier),
+            nativeStoreReviewRequestProvider.overrideWithValue(() async {
+              calls++;
+              return nativeResult;
+            }),
+          ],
+        ),
+      );
+      await tester.pump();
+      notifier.triggerShow();
+      await tester.pump();
+      await tester.pump(kPostRecordingPromptDelay);
+      await tester.pumpAndSettle();
+      return (calls: calls, notifier: notifier);
+    }
+
+    testWidgets(
+      'a due prompt makes one native request and shows no own dialog',
+      (tester) async {
+        final result = await pumpWindowsStore(
+          tester,
+          nativeResult: NativeReviewOutcome.requested,
+        );
+
+        expect(result.calls, 1);
+        expect(find.text(l10n.reviewPromptTitle), findsNothing);
+        expect(result.notifier.state.shouldShowPrompt, isFalse);
+        expect(result.notifier.dismissCalled, isFalse);
+      },
+    );
+
+    testWidgets('an unavailable native request defers without a dialog', (
+      tester,
+    ) async {
+      final result = await pumpWindowsStore(
+        tester,
+        nativeResult: NativeReviewOutcome.unavailable,
+      );
+
+      expect(result.calls, 1);
+      expect(find.text(l10n.reviewPromptTitle), findsNothing);
+      expect(result.notifier.state.shouldShowPrompt, isFalse);
+      expect(result.notifier.dismissCalled, isFalse);
+    });
+
+    testWidgets('a failed Store request defers without a dialog', (
+      tester,
+    ) async {
+      final result = await pumpWindowsStore(
+        tester,
+        nativeResult: NativeReviewOutcome.failed,
+      );
+
+      expect(result.calls, 1);
+      expect(find.text(l10n.reviewPromptTitle), findsNothing);
+      expect(result.notifier.state.shouldShowPrompt, isFalse);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GR-009 — the store request is capped at 3 per 365 days
+  // ---------------------------------------------------------------------------
+
+  group('store request cap (GR-009)', () {
+    testWidgets('a capped store request makes no native call and no dialog', (
+      tester,
+    ) async {
+      platformIsWindowsOverride = false;
+      platformIsMacOsOverride = true;
+      var calls = 0;
+      final notifier = _FakeReviewPromptNotifier(DeployChannel.store)
+        ..nativeAllowed = false;
+
+      await tester.pumpWidget(
+        makeTestable(
+          const WpReviewPromptWatcher(child: SizedBox()),
+          locale: const Locale('en'),
+          overrides: [
+            nudgeGateOpenOverride(),
+            reviewPromptProvider.overrideWith(() => notifier),
+            nativeStoreReviewRequestProvider.overrideWithValue(() async {
+              calls++;
+              return NativeReviewOutcome.requested;
+            }),
+          ],
+        ),
+      );
+      await tester.pump();
+      notifier.triggerShow();
+      await tester.pump();
+      await tester.pump(kPostRecordingPromptDelay);
+      await tester.pumpAndSettle();
+
+      expect(calls, 0);
+      expect(notifier.nativeRequestMarked, isFalse);
+      expect(find.text(l10n.reviewPromptTitle), findsNothing);
+      expect(notifier.state.shouldShowPrompt, isFalse);
+    });
+
+    testWidgets('an accepted store request is recorded against the cap', (
+      tester,
+    ) async {
+      platformIsWindowsOverride = false;
+      platformIsMacOsOverride = true;
+      final notifier = _FakeReviewPromptNotifier(DeployChannel.store);
+
+      await tester.pumpWidget(
+        makeTestable(
+          const WpReviewPromptWatcher(child: SizedBox()),
+          locale: const Locale('en'),
+          overrides: [
+            nudgeGateOpenOverride(),
+            reviewPromptProvider.overrideWith(() => notifier),
+            nativeStoreReviewRequestProvider.overrideWithValue(
+              () async => NativeReviewOutcome.requested,
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      notifier.triggerShow();
+      await tester.pump();
+      await tester.pump(kPostRecordingPromptDelay);
+      await tester.pumpAndSettle();
+
+      expect(notifier.nativeRequestMarked, isTrue);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // GR-011 — Linux never gets a store review request; GitHub star stays
+  // ---------------------------------------------------------------------------
+
+  group('Linux (GR-011)', () {
+    test('no channel makes a native store request on Linux', () {
+      for (final channel in DeployChannel.values) {
+        expect(
+          usesNativeStoreRequest(
+            channel: channel,
+            isMacOs: false,
+            isWindows: false,
+          ),
+          isFalse,
+          reason: '$channel must not request a store review on Linux',
+        );
+      }
+    });
+
+    test('macOS is the control: its store channel still requests natively', () {
+      expect(
+        usesNativeStoreRequest(
+          channel: DeployChannel.store,
+          isMacOs: true,
+          isWindows: false,
+        ),
+        isTrue,
+        reason: 'control: the macOS store channel still requests natively',
+      );
+    });
+
+    testWidgets('a Linux portable prompt offers the GitHub star and no store '
+        'rating', (tester) async {
+      platformIsMacOsOverride = false;
+      await _showDialog(
+        tester,
+        DeployChannel.portable,
+        isWindows: false,
+        l10n: l10n,
+      );
+
+      expect(find.text(l10n.reviewPromptStarGitHub), findsOneWidget);
+      expect(find.text(l10n.reviewPromptRateStore), findsNothing);
+      await _dismiss(tester, l10n);
+    });
   });
 }

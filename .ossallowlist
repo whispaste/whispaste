@@ -19,6 +19,7 @@ CODE_OF_CONDUCT.md
 CONTRIBUTING.md
 CONTRIBUTING_TRANSLATIONS.md
 BUILD.md
+THIRD_PARTY_NOTICES.md
 ARCHITECTURE.md
 
 # Build-/Paket-Metadaten
@@ -59,7 +60,78 @@ resources/
 
 # Plattform-Projekte
 macos/
-linux/
+linux/CMakeLists.txt
+linux/.gitignore
+linux/flutter/
+# linux/runner: listed file by file so third_party/ stays a separate, explicit entry
+linux/runner/third_party/
+linux/runner/CMakeLists.txt
+linux/runner/audio_file_decode_core.cc
+linux/runner/audio_file_decode_core.h
+linux/runner/audio_file_decode_gst.cc
+linux/runner/audio_file_decode_gst.h
+linux/runner/audio_file_decode_host.cc
+linux/runner/audio_file_decode_host.h
+linux/runner/audio_file_decode_test.cc
+linux/runner/autorepeat_filter.h
+linux/runner/autorepeat_filter_test.cc
+linux/runner/clipboard_hint.cc
+linux/runner/clipboard_hint.h
+linux/runner/clipboard_receipt.cc
+linux/runner/clipboard_receipt.h
+linux/runner/clipboard_receipt_test.cc
+linux/runner/desktop_paste_host.cc
+linux/runner/desktop_paste_host.h
+linux/runner/floating_button_host.cc
+linux/runner/floating_button_host.h
+linux/runner/floating_button_window.cc
+linux/runner/floating_button_window.h
+linux/runner/floating_overlay_host.cc
+linux/runner/floating_overlay_host.h
+linux/runner/floating_overlay_window.cc
+linux/runner/floating_overlay_window.h
+linux/runner/keyboard_monitor_host.cc
+linux/runner/keyboard_monitor_host.h
+linux/runner/main.cc
+linux/runner/mp4_gapless.cc
+linux/runner/mp4_gapless.h
+linux/runner/mp4_gapless_test.cc
+linux/runner/my_application.cc
+linux/runner/my_application.h
+linux/runner/power_event_host.cc
+linux/runner/power_event_host.h
+linux/runner/secondary_plugin_registrant.cc
+linux/runner/secondary_plugin_registrant.h
+linux/runner/side_panel_host.cc
+linux/runner/side_panel_host.h
+linux/runner/side_panel_window.cc
+linux/runner/side_panel_window.h
+linux/runner/snippet_picker_host.cc
+linux/runner/snippet_picker_host.h
+linux/runner/snippet_picker_window.cc
+linux/runner/snippet_picker_window.h
+linux/runner/x11_window.cc
+linux/runner/x11_window.h
+linux/runner/x11_window_test.cc
+linux/runner/clipboard_hint_hold.cc
+linux/runner/clipboard_hint_test.cc
+linux/runner/diagnose_launch.h
+linux/runner/diagnose_launch_test.cc
+linux/runner/eis_keyboard_sender.cc
+linux/runner/eis_keyboard_sender.h
+linux/runner/file_dialog_host.cc
+linux/runner/file_dialog_host.h
+linux/runner/modifier_release.h
+linux/runner/modifier_release_test.cc
+linux/runner/portal_remote_desktop.cc
+linux/runner/portal_remote_desktop.h
+linux/runner/positioned_window_type.h
+linux/runner/window_drag_mover.cc
+linux/runner/window_drag_mover.h
+linux/runner/window_manager_kind.h
+linux/runner/window_manager_kind_test.cc
+linux/runner/xvfb_launcher.cc
+linux/runner/xvfb_launcher.h
 windows/
 
 # Design tokens (platform-neutral source for website and app theme)
@@ -116,6 +188,7 @@ scripts/apply-store-metadata.test.mjs
 scripts/build-store-trailer.sh
 scripts/generate-whisper-server-manifest.sh
 scripts/build-libwhisper-macos.sh
+scripts/build-opus-macos.sh
 scripts/build-libwhisper-linux.sh
 scripts/split-debug-linux.sh
 scripts/bundle-libwhisper-windows.ps1
@@ -131,6 +204,18 @@ scripts/fetch-cuda-redist.py
 scripts/build-cuda-pack-linux.sh
 scripts/build-cuda-pack-windows.ps1
 scripts/cuda-pack-NOTICE.template.txt
+# sherpa-onnx ohne TTS (espeak-ng-Guard) und generierte Drittlizenz-Hinweise
+scripts/build-sherpa-onnx.sh
+scripts/build-sherpa-onnx.ps1
+scripts/check-no-espeak.sh
+scripts/check-no-espeak.test.sh
+scripts/generate-third-party-notices.py
+scripts/sherpa-onnx.pin
+scripts/check-sherpa-stage.cmake
+scripts/check-sherpa-stage.test.sh
+scripts/fetch-onnxruntime.sh
+scripts/sherpa-stage-libs.sh
+scripts/sherpa-stage-libs.test.sh
 scripts/LICENSE-NVIDIA.txt
 
 # Smart-Mode-v2 native shim (llama.cpp FFI wrapper, mirrors the libwhisper pattern)

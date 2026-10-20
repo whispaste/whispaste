@@ -3,10 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../config/settings_enums.dart';
-import '../config/settings_provider.dart';
 import '../logging/app_logger.dart';
-import '../../services/model_download_service.dart';
 import '../../services/smart_mode/smart_mode_presets.dart' show SmartModePreset;
 
 // ---------------------------------------------------------------------------
@@ -23,6 +20,17 @@ import '../../services/smart_mode/smart_mode_presets.dart' show SmartModePreset;
 /// Recordings with no active Smart Mode preset skip this phase entirely and
 /// transition [transcribing] → [done] exactly as before this ticket.
 enum RecordingPhase { idle, recording, transcribing, refining, done, error }
+
+/// Whether a dictation holds the transcriber: recording, transcribing or
+/// refining. `done` and `error` are end states that stay until the next
+/// action, so they do not count as busy. Every caller that asks "is a
+/// dictation running" uses this one rule.
+bool isDictationBusy(RecordingPhase phase) => switch (phase) {
+  RecordingPhase.recording ||
+  RecordingPhase.transcribing ||
+  RecordingPhase.refining => true,
+  RecordingPhase.idle || RecordingPhase.done || RecordingPhase.error => false,
+};
 
 /// Where a finished transcript goes. [clipboard] is today's behaviour
 /// (`AfterTranscriptionAction` — clipboard/paste). [quickNote] appends it to
@@ -58,6 +66,8 @@ class RecordingState {
     this.errorMessage,
     this.sessionId,
     this.pasteFailed = false,
+    this.copiedOnly = false,
+    this.historyOnly = false,
   });
 
   final RecordingPhase phase;
@@ -80,6 +90,14 @@ class RecordingState {
   /// chime right after the failure chime.
   final bool pasteFailed;
 
+  /// The auto-paste block list stopped the paste, so the transcript is only on
+  /// the clipboard (GS-075). Shown as "Nur kopiert" in the overlay.
+  final bool copiedOnly;
+
+  /// A blocked paste with the clipboard copy switched off (maintainer 4a+c):
+  /// the transcript is only in the history. Shown as "Nicht eingefügt".
+  final bool historyOnly;
+
   // -- convenience getters --------------------------------------------------
 
   bool get isIdle => phase == RecordingPhase.idle;
@@ -99,6 +117,9 @@ class RecordingState {
     String? errorMessage,
     String? sessionId,
     bool? pasteFailed,
+    bool? copiedOnly,
+    bool? historyOnly,
+    // loam-ignore: code-duplicates – the repo-wide copyWith(field: field ?? this.field, ...) shape, shared by RecordingState and UpdateState.
   }) {
     return RecordingState(
       phase: phase ?? this.phase,
@@ -108,6 +129,8 @@ class RecordingState {
       errorMessage: errorMessage ?? this.errorMessage,
       sessionId: sessionId ?? this.sessionId,
       pasteFailed: pasteFailed ?? this.pasteFailed,
+      copiedOnly: copiedOnly ?? this.copiedOnly,
+      historyOnly: historyOnly ?? this.historyOnly,
     );
   }
 
@@ -122,7 +145,8 @@ class RecordingState {
           transcript == other.transcript &&
           errorMessage == other.errorMessage &&
           sessionId == other.sessionId &&
-          pasteFailed == other.pasteFailed;
+          pasteFailed == other.pasteFailed &&
+          (copiedOnly, historyOnly) == (other.copiedOnly, other.historyOnly);
 
   @override
   int get hashCode => Object.hash(
@@ -133,6 +157,8 @@ class RecordingState {
     errorMessage,
     sessionId,
     pasteFailed,
+    copiedOnly,
+    historyOnly,
   );
 
   @override
@@ -247,7 +273,12 @@ class RecordingNotifier extends Notifier<RecordingState> {
   /// paste/insert attempt failed — set on the resulting state so the UI can
   /// skip the "transcription complete" success tone for it (an error tone
   /// was already played for the paste failure itself).
-  void completeTranscription(String text, {bool pasteFailed = false}) {
+  void completeTranscription(
+    String text, {
+    bool pasteFailed = false,
+    bool copiedOnly = false,
+    bool historyOnly = false,
+  }) {
     if (state.phase != RecordingPhase.transcribing &&
         state.phase != RecordingPhase.refining) {
       _log.debug(
@@ -262,15 +293,23 @@ class RecordingNotifier extends Notifier<RecordingState> {
       phase: RecordingPhase.done,
       transcript: text,
       pasteFailed: pasteFailed,
+      copiedOnly: copiedOnly,
+      historyOnly: historyOnly,
     );
   }
 
-  /// Transition any phase → error.
-  void fail(String error) {
+  /// Transition any phase → error. [transcript] is kept when the finished
+  /// text is still worth offering (e.g. a failed quick-note append, so the
+  /// error toast can copy it).
+  void fail(String error, {String? transcript}) {
     _cancelTimer();
     _stuckGuard?.cancel();
     _refiningGuard?.cancel();
-    state = RecordingState(phase: RecordingPhase.error, errorMessage: error);
+    state = RecordingState(
+      phase: RecordingPhase.error,
+      errorMessage: error,
+      transcript: transcript,
+    );
   }
 
   /// Reset from any phase → idle.
@@ -392,48 +431,6 @@ final recordingSessionIdProvider = Provider<String?>((ref) {
   return ref.watch(recordingProvider.select((s) => s.sessionId));
 });
 
-// ---------------------------------------------------------------------------
-// Recording readiness — can the system start a recording?
-// ---------------------------------------------------------------------------
-
-/// Pre-conditions for starting a recording.
-enum RecordingReadiness {
-  /// Everything is set — model present.
-  ready,
-
-  /// Selected model file is missing.
-  modelMissing,
-}
-
-/// The selected on-device Whisper model when its file is not on disk.
-///
-/// `null` whenever nothing is known to be missing: before onboarding is done
-/// (onboarding downloads the model itself), before the initial disk scan has
-/// landed, for cloud providers, for Parakeet (its own bundle and downloader)
-/// and while that very model is downloading.
-final missingSttModelProvider = Provider<SttModelInfo?>((ref) {
-  final dl = ref.watch(modelDownloadProvider);
-  final settings = ref.watch(settingsProvider).value;
-  if (settings == null || !settings.onboardingCompleted || !dl.scanned) {
-    return null;
-  }
-  if (settings.sttProviderType != SttProviderType.onDevice ||
-      settings.onDeviceEngine == OnDeviceEngine.parakeet) {
-    return null;
-  }
-  final modelId = settings.effectiveModelId;
-  if (dl.downloadedModels.contains(modelId)) return null;
-  if (dl.isBusy && dl.activeModelId == modelId) return null;
-  return findSttModel(modelId);
-});
-
-/// Computed readiness state — watches download state + settings.
-final recordingReadinessProvider = Provider<RecordingReadiness>((ref) {
-  return ref.watch(missingSttModelProvider) == null
-      ? RecordingReadiness.ready
-      : RecordingReadiness.modelMissing;
-});
-
 /// Lightweight info notification channel for the recording pipeline.
 ///
 /// Set by the orchestrator when a non-error condition needs user feedback
@@ -457,6 +454,7 @@ typedef OomRecoveryState = ({
   String? nextModelId,
   bool hasCloudConfigured,
   bool isPermanentFail,
+  String? cloudProviderName,
 });
 
 class OomRecoveryNotifier extends Notifier<OomRecoveryState> {
@@ -467,6 +465,7 @@ class OomRecoveryNotifier extends Notifier<OomRecoveryState> {
       nextModelId: null,
       hasCloudConfigured: false,
       isPermanentFail: false,
+      cloudProviderName: null,
     );
   }
 
@@ -474,12 +473,14 @@ class OomRecoveryNotifier extends Notifier<OomRecoveryState> {
     required String? nextModelId,
     required bool hasCloudConfigured,
     required bool isPermanentFail,
+    String? cloudProviderName,
   }) {
     state = (
       pending: true,
       nextModelId: nextModelId,
       hasCloudConfigured: hasCloudConfigured,
       isPermanentFail: isPermanentFail,
+      cloudProviderName: cloudProviderName,
     );
   }
 
@@ -489,6 +490,7 @@ class OomRecoveryNotifier extends Notifier<OomRecoveryState> {
       nextModelId: null,
       hasCloudConfigured: false,
       isPermanentFail: false,
+      cloudProviderName: null,
     );
   }
 }
@@ -558,6 +560,23 @@ class SttLanguageOverrideNotifier extends Notifier<String?> {
 final sttLanguageOverrideProvider =
     NotifierProvider<SttLanguageOverrideNotifier, String?>(
       SttLanguageOverrideNotifier.new,
+    );
+
+/// The transcription language the current recording actually runs with, as
+/// shown by the overlay's language chip (SW-10). Set by the orchestrator at
+/// start (override, else the global setting, SW-03) and replaced once more
+/// when the target app's profile language resolves (SW-07). Settings changes
+/// never reach it. `null` before the first recording.
+class RecordingLanguageNotifier extends Notifier<String?> {
+  @override
+  String? build() => null;
+
+  void set(String? languageCode) => state = languageCode;
+}
+
+final recordingLanguageProvider =
+    NotifierProvider<RecordingLanguageNotifier, String?>(
+      RecordingLanguageNotifier.new,
     );
 
 /// An auto-stop-on-silence timeout (in seconds) forced onto the active

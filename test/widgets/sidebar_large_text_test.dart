@@ -1,14 +1,14 @@
 /// Large-text resilience test for [WpSidebar] — the desktop analogue of an
 /// accessibility-text-size simulator check (no simctl on Flutter desktop).
 ///
-/// Renders the REAL production nav items (all 7, via [wpNavItems]) plus the
-/// pinned settings button under an enlarged text scale and verifies nothing
+/// Renders the REAL production rail (six working areas via [wpNavItems], plus
+/// the pinned Help and Settings entries) under an enlarged text scale and verifies nothing
 /// overflows or crashes.
 ///
 /// Locale: German — the pinned settings button's "Einstellungen" (13 chars)
 /// is the longest label across EN/DE/HE sidebar entries overall; among the
-/// 7 regular nav items in this locale, "Ersetzungen"/"Statistiken" (11
-/// chars each) are the longest, close behind EN's "Replacements" (12).
+/// working-area labels in this locale, the longest are close behind EN's
+/// "Replacements" (12).
 /// Still a strong worst-case locale for tooltip width.
 ///
 /// Scale: 1.5 — strictly harsher than the 1.3 baseline; Windows' system
@@ -19,7 +19,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/app.dart'
-    show wpNavDividerAfterIds, wpNavItems, wpSettingsNavItem;
+    show wpHelpNavItem, wpNavDividerAfterIds, wpNavItems, wpSettingsNavItem;
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/widgets/sidebar.dart';
 
@@ -39,7 +39,10 @@ void main() {
               dividerAfterIds: wpNavDividerAfterIds,
               activeId: 'history',
               onItemTap: (_) {},
-              bottomItems: [wpSettingsNavItem(L10n.of(context))],
+              bottomItems: [
+                wpHelpNavItem(L10n.of(context)),
+                wpSettingsNavItem(L10n.of(context)),
+              ],
             ),
             const Expanded(child: SizedBox.shrink()),
           ],
@@ -50,9 +53,7 @@ void main() {
   );
 
   group('WpSidebar large text (de, 1.5x)', () {
-    testWidgets('renders all 7 nav items + settings without overflow', (
-      tester,
-    ) async {
+    testWidgets('renders all 8 rail entries without overflow', (tester) async {
       await tester.pumpWidget(buildScaledShell());
       await tester.pumpAndSettle();
 
@@ -61,9 +62,13 @@ void main() {
       final l10n = await L10n.delegate.load(const Locale('de'));
       final expectedTooltips = [
         for (final item in wpNavItems(l10n)) item.label,
+        l10n.navHelp,
         l10n.navSettings,
       ];
-      expect(expectedTooltips, hasLength(8)); // 7 nav items + settings
+      expect(
+        expectedTooltips,
+        hasLength(8),
+      ); // 6 working areas + Help + Settings
       for (final label in expectedTooltips) {
         expect(
           find.byTooltip(label),
@@ -78,16 +83,14 @@ void main() {
       await tester.pumpAndSettle();
 
       final l10n = await L10n.delegate.load(const Locale('de'));
-      // navReplacements ("Ersetzungen", 11 chars) ties navAnalytics
-      // ("Statistiken", 11 chars) as the longest of the 7 regular nav items
-      // in this locale — a strong case for a scaled tooltip among sidebar
-      // entries (the pinned settings button, "Einstellungen" at 13 chars,
-      // is a separate widget already covered generically by the test
-      // above).
+      // navReplacements ("Wörterbuch") is one of the working-area labels; the
+      // pinned Settings entry ("Einstellungen", 13 chars) is the longest rail
+      // label and is covered by the test above.
       await tester.longPress(find.byTooltip(l10n.navReplacements));
       await tester.pump(const Duration(milliseconds: 500));
 
-      expect(find.text(l10n.navReplacements), findsOneWidget);
+      // The visible label and the opened tooltip both carry the text.
+      expect(find.text(l10n.navReplacements), findsWidgets);
       expect(tester.takeException(), isNull);
 
       // Let the tooltip timer expire so no pending timers leak.

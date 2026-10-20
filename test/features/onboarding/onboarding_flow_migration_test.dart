@@ -9,8 +9,8 @@
 ///    Developer-ID had Auto-Paste at index 3, everywhere else index 3 was the
 ///    model step;
 ///  - **v1** (the six-step redesign) is platform-invariant as a *source*, but
-///    its targets are not: the current flow is seven steps on macOS/Windows
-///    and six on Linux.
+///    its targets are not: the current flow is seven steps on every desktop
+///    platform (Linux shows the Auto-Paste page with a per-format hint).
 library;
 
 import 'package:flutter/material.dart' show TargetPlatform;
@@ -41,7 +41,7 @@ int _migrateV1(
 
 void main() {
   group('onboardingIncludesAutoPasteStep', () {
-    test('macOS and Windows include the Auto-Paste page, Linux does not', () {
+    test('every desktop platform includes the Auto-Paste page', () {
       expect(
         onboardingIncludesAutoPasteStep(
           platform: TargetPlatform.macOS,
@@ -61,7 +61,7 @@ void main() {
           platform: TargetPlatform.linux,
           autoPasteSupported: true,
         ),
-        isFalse,
+        isTrue,
       );
     });
 
@@ -131,7 +131,7 @@ void main() {
       }
     });
 
-    group('from v1, on Linux (no Auto-Paste page in the new sequence)', () {
+    group('from v1, on Linux (the Auto-Paste page is shown here as well)', () {
       int m(int i) => _migrateV1(i, platform: TargetPlatform.linux);
 
       test('the first four positions map exactly as elsewhere', () {
@@ -141,13 +141,15 @@ void main() {
         expect(m(3), 4);
       });
 
-      test('autostart & auto-paste (4) → Appearance (4): the page it names '
-          'no longer exists here, and its autostart toggle — the only part '
-          'Linux ever rendered — now lives on the Appearance page', () {
-        expect(m(4), 4);
+      test('autostart & auto-paste (4) → Auto-Paste page (5), as on macOS and '
+          'Windows: the page it names exists on Linux now', () {
+        expect(m(4), 5);
       });
 
-      test('try & go (5) → last page (5, not 6)', () => expect(m(5), 5));
+      test('try & go (5) → last page (6): Linux now has the Auto-Paste page '
+          'at index 5, so the last page moves one index down', () {
+        expect(m(5), 6);
+      });
     });
 
     test('the Auto-Paste kill switch collapses macOS/Windows onto the same '
@@ -308,8 +310,10 @@ void main() {
           platform: TargetPlatform.linux,
           autoPasteSupported: true,
         ),
-        5,
-        reason: 'Linux has no sixth index to resume at',
+        6,
+        reason:
+            'Linux has the Auto-Paste page now, so the same index as '
+            'macOS and Windows',
       );
     });
   });

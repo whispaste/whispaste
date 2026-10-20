@@ -1,0 +1,238 @@
+{
+  "$description": "Desktop app roles (ADR 0016/0017). Two surfaces with identical keys: 'journal' is the light working area of the main window, the snippet picker and the side panel (text content); 'stage' is the navy control surface of the recording dock, the recording overlay and the floating button. Aliases point at primitives only. Consumed by tool/design_tokens/generate_dart.dart; the website does not read this file.",
+  "journal": {
+    "$type": "color",
+    "canvas": { "$value": "{color.glacier.100}", "$description": "Window ground and sidebar." },
+    "sidebar": { "$value": "{color.glacier.100}" },
+    "pane": { "$value": "{color.glacier.50}", "$description": "List column next to the detail." },
+    "surface": { "$value": "{color.white}", "$description": "Detail and editor area, dialogs." },
+    "surface-sunken": { "$value": "{color.glacier.100}", "$description": "Wells inside a surface (example boxes, code)." },
+    "card": { "$value": "{color.white}" },
+    "card-hover": { "$value": "{color.glacier.50}" },
+    "control": { "$value": "{color.white}" },
+    "control-hover": { "$value": "{color.glacier.50}" },
+    "control-disabled": { "$value": "{color.glacier.100}" },
+    "hover": { "$value": "#0B122A0A", "$description": "Row hover wash (navy 4%)." },
+    "pressed": { "$value": "#0B122A14" },
+    "selected": { "$value": "#0BAACC24", "$description": "Selected nav item, active segment, selected row (cyan.500 14%)." },
+    "selected-strong": { "$value": "#0BAACC38" },
+    "border-subtle": { "$value": "#0B122A1A", "$description": "Hairlines and dividers." },
+    "border-default": { "$value": "{color.glacier.300}", "$description": "Cards, outlined buttons." },
+    "border-strong": { "$value": "#0B122A47" },
+    "border-control": { "$value": "{color.glacier.500}", "$description": "Inputs and checkboxes, 3:1 against the surface." },
+    "text-primary": { "$value": "{color.glacier.900}" },
+    "text-secondary": { "$value": "{color.glacier.700}" },
+    "text-muted": { "$value": "{color.glacier.600}" },
+    "text-disabled": { "$value": "{color.glacier.500}" },
+    "switch-track-off": { "$value": "{color.glacier.600}", "$description": "Off-state switch track. White thumb on it >= 3:1, track on the window ground >= 3:1 (WCAG 1.4.11)." },
+    "selection-border": { "$value": "#6B7A96", "$description": "Unselected colour swatch boundary (WP-75). One solid value for both themes: 3:1 or better on every journal surface (3.7:1 at the weakest, canvas E6EEF7) and every stage surface (3.6:1 at the weakest, card 122247). Dark alpha borders reach only 2.1:1, so they are not used." },
+    "accent": { "$value": "{color.cyan.700}", "$description": "Petrol: secondary actions, links, icons, active nav text, tab indicator. AA on every journal surface." },
+    "accent-hover": { "$value": "{color.cyan.600}" },
+    "accent-fill": { "$value": "{color.cyan.700}", "$description": "Filled emphasis on light (checkbox, switch track, rare primary button)." },
+    "on-accent-fill": { "$value": "{color.white}" },
+    "action": { "$value": "{color.cyan.300}", "$description": "Bright cyan: recording / dictation action. On light only as a fill with navy text, never as text." },
+    "action-hover": { "$value": "{color.cyan.200}" },
+    "primary-record": { "$value": "{color.cyan.300}", "$description": "Primary record button fill (dock dictate). Cyan in light and dark. The navy set uses amber for this role (WP-50); that value lives in theme_colors.dart, because the generator emits only journal and stage." },
+    "primary-record-hover": { "$value": "{color.cyan.200}" },
+    "on-primary-record": { "$value": "{color.navy.900}" },
+    "on-action": { "$value": "{color.navy.900}" },
+    "recording": { "$value": "{color.cyan.500}", "$description": "Recording indicators drawn on light (waveform, dot)." },
+    "focus-ring": { "$value": "{color.cyan.700}" },
+    "highlight": { "$value": "{color.amber.400}", "$description": "Amber marker block, favourite star. Targeted accent surfaces allowed, with AA ink." },
+    "highlight-soft": { "$value": "#FFB54733", "$description": "Amber chip background (Favorit, Vorlage, KI-Vorschlag)." },
+    "highlight-text": { "$value": "{color.amber.800}" },
+    "on-highlight": { "$value": "{color.navy.900}" },
+    "success": { "$value": "{color.green.800}" },
+    "success-icon": { "$value": "#1F9D63", "$description": "Status dot/check on light; paired with text, never alone." },
+    "success-soft": { "$value": "#0B6B401A" },
+    "warning": { "$value": "{color.yellow.800}" },
+    "warning-soft": { "$value": "#F5C84233" },
+    "error": { "$value": "{color.red.800}" },
+    "error-soft": { "$value": "#B423181A" },
+    "scrim": { "$value": "#0B122A66" },
+    "shadow": { "$value": "#0B122A1F" }
+  },
+  "stage": {
+    "$type": "color",
+    "canvas": { "$value": "{color.navy.900}" },
+    "sidebar": { "$value": "{color.navy.900}" },
+    "pane": { "$value": "{color.navy.850}" },
+    "surface": { "$value": "{color.navy.900}", "$description": "Dock body, overlay pill." },
+    "surface-sunken": { "$value": "{color.navy.950}" },
+    "card": { "$value": "{color.navy.800}" },
+    "card-hover": { "$value": "{color.navy.700}" },
+    "control": { "$value": "#FFFFFF0A" },
+    "control-hover": { "$value": "#FFFFFF14" },
+    "control-disabled": { "$value": "#FFFFFF05" },
+    "hover": { "$value": "#FFFFFF0F" },
+    "pressed": { "$value": "#FFFFFF1A" },
+    "selected": { "$value": "#6FDDF01F" },
+    "selected-strong": { "$value": "#6FDDF033" },
+    "border-subtle": { "$value": "#F0F4FA17" },
+    "border-default": { "$value": "#FFFFFF29" },
+    "border-strong": { "$value": "#FFFFFF47" },
+    "border-control": { "$value": "#F0F4FA66", "$description": "Selector outline on the navy stage, 3:1 against the canvas (WCAG 1.4.11). Was 25 % alpha (2.1:1)." },
+    "text-primary": { "$value": "{color.frost.50}" },
+    "text-secondary": { "$value": "{color.frost.200}" },
+    "text-muted": { "$value": "{color.frost.400}" },
+    "text-disabled": { "$value": "#8A99B2A0", "$description": "Disabled text on the navy stage: the only exemption from 4.5:1, still 3:1 or more." },
+    "switch-track-off": { "$value": "{color.glacier.500}", "$description": "Off-state switch track on the navy stage: white thumb 4.3:1, track on the navy ground 4.3:1. Lighter tracks (frost.400) fail the thumb check." },
+    "selection-border": { "$value": "#6B7A96", "$description": "Unselected colour swatch boundary (WP-75). One solid value for both themes: 3:1 or better on every journal surface (3.7:1 at the weakest, canvas E6EEF7) and every stage surface (3.6:1 at the weakest, card 122247). Dark alpha borders reach only 2.1:1, so they are not used." },
+    "accent": { "$value": "{color.cyan.300}" },
+    "accent-hover": { "$value": "{color.cyan.200}" },
+    "accent-fill": { "$value": "{color.cyan.300}" },
+    "on-accent-fill": { "$value": "{color.navy.900}" },
+    "action": { "$value": "{color.cyan.300}" },
+    "action-hover": { "$value": "{color.cyan.200}" },
+    "primary-record": { "$value": "{color.cyan.300}" },
+    "primary-record-hover": { "$value": "{color.cyan.200}" },
+    "on-primary-record": { "$value": "{color.navy.900}" },
+    "on-action": { "$value": "{color.navy.900}" },
+    "recording": { "$value": "{color.cyan.300}" },
+    "focus-ring": { "$value": "{color.cyan.300}" },
+    "highlight": { "$value": "{color.amber.400}" },
+    "highlight-soft": { "$value": "#FFB54729" },
+    "highlight-text": { "$value": "{color.amber.400}" },
+    "on-highlight": { "$value": "{color.navy.900}" },
+    "success": { "$value": "{color.green.400}" },
+    "success-icon": { "$value": "{color.green.400}" },
+    "success-soft": { "$value": "#36D98B1F" },
+    "warning": { "$value": "{color.yellow.400}" },
+    "warning-soft": { "$value": "#F5C8421F" },
+    "error": { "$value": "{color.red.400}" },
+    "error-soft": { "$value": "#FF7B7B1F" },
+    "scrim": { "$value": "#070B19CC" },
+    "shadow": { "$value": "#0000004D" }
+  },
+  "shell": {
+    "$type": "dimension",
+    "sidebar-width": { "$value": "232px" },
+    "sidebar-width-compact": { "$value": "72px", "$description": "Icon-only rail below the compact breakpoint." },
+    "nav-item-height": { "$value": "44px" },
+    "list-pane-width": { "$value": "360px" },
+    "list-pane-width-wide": { "$value": "420px" },
+    "dock-height": {
+      "$value": "76px",
+      "$description": "Recording dock height (WP-79, ADR 0024): 48 px controls with 14 px above and below."
+    },
+    "dock-radius": { "$value": "16px" },
+    "dock-inset": { "$value": "12px" },
+    "title-bar-height": { "$value": "40px" },
+    "reading-measure": { "$value": "720px", "$description": "Max line length of body text in editors and detail views." },
+    "breakpoint-compact": { "$value": "960px", "$description": "Below: sidebar collapses to rail, list/detail stack." },
+    "breakpoint-wide": { "$value": "1440px" },
+    "touch-target": { "$value": "48px" },
+    "control-height": { "$value": "40px" },
+    "field-height": { "$value": "44px", "$description": "Search field height (spec §3); sits under the 48 px touch target." },
+    "focus-ring-width": { "$value": "2px", "$description": "Focus ring stroke in the app (WpFocusRing): a crisp solid outline, same 2px as the website ring. No blur (UIA-VIS-12, no-glow rule)." },
+    "focus-ring-gap": { "$value": "3px", "$description": "Gap between a focused control and its focus ring in the app." },
+    "control-height-sm": { "$value": "32px" }
+  },
+  "dock": {
+    "$type": "dimension",
+    "$description": "Recording dock component geometry (WP-79, ADR 0024). Breakpoints are dock widths: the dock width is the window minus the sidebar minus 2 x dock-inset.",
+    "control-height": { "$value": "48px", "$description": "Every dock control (Dictate, selectors, keycap, overflow): the 48 px desktop hit target." },
+    "control-radius": { "$value": "8px", "$description": "Selector and keycap corner radius. The same on every control (8 px, UIA-FND-02)." },
+    "dictate-width": { "$value": "232px" },
+    "dictate-width-compact": { "$value": "176px", "$description": "Dictate button once the keycap and the labels give way." },
+    "selector-padding-x": { "$value": "12px" },
+    "item-gap": { "$value": "8px", "$description": "Gap between dock items (controls, keycap, status)." },
+    "divider-height": { "$value": "28px" },
+    "breakpoint-labels": { "$value": "1000px", "$description": "Dock width from which selectors show their overline label (window of about 1256 px with the full sidebar)." },
+    "breakpoint-compact": { "$value": "720px", "$description": "Dock width below which the selectors other than the engine move into Mehr." }
+  },
+  "type": {
+    "$type": "dimension",
+    "page-title": { "$value": "28px", "$description": "Bricolage 700." },
+    "detail-title": { "$value": "26px", "$description": "Bricolage 700." },
+    "section-title": { "$value": "18px", "$description": "Bricolage 600." },
+    "body-lg": { "$value": "16px", "$description": "Editor and detail reading text." },
+    "body": { "$value": "14px" },
+    "label": { "$value": "14px" },
+    "caption": { "$value": "12px" },
+    "overline": { "$value": "11px", "$description": "Uppercase dock labels, tracking 0.06em." }
+  },
+  "overlay": {
+    "$type": "color",
+    "$description": "Recording overlay pill and floating record button (ADR 0024). Background presets: one flat fill (surface), glyph ink and glyph outline. Wave presets: one value per tone (dark or light, set per background in Dart), plus a darker light step (light-strong) tried before the ink when the light value falls below 3:1 on the fill. Signal presets: state colours per tone. Consumed by tool/design_tokens/generate_dart.dart as WpOverlayTokens.",
+    "marine": {
+      "surface": { "$value": "#051A3E", "$description": "Marine (default, dark): the flat fill." },
+      "ink": { "$value": "#FFFFFF", "$description": "Marine: glyph fill." },
+      "ink-outline": { "$value": "#14202E", "$description": "Marine: outline behind the glyphs." },
+      "edge": { "$value": "#FFFFFF2E", "$description": "Marine: 1 px light outer edge (UX-048), white at 18 percent, so the dark pill reads on a dark desktop." }
+    },
+    "graphit": {
+      "surface": { "$value": "{color.navy.950}", "$description": "Graphit (dark, neutral): the flat fill." },
+      "ink": { "$value": "#FFFFFF", "$description": "Graphit: glyph fill." },
+      "ink-outline": { "$value": "#14202E", "$description": "Graphit: outline behind the glyphs." },
+      "edge": { "$value": "#FFFFFF2E", "$description": "Graphit: 1 px light outer edge (UX-048), white at 18 percent." }
+    },
+    "gletscher": {
+      "surface": { "$value": "{color.glacier.100}", "$description": "Gletscher (light): the flat fill." },
+      "ink": { "$value": "{color.navy.900}", "$description": "Gletscher: glyph fill (dark ink on light)." },
+      "ink-outline": { "$value": "{color.white}", "$description": "Gletscher: outline behind the glyphs." },
+      "edge": { "$value": "#00000000", "$description": "Gletscher: no edge. A light pill already reads on any desktop that a dark preset would not, so no outline is drawn." }
+    },
+    "amber": {
+      "surface": { "$value": "{color.amber.400}", "$description": "Amber (Bernstein, light): one flat fill. The wave and signals are checked against it; dark ink takes over where a colour cannot reach 3:1." },
+      "ink": { "$value": "{color.navy.900}", "$description": "Amber: glyph fill (dark ink on amber, about 10.5:1)." },
+      "ink-outline": { "$value": "{color.amber.200}", "$description": "Amber: outline behind the glyphs." },
+      "edge": { "$value": "#00000000", "$description": "Amber: no edge (light preset, see gletscher)." }
+    },
+    "shadow": {
+      "dark": { "$value": "#0000005C", "$description": "Painted pill and button shadow on a dark preset: black at 36 percent (was 20 percent), so the drop shadow adds depth on a dark desktop (UX-048)." },
+      "light": { "$value": "#00000033", "$description": "Painted pill and button shadow on a light preset: black at 20 percent (unchanged)." }
+    },
+    "wave": {
+      "cyan": {
+        "dark": { "$value": "{color.cyan.500}", "$description": "Cyan on a dark background." },
+        "light": { "$value": "{color.cyan.600}", "$description": "Cyan on a light background." },
+        "light-strong": { "$value": "{color.cyan.700}", "$description": "Darker cyan step on a light background, used when the base cyan falls below 3:1 (e.g. on amber)." }
+      },
+      "violett": {
+        "dark": { "$value": "#B9A6FF", "$description": "Violett on a dark background." },
+        "light": { "$value": "#5B21B6", "$description": "Violett on a light background." },
+        "light-strong": { "$value": "#4C1D95", "$description": "Darker violett step on a light background (fallback step)." }
+      },
+      "neutral": {
+        "dark": { "$value": "{color.white}", "$description": "Neutral (white) on a dark background." },
+        "light": { "$value": "{color.navy.900}", "$description": "Neutral (ink) on a light background." },
+        "light-strong": { "$value": "{color.navy.950}", "$description": "Darkest neutral step on a light background (fallback step)." }
+      },
+      "amber": {
+        "dark": { "$value": "{color.amber.400}", "$description": "Amber on a dark background." },
+        "light": { "$value": "{color.amber.800}", "$description": "Amber on a light background (3.9:1 on the amber fill)." },
+        "light-strong": { "$value": "{color.amber.800}", "$description": "Darkest amber step; equal to the base step, kept so every wave has a pair." }
+      },
+      "ink": {
+        "dark": { "$value": "{color.black}", "$description": "Ink (black) on a dark background. Invalid there: the contrast stays far below 3:1, so the pairing is disabled." },
+        "light": { "$value": "{color.black}", "$description": "Ink (black) on a light background, the dark counterpart of neutral." },
+        "light-strong": { "$value": "{color.black}", "$description": "Equal to the base step; kept so every wave has a pair." }
+      },
+      "coral": {
+        "dark": { "$value": "{color.red.400}", "$description": "Coral on a dark background." },
+        "light": { "$value": "{color.red.800}", "$description": "Coral on a light background (5.6:1 on glacier, 3.7:1 on amber)." },
+        "light-strong": { "$value": "{color.red.800}", "$description": "Equal to the base step; kept so every wave has a pair." }
+      },
+      "mint": {
+        "dark": { "$value": "{color.green.400}", "$description": "Mint on a dark background." },
+        "light": { "$value": "{color.green.800}", "$description": "Mint on a light background (5.6:1 on glacier, 3.8:1 on amber)." },
+        "light-strong": { "$value": "{color.green.800}", "$description": "Equal to the base step; kept so every wave has a pair." }
+      }
+    },
+    "signal": {
+      "dark": {
+        "dot": { "$value": "#FF5252", "$description": "Recording dot on a dark background." },
+        "transcribing": { "$value": "#D97706", "$description": "Processing spinner and ripple on dark." },
+        "done": { "$value": "#05875C", "$description": "Done check on dark." },
+        "error": { "$value": "#CC1C1C", "$description": "Error icon on dark." }
+      },
+      "light": {
+        "dot": { "$value": "#B42318", "$description": "Recording dot on a light background." },
+        "transcribing": { "$value": "#8A4B00", "$description": "Processing spinner and ripple on light." },
+        "done": { "$value": "#05875C", "$description": "Done check on light." },
+        "error": { "$value": "#CC1C1C", "$description": "Error icon on light." }
+      }
+    }
+  }
+}

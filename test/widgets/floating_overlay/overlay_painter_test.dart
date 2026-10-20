@@ -17,6 +17,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/generated/wp_tokens.g.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/widgets/floating_overlay/floating_overlay_view.dart';
@@ -25,13 +26,15 @@ import 'package:whispaste/widgets/floating_overlay/overlay_painter.dart';
 FloatingOverlaySnapshot _snap(
   OverlayVisualState state, {
   OverlaySizeVariant size = OverlaySizeVariant.normal,
-  OverlayStyleVariant style = OverlayStyleVariant.glass,
+  OverlayBackground background = OverlayBackground.marine,
+  OverlayWave wave = OverlayWave.cyan,
 }) {
   return FloatingOverlaySnapshot(
     visible: true,
     state: state,
     size: size,
-    style: style,
+    background: background,
+    wave: wave,
     label: switch (state) {
       OverlayVisualState.recording => 'Press Ctrl+Shift+D to stop',
       OverlayVisualState.transcribing => 'Transcribing…',
@@ -66,13 +69,10 @@ void main() {
         final painter = WpFloatingOverlayView.painterFor(
           snapshot: _snap(OverlayVisualState.recording, size: size),
         );
-        const theme = OverlayDesignTheme.dark;
+        final reference = OverlayDesignSpec.colorsFor();
 
-        expect(
-          painter.colors.capsuleFillStart,
-          OverlayDesignSpec.colors(theme).capsuleFillStart,
-        );
-        expect(painter.colors.accent, OverlayDesignSpec.colors(theme).accent);
+        expect(painter.colors.capsuleFill, reference.capsuleFill);
+        expect(painter.colors.accent, reference.accent);
         expect(painter.sizeSpec, OverlayDesignSpec.sizeFor(size));
         expect(painter.layout, OverlayDesignSpec.layoutFor(size));
       }
@@ -102,19 +102,19 @@ void main() {
       expect(OverlayDesignSpec.compactSize.capsuleRadius, 20);
     });
 
-    test('light tint-gradient stops are the approved spike colours', () {
-      expect(OverlayDesignSpec.light.capsuleFillStart, const Color(0xFFF7FAFD));
-      expect(OverlayDesignSpec.light.capsuleFillEnd, const Color(0xFFE6EEF5));
-      expect(OverlayDesignSpec.light.capsuleBorder, const Color(0x330887A8));
+    test('light background fill stops are the gletscher preset', () {
+      final colors = OverlayDesignSpec.colorsFor(
+        background: OverlayBackground.gletscher,
+      );
+      expect(colors.capsuleFill, WpOverlayTokens.overlayGletscherSurface);
+      expect(colors.capsuleBorder, colors.accent.withValues(alpha: 0.2));
     });
 
     test('recording dot uses the accent colour, not the red recordingDot', () {
       // The painter draws the dot in colors.accent; the legacy red
       // recordingDot token is no longer the dot colour (spike: teal dot).
-      expect(
-        OverlayDesignSpec.light.accent,
-        isNot(OverlayDesignSpec.light.recordingDot),
-      );
+      final colors = OverlayDesignSpec.colorsFor();
+      expect(colors.accent, isNot(colors.recordingDot));
     });
 
     test('window size reserves shadow padding around the pill', () {
@@ -502,70 +502,88 @@ void main() {
     }
   });
 
-  group('OverlayStyleVariant — glass vs. solid (Overlay-Stil setting)', () {
-    test('default style is glass', () {
+  group('Overlay theme presets — background and wave (WP-75, ADR 0024)', () {
+    test('default presets are marine and cyan', () {
       final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(OverlayVisualState.recording),
       );
-      expect(painter.style, OverlayStyleVariant.glass);
+      expect(painter.colors, equals(OverlayDesignSpec.colorsFor()));
     });
 
-    test('painterFor forwards snapshot.style to the painter', () {
+    test('painterFor forwards the snapshot background and wave', () {
       final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.recording,
-          style: OverlayStyleVariant.solid,
+          background: OverlayBackground.gletscher,
+          wave: OverlayWave.violett,
         ),
       );
-      expect(painter.style, OverlayStyleVariant.solid);
+      expect(
+        painter.colors,
+        equals(
+          OverlayDesignSpec.colorsFor(
+            background: OverlayBackground.gletscher,
+            wave: OverlayWave.violett,
+          ),
+        ),
+      );
     });
 
-    test('shouldRepaint detects a style change', () {
-      final glass = WpFloatingOverlayView.painterFor(
+    test('shouldRepaint detects a background or wave change', () {
+      final marine = WpFloatingOverlayView.painterFor(
         snapshot: _snap(OverlayVisualState.recording),
       );
-      final solid = WpFloatingOverlayView.painterFor(
+      final graphit = WpFloatingOverlayView.painterFor(
         snapshot: _snap(
           OverlayVisualState.recording,
-          style: OverlayStyleVariant.solid,
+          background: OverlayBackground.graphit,
         ),
       );
-      expect(solid.shouldRepaint(glass), isTrue);
-      expect(glass.shouldRepaint(glass), isFalse);
+      final neutral = WpFloatingOverlayView.painterFor(
+        snapshot: _snap(
+          OverlayVisualState.recording,
+          wave: OverlayWave.neutral,
+        ),
+      );
+      expect(graphit.shouldRepaint(marine), isTrue);
+      expect(neutral.shouldRepaint(marine), isTrue);
+      expect(marine.shouldRepaint(marine), isFalse);
     });
 
     for (final state in OverlayVisualState.values) {
       for (final size in OverlaySizeVariant.values) {
-        testWidgets('solid · ${state.name} · ${size.name} builds & paints', (
-          tester,
-        ) async {
-          final bars = List<double>.generate(
-            OverlayDesignSpec.waveform.barCount,
-            (i) => (i % 7) / 7.0,
-          );
-          await tester.pumpWidget(
-            Directionality(
-              textDirection: TextDirection.ltr,
-              child: Center(
-                child: WpFloatingOverlayView(
-                  snapshot: _snap(
-                    state,
-                    size: size,
-                    style: OverlayStyleVariant.solid,
+        testWidgets(
+          'gletscher · ${state.name} · ${size.name} builds & paints',
+          (tester) async {
+            final bars = List<double>.generate(
+              OverlayDesignSpec.waveform.barCount,
+              (i) => (i % 7) / 7.0,
+            );
+            await tester.pumpWidget(
+              Directionality(
+                textDirection: TextDirection.ltr,
+                child: Center(
+                  child: WpFloatingOverlayView(
+                    snapshot: _snap(
+                      state,
+                      size: size,
+                      background: OverlayBackground.gletscher,
+                      wave: OverlayWave.violett,
+                    ),
+                    waveformBars: bars,
                   ),
-                  waveformBars: bars,
                 ),
               ),
-            ),
-          );
-          await tester.pump(const Duration(milliseconds: 16));
+            );
+            await tester.pump(const Duration(milliseconds: 16));
 
-          expect(find.byType(CustomPaint), findsWidgets);
-          expect(tester.takeException(), isNull);
+            expect(find.byType(CustomPaint), findsWidgets);
+            expect(tester.takeException(), isNull);
 
-          // Tear down the repeating animation cleanly.
-          await tester.pumpWidget(const SizedBox.shrink());
-        });
+            // Tear down the repeating animation cleanly.
+            await tester.pumpWidget(const SizedBox.shrink());
+          },
+        );
       }
     }
   });
@@ -735,6 +753,82 @@ void main() {
         textLeft + painter.recordingTextMaxWidth(pill, textLeft),
         lessThanOrEqualTo(stopLeft),
       );
+    });
+  });
+
+  group('done after a failed paste (XP-5-07)', () {
+    TestWidgetsFlutterBinding.ensureInitialized();
+
+    FloatingOverlaySnapshot doneSnap(
+      OverlaySizeVariant size, {
+      required bool pasteFailed,
+    }) => FloatingOverlaySnapshot(
+      visible: true,
+      state: OverlayVisualState.done,
+      size: size,
+      label: 'Done',
+      doneMessage: pasteFailed ? 'Not pasted' : 'Pasted',
+      donePasteFailed: pasteFailed,
+    );
+
+    // Counts opaque pixels close to the preset's success green, i.e. the
+    // painted check mark.
+    Future<int> successPixels(FloatingOverlaySnapshot snap) async {
+      final window = OverlayDesignSpec.windowSizeFor(snap.size);
+      final recorder = ui.PictureRecorder();
+      WpFloatingOverlayView.painterFor(
+        snapshot: snap,
+      ).paint(Canvas(recorder), window);
+      final image = await recorder.endRecording().toImage(
+        window.width.ceil(),
+        window.height.ceil(),
+      );
+      final bytes = (await image.toByteData())!.buffer.asUint8List();
+      final green = OverlayDesignSpec.colorsFor(
+        background: snap.background,
+        wave: snap.wave,
+      ).success;
+      int channel(double v) => (v * 255).round();
+      final (r, g, b) = (channel(green.r), channel(green.g), channel(green.b));
+      var count = 0;
+      for (var i = 0; i < bytes.length; i += 4) {
+        if (bytes[i + 3] > 200 &&
+            (bytes[i] - r).abs() < 24 &&
+            (bytes[i + 1] - g).abs() < 24 &&
+            (bytes[i + 2] - b).abs() < 24) {
+          count++;
+        }
+      }
+      return count;
+    }
+
+    for (final size in OverlaySizeVariant.values) {
+      test(
+        '${size.name}: the green check is only drawn for a real paste',
+        () async {
+          expect(
+            await successPixels(doneSnap(size, pasteFailed: false)),
+            greaterThan(0),
+            reason: 'control: a successful run paints the green check',
+          );
+          expect(
+            await successPixels(doneSnap(size, pasteFailed: true)),
+            0,
+            reason: '"Not pasted" must not sit next to a green check',
+          );
+        },
+      );
+    }
+
+    test('the flag reaches the painter and triggers a repaint', () {
+      final failed = WpFloatingOverlayView.painterFor(
+        snapshot: doneSnap(OverlaySizeVariant.normal, pasteFailed: true),
+      );
+      final pasted = WpFloatingOverlayView.painterFor(
+        snapshot: doneSnap(OverlaySizeVariant.normal, pasteFailed: false),
+      );
+      expect(failed.donePasteFailed, isTrue);
+      expect(failed.shouldRepaint(pasted), isTrue);
     });
   });
 }

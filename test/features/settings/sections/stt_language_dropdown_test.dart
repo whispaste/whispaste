@@ -1,14 +1,12 @@
-/// Tests for the recognition-language dropdown inside
-/// [SpeechRecognitionSection].
+/// Tests for the recognition-language row inside [SpeechRecognitionSection].
 ///
-/// Store-review regression (June 2026): the dropdown offered only four
-/// languages although the bundled Whisper models support 99. These tests
-/// pin the new contract:
+/// WP-23e wiring: the row shows the current choice and opens the language
+/// dialog (`WpLanguageDialog`). These tests pin the contract:
 ///
-///  - the dropdown offers Auto-detect plus every [whisperLanguages] entry;
-///  - selecting a language persists its short code (not a display name);
-///  - legacy persisted display values (e.g. 'German') and stored codes
-///    both render the correct selection.
+///  - the dialog offers every [whisperLanguages] entry;
+///  - saving a selection persists its short code (not a display name);
+///  - legacy persisted display values (e.g. 'German') and stored codes both
+///    render the correct current language on the row.
 ///
 /// Uses a cloud-mode settings override so the local-only WpSttModelManager /
 /// BenchmarkButton stay out of the tree (same approach as
@@ -16,6 +14,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
@@ -23,6 +22,7 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/whisper_languages.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/settings/sections/stt_section.dart';
+import 'package:whispaste/features/settings/widgets/wp_language_dialog.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -70,80 +70,76 @@ Future<_FakeSettingsNotifier> _pumpSection(
   return notifier;
 }
 
-/// The recognition-language dropdown is the one whose current value is a
-/// catalog code or 'auto'.
-Finder _languageDropdown() => find.byWidgetPredicate(
-  (w) =>
-      w is DropdownButton<String> &&
-      (w.value == 'auto' || whisperLanguages.containsKey(w.value)),
-);
+Finder _openDialogButton() =>
+    find.byKey(const ValueKey('settings-stt-language-change'));
+
+/// Localised name of [code] as the row renders it (same lookup as the section).
+String _nameOf(WidgetTester tester, String code) =>
+    LocaleNames.of(
+      tester.element(find.byType(SpeechRecognitionSection)),
+    )?.nameOf(code) ??
+    whisperLanguages[code]!;
 
 void main() {
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
   });
 
-  group('Recognition-language dropdown', () {
-    testWidgets('offers Auto-detect plus the full 99-language catalog', (
+  group('Recognition-language row', () {
+    testWidgets('opens the dialog offering the full 99-language catalog', (
       tester,
     ) async {
       await _pumpSection(tester);
+      await tester.tap(_openDialogButton());
+      await tester.pumpAndSettle();
 
-      final dropdown = tester.widget<DropdownButton<String>>(
-        _languageDropdown(),
+      final dialog = tester.widget<WpLanguageDialog>(
+        find.byType(WpLanguageDialog),
       );
-      final values = dropdown.items!.map((i) => i.value).toList();
-
-      expect(values.first, 'auto');
-      expect(values.length, 1 + whisperLanguages.length);
-      expect(values.toSet(), {'auto', ...whisperLanguages.keys});
+      expect(dialog.options.length, whisperLanguages.length);
+      expect(
+        dialog.options.map((o) => o.code).toSet(),
+        whisperLanguages.keys.toSet(),
+      );
     });
 
-    testWidgets('selecting Russian persists the short code ru', (tester) async {
+    testWidgets('saving Russian in the dialog persists the short code ru', (
+      tester,
+    ) async {
       final notifier = await _pumpSection(tester);
+      await tester.tap(_openDialogButton());
+      await tester.pumpAndSettle();
 
-      // Drive the selection through the widget's own onChanged instead of
-      // scrolling the ~100-entry overlay menu (flaky in widget tests). The
-      // "offers the full catalog" test already pins that 'ru' is a real
-      // menu entry.
-      final dropdown = tester.widget<DropdownButton<String>>(
-        _languageDropdown(),
+      // Drive the save through the dialog's own callback instead of scrolling
+      // the tile grid (flaky in widget tests). The catalog test above already
+      // pins that 'ru' is one of the offered options.
+      final dialog = tester.widget<WpLanguageDialog>(
+        find.byType(WpLanguageDialog),
       );
-      expect(
-        dropdown.items!.map((i) => i.value),
-        contains('ru'),
-        reason: 'Russian must be selectable from the menu',
+      expect(dialog.options.map((o) => o.code), contains('ru'));
+      dialog.onSave(
+        const WpLanguageSelection(autoDetect: false, codes: ['ru']),
       );
-      dropdown.onChanged!('ru');
       await tester.pumpAndSettle();
 
       expect(notifier.current.sttLanguage, 'ru');
       expect(notifier.current.sttLanguageCode, 'ru');
     });
 
-    testWidgets('legacy persisted display value renders its language', (
+    testWidgets('legacy persisted display value shows its language', (
       tester,
     ) async {
       await _pumpSection(tester, language: 'German');
-
-      final dropdown = tester.widget<DropdownButton<String>>(
-        _languageDropdown(),
-      );
-      expect(dropdown.value, 'de');
+      expect(find.text(_nameOf(tester, 'de')), findsOneWidget);
     });
 
-    testWidgets('persisted short code renders its language', (tester) async {
+    testWidgets('persisted short code shows its language', (tester) async {
       await _pumpSection(tester, language: 'ru');
-
-      final dropdown = tester.widget<DropdownButton<String>>(
-        _languageDropdown(),
-      );
-      expect(dropdown.value, 'ru');
+      expect(find.text(_nameOf(tester, 'ru')), findsOneWidget);
     });
 
     testWidgets('auto-detect stays the localized first entry', (tester) async {
       await _pumpSection(tester);
-
       expect(find.text(l10n.settingsLanguageAutoDetect), findsOneWidget);
     });
   });

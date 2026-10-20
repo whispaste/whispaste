@@ -27,6 +27,7 @@ import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/support/support_capabilities.dart';
 import 'package:whispaste/services/support/support_state.dart';
+import 'package:whispaste/services/review_prompt_service.dart';
 import 'package:whispaste/services/support_prompt_service.dart';
 
 // ---------------------------------------------------------------------------
@@ -95,6 +96,55 @@ const _reviewLastSnoozeKey = 'review_prompt_last_snooze';
 const _reviewShownCountKey = 'review_prompt_shown_count';
 
 void main() {
+  // ---------------------------------------------------------------------------
+  // GR-012 — failed-paste dictations do not count toward the 40 threshold
+  // ---------------------------------------------------------------------------
+
+  group('failed-paste entries (GR-012)', () {
+    test(
+      'a failed-paste entry does not count toward the 40 threshold',
+      () async {
+        final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+        addTearDown(harness.container.dispose);
+        await harness.container
+            .read(reviewPromptProvider.notifier)
+            .countUnpastedDictation(entryId: 'entry-0');
+
+        expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+      },
+    );
+
+    test('41 active entries with one failed paste still prompt', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 41);
+      addTearDown(harness.container.dispose);
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .countUnpastedDictation(entryId: 'entry-0');
+
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+    });
+
+    test('trimmed-away failed entries do not lower the total', () async {
+      final harness = await _bootstrap(prefs: const {}, activeEntries: 40);
+      addTearDown(harness.container.dispose);
+      await harness.db.upsertEntry(
+        HistoryEntriesCompanion.insert(
+          id: 'failed-trimmed',
+          timestamp: DateTime(2024, 1, 1),
+        ),
+      );
+      await harness.container
+          .read(reviewPromptProvider.notifier)
+          .countUnpastedDictation(entryId: 'failed-trimmed');
+      await harness.db.customStatement(
+        'UPDATE history_entries SET deleted_at = ? WHERE id = ?',
+        [DateTime(2025, 6, 1).millisecondsSinceEpoch, 'failed-trimmed'],
+      );
+
+      expect((await _check(harness.container)).shouldShowPrompt, isTrue);
+    });
+  });
+
   // ---------------------------------------------------------------------------
   // AC1 / AC2 — independent state + higher threshold
   // ---------------------------------------------------------------------------
@@ -445,6 +495,16 @@ void main() {
     test('a self-declared supporter is never prompted', () async {
       final harness = await _bootstrap(
         prefs: {'support_self_declared': true},
+        activeEntries: 40,
+      );
+      addTearDown(harness.container.dispose);
+
+      expect((await _check(harness.container)).shouldShowPrompt, isFalse);
+    });
+
+    test('a user who hid the sponsor chip is never prompted (R-12)', () async {
+      final harness = await _bootstrap(
+        prefs: {'support_chip_hidden': true},
         activeEntries: 40,
       );
       addTearDown(harness.container.dispose);

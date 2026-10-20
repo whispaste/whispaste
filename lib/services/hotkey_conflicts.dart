@@ -17,11 +17,7 @@ import 'dart:io';
 
 /// A known system-reserved hotkey combination.
 class ConflictEntry {
-  const ConflictEntry({
-    required this.modifiers,
-    required this.key,
-    this.note = '',
-  });
+  const ConflictEntry({required this.modifiers, required this.key, this.note});
 
   /// Modifier set in storage format, e.g. `'meta'` or `'ctrl+alt'`.
   ///
@@ -32,11 +28,49 @@ class ConflictEntry {
   /// e.g. `'Space'`, `'Tab'`, `'F4'`, `'L'`.
   final String key;
 
-  /// Human-readable note about which system function owns this combo.
-  final String note;
+  /// Which system function owns this combo. Rendered in the user's language
+  /// by the hotkey recorder; `null` shows the key instead.
+  final ConflictNote? note;
 
   @override
   String toString() => 'ConflictEntry($modifiers + $key)';
+}
+
+/// The system function that owns a conflicting combination. Each value maps to
+/// one `hotkeyConflictNote*` ARB key, so the warning is shown in the app
+/// language instead of the English OS menu names.
+enum ConflictNote {
+  spotlight,
+  appSwitcher,
+  quitApp,
+  closeWindow,
+  hideApp,
+  minimizeWindow,
+  cycleWindows,
+  screenshotFullScreen,
+  screenshotSelection,
+  screenshotRecording,
+  emojiPicker,
+  forceQuit,
+  lockWorkstation,
+  showDesktop,
+  fileExplorer,
+  runDialog,
+  settings,
+  search,
+  taskView,
+  inputLanguageSwitch,
+  maximizeWindow,
+  snapLeft,
+  snapRight,
+  securityOptionsTaskManager,
+  taskManager,
+  lockScreenGnomeKde,
+  runDialogKde,
+  logoutShutdownDialog,
+  openTerminal,
+  lockScreenGnome,
+  activityOverviewKde,
 }
 
 // ---------------------------------------------------------------------------
@@ -45,85 +79,105 @@ class ConflictEntry {
 
 /// System hotkeys reserved on macOS.
 const _macConflicts = <ConflictEntry>[
-  ConflictEntry(modifiers: 'meta', key: 'Space', note: 'Spotlight'),
-  ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'App Switcher'),
-  ConflictEntry(modifiers: 'meta', key: 'Q', note: 'Quit App'),
-  ConflictEntry(modifiers: 'meta', key: 'W', note: 'Close Window'),
-  ConflictEntry(modifiers: 'meta', key: 'H', note: 'Hide App'),
-  ConflictEntry(modifiers: 'meta', key: 'M', note: 'Minimize Window'),
-  ConflictEntry(modifiers: 'meta', key: '`', note: 'Cycle Windows'),
+  ConflictEntry(modifiers: 'meta', key: 'Space', note: ConflictNote.spotlight),
+  ConflictEntry(modifiers: 'meta', key: 'Tab', note: ConflictNote.appSwitcher),
+  ConflictEntry(modifiers: 'meta', key: 'Q', note: ConflictNote.quitApp),
+  ConflictEntry(modifiers: 'meta', key: 'W', note: ConflictNote.closeWindow),
+  ConflictEntry(modifiers: 'meta', key: 'H', note: ConflictNote.hideApp),
+  ConflictEntry(modifiers: 'meta', key: 'M', note: ConflictNote.minimizeWindow),
+  ConflictEntry(modifiers: 'meta', key: '`', note: ConflictNote.cycleWindows),
   ConflictEntry(
     modifiers: 'meta+shift',
     key: '3',
-    note: 'Screenshot (full screen)',
+    note: ConflictNote.screenshotFullScreen,
   ),
   ConflictEntry(
     modifiers: 'meta+shift',
     key: '4',
-    note: 'Screenshot (selection)',
+    note: ConflictNote.screenshotSelection,
   ),
   ConflictEntry(
     modifiers: 'meta+shift',
     key: '5',
-    note: 'Screenshot/Screen Recording',
+    note: ConflictNote.screenshotRecording,
   ),
   ConflictEntry(
     modifiers: 'ctrl+meta',
     key: 'Space',
-    note: 'Emoji & Symbols picker',
+    note: ConflictNote.emojiPicker,
   ),
   ConflictEntry(
     modifiers: 'meta+option',
     key: 'Esc',
-    note: 'Force Quit dialog',
+    note: ConflictNote.forceQuit,
   ),
 ];
 
 /// System hotkeys reserved on Windows.
 const _windowsConflicts = <ConflictEntry>[
-  ConflictEntry(modifiers: 'meta', key: 'L', note: 'Lock workstation'),
-  ConflictEntry(modifiers: 'meta', key: 'D', note: 'Show/Hide Desktop'),
-  ConflictEntry(modifiers: 'meta', key: 'E', note: 'File Explorer'),
-  ConflictEntry(modifiers: 'meta', key: 'R', note: 'Run dialog'),
-  ConflictEntry(modifiers: 'meta', key: 'I', note: 'Settings'),
-  ConflictEntry(modifiers: 'meta', key: 'S', note: 'Search'),
-  ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'Task View'),
-  ConflictEntry(modifiers: 'meta', key: 'Space', note: 'Input language switch'),
-  ConflictEntry(modifiers: 'meta', key: '↑', note: 'Maximize window'),
-  ConflictEntry(modifiers: 'meta', key: '↓', note: 'Minimize window'),
-  ConflictEntry(modifiers: 'meta', key: '←', note: 'Snap window left'),
-  ConflictEntry(modifiers: 'meta', key: '→', note: 'Snap window right'),
-  ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
-  ConflictEntry(modifiers: 'alt', key: 'Tab', note: 'App Switcher'),
+  ConflictEntry(
+    modifiers: 'meta',
+    key: 'L',
+    note: ConflictNote.lockWorkstation,
+  ),
+  ConflictEntry(modifiers: 'meta', key: 'D', note: ConflictNote.showDesktop),
+  ConflictEntry(modifiers: 'meta', key: 'E', note: ConflictNote.fileExplorer),
+  ConflictEntry(modifiers: 'meta', key: 'R', note: ConflictNote.runDialog),
+  ConflictEntry(modifiers: 'meta', key: 'I', note: ConflictNote.settings),
+  ConflictEntry(modifiers: 'meta', key: 'S', note: ConflictNote.search),
+  ConflictEntry(modifiers: 'meta', key: 'Tab', note: ConflictNote.taskView),
+  ConflictEntry(
+    modifiers: 'meta',
+    key: 'Space',
+    note: ConflictNote.inputLanguageSwitch,
+  ),
+  ConflictEntry(modifiers: 'meta', key: '↑', note: ConflictNote.maximizeWindow),
+  ConflictEntry(modifiers: 'meta', key: '↓', note: ConflictNote.minimizeWindow),
+  ConflictEntry(modifiers: 'meta', key: '←', note: ConflictNote.snapLeft),
+  ConflictEntry(modifiers: 'meta', key: '→', note: ConflictNote.snapRight),
+  ConflictEntry(modifiers: 'alt', key: 'F4', note: ConflictNote.closeWindow),
+  ConflictEntry(modifiers: 'alt', key: 'Tab', note: ConflictNote.appSwitcher),
   ConflictEntry(
     modifiers: 'ctrl+alt',
     key: 'Delete',
-    note: 'Security options / Task Manager',
+    note: ConflictNote.securityOptionsTaskManager,
   ),
-  ConflictEntry(modifiers: 'ctrl+shift', key: 'Esc', note: 'Task Manager'),
+  ConflictEntry(
+    modifiers: 'ctrl+shift',
+    key: 'Esc',
+    note: ConflictNote.taskManager,
+  ),
 ];
 
 /// System hotkeys reserved on Linux (covers common GNOME & KDE defaults).
 const _linuxConflicts = <ConflictEntry>[
-  ConflictEntry(modifiers: 'meta', key: 'L', note: 'Lock screen (GNOME/KDE)'),
-  ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
-  ConflictEntry(modifiers: 'alt', key: 'Tab', note: 'App Switcher'),
-  ConflictEntry(modifiers: 'alt', key: 'F2', note: 'Run dialog (KDE)'),
+  ConflictEntry(
+    modifiers: 'meta',
+    key: 'L',
+    note: ConflictNote.lockScreenGnomeKde,
+  ),
+  ConflictEntry(modifiers: 'alt', key: 'F4', note: ConflictNote.closeWindow),
+  ConflictEntry(modifiers: 'alt', key: 'Tab', note: ConflictNote.appSwitcher),
+  ConflictEntry(modifiers: 'alt', key: 'F2', note: ConflictNote.runDialogKde),
   ConflictEntry(
     modifiers: 'ctrl+alt',
     key: 'Delete',
-    note: 'System logout/shutdown dialog',
+    note: ConflictNote.logoutShutdownDialog,
   ),
   ConflictEntry(
     modifiers: 'ctrl+alt',
     key: 'T',
-    note: 'Open terminal (GNOME/KDE default)',
+    note: ConflictNote.openTerminal,
   ),
-  ConflictEntry(modifiers: 'ctrl+alt', key: 'L', note: 'Lock screen (GNOME)'),
+  ConflictEntry(
+    modifiers: 'ctrl+alt',
+    key: 'L',
+    note: ConflictNote.lockScreenGnome,
+  ),
   ConflictEntry(
     modifiers: 'meta',
     key: 'Space',
-    note: 'Activity overview (KDE)',
+    note: ConflictNote.activityOverviewKde,
   ),
 ];
 

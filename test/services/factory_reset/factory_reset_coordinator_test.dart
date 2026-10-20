@@ -28,12 +28,18 @@
 ///   `http_stall_detector_test.dart` injects its own timing.
 library;
 
+import 'dart:convert';
+import 'dart:io' as io;
+
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
+import 'package:path/path.dart' as p;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/core/logging/crash_fingerprints.dart';
 import 'package:whispaste/services/factory_reset/factory_reset_coordinator.dart';
+import 'package:whispaste/services/path_service.dart' as paths;
+import 'package:whispaste/services/path_service.dart' show userAudioDirectories;
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -200,6 +206,7 @@ void main() {
         expect(phases, <ResetPhase>[
           ResetPhase.stoppingSubprocess,
           ResetPhase.deletingModels,
+          ResetPhase.deletingAudio,
           ResetPhase.deletingDatabase,
           ResetPhase.resettingSecureStore,
           ResetPhase.resettingSettings,
@@ -376,6 +383,51 @@ void main() {
       expect(capture.events.single.fingerprint, <String>[factoryResetFailed]);
       expect(capture.events.single.error, isA<FileSystemException>());
     });
+
+    test('failedPhases names only the phase that threw', () async {
+      await _seedDirectories(fs, modelDir: modelDir, logsDir: logsDir);
+      final coordinator = FactoryResetCoordinator(
+        subprocess: _FakeSubprocessController(
+          waitForExitResults: const <bool>[true],
+        ),
+        modelDirPath: modelDir,
+        logsDirPath: logsDir,
+        fileSystem: fs,
+        directoryDeleter: _memoryDeleter(fs),
+        eraseDatabase: () async =>
+            throw const FileSystemException('database locked', 'history.db'),
+        eraseSecureStore: () async {},
+        resetSettings: () async {},
+        captureSink: _RecordingCaptureSink().call,
+      );
+
+      final phases = await coordinator.run().toList();
+
+      expect(phases.last, ResetPhase.failed);
+      expect(coordinator.failedPhases, [ResetPhase.deletingDatabase]);
+    });
+
+    test('failedPhases is empty after a successful run', () async {
+      await _seedDirectories(fs, modelDir: modelDir, logsDir: logsDir);
+      final coordinator = FactoryResetCoordinator(
+        subprocess: _FakeSubprocessController(
+          waitForExitResults: const <bool>[true],
+        ),
+        modelDirPath: modelDir,
+        logsDirPath: logsDir,
+        fileSystem: fs,
+        directoryDeleter: _memoryDeleter(fs),
+        eraseDatabase: () async {},
+        eraseSecureStore: () async {},
+        resetSettings: () async {},
+        captureSink: _RecordingCaptureSink().call,
+      );
+
+      final phases = await coordinator.run().toList();
+
+      expect(phases.last, ResetPhase.done);
+      expect(coordinator.failedPhases, isEmpty);
+    });
   });
 
   group('FactoryResetCoordinator — Windows file locks', () {
@@ -455,5 +507,166 @@ void main() {
       expect(capture.events, isEmpty);
       expect(fs.directory(modelDir).existsSync(), isFalse);
     });
+  });
+
+  group('FactoryResetCoordinator — audio independent of the model dir', () {
+    late io.Directory appData;
+    setUp(() {
+      appData = io.Directory.systemTemp.createTempSync('wp71-coord-appdata-');
+      paths.appDataDirOverride = appData.path;
+      // The audio paths come from package:path and use the host style. A
+      // posix in-memory fs would store `C:\...` as a relative name on Windows
+      // and never see those directories.
+      fs = MemoryFileSystem.test(
+        style: p.style == p.Style.windows
+            ? FileSystemStyle.windows
+            : FileSystemStyle.posix,
+      );
+    });
+    tearDown(() {
+      paths.appDataDirOverride = null;
+      appData.deleteSync(recursive: true);
+    });
+
+    Future<List<String>> seedAudio() async {
+      await _seedDirectories(fs, modelDir: modelDir, logsDir: logsDir);
+      final audioDirs = userAudioDirectories();
+      for (final dir in audioDirs) {
+        await fs.file(p.join(dir, 'audio-probe.wav')).create(recursive: true);
+      }
+      return audioDirs;
+    }
+
+    test(
+      'a locked model dir does not keep the audio, and the model failure is reported',
+      () async {
+        final audioDirs = await seedAudio();
+        final deleteInMemory = _memoryDeleter(fs);
+        final coordinator = FactoryResetCoordinator(
+          subprocess: _FakeSubprocessController(),
+          modelDirPath: modelDir,
+          logsDirPath: logsDir,
+          fileSystem: fs,
+          directoryDeleter: (path) async {
+            if (path == modelDir) throw FileSystemException('locked', path);
+            await deleteInMemory(path);
+          },
+          eraseDatabase: () async {},
+          eraseSecureStore: () async {},
+          resetSettings: () async {},
+          retryWait: (_) async {},
+        );
+
+        final phases = await coordinator.run().toList();
+
+        expect(phases.last, ResetPhase.failed);
+        for (final dir in audioDirs) {
+          expect(fs.directory(dir).existsSync(), isFalse, reason: dir);
+        }
+      },
+    );
+
+    test(
+      'an audio directory that survives its deletion fails the reset',
+      () async {
+        final audioDirs = await seedAudio();
+        final deleteInMemory = _memoryDeleter(fs);
+        final coordinator = FactoryResetCoordinator(
+          subprocess: _FakeSubprocessController(),
+          modelDirPath: modelDir,
+          logsDirPath: logsDir,
+          fileSystem: fs,
+          directoryDeleter: (path) async {
+            if (audioDirs.contains(path)) return;
+            await deleteInMemory(path);
+          },
+          eraseDatabase: () async {},
+          eraseSecureStore: () async {},
+          resetSettings: () async {},
+          retryWait: (_) async {},
+        );
+
+        final phases = await coordinator.run().toList();
+
+        expect(phases.last, ResetPhase.failed);
+        final pending = io.File(paths.pendingWipeFile());
+        expect(pending.existsSync(), isTrue, reason: 'leftovers are queued');
+        final queued = (jsonDecode(pending.readAsStringSync()) as Map).keys
+            .cast<String>()
+            .toList();
+        expect(
+          queued,
+          unorderedEquals([
+            for (final dir in audioDirs) p.join(dir, 'audio-probe.wav'),
+          ]),
+          reason: 'only the files are queued, never a folder',
+        );
+      },
+    );
+  });
+
+  group('FactoryResetCoordinator — user audio', () {
+    test(
+      'removes retained recordings (incl. journal) and import scratch in their own phase',
+      () async {
+        const recordingsDir = '/app/recordings';
+        const importsDir = '/app/imports';
+        await _seedDirectories(fs, modelDir: modelDir, logsDir: logsDir);
+        await fs.directory('$recordingsDir/journal').create(recursive: true);
+        await fs.file('$recordingsDir/whispaste_1.wav').writeAsString('pcm');
+        await fs.file('$recordingsDir/journal/entry.json').writeAsString('{}');
+        await fs.directory('$importsDir/work').create(recursive: true);
+        await fs.file('$importsDir/work/source.m4a').writeAsString('audio');
+
+        final coordinator = FactoryResetCoordinator(
+          subprocess: _FakeSubprocessController(),
+          modelDirPath: modelDir,
+          logsDirPath: logsDir,
+          extraDeletePaths: const [recordingsDir, importsDir],
+          fileSystem: fs,
+          directoryDeleter: _memoryDeleter(fs),
+          eraseDatabase: () async {},
+          eraseSecureStore: () async {},
+          resetSettings: () async {},
+        );
+
+        final phases = <ResetPhase>[];
+        await for (final phase in coordinator.run()) {
+          phases.add(phase);
+        }
+
+        expect(phases.last, ResetPhase.done);
+        expect(fs.directory(recordingsDir).existsSync(), isFalse);
+        expect(fs.file('$recordingsDir/whispaste_1.wav').existsSync(), isFalse);
+        expect(fs.directory(importsDir).existsSync(), isFalse);
+      },
+    );
+
+    test(
+      'without an explicit list, wipes every directory of userAudioDirectories()',
+      () async {
+        await _seedDirectories(fs, modelDir: modelDir, logsDir: logsDir);
+        final audioDirs = userAudioDirectories();
+        for (final dir in audioDirs) {
+          await fs.file(p.join(dir, 'audio-probe.wav')).create(recursive: true);
+        }
+
+        final coordinator = FactoryResetCoordinator(
+          subprocess: _FakeSubprocessController(),
+          modelDirPath: modelDir,
+          logsDirPath: logsDir,
+          fileSystem: fs,
+          directoryDeleter: _memoryDeleter(fs),
+          eraseDatabase: () async {},
+          eraseSecureStore: () async {},
+          resetSettings: () async {},
+        );
+        await coordinator.run().drain<void>();
+
+        for (final dir in audioDirs) {
+          expect(fs.directory(dir).existsSync(), isFalse, reason: dir);
+        }
+      },
+    );
   });
 }

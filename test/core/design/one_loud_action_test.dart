@@ -70,7 +70,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/features/history/data/providers.dart';
-import 'package:whispaste/features/about/about_page.dart';
+import 'package:whispaste/features/help/help_page.dart';
 import 'package:whispaste/features/history/data/sample_data.dart';
 import 'package:whispaste/features/history/history_page.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
@@ -90,6 +90,25 @@ late L10n l10n;
 
 /// A query no fixture in this file contains, in any field.
 const _noMatch = 'zzqqxx-nothing-matches-this';
+
+/// Asserts the screen paints no loud action at all. A populated list screen
+/// is one of these: its add control sits beside the search field as a 44 px
+/// outlined icon button (WP-14 spec §4), which is never `primary`, and a
+/// populated list has no CTA of its own, so nothing competes with the rows.
+void _expectNoLoudAction(WidgetTester tester, {required String state}) {
+  final loud = tester
+      .widgetList<WpButton>(find.byType(WpButton))
+      .where((b) => b.variant == WpButtonVariant.primary)
+      .map((b) => b.label)
+      .toList();
+  expect(
+    loud,
+    isEmpty,
+    reason:
+        '*The One-Loud-Action Rule* — $state.\n'
+        'Expected no `primary` button here; found $loud.',
+  );
+}
 
 /// Asserts the screen currently on the tester paints exactly one loud action,
 /// and that it is the one [expectedLabel] names.
@@ -234,27 +253,24 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('History', () {
-    testWidgets('a populated list leaves "New recording" as the loud one', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const HistoryPage(),
-          overrides: _historyOverrides(entries: _sampleActiveEntries()),
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'a populated list has no loud one — the add icon sits beside the search field',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const HistoryPage(),
+            overrides: _historyOverrides(entries: _sampleActiveEntries()),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      _expectOneLoudAction(
-        tester,
-        state: 'History with entries',
-        expectedLabel: l10n.historyNewRecording,
-      );
-    });
+        _expectNoLoudAction(tester, state: 'History with entries');
+      },
+    );
 
     testWidgets(
-      'an empty list keeps it loud — that empty state offers no CTA',
+      'an empty list has no loud one — that empty state offers no CTA',
       (tester) async {
         await tester.pumpWidget(
           makeTestable(
@@ -265,11 +281,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        _expectOneLoudAction(
-          tester,
-          state: 'History with nothing recorded yet',
-          expectedLabel: l10n.historyNewRecording,
-        );
+        _expectNoLoudAction(tester, state: 'History with nothing recorded yet');
       },
     );
 
@@ -315,26 +327,26 @@ void main() {
   // -------------------------------------------------------------------------
 
   group('Notes', () {
-    testWidgets('a populated list leaves "New note" as the loud one', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
-          overrides: _notesOverrides(
-            notes: [_note('n1', 'Grocery list'), _note('n2', 'Meeting notes')],
+    testWidgets(
+      'a populated list has no loud one — the add icon sits beside the search field',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const NotesPage(),
+            overrides: _notesOverrides(
+              notes: [
+                _note('n1', 'Grocery list'),
+                _note('n2', 'Meeting notes'),
+              ],
+            ),
+            locale: const Locale('en'),
           ),
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      _expectOneLoudAction(
-        tester,
-        state: 'Notes with notes',
-        expectedLabel: l10n.notesNewNote,
-      );
-    });
+        _expectNoLoudAction(tester, state: 'Notes with notes');
+      },
+    );
 
     testWidgets(
       'the empty state owns the CTA — the toolbar button steps back',
@@ -358,26 +370,25 @@ void main() {
       },
     );
 
-    testWidgets('the trash keeps the toolbar button loud — its empty state '
-        'offers nothing', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const NotesPage(),
-          overrides: _notesOverrides(notes: const [], trash: const []),
-          locale: const Locale('en'),
-        ),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'the trash has no loud one — its empty state offers nothing and '
+      'the add icon is outlined',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const NotesPage(),
+            overrides: _notesOverrides(notes: const [], trash: const []),
+            locale: const Locale('en'),
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text(l10n.notesTrash));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.notesTrash));
+        await tester.pumpAndSettle();
 
-      _expectOneLoudAction(
-        tester,
-        state: 'Notes trash, empty',
-        expectedLabel: l10n.notesNewNote,
-      );
-    });
+        _expectNoLoudAction(tester, state: 'Notes trash, empty');
+      },
+    );
 
     testWidgets('a search that finds nothing hands the volume to "Clear '
         'search"', (tester) async {
@@ -440,17 +451,14 @@ void main() {
       SnippetItem(id: 's1', title: 'Signature', body: 'Kind regards'),
     ];
 
-    testWidgets('a populated list leaves "Add" as the loud one', (
-      tester,
-    ) async {
-      await pump(tester, items);
+    testWidgets(
+      'a populated list has no loud one — the add icon sits beside the search field',
+      (tester) async {
+        await pump(tester, items);
 
-      _expectOneLoudAction(
-        tester,
-        state: 'Snippets with snippets',
-        expectedLabel: l10n.snippetsAdd,
-      );
-    });
+        _expectNoLoudAction(tester, state: 'Snippets with snippets');
+      },
+    );
 
     testWidgets('the empty state owns the CTA', (tester) async {
       await pump(tester, const []);
@@ -503,17 +511,14 @@ void main() {
       Replacement(id: 'r1', triggers: ['btw'], replacement: 'by the way'),
     ];
 
-    testWidgets('a populated list leaves "Add" as the loud one', (
-      tester,
-    ) async {
-      await pump(tester, items);
+    testWidgets(
+      'a populated list has no loud one — the add icon sits beside the search field',
+      (tester) async {
+        await pump(tester, items);
 
-      _expectOneLoudAction(
-        tester,
-        state: 'Replacements with replacements',
-        expectedLabel: l10n.replacementsAdd,
-      );
-    });
+        _expectNoLoudAction(tester, state: 'Replacements with replacements');
+      },
+    );
 
     testWidgets('the empty state owns the CTA', (tester) async {
       await pump(tester, const []);
@@ -557,7 +562,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        makeTestable(const AboutPage(), locale: const Locale('en')),
+        makeTestable(const HelpPage(), locale: const Locale('en')),
       );
       await tester.pump();
 
@@ -741,19 +746,20 @@ void main() {
       );
     });
 
-    testWidgets('a search that finds nothing hands the volume to "Clear '
-        'search"', (tester) async {
+    testWidgets('a search that finds nothing hands the volume to "In der '
+        'Hilfe suchen"', (tester) async {
       final container = await pump(tester);
       // Through the provider, not the field: `SettingsSearchField` debounces,
-      // and the debounce is not what this test is about (see
-      // `settings_live_filter_test.dart`, which owns that path).
+      // and the debounce is not what this test is about. A query without a
+      // match replaces the page with its empty state, whose help button is the
+      // one loud action (WP-23c, spec §4).
       container.read(settingsSearchQueryProvider.notifier).set(_noMatch);
       await tester.pumpAndSettle();
 
       _expectOneLoudAction(
         tester,
         state: 'Settings with a query that matched no section',
-        expectedLabel: l10n.actionClearSearch,
+        expectedLabel: l10n.settingsSearchEmptyHelp,
       );
     });
   });
@@ -761,13 +767,8 @@ void main() {
   group('Feedback', () {
     /// Drives the form to the thank-you state on the platform [isWindows]
     /// describes.
-    Future<void> pumpAndSubmit(
-      WidgetTester tester, {
-      required bool isWindows,
-    }) async {
+    Future<void> pumpAndSubmit(WidgetTester tester) async {
       SharedPreferences.setMockInitialValues({});
-      feedbackPlatformIsWindowsOverride = isWindows;
-      addTearDown(() => feedbackPlatformIsWindowsOverride = null);
 
       await tester.pumpWidget(
         makeTestable(
@@ -784,7 +785,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text(l10n.feedbackCategoryGeneral));
+      await tester.tap(find.text(l10n.feedbackTypePraise));
       await tester.pumpAndSettle();
       await tester.tap(find.text('🤩'));
       await tester.pumpAndSettle();
@@ -818,33 +819,18 @@ void main() {
       );
     });
 
-    testWidgets('the thank-you state asks Windows readers for a store rating', (
+    testWidgets('the thank-you state points at "Send another feedback"', (
       tester,
     ) async {
-      await pumpAndSubmit(tester, isWindows: true);
+      await pumpAndSubmit(tester);
 
       expect(find.text(l10n.feedbackThankYou), findsOneWidget);
+      // The thank-you state no longer carries a review ask (growth review
+      // R-02): the one loud action left is the way back into the form.
       _expectOneLoudAction(
         tester,
-        state: 'Feedback after sending, on Windows',
-        expectedLabel: l10n.reviewPromptRateStore,
-      );
-    });
-
-    testWidgets('and everyone else for a GitHub star', (tester) async {
-      await pumpAndSubmit(tester, isWindows: false);
-
-      expect(find.text(l10n.feedbackThankYou), findsOneWidget);
-      // The half this ticket changed. macOS and Linux have no store listing,
-      // so the store CTA is absent — and while GitHub stayed `secondary` on
-      // those platforms, the same screen handed a Windows reader one obvious
-      // next step and everyone else none, decided by a platform branch rather
-      // than by anything about the page. One loud action per state means per
-      // state, not per platform.
-      _expectOneLoudAction(
-        tester,
-        state: 'Feedback after sending, on macOS/Linux',
-        expectedLabel: l10n.reviewPromptStarGitHub,
+        state: 'Feedback after sending',
+        expectedLabel: l10n.feedbackSendAnother,
       );
     });
   });

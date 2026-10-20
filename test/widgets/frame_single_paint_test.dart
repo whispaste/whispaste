@@ -22,7 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'package:whispaste/widgets/sidebar.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
 import 'package:whispaste/widgets/title_bar.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -115,7 +115,7 @@ class _PlantedGround extends StatelessWidget {
 void main() {
   const navItems = [
     WpNavItem(id: 'history', icon: LucideIcons.clock, label: 'History'),
-    WpNavItem(id: 'about', icon: LucideIcons.info, label: 'About'),
+    WpNavItem(id: 'help', icon: LucideIcons.info, label: 'Help'),
   ];
 
   group('No bar paints its own ground', () {
@@ -139,11 +139,18 @@ void main() {
     testWidgets('dark: status bar', (tester) async {
       await tester.pumpWidget(
         makeTestable(
-          const WpStatusBar(sttModeLabel: 'Local', hotkeyLabel: 'Ctrl+Alt+D'),
+          const WpRecordingDock(
+            sttModeLabel: 'Local',
+            hotkeyLabel: 'Ctrl+Alt+D',
+          ),
         ),
       );
       await tester.pumpAndSettle();
-      _expectNoOwnGround(tester, find.byType(WpStatusBar), 'WpStatusBar');
+      _expectNoOwnGround(
+        tester,
+        find.byType(WpRecordingDock),
+        'WpRecordingDock',
+      );
     });
   });
 

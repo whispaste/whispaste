@@ -31,6 +31,13 @@ String privacyPolicyUrl(String languageCode) => languageCode == 'de'
     ? '$kWebsiteUrl/datenschutz/'
     : '$kWebsiteUrl/en/privacy/';
 
+/// Language-aware legal notice (Impressum) URL on the public website. Same
+/// mapping as [privacyPolicyUrl]: German UI to `/impressum/`, every other UI
+/// language to the English `/en/impressum/` page.
+String imprintUrl(String languageCode) => languageCode == 'de'
+    ? '$kWebsiteUrl/impressum/'
+    : '$kWebsiteUrl/en/impressum/';
+
 /// Microsoft Store review deep-link. Opens the Windows Store rating sheet
 /// directly for the WhisPaste listing. The `ProductId` is the fixed store
 /// entry and must not be edited without a store-listing change.

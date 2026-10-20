@@ -308,7 +308,7 @@ void main() {
       final label = tester.widget<Text>(find.text('#meeting'));
       expect(
         label.style!.color,
-        WpColorsDark.textSecondary,
+        WpColors.textSecondary,
         reason:
             'the label stays neutral — eight hues behind a 10px word is eight '
             'contrast problems, and the tag name already carries the meaning',

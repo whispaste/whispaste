@@ -64,14 +64,18 @@ import '../../../services/settings_autosave_folder_chooser.dart';
 import '../../../services/settings_portability_controller.dart';
 import '../../../services/settings_portability_service.dart';
 import '../../../widgets/dialog.dart';
-import '../../../widgets/section.dart';
 import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
+import '../widgets/wp_settings_group.dart';
 
 /// Row identities of the two direction rows, shared with the widget tests so
 /// the structural assertion and the widget cannot drift apart via a typo.
 const String kPortabilityExportRowKey = 'portabilityExportRow';
 const String kPortabilityImportRowKey = 'portabilityImportRow';
+
+/// Identity of the folder chooser on each direction row (shared with tests).
+const String kPortabilityExportChooserKey = 'portabilityExportChooser';
+const String kPortabilityImportChooserKey = 'portabilityImportChooser';
 
 /// Identity of the Autosicherung row and of its passive status line
 /// (Ticket 26) — same purpose as the two above.
@@ -288,24 +292,28 @@ class SettingsPortabilitySection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
-    return WpSection(
-      title: l10n.settingsPortabilitySectionTitle,
-      subtitle: l10n.settingsPortabilitySectionSubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _directionRow(context, ref, forExport: true),
-          // Ticket 26 (Autosicherung) hangs its toggle row and the passive
-          // "letzte Sicherung" timestamp line in exactly this gap: directly
-          // below the export row it belongs to, above the import row it does
-          // not — as further children of this Column, with neither row
-          // itself having to change.
-          _autosaveRow(context, ref),
-          ?_autosaveStatusLine(context, ref),
-          _directionRow(context, ref, forExport: false),
-        ],
-      ),
+    return WpSettingsGroup(
+      heading: l10n.settingsPortabilitySectionTitle,
+      children: [
+        SettingsRowFrame(
+          rowId: 'privacy-backup-export',
+          child: _directionRow(context, ref, forExport: true),
+        ),
+        // Ticket 26 (Autosicherung) hangs its toggle row and the passive
+        // "letzte Sicherung" timestamp line in exactly this gap: directly
+        // below the export row it belongs to, above the import row it does
+        // not — as further children of this Column, with neither row
+        // itself having to change.
+        SettingsRowFrame(
+          rowId: 'privacy-backup-autosave',
+          child: _autosaveRow(context, ref),
+        ),
+        ?_autosaveStatusLine(context, ref),
+        SettingsRowFrame(
+          rowId: 'privacy-backup-import',
+          child: _directionRow(context, ref, forExport: false),
+        ),
+      ],
     );
   }
 
@@ -315,10 +323,10 @@ class SettingsPortabilitySection extends ConsumerWidget {
   /// Not a [SettingRow]: that row's label column takes a `String`, and the
   /// thing this row leads with is the *path*, which has to be rendered as
   /// two differently-weighted parts (see [_pathDisplay]) and never as one
-  /// flat string. The box around it — [kSettingRowInset] horizontally,
+  /// flat string. The box around it — [kSettingRowInset] on the left only,
   /// `WpSpacing.sm` vertically, [WpLayout.minTouchTarget] minimum height —
-  /// is taken from [SettingRow] on purpose so the two line up with every
-  /// other settings row above and below. The hover surface is left off: it
+  /// lines the glyph up with the autosave row and the chooser's right edge
+  /// up with the switches of the other settings rows. The hover surface is left off: it
   /// signals "this whole row is one target", which is false here — the row
   /// holds two independent controls and a path that is not a control at all.
   Widget _directionRow(
@@ -346,9 +354,14 @@ class SettingsPortabilitySection extends ConsumerWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: WpLayout.minTouchTarget),
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: kSettingRowInset,
-            vertical: WpSpacing.sm,
+          // Left inset keeps the glyph in line with the autosave row; no
+          // right inset, so the chooser sits on the card edge like the
+          // switches of the other settings rows.
+          padding: const EdgeInsets.fromLTRB(
+            kSettingRowInset,
+            WpSpacing.sm,
+            0,
+            WpSpacing.sm,
           ),
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -409,6 +422,11 @@ class SettingsPortabilitySection extends ConsumerWidget {
                       children: [
                         Flexible(
                           child: WpButton(
+                            key: ValueKey(
+                              forExport
+                                  ? 'portability-export-action'
+                                  : 'portability-import-action',
+                            ),
                             label: forExport
                                 ? l10n.settingsPortabilityExportAction
                                 : l10n.settingsPortabilityImportAction,
@@ -420,13 +438,15 @@ class SettingsPortabilitySection extends ConsumerWidget {
                         ),
                         const SizedBox(width: WpSpacing.xxs),
                         IconButton(
+                          key: ValueKey(
+                            forExport
+                                ? kPortabilityExportChooserKey
+                                : kPortabilityImportChooserKey,
+                          ),
                           icon: Icon(
                             LucideIcons.folderPen,
                             size: WpIconSize.sm,
-                            color:
-                                Theme.of(context).brightness == Brightness.dark
-                                ? WpColors.textMuted
-                                : WpColors.textMuted,
+                            color: WpColors.textMuted,
                           ),
                           // The tooltip does double duty: it names the
                           // icon-only affordance (all three languages) and
@@ -473,7 +493,7 @@ class SettingsPortabilitySection extends ConsumerWidget {
     final l10n = L10n.of(context);
     final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    const muted = WpColors.textMuted;
+    final muted = WpColors.textMuted;
 
     final autosave =
         ref.watch(settingsProvider).value?.autosave ??
@@ -496,10 +516,13 @@ class SettingsPortabilitySection extends ConsumerWidget {
           // Bottom inset tightens when the status line follows, so the line
           // reads as this row's caption rather than as a fourth entry in the
           // section's list.
+          // Left inset keeps the glyph in line with the direction rows; no
+          // right inset, so the switch sits on the card's edge like every
+          // other settings-row switch.
           padding: EdgeInsets.fromLTRB(
             kSettingRowInset,
             WpSpacing.sm,
-            kSettingRowInset,
+            0,
             enabled ? WpSpacing.xxs : WpSpacing.sm,
           ),
           child: Row(
@@ -551,7 +574,7 @@ class SettingsPortabilitySection extends ConsumerWidget {
                   if (enabled) ...[
                     const SizedBox(width: WpSpacing.xxs),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         LucideIcons.folderPen,
                         size: WpIconSize.sm,
                         color: muted,
@@ -609,28 +632,31 @@ class SettingsPortabilitySection extends ConsumerWidget {
       (false, null) => l10n.settingsAutosaveNeverRun,
     };
 
-    return Padding(
-      padding: const EdgeInsetsDirectional.fromSTEB(
-        _autosaveStatusIndent,
-        0,
-        kSettingRowInset,
-        WpSpacing.sm,
-      ),
-      child: Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: Text(
-          message,
-          key: const ValueKey(kPortabilityAutosaveStatusKey),
-          style: tt.bodySmall?.copyWith(
-            color: failed ? (WpColors.warning) : (WpColors.textMuted),
+    return SettingsRowFrame(
+      rowId: 'privacy-backup-status',
+      child: Padding(
+        padding: const EdgeInsetsDirectional.fromSTEB(
+          _autosaveStatusIndent,
+          0,
+          kSettingRowInset,
+          WpSpacing.sm,
+        ),
+        child: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            message,
+            key: const ValueKey(kPortabilityAutosaveStatusKey),
+            style: tt.bodySmall?.copyWith(
+              color: failed ? (WpColors.warning) : (WpColors.textMuted),
+            ),
+            // Two lines, unlike every other text in this section: the
+            // timestamp sits at the *end* of the sentence ("Letzter Versuch
+            // fehlgeschlagen – letzte Sicherung: …"), so a one-line ellipsis
+            // would cut away the one thing this line exists to show. A path
+            // can lose its middle and stay useful; this cannot.
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
-          // Two lines, unlike every other text in this section: the
-          // timestamp sits at the *end* of the sentence ("Letzter Versuch
-          // fehlgeschlagen – letzte Sicherung: …"), so a one-line ellipsis
-          // would cut away the one thing this line exists to show. A path
-          // can lose its middle and stay useful; this cannot.
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
         ),
       ),
     );
@@ -652,8 +678,8 @@ class SettingsPortabilitySection extends ConsumerWidget {
   Widget _locationDisplay(BuildContext context, WidgetRef ref, bool forExport) {
     final l10n = L10n.of(context);
     final tt = Theme.of(context).textTheme;
-    const muted = WpColors.textMuted;
-    const primary = WpColors.textPrimary;
+    final muted = WpColors.textMuted;
+    final primary = WpColors.textPrimary;
 
     // Read for display only — never `resolvePath()`, which would open the
     // native file dialog while merely rendering the settings page. Watched
@@ -699,44 +725,51 @@ class SettingsPortabilitySection extends ConsumerWidget {
   }) {
     final dir = p.dirname(path);
     final dirWithSep = dir.endsWith(p.separator) ? dir : '$dir${p.separator}';
-    return Tooltip(
-      message: path,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: LayoutBuilder(
-          // The basename may claim up to the full line (ellipsizing only in
-          // the pathological long-filename case); the directory part gets
-          // whatever remains. Plain two-Flexible sharing would wrongly
-          // truncate the directory at half width even when the basename is
-          // short — Flex never redistributes unused flexible space.
-          builder: (context, constraints) => Row(
-            mainAxisSize: MainAxisSize.min,
-            // Hung from the shared baseline rather than centred: the two
-            // halves are one path and must sit on one line even if a caller
-            // ever hands them differently-sized styles.
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Flexible(
-                child: Text(
-                  dirWithSep,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  style: dirStyle,
+    // The path is split into two text runs for layout; screen readers get the
+    // whole path once, as one label (UIA-SET-16).
+    return Semantics(
+      container: true,
+      label: path,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: path,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: LayoutBuilder(
+            // The basename may claim up to the full line (ellipsizing only in
+            // the pathological long-filename case); the directory part gets
+            // whatever remains. Plain two-Flexible sharing would wrongly
+            // truncate the directory at half width even when the basename is
+            // short — Flex never redistributes unused flexible space.
+            builder: (context, constraints) => Row(
+              mainAxisSize: MainAxisSize.min,
+              // Hung from the shared baseline rather than centred: the two
+              // halves are one path and must sit on one line even if a caller
+              // ever hands them differently-sized styles.
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Flexible(
+                  child: Text(
+                    dirWithSep,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: dirStyle,
+                  ),
                 ),
-              ),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: constraints.maxWidth),
-                child: Text(
-                  p.basename(path),
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  style: baseStyle,
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                  child: Text(
+                    p.basename(path),
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.ellipsis,
+                    style: baseStyle,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

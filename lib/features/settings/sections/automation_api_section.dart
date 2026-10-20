@@ -2,24 +2,26 @@
 /// `.scratch/local-automation-api/`).
 library;
 
+import '../../../widgets/external_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/app_urls.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
 import '../../../services/automation_api/automation_api_controller.dart';
 import '../../../widgets/dialog.dart';
-import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_text_field.dart';
 import '../settings_widgets.dart';
+import '../widgets/automation_integrations.dart';
+import '../widgets/wp_settings_group.dart';
 
 final _log = AppLogger('AutomationApiSection');
 
@@ -38,98 +40,98 @@ class AutomationApiSection extends ConsumerWidget {
     final apiState = ref.watch(automationApiControllerProvider);
     final enabled = settings.automationApi.enabled;
 
-    return WpSection(
-      title: l10n.settingsAutomationApi,
-      subtitle: l10n.settingsAutomationApiSubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          SettingRow(
-            icon: LucideIcons.terminal,
-            label: l10n.settingsAutomationApiEnable,
-            subtitle: l10n.settingsAutomationApiEnableSubtitle,
-            semanticToggledValue: enabled,
-            trailing: settingsToggle(
-              value: enabled,
-              onChanged: (v) {
-                _log.info('user toggled automationApi.enabled=$v');
-                ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWithSections(
-                        automationApi: s.automationApi.copyWith(enabled: v),
-                      ),
-                    );
-              },
-            ),
+    return WpSettingsGroup(
+      heading: l10n.settingsAutomationApi,
+      children: [
+        WpSettingsRow(
+          rowId: 'advanced-automation-api',
+          title: l10n.settingsAutomationApiEnable,
+          subtitle: l10n.settingsAutomationApiEnableSubtitle,
+          semanticToggledValue: enabled,
+          trailing: settingsToggle(
+            value: enabled,
+            onChanged: (v) {
+              _log.info('user toggled automationApi.enabled=$v');
+              ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      automationApi: s.automationApi.copyWith(enabled: v),
+                    ),
+                  );
+            },
           ),
+        ),
+        settingsInlineBreak,
+        _CustomPortField(initialValue: settings.automationApi.customPort),
+        if (enabled) ...[
           settingsInlineBreak,
-          _CustomPortField(initialValue: settings.automationApi.customPort),
-          if (enabled) ...[
+          WpSettingsRow(
+            rowId: 'advanced-automation-status',
+            title: _statusLabel(l10n, apiState),
+            trailing: const SizedBox.shrink(),
+          ),
+          if (apiState.token != null) ...[
             settingsInlineBreak,
-            SettingRow(
-              icon: LucideIcons.activity,
-              label: _statusLabel(l10n, apiState),
-              trailing: const SizedBox.shrink(),
-            ),
-            if (apiState.token != null) ...[
-              settingsInlineBreak,
-              SettingRow(
-                icon: LucideIcons.key,
-                label: l10n.settingsAutomationApiToken,
-                subtitle: l10n.settingsAutomationApiTokenSubtitle,
-                trailingHugsLabel: true,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 220),
-                      child: SelectableText(
-                        apiState.token!,
-                        maxLines: 1,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          color: WpColors.textMuted,
-                        ),
+            WpSettingsRow(
+              rowId: 'advanced-automation-token',
+              title: l10n.settingsAutomationApiToken,
+              subtitle: l10n.settingsAutomationApiTokenSubtitle,
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    child: SelectableText(
+                      apiState.token!,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        color: WpColors.textMuted,
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.copy, size: 16),
-                      tooltip: l10n.settingsAutomationApiCopyToken,
-                      onPressed: () =>
-                          _copyToken(context, apiState.token!, l10n),
-                    ),
-                    WpButton(
-                      label: l10n.settingsAutomationApiRegenerate,
-                      variant: WpButtonVariant.secondary,
-                      onPressed: () => _confirmRegenerate(context, ref, l10n),
-                    ),
-                  ],
-                ),
+                  ),
+                  IconButton(
+                    icon: const Icon(LucideIcons.copy, size: WpIconSize.sm),
+                    tooltip: l10n.settingsAutomationApiCopyToken,
+                    onPressed: () => _copyToken(context, apiState.token!, l10n),
+                  ),
+                  WpButton(
+                    label: l10n.settingsAutomationApiRegenerate,
+                    variant: WpButtonVariant.secondary,
+                    onPressed: () => _confirmRegenerate(context, ref, l10n),
+                  ),
+                ],
               ),
-            ],
-          ],
-          settingsInlineBreak,
-          SettingRow(
-            icon: LucideIcons.bookOpen,
-            label: l10n.settingsAutomationApiDocumentation,
-            subtitle: l10n.settingsAutomationApiDocumentationSubtitle,
-            trailing: WpButton(
-              label: l10n.settingsAutomationApiDocumentationAction,
-              variant: WpButtonVariant.secondary,
-              onPressed: _openDocumentation,
             ),
-          ),
+          ],
         ],
-      ),
+        settingsInlineBreak,
+        WpSettingsRow(
+          rowId: 'advanced-automation-docs',
+          title: l10n.settingsAutomationApiDocumentation,
+          subtitle: l10n.settingsAutomationApiDocumentationSubtitle,
+          trailing: WpButton(
+            label: l10n.settingsAutomationApiDocumentationAction,
+            variant: WpButtonVariant.secondary,
+            onPressed: () => _openDocumentation(context),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(
+            WpSpacing.lg,
+            0,
+            WpSpacing.lg,
+            WpSpacing.lg,
+          ),
+          child: AutomationIntegrationsGroup(),
+        ),
+      ],
     );
   }
 
-  Future<void> _openDocumentation() async {
-    final uri = Uri.parse(kAutomationApiDocsUrl);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+  Future<void> _openDocumentation(BuildContext context) async {
+    await openExternalUrl(context, kAutomationApiDocsUrl);
   }
 
   String _statusLabel(L10n l10n, AutomationApiState state) =>
@@ -212,12 +214,19 @@ class _CustomPortField extends ConsumerStatefulWidget {
 
 class _CustomPortFieldState extends ConsumerState<_CustomPortField> {
   late final TextEditingController _ctrl;
+  final FocusNode _focus = FocusNode();
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _ctrl = TextEditingController(text: widget.initialValue?.toString() ?? '');
+    // Saved when the field is left, not on every digit: a port that is valid
+    // mid-typing (1, 10, 100 …) would otherwise restart the server each time
+    // (UIA-SET-08).
+    _focus.addListener(() {
+      if (!_focus.hasFocus) _commit();
+    });
   }
 
   @override
@@ -231,25 +240,32 @@ class _CustomPortFieldState extends ConsumerState<_CustomPortField> {
 
   @override
   void dispose() {
+    _focus.dispose();
     _ctrl.dispose();
     super.dispose();
   }
 
   void _onChanged(String value) {
-    if (!isValidAutomationApiCustomPortInput(value)) {
-      setState(
-        () => _error = L10n.of(context).settingsAutomationApiCustomPortInvalid,
-      );
-      return;
-    }
-    setState(() => _error = null);
+    final valid = isValidAutomationApiCustomPortInput(value);
+    setState(
+      () => _error = valid
+          ? null
+          : L10n.of(context).settingsAutomationApiCustomPortInvalid,
+    );
+  }
+
+  /// Persists the typed port once it is valid; an invalid entry stays in the
+  /// field with its error and is not saved.
+  void _commit() {
+    final value = _ctrl.text;
+    if (!isValidAutomationApiCustomPortInput(value)) return;
+    final port = value.isEmpty ? null : int.parse(value);
+    if (port == widget.initialValue) return;
     ref
         .read(settingsProvider.notifier)
         .updateSettings(
           (s) => s.copyWithSections(
-            automationApi: s.automationApi.copyWith(
-              customPort: value.isEmpty ? null : int.parse(value),
-            ),
+            automationApi: s.automationApi.copyWith(customPort: port),
           ),
         );
   }
@@ -257,18 +273,20 @@ class _CustomPortFieldState extends ConsumerState<_CustomPortField> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    return SettingRow(
-      icon: LucideIcons.hash,
-      label: l10n.settingsAutomationApiCustomPortLabel,
+    return WpSettingsRow(
+      rowId: 'advanced-automation-port',
+      title: l10n.settingsAutomationApiCustomPortLabel,
       subtitle: _error ?? l10n.settingsAutomationApiCustomPortSubtitle,
       trailing: SizedBox(
         width: 120,
         child: WpTextField(
           controller: _ctrl,
+          focusNode: _focus,
           variant: WpTextFieldVariant.form,
           semanticsLabel: l10n.settingsAutomationApiCustomPortLabel,
           hintText: l10n.settingsAutomationApiCustomPortHint,
           onChanged: _onChanged,
+          onSubmitted: (_) => _commit(),
         ),
       ),
     );

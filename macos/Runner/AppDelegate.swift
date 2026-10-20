@@ -15,9 +15,12 @@ class AppDelegate: FlutterAppDelegate {
   private var audioRoutingHost: AudioRoutingHost?
   private var bundleIdMigrationHost: BundleIdMigrationHost?
   private var autostartHost: AutostartHost?
+private var audioFileDecodeHost: AudioFileDecodeHost?
   private var secureBookmarkHost: SecureBookmarkHost?
   private var supportStoreHost: SupportStoreHost?
+  private var storeReviewHost: StoreReviewHost?
   private var lifecycleChannel: FlutterMethodChannel?
+  private var powerChannel: FlutterMethodChannel?
 
   /// Whether macOS launched this process as a login item. Captured once at
   /// launch: the launch Apple event is only readable while it is being
@@ -120,8 +123,10 @@ class AppDelegate: FlutterAppDelegate {
     audioRoutingHost = AudioRoutingHost(messenger: messenger)
     bundleIdMigrationHost = BundleIdMigrationHost(messenger: messenger)
     autostartHost = AutostartHost(messenger: messenger)
+    audioFileDecodeHost = AudioFileDecodeHost(messenger: messenger)
     secureBookmarkHost = SecureBookmarkHost(messenger: messenger)
     supportStoreHost = SupportStoreHost(messenger: messenger)
+    storeReviewHost = StoreReviewHost(messenger: messenger)
 
     // Lifecycle channel: activation policy toggle for close-to-tray.
     lifecycleChannel = FlutterMethodChannel(
@@ -131,6 +136,26 @@ class AppDelegate: FlutterAppDelegate {
     lifecycleChannel?.setMethodCallHandler { [weak self] call, result in
       self?.handleLifecycleCall(call, result: result)
     }
+
+    // Power channel (WP-39, 9.5): system sleep and wake, so Dart can finish a
+    // running recording before the machine suspends. Outbound only.
+    powerChannel = FlutterMethodChannel(
+      name: "com.whispaste.power",
+      binaryMessenger: messenger
+    )
+    let workspaceCenter = NSWorkspace.shared.notificationCenter
+    workspaceCenter.addObserver(
+      self,
+      selector: #selector(systemWillSleep(_:)),
+      name: NSWorkspace.willSleepNotification,
+      object: nil
+    )
+    workspaceCenter.addObserver(
+      self,
+      selector: #selector(systemDidWake(_:)),
+      name: NSWorkspace.didWakeNotification,
+      object: nil
+    )
 
     // Boot the snippet-picker's render engine off the critical path. Doing it
     // lazily on the first hotkey press (the old behaviour) put the whole
@@ -157,6 +182,14 @@ class AppDelegate: FlutterAppDelegate {
       == AEKeyword(keyAELaunchedAsLogInItem)
   }
 
+  @objc private func systemWillSleep(_ notification: Notification) {
+    powerChannel?.invokeMethod("willSleep", arguments: nil)
+  }
+
+  @objc private func systemDidWake(_ notification: Notification) {
+    powerChannel?.invokeMethod("didWake", arguments: nil)
+  }
+
   private func handleLifecycleCall(
     _ call: FlutterMethodCall,
     result: @escaping FlutterResult
@@ -177,6 +210,14 @@ class AppDelegate: FlutterAppDelegate {
         result(FlutterError(code: "UNKNOWN_POLICY", message: "Unknown policy: \(policy)", details: nil))
         return
       }
+      result(nil)
+
+    case "hideOtherApplications":
+      NSApp.hideOtherApplications(nil)
+      result(nil)
+
+    case "unhideAllApplications":
+      NSApp.unhideAllApplications(nil)
       result(nil)
 
     case "wasLaunchedAsLoginItem":

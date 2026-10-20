@@ -188,6 +188,11 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   bool _checkInFlight = false;
   Stopwatch? _pollStopwatch;
 
+  /// Periodic recheck while a permission surface is visible — see
+  /// [watchWhileVisible]. Separate from the grant poll above.
+  Timer? _watchTimer;
+  int _watchers = 0;
+
   /// Whether this build's capability probe is **cached at process start**.
   ///
   /// This is the single property that decides whether a restart is a
@@ -462,6 +467,9 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     // The flag stays owned by the outermost call, so a prompting call that
     // rides along inside a probe's flight window cannot clear it early and
     // re-open the duplicate-probe window it guards.
+    // The startup probe awaits between steps, so the container can be gone
+    // by the time it gets here (app shutdown); there is nothing to update.
+    if (!ref.mounted) return;
     final rodeAlong = _checkInFlight;
     if (rodeAlong && !prompt) return;
     _checkInFlight = true;
@@ -476,6 +484,7 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
         return;
       }
       final result = await paster.checkCapability(promptIfMissing: prompt);
+      if (!ref.mounted) return;
       _log.info(
         'capability check: prompt=$prompt status=${result.status.name} '
         'canPrompt=${result.canPrompt} detail=${result.detail}',
@@ -627,13 +636,16 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// [restartWasIneffective] see the cross-process marker. Fire-and-forget
   /// safe: a broken prefs read never blocks the capability surface.
   Future<void> hydrateRestartMarker() async {
+    if (!ref.mounted) return;
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (!ref.mounted) return;
       final marked = prefs.getBool(kAutoPasteRestartMarkerKey) ?? false;
       if (marked && !state.restartAttempted) {
         state = state.copyWith(restartAttempted: true);
       }
       _signingRequirement ??= await readSigningRequirement();
+      if (!ref.mounted) return;
       final granted = prefs.getString(kAutoPasteGrantedSigningRequirementKey);
       final changed =
           granted != null &&
@@ -767,8 +779,11 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// [requiredAction] surfaces the [PastePermissionAction.restart] affordance
   /// immediately, instead of stranding the user on the "tick the box"
   /// spinner until the poll times out.
+  ///
+  /// Probes even when the last result was `ready`: the grant can be revoked
+  /// while WhisPaste sits in the background, and a skipped probe kept the
+  /// Settings card and the tray reading "ready" while paste failed.
   Future<void> recheckOnForeground() async {
-    if (state.capability?.status == PasteCapabilityStatus.ready) return;
     await check();
     if (usesCachedPermissionProbe &&
         state.sentToOsGrantFlow &&
@@ -786,6 +801,47 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
       // got relaunched instead of simply waited out.
       _disposePolling();
     }
+  }
+
+  /// `true` when a `tccutil reset` may be offered: a live-probe build, the
+  /// permission reads missing, and there is evidence that the existing entry
+  /// is stale. The evidence is either this process handed the user to Settings
+  /// and it still reads missing ([grantDidNotTakeEffect]), or the code
+  /// signature changed since the permission last worked
+  /// ([PasteCapabilityState.signatureChanged], persisted across runs). A
+  /// switch that was simply never turned on has neither signal, so it gets a
+  /// Settings deep-link and no reset.
+  bool get staleEntryResetCandidate =>
+      grantRequiresEntryReset &&
+      state.capability?.status == PasteCapabilityStatus.permissionMissing &&
+      (grantDidNotTakeEffect || state.signatureChanged);
+
+  /// Re-probes right after a failed paste. A failing paste is the moment the
+  /// permission is most likely to have been revoked, so the status surfaces
+  /// must not keep their last "ready" view. Same probe as [recheckOnForeground].
+  Future<void> recheckAfterPasteFailure() => recheckOnForeground();
+
+  /// Keeps the capability probed every [interval] while a permission surface
+  /// (Settings card, onboarding step) is visible. Reference-counted: each call
+  /// adds one visible surface and returns its release callback. The timer runs
+  /// while at least one surface holds a reference and stops with the last
+  /// release. The interval of the first caller applies. Release is idempotent.
+  void Function() watchWhileVisible({
+    Duration interval = const Duration(seconds: 30),
+  }) {
+    _watchers++;
+    _watchTimer ??= Timer.periodic(interval, (_) => unawaited(check()));
+    var released = false;
+    return () {
+      if (released) return;
+      released = true;
+      _watchers--;
+      if (_watchers <= 0) {
+        _watchers = 0;
+        _watchTimer?.cancel();
+        _watchTimer = null;
+      }
+    };
   }
 
   void _markSentToOsGrantFlow() {
@@ -858,26 +914,37 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     return result;
   }
 
-  /// The single recovery the failure-moment surfaces (failed-paste OS
-  /// notification, in-app paste-failure toast) hand the user on a build where
-  /// [grantRequiresEntryReset] holds: clear the stale TCC entry, then re-enter
-  /// the grant flow so macOS asks against the binary that is actually running.
+  /// Clears the stale Accessibility entry — the only reset path in the app.
+  ///
+  /// Runs only when [staleEntryResetCandidate] holds AND [confirmReset]
+  /// resolves `true`. [confirmReset] is asked before the reset, so the user
+  /// always sees the dialog first. A missing [confirmReset] (no UI available)
+  /// means no reset. Returns `null` when nothing was reset.
+  Future<TccRepairResult?> resetStaleEntry({
+    Future<bool> Function()? confirmReset,
+  }) async {
+    if (!staleEntryResetCandidate || confirmReset == null) return null;
+    if (!await confirmReset()) return null;
+    return repair();
+  }
+
+  /// Resets a stale entry (after confirmation, see [resetStaleEntry]), then
+  /// re-enters the grant flow so macOS asks against the binary that is
+  /// actually running. Without evidence of a stale entry this is a plain
+  /// [requestGrant]: no reset, no dialog.
   ///
   /// Composed here rather than at the call sites so the ordering is not
-  /// optional. [repair] must complete before [requestGrant] — fire both and
-  /// the prompt binds against the entry that is about to be deleted, which is
-  /// the stale state we were trying to leave. Keeping it on the notifier also
-  /// keeps [PasteCapabilityState.sentToOsGrantFlow] bookkeeping in one place.
+  /// optional. The reset must complete before [requestGrant] — fire both and
+  /// the prompt binds against the entry that is about to be deleted.
   ///
   /// The user still has to flip the toggle themselves; no API grants
-  /// Accessibility. What changes is that the row they land on is finally
-  /// honest — absent or off — instead of an already-enabled row that reads as
-  /// "nothing to do here".
+  /// Accessibility.
   Future<void> repairAndRequestGrant({
+    Future<bool> Function()? confirmReset,
     Duration pollInterval = const Duration(seconds: 1),
     Duration pollTimeout = const Duration(seconds: 30),
   }) async {
-    await repair();
+    await resetStaleEntry(confirmReset: confirmReset);
     await requestGrant(pollInterval: pollInterval, pollTimeout: pollTimeout);
   }
 
@@ -894,13 +961,17 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
   /// report time would run yesterday's recovery.
   ///
   /// The arms are ordered by how much they assume. A pending restart is the
-  /// narrowest, most certain case, so it wins; the entry reset only applies
-  /// where a live probe rules out the "this process can't see the grant yet"
-  /// reading (see [grantRequiresEntryReset]); the Settings deep-link is the
-  /// fallback that assumes nothing.
-  Future<void> runMissingPermissionRecovery() {
+  /// narrowest, most certain case, so it wins. A stale entry (see
+  /// [staleEntryResetCandidate]) offers the confirmed reset. Everything else
+  /// is a Settings deep-link with no reset, because a switch that was never
+  /// turned on needs nothing but the link.
+  Future<void> runMissingPermissionRecovery({
+    Future<bool> Function()? confirmReset,
+  }) {
     if (needsRestart) return restartForGrant();
-    if (grantRequiresEntryReset) return repairAndRequestGrant();
+    if (staleEntryResetCandidate) {
+      return repairAndRequestGrant(confirmReset: confirmReset);
+    }
     return openAccessibilitySettings();
   }
 
@@ -949,6 +1020,8 @@ class PasteCapabilityNotifier extends Notifier<PasteCapabilityState> {
     _pollTimeout?.cancel();
     _pollTimeout = null;
     _pollStopwatch = null;
+    _watchTimer?.cancel();
+    _watchTimer = null;
   }
 
   void _disposePolling({_PollEnd reason = _PollEnd.cancelled}) {

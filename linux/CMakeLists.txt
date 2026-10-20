@@ -66,6 +66,26 @@ pkg_check_modules(X11 REQUIRED IMPORTED_TARGET x11)
 # (runner/keyboard_monitor_host.cc, handy-catchup/09). libxi-dev is already a
 # dependency of libgtk-3-dev, so this adds no new build requirement.
 pkg_check_modules(XI REQUIRED IMPORTED_TARGET xi)
+pkg_check_modules(XSS IMPORTED_TARGET xscrnsaver)
+# Without XScreenSaver the undo gate has no idle source: every input then
+# counts as typing (fail-safe), so the build must say so instead of quietly
+# losing the feature. Install libxss-dev to enable it.
+if(NOT XSS_FOUND)
+  message(WARNING "libxss-dev (xscrnsaver) not found: the Linux undo idle gate is disabled and any input counts as typing. Install libxss-dev.")
+endif()
+
+# Optional: libei headers for the portal keyboard (RemoteDesktop + EIS, see
+# runner/portal_remote_desktop.cc). libei.so.1 is dlopen()ed at run time, so
+# only the headers are a build dependency and the binary has no libei link.
+# Without them the portal path reports unavailable and uinput stays the path.
+pkg_check_modules(LIBEI IMPORTED_TARGET libei-1.0)
+if(NOT LIBEI_FOUND)
+  message(WARNING "libei-dev (libei-1.0) not found: the portal keyboard input (RemoteDesktop/EIS) is disabled. Install libei-dev to enable it.")
+endif()
+# Decoders for imported audio files (WP-35b, runner/audio_file_decode_core.cc):
+# libopusfile for Ogg/Opus, libFLAC for FLAC. MP3 uses the vendored minimp3.
+pkg_check_modules(OPUSFILE REQUIRED IMPORTED_TARGET opusfile)
+pkg_check_modules(FLAC REQUIRED IMPORTED_TARGET flac)
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
@@ -86,6 +106,38 @@ set_target_properties(${BINARY_NAME}
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
+
+# sherpa-onnx without TTS. The sherpa_onnx pub plugin bundles a prebuilt C API
+# that statically contains espeak-ng (GPL-3.0-or-later). Swap it and its
+# onnxruntime for the TTS-free build staged by scripts/build-sherpa-onnx.sh.
+# A missing stage is only a warning here: release.yml stages it before building
+# and scripts/check-no-espeak.sh fails the release if the pub original ships.
+set(WP_SHERPA_STAGE "${CMAKE_CURRENT_SOURCE_DIR}/../.build/sherpa-onnx/linux")
+file(GLOB WP_SHERPA_LIBS
+  "${WP_SHERPA_STAGE}/libsherpa-onnx-c-api.so*"
+  "${WP_SHERPA_STAGE}/libonnxruntime.so*")
+if(WP_SHERPA_LIBS)
+  # A stale stage (pin or pubspec.lock moved without a rebuild) fails here.
+  include("${CMAKE_CURRENT_SOURCE_DIR}/../scripts/check-sherpa-stage.cmake")
+  wp_check_sherpa_stage("${WP_SHERPA_STAGE}" "${CMAKE_CURRENT_SOURCE_DIR}/..")
+  list(FILTER PLUGIN_BUNDLED_LIBRARIES EXCLUDE REGEX "/lib(sherpa-onnx-c-api|onnxruntime)\\.so")
+  list(APPEND PLUGIN_BUNDLED_LIBRARIES ${WP_SHERPA_LIBS})
+else()
+  message(WARNING "sherpa-onnx TTS-free build not staged in ${WP_SHERPA_STAGE}: bundling the pub original (contains espeak-ng). Run: bash scripts/build-sherpa-onnx.sh linux")
+endif()
+
+# On-device Whisper: libwhisper.so, the libggml* backends and libwp_ffi_guard.so
+# staged by scripts/build-libwhisper-linux.sh. Bundled here so every
+# `flutter build linux` (debug too) ships them; the install step wipes the
+# bundle first, so copying them in beforehand does not survive. A missing
+# stage is only a warning, like the macOS embed phase.
+set(WP_WHISPER_STAGE "${CMAKE_CURRENT_SOURCE_DIR}/../.build/libwhisper/linux")
+file(GLOB WP_WHISPER_LIBS "${WP_WHISPER_STAGE}/*.so*")
+if(WP_WHISPER_LIBS)
+  list(APPEND PLUGIN_BUNDLED_LIBRARIES ${WP_WHISPER_LIBS})
+else()
+  message(WARNING "libwhisper not staged in ${WP_WHISPER_STAGE}: on-device Whisper is missing from the bundle. Run: bash scripts/build-libwhisper-linux.sh")
+endif()
 
 
 # === Installation ===
@@ -118,6 +170,25 @@ foreach(bundled_library ${PLUGIN_BUNDLED_LIBRARIES})
     DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endforeach(bundled_library)
+
+# Silero-VAD model, looked up next to libwhisper.so (whisperVadModelPathFor).
+# Vendored in the repo, so it needs no stage.
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../assets/models/vad/ggml-silero-v5.1.2.bin"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
+
+# On-device Smart Mode: libsmartmode_shim.so, libllama and its own ggml,
+# staged by scripts/build-libllama-linux.sh. They go into lib/smart_mode/ so
+# ggml's backend scan never mixes them with libwhisper's (see that script).
+set(WP_LLAMA_STAGE "${CMAKE_CURRENT_SOURCE_DIR}/../.build/libllama/linux")
+file(GLOB WP_LLAMA_LIBS "${WP_LLAMA_STAGE}/*.so*")
+if(WP_LLAMA_LIBS)
+  install(FILES ${WP_LLAMA_LIBS}
+    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}/smart_mode"
+    COMPONENT Runtime)
+else()
+  message(WARNING "libllama not staged in ${WP_LLAMA_STAGE}: on-device Smart Mode is missing from the bundle. Run: bash scripts/build-libllama-linux.sh")
+endif()
 
 # Copy the native assets provided by the build.dart from all packages.
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/linux/")

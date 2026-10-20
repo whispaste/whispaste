@@ -12,9 +12,11 @@ import 'dart:typed_data';
 /// Steps of a recording start, in the order they normally complete.
 enum MicStartStage {
   phaseRecording('phase→recording'),
+  overlayVisible('overlay visible'),
   pasterPrimed('paster primed'),
   captureStarted('capture started'),
-  firstSample('first sample');
+  firstSample('first sample'),
+  engineLoaded('engine loaded');
 
   const MicStartStage(this.label);
 
@@ -43,7 +45,13 @@ class MicStartTrace {
   final Map<MicStartStage, int> _stamps = {};
 
   /// Stamps [stage] now; later stamps of the same stage are ignored.
-  void mark(MicStartStage stage) => _stamps.putIfAbsent(stage, _clock);
+  void mark(MicStartStage stage) => markAt(stage, _clock());
+
+  /// Stamps [stage] at [micros] on the trace clock, for moments observed
+  /// elsewhere (e.g. the overlay frame, painted before the trace hears of
+  /// it). Later stamps of the same stage are ignored.
+  void markAt(MicStartStage stage, int micros) =>
+      _stamps.putIfAbsent(stage, () => micros);
 
   /// Milliseconds from t₀ to [stage], or null while it has not happened.
   int? elapsedMs(MicStartStage stage) {

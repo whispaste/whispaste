@@ -1,49 +1,58 @@
-/// Smoke test: verifies that the WhisPaste theme uses Inter as the primary
-/// font family.
+/// Smoke test: every appearance uses the bundled faces (ADR 0018) — Hanken
+/// Grotesk for UI text, Bricolage Grotesque for the title roles — with Inter
+/// as first fallback for scripts neither face covers (Cyrillic, Hebrew).
 ///
-/// Flutter propagates the ThemeData(fontFamily:) value by applying it to the
-/// default typography TextTheme and then merging with the custom _textTheme().
-/// Because our _textTheme() TextStyles do not set an explicit fontFamily,
-/// the merge preserves 'Inter' from the default. Checking bodyMedium (a style
-/// we own) and bodyLarge (another custom role) gives two independent probes.
-///
-/// This is the machine-verifiable proxy for AC3 (cross-platform font parity):
-/// Inter is a bundled asset, so fontFamily == 'Inter' guarantees identical
+/// This is the machine-verifiable proxy for cross-platform font parity: the
+/// faces are bundled assets, so the family names guarantee identical
 /// rendering on Windows, macOS and Linux by construction.
 library;
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/theme.dart';
 
 void main() {
-  group('Theme fontFamily — Inter bundled', () {
-    test('wpDarkTheme textTheme uses Inter for body roles', () {
-      final theme = wpDarkTheme();
-      expect(theme.textTheme.bodyMedium?.fontFamily, 'Inter');
-      expect(theme.textTheme.bodyLarge?.fontFamily, 'Inter');
-    });
+  final themes = <String, ThemeData>{
+    'light': wpThemeFor(wpLightColors),
+    'dark': wpThemeFor(wpDarkColors),
+    'navy': wpThemeFor(wpNavyColors),
+  };
 
-    // Removed 2026-08-11 (dark-only build): `wpLightTheme textTheme uses
-    // Inter for body roles`. `wpLightTheme()` no longer exists.
+  for (final MapEntry(key: name, value: theme) in themes.entries) {
+    group('$name theme fonts', () {
+      test('body roles use Hanken Grotesk with Inter fallback', () {
+        for (final style in [
+          theme.textTheme.bodyMedium,
+          theme.textTheme.bodyLarge,
+          theme.textTheme.labelMedium,
+        ]) {
+          expect(style?.fontFamily, kWpUiFont);
+          expect(style?.fontFamilyFallback?.first, 'Inter');
+        }
+      });
 
-    test('wpDarkTheme textTheme uses Inter for headline roles', () {
-      final theme = wpDarkTheme();
-      expect(theme.textTheme.headlineLarge?.fontFamily, 'Inter');
-      expect(theme.textTheme.headlineMedium?.fontFamily, 'Inter');
-    });
+      test('title roles use Bricolage Grotesque', () {
+        for (final style in [
+          theme.textTheme.headlineLarge,
+          theme.textTheme.headlineMedium,
+          theme.textTheme.titleLarge,
+        ]) {
+          expect(style?.fontFamily, kWpDisplayFont);
+          expect(style?.fontFamilyFallback?.first, 'Inter');
+        }
+      });
 
-    test('elevated button textStyle uses Inter', () {
-      final theme = wpDarkTheme();
-      final style = theme.elevatedButtonTheme.style;
-      final resolved = style?.textStyle?.resolve({});
-      expect(resolved?.fontFamily, 'Inter');
+      test('button text styles use the UI face', () {
+        for (final style in [
+          theme.elevatedButtonTheme.style,
+          theme.textButtonTheme.style,
+          theme.filledButtonTheme.style,
+          theme.outlinedButtonTheme.style,
+        ]) {
+          expect(style?.textStyle?.resolve({})?.fontFamily, kWpUiFont);
+        }
+      });
     });
-
-    test('text button textStyle uses Inter', () {
-      final theme = wpDarkTheme();
-      final style = theme.textButtonTheme.style;
-      final resolved = style?.textStyle?.resolve({});
-      expect(resolved?.fontFamily, 'Inter');
-    });
-  });
+  }
 }

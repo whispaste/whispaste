@@ -34,6 +34,13 @@ class AutomationApiRouter {
     )[_normalize(path)] = handler;
   }
 
+  /// Every registered route as `METHOD /path`, sorted. Used by the security
+  /// tests to pin the complete endpoint surface.
+  List<String> get registeredRoutes => [
+    for (final method in _routesByMethod.keys)
+      for (final path in _routesByMethod[method]!.keys) '$method /$path',
+  ]..sort();
+
   static String _normalize(String path) =>
       path.startsWith('/') ? path.substring(1) : path;
 
@@ -62,6 +69,12 @@ AutomationApiRouter buildAutomationApiRouter(
   return router;
 }
 
+/// Thrown by the injected trigger callback when a transcription is running, so
+/// no recording can start. The route answers 409 `busy`.
+class AutomationDictationBusyException implements Exception {
+  const AutomationDictationBusyException();
+}
+
 /// Outcome of one [dictationTriggerRoutes] call, reported back by the
 /// injected `triggerDictation` callback. Dictation is a toggle (see
 /// `RecordingOrchestrator.toggleRecording`) — a single trigger either
@@ -69,10 +82,19 @@ AutomationApiRouter buildAutomationApiRouter(
 /// stops an in-progress one ([recording] false, [transcript] holding the
 /// finished text once the pipeline completes).
 class DictationTriggerResult {
-  const DictationTriggerResult({required this.recording, this.transcript});
+  const DictationTriggerResult({
+    required this.recording,
+    this.transcript,
+    this.unsupportedLanguage,
+  });
 
   final bool recording;
   final String? transcript;
+
+  /// Set when this call started a recording in a language the active engine
+  /// (Parakeet) cannot transcribe. The response then carries a warning instead
+  /// of the language being dropped silently.
+  final String? unsupportedLanguage;
 }
 
 /// Route group: a single endpoint that triggers dictation.
@@ -223,7 +245,16 @@ AutomationApiRouteGroup dictationTriggerRoutes({
         if (params.wait && !result.recording) {
           body['transcript'] = result.transcript;
         }
+        final unsupported = result.unsupportedLanguage;
+        if (unsupported != null) {
+          body['warning'] = {
+            'code': 'parakeet_language_unsupported',
+            'language': unsupported,
+          };
+        }
         return _jsonResponse(200, body);
+      } on AutomationDictationBusyException {
+        return _jsonResponse(409, {'error': 'busy'});
       } catch (e, st) {
         _log.warning(
           'POST /v1/dictation/trigger: triggerDictation threw',

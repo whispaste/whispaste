@@ -92,10 +92,14 @@ class _TranscribeResult {
     this.text,
     this.error,
     this.failureKind,
+    this.detectedLanguage,
   });
   final int requestId;
   final String? text;
   final String? error;
+
+  /// Whisper code of the language the worker decoded in, `null` if unknown.
+  final String? detectedLanguage;
 
   /// Name of the [WhisperFailureKind] the worker raised, or `null` for a
   /// plain (non-[WhisperEngineException]) error — reconstructed on the main
@@ -306,7 +310,11 @@ void _whisperIsolateMain(SendPort mainSendPort) {
             reducedThreads: req.reducedThreads,
           );
           mainSendPort.send(
-            _TranscribeResult(requestId: req.requestId, text: text),
+            _TranscribeResult(
+              requestId: req.requestId,
+              text: text,
+              detectedLanguage: e.lastDetectedLanguage,
+            ),
           );
         } on WhisperEngineException catch (ex) {
           mainSendPort.send(
@@ -441,6 +449,7 @@ class WhisperIsolateEngine
     implements
         WhisperEngine,
         PartialTranscriptSource,
+        DetectedLanguageSource,
         LivePreviewEngine,
         PromptTokenCounter {
   WhisperIsolateEngine({
@@ -505,6 +514,12 @@ class WhisperIsolateEngine
     String? vadModelPath,
   }) async {
     if (_isolate == null) {
+      // ggml's log hook must outlive the worker, so it is installed here in
+      // the main isolate before any worker can log (see
+      // WhisperFfiEngine.installProcessLogForwarder, WP-48).
+      WhisperFfiEngine.installProcessLogForwarder(
+        _config.libraryPath ?? defaultWhisperLibraryPath(),
+      );
       final mainReceivePort = ReceivePort();
       final isolate = await Isolate.spawn(
         _whisperIsolateMain,
@@ -594,8 +609,14 @@ class WhisperIsolateEngine
       }
       throw StateError(result.error!);
     }
+    _lastDetectedLanguage = result.detectedLanguage;
     return result.text ?? '';
   }
+
+  String? _lastDetectedLanguage;
+
+  @override
+  String? get lastDetectedLanguage => _lastDetectedLanguage;
 
   // ── Live-transcript-during-recording preview (live-transcript-streaming
   // ticket) — proxies [LivePreviewEngine] to the worker isolate the same way

@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/services/snippet_picker/snippet_picker_render_channel.dart';
 import 'package:whispaste/snippet_picker_render_entrypoint.dart';
@@ -241,16 +242,31 @@ void main() {
     });
   });
 
-  group('SnippetPickerBody — animation gating (frame-starvation fix)', () {
-    // Companion to test/services/snippet_picker/
-    // snippet_picker_engine_lifecycle_test.dart: with the render engine
-    // detached from the embedder's app lifecycle, frames are never
-    // lifecycle-disabled — so the panel's own `visible` flag (relayed via
-    // native show()/dismiss()) must be what starts and stops the continuous
-    // glass drift animation, or an invisible panel would repaint all
-    // session. Tickers are the observable: `transientCallbackCount` counts
-    // active animation tickers, and the drift `repeat()` holds one open.
-    testWidgets('glass animations run only while the panel is visible', (
+  group('SnippetPickerBody — flat panel, no endless animation', () {
+    // The panel is one flat fill (no glass layers). Its only animation is the
+    // finite entrance; nothing repaints forever, so an ordered-out panel
+    // cannot keep the render engine busy for the rest of the session.
+    testWidgets('the panel fill is one flat colour', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        final controller = TextEditingController();
+        addTearDown(controller.dispose);
+        await _pumpPicker(tester, controller: controller);
+
+        final flatFill = find.byWidgetPredicate(
+          (w) =>
+              w is DecoratedBox &&
+              w.decoration is BoxDecoration &&
+              (w.decoration as BoxDecoration).color == WpColors.surface &&
+              (w.decoration as BoxDecoration).gradient == null,
+        );
+        expect(flatFill, findsOneWidget);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('no animation keeps running once the panel has settled', (
       tester,
     ) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
@@ -258,43 +274,30 @@ void main() {
         final controller = TextEditingController();
         addTearDown(controller.dispose);
 
-        // The autofocused search field runs finite focus animations
-        // (~hundreds of ms) that also hold tickers open; every assertion
-        // below first pumps past them, so the only ticker that can remain
-        // is the panel's own unbounded drift `repeat()`.
-        const settleFiniteAnimations = Duration(milliseconds: 500);
+        // The autofocused search field runs finite focus animations that
+        // also hold tickers open; pump past them and past the entrance.
+        const settle = Duration(milliseconds: 500);
 
-        // Boot state: engine alive (prewarm), panel never shown.
-        await _pumpPicker(tester, controller: controller, visible: false);
-        await tester.pump(settleFiniteAnimations);
-        expect(
-          tester.binding.transientCallbackCount,
-          0,
-          reason: 'no ticker may run while the panel has never been shown',
-        );
-
-        // Native show(): setItems bumps the generation and flips visible on.
         await _pumpPicker(
           tester,
           controller: controller,
           visible: true,
           showGeneration: 1,
         );
-        await tester.pump(settleFiniteAnimations);
+        await tester.pump(settle);
         expect(
           tester.binding.transientCallbackCount,
-          greaterThan(0),
-          reason: 'the glass drift cycle must animate while on screen',
+          0,
+          reason: 'a visible panel must be static after its entrance',
         );
 
-        // Native dismiss(): panelHidden flips visible off (generation stays).
         await _pumpPicker(
           tester,
           controller: controller,
           visible: false,
           showGeneration: 1,
         );
-        await tester.pump(settleFiniteAnimations);
+        await tester.pump(settle);
         expect(
           tester.binding.transientCallbackCount,
           0,

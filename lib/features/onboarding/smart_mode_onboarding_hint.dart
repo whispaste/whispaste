@@ -31,6 +31,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/tokens.dart';
+import '../../services/model_download_service.dart'
+    show formatModelSizeLabelFor;
 import '../../services/smart_mode/smart_mode_model_download_service.dart';
 import '../../widgets/dialog.dart';
 import '../../widgets/wp_button.dart';
@@ -59,20 +61,26 @@ Future<void> showSmartModeOnboardingHint(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(l10n.smartModeOnboardingHintBody),
+        Text(
+          l10n.smartModeOnboardingHintBody(
+            formatModelSizeLabelFor(smartModeModel.sizeBytes, l10n.localeName),
+          ),
+        ),
         const SizedBox(height: WpSpacing.md),
         _SmartModeExample(key: smartModeOnboardingHintExampleKey, l10n: l10n),
       ],
     ),
     actions: [
       WpButton(
+        key: const Key('onboarding-smart-mode-hint-skip'),
         label: l10n.smartModeOnboardingHintSkipCta,
-        variant: WpButtonVariant.ghost,
+        variant: WpButtonVariant.secondary,
         tone: WpButtonTone.neutral,
         onPressed: () => Navigator.of(context).pop(),
       ),
       const SizedBox(width: WpSpacing.sm),
       WpButton(
+        key: const Key('onboarding-smart-mode-hint-download'),
         label: l10n.smartModeOnboardingHintDownloadCta,
         variant: WpButtonVariant.primary,
         onPressed: () {

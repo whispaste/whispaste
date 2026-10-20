@@ -37,7 +37,7 @@ import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/core/theme/tokens.dart';
-import 'package:whispaste/features/about/about_page.dart';
+import 'package:whispaste/features/help/help_page.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/feedback/feedback_page.dart';
 import 'package:whispaste/features/history/history_page.dart';
@@ -51,7 +51,7 @@ import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/widgets/recording_indicator_bar.dart';
 import 'package:whispaste/widgets/sidebar.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
 import 'package:whispaste/widgets/title_bar.dart';
 
 // ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ final _reviewScreens = <_ScreenDef>[
   _ScreenDef(
     name: '09_about',
     pageId: 'about',
-    builder: () => const AboutPage(),
+    builder: () => const HelpPage(),
   ),
   for (var i = 0; i < 6; i++)
     _ScreenDef(
@@ -367,7 +367,7 @@ class _ScreenshotShell extends StatelessWidget {
                   ),
                 ),
                 // Status bar — full width on the frame
-                WpStatusBar(
+                WpRecordingDock(
                   sttModeLabel: statusBarModel.sttModeLabel,
                   sttState: SttServerState.ready,
                   recordingPhase: RecordingPhase.idle,
@@ -498,7 +498,7 @@ Future<void> _scrollContent(WidgetTester tester, double dy) async {
 }
 
 Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
-  final sectionTitle = locale == 'de' ? 'Tastenkürzel' : 'Keyboard Shortcut';
+  const sectionTitle = 'Hotkey';
   final target = find.text(sectionTitle);
   // Find the scrollable that belongs to the content panel (not sidebar)
   final scrollable = find.byType(Scrollable);

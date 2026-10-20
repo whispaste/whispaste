@@ -57,6 +57,10 @@ bool FlutterWindow::OnCreate() {
   desktop_paste_host_ = std::make_unique<DesktopPasteHost>(
       flutter_controller_->engine(), GetHandle());
 
+  // Create the audio-import decoder host AFTER plugins are registered (WP-35b).
+  audio_file_decode_host_ = std::make_unique<AudioFileDecodeHost>(
+      flutter_controller_->engine(), GetHandle());
+
   // Create the taskbar-flash attention host AFTER plugins are registered.
   attention_host_ = std::make_unique<AttentionHost>(
       flutter_controller_->engine(), GetHandle());
@@ -64,6 +68,11 @@ bool FlutterWindow::OnCreate() {
   // Create the RawInput key-up monitor (push-to-talk on Windows, #39).
   keyboard_monitor_host_ = std::make_unique<KeyboardMonitorHost>(
       flutter_controller_->engine(), GetHandle());
+
+  // Create the power-event host (sleep/resume, WP-39 9.5) AFTER plugins are
+  // registered.
+  power_event_host_ =
+      std::make_unique<PowerEventHost>(flutter_controller_->engine());
 
   // Create the native Snippet-Picker host AFTER plugins are registered
   // (visual-refresh-2026 ticket 29).
@@ -81,6 +90,8 @@ bool FlutterWindow::OnCreate() {
       flutter_controller_->engine(), GetHandle());
 
   support_store_channel_ = std::make_unique<SupportStoreChannel>(
+      flutter_controller_->engine()->messenger(), GetHandle());
+  store_review_channel_ = std::make_unique<StoreReviewChannel>(
       flutter_controller_->engine()->messenger(), GetHandle());
 
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
@@ -123,6 +134,10 @@ void FlutterWindow::OnDestroy() {
     desktop_paste_host_->Destroy();
     desktop_paste_host_.reset();
   }
+  if (audio_file_decode_host_) {
+    audio_file_decode_host_->Destroy();
+    audio_file_decode_host_.reset();
+  }
   if (attention_host_) {
     attention_host_->Destroy();
     attention_host_.reset();
@@ -130,6 +145,10 @@ void FlutterWindow::OnDestroy() {
   if (keyboard_monitor_host_) {
     keyboard_monitor_host_->Destroy();
     keyboard_monitor_host_.reset();
+  }
+  if (power_event_host_) {
+    power_event_host_->Destroy();
+    power_event_host_.reset();
   }
   if (snippet_picker_host_) {
     snippet_picker_host_->Destroy();
@@ -145,6 +164,7 @@ void FlutterWindow::OnDestroy() {
   }
 
   support_store_channel_.reset();
+  store_review_channel_.reset();
 
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -169,6 +189,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   // Observe RawInput for the global hotkey's key-up (push-to-talk, #39). This
   // never consumes the message — it falls through to DefWindowProc so RawInput
   // is cleaned up and normal key delivery is unaffected.
+  // Sleep and resume (WP-39, 9.5). Never consumed: DefWindowProc still
+  // grants the suspend request.
+  if (message == WM_POWERBROADCAST && power_event_host_) {
+    power_event_host_->HandlePowerBroadcast(wparam);
+  }
+
   if (message == WM_INPUT && keyboard_monitor_host_) {
     keyboard_monitor_host_->HandleRawInput(
         reinterpret_cast<HRAWINPUT>(lparam));
@@ -201,9 +227,19 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     return 0;
   }
 
+  if (audio_file_decode_host_ &&
+      audio_file_decode_host_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
   // Store purchase replies are posted here (see SupportStoreChannel).
   if (support_store_channel_ &&
       support_store_channel_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
+
+  // Store rating replies are posted here (see StoreReviewChannel).
+  if (store_review_channel_ &&
+      store_review_channel_->HandleWindowMessage(message, wparam, lparam)) {
     return 0;
   }
 

@@ -5,9 +5,6 @@
 /// shows the relevant API key inline for convenience.
 library;
 
-import 'dart:async';
-import 'dart:convert' show utf8;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,26 +12,48 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_enums.dart';
 import '../../../core/config/settings_provider.dart';
+import '../../../core/config/stt_choice.dart' show applyEngineChoice;
 import '../../../core/config/whisper_languages.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/l10n/download_error_text.dart';
+import '../../../core/l10n/locale_native_name.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../services/stt/stt_bundle.dart';
+import '../../../services/engine_recommendation.dart';
+import '../../../services/model_download_service.dart'
+    show modelDownloadProvider, sttModels;
 import '../../../services/stt/whisper/cuda_pack.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/wp_stt_model_manager.dart';
-import '../../../widgets/section.dart';
-import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
-import '../../../widgets/wp_text_field.dart';
+import '../../../widgets/dialog.dart';
 import '../settings_widgets.dart';
+import '../widgets/wp_language_dialog.dart';
+import '../../../services/stt_parakeet/parakeet_language_support.dart';
+import '../../../widgets/parakeet_language_notice.dart';
+import 'benchmark_row.dart';
 import 'cuda_pack_row.dart';
+import 'stt_keep_loaded_rows.dart';
+import '../widgets/wp_settings_group.dart';
 
 // ---------------------------------------------------------------------------
 // Speech Recognition section
 // ---------------------------------------------------------------------------
+
+/// Labels of the engine dropdown, in [OnDeviceEngine] order (Whisper, then
+/// Parakeet). The recommended engine carries the badge, so for a Parakeet
+/// language exactly this one entry says "Empfohlen" (UIA-RT-03).
+List<String> sttEngineDropdownLabels(
+  L10n l10n, {
+  required bool parakeetRecommended,
+}) => [
+  l10n.settingsSttEngineWhisper,
+  parakeetRecommended
+      ? '${l10n.settingsSttEngineParakeet} · ${l10n.settingsSttEngineRecommended}'
+      : l10n.settingsSttEngineParakeet,
+];
 
 class SpeechRecognitionSection extends ConsumerStatefulWidget {
   const SpeechRecognitionSection({super.key});
@@ -79,332 +98,308 @@ class _SpeechRecognitionSectionState
             .toList()
           ..sort((a, b) => a.value.compareTo(b.value));
 
-    return WpSection(
-      title: l10n.settingsSpeechRecognition,
-      subtitle: l10n.settingsSpeechRecognitionSubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          // Provider selector (On-device / OpenAI / Deepgram)
-          SettingRow(
-            icon: LucideIcons.cpu,
-            label: l10n.settingsService,
+    return WpSettingsGroup(
+      heading: l10n.settingsSpeechRecognition,
+      children: [
+        // Provider selector (On-device / OpenAI / Deepgram)
+        WpSettingsRow(
+          rowId: 'speech-provider',
+          title: l10n.settingsService,
+          trailing: settingsDropdown(
+            context: context,
+            value: settings.sttProviderType.value,
+            items: SttProviderType.values.map((e) => e.value).toList(),
+            labels: [l10n.settingsServiceOnDevicePrivate, 'OpenAI', 'Deepgram'],
+            onChanged: (v) {
+              ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(sttProvider: v!));
+              try {
+                ref.read(telemetryProvider).trackSettingChange('stt_provider');
+              } catch (e) {
+                _log.debug('telemetry failed: $e');
+              }
+            },
+          ),
+        ),
+
+        // ----- Local mode: engine selector + tier cards / model management --
+        if (isLocal) ...[
+          const SizedBox(height: WpSpacing.xs),
+          // On-device engine selector (Whisper / Parakeet). See
+          // `.scratch/whisper-ffi-engine/PRD.md` — Parakeet chapter.
+          WpSettingsRow(
+            rowId: 'stt-model',
+            title: l10n.settingsSttEngine,
             trailing: settingsDropdown(
               context: context,
-              value: settings.sttProviderType.value,
-              items: SttProviderType.values.map((e) => e.value).toList(),
-              labels: [
-                l10n.settingsServiceOnDevicePrivate,
-                'OpenAI',
-                'Deepgram',
-              ],
+              value: settings.onDeviceEngine.value,
+              items: OnDeviceEngine.values.map((e) => e.value).toList(),
+              labels: sttEngineDropdownLabels(
+                l10n,
+                parakeetRecommended: parakeetRecommendedFor(
+                  recommendationLanguage(
+                    sttLanguageCode: settings.sttLanguageCode,
+                    uiLocale: settings.interface_.locale,
+                  ),
+                ),
+              ),
               onChanged: (v) {
+                final downloaded = ref
+                    .read(modelDownloadProvider)
+                    .downloadedModels;
                 ref
                     .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(sttProvider: v!));
+                    .updateSettings(
+                      (s) => applyEngineChoice(
+                        s,
+                        v!,
+                        downloaded: downloaded,
+                        models: sttModels,
+                      ),
+                    );
                 try {
-                  ref
-                      .read(telemetryProvider)
-                      .trackSettingChange('stt_provider');
+                  ref.read(telemetryProvider).trackSettingChange('stt_engine');
                 } catch (e) {
                   _log.debug('telemetry failed: $e');
                 }
               },
             ),
           ),
-
-          // ----- Local mode: engine selector + tier cards / model management --
-          if (isLocal) ...[
-            const SizedBox(height: WpSpacing.xs),
-            // On-device engine selector (Whisper / Parakeet). See
-            // `.scratch/whisper-ffi-engine/PRD.md` — Parakeet chapter.
-            SettingRow(
-              icon: LucideIcons.gauge,
-              label: l10n.settingsSttEngine,
+          // Deliberately outside the row's `subtitle:` slot, unlike every
+          // other explanatory line in Settings. This one is a two-clause
+          // comparison of both engines (languages, GPU backends, CPU speed);
+          // in the label column it would wrap to four or five lines beside
+          // the dropdown and turn the row into a paragraph with a control
+          // stuck to its side. Full width is the readable shape here, and
+          // the choice it explains is the most consequential one on the
+          // page. It starts on kSettingRowInset, so it still shares the
+          // reading edge with the section title and the row icons above it.
+          //
+          // Style matches SettingRow's own subtitle (bodySmall in textMuted)
+          // rather than a hand-mixed pair, so it reads as the same kind of
+          // text it would have been in the slot.
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: kSettingRowInset,
+              vertical: WpSpacing.xs,
+            ),
+            child: Text(
+              l10n.settingsSttEngineSubtitle,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: WpColors.textMuted),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xs),
+          if (settings.onDeviceEngine == OnDeviceEngine.parakeet)
+            _ParakeetModelRow(l10n: l10n)
+          else
+            SettingsRowFrame(
+              rowId: 'speech-quality',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: WpSpacing.sm),
+                    child: Text(
+                      l10n.settingsQuality,
+                      style: TextStyle(
+                        fontSize: WpTypography.rowTitle,
+                        fontWeight: FontWeight.w500,
+                        color: WpColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const WpSttModelManager(),
+                ],
+              ),
+            ),
+          const SizedBox(height: WpSpacing.xs),
+          const SttKeepLoadedRows(),
+          const SizedBox(height: WpSpacing.xs),
+          // Re-run benchmark button — whisper only (Parakeet has no tiers
+          // to benchmark yet, see plan risk #1 in the PRD chapter above).
+          if (settings.onDeviceEngine == OnDeviceEngine.whisper)
+            const SttBenchmarkRow(),
+          // GPU acceleration — whisper only. Parakeet has no GPU backend
+          // yet (see plan risk #1), so this setting would have no effect.
+          if (settings.onDeviceEngine == OnDeviceEngine.whisper)
+            WpSettingsRow(
+              rowId: 'speech-gpu',
+              title: l10n.settingsGpuAcceleration,
               trailing: settingsDropdown(
                 context: context,
-                value: settings.onDeviceEngine.value,
-                items: OnDeviceEngine.values.map((e) => e.value).toList(),
+                value: settings.behavior.gpuAcceleration,
+                items: GpuAcceleration.values.map((e) => e.value).toList(),
                 labels: [
-                  l10n.settingsSttEngineWhisper,
-                  l10n.settingsSttEngineParakeet,
+                  l10n.settingsGpuAccelerationAuto,
+                  l10n.settingsGpuAccelerationEnabled,
+                  l10n.settingsGpuAccelerationDisabled,
                 ],
-                onChanged: (v) {
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings((s) => s.copyWith(sttEngine: v!));
-                  try {
-                    ref
-                        .read(telemetryProvider)
-                        .trackSettingChange('stt_engine');
-                  } catch (e) {
-                    _log.debug('telemetry failed: $e');
-                  }
-                },
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        behavior: s.behavior.copyWith(gpuAcceleration: v!),
+                      ),
+                    ),
               ),
             ),
-            // Deliberately outside the row's `subtitle:` slot, unlike every
-            // other explanatory line in Settings. This one is a two-clause
-            // comparison of both engines (languages, GPU backends, CPU speed);
-            // in the label column it would wrap to four or five lines beside
-            // the dropdown and turn the row into a paragraph with a control
-            // stuck to its side. Full width is the readable shape here, and
-            // the choice it explains is the most consequential one on the
-            // page. It starts on kSettingRowInset, so it still shares the
-            // reading edge with the section title and the row icons above it.
-            //
-            // Style matches SettingRow's own subtitle (bodySmall in textMuted)
-            // rather than a hand-mixed pair, so it reads as the same kind of
-            // text it would have been in the slot.
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: kSettingRowInset,
-                vertical: WpSpacing.xs,
-              ),
-              child: Text(
-                l10n.settingsSttEngineSubtitle,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: WpColors.textMuted),
-              ),
-            ),
-            const SizedBox(height: WpSpacing.xs),
-            if (settings.onDeviceEngine == OnDeviceEngine.parakeet)
-              _ParakeetModelRow(l10n: l10n)
-            else
-              const WpSttModelManager(),
-            const SizedBox(height: WpSpacing.xs),
-            // Re-run benchmark button — whisper only (Parakeet has no tiers
-            // to benchmark yet, see plan risk #1 in the PRD chapter above).
-            if (settings.onDeviceEngine == OnDeviceEngine.whisper)
-              _BenchmarkButton(l10n: l10n, ref: ref),
-            // GPU acceleration — whisper only. Parakeet has no GPU backend
-            // yet (see plan risk #1), so this setting would have no effect.
-            if (settings.onDeviceEngine == OnDeviceEngine.whisper)
-              SettingRow(
-                icon: LucideIcons.zap,
-                label: l10n.settingsGpuAcceleration,
-                trailing: settingsDropdown(
+          // Optional NVIDIA CUDA pack — only for Turing+ NVIDIA cards
+          // outside the Store build, and moot when "CPU only" is chosen.
+          // The row renders nothing without a pack state, so the group only
+          // gets it as a child when it has something to show (see the divider
+          // note in WpSettingsGroup).
+          if (settings.onDeviceEngine == OnDeviceEngine.whisper &&
+              settings.behavior.gpuAcceleration !=
+                  GpuAcceleration.disabled.value &&
+              ref.watch(cudaPackOfferedProvider) &&
+              ref.watch(cudaPackProvider).pack != null)
+            const CudaPackRow(),
+          settingsInlineBreak,
+        ],
+
+        // ----- Cloud mode: inline API key + sub-provider ------------------
+        if (!isLocal) ...[
+          _CloudSttInlineKey(
+            provider: settings.sttProviderType,
+            apiKeyCtrl: _apiKeyCtrl,
+            showKey: _showKey,
+            onToggleVisibility: () => setState(() => _showKey = !_showKey),
+            ref: ref,
+            settings: settings,
+          ),
+        ],
+
+        // Parakeet ignores the recognition language. Name the gap here, where
+        // the language is chosen, and offer Whisper instead of failing silently.
+        if (parakeetUnsupportedLanguage(settings) case final gap?)
+          WpParakeetLanguageBanner(
+            languageCode: gap,
+            onSwitch: () => ref
+                .read(settingsProvider.notifier)
+                .updateSettings(
+                  (s) => s.copyWithSections(
+                    stt: s.stt.copyWith(engine: OnDeviceEngine.whisper.value),
+                  ),
+                ),
+          ),
+
+        // Language selector — Whisper only. Values are short codes
+        // ('auto', 'en', 'ru', …); `sttLanguageCode` normalizes legacy
+        // persisted display values ('German') so they keep selecting
+        // correctly. Hidden entirely for Parakeet: the sherpa_onnx
+        // NeMo-transducer binding used here has no per-request language
+        // override — it always auto-detects among its supported
+        // languages — so a picker would look functional but silently do
+        // nothing, the same "looks available but isn't" trap as the
+        // GPU-acceleration row above.
+        if (!isLocal || settings.onDeviceEngine == OnDeviceEngine.whisper)
+          WpSettingsRow(
+            rowId: 'speech-language',
+            title: l10n.settingsRecognitionLanguage,
+            subtitle: l10n.settingsRecognitionLanguageSubtitle,
+            key: const ValueKey('settings-stt-language'),
+            trailing: _LanguageSummary(
+              current: settings.sttLanguageCode == 'auto'
+                  ? l10n.settingsLanguageAutoDetect
+                  : sttLanguages
+                            .where((e) => e.key == settings.sttLanguageCode)
+                            .map((e) => e.value)
+                            .firstOrNull ??
+                        settings.sttLanguageCode,
+              onChange: () async {
+                final selection = await showWpLanguageDialog(
                   context: context,
-                  value: settings.behavior.gpuAcceleration,
-                  items: GpuAcceleration.values.map((e) => e.value).toList(),
-                  labels: [
-                    l10n.settingsGpuAccelerationAuto,
-                    l10n.settingsGpuAccelerationEnabled,
-                    l10n.settingsGpuAccelerationDisabled,
+                  options: [
+                    for (final e in sttLanguages)
+                      WpLanguageOption(
+                        code: e.key,
+                        name: e.value,
+                        endonym: localeNativeName(Locale(e.key)),
+                      ),
                   ],
-                  onChanged: (v) => ref
+                  initial: WpLanguageSelection(
+                    autoDetect: settings.sttLanguageCode == 'auto',
+                    codes: settings.sttLanguageCode == 'auto'
+                        ? const []
+                        : [settings.sttLanguageCode],
+                  ),
+                  favorites: settings.stt.favoriteLanguages,
+                  // Stars persist at once, not on Save: they are a standing
+                  // list, not part of this one pick.
+                  onFavoritesChanged: (favorites) => ref
                       .read(settingsProvider.notifier)
                       .updateSettings(
                         (s) => s.copyWithSections(
-                          behavior: s.behavior.copyWith(gpuAcceleration: v!),
+                          stt: s.stt.copyWith(favoriteLanguages: favorites),
                         ),
                       ),
-                ),
-              ),
-            // Optional NVIDIA CUDA pack — only for Turing+ NVIDIA cards
-            // outside the Store build, and moot when "CPU only" is chosen.
-            if (settings.onDeviceEngine == OnDeviceEngine.whisper &&
-                settings.behavior.gpuAcceleration !=
-                    GpuAcceleration.disabled.value &&
-                ref.watch(cudaPackOfferedProvider))
-              const CudaPackRow(),
-            settingsInlineBreak,
-          ],
-
-          // ----- Cloud mode: inline API key + sub-provider ------------------
-          if (!isLocal) ...[
-            _CloudSttInlineKey(
-              provider: settings.sttProviderType,
-              apiKeyCtrl: _apiKeyCtrl,
-              showKey: _showKey,
-              onToggleVisibility: () => setState(() => _showKey = !_showKey),
-              ref: ref,
-              settings: settings,
-            ),
-          ],
-
-          // Language selector — Whisper only. Values are short codes
-          // ('auto', 'en', 'ru', …); `sttLanguageCode` normalizes legacy
-          // persisted display values ('German') so they keep selecting
-          // correctly. Hidden entirely for Parakeet: the sherpa_onnx
-          // NeMo-transducer binding used here has no per-request language
-          // override — it always auto-detects among its supported
-          // languages — so a picker would look functional but silently do
-          // nothing, the same "looks available but isn't" trap as the
-          // GPU-acceleration row above.
-          if (!isLocal || settings.onDeviceEngine == OnDeviceEngine.whisper)
-            SettingRow(
-              icon: LucideIcons.languages,
-              label: l10n.settingsRecognitionLanguage,
-              trailing: settingsDropdown(
-                context: context,
-                value: settings.sttLanguageCode,
-                items: ['auto', ...sttLanguages.map((e) => e.key)],
-                labels: [
-                  l10n.settingsLanguageAutoDetect,
-                  ...sttLanguages.map((e) => e.value),
-                ],
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(sttLanguage: v!)),
-              ),
-            ),
-
-          // Both punctuation-related toggles are grouped directly together
-          // (Strip Punctuation, then Punctuation Priming right below it) so
-          // they read as a pair, even though Punctuation Priming is
-          // local-Whisper-only and Custom Vocabulary (below both) has a
-          // different, wider visibility condition.
-
-          // Strip punctuation — engine/provider-independent. Unlike
-          // punctuationPriming below (a Whisper-only prompt nudge), this is
-          // a deterministic post-processing step applied to the final
-          // transcript in RecordingOrchestrator regardless of which STT
-          // engine or provider produced it, so it works identically for
-          // on-device Whisper, Parakeet, and every cloud provider.
-          SettingRow(
-            icon: LucideIcons.eraser,
-            label: l10n.settingsStripPunctuation,
-            subtitle: l10n.settingsStripPunctuationSubtitle,
-            semanticToggledValue: settings.stt.stripPunctuation,
-            trailing: settingsToggle(
-              value: settings.stt.stripPunctuation,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWithSections(
-                      stt: s.stt.copyWith(stripPunctuation: v),
-                    ),
-                  ),
-            ),
-          ),
-
-          // Numbers-only mode — engine/provider-independent, same as Strip
-          // Punctuation above (itn-cad-zahlen: a deterministic post-
-          // transcription text transform in RecordingOrchestrator, not an
-          // ASR-level mode, so it works identically for every engine).
-          SettingRow(
-            icon: LucideIcons.hash,
-            label: l10n.settingsNumericOnlyMode,
-            subtitle: l10n.settingsNumericOnlyModeSubtitle,
-            semanticToggledValue: settings.stt.numericOnlyMode,
-            trailing: settingsToggle(
-              value: settings.stt.numericOnlyMode,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWithSections(
-                      stt: s.stt.copyWith(numericOnlyMode: v),
-                    ),
-                  ),
-            ),
-          ),
-
-          // Filler word removal — same engine/provider-independent text
-          // transform path as the two rows above (handy-catchup ticket 16),
-          // so it stays visible for every engine. Default off.
-          SettingRow(
-            icon: LucideIcons.messageSquareOff,
-            label: l10n.settingsRemoveFillerWords,
-            subtitle: l10n.settingsRemoveFillerWordsSubtitle,
-            semanticToggledValue: settings.stt.removeFillerWords,
-            trailing: settingsToggle(
-              key: const Key('removeFillerWordsToggle'),
-              value: settings.stt.removeFillerWords,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWithSections(
-                      stt: s.stt.copyWith(removeFillerWords: v),
-                    ),
-                  ),
-            ),
-          ),
-
-          // Spoken line breaks ("new paragraph" → blank line). Same
-          // engine-independent text transform path as filler removal above.
-          // Default on: the Dragon-style behaviour is the point of it.
-          SettingRow(
-            icon: LucideIcons.cornerDownLeft,
-            label: l10n.settingsVoiceLineBreaks,
-            subtitle: l10n.settingsVoiceLineBreaksSubtitle,
-            semanticToggledValue: settings.stt.voiceLineBreaks,
-            trailing: settingsToggle(
-              key: const Key('voiceLineBreaksToggle'),
-              value: settings.stt.voiceLineBreaks,
-              onChanged: (v) => ref
-                  .read(settingsProvider.notifier)
-                  .updateSettings(
-                    (s) => s.copyWithSections(
-                      stt: s.stt.copyWith(voiceLineBreaks: v),
-                    ),
-                  ),
-            ),
-          ),
-
-          // Punctuation priming — local Whisper only (a prompt nudge fed
-          // into whisper.cpp's initial-prompt mechanism; no equivalent
-          // exists for the cloud providers or Parakeet). For a toggle that
-          // reliably removes punctuation regardless of engine/provider, see
-          // "Strip punctuation" directly above.
-          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper)
-            SettingRow(
-              icon: LucideIcons.pilcrow,
-              label: l10n.settingsPunctuationPriming,
-              subtitle: l10n.settingsPunctuationPrimingSubtitle,
-              semanticToggledValue: settings.stt.punctuationPriming,
-              trailing: settingsToggle(
-                value: settings.stt.punctuationPriming,
-                onChanged: (v) => ref
+                );
+                if (selection == null) return;
+                await ref
                     .read(settingsProvider.notifier)
                     .updateSettings(
-                      (s) => s.copyWithSections(
-                        stt: s.stt.copyWith(punctuationPriming: v),
-                      ),
-                    ),
-              ),
+                      (s) => s.copyWith(sttLanguage: selection.sttCode),
+                    );
+              },
             ),
+          ),
 
-          // VAD trailing-silence trim — local Whisper only (whisper.cpp's
-          // built-in Voice Activity Detection pre-pass; no equivalent for
-          // cloud providers or Parakeet). Mitigates Whisper's documented
-          // trailing-silence hallucination class (fabricated closing
-          // sentences, e.g. "Vielen Dank" — see the 2026-07-29
-          // investigation). Default on; no-op if the platform build hasn't
-          // bundled the VAD model yet (assets/models/vad/NOTICE.md).
-          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper)
-            SettingRow(
-              icon: LucideIcons.scissors,
-              label: l10n.settingsVadEnabled,
-              subtitle: l10n.settingsVadEnabledSubtitle,
-              semanticToggledValue: settings.stt.vadEnabled,
-              trailing: settingsToggle(
-                value: settings.stt.vadEnabled,
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWithSections(
-                        stt: s.stt.copyWith(vadEnabled: v),
-                      ),
+        // Both punctuation-related toggles are grouped directly together
+        // (Strip Punctuation, then Punctuation Priming right below it) so
+        // they read as a pair, even though Punctuation Priming is
+        // local-Whisper-only and Custom Vocabulary (below both) has a
+        // different, wider visibility condition.
+
+        // Punctuation priming — local Whisper only (a prompt nudge fed
+        // into whisper.cpp's initial-prompt mechanism; no equivalent
+        // exists for the cloud providers or Parakeet). For a toggle that
+        // reliably removes punctuation regardless of engine/provider, see
+        // "Strip punctuation" directly above.
+        if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper)
+          WpSettingsRow(
+            rowId: 'speech-punctuation-priming',
+            title: l10n.settingsPunctuationPriming,
+            subtitle: l10n.settingsPunctuationPrimingSubtitle,
+            semanticToggledValue: settings.stt.punctuationPriming,
+            trailing: settingsToggle(
+              value: settings.stt.punctuationPriming,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      stt: s.stt.copyWith(punctuationPriming: v),
                     ),
-              ),
+                  ),
             ),
+          ),
 
-          // Custom vocabulary — local Whisper (initial-prompt, see
-          // stt_server_state_notifier.dart) OR OpenAI cloud (the equivalent
-          // `prompt` field on /v1/audio/transcriptions, see
-          // openai_transcriber.dart). Deepgram has no free-text prompt
-          // mechanism (it uses per-term `keywords` boosting instead — a
-          // different feature, not built yet) and Parakeet's transducer
-          // architecture has no prompt-conditioning at all, so both stay
-          // excluded — showing the field there would be the same "looks
-          // available but isn't" trap as the language picker above.
-          if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper ||
-              settings.sttProviderType == SttProviderType.openAI)
-            _CustomVocabularyField(initialValue: settings.customVocabulary),
-        ],
-      ),
+        // VAD trailing-silence trim — local Whisper only (whisper.cpp's
+        // built-in Voice Activity Detection pre-pass; no equivalent for
+        // cloud providers or Parakeet). Mitigates Whisper's documented
+        // trailing-silence hallucination class (fabricated closing
+        // sentences, e.g. "Vielen Dank" — see the 2026-07-29
+        // investigation). Default on; no-op if the platform build hasn't
+        // bundled the VAD model yet (assets/models/vad/NOTICE.md).
+        if (isLocal && settings.onDeviceEngine == OnDeviceEngine.whisper)
+          WpSettingsRow(
+            rowId: 'speech-vad',
+            title: l10n.settingsVadEnabled,
+            subtitle: l10n.settingsVadEnabledSubtitle,
+            semanticToggledValue: settings.stt.vadEnabled,
+            trailing: settingsToggle(
+              value: settings.stt.vadEnabled,
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) =>
+                        s.copyWithSections(stt: s.stt.copyWith(vadEnabled: v)),
+                  ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -462,9 +457,16 @@ class _CloudSttInlineKey extends StatelessWidget {
 
     syncController(apiKeyCtrl, keyValue);
 
-    return SettingRow(
-      icon: LucideIcons.keyRound,
-      label: label,
+    return WpSettingsRow(
+      // The speech section's own key rows; the Smart Mode key keeps its
+      // separate id in the Smart Mode area.
+      rowId: label == l10n.settingsDeepgramApiKey
+          ? 'speech-deepgram-key'
+          : 'speech-openai-key',
+      title: label,
+      subtitle: label == l10n.settingsDeepgramApiKey
+          ? l10n.settingsDeepgramApiKeySubtitle
+          : l10n.settingsOpenAiApiKeySubtitle,
       trailing: settingsApiKeyField(
         context: context,
         controller: apiKeyCtrl,
@@ -473,55 +475,6 @@ class _CloudSttInlineKey extends StatelessWidget {
         onChanged: onChanged,
         semanticLabel: label,
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Re-run benchmark button — appears below the model manager in local mode
-// ---------------------------------------------------------------------------
-
-class _BenchmarkButton extends ConsumerWidget {
-  const _BenchmarkButton({required this.l10n, required this.ref});
-
-  final L10n l10n;
-  final WidgetRef ref;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final sttStatus = ref.watch(localSttBundleProvider);
-    final isBenchmarking = sttStatus.isBenchmarking;
-
-    return SettingRow(
-      icon: LucideIcons.timer,
-      label: isBenchmarking
-          ? l10n.qualityTierInfoBenchmarking
-          : l10n.qualityTierBenchmarkReRun,
-      trailing: isBenchmarking
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : Semantics(
-              label: l10n.qualityTierBenchmarkReRun,
-              button: true,
-              child: IconButton(
-                icon: const Icon(LucideIcons.refreshCw, size: WpIconSize.sm),
-                onPressed: () {
-                  ref.read(localSttBundleProvider.notifier).runBenchmark();
-                  // Progress notice, not a result — `info`, not `success`:
-                  // the benchmark has only just started here.
-                  WpToast.show(
-                    context,
-                    message: l10n.qualityTierInfoBenchmarking,
-                    type: WpToastType.info,
-                    duration: const Duration(seconds: 2),
-                  );
-                },
-                tooltip: l10n.qualityTierBenchmarkReRun,
-              ),
-            ),
     );
   }
 }
@@ -545,19 +498,48 @@ class _ParakeetModelRow extends ConsumerWidget {
 
     Widget trailing;
     if (dl.installed && !dl.isBusy) {
-      trailing = Row(
+      trailing = Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(l10n.parakeetModelInstalled),
-          Semantics(
-            label: l10n.parakeetModelDelete,
-            button: true,
-            child: IconButton(
-              icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
-              tooltip: l10n.parakeetModelDelete,
-              onPressed: () =>
-                  ref.read(parakeetDownloadProvider.notifier).deleteBundle(),
+          // A failed delete leaves the model installed; say why right here
+          // instead of only in the not-installed branch (UIA-SET-04).
+          if (dl.phase == ParakeetDownloadPhase.error &&
+              dl.errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: WpSpacing.xxs),
+              child: Text(
+                dl.errorMessage!,
+                style: TextStyle(
+                  fontSize: WpTypography.caption,
+                  color: WpColors.error,
+                ),
+              ),
             ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(l10n.parakeetModelInstalled),
+              Semantics(
+                label: l10n.parakeetModelDelete,
+                button: true,
+                child: IconButton(
+                  icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
+                  tooltip: l10n.parakeetModelDelete,
+                  onPressed: () async {
+                    final deleter = ref.read(parakeetDownloadProvider.notifier);
+                    final confirmed = await confirmDestructive(
+                      context: context,
+                      title: l10n.modelDeleteConfirm,
+                      message: l10n.modelDeleteConfirmMessage,
+                      confirmLabel: l10n.actionDelete,
+                      cancelLabel: l10n.actionCancel,
+                    );
+                    if (confirmed) deleter.deleteBundle();
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       );
@@ -599,8 +581,8 @@ class _ParakeetModelRow extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.only(bottom: WpSpacing.xxs),
               child: Text(
-                dl.errorMessage!,
-                style: const TextStyle(
+                localizedDownloadError(l10n, dl.errorMessage),
+                style: TextStyle(
                   fontSize: WpTypography.caption,
                   color: WpColors.error,
                 ),
@@ -617,184 +599,44 @@ class _ParakeetModelRow extends ConsumerWidget {
       );
     }
 
-    return SettingRow(
-      icon: LucideIcons.cpu,
-      label: l10n.parakeetModelTitle,
+    return WpSettingsRow(
+      rowId: 'speech-parakeet',
+      title: l10n.parakeetModelTitle,
       subtitle: l10n.parakeetModelSubtitle(sizeLabel),
       trailing: trailing,
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Custom Vocabulary text field (debounced save)
-// ---------------------------------------------------------------------------
+/// Trailing slot of the recognition-language row: the current choice and the
+/// "Ändern" button that opens the language dialog (WP-23e wiring).
+class _LanguageSummary extends StatelessWidget {
+  const _LanguageSummary({required this.current, required this.onChange});
 
-class _CustomVocabularyField extends ConsumerStatefulWidget {
-  const _CustomVocabularyField({required this.initialValue});
-
-  final String initialValue;
-
-  @override
-  ConsumerState<_CustomVocabularyField> createState() =>
-      _CustomVocabularyFieldState();
-}
-
-class _CustomVocabularyFieldState
-    extends ConsumerState<_CustomVocabularyField> {
-  late final TextEditingController _ctrl;
-  Timer? _debounce;
-
-  /// Same real ceiling [SttServerStateNotifier] budgets the combined
-  /// `initial_prompt` against — see that constant's doc comment for the
-  /// full whisper.cpp derivation (`n_max_text_ctx = 64` → 63 real tokens).
-  /// Duplicated here (rather than imported) because the notifier's constant
-  /// is `static const int` on a private class member — this field-level
-  /// counter only needs the plain number.
-  static const int _tokenBudget = 63;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = TextEditingController(text: widget.initialValue);
-    _ctrl.addListener(_onTextChanged);
-  }
-
-  void _onTextChanged() => setState(() {});
-
-  /// Conservative estimate of [text]'s whisper.cpp token count: its UTF-8
-  /// byte length. Whisper's byte-level BPE tokenizer only ever MERGES base
-  /// bytes, so the real token count can never exceed this — the estimate
-  /// only ever OVER-counts, so a field shown as "under budget" here is
-  /// guaranteed to actually stay untruncated by
-  /// [SttServerStateNotifier._truncateToRealTokenBudget]. No live model
-  /// call needed (this field renders long before any engine may be
-  /// loaded), matching the char-based pre-flight backstop's own
-  /// conservatism rather than promising per-keystroke exactness a real
-  /// tokenizer call could only give async and after a model load.
-  static int _estimateTokens(String text) => utf8.encode(text).length;
-
-  @override
-  void didUpdateWidget(covariant _CustomVocabularyField old) {
-    super.didUpdateWidget(old);
-    if (old.initialValue != widget.initialValue &&
-        _ctrl.text != widget.initialValue) {
-      _ctrl.text = widget.initialValue;
-    }
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _ctrl.removeListener(_onTextChanged);
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  void _save(String value) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 600), () {
-      ref
-          .read(settingsProvider.notifier)
-          .updateSettings((s) => s.copyWith(customVocabulary: value));
-    });
-  }
+  final String current;
+  final VoidCallback onChange;
 
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    final cs = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.sm,
-        vertical: WpSpacing.sm,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                LucideIcons.bookType,
-                size: WpIconSize.sm,
-                color: cs.secondary,
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      l10n.settingsCustomVocabulary,
-                      style: Theme.of(context).textTheme.bodyLarge,
-                    ),
-                    Padding(
-                      // 2px title-subtitle gap: tighter than WpSpacing.xxs so
-                      // the pair reads as one unit.
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        l10n.settingsCustomVocabularyHint,
-                        style: const TextStyle(
-                          fontSize: WpTypography.small,
-                          color: WpColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            current,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: WpColors.textSecondary),
           ),
-          const SizedBox(height: WpSpacing.sm),
-          WpTextField(
-            controller: _ctrl,
-            variant: WpTextFieldVariant.form,
-            semanticsLabel: l10n.settingsCustomVocabulary,
-            hintText: l10n.settingsCustomVocabularyPlaceholder,
-            minLines: 2,
-            maxLines: 5,
-            onChanged: _save,
-          ),
-          const SizedBox(height: WpSpacing.xxs),
-          Builder(
-            builder: (context) {
-              final estimate = _estimateTokens(_ctrl.text);
-              final overBudget = estimate > _tokenBudget;
-              final color = overBudget ? cs.error : WpColors.textMuted;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.settingsCustomVocabularyBudgetCounter(
-                      estimate,
-                      _tokenBudget,
-                    ),
-                    style: TextStyle(
-                      fontSize: WpTypography.small,
-                      color: color,
-                    ),
-                  ),
-                  if (overBudget)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        l10n.settingsCustomVocabularyBudgetWarning(
-                          _tokenBudget,
-                        ),
-                        style: TextStyle(
-                          fontSize: WpTypography.small,
-                          color: color,
-                        ),
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: WpSpacing.sm),
+        WpButton(
+          key: const ValueKey('settings-stt-language-change'),
+          label: l10n.settingsLanguageChange,
+          variant: WpButtonVariant.secondary,
+          onPressed: onChange,
+        ),
+      ],
     );
   }
 }

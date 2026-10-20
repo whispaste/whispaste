@@ -2,7 +2,8 @@
 
 #include <gdk/gdk.h>
 
-#include "flutter/generated_plugin_registrant.h"
+#include "secondary_plugin_registrant.h"
+#include "positioned_window_type.h"
 
 FloatingButtonWindow::FloatingButtonWindow() = default;
 
@@ -12,7 +13,7 @@ FloatingButtonWindow::~FloatingButtonWindow() {
 
 void FloatingButtonWindow::Create() {
   // ── GtkWindow shell ──────────────────────────────────────────────────────
-  window_ = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+  window_ = gtk_window_new(PositionedHelperWindowType());
 
   // Decorationless: no title bar, no border.
   gtk_window_set_decorated(GTK_WINDOW(window_), FALSE);
@@ -71,7 +72,7 @@ void FloatingButtonWindow::Create() {
   gtk_container_add(GTK_CONTAINER(window_), GTK_WIDGET(fl_view_));
 
   // Register plugins BEFORE showing so platform channels are ready at boot.
-  fl_register_plugins(FL_PLUGIN_REGISTRY(fl_view_));
+  fl_register_secondary_plugins(FL_PLUGIN_REGISTRY(fl_view_));
 
   gtk_widget_show(GTK_WIDGET(fl_view_));
 

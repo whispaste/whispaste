@@ -2,6 +2,20 @@
 
 All entries are written in English.
 
+## Unreleased
+
+### Fixes
+
+- **Computers with less than 8 GB of RAM start:** WhisPaste no longer stops at start on such machines. It starts and recommends the compact speech model.
+
+### Improvements
+
+- **Flat dialogs:** dialogs dim the window behind them without a blur.
+
+### Known issues
+
+- **Flatpak (Flathub): voice-note import may be unavailable.** Importing Ogg/Opus, FLAC and M4A files depends on libopusfile and libFLAC in the GNOME runtime, which is not verified yet. Until it is, use the .deb, AppImage or Windows/macOS builds for importing those formats, or convert the file to WAV.
+
 ## 1.4.2
 
 ### Fixes

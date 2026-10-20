@@ -944,11 +944,8 @@ void main() {
     });
 
     group('Avatar glyph vs. disc – $themeName theme (≥ $glyphFloor:1)', () {
-      // Measured against the disc *body*, not against the crown — the same
-      // modeling choice the nav chip's group makes, and for the same reason:
-      // the crown covers the first `WpAvatarTint.glossStop` of the disc's
-      // height (≈4 px of the 42 px list avatar) and the glyph, at 44 % of the
-      // disc centred in it, never reaches into that band.
+      // Measured against the disc body (the mean of its two fill stops) and
+      // against the lit top stop, the lightest point of the disc.
       for (final slot in WpCategorySlot.values) {
         final base = slot.color();
         test(slot.name, () {
@@ -972,65 +969,6 @@ void main() {
                     'the $spotName on $groundName — the icon is not readable',
               );
             }
-          });
-        });
-      }
-    });
-
-    // -----------------------------------------------------------------------
-    // The crown (2026-08-11) — the disc's half of the nav chip's gloss gate.
-    //
-    // Three ways a precomposited highlight goes wrong, one assertion each:
-    // it can be darker than the fill (a shadow along the top edge, i.e. the
-    // disc lit from below); it can be strong enough to read as a second shape
-    // drawn on the disc rather than as light falling on it; or — the failure
-    // that is specific to a *bounded* object, and which the rail's rectangular
-    // tile cannot have — it can climb so close to the ground that the disc's
-    // top rim dissolves and the circle looks bitten.
-    // -----------------------------------------------------------------------
-    group('Avatar gloss – $themeName theme', () {
-      for (final slot in WpCategorySlot.values) {
-        final base = slot.color();
-        test(slot.name, () {
-          avatarGrounds.forEach((groundName, ground) {
-            final fill = alphaComposite(tint.fillTop(base), ground);
-            final gloss = alphaComposite(tint.gloss(base), ground);
-
-            expect(
-              relativeLuminance(gloss),
-              greaterThan(relativeLuminance(fill)),
-              reason:
-                  '$themeName ${slot.name} on $groundName: the crown is darker '
-                  'than the lit stop under it — that is the disc lit from '
-                  'below. "Lit" means lit in both themes; the light theme '
-                  'mirrors every other value in this recipe and deliberately '
-                  'not this one',
-            );
-
-            final step = contrastRatio(gloss, fill);
-            expect(
-              step,
-              lessThan(3.0),
-              reason:
-                  '$themeName ${slot.name} on $groundName: the crown steps '
-                  '${step.toStringAsFixed(2)}:1 over its fill, at the contrast '
-                  'an *object* owes (WCAG 1.4.11) — a band that strong stops '
-                  'reading as light on the disc and starts reading as a second '
-                  'element drawn on it. Same ceiling as the nav chip\'s gloss',
-            );
-
-            final crownVsGround = contrastRatio(gloss, ground);
-            expect(
-              crownVsGround,
-              greaterThanOrEqualTo(discFloor),
-              reason:
-                  '$themeName ${slot.name} on $groundName: the crown holds '
-                  'only ${crownVsGround.toStringAsFixed(2)}:1 against the '
-                  'ground, under the $discFloor:1 the disc owes as a graphical '
-                  'object. The crown is part of the disc, not a hole in it — '
-                  'below this floor the circle loses its top rim and reads as '
-                  'a crescent',
-            );
           });
         });
       }
@@ -1215,19 +1153,20 @@ void main() {
   // alongside the ramp; that belongs to a palette phase, not to this one.
   // -------------------------------------------------------------------------
 
-  for (final (themeName, surface, surfaceElevated, accentButtonFill, hover) in [
-    // The `light` row of this table went with the light stack (2026-08-11).
-    // It gated the same tokens against the same floor with `isDark: false`,
-    // which no longer describes anything the app can render.
-    (
-      'dark',
-      WpColorsDark.surface,
-      WpColorsDark.surfaceElevated,
-      WpColorsDark.accentButtonFill,
-      WpColorsDark.hover,
-    ),
+  // ADR 0023: the info line reads the active set, so each appearance is
+  // gated against its own grounds with that set activated.
+  for (final (themeName, set) in [
+    ('light', wpLightColors),
+    ('dark', wpDarkColors),
+    ('navy', wpNavyColors),
   ]) {
     group('Tier-performance info line – $themeName theme (≥ 4.5:1)', () {
+      setUp(() => WpColors.activate(set));
+      tearDown(() => WpColors.activate(wpLightColors));
+      final surface = set.surface;
+      final surfaceElevated = set.surfaceElevated;
+      final accentButtonFill = set.accentButtonFill;
+      final hover = set.hover;
       final grounds = <String, Color>{
         'surface': surface,
         'surfaceElevated': surfaceElevated,
@@ -1240,8 +1179,9 @@ void main() {
           accentButtonFill,
           surfaceElevated,
         ),
-        // A benchmarking row that is not the current tier can be hovered.
-        'hover': hover,
+        // A benchmarking row that is not the current tier can be hovered; the
+        // hover token is a translucent wash, so it is measured over the card.
+        'hover': alphaComposite(hover, surface),
       };
 
       for (final performance in TierPerformance.values) {
@@ -1281,9 +1221,12 @@ void main() {
 
       test('weight rises with the time cost, away from the ground', () {
         for (var i = 1; i < measured.length; i++) {
+          // Away from the ground: lighter on dark, darker on light.
+          final sign = set.brightness == Brightness.dark ? 1 : -1;
           final delta =
-              relativeLuminance(of(measured[i])) -
-              relativeLuminance(of(measured[i - 1]));
+              sign *
+              (relativeLuminance(of(measured[i])) -
+                  relativeLuminance(of(measured[i - 1])));
           expect(
             delta,
             greaterThan(0),
@@ -1292,7 +1235,7 @@ void main() {
                 'ground than ${measured[i - 1].name}. The line reports how much '
                 'time a tier costs, so its weight has to rise with that cost — '
                 'and it has to rise in the direction the theme leaves room in, '
-                'lighter on a dark ground',
+                'lighter on a dark ground, darker on a light one',
           );
         }
       });
@@ -1441,17 +1384,22 @@ void main() {
         WpCategorySlot.neutral: WpCategoryColorsDark.neutral,
       };
       const light = <WpCategorySlot, Color>{
-        WpCategorySlot.iris: WpCategoryColorsDark.iris,
-        WpCategorySlot.ember: WpCategoryColorsDark.ember,
-        WpCategorySlot.fern: WpCategoryColorsDark.fern,
-        WpCategorySlot.orchid: WpCategoryColorsDark.orchid,
-        WpCategorySlot.brass: WpCategoryColorsDark.brass,
-        WpCategorySlot.azure: WpCategoryColorsDark.azure,
-        WpCategorySlot.plum: WpCategoryColorsDark.plum,
-        WpCategorySlot.moss: WpCategoryColorsDark.moss,
-        WpCategorySlot.neutral: WpCategoryColorsDark.neutral,
+        WpCategorySlot.iris: WpCategoryColorsLight.iris,
+        WpCategorySlot.ember: WpCategoryColorsLight.ember,
+        WpCategorySlot.fern: WpCategoryColorsLight.fern,
+        WpCategorySlot.orchid: WpCategoryColorsLight.orchid,
+        WpCategorySlot.brass: WpCategoryColorsLight.brass,
+        WpCategorySlot.azure: WpCategoryColorsLight.azure,
+        WpCategorySlot.plum: WpCategoryColorsLight.plum,
+        WpCategorySlot.moss: WpCategoryColorsLight.moss,
+        WpCategorySlot.neutral: WpCategoryColorsLight.neutral,
       };
-      for (final (themeName, expected) in [('dark', dark), ('light', light)]) {
+      addTearDown(() => WpColors.activate(wpLightColors));
+      for (final (themeName, set, expected) in [
+        ('dark', wpDarkColors, dark),
+        ('light', wpLightColors, light),
+      ]) {
+        WpColors.activate(set);
         expect(
           expected.keys.toSet(),
           WpCategorySlot.values.toSet(),
@@ -1683,22 +1631,23 @@ void main() {
     // costs a little of it, so the floor sits just below the nominal step.
     const rungFloor = 1.20;
 
-    for (final (themeName, grounds) in [
-      (
-        'dark',
-        <String, Color>{
-          'surface': WpColorsDark.surface,
-          'surfaceElevated': WpColorsDark.surfaceElevated,
-          'surfaceVariant': WpColorsDark.surfaceVariant,
-          'background': WpColorsDark.background,
-        },
-      ),
-      // The `light` row went with the light stack (2026-08-11). It gated the
-      // same nine slots against the same grounds with `isDark: false`, which
-      // `WpCategorySlot.ramp` no longer answers differently.
+    // ADR 0023: the ramp follows the active set, so each appearance is gated
+    // against its own grounds with that set activated.
+    for (final (themeName, set) in [
+      ('dark', wpDarkColors),
+      ('light', wpLightColors),
     ]) {
       for (final slot in WpCategorySlot.values) {
         test('$themeName: ${slot.name} — rungs are separable and legible', () {
+          WpColors.activate(set);
+          addTearDown(() => WpColors.activate(wpLightColors));
+          final grounds = <String, Color>{
+            'surface': set.surface,
+            'surfaceElevated': set.surfaceElevated,
+            'surfaceVariant': set.surfaceVariant,
+            'background': set.background,
+          };
+          final away = set.brightness == Brightness.dark ? 1 : -1;
           for (var steps = 3; steps <= 5; steps++) {
             final rungs = slot.ramp(steps);
             expect(rungs, hasLength(steps));
@@ -1725,7 +1674,9 @@ void main() {
               // every rung inherit the base slot's clearance instead of
               // re-arguing it, and what stops the low end sinking under 3:1.
               final delta =
-                  relativeLuminance(rungs[i]) - relativeLuminance(rungs[i - 1]);
+                  away *
+                  (relativeLuminance(rungs[i]) -
+                      relativeLuminance(rungs[i - 1]));
               expect(
                 delta,
                 greaterThan(0),
@@ -2084,11 +2035,8 @@ void main() {
     const zeroOffsetAllowlist = <String>{};
 
     const audited = <String, List<BoxShadow>>{
-      'subtle': WpShadows.subtle,
-      'subtleTransparent': WpShadows.subtleTransparent,
       'card': WpShadows.card,
       'elevated': WpShadows.elevated,
-      'glassInner': WpShadows.glassInner,
     };
 
     test('the audit covers every shadow token in tokens.dart', () {
@@ -2097,9 +2045,12 @@ void main() {
         r'static const List<BoxShadow>\s+(\w+)',
       ).allMatches(source).map((m) => m.group(1)!).toSet();
 
+      // Three lists after UIA-FND-13 V2 removed the resting shadows
+      // (card, elevated). A floor of two still catches a parse
+      // that finds nothing.
       expect(
         declared.length,
-        greaterThan(4),
+        greaterThanOrEqualTo(2),
         reason:
             'the parse found only ${declared.length} shadow lists in '
             'tokens.dart — the audit below would pass vacuously',
@@ -2311,6 +2262,10 @@ void main() {
     });
   });
 
+  // The recording family as call sites spell it: the raw token, or the
+  // recording field of the navy stage palette the dock reads through `_dock`.
+  final recordingFamilyUse = RegExp(r'recordingAccent|\b_dock\.recording\b');
+
   group('Two accents, two jobs – token usage', () {
     List<String> dartFilesUnderLib() {
       final files = Directory('lib')
@@ -2332,8 +2287,10 @@ void main() {
     test('the recording family stays inside its audited call sites', () {
       const audited = {
         'lib/core/theme/colors.dart', // the definition site
+        'lib/core/theme/theme_colors.dart', // the runtime sets (ADR 0023)
+        'lib/core/theme/colors_dark.dart', // the dark palette
         'lib/widgets/waveform.dart', // audio-level bars
-        'lib/widgets/status_bar.dart', // the transcribing dot
+        'lib/widgets/recording_dock.dart', // the transcribing dot
         'lib/features/onboarding/steps/test_recording_step.dart', // sandbox
         // The 3px bar above the content panel — the main window's whole
         // recording surface, since the in-window FAB is gone and the floating
@@ -2347,7 +2304,7 @@ void main() {
       };
 
       final referencing = dartFilesUnderLib()
-          .where((p) => File(p).readAsStringSync().contains('recordingAccent'))
+          .where((p) => recordingFamilyUse.hasMatch(File(p).readAsStringSync()))
           .toSet();
 
       expect(
@@ -2377,7 +2334,9 @@ void main() {
 
       final recordingFamilyFiles = dartFilesUnderLib()
           .where((p) => p != 'lib/core/theme/colors.dart')
-          .where((p) => File(p).readAsStringSync().contains('recordingAccent'))
+          .where((p) => p != 'lib/core/theme/theme_colors.dart')
+          .where((p) => p != 'lib/core/theme/colors_dark.dart')
+          .where((p) => recordingFamilyUse.hasMatch(File(p).readAsStringSync()))
           .toSet();
 
       expect(
@@ -2670,18 +2629,18 @@ void main() {
   // The seam between the frame and the content plane (Ticket 07)
   //
   // The content plane's first stop is painted at its own top-left corner,
-  // which sits at (`sidebarWidth`, `appBarHeight`) = (72, 64) of a frame
+  // which sits at (`sidebarWidth`, `appBarHeight`) = (232, 40) of a frame
   // gradient that spans the *whole window*. The plane is meant to read there
-  // as the same light, only nearer: **identical hue, lower chroma, more
-  // light**. Anything else is a seam the eye reads as two rooms meeting.
+  // as the same light, only nearer: **the same hue, the same chroma within
+  // the two-sided band, more light**. Anything else is a seam the eye reads
+  // as two rooms meeting.
   //
-  // Why the plane's stop is a constant and this sweep is the gate: the seam
-  // sits so close to the frame gradient's origin (t ≈ 0.021–0.095 over every
-  // window from the enforced minimum to 4K) that the frame's color there
-  // moves by one to three 8-bit steps across that entire range. A constant is
-  // therefore exact to within the quantisation of its own neighbourhood — but
-  // only this sweep proves it, so it walks the range instead of measuring the
-  // one window the token was solved at.
+  // Why the plane's stop is a constant and this sweep is the gate: the corner
+  // slides along the frame gradient as the window changes (t ≈ 0.050–0.186
+  // from 4K to the enforced minimum), so the frame's hue there runs from
+  // 219.5° to 223.5°. A constant cannot be exact across that run, so the stop
+  // is solved to its middle, and this sweep proves the rest of the range
+  // instead of measuring the one window the token was solved at.
   //
   // "More light" is measured as *relative luminance*, not HSL lightness: both
   // ambients are blue-heavy at their violet end, and HSL lightness weights
@@ -2691,11 +2650,19 @@ void main() {
 
   for (final (themeName, frame, plane, hueTolerance, seamFloor) in [
     // Tolerance is the measured worst case plus headroom, not a fence around
-    // today's numbers: the sweep peaks at 1.46° on dark and 1.37° on light,
+    // today's numbers: the sweep peaks at 2.24° (3840 × 2160) on both themes,
     // and the *pre-Ticket-07* stops missed by 4.24° / 4.35°, so a regression
     // to them trips this. Light cannot reach 0° at all — at L ≈ 97 % an 8-bit
     // step is worth several degrees of hue, the same quantisation argument
     // `WpColorsLight.frameGradient` already makes for its own stops.
+    //
+    // The seam corner `(sidebarWidth, appBarHeight)` = (232, 40) moves along
+    // the frame ambient with the window: the frame's hue there runs from
+    // 219.5° at 4K to 223.5° at the minimum window. The plane's first stop is
+    // therefore solved to the middle of that run (221.7°), not to one window.
+    // Before that re-solve it sat at 220.0° — solved for the old 72 px rail —
+    // and the minimum window alone missed by 3.53°. A future change that moves
+    // the corner further than this tolerance must re-solve the stop.
     //
     // The fourth number is the seam's **minimum perceptible step**, swept
     // along the seam's whole length. See the group's third test for where the
@@ -2704,14 +2671,14 @@ void main() {
       'dark',
       WpColorsDark.frameGradient,
       WpColorsDark.warmSurfaceGradient,
-      3.0,
+      2.5,
       1.13,
     ),
     (
       'light',
       WpColorsDark.frameGradient,
       WpColorsDark.warmSurfaceGradient,
-      3.0,
+      2.5,
       1.05,
     ),
   ]) {
@@ -2865,7 +2832,7 @@ void main() {
         test('$label: perceptible along the whole seam, not just the corner', () {
           final planeWidth = window.width - WpLayout.sidebarWidth;
           final planeHeight =
-              window.height - WpLayout.appBarHeight - WpLayout.statusBarHeight;
+              window.height - WpLayout.appBarHeight - WpLayout.dockAreaHeight;
           final projection =
               planeWidth * planeWidth + planeHeight * planeHeight;
 
@@ -3115,18 +3082,17 @@ void main() {
             frame,
             frameGradientT(
               WpLayout.sidebarWidth / 2,
-              window.height - WpLayout.statusBarHeight,
+              window.height - WpLayout.dockAreaHeight,
               window,
             ),
           ),
         },
       };
 
-      /// The tile's body over [ground] — the two fill stops, without the
-      /// gloss, which only covers the top tenth.
+      /// The tile's body over [ground]: the mean of its two fill stops.
       Color body(LinearGradient chip, Color ground) => midpoint(
+        alphaComposite(chip.colors[0], ground),
         alphaComposite(chip.colors[1], ground),
-        alphaComposite(chip.colors[2], ground),
       );
 
       test('the sweep found both ends of every window', () {
@@ -3143,7 +3109,7 @@ void main() {
         for (final entry in chips.entries) {
           expect(
             (entry.value.colors.length, entry.value.stops, entry.value.begin),
-            (3, const [0.0, 0.1, 1.0], Alignment.topCenter),
+            (2, const [0.0, 1.0], Alignment.topCenter),
             reason:
                 '$themeName: the ${entry.key} chip is not the same three-stop '
                 'vertical shape as its siblings — `LinearGradient.lerp` then '
@@ -3194,34 +3160,6 @@ void main() {
         });
       });
 
-      test('the gloss is a lit edge, never a second object', () {
-        grounds.forEach((label, ground) {
-          for (final entry in chips.entries) {
-            final gloss = alphaComposite(entry.value.colors.first, ground);
-            final fill = alphaComposite(entry.value.colors[1], ground);
-            expect(
-              relativeLuminance(gloss),
-              greaterThan(relativeLuminance(fill)),
-              reason:
-                  '$themeName at $label: the ${entry.key} chip\'s first stop '
-                  'is darker than the fill under it — that is a shadow drawn '
-                  'along the top edge, i.e. the tile lit from below',
-            );
-            final step = contrastRatio(gloss, fill);
-            expect(
-              step,
-              lessThan(3.0),
-              reason:
-                  '$themeName at $label: the ${entry.key} chip\'s gloss steps '
-                  '${step.toStringAsFixed(2)}:1 over its fill, at the '
-                  'contrast an *object* owes (WCAG 1.4.11) — a band that '
-                  'strong stops reading as light on the tile and starts '
-                  'reading as a second element drawn on it',
-            );
-          }
-        });
-      });
-
       test('the icon stays legible on every tile', () {
         grounds.forEach((label, ground) {
           final checks = <String, (Color, Color)>{
@@ -3246,6 +3184,47 @@ void main() {
           });
         });
       });
+    });
+  }
+
+  // Warning banner (spec §4): amber text and icon on the amber soft fill. The
+  // banner paints `highlightSoft` over whatever surface it sits on, so the
+  // ground is that composite, not the flat fill.
+  for (final (themeName, set) in [
+    ('light', wpLightColors),
+    ('dark', wpDarkColors),
+    ('navy', wpNavyColors),
+  ]) {
+    group('Warning banner – $themeName theme (≥ 4.5:1)', () {
+      final grounds = <String, Color>{
+        'surface': set.surface,
+        'background': set.background,
+      };
+      for (final ground in grounds.entries) {
+        final fill = Color.alphaBlend(set.highlightSoft, ground.value);
+        test('highlightText on warning fill over ${ground.key}', () {
+          final ratio = contrastRatio(set.highlightText, fill);
+          expect(
+            ratio,
+            greaterThanOrEqualTo(4.5),
+            reason:
+                '$themeName: warning icon/text reaches only '
+                '${ratio.toStringAsFixed(2)}:1 on the amber fill over '
+                '${ground.key}',
+          );
+        });
+        test('textPrimary on warning fill over ${ground.key}', () {
+          final ratio = contrastRatio(set.textPrimary, fill);
+          expect(
+            ratio,
+            greaterThanOrEqualTo(4.5),
+            reason:
+                '$themeName: banner message reaches only '
+                '${ratio.toStringAsFixed(2)}:1 on the amber fill over '
+                '${ground.key}',
+          );
+        });
+      }
     });
   }
 }

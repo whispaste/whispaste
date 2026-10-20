@@ -1,12 +1,14 @@
-import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/data/database.dart';
+import '../core/logging/app_logger.dart';
 import '../features/history/data/history_title.dart';
 import 'recording_store.dart';
 import 'replacements/text_replacement_matcher.dart';
+import 'smart_mode/smart_mode_fact_guard.dart';
 
 /// Converts DB rows into the pure matcher's input shape (also used by
 /// the headless `--transcribe-file --replacements` mode).
@@ -24,32 +26,76 @@ List<TextReplacementRule> textReplacementRulesFrom(
     ),
 ];
 
+final _usageLog = AppLogger('DictionaryUsage');
+
 /// [RecordingStore] backed by the Drift SQLite database.
+/// Compiled replacement rules, reused while the rule list is unchanged.
+final _replacementRulesCache = CompiledRulesCache();
+
 class DriftRecordingStore implements RecordingStore {
   const DriftRecordingStore(this._db);
 
   final HistoryDatabase _db;
 
+  /// Counts this save's changes per dictionary entry (matrix 4.5). Fire and
+  /// forget: the write must never delay the save, and a failed counter
+  /// update only loses a count, never the dictation.
+  void _recordReplacementUsage(
+    List<ReplacementWithTriggers> replacements,
+    List<int> hits,
+  ) {
+    final usage = <String, int>{
+      for (var i = 0; i < replacements.length; i++)
+        if (hits[i] > 0) replacements[i].row.id: hits[i],
+    };
+    if (usage.isEmpty) return;
+    unawaited(
+      _db.addReplacementUsage(usage).catchError((Object error) {
+        _usageLog.warning('Could not record replacement usage: $error');
+      }),
+    );
+  }
+
+  @override
+  Future<List<String>> dictionaryTerms() async {
+    try {
+      final replacements = await _db.readAllReplacements();
+      return dictionaryNameTerms([
+        for (final r in replacements) r.row.replacement,
+      ]);
+    } on Exception catch (e) {
+      // Content-free on purpose: the error text may echo dictionary entries.
+      _usageLog.debug('Dictionary terms unavailable: ${e.runtimeType}');
+      return const <String>[];
+    }
+  }
+
+  @override
+  Future<String> applyReplacements(String text) async {
+    try {
+      final replacements = await _db.readAllReplacements();
+      final rules = textReplacementRulesFrom(replacements);
+      final hits = List<int>.filled(rules.length, 0);
+      final replaced = _replacementRulesCache
+          .forRules(rules)
+          .apply(text, hits: hits);
+      _recordReplacementUsage(replacements, hits);
+      return replaced;
+    } on Exception {
+      // Non-fatal: keep the text as it is if replacements fail.
+      return text;
+    }
+  }
+
   @override
   Future<SavedRecording> save(RecordingInput input) async {
-    final now = DateTime.now();
-    final id =
-        '${now.millisecondsSinceEpoch}-'
-        '${math.Random().nextInt(9999).toString().padLeft(4, '0')}';
+    final now = input.createdAt ?? DateTime.now();
+    final id = input.entryId ?? newRecordingEntryId(now);
 
     // 1. Apply text replacements (best-effort; non-fatal if it fails).
     var processedTranscript = input.transcript;
     if (input.applyTextReplacements) {
-      try {
-        final replacements = await _db.readAllReplacements();
-        processedTranscript = applyTextReplacements(
-          processedTranscript,
-          textReplacementRulesFrom(replacements),
-        );
-      } on Exception {
-        // Non-fatal: save raw transcript if replacements fail.
-        processedTranscript = input.transcript;
-      }
+      processedTranscript = await applyReplacements(processedTranscript);
     }
 
     // 2. Derive title (shared with the "Edit transcript" re-derivation in
@@ -75,6 +121,9 @@ class DriftRecordingStore implements RecordingStore {
           source: const Value('dictation'),
           originalTranscript: Value(input.originalTranscript),
           targetApp: Value(input.targetApp),
+          smartModeInput: Value(input.smartModeInput),
+          smartModeApplied: Value(input.smartModeApplied),
+          languageHint: Value(input.detectedLanguage ?? ''),
         ),
       );
     }
@@ -110,3 +159,10 @@ final recordingStoreProvider = Provider<RecordingStore>((ref) {
   final db = ref.watch(historyDatabaseProvider);
   return DriftRecordingStore(db);
 });
+
+/// Dictionary name terms for the Smart Mode fact guard. A seam so tests need
+/// no database.
+final factKnownTermsProvider = Provider<Future<List<String>> Function()>(
+  (ref) =>
+      () => ref.read(recordingStoreProvider).dictionaryTerms(),
+);

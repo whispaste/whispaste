@@ -51,8 +51,8 @@ class OnboardingPageHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
@@ -63,7 +63,7 @@ class OnboardingPageHeading extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.start,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: WpTypography.headline,
               fontWeight: FontWeight.bold,
               color: textPrimary,
@@ -82,7 +82,7 @@ class OnboardingPageHeading extends StatelessWidget {
               child: Text(
                 subtitle!,
                 textAlign: TextAlign.start,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.subheading,
                   color: textSecondary,
                   height: 1.5,
@@ -196,8 +196,8 @@ class OnboardingSectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
 
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
@@ -215,7 +215,7 @@ class OnboardingSectionLabel extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.start,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: WpTypography.heading,
               fontWeight: FontWeight.w700,
               color: textPrimary,
@@ -229,7 +229,7 @@ class OnboardingSectionLabel extends StatelessWidget {
             Text(
               subtitle!,
               textAlign: TextAlign.start,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.small,
                 color: textMuted,
                 height: 1.35,

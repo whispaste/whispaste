@@ -36,7 +36,7 @@ class HighlightedText extends ConsumerWidget {
       );
     }
 
-    const accent = WpColors.accent;
+    final accent = WpColors.accent;
     // Translucent tint behind each match — warmer in dark mode.
     final highlightBg = accent.withValues(alpha: 0.28);
 

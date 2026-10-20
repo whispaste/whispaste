@@ -6,10 +6,13 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "audio_file_decode_host.h"
 #include "desktop_paste_host.h"
+#include "file_dialog_host.h"
 #include "floating_button_host.h"
 #include "floating_overlay_host.h"
 #include "keyboard_monitor_host.h"
+#include "power_event_host.h"
 #include "side_panel_host.h"
 #include "snippet_picker_host.h"
 
@@ -28,6 +31,9 @@ struct _MyApplication {
   // keyboard (visual-refresh-2026 ticket 30). Same lifecycle as the hosts
   // above — no 2nd engine involved, so no window to create.
   DesktopPasteHost* desktop_paste_host;
+  // Decodes imported Ogg/Opus, FLAC and MP3 files (WP-35b). No engine or
+  // window involved, same lifecycle as the hosts above.
+  AudioFileDecodeHost* audio_file_decode_host;
   // Owns the public Snippet-Picker MethodChannel and lazily manages the
   // picker's 2nd-engine window (visual-refresh-2026 ticket 30). Same
   // lifecycle as floating_overlay_host/floating_button_host above.
@@ -39,6 +45,12 @@ struct _MyApplication {
   // Owns com.whispaste.keyboard_monitor — push-to-talk key-up via XInput2 or
   // the GlobalShortcuts portal (handy-catchup/09). Same lifecycle as above.
   KeyboardMonitorHost* keyboard_monitor_host;
+  // Owns com.whispaste.power — system sleep/resume for the recording safety
+  // net (WP-39, 9.5). Same lifecycle as the hosts above.
+  PowerEventHost* power_event_host;
+  // Owns com.whispaste.file_dialog — open/save/folder dialogs in the app
+  // language (XP-5-13). Same lifecycle as the hosts above.
+  FileDialogHost* file_dialog_host;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -122,9 +134,12 @@ static void my_application_activate(GApplication* application) {
   self->floating_overlay_host = new FloatingOverlayHost(main_messenger);
   self->floating_button_host = new FloatingButtonHost(main_messenger);
   self->desktop_paste_host = new DesktopPasteHost(main_messenger);
+  self->audio_file_decode_host = new AudioFileDecodeHost(main_messenger);
   self->snippet_picker_host = new SnippetPickerHost(main_messenger);
   self->side_panel_host = new SidePanelHost(main_messenger);
   self->keyboard_monitor_host = new KeyboardMonitorHost(main_messenger);
+  self->power_event_host = new PowerEventHost(main_messenger);
+  self->file_dialog_host = new FileDialogHost(main_messenger, view);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
@@ -178,12 +193,18 @@ static void my_application_dispose(GObject* object) {
   self->floating_button_host = nullptr;
   delete self->desktop_paste_host;
   self->desktop_paste_host = nullptr;
+  delete self->audio_file_decode_host;
+  self->audio_file_decode_host = nullptr;
   delete self->snippet_picker_host;
   self->snippet_picker_host = nullptr;
   delete self->side_panel_host;
   self->side_panel_host = nullptr;
   delete self->keyboard_monitor_host;
   self->keyboard_monitor_host = nullptr;
+  delete self->power_event_host;
+  self->power_event_host = nullptr;
+  delete self->file_dialog_host;
+  self->file_dialog_host = nullptr;
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 

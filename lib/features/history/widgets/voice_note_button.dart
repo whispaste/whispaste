@@ -141,7 +141,7 @@ class VoiceNoteButton extends ConsumerWidget {
       context,
       message: message,
       type: isError ? WpToastType.error : WpToastType.success,
-      duration: const Duration(seconds: 2),
+      duration: voiceToastDuration(hasUndo: undo != null),
       action: undo == null
           ? null
           : WpToastAction(
@@ -164,3 +164,9 @@ class VoiceNoteButton extends ConsumerWidget {
     );
   }
 }
+
+/// How long a voice-note toast stays. A toast offering Undo after a correction
+/// stays longer, because a wrong correction replaces the whole note and two
+/// seconds are not enough to notice it (UIA-HIS-16).
+Duration voiceToastDuration({required bool hasUndo}) =>
+    hasUndo ? const Duration(seconds: 8) : const Duration(seconds: 2);

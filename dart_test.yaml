@@ -1,11 +1,25 @@
 # Registered test tags (unregistered tags only warn). CI selects on them in
 # .github/workflows/ci.yml.
 tags:
-  golden:
-    # Pixel baselines, generated on macOS; run in the macOS golden job only.
   canary:
     # Live provider-drift checks; run by provider-drift-canary.yml only.
   l10n:
   perf:
     # Wall-clock micro-benchmarks; skipped on dev pushes, run in the weekly
     # and manual full CI run.
+  compositor-e2e:
+    # Asks a real, nested compositor for the focused window
+    # (test/scripts/focus_sources_e2e.sh sets it up); skipped otherwise.
+  bench:
+    # Profile-mode acceptance benchmarks (integration_test/notes_open_bench_test.dart).
+    # Run manually with --profile on macOS, never in the normal suite.
+  store:
+    # Store screenshot generator (test/screenshots/store_screenshots_test.dart).
+    # Not a test: regenerate the store PNGs with --update-goldens before a
+    # store release only. Excluded from every normal run.
+  capture:
+    # Overlay store-asset capture (test/screenshots/overlay_pill_asset_capture_test.dart),
+    # needs CAPTURE_OVERLAY_ASSETS=1. On demand only, excluded from normal runs.
+  ux-screens:
+    # UX screenshot harness (test/ux_audit/ux_screens_test.dart): renders PNGs
+    # for the UX reviewer, asserts nothing. Run on demand, never in CI.

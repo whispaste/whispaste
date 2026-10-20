@@ -1,6 +1,56 @@
 import Cocoa
+import Carbon.HIToolbox
 import FlutterMacOS
 import os.log
+
+/// Virtual keycode that types [character] on the active keyboard layout.
+///
+/// Keycode 0x09 is the physical "V" position on ANSI keyboards only. On
+/// Dvorak and similar layouts it types another letter, so a fixed Cmd+0x09
+/// would paste or copy the wrong thing. [layoutCharacter] reports what each
+/// keycode types without modifiers; [fallback] applies when no keycode types
+/// the character (or the layout cannot be read).
+func keyCode(forCharacter character: String,
+             layoutCharacter: (CGKeyCode) -> String?,
+             fallback: CGKeyCode) -> CGKeyCode {
+  for code in 0..<128 {
+    let candidate = CGKeyCode(code)
+    if layoutCharacter(candidate) == character {
+      return candidate
+    }
+  }
+  return fallback
+}
+
+/// The character the active keyboard layout types for [keyCode] without
+/// modifiers, or `nil` when the layout data cannot be read.
+func activeLayoutCharacter(for keyCode: CGKeyCode) -> String? {
+  guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+        let rawLayout = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else {
+    return nil
+  }
+  let layoutData = Unmanaged<CFData>.fromOpaque(rawLayout).takeUnretainedValue() as Data
+  return layoutData.withUnsafeBytes { raw -> String? in
+    guard let layout = raw.baseAddress?.assumingMemoryBound(to: UCKeyboardLayout.self) else {
+      return nil
+    }
+    var deadKeyState: UInt32 = 0
+    var length = 0
+    var chars = [UniChar](repeating: 0, count: 4)
+    let status = UCKeyTranslate(layout,
+                                UInt16(keyCode),
+                                UInt16(kUCKeyActionDown),
+                                0,
+                                UInt32(LMGetKbdType()),
+                                OptionBits(kUCKeyTranslateNoDeadKeysBit),
+                                &deadKeyState,
+                                chars.count,
+                                &length,
+                                &chars)
+    guard status == noErr, length > 0 else { return nil }
+    return String(utf16CodeUnits: chars, count: length)
+  }
+}
 
 /// Native macOS host for desktop auto-paste via CGEvent.
 ///
@@ -22,6 +72,10 @@ class DesktopPasteHost {
   /// The armed receipt write (see `writeClipboardTextWithReceipt`), or nil.
   private var receipt: PasteReceipt?
 
+  /// Monotonic time (seconds) of our last synthetic keyDown. Those events go
+  /// through the HID tap too, so `inputIdleSnapshot` must not count them.
+  private var lastSyntheticKeyDownAt: Double = 0
+
   init(messenger: FlutterBinaryMessenger) {
     channel = FlutterMethodChannel(
       name: "com.whispaste.desktop_paste",
@@ -38,6 +92,9 @@ class DesktopPasteHost {
 
     case "getTargetBundleId":
       result(targetApp?.bundleIdentifier)
+
+    case "clipboardReadDenied":
+      result(Self.clipboardReadDenied())
 
     case "pasteClipboard":
       guard let args = call.arguments as? [String: Any],
@@ -59,6 +116,12 @@ class DesktopPasteHost {
         return
       }
       typeText(text: text, delayMs: delayMs, result: result)
+
+    case "writeClipboardText":
+      // BIZ-61: transient copy for Undo/Selection-Edit fallbacks and restores.
+      // Without this case Dart got MissingPlugin and wrote an unmarked item.
+      let text = (call.arguments as? [String: Any])?["text"] as? String ?? ""
+      result(writeClipboardTextExcludingHistory(text))
 
     case "writeClipboardTextWithReceipt":
       let text = (call.arguments as? [String: Any])?["text"] as? String ?? ""
@@ -98,6 +161,25 @@ class DesktopPasteHost {
     case "diagnosticPaste":
       let demoText = (call.arguments as? [String: Any])?["demoText"] as? String ?? ""
       diagnosticPaste(demoText: demoText, result: result)
+
+    case "sendUndoShortcut":
+      // Cmd+Z in the frontmost app: undoes a selection edit (2c, DEV-165).
+      result(sendCommandShortcut(keyCode: 0x06)) // 'z' key
+
+    case "inputIdleSnapshot":
+      // DEV-185 / GS-056: raw idle ages. Dart decides (`userInputSince`).
+      result(inputIdleSnapshot())
+
+    // Portal keyboard input is Linux-only (RemoteDesktop/libei). macOS keeps
+    // the methods answering "unavailable" so the channel stays uniform.
+    case "portalInputAvailable":
+      result(false)
+
+    case "portalInputConnect":
+      result(["status": "unavailable", "restoreToken": NSNull()] as [String: Any])
+
+    case "portalInputDisconnect":
+      result(nil)
 
     case "destroy":
       targetApp = nil
@@ -184,6 +266,20 @@ class DesktopPasteHost {
 
     // Clamp delay to a reasonable range (0–5 seconds).
     let clampedDelay = max(0, min(delayMs, 5000))
+
+    // Briefing B3 criterion 1: the user may have switched to another app
+    // while the transcript was being processed. Pasting now would put the text
+    // into an app the user did not dictate into, so refuse. The transcript
+    // stays on the clipboard. Clicking WhisPaste itself is no switch away from
+    // the target, so that case still pastes as before.
+    if let front = NSWorkspace.shared.frontmostApplication,
+       front.processIdentifier != app.processIdentifier,
+       front.bundleIdentifier != Bundle.main.bundleIdentifier {
+      os_log("pasteClipboard: target changed, frontmost %{public}@ is not the captured app",
+             log: Self.logger, type: .info, front.bundleIdentifier ?? "<unknown>")
+      result(["status": "target_changed", "detail": "frontmost app is not the captured target"])
+      return
+    }
 
     // The overlay never takes focus, so in the common dictation case the
     // target is still frontmost and has nothing to settle.
@@ -295,6 +391,28 @@ class DesktopPasteHost {
 
   // MARK: - Receipt-based clipboard restore
 
+  /// Plain string on the pasteboard, marked transient + concealed so clipboard
+  /// managers skip it. Dart uses this for copies WhisPaste makes itself
+  /// (tray recent items, selection edit, restore). Returns false when the
+  /// write fails; Dart then falls back to a plain write that history records.
+  private func writeClipboardTextExcludingHistory(_ text: String) -> Bool {
+    receipt?.resolvePending("superseded")
+    receipt = nil
+
+    let item = NSPasteboardItem()
+    guard item.setString(text, forType: .string) else { return false }
+    item.setData(Data(), forType: Self.transientType)
+    item.setData(Data(), forType: Self.concealedType)
+
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    guard pasteboard.writeObjects([item]) else {
+      os_log("writeClipboardText: writeObjects failed", log: Self.logger, type: .error)
+      return false
+    }
+    return true
+  }
+
   /// Puts [text] on the pasteboard as a *promised* item: the actual string
   /// is only handed over when a reader asks for it, which is the receipt
   /// that the target app pasted. Marked transient + concealed so clipboard
@@ -392,7 +510,7 @@ class DesktopPasteHost {
     let bundle = app.bundleIdentifier ?? "<unknown>"
     let deadline: DispatchTime = .now() + .milliseconds(clampedDelay)
     DispatchQueue.main.asyncAfter(deadline: deadline) {
-      let cgOk = self.sendCommandShortcut(keyCode: 0x08) // 'c' key
+      let cgOk = self.sendCommandShortcut(keyCode: self.letterKeyCode("c", fallback: 0x08))
       let cgLanded = cgOk && trusted
 
 #if MAS_BUILD
@@ -464,7 +582,7 @@ class DesktopPasteHost {
   // which Apple statically scans for (Guideline 2.5.2). The dispatch case
   // above is excluded to match — see the `handle` switch.
 #else
-  /// Wipes stale TCC entries for both permission channels Auto-Paste uses.
+  /// Wipes the stale Accessibility TCC entry Auto-Paste depends on.
   ///
   /// On macOS, TCC binds permissions to a code requirement that includes
   /// the binary's content hash. Ad-hoc-signed apps (no Team ID) get a new
@@ -483,7 +601,10 @@ class DesktopPasteHost {
     let bundleId = Bundle.main.bundleIdentifier ?? "de.whispaste.app"
     var result: [String: Any] = [:]
     result["ax"] = runTccReset(service: "Accessibility", bundleId: bundleId)
-    result["ae"] = runTccReset(service: "AppleEvents", bundleId: bundleId)
+    // AppleEvents is deliberately not reset: its grant is independent of the
+    // Accessibility entry, and re-prompting for it is an unrequested side
+    // effect of "fix paste". Reported as 0 (nothing cleared) for Dart.
+    result["ae"] = 0
     os_log("repairTccEntries: ax=%{public}@ ae=%{public}@",
            log: Self.logger, type: .info,
            String(describing: result["ax"]!),
@@ -624,8 +745,15 @@ class DesktopPasteHost {
   private func diagnosticPaste(demoText: String, result: @escaping FlutterResult) {
     let pasteboard = NSPasteboard.general
     // Snapshot the pasteboard contents before mutating it so we can put
-    // them back regardless of which exit path we take.
-    let backup = self.backupPasteboard(pasteboard)
+    // them back regardless of which exit path we take. A denied pasteboard
+    // cannot be saved, so nothing is written at all: the clipboard stays as
+    // the user left it.
+    guard let backup = self.backupPasteboard(pasteboard) else {
+      os_log("diagnosticPaste: pasteboard access denied — nothing written",
+             log: Self.logger, type: .info)
+      result(["status": "clipboard_access_denied"])
+      return
+    }
     var restored = false
     let restore: () -> Void = {
       if restored { return }
@@ -683,9 +811,22 @@ class DesktopPasteHost {
     }
   }
 
+  /// macOS 15.4+ pasteboard privacy: `true` when the user set WhisPaste to
+  /// "always deny" programmatic access. Reads then return nothing, so a
+  /// snapshot taken would be empty and must not be trusted.
+  static func clipboardReadDenied() -> Bool {
+    if #available(macOS 15.4, *) {
+      return NSPasteboard.general.accessBehavior == .alwaysDeny
+    }
+    return false
+  }
+
   /// Captures the current pasteboard items so [restorePasteboard] can put
-  /// the user's clipboard back after a diagnostic paste.
-  private func backupPasteboard(_ pasteboard: NSPasteboard) -> [NSPasteboardItem] {
+  /// the user's clipboard back after a diagnostic paste. `nil` means the save
+  /// failed (access denied): there is then nothing to restore, and nothing
+  /// may be cleared either.
+  private func backupPasteboard(_ pasteboard: NSPasteboard) -> [NSPasteboardItem]? {
+    if Self.clipboardReadDenied() { return nil }
     guard let items = pasteboard.pasteboardItems else { return [] }
     return items.map { source in
       let copy = NSPasteboardItem()
@@ -698,14 +839,18 @@ class DesktopPasteHost {
     }
   }
 
-  /// Restores a previously captured pasteboard snapshot. Idempotent in
-  /// practice — repeated invocations re-clear and re-write the same items.
+  /// Restores a previously captured pasteboard snapshot. A `nil` snapshot
+  /// (the save failed) is a no-op. An empty snapshot is not cleared either:
+  /// an unreadable pasteboard also looks empty, and clearing would erase it.
   private func restorePasteboard(_ pasteboard: NSPasteboard,
-                                 backup: [NSPasteboardItem]) {
-    pasteboard.clearContents()
-    if !backup.isEmpty {
-      pasteboard.writeObjects(backup)
+                                 backup: [NSPasteboardItem]?) {
+    guard let backup = backup, !backup.isEmpty else {
+      os_log("restorePasteboard: no saved content — leaving the pasteboard alone",
+             log: Self.logger, type: .info)
+      return
     }
+    pasteboard.clearContents()
+    pasteboard.writeObjects(backup)
   }
 
   /// Posts Cmd+V via CGEvent to the frontmost application. Returns true
@@ -717,11 +862,36 @@ class DesktopPasteHost {
   /// `build_config.dart`'s `kAutoPasteSupported` doc for the full reasoning
   /// (and the Phase 0 proof this reasoning is based on).
   private func sendCmdV() -> Bool {
-    return sendCommandShortcut(keyCode: 0x09) // 'v' key
+    return sendCommandShortcut(keyCode: letterKeyCode("v", fallback: 0x09))
+  }
+
+  /// Keycode for a shortcut letter on the active layout (briefing N7), so
+  /// Cmd+V and Cmd+C follow the letter on Dvorak and other layouts.
+  private func letterKeyCode(_ letter: String, fallback: CGKeyCode) -> CGKeyCode {
+    return keyCode(forCharacter: letter, layoutCharacter: activeLayoutCharacter(for:), fallback: fallback)
   }
 
   /// Posts Cmd+[keyCode] as a CGEvent keydown/keyup pair — shared by paste
   /// (0x09 'v') and copySelection (0x08 'c').
+  /// Monotonic seconds on the same mach timebase as the HID event timestamps.
+  private func monotonicSeconds() -> Double {
+    Double(DispatchTime.now().uptimeNanoseconds) / 1_000_000_000
+  }
+
+  /// Idle ages in seconds: last hardware keyDown, last left/right mouseDown
+  /// (the earlier of the two), and our own last synthetic keyDown. Without a
+  /// synthetic keyDown the age is a large number, so no key counts as ours.
+  private func inputIdleSnapshot() -> [String: Double] {
+    let now = monotonicSeconds()
+    let keyIdle = CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .keyDown)
+    let mouseIdle = min(
+      CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .leftMouseDown),
+      CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: .rightMouseDown)
+    )
+    let syntheticIdle = lastSyntheticKeyDownAt > 0 ? now - lastSyntheticKeyDownAt : 1e9
+    return ["keyIdle": keyIdle, "mouseIdle": mouseIdle, "syntheticIdle": syntheticIdle]
+  }
+
   private func sendCommandShortcut(keyCode: CGKeyCode) -> Bool {
     guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: true),
           let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: false) else {
@@ -731,6 +901,7 @@ class DesktopPasteHost {
     keyDown.flags = .maskCommand
     keyUp.flags = .maskCommand
 
+    lastSyntheticKeyDownAt = monotonicSeconds()
     keyDown.post(tap: .cghidEventTap)
     keyUp.post(tap: .cghidEventTap)
     return true
@@ -799,6 +970,7 @@ class DesktopPasteHost {
         keyDown.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: base)
         keyUp.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: base)
       }
+      lastSyntheticKeyDownAt = monotonicSeconds()
       keyDown.post(tap: .cghidEventTap)
       usleep(interEventDelayUs)
       keyUp.post(tap: .cghidEventTap)

@@ -342,9 +342,9 @@ void main() {
         // The caption is already on screen, so the tooltip that repeated it
         // word for word taught nothing and made the button announce itself
         // twice (label plus tooltip). House rule 1: fold, don't label.
-        final semantics = tester.getSemantics(find.text('Empty Trash'));
+        final semantics = tester.getSemantics(find.text('Empty trash'));
         final data = semantics.getSemanticsData();
-        expect(semantics.label, 'Empty Trash');
+        expect(semantics.label, 'Empty trash');
         expect(data.tooltip, isEmpty);
         expect(data.flagsCollection.isButton, isTrue);
         expect(data.hasAction(SemanticsAction.tap), isTrue);

@@ -34,6 +34,8 @@ mixin FloatingOverlayControllerMixin
         final action = args?['action'] as String?;
         if (action != null) return OverlayContextMenuAction(action);
         return null;
+      case 'onRenderFrame':
+        return const OverlayRenderFrame();
       case 'onRenderEngineDiagnostic':
         final args = call.arguments as Map?;
         final message = (args?['message'] as String?) ?? 'unknown';

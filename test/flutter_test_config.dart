@@ -1,20 +1,19 @@
 import 'dart:async';
+import 'dart:io';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/services/path_service.dart' as paths;
 
-import 'fixtures/tolerant_golden_comparator.dart';
-
-/// Runs before every test file under test/. flutter_tools has already set a
-/// [LocalFileComparator] for the file at this point; swap in the tolerant
-/// one so plain `matchesGoldenFile` goldens pass on both the maintainer's
-/// Mac and the GitHub-hosted macOS runner (see kGoldenPixelTolerance).
-/// golden_screenshot tests install their own comparator per test.
+/// Runs before every test file under test/.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
-  final previous = goldenFileComparator;
-  if (previous is LocalFileComparator) {
-    goldenFileComparator = TolerantGoldenComparator(
-      previous.basedir.resolve('flutter_test_config.dart'),
-    );
+  // Every app-data path goes to a scratch folder. Without this, code that
+  // sweeps or erases app data (note image folders) would act on the real
+  // app data directory of whoever runs the tests.
+  final sandbox = Directory.systemTemp.createTempSync('whispaste_test_data_');
+  paths.appDataDirOverride = sandbox.path;
+  try {
+    await testMain();
+  } finally {
+    paths.appDataDirOverride = null;
+    if (sandbox.existsSync()) sandbox.deleteSync(recursive: true);
   }
-  await testMain();
 }

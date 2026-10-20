@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "floating_overlay_window.h"
+#include "window_drag_mover.h"
 
 // Owns the public MethodChannel com.whispaste.floating_overlay on the MAIN
 // engine and bridges it to the private render channel on the second engine
@@ -84,6 +85,11 @@ class FloatingOverlayHost {
   bool suppress_next_configure_ = false;
 
   static void OnWindowMoved(int x, int y, void* user_data);
+
+  // Moves the window on startDrag; KWin ignores WM moves of NOTIFICATION
+  // windows (XP-5-10).
+  static void OnDragEnded(int x, int y, void* user_data);
+  WindowDragMover drag_mover_{OnDragEnded, this};
 
   // ── Compact / position cache ──────────────────────────────────────────────
   // Size class: "normal" | "compact" | "mini" (mirrors the Dart

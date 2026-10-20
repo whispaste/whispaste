@@ -92,6 +92,24 @@ if (-not (Test-Path $Template)) { throw "template not found: $Template" }
   Set-Content (Join-Path $stage "LIESMICH.txt") -Encoding UTF8
 
 # Zip it (overwrite any stale archive).
+# sherpa-onnx engine folders must be built from scripts/sherpa-onnx.pin and match
+# the sherpa_onnx version in pubspec.lock (BUILD_INFO check, see
+# scripts/check-sherpa-stage.cmake). A folder without a matching BUILD_INFO fails.
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..\..')
+foreach ($d in @('sherpa-onnx', 'sherpa-onnx-cuda')) {
+  $engineDir = Join-Path $stage $d
+  if (-not (Test-Path (Join-Path $engineDir 'sherpa-onnx-c-api.dll'))) { continue }
+  & cmake "-DSTAGE_DIR=$engineDir" "-DREPO_ROOT=$repoRoot" -P (Join-Path $repoRoot 'scripts\check-sherpa-stage.cmake')
+  if ($LASTEXITCODE -ne 0) { throw "sherpa-onnx engine '$d' does not match scripts/sherpa-onnx.pin and pubspec.lock - rebuild it from the pinned TTS-free build" }
+}
+
+# Release guard: no espeak-ng (GPL-3.0) in anything that gets zipped. Uses the
+# Git for Windows bash next to git.exe (never WSL's bash). Fails before the zip.
+$gitBash = Join-Path (Split-Path (Get-Command git).Source) '..\bin\bash.exe'
+if (-not (Test-Path $gitBash)) { throw "Git for Windows bash not found at $gitBash" }
+& $gitBash (Join-Path $PSScriptRoot '..\..\..\scripts\check-no-espeak.sh') (Resolve-Path $stage).Path
+if ($LASTEXITCODE -ne 0) { throw "espeak-ng guard failed on $stage — refusing to build the GPU-probe ZIP" }
+
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Write-Host "Compressing -> $zip (this can take a minute)"
 Compress-Archive -Path $stage -DestinationPath $zip -CompressionLevel Optimal

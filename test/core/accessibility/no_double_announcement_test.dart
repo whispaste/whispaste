@@ -60,13 +60,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(
             Center(
-              child: WpHeroButton(
-                label: 'Weiter',
-                onPressed: () {},
-                gradient: const LinearGradient(
-                  colors: [Colors.teal, Colors.cyan],
-                ),
-              ),
+              child: WpHeroButton(label: 'Weiter', onPressed: () {}),
             ),
           ),
         );

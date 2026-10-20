@@ -19,10 +19,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/navigation/page_state.dart';
+import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/data/providers.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
-import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 import 'package:whispaste/services/hardware_info_service.dart';
 import 'package:whispaste/services/recording_orchestrator.dart';
 import 'package:whispaste/services/window_activation.dart';
@@ -84,14 +84,14 @@ class _PresetEditorTarget extends NotesEditorTargetNotifier {
 ScrollController _editorScroll(WidgetTester tester) => tester
     .widget<EditableText>(
       find.descendant(
-        of: find.byType(NoteEditorPanel),
+        of: find.byKey(const ValueKey('notes-editor-body')),
         matching: find.byType(EditableText),
       ),
     )
     .scrollController!;
 
 Finder _editorTextField() => find.descendant(
-  of: find.byType(NoteEditorPanel),
+  of: find.byKey(const ValueKey('notes-editor-body')),
   matching: find.byType(TextField),
 );
 
@@ -132,6 +132,9 @@ void main() {
           // Left un-overridden these fall through to real Drift `.watch()`
           // queries, whose stream cleanup schedules a Timer on disposal that
           // flutter_test's pending-timer check then trips.
+          noteAssetsProvider.overrideWith(
+            (ref, noteId) => Stream.value(const <NoteAsset>[]),
+          ),
           allNoteTagsProvider.overrideWith((ref) => Stream.value(const {})),
           noteTagsProvider.overrideWith(
             (ref, noteId) => Stream.value(const []),

@@ -167,8 +167,12 @@ void ClipboardMonitorHost::ProcessClipboardChange() {
   // WhisPaste never writes images to the clipboard itself (matches the
   // Swift host's comment), so there is no self-write fingerprint to check
   // for images.
-  const std::vector<uint8_t> png = ReadClipboardImagePng();
-  if (!png.empty()) {
+  std::vector<uint8_t> png;
+  // cppcheck cannot follow the GDI+ / IStream results inside the helper, so it
+  // reports the condition as always false. It is reachable: the helper returns
+  // true after a successful PNG encode of a clipboard bitmap.
+  // cppcheck-suppress knownConditionTrueFalse
+  if (ReadClipboardImagePng(&png)) {
     EmitImageEntry(png, /*concealed=*/false);
   }
 }
@@ -190,11 +194,13 @@ std::wstring ClipboardMonitorHost::ReadClipboardText() const {
   return result;
 }
 
-std::vector<uint8_t> ClipboardMonitorHost::ReadClipboardImagePng() const {
-  if (!::IsClipboardFormatAvailable(CF_BITMAP)) return {};
-  if (!::OpenClipboard(owner_)) return {};
+bool ClipboardMonitorHost::ReadClipboardImagePng(
+    std::vector<uint8_t>* png) const {
+  png->clear();
+  if (!::IsClipboardFormatAvailable(CF_BITMAP)) return false;
+  if (!::OpenClipboard(owner_)) return false;
 
-  std::vector<uint8_t> png;
+  bool encoded = false;
   HBITMAP hbitmap = static_cast<HBITMAP>(::GetClipboardData(CF_BITMAP));
   if (hbitmap) {
     Gdiplus::Bitmap bitmap(hbitmap, nullptr);
@@ -203,14 +209,20 @@ std::vector<uint8_t> ClipboardMonitorHost::ReadClipboardImagePng() const {
       IStream* stream = nullptr;
       if (SUCCEEDED(::CreateStreamOnHGlobal(nullptr, TRUE, &stream)) && stream) {
         if (bitmap.Save(stream, &png_clsid, nullptr) == Gdiplus::Ok) {
+          // GlobalSize() reports the allocation, which is rounded up past the
+          // encoded data. The stream length is the exact PNG size.
+          ULARGE_INTEGER length = {};
+          LARGE_INTEGER origin = {};
           HGLOBAL hglobal = nullptr;
-          if (SUCCEEDED(::GetHGlobalFromStream(stream, &hglobal)) && hglobal) {
-            const SIZE_T size = ::GlobalSize(hglobal);
+          if (SUCCEEDED(stream->Seek(origin, STREAM_SEEK_END, &length)) &&
+              length.QuadPart > 0 &&
+              SUCCEEDED(::GetHGlobalFromStream(stream, &hglobal)) && hglobal) {
             const void* locked = ::GlobalLock(hglobal);
-            if (locked && size > 0) {
+            if (locked) {
               const auto* bytes = static_cast<const uint8_t*>(locked);
-              png.assign(bytes, bytes + size);
+              png->assign(bytes, bytes + length.QuadPart);
               ::GlobalUnlock(hglobal);
+              encoded = true;
             }
           }
         }
@@ -219,7 +231,7 @@ std::vector<uint8_t> ClipboardMonitorHost::ReadClipboardImagePng() const {
     }
   }
   ::CloseClipboard();
-  return png;
+  return encoded;
 }
 
 bool ClipboardMonitorHost::IsPrivacyExcluded() const {

@@ -69,10 +69,9 @@ bool SnippetPickerWindow::Create(HWND owner, int px, int py, int pwidth,
     return false;
   }
 
-  // DWM sheet-of-glass transparency, same rationale as
-  // FloatingButtonWindow::Create — composites the Flutter render engine's
-  // own glass/blur painter over a transparent Win32 background instead of
-  // opaque black.
+  // DWM transparency, same rationale as FloatingButtonWindow::Create — keeps
+  // the background behind the panel's rounded corners transparent instead of
+  // opaque black. The panel itself is a flat fill painted by Flutter.
   MARGINS m = {-1, -1, -1, -1};
   DwmExtendFrameIntoClientArea(hwnd_, &m);
 

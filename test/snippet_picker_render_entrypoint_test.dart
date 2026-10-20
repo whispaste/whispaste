@@ -30,8 +30,7 @@ void main() {
         ),
       ),
     );
-    // Not pumpAndSettle: the panel's liquid-glass specular streak drifts on
-    // a `repeat()`-ing AnimationController, which never settles.
+    // Explicit pumps, not pumpAndSettle: the test controls the entrance timing.
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
   }

@@ -7,18 +7,34 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:flutter_localized_locales/flutter_localized_locales.dart';
 import 'package:window_manager/window_manager.dart';
+import 'core/config/settings_enums.dart'
+    show OnDeviceEngine, SmartModeProviderType;
 import 'core/config/settings_labels.dart';
+import 'core/config/selectable_speech_models.dart';
+import 'core/config/stt_choice.dart';
+import 'core/config/whisper_languages.dart';
 import 'core/config/settings_provider.dart';
 import 'core/navigation/page_state.dart';
 import 'core/onboarding/onboarding_revision.dart';
 import 'core/onboarding/onboarding_surface.dart';
+import 'core/l10n/ltr_isolate.dart';
 import 'core/l10n/generated/app_localizations.dart';
 import 'core/l10n/locale_provider.dart';
+import 'core/theme/appearance.dart';
 import 'core/theme/theme.dart';
 import 'core/theme/colors.dart';
+import 'core/theme/generated/wp_tokens.g.dart' show WpShellTokens;
 import 'core/theme/tokens.dart';
+import 'widgets/app_menu_bar.dart';
+import 'widgets/desktop_shortcut_toast.dart';
+import 'widgets/title_bar_menu.dart';
+import 'widgets/hotkey_fallback_toast.dart';
+import 'widgets/quit_during_dictation_dialog.dart';
 import 'widgets/sidebar.dart';
-import 'widgets/status_bar.dart';
+import 'widgets/app_shell.dart';
+import 'widgets/wp_page_header.dart';
+import 'widgets/wp_audio_drop_zone.dart';
+import 'widgets/recording_dock.dart';
 import 'widgets/recording_indicator_bar.dart';
 import 'widgets/title_bar.dart';
 import 'core/platform/desktop_window_geometry.dart';
@@ -31,51 +47,81 @@ import 'features/history/data/history_lock.dart' show historyRevealedProvider;
 import 'features/history/data/providers.dart' show groupedHistoryProvider;
 import 'features/notes/notes_page.dart';
 import 'features/settings/settings_page.dart';
+import 'features/dictionary/dictionary_page.dart';
 import 'features/replacements/replacements_page.dart';
 import 'features/snippets/snippets_page.dart';
 import 'features/analytics/analytics_page.dart';
-import 'features/about/about_page.dart';
-import 'features/about/support_page.dart';
+import 'features/help/help_page.dart';
+import 'features/help/help_shortcuts.dart';
 import 'services/support/support_state.dart';
 import 'features/feedback/feedback_page.dart';
 import 'features/onboarding/onboarding_overlay.dart';
 import 'core/platform/macos_lifecycle_channel.dart';
+import 'core/recording/recording_helpers.dart' show doneMessageFor;
 import 'core/recording/recording_state.dart';
+import 'features/history/widgets/smart_mode_undo_actions.dart';
+import 'services/smart_mode/smart_mode_name_change_notice.dart';
+import 'services/smart_mode/smart_mode_undo_notice.dart';
+import 'services/smart_mode/smart_mode_text_model.dart';
 import 'core/data/database.dart';
+import 'core/data/database_startup_gate.dart';
 import 'core/logging/app_logger.dart';
 import 'core/logging/crash_reporter.dart';
-import 'core/config/settings_enums.dart' show OnDeviceEngine;
+import 'core/config/settings_enums.dart' show AppearanceMode, OnDeviceEngine;
 import 'core/config/build_config.dart' show kAutoPasteSupported;
 import 'features/onboarding/mic_probe.dart'
     show MicProbeOutcome, OnboardingMicProbe;
+import 'services/autostart_service.dart';
 import 'services/paste/paste_capability_notifier.dart';
 import 'services/paste/paste_policy.dart';
 import 'services/paste/paster.dart' show PasteCapabilityStatus;
 import 'services/permissions/mic_permission_notifier.dart';
 import 'services/model_download_service.dart';
+import 'services/power_event_service.dart';
 import 'services/permissions/startup_permission_gate.dart';
 import 'services/permissions/stale_entry_removal_guide.dart';
+import 'services/permissions/tcc_entry_reset_confirm.dart';
 import 'services/audio_service.dart' show audioInputDevicesProvider;
+import 'services/linux_desktop_shortcut.dart';
+import 'services/hotkey_service.dart'
+    show
+        HotkeyRegistrationStatus,
+        activeGlobalHotkey,
+        globalHotkeyFallbackActiveProvider,
+        quickNoteHotkeyRegistrationStatusProvider,
+        snippetPickerHotkeyRegistrationStatusProvider;
 import 'services/automation_api/automation_api_controller.dart';
 import 'services/microphone_selection_service.dart';
 import 'services/settings_autosave_service.dart';
 import 'services/settings_portability_service.dart'
     show buildSettingsExportBundle;
 import 'services/single_instance_service.dart';
+import 'services/language_cycle_service.dart';
+import 'services/tray_language_menu.dart' show languageMenuName;
 import 'services/graceful_shutdown.dart';
 import 'services/stt/backend_utilization_notifier.dart';
+import 'services/stt/memory_pressure_monitor.dart';
 import 'services/stt/stt_bundle.dart';
+import 'services/stt_parakeet/parakeet_download_service.dart'
+    show ParakeetDownloadState, parakeetDownloadProvider;
 import 'services/stt_parakeet/parakeet_engine_notifier.dart'
     show ParakeetEngineState, parakeetEngineProvider;
 import 'services/telemetry_service.dart';
+import 'services/app_profiles/app_profile_choice.dart';
+import 'services/app_profiles/app_profile_resolver.dart';
+import 'services/tray_host_probe.dart';
+import 'services/system_attention_service.dart';
+import 'services/window_activation.dart';
 import 'services/tray_service.dart';
 import 'services/update_service.dart';
 import 'services/update_actions.dart';
 import 'services/deploy_channel_service.dart';
 import 'widgets/dialog.dart';
 import 'widgets/toast.dart';
+import 'widgets/multiline_paste_preview.dart';
 import 'widgets/feature_spotlight_notice.dart';
 import 'features/onboarding/smart_mode_usage_hint.dart';
+import 'widgets/nudge_input_listener.dart';
 import 'widgets/review_prompt_dialog.dart';
 import 'widgets/support_prompt_dialog.dart';
 
@@ -93,16 +139,30 @@ class WhisPasteApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider);
+    // Starts the sleep/wake channel handler (WP-39, 9.5). Watched without
+    // using the value: the provider lives for the whole app session.
+    ref.watch(powerEventServiceProvider);
+    ref.watch(memoryPressureMonitorProvider);
+    final appearance = ref.watch(
+      settingsProvider.select(
+        (s) => s.value?.interface_.appearance ?? AppearanceMode.navy,
+      ),
+    );
+    // WpColors is read statically all over the tree, so the active set is
+    // switched here and the shell is rebuilt under a new key (AR-21).
+    final colors = colorsForAppearance(
+      appearance,
+      MediaQuery.platformBrightnessOf(context),
+    );
+    WpColors.activate(colors);
 
     return MaterialApp(
       title: 'WhisPaste',
+      navigatorKey: appNavigatorKey,
       debugShowCheckedModeBanner: false,
-      // One theme, passed as `theme:` alone — no `darkTheme:`/`themeMode:`
-      // pair (2026-08-11). Handing the same ThemeData to both slots would
-      // have kept the shape of a choice the app no longer offers, and
-      // `themeMode:` would then be a setting whose every value looks the
-      // same.
-      theme: wpDarkTheme(),
+      // One resolved theme, no `darkTheme:`/`themeMode:` pair: the mode is
+      // resolved above because the brand mode is not a brightness.
+      theme: wpThemeFor(colors),
       locale: locale,
       localizationsDelegates: const [
         ...L10n.localizationsDelegates,
@@ -112,8 +172,13 @@ class WhisPasteApp extends ConsumerWidget {
       // Tracks dialog/route pushes (toasts, review prompt, file pickers) as
       // Sentry breadcrumbs and transactions. Page-level navigation is handled
       // in-shell via activePageProvider and isn't visible to this observer.
-      navigatorObservers: [SentryNavigatorObserver()],
-      home: const _AppShell(),
+      navigatorObservers: [SentryNavigatorObserver(), WpToastPopupObserver()],
+      // The macOS menu bar wraps the whole app; other platforms get the child.
+      builder: (context, child) =>
+          WpAppMenuBarHost(child: child ?? const SizedBox.shrink()),
+      home: DatabaseStartupGate(
+        child: KeyedSubtree(key: ValueKey(colors), child: const _AppShell()),
+      ),
     );
   }
 }
@@ -125,41 +190,47 @@ class WhisPasteApp extends ConsumerWidget {
 /// Ordered in two deliberate groups (separated in the sidebar via
 /// [wpNavDividerAfterIds]):
 ///
-/// 1. **Recording-cycle tools** — History (the record of past recording
-///    cycles), Notizen (freeform notes, independent of any recording), then
-///    the trigger-phrase family: Replacements (transform text), Snippets
-///    (insert stored text).
-/// 2. **Product/meta** — Analytics, Feedback, About (canonical last entry).
+/// 1. **Recording-cycle tools** — Snippets (insert stored text), Notes
+///    (freeform notes, independent of any recording), History (the record of
+///    past recording cycles).
+/// 2. **Text and product tools** — Smart Mode (opens its Settings section),
+///    Replacements (transform text), Analytics, Help. Settings is not in this
+///    list: it is pinned to the bottom of the rail (see [wpSettingsNavItem]).
 List<WpNavItem> wpNavItems(L10n l10n) => [
-  WpNavItem(id: 'history', icon: LucideIcons.clock3, label: l10n.navHistory),
-  WpNavItem(id: 'notes', icon: LucideIcons.stickyNote, label: l10n.navNotes),
-  WpNavItem(
-    id: 'replacements',
-    icon: LucideIcons.replace,
-    label: l10n.navReplacements,
-  ),
   WpNavItem(
     id: 'snippets',
-    icon: LucideIcons.notebookText,
+    icon: LucideIcons.fileText,
     label: l10n.navSnippets,
+  ),
+  WpNavItem(id: 'notes', icon: LucideIcons.stickyNote, label: l10n.navNotes),
+  WpNavItem(id: 'history', icon: LucideIcons.mic, label: l10n.navHistory),
+  // Not a page of its own: opens the Smart Mode section of Settings.
+  WpNavItem(
+    id: 'smartMode',
+    icon: LucideIcons.sparkles,
+    label: l10n.navSmartMode,
+  ),
+  WpNavItem(
+    id: 'replacements',
+    icon: LucideIcons.bookOpen,
+    label: l10n.navReplacements,
   ),
   WpNavItem(
     id: 'analytics',
     icon: LucideIcons.chartNoAxesColumn,
     label: l10n.navAnalytics,
   ),
-  WpNavItem(
-    id: 'feedback',
-    icon: LucideIcons.messageSquare,
-    label: l10n.navFeedback,
-  ),
-  WpNavItem(id: 'about', icon: LucideIcons.info, label: l10n.navAbout),
 ];
+
+/// The Help entry pinned to the bottom of the rail. Feedback is reached from
+/// its page, not from the rail.
+WpNavItem wpHelpNavItem(L10n l10n) =>
+    WpNavItem(id: 'help', icon: LucideIcons.circleHelp, label: l10n.navHelp);
 
 /// Group break between the recording-cycle tools and the product/meta nav items —
 /// single source of truth for every [WpSidebar] call site (app shell,
 /// screenshot shells), so grouping stays consistent everywhere.
-const Set<String> wpNavDividerAfterIds = {'snippets'};
+const Set<String> wpNavDividerAfterIds = {'history', 'replacements'};
 
 /// The Settings entry pinned to the bottom of the rail.
 ///
@@ -177,6 +248,200 @@ WpNavItem wpSettingsNavItem(L10n l10n, {String? badgeHint}) => WpNavItem(
   badgeHint: badgeHint,
 );
 
+/// Whether the dictation path stays on this machine right now: local STT, ready,
+/// idle, and any Smart Mode step that is active also runs locally.
+bool _dictationRunsLocally({
+  required AppSettings settings,
+  required SttServerState sttState,
+  required RecordingPhase phase,
+}) =>
+    settings.sttProviderType.isLocal &&
+    sttState == SttServerState.ready &&
+    phase == RecordingPhase.idle &&
+    (settings.smartMode.standardPreset == 'off' ||
+        settings.smartMode.provider == SmartModeProviderType.local.value);
+
+/// Presets offered by the dock's Smart Mode dropdown, as in Settings.
+const _dockSmartModePresets = ['off', 'cleanup', 'concise', 'translate'];
+
+/// Recognition languages for the dock dropdown: names in the UI language,
+/// sorted by name, as the Settings page lists them.
+List<MapEntry<String, String>> _dockLanguageOptions(BuildContext context) {
+  final localeNames = LocaleNames.of(context);
+  return whisperLanguages.keys
+      .map(
+        (code) => MapEntry(
+          code,
+          localeNames?.nameOf(code) ?? whisperLanguages[code]!,
+        ),
+      )
+      .toList()
+    ..sort((a, b) => a.value.compareTo(b.value));
+}
+
+/// The Smart Mode dropdown of the dock: writes the standard preset. Without a
+/// usable text model only "Off" can be picked: the menu says why, and its
+/// footer leads to where the model is loaded or the key entered (UIA-XP-7-05).
+WpDockChoiceSet _dockSmartModeChoices(
+  WidgetRef ref,
+  AppSettings settings,
+  L10n l10n,
+) {
+  final status = ref.watch(smartModeTextModelStatusProvider);
+  final unavailable = smartModeUnavailableReason(status, l10n);
+  final fixRow = smartModeFixRowId(status);
+  return WpDockChoiceSet(
+    id: 'smart-mode',
+    menuId: 'smart-mode',
+    overline: l10n.navSmartMode,
+    icon: LucideIcons.sparkles,
+    current: settings.smartMode.standardPreset,
+    currentLabel: wpSmartModePresetLabel(
+      settings.smartMode.standardPreset,
+      l10n,
+    ),
+    choices: [
+      for (final preset in _dockSmartModePresets)
+        WpDockChoice(
+          value: preset,
+          label: wpSmartModePresetLabel(preset, l10n),
+          unavailableReason: preset == 'off' ? null : unavailable,
+        ),
+    ],
+    onChanged: (preset) => ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            smartMode: s.smartMode.copyWith(standardPreset: preset),
+          ),
+        ),
+    searchHint: l10n.dockMenuSearchHint,
+    noMatchesLabel: l10n.dockMenuSearchNoMatches,
+    footerLabel:
+        smartModeFixLabel(status, l10n) ?? l10n.dockMenuSmartModeSettings,
+    onFooterTap: () =>
+        _openSettingsRow(ref, fixRow ?? 'text-smart-mode-preset'),
+    note: l10n.dockMenuAppliesNextRecording,
+  );
+}
+
+/// The recognition-language dropdown of the dock, or null where the engine
+/// cannot pick a language per request (Parakeet), as in Settings.
+WpDockChoiceSet? _dockLanguageChoices(
+  BuildContext context,
+  WidgetRef ref,
+  AppSettings settings,
+  L10n l10n,
+) {
+  if (settings.sttProviderType.isLocal &&
+      settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+    return null;
+  }
+  return WpDockChoiceSet(
+    id: 'language',
+    menuId: 'language',
+    overline: l10n.settingsLanguage,
+    icon: LucideIcons.languages,
+    current: settings.sttLanguageCode,
+    currentLabel: sttLanguageDockLabel(
+      settings,
+      l10n,
+      nameOf: LocaleNames.of(context)?.nameOf,
+    ),
+    choices: [
+      WpDockChoice(value: 'auto', label: l10n.settingsLanguageAutoDetect),
+      for (final entry in _dockLanguageOptions(context))
+        WpDockChoice(value: entry.key, label: entry.value),
+    ],
+    onChanged: (code) => ref
+        .read(settingsProvider.notifier)
+        .updateSettings((s) => s.copyWith(sttLanguage: code)),
+    searchHint: l10n.dockMenuSearchHint,
+    noMatchesLabel: l10n.dockMenuSearchNoMatches,
+    note: l10n.dockMenuAppliesNextRecording,
+    favoriteValues: settings.stt.favoriteLanguages,
+    favoritesLabel: l10n.dockMenuFavorites,
+    allLabel: l10n.dockMenuAllLanguages,
+  );
+}
+
+/// The speech-recognition dropdown of the dock. Locked while a dictation runs.
+WpDockChoiceSet _dockEngineChoices(
+  WidgetRef ref,
+  AppSettings settings,
+  L10n l10n,
+  String currentLabel,
+) {
+  final speechModels = ref.watch(selectableSpeechModelsProvider);
+  final missing = ref.watch(missingSelectedSpeechModelProvider);
+  return WpDockChoiceSet(
+    id: 'engine',
+    menuId: 'stt',
+    overline: l10n.settingsSttEngine,
+    icon: LucideIcons.audioLines,
+    current: sttChoiceValue(settings),
+    currentLabel: currentLabel,
+    choices: [
+      for (final choice in sttChoicesFrom(speechModels, l10n, missing: missing))
+        WpDockChoice(
+          value: choice.value,
+          label: choice.label,
+          group: choice.onDevice
+              ? l10n.settingsServiceOnDevicePrivate
+              : l10n.dockMenuGroupCloud,
+        ),
+    ],
+    // Only usable models are offered (UIA-DOCK-02); more are downloaded in
+    // Settings, which the footer opens.
+    onChanged: (value) {
+      if (missing != null && value == missing.downloadChoiceValue) {
+        unawaited(
+          downloadSpeechModel(
+            model: missing,
+            whisper: ref.read(modelDownloadProvider.notifier),
+            parakeet: ref.read(parakeetDownloadProvider.notifier),
+          ),
+        );
+        return;
+      }
+      ref
+          .read(settingsProvider.notifier)
+          .updateSettings((s) => applySttChoice(s, value));
+    },
+    searchHint: l10n.dockMenuSearchHint,
+    noMatchesLabel: l10n.dockMenuSearchNoMatches,
+    footerLabel: l10n.dockMenuSttModels,
+    onFooterTap: () => _openSettingsRow(ref, 'stt-model'),
+    lockedWhileBusy: true,
+    lockedReason: l10n.dockMenuSttLockedReason,
+  );
+}
+
+/// The dock chip's download progress: the Whisper download, else the
+/// Parakeet bundle's when Parakeet is the engine (UIA-MDL-GATE b).
+int? _speechDownloadPercent({
+  required ModelDownloadState whisper,
+  required ParakeetDownloadState? parakeet,
+}) {
+  if (whisper.isBusy) return whisper.progressPercent;
+  if (parakeet != null && parakeet.isBusy) return parakeet.progressPercent;
+  return null;
+}
+
+/// Opens Settings scrolled to [rowId]: the dock's footer links.
+void _openSettingsRow(WidgetRef ref, String rowId) {
+  ref.read(settingsScrollTargetProvider.notifier).set(rowId);
+  ref.read(activePageProvider.notifier).setPage('settings');
+}
+
+/// Localized name of the standard Smart Mode preset (`off` by default).
+String wpSmartModePresetLabel(String preset, L10n l10n) => switch (preset) {
+  'cleanup' => l10n.smartModePresetCleanup,
+  'concise' => l10n.smartModePresetConcise,
+  'translate' => l10n.smartModePresetTranslate,
+  _ => l10n.smartModePresetOff,
+};
+
 /// Resolves the page title — checks nav items first, falls back for
 /// bottom-pinned pages (e.g. Settings).
 String wpPageTitle(String pageId, List<WpNavItem> navItems, L10n l10n) {
@@ -184,7 +449,9 @@ String wpPageTitle(String pageId, List<WpNavItem> navItems, L10n l10n) {
     if (item.id == pageId) return item.label;
   }
   if (pageId == 'settings') return l10n.navSettings;
-  if (pageId == 'support') return l10n.supportPageTitle;
+  // Feedback is reached from Help and has no sidebar entry, so its header
+  // title is the only place that names it (UIA-SHL-07).
+  if (pageId == 'feedback') return l10n.feedbackTitle;
   return '';
 }
 
@@ -215,12 +482,11 @@ const wpPageWidgets = <String, Widget>{
   'history': HistoryPage(),
   'notes': NotesPage(),
   'settings': SettingsPage(),
-  'replacements': ReplacementsPage(),
+  'replacements': DictionaryPage(),
   'snippets': SnippetsPage(),
   'analytics': AnalyticsPage(),
-  'about': AboutPage(),
+  'help': HelpPage(),
   'feedback': FeedbackPage(),
-  'support': SupportPage(),
 };
 
 /// Pure decision for whether the startup permission gate should run,
@@ -262,13 +528,18 @@ bool shouldRunStartupPermissionGate(
 /// during a run "beendet weiterhin die App und ist kein Ausgang — es
 /// stempelt nichts" (still quits the app, is not an exit, stamps nothing) —
 /// the visible exit is a separate, dedicated action, not the window chrome.
+///
+/// Without an initialized tray icon the window is not hidden ([trayReady]
+/// false), because nothing would bring it back (UIA-SHL-02).
 bool shouldHideToTrayOnClose(
   AppSettings? settings, {
   bool onboardingRevisionRunning = false,
+  bool trayReady = true,
 }) =>
     (settings?.closeToTray ?? true) &&
     (settings?.onboarding.onboardingCompleted ?? false) &&
-    !onboardingRevisionRunning;
+    !onboardingRevisionRunning &&
+    trayReady;
 
 /// Root layout: title bar + sidebar + content + status bar.
 class _AppShell extends ConsumerStatefulWidget {
@@ -392,6 +663,38 @@ class _AppShellState extends ConsumerState<_AppShell>
           CrashReporter.instance?.consentGranted = s.errorReporting;
         }
       }, fireImmediately: true);
+
+      // Another app holds the configured hotkey and the safe default stands
+      // in (XP-5-09). fireImmediately also catches a fallback that happened
+      // during start-up, before this frame.
+      ref.listenManual<bool>(globalHotkeyFallbackActiveProvider, (
+        prev,
+        active,
+      ) {
+        if (!active || prev == true || !mounted) return;
+        showHotkeyFallbackToast(context: context, ref: ref);
+        notifyHotkeyFallbackIfHidden(ref: ref, l10n: L10n.of(context));
+      }, fireImmediately: true);
+
+      _listenForPendingDesktopShortcut();
+      _listenTrayHostMissing();
+      _listenProfileSwitchFeedback();
+
+      _listenLanguageCycleFeedback();
+
+      // A settings value that could not be stored was rolled back; say so
+      // once per failure (UIA-SET-01).
+      ref.listenManual<int>(settingsSaveFailuresProvider, (prev, next) {
+        if (next <= (prev ?? 0) || !mounted) return;
+        WpToast.show(
+          context,
+          message: L10n.of(context).settingsSaveFailedToast,
+          type: WpToastType.error,
+        );
+      });
+
+      _listenForQuitRequests();
+      _listenForHotkeyConflicts();
 
       final db = ref.read(historyDatabaseProvider);
       // Ensures Drift's beforeOpen (and _reconcileGoSchema) has run.
@@ -551,7 +854,10 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// capability state.
   Future<void> _runStartupPermissionFlows() async {
     await _maybeStartOnboardingRevisionRun();
+    // Each step awaits; the shell can be torn down in between (app quit).
+    if (!mounted) return;
     await _probeAutoPasteCapability();
+    if (!mounted) return;
     _setupAutoPasteRestartWatch();
     await _runStartupPermissionGate();
   }
@@ -665,6 +971,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     if (!Platform.isMacOS) return;
     final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
     await capNotifier.hydrateRestartMarker();
+    if (!mounted) return;
     await capNotifier.check();
   }
 
@@ -857,9 +1164,122 @@ class _AppShellState extends ConsumerState<_AppShell>
   ///   the user has even reached System Settings.
   Future<void> _startAutoPasteGateGrantFlow() {
     final notifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-    return notifier.grantRequiresEntryReset
-        ? notifier.repairAndRequestGrant()
-        : notifier.requestGrant();
+    return notifier.repairAndRequestGrant(
+      confirmReset: () => confirmTccEntryReset(l10n: L10n.of(context)),
+    );
+  }
+
+  /// GNOME on Wayland without the GlobalShortcuts portal and without
+  /// WhisPaste's GNOME entry (XP-6-14): the hotkey is not system-wide yet.
+  /// Says so once per start and only after onboarding, whose hotkey page
+  /// offers the same block; never for a binding made by hand on another
+  /// desktop, which this app cannot see and would otherwise nag about forever.
+  void _listenForPendingDesktopShortcut() {
+    var shown = false;
+    ref.listenManual<bool>(desktopShortcutPendingProvider, (_, pending) {
+      if (!pending || shown || !mounted) return;
+      final gnome =
+          ref.read(desktopShortcutFallbackProvider).value ==
+          DesktopShortcutFallback.gnome;
+      final onboarded =
+          ref.read(settingsProvider).value?.onboarding.onboardingCompleted ??
+          false;
+      if (!gnome || !onboarded) return;
+      shown = true;
+      showDesktopShortcutToast(context: context, ref: ref);
+    }, fireImmediately: true);
+  }
+
+  /// A profile picked in the tray: confirm it with a toast, so the user sees
+  /// which profile the next recording uses.
+  void _listenProfileSwitchFeedback() {
+    ref.listenManual<ProfileSwitchFeedback?>(profileSwitchFeedbackProvider, (
+      prev,
+      next,
+    ) {
+      if (next == null || !mounted) return;
+      final l10n = L10n.of(context);
+      final label = switch (next.choice) {
+        ProfileChoiceProfile() => next.profileName ?? '',
+        ProfileChoiceNone() => l10n.trayProfileNone,
+        ProfileChoiceAutomatic() => l10n.trayProfileAutomatic,
+      };
+      WpToast.show(
+        context,
+        message: l10n.profileSwitchedToast(ltrIsolate(label)),
+        type: WpToastType.info,
+        messageTestId: 'toast-profile-switched',
+        duration: const Duration(seconds: 4),
+      );
+    });
+  }
+
+  /// Linux without a tray host: the tray quick switch cannot be seen, so say
+  /// so in the app, and as a notification while the window is hidden.
+  void _listenTrayHostMissing() {
+    ref.listenManual<bool>(trayHostMissingProvider, (prev, missing) {
+      if (!missing || prev == true || !mounted) return;
+      final l10n = L10n.of(context);
+      WpToast.show(
+        context,
+        message: l10n.trayLinuxNoTrayHost,
+        type: WpToastType.warning,
+        messageTestId: 'toast-tray-host-missing',
+        duration: const Duration(seconds: 10),
+      );
+      unawaited(() async {
+        final isHidden = ref.read(mainWindowHiddenProvider);
+        if (!await isHidden()) return;
+        await ref
+            .read(systemAttentionServiceProvider)
+            .requestAttention(
+              kind: AttentionKind.trayHostMissing,
+              title: 'WhisPaste',
+              body: l10n.trayLinuxNoTrayHost,
+            );
+      }());
+    }, fireImmediately: true);
+  }
+
+  /// "Next favorite language" hotkey: confirm the new language, or say how to
+  /// get favorites when there are none.
+  void _listenLanguageCycleFeedback() {
+    ref.listenManual<LanguageCycleFeedback?>(languageCycleFeedbackProvider, (
+      prev,
+      next,
+    ) {
+      if (next == null || !mounted) return;
+      final l10n = L10n.of(context);
+      final language = next.language;
+      if (language == null) {
+        WpToast.show(
+          context,
+          message: l10n.languageCycleNoFavoritesToast,
+          type: WpToastType.warning,
+          messageTestId: 'toast-language-cycle-no-favorites',
+          duration: const Duration(seconds: 6),
+          action: WpToastAction(
+            label: l10n.languageCycleOpenSettings,
+            testId: 'toast-language-cycle-open-settings',
+            onPressed: () => _openSettingsRow(ref, 'speech-language'),
+          ),
+        );
+        return;
+      }
+      WpToast.show(
+        context,
+        message: next.duringRecording
+            ? l10n.languageCycleSwitchedNextRecordingToast(
+                languageMenuName(language),
+              )
+            : l10n.languageCycleSwitchedToast(languageMenuName(language)),
+        type: WpToastType.info,
+        messageTestId: 'toast-language-cycle',
+        duration: next.duringRecording
+            ? const Duration(seconds: 4)
+            : const Duration(seconds: 2),
+      );
+    });
   }
 
   @override
@@ -933,21 +1353,21 @@ class _AppShellState extends ConsumerState<_AppShell>
   /// onboarding size.
   Future<void> _restoreRegularWindowGeometry(AppSettings settings) async {
     final geometry = resolveDesktopWindowGeometry(settings);
-    await windowManager.setSize(geometry.size);
-    final position = geometry.position;
+    // Same work-area fit as the start placement in `main.dart`. A fresh
+    // install (no stored position) is centered in the primary work area; the
+    // window has been sitting wherever the onboarding session left it.
+    final placement = WindowPositionClamp.place(
+      position: geometry.position,
+      size: geometry.size,
+      minimum: const Size(WpLayout.minWindowWidth, WpLayout.minWindowHeight),
+      displays: await currentDisplayBounds(),
+      primary: await currentPrimaryWorkArea(),
+    );
+    await windowManager.setSize(placement.size);
+    final position = placement.position;
     if (position != null) {
-      final displays = await currentDisplayBounds();
-      final clamped = WindowPositionClamp.clamp(
-        position: position,
-        size: geometry.size,
-        displays: displays,
-      );
-      await windowManager.setPosition(clamped);
+      await windowManager.setPosition(position);
     } else {
-      // No regular position was ever persisted (fresh install) — the window
-      // has been sitting wherever the onboarding session left it, so it
-      // needs an explicit re-center instead of `main.dart`'s `center: true`
-      // WindowOptions, which only applies at window creation.
       await windowManager.center();
     }
     if (geometry.maximized) {
@@ -973,11 +1393,17 @@ class _AppShellState extends ConsumerState<_AppShell>
     _debounceSaveWindowState();
   }
 
+  bool _trayUnavailableHintShown = false;
+
   @override
   void onWindowClose() async {
+    final settings = ref.read(settingsProvider).value;
+    final onboardingRunning = ref.read(onboardingRevisionRunProvider);
+    final trayReady = ref.read(trayServiceProvider.notifier).isInitialized;
     if (shouldHideToTrayOnClose(
-      ref.read(settingsProvider).value,
-      onboardingRevisionRunning: ref.read(onboardingRevisionRunProvider),
+      settings,
+      onboardingRevisionRunning: onboardingRunning,
+      trayReady: trayReady,
     )) {
       // Just hide — the engine keeps running so floating windows, hotkeys,
       // and recording all continue to work.
@@ -987,9 +1413,26 @@ class _AppShellState extends ConsumerState<_AppShell>
 
       // On macOS, hide from Dock only when the tray icon is available.
       // Without a working tray icon the user would be stranded.
-      final trayReady = ref.read(trayServiceProvider.notifier).isInitialized;
       if (Platform.isMacOS && trayReady) {
         unawaited(MacOSLifecycleChannel.setAccessory());
+      }
+      return;
+    }
+
+    // The user wants close-to-tray, but there is no tray icon to come back
+    // from: minimize, keep the app running, and say so once per session.
+    if (shouldHideToTrayOnClose(
+      settings,
+      onboardingRevisionRunning: onboardingRunning,
+    )) {
+      await windowManager.minimize();
+      if (!_trayUnavailableHintShown && mounted) {
+        _trayUnavailableHintShown = true;
+        WpToast.show(
+          context,
+          message: L10n.of(context).trayUnavailableMinimizedHint,
+          type: WpToastType.info,
+        );
       }
       return;
     }
@@ -1009,15 +1452,20 @@ class _AppShellState extends ConsumerState<_AppShell>
     // switch". Re-probe the Auto-Paste capability so the grant resolves the
     // moment they return, rather than only on the next recording or a poll
     // timeout. Proactively surfacing the correct grant-vs-restart action here
-    // is what keeps every entry point in lock-step. macOS-only: it's the sole
-    // platform with a TCC gate on keystroke injection.
-    if (Platform.isMacOS && kAutoPasteSupported) {
+    // is what keeps every entry point in lock-step. Runs on every platform
+    // with Auto-Paste, so a revoked permission (macOS TCC, Linux uinput) shows
+    // up on return instead of on the next failed paste.
+    if (kAutoPasteSupported) {
       unawaited(
         ref
             .read(pasteCapabilityNotifierProvider.notifier)
             .recheckOnForeground(),
       );
     }
+
+    // Same moment for a login item awaiting approval in Login Items: the user
+    // may have switched it on there, and the hint must clear without a restart.
+    unawaited(ref.read(autostartServiceProvider.notifier).recheckApproval());
 
     // Same "back from System Settings" moment for the microphone permission,
     // but only while onboarding is still running: page 1 shows the mic
@@ -1031,8 +1479,76 @@ class _AppShellState extends ConsumerState<_AppShell>
     }
   }
 
+  /// Turns each Smart-Mode undo notice into the "Rückgängig" toast.
+  void _listenSmartModeUndo() {
+    ref.listen<SmartModeUndoNotice?>(smartModeUndoNoticeProvider, (_, next) {
+      if (next == null || !mounted) return;
+      showSmartModeUndoToast(context: context, ref: ref, entryId: next.entryId);
+    });
+    ref.listen<SmartModeNameChangeNotice?>(smartModeNameChangeNoticeProvider, (
+      _,
+      next,
+    ) {
+      if (next == null || !mounted) return;
+      showSmartModeNameChangeToast(context: context, ref: ref, notice: next);
+    });
+  }
+
+  /// A quick-note or snippet-picker hotkey that another app holds says so once,
+  /// with a way to its setting (UIA-SHL-05).
+  void _listenForHotkeyConflicts() {
+    void openSetting(String rowId) {
+      ref.read(settingsScrollTargetProvider.notifier).set(rowId);
+      ref.read(activePageProvider.notifier).setPage('settings');
+    }
+
+    ref.listenManual<HotkeyRegistrationStatus>(
+      quickNoteHotkeyRegistrationStatusProvider,
+      (prev, next) {
+        if (!mounted || !isNewHotkeyConflict(prev, next)) return;
+        showHotkeyConflictToast(
+          context: context,
+          l10n: L10n.of(context),
+          actionName: L10n.of(context).settingsHotkeyActionQuickNote,
+          onChange: () => openSetting('general-hotkey-quick-note'),
+        );
+      },
+      fireImmediately: true,
+    );
+    ref.listenManual<HotkeyRegistrationStatus>(
+      snippetPickerHotkeyRegistrationStatusProvider,
+      (prev, next) {
+        if (!mounted || !isNewHotkeyConflict(prev, next)) return;
+        showHotkeyConflictToast(
+          context: context,
+          l10n: L10n.of(context),
+          actionName: L10n.of(context).settingsHotkeyActionSnippetPicker,
+          onChange: () => openSetting('general-hotkey-snippet-picker'),
+        );
+      },
+      fireImmediately: true,
+    );
+  }
+
+  /// The tray asked to quit during a dictation: confirm before the shutdown
+  /// (UIA-SHL-15). Cancel leaves the app running.
+  void _listenForQuitRequests() {
+    ref.listenManual<int>(quitConfirmRequestProvider, (prev, next) {
+      if (next == (prev ?? 0) || !mounted) return;
+      unawaited(() async {
+        final quit = await showWpQuitDuringDictationDialog(
+          context: context,
+          l10n: L10n.of(context),
+        );
+        if (!quit || !mounted) return;
+        await ref.read(trayServiceProvider.notifier).quitConfirmed();
+      }());
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    _listenSmartModeUndo();
     final activePage = ref.watch(activePageProvider);
     final recordingPhase = ref.watch(recordingPhaseProvider);
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
@@ -1040,8 +1556,24 @@ class _AppShellState extends ConsumerState<_AppShell>
     final resolvedAfterAction = resolveAfterTranscriptionAction(
       settings.afterTranscriptionAction,
     );
+    // Done label from the real outcome: the target of the finished
+    // recording and whether its paste failed, not just the setting.
+    final doneTarget = ref.watch(recordingTargetProvider);
+    final pasteFailed = ref.watch(
+      recordingProvider.select((s) => s.pasteFailed),
+    );
+    final copiedOnly = ref.watch(recordingProvider.select((s) => s.copiedOnly));
+    final historyOnly = ref.watch(
+      recordingProvider.select((s) => s.historyOnly),
+    );
 
     final l10n = L10n.of(context);
+    final activeHotkey = activeGlobalHotkey(
+      settings,
+      fallback:
+          settings.hotkeyEnabled &&
+          ref.watch(globalHotkeyFallbackActiveProvider),
+    );
     final navItems = wpNavItems(l10n);
     final sttStatus = ref.watch(localSttBundleProvider);
     final isParakeetEngine = settings.onDeviceEngine == OnDeviceEngine.parakeet;
@@ -1051,11 +1583,16 @@ class _AppShellState extends ConsumerState<_AppShell>
     final statusBarSttState = parakeetStatus != null
         ? _sttServerStateFor(parakeetStatus.state)
         : sttStatus.serverState;
-    final sttModelMissing = ref.watch(missingSttModelProvider) != null;
+    // Whisper and Parakeet alike, from the dock selector's own list
+    // (UIA-MDL-GATE b).
+    final sttModelMissing =
+        ref.watch(missingSelectedSpeechModelProvider) != null;
     final modelDownload = ref.watch(modelDownloadProvider);
-    final sttModelDownloadPercent = modelDownload.isBusy
-        ? modelDownload.progressPercent
-        : null;
+    final parakeetDownload = ref.watch(parakeetDownloadProvider);
+    final sttModelDownloadPercent = _speechDownloadPercent(
+      whisper: modelDownload,
+      parakeet: isParakeetEngine ? parakeetDownload : null,
+    );
     // The indicator only earns its keep for the local Whisper engine, where
     // "GPU or CPU?" is an actual question with two possible answers. Parakeet
     // picks its own backend (GPU with a CPU fallback) and does not surface it.
@@ -1077,6 +1614,16 @@ class _AppShellState extends ConsumerState<_AppShell>
               : null)
         : null;
     final statusBarModel = buildStatusBarModel(settings: settings, l10n: l10n);
+    // Below the compact breakpoint the sidebar collapses to its icon rail.
+    final compactRail =
+        MediaQuery.sizeOf(context).width < WpShellTokens.breakpointCompact;
+    // "Lokal bereit" only when dictation provably runs on this machine:
+    // local STT, ready, idle, and any active Smart Mode step runs locally too.
+    final localProcessing = _dictationRunsLocally(
+      settings: settings,
+      sttState: statusBarSttState,
+      phase: recordingPhase,
+    );
     final updateState = ref.watch(updateProvider);
     final deployChannel = ref.watch(deployChannelProvider);
 
@@ -1098,7 +1645,7 @@ class _AppShellState extends ConsumerState<_AppShell>
     );
 
     // Content panel uses a warm gradient for depth (both themes)
-    const contentDecoration = BoxDecoration(
+    final contentDecoration = BoxDecoration(
       gradient: WpColors.warmSurfaceGradient,
       borderRadius: contentRadius,
     );
@@ -1114,341 +1661,382 @@ class _AppShellState extends ConsumerState<_AppShell>
           meta: Platform.isMacOS,
         ): () =>
             ref.read(activePageProvider.notifier).setPage('settings'),
+        // F1 and Cmd/Ctrl+?: open Help from anywhere (WP-78).
+        ...helpShortcuts(
+          () => ref.read(activePageProvider.notifier).setPage('help'),
+        ),
       },
-      child: WpReviewPromptWatcher(
-        child: WpSupportPromptWatcher(
-          child: WpFeatureSpotlightWatcher(
-            child: SmartModeUsageHintWatcher(
-              child: WpServiceBootstrap(
-                child: WpRecordingBehavior(
-                  child: Scaffold(
-                    backgroundColor: Colors.transparent,
-                    body: Stack(
-                      children: [
-                        // The frame — one diagonal ambient for title bar, nav
-                        // rail and status bar together, painted here and
-                        // nowhere else. None of the three bars carries a ground
-                        // of its own (gated in frame_single_paint_test.dart):
-                        // a flat fill on one strip would cut a seam across a
-                        // gradient that has to read as a single light source.
-                        // Any future depth belongs *inside* this DecoratedBox,
-                        // never as a second layer above it — see *The
-                        // One-Atmosphere Rule*.
-                        const DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: WpColors.frameGradient,
-                          ),
-                          child: SizedBox.expand(),
-                        ),
-                        // Main layout
-                        Column(
+      child: WpNudgeInputListener(
+        child: WpReviewPromptWatcher(
+          child: WpSupportPromptWatcher(
+            child: WpFeatureSpotlightWatcher(
+              child: SmartModeUsageHintWatcher(
+                child: WpServiceBootstrap(
+                  child: WpRecordingBehavior(
+                    child: Scaffold(
+                      backgroundColor: Colors.transparent,
+                      body: WpAudioDropZone(
+                        child: Stack(
                           children: [
-                            const WpTitleBar(),
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  WpSidebar(
-                                    items: navItems,
-                                    dividerAfterIds: wpNavDividerAfterIds,
-                                    activeId: activePage,
-                                    onItemTap: (id) {
-                                      ref
-                                          .read(activePageProvider.notifier)
-                                          .setPage(id);
-                                    },
-                                    bottomItems: [
-                                      // Attention dot on the gear whenever a
-                                      // newer version is waiting — reuses the
-                                      // existing `updateProvider` phase rather
-                                      // than tracking a second "seen" state,
-                                      // and reuses the sentence the status bar
-                                      // already shows so the dot is never a
-                                      // bare, unexplained mark.
-                                      wpSettingsNavItem(
-                                        l10n,
-                                        badgeHint:
-                                            updateState.phase ==
-                                                UpdatePhase.available
-                                            ? l10n.updateAvailable(
-                                                updateState.latestVersion ?? '',
-                                              )
-                                            : null,
-                                      ),
-                                    ],
+                            // The frame — one diagonal ambient for title bar, nav
+                            // rail and status bar together, painted here and
+                            // nowhere else. None of the three bars carries a ground
+                            // of its own (gated in frame_single_paint_test.dart):
+                            // a flat fill on one strip would cut a seam across a
+                            // gradient that has to read as a single light source.
+                            // Any future depth belongs *inside* this DecoratedBox,
+                            // never as a second layer above it — see *The
+                            // One-Atmosphere Rule*.
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: WpColors.frame.frameGradient,
+                              ),
+                              child: const SizedBox.expand(),
+                            ),
+                            // Main layout: the title band, the full-height sidebar and the
+                            // content panel with its dock (chat-08, WP-20).
+                            WpAppShell(
+                              titleBar: WpTitleBar(
+                                // macOS has the global menu bar instead.
+                                actions: [
+                                  if (!Platform.isMacOS)
+                                    const WpTitleBarMenuButton(),
+                                ],
+                              ),
+                              sidebar: WpSidebar(
+                                compact: compactRail,
+                                items: navItems,
+                                dividerAfterIds: wpNavDividerAfterIds,
+                                activeId: activePage,
+                                onItemTap: (id) {
+                                  if (id == 'smartMode') {
+                                    ref
+                                        .read(
+                                          settingsScrollTargetProvider.notifier,
+                                        )
+                                        .set('text-smart-mode-preset');
+                                    ref
+                                        .read(activePageProvider.notifier)
+                                        .setPage('settings');
+                                    return;
+                                  }
+                                  ref
+                                      .read(activePageProvider.notifier)
+                                      .setPage(id);
+                                },
+                                bottomItems: [
+                                  wpHelpNavItem(l10n),
+                                  // Attention dot on the gear whenever a
+                                  // newer version is waiting — reuses the
+                                  // existing `updateProvider` phase rather
+                                  // than tracking a second "seen" state,
+                                  // and reuses the sentence the status bar
+                                  // already shows so the dot is never a
+                                  // bare, unexplained mark.
+                                  wpSettingsNavItem(
+                                    l10n,
+                                    badgeHint:
+                                        updateState.phase ==
+                                            UpdatePhase.available
+                                        ? l10n.updateAvailable(
+                                            updateState.latestVersion ?? '',
+                                          )
+                                        : null,
                                   ),
-                                  // Content area — rounded panel with warm gradient
+                                ],
+                              ),
+                              contentDecoration: contentDecoration,
+                              content: Column(
+                                children: [
+                                  // Recording indicator — thin pulsing bar
+                                  WpRecordingIndicatorBar(
+                                    phase: recordingPhase,
+                                  ),
+                                  // Page header with smooth title transition
+                                  AnimatedSwitcher(
+                                    duration: WpMotion.durationFor(
+                                      context,
+                                      WpMotion.fast,
+                                    ),
+                                    child: _PageHeader(
+                                      key: ValueKey('header-$activePage'),
+                                      title: wpPageTitle(activePage, [
+                                        ...navItems,
+                                        wpHelpNavItem(l10n),
+                                      ], l10n),
+                                    ),
+                                  ),
+                                  // Content with page transition animation
                                   Expanded(
-                                    child: Container(
-                                      decoration: contentDecoration,
-                                      clipBehavior: Clip.antiAlias,
-                                      child: Column(
-                                        children: [
-                                          // Recording indicator — thin pulsing bar
-                                          WpRecordingIndicatorBar(
-                                            phase: recordingPhase,
+                                    child: AnimatedSwitcher(
+                                      duration: WpMotion.durationFor(
+                                        context,
+                                        WpMotion.normal,
+                                      ),
+                                      switchInCurve: WpMotion.defaultCurve,
+                                      switchOutCurve: WpMotion.defaultCurve,
+                                      transitionBuilder: (child, animation) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: SlideTransition(
+                                            position: Tween<Offset>(
+                                              begin: const Offset(0.0, 0.015),
+                                              end: Offset.zero,
+                                            ).animate(animation),
+                                            child: child,
                                           ),
-                                          // Page header with smooth title transition
-                                          AnimatedSwitcher(
-                                            duration: WpMotion.durationFor(
-                                              context,
-                                              WpMotion.fast,
-                                            ),
-                                            child: _PageHeader(
-                                              key: ValueKey(
-                                                'header-$activePage',
-                                              ),
-                                              title: wpPageTitle(
-                                                activePage,
-                                                navItems,
-                                                l10n,
-                                              ),
-                                            ),
-                                          ),
-                                          // Content with page transition animation
-                                          Expanded(
-                                            child: AnimatedSwitcher(
-                                              duration: WpMotion.durationFor(
-                                                context,
-                                                WpMotion.normal,
-                                              ),
-                                              switchInCurve:
-                                                  WpMotion.defaultCurve,
-                                              switchOutCurve:
-                                                  WpMotion.defaultCurve,
-                                              transitionBuilder:
-                                                  (child, animation) {
-                                                    return FadeTransition(
-                                                      opacity: animation,
-                                                      child: SlideTransition(
-                                                        position: Tween<Offset>(
-                                                          begin: const Offset(
-                                                            0.0,
-                                                            0.015,
-                                                          ),
-                                                          end: Offset.zero,
-                                                        ).animate(animation),
-                                                        child: child,
-                                                      ),
-                                                    );
-                                                  },
-                                              child: KeyedSubtree(
-                                                key: ValueKey(activePage),
-                                                child:
-                                                    wpPageWidgets[activePage] ??
-                                                    const SizedBox.shrink(),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                        );
+                                      },
+                                      child: KeyedSubtree(
+                                        key: ValueKey(activePage),
+                                        child:
+                                            wpPageWidgets[activePage] ??
+                                            const SizedBox.shrink(),
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
-                            ),
-                            // Status bar — sits on the frame, full width.
-                            //
-                            // `backendUtilizationPercent` alone is wrapped in a
-                            // `Consumer`: `backendUtilizationProvider` ticks
-                            // every ~3 s (see backend_utilization_notifier.dart),
-                            // and watching it directly in this method's `build`
-                            // would rebuild the entire app shell — nav rail,
-                            // active page, animations — on every tick for a
-                            // value only this one status-bar chip renders. The
-                            // `.select` narrows it further to just the field
-                            // this chip actually reads, so only this `Consumer`
-                            // rebuilds each tick.
-                            Consumer(
-                              builder: (context, ref, child) {
-                                final backendUtilizationPercent = ref.watch(
-                                  backendUtilizationProvider.select(
-                                    (s) => s.cpuPercent,
-                                  ),
-                                );
-                                final automationApiState = ref.watch(
-                                  automationApiControllerProvider,
-                                );
-                                final supportStatus = ref.watch(
-                                  supportStatusProvider,
-                                );
-                                final supportChipMode =
-                                    !supportStatus.showsSponsorChip
-                                    ? null
-                                    : supportStatus.suppressesPrompts
-                                    ? WpSupportChipMode.thanks
-                                    : WpSupportChipMode.sponsor;
-                                return WpStatusBar(
-                                  supportChipMode: supportChipMode,
-                                  onSupportTap: () => ref
-                                      .read(activePageProvider.notifier)
-                                      .setPage('support'),
-                                  onSupportHide: supportStatus.suppressesPrompts
-                                      ? () => ref
-                                            .read(
-                                              supportStatusProvider.notifier,
-                                            )
-                                            .hideChip()
-                                      : null,
-                                  sttModeLabel: statusBarModel.sttModeLabel,
-                                  sttState: statusBarSttState,
-                                  backendKind: sttBackendKind,
-                                  backendUtilizationPercent:
-                                      backendUtilizationPercent,
-                                  // Parakeet has no starting-since timestamp (no
-                                  // "warming up" phase to time) — the status bar
-                                  // simply shows no elapsed-time hint for it.
-                                  sttStartingSince: parakeetStatus != null
-                                      ? null
-                                      : sttStatus.startingSince,
-                                  sttModelMissing: sttModelMissing,
-                                  sttModelDownloadPercent:
-                                      sttModelDownloadPercent,
-                                  recordingPhase: recordingPhase,
-                                  afterActionLabel:
-                                      afterTranscriptionStatusLabel(
-                                        resolvedAfterAction,
-                                        l10n,
-                                      ),
-                                  afterAction: resolvedAfterAction,
-                                  microphoneLabel: currentMic,
-                                  microphoneOptions: micOptions,
-                                  onMicrophoneChanged: (label) {
-                                    unawaited(
-                                      ref
-                                          .read(
-                                            microphoneSelectionServiceProvider,
-                                          )
-                                          .select(label),
-                                    );
-                                  },
-                                  onMicrophoneMenuOpened: () =>
-                                      ref.invalidate(audioInputDevicesProvider),
-                                  hotkeyLabel: formatHotkeyShortcut(
-                                    settings.hotkeyModifiers,
-                                    settings.hotkeyKey,
-                                    l10n: l10n,
-                                    displayOverride:
-                                        settings.hotkey.hotkeyKeyDisplay,
-                                  ),
-                                  hotkeyEnabled: settings.hotkeyEnabled,
-                                  updateVersion:
-                                      updateState.phase == UpdatePhase.available
-                                      ? updateState.latestVersion
-                                      : null,
-                                  updateReadyToInstall:
-                                      updateState.phase ==
-                                      UpdatePhase.readyToInstall,
-                                  showAutoPasteOffHint:
-                                      shouldShowAutoPasteOffHint(
-                                        afterAction: resolvedAfterAction,
-                                        onboardingCompleted: settings
-                                            .onboarding
-                                            .onboardingCompleted,
-                                        autoPasteOffHintDismissed: settings
-                                            .onboarding
-                                            .autoPasteOffHintDismissed,
-                                      ),
-                                  onAutoPasteOffHintTap: () {
-                                    ref
-                                        .read(
-                                          settingsScrollTargetProvider.notifier,
-                                        )
-                                        .set('afterTranscription');
-                                    ref
-                                        .read(activePageProvider.notifier)
-                                        .setPage('settings');
-                                  },
-                                  onAutoPasteOffHintDismiss: () {
-                                    ref
-                                        .read(settingsProvider.notifier)
-                                        .updateSettings(
-                                          (s) => s.copyWithSections(
-                                            onboarding: s.onboarding.copyWith(
-                                              autoPasteOffHintDismissed: true,
+                              dock: // Recording dock — sits on the frame, full width.
+                                  //
+                                  // `backendUtilizationPercent` alone is wrapped in a
+                                  // `Consumer`: `backendUtilizationProvider` ticks
+                                  // every ~3 s (see backend_utilization_notifier.dart),
+                                  // and watching it directly in this method's `build`
+                                  // would rebuild the entire app shell — nav rail,
+                                  // active page, animations — on every tick for a
+                                  // value only this one status-bar chip renders. The
+                                  // `.select` narrows it further to just the field
+                                  // this chip actually reads, so only this `Consumer`
+                                  // rebuilds each tick.
+                                  Consumer(
+                                    builder: (context, ref, child) {
+                                      final backendUtilizationPercent = ref
+                                          .watch(
+                                            backendUtilizationProvider.select(
+                                              (s) => s.cpuPercent,
                                             ),
-                                          ),
-                                        );
-                                  },
-                                  onHotkeyTap: () {
-                                    ref
-                                        .read(
-                                          settingsScrollTargetProvider.notifier,
-                                        )
-                                        .set('hotkey');
-                                    ref
-                                        .read(activePageProvider.notifier)
-                                        .setPage('settings');
-                                  },
-                                  onSttTap: () {
-                                    ref
-                                        .read(
-                                          settingsScrollTargetProvider.notifier,
-                                        )
-                                        .set('stt');
-                                    ref
-                                        .read(activePageProvider.notifier)
-                                        .setPage('settings');
-                                  },
-                                  onAfterActionChanged: (action) {
-                                    ref
-                                        .read(settingsProvider.notifier)
-                                        .updateSettings(
-                                          (s) => s.copyWith(
-                                            afterTranscription: action.value,
-                                          ),
-                                        );
-                                  },
-                                  onUpdateTap: () => triggerUpdateAction(
-                                    ref: ref,
-                                    updateState: updateState,
-                                    channel: deployChannel,
+                                          );
+                                      final automationApiState = ref.watch(
+                                        automationApiControllerProvider,
+                                      );
+                                      final supportStatus = ref.watch(
+                                        supportStatusProvider,
+                                      );
+                                      final supportChipMode =
+                                          !supportStatus.showsSponsorChip
+                                          ? null
+                                          : supportStatus.suppressesPrompts
+                                          ? WpSupportChipMode.thanks
+                                          : WpSupportChipMode.sponsor;
+                                      return WpRecordingDock(
+                                        localProcessing: localProcessing,
+                                        smartMode: _dockSmartModeChoices(
+                                          ref,
+                                          settings,
+                                          l10n,
+                                        ),
+                                        language: _dockLanguageChoices(
+                                          context,
+                                          ref,
+                                          settings,
+                                          l10n,
+                                        ),
+                                        supportChipMode: supportChipMode,
+                                        onSupportTap: () => ref
+                                            .read(activePageProvider.notifier)
+                                            .setPage('support'),
+                                        sttModeLabel:
+                                            statusBarModel.sttModeLabel,
+                                        engine: _dockEngineChoices(
+                                          ref,
+                                          settings,
+                                          l10n,
+                                          statusBarModel.sttModeLabel,
+                                        ),
+                                        sttState: statusBarSttState,
+                                        backendKind: sttBackendKind,
+                                        backendUtilizationPercent:
+                                            backendUtilizationPercent,
+                                        // Parakeet has no starting-since timestamp (no
+                                        // "warming up" phase to time) — the status bar
+                                        // simply shows no elapsed-time hint for it.
+                                        sttStartingSince: parakeetStatus != null
+                                            ? null
+                                            : sttStatus.startingSince,
+                                        sttModelMissing: sttModelMissing,
+                                        sttModelDownloadPercent:
+                                            sttModelDownloadPercent,
+                                        recordingPhase: recordingPhase,
+                                        doneMessage: doneMessageFor(
+                                          resolvedAfterAction.value,
+                                          l10n,
+                                          target: doneTarget,
+                                          pasteFailed: pasteFailed,
+                                          copiedOnly: copiedOnly,
+                                          historyOnly: historyOnly,
+                                        ),
+                                        donePasteFailed: pasteFailed,
+                                        afterActionLabel:
+                                            afterTranscriptionDockLabel(
+                                              resolvedAfterAction,
+                                              l10n,
+                                            ),
+                                        afterAction: resolvedAfterAction,
+                                        microphoneLabel: currentMic,
+                                        microphoneOptions: micOptions,
+                                        onMicrophoneChanged: (label) {
+                                          unawaited(
+                                            ref
+                                                .read(
+                                                  microphoneSelectionServiceProvider,
+                                                )
+                                                .select(label),
+                                          );
+                                        },
+                                        onMicrophoneMenuOpened: () =>
+                                            ref.invalidate(
+                                              audioInputDevicesProvider,
+                                            ),
+                                        hotkeyLabel: formatHotkeyKeycap(
+                                          activeHotkey.modifiers,
+                                          activeHotkey.key,
+                                          l10n: l10n,
+                                          displayOverride: activeHotkey.display,
+                                        ),
+                                        hotkeyEnabled: settings.hotkeyEnabled,
+                                        updateVersion:
+                                            updateState.phase ==
+                                                UpdatePhase.available
+                                            ? updateState.latestVersion
+                                            : null,
+                                        updateReadyToInstall:
+                                            updateState.phase ==
+                                            UpdatePhase.readyToInstall,
+                                        showAutoPasteOffHint:
+                                            shouldShowAutoPasteOffHint(
+                                              afterAction: resolvedAfterAction,
+                                              onboardingCompleted: settings
+                                                  .onboarding
+                                                  .onboardingCompleted,
+                                              autoPasteOffHintDismissed: settings
+                                                  .onboarding
+                                                  .autoPasteOffHintDismissed,
+                                            ),
+                                        onAutoPasteOffHintTap: () {
+                                          ref
+                                              .read(
+                                                settingsScrollTargetProvider
+                                                    .notifier,
+                                              )
+                                              .set(
+                                                'text-after-dictation-action',
+                                              );
+                                          ref
+                                              .read(activePageProvider.notifier)
+                                              .setPage('settings');
+                                        },
+                                        onAutoPasteOffHintDismiss: () {
+                                          ref
+                                              .read(settingsProvider.notifier)
+                                              .updateSettings(
+                                                (s) => s.copyWithSections(
+                                                  onboarding: s.onboarding
+                                                      .copyWith(
+                                                        autoPasteOffHintDismissed:
+                                                            true,
+                                                      ),
+                                                ),
+                                              );
+                                        },
+                                        onHotkeyTap: () {
+                                          ref
+                                              .read(
+                                                settingsScrollTargetProvider
+                                                    .notifier,
+                                              )
+                                              .set('general-hotkey-dictation');
+                                          ref
+                                              .read(activePageProvider.notifier)
+                                              .setPage('settings');
+                                        },
+                                        onSttTap: () {
+                                          ref
+                                              .read(
+                                                settingsScrollTargetProvider
+                                                    .notifier,
+                                              )
+                                              .set('stt-model');
+                                          ref
+                                              .read(activePageProvider.notifier)
+                                              .setPage('settings');
+                                        },
+                                        onAfterActionChanged: (action) {
+                                          ref
+                                              .read(settingsProvider.notifier)
+                                              .updateSettings(
+                                                (s) => s.copyWith(
+                                                  afterTranscription:
+                                                      action.value,
+                                                ),
+                                              );
+                                        },
+                                        onUpdateTap: () => triggerUpdateAction(
+                                          ref: ref,
+                                          updateState: updateState,
+                                          channel: deployChannel,
+                                        ),
+                                        automationApiRunState:
+                                            automationApiState.runState,
+                                        automationApiPort:
+                                            automationApiState.port,
+                                        automationApiRequestedPort:
+                                            automationApiState.requestedPort,
+                                        onAutomationApiTap: () {
+                                          ref
+                                              .read(
+                                                settingsScrollTargetProvider
+                                                    .notifier,
+                                              )
+                                              .set('advanced-automation-api');
+                                          ref
+                                              .read(activePageProvider.notifier)
+                                              .setPage('settings');
+                                        },
+                                      );
+                                    },
                                   ),
-                                  automationApiRunState:
-                                      automationApiState.runState,
-                                  automationApiPort: automationApiState.port,
-                                  automationApiRequestedPort:
-                                      automationApiState.requestedPort,
-                                  onAutomationApiTap: () {
-                                    ref
-                                        .read(
-                                          settingsScrollTargetProvider.notifier,
-                                        )
-                                        .set('automationApi');
-                                    ref
-                                        .read(activePageProvider.notifier)
-                                        .setPage('settings');
-                                  },
-                                );
-                              },
                             ),
+                            // Onboarding overlay — the first launch, a review the
+                            // user reopened from Settings, or an onboarding
+                            // revision run (`.scratch/onboarding-revisions/
+                            // issues/03`). `onboardingCompleted` alone no longer
+                            // decides which of the latter two it is — both start
+                            // with setup already done — so the ephemeral revision
+                            // flag breaks the tie; the two are mutually exclusive
+                            // by construction (see `OnboardingOverlay.revisionRun`).
+                            // Multiline preview for automation inserts (WP-38 / 8.5).
+                            const WpMultilinePastePreviewHost(),
+                            if (ref.watch(onboardingSurfaceActiveProvider))
+                              Positioned.fill(
+                                child: OnboardingOverlay(
+                                  manualReview:
+                                      settings.onboarding.onboardingCompleted &&
+                                      !onboardingRevisionRunning,
+                                  revisionRun: onboardingRevisionRunning,
+                                ),
+                              ),
                           ],
                         ),
-                        // Onboarding overlay — the first launch, a review the
-                        // user reopened from Settings, or an onboarding
-                        // revision run (`.scratch/onboarding-revisions/
-                        // issues/03`). `onboardingCompleted` alone no longer
-                        // decides which of the latter two it is — both start
-                        // with setup already done — so the ephemeral revision
-                        // flag breaks the tie; the two are mutually exclusive
-                        // by construction (see `OnboardingOverlay.revisionRun`).
-                        if (ref.watch(onboardingSurfaceActiveProvider))
-                          Positioned.fill(
-                            child: OnboardingOverlay(
-                              manualReview:
-                                  settings.onboarding.onboardingCompleted &&
-                                  !onboardingRevisionRunning,
-                              revisionRun: onboardingRevisionRunning,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ), // Scaffold
-                ), // WpRecordingBehavior
-              ), // WpServiceBootstrap
-            ), // SmartModeUsageHintWatcher
-          ), // WpFeatureSpotlightWatcher
-        ), // WpSupportPromptWatcher
-      ), // WpReviewPromptWatcher
+                      ),
+                    ), // Scaffold
+                  ), // WpRecordingBehavior
+                ), // WpServiceBootstrap
+              ), // SmartModeUsageHintWatcher
+            ), // WpFeatureSpotlightWatcher
+          ), // WpSupportPromptWatcher
+        ), // WpReviewPromptWatcher
+      ), // WpNudgeInputListener
     ); // CallbackShortcuts
   }
 }
@@ -1468,11 +2056,7 @@ class _PageHeader extends StatelessWidget {
         WpSpacing.xl,
         WpSpacing.xs,
       ),
-      child: Row(
-        children: [
-          Text(title, style: Theme.of(context).textTheme.headlineLarge),
-        ],
-      ),
+      child: WpPageHeader(title: title),
     );
   }
 }

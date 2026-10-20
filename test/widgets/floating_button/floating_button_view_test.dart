@@ -14,27 +14,24 @@ library;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/generated/wp_tokens.g.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_button/floating_button_controller_interface.dart';
 import 'package:whispaste/widgets/floating_button/floating_button_view.dart';
 
 void main() {
   group('WpFloatingButtonView.painterFor — spec sourcing (AC1)', () {
-    test('disc, border and mic geometry come from OverlayDesignSpec', () {
-      final painter = WpFloatingButtonView.painterFor(
-        state: FloatingButtonVisualState.idle,
-      );
-      expect(painter.spec, same(OverlayDesignSpec.button));
-      expect(painter.spec.discColor, const Color(0xFFFFFFFF));
-      expect(painter.spec.discGradientEnd, const Color(0xFFEDF1F6));
-      expect(painter.spec.borderColor, const Color(0x1A101828));
-      expect(painter.spec.mic, same(FloatingButtonMicSpec.spike));
-      expect(painter.iconColor, OverlayDesignSpec.button.iconColor);
-    });
-
-    test('V2 fidelity — no glow', () {
-      expect(OverlayDesignSpec.button.hasGlow, isFalse);
-    });
+    test(
+      'disc follows the marine preset, mic geometry from OverlayDesignSpec',
+      () {
+        final painter = WpFloatingButtonView.painterFor(
+          state: FloatingButtonVisualState.idle,
+        );
+        expect(painter.spec.discColor, WpOverlayTokens.overlayMarineSurface);
+        expect(painter.spec.mic, same(FloatingButtonMicSpec.spike));
+        expect(painter.iconColor, WpOverlayTokens.overlayMarineInk);
+      },
+    );
 
     test('idle and disabled have a solid dark mic (no gradient)', () {
       for (final s in const [
@@ -45,12 +42,16 @@ void main() {
       }
     });
 
-    test('active states map to the SSOT state gradients', () {
+    test('active states map to the signal glyph stops of their tone', () {
       expect(
         WpFloatingButtonView.iconGradientFor(
           FloatingButtonVisualState.recording,
+          OverlayDesignSpec.colorsFor(),
         ),
-        OverlayDesignSpec.stateGradients[OverlayDesignState.recording]!.stops,
+        OverlayDesignSpec.glyphStopsFor(
+          OverlayDesignState.recording,
+          OverlayDesignSpec.colorsFor(),
+        ),
       );
       expect(
         WpFloatingButtonView.designStateFor(
@@ -61,16 +62,19 @@ void main() {
     });
   });
 
-  group('done-gradient middle stop is #30C065 (AC4)', () {
+  group('done mic tint is the flat signal green (WP-75)', () {
     test(
-      'the done mic tint carries the canonical green as its middle stop',
+      'the done mic tint is the dark-tone done signal on a dark background',
       () {
         final painter = WpFloatingButtonView.painterFor(
           state: FloatingButtonVisualState.done,
         );
         expect(painter.iconGradient, isNotNull);
-        expect(painter.iconGradient!, hasLength(3));
-        expect(painter.iconGradient![1], const Color(0xFF30C065));
+        expect(painter.iconGradient!, hasLength(2));
+        expect(
+          painter.iconGradient!.first,
+          WpOverlayTokens.overlaySignalDarkDone,
+        );
       },
     );
   });

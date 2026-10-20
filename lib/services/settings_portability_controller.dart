@@ -213,7 +213,9 @@ class SettingsPortabilityController {
       toaster(
         context,
         WpToastType.error,
-        L10n.of(context).settingsPortabilityExportError(_message(e)),
+        L10n.of(
+          context,
+        ).settingsPortabilityExportError(_message(e, L10n.of(context))),
       );
       return;
     }
@@ -225,8 +227,9 @@ class SettingsPortabilityController {
       attempt: (path) => service.exportToFile(path, bundle),
       onSuccess: (path) =>
           L10n.of(context).settingsPortabilityExportSuccess(path),
-      onError: (e) =>
-          L10n.of(context).settingsPortabilityExportError(_message(e)),
+      onError: (e) => L10n.of(
+        context,
+      ).settingsPortabilityExportError(_message(e, L10n.of(context))),
     );
   }
 
@@ -250,7 +253,9 @@ class SettingsPortabilityController {
       // and silently retried by `_runFileOp` below, never reaching a toast.
       onError: (e) => e is SettingsImportFileNotFoundException
           ? L10n.of(context).settingsPortabilityImportNotFound(e.path)
-          : L10n.of(context).settingsPortabilityImportError(_message(e)),
+          : L10n.of(
+              context,
+            ).settingsPortabilityImportError(_message(e, L10n.of(context))),
     );
   }
 
@@ -467,16 +472,14 @@ class SettingsPortabilityController {
   }
 
   /// Best-effort extraction of a human-readable message from [error].
-  static String _message(Object error) {
-    if (error is SettingsImportFormatException) return error.message;
-    if (error is Exception) {
-      final s = error.toString();
-      const prefix = 'Exception: ';
-      if (s.startsWith(prefix)) return s.substring(prefix.length);
-      return s;
-    }
-    return error.toString();
-  }
+  /// User-facing reason for a failed export or import. The exception text is
+  /// developer English (and may carry file paths), so only the category is
+  /// shown.
+  static String _message(Object error, L10n l10n) => switch (error) {
+    SettingsImportTooLargeException() => l10n.settingsPortabilityErrorTooLarge,
+    SettingsImportFormatException() => l10n.settingsPortabilityErrorInvalidFile,
+    _ => l10n.settingsPortabilityErrorGeneric,
+  };
 }
 
 Future<String?> _defaultPickPath({

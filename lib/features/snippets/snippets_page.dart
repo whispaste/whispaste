@@ -21,6 +21,7 @@ import '../../widgets/searchable_list_page.dart';
 import '../../widgets/toast.dart';
 import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
+import '../../widgets/wp_segmented_selector.dart';
 import '../../widgets/wp_text_field.dart';
 import '../settings/hotkey_flow.dart';
 import '../settings/settings_widgets.dart';
@@ -132,19 +133,23 @@ class SnippetsNotifier extends AsyncNotifier<List<SnippetItem>>
   // [add] above, evaluated and rejected for the same reason.
   Future<void> replaceAll(List<SnippetItem> items) async {
     final db = ref.read(historyDatabaseProvider);
-    await db.deleteAllSnippets();
     final now = DateTime.now();
-    for (var i = 0; i < items.length; i++) {
-      final item = items[i];
-      await db.upsertSnippetWithFields(
-        id: '${now.millisecondsSinceEpoch}_$i',
-        title: item.title,
-        body: item.body,
-        createdAt: now,
-        kind: item.kind,
-        fieldNames: item.fields,
-      );
-    }
+    // One transaction: a failing row rolls back the delete too, so the old
+    // library survives a broken import (UIA-SNP-01).
+    await db.transaction(() async {
+      await db.deleteAllSnippets();
+      for (var i = 0; i < items.length; i++) {
+        final item = items[i];
+        await db.upsertSnippetWithFields(
+          id: '${now.millisecondsSinceEpoch}_$i',
+          title: item.title,
+          body: item.body,
+          createdAt: now,
+          kind: item.kind,
+          fieldNames: item.fields,
+        );
+      }
+    });
     await reload();
   }
 
@@ -233,6 +238,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
       itemBuilder: (context, s, isCursor) {
         // loam-ignore: a11y-interactive-semantics – semantics provided in _SnippetTileState.build
         return _SnippetTile(
+          key: ValueKey('snippets-row-${s.id}'),
           snippet: s,
           isCursor: isCursor,
           onTap: () => _showAddEditDialog(existing: s),
@@ -253,27 +259,39 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
   // dialog-scaffold + delete flow, which extracted cleanly into
   // WpSearchableListPage/showWpDeleteConfirmDialog).
   Future<void> _showAddEditDialog({SnippetItem? existing}) async {
-    final result =
-        await showWpFormDialog<(String, String, String, List<String>)>(
-          context: context,
-          builder: (_, a) => _SnippetDialog(animation: a, existing: existing),
-        );
-    if (result == null) return;
-    final (title, body, kind, fields) = result;
+    await showWpFormDialog<void>(
+      context: context,
+      builder: (_, a) => _SnippetDialog(
+        animation: a,
+        existing: existing,
+        onSave: (draft) => _saveSnippet(existing, draft),
+      ),
+    );
+  }
+
+  /// Writes the dialog's draft. Returns `false` when the write fails, so the
+  /// dialog stays open with the typed input and the user is told (UIA-SNP-02).
+  Future<bool> _saveSnippet(SnippetItem? existing, _SnippetDraft draft) async {
+    final (title, body, kind, fields) = draft;
     final notifier = ref.read(snippetsProvider.notifier);
-    if (existing != null) {
-      notifier.updateSnippet(
-        existing.id,
-        title: title,
-        body: body,
-        kind: kind,
-        fields: fields,
-      );
-    } else {
-      notifier.add(title, body, kind: kind, fields: fields);
-      ref
-          .read(telemetrySessionAggregatorProvider)
-          .count(category: 'snippets', action: 'create');
+    try {
+      if (existing != null) {
+        await notifier.updateSnippet(
+          existing.id,
+          title: title,
+          body: body,
+          kind: kind,
+          fields: fields,
+        );
+      } else {
+        await notifier.add(title, body, kind: kind, fields: fields);
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'snippets', action: 'create');
+      }
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -292,7 +310,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
     await ref
         .read(snippetsProvider.notifier)
         .add(
-          '${item.title} (copy)',
+          '${item.title} ${L10n.of(context).snippetCopySuffix}',
           item.body,
           kind: item.kind,
           fields: item.fields,
@@ -393,7 +411,7 @@ class _SnippetPickerHeader extends ConsumerWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
+                        Icon(
                           LucideIcons.info,
                           size: WpIconSize.xs,
                           color: WpColors.textMuted,
@@ -402,7 +420,7 @@ class _SnippetPickerHeader extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             l10n.snippetsPickerUnavailable,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: WpColors.textMuted,
                               fontSize: WpTypography.small,
                               height: 1.4,
@@ -451,6 +469,7 @@ class _SnippetPickerTriggerFieldState
     extends State<_SnippetPickerTriggerField> {
   late final TextEditingController _controller;
   Timer? _debounce;
+  void Function()? _pendingWrite;
 
   @override
   void initState() {
@@ -469,23 +488,33 @@ class _SnippetPickerTriggerFieldState
 
   @override
   void dispose() {
+    // Save an edit still inside the debounce window instead of dropping it.
+    // Deferred: dispose runs inside the widget build, and a provider write
+    // there is rejected by Riverpod.
+    final pending = _pendingWrite;
+    _pendingWrite = null;
     _debounce?.cancel();
+    if (pending != null) Future.microtask(pending);
     _controller.dispose();
     super.dispose();
   }
 
   void _onChanged(String value) {
+    // Capture the notifier now: `ref` must not be used once the state is
+    // disposed, and the flush can run during dispose.
+    final notifier = widget.ref.read(settingsProvider.notifier);
+    // Raw value on purpose: the dispatcher normalizes both sides via
+    // `normalizeForExactMatch` (see `snippet_picker_dispatch.dart`).
+    _pendingWrite = () => notifier.updateSettings(
+      (s) => s.copyWithSections(
+        behavior: s.behavior.copyWith(snippetPickerTrigger: value),
+      ),
+    );
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 600), () {
-      // Raw value on purpose: the dispatcher normalizes both sides via
-      // `normalizeForExactMatch` (see `snippet_picker_dispatch.dart`).
-      widget.ref
-          .read(settingsProvider.notifier)
-          .updateSettings(
-            (s) => s.copyWithSections(
-              behavior: s.behavior.copyWith(snippetPickerTrigger: value),
-            ),
-          );
+      final write = _pendingWrite;
+      _pendingWrite = null;
+      write?.call();
     });
   }
 
@@ -518,7 +547,7 @@ class _SnippetPickerTriggerFieldState
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
+                Icon(
                   LucideIcons.triangleAlert,
                   size: WpIconSize.xs,
                   color: WpColors.warning,
@@ -527,7 +556,7 @@ class _SnippetPickerTriggerFieldState
                 Expanded(
                   child: Text(
                     l10n.snippetsPickerTriggerEmptyListHint,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: WpColors.warning,
                       fontSize: WpTypography.small,
                       height: 1.4,
@@ -641,7 +670,7 @@ class _SnippetPickerHotkeyRowState
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
+                Icon(
                   LucideIcons.circleAlert,
                   size: WpIconSize.xs,
                   color: WpColors.error,
@@ -650,7 +679,7 @@ class _SnippetPickerHotkeyRowState
                 Expanded(
                   child: Text(
                     l10n.settingsSnippetPickerHotkeyCollision(collidingAction!),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: WpColors.error,
                       fontSize: WpTypography.small,
                       height: 1.4,
@@ -669,17 +698,29 @@ class _SnippetPickerHotkeyRowState
 // Add / Edit dialog
 // ---------------------------------------------------------------------------
 
+/// What the add/edit dialog hands to the page: title, body, kind and the
+/// interactive field names.
+typedef _SnippetDraft = (String, String, String, List<String>);
+
 class _SnippetDialog extends StatefulWidget {
-  const _SnippetDialog({required this.animation, this.existing});
+  const _SnippetDialog({
+    required this.animation,
+    required this.onSave,
+    this.existing,
+  });
 
   final Animation<double> animation;
   final SnippetItem? existing;
+
+  /// Returns whether the draft was stored; the dialog closes only then.
+  final Future<bool> Function(_SnippetDraft draft) onSave;
 
   @override
   State<_SnippetDialog> createState() => _SnippetDialogState();
 }
 
 class _SnippetDialogState extends State<_SnippetDialog> {
+  bool _saving = false;
   late final TextEditingController _titleCtrl;
   late final WpFindHighlightController _bodyCtrl;
   final FocusNode _bodyFocus = FocusNode(debugLabel: 'snippetBody');
@@ -709,11 +750,39 @@ class _SnippetDialogState extends State<_SnippetDialog> {
         _bodyCtrl.text.contains(interactiveSnippetPlaceholder(name));
   });
 
+  late final String _openedDraft;
+
+  String get _draftText => [
+    _titleCtrl.text,
+    _bodyCtrl.text,
+    for (final c in _fieldCtrls) c.text,
+  ].join('\u0000');
+
+  /// Typed text that a dismiss would throw away (UIA-CMP-03).
+  bool get _hasUnsavedInput => _draftText != _openedDraft;
+
+  /// Two fields with the same name would both receive the same spoken text,
+  /// so the second one is refused rather than silently overwritten (UIA-SNP-05).
+  bool get _fieldNamesUnique =>
+      _fieldCtrls.map((c) => c.text.trim()).toSet().length ==
+      _fieldCtrls.length;
+
   bool get _isValid =>
       _titleCtrl.text.trim().isNotEmpty &&
       (_isInteractive
-          ? (_fieldsValid && _templateReferencesAllFields)
+          ? (_fieldsValid && _fieldNamesUnique && _templateReferencesAllFields)
           : _bodyCtrl.text.trim().isNotEmpty);
+
+  /// Why a disabled Save is disabled, as text next to the button (UIA-SNP-04).
+  /// Only the title and body reasons are named here; the field and template
+  /// problems already have their own inline warnings.
+  String? _saveBlockedReason(L10n l10n) {
+    if (_titleCtrl.text.trim().isEmpty) return l10n.snippetsSaveMissingTitle;
+    if (!_isInteractive && _bodyCtrl.text.trim().isEmpty) {
+      return l10n.snippetsSaveMissingBody;
+    }
+    return null;
+  }
 
   bool get _isEditing => widget.existing != null;
 
@@ -740,6 +809,7 @@ class _SnippetDialogState extends State<_SnippetDialog> {
         for (var i = existingFields.length; i < _minFields; i++)
           _newFieldController(),
     ];
+    _openedDraft = _draftText;
   }
 
   TextEditingController _newFieldController([String text = '']) {
@@ -785,9 +855,10 @@ class _SnippetDialogState extends State<_SnippetDialog> {
     });
   }
 
-  void _submit() {
-    if (!_isValid) return;
-    Navigator.of(context).pop((
+  Future<void> _submit() async {
+    if (!_isValid || _saving) return;
+    _saving = true;
+    final saved = await widget.onSave((
       _titleCtrl.text.trim(),
       _bodyCtrl.text.trim(),
       _kind,
@@ -795,6 +866,17 @@ class _SnippetDialogState extends State<_SnippetDialog> {
           ? [for (final c in _fieldCtrls) c.text.trim()]
           : const <String>[],
     ));
+    _saving = false;
+    if (!mounted) return;
+    if (saved) {
+      Navigator.of(context).pop();
+    } else {
+      WpToast.show(
+        context,
+        message: L10n.of(context).errorGeneric,
+        type: WpToastType.error,
+      );
+    }
   }
 
   /// Inserts `{{fieldName}}` into the template at the current cursor
@@ -826,7 +908,7 @@ class _SnippetDialogState extends State<_SnippetDialog> {
       const SizedBox(height: WpSpacing.xxs),
       Text(
         l10n.snippetsFieldsHint,
-        style: const TextStyle(
+        style: TextStyle(
           color: WpColors.textMuted,
           fontSize: WpTypography.caption,
         ),
@@ -839,6 +921,7 @@ class _SnippetDialogState extends State<_SnippetDialog> {
             children: [
               Expanded(
                 child: WpTextField(
+                  key: ValueKey('snippets-field-name-$i'),
                   controller: _fieldCtrls[i],
                   variant: WpTextFieldVariant.form,
                   hintText: l10n.snippetsFieldNameHint(i + 1),
@@ -846,6 +929,7 @@ class _SnippetDialogState extends State<_SnippetDialog> {
               ),
               // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
               IconButton(
+                key: const ValueKey('snippets-field-insert'),
                 icon: const Icon(LucideIcons.plus, size: WpIconSize.xs),
                 tooltip: l10n.snippetsFieldInsertIntoTemplate,
                 onPressed: _fieldCtrls[i].text.trim().isEmpty
@@ -854,12 +938,14 @@ class _SnippetDialogState extends State<_SnippetDialog> {
               ),
               // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
               IconButton(
+                key: ValueKey('snippets-field-move-up-$i'),
                 icon: const Icon(LucideIcons.chevronUp, size: WpIconSize.xs),
                 tooltip: l10n.snippetsFieldMoveUp,
                 onPressed: i > 0 ? () => _moveField(i, -1) : null,
               ),
               // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
               IconButton(
+                key: ValueKey('snippets-field-move-down-$i'),
                 icon: const Icon(LucideIcons.chevronDown, size: WpIconSize.xs),
                 tooltip: l10n.snippetsFieldMoveDown,
                 onPressed: i < _fieldCtrls.length - 1
@@ -868,6 +954,7 @@ class _SnippetDialogState extends State<_SnippetDialog> {
               ),
               // loam-ignore: a11y-interactive-semantics – icon-only IconButton carries its own semantics
               IconButton(
+                key: ValueKey('snippets-field-remove-$i'),
                 icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
                 tooltip: l10n.snippetsFieldRemove,
                 onPressed: _fieldCtrls.length > _minFields
@@ -879,6 +966,7 @@ class _SnippetDialogState extends State<_SnippetDialog> {
         ),
       // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
       WpButton(
+        key: const ValueKey('snippets-field-add'),
         label: l10n.snippetsFieldAdd,
         variant: WpButtonVariant.ghost,
         size: WpButtonSize.dense,
@@ -888,7 +976,17 @@ class _SnippetDialogState extends State<_SnippetDialog> {
         const SizedBox(height: WpSpacing.xxs),
         Text(
           l10n.snippetsFieldsMinWarning(_minFields),
-          style: const TextStyle(
+          style: TextStyle(
+            color: WpColors.warning,
+            fontSize: WpTypography.caption,
+          ),
+        ),
+      ],
+      if (!_fieldNamesUnique) ...[
+        const SizedBox(height: WpSpacing.xxs),
+        Text(
+          l10n.snippetsFieldsDuplicateWarning,
+          style: TextStyle(
             color: WpColors.warning,
             fontSize: WpTypography.caption,
           ),
@@ -902,140 +1000,167 @@ class _SnippetDialogState extends State<_SnippetDialog> {
     final theme = Theme.of(context);
     final l10n = L10n.of(context);
 
-    return WpFormDialogShell(
-      animation: widget.animation,
-      // A snippet body is a *document* — a prompt template runs to paragraphs,
-      // and at the standard 420 dp card with a six-line box it read as a slot
-      // to paste into rather than a place to write. Widened via the named
-      // [WpDialogSize] axis rather than a one-off width, and still a dialog
-      // rather than a full-screen sheet: the snippet list behind it is the
-      // context you are editing against, and every other create/edit surface
-      // in the app (replacements, tags) is a dialog too.
-      size: WpDialogSize.wide,
-      title: _isEditing ? l10n.snippetsEditSnippet : l10n.snippetsNewSnippet,
-      subtitle: l10n.snippetsDialogHint,
-      fields: [
-        // Title
-        Text(l10n.snippetsTitleLabel, style: theme.textTheme.titleSmall),
-        const SizedBox(height: WpSpacing.xxs),
-        WpTextField(
-          controller: _titleCtrl,
-          variant: WpTextFieldVariant.form,
-          autofocus: true,
-          hintText: l10n.snippetsTitleHint,
-          onChanged: (_) => setState(() {}),
-          onSubmitted: (_) => _submit(),
-        ),
-        const SizedBox(height: WpSpacing.md),
-
-        // Kind: Static / Interactive (interactive-snippets PRD)
-        Text(l10n.snippetsKindLabel, style: theme.textTheme.titleSmall),
-        const SizedBox(height: WpSpacing.xxs),
-        SegmentedButton<String>(
-          segments: [
-            ButtonSegment(
-              value: 'static',
-              label: Text(l10n.snippetsKindStatic),
-            ),
-            ButtonSegment(
-              value: 'interactive',
-              label: Text(l10n.snippetsKindInteractive),
-            ),
-          ],
-          selected: {_kind},
-          onSelectionChanged: (selection) =>
-              setState(() => _kind = selection.first),
-        ),
-        const SizedBox(height: WpSpacing.md),
-
-        if (_isInteractive) ...[
-          ..._buildFieldEditor(l10n, theme),
-          const SizedBox(height: WpSpacing.md),
-          Text(l10n.snippetsTemplateLabel, style: theme.textTheme.titleSmall),
+    return WpUnsavedInputGuard(
+      dirty: _hasUnsavedInput,
+      child: WpFormDialogShell(
+        animation: widget.animation,
+        // A snippet body is a *document* — a prompt template runs to paragraphs,
+        // and at the standard 420 dp card with a six-line box it read as a slot
+        // to paste into rather than a place to write. Widened via the named
+        // [WpDialogSize] axis rather than a one-off width, and still a dialog
+        // rather than a full-screen sheet: the snippet list behind it is the
+        // context you are editing against, and every other create/edit surface
+        // in the app (replacements, tags) is a dialog too.
+        size: WpDialogSize.wide,
+        title: _isEditing ? l10n.snippetsEditSnippet : l10n.snippetsNewSnippet,
+        subtitle: l10n.snippetsDialogHint,
+        fields: [
+          // Title
+          Text(l10n.snippetsTitleLabel, style: theme.textTheme.titleSmall),
           const SizedBox(height: WpSpacing.xxs),
-          Text(
-            l10n.snippetsTemplateHint,
-            style: const TextStyle(
-              color: WpColors.textMuted,
-              fontSize: WpTypography.caption,
-            ),
+          WpTextField(
+            key: const ValueKey('snippets-title-field'),
+            controller: _titleCtrl,
+            variant: WpTextFieldVariant.form,
+            autofocus: true,
+            hintText: l10n.snippetsTitleHint,
+            onChanged: (_) => setState(() {}),
+            onSubmitted: (_) => _submit(),
           ),
-          const SizedBox(height: WpSpacing.xs),
-          // Same toolbar-plus-shortcuts editor as the static body below: a
-          // template is still a document the user writes prose into, just
-          // one that also happens to carry `{{field}}` placeholders —
-          // formatting and find/replace should not disappear because of that.
-          WpMarkdownToolbar(controller: _bodyCtrl, focusNode: _bodyFocus),
-          const SizedBox(height: WpSpacing.xs),
-          CallbackShortcuts(
-            bindings: WpMarkdownFormatting(
-              controller: _bodyCtrl,
-              focusNode: _bodyFocus,
-            ).shortcutBindings(),
-            child: WpTextField(
-              controller: _bodyCtrl,
-              focusNode: _bodyFocus,
-              variant: WpTextFieldVariant.form,
-              hintText: l10n.snippetsTemplateFieldHint,
-              minLines: 10,
-              maxLines: 18,
-            ),
+          const SizedBox(height: WpSpacing.md),
+
+          // Kind: Static / Interactive (interactive-snippets PRD)
+          Text(l10n.snippetsKindLabel, style: theme.textTheme.titleSmall),
+          const SizedBox(height: WpSpacing.xxs),
+          WpSegmentedChoice<String>(
+            key: const ValueKey('snippets-kind-choice'),
+            options: [
+              WpSegmentOption(value: 'static', label: l10n.snippetsKindStatic),
+              WpSegmentOption(
+                value: 'interactive',
+                label: l10n.snippetsKindInteractive,
+              ),
+            ],
+            selected: _kind,
+            onChanged: (value) => setState(() => _kind = value),
           ),
-          if (!_templateReferencesAllFields) ...[
+          const SizedBox(height: WpSpacing.md),
+
+          if (_isInteractive) ...[
+            ..._buildFieldEditor(l10n, theme),
+            const SizedBox(height: WpSpacing.md),
+            Text(l10n.snippetsTemplateLabel, style: theme.textTheme.titleSmall),
             const SizedBox(height: WpSpacing.xxs),
             Text(
-              l10n.snippetsTemplateMissingFieldsWarning,
-              style: const TextStyle(
-                color: WpColors.warning,
+              l10n.snippetsTemplateHint,
+              style: TextStyle(
+                color: WpColors.textMuted,
                 fontSize: WpTypography.caption,
               ),
             ),
-          ],
-        ] else ...[
-          // Body (multi-line) — same toolbar the History transcript editor
-          // and the Notes editor carry, so bold/italic/lists and
-          // find-and-replace work identically wherever text is written in
-          // this app.
-          Text(l10n.snippetsBodyLabel, style: theme.textTheme.titleSmall),
-          const SizedBox(height: WpSpacing.xxs),
-          WpMarkdownToolbar(controller: _bodyCtrl, focusNode: _bodyFocus),
-          const SizedBox(height: WpSpacing.xs),
-          // No Expanded/Flexible here on purpose: WpFormDialogShell puts its
-          // fields inside a SingleChildScrollView, so an unbounded height
-          // would be a layout exception. The line count does the growing
-          // instead, and the card's own viewport clamp keeps it on screen.
-          CallbackShortcuts(
-            bindings: WpMarkdownFormatting(
+            const SizedBox(height: WpSpacing.xs),
+            // Same toolbar-plus-shortcuts editor as the static body below: a
+            // template is still a document the user writes prose into, just
+            // one that also happens to carry `{{field}}` placeholders —
+            // formatting and find/replace should not disappear because of that.
+            WpMarkdownToolbar(
+              key: const ValueKey('snippets-body-toolbar'),
               controller: _bodyCtrl,
               focusNode: _bodyFocus,
-            ).shortcutBindings(),
-            child: WpTextField(
-              controller: _bodyCtrl,
-              focusNode: _bodyFocus,
-              variant: WpTextFieldVariant.form,
-              hintText: l10n.snippetsBodyHint,
-              minLines: 10,
-              maxLines: 18,
             ),
+            const SizedBox(height: WpSpacing.xs),
+            CallbackShortcuts(
+              bindings: WpMarkdownFormatting(
+                controller: _bodyCtrl,
+                focusNode: _bodyFocus,
+              ).shortcutBindings(),
+              child: WpTextField(
+                key: const ValueKey('snippets-body-field'),
+                controller: _bodyCtrl,
+                focusNode: _bodyFocus,
+                variant: WpTextFieldVariant.form,
+                hintText: l10n.snippetsTemplateFieldHint,
+                minLines: 10,
+                maxLines: 18,
+              ),
+            ),
+            if (!_templateReferencesAllFields) ...[
+              const SizedBox(height: WpSpacing.xxs),
+              Text(
+                l10n.snippetsTemplateMissingFieldsWarning,
+                style: TextStyle(
+                  color: WpColors.warning,
+                  fontSize: WpTypography.caption,
+                ),
+              ),
+            ],
+          ] else ...[
+            // Body (multi-line) — same toolbar the History transcript editor
+            // and the Notes editor carry, so bold/italic/lists and
+            // find-and-replace work identically wherever text is written in
+            // this app.
+            Text(l10n.snippetsBodyLabel, style: theme.textTheme.titleSmall),
+            const SizedBox(height: WpSpacing.xxs),
+            WpMarkdownToolbar(
+              key: const ValueKey('snippets-body-toolbar-plain'),
+              controller: _bodyCtrl,
+              focusNode: _bodyFocus,
+            ),
+            const SizedBox(height: WpSpacing.xs),
+            // No Expanded/Flexible here on purpose: WpFormDialogShell puts its
+            // fields inside a SingleChildScrollView, so an unbounded height
+            // would be a layout exception. The line count does the growing
+            // instead, and the card's own viewport clamp keeps it on screen.
+            CallbackShortcuts(
+              bindings: WpMarkdownFormatting(
+                controller: _bodyCtrl,
+                focusNode: _bodyFocus,
+              ).shortcutBindings(),
+              child: WpTextField(
+                key: const ValueKey('snippets-body-field'),
+                controller: _bodyCtrl,
+                focusNode: _bodyFocus,
+                variant: WpTextFieldVariant.form,
+                hintText: l10n.snippetsBodyHint,
+                minLines: 10,
+                maxLines: 18,
+              ),
+            ),
+          ],
+        ],
+        actions: [
+          if (_saveBlockedReason(l10n) case final reason?) ...[
+            Flexible(
+              child: Text(
+                reason,
+                key: const ValueKey('snippets-save-blocked-reason'),
+                textAlign: TextAlign.end,
+                style: TextStyle(
+                  color: WpColors.textMuted,
+                  fontSize: WpTypography.caption,
+                ),
+              ),
+            ),
+            const SizedBox(width: WpSpacing.sm),
+          ],
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          WpButton(
+            key: const ValueKey('snippets-cancel'),
+            label: l10n.actionCancel,
+            variant: WpButtonVariant.ghost,
+            tone: WpButtonTone.neutral,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+          WpButton(
+            key: const ValueKey('snippets-save'),
+            label: _isEditing ? l10n.actionSave : l10n.snippetsAdd,
+            variant: WpButtonVariant.primary,
+            onPressed: _isValid ? _submit : null,
           ),
         ],
-      ],
-      actions: [
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-        WpButton(
-          label: l10n.actionCancel,
-          variant: WpButtonVariant.ghost,
-          tone: WpButtonTone.neutral,
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        const SizedBox(width: WpSpacing.sm),
-        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-        WpButton(
-          label: _isEditing ? l10n.actionSave : l10n.snippetsAdd,
-          variant: WpButtonVariant.primary,
-          onPressed: _isValid ? _submit : null,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -1052,6 +1177,7 @@ final RegExp _whitespaceRun = RegExp(r'\s+');
 
 class _SnippetTile extends StatefulWidget {
   const _SnippetTile({
+    super.key,
     required this.snippet,
     required this.isCursor,
     required this.onTap,
@@ -1196,18 +1322,21 @@ class _SnippetTileState extends State<_SnippetTile> {
                   if (!widget.snippet.isInteractive)
                     // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                     WpRowAction(
+                      key: ValueKey('snippets-copy-${widget.snippet.id}'),
                       icon: LucideIcons.copy,
                       tooltip: L10n.of(context).actionCopy,
                       onTap: widget.onCopy,
                     ),
                   // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                   WpRowAction(
+                    key: ValueKey('snippets-duplicate-${widget.snippet.id}'),
                     icon: LucideIcons.files,
                     tooltip: L10n.of(context).actionDuplicate,
                     onTap: widget.onDuplicate,
                   ),
                   // loam-ignore: a11y-interactive-semantics – semantics provided in _WpRowActionState.build
                   WpRowAction(
+                    key: ValueKey('snippets-delete-${widget.snippet.id}'),
                     icon: LucideIcons.trash2,
                     tooltip: L10n.of(context).actionDelete,
                     onTap: widget.onDelete,
@@ -1234,7 +1363,7 @@ class _SnippetTileState extends State<_SnippetTile> {
                             Flexible(
                               child: Text(
                                 widget.snippet.title,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: WpColors.textPrimary,
                                   fontSize: WpTypography.body,
                                   fontWeight: FontWeight.w500,
@@ -1256,7 +1385,7 @@ class _SnippetTileState extends State<_SnippetTile> {
                         const SizedBox(height: WpSpacing.xxs),
                         Text(
                           _bodyPreview,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: WpColors.textMuted,
                             fontSize: WpTypography.small,
                           ),

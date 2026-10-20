@@ -14,7 +14,6 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/logging/crash_reporter.dart';
 import 'package:whispaste/core/logging/crash_reporting_consent.dart';
 import 'package:whispaste/features/settings/sections/privacy_section.dart';
-import 'package:whispaste/features/settings/settings_widgets.dart';
 
 import '../../../fixtures/test_helpers.dart';
 
@@ -53,9 +52,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final row = find.widgetWithText(
-        SettingRow,
-        l10n.settingsRetainRecentAudio,
+      final row = find.byKey(
+        const ValueKey('settings-row-privacy-retain-audio'),
       );
       expect(row, findsOneWidget);
       final toggle = tester.widget<Switch>(
@@ -76,9 +74,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final row = find.widgetWithText(
-        SettingRow,
-        l10n.settingsRetainRecentAudio,
+      final row = find.byKey(
+        const ValueKey('settings-row-privacy-retain-audio'),
       );
       await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));
       await tester.pumpAndSettle();
@@ -121,7 +118,9 @@ void main() {
         findsNothing,
       );
 
-      final row = find.widgetWithText(SettingRow, l10n.settingsErrorReporting);
+      final row = find.byKey(
+        const ValueKey('settings-row-privacy-error-reporting'),
+      );
       await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));
       await tester.pumpAndSettle();
 

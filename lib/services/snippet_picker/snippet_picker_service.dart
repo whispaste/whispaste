@@ -6,6 +6,7 @@ import '../../core/config/settings_provider.dart';
 import '../../core/data/database.dart';
 import '../../core/logging/app_logger.dart';
 import '../../features/snippets/snippets_page.dart' show SnippetItem;
+import '../automation_api/multiline_paste_confirmation.dart';
 import '../floating_platform_service_base.dart';
 import '../paste/paster.dart';
 import '../telemetry_service.dart';
@@ -51,6 +52,10 @@ enum SnippetInsertByNameResult {
   /// see the logged [PasteOutcome] for why (no captured target window,
   /// missing OS permission, blocklisted app, …).
   pasteFailed,
+
+  /// The body is multiline and the user did not confirm the preview (cancel,
+  /// timeout, or another preview was already open). Nothing was pasted.
+  previewCancelled,
 }
 
 /// Manages the native Snippet-Picker panel lifecycle (dictation-automations
@@ -203,6 +208,8 @@ class SnippetPickerService
     final options = PasteOptions(
       autoPasteDelayMs: settings.behavior.autoPasteDelay,
       blocklist: settings.behavior.autoPasteBlocklist,
+      copyBlockedToClipboard: settings.behavior.copyBlockedToClipboard,
+      restoreClipboardAfterPaste: settings.behavior.restoreClipboardAfterPaste,
     );
     final outcome = await paster.paste(body, options);
     // paste() may still be mid clipboard-restore delay (≥500ms) when the
@@ -220,7 +227,9 @@ class SnippetPickerService
   }
 
   /// Looks up a **static** snippet by exact [title] match and pastes its
-  /// body — the automation-API insertion path (ticket 04). Reuses
+  /// body — the automation-API insertion path (ticket 04). A multiline body
+  /// is first passed to [confirmMultiline]; nothing is pasted unless that
+  /// resolves `true` (WP-38 / 8.5). Reuses
   /// [_paste] for the actual insertion, so the automation API shares every
   /// bit of paste behavior (delay, blocklist, telemetry) with the
   /// Snippet-Picker's own selection path; only the *lookup* differs (by
@@ -228,7 +237,10 @@ class SnippetPickerService
   ///
   /// `interactive` snippets are deliberately out of scope — see
   /// [SnippetInsertByNameResult.interactiveNotSupported].
-  Future<SnippetInsertByNameResult> insertByName(String title) async {
+  Future<SnippetInsertByNameResult> insertByName(
+    String title, {
+    required Future<bool> Function(String body) confirmMultiline,
+  }) async {
     final db = ref.read(historyDatabaseProvider);
     final rows = await db.readAllSnippetsWithFields();
     SnippetWithFields? match;
@@ -241,6 +253,11 @@ class SnippetPickerService
     if (match == null) return SnippetInsertByNameResult.notFound;
     if (match.row.kind == 'interactive') {
       return SnippetInsertByNameResult.interactiveNotSupported;
+    }
+
+    if (needsMultilinePreview(match.row.body)) {
+      final confirmed = await confirmMultiline(match.row.body);
+      if (!confirmed) return SnippetInsertByNameResult.previewCancelled;
     }
 
     final outcome = await _paste(match.row.body);

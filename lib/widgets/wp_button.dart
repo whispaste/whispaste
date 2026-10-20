@@ -2,7 +2,7 @@
 ///
 /// One component, one look: every place that lets the user *trigger an action*
 /// routes through here — dialog footers, settings rows, empty-state CTAs,
-/// toolbars. The gradient hero CTA ([WpHeroButton]) stays a separate, louder
+/// toolbars. The flat amber hero CTA ([WpHeroButton]) stays a separate, louder
 /// step above this ladder; icon-only affordances stay [IconButton].
 ///
 /// ## Why this exists
@@ -73,8 +73,11 @@ library;
 import 'package:flutter/material.dart';
 
 import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
+import '../core/theme/theme.dart' show kWpFontFallback, kWpUiFont;
 import '../core/theme/tokens.dart';
 import 'wp_focus_ring.dart';
+import 'wp_touch_target.dart';
 
 // ---------------------------------------------------------------------------
 // Axes
@@ -139,6 +142,7 @@ class WpButton extends StatefulWidget {
   const WpButton({
     super.key,
     required this.label,
+    this.semanticsLabel,
     required this.variant,
     required this.onPressed,
     this.tone = WpButtonTone.accent,
@@ -148,11 +152,20 @@ class WpButton extends StatefulWidget {
     this.expanded = false,
     this.autofocus = false,
     this.disabledTooltip,
+    this.testId,
   });
+
+  /// Stable id: a `ValueKey` for tests and the accessibility identifier, the
+  /// same way the other Wp widgets expose theirs (DEV-156).
+  final String? testId;
 
   /// Already localized, single-line. Long labels ellipsize rather than wrap:
   /// a button that grows a second line has outgrown being a button.
   final String label;
+
+  /// Optional accessible name when the visible [label] is generic (e.g. "Open")
+  /// and the row next to it names the target. Null keeps the visible label.
+  final String? semanticsLabel;
 
   /// No default on purpose — hierarchy is a decision, not a fallback.
   final WpButtonVariant variant;
@@ -205,7 +218,7 @@ class _WpButtonState extends State<WpButton> {
 
   @override
   Widget build(BuildContext context) {
-    const palette = _WpButtonPalette._palette;
+    final palette = _WpButtonPalette.current();
     final spec = _WpButtonSpec.of(widget.size);
     final tone = palette.toneOf(widget.tone);
 
@@ -314,9 +327,37 @@ class _WpButtonState extends State<WpButton> {
       insets: spec.ringInsets,
       child: button,
     );
+    // Dense is the documented exception to the 48 px tap-target rule
+    // (DESIGN.md, "The Confirmed Dense-Row Exception"): its hit target stays
+    // its 32 px visual box. Every other size gets the 48 px surround.
+    if (widget.size != WpButtonSize.dense) {
+      // loam-ignore: a11y-interactive-semantics – the wrapped child keeps its own role and label; WpTouchTarget only enlarges the tap area and is excluded from semantics (see wp_touch_target.dart).
+      result = WpTouchTarget(onTap: onPressed, child: result);
+    }
 
     if (widget.expanded) {
       result = SizedBox(width: double.infinity, child: result);
+    }
+
+    if (widget.semanticsLabel != null) {
+      result = Semantics(
+        button: true,
+        enabled: onPressed != null,
+        label: widget.semanticsLabel,
+        onTap: onPressed,
+        excludeSemantics: true,
+        child: result,
+      );
+    }
+
+    if (widget.testId != null) {
+      result = Semantics(
+        identifier: widget.testId,
+        child: KeyedSubtree(
+          key: ValueKey<String>(widget.testId!),
+          child: result,
+        ),
+      );
     }
 
     if (_isDisabled && widget.disabledTooltip != null) {
@@ -462,18 +503,20 @@ class _WpButtonPalette {
   /// stack (2026-08-11). The twin was not merely unreachable — it was
   /// wrong for this app, painting white on the accent fill where the
   /// dark palette paints the near-black background colour.
-  static const _palette = _WpButtonPalette(
+  static _WpButtonPalette current() => _WpButtonPalette(
     disabledContent: WpColors.textMuted,
     disabledFill: WpColors.surfaceVariant,
     disabledBorder: WpColors.borderSubtle,
     focusRing: WpColors.textPrimary,
     accent: _WpButtonToneColors(
-      fill: WpColors.accent,
+      fill: WpColors.action,
       // The theme's `onPrimary` — deep navy on cyan, ~11:1. Several call sites
       // hand-set white here today, which is ~1.9:1 on this accent.
-      onFill: WpColors.background,
+      onFill: WpColors.onAction,
       content: WpColors.accent,
-      border: WpColors.borderSubtle,
+      // Outline of the secondary button: borderDefault reads as a control edge
+      // on the light ground (WP-14 §1 spec), borderSubtle vanished.
+      border: WpColors.controlEdge,
       hoverWash: WpColors.accentRowHover,
       pressedWash: WpColors.accentActiveFill,
     ),
@@ -483,13 +526,13 @@ class _WpButtonPalette {
       fill: WpColors.active,
       onFill: WpColors.textPrimary,
       content: WpColors.textSecondary,
-      border: WpColors.borderSubtle,
+      border: WpColors.controlEdge,
       hoverWash: WpColors.mutedRowHover,
       pressedWash: WpColors.mutedActiveFill,
     ),
     danger: _WpButtonToneColors(
       fill: WpColors.error,
-      onFill: WpColors.background,
+      onFill: WpColors.onError,
       content: WpColors.error,
       border: WpColors.errorBorder30,
       hoverWash: WpColors.errorRowHover,
@@ -542,7 +585,7 @@ class _WpButtonSpec {
   ///
   /// [MaterialTapTargetSize.padded] grows the reported box to 48 dp in any
   /// dimension below it, so a 40 dp-high button hands the ring a 48 dp box and
-  /// the glow drifts 4 dp further out top and bottom than left and right (the
+  /// the ring drifts 4 dp further out top and bottom than left and right (the
   /// label already carries the width past 48). Declaring the difference here
   /// puts the ring back on the visible contour.
   final EdgeInsets ringInsets;
@@ -559,7 +602,8 @@ class _WpButtonSpec {
     fontSize: fontSize,
     fontWeight: fontWeight,
     letterSpacing: -0.1,
-    fontFamily: 'Inter',
+    fontFamily: kWpUiFont,
+    fontFamilyFallback: kWpFontFallback,
   );
 
   /// Vertical inset re-derived for the taller box; horizontal inset
@@ -580,8 +624,8 @@ class _WpButtonSpec {
   /// reported.
   static final _standard = _WpButtonSpec(
     height: WpLayout.minTouchTarget,
-    radius: WpRadius.borderSm,
-    ringRadius: WpRadius.sm,
+    radius: BorderRadius.circular(WpRadiusTokens.sm),
+    ringRadius: WpRadiusTokens.sm,
     fontSize: WpTypography.body,
     fontWeight: FontWeight.w600,
     iconSize: WpIconSize.sm,
@@ -605,8 +649,8 @@ class _WpButtonSpec {
     // The shared height of everything that stands in a row's trailing slot —
     // key caps and the mic-permission chip carry the same token.
     height: WpLayout.denseControlHeight,
-    radius: WpRadius.borderSm,
-    ringRadius: WpRadius.sm,
+    radius: BorderRadius.circular(WpRadiusTokens.sm),
+    ringRadius: WpRadiusTokens.sm,
     fontSize: WpTypography.small,
     fontWeight: FontWeight.w600,
     iconSize: WpIconSize.xs,

@@ -8,13 +8,19 @@ is the entire activation step; no code change is needed.
 ## File names
 
 ```
-beat_{1,2,3}_loop_dark.webp    animated, ~5 s, seamless loop
-beat_{1,2,3}_still_dark.webp   single frame (the loop's first frame)
+beat_{1,2}_loop_dark.webp    animated, ~5 s, seamless loop
+beat_{1,2}_still_dark.webp   single frame (the loop's first frame)
 ```
 
 The index matches the beat order on the page: 1 = `onboardingBeat1Title`,
-2 = `onboardingBeat2Title`, 3 = `onboardingBeat3Title`. Record each clip to
-match the beat's own claim, not the app in general.
+2 = `onboardingBeat2Title`. Record each clip to match the beat's own claim, not
+the app in general.
+
+Beat 3 (`onboardingBeat3Title`) has no clip. It was a recording of a
+third-party browser's window chrome, which made it a product endorsement and
+a foreign UI on every platform (UX-016). It is now the self-drawn
+`_NeutralBeatIllustration` in `welcome_step.dart`, which shows on all platforms
+and needs no file. Its former `beat_3_*` files were removed.
 
 Only a `_dark` variant is delivered — the app's light theme was removed
 2026-08-11, so no `_light` file is needed. Every file is still optional and

@@ -5,8 +5,9 @@
 /// and avoid a circular dependency with the factory layer.
 library;
 
+import '../../core/theme/overlay_customization.dart';
 import '../../core/theme/overlay_design_spec.dart'
-    show OverlaySizeVariant, OverlayStyleVariant;
+    show OverlayBackground, OverlaySizeVariant, OverlayThemeColors, OverlayWave;
 import 'floating_overlay_events.dart';
 
 /// Visual state of the overlay (matches C++ OverlayVisualState).
@@ -19,22 +20,35 @@ enum OverlayAnchorMode { topCenter, bottomCenter, topLeft }
 ///
 /// Dart owns ALL state — the native window is a dumb renderer.
 /// Every field is pre-resolved (localized, formatted, themed) before sending.
+/// The elapsed recording time shown on the overlay, as `m:ss` (minutes are not
+/// padded). Shared by the live overlay and the settings preview.
+String formatOverlayElapsed(Duration elapsed) {
+  final minutes = elapsed.inMinutes;
+  final seconds = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
+}
+
 class FloatingOverlaySnapshot {
   const FloatingOverlaySnapshot({
     required this.visible,
     required this.state,
     required this.label,
     this.size = OverlaySizeVariant.normal,
-    this.style = OverlayStyleVariant.glass,
+    this.background = OverlayBackground.marine,
+    this.wave = OverlayWave.cyan,
     this.elapsed = '',
     this.hint = '',
     this.transcript,
     this.errorMessage,
     this.privacyMode = 'local',
     this.doneMessage,
+    this.donePasteFailed = false,
     this.progress = 0.0,
     this.secondaryLabel,
     this.liveTranscript,
+    this.languageChip,
+    this.profileChip,
+    this.appearance = OverlayAppearance.defaults,
   });
 
   final bool visible;
@@ -44,8 +58,11 @@ class FloatingOverlaySnapshot {
   /// size their window from the serialised `size` name.
   final OverlaySizeVariant size;
 
-  /// The overlay chrome style (glass / solid), independent of [size].
-  final OverlayStyleVariant style;
+  /// Background preset of the pill (WP-75, ADR 0024), independent of [size].
+  final OverlayBackground background;
+
+  /// Wave colour preset of the pill (WP-75, ADR 0024).
+  final OverlayWave wave;
 
   final String label;
   final String elapsed;
@@ -54,6 +71,10 @@ class FloatingOverlaySnapshot {
   final String? errorMessage;
   final String privacyMode;
   final String? doneMessage;
+
+  /// The run finished but its paste did not land. The done state then shows
+  /// a neutral notice glyph instead of the green check (XP-5-07).
+  final bool donePasteFailed;
 
   /// Recording progress (0.0–1.0). 0 = unlimited/no limit set.
   final double progress;
@@ -74,11 +95,36 @@ class FloatingOverlaySnapshot {
   /// the default.
   final String? liveTranscript;
 
+  /// Short label of the dictation language frozen at recording start (for
+  /// example `DE`), painted as a small chip. Null hides the chip (auto or no
+  /// language).
+  final String? languageChip;
+
+  /// Short name of the manually chosen profile, shown in the same top-centre
+  /// chip as the language. Null while automatic or no profile is chosen.
+  final String? profileChip;
+
+  /// WP-95 appearance options (form, wave style, fluid outline, timer and
+  /// cancel glyph, requested opacity step). Defaults to today's look.
+  final OverlayAppearance appearance;
+
+  /// The opacity step actually rendered: the requested step lifted by the
+  /// contrast gate for the active background and wave.
+  OverlayOpacity get effectiveOpacity => OverlayOpacityGate.clamp(
+    requested: appearance.opacity,
+    fill: background.surfaceStart,
+    accent: OverlayThemeColors.resolve(
+      background: background,
+      wave: wave,
+    ).accent,
+  );
+
   Map<String, dynamic> toMap() => {
     'visible': visible,
     'state': state.name,
     'size': size.name,
-    'style': style.name,
+    'background': background.value,
+    'wave': wave.value,
     // Legacy mirror of the old two-size contract, kept so any consumer that
     // still switches on the boolean (older shell binaries during a staged
     // rollout) degrades to compact instead of breaking. `mini` reports
@@ -91,9 +137,13 @@ class FloatingOverlaySnapshot {
     'errorMessage': errorMessage,
     'privacyMode': privacyMode,
     'doneMessage': doneMessage,
+    'donePasteFailed': donePasteFailed,
     'progress': progress,
     'secondaryLabel': secondaryLabel,
     'liveTranscript': liveTranscript,
+    'languageChip': languageChip,
+    'profileChip': profileChip,
+    ...appearance.toMap(),
   };
 
   /// Rebuilds a snapshot from its [toMap] form.
@@ -118,12 +168,16 @@ class FloatingOverlaySnapshot {
         : ((map['compact'] as bool? ?? false)
               ? OverlaySizeVariant.compact
               : OverlaySizeVariant.normal);
-    final style = OverlayStyleVariant.fromName(map['style'] as String?);
+    final background = OverlayBackground.fromValue(
+      map['background'] as String?,
+    );
+    final wave = OverlayWave.fromValue(map['wave'] as String?);
     return FloatingOverlaySnapshot(
       visible: map['visible'] as bool? ?? false,
       state: state,
       size: size,
-      style: style,
+      background: background,
+      wave: wave,
       label: map['label'] as String? ?? '',
       elapsed: map['elapsed'] as String? ?? '',
       hint: map['hint'] as String? ?? '',
@@ -131,11 +185,25 @@ class FloatingOverlaySnapshot {
       errorMessage: map['errorMessage'] as String?,
       privacyMode: map['privacyMode'] as String? ?? 'local',
       doneMessage: map['doneMessage'] as String?,
+      donePasteFailed: map['donePasteFailed'] as bool? ?? false,
       progress: (map['progress'] as num?)?.toDouble() ?? 0.0,
       secondaryLabel: map['secondaryLabel'] as String?,
       liveTranscript: map['liveTranscript'] as String?,
+      languageChip: map['languageChip'] as String?,
+      profileChip: map['profileChip'] as String?,
+      appearance: OverlayAppearance.fromMap(map),
     );
   }
+}
+
+/// Optional capability: a shell whose render engine can be re-booted on
+/// request (macOS, WP-84 phase 2). The service only runs the frame-heartbeat
+/// recovery against controllers that implement it, so a platform without a
+/// render engine never gets a re-boot request.
+abstract interface class RenderEngineRecovery {
+  /// Re-boots the render engine inside the existing shell. Fire-and-forget:
+  /// the outcome is observed through the next [OverlayRenderFrame].
+  Future<void> rebootRenderEngine();
 }
 
 /// Platform-agnostic interface for the native floating overlay window.

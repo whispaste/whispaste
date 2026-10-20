@@ -108,6 +108,7 @@ CONTEXT.md
 cmd/
 scripts/*
 !scripts/build-libwhisper-macos.sh
+!scripts/build-opus-macos.sh
 !scripts/build-libwhisper-linux.sh
 !scripts/split-debug-linux.sh
 !scripts/bundle-libwhisper-windows.ps1
@@ -117,6 +118,17 @@ scripts/*
 !scripts/ensure-libllama-macos.sh
 !scripts/build-libllama-windows.ps1
 !scripts/build-smartmode-shim-windows.ps1
+!scripts/build-sherpa-onnx.sh
+!scripts/build-sherpa-onnx.ps1
+!scripts/check-no-espeak.sh
+!scripts/check-no-espeak.test.sh
+!scripts/generate-third-party-notices.py
+!scripts/sherpa-onnx.pin
+!scripts/check-sherpa-stage.cmake
+!scripts/check-sherpa-stage.test.sh
+!scripts/sherpa-stage-libs.sh
+!scripts/sherpa-stage-libs.test.sh
+!scripts/fetch-onnxruntime.sh
 !scripts/bundle-libllama-windows.ps1
 !scripts/collect-pdbs-windows.ps1
 !scripts/fetch-cuda-redist.py

@@ -85,7 +85,9 @@ class ClipboardMonitorHost {
   // Reads CF_BITMAP and PNG-encodes it via GDI+ (already linked/ref-counted
   // via GdiPlusHelper for the floating button/overlay windows). Empty if
   // absent or encoding fails.
-  std::vector<uint8_t> ReadClipboardImagePng() const;
+  // Encodes the clipboard bitmap as PNG into |png|. Returns false (and leaves
+  // |png| empty) when there is no bitmap or encoding fails.
+  bool ReadClipboardImagePng(std::vector<uint8_t>* png) const;
 
   // See the file doc comment's "Privacy exclusion" section.
   bool IsPrivacyExcluded() const;

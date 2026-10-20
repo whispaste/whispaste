@@ -5,6 +5,7 @@ import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
 import '../data/providers.dart';
 import 'history_date_header.dart';
+import 'history_focus_reveal.dart';
 import 'history_helpers.dart';
 import 'history_list_tile.dart';
 
@@ -12,7 +13,7 @@ import 'history_list_tile.dart';
 // Entry list with date groups
 // ---------------------------------------------------------------------------
 
-class HistoryEntryList extends StatelessWidget {
+class HistoryEntryList extends StatefulWidget {
   HistoryEntryList({
     super.key,
     required this.groups,
@@ -25,6 +26,7 @@ class HistoryEntryList extends StatelessWidget {
     required this.multiSelectMode,
     required this.selectedIds,
     required this.isTrashView,
+    this.onRestore,
     this.focusedId,
     this.onTagTap,
   });
@@ -39,6 +41,7 @@ class HistoryEntryList extends StatelessWidget {
   final bool multiSelectMode;
   final Set<String> selectedIds;
   final bool isTrashView;
+  final ValueChanged<HistoryEntry>? onRestore;
   final String? focusedId;
   final void Function(String tag)? onTagTap;
 
@@ -46,9 +49,31 @@ class HistoryEntryList extends StatelessWidget {
   late final List<HistoryFlatItem> _flatItems = buildHistoryFlatItems(groups);
 
   @override
+  State<HistoryEntryList> createState() => _HistoryEntryListState();
+}
+
+class _HistoryEntryListState extends State<HistoryEntryList> {
+  final HistoryFocusReveal _reveal = HistoryFocusReveal();
+
+  @override
+  void didUpdateWidget(covariant HistoryEntryList old) {
+    super.didUpdateWidget(old);
+    if (widget.focusedId != null && widget.focusedId != old.focusedId) {
+      _reveal.schedule(widget._flatItems, widget.focusedId);
+    }
+  }
+
+  @override
+  void dispose() {
+    _reveal.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     return ListView.builder(
+      controller: _reveal.scroll,
       // The list owns the horizontal page inset (rows and date headers carry
       // none), so its left/right edge lands exactly on the search/filter
       // bar's `xl` inset above it — same arrangement as NotesListView and
@@ -60,34 +85,42 @@ class HistoryEntryList extends StatelessWidget {
         WpSpacing.xl,
         WpSpacing.xxl,
       ),
-      itemCount: _flatItems.length,
+      itemCount: widget._flatItems.length,
       itemBuilder: (_, i) {
-        final item = _flatItems[i];
+        final item = widget._flatItems[i];
         if (item.headerLabel != null) {
           return HistoryDateHeader(
             label: resolveDateLabel(item.headerLabel!, l10n),
           );
         }
         final entry = item.entry!;
-        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryEntryRowState.build
-        return HistoryEntryRow(
-          key: ValueKey(entry.id),
-          entry: entry,
-          isSelected: multiSelectMode
-              ? selectedIds.contains(entry.id)
-              : entry.id == selectedId,
-          isFocused: !multiSelectMode && entry.id == focusedId,
-          // No selection means no detail pane beside the list: the overview.
-          inSplitView: selectedId != null,
-          onTap: () => onEntryTap(entry),
-          onCopy: () => onCopy(entry),
-          onPin: () => onPin(entry),
-          onDelete: () => onDelete(entry),
-          onDuplicate: onDuplicate != null ? () => onDuplicate!(entry) : null,
-          multiSelectMode: multiSelectMode,
-          isChecked: selectedIds.contains(entry.id),
-          isTrashView: isTrashView,
-          onTagTap: onTagTap,
+        return _reveal.wrap(
+          entry.id,
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryEntryRowState.build
+          HistoryEntryRow(
+            key: ValueKey(entry.id),
+            entry: entry,
+            isSelected: widget.multiSelectMode
+                ? widget.selectedIds.contains(entry.id)
+                : entry.id == widget.selectedId,
+            isFocused: !widget.multiSelectMode && entry.id == widget.focusedId,
+            // No selection means no detail pane beside the list: the overview.
+            inSplitView: widget.selectedId != null,
+            onTap: () => widget.onEntryTap(entry),
+            onCopy: () => widget.onCopy(entry),
+            onPin: () => widget.onPin(entry),
+            onDelete: () => widget.onDelete(entry),
+            onDuplicate: widget.onDuplicate != null
+                ? () => widget.onDuplicate!(entry)
+                : null,
+            multiSelectMode: widget.multiSelectMode,
+            isChecked: widget.selectedIds.contains(entry.id),
+            isTrashView: widget.isTrashView,
+            onRestore: widget.onRestore != null
+                ? () => widget.onRestore!(entry)
+                : null,
+            onTagTap: widget.onTagTap,
+          ),
         );
       },
     );

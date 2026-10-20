@@ -51,40 +51,13 @@ void main() {
     // plane that sits on it; everything else in the app stands on those two.
     'lib/app.dart': 'the single light source the whole rule is about',
 
-    // Frozen overlay: a separate always-on-top window with its own
-    // liquid-glass material and its own golden suite. It does not sit on the
-    // main window's atmosphere, so it has to bring one.
-    'lib/snippet_picker_render_entrypoint.dart':
-        'the floating overlay is a second window, not a second light source '
-        'in this one',
-
-    // The recording overlay's design SSoT (consumed only by
-    // lib/widgets/floating_overlay/, itself exempted below as the same
-    // second window as the snippet picker above). Its solid overlay style
-    // (Settings: "Overlay-Stil") deliberately reuses frameGradient verbatim
-    // rather than inventing a nearby blue, so the two never drift apart.
-    'lib/core/theme/overlay_design_spec.dart':
-        'feeds only the floating overlay\'s separate window (see the '
-        'snippet-picker exemption above); the solid overlay style is the '
-        'app\'s own frame gradient carried into that other window, not a '
-        'second light source in this one',
-
-    // Same shape as the snippet-picker exemption above: the clipboard
-    // quick-paste side panel is its own always-on-top window (see
+    // The clipboard quick-paste side panel is its own always-on-top window (see
     // side_panel_render_entrypoint.dart), hover-triggered from its docked
     // screen edge rather than nested inside app.dart's Stack, so it brings
     // its own ground rather than standing on the main window's.
     'lib/widgets/side_panel/side_panel_view.dart':
         'the side panel is a separate window, not a second light source in '
         'this one',
-
-    // *The Preflight-Screen Exception* (lib/DESIGN.md): the blocking
-    // low-RAM screen renders *instead of* the app, never inside it. It is the
-    // app's ground painted where `app.dart` is not running — the rule's
-    // subject, not a violation of it.
-    'lib/widgets/insufficient_ram_screen.dart':
-        'stands in for the app rather than inside it (Preflight-Screen '
-        'Exception)',
 
     // The onboarding flow is `Positioned.fill` inside app.dart's own Stack
     // (structurally nested, unlike the Preflight-Screen's separate
@@ -107,7 +80,9 @@ void main() {
   final lineComment = RegExp(r'//.*$', multiLine: true);
 
   final groundReference = RegExp(
-    r'\bWpColors(?:Dark)?\.(?:' + groundTokens.join('|') + r')\b',
+    r'\bWpColors(?:Dark)?\.(?:(?:frame|current)\.)?(?:' +
+        groundTokens.join('|') +
+        r')\b',
   );
 
   test('no widget outside app.dart paints a second atmosphere', () {
@@ -119,6 +94,8 @@ void main() {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       final relPath = entity.path.replaceAll(r'\', '/');
       if (relPath == 'lib/core/theme/colors.dart') continue;
+      if (relPath == 'lib/core/theme/theme_colors.dart') continue;
+      if (relPath == 'lib/core/theme/colors_dark.dart') continue;
       if (relPath.startsWith('lib/widgets/floating_overlay/')) continue;
       if (allowedFiles.containsKey(relPath)) continue;
 
@@ -147,7 +124,7 @@ void main() {
     // `warmSurfaceGradient` would leave it green while guarding nothing at
     // all. Bind the names to real declarations, and to the values a caller
     // would actually reach for.
-    final colors = File('lib/core/theme/colors.dart');
+    final colors = File('lib/core/theme/colors_dark.dart');
     expect(colors.existsSync(), isTrue);
     final source = colors.readAsStringSync();
 
@@ -156,7 +133,7 @@ void main() {
         source,
         contains('$token ='),
         reason:
-            '`$token` is no longer declared in colors.dart. The One-Atmosphere '
+            '`$token` is no longer declared in colors_dark.dart. The One-Atmosphere '
             'gate greps for that name — rename it there and the gate silently '
             'stops guarding anything.',
       );

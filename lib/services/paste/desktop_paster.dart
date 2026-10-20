@@ -5,8 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/logging/app_logger.dart';
+import '../app_profiles/app_profile_resolver.dart'
+    show targetEvidenceFromNativeId;
 import '../clipboard_history/app_clipboard.dart';
+import '../desktop_paste/channel_desktop_paste_controller.dart';
 import '../desktop_paste/desktop_paste_controller.dart';
+import 'auto_paste_blocklist.dart';
+import 'clipboard_unsaved_notifier.dart';
 import 'paster.dart';
 
 final _log = AppLogger('DesktopPaster');
@@ -28,25 +33,56 @@ final _log = AppLogger('DesktopPaster');
 /// user's perspective there is one "paste" action, regardless of which of
 /// the two channels actually delivered the text.
 ///
-/// With a [ClipboardReceiptBridge] (macOS/Windows), the "wait" step is
-/// receipt-based: the restore runs [receiptSafetyMargin] after the target
-/// app actually read the transcript, and only while WhisPaste still owns the
-/// clipboard. Without a receipt within the classic buffer, the restore
-/// happens after that buffer as before (still ownership-checked).
-class DesktopPaster implements Paster {
-  const DesktopPaster(
+/// Success is only reported with proof. With a [ClipboardReceiptBridge]
+/// (macOS, Windows, Linux) the proof is the target's read of the transcript: the
+/// restore then runs [receiptSafetyMargin] later, and only while WhisPaste
+/// still owns the clipboard. Without that read (no receipt bridge, timeout,
+/// takeover, or typed keystrokes) the outcome is [PasteOutcome.unconfirmed]:
+/// nothing is restored, and the transcript stays on the clipboard so the user
+/// can paste it by hand (briefing N12).
+///
+/// Pastes and typing run one after the other, so a second dictation cannot
+/// snapshot the clipboard while the first one still uses it.
+class DesktopPaster implements Paster, UndoKeystrokeSender {
+  DesktopPaster(
     this._controller, {
     this._receipts,
     this._expectsHistoryExclusion,
+    this.onSnapshotUnavailable,
   });
+
+  /// Called when a paste that landed would have restored the previous
+  /// clipboard, but that content could not be read (macOS pasteboard privacy,
+  /// or an empty read). The transcript stays on the clipboard then.
+  final VoidCallback? onSnapshotUnavailable;
+
+  /// Tail of the paste queue. Every paste and typing call runs after the one
+  /// before it, so a second dictation cannot snapshot or restore the clipboard
+  /// while the first one is still using it (briefing N12).
+  Future<void> _queue = Future<void>.value();
+
+  Future<PasteOutcome> _serialized(Future<PasteOutcome> Function() action) {
+    final run = _queue.then((_) => action());
+    _queue = run.then<void>((_) {}, onError: (Object _) {});
+    return run;
+  }
 
   final DesktopPasteController _controller;
   final ClipboardReceiptBridge? _receipts;
 
   /// Whether this platform has a native history-excluded clipboard write, so
   /// falling back to the plain write is a Win+V leak worth a warning rather
-  /// than the expected path. Defaults to Windows; injectable for tests.
+  /// than the expected path. Null defaults to Windows and macOS; injectable
+  /// for tests.
   final bool? _expectsHistoryExclusion;
+
+  /// Insert counter and the serial of the last clean (native clipboard) paste,
+  /// see [cleanPasteSerial]. Every insert and every recording start clears it.
+  int _insertCounter = 0;
+  int? _cleanPasteSerial;
+
+  @override
+  int? get cleanPasteSerial => _cleanPasteSerial;
 
   /// Pause between the target's read receipt and the restore, so a reader
   /// that pulls the data in several quick calls (or re-reads it while
@@ -55,6 +91,8 @@ class DesktopPaster implements Paster {
 
   @override
   Future<void> prime() async {
+    // A new recording invalidates any earlier insert for undo (DEV-165).
+    _cleanPasteSerial = null;
     try {
       await _controller.capturePasteTarget();
     } on MissingPluginException catch (e) {
@@ -89,6 +127,40 @@ class DesktopPaster implements Paster {
     }
   }
 
+  /// Cmd+Z / Ctrl+Z in the frontmost app. False where the platform has no
+  /// undo keystroke (then the caller copies the original text instead).
+  @override
+  Future<bool> sendUndoShortcut() async {
+    final controller = _controller;
+    return controller is ChannelDesktopPasteController
+        ? controller.sendUndoShortcut()
+        : false;
+  }
+
+  /// Input-idle snapshot from the native host. Null where the host cannot
+  /// answer (no handler on this platform, channel error); the caller then
+  /// counts the input as typed.
+  @override
+  Future<InputIdleSnapshot?> inputIdleSnapshot() async {
+    final controller = _controller;
+    return controller is ChannelDesktopPasteController
+        ? controller.inputIdleSnapshot()
+        : null;
+  }
+
+  @override
+  Future<bool> copyOriginalToClipboard(String text) async {
+    try {
+      await _writeTransientClipboardText(
+        text,
+      ).timeout(const Duration(seconds: 5));
+      return true;
+    } on Exception catch (e) {
+      _log.debug('Copying the original text for undo failed', e);
+      return false;
+    }
+  }
+
   @override
   Future<String?> getTargetBundleId() async {
     try {
@@ -100,32 +172,36 @@ class DesktopPaster implements Paster {
     }
   }
 
-  /// Returns [PasteOutcome.blocked] when the captured target's bundle ID is
-  /// on [blocklist]; `null` otherwise (including when the lookup is
-  /// unsupported or the target ID is unavailable). Shared by [paste] and
-  /// [typeText] — both gate on the same blocklist.
+  /// Returns [PasteOutcome.blocked] when the block list applies: the captured
+  /// target is listed, or the list is set and the target is unknown (AUF-1,
+  /// fail-closed). `null` when auto-paste may proceed. An empty list never
+  /// blocks. Shared by [paste] and [typeText].
   Future<PasteOutcome?> _checkBlocklist(String blocklist) async {
-    final trimmed = blocklist.trim();
-    if (trimmed.isEmpty) return null;
+    if (blocklist.trim().isEmpty) return null;
+    String? targetId;
     try {
-      final targetId = await _controller.getTargetBundleId();
-      if (targetId == null || targetId.isEmpty) return null;
-      final blocked = trimmed
-          .split(',')
-          .map((e) => e.trim().toLowerCase())
-          .where((e) => e.isNotEmpty)
-          .toSet();
-      if (blocked.contains(targetId.toLowerCase())) {
+      targetId = await _controller.getTargetBundleId();
+    } on Exception catch (e) {
+      // Missing plugin, platform error or timeout: the target is unknown.
+      _log.debug('getTargetBundleId failed — target unknown', e);
+    }
+    final verdict = evaluateAutoPasteBlocklist(
+      raw: blocklist,
+      target: targetEvidenceFromNativeId(targetId),
+      isMacOS: Platform.isMacOS,
+    );
+    switch (verdict) {
+      case AutoPasteBlocklistVerdict.allowed:
+        return null;
+      case AutoPasteBlocklistVerdict.listed:
+        _log.info('Auto-paste blocked: target app is on the block list');
         return PasteOutcome.blocked;
-      }
-      return null;
-    } on MissingPluginException catch (e) {
-      // Bundle ID lookup unsupported — skip blocklist.
-      _log.debug(
-        'getTargetBundleId unavailable (MissingPlugin) — blocklist skipped',
-        e,
-      );
-      return null;
+      case AutoPasteBlocklistVerdict.targetUnknown:
+        _log.warning(
+          'Auto-paste blocked: block list is set but the target app is '
+          'unknown (copied only)',
+        );
+        return PasteOutcome.blocked;
     }
   }
 
@@ -136,14 +212,26 @@ class DesktopPaster implements Paster {
     NativePasteStatus.noTarget => PasteOutcome.noTarget,
     NativePasteStatus.permissionMissing => PasteOutcome.permissionMissing,
     NativePasteStatus.foregroundBlocked => PasteOutcome.elevationBlocked,
+    NativePasteStatus.targetChanged => PasteOutcome.targetChanged,
     _ => PasteOutcome.failed,
   };
 
   @override
-  Future<PasteOutcome> paste(String text, PasteOptions options) async {
+  Future<PasteOutcome> paste(String text, PasteOptions options) =>
+      _serialized(() => _pasteUnlocked(text, options));
+
+  Future<PasteOutcome> _pasteUnlocked(String text, PasteOptions options) async {
+    _cleanPasteSerial = null;
     // 1. Blocklist check
     final blocked = await _checkBlocklist(options.blocklist);
-    if (blocked != null) return blocked;
+    if (blocked != null) {
+      // GS-075: a blocked paste still leaves the transcript on the clipboard,
+      // unless the user switched that off (maintainer 4a+c).
+      if (options.copyBlockedToClipboard) {
+        await _writeTransientClipboardText(text);
+      }
+      return blocked;
+    }
 
     // 2. Save current clipboard contents so we can restore after paste.
     String? previousClipboard;
@@ -203,6 +291,15 @@ class DesktopPaster implements Paster {
     // bound (timeout fallback).
     final restoreBuffer = Duration(milliseconds: math.max(500, delayMs + 350));
 
+    // Briefing B3 criterion 1: the captured app is no longer frontmost. The
+    // native side refused on purpose. Retyping would send the transcript into
+    // whatever app the user switched to, and restoring would drop it, so the
+    // transcript stays on the clipboard for a manual paste.
+    if (pasteResult.status == NativePasteStatus.targetChanged) {
+      _log.info('Paste refused: the target app changed during processing');
+      return PasteOutcome.targetChanged;
+    }
+
     if (!pasteResult.isSuccess) {
       // The native paste shortcut didn't land — retry once via direct
       // Unicode typing on macOS/Windows (some apps don't react to a
@@ -219,14 +316,9 @@ class DesktopPaster implements Paster {
       if ((Platform.isMacOS || Platform.isWindows) &&
           !requiresRealPaste(text)) {
         final typeOutcome = await _typeTextCore(text, options);
-        if (typeOutcome == PasteOutcome.success) {
-          // The transcript was delivered by typing, so the clipboard must be
-          // restored exactly as after a successful native paste.
-          await _restorePreviousClipboard(
-            receipts,
-            previousClipboard,
-            restoreBuffer,
-          );
+        if (typeOutcome == PasteOutcome.unconfirmed) {
+          // Keystrokes were sent, but nothing proves they reached the field.
+          // The transcript stays on the clipboard as the fallback.
           return typeOutcome;
         }
         _log.info(
@@ -237,48 +329,31 @@ class DesktopPaster implements Paster {
       return _mapFailure(pasteResult);
     }
 
-    // 5. Restore previous clipboard contents.
-    await _restorePreviousClipboard(receipts, previousClipboard, restoreBuffer);
+    // 5. The shortcut was sent. Only a read receipt from the target proves
+    // the text arrived (briefing N12). Without one the outcome is unconfirmed,
+    // and the transcript stays on the clipboard so the user can paste it. The
+    // same holds when the receipt write itself was refused: nothing tells
+    // whether the paste landed, so nothing is restored on any platform
+    // (PAR-033).
+    if (receipts == null) {
+      _log.info('Paste unconfirmed: no read receipt — transcript kept');
+      return PasteOutcome.unconfirmedNoBridge;
+    }
+    final receipt = await _awaitReceipt(receipts, restoreBuffer);
+    if (receipt != ClipboardReadReceipt.read) {
+      _log.info('Paste unconfirmed: receipt=${receipt.name}');
+      return PasteOutcome.unconfirmed;
+    }
+    if (options.restoreClipboardAfterPaste) {
+      _noteUnavailableSnapshot(previousClipboard);
+      await _restoreOwnedClipboard(receipts, previousClipboard);
+    } else {
+      _log.info('Clipboard setting keeps the transcript — no restore');
+    }
+    // Only this path (native paste landed and the target read the transcript)
+    // is a clean insert for undo.
+    _cleanPasteSerial = ++_insertCounter;
     return PasteOutcome.success;
-  }
-
-  /// Puts the user's clipboard back after the transcript was delivered.
-  ///
-  /// Skipped when there is no plain-text snapshot (the read failed, or the
-  /// clipboard held no text — e.g. an image or file). The transcript was
-  /// already written over that content before the paste, so the original
-  /// non-text content is gone at this point. Restoring `''` in that case would
-  /// only clear the clipboard; leaving the transcript there keeps it available
-  /// for a manual paste. Recovering non-text content would need a native
-  /// multi-format snapshot, which is not implemented.
-  Future<void> _restorePreviousClipboard(
-    ClipboardReceiptBridge? receipts,
-    String? previousClipboard,
-    Duration restoreBuffer,
-  ) async {
-    if (receipts != null) {
-      await _restoreAfterReceipt(receipts, previousClipboard, restoreBuffer);
-      return;
-    }
-    if (previousClipboard == null) {
-      _log.info(
-        'No plain-text snapshot before paste — leaving the transcript on the '
-        'clipboard',
-      );
-      return;
-    }
-    await Future<void>.delayed(restoreBuffer);
-
-    // Restoring is WhisPaste's own housekeeping, not a fresh copy the user
-    // made, so it shouldn't surface as a new history entry either (issue #146).
-    try {
-      await _writeTransientClipboardText(
-        previousClipboard,
-      ).timeout(const Duration(seconds: 5));
-    } on Exception catch (e) {
-      // Non-fatal — clipboard restore is best-effort.
-      _log.debug('Clipboard restore after paste failed', e);
-    }
   }
 
   /// Tries the receipt write for [text]; `false` (no bridge, unsupported,
@@ -292,20 +367,20 @@ class DesktopPaster implements Paster {
           .writeClipboardTextWithReceipt(text)
           .timeout(const Duration(seconds: 5));
     } on Exception catch (e) {
-      _log.debug('Receipt clipboard write unavailable — classic path', e);
+      // Warning, not debug: a failed receipt means the restore falls back to
+      // a fixed delay, and we need to see how often that happens in practice.
+      _log.warning('Receipt clipboard write unavailable — classic path', e);
       return false;
     }
   }
 
-  /// Waits for the target's read receipt (bounded by [restoreBuffer]), then
-  /// restores [previousClipboard] unless another process took the clipboard
-  /// over in the meantime.
-  Future<void> _restoreAfterReceipt(
+  /// Waits for the target's read receipt, bounded by [restoreBuffer]. Returns
+  /// [ClipboardReadReceipt.read] only when the target really read the
+  /// transcript; a timeout or a takeover returns something else.
+  Future<ClipboardReadReceipt> _awaitReceipt(
     ClipboardReceiptBridge receipts,
-    String? previousClipboard,
     Duration restoreBuffer,
   ) async {
-    final stopwatch = Stopwatch()..start();
     // The fixed buffer doubles as the timeout and as the floor for every
     // "no usable signal" answer (superseded receipt, channel error).
     final fallback = Future<void>.delayed(
@@ -319,17 +394,28 @@ class DesktopPaster implements Paster {
       },
     );
     final receipt = await Future.any<ClipboardReadReceipt>([signal, fallback]);
-    switch (receipt) {
-      case ClipboardReadReceipt.read:
-        await Future<void>.delayed(receiptSafetyMargin);
-      case ClipboardReadReceipt.ownershipLost:
-        _log.info('Clipboard taken over by another writer — skipping restore');
-        return;
-      case ClipboardReadReceipt.unknown:
-        break;
+    if (receipt == ClipboardReadReceipt.read) {
+      await Future<void>.delayed(receiptSafetyMargin);
     }
+    return receipt;
+  }
 
-    if (previousClipboard == null) {
+  /// An unreadable or empty snapshot is unknown content, so it is never
+  /// restored: writing it back would erase whatever the clipboard holds.
+  void _noteUnavailableSnapshot(String? previousClipboard) {
+    if (previousClipboard != null && previousClipboard.isNotEmpty) return;
+    _log.info('Previous clipboard unreadable — not restored');
+    onSnapshotUnavailable?.call();
+  }
+
+  /// Restores [previousClipboard], but only while WhisPaste still owns the
+  /// clipboard, so a copy the user made meanwhile is never overwritten.
+  Future<void> _restoreOwnedClipboard(
+    ClipboardReceiptBridge receipts,
+    String? previousClipboard,
+  ) async {
+    final stopwatch = Stopwatch()..start();
+    if (previousClipboard == null || previousClipboard.isEmpty) {
       _log.info(
         'No plain-text snapshot before paste — leaving the transcript on the '
         'clipboard',
@@ -348,7 +434,7 @@ class DesktopPaster implements Paster {
       outcome = ClipboardRestoreOutcome.failed;
     }
     _log.info(
-      'Receipt restore: receipt=${receipt.name} restore=${outcome.name} '
+      'Receipt restore: restore=${outcome.name} '
       'after=${stopwatch.elapsedMilliseconds}ms',
     );
   }
@@ -364,21 +450,44 @@ class DesktopPaster implements Paster {
     AppClipboard.markTransientWrite(text);
     final excluded = await _controller.writeClipboardTextExcludingHistory(text);
     if (!excluded) {
-      if (_expectsHistoryExclusion ?? Platform.isWindows) {
-        _log.warning(
-          'History-excluded clipboard write failed — falling back to a plain '
-          'write that Win+V clipboard history records (issue #146)',
-        );
+      // Method and platform only, never the text (GS-114). Warning where a
+      // history-excluded write exists (Windows, macOS: BIZ-61); info on Linux
+      // (6c+a), where only Klipper honours the hint anyway. Logged once per
+      // fallback.
+      final message =
+          'History-excluded clipboard write not available — plain write used, '
+          'which clipboard history (Win+V, Klipper, ...) may record (issue '
+          '#146) (platform=${Platform.operatingSystem})';
+      final expectsExclusion =
+          _expectsHistoryExclusion ?? (Platform.isWindows || Platform.isMacOS);
+      if (expectsExclusion) {
+        _log.warning(message);
+      } else {
+        _log.info(message);
       }
       await Clipboard.setData(ClipboardData(text: text));
     }
   }
 
   @override
-  Future<PasteOutcome> typeText(String text, PasteOptions options) async {
+  Future<PasteOutcome> typeText(String text, PasteOptions options) =>
+      _serialized(() => _typeTextUnlocked(text, options));
+
+  Future<PasteOutcome> _typeTextUnlocked(
+    String text,
+    PasteOptions options,
+  ) async {
+    _cleanPasteSerial = null;
     // 1. Blocklist check — same policy as paste().
     final blocked = await _checkBlocklist(options.blocklist);
-    if (blocked != null) return blocked;
+    if (blocked != null) {
+      // GS-075: a blocked paste still leaves the transcript on the clipboard,
+      // unless the user switched that off (maintainer 4a+c).
+      if (options.copyBlockedToClipboard) {
+        await _writeTransientClipboardText(text);
+      }
+      return blocked;
+    }
     return _typeTextCore(text, options);
   }
 
@@ -388,6 +497,8 @@ class DesktopPaster implements Paster {
   /// before calling this, so re-checking would be a redundant native round
   /// trip). No clipboard involved, so there is nothing to save/restore.
   Future<PasteOutcome> _typeTextCore(String text, PasteOptions options) async {
+    // Criterion 5 (no simulated Enter): typed "\n"/"\r" is a Return keystroke.
+    if (requiresRealPaste(text)) return PasteOutcome.failed;
     final delayMs = options.autoPasteDelayMs.clamp(0, 30000);
     NativePasteResult typeResult = const NativePasteResult(
       status: NativePasteStatus.unknown,
@@ -412,7 +523,9 @@ class DesktopPaster implements Paster {
       return _mapFailure(typeResult);
     }
 
-    return PasteOutcome.success;
+    // Typed keystrokes have no read receipt, so they are not proof of delivery
+    // (briefing N12).
+    return PasteOutcome.unconfirmed;
   }
 }
 
@@ -421,9 +534,17 @@ final pasterProvider = Provider<Paster?>((ref) {
   if (controller == null) return null;
   return DesktopPaster(
     controller,
-    // macOS/Windows only — Linux's controller has no receipt bridge.
+    // Every desktop controller has one (GR-015); test fakes may not.
     receipts: controller is ClipboardReceiptBridge
         ? controller as ClipboardReceiptBridge
+        : null,
+    // The paste runs asynchronously; the provider may already be disposed
+    // when the snapshot turns out unreadable, so check before touching ref.
+    onSnapshotUnavailable: Platform.isMacOS
+        ? () {
+            if (!ref.mounted) return;
+            ref.read(clipboardUnsavedNotifierProvider.notifier).report();
+          }
         : null,
   );
 });

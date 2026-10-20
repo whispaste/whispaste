@@ -24,7 +24,9 @@ class AnalyticsData {
     required this.durationBuckets,
     required this.localSavingsUsd,
     required this.cloudCostUsd,
-    this.averageHotkeyLatencyMs,
+    this.averageStopToTextMs,
+    this.wording = AnalyticsWording.zero,
+    this.topCorrections = const <AnalyticsCorrection>[],
   });
 
   static const empty = AnalyticsData(
@@ -58,9 +60,15 @@ class AnalyticsData {
   final double localSavingsUsd;
   final double cloudCostUsd;
 
-  /// Average end-to-end hotkey→text latency in milliseconds, local-only
-  /// (see issue 07). `null` when no samples have been recorded yet.
-  final double? averageHotkeyLatencyMs;
+  /// Average time from the recording stop to the delivered text in
+  /// milliseconds, local-only (XP-6-09). `null` when no sample has one yet.
+  final double? averageStopToTextMs;
+
+  /// Raw versus revised words and the number of transform actions.
+  final AnalyticsWording wording;
+
+  /// Most frequent corrections, most frequent first.
+  final List<AnalyticsCorrection> topCorrections;
 
   bool get isEmpty => totalRecordings == 0;
 }
@@ -103,7 +111,9 @@ final analyticsProvider = FutureProvider<AnalyticsData>((ref) async {
     db.analyticsModelUsage(since: since), // 5
     db.analyticsWeeklyActivity(), // 6 — always last 7 days
     db.analyticsDurationBuckets(since: since), // 7
-    db.analyticsAverageHotkeyLatencyMs(since: since), // 8
+    db.analyticsAverageStopToTextMs(since: since), // 8
+    db.analyticsWording(since: since), // 9
+    db.analyticsTopCorrections(since: since), // 10
   ]);
 
   final totalRecordings = results[0] as int;
@@ -114,7 +124,9 @@ final analyticsProvider = FutureProvider<AnalyticsData>((ref) async {
   final modelUsage = results[5] as List<AnalyticsModelUsage>;
   final weeklyActivity = results[6] as List<double>;
   final durationBuckets = results[7] as List<int>;
-  final averageHotkeyLatencyMs = results[8] as double?;
+  final averageStopToTextMs = results[8] as double?;
+  final wording = results[9] as AnalyticsWording;
+  final topCorrections = results[10] as List<AnalyticsCorrection>;
 
   final totalMinutes = (totalDurationSec / 60).round();
   // Estimate: dictation is ~3× faster than typing → saved 2/3 of the time.
@@ -130,7 +142,9 @@ final analyticsProvider = FutureProvider<AnalyticsData>((ref) async {
     durationBuckets: durationBuckets,
     localSavingsUsd: localSavings,
     cloudCostUsd: cloudCost,
-    averageHotkeyLatencyMs: averageHotkeyLatencyMs,
+    averageStopToTextMs: averageStopToTextMs,
+    wording: wording,
+    topCorrections: topCorrections,
   );
 });
 

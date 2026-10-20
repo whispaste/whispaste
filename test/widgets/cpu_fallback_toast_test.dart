@@ -106,7 +106,7 @@ void main() {
       await tester.tap(find.text('fire-cpu-fallback-toast'));
       await tester.pumpAndSettle();
 
-      expect(find.text(lDe.cpuFallbackToast), findsOneWidget);
+      expect(find.text(lDe.errorNoticeCpuCause), findsOneWidget);
 
       // Drain the toast's auto-dismiss timer so no Timer outlives the test.
       await tester.pumpAndSettle(const Duration(seconds: 6));
@@ -122,7 +122,7 @@ void main() {
       await tester.tap(find.text('fire-cpu-fallback-toast'));
       await tester.pumpAndSettle();
 
-      expect(find.text(lEn.cpuFallbackToast), findsOneWidget);
+      expect(find.text(lEn.errorNoticeCpuCause), findsOneWidget);
 
       await tester.pumpAndSettle(const Duration(seconds: 6));
     });

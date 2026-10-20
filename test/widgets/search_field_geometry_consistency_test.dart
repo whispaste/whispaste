@@ -128,6 +128,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/core/theme/generated/wp_tokens.g.dart';
 import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/features/history/data/providers.dart';
 import 'package:whispaste/features/history/widgets/history_helpers.dart';
@@ -138,6 +139,7 @@ import 'package:whispaste/features/settings/widgets/settings_search_field.dart';
 import 'package:whispaste/widgets/page_shell.dart';
 import 'package:whispaste/widgets/searchable_list_page.dart';
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:whispaste/widgets/wp_icon_button.dart';
 import 'package:whispaste/widgets/wp_discoverability_hint.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
@@ -162,11 +164,14 @@ typedef _FieldGeometry = ({
   double textBottomInset,
 });
 
-/// The same record minus width: the axes that must be identical in every area.
+/// The same record minus width and vertical placement: the axes that must be
+/// identical in every area. `boxTop` is left out on purpose — WP-14 §3 sets the
+/// field at 44 dp beside a 48 dp outlined button, so in a row the button makes
+/// taller the field sits centred and its top moves by the difference. Height
+/// itself is still compared.
 typedef _FieldShape = ({
   double boxHeight,
   double boxLeft,
-  double boxTop,
   double glyphLeftInset,
   double textLeftInset,
   double textTopInset,
@@ -176,12 +181,25 @@ typedef _FieldShape = ({
 _FieldShape _shape(_FieldGeometry g) => (
   boxHeight: g.boxHeight,
   boxLeft: g.boxLeft,
-  boxTop: g.boxTop,
   glyphLeftInset: g.glyphLeftInset,
   textLeftInset: g.textLeftInset,
   textTopInset: g.textTopInset,
   textBottomInset: g.textBottomInset,
 );
+
+/// Height of the search row inside [bar]: the nearest [Row] around the
+/// [WpSearchField], i.e. the field plus its neighbouring button. Excludes any
+/// filter-chip row the bar stacks below it.
+double _searchRowHeight(WidgetTester tester, Finder bar) {
+  final row = find.descendant(
+    of: bar,
+    matching: find.ancestor(
+      of: find.byType(WpSearchField),
+      matching: find.byType(Row),
+    ),
+  );
+  return _rect(tester, row.first).height;
+}
 
 Rect _rect(WidgetTester tester, Finder finder) {
   final box = tester.renderObject<RenderBox>(finder);
@@ -196,6 +214,11 @@ Finder _fieldBox() => find
       matching: find.byType(AnimatedContainer),
     )
     .first;
+
+/// The control that sits beside the field in a toolbar row: a [WpButton], or
+/// the 44 px [WpIconButton] the notes and list toolbars now use (WP-14 §4).
+Finder _neighbour() =>
+    find.byWidgetPredicate((w) => w is WpButton || w is WpIconButton);
 
 /// A [WpButton]'s *painted* box.
 ///
@@ -360,7 +383,7 @@ _measureAllAreas(WidgetTester tester, double scale) async {
         .renderObject<RenderBox>(find.byType(WpSearchField))
         .constraints;
     surfaceWidth = _rect(tester, find.byType(MaterialApp)).width;
-    final button = find.byType(WpButton);
+    final button = _neighbour();
     if (button.evaluate().isNotEmpty) {
       gaps[area] =
           _rect(tester, button.first).left - _rect(tester, _fieldBox()).right;
@@ -578,9 +601,23 @@ void main() {
             // padding has not yet outgrown. Half a dp of type metrics is not
             // what this test is about; eight dp of "the button is a different
             // size" is.
+            // WP-14 §3/§4: the field and the icon button beside it are both
+            // 44 dp, so the strip is one height at every text size.
+            if (scale == 1.0) {
+              expect(
+                field,
+                closeTo(WpShellTokens.fieldHeight, 0.01),
+                reason: 'the search field is WP-14 §3 44 dp at normal size',
+              );
+              expect(
+                button,
+                closeTo(WpIconButton.extent, 0.01),
+                reason: 'the icon button beside it is 44 dp (WP-14 §4)',
+              );
+            }
             expect(
               button,
-              closeTo(field, scale == 1.0 ? 0.01 : 1.0),
+              closeTo(field, 0.01),
               reason:
                   'On "$area" the search field and the button beside it are one '
                   'row, so they must read as one control strip: a shorter '
@@ -627,20 +664,23 @@ void main() {
     }
   });
 
-  testWidgets('the whole search bar is the same height on History as on Notes', (
+  testWidgets('the search row is the same height on History as on Notes', (
     tester,
   ) async {
-    // The field box is only half of what "the search" means to someone
-    // looking at the page: the bar around it — same `xl/sm` padding, same two
-    // stacked rows (search, then filter chips) — is what the eye measures.
-    // History's was 132 dp against Notes' 128 dp because it separated the two
-    // rows with `sm` where Notes uses `xs`; that 4 dp is one half of what this
-    // pins. The other half was a one-time operator hint that stood in the bar
-    // until someone dismissed it, 21 dp of it — the equality below needed a
-    // "pretend it is dismissed" fixture to hold at all. The hint has since
-    // moved into the field's help popover, so the equality is now
-    // unconditional: no fixture, true from the very first frame a new user
-    // sees.
+    // Scope: this measures the SEARCH ROW only — the row that holds the field
+    // and its neighbouring button (`Row` nearest to [WpSearchField]). It does
+    // not measure the whole bar. History's filter chips sit on a separate
+    // second row that wraps inside the content width (Ticket 03) and so grows
+    // on narrow windows where Notes' single chip row does not; that row is
+    // deliberately outside this equality. What this pins is that the field
+    // and its button occupy the same band on every area, which is what the
+    // eye reads as "the search" moving between pages.
+    //
+    // History's search row was once 4 dp taller than Notes' because it
+    // separated the two rows with `sm` where Notes uses `xs`, and a one-time
+    // operator hint stood in the bar until someone dismissed it. Neither
+    // applies to the row itself any more: the hint lives in the field's help
+    // popover, so the equality is unconditional from the first frame.
     await tester.binding.setSurfaceSize(Size(_contentWidth(1100), 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
@@ -657,7 +697,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final notesBar = _rect(tester, find.byType(NotesSearchBar)).height;
+    final notesRow = _searchRowHeight(tester, find.byType(NotesSearchBar));
 
     final historyController = TextEditingController();
     addTearDown(historyController.dispose);
@@ -678,19 +718,18 @@ void main() {
           'operator help lives in the field\'s info popover, which is what '
           'makes the height equality below unconditional',
     );
-    final historyBar = _rect(
+    final historyRow = _searchRowHeight(
       tester,
       find.byType(HistorySearchFilterBar),
-    ).height;
+    );
 
     expect(
-      historyBar,
-      closeTo(notesBar, 0.01),
+      historyRow,
+      closeTo(notesRow, 0.01),
       reason:
-          'History\'s search bar is $historyBar dp against Notes\' $notesBar dp. '
-          'Both stack a search row and a filter-chip row inside the same '
-          'padding, so anything but an equal height is drift — the search '
-          'area must not change size when the sidebar entry changes',
+          'History\'s search row is $historyRow dp against Notes\' $notesRow dp. '
+          'The field and its button must occupy the same band on every page; '
+          'History\'s filter-chip row is not part of this measurement',
     );
   });
 
@@ -728,7 +767,7 @@ void main() {
       // panel's AnimatedSize inside a flex child, where it re-lays out itself
       // mid-layout.) Asserted against the button's measured edge, so a panel
       // that stops short *or* overflows the bar both turn this red.
-      final historyRowEnd = _rect(tester, find.byType(WpButton).first).right;
+      final historyRowEnd = _rect(tester, _neighbour()).right;
 
       // `lang:` opens the panel without needing a database.
       await tester.enterText(
@@ -814,22 +853,24 @@ void main() {
     const scales = [1.0, 1.3, 1.5, 1.8, 2.0];
     final measured = {for (final s in scales) s: await at(s)};
 
+    // WP-14 §3: the field's floor is its 44 dp design height, not the 48 dp
+    // touch target (the target still applies to buttons, §4).
     expect(
       measured[1.0]!.boxHeight,
-      WpLayout.minTouchTarget,
+      WpShellTokens.fieldHeight,
       reason:
           'at 1.0x the icon slots are the tallest thing in the box, so they — '
           'not contentPadding — set the height, and the field rests on exactly '
-          'the touch target every other control in a toolbar row rests on',
+          'its WP-14 design height',
     );
 
     for (final scale in scales) {
       final g = measured[scale]!;
       expect(
         g.boxHeight,
-        greaterThanOrEqualTo(WpLayout.minTouchTarget),
+        greaterThanOrEqualTo(WpShellTokens.fieldHeight),
         reason:
-            'the field dropped below the touch target at ${scale}x — the icon '
+            'the field dropped below its design height at ${scale}x — the icon '
             'slots are a floor and nothing may pull the box under it',
       );
       // The line must live *inside* the box at every size. Clipping is the

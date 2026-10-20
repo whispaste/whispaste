@@ -80,39 +80,32 @@ void main() {
 
   group('WpShadows', () {
     test('shadow definitions are not empty', () {
-      expect(WpShadows.subtle, isNotEmpty);
       expect(WpShadows.card, isNotEmpty);
       expect(WpShadows.elevated, isNotEmpty);
-      expect(WpShadows.glassInner, isNotEmpty);
     });
 
-    test('elevated shadow has greater blur than subtle', () {
-      final subtleMaxBlur = WpShadows.subtle
+    test('elevated shadow has greater blur than card', () {
+      final cardMaxBlur = WpShadows.card
           .map((s) => s.blurRadius)
           .reduce((a, b) => a > b ? a : b);
       final elevatedMaxBlur = WpShadows.elevated
           .map((s) => s.blurRadius)
           .reduce((a, b) => a > b ? a : b);
-      expect(elevatedMaxBlur, greaterThan(subtleMaxBlur));
-    });
-
-    test('glassInner uses inner blur style', () {
-      expect(
-        WpShadows.glassInner.any((s) => s.blurStyle == BlurStyle.inner),
-        isTrue,
-      );
+      expect(elevatedMaxBlur, greaterThan(cardMaxBlur));
     });
   });
 
   group('WpLayout', () {
-    test('sidebar width is reasonable for icon-only rail', () {
-      expect(WpLayout.sidebarWidth, greaterThanOrEqualTo(48));
-      expect(WpLayout.sidebarWidth, lessThanOrEqualTo(120));
+    test('sidebar width is reasonable for labelled and icon-only rails', () {
+      expect(WpLayout.sidebarWidth, greaterThanOrEqualTo(200));
+      expect(WpLayout.sidebarWidth, lessThanOrEqualTo(260));
+      expect(WpLayout.sidebarWidthCompact, greaterThanOrEqualTo(48));
+      expect(WpLayout.sidebarWidthCompact, lessThanOrEqualTo(120));
     });
 
     test('status bar height is compact', () {
-      expect(WpLayout.statusBarHeight, greaterThan(0));
-      expect(WpLayout.statusBarHeight, lessThanOrEqualTo(48));
+      expect(WpLayout.dockAreaHeight, greaterThan(0));
+      expect(WpLayout.dockAreaHeight, lessThanOrEqualTo(120));
     });
 
     test('app bar height is reasonable', () {

@@ -1,7 +1,7 @@
 /// Applies a Smart Mode preset to an existing history entry's raw content on
 /// demand (Smart-Mode-v2 ticket 05).
 ///
-/// Reuses the same local engine and prompts as the live pipeline
+/// Reuses the same engine and prompts as the live pipeline
 /// ([RecordingOrchestrator], tickets 02/03), but unlike the live path this
 /// surfaces failures to the caller instead of silently falling back: there
 /// is no paste-in-flight to protect here (ADR 0009's never-blocks principle
@@ -15,7 +15,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/config/settings_enums.dart';
+import '../../core/config/settings_provider.dart';
+import '../drift_recording_store.dart' show factKnownTermsProvider;
 import '../recording/pipeline_step_runner.dart';
+import 'smart_mode_fact_guard.dart';
 import 'smart_mode_ffi_engine.dart' show smartModeEngineProvider;
 import 'smart_mode_model_download_service.dart' show smartModeDownloadProvider;
 import 'smart_mode_presets.dart';
@@ -23,6 +27,11 @@ import 'smart_mode_presets.dart';
 /// Why [SmartModeRetroactiveResult] failed, for callers that want to show a
 /// tailored message (e.g. "model not downloaded" vs. a generic error).
 enum SmartModeRetroactiveFailureReason {
+  /// The Smart Mode result changed a protected fact (matrix 2.5).
+  factsChanged,
+
+  /// The fact check ran out of time; the entry stays unchanged (GS-045).
+  checkTimedOut,
   modelMissing,
   timeout,
   engineError,
@@ -67,13 +76,26 @@ class SmartModeRetroactiveService {
   /// — callers only offer this action for the three real presets.
   /// [targetLanguage] is required for [SmartModePreset.translate] (the
   /// per-entry choice from ticket 05, distinct from the live pipeline's
-  /// global default) and ignored otherwise.
+  /// global default) and ignored otherwise. [languageCode] is the language the
+  /// entry was recorded in (session override, else configured; stored as the
+  /// entry's language). It decides the fact guard's name rule (DEV-124); when
+  /// absent, the current setting is used. [detectedLanguage] decides it when
+  /// that language is "auto" (DEV-107), else German applies.
   Future<SmartModeRetroactiveResult> apply({
     required String rawText,
     required SmartModePreset preset,
     SmartModeTargetLanguage? targetLanguage,
+    String? detectedLanguage,
+    String? languageCode,
   }) async {
-    if (!_ref.read(smartModeDownloadProvider).modelDownloaded) {
+    // Strict either-or (ADR 0010): only the local provider needs the
+    // downloaded model. The cloud engine reports a missing key or a network
+    // failure itself, which surfaces as engineError below.
+    final provider = SmartModeProviderType.fromValue(
+      _ref.read(settingsProvider).value?.smartMode.provider,
+    );
+    if (provider.isLocal &&
+        !_ref.read(smartModeDownloadProvider).modelDownloaded) {
       return const SmartModeRetroactiveFailure(
         SmartModeRetroactiveFailureReason.modelMissing,
       );
@@ -96,6 +118,34 @@ class SmartModeRetroactiveService {
         if (value.trim().isEmpty) {
           return const SmartModeRetroactiveFailure(
             SmartModeRetroactiveFailureReason.blankResult,
+          );
+        }
+        // Fact guard (matrix 2.5): a changed number, date, URL, e-mail or name
+        // fails the action instead of replacing the entry (no fallback here).
+        final language = factGuardLanguage(
+          configured: languageCode?.isNotEmpty ?? false
+              ? languageCode!
+              : _ref.read(settingsProvider).value?.sttLanguageCode ?? 'auto',
+          detected: detectedLanguage,
+        );
+        final check = await checkSmartModeFacts(
+          input: rawText,
+          output: value,
+          checkNames: preset != SmartModePreset.translate,
+          knownTerms: await _ref.read(factKnownTermsProvider)(),
+          singleCapitalisedWordsAreNames: singleWordsAreNamesFor(language),
+        );
+        final violations = check.violations;
+        if (violations == null) {
+          return SmartModeRetroactiveFailure(
+            check.failure == SmartModeGuardFailure.timedOut
+                ? SmartModeRetroactiveFailureReason.checkTimedOut
+                : SmartModeRetroactiveFailureReason.factsChanged,
+          );
+        }
+        if (violations.isNotEmpty) {
+          return const SmartModeRetroactiveFailure(
+            SmartModeRetroactiveFailureReason.factsChanged,
           );
         }
         return SmartModeRetroactiveSuccess(value);

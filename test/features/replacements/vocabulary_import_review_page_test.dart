@@ -11,6 +11,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/features/replacements/vocabulary_import_review_page.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -80,6 +81,50 @@ void main() {
       expect(find.text('Alpha'), findsOneWidget);
       expect(find.text('Beta'), findsOneWidget);
       expect(find.text('Gamma'), findsOneWidget);
+    });
+  });
+
+  group('VocabularyImportReviewPage bulk actions', () {
+    testWidgets('select-all and deselect-all carry the same weight', (
+      tester,
+    ) async {
+      await _pump(tester, const ['Alpha', 'Beta']);
+
+      final selectAll = tester.widget<WpButton>(
+        find.byKey(const Key('vocabulary-import-select-all')),
+      );
+      final deselectAll = tester.widget<WpButton>(
+        find.byKey(const Key('vocabulary-import-deselect-all')),
+      );
+      expect(selectAll.variant, WpButtonVariant.secondary);
+      expect(deselectAll.variant, selectAll.variant);
+      expect(deselectAll.tone, selectAll.tone);
+      expect(deselectAll.size, selectAll.size);
+    });
+
+    testWidgets('import button is disabled while nothing is selected', (
+      tester,
+    ) async {
+      await _pump(tester, const ['Alpha', 'Beta']);
+
+      final importButton = tester.widget<WpButton>(
+        find.byKey(const Key('vocabulary-import-confirm')),
+      );
+      expect(importButton.onPressed, isNull);
+    });
+
+    testWidgets('import button is enabled once a candidate is selected', (
+      tester,
+    ) async {
+      await _pump(tester, const ['Alpha', 'Beta']);
+
+      await tester.tap(find.byKey(const Key('vocabulary-import-select-all')));
+      await tester.pumpAndSettle();
+
+      final importButton = tester.widget<WpButton>(
+        find.byKey(const Key('vocabulary-import-confirm')),
+      );
+      expect(importButton.onPressed, isNotNull);
     });
   });
 }

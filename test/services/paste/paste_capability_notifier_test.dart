@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 import 'dart:io';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -172,6 +173,43 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('PasteCapabilityNotifier — check()', () {
+    // The macOS startup probe in the app shell awaits between steps; an
+    // app shutdown (or a test unmount) can dispose the container meanwhile.
+    test(
+      'check() after the container is gone is a no-op, not a throw',
+      () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        container.dispose();
+
+        await notifier.check();
+        await notifier.hydrateRestartMarker();
+        expect(paster.calls, isEmpty);
+      },
+    );
+
+    test(
+      'a probe in flight while the container is disposed ends quietly',
+      () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+        )..gate = Completer<void>();
+        final container = _container(paster: paster);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        final probe = notifier.check();
+        container.dispose();
+        paster._gate!.complete();
+
+        await expectLater(probe, completes);
+      },
+    );
+
     test(
       'check(prompt: false) calls Paster.checkCapability(promptIfMissing: false) once '
       'and state mirrors the result',
@@ -782,27 +820,272 @@ void main() {
     },
   );
 
+  group(
+    'PasteCapabilityNotifier — live status (focus, paste failure, watch)',
+    () {
+      test('foreground recheck re-probes even when the last probe read ready, '
+          'so ready -> missing becomes visible', () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        await notifier.check(); // populate `ready`
+        paster.nextResult = const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        );
+
+        await notifier.recheckOnForeground();
+
+        expect(paster.calls, hasLength(2));
+        expect(
+          container.read(pasteCapabilityNotifierProvider).capability?.status,
+          PasteCapabilityStatus.permissionMissing,
+        );
+        expect(notifier.requiredAction, isNot(PastePermissionAction.none));
+      });
+
+      test(
+        'recheckAfterPasteFailure probes and shows a revoked permission',
+        () async {
+          final paster = _FakePaster(
+            initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+          );
+          final container = _container(paster: paster);
+          addTearDown(container.dispose);
+
+          final notifier = container.read(
+            pasteCapabilityNotifierProvider.notifier,
+          );
+          await notifier.check();
+          paster.nextResult = const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          );
+
+          await notifier.recheckAfterPasteFailure();
+
+          expect(
+            container.read(pasteCapabilityNotifierProvider).capability?.status,
+            PasteCapabilityStatus.permissionMissing,
+          );
+        },
+      );
+
+      test('watchWhileVisible probes every 30 s while a surface is visible and '
+          'stops once the last surface releases', () {
+        fakeAsync((async) {
+          final paster = _FakePaster(
+            initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+          );
+          final container = _container(paster: paster);
+          final notifier = container.read(
+            pasteCapabilityNotifierProvider.notifier,
+          );
+
+          final releaseA = notifier.watchWhileVisible();
+          final releaseB = notifier.watchWhileVisible(); // second surface
+          async.elapse(const Duration(seconds: 29));
+          async.flushMicrotasks();
+          expect(paster.calls, isEmpty, reason: 'no probe before 30 s');
+
+          paster.nextResult = const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          );
+          async.elapse(const Duration(seconds: 1));
+          async.flushMicrotasks();
+          expect(paster.calls, hasLength(1));
+          expect(
+            container.read(pasteCapabilityNotifierProvider).capability?.status,
+            PasteCapabilityStatus.permissionMissing,
+          );
+
+          releaseA();
+          async.elapse(const Duration(seconds: 30));
+          async.flushMicrotasks();
+          expect(
+            paster.calls,
+            hasLength(2),
+            reason: 'one surface still visible',
+          );
+
+          releaseB();
+          releaseB(); // idempotent
+          async.elapse(const Duration(minutes: 5));
+          async.flushMicrotasks();
+          expect(paster.calls, hasLength(2), reason: 'no surface left');
+
+          container.dispose();
+        });
+      });
+
+      test('foreground recheck still ends a cached-probe grant poll', () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        notifier.usesCachedPermissionProbe = true;
+        await notifier.openAccessibilitySettings();
+        notifier.startPolling(
+          interval: const Duration(seconds: 10),
+          timeout: const Duration(seconds: 10),
+        );
+
+        await notifier.recheckOnForeground();
+
+        expect(
+          container.read(pasteCapabilityNotifierProvider).pollingPhase,
+          isNot(PollingPhase.awaitingGrant),
+        );
+      });
+    },
+  );
+
+  group(
+    'PasteCapabilityNotifier — stale-entry reset only after confirmation (B)',
+    () {
+      late UrlLauncherPlatform original;
+      late _FakeUrlLauncher fakeLauncher;
+
+      setUp(() {
+        SharedPreferences.setMockInitialValues({});
+        original = UrlLauncherPlatform.instance;
+        fakeLauncher = _FakeUrlLauncher();
+        UrlLauncherPlatform.instance = fakeLauncher;
+      });
+
+      tearDown(() => UrlLauncherPlatform.instance = original);
+
+      /// Live-probe (Developer-ID) build, permission reads missing.
+      Future<
+        (ProviderContainer, PasteCapabilityNotifier, _FakeRepairController)
+      >
+      liveMissing() async {
+        final controller = _FakeRepairController();
+        final container = _container(
+          paster: _FakePaster(),
+          controller: controller,
+        );
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        )..usesCachedPermissionProbe = false;
+        await notifier.check();
+        return (container, notifier, controller);
+      }
+
+      test(
+        'no grant was attempted: recovery never resets and never asks',
+        () async {
+          final (_, notifier, controller) = await liveMissing();
+          expect(notifier.staleEntryResetCandidate, isFalse);
+          var asked = 0;
+
+          await notifier.runMissingPermissionRecovery(
+            confirmReset: () async {
+              asked++;
+              return true;
+            },
+          );
+
+          expect(controller.repairCalls, 0);
+          expect(asked, 0);
+        },
+        skip: !Platform.isMacOS,
+      );
+
+      test(
+        'grant handed off but still missing: declining the dialog resets nothing',
+        () async {
+          final (_, notifier, controller) = await liveMissing();
+          await notifier.openAccessibilitySettings();
+          expect(notifier.staleEntryResetCandidate, isTrue);
+          var asked = 0;
+
+          await notifier.runMissingPermissionRecovery(
+            confirmReset: () async {
+              asked++;
+              return false;
+            },
+          );
+
+          expect(asked, 1);
+          expect(controller.repairCalls, 0);
+        },
+        skip: !Platform.isMacOS,
+      );
+
+      test(
+        'stale entry and confirmed: exactly one reset, and only after the confirmation',
+        () async {
+          final (_, notifier, controller) = await liveMissing();
+          await notifier.openAccessibilitySettings();
+          var resetsSeenAtConfirm = -1;
+
+          await notifier.runMissingPermissionRecovery(
+            confirmReset: () async {
+              resetsSeenAtConfirm = controller.repairCalls;
+              return true;
+            },
+          );
+
+          expect(resetsSeenAtConfirm, 0, reason: 'confirm precedes reset');
+          expect(controller.repairCalls, 1);
+        },
+        skip: !Platform.isMacOS,
+      );
+
+      test(
+        'a code-signature change persisted by an earlier run counts as stale',
+        () async {
+          SharedPreferences.setMockInitialValues({
+            kAutoPasteGrantedSigningRequirementKey: 'old-requirement',
+          });
+          final (_, notifier, controller) = await liveMissing();
+          notifier.readSigningRequirement = () async => 'new-requirement';
+          await notifier.hydrateRestartMarker();
+
+          expect(notifier.staleEntryResetCandidate, isTrue);
+          await notifier.resetStaleEntry(confirmReset: () async => true);
+          expect(controller.repairCalls, 1);
+        },
+        skip: !Platform.isMacOS,
+      );
+
+      test(
+        'a ready permission never offers or performs a reset',
+        () async {
+          final controller = _FakeRepairController();
+          final paster = _FakePaster(
+            initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+          );
+          final container = _container(paster: paster, controller: controller);
+          addTearDown(container.dispose);
+          final notifier = container.read(
+            pasteCapabilityNotifierProvider.notifier,
+          )..usesCachedPermissionProbe = false;
+          await notifier.check();
+
+          await notifier.runMissingPermissionRecovery(
+            confirmReset: () async => true,
+          );
+
+          expect(controller.repairCalls, 0);
+        },
+        skip: !Platform.isMacOS,
+      );
+    },
+  );
+
   group('PasteCapabilityNotifier — recheckOnForeground', () {
-    test('no-op when already ready (skips the probe)', () async {
-      final paster = _FakePaster(
-        initial: const PasteCapability(status: PasteCapabilityStatus.ready),
-      );
-      final container = _container(paster: paster);
-      addTearDown(container.dispose);
-
-      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
-      await notifier.check(); // populate `ready`
-      paster.calls.clear();
-
-      await notifier.recheckOnForeground();
-
-      expect(
-        paster.calls,
-        isEmpty,
-        reason: 'A ready capability needs no foreground re-probe',
-      );
-    });
-
     test('AX live-flip: a fresh probe that reads ready promotes state and '
         'clears the restart affordance', () async {
       final paster = _FakePaster(
@@ -1080,12 +1363,18 @@ void main() {
           pasteCapabilityNotifierProvider.notifier,
         );
         notifier.stopPolling();
+        // A reset is only offered for a stale entry: establish the evidence
+        // first (the grant was handed off and still reads missing).
+        await notifier.check();
+        await notifier.openAccessibilitySettings();
+        expect(notifier.staleEntryResetCandidate, isTrue);
 
         // Snapshot how many repairs had completed at each capability probe.
         final repairsSeenAtCheck = <int>[];
         paster.onCheck = () => repairsSeenAtCheck.add(controller.repairCalls);
 
         await notifier.repairAndRequestGrant(
+          confirmReset: () async => true,
           pollTimeout: const Duration(milliseconds: 1),
         );
         notifier.stopPolling();
@@ -1101,6 +1390,7 @@ void main() {
               'stale state this recovery exists to leave.',
         );
       },
+      skip: !Platform.isMacOS,
     );
 
     test('grantRequiresEntryReset separates the two macOS builds: only the '

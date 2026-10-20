@@ -74,9 +74,19 @@ dependencies:
   # settings export/import target selection (Ticket 03,
   # settings-portability-vollumfang).
   file_selector: ^1.1.0
+  # Drop target for audio files dragged from the file manager (XP-5-12).
+  # 0.9 needs Flutter 3.47; 0.8.4 covers macOS, Windows and Linux.
+  desktop_drop: ^0.8.4
+  # Linux: own FileSelectorPlatform with dialog texts in the app language
+  # (XP-5-13); already resolved through file_selector.
+  file_selector_platform_interface: ^2.7.0
 
   # FFI (platform interop)
   ffi: ^2.2.0
+  # Pure-Dart D-Bus client (Linux only): asks the compositor which window has
+  # focus under Wayland (KWin scripting, the optional GNOME Shell extension),
+  # see lib/services/desktop_paste/focused_target/.
+  dbus: ^0.7.15
 
   # Cross-platform audio engine (replaces Win32 PlaySoundW)
   flutter_soloud: ^4.0.7
@@ -114,10 +124,6 @@ dependencies:
 
   # Export (DOCX ZIP generation)
   archive: ^4.0.4
-  # Fuzzy string similarity scoring for the fuzzy text-replacement match
-  # mode (vocabulary-fuzzy-replacements PRD) — more mature/established than
-  # the same author's newer rapidfuzz package at spec time.
-  fuzzywuzzy: ^1.2.0
   # Pure-Dart diagnostics core — shared between In-App-Diagnostik and CLI.
   whispaste_diagnostics:
     path: packages/whispaste_diagnostics
@@ -130,6 +136,7 @@ dependencies:
   file: ^7.0.0
   auto_updater: ^1.0.0
   sherpa_onnx: ^1.13.4
+  super_clipboard: ^0.9.1
 
 dev_dependencies:
   flutter_test:
@@ -165,6 +172,12 @@ dependency_overrides:
   # the Windows self-update chain EdDSA-verified, mirroring macOS Sparkle.
   auto_updater_windows:
     path: packages/auto_updater_windows
+  # Vendored fork of hotkey_manager_linux 0.2.0: binds with keybinder's raw
+  # accelerator matching (linux/keybinder_raw.cc). Upstream keeps the cooked
+  # default, under which every Shift+letter hotkey, the default Ctrl+Shift+D
+  # included, never fires on X11. Only the Linux implementation is replaced.
+  hotkey_manager_linux:
+    path: packages/hotkey_manager_linux
 
 flutter:
   uses-material-design: true
@@ -187,8 +200,38 @@ flutter:
     - assets/icons/logo-dark.svg
     - assets/icons/logo-light.svg
     - assets/flags/
+    - assets/fonts/licenses/
+    # Licence texts of the native libraries — see lib/core/licenses/third_party_licenses.dart.
+    - assets/licenses/
 
+  # Static instances cut from the upstream variable fonts (google/fonts, OFL 1.1):
+  # Bricolage at opsz 24 / wdth 100. Neither family covers Cyrillic or Hebrew,
+  # so Inter stays bundled as the first fallback (ADR 0018).
   fonts:
+    - family: Hanken Grotesk
+      fonts:
+        - asset: assets/fonts/HankenGrotesk-w400.ttf
+          weight: 400
+        - asset: assets/fonts/HankenGrotesk-Italic-w400.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/HankenGrotesk-w500.ttf
+          weight: 500
+        - asset: assets/fonts/HankenGrotesk-w600.ttf
+          weight: 600
+        - asset: assets/fonts/HankenGrotesk-Italic-w600.ttf
+          weight: 600
+          style: italic
+        - asset: assets/fonts/HankenGrotesk-w700.ttf
+          weight: 700
+    - family: Bricolage Grotesque
+      fonts:
+        - asset: assets/fonts/BricolageGrotesque-w500.ttf
+          weight: 500
+        - asset: assets/fonts/BricolageGrotesque-w600.ttf
+          weight: 600
+        - asset: assets/fonts/BricolageGrotesque-w700.ttf
+          weight: 700
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter-Regular.ttf

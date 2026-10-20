@@ -27,8 +27,10 @@ import 'package:whispaste/services/support/support_capabilities.dart';
 import 'package:whispaste/services/support/support_state.dart';
 import 'package:whispaste/services/support_prompt_service.dart';
 import 'package:whispaste/widgets/support_prompt_dialog.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../fixtures/test_helpers.dart';
+import '../test_helpers/nudge_gate_open.dart';
 
 // ---------------------------------------------------------------------------
 // Fake notifier
@@ -39,6 +41,9 @@ import '../fixtures/test_helpers.dart';
 class _FakeSupportPromptNotifier extends SupportPromptNotifier {
   bool dismissCalled = false;
   bool markLinkOpenedCalled = false;
+
+  /// Runs inside [markPresented], so a test can see what is on screen then.
+  void Function()? onMarkPresented;
 
   @override
   SupportPromptState build() =>
@@ -51,7 +56,9 @@ class _FakeSupportPromptNotifier extends SupportPromptNotifier {
       state = SupportPromptState(shouldShowPrompt: true, kind: kind);
 
   @override
-  Future<void> markPresented() async {}
+  Future<void> markPresented() async {
+    onMarkPresented?.call();
+  }
 
   @override
   void cancelPresentation() {}
@@ -89,6 +96,7 @@ Future<_FakeSupportPromptNotifier> _showDialog(
       const WpSupportPromptWatcher(child: SizedBox()),
       locale: const Locale('en'),
       overrides: [
+        nudgeGateOpenOverride(),
         supportPromptProvider.overrideWith(() => notifier),
         // The test host is macOS; a store-channel build would offer no
         // external links, so the build is pinned to a direct one here.
@@ -216,4 +224,51 @@ void main() {
     expect(find.text(l10n.aboutSupportTitle), findsNothing);
     expect(find.text(l10n.aboutSupportDescription), findsNothing);
   });
+
+  testWidgets(
+    'the impression is counted only once the dialog is on screen (UIA-FBK-09)',
+    (tester) async {
+      final notifier = _FakeSupportPromptNotifier();
+      bool? dialogVisibleWhenCounted;
+      notifier.onMarkPresented = () => dialogVisibleWhenCounted = find
+          .text(l10n.aboutSupportTitle)
+          .evaluate()
+          .isNotEmpty;
+
+      await tester.pumpWidget(
+        makeTestable(
+          const WpSupportPromptWatcher(child: SizedBox()),
+          locale: const Locale('en'),
+          overrides: [
+            nudgeGateOpenOverride(),
+            supportPromptProvider.overrideWith(() => notifier),
+            supportCapabilitiesProvider.overrideWithValue(const [
+              SupportAsk.githubSponsors,
+              SupportAsk.kofi,
+              SupportAsk.share,
+            ]),
+          ],
+        ),
+      );
+      await tester.pump();
+      notifier.triggerShow();
+      await tester.pump();
+      await tester.pump(kPostRecordingPromptDelay);
+      await tester.pumpAndSettle();
+
+      expect(dialogVisibleWhenCounted, isTrue);
+    },
+  );
+
+  testWidgets(
+    'the keyboard focus starts on "later", not on an action that opens '
+    'a browser (UIA-FBK-01)',
+    (tester) async {
+      await _showDialog(tester, l10n: l10n);
+
+      final focused = FocusManager.instance.primaryFocus?.context
+          ?.findAncestorWidgetOfExactType<WpButton>();
+      expect(focused?.label, l10n.supportPromptSnooze);
+    },
+  );
 }

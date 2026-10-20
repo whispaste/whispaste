@@ -1,4 +1,4 @@
-/// Widget tests for the `WpStatusBar` Auto-Paste-Off hint chip.
+/// Widget tests for the `WpRecordingDock` Auto-Paste-Off hint chip.
 ///
 /// Slice 11 of the onboarding-auto-paste-step feature surfaces a persistent
 /// (but dismissible) hint in the status bar whenever the user has finished
@@ -7,17 +7,25 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
+import 'package:whispaste/widgets/recording_dock_controls.dart';
+
+import 'package:golden_screenshot/golden_screenshot.dart';
 
 import '../fixtures/test_helpers.dart';
 
 void main() {
+  // Measure with the bundled fonts: the default Ahem test font is far wider
+  // than the app's, which would make the chips fall back to icon form.
+  setUpAll(loadAppFonts);
+
   group('shouldShowAutoPasteOffHint', () {
     test('hidden during onboarding (onboardingCompleted == false)', () {
       // Before onboarding completes the chip MUST stay hidden — the
@@ -92,7 +100,7 @@ void main() {
     });
   });
 
-  group('WpStatusBar — Auto-Paste-Off hint chip', () {
+  group('WpRecordingDock — Auto-Paste-Off hint chip', () {
     /// Builds a status bar with a configurable hint visibility flag. Mirrors
     /// the production wiring in `app.dart` so the test reflects how the host
     /// computes visibility from settings.
@@ -100,12 +108,14 @@ void main() {
       required bool showHint,
       VoidCallback? onTap,
       VoidCallback? onDismiss,
+      Locale locale = const Locale('en'),
     }) {
       return makeTestable(
+        locale: locale,
         Column(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            WpStatusBar(
+            WpRecordingDock(
               sttModeLabel: 'On device',
               sttState: SttServerState.ready,
               afterAction: AfterTranscriptionAction.clipboard,
@@ -140,33 +150,78 @@ void main() {
     });
 
     Future<String> hintLabel(WidgetTester tester) async {
-      final BuildContext ctx = tester.element(find.byType(WpStatusBar));
+      final BuildContext ctx = tester.element(find.byType(WpRecordingDock));
       return L10n.of(ctx).statusBarAutoPasteOffHint;
     }
 
-    testWidgets('renders the chip when showAutoPasteOffHint is true', (
+    Future<void> openMehr(WidgetTester tester) async {
+      await tester.tap(find.byKey(const ValueKey('dock-overflow')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('the hint is an entry in Mehr with its clipboard icon', (
       tester,
     ) async {
-      await tester.pumpWidget(buildStatusBar(showHint: true));
+      await tester.pumpWidget(buildStatusBar(showHint: true, onDismiss: () {}));
       await tester.pump();
-
-      expect(find.text(await hintLabel(tester)), findsOneWidget);
-      expect(find.byIcon(LucideIcons.clipboardX), findsOneWidget);
-      // The dismiss icon (X) — distinct from the chip body icon.
-      expect(find.byIcon(LucideIcons.x), findsOneWidget);
+      await openMehr(tester);
+      final entry = find.byKey(const ValueKey('dock-menu-auto-paste'));
+      expect(
+        find.descendant(
+          of: entry,
+          matching: find.text(await hintLabel(tester)),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: entry,
+          matching: find.byIcon(LucideIcons.clipboardX),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('dock-menu-auto-paste-dismiss')),
+          matching: find.byIcon(LucideIcons.x),
+        ),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('hides the chip when showAutoPasteOffHint is false', (
+    // The entry is an action like "Change hotkey…": it has to fit the menu
+    // in every app language instead of trailing off mid-word.
+    for (final code in const ['de', 'en', 'es', 'pt', 'he', 'ru']) {
+      testWidgets('the hint entry is not truncated ($code)', (tester) async {
+        await tester.pumpWidget(
+          buildStatusBar(
+            showHint: true,
+            onDismiss: () {},
+            locale: Locale(code),
+          ),
+        );
+        await tester.pump();
+        await openMehr(tester);
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(
+            of: find.byKey(const ValueKey('dock-menu-auto-paste')),
+            matching: find.text(await hintLabel(tester)),
+          ),
+        );
+        expect(paragraph.didExceedMaxLines, isFalse);
+      });
+    }
+
+    testWidgets('hides the hint entry when showAutoPasteOffHint is false', (
       tester,
     ) async {
       await tester.pumpWidget(buildStatusBar(showHint: false));
       await tester.pump();
-
+      expect(find.byKey(const ValueKey('dock-overflow')), findsNothing);
       expect(find.text(await hintLabel(tester)), findsNothing);
-      expect(find.byIcon(LucideIcons.x), findsNothing);
     });
 
-    testWidgets('tapping the chip body fires onAutoPasteOffHintTap', (
+    testWidgets('selecting the hint entry fires onAutoPasteOffHintTap', (
       tester,
     ) async {
       var tapped = false;
@@ -174,14 +229,13 @@ void main() {
         buildStatusBar(showHint: true, onTap: () => tapped = true),
       );
       await tester.pump();
-
-      await tester.tap(find.text(await hintLabel(tester)));
-      await tester.pump();
-
+      await openMehr(tester);
+      await tester.tap(find.byKey(const ValueKey('dock-menu-auto-paste')));
+      await tester.pumpAndSettle();
       expect(tapped, isTrue);
     });
 
-    testWidgets('tapping the dismiss icon fires onAutoPasteOffHintDismiss', (
+    testWidgets('selecting the dismiss entry fires onAutoPasteOffHintDismiss', (
       tester,
     ) async {
       var dismissed = false;
@@ -189,89 +243,80 @@ void main() {
         buildStatusBar(showHint: true, onDismiss: () => dismissed = true),
       );
       await tester.pump();
-
-      // The dismiss icon sits inside its own InkWell wrapped in a Tooltip —
-      // tap the enclosing InkWell so hit-testing isn't intercepted by the
-      // Tooltip's MouseRegion in headless test mode.
-      final dismissInkWell = find.ancestor(
-        of: find.byIcon(LucideIcons.x),
-        matching: find.byType(InkWell),
+      await openMehr(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('dock-menu-auto-paste-dismiss')),
       );
-      await tester.tap(dismissInkWell);
-      await tester.pump();
-
+      await tester.pumpAndSettle();
       expect(dismissed, isTrue);
     });
 
     testWidgets(
       'visibility flips off without calling dismiss when host hides chip',
       (tester) async {
-        // First frame: chip visible (user skipped Auto-Paste in onboarding).
+        // First frame: hint visible (user skipped Auto-Paste in onboarding).
         await tester.pumpWidget(buildStatusBar(showHint: true));
         await tester.pump();
-        expect(find.text(await hintLabel(tester)), findsOneWidget);
-
+        await openMehr(tester);
+        expect(
+          find.byKey(const ValueKey('dock-menu-auto-paste')),
+          findsOneWidget,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
         // Simulate the user re-enabling Auto-Paste in Settings: the parent
         // recomputes visibility from settings and rebuilds with the flag off.
         await tester.pumpWidget(buildStatusBar(showHint: false));
         await tester.pump();
-
-        expect(find.text(await hintLabel(tester)), findsNothing);
+        expect(find.byKey(const ValueKey('dock-overflow')), findsNothing);
       },
     );
 
-    // Both actions were bare InkWells with no focus node and no focus ring,
-    // while every other tappable chip in this bar has had both all along —
-    // so the one chip in the row that asks the user to *do* something was the
-    // one they could not reach without a mouse.
-    testWidgets('both actions are reachable and operable from the keyboard', (
-      tester,
-    ) async {
-      var tapped = false;
-      var dismissed = false;
-      await tester.pumpWidget(
-        buildStatusBar(
-          showHint: true,
-          onTap: () => tapped = true,
-          onDismiss: () => dismissed = true,
-        ),
-      );
-      await tester.pump();
-
-      Future<void> activateByKeyboard(Finder inkWellFinder, String what) async {
-        final inkWell = tester.widget<InkWell>(inkWellFinder);
-        expect(
-          inkWell.focusNode,
-          isNotNull,
-          reason: '$what must own a focus node to be reachable by Tab',
+    testWidgets(
+      'the Mehr menu and its entries are operable from the keyboard',
+      (tester) async {
+        var tapped = false;
+        var dismissed = false;
+        await tester.pumpWidget(
+          buildStatusBar(
+            showHint: true,
+            onTap: () => tapped = true,
+            onDismiss: () => dismissed = true,
+          ),
         );
-        inkWell.focusNode!.requestFocus();
-        await tester.pumpAndSettle();
+        await tester.pump();
+        bool overflowFocused() {
+          final focused = FocusManager.instance.primaryFocus?.context;
+          return focused != null &&
+              focused.findAncestorWidgetOfExactType<WpDockOverflow>() != null;
+        }
+
+        for (var i = 0; i < 40 && !overflowFocused(); i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pump();
+        }
+        expect(overflowFocused(), isTrue, reason: 'Mehr is reachable by Tab');
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
-      }
-
-      await activateByKeyboard(
-        find
-            .ancestor(
-              of: find.text(await hintLabel(tester)),
-              matching: find.byType(InkWell),
-            )
-            .first,
-        'the hint body',
-      );
-      await activateByKeyboard(
-        find
-            .ancestor(
-              of: find.byIcon(LucideIcons.x),
-              matching: find.byType(InkWell),
-            )
-            .first,
-        'the dismiss button',
-      );
-
-      expect(tapped, isTrue);
-      expect(dismissed, isTrue);
-    });
+        expect(
+          find.byKey(const ValueKey('dock-menu-auto-paste')),
+          findsOneWidget,
+        );
+        // No entry is highlighted when the menu opens: the first arrow key
+        // highlights the first entry, the second moves to the dismiss entry.
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(
+          dismissed,
+          isTrue,
+          reason: 'two arrow-downs reach the dismiss entry',
+        );
+        expect(tapped, isFalse);
+      },
+    );
   });
 }

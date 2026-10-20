@@ -68,9 +68,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Fill the form through the real UI.
-      await tester.tap(find.text(l10n.feedbackCategoryGeneral));
+      await tester.tap(find.text(l10n.feedbackTypeProblem));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('🤩'));
+      await tester.tap(find.bySemanticsIdentifier('feedback-rating-5'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('feedbackCommentField')),

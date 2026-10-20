@@ -54,7 +54,7 @@ const _documentedExceptions = <String, String>{
   // service-layer key resolver, not a component.
   'singleKeyWhitelist': 'hotkey domain data, not a component',
 
-  // lib/widgets/status_bar.dart — pure predicate over settings.
+  // lib/widgets/recording_dock.dart — pure predicate over settings.
   'shouldShowAutoPasteOffHint': 'pure visibility predicate, not a component',
 
   // lib/widgets/recording_behavior.dart — pure code→string mappings, a pure
@@ -67,6 +67,22 @@ const _documentedExceptions = <String, String>{
   'showPasteFailureToast': 'call site of WpToast, not a component',
   'showRecoveryToast': 'call site of WpToast, not a component',
   'showCpuFallbackToast': 'call site of WpToast, not a component',
+  'showLanguageMismatchToast': 'call site of WpToast, not a component',
+
+  // lib/widgets/hotkey_fallback_toast.dart — pours the fallback-hotkey
+  // message into the already-prefixed WpToast.
+  'showHotkeyFallbackToast': 'call site of WpToast, not a component',
+
+  // lib/widgets/desktop_shortcut_toast.dart — pours the GNOME desktop
+  // shortcut hint into the already-prefixed WpToast.
+  'showDesktopShortcutToast': 'call site of WpToast, not a component',
+  // lib/widgets/hotkey_fallback_toast.dart — conflict message for a held
+  // secondary hotkey, poured into WpToast (UIA-SHL-05).
+  'showHotkeyConflictToast': 'call site of WpToast, not a component',
+
+  // lib/widgets/recording_behavior.dart — OOM "no smaller model" message,
+  // poured into WpToast (UIA-SHL-06).
+  'showOomNoSmallerModelToast': 'call site of WpToast, not a component',
 
   // lib/widgets/feature_spotlight_notice.dart — call site of the existing
   // _FeatureSpotlightDialog component, not a component of its own.

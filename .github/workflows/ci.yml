@@ -35,7 +35,7 @@ permissions:
 #   that OS can check.
 # - Jobs skip when the push cannot affect them (detect-changes.sh): no
 #   Flutter jobs for website/docs-only pushes, no website job for app-only
-#   pushes, goldens only when rendered UI/strings/assets changed.
+#   pushes.
 # - Analyze and loam run once (Linux): they do not depend on the host OS.
 # - `perf`-tagged micro-benchmarks run in the full run only: a shared,
 #   loaded runner turns wall-clock budgets into noise (run 36697607161).
@@ -55,7 +55,6 @@ jobs:
       app: ${{ steps.changes.outputs.app }}
       platform_full: ${{ steps.changes.outputs.platform_full }}
       website: ${{ steps.changes.outputs.website }}
-      golden: ${{ steps.changes.outputs.golden }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -192,14 +191,14 @@ jobs:
         shell: bash
         run: |
           if [ "$FULL_RUN" = "true" ] || [ "$PLATFORM_FULL" = "true" ]; then
-            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf
+            bash scripts/ci/flutter-test.sh --exclude-tags=canary,perf,ux-screens,store,capture
           else
             # No mapfile: macOS runners may resolve `bash` to 3.2. Test paths
             # contain no whitespace, so plain word splitting is safe here.
             files=$(grep -rlE 'Platform\.is(Windows|MacOS|Linux)' test | grep '_test\.dart$' | sort)
             echo "Running $(echo "$files" | wc -l | tr -d ' ') platform-specific test files"
             # shellcheck disable=SC2086
-            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf $files
+            bash scripts/ci/flutter-test.sh --exclude-tags=canary,perf,ux-screens,store,capture $files
           fi
 
       - name: C++ static analysis (cppcheck)
@@ -338,14 +337,14 @@ jobs:
           PLATFORM_FULL: ${{ needs.secret-scan.outputs.platform_full }}
         run: |
           if [ "$FULL_RUN" = "true" ] || [ "$PLATFORM_FULL" = "true" ]; then
-            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf
+            bash scripts/ci/flutter-test.sh --exclude-tags=canary,perf,ux-screens,store,capture
           else
             # No mapfile: macOS runners may resolve `bash` to 3.2. Test paths
             # contain no whitespace, so plain word splitting is safe here.
             files=$(grep -rlE 'Platform\.is(Windows|MacOS|Linux)' test | grep '_test\.dart$' | sort)
             echo "Running $(echo "$files" | wc -l | tr -d ' ') platform-specific test files"
             # shellcheck disable=SC2086
-            bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf $files
+            bash scripts/ci/flutter-test.sh --exclude-tags=canary,perf,ux-screens,store,capture $files
           fi
 
       # The Xcode build phases self-build libwhisper/libllama (+ Smart Mode
@@ -459,7 +458,9 @@ jobs:
           sudo apt-get install -y clang cmake ninja-build pkg-config \
             libgtk-3-dev liblzma-dev libsecret-1-dev \
             libkeybinder-3.0-dev libnotify-dev libcurl4-openssl-dev \
-            libayatana-appindicator3-dev libasound2-dev xvfb
+            libayatana-appindicator3-dev libasound2-dev libxss-dev xvfb \
+            libxtst-dev x11-xkb-utils
+          pkg-config --exists xscrnsaver || { echo "::error::xscrnsaver (libxss-dev) missing"; exit 1; }
 
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
@@ -488,10 +489,28 @@ jobs:
       - name: ARB key parity gate
         run: dart tool/check_arb_parity.dart
 
+      # Pure C++ unit test of the Linux `--diagnose` launch decision
+      # (linux/runner/diagnose_launch.h: private Xvfb or failure report).
+      - name: Linux diagnose launch unit test
+        run: bash test/scripts/diagnose_launch_test.sh
+
       # Pure C++ unit test of the Linux push-to-talk autorepeat filter
       # (linux/runner/autorepeat_filter.h); no X11 needed.
       - name: Linux autorepeat filter unit test
         run: bash test/scripts/autorepeat_filter_test.sh
+
+      # Pure C++ unit test of the wait for the hotkey's modifiers before the
+      # synthetic Ctrl+V on Linux (linux/runner/modifier_release.h).
+      - name: Linux modifier release unit test
+        run: bash test/scripts/modifier_release_test.sh
+      # Pure C++ unit test of the tiling-WM detection that keeps helper
+      # windows from being tiled (linux/runner/window_manager_kind.h).
+      - name: Linux window manager kind unit test
+        run: bash test/scripts/window_manager_kind_test.sh
+
+      # Which files build-sherpa-onnx.sh stages per platform (fake build trees).
+      - name: sherpa-onnx staging list test
+        run: bash scripts/sherpa-stage-libs.test.sh
 
       # loam ratchet gate — fails when any new a11y, anti-AI-slop,
       # code-duplicate, unused-public-export, complexity-hotspot or
@@ -535,6 +554,30 @@ jobs:
           fi
           SIZE=$(du -sh "build/linux/x64/debug/bundle" | cut -f1)
           echo "Flutter Linux bundle size: $SIZE"
+
+      # Runtime test of the Linux clipboard hint (linux/runner/clipboard_hint.cc,
+      # PAR-012): a second process on a private Xvfb checks the Klipper hint
+      # and every text target, the way Klipper and a paste target read them.
+      - name: Linux clipboard hint runtime test
+        run: bash test/scripts/clipboard_hint_test.sh
+
+      # Runtime test of the X error trap (linux/runner/x11_window.cc,
+      # XP-7-18): reading the class of a closed paste target on a private
+      # Xvfb must not end the process.
+      - name: Linux X error trap runtime test
+        run: bash test/scripts/x11_window_test.sh
+
+      # Runtime test of the Linux read receipt (linux/runner/clipboard_receipt.cc,
+      # GR-015): only a text read after the paste shortcut counts, monitors and
+      # Klipper do not, and another app's copy reports the clipboard as lost.
+      - name: Linux clipboard read receipt runtime test
+        run: bash test/scripts/clipboard_receipt_test.sh
+
+      # The vendored hotkey_manager_linux binds with keybinder's raw matching
+      # (XP-5-04): Ctrl+Shift+D must fire plainly, with NumLock, with CapsLock
+      # and after a layout switch, and must fail under the cooked default.
+      - name: Linux hotkey runtime test
+        run: bash test/scripts/keybinder_raw_test.sh
 
       # Full Hotkey → Recording → Transcription → Paste happy path (Ticket
       # 07). Cleanly skips here: the plain debug build above never stages a
@@ -602,7 +645,7 @@ jobs:
           files=$(find test -name '*_test.dart' | sort | awk -v s="$SHARD" 'NR % 2 == s % 2')
           echo "Running $(echo "$files" | wc -l | tr -d ' ') test files"
           # shellcheck disable=SC2086
-          bash scripts/ci/flutter-test.sh --exclude-tags=golden,canary,perf $files
+          bash scripts/ci/flutter-test.sh --exclude-tags=canary,perf,ux-screens,store,capture $files
 
       # Wall-clock benchmarks measure nothing useful next to three other
       # test processes on 4 vCPUs (run 36741988731: samples 1.99 ms, then
@@ -614,47 +657,6 @@ jobs:
           # shellcheck disable=SC2046
           bash scripts/ci/flutter-test.sh --concurrency=1 --tags=perf \
             $(grep -rlE "@Tags\\(.*'perf'" test | sort)
-
-  # Golden / visual-regression tests (@Tags(['golden'])) — macOS so font
-  # rendering matches the checked-in baselines (generated on macOS, fonts
-  # pinned via loadAppFonts). Own job so it runs in parallel with the app
-  # jobs. Push: only when rendered UI, strings or assets changed.
-  # Plain matchesGoldenFile tests accept up to 0.1 % differing pixels
-  # (test/flutter_test_config.dart): hosted runners anti-alias slightly
-  # differently from the Mac the baselines were generated on.
-  golden-tests:
-    name: Golden Tests (macOS)
-    needs: secret-scan
-    if: needs.secret-scan.outputs.golden == 'true'
-    runs-on: macos-15
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
-        with:
-          channel: stable
-          flutter-version: 3.44.1
-          cache: true
-
-      - name: Get dependencies
-        run: flutter pub get
-
-      # Pass only the files tagged golden: a bare `--tags=golden` still
-      # compiles all ~400 test files just to find the 15 that match (10 of
-      # the job's 12 minutes). Tags are file-level by convention (@Tags);
-      # a test-level `tags:` golden would be missed here, so it is rejected.
-      - name: Run golden tests
-        run: |
-          if grep -rnE "tags: *.*'golden'" test; then
-            echo "::error::Tag golden tests file-level (@Tags), not per test/group — ci.yml selects golden files by that annotation."
-            exit 1
-          fi
-          files=$(grep -rlE "@Tags\\(.*'golden'" test | sort)
-          echo "Running $(echo "$files" | wc -l | tr -d ' ') golden test files"
-          # shellcheck disable=SC2086
-          bash scripts/ci/flutter-test.sh --tags=golden $files
 
   website:
     name: Website

@@ -14,17 +14,23 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
+import 'package:whispaste/services/linux_desktop_shortcut.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/steps/ready_step.dart';
+import 'package:whispaste/features/onboarding/stt_model_readiness.dart';
 import 'package:whispaste/services/hotkey_service.dart'
     show
         HotkeyRegistrationStatus,
         HotkeyRegistrationStatusController,
         hotkeyRegistrationStatusProvider;
+import 'package:whispaste/services/paste/paste_capability_notifier.dart';
+import 'package:whispaste/services/paste/paster.dart'
+    show PasteCapability, PasteCapabilityStatus;
 
 import '../../fixtures/test_helpers.dart';
 
@@ -55,22 +61,45 @@ class _FakeHotkeyStatusController extends HotkeyRegistrationStatusController {
   HotkeyRegistrationStatus build() => _initial;
 }
 
+/// Test-only paste capability: seeds the probe result. `null` means "no probe
+/// has run yet", which is what the notifier starts with.
+class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
+  _FakePasteCapabilityNotifier(this._capability);
+
+  final PasteCapability? _capability;
+
+  @override
+  PasteCapabilityState build() => PasteCapabilityState(capability: _capability);
+}
+
 late L10n l10n;
 
 Future<void> _pumpStep(
   WidgetTester tester, {
   required _FakeSettingsNotifier settings,
   HotkeyRegistrationStatus hotkeyStatus = HotkeyRegistrationStatus.success,
+  DesktopShortcutFallback fallback = DesktopShortcutFallback.notNeeded,
+  bool modelInstalled = true,
+  VoidCallback? onBackToModel,
+  PasteCapability? pasteCapability = const PasteCapability(
+    status: PasteCapabilityStatus.ready,
+  ),
 }) async {
   await tester.pumpWidget(
     makeTestable(
-      const SingleChildScrollView(child: ReadyStep()),
+      SingleChildScrollView(child: ReadyStep(onBackToModel: onBackToModel)),
       size: const Size(1280, 980),
       locale: const Locale('en'),
       overrides: [
         settingsProvider.overrideWith(() => settings),
         hotkeyRegistrationStatusProvider.overrideWith(
           () => _FakeHotkeyStatusController(hotkeyStatus),
+        ),
+        desktopShortcutFallbackProvider.overrideWith((ref) async => fallback),
+        gnomeToggleShortcutInstalledProvider.overrideWith((ref) async => false),
+        onboardingSttModelInstalledProvider.overrideWithValue(modelInstalled),
+        pasteCapabilityNotifierProvider.overrideWith(
+          () => _FakePasteCapabilityNotifier(pasteCapability),
         ),
       ],
     ),
@@ -84,6 +113,37 @@ void main() {
   // Resolve English copy once so labels are looked up via the ARB key.
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
+  // ── "All set" only with a speech model (UIA-RT-01) ──────────────────────
+
+  group('ReadyStep — speech model (UIA-RT-01)', () {
+    testWidgets('without an installed model the page does not say all set, '
+        'and offers the way back to the model step', (tester) async {
+      var backCalls = 0;
+      await _pumpStep(
+        tester,
+        settings: _FakeSettingsNotifier(),
+        modelInstalled: false,
+        onBackToModel: () => backCalls++,
+      );
+
+      expect(find.text(l10n.onboardingReadyTitle), findsNothing);
+      expect(find.text(l10n.onboardingReadyNoModelTitle), findsOneWidget);
+      expect(find.text(l10n.onboardingReadyNoModelBody), findsOneWidget);
+
+      await tester.tap(find.byKey(kReadyStepBackToModelKey));
+      await tester.pump();
+      expect(backCalls, 1);
+    });
+
+    testWidgets('with an installed model the page says all set and offers no '
+        'way back', (tester) async {
+      await _pumpStep(tester, settings: _FakeSettingsNotifier());
+
+      expect(find.text(l10n.onboardingReadyTitle), findsOneWidget);
+      expect(find.byKey(kReadyStepBackToModelKey), findsNothing);
+    });
   });
 
   // ── Wording-hygiene (issue 10) ───────────────────────────────────────────
@@ -113,6 +173,106 @@ void main() {
     });
   });
 
+  // ── Step 3 follows the paste capability (UIA-XP-7-12) ────────────────────
+  //
+  // The setting says what the user chose; the probe says whether a paste can
+  // actually happen. Where it cannot (no usable uinput device on Linux, a
+  // missing macOS permission, no paste bridge), the transcript only reaches the
+  // clipboard, so step 3 must not promise that text flows into the app.
+  // The platform itself does not branch here: the native probe reports it
+  // (macOS and Linux can report permissionMissing, Windows reports ready).
+
+  group('ReadyStep — step 3 follows the paste capability (UIA-XP-7-12)', () {
+    final cases =
+        <
+          ({String platform, PasteCapability? capability, bool expectAutoPaste})
+        >[
+          (
+            platform: 'macOS',
+            capability: const PasteCapability(
+              status: PasteCapabilityStatus.ready,
+            ),
+            expectAutoPaste: true,
+          ),
+          (
+            platform: 'macOS',
+            capability: const PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+              canPrompt: true,
+            ),
+            expectAutoPaste: false,
+          ),
+          (
+            platform: 'Windows',
+            capability: const PasteCapability(
+              status: PasteCapabilityStatus.ready,
+            ),
+            expectAutoPaste: true,
+          ),
+          (
+            platform: 'Windows',
+            capability: const PasteCapability(
+              status: PasteCapabilityStatus.unsupported,
+            ),
+            expectAutoPaste: false,
+          ),
+          (
+            platform: 'Linux',
+            capability: const PasteCapability(
+              status: PasteCapabilityStatus.ready,
+            ),
+            expectAutoPaste: true,
+          ),
+          (
+            platform: 'Linux',
+            capability: const PasteCapability(
+              status: PasteCapabilityStatus.permissionMissing,
+            ),
+            expectAutoPaste: false,
+          ),
+          (
+            platform: 'Linux',
+            capability: const PasteCapability(
+              status: PasteCapabilityStatus.unsupported,
+            ),
+            expectAutoPaste: false,
+          ),
+          (platform: 'Linux', capability: null, expectAutoPaste: true),
+        ];
+
+    for (final c in cases) {
+      final probe = c.capability?.status.name ?? 'no probe yet';
+      testWidgets('paste setting on ${c.platform}, $probe → '
+          '${c.expectAutoPaste ? 'Auto-Paste wording' : 'clipboard wording'}', (
+        tester,
+      ) async {
+        await _pumpStep(
+          tester,
+          settings: _FakeSettingsNotifier(
+            const AppSettings(
+              afterTranscriptionSection: AfterTranscriptionSettings(
+                afterTranscription: 'paste',
+              ),
+            ),
+          ),
+          pasteCapability: c.capability,
+        );
+
+        final copyText = l10n.onboardingReadyStep3CopyOnly(
+          pasteShortcutLabel(l10n: l10n),
+        );
+        expect(
+          find.textContaining(l10n.onboardingReadyStep3AutoPaste),
+          c.expectAutoPaste ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.textContaining(copyText),
+          c.expectAutoPaste ? findsNothing : findsOneWidget,
+        );
+      });
+    }
+  });
+
   group('ReadyStep — step 3 wording reacts to Auto-Paste setting', () {
     testWidgets(
       'Auto-Paste on (afterTranscription == paste) → step 3 shows Auto-Paste wording, '
@@ -136,7 +296,9 @@ void main() {
               'clipboard fallback hint.',
         );
         expect(
-          find.textContaining(l10n.onboardingReadyStep3CopyOnly),
+          find.textContaining(
+            l10n.onboardingReadyStep3CopyOnly(pasteShortcutLabel(l10n: l10n)),
+          ),
           findsNothing,
           reason:
               'When Auto-Paste fires automatically, the manual ⌘V / Ctrl+V '
@@ -163,7 +325,9 @@ void main() {
         // Ctrl+V to paste") already bundles the manual paste hint, so a
         // single positive assertion covers both the wording and the hint.
         expect(
-          find.textContaining(l10n.onboardingReadyStep3CopyOnly),
+          find.textContaining(
+            l10n.onboardingReadyStep3CopyOnly(pasteShortcutLabel(l10n: l10n)),
+          ),
           findsOneWidget,
           reason:
               'Skip-Auto-Paste users must see the clipboard wording so they '
@@ -219,7 +383,9 @@ void main() {
       await _pumpStep(tester, settings: settings);
 
       expect(
-        find.textContaining(l10n.onboardingReadyStep3CopyOnly),
+        find.textContaining(
+          l10n.onboardingReadyStep3CopyOnly(pasteShortcutLabel(l10n: l10n)),
+        ),
         findsOneWidget,
       );
     });
@@ -311,6 +477,37 @@ void main() {
         find.text(l10n.onboardingTriggerHotkeyConflictTitle),
         findsNothing,
       );
+    });
+  });
+
+  // XP-6-14: step 1 of the quick start ("press the key") is only true once
+  // the desktop shortcut carries the hotkey; until then the page says where
+  // to set it up.
+  group('ReadyStep — desktop shortcut still needed (XP-6-14)', () {
+    const hint = ValueKey('onboarding-ready-desktop-shortcut-hint');
+
+    for (final fallback in [
+      DesktopShortcutFallback.gnome,
+      DesktopShortcutFallback.manual,
+    ]) {
+      testWidgets('points back to the hotkey page (${fallback.name})', (
+        tester,
+      ) async {
+        final settings = _FakeSettingsNotifier();
+        await _pumpStep(tester, settings: settings, fallback: fallback);
+        final s = AppSettings.defaults;
+        expect(
+          tester.widget<Text>(find.byKey(hint)).data,
+          l10n.onboardingReadyDesktopShortcutHint(
+            formatHotkeyKeycap(s.hotkeyModifiers, s.hotkeyKey, l10n: l10n),
+          ),
+        );
+      });
+    }
+
+    testWidgets('no hint when the hotkey works system-wide', (tester) async {
+      await _pumpStep(tester, settings: _FakeSettingsNotifier());
+      expect(find.byKey(hint), findsNothing);
     });
   });
 }

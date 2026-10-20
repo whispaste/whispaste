@@ -1,5 +1,11 @@
 /// Store screenshot tests for WhisPaste.
 ///
+/// Store screenshot GENERATOR, not a regression test. It is tagged `store` and
+/// excluded from every normal run. Regenerate the committed PNGs under
+/// test/screenshots/goldens/ before a store release:
+///   `wp-test.sh run <worktree> --tags=store --update-goldens`
+/// Without --update-goldens it only compares against those PNGs.
+///
 /// Generates high-quality PNGs for store listings and website galleries using
 /// golden_screenshot. Each screenshot renders the FULL app window — title bar,
 /// navigation sidebar, content panel and status bar — via [WpScreenshotShell].
@@ -8,10 +14,8 @@
 ///   01 workspace overview (EN+DE)
 ///   03 replacements (EN+DE)
 ///   05 analytics (EN+DE)
-@Tags(<String>['golden'])
+@Tags(<String>['store'])
 library;
-
-import 'dart:io';
 
 import 'package:clock/clock.dart';
 import 'package:drift/drift.dart' show Value;
@@ -20,13 +24,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_screenshot/golden_screenshot.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:whispaste/core/app_info.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/analytics_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
-import 'package:whispaste/core/theme/colors.dart' show WpCategorySlot;
+import 'package:whispaste/core/theme/colors.dart'
+    show WpColors, wpLightColors, wpNavyColors;
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/analytics/analytics_page.dart';
 import 'package:whispaste/features/history/history_page.dart';
@@ -40,6 +47,7 @@ import 'package:whispaste/services/model_download_service.dart';
 
 import 'screenshot_devices.dart';
 import 'screenshot_shell.dart';
+import 'store_demo_data.dart';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -107,100 +115,31 @@ const _devices = [
 void main() {
   ScreenshotDevice.screenshotsFolder = 'goldens/';
 
+  // The navigation footer shows the version; without a mocked package info it
+  // falls back to "unknown" and the store shot shows that instead.
+  setUpAll(() async {
+    PackageInfo.setMockInitialValues(
+      appName: 'WhisPaste',
+      packageName: 'com.whispaste.app',
+      version: '1.4.2',
+      buildNumber: '51',
+      buildSignature: '',
+    );
+    await initAppInfo();
+  });
+
   group('Store screenshots:', () {
     TestWidgetsFlutterBinding.ensureInitialized();
+    // The store set is Marine (navy frame around light content, the default
+    // look); the light journal set is only the fallback for other tests.
+    setUp(() => WpColors.activate(wpNavyColors));
+    tearDown(() => WpColors.activate(wpLightColors));
 
     for (final screen in _screenshots) {
       for (final locale in _locales) {
         _screenshotTest(screen, locale);
       }
     }
-  });
-
-  // ---------------------------------------------------------------------------
-  // Ticket 32, B1 — the color rotation never reached this fixture: every demo
-  // entry landed on the `color_slot` column default (0, `iris`) because
-  // neither `_DemoEntry` nor `_seedDemoData` carried the field. The rotation
-  // itself is exercised at runtime by `HistoryDatabase._drawColorSlot`
-  // (`lib/core/data/database.dart`), which guarantees a slot never repeats on
-  // two consecutive inserts — these tests hold the *fixture* to the same
-  // "visibly varied, never twice in a row" bar without re-testing the random
-  // draw.
-  // ---------------------------------------------------------------------------
-  group('Demo data color-slot rotation (Ticket 32, B1)', () {
-    const categorySlotCount = 8; // WpCategorySlot.categories.length
-
-    test('WpCategorySlot.categories has not drifted from 8', () {
-      expect(
-        WpCategorySlot.categories.length,
-        categorySlotCount,
-        reason:
-            'this fixture assumes 8 rotation-eligible slots — if that moved, '
-            'the coverage assertions below need to move with it',
-      );
-    });
-
-    for (final (localeName, entries) in [
-      ('en', _demoEntriesEn),
-      ('de', _demoEntriesDe),
-      ('ru', _demoEntriesRu),
-    ]) {
-      test(
-        '$localeName: at least 6 of 8 categorical slots are represented',
-        () {
-          final distinctSlots = entries.map((e) => e.colorSlot).toSet();
-          expect(
-            distinctSlots.length,
-            greaterThanOrEqualTo(6),
-            reason:
-                '$localeName demo entries cover only $distinctSlots '
-                '(${distinctSlots.length}/$categorySlotCount) — the store '
-                'screenshots would show a near-identical column of avatars '
-                'again',
-          );
-        },
-      );
-
-      test('$localeName: no two consecutive entries share a color slot', () {
-        for (var i = 1; i < entries.length; i++) {
-          expect(
-            entries[i].colorSlot,
-            isNot(entries[i - 1].colorSlot),
-            reason:
-                '$localeName entries ${entries[i - 1].id} and ${entries[i].id} '
-                'both draw slot ${entries[i].colorSlot} — '
-                'HistoryDatabase._drawColorSlot never repeats a slot on '
-                'consecutive inserts, and the fixture should not either',
-          );
-        }
-      });
-    }
-
-    test('no demo entry insert relies on the color_slot column default', () {
-      final source = File(
-        'test/screenshots/store_screenshots_test.dart',
-      ).readAsStringSync();
-
-      final companionMatch = RegExp(
-        r'HistoryEntriesCompanion\(([\s\S]*?)\),\s*\);',
-      ).firstMatch(source);
-      expect(
-        companionMatch,
-        isNotNull,
-        reason:
-            'the HistoryEntriesCompanion insert this test targets was not '
-            'found — the sweep below would pass vacuously',
-      );
-
-      expect(
-        companionMatch!.group(1),
-        contains('colorSlot: Value(entry.colorSlot)'),
-        reason:
-            'the demo-entry Companion insert no longer names colorSlot '
-            'explicitly — every entry would silently fall back to the '
-            'column default (0, iris) again',
-      );
-    });
   });
 }
 
@@ -213,84 +152,102 @@ void _screenshotTest(_ScreenDef screen, String locale) {
         // grouping render as text, so wall-clock time would move pixels.
         (tester) => withClock(Clock.fixed(_screenshotNow), () async {
           final device = goldenDevice.device;
-          // Show each platform's default hotkey: Cmd on macOS, Ctrl elsewhere.
-          final modifiers = device.platform == TargetPlatform.macOS
-              ? 'meta+shift'
-              : 'ctrl+shift';
-          final db = HistoryDatabase.forTesting(NativeDatabase.memory());
-          final settings = AppSettings.defaults
-              .copyWith(
-                locale: locale,
-                textReplacementsEnabled: screen.textReplacementsEnabled,
-                hotkeyEnabled: true,
-                hotkeyKey: 'D',
-                hotkeyModifiers: modifiers,
-              )
-              // The quick-note hotkey is off by default. The Notizen shot shows
-              // it active, the way a user who set it up sees the page.
-              .copyWithSections(
-                quickNoteHotkey: screen.needsNotesData
-                    ? QuickNoteHotkeySettings(
-                        quickNoteHotkeyEnabled: true,
-                        quickNoteHotkeyKey: 'N',
-                        quickNoteHotkeyKeyDisplay: 'N',
-                        quickNoteHotkeyModifiers: modifiers,
-                      )
-                    : null,
-              );
-
-          if (screen.needsDemoData) {
-            await _seedDemoData(db, locale: locale);
-          }
-          if (screen.needsNotesData) {
-            await _seedNotesDemo(db, locale: locale);
-          }
-
-          final app = _buildScreenshotApp(
-            device: device,
-            db: db,
-            settings: settings,
-            activePageId: screen.activePageId,
-            child: screen.builder(),
-          );
-
-          await tester.pumpWidget(app);
-          // Let providers resolve and build real content before scanning fonts.
-          await tester.pumpFrames(app, const Duration(seconds: 1));
-          // Load fonts after the widget tree is settled so icon fonts used by
-          // the actual content (Lucide, FontAwesome) are found in the scan.
-          // Explicitly include icon font families as safety net for cases where
-          // icons are not yet in the visible tree portion.
-          await tester.loadAssets(
-            alsoLoadTheseFonts: const [
-              'packages/lucide_icons_flutter/Lucide',
-              'packages/font_awesome_flutter/FontAwesomeSolid',
-              'packages/font_awesome_flutter/FontAwesomeRegular',
-              'packages/font_awesome_flutter/FontAwesomeBrands',
-              'MaterialIcons',
-              'Inter',
-            ],
-          );
-          // One additional frame so widgets re-render with the loaded fonts.
-          await tester.pump();
-
-          if (screen.arrange != null) {
-            await screen.arrange!(tester, locale);
-            await tester.pump();
-            await tester.pump(const Duration(milliseconds: 450));
-          }
-
+          final db = await _pumpStoreShot(tester, screen, locale, device);
           await tester.expectScreenshot(device, screen.fileName(locale));
           await tester.pumpAndSettle(const Duration(seconds: 1));
           await db.close();
         }),
         // golden_screenshot's default (0.1) is compared against a pixel
-        // *fraction*, i.e. 10 % — 0 skips its comparator, so the repo-wide
-        // 0.1 % one from flutter_test_config.dart applies here too.
+        // *fraction*, i.e. 10 %. 0 keeps the comparison exact.
         allowedDiffPercent: 0,
       );
     }
   });
+}
+
+/// Families the store shell paints with. They are registered before the
+/// first frame of every shot, not after it: the recording dock measures its
+/// labels to plan its row, so a label measured before its family is loaded
+/// lays out differently. Without this, a shot rendered after another device
+/// in the same test process came out a little different from a cold one.
+const _storeFontFamilies = [
+  kWpUiFont,
+  kWpDisplayFont,
+  'Inter',
+  'packages/lucide_icons_flutter/Lucide',
+  'packages/font_awesome_flutter/FontAwesomeSolid',
+  'packages/font_awesome_flutter/FontAwesomeRegular',
+  'packages/font_awesome_flutter/FontAwesomeBrands',
+  'MaterialIcons',
+];
+
+/// Builds the shot for [screen] on [device] and pumps it to the captured
+/// frame. Returns the database, which the caller closes.
+Future<HistoryDatabase> _pumpStoreShot(
+  WidgetTester tester,
+  _ScreenDef screen,
+  String locale,
+  ScreenshotDevice device, {
+  Widget Function(Widget app)? wrap,
+}) async {
+  // Show each platform's default hotkey: Cmd on macOS, Ctrl elsewhere.
+  final modifiers = device.platform == TargetPlatform.macOS
+      ? 'meta+shift'
+      : 'ctrl+shift';
+  final db = HistoryDatabase.forTesting(NativeDatabase.memory());
+  final settings = AppSettings.defaults
+      .copyWith(
+        locale: locale,
+        textReplacementsEnabled: screen.textReplacementsEnabled,
+        hotkeyEnabled: true,
+        hotkeyKey: 'D',
+        hotkeyModifiers: modifiers,
+      )
+      // The quick-note hotkey is off by default. The Notizen shot shows
+      // it active, the way a user who set it up sees the page.
+      .copyWithSections(
+        quickNoteHotkey: screen.needsNotesData
+            ? QuickNoteHotkeySettings(
+                quickNoteHotkeyEnabled: true,
+                quickNoteHotkeyKey: 'N',
+                quickNoteHotkeyKeyDisplay: 'N',
+                quickNoteHotkeyModifiers: modifiers,
+              )
+            : null,
+      );
+
+  if (screen.needsDemoData) {
+    await _seedDemoData(db, locale: locale);
+  }
+  if (screen.needsNotesData) {
+    await _seedNotesDemo(db, locale: locale);
+  }
+
+  final app = _buildScreenshotApp(
+    device: device,
+    db: db,
+    settings: settings,
+    activePageId: screen.activePageId,
+    child: screen.builder(),
+  );
+  final root = wrap?.call(app) ?? app;
+
+  await tester.loadAssets(alsoLoadTheseFonts: _storeFontFamilies);
+  await tester.pumpWidget(root);
+  // Let providers resolve and build real content before scanning images.
+  await tester.pumpFrames(root, const Duration(seconds: 1));
+  // Icon fonts used by the actual content are found by the tree scan; the
+  // explicit list above already covers the families the shell itself uses.
+  await tester.loadAssets(alsoLoadTheseFonts: _storeFontFamilies);
+  // One additional frame so widgets re-render with the loaded fonts.
+  await tester.pump();
+
+  if (screen.arrange != null) {
+    await screen.arrange!(tester, locale);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 450));
+  }
+  return db;
 }
 
 // ---------------------------------------------------------------------------
@@ -350,11 +307,11 @@ Future<void> _openQuickNote(WidgetTester tester, String locale) async {
 }
 
 Future<void> _scrollToHotkeySection(WidgetTester tester, String locale) async {
-  final sectionTitle = switch (locale) {
-    'de' => 'Tastenkürzel',
-    'ru' => 'Горячая клавиша',
-    _ => 'Keyboard Shortcut',
-  };
+  // The dictation card heading replaced the former "Hotkey" section label.
+  final sectionTitle = lookupL10n(Locale(locale)).shortcutsGroupDictate;
+  // The hotkey rows live in the Keyboard shortcuts area, not in General.
+  await tester.tap(find.byKey(const ValueKey('settings-nav-shortcuts')));
+  await tester.pumpAndSettle();
   // Scoped to the scroll content: the section picker sits in the sticky header
   // above the scrollable and can show this exact section label, so a bare
   // `find.text` may match both.
@@ -471,9 +428,9 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
   }
 
   final entries = switch (locale) {
-    'de' => _demoEntriesDe,
-    'ru' => _demoEntriesRu,
-    _ => _demoEntriesEn,
+    'de' => demoEntriesDe,
+    'ru' => demoEntriesRu,
+    _ => demoEntriesEn,
   };
   for (final entry in entries) {
     final ts = now.subtract(Duration(minutes: entry.minutesAgo));
@@ -507,9 +464,9 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
   }
 
   final replacements = switch (locale) {
-    'de' => _replacementsDe,
-    'ru' => _replacementsRu,
-    _ => _replacementsEn,
+    'de' => replacementsDe,
+    'ru' => replacementsRu,
+    _ => replacementsEn,
   };
   for (var i = 0; i < replacements.length; i++) {
     final (trigger, replacement) = replacements[i];
@@ -534,367 +491,6 @@ Future<void> _seedDemoData(HistoryDatabase db, {required String locale}) async {
           ),
         );
   }
-}
-
-const _demoEntriesEn = <_DemoEntry>[
-  _DemoEntry(
-    id: 'demo-1',
-    title: 'Weekly standup notes',
-    content:
-        'The backend team shipped the new auth flow. Frontend is on track for '
-        'the design review on Thursday. Mobile team needs one more day for the '
-        'push notification integration. No blockers reported.',
-    durationSec: 42.3,
-    minutesAgo: 15,
-    tags: ['Work', 'Meeting'],
-    model: 'Whisper Large v3 Turbo',
-    pinned: true,
-    colorSlot: 5,
-  ),
-  _DemoEntry(
-    id: 'demo-2',
-    title: 'Email to client — project update',
-    content:
-        'Hi Sarah, quick update on the project. We are ahead of schedule on '
-        'the dashboard redesign and the new analytics view should be ready '
-        'for testing by next Monday. I will send the staging link right away.',
-    durationSec: 28.7,
-    minutesAgo: 45,
-    tags: ['Work', 'Email'],
-    model: 'Whisper Large v3 Turbo',
-    colorSlot: 6,
-  ),
-  _DemoEntry(
-    id: 'demo-3',
-    title: 'Product idea — voice shortcuts',
-    content:
-        'Voice shortcuts could expand into full phrases. Saying "sign off" '
-        'would insert the email signature automatically and save time on '
-        'repetitive writing throughout the day.',
-    durationSec: 18.5,
-    minutesAgo: 120,
-    tags: ['Idea'],
-    model: 'Whisper Medium',
-    pinned: true,
-    colorSlot: 0,
-  ),
-  _DemoEntry(
-    id: 'demo-4',
-    title: 'Grocery list for the weekend',
-    content:
-        'Avocados, sourdough bread, cherry tomatoes, mozzarella, fresh basil, '
-        'olive oil, pasta, chicken breast, garlic, onions, and dark chocolate.',
-    durationSec: 12.1,
-    minutesAgo: 180,
-    tags: ['Personal'],
-    model: 'Whisper Medium',
-    colorSlot: 1,
-  ),
-  _DemoEntry(
-    id: 'demo-5',
-    title: 'Meeting recap — Q2 planning',
-    content:
-        'Key takeaways: revenue target is fifteen percent growth, three new '
-        'engineering hires approved, and the September launch date is locked. '
-        'Follow up with design on the brand refresh.',
-    durationSec: 55.8,
-    minutesAgo: 360,
-    tags: ['Work', 'Meeting'],
-    model: 'Whisper Large v3 Turbo',
-    colorSlot: 3,
-  ),
-  _DemoEntry(
-    id: 'demo-6',
-    title: 'Quick reminder — dentist appointment',
-    content:
-        'Dentist appointment moved to Friday at nine. Ask reception whether '
-        'the parking garage validation still works for early visits.',
-    durationSec: 8.2,
-    minutesAgo: 25,
-    tags: ['Personal'],
-    model: 'Whisper Medium',
-    colorSlot: 7,
-  ),
-  _DemoEntry(
-    id: 'demo-7',
-    title: 'Interview debrief — backend candidate',
-    content:
-        'Strong on distributed systems, thinner on frontend collaboration. '
-        'Leaning yes, but loop in the frontend lead before the offer call.',
-    durationSec: 61.4,
-    minutesAgo: 300,
-    tags: ['Work', 'Meeting'],
-    model: 'Whisper Large v3 Turbo',
-    colorSlot: 2,
-  ),
-  _DemoEntry(
-    id: 'demo-8',
-    title: 'Travel note — conference next month',
-    content:
-        'Book the flight before prices climb, and check whether the hotel '
-        'block for the conference is still open for early registration.',
-    durationSec: 15.0,
-    minutesAgo: 500,
-    tags: ['Idea'],
-    model: 'Whisper Medium',
-    colorSlot: 4,
-  ),
-];
-
-const _demoEntriesDe = <_DemoEntry>[
-  _DemoEntry(
-    id: 'demo-1',
-    title: 'Wöchentliche Standup-Notizen',
-    content:
-        'Das Backend-Team hat den neuen Login-Ablauf ausgeliefert. Das '
-        'Frontend liegt für das Design-Review am Donnerstag im Plan. Mobile '
-        'braucht noch einen Tag für die Push-Integration. Keine Blocker.',
-    durationSec: 42.3,
-    minutesAgo: 15,
-    tags: ['Arbeit', 'Meeting'],
-    model: 'Whisper Large v3 Turbo',
-    pinned: true,
-    colorSlot: 5,
-  ),
-  _DemoEntry(
-    id: 'demo-2',
-    title: 'E-Mail an Kundin — Projektupdate',
-    content:
-        'Hi Sarah, hier ein kurzes Update zum Projekt. Beim Dashboard-Redesign '
-        'liegen wir vor dem Plan und die neue Statistikansicht sollte bis '
-        'Montag testbar sein. Den Staging-Link schicke ich dir direkt danach.',
-    durationSec: 28.7,
-    minutesAgo: 45,
-    tags: ['Arbeit', 'E-Mail'],
-    model: 'Whisper Large v3 Turbo',
-    colorSlot: 6,
-  ),
-  _DemoEntry(
-    id: 'demo-3',
-    title: 'Produktidee — Sprachkürzel',
-    content:
-        'Sprachkürzel könnten ganze Phrasen einfügen. Wenn ich '
-        '"Grußformel" sage, wird automatisch meine Abschlussformel '
-        'eingesetzt. Das spart täglich Tipparbeit.',
-    durationSec: 18.5,
-    minutesAgo: 120,
-    tags: ['Idee'],
-    model: 'Whisper Medium',
-    pinned: true,
-    colorSlot: 0,
-  ),
-  _DemoEntry(
-    id: 'demo-4',
-    title: 'Einkaufsliste für das Wochenende',
-    content:
-        'Avocados, Sauerteigbrot, Cherrytomaten, Mozzarella, frisches Basilikum, '
-        'Olivenöl, Pasta, Hähnchen, Knoblauch, Zwiebeln und dunkle Schokolade.',
-    durationSec: 12.1,
-    minutesAgo: 180,
-    tags: ['Privat'],
-    model: 'Whisper Medium',
-    colorSlot: 1,
-  ),
-  _DemoEntry(
-    id: 'demo-5',
-    title: 'Meeting-Zusammenfassung — Q2-Planung',
-    content:
-        'Wichtigste Punkte: fünfzehn Prozent Wachstumsziel, drei neue Stellen '
-        'im Engineering und der September-Launch bleibt gesetzt. Bitte mit dem '
-        'Design-Team das Marken-Refresh nachziehen.',
-    durationSec: 55.8,
-    minutesAgo: 360,
-    tags: ['Arbeit', 'Meeting'],
-    model: 'Whisper Large v3 Turbo',
-    colorSlot: 3,
-  ),
-  _DemoEntry(
-    id: 'demo-6',
-    title: 'Kurze Erinnerung — Zahnarzttermin',
-    content:
-        'Zahnarzttermin auf Freitag neun Uhr verschoben. An der Rezeption '
-        'fragen, ob die Parkhaus-Validierung auch für frühe Termine gilt.',
-    durationSec: 8.2,
-    minutesAgo: 25,
-    tags: ['Privat'],
-    model: 'Whisper Medium',
-    colorSlot: 7,
-  ),
-  _DemoEntry(
-    id: 'demo-7',
-    title: 'Interview-Nachbesprechung — Backend-Kandidat',
-    content:
-        'Stark bei verteilten Systemen, dünner bei Frontend-Zusammenarbeit. '
-        'Tendenz ja, aber vor dem Angebot noch die Frontend-Leitung einbeziehen.',
-    durationSec: 61.4,
-    minutesAgo: 300,
-    tags: ['Arbeit', 'Meeting'],
-    model: 'Whisper Large v3 Turbo',
-    colorSlot: 2,
-  ),
-  _DemoEntry(
-    id: 'demo-8',
-    title: 'Reisenotiz — Konferenz nächsten Monat',
-    content:
-        'Flug buchen, bevor die Preise steigen, und prüfen, ob das '
-        'Hotelkontingent für die Konferenz noch für Frühbucher offen ist.',
-    durationSec: 15.0,
-    minutesAgo: 500,
-    tags: ['Idee'],
-    model: 'Whisper Medium',
-    colorSlot: 4,
-  ),
-];
-
-const _replacementsEn = <(String, String)>[
-  ('sign off', 'Best regards,\nAlex'),
-  ('my email', 'alex@whispaste.dev'),
-  ('meeting link', 'https://meet.example.com/team-sync'),
-  ('brb', 'Be right back, give me just a moment.'),
-];
-
-const _replacementsDe = <(String, String)>[
-  ('grußformel', 'Viele Grüße,\nAlex'),
-  ('meine mail', 'alex@whispaste.dev'),
-  ('meeting link', 'https://meet.example.com/team-sync'),
-  ('bin gleich zurück', 'Bin gleich wieder da, gib mir bitte einen Moment.'),
-];
-
-const _demoEntriesRu = <_DemoEntry>[
-  _DemoEntry(
-    id: 'demo-1',
-    title: 'Еженедельные заметки по стендапу',
-    content:
-        'Бэкенд-команда выпустила новый процесс входа. Фронтенд успевает к '
-        'дизайн-ревью в четверг. Мобильной команде нужен ещё один день на '
-        'интеграцию push-уведомлений. Блокеров нет.',
-    durationSec: 42.3,
-    minutesAgo: 15,
-    tags: ['Работа', 'Встреча'],
-    model: 'Whisper Large v3 Turbo',
-    pinned: true,
-    colorSlot: 5,
-  ),
-  _DemoEntry(
-    id: 'demo-2',
-    title: 'Письмо клиенту — обновление по проекту',
-    content:
-        'Привет, Sarah! Короткое обновление по проекту. Редизайн дашборда идёт '
-        'раньше графика, новый раздел аналитики будет готов к тестированию '
-        'в понедельник. Ссылку на стейджинг отправлю сразу после этого.',
-    durationSec: 28.7,
-    minutesAgo: 45,
-    tags: ['Работа', 'Почта'],
-    model: 'Whisper Large v3 Turbo',
-    colorSlot: 6,
-  ),
-  _DemoEntry(
-    id: 'demo-3',
-    title: 'Идея для продукта — голосовые ярлыки',
-    content:
-        'Голосовые ярлыки могут раскрываться во целые фразы. Если я скажу '
-        '«подпись», автоматически вставится мой завершающий текст. Это '
-        'экономит время на однотипном наборе.',
-    durationSec: 18.5,
-    minutesAgo: 120,
-    tags: ['Идея'],
-    model: 'Whisper Medium',
-    pinned: true,
-    colorSlot: 0,
-  ),
-  _DemoEntry(
-    id: 'demo-4',
-    title: 'Список покупок на выходные',
-    content:
-        'Авокадо, закваска, черри-томаты, моцарелла, свежий базилик, '
-        'оливковое масло, паста, куриная грудка, чеснок, лук и тёмный шоколад.',
-    durationSec: 12.1,
-    minutesAgo: 180,
-    tags: ['Личное'],
-    model: 'Whisper Medium',
-    colorSlot: 1,
-  ),
-  _DemoEntry(
-    id: 'demo-5',
-    title: 'Итоги встречи — планирование Q2',
-    content:
-        'Главное: цель по выручке — рост на пятнадцать процентов, утверждены '
-        'три новых инженера, дата запуска в сентябре зафиксирована. Нужно '
-        'обсудить с дизайном обновление бренда.',
-    durationSec: 55.8,
-    minutesAgo: 360,
-    tags: ['Работа', 'Встреча'],
-    model: 'Whisper Large v3 Turbo',
-    colorSlot: 3,
-  ),
-  _DemoEntry(
-    id: 'demo-6',
-    title: 'Короткое напоминание — визит к стоматологу',
-    content:
-        'Визит к стоматологу перенесли на пятницу, на девять утра. Уточнить '
-        'на ресепшене, работает ли парковка с валидацией для ранних записей.',
-    durationSec: 8.2,
-    minutesAgo: 25,
-    tags: ['Личное'],
-    model: 'Whisper Medium',
-    colorSlot: 7,
-  ),
-  _DemoEntry(
-    id: 'demo-7',
-    title: 'Итоги интервью — кандидат на бэкенд',
-    content:
-        'Силён в распределённых системах, слабее в работе с фронтендом. '
-        'Склоняюсь к найму, но перед звонком с предложением подключите '
-        'руководителя фронтенда.',
-    durationSec: 61.4,
-    minutesAgo: 300,
-    tags: ['Работа', 'Встреча'],
-    model: 'Whisper Large v3 Turbo',
-    colorSlot: 2,
-  ),
-  _DemoEntry(
-    id: 'demo-8',
-    title: 'Заметка о поездке — конференция в следующем месяце',
-    content:
-        'Забронировать перелёт, пока цены не выросли, и проверить, открыт ли '
-        'ещё блок номеров в отеле для ранней регистрации.',
-    durationSec: 15.0,
-    minutesAgo: 500,
-    tags: ['Идея'],
-    model: 'Whisper Medium',
-    colorSlot: 4,
-  ),
-];
-
-const _replacementsRu = <(String, String)>[
-  ('подпись', 'С уважением,\nAlex'),
-  ('моя почта', 'alex@whispaste.dev'),
-  ('ссылка на встречу', 'https://meet.example.com/team-sync'),
-  ('сейчас вернусь', 'Сейчас вернусь, дай мне минутку.'),
-];
-
-class _DemoEntry {
-  const _DemoEntry({
-    required this.id,
-    required this.title,
-    required this.content,
-    required this.durationSec,
-    required this.minutesAgo,
-    required this.tags,
-    required this.model,
-    required this.colorSlot,
-    this.pinned = false,
-  });
-
-  final String id;
-  final String title;
-  final String content;
-  final double durationSec;
-  final int minutesAgo;
-  final List<String> tags;
-  final String model;
-  final int colorSlot;
-  final bool pinned;
 }
 
 // ---------------------------------------------------------------------------

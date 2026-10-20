@@ -8,8 +8,14 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
+import '../../../services/linux_desktop_shortcut.dart';
+import '../../../services/paste/paste_capability_notifier.dart';
+import '../../../services/paste/paster.dart' show PasteCapabilityStatus;
+import '../../../widgets/wp_button.dart';
 import '../../settings/settings_widgets.dart' show kSettingRowInset;
+import '../stt_model_readiness.dart';
 import 'onboarding_headings.dart';
+import '../../../core/config/settings_labels.dart';
 
 /// Closing content of the final onboarding page — quick-start guide and the
 /// residual hotkey-conflict notice. Rendered as the trailing column beside
@@ -22,8 +28,17 @@ import 'onboarding_headings.dart';
 /// residual safety gate: with a confirmed hotkey conflict the completion CTA
 /// stays disabled rather than sending the user into a non-functional hotkey.
 /// This widget only renders the matching heads-up text next to that gate.
+@visibleForTesting
+const kReadyStepBackToModelKey = Key('onboardingReadyStepBackToModel');
+@visibleForTesting
+const kReadyStepNoModelKey = Key('onboardingReadyStepNoModel');
+
 class ReadyStep extends ConsumerWidget {
-  const ReadyStep({super.key});
+  const ReadyStep({super.key, this.onBackToModel});
+
+  /// Returns to the speech-model step. Offered only while no model is
+  /// installed (UIA-RT-01): "all set" would be false without one.
+  final VoidCallback? onBackToModel;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,29 +46,46 @@ class ReadyStep extends ConsumerWidget {
     final status = ref.watch(hotkeyRegistrationStatusProvider);
     final l10n = L10n.of(context);
 
-    const accent = WpColors.accent;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
 
     // The completion CTA (owned by the onboarding shell) is gated on a healthy
     // hotkey registration; this content mirrors that gate with a short
     // heads-up so the disabled CTA never appears unexplained.
     final hasConflict = status == HotkeyRegistrationStatus.conflict;
+    final desktopShortcutPending = ref.watch(desktopShortcutPendingProvider);
+    // "All set" needs a model on disk or a saved cloud key. A running
+    // download is no set-up: it lets the CTA through (UIA-MDL-GATE), but the
+    // page keeps saying the model is missing until it is there.
+    final modelInstalled = ref.watch(onboardingSttModelInstalledProvider);
+    final cloudReady = ref.watch(onboardingCloudSttKeyProvider);
+    final speechSetUp = modelInstalled || cloudReady;
 
     // Auto-Paste is active when `afterTranscription` is set to `paste` or
     // `clipboard_and_paste` — both inject the transcript at the cursor. The
     // other two states (`clipboard`, `nothing`) leave the user to paste with
     // ⌘V / Ctrl+V themselves, so step 3 must spell that out.
-    final autoPasteAfterTranscription =
-        switch (settings.afterTranscriptionAction) {
-          AfterTranscriptionAction.paste ||
-          AfterTranscriptionAction.clipboardAndPaste => true,
-          AfterTranscriptionAction.clipboard ||
-          AfterTranscriptionAction.nothing => false,
-        };
+    final wantsAutoPaste = switch (settings.afterTranscriptionAction) {
+      AfterTranscriptionAction.paste ||
+      AfterTranscriptionAction.clipboardAndPaste => true,
+      AfterTranscriptionAction.clipboard ||
+      AfterTranscriptionAction.nothing => false,
+    };
+    // The setting alone is not enough: without a paste capability (Linux
+    // without a usable uinput device, a missing macOS permission) the
+    // transcript only reaches the clipboard, so step 3 must say that. Before
+    // the first probe there is no answer yet, and the setting stands.
+    final pasteStatus = ref
+        .watch(pasteCapabilityNotifierProvider)
+        .capability
+        ?.status;
+    final canAutoPaste =
+        pasteStatus == null || pasteStatus == PasteCapabilityStatus.ready;
+    final autoPasteAfterTranscription = wantsAutoPaste && canAutoPaste;
     final step3Text = autoPasteAfterTranscription
         ? l10n.onboardingReadyStep3AutoPaste
-        : l10n.onboardingReadyStep3CopyOnly;
+        : l10n.onboardingReadyStep3CopyOnly(pasteShortcutLabel(l10n: l10n));
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -64,10 +96,46 @@ class ReadyStep extends ConsumerWidget {
         // headline-sized bold titles on one page was the single clearest
         // reason the flow read as "no structure".
         OnboardingSectionLabel(
-          title: l10n.onboardingReadyTitle,
+          title: speechSetUp
+              ? l10n.onboardingReadyTitle
+              : l10n.onboardingReadyNoModelTitle,
           subtitle: l10n.onboardingReadySubtitle,
         ),
         const SizedBox(height: WpSpacing.lg),
+
+        // Without a model or a cloud key nothing can be transcribed, so the
+        // page says so and points back to the model step instead of claiming
+        // the setup is complete (UIA-RT-01, UIA-MDL-GATE).
+        if (!speechSetUp) ...[
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingReadyNoModelBody,
+              key: kReadyStepNoModelKey,
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textMuted,
+                height: 1.35,
+              ),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: WpButton(
+                key: kReadyStepBackToModelKey,
+                label: l10n.onboardingReadyBackToModel,
+                variant: WpButtonVariant.secondary,
+                tone: WpButtonTone.neutral,
+                onPressed: onBackToModel,
+              ),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.lg),
+        ],
 
         // Residual conflict notice — the Hotkey page is the place to fix
         // this; here it explains the disabled completion CTA.
@@ -89,7 +157,7 @@ class ReadyStep extends ConsumerWidget {
             child: Text(
               l10n.onboardingTriggerHotkeyConflictTitle,
               textAlign: TextAlign.start,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.small,
                 fontWeight: FontWeight.w600,
                 color: WpColors.error,
@@ -102,9 +170,37 @@ class ReadyStep extends ConsumerWidget {
             child: Text(
               l10n.onboardingReadyHotkeyConflictBody,
               textAlign: TextAlign.start,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.small,
                 color: textMuted,
+                height: 1.35,
+              ),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.lg),
+        ],
+
+        // Step 1 below ("press the key") only holds once the desktop shortcut
+        // carries the hotkey (XP-6-14). The Hotkey page shows the block that
+        // sets it up, so this line names the way back rather than a second
+        // copy of the block in a 3/9-wide column.
+        if (!hasConflict && desktopShortcutPending) ...[
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: Text(
+              l10n.onboardingReadyDesktopShortcutHint(
+                formatHotkeyKeycap(
+                  settings.hotkeyModifiers,
+                  settings.hotkeyKey,
+                  l10n: l10n,
+                  displayOverride: settings.hotkey.hotkeyKeyDisplay,
+                ),
+              ),
+              key: const ValueKey('onboarding-ready-desktop-shortcut-hint'),
+              textAlign: TextAlign.start,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: WpColors.warning,
                 height: 1.35,
               ),
             ),

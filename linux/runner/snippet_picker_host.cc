@@ -9,21 +9,14 @@
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #include <X11/Xlib.h>
+
+#include "x11_window.h"
 #endif
 
 namespace {
 
 constexpr char kChannelName[] = "com.whispaste.snippet_picker";
 constexpr char kRenderChannelName[] = "com.whispaste.snippet_picker_render";
-
-#ifdef GDK_WINDOWING_X11
-// A stale/destroyed window ID passed to XSetInputFocus raises a BadWindow X
-// error, which by default terminates the whole process — install this for
-// the duration of that one call instead of crashing on a focus-restore race.
-int IgnoreXErrorHandler(Display* /*display*/, XErrorEvent* /*event*/) {
-  return 0;
-}
-#endif
 
 }  // namespace
 
@@ -222,11 +215,11 @@ void SnippetPickerHost::RestoreFocusedWindow() {
     GdkDisplay* gdk_display = gdk_display_get_default();
     if (GDK_IS_X11_DISPLAY(gdk_display)) {
       Display* display = gdk_x11_display_get_xdisplay(gdk_display);
-      auto* previous_handler = XSetErrorHandler(IgnoreXErrorHandler);
-      XSetInputFocus(display, saved_focus_window_, RevertToParent,
-                     CurrentTime);
-      XSync(display, False);
-      XSetErrorHandler(previous_handler);
+      // The saved window may be gone; a BadWindow would end the process.
+      WithX11ErrorTrap(gdk_display, [&] {
+        XSetInputFocus(display, saved_focus_window_, RevertToParent,
+                       CurrentTime);
+      });
     }
   }
 #endif

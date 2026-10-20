@@ -38,13 +38,18 @@ class _FakeAutostartBackend implements AutostartBackend {
   _FakeAutostartBackend({
     required this.initiallyEnabled,
     required this.shouldFail,
+    this.needsApproval = false,
   });
 
   final bool initiallyEnabled;
   final bool shouldFail;
 
+  /// Simulates macOS `SMAppService` `.requiresApproval`.
+  bool needsApproval;
+
   int enableCalls = 0;
   int disableCalls = 0;
+  int openLoginItemsCalls = 0;
 
   @override
   Future<bool> isEnabled() async => initiallyEnabled;
@@ -59,6 +64,14 @@ class _FakeAutostartBackend implements AutostartBackend {
   Future<void> disable() async {
     disableCalls++;
     if (shouldFail) throw StateError('fake registration failure');
+  }
+
+  @override
+  Future<bool> requiresApproval() async => needsApproval;
+
+  @override
+  Future<void> openLoginItems() async {
+    openLoginItemsCalls++;
   }
 }
 
@@ -97,6 +110,82 @@ class _MutableFakeSettingsNotifier extends SettingsNotifier {
 }
 
 void main() {
+  test(
+    'approval granted while the app was away: recheck clears the hint',
+    () async {
+      final fakeBackend = _FakeAutostartBackend(
+        initiallyEnabled: false,
+        shouldFail: false,
+        needsApproval: true,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(launchAtStartup: true),
+          ),
+          autostartServiceProvider.overrideWith(
+            () => _SeamedAutostartService(fakeBackend),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      container.read(autostartServiceProvider);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(autostartApprovalNeededProvider), isTrue);
+
+      // The user switches the item on in System Settings and returns.
+      fakeBackend.needsApproval = false;
+      await container.read(autostartServiceProvider.notifier).recheckApproval();
+
+      expect(
+        container.read(autostartApprovalNeededProvider),
+        isFalse,
+        reason: 'the hint must not outlive the approval until a restart',
+      );
+    },
+  );
+
+  test(
+    'login item awaiting approval is reported as its own state, not as enabled',
+    () async {
+      final fakeBackend = _FakeAutostartBackend(
+        initiallyEnabled: false,
+        shouldFail: false,
+        needsApproval: true,
+      );
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _FakeSettingsNotifier(launchAtStartup: true),
+          ),
+          autostartServiceProvider.overrideWith(
+            () => _SeamedAutostartService(fakeBackend),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(settingsProvider.future);
+      container.read(autostartServiceProvider);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        container.read(autostartApprovalNeededProvider),
+        isTrue,
+        reason: 'the Settings hint needs to know the item waits for approval',
+      );
+      expect(
+        container.read(autostartSyncFailureProvider),
+        isNull,
+        reason: 'waiting for approval is not a registration failure',
+      );
+    },
+  );
+
   test(
     'backend enable() failure: exposed state stays disabled, not optimistic',
     () async {

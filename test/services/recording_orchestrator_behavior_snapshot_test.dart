@@ -105,7 +105,7 @@ class _FakeSttService extends SttServerStateNotifier {
       const SttStatus(serverState: SttServerState.ready, port: 9999);
 
   @override
-  Future<void> ensureRunning() async {
+  Future<void> ensureRunning({bool warmup = true}) async {
     if (ensureRunningThrows) throw Exception('STT server failed to start');
     state = state.copyWith(serverState: SttServerState.ready);
   }
@@ -522,8 +522,10 @@ void main() {
 
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // Emit one speech sample (≥ threshold 0.02) to arm _speechDetected.
-        fakeAudio.emitLevel(0.5);
+        // 300 ms of level (8 samples @ 25 Hz) arms _speechDetected.
+        for (var i = 0; i < 8; i++) {
+          fakeAudio.emitLevel(0.5);
+        }
         await Future<void>.delayed(const Duration(milliseconds: 30));
 
         // Then 25 silent samples → auto-stop → stopRecording() pipeline.
@@ -568,8 +570,12 @@ void main() {
 
         expect(c.read(recordingProvider).phase, RecordingPhase.recording);
 
-        // Interleave speech + silence — counter resets on each speech sample.
-        // Each round: 1 speech + 10 silence. Max consecutive silence = 10 < 25.
+        // Speech, then interleave — once speech is established the counter
+        // resets on each loud sample. Each round: 1 loud + 10 silence. Max
+        // consecutive silence = 10 < 25.
+        for (var i = 0; i < 8; i++) {
+          fakeAudio.emitLevel(0.5);
+        }
         for (var i = 0; i < 5; i++) {
           fakeAudio.emitLevel(0.5); // speech
           for (var s = 0; s < 10; s++) {
@@ -755,8 +761,10 @@ void main() {
         reason: 'must reach recording phase before emitting samples',
       );
 
-      // Arm speech-detected flag, then silence → auto-stop.
-      fakeAudio.emitLevel(0.5);
+      // Arm speech-detected flag (300 ms of level), then silence → auto-stop.
+      for (var i = 0; i < 8; i++) {
+        fakeAudio.emitLevel(0.5);
+      }
       await Future<void>.delayed(const Duration(milliseconds: 30));
       for (var i = 0; i < 25; i++) {
         fakeAudio.emitLevel(0.0);

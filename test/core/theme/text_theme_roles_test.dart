@@ -9,6 +9,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/widgets/toast.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
@@ -96,15 +97,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        makeTestable(
-          WpHeroButton(
-            label: 'Start',
-            gradient: const LinearGradient(
-              colors: [Color(0xFF38D9F0), Color(0xFF0887A8)],
-            ),
-            onPressed: () {},
-          ),
-        ),
+        makeTestable(WpHeroButton(label: 'Start', onPressed: () {})),
       );
 
       final textWidget = tester.widget<Text>(find.text('Start'));
@@ -114,8 +107,8 @@ void main() {
       expect(resolvedStyle.fontSize, 16);
       expect(resolvedStyle.fontWeight, FontWeight.w700);
       expect(resolvedStyle.letterSpacing, closeTo(-0.3, 0.01));
-      // Color override: always white on gradient background.
-      expect(resolvedStyle.color, Colors.white);
+      // Colour override: navy label on the flat amber CTA fill (UIA-CMP-01).
+      expect(resolvedStyle.color, WpColors.onCta);
     });
   });
 

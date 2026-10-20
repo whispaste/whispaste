@@ -54,4 +54,15 @@ The following are **out of scope**:
 - Crash reporting and performance traces via Sentry (EU data region) are **opt-out** — on by default, switched off in Settings → Privacy → "Error Reporting" (also offered on the onboarding Privacy step). Reports never contain audio or transcribed text: no screenshots, no view hierarchy, no default PII, events containing secrets (e.g. API keys) are dropped, the OS account name in file paths is replaced, switching it off also stops native crash and app-hang reports, and log breadcrumbs are stripped from performance traces
 - Usage analytics (self-hosted Matomo) are anonymous and **opt-out** — on by default, switched off in Settings → Privacy → "Share anonymous usage statistics". Cookieless, no account, IP anonymised server-side, only aggregated event counters plus a weekly rotating pseudonym; never audio, text, history, tags or notes (see the privacy policy)
 - The optional local automation API binds to loopback only and compares its bearer token in constant time
+- **Clipboard history on Linux:** dictated text is written with the `x-kde-passwordManagerHint` hint, which only KDE's Klipper honours. Other clipboard managers (for example GPaste or CopyQ) can still record dictated text; turn off their history or delete the entry there. If WhisPaste cannot set the hint on the restored clipboard text, it restores the text as a plain write, which these managers may then record; the user's clipboard is kept in that case on purpose. The restored text is whatever was on the clipboard before, which can include a password copied earlier from a password manager; in that case it can end up in the clipboard manager's history
 - Every host the app contacts on its own is listed in [`NETWORK.md`](./NETWORK.md)
+
+## Audio Import Decoders on Linux
+
+Voice-note import decodes files with libraries that WhisPaste neither bundles nor pins:
+
+- Ogg/Opus and FLAC use the system `libopusfile`, `libogg` and `libFLAC`, declared as runtime dependencies of the `.deb` package. Their patch level is the one of the installed distribution.
+- M4A/AAC uses GStreamer, loaded at runtime. `decodebin` picks any installed GStreamer plugin that can read the file, so the plugins on the system, not WhisPaste, decide what parses the audio.
+- The imported file is first copied into the app's data folder. Its size and duration are capped before and during decoding.
+
+Keep system packages up to date, and install only GStreamer plugin packages you trust.

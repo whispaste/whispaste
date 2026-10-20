@@ -34,6 +34,8 @@
 
 #include <flutter/encodable_value.h>
 
+#include <algorithm>
+#include <iterator>
 #include <string>
 
 using flutter::EncodableList;
@@ -46,6 +48,21 @@ namespace {
 
 constexpr char kChannelName[] = "com.whispaste.floating_button";
 constexpr char kRenderChannelName[] = "com.whispaste.floating_button_render";
+
+// Preset ids the render engine understands (overlay_design_spec.dart). Any
+// other value from the method channel is replaced by the default before it is
+// cached or relayed.
+constexpr const char* kBackgroundPresets[] = {"marine", "graphit", "gletscher", "amber"};
+constexpr const char* kWavePresets[] = {"cyan", "violett", "neutral", "ink", "amber", "coral", "mint"};
+
+template <size_t N>
+std::string KnownPreset(const std::string& value,
+                        const char* const (&known)[N], const char* fallback) {
+  const bool is_known = std::any_of(
+      std::begin(known), std::end(known),
+      [&value](const char* id) { return value == id; });
+  return is_known ? value : fallback;
+}
 
 // ── EncodableMap helpers (unchanged from Phase 1) ────────────────────
 
@@ -72,19 +89,19 @@ int GetInt(const EncodableMap& map, const std::string& key, int fallback = 0) {
   return fallback;
 }
 
-bool GetBool(const EncodableMap& map, const std::string& key,
-             bool fallback = false) {
-  auto it = map.find(EncodableValue(key));
-  if (it == map.end()) return fallback;
-  if (auto* b = std::get_if<bool>(&it->second)) return *b;
-  return fallback;
-}
-
 std::string GetString(const EncodableMap& map, const std::string& key,
                       const std::string& fallback = "") {
   auto it = map.find(EncodableValue(key));
   if (it == map.end()) return fallback;
   if (auto* s = std::get_if<std::string>(&it->second)) return *s;
+  return fallback;
+}
+
+bool GetBool(const EncodableMap& map, const std::string& key,
+             bool fallback = true) {
+  auto it = map.find(EncodableValue(key));
+  if (it == map.end()) return fallback;
+  if (auto* b = std::get_if<bool>(&it->second)) return *b;
   return fallback;
 }
 
@@ -288,11 +305,22 @@ void FloatingButtonHost::HandleMethodCall(
   }
 
   // ── setTheme ────────────────────────────────────────────────────────
-  // The render engine ignores theme (the V2 disc is theme-independent) but
-  // we forward it anyway so the Dart side can react if it ever uses it.
+  // WP-75: background and wave presets, cached so the ready flush can
+  // replay them.
   if (method == "setTheme") {
-    if (map && render_ready_) {
-      RelaySetTheme(GetBool(*map, "isDark", true));
+    if (map) {
+      latest_background_ =
+          KnownPreset(GetString(*map, "background", "marine"),
+                      kBackgroundPresets, "marine");
+      latest_wave_ =
+          KnownPreset(GetString(*map, "wave", "cyan"), kWavePresets, "cyan");
+      // WP-95 button look. Opacity is clamped to the 40-100 % presets.
+      latest_shape_ =
+          GetString(*map, "shape", "round") == "square" ? "square" : "round";
+      latest_ring_ = GetBool(*map, "ring", true);
+      double idle = GetDouble(*map, "idleOpacity", 1.0);
+      latest_idle_opacity_ = idle < 0.4 ? 0.4 : (idle > 1.0 ? 1.0 : idle);
+      if (render_ready_) RelaySetTheme(latest_background_, latest_wave_);
     }
     result->Success();
     return;
@@ -350,6 +378,9 @@ void FloatingButtonHost::HandleMethodCall(
             // Convert UTF-8 label to wstring for TrackPopupMenu.
             int len = MultiByteToWideChar(CP_UTF8, 0, label_str->c_str(),
                                           -1, nullptr, 0);
+            // 0 means the UTF-8 is invalid; skip the entry rather than size
+            // the wstring from a failed conversion.
+            if (len <= 0) continue;
             std::wstring wlabel(len - 1, 0);
             MultiByteToWideChar(CP_UTF8, 0, label_str->c_str(), -1,
                                 wlabel.data(), len);
@@ -422,6 +453,7 @@ void FloatingButtonHost::HandleRenderCall(
     render_ready_ = true;
     RelaySetState(latest_state_);
     RelaySetDiameter(latest_disc_size_);
+    RelaySetTheme(latest_background_, latest_wave_);
     result->Success();
     return;
   }
@@ -558,10 +590,15 @@ void FloatingButtonHost::RelaySetDiameter(int disc_size) {
                                 std::make_unique<EncodableValue>(m));
 }
 
-void FloatingButtonHost::RelaySetTheme(bool is_dark) {
+void FloatingButtonHost::RelaySetTheme(const std::string& background,
+                                       const std::string& wave) {
   if (!render_channel_) return;
   EncodableMap m;
-  m[EncodableValue("isDark")] = EncodableValue(is_dark);
+  m[EncodableValue("background")] = EncodableValue(background);
+  m[EncodableValue("wave")] = EncodableValue(wave);
+  m[EncodableValue("shape")] = EncodableValue(latest_shape_);
+  m[EncodableValue("ring")] = EncodableValue(latest_ring_);
+  m[EncodableValue("idleOpacity")] = EncodableValue(latest_idle_opacity_);
   render_channel_->InvokeMethod("setTheme",
                                 std::make_unique<EncodableValue>(m));
 }

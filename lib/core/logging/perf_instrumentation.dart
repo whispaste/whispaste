@@ -156,6 +156,11 @@ class PerfMarkers {
   DateTime? _hotkeyPressedAt;
   int? _hotkeyPressedMonotonicMicros;
 
+  /// Set by [markOverlayShown], consumed by [markOverlayFirstFrame]: the hotkey
+  /// t₀ and the show instant, both on the [monotonicMicros] clock.
+  int? _awaitingFrameFromHotkeyMicros;
+  int? _awaitingFrameShownMicros;
+
   /// Monotonic clock for latency traces that must not jump with wall-clock
   /// adjustments (see `MicStartTrace`).
   static final Stopwatch _monotonic = Stopwatch()..start();
@@ -216,6 +221,8 @@ class PerfMarkers {
   /// dogfooding; X ≤ 33 satisfies the AC.
   void markOverlayShown() {
     final pressedAt = _hotkeyPressedAt;
+    _awaitingFrameFromHotkeyMicros = _hotkeyPressedMonotonicMicros;
+    _awaitingFrameShownMicros = monotonicMicros();
     _hotkeyPressedAt = null; // reset — next press gets a clean t₀
     _hotkeyPressedMonotonicMicros = null;
     if (pressedAt == null) return;
@@ -226,6 +233,39 @@ class PerfMarkers {
       '[PERF] hotkey→overlay: ${elapsedMs}ms '
       '(budget: ≤${budget}ms) [$status]',
     );
+  }
+
+  /// Stamps the first painted frame of the show started by [markOverlayShown]
+  /// (WP-84 phase 2, plan item 6). Fed by the render engine's frame
+  /// acknowledgement, so it includes the cross-engine hop and is the only
+  /// measure of what the user actually sees. Logs nothing when no show is
+  /// awaiting a frame, so repeated acknowledgements cost nothing.
+  void markOverlayFirstFrame() {
+    final shownAt = _awaitingFrameShownMicros;
+    if (shownAt == null) return;
+    final hotkeyAt = _awaitingFrameFromHotkeyMicros;
+    _awaitingFrameShownMicros = null;
+    _awaitingFrameFromHotkeyMicros = null;
+
+    final now = monotonicMicros();
+    _onOverlayFirstFrame?.call(now);
+    final showToFrameMs = (now - shownAt) / 1000.0;
+    final hotkeyText = hotkeyAt == null
+        ? 'n/a'
+        : '${((now - hotkeyAt) / 1000.0).toStringAsFixed(1)}ms';
+    _log.info(
+      '[PERF] overlay first-frame: hotkey→frame $hotkeyText, '
+      'show→frame ${showToFrameMs.toStringAsFixed(1)}ms',
+    );
+  }
+
+  /// Receives the monotonic instant of every overlay first frame, for the
+  /// mic-start trace (`MicStartTrace`). One listener at a time; the
+  /// recording orchestrator sets it per start.
+  void Function(int monotonicMicros)? _onOverlayFirstFrame;
+
+  void setOverlayFirstFrameListener(void Function(int monotonicMicros)? l) {
+    _onOverlayFirstFrame = l;
   }
 
   // ── Hotkey → text (end-to-end latency KPI) ─────────────────────────────
@@ -266,5 +306,8 @@ class PerfMarkers {
     _coldStartBegin = null;
     _hotkeyPressedAt = null;
     _hotkeyPressedMonotonicMicros = null;
+    _awaitingFrameFromHotkeyMicros = null;
+    _awaitingFrameShownMicros = null;
+    _onOverlayFirstFrame = null;
   }
 }

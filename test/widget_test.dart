@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/core/theme/theme.dart';
+import 'package:whispaste/core/theme/tokens.dart';
 
 void main() {
   group('App smoke tests', () {
@@ -48,7 +49,7 @@ void main() {
 
     test('theme appBarTheme uses correct toolbar height', () {
       final dark = wpDarkTheme();
-      expect(dark.appBarTheme.toolbarHeight, 64);
+      expect(dark.appBarTheme.toolbarHeight, WpLayout.appBarHeight);
     });
 
     test('theme card shape uses rounded rectangle', () {

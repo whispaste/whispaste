@@ -5,14 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:whispaste/services/single_instance_service.dart';
 
-/// Resolves a `dart` executable usable to spawn `test/fixtures/single_instance_probe.dart`.
-///
-/// Under `flutter test`, [Platform.resolvedExecutable] points at the
-/// `flutter_tester` binary, not `dart` — so fall back to the SDK bundled
-/// alongside the Flutter checkout via `FLUTTER_ROOT`. Returns `null` (rather
-/// than throwing) if neither resolves, so the one test that needs a real
-/// second OS process can skip cleanly instead of failing the whole suite
-/// over test-runner plumbing unrelated to the code under test.
+import '../test_helpers/dart_sdk.dart';
+
 /// On Windows `dart run` starts the probe as a child of the dartdev process
 /// it returns, so killing the handle can leave the probe holding the lock
 /// file until its own hold time runs out (errno 32 on deletion, CI run on
@@ -27,26 +21,6 @@ Future<void> _deleteWhenUnlocked(Directory dir) async {
       await Future<void>.delayed(const Duration(milliseconds: 250));
     }
   }
-}
-
-String? _resolveDartExecutable() {
-  final resolved = Platform.resolvedExecutable;
-  if (p.basenameWithoutExtension(resolved).toLowerCase() == 'dart') {
-    return resolved;
-  }
-  final flutterRoot = Platform.environment['FLUTTER_ROOT'];
-  if (flutterRoot != null) {
-    final candidate = p.join(
-      flutterRoot,
-      'bin',
-      'cache',
-      'dart-sdk',
-      'bin',
-      Platform.isWindows ? 'dart.exe' : 'dart',
-    );
-    if (File(candidate).existsSync()) return candidate;
-  }
-  return null;
 }
 
 final _probePath = p.join(
@@ -433,13 +407,7 @@ void main() {
     test(
       'a second real OS process is refused the lock and signals this one',
       () async {
-        final dart = _resolveDartExecutable();
-        if (dart == null) {
-          markTestSkipped(
-            'no dart executable resolvable from this test runner',
-          );
-          return;
-        }
+        final dart = resolveDartExecutable();
 
         final primary = await SingleInstanceService.ensureSingleInstance();
         expect(primary, isTrue);
@@ -470,13 +438,7 @@ void main() {
       'a secondary launched with --toggle forwards the command to the '
       'process holding the lock',
       () async {
-        final dart = _resolveDartExecutable();
-        if (dart == null) {
-          markTestSkipped(
-            'no dart executable resolvable from this test runner',
-          );
-          return;
-        }
+        final dart = resolveDartExecutable();
 
         // A real second OS process holds the lock as primary ...
         final holder = await Process.start(dart, [
@@ -516,13 +478,7 @@ void main() {
     test(
       'a real OS process becomes primary when no lock is held',
       () async {
-        final dart = _resolveDartExecutable();
-        if (dart == null) {
-          markTestSkipped(
-            'no dart executable resolvable from this test runner',
-          );
-          return;
-        }
+        final dart = resolveDartExecutable();
 
         final result = await Process.run(dart, ['run', _probePath, tmp.path]);
         expect(

@@ -4,7 +4,7 @@
 /// Replaces the old full-screen `MicrophoneStep` probe: this chip only
 /// answers "may WhisPaste use the microphone?" by consuming
 /// [MicPermissionNotifier] — no live audio, no waveform, no device picker
-/// (the device choice lives in Settings → Recording). The "does it actually
+/// (the device choice lives in Settings → Recording & audio). The "does it actually
 /// work?" question is answered right next to it, by the test recording.
 ///
 /// It sat on page 1 until the third redesign round: a permission status has
@@ -106,10 +106,10 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
     // tint over near-black is a rounding error, not a frost. Retires a
     // hand-rolled `withValues(alpha: 0.55)` the tint ladder forbids at a call
     // site.
-    const surface = WpColors.floatingSurface;
-    const hover = WpColors.hover;
-    const border = WpColors.borderSubtle;
-    const textPrimary = WpColors.textPrimary;
+    final surface = WpColors.floatingSurface;
+    final hover = WpColors.hover;
+    final border = WpColors.borderSubtle;
+    final textPrimary = WpColors.textPrimary;
 
     // Status is carried by the tinted leading glyph and the copy — the pill
     // itself stays neutral (same quiet register as the Auto-Paste indicator).
@@ -153,6 +153,7 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
       child: Semantics(
         button: true,
         child: Material(
+          key: ValueKey('onboarding-mic-chip-${status.name}'),
           color: Colors.transparent,
           child: InkWell(
             // Always request() — the notifier alone decides between the real
@@ -203,7 +204,7 @@ class _MicPermissionChipState extends ConsumerState<MicPermissionChip> {
                   const SizedBox(width: WpSpacing.xs),
                   Text(
                     label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.body,
                       fontWeight: FontWeight.w600,
                       color: textPrimary,

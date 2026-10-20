@@ -16,7 +16,6 @@ import 'package:flutter/foundation.dart'
     show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderShiftedBox;
-import 'package:flutter/services.dart' show FontLoader, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart'
     show AsyncData, ProviderScope;
 import 'package:flutter_test/flutter_test.dart';
@@ -38,6 +37,7 @@ import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
+import 'package:golden_screenshot/golden_screenshot.dart' show loadAppFonts;
 
 late L10n l10n;
 
@@ -192,12 +192,7 @@ void main() {
 
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
-    final fontLoader = FontLoader('Inter')
-      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
-    await fontLoader.load();
+    await loadAppFonts();
   });
 
   group('Revision run — starts fresh, never touches onboardingCompleted', () {
@@ -216,7 +211,7 @@ void main() {
           );
 
           expect(find.byType(WelcomeStep), findsOneWidget);
-          expect(find.text(l10n.onboardingStepOf(1, 6)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(1, 7)), findsOneWidget);
         } finally {
           debugDefaultTargetPlatformOverride = null;
         }
@@ -278,11 +273,11 @@ void main() {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {
           await _pumpRevisionRun(tester);
-          for (var i = 0; i < 5; i++) {
+          for (var i = 0; i < 6; i++) {
             await _tapNext(tester);
           }
 
-          expect(find.text(l10n.onboardingStepOf(6, 6)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(7, 7)), findsOneWidget);
           expect(find.text(l10n.onboardingReviewDone), findsOneWidget);
           expect(find.text(l10n.onboardingStartUsing), findsNothing);
           expect(
@@ -310,7 +305,7 @@ void main() {
             registry: [_entry(1), _entry(2)],
           );
 
-          for (var i = 0; i < 5; i++) {
+          for (var i = 0; i < 6; i++) {
             await _tapNext(tester);
           }
           await _tapNext(tester); // completion tap
@@ -343,7 +338,7 @@ void main() {
             tester,
             registry: [_entry(1)],
           );
-          for (var i = 0; i < 6; i++) {
+          for (var i = 0; i < 7; i++) {
             await _tapNext(tester);
           }
 
@@ -407,6 +402,51 @@ void main() {
         }
       },
     );
+
+    testWidgets('a truncated notice can be expanded to show every reason and '
+        'collapsed again (UIA-ONB-12)', (tester) async {
+      tester.view.physicalSize = kOnboardingWindowSize;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        await _pumpRevisionRun(
+          tester,
+          settings: _staleUser(seenContentVersion: 0),
+          registry: [_wordyEntry(1), _wordyEntry(2), _wordyEntry(3)],
+          size: kOnboardingWindowSize,
+        );
+        Text noticeText() => tester.widget<Text>(
+          find.descendant(
+            of: find.byKey(kOnboardingRevisionNoticeKey),
+            matching: find.byType(Text),
+          ),
+        );
+        expect(noticeText().maxLines, 2);
+
+        await tester.tap(find.byKey(kOnboardingRevisionNoticeToggleKey));
+        await tester.pumpAndSettle();
+        expect(noticeText().maxLines, isNull);
+
+        await tester.tap(find.byKey(kOnboardingRevisionNoticeToggleKey));
+        await tester.pumpAndSettle();
+        expect(noticeText().maxLines, 2);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('a notice that fits offers no toggle', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        await _pumpRevisionRun(tester, registry: const []);
+        expect(find.byKey(kOnboardingRevisionNoticeKey), findsOneWidget);
+        expect(find.byKey(kOnboardingRevisionNoticeToggleKey), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
 
     testWidgets('lives on step 1 only — it explains the run, it is not a '
         'banner the whole flow carries', (tester) async {
@@ -520,9 +560,9 @@ void main() {
       try {
         await _pumpRevisionRun(tester, registry: [_wordyEntry(2)]);
 
-        for (var page = 1; page <= 6; page++) {
+        for (var page = 1; page <= 7; page++) {
           if (page > 1) await _tapNext(tester);
-          expect(find.text(l10n.onboardingStepOf(page, 6)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(page, 7)), findsOneWidget);
           expect(
             find.byKey(kOnboardingRevisionExitButtonKey),
             findsOneWidget,
@@ -635,11 +675,11 @@ void main() {
             find.text(l10n.onboardingRevisionExitConfirmBody),
             findsOneWidget,
           );
-          // The catch-up address is not decoration — it names the settings
-          // entry that reopens exactly these steps.
+          // The catch-up address is not decoration — it names the Help page
+          // entry that reopens exactly these steps (WP-65 moved it there).
           expect(
             l10n.onboardingRevisionExitConfirmBody,
-            contains(l10n.onboardingReviewEntry),
+            contains(l10n.onboardingReviewLabel),
           );
         } finally {
           debugDefaultTargetPlatformOverride = null;
@@ -671,7 +711,7 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          expect(find.text(l10n.onboardingStepOf(3, 6)), findsOneWidget);
+          expect(find.text(l10n.onboardingStepOf(3, 7)), findsOneWidget);
           expect(settings.state.value!.onboarding.onboardingContentVersion, 1);
         } finally {
           debugDefaultTargetPlatformOverride = null;

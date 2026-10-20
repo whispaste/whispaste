@@ -111,7 +111,7 @@ void main() {
           // the decode loop and return NULL (→ SmartModeAbortedException).
           final pending = engine.run(
             systemPrompt: 'Write a very long story.',
-            userText: 'Tell a long story about a dragon',
+            userText: 'Tell a long story about a lighthouse',
           );
           await engine.cancel();
           await expectLater(pending, throwsA(isA<SmartModeAbortedException>()));

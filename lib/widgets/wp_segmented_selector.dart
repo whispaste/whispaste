@@ -1,16 +1,14 @@
 /// Segmented pill selector with an animated active indicator.
 ///
-/// Extracted from the onboarding Welcome step, where it used to drive the
-/// theme choice. **Currently unused**: the theme choice it was extracted for
-/// became a picture-tile selector on its own onboarding page (see
-/// `features/onboarding/steps/appearance_step.dart`), and no other caller
-/// picked this up in the meantime. Kept as-is pending a decision — delete it
-/// if nothing claims it. Pure presentational component: items carry their own
-/// active state and tap handlers.
+/// Pure presentational component: items carry their own active state and tap
+/// handlers. [WpSegmentedChoice] is the single-choice wrapper that the
+/// settings-style pages use (UIA-CMP-06, instead of a raw `SegmentedButton`).
 library;
 
 import 'package:flutter/material.dart';
 
+import '../core/theme/colors.dart';
+import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
 
 /// One selectable segment of a [WpSegmentedSelector].
@@ -20,6 +18,7 @@ class WpSegmentItem {
     required this.isActive,
     required this.onTap,
     this.icon,
+    this.enabled = true,
   });
 
   /// Optional decorative icon rendered left of the label.  Null = text-only.
@@ -27,15 +26,64 @@ class WpSegmentItem {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
+
+  /// A disabled segment is shown dimmed and cannot be tapped.
+  final bool enabled;
 }
 
-/// Horizontal pill selector: an animated gradient indicator slides behind the
-/// active segment; every segment is an equally sized tap target.
+/// One value of a [WpSegmentedChoice].
+class WpSegmentOption<T> {
+  const WpSegmentOption({
+    required this.value,
+    required this.label,
+    this.enabled = true,
+  });
+
+  final T value;
+  final String label;
+  final bool enabled;
+}
+
+/// Single choice among [options], drawn as a [WpSegmentedSelector] with the
+/// app's surface, border and secondary text roles.
+class WpSegmentedChoice<T> extends StatelessWidget {
+  const WpSegmentedChoice({
+    super.key,
+    required this.options,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<WpSegmentOption<T>> options;
+  final T selected;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return WpSegmentedSelector(
+      borderColor: WpColors.borderDefault,
+      surfaceColor: WpColors.surfaceVariant,
+      textSecondary: WpColors.textSecondary,
+      items: [
+        for (final option in options)
+          WpSegmentItem(
+            label: option.label,
+            isActive: option.value == selected,
+            enabled: option.enabled,
+            onTap: () => onChanged(option.value),
+          ),
+      ],
+    );
+  }
+}
+
+/// Horizontal segmented control (WP-14 §4): one frame with an 8 px radius, an
+/// active segment on a cyan-soft fill with petrol semibold text, and equal
+/// tap targets. The indicator slides behind the active segment.
 class WpSegmentedSelector extends StatelessWidget {
   const WpSegmentedSelector({
     super.key,
     required this.items,
-    required this.activeGradient,
     required this.borderColor,
     required this.surfaceColor,
     required this.textSecondary,
@@ -43,7 +91,6 @@ class WpSegmentedSelector extends StatelessWidget {
   });
 
   final List<WpSegmentItem> items;
-  final LinearGradient activeGradient;
   final Color borderColor;
   final Color surfaceColor;
   final Color textSecondary;
@@ -64,7 +111,7 @@ class WpSegmentedSelector extends StatelessWidget {
           height: height,
           decoration: BoxDecoration(
             color: surfaceColor,
-            borderRadius: WpRadius.borderFull,
+            borderRadius: BorderRadius.circular(WpRadiusTokens.sm),
             border: Border.all(color: borderColor),
           ),
           clipBehavior: Clip.antiAlias,
@@ -79,9 +126,8 @@ class WpSegmentedSelector extends StatelessWidget {
                 width: itemWidth - 8,
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    gradient: activeGradient,
-                    borderRadius: WpRadius.borderFull,
-                    boxShadow: WpShadows.subtle,
+                    color: WpColors.accentSubtle,
+                    borderRadius: BorderRadius.circular(WpRadiusTokens.xs),
                   ),
                 ),
               ),
@@ -131,11 +177,12 @@ class _SegmentButtonState extends State<_SegmentButton> {
       child: Semantics(
         button: true,
         selected: isActive,
+        enabled: widget.item.enabled,
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: widget.item.onTap,
-            borderRadius: WpRadius.borderFull,
+            onTap: widget.item.enabled ? widget.item.onTap : null,
+            borderRadius: BorderRadius.circular(WpRadiusTokens.xs),
             focusColor: widget.textSecondary.withValues(alpha: 0.15),
             onHover: (hovering) => setState(() => _hovered = hovering),
             child: AnimatedContainer(
@@ -158,14 +205,14 @@ class _SegmentButtonState extends State<_SegmentButton> {
                           IconTheme(
                             data: IconThemeData(
                               color: isActive
-                                  ? Colors.white
+                                  ? WpColors.accent
                                   : widget.textSecondary,
-                              size: 18,
+                              size: WpIconSize.smMd,
                             ),
                             child: DefaultTextStyle(
                               style: TextStyle(
                                 color: isActive
-                                    ? Colors.white
+                                    ? WpColors.accent
                                     : widget.textSecondary,
                               ),
                               child: widget.item.icon!,
@@ -180,10 +227,14 @@ class _SegmentButtonState extends State<_SegmentButton> {
                           ),
                           style: TextStyle(
                             fontSize: WpTypography.subheading,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: isActive
+                                ? FontWeight.w600
+                                : FontWeight.w500,
                             color: isActive
-                                ? Colors.white
-                                : widget.textSecondary,
+                                ? WpColors.accent
+                                : widget.item.enabled
+                                ? widget.textSecondary
+                                : widget.textSecondary.withValues(alpha: 0.5),
                           ),
                           child: Text(widget.item.label),
                         ),

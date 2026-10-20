@@ -4,8 +4,7 @@
 /// label↔menu-key mapping stay unit-testable.
 library;
 
-import 'package:tray_manager/tray_manager.dart';
-
+import 'app_commands/app_command.dart';
 import 'microphone_selection_service.dart';
 
 export 'microphone_selection_service.dart' show micDefaultLabel;
@@ -22,33 +21,35 @@ String? micLabelFromMenuKey(String key) => key.startsWith(micMenuKeyPrefix)
     ? key.substring(micMenuKeyPrefix.length)
     : null;
 
-/// Builds the microphone submenu: the system-default entry first, then a
+/// Builds the microphone entries: the system-default entry first, then a
 /// separator and the enumerated devices.
 ///
 /// Exactly one entry is checked (radio behavior). Option filtering and
 /// ordering are shared with the status-bar chip via
 /// [buildMicrophoneOptions] — a selected-but-absent device (e.g. unplugged
 /// while undocked) is appended so the checkmark never silently disappears.
-List<MenuItem> buildMicrophoneMenuItems({
+/// [systemDefaultLabelKey] is a label key or final text, see
+/// [AppCommand.labelKey].
+List<AppCommand> buildMicrophoneCommands({
   required List<String> deviceLabels,
   required String selectedLabel,
-  required String systemDefaultLabel,
+  required String systemDefaultLabelKey,
 }) {
   final devices = buildMicrophoneOptions(
     deviceLabels: deviceLabels,
     selectedLabel: selectedLabel,
   ).sublist(1);
   return [
-    MenuItem.checkbox(
-      key: micMenuKey(micDefaultLabel),
-      label: systemDefaultLabel,
+    AppCommand(
+      id: micMenuKey(micDefaultLabel),
+      labelKey: systemDefaultLabelKey,
       checked: selectedLabel == micDefaultLabel,
     ),
-    if (devices.isNotEmpty) MenuItem.separator(),
+    if (devices.isNotEmpty) const AppCommand.separator(),
     for (final label in devices)
-      MenuItem.checkbox(
-        key: micMenuKey(label),
-        label: label,
+      AppCommand(
+        id: micMenuKey(label),
+        labelKey: label,
         checked: label == selectedLabel,
       ),
   ];

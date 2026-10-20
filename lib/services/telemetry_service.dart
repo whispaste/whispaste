@@ -83,7 +83,8 @@ final String _appSessionVisitorId = _generateSessionVisitorId();
 //
 // PRD Säule D forbids a persistent cross-session id, so returning-visitor
 // measurement today relies on Matomo's own IP+UA heuristic (unreliable under
-// dynamic IPs/NAT/VPN). This adds an opt-in-only alternative: a categorical
+// dynamic IPs/NAT/VPN). This adds an alternative that exists only while usage
+// sharing is on (default on, informed opt-out, CONTEXT §6.5): a categorical
 // value that groups visits into weekly cohorts without ever identifying a
 // device across weeks — a new value appears automatically every Monday, and
 // the salt it's derived from never leaves the device (not sent to Matomo,
@@ -193,7 +194,7 @@ final class TelemetryService {
 
   /// T5 (Matomo product analysis 2026-09-04): a single aggregated, non-event
   /// "alive" hit per calendar day — deliberately separate from the granular
-  /// opt-in event stream above, for a coarser but steadier active-install
+  /// usage-sharing event stream above, for a coarser but steadier active-install
   /// signal (the ~4.000 Visits/90-Tage app-telemetry sample cannot itself be
   /// extrapolated into an install count).
   ///
@@ -377,8 +378,8 @@ final telemetryProvider = Provider<TelemetryService>((ref) {
   final updateChannel =
       ref.watch(updateChannelProvider).value ?? UpdateChannel.stable;
 
-  // T4: only compute/persist the cohort salt once consent is actually
-  // granted — an undecided or opted-out user gets no local salt at all.
+  // T4: only compute/persist the cohort salt while consent holds (sharing is
+  // on by default, CONTEXT §6.5) — an opted-out user gets no local salt.
   String? cohortDimension;
   final existingSalt = settings?.privacy.cohortPseudonymSalt;
   if (consent) {

@@ -1,5 +1,5 @@
 /// Spoken line-break commands ("new paragraph", "neue Zeile", ...) turned
-/// into real line breaks in a finished transcript — the Dragon-style
+/// into real line breaks in a finished transcript — the classic dictation
 /// behaviour for longer dictations such as emails. Pure string processing,
 /// see [applyVoiceLineBreaks].
 library;

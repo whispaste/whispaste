@@ -9,15 +9,15 @@
 ///
 /// Der eingefrorene Frame ist bewusst ein Liquid-Peak-Moment (glassPhase 0.3,
 /// liquidMotion 1.0, liquidLevel 0.8 — dieselben Parameter wie
-/// `overlay_liquid_glass_golden_test.dart`): sichtbar gewölbte Silhouette +
+/// der frühere Liquid-Glass-Golden): sichtbar gewölbte Silhouette +
 /// gedrifteter Specular-Streak, damit die "flüssige" Qualität des Overlays
 /// auch im statischen Bild ablesbar ist.
 ///
 /// Läuft nur auf Anforderung (sonst skipped, damit normale Testläufe keine
-/// Repo-Dateien anfassen):
-///   CAPTURE_OVERLAY_ASSETS=1 flutter test \
+/// Repo-Dateien anfassen). Tag `capture`, excluded from every normal run:
+///   CAPTURE_OVERLAY_ASSETS=1 `wp-test.sh run <worktree> --tags=capture` \
 ///     test/screenshots/overlay_pill_asset_capture_test.dart
-@Tags(<String>['golden'])
+@Tags(<String>['capture'])
 library;
 
 import 'dart:io';

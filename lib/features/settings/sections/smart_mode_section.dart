@@ -12,26 +12,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_enums.dart';
+import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/l10n/download_error_text.dart';
+import '../../../core/navigation/page_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hardware_info_service.dart' as hw;
-import '../../../services/hotkey_service.dart';
 import '../../../services/model_download_service.dart'
     show formatModelSizeLabel;
 import '../../../services/smart_mode/smart_mode_ffi_engine.dart'
     show smartModeLocalEngineAvailableProvider;
 import '../../../services/smart_mode/smart_mode_model_download_service.dart';
 import '../../../services/smart_mode/smart_mode_presets.dart';
+import '../../../services/smart_mode/smart_mode_text_model.dart';
 import '../../../widgets/dialog.dart';
-import '../../../widgets/section.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
-import '../hotkey_flow.dart';
-import '../selection_edit_hotkey_flow.dart';
 import '../settings_widgets.dart';
-import '../smart_mode_hotkey_flow.dart';
+import '../widgets/wp_settings_group.dart';
 
 /// Below this, [SmartModeSection] shows a soft warning before starting the
 /// download — not a hard block (ticket 01, mirrors [hw.kMinRamMB]'s use for
@@ -41,9 +41,11 @@ const int kSmartModeRamWarningThresholdMB = 8192;
 const List<String> _kPresets = ['off', 'cleanup', 'concise', 'translate'];
 
 /// Shared by [SmartModeSection]'s standard-preset target-language row and
-/// [_SmartModeHotkeyBlock]'s hotkey-preset one — both dropdowns list the
+/// [SmartModeHotkeyBlock]'s hotkey-preset one — both dropdowns list the
 /// same [smartModeValidatedTargetLanguages].
-String Function(SmartModeTargetLanguage) _targetLanguageLabel(L10n l10n) =>
+String Function(SmartModeTargetLanguage) smartModeTargetLanguageLabel(
+  L10n l10n,
+) =>
     (lang) => switch (lang) {
       SmartModeTargetLanguage.german => l10n.smartModeTargetLanguageGerman,
       SmartModeTargetLanguage.english => l10n.smartModeTargetLanguageEnglish,
@@ -81,6 +83,11 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
       settings.smartMode.provider,
     ).isLocal;
     final localAvailable = ref.watch(smartModeLocalEngineAvailableProvider);
+    // Without a usable text model only "Off" can be picked (UIA-XP-7-05).
+    final presetLockedReason = smartModeUnavailableReason(
+      ref.watch(smartModeTextModelStatusProvider),
+      l10n,
+    );
     if (!isLocal) syncController(_apiKeyCtrl, settings.openAiApiKey);
 
     ref.listen<SmartModeDownloadState>(smartModeDownloadProvider, (
@@ -111,411 +118,163 @@ class _SmartModeSectionState extends ConsumerState<SmartModeSection> {
       _ => l10n.smartModePresetOffDescription,
     };
 
-    final targetLanguageLabel = _targetLanguageLabel(l10n);
+    final targetLanguageLabel = smartModeTargetLanguageLabel(l10n);
 
-    return WpSection(
-      title: l10n.settingsSmartMode,
-      subtitle: l10n.settingsSmartModeSubtitle,
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          SettingRow(
-            icon: LucideIcons.sparkles,
-            label: l10n.smartModeStandardPreset,
-            subtitle: presetDescription(settings.smartMode.standardPreset),
-            trailing: settingsDropdown(
+    return WpSettingsGroup(
+      heading: l10n.settingsSmartMode,
+      children: [
+        WpSettingsRow(
+          rowId: 'text-smart-mode-preset',
+          title: l10n.smartModeStandardPreset,
+          subtitle: presetDescription(settings.smartMode.standardPreset),
+          trailing: settingsDropdown(
+            context: context,
+            value: settings.smartMode.standardPreset,
+            items: _kPresets,
+            labels: _kPresets.map(presetLabel).toList(),
+            keyPrefix: 'settings-smart-mode-preset',
+            disabledItems: presetLockedReason == null
+                ? null
+                : {
+                    for (final p in _kPresets)
+                      if (p != 'off') p,
+                  },
+            disabledTooltip: presetLockedReason,
+            onChanged: (v) {
+              if (v == null) return;
+              ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      smartMode: s.smartMode.copyWith(standardPreset: v),
+                    ),
+                  );
+            },
+          ),
+        ),
+        const SizedBox(height: WpSpacing.md),
+        WpSettingsRow(
+          rowId: 'text-smart-mode-service',
+          title: l10n.settingsService,
+          trailing: settingsDropdown(
+            context: context,
+            value: SmartModeProviderType.fromValue(
+              settings.smartMode.provider,
+            ).value,
+            items: SmartModeProviderType.values.map((e) => e.value).toList(),
+            labels: [l10n.settingsServiceOnDevicePrivate, 'OpenAI'],
+            // A build without the bundled local engine (e.g. a Linux dev
+            // build that skipped scripts/build-libllama-linux.sh) can only
+            // fail on-device — keep the option visible but unselectable.
+            disabledItems: localAvailable
+                ? null
+                : {SmartModeProviderType.local.value},
+            disabledTooltip: localAvailable
+                ? null
+                : l10n.smartModeLocalUnavailable,
+            onChanged: (v) {
+              if (v == null) return;
+              ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings(
+                    (s) => s.copyWithSections(
+                      smartMode: s.smartMode.copyWith(provider: v),
+                    ),
+                  );
+            },
+          ),
+        ),
+        if (!isLocal) ...[
+          const SizedBox(height: WpSpacing.xs),
+          WpSettingsRow(
+            rowId: 'text-smart-mode-key',
+            title: l10n.settingsOpenAiApiKey,
+            subtitle: l10n.settingsOpenAiApiKeySubtitle,
+            trailing: settingsApiKeyField(
               context: context,
-              value: settings.smartMode.standardPreset,
-              items: _kPresets,
-              labels: _kPresets.map(presetLabel).toList(),
-              onChanged: (v) {
-                if (v == null) return;
-                ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings(
-                      (s) => s.copyWithSections(
-                        smartMode: s.smartMode.copyWith(standardPreset: v),
-                      ),
-                    );
-              },
+              controller: _apiKeyCtrl,
+              obscure: !_showKey,
+              onToggle: () => setState(() => _showKey = !_showKey),
+              onChanged: (v) => ref
+                  .read(settingsProvider.notifier)
+                  .updateSettings((s) => s.copyWith(openAiApiKey: v)),
+              semanticLabel: l10n.settingsOpenAiApiKey,
             ),
           ),
+        ],
+        if (settings.smartMode.standardPreset == 'translate') ...[
           const SizedBox(height: WpSpacing.md),
-          SettingRow(
-            icon: LucideIcons.cpu,
-            label: l10n.settingsService,
+          WpSettingsRow(
+            rowId: 'text-smart-mode-target',
+            title: l10n.smartModeTargetLanguage,
+            subtitle: l10n.smartModeTargetLanguageSubtitle,
             trailing: settingsDropdown(
               context: context,
-              value: SmartModeProviderType.fromValue(
-                settings.smartMode.provider,
-              ).value,
-              items: SmartModeProviderType.values.map((e) => e.value).toList(),
-              labels: [l10n.settingsServiceOnDevicePrivate, 'OpenAI'],
-              // A build without the bundled local engine (e.g. a Linux dev
-              // build that skipped scripts/build-libllama-linux.sh) can only
-              // fail on-device — keep the option visible but unselectable.
-              disabledItems: localAvailable
-                  ? null
-                  : {SmartModeProviderType.local.value},
-              disabledTooltip: localAvailable
-                  ? null
-                  : l10n.smartModeLocalUnavailable,
+              value: smartModeTargetLanguageFromSettingsValue(
+                settings.smartMode.targetLanguage,
+              ).code,
+              items: smartModeValidatedTargetLanguages
+                  .map((lang) => lang.code)
+                  .toList(),
+              labels: smartModeValidatedTargetLanguages
+                  .map(targetLanguageLabel)
+                  .toList(),
               onChanged: (v) {
                 if (v == null) return;
                 ref
                     .read(settingsProvider.notifier)
                     .updateSettings(
                       (s) => s.copyWithSections(
-                        smartMode: s.smartMode.copyWith(provider: v),
+                        smartMode: s.smartMode.copyWith(targetLanguage: v),
                       ),
                     );
               },
             ),
           ),
-          if (!isLocal) ...[
-            const SizedBox(height: WpSpacing.xs),
-            SettingRow(
-              icon: LucideIcons.keyRound,
-              label: l10n.settingsOpenAiApiKey,
-              trailing: settingsApiKeyField(
-                context: context,
-                controller: _apiKeyCtrl,
-                obscure: !_showKey,
-                onToggle: () => setState(() => _showKey = !_showKey),
-                onChanged: (v) => ref
-                    .read(settingsProvider.notifier)
-                    .updateSettings((s) => s.copyWith(openAiApiKey: v)),
-                semanticLabel: l10n.settingsOpenAiApiKey,
-              ),
-            ),
-          ],
-          if (settings.smartMode.standardPreset == 'translate') ...[
-            const SizedBox(height: WpSpacing.md),
-            SettingRow(
-              icon: LucideIcons.languages,
-              label: l10n.smartModeTargetLanguage,
-              trailing: settingsDropdown(
-                context: context,
-                value: smartModeTargetLanguageFromSettingsValue(
-                  settings.smartMode.targetLanguage,
-                ).code,
-                items: smartModeValidatedTargetLanguages
-                    .map((lang) => lang.code)
-                    .toList(),
-                labels: smartModeValidatedTargetLanguages
-                    .map(targetLanguageLabel)
-                    .toList(),
-                onChanged: (v) {
-                  if (v == null) return;
-                  ref
-                      .read(settingsProvider.notifier)
-                      .updateSettings(
-                        (s) => s.copyWithSections(
-                          smartMode: s.smartMode.copyWith(targetLanguage: v),
-                        ),
-                      );
-                },
-              ),
-            ),
-          ],
-          if (isLocal && !localAvailable) ...[
-            const SizedBox(height: WpSpacing.md),
-            HotkeyNotice(
-              noticeKey: const Key('smartModeLocalUnavailableHint'),
-              icon: LucideIcons.info,
-              color: WpColors.textMuted,
-              text: l10n.smartModeLocalUnavailable,
-            ),
-          ],
-          if (isLocal && localAvailable) ...[
-            const SizedBox(height: WpSpacing.md),
-            _ModelDownloadRow(download: download, l10n: l10n),
-          ],
-          _SmartModeHotkeyBlock(settings: settings),
-          _SelectionEditHotkeyBlock(settings: settings),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Smart-Mode hotkey (ticket 04) — fourth, independently configurable hotkey,
-// bound to one of the three presets, applied regardless of the standard
-// preset above.
-// ---------------------------------------------------------------------------
-
-class _SmartModeHotkeyBlock extends ConsumerStatefulWidget {
-  const _SmartModeHotkeyBlock({required this.settings});
-
-  final AppSettings settings;
-
-  @override
-  ConsumerState<_SmartModeHotkeyBlock> createState() =>
-      _SmartModeHotkeyBlockState();
-}
-
-class _SmartModeHotkeyBlockState extends ConsumerState<_SmartModeHotkeyBlock>
-    with HotkeyCollisionNotice {
-  Future<void> _record() => recordAndReport(
-    () => recordSmartModeHotkey(
-      context: context,
-      ref: ref,
-      settings: widget.settings,
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    final smartModeHotkey = widget.settings.smartModeHotkey;
-    final enabled = smartModeHotkey.smartModeHotkeyEnabled;
-
-    // `enabled &&` per the same reasoning as the quick-note/Snippet-Picker
-    // blocks: the registration status is in-memory and only registration
-    // attempts write it, so a hotkey the user just switched off must not
-    // keep complaining that it is "not active".
-    final registrationFailed =
-        enabled &&
-        ref.watch(smartModeHotkeyRegistrationStatusProvider) ==
-            HotkeyRegistrationStatus.conflict;
-
-    String presetLabel(String preset) => switch (preset) {
-      'concise' => l10n.smartModePresetConcise,
-      'translate' => l10n.smartModePresetTranslate,
-      _ => l10n.smartModePresetCleanup,
-    };
-
-    String presetDescription(String preset) => switch (preset) {
-      'concise' => l10n.smartModePresetConciseDescription,
-      'translate' => l10n.smartModePresetTranslateDescription,
-      _ => l10n.smartModePresetCleanupDescription,
-    };
-
-    return Padding(
-      padding: const EdgeInsets.only(top: WpSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          settingsInlineBreak,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SettingRow(
-                icon: LucideIcons.keyboardMusic,
-                label: l10n.settingsSmartModeHotkeyEnabled,
-                subtitle: l10n.settingsSmartModeHotkeyHint,
-                semanticToggledValue: enabled,
-                trailing: settingsToggle(
-                  key: const Key('smartModeHotkeyToggle'),
-                  value: enabled,
-                  onChanged: (v) {
-                    clearHotkeyCollision();
-                    unawaited(setSmartModeHotkeyEnabled(ref, enabled: v));
-                  },
-                ),
-              ),
-              AnimatedOpacity(
-                opacity: enabled ? 1.0 : 0.4,
-                duration: WpMotion.durationFor(context, WpMotion.normal),
-                child: ExcludeFocus(
-                  excluding: !enabled,
-                  child: IgnorePointer(
-                    ignoring: !enabled,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SettingRow(
-                          icon: LucideIcons.sparkles,
-                          label: l10n.settingsSmartModeHotkeyPreset,
-                          subtitle: presetDescription(
-                            smartModeHotkey.smartModeHotkeyPreset,
-                          ),
-                          trailing: settingsDropdown(
-                            context: context,
-                            value: smartModeHotkey.smartModeHotkeyPreset,
-                            items: const ['cleanup', 'concise', 'translate'],
-                            labels: const [
-                              'cleanup',
-                              'concise',
-                              'translate',
-                            ].map(presetLabel).toList(),
-                            onChanged: (v) {
-                              if (v == null) return;
-                              unawaited(
-                                setSmartModeHotkeyPreset(ref, preset: v),
-                              );
-                            },
-                          ),
-                        ),
-                        if (smartModeHotkey.smartModeHotkeyPreset ==
-                            'translate') ...[
-                          const SizedBox(height: WpSpacing.md),
-                          SettingRow(
-                            icon: LucideIcons.languages,
-                            label: l10n.smartModeTargetLanguage,
-                            trailing: settingsDropdown(
-                              context: context,
-                              value: smartModeTargetLanguageFromSettingsValue(
-                                smartModeHotkey.smartModeHotkeyTargetLanguage,
-                              ).code,
-                              items: smartModeValidatedTargetLanguages
-                                  .map((lang) => lang.code)
-                                  .toList(),
-                              labels: smartModeValidatedTargetLanguages
-                                  .map(_targetLanguageLabel(l10n))
-                                  .toList(),
-                              onChanged: (v) {
-                                if (v == null) return;
-                                unawaited(
-                                  setSmartModeHotkeyTargetLanguage(
-                                    ref,
-                                    targetLanguage: v,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: WpSpacing.md),
-                        HotkeyComboLine(
-                          key: const Key('smartModeHotkeyComboLine'),
-                          label: l10n.settingsSmartModeCurrentHotkey,
-                          hotkeyKey: smartModeHotkey.smartModeHotkeyKey,
-                          hotkeyModifiers:
-                              smartModeHotkey.smartModeHotkeyModifiers,
-                          hotkeyKeyDisplay:
-                              smartModeHotkey.smartModeHotkeyKeyDisplay,
-                          changeButtonKey: const Key('smartModeHotkeyChange'),
-                          onChange: () => unawaited(_record()),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              if (collidingAction != null)
-                HotkeyNotice(
-                  noticeKey: const Key('smartModeHotkeyCollisionNotice'),
-                  icon: LucideIcons.circleAlert,
-                  color: WpColors.error,
-                  text: l10n.settingsSmartModeHotkeyCollision(collidingAction!),
-                ),
-              if (registrationFailed)
-                HotkeyNotice(
-                  noticeKey: const Key('smartModeHotkeyInactiveNotice'),
-                  icon: LucideIcons.triangleAlert,
-                  color: WpColors.warning,
-                  text: l10n.settingsSmartModeHotkeyInactive,
-                ),
-            ],
+        if (isLocal && !localAvailable) ...[
+          const SizedBox(height: WpSpacing.md),
+          HotkeyNotice(
+            noticeKey: const Key('smartModeLocalUnavailableHint'),
+            icon: LucideIcons.info,
+            color: WpColors.textMuted,
+            text: l10n.smartModeLocalUnavailable,
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Edit-selection hotkey (`.scratch/voice-selection-edit/`) — select text in
-// any app, press, speak an instruction; the Smart Mode engine configured
-// above rewrites the selection. Lives here (not on the keyboard-shortcut
-// page) because it only works with this section's engine set up.
-// ---------------------------------------------------------------------------
-
-class _SelectionEditHotkeyBlock extends ConsumerStatefulWidget {
-  const _SelectionEditHotkeyBlock({required this.settings});
-
-  final AppSettings settings;
-
-  @override
-  ConsumerState<_SelectionEditHotkeyBlock> createState() =>
-      _SelectionEditHotkeyBlockState();
-}
-
-class _SelectionEditHotkeyBlockState
-    extends ConsumerState<_SelectionEditHotkeyBlock>
-    with HotkeyCollisionNotice {
-  Future<void> _record() => recordAndReport(
-    () => recordSelectionEditHotkey(
-      context: context,
-      ref: ref,
-      settings: widget.settings,
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    final hotkey = widget.settings.selectionEditHotkey;
-    final enabled = hotkey.selectionEditHotkeyEnabled;
-
-    // `enabled &&` for the same reason as the Smart-Mode block above.
-    final registrationFailed =
-        enabled &&
-        ref.watch(selectionEditHotkeyRegistrationStatusProvider) ==
-            HotkeyRegistrationStatus.conflict;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: WpSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          settingsInlineBreak,
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SettingRow(
-                icon: LucideIcons.textSelect,
-                label: l10n.settingsSelectionEditHotkeyEnabled,
-                subtitle: l10n.settingsSelectionEditHotkeyHint,
-                semanticToggledValue: enabled,
-                trailing: settingsToggle(
-                  key: const Key('selectionEditHotkeyToggle'),
-                  value: enabled,
-                  onChanged: (v) {
-                    clearHotkeyCollision();
-                    unawaited(setSelectionEditHotkeyEnabled(ref, enabled: v));
-                  },
-                ),
-              ),
-              AnimatedOpacity(
-                opacity: enabled ? 1.0 : 0.4,
-                duration: WpMotion.durationFor(context, WpMotion.normal),
-                child: ExcludeFocus(
-                  excluding: !enabled,
-                  child: IgnorePointer(
-                    ignoring: !enabled,
-                    child: HotkeyComboLine(
-                      key: const Key('selectionEditHotkeyComboLine'),
-                      label: l10n.settingsSmartModeCurrentHotkey,
-                      hotkeyKey: hotkey.selectionEditHotkeyKey,
-                      hotkeyModifiers: hotkey.selectionEditHotkeyModifiers,
-                      hotkeyKeyDisplay: hotkey.selectionEditHotkeyKeyDisplay,
-                      changeButtonKey: const Key('selectionEditHotkeyChange'),
-                      onChange: () => unawaited(_record()),
-                    ),
-                  ),
-                ),
-              ),
-              if (collidingAction != null)
-                HotkeyNotice(
-                  noticeKey: const Key('selectionEditHotkeyCollisionNotice'),
-                  icon: LucideIcons.circleAlert,
-                  color: WpColors.error,
-                  text: l10n.settingsSmartModeHotkeyCollision(collidingAction!),
-                ),
-              if (registrationFailed)
-                HotkeyNotice(
-                  noticeKey: const Key('selectionEditHotkeyInactiveNotice'),
-                  icon: LucideIcons.triangleAlert,
-                  color: WpColors.warning,
-                  text: l10n.settingsSelectionEditHotkeyInactive,
-                ),
-            ],
+        if (isLocal && localAvailable) ...[
+          const SizedBox(height: WpSpacing.md),
+          SettingsRowFrame(
+            rowId: 'text-smart-mode-model',
+            child: _ModelDownloadRow(download: download, l10n: l10n),
           ),
         ],
-      ),
+        const SizedBox(height: WpSpacing.md),
+        WpSettingsRow(
+          rowId: 'text-smart-mode-shortcut',
+          title: l10n.settingsSmartModeShortcutLink(
+            formatHotkeyKeycap(
+              settings.smartModeHotkey.smartModeHotkeyModifiers,
+              settings.smartModeHotkey.smartModeHotkeyKey,
+              l10n: l10n,
+              displayOverride:
+                  settings.smartModeHotkey.smartModeHotkeyKeyDisplay,
+            ),
+          ),
+          // The Smart Mode and selection-edit hotkeys are configured in the
+          // Keyboard shortcuts area; this row only points there.
+          trailing: WpButton(
+            key: const Key('smartModeShortcutChange'),
+            label: l10n.settingsChangeHotkey,
+            variant: WpButtonVariant.secondary,
+            onPressed: () {
+              ref
+                  .read(settingsScrollTargetProvider.notifier)
+                  .set('general-hotkey-smart-mode');
+              ref.read(activePageProvider.notifier).setPage('settings');
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -548,8 +307,10 @@ class _ModelDownloadRow extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
+                  // The label is the display name; the quantisation tag
+                  // stays in the id and file name.
                   '${smartModeModel.label} · ${smartModeModel.sizeLabel}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.body,
                     color: WpColors.textPrimary,
                   ),
@@ -557,19 +318,31 @@ class _ModelDownloadRow extends ConsumerWidget {
                 const SizedBox(height: 4),
                 Text(
                   l10n.smartModeMemoryFootprintInfo,
-                  style: const TextStyle(
+                  style: TextStyle(
+                    fontSize: WpTypography.caption,
+                    color: WpColors.textMuted,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  l10n.smartModeFactGuardHint,
+                  style: TextStyle(
                     fontSize: WpTypography.caption,
                     color: WpColors.textMuted,
                     height: 1.4,
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  l10n.smartModeSpeedExampleInfo,
-                  style: const TextStyle(
-                    fontSize: WpTypography.caption,
-                    color: WpColors.textMuted,
-                    height: 1.4,
+                SettingsRowFrame(
+                  rowId: 'text-smart-mode-speed',
+                  child: Text(
+                    l10n.smartModeSpeedExampleInfo,
+                    style: TextStyle(
+                      fontSize: WpTypography.caption,
+                      color: WpColors.textMuted,
+                      height: 1.4,
+                    ),
                   ),
                 ),
                 if (download.isBusy) ...[
@@ -578,8 +351,8 @@ class _ModelDownloadRow extends ConsumerWidget {
                 ] else if (download.isError) ...[
                   const SizedBox(height: 4),
                   Text(
-                    download.errorMessage ?? '',
-                    style: const TextStyle(
+                    localizedDownloadError(l10n, download.errorMessage),
+                    style: TextStyle(
                       fontSize: WpTypography.caption,
                       color: WpColors.error,
                     ),
@@ -594,7 +367,16 @@ class _ModelDownloadRow extends ConsumerWidget {
             l10n: l10n,
             onDownload: () => _startDownload(context, notifier),
             onCancel: notifier.cancelDownload,
-            onDelete: () => notifier.deleteModel(),
+            onDelete: () async {
+              final confirmed = await confirmDestructive(
+                context: context,
+                title: l10n.modelDeleteConfirm,
+                message: l10n.modelDeleteConfirmMessage,
+                confirmLabel: l10n.actionDelete,
+                cancelLabel: l10n.actionCancel,
+              );
+              if (confirmed) notifier.deleteModel();
+            },
           ),
         ],
       ),
@@ -697,13 +479,13 @@ class _ProgressInfo extends StatelessWidget {
             value: isVerifying ? null : download.progressPercent / 100,
             minHeight: 3,
             backgroundColor: WpColors.borderSubtle,
-            valueColor: const AlwaysStoppedAnimation(WpColors.accent),
+            valueColor: AlwaysStoppedAnimation(WpColors.accent),
           ),
         ),
         const SizedBox(height: 4),
         Text(
           isVerifying ? l10n.modelVerifying : _downloadingText(),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: WpTypography.caption,
             color: WpColors.textMuted,
           ),

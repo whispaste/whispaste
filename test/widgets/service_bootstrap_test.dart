@@ -9,6 +9,7 @@ library;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -64,6 +65,7 @@ class _FakeHotkeyService extends HotkeyService {
 
   @override
   Future<void> registerCancelDictationKey({
+    LogicalKeyboardKey key = LogicalKeyboardKey.escape,
     required VoidCallback onCancel,
   }) async {
     registerCancelDictationCalls++;
@@ -124,6 +126,11 @@ class _CounterOrchestrator extends RecordingOrchestrator {
 class _FakeTrayService extends TrayService {
   @override
   void build() {}
+
+  /// The bootstrap pushes the side-panel entry state on every build (UIA-SHL-09).
+  /// The real method rebuilds the native tray menu, which has no plugin here.
+  @override
+  void setSidePanelAvailable(bool available) {}
 }
 
 /// Capability notifier that only counts the recovery call — the recovery
@@ -136,7 +143,9 @@ class _RecoveryCountingCapabilityNotifier extends PasteCapabilityNotifier {
   PasteCapabilityState build() => const PasteCapabilityState();
 
   @override
-  Future<void> runMissingPermissionRecovery() async {
+  Future<void> runMissingPermissionRecovery({
+    Future<bool> Function()? confirmReset,
+  }) async {
     recoveryCalls++;
   }
 }
@@ -531,7 +540,7 @@ void main() {
       expect(container.read(activePageProvider), 'settings');
       expect(
         container.read(settingsScrollTargetProvider),
-        'afterTranscription',
+        'text-after-dictation-action',
       );
       expect(
         capability.recoveryCalls,

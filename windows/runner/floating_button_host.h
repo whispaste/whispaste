@@ -57,7 +57,7 @@ class FloatingButtonHost {
   // Relay helpers → render engine
   void RelaySetState(const std::string& state);
   void RelaySetDiameter(int disc_size);
-  void RelaySetTheme(bool is_dark);
+  void RelaySetTheme(const std::string& background, const std::string& wave);
 
   // Handle calls coming from the render engine.
   void HandleRenderCall(
@@ -99,6 +99,14 @@ class FloatingButtonHost {
   // the latest state/diameter and flush them in HandleRenderCall("ready").
   bool render_ready_ = false;
   std::string latest_state_ = "idle";
+  // Last setTheme presets (WP-75); cached like latest_state_ for the ready flush.
+  std::string latest_background_ = "marine";
+  std::string latest_wave_ = "cyan";
+  // WP-95 button look: shape ("round"/"square"), recording ring, and the
+  // resting opacity (0.4-1.0). Relayed with the presets above.
+  std::string latest_shape_ = "round";
+  bool latest_ring_ = true;
+  double latest_idle_opacity_ = 1.0;
   int latest_disc_size_ = 56;  // logical pixels (without shadow padding)
 
   // ── Context menu items ────────────────────────────────────────────

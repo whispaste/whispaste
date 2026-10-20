@@ -1,23 +1,17 @@
-/// WpFocusRing — keyboard-focus-visible glow painted OUTSIDE the wrapped
+/// WpFocusRing — keyboard-focus-visible outline painted OUTSIDE the wrapped
 /// widget bounds.
 ///
-/// Layout-neutral: the glow is drawn by a [CustomPainter] in the foreground
+/// Layout-neutral: the outline is drawn by a [CustomPainter] in the foreground
 /// layer, extending a few dp beyond the widget's own size, so adjacent
 /// siblings are never displaced.
 ///
-/// ## Why a glow and not a line
+/// ## Why a crisp outline
 ///
-/// This used to be a hard 2 dp stroke 2 dp off the widget. On the callers it
-/// was written for — rows, chips, search fields, outlined triggers, none of
-/// them filled — that stroke read as focus, because those controls have no
-/// outline of their own for it to be mistaken for. On a control that *is*
-/// filled edge to edge ([WpButton]'s primary variant) the same stroke read as
-/// a second border instead: the only button in the app with a frame around it.
-///
-/// A blurred stroke has no edge to mistake for a border. It reads as the
-/// control lighting up rather than as the control gaining an outline, which is
-/// the right sentence on a filled block *and* on an unfilled row — so it is
-/// the shared default here rather than an opt-in for one caller.
+/// The ring is a solid 2 dp line set 3 dp off the control, never blurred or
+/// softened (UIA-VIS-12). A focus mark has to read as a
+/// shape with a clear edge, so the keyboard user sees exactly which control
+/// has focus. Both the line width and the gap come from the app tokens
+/// (`focus-ring-width`, `focus-ring-gap`).
 ///
 /// Two usage modes:
 ///
@@ -52,6 +46,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../core/theme/generated/wp_tokens.g.dart';
 import '../core/theme/tokens.dart';
 
 /// Focus-visible ring that wraps any widget without affecting layout.
@@ -208,7 +203,7 @@ class _WpFocusRingState extends State<WpFocusRing> {
 
 // ── Painter ───────────────────────────────────────────────────────────────────
 
-/// Paints a soft rounded glow in [color] just outside the widget bounds.
+/// Paints a solid rounded outline in [color] just outside the widget bounds.
 ///
 /// Exposed as a public class (non-private) so widget tests can inspect
 /// [color] and [radius] to verify token usage without golden snapshots.
@@ -226,39 +221,30 @@ class WpFocusRingPainter extends CustomPainter {
   /// [WpFocusRing.insets].
   final EdgeInsets insets;
 
-  /// Distance from the widget edge to the centre-line of the glow.
-  static const double _gap = 3.0;
+  /// Distance from the widget edge to the inner edge of the outline.
+  static const double _gap = WpShellTokens.focusRingGap;
 
-  /// Width of the stroke that the blur is applied to.  Wider than the old
-  /// hard ring: a blurred hairline all but disappears.
-  static const double _stroke = 2.5;
-
-  /// Blur radius.  Big enough that no part of the glow has a defined edge.
-  static const double _sigma = 3.0;
-
-  /// Opacity of the blurred stroke, relative to [color]'s own alpha.
-  ///
-  /// Half rather than near-opaque: at full strength the glow stops reading as
-  /// a halo around the control and starts reading as a second, fuzzy fill
-  /// competing with the button itself.  At half it is still the loudest thing
-  /// on the surface — nothing else glows — without shouting.
-  static const double _alpha = 0.5;
+  /// Width of the solid outline. Value from the app token (`focus-ring-width`),
+  /// the single source for this ring.
+  static const double _stroke = WpShellTokens.focusRingWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = color.withValues(alpha: color.a * _alpha)
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = _stroke
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, _sigma)
       ..isAntiAlias = true;
 
+    // A stroke is centred on its path, so the path sits half a stroke width
+    // further out than the gap to keep the inner edge exactly [_gap] away.
+    const outset = _gap + _stroke / 2;
     final rrect = RRect.fromLTRBR(
-      insets.left - _gap,
-      insets.top - _gap,
-      size.width - insets.right + _gap,
-      size.height - insets.bottom + _gap,
-      Radius.circular(radius + _gap),
+      insets.left - outset,
+      insets.top - outset,
+      size.width - insets.right + outset,
+      size.height - insets.bottom + outset,
+      Radius.circular(radius + outset),
     );
     canvas.drawRRect(rrect, paint);
   }

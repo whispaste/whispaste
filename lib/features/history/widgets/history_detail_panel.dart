@@ -3,28 +3,37 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/navigation/page_state.dart'
+    show activePageProvider, notesEditorTargetProvider;
 import '../../../core/recording/recording_helpers.dart'
     show displayNameForModel;
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import 'package:whispaste/core/data/database.dart';
+import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
 import '../../../services/history/history_exporter.dart' as history_exporter;
+import '../../../services/paste/auto_paste_blocklist.dart';
 import '../../../services/replacements/correction_learning_service.dart';
 import '../../../services/replacements/correction_signal.dart';
+import '../../notes/data/notes_actions.dart';
 import '../data/history_detail_provider.dart';
+import '../data/history_title.dart';
+import 'smart_mode_undo_actions.dart';
 import 'highlighted_text.dart';
 import 'history_helpers.dart';
 import 'history_notes_section.dart';
 import '../../../widgets/dialog.dart';
 import '../../../widgets/find_replace.dart';
 import '../../../widgets/tag_input.dart';
+import '../../../widgets/wp_toast_dock.dart';
 import '../../../widgets/markdown_toolbar.dart';
 import '../../../widgets/toast.dart';
 import '../../../widgets/wp_button.dart';
@@ -62,7 +71,7 @@ Widget _tooltipIf(String? message, {required Widget child}) => message == null
     ? child
     : Tooltip(
         message: message,
-        waitDuration: const Duration(milliseconds: 600),
+        waitDuration: WpMotion.tooltipWait,
         child: child,
       );
 
@@ -142,10 +151,28 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     });
   }
 
+  /// Saves the transcript edit that is open when the panel moves to another
+  /// entry or goes away, so typed text is not lost (UIA-HIS-02). Deferred:
+  /// both callers run during a rebuild or dispose, where a provider write is
+  /// rejected.
+  Future<void> Function(String)? _saveOpenEdit;
+  String _savedBeforeEdit = '';
+
+  void _flushOpenEdit() {
+    final save = _saveOpenEdit;
+    _saveOpenEdit = null;
+    final text = _transcriptController.text.trim();
+    if (!_isEditingTranscript || save == null || text == _savedBeforeEdit) {
+      return;
+    }
+    Future.microtask(() => save(text));
+  }
+
   @override
   void didUpdateWidget(covariant HistoryDetailPanel old) {
     super.didUpdateWidget(old);
     if (old.entry.id != widget.entry.id) {
+      _flushOpenEdit();
       _transcriptController.text = widget.entry.content;
       _isEditingTranscript = false;
       _titleController.text = widget.entry.title;
@@ -167,6 +194,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
 
   @override
   void dispose() {
+    _flushOpenEdit();
     _transcriptController.dispose();
     _titleController.dispose();
     _panelFocusNode.dispose();
@@ -192,7 +220,32 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
     widget.exportFn(context, [entry]);
   }
 
-  void _saveTranscript() {
+  /// Copies this entry's text into a new Notiz and offers to open it. The
+  /// toast's action captures the notifiers, not [ref], so it still works
+  /// after the detail panel has been closed.
+  Future<void> _takeAsNote() async {
+    final notes = ref.read(notesActionsProvider);
+    final note = await notes.create();
+    await notes.save(note.id, entry.content);
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    final editorTarget = ref.read(notesEditorTargetProvider.notifier);
+    final activePage = ref.read(activePageProvider.notifier);
+    WpToast.show(
+      context,
+      message: l10n.historyTakenAsNote,
+      type: WpToastType.success,
+      action: WpToastAction(
+        label: l10n.historyOpenNote,
+        onPressed: () {
+          editorTarget.set(note.id);
+          activePage.setPage('notes');
+        },
+      ),
+    );
+  }
+
+  Future<void> _saveTranscript() async {
     final newContent = _transcriptController.text.trim();
     if (newContent != entry.content) {
       // Capture the pre-edit content before `updateContent` overwrites it --
@@ -201,12 +254,24 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
       // the identical correction-signal shape (ticket 02
       // `.scratch/vocab-learning-corrections/`).
       final contentBeforeEdit = entry.content;
-      ref
-          .read(historyDetailProvider(entry.id).notifier)
-          .updateContent(newContent);
+      try {
+        await ref
+            .read(historyDetailProvider(entry.id).notifier)
+            .updateContent(newContent);
+      } catch (_) {
+        // Keep the editor open with the typed text (UIA-HIS-05).
+        if (mounted) {
+          WpToast.show(
+            context,
+            message: L10n.of(context).historyWriteFailedToast,
+            type: WpToastType.error,
+          );
+        }
+        return;
+      }
       _recordManualEditCorrectionSignal(contentBeforeEdit, newContent);
     }
-    setState(() => _isEditingTranscript = false);
+    if (mounted) setState(() => _isEditingTranscript = false);
   }
 
   /// Feeds a manual transcript edit into the same correction-learning
@@ -241,12 +306,53 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
   }
 
   void _toggleEdit() {
+    if (isTrashView) return;
     if (_isEditingTranscript) {
       _saveTranscript();
     } else {
       _transcriptController.text = entry.content;
+      // Captured now: a panel that is switching or going away has no usable
+      // `ref` any more, and the detail notifier may already be disposed by
+      // then. The database outlives both (UIA-HIS-02).
+      final db = ref.read(historyDatabaseProvider);
+      final entryId = entry.id;
+      final titleEdited = entry.titleEdited;
+      _saveOpenEdit = (text) {
+        final derived = deriveHistoryTitle(text);
+        return db.updateEntry(
+          entryId,
+          HistoryEntriesCompanion(
+            content: Value(text),
+            // Same title rule as `HistoryDetailNotifier.updateContent`.
+            title: titleEdited || derived.isEmpty
+                ? const Value.absent()
+                : Value(derived),
+          ),
+        );
+      };
+      _savedBeforeEdit = entry.content;
       setState(() => _isEditingTranscript = true);
     }
+  }
+
+  /// Esc in the transcript editor throws the edit away (UIA-HIS-31). Changed
+  /// text asks first, using the shared unsaved-input dialog; unchanged text
+  /// closes at once.
+  Future<void> _discardTranscriptEdit() async {
+    if (_transcriptController.text.trim() != _savedBeforeEdit) {
+      final l10n = L10n.of(context);
+      final discard = await confirmDestructive(
+        context: context,
+        title: l10n.unsavedInputTitle,
+        message: l10n.unsavedInputMessage,
+        confirmLabel: l10n.unsavedInputDiscard,
+        cancelLabel: l10n.actionCancel,
+      );
+      if (!discard || !mounted) return;
+    }
+    _saveOpenEdit = null;
+    _transcriptController.text = _savedBeforeEdit;
+    setState(() => _isEditingTranscript = false);
   }
 
   void _startTitleEdit() {
@@ -392,14 +498,23 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
           message: l10n.historySmartModeApplied,
           type: WpToastType.success,
         );
+      case HistoryPresetApplicationBusy():
+        WpToast.show(
+          context,
+          message: l10n.smartModeBusy,
+          type: WpToastType.info,
+        );
       case HistoryPresetApplicationFailure(:final reason):
         final message = switch (reason) {
           SmartModeRetroactiveFailureReason.modelMissing =>
             l10n.historySmartModeFailedModelMissing,
           SmartModeRetroactiveFailureReason.timeout =>
             l10n.historySmartModeFailedTimeout,
+          SmartModeRetroactiveFailureReason.checkTimedOut =>
+            l10n.smartModeCheckTimedOut,
           SmartModeRetroactiveFailureReason.engineError ||
-          SmartModeRetroactiveFailureReason.blankResult =>
+          SmartModeRetroactiveFailureReason.blankResult ||
+          SmartModeRetroactiveFailureReason.factsChanged =>
             l10n.historySmartModeFailedGeneric,
         };
         WpToast.show(context, message: message, type: WpToastType.error);
@@ -443,7 +558,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
             setState(() => _isEditingTitle = false);
             _panelFocusNode.requestFocus();
           } else if (_isEditingTranscript) {
-            _saveTranscript();
+            unawaited(_discardTranscriptEdit());
           } else {
             onClose();
           }
@@ -525,6 +640,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
               onDuplicate: onDuplicate,
               onCopyMarkdown: onCopyMarkdown,
               onExport: _exportEntry,
+              onTakeAsNote: _takeAsNote,
               onClose: onClose,
               applyingPreset: applyingPreset,
               onApplyPreset: isTrashView ? null : _applySmartModePreset,
@@ -534,6 +650,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
             // and a line drawn across a gap that wide separates nothing that
             // the gap has not separated already — it only adds one more
             // horizontal to count on a screen meant to read as one task.
+            SmartModeUndoRow(entryId: entry.id, fallback: entry),
             // Content
             Expanded(
               child: LayoutBuilder(
@@ -557,6 +674,7 @@ class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
                           key: _tagSectionKey,
                           entryId: entry.id,
                           tags: tags,
+                          isTrashView: isTrashView,
                           content: entry.content,
                           searchQuery: _tagSearchQuery,
                           onSearchChanged: (q) =>
@@ -656,6 +774,34 @@ class _ShortcutHelpContent extends StatelessWidget {
         const SizedBox(height: WpSpacing.xs),
         _ShortcutRow(keyLabel: 'Esc', description: l10n.historyShortcutClose),
         const SizedBox(height: WpSpacing.sm),
+        Text(l10n.historyShortcutListGroup, style: groupStyle),
+        const SizedBox(height: WpSpacing.xs),
+        _ShortcutRow(
+          keyLabel: '↑ ↓',
+          description: l10n.historyShortcutMoveFocus,
+        ),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+↵',
+          description: l10n.historyShortcutOpenEntry,
+        ),
+        _ShortcutRow(
+          keyLabel: l10n.shortcutKeyEnter,
+          description: l10n.historyShortcutCopyEntry,
+        ),
+        _ShortcutRow(
+          keyLabel: l10n.shortcutKeyDelete,
+          description: l10n.historyShortcutDeleteEntry,
+        ),
+        _ShortcutRow(keyLabel: 'F', description: l10n.historyShortcutPin),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+A',
+          description: l10n.historyShortcutSelectAll,
+        ),
+        _ShortcutRow(
+          keyLabel: l10n.shortcutKeyEscape,
+          description: l10n.historyShortcutClearSelection,
+        ),
+        const SizedBox(height: WpSpacing.sm),
         Text(l10n.historyShortcutEditing, style: groupStyle),
         const SizedBox(height: WpSpacing.xs),
         _ShortcutRow(
@@ -674,6 +820,10 @@ class _ShortcutHelpContent extends StatelessWidget {
           description: l10n.historyShortcutItalic,
         ),
         _ShortcutRow(keyLabel: 'Ctrl+C', description: l10n.historyShortcutCopy),
+        _ShortcutRow(
+          keyLabel: l10n.shortcutKeyEscape,
+          description: l10n.historyShortcutDiscardEdit,
+        ),
       ],
     );
   }
@@ -748,6 +898,7 @@ class _DetailPanelHeader extends StatelessWidget {
     required this.onDuplicate,
     required this.onCopyMarkdown,
     required this.onExport,
+    required this.onTakeAsNote,
     required this.onClose,
     required this.applyingPreset,
     required this.onApplyPreset,
@@ -769,6 +920,7 @@ class _DetailPanelHeader extends StatelessWidget {
   final VoidCallback? onDuplicate;
   final VoidCallback? onCopyMarkdown;
   final VoidCallback onExport;
+  final VoidCallback onTakeAsNote;
   final VoidCallback onClose;
 
   /// Whether a retroactive Smart Mode preset application is in flight for
@@ -782,9 +934,9 @@ class _DetailPanelHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
-    const textMuted = WpColors.textMuted;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
     final avatarCol = historyAvatarSlot(entry).color();
 
     final avatar = HistoryEntryAvatar(
@@ -862,10 +1014,7 @@ class _DetailPanelHeader extends StatelessWidget {
           // into the title's line count.
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: WpTypography.small,
-            color: textMuted,
-          ),
+          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
         ),
       ],
     );
@@ -875,7 +1024,9 @@ class _DetailPanelHeader extends StatelessWidget {
       // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
       HistoryDetailAction(
         icon: LucideIcons.copy,
-        tooltip: '${l10n.historyCopyText} (Ctrl+C)',
+        tooltip:
+            '${l10n.historyCopyText} '
+            '(${formatHotkeyShortcut('ctrl', 'c', l10n: l10n)})',
         onTap: onCopy,
       ),
       if (isTrashView) ...[
@@ -901,6 +1052,14 @@ class _DetailPanelHeader extends StatelessWidget {
           tooltip:
               '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
           onTap: onPin,
+        ),
+      if (!isTrashView)
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+        HistoryDetailAction(
+          key: const ValueKey('history-detail-take-as-note'),
+          icon: LucideIcons.stickyNote,
+          tooltip: l10n.historyTakeAsNote,
+          onTap: onTakeAsNote,
         ),
       // Overflow menu for secondary actions
       _DetailOverflowMenu(
@@ -950,7 +1109,7 @@ class _DetailPanelHeader extends StatelessWidget {
 // Overflow popup menu (secondary header actions)
 // ---------------------------------------------------------------------------
 
-class _DetailOverflowMenu extends StatelessWidget {
+class _DetailOverflowMenu extends ConsumerWidget {
   const _DetailOverflowMenu({
     required this.entry,
     required this.textSecondary,
@@ -976,15 +1135,25 @@ class _DetailOverflowMenu extends StatelessWidget {
   final bool isTrashView;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = L10n.of(context);
+    // "Turn off auto-paste in this app": offered when the recording's target
+    // app is known and not on the block list yet (see CONTEXT.md §2.7).
+    final target = entry.targetApp?.trim();
+    final blocklist =
+        ref.watch(settingsProvider).value?.behavior.autoPasteBlocklist ?? '';
+    final offerAutoPasteOff =
+        target != null &&
+        target.isNotEmpty &&
+        !autoPasteBlocklistContains(blocklist, target);
     return PopupMenuButton<String>(
+      key: const ValueKey('history-detail-menu'),
       icon: Icon(
         LucideIcons.ellipsisVertical,
         size: WpIconSize.md,
         color: textSecondary,
       ),
-      tooltip: '',
+      tooltip: L10n.of(context).historyMoreActions,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
       // A popup menu floats over arbitrary content — pre-composited card
@@ -1007,6 +1176,18 @@ class _DetailOverflowMenu extends StatelessWidget {
             onApplyPreset?.call(SmartModePreset.translate);
           case 'export':
             onExport();
+          case 'auto_paste_off':
+            if (target == null) break;
+            ref
+                .read(settingsProvider.notifier)
+                .updateSettings(
+                  (s) => s.copyWith(
+                    autoPasteBlocklist: autoPasteBlocklistWith(
+                      s.behavior.autoPasteBlocklist,
+                      target,
+                    ),
+                  ),
+                );
           case 'archive':
             onArchive();
           case 'delete':
@@ -1070,12 +1251,22 @@ class _DetailOverflowMenu extends StatelessWidget {
           ),
         ],
         PopupMenuItem(
+          key: const ValueKey('history-detail-menu-export'),
           value: 'export',
           child: HistoryPopupMenuRow(
             icon: LucideIcons.download,
             label: l10n.historyExportAction,
           ),
         ),
+        if (offerAutoPasteOff)
+          PopupMenuItem(
+            key: const ValueKey('history-detail-menu-auto-paste-off'),
+            value: 'auto_paste_off',
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.ban,
+              label: l10n.historyAutoPasteOffForApp,
+            ),
+          ),
         if (!isTrashView)
           PopupMenuItem(
             value: 'archive',
@@ -1088,8 +1279,13 @@ class _DetailOverflowMenu extends StatelessWidget {
                   : l10n.historyArchive,
             ),
           ),
-        if (!isTrashView)
+        // Destructive entry is set apart by a divider so it is never read as
+        // one more equal-weight sibling of Archivieren (UX-012). Deleting is
+        // a soft delete with an undo toast outside the trash view.
+        if (!isTrashView) ...[
+          const PopupMenuDivider(),
           PopupMenuItem(
+            key: const ValueKey('history-detail-menu-delete'),
             value: 'delete',
             child: HistoryPopupMenuRow(
               icon: LucideIcons.trash2,
@@ -1097,6 +1293,7 @@ class _DetailOverflowMenu extends StatelessWidget {
               isDestructive: true,
             ),
           ),
+        ],
       ],
     );
   }
@@ -1221,7 +1418,7 @@ class _DetailTranscriptZone extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textPrimary = WpColors.textPrimary;
+    final textPrimary = WpColors.textPrimary;
 
     // Cap prose measure at ~85 chars/line for the 16px body (Fill-By-Default
     // Rule: only the transcript degrades on ultrawide, so only it gets capped).
@@ -1319,15 +1516,17 @@ class _DetailTranscriptZone extends StatelessWidget {
           ),
           if (!isTrashView) ...[
             const SizedBox(height: WpSpacing.xs),
-            _TranscriptEditBar(
-              entry: entry,
-              isEditing: isEditing,
-              wordCountLabel: wordCountLabel,
-              onToggleEdit: onToggleEdit,
-              hasEditedVersion: hasEditedVersion,
-              viewingEditedVersion: viewingEditedVersion,
-              onToggleViewingEdited: onToggleViewingEdited,
-              onCopyDisplayed: onCopyDisplayed,
+            WpToastDockReserve(
+              child: _TranscriptEditBar(
+                entry: entry,
+                isEditing: isEditing,
+                wordCountLabel: wordCountLabel,
+                onToggleEdit: onToggleEdit,
+                hasEditedVersion: hasEditedVersion,
+                viewingEditedVersion: viewingEditedVersion,
+                onToggleViewingEdited: onToggleViewingEdited,
+                onCopyDisplayed: onCopyDisplayed,
+              ),
             ),
           ],
         ],
@@ -1357,8 +1556,8 @@ class _OriginalTranscriptDisclosure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
-    const textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
+    final textPrimary = WpColors.textPrimary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1381,7 +1580,7 @@ class _OriginalTranscriptDisclosure extends StatelessWidget {
                     expanded
                         ? LucideIcons.chevronDown
                         : LucideIcons.chevronRight,
-                    size: 14,
+                    size: WpIconSize.xs,
                     color: textMuted,
                   ),
                   const SizedBox(width: WpSpacing.xxs),
@@ -1389,7 +1588,7 @@ class _OriginalTranscriptDisclosure extends StatelessWidget {
                     expanded
                         ? l10n.historyHideOriginalTranscript
                         : l10n.historyShowOriginalTranscript,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: WpTypography.small,
                       fontWeight: FontWeight.w500,
                       color: textMuted,
@@ -1414,7 +1613,7 @@ class _OriginalTranscriptDisclosure extends StatelessWidget {
               children: [
                 Text(
                   l10n.historyOriginalTranscriptLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.caption,
                     fontWeight: FontWeight.w600,
                     color: textMuted,
@@ -1423,7 +1622,7 @@ class _OriginalTranscriptDisclosure extends StatelessWidget {
                 const SizedBox(height: WpSpacing.xxs),
                 SelectableText(
                   originalText,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.body,
                     color: textPrimary,
                   ),
@@ -1464,8 +1663,8 @@ class _TranscriptEditBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
-    const accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
     final showBadge = entry.titleEdited || isEditing;
     final showWordCount = entry.content.isNotEmpty || isEditing;
 
@@ -1524,7 +1723,7 @@ class _TranscriptEditBar extends StatelessWidget {
             if (showWordCount)
               Text(
                 wordCountLabel,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.caption,
                   color: textMuted,
                 ),
@@ -1575,7 +1774,7 @@ class _TranscriptEditBar extends StatelessWidget {
                   children: [
                     Icon(
                       isEditing ? LucideIcons.check : LucideIcons.pencil,
-                      size: 14,
+                      size: WpIconSize.xs,
                       color: isEditing ? accent : textMuted,
                     ),
                     const SizedBox(width: 6),
@@ -1621,8 +1820,8 @@ class _RawEditedToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColors.accent;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
 
     Widget segment(String label, bool selected) => Container(
       padding: const EdgeInsets.symmetric(
@@ -1699,7 +1898,7 @@ class HistoryPopupMenuRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: color),
+        Icon(icon, size: WpIconSize.sm, color: color),
         const SizedBox(width: WpSpacing.sm),
         Text(
           label,
@@ -1834,18 +2033,18 @@ class HistoryDetailMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textSecondary = WpColors.textSecondary;
-    const textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    final textPrimary = WpColors.textPrimary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: textSecondary),
+          Icon(icon, size: WpIconSize.xs, color: textSecondary),
           const SizedBox(width: WpSpacing.sm),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: WpTypography.small,
               color: textSecondary,
             ),
@@ -1857,7 +2056,7 @@ class HistoryDetailMetaRow extends StatelessWidget {
               textAlign: TextAlign.end,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.small,
                 color: textPrimary,
                 fontWeight: FontWeight.w500,
@@ -1879,16 +2078,16 @@ class _MetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const fg = WpColors.textMuted;
+    final fg = WpColors.textMuted;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: fg),
+        Icon(icon, size: WpIconSize.xxs, color: fg),
         const SizedBox(width: WpSpacing.xxs),
         Text(
           label,
-          style: const TextStyle(fontSize: WpTypography.caption, color: fg),
+          style: TextStyle(fontSize: WpTypography.caption, color: fg),
         ),
       ],
     );
@@ -1907,7 +2106,11 @@ class _TagSection extends ConsumerStatefulWidget {
     required this.content,
     required this.searchQuery,
     required this.onSearchChanged,
+    this.isTrashView = false,
   });
+
+  /// Trashed entries keep their tags visible but cannot change them.
+  final bool isTrashView;
 
   final String entryId;
   final List<Tag> tags;
@@ -1973,8 +2176,8 @@ class _TagSectionState extends ConsumerState<_TagSection> {
   Widget build(BuildContext context) {
     final notifier = ref.read(historyDetailProvider(widget.entryId).notifier);
     final l10n = L10n.of(context);
-    const textSecondary = WpColors.textSecondary;
-    const textMuted = WpColors.textMuted;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1982,6 +2185,7 @@ class _TagSectionState extends ConsumerState<_TagSection> {
       children: [
         WpTagInput(
           key: _tagInputKey,
+          readOnly: widget.isTrashView,
           tags: widget.tags,
           hintText: l10n.historyAddTag,
           searchHintText: l10n.historySearchTags,
@@ -1997,15 +2201,11 @@ class _TagSectionState extends ConsumerState<_TagSection> {
               // Ticket 08 made to the settings section heads (Ticket 32, B3):
               // an interaction accent on an inert element is what turns the
               // detail screen's accent into wallpaper.
-              const Icon(
-                LucideIcons.tags,
-                size: WpIconSize.sm,
-                color: textSecondary,
-              ),
+              Icon(LucideIcons.tags, size: WpIconSize.sm, color: textSecondary),
               const SizedBox(width: WpSpacing.xxs),
               Text(
                 l10n.historyTags,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.body,
                   fontWeight: FontWeight.w600,
                   color: textSecondary,
@@ -2014,19 +2214,21 @@ class _TagSectionState extends ConsumerState<_TagSection> {
               ),
               const SizedBox(width: WpSpacing.xxs),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   LucideIcons.settings,
-                  size: 12,
+                  size: WpIconSize.xxs,
                   color: textMuted,
                 ),
-                onPressed: () async {
-                  final db = ref.read(historyDatabaseProvider);
-                  final modified = await showTagManagementDialog(
-                    context: context,
-                    db: db,
-                  );
-                  if (modified) _loadSuggestions();
-                },
+                onPressed: widget.isTrashView
+                    ? null
+                    : () async {
+                        final db = ref.read(historyDatabaseProvider);
+                        final modified = await showTagManagementDialog(
+                          context: context,
+                          db: db,
+                        );
+                        if (modified) _loadSuggestions();
+                      },
                 tooltip: l10n.historyManageTags,
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(

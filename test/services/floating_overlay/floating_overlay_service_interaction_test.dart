@@ -22,6 +22,7 @@ import 'package:whispaste/core/config/settings_enums.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/theme/overlay_design_spec.dart';
+import 'package:whispaste/services/audio_service.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_service.dart';
@@ -118,6 +119,7 @@ _Harness _build(FakeAsync async, {Duration positionDelay = Duration.zero}) {
   final container = ProviderContainer(
     overrides: [
       settingsProvider.overrideWith(_CapturingSettingsNotifier.new),
+      audioServiceProvider.overrideWith(_MicOpenAudioNotifier.new),
       floatingOverlayServiceProvider.overrideWith(
         () => _TestableService(fake, now: () => epoch.add(async.elapsed)),
       ),
@@ -128,6 +130,18 @@ _Harness _build(FakeAsync async, {Duration positionDelay = Duration.zero}) {
   async.elapse(const Duration(milliseconds: 1));
   async.flushMicrotasks();
   return _Harness(fake, container);
+}
+
+/// Mic-open precondition for snapshot-content tests (briefing criterion 4):
+/// the recording content is only shown once the capture runs, so these tests
+/// model an opened microphone. The start-feedback rule itself is covered in
+/// `floating_overlay_service_recovery_test.dart`.
+class _MicOpenAudioNotifier extends AudioServiceNotifier {
+  @override
+  AudioStatus build() => const AudioStatus(
+    captureState: AudioCaptureState.recording,
+    hasLiveSamples: true,
+  );
 }
 
 void main() {

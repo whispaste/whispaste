@@ -14,15 +14,31 @@ void main() {
   // ---------------------------------------------------------------------------
 
   const fixtures = <ConflictEntry>[
-    ConflictEntry(modifiers: 'meta', key: 'Space', note: 'Spotlight'),
-    ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'App Switcher'),
-    ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
-    ConflictEntry(modifiers: 'ctrl+alt', key: 'Delete', note: 'Task Manager'),
-    ConflictEntry(modifiers: 'meta', key: 'L', note: 'Lock screen'),
+    ConflictEntry(
+      modifiers: 'meta',
+      key: 'Space',
+      note: ConflictNote.spotlight,
+    ),
+    ConflictEntry(
+      modifiers: 'meta',
+      key: 'Tab',
+      note: ConflictNote.appSwitcher,
+    ),
+    ConflictEntry(modifiers: 'alt', key: 'F4', note: ConflictNote.closeWindow),
+    ConflictEntry(
+      modifiers: 'ctrl+alt',
+      key: 'Delete',
+      note: ConflictNote.taskManager,
+    ),
+    ConflictEntry(
+      modifiers: 'meta',
+      key: 'L',
+      note: ConflictNote.lockWorkstation,
+    ),
     ConflictEntry(
       modifiers: 'meta+shift',
       key: '3',
-      note: 'Screenshot (full screen)',
+      note: ConflictNote.screenshotFullScreen,
     ),
   ];
 
@@ -34,7 +50,7 @@ void main() {
     test('returns entry for exact match', () {
       final result = findConflict('meta', 'Space', conflicts: fixtures);
       expect(result, isNotNull);
-      expect(result!.note, 'Spotlight');
+      expect(result!.note, ConflictNote.spotlight);
     });
 
     test('returns null when key does not match', () {
@@ -55,7 +71,7 @@ void main() {
     test('matches compound modifier', () {
       final result = findConflict('ctrl+alt', 'Delete', conflicts: fixtures);
       expect(result, isNotNull);
-      expect(result!.note, 'Task Manager');
+      expect(result!.note, ConflictNote.taskManager);
     });
 
     test('returns null for empty conflicts list', () {
@@ -78,14 +94,14 @@ void main() {
       // Entry has 'ctrl+alt', caller passes 'alt+ctrl'.
       final result = findConflict('alt+ctrl', 'Delete', conflicts: fixtures);
       expect(result, isNotNull);
-      expect(result!.note, 'Task Manager');
+      expect(result!.note, ConflictNote.taskManager);
     });
 
     test('mixed case + reversed order still matches', () {
       // Entry is 'meta+shift', caller passes 'SHIFT+META'.
       final result = findConflict('SHIFT+META', '3', conflicts: fixtures);
       expect(result, isNotNull);
-      expect(result!.note, 'Screenshot (full screen)');
+      expect(result!.note, ConflictNote.screenshotFullScreen);
     });
   });
 
@@ -103,14 +119,22 @@ void main() {
 
     test('Cmd+Space (Spotlight) is in mac list', () {
       const mac = <ConflictEntry>[
-        ConflictEntry(modifiers: 'meta', key: 'Space', note: 'Spotlight'),
+        ConflictEntry(
+          modifiers: 'meta',
+          key: 'Space',
+          note: ConflictNote.spotlight,
+        ),
       ];
       expect(findConflict('meta', 'Space', conflicts: mac), isNotNull);
     });
 
     test('Cmd+Tab (App Switcher) is in mac list', () {
       const mac = <ConflictEntry>[
-        ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'App Switcher'),
+        ConflictEntry(
+          modifiers: 'meta',
+          key: 'Tab',
+          note: ConflictNote.appSwitcher,
+        ),
       ];
       expect(findConflict('meta', 'Tab', conflicts: mac), isNotNull);
     });
@@ -119,14 +143,22 @@ void main() {
   group('_windowsConflicts coverage', () {
     test('Win+L (lock screen) is in windows list', () {
       const win = <ConflictEntry>[
-        ConflictEntry(modifiers: 'meta', key: 'L', note: 'Lock workstation'),
+        ConflictEntry(
+          modifiers: 'meta',
+          key: 'L',
+          note: ConflictNote.lockWorkstation,
+        ),
       ];
       expect(findConflict('meta', 'L', conflicts: win), isNotNull);
     });
 
     test('Alt+F4 (close window) is in windows list', () {
       const win = <ConflictEntry>[
-        ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
+        ConflictEntry(
+          modifiers: 'alt',
+          key: 'F4',
+          note: ConflictNote.closeWindow,
+        ),
       ];
       expect(findConflict('alt', 'F4', conflicts: win), isNotNull);
     });
@@ -136,7 +168,7 @@ void main() {
         ConflictEntry(
           modifiers: 'ctrl+alt',
           key: 'Delete',
-          note: 'Security options / Task Manager',
+          note: ConflictNote.securityOptionsTaskManager,
         ),
       ];
       expect(findConflict('ctrl+alt', 'Delete', conflicts: win), isNotNull);
@@ -149,7 +181,7 @@ void main() {
         ConflictEntry(
           modifiers: 'meta',
           key: 'L',
-          note: 'Lock screen (GNOME/KDE)',
+          note: ConflictNote.lockScreenGnomeKde,
         ),
       ];
       expect(findConflict('meta', 'L', conflicts: linux), isNotNull);
@@ -157,7 +189,11 @@ void main() {
 
     test('Alt+F4 (close window) is in linux list', () {
       const linux = <ConflictEntry>[
-        ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
+        ConflictEntry(
+          modifiers: 'alt',
+          key: 'F4',
+          note: ConflictNote.closeWindow,
+        ),
       ];
       expect(findConflict('alt', 'F4', conflicts: linux), isNotNull);
     });
@@ -172,16 +208,16 @@ void main() {
       const entry = ConflictEntry(
         modifiers: 'meta+shift',
         key: 'Space',
-        note: 'System shortcut',
+        note: ConflictNote.settings,
       );
       expect(entry.modifiers, 'meta+shift');
       expect(entry.key, 'Space');
-      expect(entry.note, 'System shortcut');
+      expect(entry.note, ConflictNote.settings);
     });
 
-    test('note defaults to empty string', () {
+    test('note defaults to null', () {
       const entry = ConflictEntry(modifiers: 'ctrl', key: 'A');
-      expect(entry.note, isEmpty);
+      expect(entry.note, isNull);
     });
 
     test('toString contains modifiers and key', () {
@@ -369,95 +405,159 @@ void main() {
 
   group('Ticket 26 — Snippet-Picker hotkey default is conflict-free', () {
     const macConflicts = <ConflictEntry>[
-      ConflictEntry(modifiers: 'meta', key: 'Space', note: 'Spotlight'),
-      ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'App Switcher'),
-      ConflictEntry(modifiers: 'meta', key: 'Q', note: 'Quit App'),
-      ConflictEntry(modifiers: 'meta', key: 'W', note: 'Close Window'),
-      ConflictEntry(modifiers: 'meta', key: 'H', note: 'Hide App'),
-      ConflictEntry(modifiers: 'meta', key: 'M', note: 'Minimize Window'),
-      ConflictEntry(modifiers: 'meta', key: '`', note: 'Cycle Windows'),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'Space',
+        note: ConflictNote.spotlight,
+      ),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'Tab',
+        note: ConflictNote.appSwitcher,
+      ),
+      ConflictEntry(modifiers: 'meta', key: 'Q', note: ConflictNote.quitApp),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'W',
+        note: ConflictNote.closeWindow,
+      ),
+      ConflictEntry(modifiers: 'meta', key: 'H', note: ConflictNote.hideApp),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'M',
+        note: ConflictNote.minimizeWindow,
+      ),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: '`',
+        note: ConflictNote.cycleWindows,
+      ),
       ConflictEntry(
         modifiers: 'meta+shift',
         key: '3',
-        note: 'Screenshot (full screen)',
+        note: ConflictNote.screenshotFullScreen,
       ),
       ConflictEntry(
         modifiers: 'meta+shift',
         key: '4',
-        note: 'Screenshot (selection)',
+        note: ConflictNote.screenshotSelection,
       ),
       ConflictEntry(
         modifiers: 'meta+shift',
         key: '5',
-        note: 'Screenshot/Screen Recording',
+        note: ConflictNote.screenshotRecording,
       ),
       ConflictEntry(
         modifiers: 'ctrl+meta',
         key: 'Space',
-        note: 'Emoji & Symbols picker',
+        note: ConflictNote.emojiPicker,
       ),
       ConflictEntry(
         modifiers: 'meta+option',
         key: 'Esc',
-        note: 'Force Quit dialog',
+        note: ConflictNote.forceQuit,
       ),
     ];
 
     const windowsConflicts = <ConflictEntry>[
-      ConflictEntry(modifiers: 'meta', key: 'L', note: 'Lock workstation'),
-      ConflictEntry(modifiers: 'meta', key: 'D', note: 'Show/Hide Desktop'),
-      ConflictEntry(modifiers: 'meta', key: 'E', note: 'File Explorer'),
-      ConflictEntry(modifiers: 'meta', key: 'R', note: 'Run dialog'),
-      ConflictEntry(modifiers: 'meta', key: 'I', note: 'Settings'),
-      ConflictEntry(modifiers: 'meta', key: 'S', note: 'Search'),
-      ConflictEntry(modifiers: 'meta', key: 'Tab', note: 'Task View'),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'L',
+        note: ConflictNote.lockWorkstation,
+      ),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'D',
+        note: ConflictNote.showDesktop,
+      ),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: 'E',
+        note: ConflictNote.fileExplorer,
+      ),
+      ConflictEntry(modifiers: 'meta', key: 'R', note: ConflictNote.runDialog),
+      ConflictEntry(modifiers: 'meta', key: 'I', note: ConflictNote.settings),
+      ConflictEntry(modifiers: 'meta', key: 'S', note: ConflictNote.search),
+      ConflictEntry(modifiers: 'meta', key: 'Tab', note: ConflictNote.taskView),
       ConflictEntry(
         modifiers: 'meta',
         key: 'Space',
-        note: 'Input language switch',
+        note: ConflictNote.inputLanguageSwitch,
       ),
-      ConflictEntry(modifiers: 'meta', key: '↑', note: 'Maximize window'),
-      ConflictEntry(modifiers: 'meta', key: '↓', note: 'Minimize window'),
-      ConflictEntry(modifiers: 'meta', key: '←', note: 'Snap window left'),
-      ConflictEntry(modifiers: 'meta', key: '→', note: 'Snap window right'),
-      ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
-      ConflictEntry(modifiers: 'alt', key: 'Tab', note: 'App Switcher'),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: '↑',
+        note: ConflictNote.maximizeWindow,
+      ),
+      ConflictEntry(
+        modifiers: 'meta',
+        key: '↓',
+        note: ConflictNote.minimizeWindow,
+      ),
+      ConflictEntry(modifiers: 'meta', key: '←', note: ConflictNote.snapLeft),
+      ConflictEntry(modifiers: 'meta', key: '→', note: ConflictNote.snapRight),
+      ConflictEntry(
+        modifiers: 'alt',
+        key: 'F4',
+        note: ConflictNote.closeWindow,
+      ),
+      ConflictEntry(
+        modifiers: 'alt',
+        key: 'Tab',
+        note: ConflictNote.appSwitcher,
+      ),
       ConflictEntry(
         modifiers: 'ctrl+alt',
         key: 'Delete',
-        note: 'Security options / Task Manager',
+        note: ConflictNote.securityOptionsTaskManager,
       ),
-      ConflictEntry(modifiers: 'ctrl+shift', key: 'Esc', note: 'Task Manager'),
+      ConflictEntry(
+        modifiers: 'ctrl+shift',
+        key: 'Esc',
+        note: ConflictNote.taskManager,
+      ),
     ];
 
     const linuxConflicts = <ConflictEntry>[
       ConflictEntry(
         modifiers: 'meta',
         key: 'L',
-        note: 'Lock screen (GNOME/KDE)',
+        note: ConflictNote.lockScreenGnomeKde,
       ),
-      ConflictEntry(modifiers: 'alt', key: 'F4', note: 'Close window'),
-      ConflictEntry(modifiers: 'alt', key: 'Tab', note: 'App Switcher'),
-      ConflictEntry(modifiers: 'alt', key: 'F2', note: 'Run dialog (KDE)'),
+      ConflictEntry(
+        modifiers: 'alt',
+        key: 'F4',
+        note: ConflictNote.closeWindow,
+      ),
+      ConflictEntry(
+        modifiers: 'alt',
+        key: 'Tab',
+        note: ConflictNote.appSwitcher,
+      ),
+      ConflictEntry(
+        modifiers: 'alt',
+        key: 'F2',
+        note: ConflictNote.runDialogKde,
+      ),
       ConflictEntry(
         modifiers: 'ctrl+alt',
         key: 'Delete',
-        note: 'System logout/shutdown dialog',
+        note: ConflictNote.logoutShutdownDialog,
       ),
       ConflictEntry(
         modifiers: 'ctrl+alt',
         key: 'T',
-        note: 'Open terminal (GNOME/KDE default)',
+        note: ConflictNote.openTerminal,
       ),
       ConflictEntry(
         modifiers: 'ctrl+alt',
         key: 'L',
-        note: 'Lock screen (GNOME)',
+        note: ConflictNote.lockScreenGnome,
       ),
       ConflictEntry(
         modifiers: 'meta',
         key: 'Space',
-        note: 'Activity overview (KDE)',
+        note: ConflictNote.activityOverviewKde,
       ),
     ];
 

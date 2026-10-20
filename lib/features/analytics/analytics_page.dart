@@ -63,7 +63,7 @@ class AnalyticsPage extends ConsumerWidget {
     final l10n = L10n.of(context);
 
     return asyncData.when(
-      loading: () => const _AnalyticsSkeleton(),
+      loading: () => _AnalyticsSkeleton(label: l10n.analyticsLoading),
       error: (e, _) => WpEmptyState(
         icon: LucideIcons.triangleAlert,
         title: l10n.errorGeneric,
@@ -72,6 +72,24 @@ class AnalyticsPage extends ConsumerWidget {
       ),
       data: (data) {
         if (data.isEmpty) {
+          // An empty period keeps the selector, so the user can widen it. Only
+          // the all-time view gets the page-level "no recordings yet" (UIA-ANA-01).
+          if (ref.watch(analyticsPeriodProvider) != AnalyticsPeriod.allTime) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Align(
+                  alignment: Alignment.centerRight,
+                  child: _PeriodSelector(),
+                ),
+                const SizedBox(height: WpSpacing.md),
+                WpEmptyState(
+                  icon: LucideIcons.chartNoAxesColumn,
+                  title: l10n.analyticsNoRecordingsInPeriod,
+                ),
+              ],
+            );
+          }
           return WpEmptyState(
             icon: LucideIcons.chartNoAxesColumn,
             title: l10n.analyticsEmptyTitle,
@@ -89,69 +107,74 @@ class AnalyticsPage extends ConsumerWidget {
 // ---------------------------------------------------------------------------
 
 class _AnalyticsSkeleton extends StatelessWidget {
-  const _AnalyticsSkeleton();
+  const _AnalyticsSkeleton({required this.label});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    const boxColor = WpColors.borderSubtle;
+    final boxColor = WpColors.borderSubtle;
 
-    return WpPageShell(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 4 hero stat card placeholders
-          Row(
-            children: List.generate(4, (i) {
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(right: i < 3 ? WpSpacing.sm : 0),
+    return Semantics(
+      label: label,
+      child: WpPageShell(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 4 hero stat card placeholders
+            Row(
+              children: List.generate(4, (i) {
+                return Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(right: i < 3 ? WpSpacing.sm : 0),
+                    child: Container(
+                      height: 88,
+                      decoration: BoxDecoration(
+                        color: boxColor,
+                        borderRadius: WpRadius.borderMd,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
+            const SizedBox(height: WpSpacing.xxl),
+            // Chart area placeholder
+            Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: boxColor,
+                borderRadius: WpRadius.borderMd,
+              ),
+            ),
+            const SizedBox(height: WpSpacing.xxl),
+            // Two side-by-side panel placeholders
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
                   child: Container(
-                    height: 88,
+                    height: 120,
                     decoration: BoxDecoration(
                       color: boxColor,
                       borderRadius: WpRadius.borderMd,
                     ),
                   ),
                 ),
-              );
-            }),
-          ),
-          const SizedBox(height: WpSpacing.xxl),
-          // Chart area placeholder
-          Container(
-            height: 180,
-            decoration: BoxDecoration(
-              color: boxColor,
-              borderRadius: WpRadius.borderMd,
+                const SizedBox(width: WpSpacing.sm),
+                Expanded(
+                  child: Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: boxColor,
+                      borderRadius: WpRadius.borderMd,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: WpSpacing.xxl),
-          // Two side-by-side panel placeholders
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: boxColor,
-                    borderRadius: WpRadius.borderMd,
-                  ),
-                ),
-              ),
-              const SizedBox(width: WpSpacing.sm),
-              Expanded(
-                child: Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: boxColor,
-                    borderRadius: WpRadius.borderMd,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -239,6 +262,22 @@ class _AnalyticsDashboard extends StatelessWidget {
 
           const SizedBox(height: WpSpacing.xxl),
 
+          // ── Row 3b: Wording + frequent corrections ─────────────
+          WpSection(
+            title: l10n.analyticsWordingTitle,
+            padding: EdgeInsets.zero,
+            child: WpTwoPanel(
+              left: _AnalyticsPanelCard(
+                child: _WordingPanel(wording: data.wording),
+              ),
+              right: _AnalyticsPanelCard(
+                child: _CorrectionsPanel(corrections: data.topCorrections),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: WpSpacing.xxl),
+
           // ── Row 4: Reset ───────────────────────────────────────
           const _ResetRow(),
 
@@ -277,17 +316,46 @@ String _commaFormat(String localeName, int value) {
   return NumberFormat.decimalPattern(localeName).format(value);
 }
 
-String _durationFormat(L10n l10n, int totalMinutes) {
-  final h = totalMinutes ~/ 60;
-  final m = totalMinutes % 60;
-  return l10n.analyticsDurationHoursMinutes(h, m);
+/// A count in the app locale, with the same thousands separator everywhere.
+String _countText(BuildContext context, int value) =>
+    _commaFormat(Localizations.localeOf(context).toString(), value);
+
+/// Formats a whole-minute total for the hero stats in the app locale: decimal
+/// hours from one hour up ("7,1 Std." in de), whole minutes below ("45 Min.").
+/// A single compact unit keeps the 22 px hero number on its full rung; the
+/// former "7 Std. 3 Min." had to be scaled down by the FittedBox.
+String formatAnalyticsDuration(L10n l10n, String localeName, int totalMinutes) {
+  if (totalMinutes < 60) {
+    return l10n.analyticsDurationMinutes('$totalMinutes');
+  }
+  final hours = NumberFormat('#,##0.0', localeName).format(totalMinutes / 60);
+  return l10n.analyticsDurationHours(hours);
 }
+
+/// Formats a cost total in USD for the app locale: the source prices are
+/// per-transcription USD API prices, so the currency stays USD and only the
+/// rendering follows the locale ("127,05 $" in de, "$127.05" in en).
+String formatAnalyticsUsd(String localeName, double usd) =>
+    NumberFormat.currency(
+      locale: localeName,
+      symbol: r'$',
+      decimalDigits: 2,
+    ).format(usd);
 
 /// Formats a hotkey→text latency in whole milliseconds as a plain-language
 /// seconds value (e.g. "1.8s") — never raw milliseconds.
 String _latencySecondsFormat(String localeName, int latencyMs) {
   final seconds = latencyMs / 1000;
   return '${NumberFormat('0.0', localeName).format(seconds)}s';
+}
+
+/// Spoken summary of the seven day bars for screen readers (UIA-ANA-05): the
+/// painted chart itself is invisible to assistive technology.
+String _activityChartLabel(L10n l10n, List<double> values) {
+  final days = _activityDayLabels(l10n);
+  return [
+    for (var i = 0; i < values.length; i++) '${days[i]} ${values[i].round()}',
+  ].join(', ');
 }
 
 List<String> _activityDayLabels(L10n l10n) => [
@@ -325,7 +393,7 @@ class _PanelHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
+    final accent = WpColors.accent;
     return Row(
       children: [
         Icon(icon, size: WpIconSize.sm, color: accent),
@@ -334,7 +402,7 @@ class _PanelHeader extends StatelessWidget {
           child: Text(
             title,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: WpTypography.body,
               fontWeight: FontWeight.w600,
               color: WpColors.textPrimary,
@@ -397,7 +465,7 @@ class _HeroStatsRow extends StatelessWidget {
     final localeName = Localizations.localeOf(context).toString();
     String formatCount(int value) => _commaFormat(localeName, value);
     String formatDuration(int totalMinutes) =>
-        _durationFormat(l10n, totalMinutes);
+        formatAnalyticsDuration(l10n, localeName, totalMinutes);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -428,10 +496,10 @@ class _HeroStatsRow extends StatelessWidget {
             formatter: formatDuration,
             label: l10n.analyticsTimeSaved,
           ),
-          if (data.averageHotkeyLatencyMs != null)
+          if (data.averageStopToTextMs != null)
             _HeroPill(
               icon: LucideIcons.gauge,
-              rawValue: data.averageHotkeyLatencyMs!.round(),
+              rawValue: data.averageStopToTextMs!.round(),
               formatter: (ms) => _latencySecondsFormat(localeName, ms),
               label: l10n.analyticsAvgLatency,
             ),
@@ -559,7 +627,7 @@ class _HeroPillState extends State<_HeroPill>
 
   @override
   Widget build(BuildContext context) {
-    const textSecondary = WpColors.textSecondary;
+    final textSecondary = WpColors.textSecondary;
 
     // One stat, one node. The number and its caption were two unrelated
     // fragments in the semantics tree, so the value arrived without ever
@@ -640,7 +708,7 @@ class _HeroPillState extends State<_HeroPill>
             // Label
             Text(
               widget.label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.caption,
                 color: textSecondary,
               ),
@@ -705,7 +773,7 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const textMuted = WpColors.textMuted;
+    final textMuted = WpColors.textMuted;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -715,35 +783,46 @@ class _ActivityChartPanelState extends State<_ActivityChartPanel>
           title: l10n.analyticsRecordingActivity,
           trailing: Text(
             l10n.analyticsLast7Days,
-            style: const TextStyle(
-              fontSize: WpTypography.caption,
-              color: textMuted,
-            ),
+            style: TextStyle(fontSize: WpTypography.caption, color: textMuted),
           ),
         ),
         const SizedBox(height: WpSpacing.md),
+        // A quiet week keeps its axis, but says why the bars are empty
+        // (UIA-ANA-06).
+        if (widget.values.every((v) => v == 0)) ...[
+          Text(
+            l10n.analyticsWeekEmpty,
+            style: TextStyle(fontSize: WpTypography.caption, color: textMuted),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+        ],
         SizedBox(
           height: 140,
-          child: AnimatedBuilder(
-            animation: _curve,
-            builder: (context, _) => CustomPaint(
-              size: Size.infinite,
-              painter: _BarChartPainter(
-                values: widget.values,
-                labels: _activityDayLabels(l10n),
-                barColor: WpColors.accent,
-                // Same accent token, faded — was a hand-picked hex pair that
-                // had drifted from the real accent (#3CCBE6 / #06678A).
-                barColorEnd: (WpColors.accent).withValues(alpha: 0.65),
-                gridColor: WpColors.borderSubtle,
-                labelColor: WpColors.textMuted,
-                // CustomPainter TextPainter bypasses widget font inheritance.
-                // Pass fontFamily explicitly so labels render with the correct
-                // typeface in tests and on all platforms.
-                labelFontFamily: Theme.of(
-                  context,
-                ).textTheme.labelSmall?.fontFamily,
-                animationValue: _curve.value,
+          child: Semantics(
+            label: _activityChartLabel(l10n, widget.values),
+            child: ExcludeSemantics(
+              child: AnimatedBuilder(
+                animation: _curve,
+                builder: (context, _) => CustomPaint(
+                  size: Size.infinite,
+                  painter: _BarChartPainter(
+                    values: widget.values,
+                    labels: _activityDayLabels(l10n),
+                    barColor: WpColors.accent,
+                    // Same accent token, faded — was a hand-picked hex pair that
+                    // had drifted from the real accent (#3CCBE6 / #06678A).
+                    barColorEnd: (WpColors.accent).withValues(alpha: 0.65),
+                    gridColor: WpColors.borderSubtle,
+                    labelColor: WpColors.textMuted,
+                    // CustomPainter TextPainter bypasses widget font inheritance.
+                    // Pass fontFamily explicitly so labels render with the correct
+                    // typeface in tests and on all platforms.
+                    labelFontFamily: Theme.of(
+                      context,
+                    ).textTheme.labelSmall?.fontFamily,
+                    animationValue: _curve.value,
+                  ),
+                ),
               ),
             ),
           ),
@@ -870,8 +949,8 @@ class _ModelUsagePanel extends StatelessWidget {
         _PanelHeader(icon: LucideIcons.brain, title: l10n.analyticsModelUsage),
         const SizedBox(height: WpSpacing.md),
         if (models.isEmpty)
-          const Text(
-            '—',
+          Text(
+            l10n.analyticsNoModelData,
             style: TextStyle(
               fontSize: WpTypography.small,
               color: WpColors.textMuted,
@@ -904,10 +983,10 @@ class _ModelUsageBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
-    const trackColor = WpColors.surfaceVariant;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final trackColor = WpColors.surfaceVariant;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: WpSpacing.sm),
@@ -919,7 +998,7 @@ class _ModelUsageBar extends StatelessWidget {
               Expanded(
                 child: Text(
                   model.name,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.small,
                     color: textPrimary,
                   ),
@@ -928,7 +1007,7 @@ class _ModelUsageBar extends StatelessWidget {
               ),
               Text(
                 '${(model.fraction * 100).round()}%',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.small,
                   fontWeight: FontWeight.w700,
                   color: accent,
@@ -936,8 +1015,8 @@ class _ModelUsageBar extends StatelessWidget {
               ),
               const SizedBox(width: WpSpacing.xs),
               Text(
-                '(${model.count})',
-                style: const TextStyle(
+                '(${_countText(context, model.count)})',
+                style: TextStyle(
                   fontSize: WpTypography.caption,
                   color: textMuted,
                 ),
@@ -951,7 +1030,7 @@ class _ModelUsageBar extends StatelessWidget {
               height: 6,
               child: Stack(
                 children: [
-                  const ColoredBox(color: trackColor),
+                  ColoredBox(color: trackColor),
                   FractionallySizedBox(
                     widthFactor: model.fraction,
                     child: ColoredBox(
@@ -1041,9 +1120,9 @@ class _DurationBar extends StatelessWidget {
     // used to be `textMuted` at a hand-rolled alpha, which *The Tint Ladder
     // Rule* forbids — and an alpha over an unknown ground is also a track no
     // ramp rung can be measured against.
-    const trackColor = WpColors.surfaceVariant;
-    const textPrimary = WpColors.textPrimary;
-    const textMuted = WpColors.textMuted;
+    final trackColor = WpColors.surfaceVariant;
+    final textPrimary = WpColors.textPrimary;
+    final textMuted = WpColors.textMuted;
 
     // The two text columns are fixed-width on purpose — that is what keeps
     // the bars starting and ending on one line down the whole panel. But a
@@ -1061,7 +1140,7 @@ class _DurationBar extends StatelessWidget {
             width: textScaler.scale(52),
             child: Text(
               bucket.label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: WpTypography.caption,
                 color: textPrimary,
               ),
@@ -1075,7 +1154,7 @@ class _DurationBar extends StatelessWidget {
                 height: 8,
                 child: Stack(
                   children: [
-                    const ColoredBox(color: trackColor),
+                    ColoredBox(color: trackColor),
                     FractionallySizedBox(
                       widthFactor: bucket.fraction,
                       child: Container(
@@ -1094,8 +1173,8 @@ class _DurationBar extends StatelessWidget {
           SizedBox(
             width: textScaler.scale(32),
             child: Text(
-              '${bucket.count}',
-              style: const TextStyle(
+              _countText(context, bucket.count),
+              style: TextStyle(
                 fontSize: WpTypography.caption,
                 color: textMuted,
               ),
@@ -1121,9 +1200,10 @@ class _CostPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final localeName = Localizations.localeOf(context).toString();
 
-    final savingsStr = '\$${localSavingsUsd.toStringAsFixed(2)}';
-    final costStr = '\$${cloudCostUsd.toStringAsFixed(2)}';
+    final savingsStr = formatAnalyticsUsd(localeName, localSavingsUsd);
+    final costStr = formatAnalyticsUsd(localeName, cloudCostUsd);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1147,6 +1227,15 @@ class _CostPanel extends StatelessWidget {
           icon: LucideIcons.cloud,
           title: l10n.analyticsCloudCost,
           value: l10n.analyticsSpentAmount(costStr),
+        ),
+        // Both figures are computed from list prices, not billed (UIA-ANA-04).
+        const SizedBox(height: WpSpacing.sm),
+        Text(
+          l10n.analyticsEstimateNote,
+          style: TextStyle(
+            fontSize: WpTypography.caption,
+            color: WpColors.textMuted,
+          ),
         ),
       ],
     );
@@ -1177,7 +1266,7 @@ class _CostRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
+    final textPrimary = WpColors.textPrimary;
 
     return Row(
       children: [
@@ -1186,15 +1275,12 @@ class _CostRow extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              fontSize: WpTypography.small,
-              color: textPrimary,
-            ),
+            style: TextStyle(fontSize: WpTypography.small, color: textPrimary),
           ),
         ),
         Text(
           value,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: WpTypography.body,
             fontWeight: FontWeight.w700,
             color: textPrimary,
@@ -1335,16 +1421,99 @@ class _ResetRowState extends ConsumerState<_ResetRow> {
     ).then((confirmed) async {
       if (confirmed) {
         final db = ref.read(historyDatabaseProvider);
-        await db.resetDailyStats();
+        try {
+          await db.resetDailyStats();
+        } catch (_) {
+          if (context.mounted) {
+            WpToast.show(
+              context,
+              message: L10n.of(context).errorGeneric,
+              type: WpToastType.error,
+            );
+          }
+          return;
+        }
         ref.invalidate(analyticsProvider);
         if (context.mounted) {
           WpToast.show(
             context,
-            message: L10n.of(context).analyticsResetTitle,
+            message: L10n.of(context).analyticsResetDone,
             type: WpToastType.success,
           );
         }
       }
     });
+  }
+}
+
+/// Raw versus revised word counts and how many recordings a transform changed.
+class _WordingPanel extends StatelessWidget {
+  const _WordingPanel({required this.wording});
+
+  final AnalyticsWording wording;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.textCursorInput,
+          title: l10n.analyticsWordingPanelTitle,
+        ),
+        const SizedBox(height: WpSpacing.lg),
+        _CostRow(
+          icon: LucideIcons.fileText,
+          title: l10n.analyticsRawWords,
+          value: _countText(context, wording.rawWords),
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        _CostRow(
+          icon: LucideIcons.penLine,
+          title: l10n.analyticsRevisedWords,
+          value: '${wording.revisedWords}',
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        _CostRow(
+          icon: LucideIcons.sparkles,
+          title: l10n.analyticsTransformActions,
+          value: '${wording.actionCount}',
+        ),
+      ],
+    );
+  }
+}
+
+/// The most frequent corrections as "heard → corrected" lines with a count.
+class _CorrectionsPanel extends StatelessWidget {
+  const _CorrectionsPanel({required this.corrections});
+
+  final List<AnalyticsCorrection> corrections;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.spellCheck,
+          title: l10n.analyticsCorrectionsTitle,
+        ),
+        const SizedBox(height: WpSpacing.lg),
+        if (corrections.isEmpty)
+          Text(l10n.analyticsNoCorrections)
+        else
+          for (final c in corrections) ...[
+            _CostRow(
+              icon: LucideIcons.arrowRight,
+              title: '${c.sourceText} → ${c.targetText}',
+              value: '${_countText(context, c.count)}×',
+            ),
+            const SizedBox(height: WpSpacing.sm),
+          ],
+      ],
+    );
   }
 }

@@ -51,6 +51,7 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
   if (filter == HistoryFilter.archived) {
     if (parsed.isEmpty) return ref.watch(archivedEntriesProvider);
     final advAsync = ref.watch(_archivedSearchProvider(rawSearch));
+    if (advAsync is AsyncError<List<HistoryEntry>>) return advAsync;
     if (advAsync is AsyncData<List<HistoryEntry>>) {
       return AsyncValue.data(advAsync.value);
     }
@@ -63,6 +64,7 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
   if (filter == HistoryFilter.trash) {
     if (parsed.isEmpty) return ref.watch(trashEntriesProvider);
     final advAsync = ref.watch(_trashSearchProvider(rawSearch));
+    if (advAsync is AsyncError<List<HistoryEntry>>) return advAsync;
     if (advAsync is AsyncData<List<HistoryEntry>>) {
       return AsyncValue.data(advAsync.value);
     }
@@ -78,6 +80,7 @@ final filteredHistoryProvider = Provider<AsyncValue<List<HistoryEntry>>>((ref) {
   if (!parsed.isEmpty) {
     // Has commands (tags/lang) or free-text: prefer advanced DB search.
     final advancedAsync = ref.watch(_advancedSearchProvider(rawSearch));
+    if (advancedAsync is AsyncError<List<HistoryEntry>>) return advancedAsync;
     if (advancedAsync is AsyncData<List<HistoryEntry>>) {
       final results = advancedAsync.value;
       // Use DB results when non-empty, or for tag/lang-only queries where
@@ -102,15 +105,13 @@ final _advancedSearchProvider = FutureProvider.autoDispose
     .family<List<HistoryEntry>, String>((ref, rawQuery) async {
       final db = ref.watch(historyDatabaseProvider);
       final parsed = parseSearchQuery(rawQuery);
-      try {
-        return await db.searchEntriesAdvanced(
-          freeText: parsed.freeText,
-          tagNames: parsed.tagNames,
-          langCode: parsed.langCode,
-        );
-      } catch (_) {
-        return [];
-      }
+      // Errors propagate as AsyncError so the page can show a failure, not
+      // "No results" (UIA-HIS-10).
+      return db.searchEntriesAdvanced(
+        freeText: parsed.freeText,
+        tagNames: parsed.tagNames,
+        langCode: parsed.langCode,
+      );
     });
 
 /// Advanced search for archived entries (FTS5 + tag join).
@@ -118,18 +119,14 @@ final _archivedSearchProvider = FutureProvider.autoDispose
     .family<List<HistoryEntry>, String>((ref, rawQuery) async {
       final db = ref.watch(historyDatabaseProvider);
       final parsed = parseSearchQuery(rawQuery);
-      try {
-        final results = await db.searchEntriesAdvanced(
-          freeText: parsed.freeText,
-          tagNames: parsed.tagNames,
-          langCode: parsed.langCode,
-          includeArchived: true,
-        );
-        // Filter to archived-only
-        return results.where((e) => e.archived && e.deletedAt == null).toList();
-      } catch (_) {
-        return [];
-      }
+      final results = await db.searchEntriesAdvanced(
+        freeText: parsed.freeText,
+        tagNames: parsed.tagNames,
+        langCode: parsed.langCode,
+        includeArchived: true,
+      );
+      // Filter to archived-only
+      return results.where((e) => e.archived && e.deletedAt == null).toList();
     });
 
 /// Advanced search for trashed entries (FTS5 + tag join).
@@ -137,18 +134,14 @@ final _trashSearchProvider = FutureProvider.autoDispose
     .family<List<HistoryEntry>, String>((ref, rawQuery) async {
       final db = ref.watch(historyDatabaseProvider);
       final parsed = parseSearchQuery(rawQuery);
-      try {
-        final results = await db.searchEntriesAdvanced(
-          freeText: parsed.freeText,
-          tagNames: parsed.tagNames,
-          langCode: parsed.langCode,
-          includeDeleted: true,
-        );
-        // Filter to trashed-only
-        return results.where((e) => e.deletedAt != null).toList();
-      } catch (_) {
-        return [];
-      }
+      final results = await db.searchEntriesAdvanced(
+        freeText: parsed.freeText,
+        tagNames: parsed.tagNames,
+        langCode: parsed.langCode,
+        includeDeleted: true,
+      );
+      // Filter to trashed-only
+      return results.where((e) => e.deletedAt != null).toList();
     });
 
 /// Per-filter match counts when a search query is active.
@@ -181,19 +174,16 @@ final searchCountsProvider = FutureProvider<Map<HistoryFilter, int>?>((
 
   // For sub-filters (today, week, pinned) we still need the active results
   // to apply date/pin predicates. Use the advanced search for active pool.
-  List<HistoryEntry> activeMatched;
-  try {
-    final all = await db.searchEntriesAdvanced(
-      freeText: parsed.freeText,
-      tagNames: parsed.tagNames,
-      langCode: parsed.langCode,
-    );
-    activeMatched = all
-        .where((e) => !e.archived && e.deletedAt == null)
-        .toList();
-  } catch (_) {
-    activeMatched = [];
-  }
+  // A failed search throws (UIA-HIS-10); the chips then show no count
+  // instead of a misleading 0.
+  final all = await db.searchEntriesAdvanced(
+    freeText: parsed.freeText,
+    tagNames: parsed.tagNames,
+    langCode: parsed.langCode,
+  );
+  final activeMatched = all
+      .where((e) => !e.archived && e.deletedAt == null)
+      .toList();
 
   final now = clock.now();
   final today = DateTime(now.year, now.month, now.day);

@@ -37,7 +37,7 @@
 ///    there says "this block is a field now" unless the field says it itself,
 ///    and it appears only when edit mode opens, so the box is also the mode
 ///    indicator. It is boxed, per `lib/DESIGN.md` ("Inputs / Fields"): filled
-///    surface, 8 dp radius, 1 dp subtle hairline.
+///    surface, 8 dp radius, 1 dp borderDefault edge.
 ///  * [WpTextFieldVariant.passage] is a whole paragraph of prose, and since
 ///    Ticket 09 it is **card material rather than a box** (see "What the
 ///    surfaces are made of"). A transcript is the one thing on that panel a
@@ -149,7 +149,7 @@
 /// ## One highlight per state
 ///
 /// The [WpSearchField] rule, unchanged: **the field's own contour is the only
-/// focus signal**. No [WpFocusRing] around the control, no glow — a text field
+/// focus signal**. No [WpFocusRing] around the control, no light effect — a text field
 /// already draws a contour, and a ring outside it would be two markings for
 /// one state. Boxed variants therefore move their hairline to the accent at
 /// 1.5 dp, and [WpTextFieldVariant.bare], having no hairline to move, grows
@@ -194,6 +194,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/theme/colors.dart';
 import '../core/theme/tokens.dart';
@@ -274,6 +275,8 @@ class WpTextField extends StatefulWidget {
     this.obscureText = false,
     this.autocorrect = true,
     this.maxLength,
+    this.keyboardType,
+    this.inputFormatters,
     this.suffix,
     this.scrollToEnd,
   }) : assert(
@@ -336,6 +339,11 @@ class WpTextField extends StatefulWidget {
   final bool obscureText;
   final bool autocorrect;
   final int? maxLength;
+
+  /// Keyboard type and input filters for fields that take a constrained
+  /// value, such as a digits-only PIN.
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   /// A button inside the box's trailing 48 dp slot, the way [WpSearchField]
   /// carries its clear button — not overlaid on the field by the call site,
@@ -458,7 +466,7 @@ class _WpTextFieldState extends State<WpTextField> {
 
   @override
   Widget build(BuildContext context) {
-    const palette = _WpTextFieldPalette._palette;
+    final palette = _WpTextFieldPalette.current();
     final spec = _WpTextFieldSpec.of(widget.variant);
     final style = spec.textStyle(palette.textPrimary);
 
@@ -478,7 +486,8 @@ class _WpTextFieldState extends State<WpTextField> {
       maxLines: spec.fillsItsBox ? null : maxLines,
       expands: spec.fillsItsBox,
       textAlignVertical: spec.fillsItsBox ? TextAlignVertical.top : null,
-      keyboardType: multiline ? TextInputType.multiline : null,
+      keyboardType: multiline ? TextInputType.multiline : widget.keyboardType,
+      inputFormatters: widget.inputFormatters,
       obscureText: widget.obscureText,
       autocorrect: widget.autocorrect,
       maxLength: widget.maxLength,
@@ -643,7 +652,7 @@ class _WpTextFieldSurfaceState extends State<WpTextFieldSurface> {
 
   @override
   Widget build(BuildContext context) {
-    const palette = _WpTextFieldPalette._palette;
+    final palette = _WpTextFieldPalette.current();
     final spec = _WpTextFieldSpec.of(widget.variant);
     final lifts = spec.liftsOnHover && widget.liftsOnHover;
 
@@ -723,11 +732,11 @@ class _WpTextFieldPalette {
   /// stack (2026-08-11). The twin was not merely unreachable — it was
   /// wrong for this app, painting white on the accent fill where the
   /// dark palette paints the near-black background colour.
-  static const _palette = _WpTextFieldPalette(
+  static _WpTextFieldPalette current() => _WpTextFieldPalette(
     surface: WpColors.surfaceVariant,
     cardFill: WpColors.cardFill,
     cardFillHover: WpColors.cardFillElevated,
-    border: WpColors.borderSubtle,
+    border: WpColors.controlEdge,
     textPrimary: WpColors.textPrimary,
     textMuted: WpColors.textMuted,
     accent: WpColors.accent,

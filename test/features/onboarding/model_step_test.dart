@@ -14,20 +14,24 @@ import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
-import 'package:flutter/services.dart'
-    show FontLoader, LogicalKeyboardKey, rootBundle;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/app_info.dart' as app;
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/theme.dart';
 import 'package:whispaste/features/onboarding/steps/model_step.dart';
+import 'package:whispaste/services/download_error_kind.dart';
+import 'package:whispaste/services/free_disk_space.dart';
 import 'package:whispaste/services/hardware_info_service.dart' as hw;
+import 'package:whispaste/services/stt/benchmark_freshness.dart';
 import 'package:whispaste/services/model_download_service.dart';
 import 'package:whispaste/services/stt_parakeet/parakeet_download_service.dart';
 import 'package:whispaste/widgets/wp_button.dart';
+import 'package:golden_screenshot/golden_screenshot.dart' show loadAppFonts;
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -70,6 +74,18 @@ class _RecordingWhisperDownloadNotifier extends ModelDownloadNotifier {
     state = state.copyWith(
       activeModelId: modelId,
       phase: DownloadPhase.downloading,
+      progressPercent: 0,
+    );
+  }
+
+  int cancelCalls = 0;
+
+  @override
+  void cancelDownload() {
+    cancelCalls++;
+    state = state.copyWith(
+      phase: DownloadPhase.idle,
+      activeModelId: null,
       progressPercent: 0,
     );
   }
@@ -129,6 +145,17 @@ class _RecordingParakeetDownloadNotifier extends ParakeetDownloadNotifier {
     downloadBundleCalls++;
     state = state.copyWith(phase: ParakeetDownloadPhase.downloading);
   }
+
+  int cancelCalls = 0;
+
+  @override
+  void cancelDownload() {
+    cancelCalls++;
+    state = state.copyWith(
+      phase: ParakeetDownloadPhase.idle,
+      progressPercent: 0,
+    );
+  }
 }
 
 late L10n l10n;
@@ -151,6 +178,10 @@ Future<_Recorders> _pumpStep(
   /// values, which is what a first run has.
   SttSettings stt = const SttSettings(),
 
+  /// Stored benchmark results; the step only uses the ones that describe this
+  /// machine and build (UIA-RT-03).
+  BenchmarkSettings benchmark = const BenchmarkSettings(),
+
   /// Whether the user already finished the first-run setup — the signal
   /// [ModelStep] treats as "everything in settings is this user's own
   /// choice" (Ticket 05).
@@ -162,6 +193,15 @@ Future<_Recorders> _pumpStep(
   /// (720 px) instead: the engine cards only compete for width once each of
   /// them is ~344 px, and at 1280 the bug it guards is invisible.
   double? frameWidth,
+
+  /// Replaces the immediate [gpu] answer, e.g. with a future that never
+  /// completes to hold the step in hardware detection. The spinner then
+  /// animates forever, so the pump does not settle.
+  Future<hw.GpuInfo>? gpuFuture,
+
+  /// What the free-disk-space probe answers; `null` is "unknown", which the
+  /// step treats as enough (fail-open, UIA-ONB-09).
+  int? freeDiskBytes,
 }) async {
   late _RecordingWhisperDownloadNotifier whisper;
   late _RecordingParakeetDownloadNotifier parakeet;
@@ -169,6 +209,7 @@ Future<_Recorders> _pumpStep(
     AppSettings(
       interface_: InterfaceSettings(locale: dictationLocale),
       stt: stt,
+      benchmark: benchmark,
       onboarding: OnboardingSettings(onboardingCompleted: onboardingCompleted),
     ),
   );
@@ -181,7 +222,10 @@ Future<_Recorders> _pumpStep(
           ref.onDispose(db.close);
           return db;
         }),
-        hw.gpuInfoProvider.overrideWith((_) async => gpu),
+        hw.gpuInfoProvider.overrideWith((_) => gpuFuture ?? Future.value(gpu)),
+        freeDiskSpaceProbeProvider.overrideWithValue(
+          (_) async => freeDiskBytes,
+        ),
         settingsProvider.overrideWith(() => settings),
         modelDownloadProvider.overrideWith(() {
           whisper = _RecordingWhisperDownloadNotifier(whisperInitial);
@@ -211,7 +255,11 @@ Future<_Recorders> _pumpStep(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (gpuFuture == null) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
   return (settings: settings, whisper: whisper, parakeet: parakeet);
 }
 
@@ -231,12 +279,190 @@ void main() {
     // regression below is a width measurement, and with Ahem every glyph is
     // a full em square — roughly double Inter's width — so every title would
     // "overflow" and the test would pass for a reason the app never has.
-    final fontLoader = FontLoader('Inter')
-      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
-    await fontLoader.load();
+    await loadAppFonts();
+  });
+
+  testWidgets('hardware detection says what it is doing (UIA-ONB-13)', (
+    tester,
+  ) async {
+    await _pumpStep(
+      tester,
+      gpu: _appleM2,
+      gpuFuture: Completer<hw.GpuInfo>().future,
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text(l10n.onboardingModelDetectingHardware), findsOneWidget);
+  });
+
+  // MV-03/04: the recommendation carries a one-line reason, the same text
+  // Settings shows under its tiers for the same hardware.
+  group('ModelStep — the recommendation names its reason (MV-03)', () {
+    testWidgets('a CUDA GPU names the card and its video memory', (
+      tester,
+    ) async {
+      await _pumpStep(
+        tester,
+        dictationLocale: 'he',
+        gpu: const hw.GpuInfo(
+          vendor: hw.GpuVendor.nvidia,
+          name: 'NVIDIA GeForce RTX 3060',
+          vramMB: 12288,
+          cudaAvailable: true,
+        ),
+      );
+
+      expect(
+        tester.widget<Text>(find.byKey(kModelStepRecommendationReasonKey)).data,
+        l10n.recommendationReasonCuda('12'),
+      );
+    });
+
+    testWidgets('llvmpipe is named as software graphics on the processor', (
+      tester,
+    ) async {
+      await _pumpStep(
+        tester,
+        dictationLocale: 'he',
+        gpu: const hw.GpuInfo(
+          vendor: hw.GpuVendor.none,
+          name: 'llvmpipe (LLVM 15.0.7, 256 bits)',
+        ),
+      );
+
+      final reason = tester
+          .widget<Text>(find.byKey(kModelStepRecommendationReasonKey))
+          .data!;
+      expect(reason, contains('llvmpipe'));
+      expect(reason, contains(l10n.recommendationMemoryUnknown));
+    });
+
+    testWidgets('a language Parakeet covers names the language', (
+      tester,
+    ) async {
+      await _pumpStep(tester, dictationLocale: 'de', gpu: _cpuOnly);
+
+      expect(
+        tester.widget<Text>(find.byKey(kModelStepRecommendationReasonKey)).data,
+        l10n.recommendationReasonLanguage,
+      );
+    });
+  });
+
+  group('ModelStep — download errors in plain words (UIA-ONB-03)', () {
+    const raw = 'DioException [connection error]: SocketException errno=111';
+    final cases = <DownloadErrorKind?, String Function()>{
+      DownloadErrorKind.network: () => l10n.modelDownloadFailed,
+      DownloadErrorKind.checksum: () => l10n.modelDownloadFailedChecksum,
+      DownloadErrorKind.storage: () => l10n.modelDownloadFailedStorage,
+      DownloadErrorKind.unknown: () => l10n.modelDownloadFailedUnknown,
+      null: () => l10n.modelDownloadFailedUnknown,
+    };
+    for (final MapEntry(key: kind, value: expected) in cases.entries) {
+      testWidgets('$kind shows its own sentence and never the raw text', (
+        tester,
+      ) async {
+        await _pumpStep(
+          tester,
+          gpu: _appleM2,
+          whisperInitial: ModelDownloadState(
+            phase: DownloadPhase.error,
+            errorMessage: raw,
+            errorKind: kind,
+          ),
+          parakeetInitial: ParakeetDownloadState(
+            phase: ParakeetDownloadPhase.error,
+            errorMessage: raw,
+            errorKind: kind,
+          ),
+        );
+
+        expect(find.text(expected()), findsOneWidget);
+        expect(find.textContaining('SocketException'), findsNothing);
+      });
+    }
+  });
+
+  group('ModelStep — free disk space before the download (UIA-ONB-09)', () {
+    for (final gpu in [_appleM2, _cpuOnly]) {
+      testWidgets('too little space warns with needed/free and only starts '
+          'on "Download anyway" (${gpu.name})', (tester) async {
+        final rec = await _pumpStep(tester, gpu: gpu, freeDiskBytes: 1024);
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.onboardingModelDiskSpaceTitle), findsOneWidget);
+        expect(find.textContaining(' 0 MB'), findsOneWidget);
+        expect(rec.whisper.downloadModelCalls, isEmpty);
+        expect(rec.parakeet.downloadBundleCalls, 0);
+
+        await tester.tap(find.text(l10n.onboardingModelDiskSpaceContinue));
+        await tester.pumpAndSettle();
+        expect(
+          rec.whisper.downloadModelCalls.length +
+              rec.parakeet.downloadBundleCalls,
+          1,
+        );
+      });
+
+      testWidgets('cancelling the warning starts nothing (${gpu.name})', (
+        tester,
+      ) async {
+        final rec = await _pumpStep(tester, gpu: gpu, freeDiskBytes: 1024);
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(l10n.actionCancel));
+        await tester.pumpAndSettle();
+
+        expect(rec.whisper.downloadModelCalls, isEmpty);
+        expect(rec.parakeet.downloadBundleCalls, 0);
+      });
+
+      for (final free in [null, 1 << 50]) {
+        testWidgets('${free == null ? 'unknown' : 'enough'} space starts '
+            'without a warning (${gpu.name})', (tester) async {
+          final rec = await _pumpStep(tester, gpu: gpu, freeDiskBytes: free);
+          await tester.tap(
+            find.textContaining(l10n.qualityTierDownloadAndContinue),
+          );
+          await tester.pump();
+
+          expect(find.text(l10n.onboardingModelDiskSpaceTitle), findsNothing);
+          expect(
+            rec.whisper.downloadModelCalls.length +
+                rec.parakeet.downloadBundleCalls,
+            1,
+          );
+        });
+      }
+    }
+  });
+
+  group('ModelStep — cancelling a download (UIA-ONB-02)', () {
+    for (final gpu in [_appleM2, _cpuOnly]) {
+      testWidgets('a running download can be cancelled and the page returns '
+          'to its choice state (${gpu.name})', (tester) async {
+        final rec = await _pumpStep(tester, gpu: gpu);
+        final cta = find.textContaining(l10n.qualityTierDownloadAndContinue);
+        expect(cta, findsOneWidget);
+        expect(find.byKey(kModelStepDownloadCancelKey), findsNothing);
+
+        await tester.tap(cta);
+        await tester.pump();
+        expect(find.byKey(kModelStepDownloadCancelKey), findsOneWidget);
+
+        await tester.tap(find.byKey(kModelStepDownloadCancelKey));
+        await tester.pump();
+
+        expect(rec.whisper.cancelCalls + rec.parakeet.cancelCalls, 1);
+        expect(find.byKey(kModelStepDownloadCancelKey), findsNothing);
+        expect(cta, findsOneWidget);
+      });
+    }
   });
 
   group('ModelStep — rendering', () {
@@ -443,6 +669,71 @@ void main() {
     );
   });
 
+  group('ModelStep — tier follows this machine\'s measurement (UIA-RT-03)', () {
+    testWidgets(
+      'a measured fast tier beats the VRAM estimate, as in Settings',
+      (tester) async {
+        // 24 GB NVIDIA: VRAM alone recommends Premium. This machine's
+        // measurement says Compact is fast enough, and Settings already shows
+        // that verdict, so onboarding must download the same model.
+        const gpu = hw.GpuInfo(
+          vendor: hw.GpuVendor.nvidia,
+          name: 'Test GPU',
+          vramMB: 24576,
+        );
+        final rec = await _pumpStep(
+          tester,
+          gpu: gpu,
+          dictationLocale: 'he',
+          benchmark: BenchmarkSettings(
+            tierBenchmarkRtf: const {QualityTier.compact: 0.2},
+            benchmarkHardwareId: benchmarkMachineKey(
+              hardwareKey: benchmarkHardwareKey(gpu),
+              appVersion: app.appVersion,
+            ),
+          ),
+        );
+
+        await tester.tap(
+          find.textContaining(l10n.qualityTierDownloadAndContinue),
+        );
+        await tester.pumpAndSettle();
+
+        expect(rec.whisper.downloadModelCalls, [
+          bestModelForTier(QualityTier.compact).id,
+        ]);
+      },
+    );
+
+    testWidgets('a measurement taken on other hardware is ignored', (
+      tester,
+    ) async {
+      const gpu = hw.GpuInfo(
+        vendor: hw.GpuVendor.nvidia,
+        name: 'Test GPU',
+        vramMB: 24576,
+      );
+      final rec = await _pumpStep(
+        tester,
+        gpu: gpu,
+        dictationLocale: 'he',
+        benchmark: const BenchmarkSettings(
+          tierBenchmarkRtf: {QualityTier.compact: 0.2},
+          benchmarkHardwareId: 'nvidia_1000|0.0.0',
+        ),
+      );
+
+      await tester.tap(
+        find.textContaining(l10n.qualityTierDownloadAndContinue),
+      );
+      await tester.pumpAndSettle();
+
+      expect(rec.whisper.downloadModelCalls, [
+        bestModelForTier(QualityTier.premium).id,
+      ]);
+    });
+  });
+
   group('ModelStep — Parakeet download path', () {
     testWidgets(
       'selecting Parakeet (recommended for German) and tapping download '
@@ -562,9 +853,8 @@ void main() {
     );
 
     testWidgets(
-      'without any download nothing is written — a user who continues '
-      'without downloading (e.g. to use a cloud provider) keeps the '
-      'defaults untouched',
+      'on a first run without any download the recommendation is saved, so '
+      'the dock names the engine onboarding recommended (UIA-RT-03, E1a)',
       (tester) async {
         final rec = await _pumpStep(
           tester,
@@ -572,14 +862,91 @@ void main() {
           dictationLocale: 'de',
         );
 
-        expect(
-          rec.settings.state.value!.stt.engine,
-          AppSettings.defaults.stt.engine,
-        );
+        expect(rec.settings.state.value!.stt.engine, 'parakeet');
         expect(rec.whisper.downloadModelCalls, isEmpty);
         expect(rec.parakeet.downloadBundleCalls, 0);
       },
     );
+
+    testWidgets('a Whisper recommendation is saved with its tier model '
+        '(UIA-RT-03, E1a)', (tester) async {
+      final rec = await _pumpStep(tester, gpu: _appleM2, dictationLocale: 'he');
+
+      expect(rec.settings.state.value!.stt.engine, 'whisper');
+      expect(
+        rec.settings.state.value!.stt.model,
+        bestModelForTier(QualityTier.premium).id,
+      );
+    });
+
+    testWidgets('after the first run nothing is saved on its own, so a '
+        'stored value is never overwritten (UIA-RT-03, E1a)', (tester) async {
+      final rec = await _pumpStep(
+        tester,
+        gpu: _appleM2,
+        dictationLocale: 'de',
+        onboardingCompleted: true,
+        stt: const SttSettings(engine: 'whisper', model: 'whisper-small'),
+      );
+
+      expect(rec.settings.updateCalls, 0);
+      expect(rec.settings.state.value!.stt.engine, 'whisper');
+      expect(rec.settings.state.value!.stt.model, 'whisper-small');
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // UIA-RT-01: the chosen engine is the active one, even before its download
+  // finishes. The preflight reads these settings, so a choice that is only
+  // saved after the download makes it check the wrong model.
+  // -------------------------------------------------------------------------
+  group('ModelStep — a chosen engine is saved before its download ends', () {
+    testWidgets('choosing Whisper saves it at once, before any download', (
+      tester,
+    ) async {
+      final rec = await _pumpStep(tester, gpu: _appleM2, dictationLocale: 'de');
+      // The first run saves the recommendation, Parakeet for German (E1a).
+      expect(rec.settings.state.value!.stt.engine, 'parakeet');
+      await tester.pumpAndSettle();
+      expect(rec.settings.state.value!.stt.engine, 'parakeet');
+
+      await tester.tap(find.byKey(kModelStepEngineWhisperCardKey));
+      await tester.pumpAndSettle();
+
+      expect(
+        rec.settings.state.value!.stt.engine,
+        'whisper',
+        reason: 'The preflight reads the saved engine, not the card.',
+      );
+      expect(
+        rec.settings.state.value!.stt.model,
+        bestModelForTier(QualityTier.premium).id,
+        reason: 'Whisper saves the model it will download, too.',
+      );
+      expect(rec.whisper.downloadModelCalls, isEmpty);
+    });
+
+    testWidgets('starting the Parakeet download saves the engine while it is '
+        'still downloading', (tester) async {
+      final rec = await _pumpStep(tester, gpu: _cpuOnly, dictationLocale: 'de');
+
+      await tester.tap(
+        find.textContaining(l10n.qualityTierDownloadAndContinue),
+      );
+      await tester.pumpAndSettle();
+
+      expect(rec.parakeet.downloadBundleCalls, 1);
+      expect(
+        rec.settings.state.value!.stt.engine,
+        'parakeet',
+        reason: 'Still downloading, so the engine must already be saved.',
+      );
+      expect(
+        rec.settings.state.value!.sttModel,
+        AppSettings.defaults.sttModel,
+        reason: 'Parakeet selection must not touch the whisper model id',
+      );
+    });
   });
 
   // -------------------------------------------------------------------------

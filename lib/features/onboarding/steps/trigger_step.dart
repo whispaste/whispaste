@@ -9,10 +9,13 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/hotkey_service.dart';
+import '../../../services/linux_desktop_shortcut.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/wp_button.dart';
+import '../../settings/sections/linux_desktop_shortcut_block.dart';
 import '../../settings/settings_widgets.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
 /// code agree on the contract.
@@ -52,6 +55,7 @@ class TriggerStep extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final status = ref.watch(hotkeyRegistrationStatusProvider);
+    final desktopShortcutPending = ref.watch(desktopShortcutPendingProvider);
     // Read once — this step only needs the platform capability, not live
     // updates to it (mirrors `_PushToTalkRow` in `feedback_section.dart`).
     final hotkeyService = ref.read(hotkeyServiceProvider.notifier);
@@ -226,7 +230,16 @@ class TriggerStep extends ConsumerWidget {
         // Third content element — normal branch only. A confirmed conflict
         // already fills the page with the warn box and the inline recorder;
         // adding a third line there would contradict it before it's resolved.
-        if (status != HotkeyRegistrationStatus.conflict) ...[
+        // Linux Wayland without the GlobalShortcuts portal (XP-6-14): the key
+        // grab does not reach native Wayland windows, so "works system-wide"
+        // would be a promise the hotkey cannot keep. The settings block that
+        // adds the GNOME entry (or shows the command to bind) stands in its
+        // place until the desktop shortcut carries the hotkey.
+        if (status != HotkeyRegistrationStatus.conflict &&
+            desktopShortcutPending) ...[
+          const SizedBox(height: WpSpacing.lg),
+          LinuxDesktopShortcutBlock(settings: settings),
+        ] else if (status != HotkeyRegistrationStatus.conflict) ...[
           const SizedBox(height: WpSpacing.lg),
           // Start-inset: the icon leads this line, and it sat at the bare
           // frame edge while every text block around it starts on the shared
@@ -258,16 +271,16 @@ class _SystemWideHotkeyNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = WpColors.accent;
+    final accent = WpColors.accent;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(LucideIcons.appWindow, size: WpIconSize.sm, color: accent),
+        Icon(LucideIcons.appWindow, size: WpIconSize.sm, color: accent),
         const SizedBox(width: WpSpacing.xs),
         Expanded(
           child: Text(
             message,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: WpTypography.body,
               color: accent,
               height: 1.35,
@@ -319,11 +332,19 @@ class _PushToTalkRow extends ConsumerWidget {
           : null, // null disables the switch
     );
 
-    // Subtitle mirrors the live value: it always describes what pressing the
-    // hotkey will do *right now*, so the toggle's effect is never abstract.
-    final modeHint = settings.pushToTalk && supportsKeyUp
-        ? l10n.onboardingTriggerModeHoldHint
-        : l10n.onboardingTriggerModeToggleHint;
+    // One fixed line that explains both states, shared with Settings: a
+    // subtitle following the live value contradicted the title whenever the
+    // switch was off (UIA-XP-7-12). Without key-up the reason is part of the
+    // subtitle, not a hover-only tooltip: keyboard and screen-reader users
+    // never see a tooltip, and the disabled switch would otherwise just look
+    // broken (UIA-ONB-06).
+    final modeHint = holdToRecordSubtitle(
+      l10n,
+      supportsKeyUp: supportsKeyUp,
+      operatingSystem: defaultTargetPlatform == TargetPlatform.linux
+          ? 'linux'
+          : 'other',
+    );
 
     // A real `SettingRow` again. This was a hand-copy of one, justified by a
     // comment ("so the merged page fits without scrolling") that stopped being
@@ -339,9 +360,7 @@ class _PushToTalkRow extends ConsumerWidget {
       badgeKey: kTriggerStepPttExperimentalBadgeKey,
       semanticToggledValue: supportsKeyUp ? settings.pushToTalk : null,
       trailingHugsLabel: true,
-      trailing: supportsKeyUp
-          ? toggle
-          : Tooltip(message: pushToTalkUnavailableMessage(l10n), child: toggle),
+      trailing: toggle,
     );
   }
 }
@@ -366,16 +385,16 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
   Widget build(BuildContext context) {
     // Use the theme's danger/error semantic so the box clearly reads as a
     // blocker — matches the rest of WhisPaste's destructive surfaces.
-    const dangerColor = WpColors.error;
+    final dangerColor = WpColors.error;
     // 12 % is the error ladder's own rung, spelled as the token instead of
     // hand-rolled at the call site (pixel-identical: 0.12 x 255 rounds to the
     // 0x1F the token carries).
-    const bgColor = WpColors.errorActiveFill;
+    final bgColor = WpColors.errorActiveFill;
     // Ladder value, not the former hand-rolled 40 % (2026-08-17 maintainer
     // call, Ticket 15's deferred finding): the ladder tops out at 30 %
     // (`errorBorder30`) and this is now that rung.
-    const borderColor = WpColors.errorBorder30;
-    const textPrimary = WpColors.textPrimary;
+    final borderColor = WpColors.errorBorder30;
+    final textPrimary = WpColors.textPrimary;
 
     return Container(
       width: double.infinity,
@@ -389,13 +408,13 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(WpRadius.sm),
+        borderRadius: WpRadius.borderSm,
         border: Border.all(color: borderColor),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
+          Icon(
             LucideIcons.triangleAlert,
             size: WpIconSize.md,
             color: dangerColor,
@@ -407,7 +426,7 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.body,
                     fontWeight: FontWeight.w700,
                     color: dangerColor,
@@ -416,7 +435,7 @@ class _HotkeyConflictWarnBox extends StatelessWidget {
                 const SizedBox(height: WpSpacing.xxs),
                 Text(
                   body,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.small,
                     color: textPrimary,
                     height: 1.4,

@@ -27,6 +27,77 @@ void main() {
       );
     });
 
+    test('cloud_network_error and cloud_timeout get their own messages, not '
+        'the generic one (UIA-FLW-05)', () {
+      expect(
+        localizeRecordingError(de, 'cloud_network_error'),
+        de.errorCloudNetwork,
+      );
+      expect(localizeRecordingError(de, 'cloud_timeout'), de.errorCloudTimeout);
+      expect(
+        localizeRecordingError(de, 'cloud_network_error'),
+        isNot(de.errorGeneric),
+      );
+      expect(
+        localizeRecordingError(de, 'cloud_timeout'),
+        isNot(de.errorGeneric),
+      );
+    });
+
+    test('the offline hint with a local model appears only when a local model '
+        'is installed; otherwise the message says to check the connection '
+        '(UIA-FLW-05)', () {
+      expect(
+        localizeRecordingError(en, 'cloud_network_error'),
+        en.errorCloudNetwork,
+      );
+      expect(
+        localizeRecordingError(
+          en,
+          'cloud_network_error',
+          localModelInstalled: true,
+        ),
+        en.errorCloudNetworkLocal,
+      );
+      expect(localizeRecordingError(en, 'cloud_timeout'), en.errorCloudTimeout);
+      expect(
+        localizeRecordingError(en, 'cloud_timeout', localModelInstalled: true),
+        en.errorCloudTimeoutLocal,
+      );
+    });
+
+    test('Whisper and Parakeet model errors carry stable codes with their own '
+        'messages, never the generic one (UIA-FLW-04)', () {
+      expect(
+        localizeRecordingError(de, 'stt_model_corrupted'),
+        de.errorSttModelCorrupted,
+      );
+      expect(
+        localizeRecordingError(de, 'stt_model_file_missing'),
+        de.errorSttModelFileMissing,
+      );
+      expect(
+        localizeRecordingError(de, 'parakeet_model_not_found'),
+        de.errorSttModelFileMissing,
+      );
+      expect(
+        localizeRecordingError(de, 'whisper_model_not_found'),
+        de.errorSttModelFileMissing,
+      );
+      expect(
+        localizeRecordingError(de, 'stt_model_load_failed'),
+        de.errorSttModelLoadFailed,
+      );
+      expect(
+        localizeRecordingError(de, 'whisper_init_failed'),
+        de.errorSttModelLoadFailed,
+      );
+      expect(
+        localizeRecordingError(de, 'stt_model_unknown'),
+        de.errorSttModelUnknown,
+      );
+    });
+
     test('unknown codes still fall back to errorGeneric', () {
       expect(localizeRecordingError(de, 'some_new_code'), de.errorGeneric);
     });

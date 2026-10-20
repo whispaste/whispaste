@@ -44,8 +44,13 @@ class _FakeCudaPackNotifier extends CudaPackNotifier {
   @override
   CudaPackState build() => _initial;
 
+  int removeCalls = 0;
+
   @override
   Future<void> install() async => installCalls++;
+
+  @override
+  Future<void> remove() async => removeCalls++;
 }
 
 class _FakeSttNotifier extends SttServerStateNotifier {
@@ -119,6 +124,29 @@ void main() {
       find.byKey(const Key('settings-cuda-pack-download')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('removing the CUDA pack asks first and keeps it on cancel '
+      '(UIA-SET-03)', (tester) async {
+    const installed = CudaPackState(pack: _pack, installed: true);
+    final notifier = _FakeCudaPackNotifier(installed);
+    await tester.pumpWidget(row(installed, notifier: notifier));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('settings-cuda-pack-remove')));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove CUDA pack?'), findsOneWidget);
+    expect(notifier.removeCalls, 0);
+
+    await tester.tap(find.byKey(const ValueKey('confirm-dialog-cancel')));
+    await tester.pumpAndSettle();
+    expect(notifier.removeCalls, 0);
+
+    await tester.tap(find.byKey(const Key('settings-cuda-pack-remove')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('confirm-dialog-confirm')));
+    await tester.pumpAndSettle();
+    expect(notifier.removeCalls, 1);
   });
 
   testWidgets('switches CUDA off once installed', (tester) async {

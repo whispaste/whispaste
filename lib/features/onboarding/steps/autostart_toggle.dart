@@ -6,6 +6,7 @@ import '../../../core/config/settings_provider.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/tokens.dart';
 import '../../settings/settings_widgets.dart';
+import '../../../widgets/autostart_approval_hint.dart';
 
 /// Widget key exposed for testing.
 @visibleForTesting
@@ -34,29 +35,34 @@ class OnboardingAutostartToggle extends ConsumerWidget {
     // Frameless, like every other onboarding settings row: a card around a
     // single toggle added an outline the page didn't need and made the row
     // read as its own section.
-    return SettingRow(
-      key: kOnboardingAutostartToggleKey,
-      icon: LucideIcons.power,
-      // Same build as the rows on pages 2 and 4: 20-px icon, control adjacent
-      // to the label instead of pinned to the far edge. The onboarding frame is
-      // ~640 px wide, so a right-pinned toggle leaves a dead run the eye has to
-      // cross; the row's hover surface still spans the full body width.
-      iconSize: WpIconSize.md,
-      label: l10n.onboardingReadyAutostartToggle,
-      subtitle: l10n.onboardingReadyAutostartToggleHint,
-      semanticToggledValue: settings.launchAtStartup,
-      trailingHugsLabel: true,
-      trailing: settingsToggle(
-        value: settings.launchAtStartup,
-        onChanged: (v) => ref
-            .read(settingsProvider.notifier)
-            .updateSettings(
-              // Compatibility write until legacy autostart fields are
-              // removed from AppSettings.copyWith.
-              // ignore: deprecated_member_use
-              (s) => s.copyWith(launchAtStartup: v, startMinimized: v),
-            ),
-      ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SettingRow(
+          key: kOnboardingAutostartToggleKey,
+          icon: LucideIcons.power,
+          // Same build as the rows on page 2: 20-px icon. The control sits in
+          // the Appearance page's shared column (Maintainer 3b), which the
+          // page sizes to its widest row.
+          iconSize: WpIconSize.md,
+          label: l10n.onboardingReadyAutostartToggle,
+          subtitle: l10n.onboardingReadyAutostartToggleHint,
+          semanticToggledValue: settings.launchAtStartup,
+          trailing: settingsToggle(
+            value: settings.launchAtStartup,
+            onChanged: (v) => ref
+                .read(settingsProvider.notifier)
+                .updateSettings(
+                  // Compatibility write until legacy autostart fields are
+                  // removed from AppSettings.copyWith.
+                  // ignore: deprecated_member_use
+                  (s) => s.copyWith(launchAtStartup: v, startMinimized: v),
+                ),
+          ),
+        ),
+        const WpAutostartApprovalHint(),
+      ],
     );
   }
 }

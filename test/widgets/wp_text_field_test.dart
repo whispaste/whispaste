@@ -174,11 +174,12 @@ void main() {
           makeTestable(_field(controller: controller, variant: variant)),
         );
 
-        expect(_boxDecoration(tester).color, WpColorsDark.surfaceVariant);
+        expect(_boxDecoration(tester).color, WpColors.surfaceVariant);
         expect(_boxDecoration(tester).borderRadius, WpRadius.borderSm);
 
         final stroke = _strokeDecoration(tester)!.border! as Border;
-        expect(stroke.top.color, WpColorsDark.borderSubtle);
+        // FND-01: the field edge is controlEdge (>= 3:1 on the surface, WCAG 1.4.11).
+        expect(stroke.top.color, WpColors.controlEdge);
         expect(stroke.top.width, 1);
       }
     });
@@ -195,7 +196,7 @@ void main() {
         ),
       );
 
-      expect(_boxDecoration(tester).color, WpColorsDark.cardFill);
+      expect(_boxDecoration(tester).color, WpColors.cardFill);
       expect(_boxDecoration(tester).borderRadius, WpRadius.borderSm);
 
       // A stroke is still *painted* — transparent, so the focus stroke has a
@@ -223,7 +224,7 @@ void main() {
       // The fill is deliberately shared with `passage`: the two prose
       // surfaces are one material, and `bare` drops the stroke, not the
       // material.
-      expect(_boxDecoration(tester).color, WpColorsDark.cardFill);
+      expect(_boxDecoration(tester).color, WpColors.cardFill);
     });
 
     testWidgets('no call site can be handed a contentPadding or a font size', (
@@ -277,7 +278,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final stroke = _strokeDecoration(tester)!.border! as Border;
-      expect(stroke.top.color, WpColorsDark.accent);
+      expect(stroke.top.color, WpColors.accent);
       expect(stroke.top.width, 1.5);
       // `foregroundDecoration` paints over the child: no reflow mid-edit.
       expect(tester.getSize(find.byType(WpTextField)), sizeBefore);
@@ -313,7 +314,7 @@ void main() {
         // predicate feeds one paint site, so `bare` cannot drift into a focus
         // treatment of its own.
         final stroke = _strokeDecoration(tester)!;
-        expect((stroke.border! as Border).top.color, WpColorsDark.accent);
+        expect((stroke.border! as Border).top.color, WpColors.accent);
         expect((stroke.border! as Border).top.width, 1.5);
         expect(stroke.borderRadius, BorderRadius.zero);
         // Painted over the child, so a paragraph mid-edit does not reflow.
@@ -343,7 +344,7 @@ void main() {
         await tester.pumpWidget(
           makeTestable(_field(controller: controller, variant: variant)),
         );
-        expect(_boxDecoration(tester).color, WpColorsDark.cardFill);
+        expect(_boxDecoration(tester).color, WpColors.cardFill);
 
         await _whileHovering(tester, find.byType(WpTextField), () {
           // The affordance the resting hairline used to carry, re-expressed
@@ -352,7 +353,7 @@ void main() {
           // alpha.
           expect(
             _boxDecoration(tester).color,
-            WpColorsDark.cardFillElevated,
+            WpColors.cardFillElevated,
             reason: '$variant should lift its fill on hover',
           );
         });
@@ -400,7 +401,7 @@ void main() {
         await _whileHovering(tester, find.byType(WpTextField), () {
           expect(
             _boxDecoration(tester).color,
-            WpColorsDark.surfaceVariant,
+            WpColors.surfaceVariant,
             reason: '$variant should be unmoved by the pointer',
           );
         });
@@ -431,13 +432,13 @@ void main() {
 
         expect(
           _renderedStyle(tester),
-          WpTextField.styleFor(variant, color: WpColorsDark.textPrimary),
+          WpTextField.styleFor(variant, color: WpColors.textPrimary),
         );
       });
     }
 
     test('both prose variants share one text size and line height', () {
-      const color = WpColorsDark.textPrimary;
+      final color = WpColors.textPrimary;
       final passage = WpTextField.styleFor(
         WpTextFieldVariant.passage,
         color: color,
@@ -522,7 +523,7 @@ void main() {
         ),
       );
       await _whileHovering(tester, find.byType(WpTextFieldSurface), () {
-        expect(surfaceDecoration(tester).color, WpColorsDark.cardFillElevated);
+        expect(surfaceDecoration(tester).color, WpColors.cardFillElevated);
       });
 
       // History's trash view: the same paragraph, but no tap opens an editor
@@ -538,7 +539,7 @@ void main() {
         ),
       );
       await _whileHovering(tester, find.byType(WpTextFieldSurface), () {
-        expect(surfaceDecoration(tester).color, WpColorsDark.cardFill);
+        expect(surfaceDecoration(tester).color, WpColors.cardFill);
       });
     });
 
@@ -574,10 +575,7 @@ void main() {
   test('AC6 — no variant asks for a second type family', () {
     for (final variant in WpTextFieldVariant.values) {
       expect(
-        WpTextField.styleFor(
-          variant,
-          color: WpColorsDark.textPrimary,
-        ).fontFamily,
+        WpTextField.styleFor(variant, color: WpColors.textPrimary).fontFamily,
         isNull,
         reason:
             '$variant overrides the theme font — DESIGN.md knows one family '

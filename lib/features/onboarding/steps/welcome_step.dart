@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -8,6 +10,7 @@ import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/onboarding/onboarding_revision.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_icon_button.dart';
 import '../../../widgets/brand_wordmark.dart';
 import '../../../widgets/language_selector.dart';
 import '../../../widgets/wp_focus_ring.dart';
@@ -17,6 +20,9 @@ import 'onboarding_page_fill.dart';
 /// only (`.scratch/onboarding-revisions/issues/04`).
 @visibleForTesting
 const kOnboardingRevisionNoticeKey = Key('onboardingRevisionNotice');
+const kOnboardingRevisionNoticeToggleKey = Key(
+  'onboardingRevisionNoticeToggle',
+);
 
 /// Test key for the tappable beat list tile at [index] (0-based).
 @visibleForTesting
@@ -61,6 +67,23 @@ String onboardingBeatAssetPath({required int index, required bool still}) =>
     'assets/onboarding/beat_${index + 1}'
     '_${still ? 'still' : 'loop'}'
     '_dark.webp';
+
+/// Whether beat [index]'s clip may be shown on the current platform.
+///
+/// Index of the beat that is drawn instead of recorded: beat 3 shows no
+/// third-party window chrome, so it is the self-drawn
+/// [_NeutralBeatIllustration] on every platform and has no clip at all.
+const int _kBeatIllustrationIndex = 2;
+
+/// Whether beat [index]'s clip may be shown on the current platform.
+///
+/// Beat 1 is a recording of Windows Notepad, so its window chrome is
+/// Windows-only. Beat 2 shows WhisPaste's own UI and fits everywhere. Beat 3
+/// is drawn, not recorded (see [_kBeatIllustrationIndex]). A platform without
+/// a fitting clip gets the neutral stage.
+bool onboardingBeatClipFitsPlatform(int index) =>
+    index == 1 ||
+    (index == 0 && defaultTargetPlatform == TargetPlatform.windows);
 
 /// Start inset that lines page-1 controls up with the beat *text* rather than
 /// with the edge of the beat highlight, which bleeds outward by exactly this
@@ -191,7 +214,7 @@ class WelcomeStep extends ConsumerWidget {
           )
         : const <String>[];
 
-    const textSecondary = WpColors.textSecondary;
+    final textSecondary = WpColors.textSecondary;
 
     void selectLocale(String locale) {
       HapticFeedback.selectionClick();
@@ -252,7 +275,7 @@ class WelcomeStep extends ConsumerWidget {
               Text(
                 l10n.onboardingWelcome,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: WpTypography.heading,
                   fontWeight: FontWeight.w500,
                   color: textSecondary,
@@ -308,7 +331,7 @@ class WelcomeStep extends ConsumerWidget {
               children: [
                 Text(
                   l10n.settingsAppLanguage,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: WpTypography.body,
                     fontWeight: FontWeight.w600,
                     color: textSecondary,
@@ -364,10 +387,11 @@ const String _kRevisionReasonSeparator = '  ·  ';
 ///    pure air the page cannot afford.
 ///
 /// Truncation, when it happens, drops the *oldest* reason first
-/// ([pendingOnboardingRevisionReasons] sorts newest first) — and the full
-/// string still reaches assistive technology, because [Text]'s semantics
-/// label is the complete text regardless of [TextOverflow.ellipsis].
-class _RevisionNotice extends StatelessWidget {
+/// ([pendingOnboardingRevisionReasons] sorts newest first) and adds a chevron
+/// that unfolds the full text in place (UIA-ONB-12). The full string also
+/// reaches assistive technology, because [Text]'s semantics label is the
+/// complete text regardless of [TextOverflow.ellipsis].
+class _RevisionNotice extends StatefulWidget {
   const _RevisionNotice({required this.reasons});
 
   /// Newest first; empty is legal (a registry override with no entry for this
@@ -375,15 +399,57 @@ class _RevisionNotice extends StatelessWidget {
   final List<String> reasons;
 
   @override
+  State<_RevisionNotice> createState() => _RevisionNoticeState();
+}
+
+class _RevisionNoticeState extends State<_RevisionNotice> {
+  /// The strip stays two lines by default (page 1's slack, see the class doc
+  /// above); a chevron lets the user unfold the reasons that did not fit.
+  /// Unfolded, the page scrolls — the user asked for the text.
+  bool _expanded = false;
+
+  /// Read back from the laid-out paragraph after each frame: the page lays
+  /// this strip out under an IntrinsicHeight, which rules out measuring it
+  /// up front with a LayoutBuilder.
+  bool _truncated = false;
+  final _textKey = GlobalKey();
+
+  void _syncTruncation(Duration _) {
+    if (!mounted || _expanded) return;
+    final paragraph = _textKey.currentContext?.findRenderObject();
+    if (paragraph is! RenderParagraph) return;
+    final truncated = paragraph.didExceedMaxLines;
+    if (truncated != _truncated) setState(() => _truncated = truncated);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
+    final reasons = widget.reasons;
+    WidgetsBinding.instance.addPostFrameCallback(_syncTruncation);
 
-    const accent = WpColors.accent;
-    const fill = WpColors.accentButtonFill;
-    const border = WpColors.accentBorder20;
-    const badgeFill = WpColors.accentChipFill;
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
+    final accent = WpColors.accent;
+    final fill = WpColors.accentButtonFill;
+    final border = WpColors.accentBorder20;
+    final badgeFill = WpColors.accentChipFill;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+
+    final span = TextSpan(
+      children: [
+        TextSpan(
+          text: l10n.onboardingRevisionNoticeTitle,
+          style: TextStyle(fontWeight: FontWeight.w600, color: textPrimary),
+        ),
+        if (reasons.isNotEmpty)
+          TextSpan(text: ' ${reasons.join(_kRevisionReasonSeparator)}'),
+      ],
+    );
+    final style = TextStyle(
+      fontSize: WpTypography.small,
+      color: textSecondary,
+      height: 1.4,
+    );
 
     return Container(
       key: kOnboardingRevisionNoticeKey,
@@ -403,7 +469,7 @@ class _RevisionNotice extends StatelessWidget {
               color: badgeFill,
               borderRadius: WpRadius.borderSm,
             ),
-            child: const Center(
+            child: Center(
               child: Icon(
                 LucideIcons.sparkles,
                 size: WpIconSize.sm,
@@ -414,31 +480,25 @@ class _RevisionNotice extends StatelessWidget {
           const SizedBox(width: WpSpacing.sm),
           Expanded(
             child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text: l10n.onboardingRevisionNoticeTitle,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: textPrimary,
-                    ),
-                  ),
-                  if (reasons.isNotEmpty)
-                    TextSpan(
-                      text: ' ${reasons.join(_kRevisionReasonSeparator)}',
-                    ),
-                ],
-              ),
+              span,
+              key: _textKey,
               textAlign: TextAlign.start,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: WpTypography.small,
-                color: textSecondary,
-                height: 1.4,
-              ),
+              maxLines: _expanded ? null : 2,
+              overflow: _expanded ? null : TextOverflow.ellipsis,
+              style: style,
             ),
           ),
+          if (_truncated || _expanded) ...[
+            const SizedBox(width: WpSpacing.xs),
+            WpIconButton(
+              key: kOnboardingRevisionNoticeToggleKey,
+              icon: _expanded ? LucideIcons.chevronUp : LucideIcons.chevronDown,
+              tooltip: _expanded
+                  ? l10n.onboardingRevisionNoticeCollapse
+                  : l10n.onboardingRevisionNoticeExpand,
+              onPressed: () => setState(() => _expanded = !_expanded),
+            ),
+          ],
         ],
       ),
     );
@@ -613,13 +673,13 @@ class _BeatListTileState extends State<_BeatListTile> {
 
   @override
   Widget build(BuildContext context) {
-    const textPrimary = WpColors.textPrimary;
-    const textSecondary = WpColors.textSecondary;
-    const textMuted = WpColors.textMuted;
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
     // Ticket 15: the card material, pre-composited — see
     // [_PermissionStatusCard] in `auto_paste_step.dart` for why onboarding
     // takes `floatingSurface` rather than the translucent `cardFill`.
-    const surface = WpColors.floatingSurface;
+    final surface = WpColors.floatingSurface;
 
     // MergeSemantics + a plain Semantics wrapper, not
     // `Semantics(excludeSemantics: true)`: excluding the subtree also discards
@@ -724,6 +784,157 @@ class _BeatListTileState extends State<_BeatListTile> {
 /// [MediaQuery.disableAnimations] selects the `_still_` variant. This is the
 /// same accessibility flag [WpMotion.durationFor] already consults for the
 /// fade-in and the cross-fade, so the whole page respects one switch.
+///
+/// Test key for the self-drawn beat 3 illustration.
+@visibleForTesting
+const kOnboardingBeatIllustrationKey = Key('onboardingBeatIllustration');
+
+/// Beat 3, drawn instead of recorded: a voice waveform flowing into a plain
+/// text field, over two neutral rules. No window chrome, no brand and no
+/// product UI, so it makes no claim about one particular app and reads the
+/// same on every platform. Static on purpose: nothing to animate, nothing to
+/// swap for a still under reduced motion.
+class _NeutralBeatIllustration extends StatelessWidget {
+  const _NeutralBeatIllustration();
+
+  @override
+  Widget build(BuildContext context) {
+    return ExcludeSemantics(
+      child: SizedBox.expand(
+        child: CustomPaint(
+          key: kOnboardingBeatIllustrationKey,
+          painter: _NeutralBeatPainter(
+            waveform: WpColors.accent,
+            field: WpColors.surfaceElevated,
+            fieldStroke: WpColors.borderDefault,
+            ink: WpColors.textMuted,
+            rule: WpColors.borderSubtle,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NeutralBeatPainter extends CustomPainter {
+  const _NeutralBeatPainter({
+    required this.waveform,
+    required this.field,
+    required this.fieldStroke,
+    required this.ink,
+    required this.rule,
+  });
+
+  final Color waveform;
+  final Color field;
+  final Color fieldStroke;
+  final Color ink;
+  final Color rule;
+
+  // Relative heights of the voice waveform, tallest in the middle.
+  static const List<double> _bars = <double>[
+    0.25,
+    0.45,
+    0.7,
+    0.9,
+    0.6,
+    0.4,
+    0.8,
+    1.0,
+    0.65,
+    0.35,
+    0.55,
+    0.85,
+    0.5,
+    0.3,
+    0.2,
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // The voice: centred bars above the field.
+    const barWidth = 6.0;
+    const barGap = 8.0;
+    final waveWidth = _bars.length * barWidth + (_bars.length - 1) * barGap;
+    final maxBarHeight = h * 0.22;
+    final waveCentreY = h * 0.30;
+    final waveLeft = (w - waveWidth) / 2;
+    final wavePaint = Paint()..color = waveform;
+    for (var i = 0; i < _bars.length; i++) {
+      final barHeight = _bars[i] * maxBarHeight;
+      final centreX = waveLeft + i * (barWidth + barGap) + barWidth / 2;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(
+            center: Offset(centreX, waveCentreY),
+            width: barWidth,
+            height: barHeight,
+          ),
+          const Radius.circular(3),
+        ),
+        wavePaint,
+      );
+    }
+
+    // The plain text field the words land in, with its caret.
+    final fieldRect = Rect.fromLTWH(w * 0.2, h * 0.50, w * 0.6, h * 0.17);
+    final fieldRRect = RRect.fromRectAndRadius(
+      fieldRect,
+      const Radius.circular(14),
+    );
+    canvas.drawRRect(fieldRRect, Paint()..color = field);
+    canvas.drawRRect(
+      fieldRRect,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = fieldStroke,
+    );
+    final lineLeft = fieldRect.left + 18;
+    final lineWidth = fieldRect.width * 0.55;
+    final lineTop = fieldRect.center.dy - 4;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(lineLeft, lineTop, lineWidth, 8),
+        const Radius.circular(4),
+      ),
+      Paint()..color = ink,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(lineLeft + lineWidth + 8, fieldRect.center.dy - 11, 2, 22),
+      Paint()..color = waveform,
+    );
+
+    // Two neutral rules beneath: any document, any app.
+    final rulePaint = Paint()..color = rule;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.2, h * 0.76, w * 0.5, 8),
+        const Radius.circular(4),
+      ),
+      rulePaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.2, h * 0.86, w * 0.34, 8),
+        const Radius.circular(4),
+      ),
+      rulePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_NeutralBeatPainter old) =>
+      old.waveform != waveform ||
+      old.field != field ||
+      old.fieldStroke != fieldStroke ||
+      old.ink != ink ||
+      old.rule != rule;
+}
+
 class _BeatMediaPlaceholder extends StatelessWidget {
   const _BeatMediaPlaceholder({
     super.key,
@@ -739,8 +950,8 @@ class _BeatMediaPlaceholder extends StatelessWidget {
     // Ticket 15: the card material, pre-composited — see
     // [_PermissionStatusCard] in `auto_paste_step.dart` for why onboarding
     // takes `floatingSurface` rather than the translucent `cardFill`.
-    const surface = WpColors.floatingSurface;
-    const glyphWash = WpColors.decorativeGlyphWash;
+    final surface = WpColors.floatingSurface;
+    final glyphWash = WpColors.decorativeGlyphWash;
 
     // The empty stage, designed as one.
     //
@@ -756,7 +967,7 @@ class _BeatMediaPlaceholder extends StatelessWidget {
     // icon sitting *on* the surface, it is the surface's texture, and
     // [WpColors*.decorativeGlyphWash] is the one alpha band DESIGN.md defines
     // for exactly that — a glyph washed into a panel, dark 5 % / light 3 %,
-    // flat, no glow. It also retires a hand-rolled `withValues(alpha: 0.55)`,
+    // flat, no light effect. It also retires a hand-rolled `withValues(alpha: 0.55)`,
     // which the ladder's Don't-list forbids at a call site.
     //
     // Cropped at the bottom-end corner, not centred: a centred mark re-invites
@@ -793,27 +1004,34 @@ class _BeatMediaPlaceholder extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: WpRadius.borderLg,
-        child: Image.asset(
-          onboardingBeatAssetPath(
-            index: index,
-            still: MediaQuery.of(context).disableAnimations,
-          ),
-          // Explicit width/height, not just `fit`: this sits inside
-          // AnimatedSwitcher's default Stack layout, which hands its child
-          // *loose* constraints. Without a forced size, `Image` falls back to
-          // its own intrinsic aspect ratio and can render shorter than
-          // [kOnboardingBeatMediaHeight] whenever a delivered clip's aspect
-          // ratio drifts even slightly off the panel's 460:288 — exactly what
-          // happened when a beat_1 re-render landed at 920×566 (1.625) against
-          // the panel's 1.597 and silently shrank the media panel by 5 px.
-          // `cover` still does the cropping; this just makes the box itself
-          // immune to the source aspect ratio.
-          width: double.infinity,
-          height: double.infinity,
-          fit: BoxFit.cover,
-          excludeFromSemantics: true,
-          errorBuilder: (context, error, stackTrace) => placeholder,
-        ),
+        // Beat 1 is a Windows recording (Notepad); on macOS and Linux it would
+        // show a foreign window, so the neutral stage stays. Beat 3 is drawn
+        // and shows everywhere.
+        child: index == _kBeatIllustrationIndex
+            ? const _NeutralBeatIllustration()
+            : !onboardingBeatClipFitsPlatform(index)
+            ? placeholder
+            : Image.asset(
+                onboardingBeatAssetPath(
+                  index: index,
+                  still: MediaQuery.of(context).disableAnimations,
+                ),
+                // Explicit width/height, not just `fit`: this sits inside
+                // AnimatedSwitcher's default Stack layout, which hands its child
+                // *loose* constraints. Without a forced size, `Image` falls back to
+                // its own intrinsic aspect ratio and can render shorter than
+                // [kOnboardingBeatMediaHeight] whenever a delivered clip's aspect
+                // ratio drifts even slightly off the panel's 460:288 — exactly what
+                // happened when a beat_1 re-render landed at 920×566 (1.625) against
+                // the panel's 1.597 and silently shrank the media panel by 5 px.
+                // `cover` still does the cropping; this just makes the box itself
+                // immune to the source aspect ratio.
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+                excludeFromSemantics: true,
+                errorBuilder: (context, error, stackTrace) => placeholder,
+              ),
       ),
     );
   }

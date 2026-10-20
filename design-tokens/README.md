@@ -28,9 +28,38 @@ without viewport scaling use `$value`.
   Cool blue-grey, never cream or paper.
 - **Cyan** (`cyan.*`): action and recording. Buttons, focus, waveform, active states.
 - **Amber** (`amber.*`): the warm accent. Markers behind single words, hints,
-  callouts, FAQ icons. Never a button fill, never a large surface.
+  callouts, FAQ icons, and targeted accent surfaces: the dock's primary
+  "Diktieren" call to action, the overlay and button background option, and
+  larger landing-page areas. WCAG AA stays mandatory on amber: text and icons
+  on it use the dark ink (`navy.900`, about 10.5:1). A foreground that cannot
+  reach 3:1 on an amber surface takes the dark ink instead. For the wave the
+  overlay first tries the darker step of the same hue (cyan 600, then cyan 700
+  at about 4.1:1), so the wave stays cyan; the done check goes straight to ink.
 - **Violet** (`navy.500`): only as the last stop of the stage wash.
 - **Status**: success/warning/error match the app; each has an on-light variant.
+
+## App overlay presets
+
+`app.tokens.json` carries the `overlay.*` group (ADR 0024): background presets
+(`marine`, `graphit`, `gletscher`, `amber`), each a single flat fill (no
+gradient, no sheen, no specular streak), wave presets (`cyan`, `violett`,
+`neutral`, `amber`) with a dark and a light value each, plus a darker light
+step (`light-strong`) that the overlay uses when the light value falls below
+3:1 on the fill, and the signal colours per tone. The generator emits them as `WpOverlayTokens`. Users pick a background
+and a wave independently; there is no free colour picker.
+
+## App switch track
+
+`app.tokens.json` (desktop app, ADR 0017) carries `switch-track-off`: the
+track of an off switch. The white thumb must reach 3:1 on it and the track
+3:1 on the window ground (WCAG 1.4.11). Journal (light, and the navy set)
+uses `glacier.600` (6.34:1 thumb, 5.41:1 ground); stage (dark) uses
+`glacier.500` (4.33:1 thumb, 4.28:1 ground). Lighter tracks such as
+`frost.400` fail the thumb check on dark.
+
+`selection-border` (journal and stage, same value `#6B7A96`): the boundary of an
+unselected colour swatch, 3:1 or better on every surface of both sets. A
+single value is used because it passes on both, so it needs no per-theme pair.
 
 ## Modes on the website
 

@@ -103,6 +103,45 @@ void main() {
       expect(find.byType(DropdownButton<String>), findsOneWidget);
     });
 
+    testWidgets(
+      'a microphone plugged in later shows up when the page reopens',
+      (tester) async {
+        // The device list used to be cached for the whole app run, so a new
+        // microphone only appeared after a restart (XP-5-15).
+        var devices = ['Default'];
+        final shown = ValueNotifier(true);
+        addTearDown(shown.dispose);
+        final notifier = _FakeSettingsNotifier(AppSettings.defaults);
+        await tester.pumpWidget(
+          makeTestable(
+            ValueListenableBuilder<bool>(
+              valueListenable: shown,
+              builder: (_, show, _) => show
+                  ? const SingleChildScrollView(child: AudioSection())
+                  : const SizedBox.shrink(),
+            ),
+            overrides: [
+              settingsProvider.overrideWith(() => notifier),
+              audioInputDevicesProvider.overrideWith((ref) async => devices),
+              clippingStateProvider.overrideWith(
+                () => _FakeClippingNotifier(const ClippingState()),
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(DropdownButton<String>), findsNothing);
+
+        shown.value = false;
+        await tester.pumpAndSettle();
+        devices = ['Default', 'USB Microphone'];
+        shown.value = true;
+        await tester.pumpAndSettle();
+
+        expect(find.byType(DropdownButton<String>), findsOneWidget);
+      },
+    );
+
     // ── Gain slider ─────────────────────────────────────────────────────────
 
     testWidgets('gain slider round-trip updates audioInput.inputGain', (

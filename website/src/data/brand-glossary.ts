@@ -25,8 +25,7 @@
  * Mit „Desktop-" Präfix (2026-08-17): deckt sich mit der bereits etablierten
  * Formulierung in `meta.description.default`/`schema.app.description` (den
  * SEO-gewichtigsten Strings der Site) und macht explizit, dass es KEINE
- * Mobile-Version gibt — passender Suchbegriff, keine Verwässerung der
- * bewussten Abgrenzung von „Diktier-Software".
+ * Mobile-Version gibt.
  */
 export const productCategoryDE = "Desktop-Sprach-Eingabe-Tool" as const;
 
@@ -87,60 +86,9 @@ export interface AntiVocabularyEntry {
  * weiteren CONTEXT.md-§7-Einträge.
  */
 export const antiVocabulary: readonly AntiVocabularyEntry[] = [
-  // --- PRD §D — SEO-Brand-Sprach-Mapping ---
-  {
-    term: "dictation",
-    replacement: productCategoryEN, // "voice-input tool"
-    rationale:
-      "CONTEXT.md §7 / PRD §D — Produkttyp: WhisPaste ist explizit kein Diktier-Tool.",
-    contrastiveAllowed: true,
-  },
-  {
-    term: "dictate",
-    replacement: verbEN, // "speak"
-    rationale: "PRD §D — Verb: kanonisch `speak` bzw. `use voice input`.",
-    contrastiveAllowed: true,
-  },
-  {
-    term: "dictations",
-    replacement: `${outputArtifactEN}s`, // "transcripts"
-    rationale: "PRD §D — Artefakt: Output sind Transkripte, keine Diktate.",
-  },
-  {
-    term: "Diktat",
-    replacement: outputArtifactDE, // "Transkript"
-    rationale:
-      "CONTEXT.md §7 / PRD §D — Artefakt: WhisPaste produziert Transkripte.",
-    contrastiveAllowed: true,
-  },
-  {
-    term: "Diktate",
-    replacement: `${outputArtifactDE}e`, // "Transkripte"
-    rationale: "PRD §D — Artefakt (Plural): Transkripte statt Diktate.",
-  },
-  {
-    term: "Diktier-Tool",
-    replacement: productCategoryDE, // "Sprach-Eingabe-Tool"
-    rationale:
-      "CONTEXT.md §7 — Produkttyp: bewusste Abgrenzung von Diktier-Software.",
-    contrastiveAllowed: true,
-  },
-  {
-    term: "Diktat-Verlauf",
-    replacement: "Verlauf",
-    rationale: "PRD §D — DE-Changelog: nur `Verlauf`, nicht `Diktat-Verlauf`.",
-  },
-  {
-    term: "Diktieren",
-    replacement: actionDE, // "Spracheingabe"
-    rationale:
-      "PRD §D — Tätigkeit: `Spracheingabe` oder `Aufnahme starten` statt `Diktieren`.",
-  },
-  {
-    term: "Diktiert",
-    replacement: verbDE, // "transkribiert"
-    rationale: "PRD §D — DE-Verb: `transkribiert` statt `diktiert`.",
-  },
+  // Dictation wording (Diktat, Diktieren, dictation, …) is no longer listed:
+  // maintainer decision 2026-10-18 made it ordinary product vocabulary, as in
+  // "systemweites Desktop-Diktat". The pin lives in brand-glossary.test.ts.
 
   // --- CONTEXT.md §7 — weitere Begriffe (nicht in PRD §D, aber Teil des
   // Anti-Vokabulars; aufgenommen für Drift-Gate-Vollständigkeit) ---

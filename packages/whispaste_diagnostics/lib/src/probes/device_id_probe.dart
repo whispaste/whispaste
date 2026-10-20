@@ -1,47 +1,53 @@
 /// Sentry device_id probe.
 ///
-/// Derives a stable, anonymous device identifier using the same formula as
-/// `crash_reporter._deriveDeviceId` in the Flutter app:
-///
-///   md5("${hostname}_whispaste").substring(0, 12)
-///
-/// This bit-identical implementation lives in the pure-Dart core so the
-/// standalone WhisPaste-Diagnose CLI can emit the same device_id that
-/// Sentry uses — enabling correlation of a CLI diagnostic report with a
-/// Sentry crash event.
+/// Reads the random per-install id the app stores in its data directory
+/// (`install_id`, written by `lib/core/logging/install_id.dart`) and attaches
+/// to every Sentry event, so a report from the standalone WhisPaste-Diagnose
+/// CLI can be matched to the install's crash events. It never creates the
+/// file: an install that has not started the app yet has no id.
 library;
 
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
-import 'package:meta/meta.dart';
+import 'package:path/path.dart' as p;
 
-// ---------------------------------------------------------------------------
-// Pure formula (exported for unit tests)
-// ---------------------------------------------------------------------------
+import 'path_service.dart';
 
-/// Computes the device_id for [hostname].
+/// File in the app data directory that holds the install id.
+const installIdFileName = 'install_id';
+
+final _installIdPattern = RegExp(r'^[0-9a-f]{12}$');
+
+/// The stored install id, or `'unknown'` when there is none.
 ///
-/// Formula mirrors `crash_reporter._deriveDeviceId`:
-///   `md5("${hostname}_whispaste").toString().substring(0, 12)`.
-@visibleForTesting
-String deriveDeviceId(String hostname) {
-  final bytes = utf8.encode('${hostname}_whispaste');
-  return md5.convert(bytes).toString().substring(0, 12);
-}
-
-// ---------------------------------------------------------------------------
-// Live probe
-// ---------------------------------------------------------------------------
-
-/// Returns the device_id for the current machine.
-///
-/// Returns `'unknown'` on any error (matching the crash_reporter fallback).
-String deviceId() {
+/// Without [directory] the lookup tries the EXE data root first, then every
+/// MSIX LocalCache root in [msixRoots] (default: [msixLocalCacheRoots]). A
+/// Store install writes its id into the package's redirected `%APPDATA%`, which
+/// the standalone CLI does not see from outside the container (PAR-031). With
+/// [directory] only that root is read.
+String deviceId({String? directory, List<String> Function()? msixRoots}) {
   try {
-    return deriveDeviceId(Platform.localHostname);
+    if (directory != null) return _storedInstallId(directory) ?? 'unknown';
+    final roots = [appDataDir(), ...(msixRoots ?? msixLocalCacheRoots)()];
+    for (final root in roots) {
+      final id = _storedInstallId(root);
+      if (id != null) return id;
+    }
+    return 'unknown';
   } on Exception {
     return 'unknown';
+  }
+}
+
+/// The valid id stored under [root], or null when the file is missing,
+/// unreadable or damaged.
+String? _storedInstallId(String root) {
+  try {
+    final file = File(p.join(root, installIdFileName));
+    if (!file.existsSync()) return null;
+    final stored = file.readAsStringSync().trim();
+    return _installIdPattern.hasMatch(stored) ? stored : null;
+  } on Exception {
+    return null;
   }
 }

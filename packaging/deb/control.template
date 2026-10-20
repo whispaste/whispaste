@@ -5,7 +5,8 @@ Priority: optional
 Architecture: amd64
 Maintainer: Silvio Lindstedt <silvio-lindstedt@outlook.com>
 Homepage: https://whispaste.de/
-Depends: libgtk-3-0, libsecret-1-0, libnotify4, libayatana-appindicator3-1, libasound2, libcurl4, libkeybinder-3.0-0, liblzma5, libc6, zlib1g
+Depends: libgtk-3-0, libsecret-1-0, libnotify4, libayatana-appindicator3-1, libasound2, libcurl4, libkeybinder-3.0-0, liblzma5, libc6, zlib1g, libxss1,
+ libopusfile0, libogg0, libflac14 | libflac12t64 | libflac12 | libflac8
 Description: Voice-input tool — hotkey, speak, paste anywhere
  WhisPaste is a voice-input tool. Press a global hotkey, speak, and the
  transcribed text is pasted at the cursor position of whatever application

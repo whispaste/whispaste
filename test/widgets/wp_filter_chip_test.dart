@@ -74,11 +74,11 @@ void main() {
       // the ambient stopped, so the pill sat on a plate of its own while its
       // hover and active states were translucent tints. All three rungs are
       // now translucent over the one atmosphere.
-      expect(_pillDecoration(tester).color, WpColorsDark.cardFillElevated);
-      expect(_labelColor(tester, 'All'), WpColorsDark.textSecondary);
+      expect(_pillDecoration(tester).color, WpColors.cardFillElevated);
+      expect(_labelColor(tester, 'All'), WpColors.textSecondary);
       expect(
         (_pillDecoration(tester).border! as Border).top.color,
-        WpColorsDark.cardEdgeHighlight,
+        WpColors.cardEdgeHighlight,
         reason:
             'on a translucent fill the rim is what carries the pill; it is no '
             'longer selection-only',
@@ -94,8 +94,8 @@ void main() {
       // Accent at 6 %, not the neutral `hover` grey this used to pin
       // (ticket 03, point 6): resting → hover → active is one hue getting
       // stronger, so the hover previews the state the click leads to.
-      expect(_pillDecoration(tester).color, WpColorsDark.accentRowHover);
-      expect(_labelColor(tester, 'All'), WpColorsDark.textPrimary);
+      expect(_pillDecoration(tester).color, WpColors.accentRowHover);
+      expect(_labelColor(tester, 'All'), WpColors.textPrimary);
     });
 
     testWidgets('selected uses the ladder\'s 12% rung, the 30% accent outline '
@@ -107,12 +107,12 @@ void main() {
       // never joined the 6/12/30 ladder and was the only one asymmetric
       // between themes (16.5 % dark against 11 % light), so a selected filter
       // read half again as strong on dark as on light.
-      expect(_pillDecoration(tester).color, WpColorsDark.accentActiveFill);
+      expect(_pillDecoration(tester).color, WpColors.accentActiveFill);
       expect(
         (_pillDecoration(tester).border! as Border).top.color,
-        WpColorsDark.accentBorder30,
+        WpColors.accentBorder30,
       );
-      expect(_labelColor(tester, 'All'), WpColorsDark.accent);
+      expect(_labelColor(tester, 'All'), WpColors.accent);
       expect(
         tester.widget<Text>(find.text('All')).style!.fontWeight,
         FontWeight.w600,
@@ -350,16 +350,13 @@ void main() {
         'one is not', (tester) async {
       await tester.pumpWidget(makeTestable(_chip(count: 3)));
       await tester.pumpAndSettle();
-      expect(
-        tester.widget<Text>(find.text('3')).style!.color,
-        WpColorsDark.accent,
-      );
+      expect(tester.widget<Text>(find.text('3')).style!.color, WpColors.accent);
 
       await tester.pumpWidget(makeTestable(_chip(count: 0)));
       await tester.pumpAndSettle();
       expect(
         tester.widget<Text>(find.text('0')).style!.color,
-        isNot(WpColorsDark.accent),
+        isNot(WpColors.accent),
       );
     });
   });

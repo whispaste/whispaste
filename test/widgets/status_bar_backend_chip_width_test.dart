@@ -4,16 +4,16 @@
 /// (Ticket 10) sideways, un-damped. A measured 5.6 px snap at the 9↔10
 /// boundary was the residual this file now pins shut.
 ///
-/// Measured against the **real bundled Inter**, not the default test font:
+/// Measured against the **real bundled UI face** (Hanken Grotesk since ADR
+/// 0018), not the default test font:
 /// every character in the test font has the same advance, which would make
 /// the padding look sufficient on its own and hide both halves of the actual
-/// rule. The two negative controls below are the point of this file — they
-/// fail the moment either half is dropped:
+/// rule. The negative control below is the point of this file — it fails
+/// the moment the padding half is dropped (the UI face's digits are already
+/// equal-width, see the fact check for the tabular half):
 ///
-///   * without [FontFeature.tabularFigures], Inter's proportional digits
-///     (833 units for `1`, 1292 for `0`) make equal-length labels differ;
-///   * padded with a plain space instead of U+2007, the blank (546 units) is
-///     narrower than a tabular digit (1327) and the column collapses.
+///   * padded with a plain space instead of U+2007, the blank is narrower
+///     than a tabular digit and the column collapses.
 library;
 
 import 'package:flutter/material.dart';
@@ -21,15 +21,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:golden_screenshot/golden_screenshot.dart';
 import 'package:whispaste/core/recording/recording_state.dart';
 import 'package:whispaste/core/theme/theme.dart';
-import 'package:whispaste/widgets/status_bar.dart';
+import 'package:whispaste/widgets/recording_dock.dart';
 
 import '../fixtures/test_helpers.dart';
+import '../fixtures/dock_choice_fixtures.dart';
 
 /// Readings that cross every digit boundary the chip can hit.
 const List<double> _readings = <double>[0, 9, 9.6, 10, 99, 99.7, 100];
 
 void main() {
-  setUpAll(() => loadAppFonts(onlyLoadTheseFonts: {'Inter'}));
+  setUpAll(loadAppFonts);
 
   /// The production label style of the backend chip.
   TextStyle chipStyle() => wpDarkTheme().textTheme.labelSmall!.copyWith(
@@ -49,8 +50,9 @@ void main() {
       Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          WpStatusBar(
+          WpRecordingDock(
             sttModeLabel: 'On device',
+            engine: dockTestEngine(label: 'On device'),
             sttState: SttServerState.ready,
             hotkeyLabel: 'Ctrl+Shift+D',
             backendKind: 'CPU',
@@ -98,22 +100,23 @@ void main() {
     }
   });
 
-  testWidgets('negative control — padding alone is not enough: without '
-      'tabular figures, Inter renders equal-length labels at unequal widths', (
-    tester,
-  ) async {
+  // Hanken Grotesk draws every digit at one advance even without the `tnum`
+  // feature, so the negative control that held for Inter cannot fail any
+  // more. It is kept as a fact check instead: if the UI face ever moves to
+  // proportional default figures, this flips and the explicit tabularFigures
+  // on the chip become load-bearing again.
+  testWidgets('the UI face draws equal-width digits even without tabular '
+      'figures', (tester) async {
     final proportional = wpDarkTheme().textTheme.labelSmall!;
     expect(
       textWidth(backendUtilizationChipLabel('CPU', 11), proportional),
-      isNot(
-        moreOrLessEquals(
-          textWidth(backendUtilizationChipLabel('CPU', 99), proportional),
-          epsilon: 0.01,
-        ),
+      moreOrLessEquals(
+        textWidth(backendUtilizationChipLabel('CPU', 99), proportional),
+        epsilon: 0.01,
       ),
       reason:
-          'if this ever passes, the fontFeatures on the chip have become '
-          'redundant — verify before deleting them',
+          'the UI face now has proportional default digits — keep the '
+          'fontFeatures on the chip and restore the negative control',
     );
   });
 
@@ -137,25 +140,30 @@ void main() {
     },
   );
 
-  testWidgets('the centred chip group does not move when the reading crosses a '
+  testWidgets('the dock row does not move when the reading crosses a '
       'digit boundary', (tester) async {
-    Rect? reference;
-
+    Rect? dictate;
+    Rect? engine;
     for (final reading in _readings) {
       await tester.pumpWidget(buildStatusBar(reading));
       await tester.pumpAndSettle();
-
-      final group = tester.getRect(find.byType(AnimatedSize));
-      reference ??= group;
+      final nextDictate = tester.getRect(
+        find.byKey(const ValueKey('dock-dictate')),
+      );
+      final nextEngine = tester.getRect(
+        find.byKey(const ValueKey('dock-engine')),
+      );
+      dictate ??= nextDictate;
+      engine ??= nextEngine;
       expect(
-        group.center.dx,
-        moreOrLessEquals(reference.center.dx, epsilon: 0.01),
-        reason: 'the chip group must not shift at $reading %',
+        nextDictate.topLeft,
+        dictate.topLeft,
+        reason: 'the Dictate button must not move at $reading %',
       );
       expect(
-        group.width,
-        moreOrLessEquals(reference.width, epsilon: 0.01),
-        reason: 'the content span must not change width at $reading %',
+        nextEngine.topLeft,
+        engine.topLeft,
+        reason: 'the engine selector must not move at $reading %',
       );
     }
   });

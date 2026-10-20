@@ -19,6 +19,7 @@ import '../core/config/settings_provider.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/perf_instrumentation.dart';
 import 'hotkey_key_resolver.dart';
+import 'profile_hotkey_plan.dart';
 import 'prompt_display_arbiter.dart';
 import 'keyboard_up_monitor.dart';
 
@@ -146,6 +147,26 @@ final snippetPickerHotkeyRegistrationStatusProvider =
       HotkeyRegistrationStatus
     >(SnippetPickerHotkeyRegistrationStatusController.new);
 
+/// Notifier holding the [HotkeyRegistrationStatus] for the "next favorite
+/// language" hotkey. Kept separate so a conflict there never shows up on the
+/// other actions.
+class LanguageCycleHotkeyRegistrationStatusController
+    extends Notifier<HotkeyRegistrationStatus> {
+  @override
+  HotkeyRegistrationStatus build() => HotkeyRegistrationStatus.unknown;
+
+  void set(HotkeyRegistrationStatus status) {
+    state = status;
+  }
+}
+
+/// Provider for the "next favorite language" [HotkeyRegistrationStatus].
+final languageCycleHotkeyRegistrationStatusProvider =
+    NotifierProvider<
+      LanguageCycleHotkeyRegistrationStatusController,
+      HotkeyRegistrationStatus
+    >(LanguageCycleHotkeyRegistrationStatusController.new);
+
 /// Notifier holding the [HotkeyRegistrationStatus] for the Smart-Mode hotkey
 /// (ticket 04 of `.scratch/smart-mode-v2/`) — kept fully separate from the
 /// other status providers so a conflict on one action never surfaces as a
@@ -206,6 +227,49 @@ HotKey get safeDefaultHotKey => HotKey(
 String get safeDefaultHotKeyLabel =>
     Platform.isMacOS ? 'Cmd+Shift+Space' : 'Ctrl+Shift+Space';
 
+/// [safeDefaultHotKey] in the settings storage format (see
+/// `hotkey_key_resolver.dart`), so settings and dock can display it.
+const safeDefaultHotkeyKey = 'Space';
+String get safeDefaultHotkeyModifiers =>
+    Platform.isMacOS ? 'shift+meta' : 'ctrl+shift';
+
+/// True while the global action listens on [safeDefaultHotKey] because the
+/// configured combination could not be registered. Settings and dock then
+/// show the fallback instead of the configured hotkey, and the app tells the
+/// user once with a toast.
+class GlobalHotkeyFallbackController extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void set(bool active) {
+    state = active;
+  }
+}
+
+final globalHotkeyFallbackActiveProvider =
+    NotifierProvider<GlobalHotkeyFallbackController, bool>(
+      GlobalHotkeyFallbackController.new,
+    );
+
+/// The global hotkey every surface should name (dock, overlay hint,
+/// onboarding, settings): the safe default while it stands in for a taken
+/// combination, else the configured one. [display] is the stored display
+/// override of the key (empty for the safe default).
+({String key, String modifiers, String display}) activeGlobalHotkey(
+  AppSettings settings, {
+  required bool fallback,
+}) => fallback
+    ? (
+        key: safeDefaultHotkeyKey,
+        modifiers: safeDefaultHotkeyModifiers,
+        display: '',
+      )
+    : (
+        key: settings.hotkeyKey,
+        modifiers: settings.hotkeyModifiers,
+        display: settings.hotkey.hotkeyKeyDisplay,
+      );
+
 // ---------------------------------------------------------------------------
 // Per-action state
 // ---------------------------------------------------------------------------
@@ -239,6 +303,13 @@ class _ActionHotkeyState {
 /// `hotkey_manager`), the service falls back to a safe-default hotkey
 /// (Ctrl/Cmd+Shift+Space) and invokes [onRegistrationFailed] so the caller
 /// can display a localised toast prompting the user to re-bind.
+/// Maps the stored cancel-dictation key name (see
+/// `cancelDictationKeyChoices`) to its key. Unknown names fall back to Escape.
+LogicalKeyboardKey logicalKeyForCancelDictation(String name) => switch (name) {
+  'f12' => LogicalKeyboardKey.f12,
+  _ => LogicalKeyboardKey.escape,
+};
+
 class HotkeyService extends Notifier<void> {
   static final _log = AppLogger('HotkeyService');
 
@@ -255,6 +326,13 @@ class HotkeyService extends Notifier<void> {
   /// (ticket 26) — reuses [_stateFor] exactly as [_quickNoteActionId] does,
   /// per its own doc comment above.
   static const _snippetPickerActionId = 'snippetPicker';
+
+  /// Action identifier for the toggle-only "next favorite language" hotkey.
+  /// Must match the action id in `hotkey_flow.dart`'s binding list.
+  static const _languageCycleActionId = 'languageCycle';
+
+  /// Prefix of the per-profile action ids (see [profileHotkeyActionId]).
+  static const _profileActionPrefix = 'profile:';
 
   /// Action identifier for the fourth, push-to-talk-capable Smart-Mode
   /// hotkey (ticket 04 of `.scratch/smart-mode-v2/`). Unlike
@@ -287,6 +365,14 @@ class HotkeyService extends Notifier<void> {
   /// owns the pairing.
   static const _cancelDictationActionId = 'cancelDictation';
 
+  /// Callback fired when a profile hotkey is pressed (key-down), with the
+  /// profile's id. The profile is applied persistently by the caller.
+  void Function(String profileId)? onProfileHotkeyPressed;
+
+  /// Profile hotkeys currently registered: action id to the combination's
+  /// signature (see [ProfileHotkeyEntry.signature]).
+  final Map<String, String> _profileRegistrations = {};
+
   /// Callback fired when the global hotkey is pressed (key-down).
   VoidCallback? onHotkeyPressed;
 
@@ -313,6 +399,10 @@ class HotkeyService extends Notifier<void> {
   /// One-shot — opens the panel directly, no recording involved, so there is
   /// no "released" callback either (ticket 26).
   VoidCallback? onSnippetPickerHotkeyPressed;
+
+  /// Fired when the "next favorite language" hotkey is pressed. The bootstrap
+  /// wires it to the language switch (cycle + feedback). One-shot.
+  VoidCallback? onLanguageCycleHotkeyPressed;
 
   /// Callback fired when the Smart-Mode hotkey is pressed (key-down).
   VoidCallback? onSmartModeHotkeyPressed;
@@ -350,6 +440,7 @@ class HotkeyService extends Notifier<void> {
   bool _initialized = false;
   bool _quickNoteInitialized = false;
   bool _snippetPickerInitialized = false;
+  bool _languageCycleInitialized = false;
   bool _smartModeInitialized = false;
   bool _selectionEditInitialized = false;
 
@@ -425,6 +516,7 @@ class HotkeyService extends Notifier<void> {
           unawaited(_registerFromSettings(current));
         } else {
           unawaited(_unregisterAction(_globalActionId, stopMonitor: true));
+          _setFallbackActive(false);
           _log.info('Global hotkey disabled by user');
         }
       }
@@ -452,6 +544,18 @@ class HotkeyService extends Notifier<void> {
         actionId: _snippetPickerActionId,
         label: 'Snippet-Picker',
         register: () => _registerSnippetPickerFromSettings(current),
+      );
+
+      _handleSecondaryHotkeySettingsChange(
+        prevKey: previous.stt.languageCycleHotkeyKey,
+        key: current.stt.languageCycleHotkeyKey,
+        prevModifiers: previous.stt.languageCycleHotkeyModifiers,
+        modifiers: current.stt.languageCycleHotkeyModifiers,
+        prevEnabled: previous.stt.languageCycleHotkeyEnabled,
+        enabled: current.stt.languageCycleHotkeyEnabled,
+        actionId: _languageCycleActionId,
+        label: 'Language-cycle',
+        register: () => _registerLanguageCycleFromSettings(current),
       );
 
       _handleSecondaryHotkeySettingsChange(
@@ -490,6 +594,9 @@ class HotkeyService extends Notifier<void> {
       }
       if (settings.snippetPickerHotkey.snippetPickerHotkeyEnabled) {
         await _registerSnippetPickerFromSettings(settings);
+      }
+      if (settings.stt.languageCycleHotkeyEnabled) {
+        await _registerLanguageCycleFromSettings(settings);
       }
       if (settings.smartModeHotkey.smartModeHotkeyEnabled) {
         await _registerSmartModeFromSettings(settings);
@@ -580,6 +687,7 @@ class HotkeyService extends Notifier<void> {
       );
       _log.info('Hotkey registered successfully');
       _setStatus(HotkeyRegistrationStatus.success);
+      _setFallbackActive(false);
       // Start the RawInput key-up monitor for the same combo (Windows; no-op
       // elsewhere) so push-to-talk has a release event (#39).
       await _monitor.start(hotKey);
@@ -617,35 +725,14 @@ class HotkeyService extends Notifier<void> {
   Future<void> updateQuickNoteHotkey({
     required LogicalKeyboardKey key,
     List<HotKeyModifier> modifiers = const [],
-  }) async {
-    if (!_isDesktop) return;
-    await _unregisterAction(_quickNoteActionId, stopMonitor: false);
-
-    final hotKey = HotKey(key: key, modifiers: modifiers);
-    _stateFor(_quickNoteActionId).registeredHotKey = hotKey;
-
-    try {
-      await _registrar.register(
-        hotKey,
-        keyDownHandler: (_) => _handleKeyDown(_quickNoteActionId, 'QuickNote'),
-        // Toggle-only — no push-to-talk for this action, so no keyUpHandler
-        // is ever wired, regardless of registrar capability.
-      );
-      _log.info('Quick-note hotkey registered successfully');
-      _setQuickNoteStatus(HotkeyRegistrationStatus.success);
-      // No monitor.start() — the monitor is a single shared native channel
-      // (Windows RawInput) and this toggle-only action never needs key-up.
-      // Starting it here would steal the global hotkey's release watch.
-    } on Object catch (e) {
-      _setQuickNoteStatus(HotkeyRegistrationStatus.conflict);
-      _stateFor(_quickNoteActionId).registeredHotKey = null;
-      final keyCode = key.keyId.toRadixString(16);
-      _log.warning(
-        'Failed to register quick-note hotkey (key=0x$keyCode): $e '
-        '— staying unregistered, no safe-default fallback',
-      );
-    }
-  }
+  }) => _registerToggleOnlyAction(
+    actionId: _quickNoteActionId,
+    handlerLabel: 'QuickNote',
+    logName: 'Quick-note',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setQuickNoteStatus,
+  );
 
   /// Re-registers the Snippet-Picker hotkey (ticket 26) with a new
   /// combination.
@@ -658,36 +745,65 @@ class HotkeyService extends Notifier<void> {
   Future<void> updateSnippetPickerHotkey({
     required LogicalKeyboardKey key,
     List<HotKeyModifier> modifiers = const [],
+  }) => _registerToggleOnlyAction(
+    actionId: _snippetPickerActionId,
+    handlerLabel: 'SnippetPicker',
+    logName: 'Snippet-Picker',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setSnippetPickerStatus,
+  );
+
+  /// Shared registration for the toggle-only one-shot actions (quick-note,
+  /// Snippet-Picker, language cycle): no key-up is ever wired, no monitor is
+  /// started, and a failed registration stays unregistered rather than falling
+  /// back to a safe default.
+  Future<void> _registerToggleOnlyAction({
+    required String actionId,
+    required String handlerLabel,
+    required String logName,
+    required LogicalKeyboardKey key,
+    required List<HotKeyModifier> modifiers,
+    required void Function(HotkeyRegistrationStatus) setStatus,
   }) async {
     if (!_isDesktop) return;
-    await _unregisterAction(_snippetPickerActionId, stopMonitor: false);
+    await _unregisterAction(actionId, stopMonitor: false);
 
     final hotKey = HotKey(key: key, modifiers: modifiers);
-    _stateFor(_snippetPickerActionId).registeredHotKey = hotKey;
+    _stateFor(actionId).registeredHotKey = hotKey;
 
     try {
       await _registrar.register(
         hotKey,
-        keyDownHandler: (_) =>
-            _handleKeyDown(_snippetPickerActionId, 'SnippetPicker'),
-        // Toggle-only/one-shot — no push-to-talk for this action, so no
-        // keyUpHandler is ever wired, regardless of registrar capability.
+        keyDownHandler: (_) => _handleKeyDown(actionId, handlerLabel),
       );
-      _log.info('Snippet-Picker hotkey registered successfully');
-      _setSnippetPickerStatus(HotkeyRegistrationStatus.success);
-      // No monitor.start() — same reasoning as updateQuickNoteHotkey: the
-      // shared monitor is a single native channel and this action never
-      // needs key-up.
+      _log.info('$logName hotkey registered successfully');
+      setStatus(HotkeyRegistrationStatus.success);
     } on Object catch (e) {
-      _setSnippetPickerStatus(HotkeyRegistrationStatus.conflict);
-      _stateFor(_snippetPickerActionId).registeredHotKey = null;
+      setStatus(HotkeyRegistrationStatus.conflict);
+      _stateFor(actionId).registeredHotKey = null;
       final keyCode = key.keyId.toRadixString(16);
       _log.warning(
-        'Failed to register Snippet-Picker hotkey (key=0x$keyCode): $e '
+        'Failed to register $logName hotkey (key=0x$keyCode): $e '
         '— staying unregistered, no safe-default fallback',
       );
     }
   }
+
+  /// Re-registers the "next favorite language" hotkey with a new combination.
+  /// Toggle-only one-shot like the Snippet-Picker: no key-up is wired, and no
+  /// safe-default fallback on failure.
+  Future<void> updateLanguageCycleHotkey({
+    required LogicalKeyboardKey key,
+    List<HotKeyModifier> modifiers = const [],
+  }) => _registerToggleOnlyAction(
+    actionId: _languageCycleActionId,
+    handlerLabel: 'LanguageCycle',
+    logName: 'Language-cycle',
+    key: key,
+    modifiers: modifiers,
+    setStatus: _setLanguageCycleStatus,
+  );
 
   /// Re-registers the Smart-Mode hotkey (ticket 04) with a new combination.
   ///
@@ -845,6 +961,7 @@ class HotkeyService extends Notifier<void> {
   /// Escape itself via [registerInteractiveSnippetKeys]).
   Future<void> registerCancelDictationKey({
     required VoidCallback onCancel,
+    LogicalKeyboardKey key = LogicalKeyboardKey.escape,
   }) async {
     if (!_isDesktop) return;
     final epoch = ++_cancelDictationEpoch;
@@ -853,8 +970,8 @@ class HotkeyService extends Notifier<void> {
     _onCancelDictation = onCancel;
     await _registerSessionKeyGeneric(
       _cancelDictationActionId,
-      LogicalKeyboardKey.escape,
-      'Cancel dictation (Escape)',
+      key,
+      'Cancel dictation',
       epoch,
       () => epoch == _cancelDictationEpoch,
     );
@@ -1051,6 +1168,20 @@ class HotkeyService extends Notifier<void> {
     );
   }
 
+  /// Sibling of [_registerFromSettings] for the "next favorite language"
+  /// action.
+  Future<void> _registerLanguageCycleFromSettings(AppSettings settings) {
+    final stt = settings.stt;
+    return _registerSecondaryHotkeyFromSettings(
+      key: stt.languageCycleHotkeyKey,
+      modifiers: stt.languageCycleHotkeyModifiers,
+      update: updateLanguageCycleHotkey,
+      markInitialized: () => _languageCycleInitialized = true,
+      setStatus: _setLanguageCycleStatus,
+      label: 'Language-cycle',
+    );
+  }
+
   /// Sibling of [_registerFromSettings] for the Smart-Mode action
   /// (ticket 04).
   Future<void> _registerSmartModeFromSettings(AppSettings settings) {
@@ -1093,6 +1224,18 @@ class HotkeyService extends Notifier<void> {
     }
   }
 
+  /// Writes [globalHotkeyFallbackActiveProvider] — same standalone-test guard
+  /// as [_setStatus].
+  void _setFallbackActive(bool active) {
+    try {
+      ref.read(globalHotkeyFallbackActiveProvider.notifier).set(active);
+    } on Object catch (e) {
+      _log.debug(
+        'Hotkey fallback update skipped (standalone test instance): $e',
+      );
+    }
+  }
+
   /// Quick-note sibling of [_setStatus] — same standalone-test guard.
   void _setQuickNoteStatus(HotkeyRegistrationStatus status) {
     try {
@@ -1100,6 +1243,19 @@ class HotkeyService extends Notifier<void> {
     } on Object catch (e) {
       _log.debug(
         'Quick-note hotkey status update skipped (standalone test instance): $e',
+      );
+    }
+  }
+
+  /// Language-cycle sibling of [_setStatus] — same standalone-test guard.
+  void _setLanguageCycleStatus(HotkeyRegistrationStatus status) {
+    try {
+      ref
+          .read(languageCycleHotkeyRegistrationStatusProvider.notifier)
+          .set(status);
+    } on Object catch (e) {
+      _log.debug(
+        'Language-cycle hotkey status update skipped (standalone test instance): $e',
       );
     }
   }
@@ -1181,6 +1337,7 @@ class HotkeyService extends Notifier<void> {
       );
       _initialized = true;
       await _monitor.start(fallback);
+      _setFallbackActive(true);
       onRegistrationFailed?.call();
     } on Object catch (e) {
       // Even the fallback failed — log and leave the service in a non-crashing
@@ -1243,6 +1400,14 @@ class HotkeyService extends Notifier<void> {
       // (it doesn't start a recording at all, ticket 26), so the
       // hotkey→overlay latency marker doesn't apply.
       onSnippetPickerHotkeyPressed?.call();
+    } else if (actionId == _languageCycleActionId) {
+      // No perf mark: switching the language does not start a recording.
+      onLanguageCycleHotkeyPressed?.call();
+    } else if (actionId.startsWith(_profileActionPrefix)) {
+      // No perf mark: a profile switch changes settings, it starts nothing.
+      onProfileHotkeyPressed?.call(
+        actionId.substring(_profileActionPrefix.length),
+      );
     } else if (actionId == _smartModeActionId) {
       // Same t₀ stamp rationale as the quick-note action — this action also
       // drives the recording overlay.
@@ -1314,7 +1479,62 @@ class HotkeyService extends Notifier<void> {
     state.lastKeyDownAt = null;
   }
 
+  /// Makes the registered profile hotkeys match [entries]. A profile whose
+  /// combination is unchanged stays registered, so calling this again with the
+  /// same entries registers nothing; a removed or changed entry is unregistered
+  /// first. Returns the profile ids the OS refused.
+  Future<Set<String>> syncProfileHotkeys(
+    List<ProfileHotkeyEntry> entries,
+  ) async {
+    if (!_isDesktop) return const {};
+    final wanted = {for (final entry in entries) entry.actionId: entry};
+    for (final actionId in _profileRegistrations.keys.toList()) {
+      final target = wanted[actionId];
+      if (target != null &&
+          _profileRegistrations[actionId] == target.signature) {
+        continue;
+      }
+      await _unregisterProfileAction(actionId);
+    }
+    final refused = <String>{};
+    for (final entry in entries) {
+      if (_profileRegistrations.containsKey(entry.actionId)) continue;
+      if (!await _registerProfileHotkey(entry)) refused.add(entry.profileId);
+    }
+    return refused;
+  }
+
+  Future<bool> _registerProfileHotkey(ProfileHotkeyEntry entry) async {
+    final hotKey = HotKey(
+      key: resolveKey(entry.key),
+      modifiers: resolveModifiers(entry.modifiers),
+    );
+    _stateFor(entry.actionId).registeredHotKey = hotKey;
+    try {
+      await _registrar.register(
+        hotKey,
+        keyDownHandler: (_) => _handleKeyDown(entry.actionId, 'Profile'),
+      );
+      _profileRegistrations[entry.actionId] = entry.signature;
+      _log.info('Profile hotkey registered: ${entry.profileId}');
+      return true;
+    } on Object catch (e) {
+      _stateFor(entry.actionId).registeredHotKey = null;
+      _log.warning('Profile hotkey refused for ${entry.profileId}: $e');
+      return false;
+    }
+  }
+
+  Future<void> _unregisterProfileAction(String actionId) async {
+    await _unregisterAction(actionId, stopMonitor: false);
+    _profileRegistrations.remove(actionId);
+    _actionStates.remove(actionId);
+  }
+
   Future<void> _destroy() async {
+    for (final actionId in _profileRegistrations.keys.toList()) {
+      await _unregisterProfileAction(actionId);
+    }
     if (_initialized) {
       await _unregisterAction(_globalActionId, stopMonitor: true);
       _log.info('Global hotkey unregistered');
@@ -1326,6 +1546,10 @@ class HotkeyService extends Notifier<void> {
     if (_snippetPickerInitialized) {
       await _unregisterAction(_snippetPickerActionId, stopMonitor: false);
       _log.info('Snippet-Picker hotkey unregistered');
+    }
+    if (_languageCycleInitialized) {
+      await _unregisterAction(_languageCycleActionId, stopMonitor: false);
+      _log.info('Language-cycle hotkey unregistered');
     }
     if (_smartModeInitialized) {
       await _unregisterAction(_smartModeActionId, stopMonitor: false);

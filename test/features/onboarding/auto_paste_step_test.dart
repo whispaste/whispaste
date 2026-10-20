@@ -22,11 +22,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';
 import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
+import 'package:whispaste/services/desktop_paste/linux_desktop_paste_controller.dart';
+import 'package:whispaste/services/desktop_paste/linux_package_format.dart';
 import 'package:whispaste/services/paste/paste_capability_notifier.dart';
 import 'package:whispaste/services/paste/paster.dart';
 import 'package:whispaste/widgets/wp_button.dart';
@@ -137,6 +140,18 @@ class _FakePasteCapabilityNotifier extends PasteCapabilityNotifier {
     _isPollingFake = false;
   }
 
+  // The real reset only runs for a stale entry (see
+  // PasteCapabilityNotifier.staleEntryResetCandidate). These fakes model that
+  // evidence as present and route the confirmed reset straight to repair(),
+  // so the click -> repair path stays under test.
+  @override
+  bool get staleEntryResetCandidate => true;
+
+  @override
+  Future<TccRepairResult?> resetStaleEntry({
+    Future<bool> Function()? confirmReset,
+  }) => repair();
+
   @override
   Future<TccRepairResult> repair() async {
     repairCalls++;
@@ -238,7 +253,10 @@ void main() {
       await _pumpStep(tester, paste: paste);
 
       // Grant CTA shown.
-      expect(find.text(l10n.onboardingPasteGrantCta), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        findsOneWidget,
+      );
       // Skip secondary visible while not ready.
       expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
       // In the intro phase the permission status card is intentionally not
@@ -264,12 +282,15 @@ void main() {
       expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);
       // Skip and Grant disappear once the capability is ready.
       expect(find.text(l10n.onboardingPasteSkip), findsNothing);
-      expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
+      expect(
+        find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        findsNothing,
+      );
     });
 
     testWidgets(
-      'checking phase renders the pending chip label before the first '
-      'check resolves',
+      'checking phase shows the Auto-Paste permission row as pending before '
+      'the first check resolves',
       (tester) async {
         final paste = _FakePasteCapabilityNotifier(
           initial: const PasteCapabilityState(capability: null),
@@ -277,7 +298,13 @@ void main() {
 
         await _pumpStep(tester, paste: paste);
 
-        expect(find.text(l10n.onboardingPasteChipPending), findsOneWidget);
+        // The row carries the pending state; the card is dropped while
+        // checking so the status is not stated twice on the page.
+        expect(
+          find.byKey(const ValueKey('permissions-row-auto-paste')),
+          findsOneWidget,
+        );
+        expect(find.text(l10n.onboardingPasteChipPending), findsNothing);
       },
     );
 
@@ -395,7 +422,9 @@ void main() {
 
         // Simulate user clicking Grant → notifier.check(prompt: true) runs
         // and seeds the troubleshoot conditions via _afterPromptCheck.
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
         await tester.pump();
 
@@ -589,10 +618,8 @@ void main() {
         // localized Grant label. A `primary` WpButton since Ticket 15
         // demoted it from WpHeroButton, so that only the shell's Next button
         // is a hero (*The One-Loud-Action Rule*).
-        Finder grantButtonFinder() => find.ancestor(
-          of: find.text(l10n.onboardingPasteGrantCta),
-          matching: find.byType(WpButton),
-        );
+        Finder grantButtonFinder() =>
+            find.byKey(const ValueKey('permissions-row-auto-paste-action'));
 
         // Baseline: button is interactive before any tap.
         expect(
@@ -603,7 +630,9 @@ void main() {
         // Tap and flush the setState(grantInFlight=true) frame. The
         // gated check() leaves the rest of the chain suspended, so we can
         // observe the disabled state.
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
 
         expect(
@@ -653,7 +682,9 @@ void main() {
         await _pumpStep(tester, paste: paste);
 
         // First tap arms the busy state and suspends inside check().
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
 
         // Second tap while in-flight must be ignored. tester.tap fails on a
@@ -662,7 +693,7 @@ void main() {
         // attempt observable rather than a test failure — the assertion
         // below is what proves the no-op behaviour.
         await tester.tap(
-          find.text(l10n.onboardingPasteGrantCta),
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
           warnIfMissed: false,
         );
         await tester.pump();
@@ -1001,7 +1032,9 @@ void main() {
         // Kick polling on via the production grant path. Use sequential
         // pump() because pumpAndSettle would deadlock on the in-status
         // spinner that the polling badge keeps animating.
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
         await tester.pump();
         expect(
@@ -1052,7 +1085,9 @@ void main() {
         );
 
         await _pumpStep(tester, paste: paste);
-        await tester.tap(find.text(l10n.onboardingPasteGrantCta));
+        await tester.tap(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+        );
         await tester.pump();
         await tester.pump();
         expect(paste.isPolling, isTrue);
@@ -1092,6 +1127,273 @@ void main() {
   // it in `finally`. The fake notifier seeds the capability state — the real
   // Paster bridge stays untouched.
   // ---------------------------------------------------------------------------
+  group('AutoPasteStep — Linux (XP-5-05)', () {
+    final linux = TargetPlatformVariant.only(TargetPlatform.linux);
+    const copyButton = ValueKey('onboarding-paste-linux-copy-command');
+    const enableButton = ValueKey('onboarding-paste-linux-enable-button');
+    const fallbackNotice = ValueKey('onboarding-paste-linux-fallback-notice');
+    const skipButton = ValueKey('onboarding-paste-skip-button');
+    final copied = <String>[];
+
+    setUp(() {
+      copied.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied.add((call.arguments as Map)['text'] as String);
+            }
+            return null;
+          });
+    });
+
+    tearDown(() {
+      debugLinuxPackageFormatOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    _FakePasteCapabilityNotifier capability(PasteCapabilityStatus status) =>
+        _FakePasteCapabilityNotifier(
+          initial: PasteCapabilityState(
+            capability: PasteCapability(status: status),
+          ),
+        );
+
+    testWidgets(
+      'uinput writable: ready card and the enable switch, no setup '
+      'command',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(tester, paste: capability(PasteCapabilityStatus.ready));
+
+        expect(find.text(l10n.onboardingPasteChipReady), findsOneWidget);
+        expect(find.byKey(enableButton), findsOneWidget);
+        expect(find.byKey(copyButton), findsNothing);
+        expect(find.text(l10n.onboardingPasteSkip), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'no uinput access: says so honestly and offers the command, '
+      'never "works automatically"',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.permissionMissing),
+        );
+
+        expect(find.text(l10n.pasteFailureLinuxUinputHint), findsOneWidget);
+        // The sudo command is shown before it is copied (XP-6-04).
+        final command = tester.widget<SelectableText>(
+          find.byKey(const ValueKey('onboarding-paste-linux-command')),
+        );
+        expect(command.data, kLinuxUinputUdevCommand);
+        expect(
+          find.textContaining(l10n.onboardingPasteLinuxNative),
+          findsNothing,
+        );
+        expect(find.text(l10n.onboardingPasteChipReady), findsNothing);
+
+        await tester.tap(find.byKey(copyButton));
+        await tester.pump();
+        expect(copied, [kLinuxUinputUdevCommand]);
+        expect(find.text(l10n.historyCopiedToClipboard), findsOneWidget);
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+      },
+    );
+
+    testWidgets(
+      'no uinput access: switching on still works and names the '
+      'clipboard fallback',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        final handles = await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.permissionMissing),
+        );
+        expect(find.byKey(fallbackNotice), findsNothing);
+
+        await tester.tap(find.byKey(enableButton));
+        await tester.pumpAndSettle();
+
+        expect(
+          handles
+              .settings
+              .updates
+              .single
+              .afterTranscriptionSection
+              .afterTranscription,
+          'clipboard_and_paste',
+        );
+        expect(find.byKey(enableButton), findsNothing);
+        expect(
+          find.text(l10n.onboardingPasteLinuxClipboardFallback),
+          findsOneWidget,
+        );
+        // The setup command stays on the page after switching on.
+        expect(find.byKey(copyButton), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
+      },
+    );
+
+    testWidgets('snap: copies the interface command and keeps the snap hint', (
+      tester,
+    ) async {
+      debugLinuxPackageFormatOverride = LinuxPackageFormat.snap;
+      await _pumpStep(
+        tester,
+        paste: capability(PasteCapabilityStatus.permissionMissing),
+      );
+
+      expect(find.text(l10n.onboardingPasteLinuxSnap), findsOneWidget);
+      await tester.tap(find.byKey(copyButton));
+      await tester.pump();
+      expect(copied, [kSnapUinputConnectCommand]);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+    }, variant: linux);
+
+    testWidgets('uinput writable and Auto-Paste on: no fallback notice', (
+      tester,
+    ) async {
+      debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+      await _pumpStep(
+        tester,
+        paste: capability(PasteCapabilityStatus.ready),
+        settings: _RecordingSettingsNotifier(
+          const AppSettings(
+            afterTranscriptionSection: AfterTranscriptionSettings(
+              afterTranscription: 'clipboard_and_paste',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text(l10n.onboardingPasteWinOnTitle), findsOneWidget);
+      expect(find.byKey(fallbackNotice), findsNothing);
+      expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);
+    }, variant: linux);
+
+    // PAR-024: `unsupported` is what the Linux probe reports when
+    // /dev/uinput does not exist at all. The page must not call that ready.
+    testWidgets(
+      'no /dev/uinput device: says Auto-Paste is unavailable, never '
+      'ready, and offers no setup command',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.unsupported),
+        );
+
+        // On Linux the title names the state on this system, not the platform
+        // (UX-062 follow-up).
+        expect(find.text(l10n.pasteCapabilityUnavailableLinux), findsOneWidget);
+        expect(find.text(l10n.pasteCapabilityUnsupported), findsNothing);
+        expect(find.text(l10n.onboardingPasteChipReady), findsNothing);
+        expect(find.text(l10n.onboardingPasteWhyWin), findsNothing);
+        expect(find.byKey(copyButton), findsNothing);
+        // No fix exists from this page, so the enable action is hidden. The
+        // card says where the text goes instead (UX-062).
+        expect(find.byKey(enableButton), findsNothing);
+        expect(find.byKey(skipButton), findsOneWidget);
+        expect(
+          find.text(
+            l10n.onboardingPasteLinuxUnavailableDetail(
+              pasteShortcutLabel(l10n: l10n),
+            ),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'no /dev/uinput device on Snap: points to the one fix that exists, the '
+      'interface connect command',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.snap;
+        await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.unsupported),
+        );
+
+        expect(
+          find.textContaining('snap connect whispaste:uinput'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'no /dev/uinput device on native: shows no setup pointer, because the '
+      'udev rule cannot create a missing device (PAR-028)',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.unsupported),
+        );
+
+        expect(find.textContaining('udevadm'), findsNothing);
+        expect(find.textContaining('snap connect'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'no /dev/uinput device and Auto-Paste on: names the clipboard '
+      'fallback',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(
+          tester,
+          paste: capability(PasteCapabilityStatus.unsupported),
+          settings: _RecordingSettingsNotifier(
+            const AppSettings(
+              afterTranscriptionSection: AfterTranscriptionSettings(
+                afterTranscription: 'clipboard_and_paste',
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text(l10n.pasteCapabilityUnavailableLinux), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteWinOnTitle), findsNothing);
+        expect(
+          find.text(l10n.onboardingPasteLinuxClipboardFallback),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'probe not resolved yet: neutral check card, not the ready card',
+      variant: linux,
+      (tester) async {
+        debugLinuxPackageFormatOverride = LinuxPackageFormat.native;
+        await _pumpStep(
+          tester,
+          paste: _FakePasteCapabilityNotifier(
+            initial: const PasteCapabilityState(),
+          ),
+        );
+
+        expect(find.text(l10n.pasteCapabilityCheckTitle), findsOneWidget);
+        expect(find.text(l10n.onboardingPasteChipReady), findsNothing);
+        expect(find.byKey(copyButton), findsNothing);
+      },
+    );
+  });
+
   group('AutoPasteStep — Windows', () {
     testWidgets('ready first-mount (factory default = clipboard-only): '
         'ready card + enable CTA, no Skip, no macOS-specific '
@@ -1119,7 +1421,10 @@ void main() {
         expect(find.text(l10n.onboardingPasteSkip), findsNothing);
 
         // macOS-only affordances must not bleed into the Windows surface.
-        expect(find.text(l10n.onboardingPasteGrantCta), findsNothing);
+        expect(
+          find.byKey(const ValueKey('permissions-row-auto-paste-action')),
+          findsNothing,
+        );
         expect(find.text(l10n.pasteCapabilityRepairButton), findsNothing);
       } finally {
         debugDefaultTargetPlatformOverride = null;
@@ -1128,7 +1433,7 @@ void main() {
 
     testWidgets('ready + enable tap persists '
         'afterTranscription=clipboard_and_paste and flips the card to the '
-        'on state with the ghost opt-out', (tester) async {
+        'on state with the opt-out button', (tester) async {
       debugDefaultTargetPlatformOverride = TargetPlatform.windows;
       try {
         final paste = _FakePasteCapabilityNotifier(
@@ -1157,7 +1462,7 @@ void main() {
         );
 
         // Immediate visible feedback: the card flips to the on state and
-        // the way back (ghost opt-out) appears on the same page.
+        // the way back (opt-out button) appears on the same page.
         expect(find.text(l10n.onboardingPasteWinOnTitle), findsOneWidget);
         expect(find.text(l10n.onboardingPasteWinEnableCta), findsNothing);
         expect(find.text(l10n.onboardingPasteSkip), findsOneWidget);

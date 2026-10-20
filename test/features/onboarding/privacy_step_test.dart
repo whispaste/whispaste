@@ -65,6 +65,7 @@ Future<void> _pumpShellOnPrivacyPage(
   WidgetTester tester, {
   required Size size,
   TextScaler textScaler = TextScaler.noScaling,
+  Locale locale = const Locale('en'),
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -78,7 +79,7 @@ Future<void> _pumpShellOnPrivacyPage(
         child: const OnboardingOverlay(),
       ),
       size: size,
-      locale: const Locale('en'),
+      locale: locale,
       overrides: [
         settingsProvider.overrideWith(_FakeSettingsNotifier.new),
         micPermissionCheckerProvider.overrideWithValue(
@@ -281,6 +282,26 @@ void main() {
   // ── Layout — fixed onboarding window & enlarged system text ──────────────
 
   group('layout in the onboarding shell', () {
+    // UIA-RT-02: the three switches read as one column instead of each one
+    // hugging its own label at a different x.
+    for (final locale in const [Locale('en'), Locale('de')]) {
+      testWidgets('the switches line up in one column ($locale)', (
+        tester,
+      ) async {
+        await _pumpShellOnPrivacyPage(
+          tester,
+          size: kOnboardingWindowSize,
+          locale: locale,
+        );
+        final rights = tester
+            .widgetList<Switch>(find.byType(Switch))
+            .map((s) => tester.getTopRight(find.byWidget(s)).dx)
+            .toList();
+        expect(rights, hasLength(3));
+        expect(rights.toSet(), hasLength(1), reason: 'switch x: $rights');
+      });
+    }
+
     testWidgets(
       'fits the fixed onboarding window size (1100×720) without scrolling',
       (tester) async {

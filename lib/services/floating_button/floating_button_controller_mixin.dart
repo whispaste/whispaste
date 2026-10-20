@@ -31,6 +31,8 @@ mixin FloatingButtonControllerMixin
           return FloatingButtonDragEnded(x, y);
         }
         return null;
+      case 'onRenderFrame':
+        return const FloatingButtonRenderFrame();
       case 'onRenderEngineDiagnostic':
         final args = call.arguments as Map?;
         final message = (args?['message'] as String?) ?? 'unknown';

@@ -3,6 +3,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,8 +14,10 @@ import 'package:whispaste/core/feature_spotlight/feature_spotlight_notifier.dart
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/onboarding/onboarding_surface.dart';
 import 'package:whispaste/widgets/feature_spotlight_notice.dart';
+import 'package:whispaste/widgets/wp_button.dart';
 
 import '../fixtures/test_helpers.dart';
+import '../test_helpers/nudge_gate_open.dart';
 
 // ---------------------------------------------------------------------------
 // Fake notifiers
@@ -91,6 +94,7 @@ Future<_FakeFeatureSpotlightNotifier> _showDialog(
       const WpFeatureSpotlightWatcher(child: SizedBox()),
       locale: locale,
       overrides: [
+        nudgeGateOpenOverride(),
         featureSpotlightProvider.overrideWith(() => notifier),
         settingsProvider.overrideWith(() => settingsNotifier),
       ],
@@ -182,6 +186,7 @@ void main() {
             const WpFeatureSpotlightWatcher(child: SizedBox()),
             locale: const Locale('en'),
             overrides: [
+              nudgeGateOpenOverride(),
               featureSpotlightProvider.overrideWith(() => notifier),
               settingsProvider.overrideWith(() => settingsNotifier),
               onboardingRevisionRunProvider.overrideWith(
@@ -263,5 +268,33 @@ void main() {
         expect(fades.where((f) => f.opacity == 0).length, 1);
       },
     );
+  });
+
+  group('keyboard (UIA-R-CMP-048)', () {
+    testWidgets('Esc closes the spotlight and marks it as seen', (
+      tester,
+    ) async {
+      final notifier = await _showDialog(tester, [_entry('a')]);
+      expect(find.text('Title a'), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Title a'), findsNothing);
+      expect(notifier.dismissCallCount, 1);
+    });
+
+    testWidgets('the dismiss button holds focus when the spotlight opens', (
+      tester,
+    ) async {
+      final l10n = await L10n.delegate.load(const Locale('en'));
+      await _showDialog(tester, [_entry('a')]);
+
+      final focused = FocusManager.instance.primaryFocus?.context;
+      expect(
+        focused?.findAncestorWidgetOfExactType<WpButton>()?.label,
+        l10n.featureSpotlightDismiss,
+      );
+    });
   });
 }

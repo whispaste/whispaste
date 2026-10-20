@@ -1,8 +1,9 @@
 library;
 
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'
-    show FontLoader, LogicalKeyboardKey, rootBundle;
+import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -15,6 +16,7 @@ import 'package:whispaste/features/onboarding/steps/welcome_step.dart';
 import 'package:whispaste/widgets/language_selector.dart';
 
 import '../../fixtures/test_helpers.dart';
+import 'package:golden_screenshot/golden_screenshot.dart' show loadAppFonts;
 
 class FakeSettingsNotifier extends SettingsNotifier {
   FakeSettingsNotifier([AppSettings? settings])
@@ -34,6 +36,18 @@ class FakeSettingsNotifier extends SettingsNotifier {
 
 late L10n l10n;
 
+/// Beat 1 and 3 are Windows recordings, shown only on Windows (see
+/// onboardingBeatClipFitsPlatform). Pins the platform for the test body; the
+/// override must be cleared inside the body, not via addTearDown.
+Future<void> _onWindows(Future<void> Function() body) async {
+  debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+  try {
+    await body();
+  } finally {
+    debugDefaultTargetPlatformOverride = null;
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -43,12 +57,7 @@ void main() {
     // panel's geometry assertions below are only meaningful against real
     // metrics: with the test font the beat captions wrap to three lines that
     // never occur in the shipped app, which changes every height in the row.
-    final fontLoader = FontLoader('Inter')
-      ..addFont(rootBundle.load('assets/fonts/Inter-Regular.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Medium.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-SemiBold.ttf'))
-      ..addFont(rootBundle.load('assets/fonts/Inter-Bold.ttf'));
-    await fontLoader.load();
+    await loadAppFonts();
   });
 
   group('WelcomeStep', () {
@@ -369,6 +378,37 @@ void main() {
         expect(find.byKey(onboardingBeatMediaKey(0)), findsNothing);
       },
     );
+
+    testWidgets('beat 3 is a self-drawn illustration, not a window recording '
+        '(UX-016)', (tester) async {
+      final notifier = FakeSettingsNotifier(
+        const AppSettings(interface_: InterfaceSettings(locale: 'en')),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: WelcomeStep()),
+          size: const Size(1280, 980),
+          locale: const Locale('en'),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(onboardingBeatTileKey(2)));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(kOnboardingBeatIllustrationKey), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is Image &&
+              widget.image is AssetImage &&
+              (widget.image as AssetImage).assetName.contains('beat_3'),
+        ),
+        findsNothing,
+        reason: 'Beat 3 must not load a browser-chrome clip on any platform.',
+      );
+    });
   });
 
   // ── Page-1 geometry and the demo-clip seam (round 3) ────────────────────
@@ -449,73 +489,79 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('falls back to the beat icon when a clip fails to load — the '
-        'fallback is what lets this page ship before any recording exists, '
-        'and it is per variant, so a dark-only delivery still renders', (
-      tester,
-    ) async {
-      await pumpAtFrameWidth(tester);
+    testWidgets(
+      'falls back to the beat icon when a clip fails to load — the '
+      'fallback is what lets this page ship before any recording exists, '
+      'and it is per variant, so a dark-only delivery still renders',
+      (tester) => _onWindows(() async {
+        await pumpAtFrameWidth(tester);
 
-      final imageFinder = find.descendant(
-        of: find.byKey(onboardingBeatMediaKey(0)),
-        matching: find.byType(Image),
-      );
-      final image = tester.widget<Image>(imageFinder);
-      expect(
-        image.errorBuilder,
-        isNotNull,
-        reason:
-            'Without an errorBuilder a missing asset is an unhandled image '
-            'error, not a placeholder.',
-      );
+        final imageFinder = find.descendant(
+          of: find.byKey(onboardingBeatMediaKey(0)),
+          matching: find.byType(Image),
+        );
+        final image = tester.widget<Image>(imageFinder);
+        expect(
+          image.errorBuilder,
+          isNotNull,
+          reason:
+              'Without an errorBuilder a missing asset is an unhandled image '
+              'error, not a placeholder.',
+        );
 
-      // Exercise the fallback directly: whether the asset load rejects
-      // before or after a given pump depends on the real event loop, which
-      // fake-async pumping does not drive — asserting on that timing would
-      // make this test order-dependent rather than meaningful.
-      final fallback = image.errorBuilder!(
-        tester.element(imageFinder),
-        Exception('asset missing'),
-        null,
-      );
-      await tester.pumpWidget(
-        makeTestable(
-          fallback,
-          // Same override count as the first pump — Riverpod's ProviderScope
-          // asserts on that when the same scope element is reused.
-          overrides: [settingsProvider.overrideWith(FakeSettingsNotifier.new)],
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.byType(Icon), findsOneWidget);
-    });
-
-    testWidgets('asks for the loop variant normally and for the still variant '
-        'under reduced motion — an animated WebP cannot be paused, so the '
-        'accessibility flag has to pick a different file', (tester) async {
-      String assetOfActivePanel(WidgetTester tester) {
-        final image = tester.widget<Image>(
-          find.descendant(
-            of: find.byKey(onboardingBeatMediaKey(0)),
-            matching: find.byType(Image),
+        // Exercise the fallback directly: whether the asset load rejects
+        // before or after a given pump depends on the real event loop, which
+        // fake-async pumping does not drive — asserting on that timing would
+        // make this test order-dependent rather than meaningful.
+        final fallback = image.errorBuilder!(
+          tester.element(imageFinder),
+          Exception('asset missing'),
+          null,
+        );
+        await tester.pumpWidget(
+          makeTestable(
+            fallback,
+            // Same override count as the first pump — Riverpod's ProviderScope
+            // asserts on that when the same scope element is reused.
+            overrides: [
+              settingsProvider.overrideWith(FakeSettingsNotifier.new),
+            ],
           ),
         );
-        return (image.image as AssetImage).assetName;
-      }
+        await tester.pumpAndSettle();
 
-      await pumpAtFrameWidth(tester);
-      expect(
-        assetOfActivePanel(tester),
-        onboardingBeatAssetPath(index: 0, still: false),
-      );
+        expect(find.byType(Icon), findsOneWidget);
+      }),
+    );
 
-      await pumpAtFrameWidth(tester, disableAnimations: true);
-      expect(
-        assetOfActivePanel(tester),
-        onboardingBeatAssetPath(index: 0, still: true),
-      );
-    });
+    testWidgets(
+      'asks for the loop variant normally and for the still variant '
+      'under reduced motion — an animated WebP cannot be paused, so the '
+      'accessibility flag has to pick a different file',
+      (tester) => _onWindows(() async {
+        String assetOfActivePanel(WidgetTester tester) {
+          final image = tester.widget<Image>(
+            find.descendant(
+              of: find.byKey(onboardingBeatMediaKey(0)),
+              matching: find.byType(Image),
+            ),
+          );
+          return (image.image as AssetImage).assetName;
+        }
+
+        await pumpAtFrameWidth(tester);
+        expect(
+          assetOfActivePanel(tester),
+          onboardingBeatAssetPath(index: 0, still: false),
+        );
+
+        await pumpAtFrameWidth(tester, disableAnimations: true);
+        expect(
+          assetOfActivePanel(tester),
+          onboardingBeatAssetPath(index: 0, still: true),
+        );
+      }),
+    );
 
     // Removed 2026-08-11 (dark-only build): `follows the theme — a clip
     // recorded in dark mode must not be shown on a light page`.
@@ -529,8 +575,8 @@ void main() {
         'assets/onboarding/beat_1_loop_dark.webp',
       );
       expect(
-        onboardingBeatAssetPath(index: 2, still: true),
-        'assets/onboarding/beat_3_still_dark.webp',
+        onboardingBeatAssetPath(index: 1, still: true),
+        'assets/onboarding/beat_2_still_dark.webp',
       );
     });
   });

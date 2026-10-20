@@ -114,7 +114,7 @@ abstract class L10n {
   /// No description provided for @navHistory.
   ///
   /// In en, this message translates to:
-  /// **'History'**
+  /// **'Recordings'**
   String get navHistory;
 
   /// No description provided for @navNotes.
@@ -132,7 +132,7 @@ abstract class L10n {
   /// No description provided for @navReplacements.
   ///
   /// In en, this message translates to:
-  /// **'Replacements'**
+  /// **'Dictionary'**
   String get navReplacements;
 
   /// No description provided for @navSnippets.
@@ -144,14 +144,68 @@ abstract class L10n {
   /// No description provided for @navAnalytics.
   ///
   /// In en, this message translates to:
-  /// **'Analytics'**
+  /// **'Statistics'**
   String get navAnalytics;
 
-  /// No description provided for @navAbout.
+  /// No description provided for @navHelp.
   ///
   /// In en, this message translates to:
-  /// **'About'**
-  String get navAbout;
+  /// **'Help'**
+  String get navHelp;
+
+  /// No description provided for @actionOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get actionOpen;
+
+  /// Screen reader name of an open button that opens the named target, e.g. 'Open Privacy policy'.
+  ///
+  /// In en, this message translates to:
+  /// **'Open {name}'**
+  String actionOpenNamed(String name);
+
+  /// No description provided for @helpTabManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Handbook'**
+  String get helpTabManual;
+
+  /// No description provided for @helpTabIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Introduction'**
+  String get helpTabIntro;
+
+  /// No description provided for @helpTabSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Support'**
+  String get helpTabSupport;
+
+  /// No description provided for @helpTabDiagnostics.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics'**
+  String get helpTabDiagnostics;
+
+  /// No description provided for @manualSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search the handbook'**
+  String get manualSearchHint;
+
+  /// No description provided for @manualSearchEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No chapter matches this search.'**
+  String get manualSearchEmpty;
+
+  /// Live status under the handbook search: how many chapters match.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No chapters found} =1{1 chapter found} other{{count} chapters found}}'**
+  String manualSearchResultCount(int count);
 
   /// No description provided for @navFeedback.
   ///
@@ -162,7 +216,7 @@ abstract class L10n {
   /// No description provided for @pageHistoryTitle.
   ///
   /// In en, this message translates to:
-  /// **'History'**
+  /// **'Recordings'**
   String get pageHistoryTitle;
 
   /// No description provided for @pageSettingsTitle.
@@ -174,7 +228,7 @@ abstract class L10n {
   /// No description provided for @pageReplacementsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Replacements'**
+  /// **'Dictionary'**
   String get pageReplacementsTitle;
 
   /// No description provided for @pageAnalyticsTitle.
@@ -186,7 +240,7 @@ abstract class L10n {
   /// No description provided for @pageAboutTitle.
   ///
   /// In en, this message translates to:
-  /// **'About'**
+  /// **'About WhisPaste'**
   String get pageAboutTitle;
 
   /// No description provided for @pageFeedbackTitle.
@@ -210,19 +264,19 @@ abstract class L10n {
   /// No description provided for @historyPrivacyGateTitle.
   ///
   /// In en, this message translates to:
-  /// **'History hidden'**
+  /// **'Recordings hidden'**
   String get historyPrivacyGateTitle;
 
   /// No description provided for @historyPrivacyGateHint.
   ///
   /// In en, this message translates to:
-  /// **'Your past transcriptions stay hidden until you choose to show them.'**
+  /// **'Transcriptions and audio are only hidden, not deleted, until you choose to show them.'**
   String get historyPrivacyGateHint;
 
   /// No description provided for @historyPrivacyGateShow.
   ///
   /// In en, this message translates to:
-  /// **'Show history'**
+  /// **'Show recordings'**
   String get historyPrivacyGateShow;
 
   /// No description provided for @historySearch.
@@ -252,7 +306,7 @@ abstract class L10n {
   /// No description provided for @historyThisWeek.
   ///
   /// In en, this message translates to:
-  /// **'This Week'**
+  /// **'This week'**
   String get historyThisWeek;
 
   /// No description provided for @historyOlder.
@@ -330,7 +384,7 @@ abstract class L10n {
   /// No description provided for @historyDeletePermanently.
   ///
   /// In en, this message translates to:
-  /// **'Delete Permanently'**
+  /// **'Delete permanently'**
   String get historyDeletePermanently;
 
   /// No description provided for @historyUnarchive.
@@ -350,6 +404,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Export…'**
   String get historyExportAction;
+
+  /// Success toast after a history export. {path} is the full path of the written file.
+  ///
+  /// In en, this message translates to:
+  /// **'Exported to {path}'**
+  String historyExportDone(String path);
+
+  /// Error toast when a history export fails. Gives the next step instead of the raw system error.
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed. Check that the target folder is writable and try again.'**
+  String get historyExportFailed;
 
   /// No description provided for @historyCopyAsMarkdown.
   ///
@@ -378,7 +444,7 @@ abstract class L10n {
   /// No description provided for @historyModel.
   ///
   /// In en, this message translates to:
-  /// **'Model'**
+  /// **'Speech model'**
   String get historyModel;
 
   /// No description provided for @historyWords.
@@ -432,7 +498,7 @@ abstract class L10n {
   /// No description provided for @historySearchTranscriptions.
   ///
   /// In en, this message translates to:
-  /// **'Search transcriptions…'**
+  /// **'Search recordings…'**
   String get historySearchTranscriptions;
 
   /// No description provided for @historySearchFieldLabel.
@@ -462,7 +528,7 @@ abstract class L10n {
   /// No description provided for @historyNoResultsHint.
   ///
   /// In en, this message translates to:
-  /// **'No transcriptions match \"{query}\".\nTry a different search term.'**
+  /// **'No entries match \"{query}\".\nTry a different search term.'**
   String historyNoResultsHint(String query);
 
   /// No description provided for @historyTrashEmpty.
@@ -474,13 +540,13 @@ abstract class L10n {
   /// No description provided for @historyTrashEmptyHint.
   ///
   /// In en, this message translates to:
-  /// **'Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.'**
-  String get historyTrashEmptyHint;
+  /// **'Deleted transcriptions will appear here.\n{days, plural, =0{Items stay until you delete them for good.} =1{Items are permanently removed after 1 day.} other{Items are permanently removed after {days} days.}}'**
+  String historyTrashEmptyHint(int days);
 
   /// No description provided for @historyEmptyTrash.
   ///
   /// In en, this message translates to:
-  /// **'Empty Trash'**
+  /// **'Empty trash'**
   String get historyEmptyTrash;
 
   /// No description provided for @historyEmptyTrashConfirm.
@@ -492,13 +558,25 @@ abstract class L10n {
   /// No description provided for @historyEmptyTrashConfirmMessage.
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete all items in the trash. This action cannot be undone.'**
-  String get historyEmptyTrashConfirmMessage;
+  /// **'{count, plural, =1{1 transcription will be permanently deleted. Any saved audio file for it is removed no later than 30 days after recording. This action cannot be undone.} other{{count} transcriptions will be permanently deleted. Any saved audio files for them are removed no later than 30 days after recording. This action cannot be undone.}}'**
+  String historyEmptyTrashConfirmMessage(int count);
+
+  /// No description provided for @historyDeletePermanentlyConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete permanently?'**
+  String get historyDeletePermanentlyConfirm;
+
+  /// No description provided for @historyDeletePermanentlyConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 transcription and its saved audio will be permanently deleted. This action cannot be undone.} other{{count} transcriptions and their saved audio will be permanently deleted. This action cannot be undone.}}'**
+  String historyDeletePermanentlyConfirmMessage(int count);
 
   /// Success toast after emptying the trash. The count is a placeholder inside the message rather than a parenthesis appended in Dart: a translator has to be able to move it (Hebrew reads right-to-left, so a trailing '(3)' lands on the wrong side of the sentence) and to choose the plural form for it.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{Trash emptied — 1 entry deleted} other{Trash emptied — {count} entries deleted}}'**
+  /// **'{count, plural, =1{Trash emptied — 1 transcription deleted} other{Trash emptied — {count} transcriptions deleted}}'**
   String historyTrashEmptied(int count);
 
   /// No description provided for @historyNoArchivedItems.
@@ -567,6 +645,30 @@ abstract class L10n {
   /// **'Moved to trash'**
   String get historyMovedToTrash;
 
+  /// Confirmation after a single entry is restored from the trash or taken out of the archive.
+  ///
+  /// In en, this message translates to:
+  /// **'Restored'**
+  String get historyRestored;
+
+  /// No description provided for @historyBulkArchived.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 transcription archived} other{{count} transcriptions archived}}'**
+  String historyBulkArchived(int count);
+
+  /// No description provided for @historyBulkMovedToTrash.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 transcription moved to trash} other{{count} transcriptions moved to trash}}'**
+  String historyBulkMovedToTrash(int count);
+
+  /// No description provided for @historyBulkRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 transcription restored} other{{count} transcriptions restored}}'**
+  String historyBulkRestored(int count);
+
   /// No description provided for @historyUndo.
   ///
   /// In en, this message translates to:
@@ -627,16 +729,46 @@ abstract class L10n {
   /// **'Untitled'**
   String get historyUntitled;
 
+  /// Action in an empty history filter view that resets the filter to All.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all'**
+  String get historyShowAll;
+
+  /// Tooltip and screen reader name of the overflow menu in the history detail header.
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get historyMoreActions;
+
+  /// Field label 'Tags' in the Markdown copy of a history entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get historyMdTags;
+
+  /// Field label 'Date' in the Markdown copy of a history entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get historyMdDate;
+
+  /// Field label 'Model' in the Markdown copy of a history entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Model'**
+  String get historyMdModel;
+
   /// No description provided for @historyPinToTop.
   ///
   /// In en, this message translates to:
-  /// **'Add to Favorites'**
+  /// **'Add to favorites'**
   String get historyPinToTop;
 
   /// No description provided for @historyUnpin.
   ///
   /// In en, this message translates to:
-  /// **'Remove from Favorites'**
+  /// **'Remove from favorites'**
   String get historyUnpin;
 
   /// No description provided for @historyCopyText.
@@ -666,13 +798,13 @@ abstract class L10n {
   /// No description provided for @historySelectAll.
   ///
   /// In en, this message translates to:
-  /// **'Select All'**
+  /// **'Select all'**
   String get historySelectAll;
 
   /// No description provided for @historyDeselectAll.
   ///
   /// In en, this message translates to:
-  /// **'Deselect All'**
+  /// **'Deselect all'**
   String get historyDeselectAll;
 
   /// No description provided for @settingsInterface.
@@ -687,16 +819,28 @@ abstract class L10n {
   /// **'Appearance and behavior'**
   String get settingsInterfaceSubtitle;
 
+  /// Switch in Interface settings that lifts a 'Never ask again' choice for the rating reminder.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the rating reminder again'**
+  String get settingsReviewPromptRestore;
+
+  /// Subtitle of the rating reminder switch: explains that the usual pauses still apply.
+  ///
+  /// In en, this message translates to:
+  /// **'You chose “Never ask again”. Turning this on allows the reminder again; the usual pauses still apply.'**
+  String get settingsReviewPromptRestoreSubtitle;
+
   /// No description provided for @settingsLaunchAtStartup.
   ///
   /// In en, this message translates to:
-  /// **'Launch at Startup'**
+  /// **'Launch at startup'**
   String get settingsLaunchAtStartup;
 
   /// No description provided for @settingsStartMinimized.
   ///
   /// In en, this message translates to:
-  /// **'Start Minimized'**
+  /// **'Start minimized'**
   String get settingsStartMinimized;
 
   /// No description provided for @settingsStartMinimizedSubtitle.
@@ -732,19 +876,19 @@ abstract class L10n {
   /// No description provided for @settingsShowNotifications.
   ///
   /// In en, this message translates to:
-  /// **'Show Notifications'**
+  /// **'Show notifications'**
   String get settingsShowNotifications;
 
   /// No description provided for @settingsShowBackendUtilization.
   ///
   /// In en, this message translates to:
-  /// **'CPU/GPU indicator in status bar'**
+  /// **'Processing indicator in status bar'**
   String get settingsShowBackendUtilization;
 
   /// No description provided for @settingsShowBackendUtilizationSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Shows whether transcription is really running on CPU or GPU, plus utilization'**
+  /// **'Shows whether the processor or the graphics card is doing the work.'**
   String get settingsShowBackendUtilizationSubtitle;
 
   /// No description provided for @settingsAudio.
@@ -768,7 +912,7 @@ abstract class L10n {
   /// No description provided for @settingsGain.
   ///
   /// In en, this message translates to:
-  /// **'Microphone Volume'**
+  /// **'Microphone sensitivity'**
   String get settingsGain;
 
   /// No description provided for @settingsClippingBanner.
@@ -786,7 +930,7 @@ abstract class L10n {
   /// No description provided for @settingsHoldToRecord.
   ///
   /// In en, this message translates to:
-  /// **'Hold to Record'**
+  /// **'Hold to record'**
   String get settingsHoldToRecord;
 
   /// No description provided for @pushToTalkUnavailableTooltip.
@@ -798,7 +942,7 @@ abstract class L10n {
   /// Tooltip on the disabled push-to-talk switch on Linux when neither XInput2 nor the GlobalShortcuts portal reports key-up. Keep the CLI command whispaste --toggle untranslated.
   ///
   /// In en, this message translates to:
-  /// **'Your desktop doesn\'t report key releases here. Bind “whispaste --toggle” to a shortcut in your system settings instead.'**
+  /// **'Your desktop doesn\'t report key releases here. Bind “whispaste --toggle” to a key combination in your system settings instead.'**
   String get pushToTalkUnavailableLinuxTooltip;
 
   /// Badge next to a settings option that works but is not yet verified on every desktop (e.g. Linux push-to-talk).
@@ -810,7 +954,7 @@ abstract class L10n {
   /// No description provided for @settingsHoldOrTap.
   ///
   /// In en, this message translates to:
-  /// **'Tap or Hold'**
+  /// **'Tap or hold'**
   String get settingsHoldOrTap;
 
   /// No description provided for @settingsHoldOrTapHint.
@@ -822,7 +966,7 @@ abstract class L10n {
   /// No description provided for @settingsSpeechRecognition.
   ///
   /// In en, this message translates to:
-  /// **'Speech Recognition'**
+  /// **'Speech recognition'**
   String get settingsSpeechRecognition;
 
   /// No description provided for @settingsSpeechRecognitionSubtitle.
@@ -834,19 +978,19 @@ abstract class L10n {
   /// No description provided for @settingsService.
   ///
   /// In en, this message translates to:
-  /// **'Service'**
+  /// **'Recognition runs on'**
   String get settingsService;
 
   /// No description provided for @settingsQuality.
   ///
   /// In en, this message translates to:
-  /// **'Quality'**
+  /// **'Speed & accuracy'**
   String get settingsQuality;
 
   /// No description provided for @settingsRecordingSafety.
   ///
   /// In en, this message translates to:
-  /// **'Recording Safety'**
+  /// **'Recording safety'**
   String get settingsRecordingSafety;
 
   /// No description provided for @settingsRecordingSafetySubtitle.
@@ -858,7 +1002,7 @@ abstract class L10n {
   /// No description provided for @settingsDeadMicTimeout.
   ///
   /// In en, this message translates to:
-  /// **'Silent Mic Detection'**
+  /// **'Silent mic detection'**
   String get settingsDeadMicTimeout;
 
   /// No description provided for @settingsDeadMicTimeoutHint.
@@ -870,7 +1014,7 @@ abstract class L10n {
   /// No description provided for @settingsAutoStopSilence.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Stop After Silence'**
+  /// **'Auto-Stop after silence'**
   String get settingsAutoStopSilence;
 
   /// No description provided for @settingsAutoStopSilenceHint.
@@ -894,7 +1038,7 @@ abstract class L10n {
   /// No description provided for @settingsMicSystemDefault.
   ///
   /// In en, this message translates to:
-  /// **'System Default'**
+  /// **'System default'**
   String get settingsMicSystemDefault;
 
   /// No description provided for @settingsMicSystemHint.
@@ -906,7 +1050,7 @@ abstract class L10n {
   /// No description provided for @settingsServiceOnDevicePrivate.
   ///
   /// In en, this message translates to:
-  /// **'Locally on Device'**
+  /// **'Locally on device'**
   String get settingsServiceOnDevicePrivate;
 
   /// No description provided for @settingsLanguageAutoDetect.
@@ -948,7 +1092,7 @@ abstract class L10n {
   /// No description provided for @settingsSoundFeedback.
   ///
   /// In en, this message translates to:
-  /// **'Sound & Feedback'**
+  /// **'Sound & feedback'**
   String get settingsSoundFeedback;
 
   /// No description provided for @settingsSoundFeedbackSubtitle.
@@ -966,37 +1110,37 @@ abstract class L10n {
   /// No description provided for @settingsRecordStartSound.
   ///
   /// In en, this message translates to:
-  /// **'Record Start Sound'**
+  /// **'Record start sound'**
   String get settingsRecordStartSound;
 
   /// No description provided for @settingsRecordStopSound.
   ///
   /// In en, this message translates to:
-  /// **'Record Stop Sound'**
+  /// **'Record stop sound'**
   String get settingsRecordStopSound;
 
   /// No description provided for @settingsTranscriptionCompleteSound.
   ///
   /// In en, this message translates to:
-  /// **'Transcription Complete Sound'**
+  /// **'Transcription complete sound'**
   String get settingsTranscriptionCompleteSound;
 
   /// No description provided for @settingsDurationWarningSound.
   ///
   /// In en, this message translates to:
-  /// **'Duration Limit Warning'**
+  /// **'Duration limit warning'**
   String get settingsDurationWarningSound;
 
   /// No description provided for @settingsSoundVolume.
   ///
   /// In en, this message translates to:
-  /// **'Sound Volume'**
+  /// **'Sound volume'**
   String get settingsSoundVolume;
 
   /// No description provided for @settingsAfterTranscription.
   ///
   /// In en, this message translates to:
-  /// **'After Transcription'**
+  /// **'After transcription'**
   String get settingsAfterTranscription;
 
   /// No description provided for @settingsAfterTranscriptionSubtitle.
@@ -1008,19 +1152,19 @@ abstract class L10n {
   /// No description provided for @settingsAfterTranscriptionActionLabel.
   ///
   /// In en, this message translates to:
-  /// **'Action'**
+  /// **'After recording'**
   String get settingsAfterTranscriptionActionLabel;
 
   /// No description provided for @settingsAfterTranscriptionClipboard.
   ///
   /// In en, this message translates to:
-  /// **'Copy to Clipboard'**
+  /// **'Copy to clipboard'**
   String get settingsAfterTranscriptionClipboard;
 
   /// No description provided for @settingsAfterTranscriptionPaste.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste at Cursor'**
+  /// **'Auto-Paste at cursor'**
   String get settingsAfterTranscriptionPaste;
 
   /// No description provided for @settingsAfterTranscriptionBoth.
@@ -1032,7 +1176,7 @@ abstract class L10n {
   /// No description provided for @settingsAfterTranscriptionNothing.
   ///
   /// In en, this message translates to:
-  /// **'Do Nothing'**
+  /// **'Do nothing'**
   String get settingsAfterTranscriptionNothing;
 
   /// No description provided for @pasteFailurePermissionMissing.
@@ -1056,8 +1200,8 @@ abstract class L10n {
   /// No description provided for @pasteFailureGeneric.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste failed. The transcript is on the clipboard, paste it manually with ⌘V / Ctrl+V.'**
-  String get pasteFailureGeneric;
+  /// **'Auto-Paste failed. The transcript is on the clipboard, paste it manually with {paste}.'**
+  String pasteFailureGeneric(String paste);
 
   /// No description provided for @pasteFailureOpenSettings.
   ///
@@ -1065,10 +1209,22 @@ abstract class L10n {
   /// **'Open Settings'**
   String get pasteFailureOpenSettings;
 
+  /// No description provided for @pendingAudioSaveLater.
+  ///
+  /// In en, this message translates to:
+  /// **'The recording could not be saved to Recordings. The audio is kept and saved again the next time WhisPaste starts.'**
+  String get pendingAudioSaveLater;
+
+  /// No description provided for @pendingAudioRecovered.
+  ///
+  /// In en, this message translates to:
+  /// **'A recording that could not be saved before is now in Recordings.'**
+  String get pendingAudioRecovered;
+
   /// No description provided for @pasteNotificationNoTargetTitle.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste: Auto-Paste Skipped'**
+  /// **'WhisPaste: Auto-Paste skipped'**
   String get pasteNotificationNoTargetTitle;
 
   /// No description provided for @pasteNotificationNoTargetBody.
@@ -1080,13 +1236,25 @@ abstract class L10n {
   /// No description provided for @pasteNotificationNoTargetTray.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste: Target App Missing'**
+  /// **'Auto-Paste: Target app missing'**
   String get pasteNotificationNoTargetTray;
+
+  /// No description provided for @silentMicrophoneNotificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste: No microphone signal'**
+  String get silentMicrophoneNotificationTitle;
+
+  /// No description provided for @silentMicrophoneNotificationBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The microphone delivers no sound. Check the selected microphone or whether it is muted. Recording continues.'**
+  String get silentMicrophoneNotificationBody;
 
   /// No description provided for @pasteNotificationRestartNeededTitle.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste: Restart Needed'**
+  /// **'WhisPaste: Restart needed'**
   String get pasteNotificationRestartNeededTitle;
 
   /// No description provided for @pasteNotificationRestartNeededBody.
@@ -1098,13 +1266,13 @@ abstract class L10n {
   /// No description provided for @pasteNotificationRestartNeededTray.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste Blocked — Restart Needed'**
+  /// **'Auto-Paste blocked — restart needed'**
   String get pasteNotificationRestartNeededTray;
 
   /// No description provided for @pasteNotificationPermissionBlockedTitle.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste: Auto-Paste Blocked'**
+  /// **'WhisPaste: Auto-Paste blocked'**
   String get pasteNotificationPermissionBlockedTitle;
 
   /// No description provided for @pasteNotificationPermissionResetEntryBody.
@@ -1122,13 +1290,13 @@ abstract class L10n {
   /// No description provided for @pasteNotificationPermissionBlockedTray.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste Blocked — Open System Settings'**
+  /// **'Auto-Paste blocked — open System Settings'**
   String get pasteNotificationPermissionBlockedTray;
 
   /// No description provided for @pasteNotificationElevationBlockedTitle.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste: Auto-Paste Blocked'**
+  /// **'WhisPaste: Auto-Paste blocked'**
   String get pasteNotificationElevationBlockedTitle;
 
   /// No description provided for @pasteNotificationElevationBlockedBody.
@@ -1140,26 +1308,50 @@ abstract class L10n {
   /// No description provided for @pasteNotificationElevationBlockedTray.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste Blocked — Administrator Needed'**
+  /// **'Auto-Paste blocked — administrator needed'**
   String get pasteNotificationElevationBlockedTray;
 
   /// No description provided for @pasteNotificationFailedTitle.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste: Auto-Paste Failed'**
+  /// **'WhisPaste: Auto-Paste failed'**
   String get pasteNotificationFailedTitle;
 
   /// No description provided for @pasteNotificationFailedBody.
   ///
   /// In en, this message translates to:
-  /// **'The system rejected the paste. The text is on the clipboard — paste it manually with ⌘V / Ctrl+V.'**
-  String get pasteNotificationFailedBody;
+  /// **'The system blocked the paste key. The text is on the clipboard. Paste it yourself with {paste}.'**
+  String pasteNotificationFailedBody(String paste);
 
   /// No description provided for @pasteNotificationFailedTray.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste Failed'**
+  /// **'Auto-Paste failed'**
   String get pasteNotificationFailedTray;
+
+  /// No description provided for @pasteNotificationLinuxUinputBody.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste can\'t use the virtual keyboard device /dev/uinput yet. The text is on the clipboard, paste it with {paste}. Click here for the command that sets this up once.'**
+  String pasteNotificationLinuxUinputBody(String paste);
+
+  /// No description provided for @pasteNotificationLinuxUinputTray.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste blocked — setup needed'**
+  String get pasteNotificationLinuxUinputTray;
+
+  /// No description provided for @pasteNotificationLinuxNoDeviceBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste unavailable: this system has no virtual keyboard device for it. The text is on the clipboard, paste it with {paste}. Click here for the Auto-Paste settings.'**
+  String pasteNotificationLinuxNoDeviceBody(String paste);
+
+  /// No description provided for @pasteNotificationLinuxNoDeviceTray.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste unavailable'**
+  String get pasteNotificationLinuxNoDeviceTray;
 
   /// No description provided for @pasteCapabilityCheckTitle.
   ///
@@ -1176,7 +1368,7 @@ abstract class L10n {
   /// No description provided for @pasteCapabilityReadySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Your dictation lands right at the cursor.'**
+  /// **'Your text lands right at the cursor.'**
   String get pasteCapabilityReadySubtitle;
 
   /// No description provided for @pasteCapabilityPermissionMissing.
@@ -1190,6 +1382,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Auto-Paste is not available on this platform'**
   String get pasteCapabilityUnsupported;
+
+  /// No description provided for @pasteCapabilityUnavailableLinux.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-paste isn\'t possible here right now'**
+  String get pasteCapabilityUnavailableLinux;
 
   /// No description provided for @pasteCapabilityTestButton.
   ///
@@ -1356,7 +1554,7 @@ abstract class L10n {
   /// No description provided for @autoPasteGateAlertBody.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste inserts your dictation right at the cursor. macOS requires one switch for that which only you can flip: System Settings → Privacy & Security → Accessibility. Confirm to open exactly that page — WhisPaste detects your approval automatically and restarts itself afterwards if needed.'**
+  /// **'WhisPaste inserts your text right at the cursor. macOS requires one switch for that which only you can flip: System Settings → Privacy & Security → Accessibility. Confirm to open exactly that page — WhisPaste detects your approval automatically and restarts itself afterwards if needed.'**
   String get autoPasteGateAlertBody;
 
   /// No description provided for @autoPasteGateAlertConfirm.
@@ -1410,8 +1608,14 @@ abstract class L10n {
   /// No description provided for @onboardingPasteSubtitleWin.
   ///
   /// In en, this message translates to:
-  /// **'No permission needed on Windows — just choose whether WhisPaste should insert dictated text for you.'**
+  /// **'No permission needed on Windows — just choose whether WhisPaste should insert your text for you.'**
   String get onboardingPasteSubtitleWin;
+
+  /// Auto-Paste page subtitle on Linux, which has no system permission dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'On Linux no system dialog asks for permission. Below you can see whether you need to set up anything for it.'**
+  String get onboardingPasteSubtitleLinux;
 
   /// No description provided for @onboardingPasteChipReady.
   ///
@@ -1452,13 +1656,13 @@ abstract class L10n {
   /// No description provided for @onboardingPasteWhyWin.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste presses Ctrl+V for you after each dictation, so the text lands right where you\'re typing. Verified working on this machine — turn it on below.'**
+  /// **'Auto-Paste presses Ctrl+V for you after each recording, so the text lands right where you\'re typing. Verified working on this machine — turn it on below.'**
   String get onboardingPasteWhyWin;
 
   /// No description provided for @onboardingPasteWhyWinUipi.
   ///
   /// In en, this message translates to:
-  /// **'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work. The text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.'**
+  /// **'In programs running as administrator, Auto-Paste won\'t work. The text then stays on the clipboard, and you paste it yourself with Ctrl+V.'**
   String get onboardingPasteWhyWinUipi;
 
   /// No description provided for @onboardingPasteWinOnTitle.
@@ -1470,8 +1674,32 @@ abstract class L10n {
   /// No description provided for @onboardingPasteWinOnDetail.
   ///
   /// In en, this message translates to:
-  /// **'After each dictation, WhisPaste presses Ctrl+V for you — the text lands right at your cursor. A copy stays on the clipboard, too.'**
+  /// **'After each recording, WhisPaste presses Ctrl+V for you — the text lands right at your cursor. A copy stays on the clipboard, too.'**
   String get onboardingPasteWinOnDetail;
+
+  /// No description provided for @onboardingPasteLinuxNative.
+  ///
+  /// In en, this message translates to:
+  /// **'On this system auto-paste works automatically. WhisPaste pastes the text at the cursor after each recording.'**
+  String get onboardingPasteLinuxNative;
+
+  /// No description provided for @onboardingPasteLinuxFlatpak.
+  ///
+  /// In en, this message translates to:
+  /// **'In the Flatpak build, --device=all makes /dev/input/* and /dev/uinput visible inside the sandbox. WhisPaste itself reads no input devices. If your user has read rights on the host (e.g. as a member of the input group), the app could read keystrokes of other programs. Members of the input group can also generate virtual input. Auto-paste also needs write access to /dev/uinput on the host: install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/ and run: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. The rule gives write access to the logged-in user and to every member of the input group. These commands need administrator rights (sudo) and change the system. If you do not want this, leave auto-paste off and paste the text by hand.'**
+  String get onboardingPasteLinuxFlatpak;
+
+  /// No description provided for @onboardingPasteLinuxSnap.
+  ///
+  /// In en, this message translates to:
+  /// **'In the Snap build, run this once in a terminal: sudo snap connect whispaste:uinput. Until then, auto-paste only copies the text.'**
+  String get onboardingPasteLinuxSnap;
+
+  /// No description provided for @onboardingPasteLinuxAppImage.
+  ///
+  /// In en, this message translates to:
+  /// **'The AppImage needs access to /dev/uinput (the virtual keyboard device). Recommended: install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/ and run: sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput. The rule gives write access to the logged-in user and to every member of the input group, so every member can generate virtual input (e.g. simulated key presses). Alternative: sudo usermod -aG input \$USER, then sign out and back in. Members of the input group can also read the keystrokes of all input devices, including those of other programs. These commands need administrator rights (sudo) and change the system. Until then, auto-paste only copies the text.'**
+  String get onboardingPasteLinuxAppImage;
 
   /// No description provided for @onboardingPasteWinEnableCta.
   ///
@@ -1482,8 +1710,20 @@ abstract class L10n {
   /// No description provided for @onboardingPasteWinAdminCaveat.
   ///
   /// In en, this message translates to:
-  /// **'Apps running as administrator don\'t accept simulated keystrokes — there your text stays on the clipboard, ready to paste with Ctrl+V.'**
+  /// **'In programs running as administrator, Auto-Paste won\'t work. The text then stays on the clipboard, and you paste it yourself with Ctrl+V.'**
   String get onboardingPasteWinAdminCaveat;
+
+  /// No description provided for @onboardingPasteLinuxClipboardFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste is on. Until access is set up, WhisPaste puts the text on the clipboard, and you paste it yourself with Ctrl+V.'**
+  String get onboardingPasteLinuxClipboardFallback;
+
+  /// No description provided for @onboardingPasteLinuxUnavailableDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'The text goes to the clipboard. Paste it with {shortcut}.'**
+  String onboardingPasteLinuxUnavailableDetail(Object shortcut);
 
   /// No description provided for @onboardingPasteWaitingForGrantTitle.
   ///
@@ -1542,7 +1782,7 @@ abstract class L10n {
   /// No description provided for @settingsOverlayFloatingButton.
   ///
   /// In en, this message translates to:
-  /// **'Recording Overlay'**
+  /// **'Recording overlay'**
   String get settingsOverlayFloatingButton;
 
   /// No description provided for @settingsOverlayFloatingButtonSubtitle.
@@ -1566,7 +1806,7 @@ abstract class L10n {
   /// No description provided for @settingsOverlayModeFloating.
   ///
   /// In en, this message translates to:
-  /// **'Floating window (always visible)'**
+  /// **'Floating (always visible)'**
   String get settingsOverlayModeFloating;
 
   /// No description provided for @settingsOverlayModeOff.
@@ -1584,7 +1824,7 @@ abstract class L10n {
   /// No description provided for @settingsOverlayStartPositionSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Where the floating overlay appears when recording starts'**
+  /// **'Where the recording overlay appears when recording starts'**
   String get settingsOverlayStartPositionSubtitle;
 
   /// No description provided for @settingsOverlayStartTopCenter.
@@ -1608,7 +1848,7 @@ abstract class L10n {
   /// No description provided for @settingsShowFloatingButton.
   ///
   /// In en, this message translates to:
-  /// **'Floating recording button'**
+  /// **'Floating button'**
   String get settingsShowFloatingButton;
 
   /// No description provided for @settingsShowFloatingButtonSubtitle.
@@ -1626,13 +1866,13 @@ abstract class L10n {
   /// No description provided for @settingsRecognitionLanguage.
   ///
   /// In en, this message translates to:
-  /// **'Recognition Language'**
+  /// **'Recognition language'**
   String get settingsRecognitionLanguage;
 
   /// No description provided for @settingsCustomVocabulary.
   ///
   /// In en, this message translates to:
-  /// **'Custom Vocabulary'**
+  /// **'Custom vocabulary'**
   String get settingsCustomVocabulary;
 
   /// No description provided for @settingsCustomVocabularyHint.
@@ -1650,13 +1890,13 @@ abstract class L10n {
   /// No description provided for @settingsCustomVocabularyBudgetCounter.
   ///
   /// In en, this message translates to:
-  /// **'~{count} / {budget} tokens'**
+  /// **'~{count} of {budget} used'**
   String settingsCustomVocabularyBudgetCounter(int count, int budget);
 
   /// No description provided for @settingsCustomVocabularyBudgetWarning.
   ///
   /// In en, this message translates to:
-  /// **'Long entries may be shortened automatically — only roughly the first {budget} tokens are used.'**
+  /// **'If the list takes up more than {budget}, the rest is left out automatically.'**
   String settingsCustomVocabularyBudgetWarning(int budget);
 
   /// No description provided for @settingsPunctuationPriming.
@@ -1668,7 +1908,7 @@ abstract class L10n {
   /// No description provided for @settingsPunctuationPrimingSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.'**
+  /// **'Makes the recognition more likely to add punctuation when no custom vocabulary is set. Speed is not affected.'**
   String get settingsPunctuationPrimingSubtitle;
 
   /// No description provided for @settingsVadEnabled.
@@ -1680,7 +1920,7 @@ abstract class L10n {
   /// No description provided for @settingsVadEnabledSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Removes long silence/noise at the end of a recording before Whisper decodes it, so it can\'t fabricate a closing sentence there (e.g. \"Thanks for watching\"-style hallucinations). Negligible cost, off if you\'d rather keep Whisper\'s raw output.'**
+  /// **'Cuts long silence and noise at the end of a recording, so the recognition can\'t invent a closing sentence (e.g. “Thanks for watching”).'**
   String get settingsVadEnabledSubtitle;
 
   /// No description provided for @settingsStripPunctuation.
@@ -1692,7 +1932,7 @@ abstract class L10n {
   /// No description provided for @settingsStripPunctuationSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Removes periods, commas, and other sentence punctuation from every transcript before it\'s saved or pasted. Works the same way for every engine and provider, not just Whisper.'**
+  /// **'Removes periods, commas, and other sentence punctuation from every transcript before it\'s saved or pasted. Numbers like 3.5 stay as they are. Works the same for every recognition method.'**
   String get settingsStripPunctuationSubtitle;
 
   /// No description provided for @settingsNumericOnlyMode.
@@ -1731,28 +1971,40 @@ abstract class L10n {
   /// **'Turns spoken commands such as \"new paragraph\" and \"new line\" into real line breaks. Uses the transcription language, or all supported languages with auto-detect.'**
   String get settingsVoiceLineBreaksSubtitle;
 
+  /// No description provided for @settingsSpokenPunctuation.
+  ///
+  /// In en, this message translates to:
+  /// **'Spoken punctuation'**
+  String get settingsSpokenPunctuation;
+
+  /// No description provided for @settingsSpokenPunctuationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'If you say \"comma\" or \"full stop\" as a word in a sentence, check the text afterwards.'**
+  String get settingsSpokenPunctuationSubtitle;
+
   /// No description provided for @settingsAppLanguage.
   ///
   /// In en, this message translates to:
-  /// **'App Language'**
+  /// **'App language'**
   String get settingsAppLanguage;
 
   /// No description provided for @settingsSttModels.
   ///
   /// In en, this message translates to:
-  /// **'Speech Recognition Models'**
+  /// **'Speech models'**
   String get settingsSttModels;
 
   /// No description provided for @settingsOpenAiApiKey.
   ///
   /// In en, this message translates to:
-  /// **'OpenAI API Key'**
+  /// **'OpenAI API key'**
   String get settingsOpenAiApiKey;
 
   /// No description provided for @settingsDeepgramApiKey.
   ///
   /// In en, this message translates to:
-  /// **'Deepgram API Key'**
+  /// **'Deepgram API key'**
   String get settingsDeepgramApiKey;
 
   /// Tooltip for the show/hide button on API key input fields.
@@ -1776,7 +2028,7 @@ abstract class L10n {
   /// No description provided for @settingsResetToDefaults.
   ///
   /// In en, this message translates to:
-  /// **'Reset to Defaults'**
+  /// **'Reset to defaults'**
   String get settingsResetToDefaults;
 
   /// No description provided for @settingsResetTitle.
@@ -1806,25 +2058,25 @@ abstract class L10n {
   /// No description provided for @settingsFactoryReset.
   ///
   /// In en, this message translates to:
-  /// **'Factory Reset'**
+  /// **'Reset everything'**
   String get settingsFactoryReset;
 
   /// No description provided for @settingsFactoryResetTitle.
   ///
   /// In en, this message translates to:
-  /// **'Factory Reset'**
+  /// **'Factory reset'**
   String get settingsFactoryResetTitle;
 
   /// No description provided for @settingsFactoryResetMessage.
   ///
   /// In en, this message translates to:
-  /// **'This will permanently delete ALL data: recording history, tags, replacements, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.'**
+  /// **'This immediately deletes: transcriptions with their tags and notes, saved audio files, Dictionary, Snippets, Statistics, API keys, downloaded models, logs and settings. The app will return to its initial state.\n\nThe app cannot restore any of it. Files are removed with a normal delete and not overwritten, so specialist tools may be able to recover parts of them.'**
   String get settingsFactoryResetMessage;
 
   /// No description provided for @settingsFactoryResetConfirm.
   ///
   /// In en, this message translates to:
-  /// **'Delete Everything'**
+  /// **'Delete everything'**
   String get settingsFactoryResetConfirm;
 
   /// No description provided for @settingsFactoryResetSuccess.
@@ -1842,7 +2094,7 @@ abstract class L10n {
   /// No description provided for @settingsFactoryResetPhaseStoppingSubprocess.
   ///
   /// In en, this message translates to:
-  /// **'Stopping voice service…'**
+  /// **'Stopping speech model…'**
   String get settingsFactoryResetPhaseStoppingSubprocess;
 
   /// No description provided for @settingsFactoryResetPhaseDeletingModels.
@@ -1850,6 +2102,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Deleting voice models…'**
   String get settingsFactoryResetPhaseDeletingModels;
+
+  /// No description provided for @settingsFactoryResetPhaseDeletingAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleting recordings…'**
+  String get settingsFactoryResetPhaseDeletingAudio;
 
   /// No description provided for @settingsFactoryResetPhaseDeletingDatabase.
   ///
@@ -1872,13 +2130,61 @@ abstract class L10n {
   /// No description provided for @settingsFactoryResetFailedMessage.
   ///
   /// In en, this message translates to:
-  /// **'Factory reset incomplete. Please restart the app.'**
-  String get settingsFactoryResetFailedMessage;
+  /// **'The reset is incomplete. Affected: {areas}. You can try again.'**
+  String settingsFactoryResetFailedMessage(String areas);
+
+  /// No description provided for @factoryResetAreaDb.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcriptions, Notes, Dictionary, Snippets and Statistics'**
+  String get factoryResetAreaDb;
+
+  /// No description provided for @factoryResetAreaAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio files'**
+  String get factoryResetAreaAudio;
+
+  /// No description provided for @factoryResetAreaModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Models and logs'**
+  String get factoryResetAreaModels;
+
+  /// No description provided for @factoryResetAreaSecure.
+  ///
+  /// In en, this message translates to:
+  /// **'API keys'**
+  String get factoryResetAreaSecure;
+
+  /// No description provided for @factoryResetAreaSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get factoryResetAreaSettings;
+
+  /// No description provided for @factoryResetAreaProcess.
+  ///
+  /// In en, this message translates to:
+  /// **'Background process'**
+  String get factoryResetAreaProcess;
+
+  /// No description provided for @factoryResetRetryAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get factoryResetRetryAction;
+
+  /// No description provided for @factoryResetKeyringHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The API keys could not be removed from the keyring. If needed, delete the entries starting with “wp_” yourself in your system\'s password manager.'**
+  String get factoryResetKeyringHint;
 
   /// No description provided for @settingsPortabilitySectionTitle.
   ///
   /// In en, this message translates to:
-  /// **'Backup & Transfer'**
+  /// **'Backup & transfer'**
   String get settingsPortabilitySectionTitle;
 
   /// No description provided for @settingsPortabilitySectionSubtitle.
@@ -1956,7 +2262,7 @@ abstract class L10n {
   /// No description provided for @settingsPortabilityImportConfirmMessage.
   ///
   /// In en, this message translates to:
-  /// **'This replaces your current settings — including interface, speech-recognition configuration, behavior, text replacements, and snippets — with the contents of {path}. Your API keys are left untouched.'**
+  /// **'This replaces your current settings — including interface, speech-model configuration, behavior, text replacements, and snippets — with the contents of {path}. Your API keys are left untouched.'**
   String settingsPortabilityImportConfirmMessage(String path);
 
   /// No description provided for @settingsPortabilityImportSuccess.
@@ -2034,7 +2340,7 @@ abstract class L10n {
   /// No description provided for @groqRemovedToast.
   ///
   /// In en, this message translates to:
-  /// **'Groq STT was removed. Provider reset to On-Device.'**
+  /// **'The cloud provider you used has been removed. Speech recognition now runs on this device.'**
   String get groqRemovedToast;
 
   /// No description provided for @migrationComplete.
@@ -2169,6 +2475,36 @@ abstract class L10n {
   /// **'Export'**
   String get actionExport;
 
+  /// No description provided for @unsavedInputTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard your changes?'**
+  String get unsavedInputTitle;
+
+  /// No description provided for @unsavedInputMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The text you entered is not saved yet.'**
+  String get unsavedInputMessage;
+
+  /// No description provided for @unsavedInputDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get unsavedInputDiscard;
+
+  /// No description provided for @trayUnavailableMinimizedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The tray icon is unavailable. WhisPaste was minimized and keeps running.'**
+  String get trayUnavailableMinimizedHint;
+
+  /// No description provided for @settingsSaveFailedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'The setting could not be saved. The previous value is kept.'**
+  String get settingsSaveFailedToast;
+
   /// No description provided for @actionCancel.
   ///
   /// In en, this message translates to:
@@ -2220,7 +2556,7 @@ abstract class L10n {
   /// No description provided for @feedbackTitle.
   ///
   /// In en, this message translates to:
-  /// **'Send Feedback'**
+  /// **'Send feedback'**
   String get feedbackTitle;
 
   /// No description provided for @feedbackHint.
@@ -2246,6 +2582,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Start recording to see your analytics here.'**
   String get analyticsEmptySubtitle;
+
+  /// Empty state title when the selected analytics period has no recordings. The period selector stays visible above it.
+  ///
+  /// In en, this message translates to:
+  /// **'No recordings in this period'**
+  String get analyticsNoRecordingsInPeriod;
 
   /// No description provided for @analyticsOverview.
   ///
@@ -2274,37 +2616,37 @@ abstract class L10n {
   /// No description provided for @analyticsTotalRecordings.
   ///
   /// In en, this message translates to:
-  /// **'Total Recordings'**
+  /// **'Total recordings'**
   String get analyticsTotalRecordings;
 
   /// No description provided for @analyticsTotalDuration.
   ///
   /// In en, this message translates to:
-  /// **'Total Duration'**
+  /// **'Total duration'**
   String get analyticsTotalDuration;
 
   /// No description provided for @analyticsWordsDictated.
   ///
   /// In en, this message translates to:
-  /// **'Words Transcribed'**
+  /// **'Words transcribed'**
   String get analyticsWordsDictated;
 
   /// No description provided for @analyticsTimeSaved.
   ///
   /// In en, this message translates to:
-  /// **'Time Saved'**
+  /// **'Time saved (estimate)'**
   String get analyticsTimeSaved;
 
   /// No description provided for @analyticsAvgLatency.
   ///
   /// In en, this message translates to:
-  /// **'Avg. Speed'**
+  /// **'Avg. time to text'**
   String get analyticsAvgLatency;
 
   /// No description provided for @analyticsRecordingActivity.
   ///
   /// In en, this message translates to:
-  /// **'Recording Activity'**
+  /// **'Recording activity'**
   String get analyticsRecordingActivity;
 
   /// No description provided for @analyticsLast7Days.
@@ -2313,22 +2655,40 @@ abstract class L10n {
   /// **'Last 7 days'**
   String get analyticsLast7Days;
 
+  /// Shown above the 7-day activity chart when no recordings fall into the last 7 days.
+  ///
+  /// In en, this message translates to:
+  /// **'No recordings in the last 7 days'**
+  String get analyticsWeekEmpty;
+
   /// No description provided for @analyticsModelUsage.
   ///
   /// In en, this message translates to:
-  /// **'Model Usage'**
+  /// **'Speech model usage'**
   String get analyticsModelUsage;
+
+  /// Shown in the model usage panel when the selected period has no model data.
+  ///
+  /// In en, this message translates to:
+  /// **'No model data in this period'**
+  String get analyticsNoModelData;
+
+  /// Screen reader label for the statistics loading skeleton.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading statistics'**
+  String get analyticsLoading;
 
   /// No description provided for @analyticsDurationDistribution.
   ///
   /// In en, this message translates to:
-  /// **'Duration Distribution'**
+  /// **'Duration distribution'**
   String get analyticsDurationDistribution;
 
   /// No description provided for @analyticsCostSavings.
   ///
   /// In en, this message translates to:
-  /// **'Cost & Savings'**
+  /// **'Cost & savings'**
   String get analyticsCostSavings;
 
   /// No description provided for @analyticsLocalSavings.
@@ -2342,6 +2702,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Cloud cost'**
   String get analyticsCloudCost;
+
+  /// Note under the cost and savings panel: the figures are estimates from list prices, not billed amounts.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated from list prices per transcription'**
+  String get analyticsEstimateNote;
 
   /// No description provided for @analyticsPeriod7d.
   ///
@@ -2376,7 +2742,7 @@ abstract class L10n {
   /// No description provided for @analyticsResetTitle.
   ///
   /// In en, this message translates to:
-  /// **'Reset Statistics'**
+  /// **'Reset statistics'**
   String get analyticsResetTitle;
 
   /// No description provided for @analyticsResetMessage.
@@ -2384,6 +2750,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Are you sure you want to clear all analytics data? This action cannot be undone.'**
   String get analyticsResetMessage;
+
+  /// No description provided for @analyticsResetDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Statistics were reset.'**
+  String get analyticsResetDone;
 
   /// No description provided for @analyticsDayMon.
   ///
@@ -2438,12 +2810,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{delta} vs last month'**
   String analyticsVsLastMonth(String delta);
-
-  /// No description provided for @analyticsDurationHoursMinutes.
-  ///
-  /// In en, this message translates to:
-  /// **'{hours}h {minutes}m'**
-  String analyticsDurationHoursMinutes(int hours, int minutes);
 
   /// No description provided for @analyticsDurationLt15s.
   ///
@@ -2574,13 +2940,13 @@ abstract class L10n {
   /// No description provided for @replacementsEditShortcut.
   ///
   /// In en, this message translates to:
-  /// **'Edit Replacement'**
+  /// **'Edit replacement'**
   String get replacementsEditShortcut;
 
   /// No description provided for @replacementsNewShortcut.
   ///
   /// In en, this message translates to:
-  /// **'New Replacement'**
+  /// **'New replacement'**
   String get replacementsNewShortcut;
 
   /// No description provided for @replacementsDialogHint.
@@ -2607,6 +2973,12 @@ abstract class L10n {
   /// **'Add trigger phrase'**
   String get replacementsAddTrigger;
 
+  /// Hint in the replacement dialog while no trigger phrase is entered
+  ///
+  /// In en, this message translates to:
+  /// **'Add at least one trigger phrase.'**
+  String get replacementsMissingTrigger;
+
   /// No description provided for @replacementsRemoveTrigger.
   ///
   /// In en, this message translates to:
@@ -2618,6 +2990,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Replacement text'**
   String get replacementsReplacementLabel;
+
+  /// Hint in the replacement dialog while the replacement text is empty
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the replacement text.'**
+  String get replacementsMissingReplacement;
 
   /// No description provided for @replacementsReplacementHint.
   ///
@@ -2634,7 +3012,7 @@ abstract class L10n {
   /// No description provided for @replacementsDeleteTitle.
   ///
   /// In en, this message translates to:
-  /// **'Delete Replacement'**
+  /// **'Delete replacement'**
   String get replacementsDeleteTitle;
 
   /// No description provided for @replacementsDeleteMessage.
@@ -2706,7 +3084,7 @@ abstract class L10n {
   /// No description provided for @correctionLearningHowTo.
   ///
   /// In en, this message translates to:
-  /// **'While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.'**
+  /// **'While recording a note in Recordings, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.'**
   String get correctionLearningHowTo;
 
   /// No description provided for @correctionCandidatesCardTitle.
@@ -2844,7 +3222,7 @@ abstract class L10n {
   /// No description provided for @replacementsFuzzyToleranceHint.
   ///
   /// In en, this message translates to:
-  /// **'How close a dictated phrase must sound to a trigger to still count as a match. Strict only catches near-identical wording, so almost nothing gets replaced by accident, but a mumbled trigger may slip through unmatched. Standard is a balanced default for everyday dictation. Tolerant also catches noticeably different pronunciation or phrasing, at a higher risk of matching something you did not mean to replace.'**
+  /// **'How close a spoken phrase must sound like a trigger to still count as a match. Strict only catches near-identical wording, so almost nothing gets replaced by accident, but a mumbled trigger may slip through unmatched. Standard is a balanced default for everyday use. Tolerant also catches noticeably different pronunciation or phrasing, at a higher risk of matching something you did not mean to replace.'**
   String get replacementsFuzzyToleranceHint;
 
   /// No description provided for @replacementsFuzzyTooShortWarning.
@@ -2852,6 +3230,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Trigger phrases under {minLength} characters cannot use similar matching — too many false hits.'**
   String replacementsFuzzyTooShortWarning(int minLength);
+
+  /// Shown when a dictionary entry would reuse a trigger that another entry already has. {trigger} is the existing trigger phrase, {replacement} the entry that already uses it.
+  ///
+  /// In en, this message translates to:
+  /// **'The trigger “{trigger}” already exists (replacement: “{replacement}”).'**
+  String replacementsDuplicateTrigger(String trigger, String replacement);
 
   /// No description provided for @snippetsSearch.
   ///
@@ -2870,6 +3254,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Add'**
   String get snippetsAdd;
+
+  /// Suffix appended to the title of a duplicated snippet, e.g. 'Signature (Kopie)'.
+  ///
+  /// In en, this message translates to:
+  /// **'(copy)'**
+  String get snippetCopySuffix;
 
   /// No description provided for @snippetsEmpty.
   ///
@@ -2898,19 +3288,19 @@ abstract class L10n {
   /// No description provided for @snippetsEditSnippet.
   ///
   /// In en, this message translates to:
-  /// **'Edit Snippet'**
+  /// **'Edit snippet'**
   String get snippetsEditSnippet;
 
   /// No description provided for @snippetsNewSnippet.
   ///
   /// In en, this message translates to:
-  /// **'New Snippet'**
+  /// **'New snippet'**
   String get snippetsNewSnippet;
 
   /// No description provided for @snippetsDialogHint.
   ///
   /// In en, this message translates to:
-  /// **'Open the snippet picker while dictating to insert this text.'**
+  /// **'Open the snippet picker while recording to insert this text.'**
   String get snippetsDialogHint;
 
   /// No description provided for @snippetsTitleLabel.
@@ -3030,8 +3420,26 @@ abstract class L10n {
   /// No description provided for @snippetsTemplateMissingFieldsWarning.
   ///
   /// In en, this message translates to:
-  /// **'Not all fields appear in the template yet — their dictated text would go unused.'**
+  /// **'Not all fields appear in the template yet — their spoken text would go unused.'**
   String get snippetsTemplateMissingFieldsWarning;
+
+  /// Hint under the save button when the snippet has no title yet
+  ///
+  /// In en, this message translates to:
+  /// **'Title is missing'**
+  String get snippetsSaveMissingTitle;
+
+  /// Hint under the save button when a static snippet has no text yet
+  ///
+  /// In en, this message translates to:
+  /// **'Text is missing'**
+  String get snippetsSaveMissingBody;
+
+  /// Warning when two fields of an interactive snippet share a name
+  ///
+  /// In en, this message translates to:
+  /// **'Each field needs a different name.'**
+  String get snippetsFieldsDuplicateWarning;
 
   /// No description provided for @snippetsInteractiveBadge.
   ///
@@ -3078,7 +3486,7 @@ abstract class L10n {
   /// No description provided for @snippetsDeleteTitle.
   ///
   /// In en, this message translates to:
-  /// **'Delete Snippet'**
+  /// **'Delete snippet'**
   String get snippetsDeleteTitle;
 
   /// No description provided for @snippetsDeleteMessage.
@@ -3108,7 +3516,7 @@ abstract class L10n {
   /// No description provided for @snippetsPickerTriggerEmptyListHint.
   ///
   /// In en, this message translates to:
-  /// **'The trigger word is set, but there are no snippets yet — dictating it inserts the word as normal text until you add your first snippet.'**
+  /// **'The trigger word is set, but there are no snippets yet — saying it inserts the word as normal text until you add your first snippet.'**
   String get snippetsPickerTriggerEmptyListHint;
 
   /// No description provided for @snippetsPickerHotkeyLabel.
@@ -3162,19 +3570,13 @@ abstract class L10n {
   /// No description provided for @aboutWhatsNew.
   ///
   /// In en, this message translates to:
-  /// **'What\'s New'**
+  /// **'What\'s new'**
   String get aboutWhatsNew;
-
-  /// No description provided for @aboutGitHub.
-  ///
-  /// In en, this message translates to:
-  /// **'GitHub'**
-  String get aboutGitHub;
 
   /// No description provided for @aboutReportIssue.
   ///
   /// In en, this message translates to:
-  /// **'Report Issue'**
+  /// **'Report issue'**
   String get aboutReportIssue;
 
   /// No description provided for @aboutSupportTitle.
@@ -3279,59 +3681,41 @@ abstract class L10n {
   /// **'GGUF conversion: ggml-org, MIT'**
   String get aboutParakeetGgufCredit;
 
-  /// No description provided for @aboutPrivacyFirst.
-  ///
-  /// In en, this message translates to:
-  /// **'Privacy-first'**
-  String get aboutPrivacyFirst;
-
-  /// No description provided for @aboutPrivacyFirstDesc.
-  ///
-  /// In en, this message translates to:
-  /// **'Local speech recognition by default: your voice never leaves your device unless you choose a cloud provider.'**
-  String get aboutPrivacyFirstDesc;
-
-  /// No description provided for @aboutPrivacy.
-  ///
-  /// In en, this message translates to:
-  /// **'Privacy & Data'**
-  String get aboutPrivacy;
-
-  /// No description provided for @aboutPrivacyLocal.
-  ///
-  /// In en, this message translates to:
-  /// **'All transcriptions and history are stored locally on your device, never on external servers.'**
-  String get aboutPrivacyLocal;
-
-  /// No description provided for @aboutPrivacyCloud.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud providers (OpenAI, Deepgram) only receive audio when you actively use them. Their privacy policies apply.'**
-  String get aboutPrivacyCloud;
-
-  /// No description provided for @aboutPrivacyNoTracking.
-  ///
-  /// In en, this message translates to:
-  /// **'Usage statistics are anonymous and GDPR-compliant (EU server), and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).'**
-  String get aboutPrivacyNoTracking;
-
-  /// No description provided for @aboutKeyboardShortcuts.
-  ///
-  /// In en, this message translates to:
-  /// **'Keyboard Shortcuts'**
-  String get aboutKeyboardShortcuts;
-
-  /// No description provided for @aboutShortcutRecord.
-  ///
-  /// In en, this message translates to:
-  /// **'Start / Stop recording'**
-  String get aboutShortcutRecord;
-
   /// No description provided for @aboutLinks.
   ///
   /// In en, this message translates to:
   /// **'Links'**
   String get aboutLinks;
+
+  /// No description provided for @helpLegalTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal'**
+  String get helpLegalTitle;
+
+  /// No description provided for @helpDiagnosticsPublicNote.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub issues are public. Check the report before you paste it.'**
+  String get helpDiagnosticsPublicNote;
+
+  /// No description provided for @helpDiagnosticsBuilding.
+  ///
+  /// In en, this message translates to:
+  /// **'Building report …'**
+  String get helpDiagnosticsBuilding;
+
+  /// No description provided for @tabsScrollBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Show earlier tabs'**
+  String get tabsScrollBack;
+
+  /// No description provided for @tabsScrollForward.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more tabs'**
+  String get tabsScrollForward;
 
   /// No description provided for @aboutWebsite.
   ///
@@ -3342,7 +3726,7 @@ abstract class L10n {
   /// No description provided for @aboutGitHubRepo.
   ///
   /// In en, this message translates to:
-  /// **'GitHub Repository'**
+  /// **'GitHub repository'**
   String get aboutGitHubRepo;
 
   /// No description provided for @aboutFollowOnX.
@@ -3354,25 +3738,37 @@ abstract class L10n {
   /// No description provided for @aboutMitLicense.
   ///
   /// In en, this message translates to:
-  /// **'MIT License'**
+  /// **'MIT license'**
   String get aboutMitLicense;
 
-  /// No description provided for @aboutViewOnGitHub.
+  /// About page row that opens the in-app list of third-party licenses (fonts, models, packages).
   ///
   /// In en, this message translates to:
-  /// **'View on GitHub'**
-  String get aboutViewOnGitHub;
+  /// **'Third-party licenses'**
+  String get aboutThirdPartyLicenses;
+
+  /// No description provided for @aboutThirdPartyLicensesDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Fonts and models'**
+  String get aboutThirdPartyLicensesDetail;
 
   /// No description provided for @aboutPrivacyPolicy.
   ///
   /// In en, this message translates to:
-  /// **'Privacy Policy'**
+  /// **'Privacy policy'**
   String get aboutPrivacyPolicy;
+
+  /// No description provided for @aboutImprint.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal notice'**
+  String get aboutImprint;
 
   /// No description provided for @aboutSystemInfo.
   ///
   /// In en, this message translates to:
-  /// **'System Info'**
+  /// **'System info'**
   String get aboutSystemInfo;
 
   /// No description provided for @aboutSystemInfoDesc.
@@ -3381,10 +3777,40 @@ abstract class L10n {
   /// **'Copy a compact diagnostics snapshot for bug reports.'**
   String get aboutSystemInfoDesc;
 
+  /// No description provided for @aboutDiagnosticsContentsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What the report contains'**
+  String get aboutDiagnosticsContentsTitle;
+
+  /// No description provided for @aboutDiagnosticsContentsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'App version, operating system, program path without your user name, speech model (variant, model, status, last error), GPU, model files and the last 40 log lines. API keys and tokens are blacked out in the log lines.'**
+  String get aboutDiagnosticsContentsDesc;
+
+  /// No description provided for @aboutDiagnosticsPreviewShow.
+  ///
+  /// In en, this message translates to:
+  /// **'Show'**
+  String get aboutDiagnosticsPreviewShow;
+
+  /// No description provided for @aboutDiagnosticsPreviewHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get aboutDiagnosticsPreviewHide;
+
+  /// No description provided for @aboutDiagnosticsIncomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics incomplete: {error}'**
+  String aboutDiagnosticsIncomplete(String error);
+
   /// No description provided for @aboutCopyDebugInfo.
   ///
   /// In en, this message translates to:
-  /// **'Copy Debug Info'**
+  /// **'Copy debug info'**
   String get aboutCopyDebugInfo;
 
   /// No description provided for @aboutCopied.
@@ -3402,7 +3828,7 @@ abstract class L10n {
   /// No description provided for @aboutOpenSource.
   ///
   /// In en, this message translates to:
-  /// **'Open source under the MIT License'**
+  /// **'Open source under the MIT license'**
   String get aboutOpenSource;
 
   /// No description provided for @feedbackSubtitle.
@@ -3417,30 +3843,6 @@ abstract class L10n {
   /// **'What\'s this about?'**
   String get feedbackCategoryLabel;
 
-  /// No description provided for @feedbackCategoryBug.
-  ///
-  /// In en, this message translates to:
-  /// **'Bug Report'**
-  String get feedbackCategoryBug;
-
-  /// No description provided for @feedbackCategoryFeature.
-  ///
-  /// In en, this message translates to:
-  /// **'Feature Idea'**
-  String get feedbackCategoryFeature;
-
-  /// No description provided for @feedbackCategoryGeneral.
-  ///
-  /// In en, this message translates to:
-  /// **'General'**
-  String get feedbackCategoryGeneral;
-
-  /// No description provided for @feedbackCategoryAiQuality.
-  ///
-  /// In en, this message translates to:
-  /// **'AI Quality'**
-  String get feedbackCategoryAiQuality;
-
   /// No description provided for @feedbackRatingLabel.
   ///
   /// In en, this message translates to:
@@ -3452,30 +3854,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Tell us more'**
   String get feedbackCommentsLabel;
-
-  /// No description provided for @feedbackPlaceholderBug.
-  ///
-  /// In en, this message translates to:
-  /// **'Describe what happened and what you expected…'**
-  String get feedbackPlaceholderBug;
-
-  /// No description provided for @feedbackPlaceholderFeature.
-  ///
-  /// In en, this message translates to:
-  /// **'What would you like to see in WhisPaste?'**
-  String get feedbackPlaceholderFeature;
-
-  /// No description provided for @feedbackPlaceholderAi.
-  ///
-  /// In en, this message translates to:
-  /// **'How was the transcription quality?'**
-  String get feedbackPlaceholderAi;
-
-  /// No description provided for @feedbackPlaceholderGeneral.
-  ///
-  /// In en, this message translates to:
-  /// **'Share your thoughts…'**
-  String get feedbackPlaceholderGeneral;
 
   /// No description provided for @feedbackContactEmailLabel.
   ///
@@ -3516,8 +3894,44 @@ abstract class L10n {
   /// No description provided for @feedbackSubmit.
   ///
   /// In en, this message translates to:
-  /// **'Send Feedback'**
+  /// **'Send feedback'**
   String get feedbackSubmit;
+
+  /// Visible hint under the disabled send button naming the first missing item; {what} is a short clause
+  ///
+  /// In en, this message translates to:
+  /// **'To send, please {what}.'**
+  String feedbackSubmitMissing(String what);
+
+  /// Missing-item clause: no category chosen
+  ///
+  /// In en, this message translates to:
+  /// **'choose what it is about'**
+  String get feedbackMissingCategory;
+
+  /// No description provided for @feedbackMissingRating.
+  ///
+  /// In en, this message translates to:
+  /// **'rate how you feel about WhisPaste'**
+  String get feedbackMissingRating;
+
+  /// Missing-item clause: the message is empty
+  ///
+  /// In en, this message translates to:
+  /// **'write a message'**
+  String get feedbackMissingComment;
+
+  /// Missing-item clause: the optional email address is not valid
+  ///
+  /// In en, this message translates to:
+  /// **'correct the email address or leave it empty'**
+  String get feedbackMissingEmail;
+
+  /// Small marker next to the labels of the required feedback fields
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get feedbackRequiredMarker;
 
   /// No description provided for @feedbackPrivacyNote.
   ///
@@ -3636,7 +4050,7 @@ abstract class L10n {
   /// No description provided for @statusBarAfterBoth.
   ///
   /// In en, this message translates to:
-  /// **'After: Copy & Paste'**
+  /// **'After: Copy & paste'**
   String get statusBarAfterBoth;
 
   /// No description provided for @statusBarAfterNothing.
@@ -3645,11 +4059,29 @@ abstract class L10n {
   /// **'After: Manual'**
   String get statusBarAfterNothing;
 
-  /// No description provided for @sttStatusStandby.
+  /// No description provided for @dockOutputCopy.
   ///
   /// In en, this message translates to:
-  /// **'Standby'**
-  String get sttStatusStandby;
+  /// **'Copy'**
+  String get dockOutputCopy;
+
+  /// No description provided for @dockOutputPaste.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste'**
+  String get dockOutputPaste;
+
+  /// No description provided for @dockOutputBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy & paste'**
+  String get dockOutputBoth;
+
+  /// No description provided for @dockOutputNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'Manual'**
+  String get dockOutputNothing;
 
   /// No description provided for @sttStatusStarting.
   ///
@@ -3672,13 +4104,13 @@ abstract class L10n {
   /// No description provided for @statusBarSttTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Speech service and current status'**
+  /// **'Speech model status'**
   String get statusBarSttTooltip;
 
   /// No description provided for @statusBarSttBackendTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Transcription backend: {backend}'**
+  /// **'Recognition runs on: {backend}'**
   String statusBarSttBackendTooltip(String backend);
 
   /// No description provided for @statusBarBackendGpuUtilizationUnavailable.
@@ -3696,20 +4128,14 @@ abstract class L10n {
   /// No description provided for @statusBarTranscribing.
   ///
   /// In en, this message translates to:
-  /// **'Transcribing…'**
+  /// **'Processing…'**
   String get statusBarTranscribing;
 
   /// No description provided for @statusBarRefining.
   ///
   /// In en, this message translates to:
-  /// **'Refining…'**
+  /// **'Processing…'**
   String get statusBarRefining;
-
-  /// No description provided for @statusBarDone.
-  ///
-  /// In en, this message translates to:
-  /// **'Done'**
-  String get statusBarDone;
 
   /// No description provided for @statusBarHotkeyTooltip.
   ///
@@ -3720,7 +4146,7 @@ abstract class L10n {
   /// No description provided for @statusBarAutoPasteOffHint.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste off, enable in Settings'**
+  /// **'Turn on Auto-Paste…'**
   String get statusBarAutoPasteOffHint;
 
   /// No description provided for @statusBarAutoPasteOffHintTooltip.
@@ -3738,13 +4164,13 @@ abstract class L10n {
   /// No description provided for @statusBarAutomationApiChipLabel.
   ///
   /// In en, this message translates to:
-  /// **'API: {port}'**
+  /// **'Automation: {port}'**
   String statusBarAutomationApiChipLabel(int port);
 
   /// No description provided for @statusBarAutomationApiChipLabelError.
   ///
   /// In en, this message translates to:
-  /// **'API: error'**
+  /// **'Automation: error'**
   String get statusBarAutomationApiChipLabelError;
 
   /// No description provided for @statusBarAutomationApiTooltip.
@@ -3876,19 +4302,19 @@ abstract class L10n {
   /// No description provided for @modelServerReady.
   ///
   /// In en, this message translates to:
-  /// **'Speech service ready'**
+  /// **'Speech model ready'**
   String get modelServerReady;
 
   /// No description provided for @modelServerMissing.
   ///
   /// In en, this message translates to:
-  /// **'Speech service not installed'**
+  /// **'Speech model not installed'**
   String get modelServerMissing;
 
   /// No description provided for @modelServerWhisper.
   ///
   /// In en, this message translates to:
-  /// **'Local speech service'**
+  /// **'Local speech model'**
   String get modelServerWhisper;
 
   /// No description provided for @modelReady.
@@ -3900,7 +4326,7 @@ abstract class L10n {
   /// No description provided for @modelDownloadComplete.
   ///
   /// In en, this message translates to:
-  /// **'Model ready to use'**
+  /// **'Speech model ready to use'**
   String get modelDownloadComplete;
 
   /// No description provided for @modelUse.
@@ -3924,7 +4350,7 @@ abstract class L10n {
   /// No description provided for @modelDownloadingEngine.
   ///
   /// In en, this message translates to:
-  /// **'Preparing speech service…'**
+  /// **'Preparing speech model…'**
   String get modelDownloadingEngine;
 
   /// No description provided for @modelVerifying.
@@ -3942,19 +4368,31 @@ abstract class L10n {
   /// No description provided for @modelDeleteConfirm.
   ///
   /// In en, this message translates to:
-  /// **'Delete this model?'**
+  /// **'Delete this speech model?'**
   String get modelDeleteConfirm;
 
   /// No description provided for @modelDeleteConfirmMessage.
   ///
   /// In en, this message translates to:
-  /// **'The model file will be permanently removed. You can re-download it any time.'**
+  /// **'The speech model file is deleted from this device. You can re-download it any time.'**
   String get modelDeleteConfirmMessage;
+
+  /// No description provided for @modelTierDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete these models?'**
+  String get modelTierDeleteConfirm;
+
+  /// No description provided for @modelTierDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 model ({size}) is deleted from this device. You can re-download it any time.} other{{count} models ({size}) are deleted from this device. You can re-download them any time.}}'**
+  String modelTierDeleteConfirmMessage(int count, String size);
 
   /// No description provided for @qualityTierCompactLabel.
   ///
   /// In en, this message translates to:
-  /// **'Quick & Compact'**
+  /// **'Fast'**
   String get qualityTierCompactLabel;
 
   /// No description provided for @qualityTierCompactDesc.
@@ -3978,7 +4416,7 @@ abstract class L10n {
   /// No description provided for @qualityTierPremiumLabel.
   ///
   /// In en, this message translates to:
-  /// **'Best Quality'**
+  /// **'Accurate'**
   String get qualityTierPremiumLabel;
 
   /// No description provided for @qualityTierPremiumDesc.
@@ -3993,6 +4431,12 @@ abstract class L10n {
   /// **'Recommended for your device'**
   String get qualityTierRecommended;
 
+  /// No description provided for @qualityTierRecommendedMeasured.
+  ///
+  /// In en, this message translates to:
+  /// **'Measured for your device'**
+  String get qualityTierRecommendedMeasured;
+
   /// No description provided for @qualityTierDownloadSize.
   ///
   /// In en, this message translates to:
@@ -4002,13 +4446,13 @@ abstract class L10n {
   /// No description provided for @qualityTierDownloadAndContinue.
   ///
   /// In en, this message translates to:
-  /// **'Download model'**
+  /// **'Download speech model'**
   String get qualityTierDownloadAndContinue;
 
   /// No description provided for @qualityTierChooseDifferent.
   ///
   /// In en, this message translates to:
-  /// **'Choose a different quality level'**
+  /// **'Choose a different tier'**
   String get qualityTierChooseDifferent;
 
   /// No description provided for @qualityTierActive.
@@ -4020,13 +4464,19 @@ abstract class L10n {
   /// No description provided for @qualityTierInfoSlow.
   ///
   /// In en, this message translates to:
-  /// **'Best quality, takes ~{ratio}x longer to process'**
-  String qualityTierInfoSlow(String ratio);
+  /// **'Accurate, takes noticeably longer to process on this computer'**
+  String get qualityTierInfoSlow;
+
+  /// No description provided for @qualityTierInfoSlowEstimate.
+  ///
+  /// In en, this message translates to:
+  /// **'Accurate, probably takes noticeably longer on this computer (estimate)'**
+  String get qualityTierInfoSlowEstimate;
 
   /// No description provided for @qualityTierInfoSlowerThanCompact.
   ///
   /// In en, this message translates to:
-  /// **'Best quality, ~{ratio}x slower than Small'**
+  /// **'Accurate, takes ~{ratio}x longer than Fast'**
   String qualityTierInfoSlowerThanCompact(String ratio);
 
   /// No description provided for @qualityTierInfoModerate.
@@ -4053,6 +4503,120 @@ abstract class L10n {
   /// **'Testing performance…'**
   String get qualityTierInfoBenchmarking;
 
+  /// No description provided for @benchmarkRowSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Measures how fast each installed tier runs on this computer. The results set the speed hints and the recommendation.'**
+  String get benchmarkRowSubtitle;
+
+  /// No description provided for @benchmarkRunningStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Running… step {step} of {total}: {tier}'**
+  String benchmarkRunningStep(int step, int total, String tier);
+
+  /// No description provided for @benchmarkCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel benchmark'**
+  String get benchmarkCancel;
+
+  /// No description provided for @benchmarkCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Benchmark cancelled. Tiers measured so far are saved.'**
+  String get benchmarkCancelled;
+
+  /// No description provided for @benchmarkDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Measurement complete: {count, plural, =1{1 tier measured} other{{count} tiers measured}}.'**
+  String benchmarkDone(int count);
+
+  /// No description provided for @benchmarkLastMeasured.
+  ///
+  /// In en, this message translates to:
+  /// **'Last measured: {when}'**
+  String benchmarkLastMeasured(String when);
+
+  /// No description provided for @benchmarkBackendLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Compute path: {backend}'**
+  String benchmarkBackendLine(String backend);
+
+  /// No description provided for @benchmarkBackendCpu.
+  ///
+  /// In en, this message translates to:
+  /// **'Processor (CPU)'**
+  String get benchmarkBackendCpu;
+
+  /// No description provided for @benchmarkBackendGpu.
+  ///
+  /// In en, this message translates to:
+  /// **'Graphics card ({name})'**
+  String benchmarkBackendGpu(String name);
+
+  /// No description provided for @benchmarkTierResult.
+  ///
+  /// In en, this message translates to:
+  /// **'{tier}: {seconds} s processing per second of audio'**
+  String benchmarkTierResult(String tier, String seconds);
+
+  /// No description provided for @benchmarkNoResult.
+  ///
+  /// In en, this message translates to:
+  /// **'No measurement yet. Run the benchmark to get speed hints for this computer.'**
+  String get benchmarkNoResult;
+
+  /// No description provided for @benchmarkStaleNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'These results are from another computer or an earlier version. They are measured again in the background.'**
+  String get benchmarkStaleNotice;
+
+  /// No description provided for @benchmarkParakeetNotMeasured.
+  ///
+  /// In en, this message translates to:
+  /// **'The benchmark measures Whisper models. Parakeet is not measured.'**
+  String get benchmarkParakeetNotMeasured;
+
+  /// No description provided for @benchmarkRecommendation.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended after measuring: {tier}'**
+  String benchmarkRecommendation(String tier);
+
+  /// No description provided for @benchmarkSwitchTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to {tier}'**
+  String benchmarkSwitchTo(String tier);
+
+  /// No description provided for @benchmarkErrorBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'The benchmark cannot run during a recording. Start it again afterwards.'**
+  String get benchmarkErrorBusy;
+
+  /// No description provided for @benchmarkErrorNoModel.
+  ///
+  /// In en, this message translates to:
+  /// **'No tier is installed. Download a speech model first.'**
+  String get benchmarkErrorNoModel;
+
+  /// No description provided for @benchmarkErrorFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The benchmark could not be completed.'**
+  String get benchmarkErrorFailed;
+
+  /// No description provided for @benchmarkRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get benchmarkRetry;
+
   /// No description provided for @qualityTierActionOverride.
   ///
   /// In en, this message translates to:
@@ -4062,7 +4626,7 @@ abstract class L10n {
   /// No description provided for @qualityTierActionOverrideHint.
   ///
   /// In en, this message translates to:
-  /// **'Use this quality level despite the warning'**
+  /// **'Use this tier despite the warning'**
   String get qualityTierActionOverrideHint;
 
   /// No description provided for @qualityTierModelTooltip.
@@ -4070,12 +4634,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Whisper {modelName} · {size}'**
   String qualityTierModelTooltip(String modelName, String size);
-
-  /// No description provided for @analyticsModelDisplayName.
-  ///
-  /// In en, this message translates to:
-  /// **'{tierLabel} (Whisper {modelLabel})'**
-  String analyticsModelDisplayName(String tierLabel, String modelLabel);
 
   /// No description provided for @settingsQualityBasic.
   ///
@@ -4092,19 +4650,19 @@ abstract class L10n {
   /// No description provided for @settingsQualityHigh.
   ///
   /// In en, this message translates to:
-  /// **'High Quality'**
+  /// **'High quality'**
   String get settingsQualityHigh;
 
   /// No description provided for @settingsQualityBest.
   ///
   /// In en, this message translates to:
-  /// **'Best Quality'**
+  /// **'Accurate'**
   String get settingsQualityBest;
 
   /// No description provided for @settingsQualityMaximum.
   ///
   /// In en, this message translates to:
-  /// **'Maximum Accuracy'**
+  /// **'Maximum accuracy'**
   String get settingsQualityMaximum;
 
   /// No description provided for @settingsQualityRecommended.
@@ -4134,13 +4692,13 @@ abstract class L10n {
   /// No description provided for @settingsAdvancedModelManagement.
   ///
   /// In en, this message translates to:
-  /// **'Advanced model settings'**
+  /// **'Advanced speech model settings'**
   String get settingsAdvancedModelManagement;
 
   /// No description provided for @infoEngineDownloading.
   ///
   /// In en, this message translates to:
-  /// **'Speech service is being prepared. Please wait a moment.'**
+  /// **'Speech model is being prepared. Please wait a moment.'**
   String get infoEngineDownloading;
 
   /// No description provided for @infoModelMissing.
@@ -4164,13 +4722,13 @@ abstract class L10n {
   /// No description provided for @statusBarModelMissing.
   ///
   /// In en, this message translates to:
-  /// **'Model missing'**
+  /// **'Speech model missing'**
   String get statusBarModelMissing;
 
   /// No description provided for @statusBarModelDownloading.
   ///
   /// In en, this message translates to:
-  /// **'Downloading model… {percent} %'**
+  /// **'Downloading speech model… {percent} %'**
   String statusBarModelDownloading(int percent);
 
   /// No description provided for @modelDownloadAction.
@@ -4194,19 +4752,19 @@ abstract class L10n {
   /// No description provided for @infoSnippetPickerEmpty.
   ///
   /// In en, this message translates to:
-  /// **'Trigger word recognized, but you have no snippets yet — the text was inserted as usual.'**
+  /// **'You don\'t have any snippets yet. Create one, and the picker will open.'**
   String get infoSnippetPickerEmpty;
 
   /// No description provided for @infoSnippetPickerEmptyAction.
   ///
   /// In en, this message translates to:
-  /// **'Open Snippets'**
+  /// **'Open snippets'**
   String get infoSnippetPickerEmptyAction;
 
   /// No description provided for @oomRecoveryTitle.
   ///
   /// In en, this message translates to:
-  /// **'Recording failed: GPU memory issue'**
+  /// **'Recording stopped: graphics card is out of memory'**
   String get oomRecoveryTitle;
 
   /// No description provided for @oomRecoveryMessage.
@@ -4218,7 +4776,7 @@ abstract class L10n {
   /// No description provided for @oomRecoveryTrySmaller.
   ///
   /// In en, this message translates to:
-  /// **'Try smaller model'**
+  /// **'Try smaller speech model'**
   String get oomRecoveryTrySmaller;
 
   /// No description provided for @oomRecoveryTrySmallerHint.
@@ -4230,14 +4788,20 @@ abstract class L10n {
   /// No description provided for @oomRecoverySwitchCloud.
   ///
   /// In en, this message translates to:
-  /// **'Switch to Cloud'**
+  /// **'Switch to cloud'**
   String get oomRecoverySwitchCloud;
 
   /// No description provided for @oomRecoverySwitchCloudHint.
   ///
   /// In en, this message translates to:
-  /// **'Use cloud speech recognition instead'**
+  /// **'Use a cloud speech model instead'**
   String get oomRecoverySwitchCloudHint;
+
+  /// No description provided for @oomRecoveryCloudNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Recordings are then sent to {provider}.'**
+  String oomRecoveryCloudNotice(String provider);
 
   /// No description provided for @oomRecoveryCancel.
   ///
@@ -4248,13 +4812,13 @@ abstract class L10n {
   /// No description provided for @oomRecoveryPermanentTitle.
   ///
   /// In en, this message translates to:
-  /// **'Local speech recognition unavailable'**
+  /// **'Local speech model unavailable'**
   String get oomRecoveryPermanentTitle;
 
   /// No description provided for @oomRecoveryPermanentMessage.
   ///
   /// In en, this message translates to:
-  /// **'All local models failed due to GPU memory limits. Please switch to cloud speech recognition in settings.'**
+  /// **'All local models failed due to GPU memory limits. Please switch to a cloud speech model in settings.'**
   String get oomRecoveryPermanentMessage;
 
   /// No description provided for @oomRecoveryPermanentCloud.
@@ -4272,19 +4836,25 @@ abstract class L10n {
   /// No description provided for @oomRecoverySwitchingCloud.
   ///
   /// In en, this message translates to:
-  /// **'Switching to cloud speech recognition…'**
+  /// **'Switching to a cloud speech model…'**
   String get oomRecoverySwitchingCloud;
 
   /// No description provided for @oomRecoveryAttemptFailed.
   ///
   /// In en, this message translates to:
-  /// **'Model {model} also failed. Trying next option…'**
+  /// **'Speech model {model} also failed. Trying next option…'**
   String oomRecoveryAttemptFailed(String model);
+
+  /// Shown when the user picks 'Try a smaller model' but no smaller model is available (UIA-SHL-06). Says why and what to do next.
+  ///
+  /// In en, this message translates to:
+  /// **'No smaller model is available. Choose another model in Settings or use cloud speech recognition.'**
+  String get oomRecoveryNoSmallerModel;
 
   /// No description provided for @infoSttCudaOomFallbackModel.
   ///
   /// In en, this message translates to:
-  /// **'Quality reduced: your GPU ran out of memory. Switched to a lighter model.'**
+  /// **'Quality reduced: your GPU ran out of memory. Switched to a lighter speech model.'**
   String get infoSttCudaOomFallbackModel;
 
   /// No description provided for @infoSttCudaOomFallbackCpu.
@@ -4296,7 +4866,7 @@ abstract class L10n {
   /// No description provided for @errorSttServerConnectionLost.
   ///
   /// In en, this message translates to:
-  /// **'Speech service stopped unexpectedly. Please try again.'**
+  /// **'Speech model stopped unexpectedly. Please try again.'**
   String get errorSttServerConnectionLost;
 
   /// No description provided for @errorSttCudaOom.
@@ -4317,6 +4887,36 @@ abstract class L10n {
   /// **'Cloud provider rate limit reached. Please wait a moment and try again.'**
   String get errorCloudQuota;
 
+  /// Same as errorCloudTimeout, but shown when a local model is installed: it names the offline fallback.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud service took too long to answer. Check your connection, or dictate offline with your local speech model.'**
+  String get errorCloudTimeoutLocal;
+
+  /// Error toast when the cloud speech service did not answer in time. Shown when no local model is installed.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud service took too long to answer. Check your connection and try again.'**
+  String get errorCloudTimeout;
+
+  /// Same as errorCloudNetwork, but shown when a local model is installed: it names the offline fallback.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud service could not be reached. Check your internet connection, or dictate offline with your local speech model.'**
+  String get errorCloudNetworkLocal;
+
+  /// Error toast when the cloud speech service cannot be reached. Shown when no local model is installed, so the hint points to checking the connection.
+  ///
+  /// In en, this message translates to:
+  /// **'The cloud service could not be reached. Check your internet connection and try again.'**
+  String get errorCloudNetwork;
+
+  /// Error toast when a dictation could not be appended to the quick note. The text was not added, so the user can copy it from the toast.
+  ///
+  /// In en, this message translates to:
+  /// **'The quick note could not be saved, so the text was not added to it. Copy the text and paste it into the note.'**
+  String get errorQuickNoteAppendFailed;
+
   /// No description provided for @errorOnboardingNotCompleted.
   ///
   /// In en, this message translates to:
@@ -4328,6 +4928,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Speech model not found. Please download it in Settings.'**
   String get errorSttModelNotFound;
+
+  /// Error toast when the speech model could not be loaded, even after a CPU retry. Suggests a restart, then a new download.
+  ///
+  /// In en, this message translates to:
+  /// **'The speech model could not be loaded. Restart WhisPaste. If it still fails, download the speech model again in Settings.'**
+  String get errorSttModelLoadFailed;
+
+  /// Error toast when the speech model file is missing from disk. Directs the user to download it in Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'The speech model file is missing. Download the speech model in Settings.'**
+  String get errorSttModelFileMissing;
+
+  /// Error toast when the speech model file on disk is damaged. Directs the user to download it again in Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'The speech model file is damaged. Download the speech model again in Settings.'**
+  String get errorSttModelCorrupted;
+
+  /// Error toast when a retry of a kept recording fails again. The recording stays for another try.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribing again failed. The recording is kept for another try.'**
+  String get pendingRetryFailed;
 
   /// No description provided for @errorSttModelUnknown.
   ///
@@ -4356,14 +4980,8 @@ abstract class L10n {
   /// No description provided for @errorSttServerFailed.
   ///
   /// In en, this message translates to:
-  /// **'Speech service failed to start'**
+  /// **'Speech model failed to start'**
   String get errorSttServerFailed;
-
-  /// No description provided for @errorSttModelIncompatibleRuntime.
-  ///
-  /// In en, this message translates to:
-  /// **'Speech model is incompatible with the installed runtime. Please re-download the speech model in Settings.'**
-  String get errorSttModelIncompatibleRuntime;
 
   /// No description provided for @errorSttModelCorruptedRedownloading.
   ///
@@ -4392,7 +5010,7 @@ abstract class L10n {
   /// No description provided for @errorSttCpuFallbackFailed.
   ///
   /// In en, this message translates to:
-  /// **'Speech service failed on both GPU and CPU. Please restart the app or re-download the model.'**
+  /// **'Speech model failed on both GPU and CPU. Please restart the app or re-download the speech model.'**
   String get errorSttCpuFallbackFailed;
 
   /// No description provided for @errorPipelineTimeout.
@@ -4416,7 +5034,7 @@ abstract class L10n {
   /// No description provided for @errorSttStartTimeout.
   ///
   /// In en, this message translates to:
-  /// **'Speech service is still starting. Please try again in a moment.'**
+  /// **'Speech model is still starting. Please try again in a moment.'**
   String get errorSttStartTimeout;
 
   /// No description provided for @errorTranscriptionTimeout.
@@ -4455,23 +5073,71 @@ abstract class L10n {
   /// **'Download failed. Please check your internet connection.'**
   String get modelDownloadFailed;
 
+  /// Refusal before a model download starts when the disk has less than 1.2 times the download size free. needed and free are formatted sizes such as '1.2 GB'.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough disk space for this download: needs {needed}, {free} free. The download did not start.'**
+  String modelDownloadDiskSpaceShort(String needed, String free);
+
   /// No description provided for @modelDeleteInUse.
   ///
   /// In en, this message translates to:
-  /// **'The model file is in use by another program and could not be deleted. Close it and try again.'**
+  /// **'The speech model file is in use by another program and could not be deleted. Close it and try again.'**
   String get modelDeleteInUse;
 
   /// No description provided for @statusSttLoading.
   ///
   /// In en, this message translates to:
-  /// **'Loading model…'**
+  /// **'Loading speech model…'**
   String get statusSttLoading;
 
   /// No description provided for @statusSttReady.
   ///
   /// In en, this message translates to:
-  /// **'Model ready'**
+  /// **'Speech model ready'**
   String get statusSttReady;
+
+  /// Model download error: the file arrived damaged (size or hash check failed) and was deleted.
+  ///
+  /// In en, this message translates to:
+  /// **'The downloaded file was damaged and has been removed. Please download it again.'**
+  String get modelDownloadFailedChecksum;
+
+  /// Model download error: the file could not be written to disk (disk full or no permission).
+  ///
+  /// In en, this message translates to:
+  /// **'The file could not be saved. Check that there is enough free disk space.'**
+  String get modelDownloadFailedStorage;
+
+  /// Model download error with no more specific cause the user can act on.
+  ///
+  /// In en, this message translates to:
+  /// **'Download failed. Please try again.'**
+  String get modelDownloadFailedUnknown;
+
+  /// Button under the onboarding model download progress bar; stops the running download and returns to the engine choice.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel download'**
+  String get onboardingModelDownloadCancel;
+
+  /// Title of the warning shown before the onboarding model download when the disk has less free space than the model needs.
+  ///
+  /// In en, this message translates to:
+  /// **'Low disk space'**
+  String get onboardingModelDiskSpaceTitle;
+
+  /// Body of the low-disk-space warning before a model download. needed and free are formatted sizes such as '639 MB' or '1.2 GB'.
+  ///
+  /// In en, this message translates to:
+  /// **'The model needs {needed}, but only {free} is free. The download will probably fail.'**
+  String onboardingModelDiskSpaceBody(String needed, String free);
+
+  /// Confirm button of the low-disk-space warning: start the model download anyway.
+  ///
+  /// In en, this message translates to:
+  /// **'Download anyway'**
+  String get onboardingModelDiskSpaceContinue;
 
   /// No description provided for @historyDuplicate.
   ///
@@ -4484,6 +5150,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Entry duplicated'**
   String get historyDuplicated;
+
+  /// No description provided for @historyTakeAsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Take over as note'**
+  String get historyTakeAsNote;
+
+  /// No description provided for @historyTakenAsNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Taken over as note'**
+  String get historyTakenAsNote;
+
+  /// No description provided for @historyOpenNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Open'**
+  String get historyOpenNote;
 
   /// No description provided for @historyViewRaw.
   ///
@@ -4509,10 +5193,70 @@ abstract class L10n {
   /// **'Smart Mode applied'**
   String get historySmartModeApplied;
 
+  /// No description provided for @smartModeUndoToastMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode applied'**
+  String get smartModeUndoToastMessage;
+
+  /// No description provided for @smartModeUndoAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get smartModeUndoAction;
+
+  /// No description provided for @smartModeBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode is still running'**
+  String get smartModeBusy;
+
+  /// No description provided for @smartModeBusyRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode is still running – please try again in a moment'**
+  String get smartModeBusyRetry;
+
+  /// No description provided for @smartModeNameChangeToast.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 name changed} other{{count} names changed}}'**
+  String smartModeNameChangeToast(int count);
+
+  /// No description provided for @selectionUndoCopiedToClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Original copied to the clipboard – paste it with {shortcut}. The previous clipboard content was replaced.'**
+  String selectionUndoCopiedToClipboard(String shortcut);
+
+  /// Shown when Undo for a smart-mode selection edit cannot run because no paste target is known.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo is not possible right now.'**
+  String get selectionUndoUnavailable;
+
+  /// No description provided for @smartModeCheckTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'The check took too long – your text stays unchanged.'**
+  String get smartModeCheckTimedOut;
+
+  /// No description provided for @historySmartModeUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo Smart Mode'**
+  String get historySmartModeUndo;
+
+  /// No description provided for @historySmartModeRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore Smart Mode'**
+  String get historySmartModeRestore;
+
   /// No description provided for @historySmartModeFailedModelMissing.
   ///
   /// In en, this message translates to:
-  /// **'Smart Mode model not downloaded'**
+  /// **'Text model not downloaded'**
   String get historySmartModeFailedModelMissing;
 
   /// No description provided for @historySmartModeFailedTimeout.
@@ -4626,13 +5370,13 @@ abstract class L10n {
   /// No description provided for @tagManageTitle.
   ///
   /// In en, this message translates to:
-  /// **'Manage Tags'**
+  /// **'Manage tags'**
   String get tagManageTitle;
 
   /// No description provided for @tagManageEmpty.
   ///
   /// In en, this message translates to:
-  /// **'No tags created yet.'**
+  /// **'No tags yet. Create one by adding it to a recording.'**
   String get tagManageEmpty;
 
   /// No description provided for @tagUsageCount.
@@ -4664,6 +5408,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Tag \"{name}\" deleted'**
   String tagDeleted(String name);
+
+  /// Screen-reader label of the small x button on a tag chip. {tag} is the tag name.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove tag \"{tag}\"'**
+  String tagRemoveSemanticsLabel(String tag);
 
   /// No description provided for @tagDeleteUnusedTitle.
   ///
@@ -4710,7 +5460,7 @@ abstract class L10n {
   /// No description provided for @historyShortcutHelp.
   ///
   /// In en, this message translates to:
-  /// **'Keyboard Shortcuts'**
+  /// **'Keyboard shortcuts'**
   String get historyShortcutHelp;
 
   /// No description provided for @historyShortcutGeneral.
@@ -4742,6 +5492,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Save & close'**
   String get historyShortcutClose;
+
+  /// Group header in the shortcut help for the recordings list (uppercase, like GENERAL and EDITING).
+  ///
+  /// In en, this message translates to:
+  /// **'RECORDINGS LIST'**
+  String get historyShortcutListGroup;
+
+  /// Shortcut help row: arrow keys move the keyboard cursor through the recordings list.
+  ///
+  /// In en, this message translates to:
+  /// **'Select entry'**
+  String get historyShortcutMoveFocus;
+
+  /// Shortcut help row: Ctrl+Enter opens the focused recording in the detail panel.
+  ///
+  /// In en, this message translates to:
+  /// **'Open entry'**
+  String get historyShortcutOpenEntry;
+
+  /// Shortcut help row: Enter copies the focused recording to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy entry'**
+  String get historyShortcutCopyEntry;
+
+  /// Shortcut help row: Delete moves the focused recording to the trash.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete entry'**
+  String get historyShortcutDeleteEntry;
+
+  /// Shortcut help row: select all recordings in the list.
+  ///
+  /// In en, this message translates to:
+  /// **'Select all'**
+  String get historyShortcutSelectAll;
+
+  /// Shortcut help row: Esc clears the selection in the recordings list.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear selection'**
+  String get historyShortcutClearSelection;
 
   /// No description provided for @historyShortcutEditing.
   ///
@@ -4785,6 +5577,12 @@ abstract class L10n {
   /// **'Edit title'**
   String get historyShortcutEditTitle;
 
+  /// Shortcut help row: Esc in the transcript editor discards the edit (asks first when changed).
+  ///
+  /// In en, this message translates to:
+  /// **'Discard edit'**
+  String get historyShortcutDiscardEdit;
+
   /// No description provided for @historyEditTitle.
   ///
   /// In en, this message translates to:
@@ -4806,7 +5604,7 @@ abstract class L10n {
   /// No description provided for @historySearchHelpTitle.
   ///
   /// In en, this message translates to:
-  /// **'Search Tips'**
+  /// **'Search tips'**
   String get historySearchHelpTitle;
 
   /// No description provided for @historySearchHelpTags.
@@ -4914,25 +5712,49 @@ abstract class L10n {
   /// No description provided for @settingsKeyboardShortcut.
   ///
   /// In en, this message translates to:
-  /// **'Keyboard Shortcut'**
+  /// **'Hotkey'**
   String get settingsKeyboardShortcut;
+
+  /// Heading of the card with the main recording hotkey and its hold/tap modes.
+  ///
+  /// In en, this message translates to:
+  /// **'Dictate'**
+  String get shortcutsGroupDictate;
+
+  /// Heading of the card with the quick-note and snippet-picker hotkeys.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes & snippets'**
+  String get shortcutsGroupNotes;
+
+  /// Heading of the card with the Smart Mode hotkey and the edit-selection hotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode & edit selection'**
+  String get shortcutsGroupSmartMode;
+
+  /// Intro above the Keyboard shortcuts area: the one place that says hotkeys work system-wide.
+  ///
+  /// In en, this message translates to:
+  /// **'These hotkeys work system-wide: in every app, even while WhisPaste runs in the background. Each combination belongs to just one hotkey.'**
+  String get shortcutsAreaIntro;
 
   /// No description provided for @settingsKeyboardShortcutSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Global hotkey to start and stop recording'**
+  /// **'Hotkey to start and stop recording'**
   String get settingsKeyboardShortcutSubtitle;
 
   /// No description provided for @settingsHotkeyEnabled.
   ///
   /// In en, this message translates to:
-  /// **'Enable Global Hotkey'**
+  /// **'Start/stop recording'**
   String get settingsHotkeyEnabled;
 
   /// No description provided for @settingsCurrentHotkey.
   ///
   /// In en, this message translates to:
-  /// **'Current Hotkey'**
+  /// **'Current hotkey'**
   String get settingsCurrentHotkey;
 
   /// No description provided for @settingsChangeHotkey.
@@ -4944,7 +5766,7 @@ abstract class L10n {
   /// No description provided for @settingsHotkeyRecorderTitle.
   ///
   /// In en, this message translates to:
-  /// **'Record New Hotkey'**
+  /// **'Record new hotkey'**
   String get settingsHotkeyRecorderTitle;
 
   /// No description provided for @settingsHotkeyRecorderHint.
@@ -4956,8 +5778,12 @@ abstract class L10n {
   /// No description provided for @settingsHotkeyRecorderModifierHint.
   ///
   /// In en, this message translates to:
-  /// **'Any modifier combination works: e.g. Alt+Space, Ctrl+Alt+V, or Ctrl+Alt+Shift+R'**
-  String get settingsHotkeyRecorderModifierHint;
+  /// **'Any modifier combination works: e.g. {first}, {second}, or {third}'**
+  String settingsHotkeyRecorderModifierHint(
+    String first,
+    String second,
+    String third,
+  );
 
   /// No description provided for @settingsHotkeyRecorderCancel.
   ///
@@ -4998,19 +5824,31 @@ abstract class L10n {
   /// No description provided for @settingsQuickNoteHotkeyEnabled.
   ///
   /// In en, this message translates to:
-  /// **'Quick-note hotkey'**
+  /// **'Record a quick note'**
   String get settingsQuickNoteHotkeyEnabled;
 
   /// No description provided for @settingsQuickNoteHotkeyHint.
   ///
   /// In en, this message translates to:
-  /// **'Dictated text is appended to the note marked as your quick note. You pick that note in the Notes area.'**
+  /// **'Transcribed text is appended to the note marked as your quick note. You pick that note in the Notes area.'**
   String get settingsQuickNoteHotkeyHint;
+
+  /// Setting label: when a quick note is saved, bring the main window forward and open the note.
+  ///
+  /// In en, this message translates to:
+  /// **'Open notes in the main window'**
+  String get settingsQuickNoteOpenInMainWindow;
+
+  /// Explanation of the open-note-in-main-window setting for both states (off: background toast; on: window comes forward).
+  ///
+  /// In en, this message translates to:
+  /// **'Off: the quick note is saved in the background and a message offers “Open note”. On: the main window comes forward and shows the note.'**
+  String get settingsQuickNoteOpenInMainWindowHint;
 
   /// No description provided for @settingsQuickNoteCurrentHotkey.
   ///
   /// In en, this message translates to:
-  /// **'Combination'**
+  /// **'Current hotkey'**
   String get settingsQuickNoteCurrentHotkey;
 
   /// No description provided for @settingsQuickNoteHotkeyCollision.
@@ -5019,11 +5857,29 @@ abstract class L10n {
   /// **'This combination is already used for \"{action}\". Pick a different one.'**
   String settingsQuickNoteHotkeyCollision(String action);
 
+  /// Shown under the main dictation hotkey when the chosen combination is already used by another WhisPaste hotkey. {action} is that hotkey's name.
+  ///
+  /// In en, this message translates to:
+  /// **'This combination is already used for \"{action}\". Pick a different one.'**
+  String settingsDictationHotkeyCollision(Object action);
+
   /// No description provided for @settingsQuickNoteHotkeyInactive.
   ///
   /// In en, this message translates to:
   /// **'This combination could not be registered — the quick-note hotkey is currently not active. Pick a different combination.'**
   String get settingsQuickNoteHotkeyInactive;
+
+  /// Toast shown after a quick note was saved while the main window stays in the background.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick note saved'**
+  String get quickNoteToastSaved;
+
+  /// Action button on the quick-note toast; opens the note in the Notizen area.
+  ///
+  /// In en, this message translates to:
+  /// **'Open note'**
+  String get quickNoteToastOpenNote;
 
   /// No description provided for @settingsHotkeyActionSnippetPicker.
   ///
@@ -5034,7 +5890,7 @@ abstract class L10n {
   /// No description provided for @settingsSnippetPickerHotkeyEnabled.
   ///
   /// In en, this message translates to:
-  /// **'Snippet-picker hotkey'**
+  /// **'Open snippet picker'**
   String get settingsSnippetPickerHotkeyEnabled;
 
   /// No description provided for @settingsSnippetPickerHotkeyHint.
@@ -5046,7 +5902,7 @@ abstract class L10n {
   /// No description provided for @settingsSnippetPickerCurrentHotkey.
   ///
   /// In en, this message translates to:
-  /// **'Combination'**
+  /// **'Current hotkey'**
   String get settingsSnippetPickerCurrentHotkey;
 
   /// No description provided for @settingsSnippetPickerHotkeyCollision.
@@ -5064,7 +5920,7 @@ abstract class L10n {
   /// No description provided for @settingsMaxRecordDuration.
   ///
   /// In en, this message translates to:
-  /// **'Max Recording Duration'**
+  /// **'Max recording duration'**
   String get settingsMaxRecordDuration;
 
   /// No description provided for @settingsMaxRecordDurationSubtitle.
@@ -5082,7 +5938,7 @@ abstract class L10n {
   /// No description provided for @settingsCloseToTray.
   ///
   /// In en, this message translates to:
-  /// **'Close to Tray'**
+  /// **'Close to tray'**
   String get settingsCloseToTray;
 
   /// No description provided for @settingsCloseToTraySubtitle.
@@ -5094,7 +5950,7 @@ abstract class L10n {
   /// No description provided for @settingsSidePanelEnabled.
   ///
   /// In en, this message translates to:
-  /// **'Clipboard Quick-Paste Panel'**
+  /// **'Clipboard Quick-Paste panel'**
   String get settingsSidePanelEnabled;
 
   /// No description provided for @settingsSidePanelEnabledSubtitle.
@@ -5106,7 +5962,7 @@ abstract class L10n {
   /// No description provided for @settingsSidePanelEdge.
   ///
   /// In en, this message translates to:
-  /// **'Panel Position'**
+  /// **'Panel position'**
   String get settingsSidePanelEdge;
 
   /// No description provided for @settingsSidePanelEdgeSubtitle.
@@ -5127,16 +5983,106 @@ abstract class L10n {
   /// **'Right edge'**
   String get settingsSidePanelEdgeRight;
 
+  /// No description provided for @settingsAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsAppearance;
+
+  /// No description provided for @settingsAppearanceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Colours of the app windows. Recording bar and overlay stay dark.'**
+  String get settingsAppearanceSubtitle;
+
+  /// No description provided for @settingsAppearanceSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'Follow system'**
+  String get settingsAppearanceSystem;
+
+  /// No description provided for @settingsAppearanceLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsAppearanceLight;
+
+  /// No description provided for @settingsAppearanceDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsAppearanceDark;
+
+  /// No description provided for @settingsAppearanceNavy.
+  ///
+  /// In en, this message translates to:
+  /// **'Navy'**
+  String get settingsAppearanceNavy;
+
+  /// Name of the navy appearance card in the appearance picker.
+  ///
+  /// In en, this message translates to:
+  /// **'Navy'**
+  String get settingsAppearanceCardNavy;
+
+  /// One-line explanation under the title of the recognition language dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the language WhisPaste expects when you record. With auto-detect on, it recognises the language itself.'**
+  String get settingsLanguageDialogSubtitle;
+
+  /// Placeholder of the language search field.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by name'**
+  String get settingsLanguageSearchHint;
+
+  /// Heading of the panel that lists the chosen recognition language.
+  ///
+  /// In en, this message translates to:
+  /// **'Current choice'**
+  String get settingsLanguageSelectedTitle;
+
+  /// Primary action of the recognition language dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and close'**
+  String get settingsLanguageSaveAndClose;
+
+  /// Hint in the recognition language dialog explaining why Save is disabled: no language is selected yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick at least one language to save.'**
+  String get settingsLanguageSavePickOne;
+
+  /// Shown when no language matches the search.
+  ///
+  /// In en, this message translates to:
+  /// **'No language found'**
+  String get settingsLanguageNoResults;
+
+  /// Button that opens the recognition language dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get settingsLanguageChange;
+
+  /// Secondary action that closes the recognition language dialog without saving.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get settingsLanguageCancel;
+
   /// No description provided for @settingsErrorReporting.
   ///
   /// In en, this message translates to:
-  /// **'Error Reporting'**
+  /// **'Error reporting'**
   String get settingsErrorReporting;
 
   /// No description provided for @settingsErrorReportingSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Sends crash and error reports with a hashed device ID, never your audio or text'**
+  /// **'Sends crash and error reports with an anonymous device ID. Never your audio or text.'**
   String get settingsErrorReportingSubtitle;
 
   /// No description provided for @settingsErrorReportingRestartHint.
@@ -5145,40 +6091,280 @@ abstract class L10n {
   /// **'Takes effect after restarting WhisPaste.'**
   String get settingsErrorReportingRestartHint;
 
-  /// No description provided for @settingsAutoPasteDelay.
-  ///
-  /// In en, this message translates to:
-  /// **'Auto-Paste Delay'**
-  String get settingsAutoPasteDelay;
-
-  /// No description provided for @settingsAutoPasteDelaySubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Wait time before pasting into the active window'**
-  String get settingsAutoPasteDelaySubtitle;
-
   /// No description provided for @settingsAutoPasteBlocklist.
   ///
   /// In en, this message translates to:
-  /// **'Auto-Paste Blocklist'**
+  /// **'Auto-Paste blocklist'**
   String get settingsAutoPasteBlocklist;
 
   /// No description provided for @settingsAutoPasteBlocklistSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Comma-separated app identifiers where auto-paste is disabled'**
+  /// **'Apps where text is only copied (no auto-paste). With the switch below on, the text goes to the clipboard; when off, only to Recordings. While a list is set, an app that cannot be identified counts as blocked.'**
   String get settingsAutoPasteBlocklistSubtitle;
 
-  /// No description provided for @settingsAutoPasteBlocklistPlaceholder.
+  /// No description provided for @settingsAutoPasteBlocklistCopyToggle.
   ///
   /// In en, this message translates to:
-  /// **'e.g. com.apple.Terminal, com.1password'**
-  String get settingsAutoPasteBlocklistPlaceholder;
+  /// **'Copy to the clipboard when apps are blocked'**
+  String get settingsAutoPasteBlocklistCopyToggle;
+
+  /// No description provided for @settingsAutoPasteBlocklistCopyToggleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Off: the text is only saved in Recordings.'**
+  String get settingsAutoPasteBlocklistCopyToggleSubtitle;
+
+  /// No description provided for @settingsAutoPasteBlocklistPlaceholderMac.
+  ///
+  /// In en, this message translates to:
+  /// **'com.1password.1password, com.apple.Terminal'**
+  String get settingsAutoPasteBlocklistPlaceholderMac;
+
+  /// No description provided for @settingsAutoPasteBlocklistPlaceholderWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'1password, windowsterminal'**
+  String get settingsAutoPasteBlocklistPlaceholderWindows;
+
+  /// No description provided for @settingsAutoPasteBlocklistPlaceholderLinux.
+  ///
+  /// In en, this message translates to:
+  /// **'1password, gnome-terminal-server'**
+  String get settingsAutoPasteBlocklistPlaceholderLinux;
+
+  /// No description provided for @settingsAutoPasteBlocklistShortPrefixWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'On the Mac, enter bundle IDs such as com.apple.Terminal. An entry without a dot only matches an identical ID.'**
+  String get settingsAutoPasteBlocklistShortPrefixWarning;
+
+  /// Block-list hint under GNOME Wayland without the WhisPaste GNOME Shell extension: the target app cannot be named, so a set list only copies.
+  ///
+  /// In en, this message translates to:
+  /// **'Under GNOME (Wayland), WhisPaste identifies the target app only with the WhisPaste extension for GNOME – without it, while a block list is set, text is only copied'**
+  String get settingsAutoPasteBlocklistNoDetectionHintGnome;
+
+  /// Linux-only switch: Auto-Paste presses Ctrl+Shift+V (terminal paste) in every app, not only in recognised terminals.
+  ///
+  /// In en, this message translates to:
+  /// **'Always paste with Ctrl+Shift+V'**
+  String get settingsLinuxAlwaysShiftPaste;
+
+  /// Subtitle of the always-Ctrl+Shift+V switch; warns that some apps bind the keys differently (LibreOffice: Paste Special, use the localized LibreOffice menu name).
+  ///
+  /// In en, this message translates to:
+  /// **'The terminal shortcut, in every other app too. Some apps use these keys for something else; LibreOffice, for example, opens “Paste Special”'**
+  String get settingsLinuxAlwaysShiftPasteSubtitle;
+
+  /// Linux status line: the target app (and so terminals) can be identified on this desktop.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste identifies the target app here and pastes into terminals with Ctrl+Shift+V on its own'**
+  String get settingsLinuxTargetStatusAvailable;
+
+  /// Linux status line under GNOME Wayland without the WhisPaste extension: terminals are not recognised; suggests the always-Ctrl+Shift+V switch.
+  ///
+  /// In en, this message translates to:
+  /// **'Under GNOME (Wayland), WhisPaste recognises terminals only with the WhisPaste extension for GNOME. Until then, switch this on if you mostly dictate into terminals'**
+  String get settingsLinuxTargetStatusGnome;
+
+  /// Linux status line on a Wayland desktop without a focus source: terminals are not recognised; suggests the always-Ctrl+Shift+V switch.
+  ///
+  /// In en, this message translates to:
+  /// **'On this desktop, WhisPaste does not recognise terminals. Switch this on if you mostly dictate into terminals'**
+  String get settingsLinuxTargetStatusUnsupported;
+
+  /// Linux: title of the row that asks the desktop (RemoteDesktop portal) for permission to send paste shortcuts.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste through desktop permission'**
+  String get settingsLinuxPortalInputTitle;
+
+  /// Linux portal row: explains the one-time consent dialog and that only Ctrl+V/Ctrl+C are sent.
+  ///
+  /// In en, this message translates to:
+  /// **'Works without setup: your desktop asks once whether WhisPaste may send shortcuts. WhisPaste only sends Ctrl+V and Ctrl+C this way'**
+  String get settingsLinuxPortalInputBody;
+
+  /// Button: opens the desktop consent dialog for the portal keyboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for permission'**
+  String get settingsLinuxPortalInputConnect;
+
+  /// Button: ends the portal session and forgets the consent.
+  ///
+  /// In en, this message translates to:
+  /// **'Withdraw permission'**
+  String get settingsLinuxPortalInputRevoke;
+
+  /// Status after the user granted the portal keyboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission granted. WhisPaste can now paste this way'**
+  String get settingsLinuxPortalInputConnected;
+
+  /// Status after the user closed the consent dialog without granting.
+  ///
+  /// In en, this message translates to:
+  /// **'No permission given. You can ask again at any time'**
+  String get settingsLinuxPortalInputCancelled;
+
+  /// Status when the portal session could not be set up.
+  ///
+  /// In en, this message translates to:
+  /// **'Asking for permission did not work. Please try again later'**
+  String get settingsLinuxPortalInputFailed;
+
+  /// Linux/GNOME: title of the optional WhisPaste GNOME Shell extension row.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste extension for GNOME'**
+  String get settingsLinuxGnomeExtensionTitle;
+
+  /// Explains why the GNOME extension is needed and that it reads the app name only (privacy).
+  ///
+  /// In en, this message translates to:
+  /// **'Under GNOME, WhisPaste learns which app is active only with this extension, for terminals and the block list. It reads the app name only, never window titles or content'**
+  String get settingsLinuxGnomeExtensionBody;
+
+  /// Button: turns the installed GNOME extension on (gnome-extensions enable).
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on the extension'**
+  String get settingsLinuxGnomeExtensionEnable;
+
+  /// Button: turns the GNOME extension off again.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off the extension'**
+  String get settingsLinuxGnomeExtensionDisable;
+
+  /// The GNOME extension files are not on this system; points to the manual.
+  ///
+  /// In en, this message translates to:
+  /// **'The extension is not installed here. The manual explains how to install it'**
+  String get settingsLinuxGnomeExtensionNotInstalled;
+
+  /// After turning the extension on: a log-out/log-in may be needed under Wayland.
+  ///
+  /// In en, this message translates to:
+  /// **'Turned on. If WhisPaste does not recognise the app yet, log out and back in once'**
+  String get settingsLinuxGnomeExtensionRelogin;
+
+  /// Turning the extension on failed. {command} is a terminal command, keep it unchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Turning it on did not work. In a terminal: {command}'**
+  String settingsLinuxGnomeExtensionFailed(String command);
+
+  /// No description provided for @settingsAutoPasteBlocklistNoDetectionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Under Wayland, WhisPaste cannot see the active app. While an app is blocked, text is only copied, not pasted.'**
+  String get settingsAutoPasteBlocklistNoDetectionHint;
+
+  /// Note under the Auto-Paste capability on Linux Wayland sessions: WhisPaste cannot see the focused window there, so it cannot refuse or redirect a paste after a window switch (PAR-032).
+  ///
+  /// In en, this message translates to:
+  /// **'Under Wayland, WhisPaste cannot check whether you switched windows during processing – the text goes to the window that is active when it is pasted'**
+  String get settingsPasteWaylandFocusHint;
+
+  /// No description provided for @settingsPasteBlocklistAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add app'**
+  String get settingsPasteBlocklistAdd;
+
+  /// No description provided for @settingsPasteBlocklistEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No app blocked – auto-paste works everywhere.'**
+  String get settingsPasteBlocklistEmpty;
+
+  /// No description provided for @settingsPasteBlocklistRemoveTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from the block list: {name}'**
+  String settingsPasteBlocklistRemoveTooltip(String name);
+
+  /// No description provided for @settingsPasteBlocklistPickerTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add app to the block list'**
+  String get settingsPasteBlocklistPickerTitle;
+
+  /// No description provided for @settingsPasteBlocklistRecentHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Recently pasted into'**
+  String get settingsPasteBlocklistRecentHeading;
+
+  /// No description provided for @settingsPasteBlocklistPickerEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No recording with a recognised app yet. Enter the app ID below.'**
+  String get settingsPasteBlocklistPickerEmpty;
+
+  /// No description provided for @settingsPasteBlocklistManualHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the app ID manually'**
+  String get settingsPasteBlocklistManualHeading;
+
+  /// No description provided for @settingsPasteBlocklistManualAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get settingsPasteBlocklistManualAdd;
+
+  /// No description provided for @historyAutoPasteOffForApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn off auto-paste in this app'**
+  String get historyAutoPasteOffForApp;
+
+  /// No description provided for @settingsPasteClipboardAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'Clipboard after pasting'**
+  String get settingsPasteClipboardAfter;
+
+  /// No description provided for @settingsPasteClipboardAfterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Whether your previous clipboard content comes back after a paste. If a paste cannot be confirmed in time, the transcript always stays on the clipboard.'**
+  String get settingsPasteClipboardAfterSubtitle;
+
+  /// No description provided for @settingsPasteClipboardAfterKeep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the transcript'**
+  String get settingsPasteClipboardAfterKeep;
+
+  /// No description provided for @settingsPasteClipboardAfterRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore what you had copied'**
+  String get settingsPasteClipboardAfterRestore;
+
+  /// No description provided for @pasteClipboardUnsavedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Your previous clipboard could not be kept – macOS denied access to it. Allow it under System Settings → Privacy & Security.'**
+  String get pasteClipboardUnsavedHint;
+
+  /// No description provided for @pasteClipboardUnsavedAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open System Settings'**
+  String get pasteClipboardUnsavedAction;
 
   /// No description provided for @settingsCheckUpdates.
   ///
   /// In en, this message translates to:
-  /// **'Check for Updates'**
+  /// **'Check for updates'**
   String get settingsCheckUpdates;
 
   /// No description provided for @settingsCheckUpdatesSubtitle.
@@ -5208,7 +6394,7 @@ abstract class L10n {
   /// No description provided for @settingsBetaUpdates.
   ///
   /// In en, this message translates to:
-  /// **'Beta Updates'**
+  /// **'Beta updates'**
   String get settingsBetaUpdates;
 
   /// No description provided for @settingsBetaUpdatesSubtitle.
@@ -5250,7 +6436,7 @@ abstract class L10n {
   /// No description provided for @onboardingPrivacyHint.
   ///
   /// In en, this message translates to:
-  /// **'Audio and text stay local. Anonymous usage statistics go to a self-hosted server in the EU, crash reports to Sentry (EU region) — GDPR-compliant.'**
+  /// **'Audio and text stay local. Anonymous usage statistics go to a self-hosted server in the EU, crash reports go to a service in the EU (Sentry) — GDPR-compliant.'**
   String get onboardingPrivacyHint;
 
   /// No description provided for @onboardingPrivacyToggle.
@@ -5352,7 +6538,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelTitle.
   ///
   /// In en, this message translates to:
-  /// **'Set up speech recognition'**
+  /// **'Set up speech model'**
   String get onboardingModelTitle;
 
   /// No description provided for @onboardingModelSubtitle.
@@ -5373,6 +6559,12 @@ abstract class L10n {
   /// **'You can adjust quality later in Settings'**
   String get onboardingModelChangeLater;
 
+  /// Shown on the model page instead of a silent disabled Next while no speech model is installed and none is downloading
+  ///
+  /// In en, this message translates to:
+  /// **'Download a speech model or use a cloud provider with a saved API key to continue.'**
+  String get onboardingModelNextBlocked;
+
   /// No description provided for @onboardingModelDownloading.
   ///
   /// In en, this message translates to:
@@ -5382,7 +6574,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelReady.
   ///
   /// In en, this message translates to:
-  /// **'Model ready'**
+  /// **'Speech model ready'**
   String get onboardingModelReady;
 
   /// No description provided for @onboardingModelGpuCpuFallback.
@@ -5394,7 +6586,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelEngineParakeetLabel.
   ///
   /// In en, this message translates to:
-  /// **'Fast & European'**
+  /// **'Parakeet'**
   String get onboardingModelEngineParakeetLabel;
 
   /// No description provided for @onboardingModelEngineParakeetDesc.
@@ -5403,10 +6595,40 @@ abstract class L10n {
   /// **'The quickest way to text in about 25 European languages, including German. Runs well on any hardware, GPU or not.'**
   String get onboardingModelEngineParakeetDesc;
 
+  /// Line under the spinner on the onboarding model page while the app checks CPU/GPU to recommend an engine.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking your hardware for the right recommendation…'**
+  String get onboardingModelDetectingHardware;
+
+  /// Model step: button that switches speech recognition to the cloud provider whose API key is saved (UIA-MDL-GATE G1a).
+  ///
+  /// In en, this message translates to:
+  /// **'Use {provider}'**
+  String onboardingModelUseCloud(String provider);
+
+  /// Model step: note above the button when a cloud key is saved but the local engine is chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'An API key for {provider} is already saved. You can use it instead of a local speech model.'**
+  String onboardingModelCloudKeySaved(String provider);
+
+  /// Model step: note while a cloud provider with a saved key is chosen.
+  ///
+  /// In en, this message translates to:
+  /// **'You use {provider} for speech recognition. You do not need a local speech model for it.'**
+  String onboardingModelCloudInUse(String provider);
+
+  /// Model step: button that switches back to the local engine.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a local speech model'**
+  String get onboardingModelUseLocal;
+
   /// No description provided for @onboardingModelEngineWhisperLabel.
   ///
   /// In en, this message translates to:
-  /// **'All 99 Languages'**
+  /// **'Whisper'**
   String get onboardingModelEngineWhisperLabel;
 
   /// No description provided for @onboardingModelEngineWhisperDesc.
@@ -5469,6 +6691,12 @@ abstract class L10n {
   /// **'Without a working microphone, WhisPaste can\'t start a recording yet. You can catch up anytime via the microphone status on this page or in Settings.'**
   String get onboardingTestRecordingMicBypassHint;
 
+  /// No description provided for @onboardingTestRecordingMicBypassConsequence.
+  ///
+  /// In en, this message translates to:
+  /// **'The hotkey then stays untested until you use it for the first time.'**
+  String get onboardingTestRecordingMicBypassConsequence;
+
   /// No description provided for @onboardingTestRecordingPlaceholder.
   ///
   /// In en, this message translates to:
@@ -5508,6 +6736,24 @@ abstract class L10n {
   /// **'You\'re All Set!'**
   String get onboardingReadyTitle;
 
+  /// Replaces the 'You're All Set!' heading on the closing page while no speech model is installed
+  ///
+  /// In en, this message translates to:
+  /// **'A speech model is still missing'**
+  String get onboardingReadyNoModelTitle;
+
+  /// Explains on the closing page why the 'all set' claim is held back: without a speech model nothing can be transcribed
+  ///
+  /// In en, this message translates to:
+  /// **'Without a speech model or an API key WhisPaste cannot transcribe anything. Download a model or save a key, and you are all set.'**
+  String get onboardingReadyNoModelBody;
+
+  /// Button on the closing page that returns to the speech model step
+  ///
+  /// In en, this message translates to:
+  /// **'Back to the model'**
+  String get onboardingReadyBackToModel;
+
   /// No description provided for @onboardingReadySubtitle.
   ///
   /// In en, this message translates to:
@@ -5535,8 +6781,8 @@ abstract class L10n {
   /// No description provided for @onboardingReadyStep3CopyOnly.
   ///
   /// In en, this message translates to:
-  /// **'Text is in your clipboard, press ⌘V / Ctrl+V to paste'**
-  String get onboardingReadyStep3CopyOnly;
+  /// **'Text is in your clipboard, press {paste} to paste'**
+  String onboardingReadyStep3CopyOnly(String paste);
 
   /// No description provided for @onboardingReadyContextCarryoverHint.
   ///
@@ -5553,7 +6799,7 @@ abstract class L10n {
   /// No description provided for @onboardingReadyAutostartToggleHint.
   ///
   /// In en, this message translates to:
-  /// **'Off by default, turn on anytime in Settings'**
+  /// **'Starts minimized in the background, ready for your hotkey'**
   String get onboardingReadyAutostartToggleHint;
 
   /// No description provided for @onboardingTriggerTitle.
@@ -5658,6 +6904,18 @@ abstract class L10n {
   /// **'WhisPaste was updated — your settings are unchanged.'**
   String get onboardingRevisionNoticeTitle;
 
+  /// Tooltip/accessible name of the chevron that unfolds the full list of update reasons on onboarding page 1.
+  ///
+  /// In en, this message translates to:
+  /// **'Show all changes'**
+  String get onboardingRevisionNoticeExpand;
+
+  /// Tooltip/accessible name of the chevron that folds the update reasons back to two lines.
+  ///
+  /// In en, this message translates to:
+  /// **'Show less'**
+  String get onboardingRevisionNoticeCollapse;
+
   /// No description provided for @onboardingRevisionExit.
   ///
   /// In en, this message translates to:
@@ -5673,7 +6931,7 @@ abstract class L10n {
   /// No description provided for @onboardingRevisionExitConfirmBody.
   ///
   /// In en, this message translates to:
-  /// **'This update walkthrough is shown only once, so the steps you skip now won\'t be set up for you. You can reopen the same steps any time under Settings → Introduction, and every setting they cover also has its own place in Settings. What you already configured stays untouched.'**
+  /// **'This update walkthrough is shown only once, so the steps you skip now won\'t be set up for you. You can reopen the same steps any time on the Help page, under “Review the introduction”, and every setting they cover also has its own place in Settings. What you already configured stays untouched.'**
   String get onboardingRevisionExitConfirmBody;
 
   /// No description provided for @onboardingRevisionExitConfirmAction.
@@ -5691,7 +6949,7 @@ abstract class L10n {
   /// No description provided for @overlayTranscribing.
   ///
   /// In en, this message translates to:
-  /// **'Transcribing…'**
+  /// **'Processing…'**
   String get overlayTranscribing;
 
   /// No description provided for @overlayRefining.
@@ -5699,6 +6957,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Refining…'**
   String get overlayRefining;
+
+  /// No description provided for @overlayStarting.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting…'**
+  String get overlayStarting;
 
   /// No description provided for @overlayDone.
   ///
@@ -5715,7 +6979,7 @@ abstract class L10n {
   /// No description provided for @overlayDoneBoth.
   ///
   /// In en, this message translates to:
-  /// **'Copied & Pasted'**
+  /// **'Copied & pasted'**
   String get overlayDoneBoth;
 
   /// No description provided for @overlayDoneReady.
@@ -5760,6 +7024,18 @@ abstract class L10n {
   /// **'Press {hotkey} to stop'**
   String overlayKeyboardHint(String hotkey);
 
+  /// No description provided for @overlayStopAndCancelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'{hotkey} to stop · {cancelKey} to cancel'**
+  String overlayStopAndCancelHint(String hotkey, String cancelKey);
+
+  /// No description provided for @overlayDiscardConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard recording? Press {cancelKey} again'**
+  String overlayDiscardConfirm(String cancelKey);
+
   /// No description provided for @overlayKeyboardHintNextFieldEnter.
   ///
   /// In en, this message translates to:
@@ -5801,6 +7077,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'{elapsed} · {target}'**
   String overlayRecordingTargetTimer(String elapsed, String target);
+
+  /// Overlay recording line while the microphone stopped delivering signal mid-recording, e.g. unplugged (XP-5-08). Recording keeps running; disappears when the signal returns. Replaces the timer in every size; keep it short, the line does not grow.
+  ///
+  /// In en, this message translates to:
+  /// **'No microphone signal'**
+  String get overlayMicSignalLost;
 
   /// Overlay completion message when the text was appended to the quick note — nothing was copied or pasted
   ///
@@ -5853,13 +7135,13 @@ abstract class L10n {
   /// No description provided for @trayStartRecording.
   ///
   /// In en, this message translates to:
-  /// **'Start Recording'**
+  /// **'Start recording'**
   String get trayStartRecording;
 
   /// No description provided for @trayStopRecording.
   ///
   /// In en, this message translates to:
-  /// **'Stop Recording'**
+  /// **'Stop recording'**
   String get trayStopRecording;
 
   /// No description provided for @trayOpenApp.
@@ -5867,6 +7149,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Open WhisPaste'**
   String get trayOpenApp;
+
+  /// No description provided for @trayTranscribeFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribe file…'**
+  String get trayTranscribeFile;
+
+  /// Tray menu entry that opens the clipboard quick-paste side panel without the main window
+  ///
+  /// In en, this message translates to:
+  /// **'Open quick-paste panel'**
+  String get trayOpenSidePanel;
 
   /// No description provided for @traySettings.
   ///
@@ -5880,6 +7174,24 @@ abstract class L10n {
   /// **'Quit'**
   String get trayQuit;
 
+  /// No description provided for @trayFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Send feedback…'**
+  String get trayFeedback;
+
+  /// Title of the confirmation shown when the user quits from the tray during a recording or transcription (UIA-SHL-15).
+  ///
+  /// In en, this message translates to:
+  /// **'A recording is still running'**
+  String get quitDuringDictationTitle;
+
+  /// Body of the quit confirmation during a recording or transcription: quitting stops the work and loses its text (UIA-SHL-15).
+  ///
+  /// In en, this message translates to:
+  /// **'Quitting now stops the running recording or transcription, and its text is lost.'**
+  String get quitDuringDictationMessage;
+
   /// No description provided for @trayMicrophone.
   ///
   /// In en, this message translates to:
@@ -5889,7 +7201,7 @@ abstract class L10n {
   /// No description provided for @settingsComingSoon.
   ///
   /// In en, this message translates to:
-  /// **'Coming Soon'**
+  /// **'Coming soon'**
   String get settingsComingSoon;
 
   /// No description provided for @undo.
@@ -5961,7 +7273,7 @@ abstract class L10n {
   /// No description provided for @historyVoiceNoteButtonTooltip.
   ///
   /// In en, this message translates to:
-  /// **'Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript'**
+  /// **'Voice note — say “tag: …” to add a tag, or “correct: …” to replace this transcript'**
   String get historyVoiceNoteButtonTooltip;
 
   /// No description provided for @updateAvailable.
@@ -5991,13 +7303,13 @@ abstract class L10n {
   /// No description provided for @updateCheckNow.
   ///
   /// In en, this message translates to:
-  /// **'Check Now'**
+  /// **'Check now'**
   String get updateCheckNow;
 
   /// No description provided for @updateInstall.
   ///
   /// In en, this message translates to:
-  /// **'Install Update'**
+  /// **'Install update'**
   String get updateInstall;
 
   /// No description provided for @updateDownload.
@@ -6009,7 +7321,7 @@ abstract class L10n {
   /// No description provided for @updateViewRelease.
   ///
   /// In en, this message translates to:
-  /// **'Release Notes'**
+  /// **'Release notes'**
   String get updateViewRelease;
 
   /// No description provided for @updateError.
@@ -6017,6 +7329,30 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Update check failed'**
   String get updateError;
+
+  /// Shown in the About section after the user asked to install while a dictation runs; the install starts when the recording has ended.
+  ///
+  /// In en, this message translates to:
+  /// **'The update installs after the recording'**
+  String get updateInstallAfterRecording;
+
+  /// Shown in the About section when the downloaded installer file is gone; the user is asked to check for updates again.
+  ///
+  /// In en, this message translates to:
+  /// **'The installer file is missing. Check for updates again.'**
+  String get updateInstallerMissing;
+
+  /// Shown in the About section when the downloaded update could not be started; tells the user they can try again.
+  ///
+  /// In en, this message translates to:
+  /// **'The update could not be started. Try installing it again.'**
+  String get updateInstallFailed;
+
+  /// Button label in the About section that starts the installation again after a failed launch of the downloaded installer.
+  ///
+  /// In en, this message translates to:
+  /// **'Install again'**
+  String get updateInstallRetry;
 
   /// No description provided for @updateRateLimited.
   ///
@@ -6060,29 +7396,113 @@ abstract class L10n {
   /// **'Mini'**
   String get settingsOverlaySizeMini;
 
-  /// No description provided for @settingsOverlayStyle.
+  /// No description provided for @settingsOverlayColors.
   ///
   /// In en, this message translates to:
-  /// **'Overlay style'**
-  String get settingsOverlayStyle;
+  /// **'Overlay colours'**
+  String get settingsOverlayColors;
 
-  /// No description provided for @settingsOverlayStyleSubtitle.
+  /// No description provided for @settingsOverlayBackground.
   ///
   /// In en, this message translates to:
-  /// **'Choose between glass or a solid opaque look'**
-  String get settingsOverlayStyleSubtitle;
+  /// **'Overlay and button background'**
+  String get settingsOverlayBackground;
 
-  /// No description provided for @settingsOverlayStyleGlass.
+  /// No description provided for @settingsOverlayBackgroundSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Glass'**
-  String get settingsOverlayStyleGlass;
+  /// **'Applies to the recording overlay and the floating button.'**
+  String get settingsOverlayBackgroundSubtitle;
 
-  /// No description provided for @settingsOverlayStyleSolid.
+  /// No description provided for @settingsOverlayBackgroundMarine.
   ///
   /// In en, this message translates to:
-  /// **'Solid'**
-  String get settingsOverlayStyleSolid;
+  /// **'Marine'**
+  String get settingsOverlayBackgroundMarine;
+
+  /// No description provided for @settingsOverlayBackgroundGraphit.
+  ///
+  /// In en, this message translates to:
+  /// **'Graphite'**
+  String get settingsOverlayBackgroundGraphit;
+
+  /// No description provided for @settingsOverlayBackgroundGletscher.
+  ///
+  /// In en, this message translates to:
+  /// **'Glacier'**
+  String get settingsOverlayBackgroundGletscher;
+
+  /// No description provided for @settingsOverlayBackgroundAmber.
+  ///
+  /// In en, this message translates to:
+  /// **'Amber'**
+  String get settingsOverlayBackgroundAmber;
+
+  /// No description provided for @settingsOverlayWave.
+  ///
+  /// In en, this message translates to:
+  /// **'Wave colour for overlay and button'**
+  String get settingsOverlayWave;
+
+  /// No description provided for @settingsOverlayWaveSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies to the recording overlay and the floating button: wave and recording ring.'**
+  String get settingsOverlayWaveSubtitle;
+
+  /// No description provided for @settingsOverlayWaveCyan.
+  ///
+  /// In en, this message translates to:
+  /// **'Cyan'**
+  String get settingsOverlayWaveCyan;
+
+  /// No description provided for @settingsOverlayWaveViolett.
+  ///
+  /// In en, this message translates to:
+  /// **'Violet'**
+  String get settingsOverlayWaveViolett;
+
+  /// No description provided for @settingsOverlayWaveNeutral.
+  ///
+  /// In en, this message translates to:
+  /// **'Neutral'**
+  String get settingsOverlayWaveNeutral;
+
+  /// No description provided for @settingsOverlayWaveAmber.
+  ///
+  /// In en, this message translates to:
+  /// **'Amber'**
+  String get settingsOverlayWaveAmber;
+
+  /// No description provided for @settingsOverlayWaveInk.
+  ///
+  /// In en, this message translates to:
+  /// **'Ink'**
+  String get settingsOverlayWaveInk;
+
+  /// No description provided for @settingsOverlayWaveCoral.
+  ///
+  /// In en, this message translates to:
+  /// **'Coral'**
+  String get settingsOverlayWaveCoral;
+
+  /// No description provided for @settingsOverlayWaveMint.
+  ///
+  /// In en, this message translates to:
+  /// **'Mint'**
+  String get settingsOverlayWaveMint;
+
+  /// No description provided for @settingsOverlayWaveUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not clearly visible on this background'**
+  String get settingsOverlayWaveUnavailable;
+
+  /// No description provided for @settingsOverlayWaveReplacedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'“{from}” is not clearly visible on this background. The wave was changed to “{to}”.'**
+  String settingsOverlayWaveReplacedToast(String from, String to);
 
   /// No description provided for @settingsOverlayLiveTranscript.
   ///
@@ -6117,19 +7537,19 @@ abstract class L10n {
   /// No description provided for @overlayContextSwitchNormal.
   ///
   /// In en, this message translates to:
-  /// **'Switch to Normal'**
+  /// **'Switch to normal'**
   String get overlayContextSwitchNormal;
 
   /// No description provided for @overlayContextSwitchCompact.
   ///
   /// In en, this message translates to:
-  /// **'Switch to Compact'**
+  /// **'Switch to compact'**
   String get overlayContextSwitchCompact;
 
   /// No description provided for @overlayContextSwitchMini.
   ///
   /// In en, this message translates to:
-  /// **'Switch to Mini'**
+  /// **'Switch to mini'**
   String get overlayContextSwitchMini;
 
   /// No description provided for @overlayContextHide.
@@ -6147,13 +7567,13 @@ abstract class L10n {
   /// No description provided for @buttonContextStartRecording.
   ///
   /// In en, this message translates to:
-  /// **'Start Recording'**
+  /// **'Start recording'**
   String get buttonContextStartRecording;
 
   /// No description provided for @buttonContextShowHistory.
   ///
   /// In en, this message translates to:
-  /// **'Show History'**
+  /// **'Show recordings'**
   String get buttonContextShowHistory;
 
   /// No description provided for @buttonContextSettings.
@@ -6171,7 +7591,7 @@ abstract class L10n {
   /// No description provided for @settingsHistory.
   ///
   /// In en, this message translates to:
-  /// **'History'**
+  /// **'Recordings'**
   String get settingsHistory;
 
   /// No description provided for @settingsHistorySubtitle.
@@ -6243,19 +7663,19 @@ abstract class L10n {
   /// No description provided for @settingsHistoryHideOnOpen.
   ///
   /// In en, this message translates to:
-  /// **'Hide history on open'**
+  /// **'Hide recordings on open'**
   String get settingsHistoryHideOnOpen;
 
   /// No description provided for @settingsHistoryHideOnOpenSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Shows a “Show history” button instead of your transcriptions whenever WhisPaste starts or its window reopens'**
+  /// **'Shows a “Show recordings” button instead of your transcriptions whenever WhisPaste starts or its window reopens. Nothing is deleted.'**
   String get settingsHistoryHideOnOpenSubtitle;
 
   /// No description provided for @historyPinGateTitle.
   ///
   /// In en, this message translates to:
-  /// **'History is locked'**
+  /// **'Recordings are locked'**
   String get historyPinGateTitle;
 
   /// No description provided for @historyPinGateHint.
@@ -6263,6 +7683,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Enter your PIN to show your transcriptions.'**
   String get historyPinGateHint;
+
+  /// No description provided for @historyImportUnlockHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock Recordings to transcribe the file.'**
+  String get historyImportUnlockHint;
 
   /// No description provided for @historyPinUnlock.
   ///
@@ -6279,7 +7705,7 @@ abstract class L10n {
   /// No description provided for @historyPinDialogSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Your history is protected with a PIN.'**
+  /// **'Your recordings are protected with a PIN.'**
   String get historyPinDialogSubtitle;
 
   /// No description provided for @historyPinFieldHint.
@@ -6312,22 +7738,46 @@ abstract class L10n {
   /// **'Forgot PIN?'**
   String get historyPinForgot;
 
+  /// No description provided for @historyPinForgotHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Resetting immediately deletes all transcriptions, saved audio files, notes with their versions, and note images. If a file cannot be deleted, WhisPaste shows a notice.'**
+  String get historyPinForgotHint;
+
   /// No description provided for @historyPinForgotConfirmTitle.
   ///
   /// In en, this message translates to:
-  /// **'Delete history and remove PIN?'**
+  /// **'Delete recordings and notes and remove PIN?'**
   String get historyPinForgotConfirmTitle;
 
   /// No description provided for @historyPinForgotConfirmMessage.
   ///
   /// In en, this message translates to:
-  /// **'A forgotten PIN cannot be recovered. To reset it, your entire history — including archive, trash and kept recordings — is permanently deleted. Settings, notes, snippets and replacements are kept.'**
+  /// **'A forgotten PIN cannot be recovered. To reset it, all transcriptions and saved audio files (including archive and trash), all notes with their versions (including trash) and all note images are deleted immediately and permanently. Settings, snippets and replacements are kept. If a file cannot be deleted, WhisPaste shows a notice.'**
   String get historyPinForgotConfirmMessage;
+
+  /// No description provided for @historyPinForgotLeftoverAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'Some recordings, imports or note images could not be deleted. WhisPaste removes them the next time it starts.'**
+  String get historyPinForgotLeftoverAudio;
+
+  /// No description provided for @historyPinForgotLeftoverUnqueued.
+  ///
+  /// In en, this message translates to:
+  /// **'Some recordings or imports could not be deleted, and WhisPaste cannot retry later. Please delete them by hand. Location: {folder}'**
+  String historyPinForgotLeftoverUnqueued(String folder);
+
+  /// No description provided for @historyPinForgotMigrationCopyLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'A copy of the old database ({path}) could not be deleted. Please delete it by hand.'**
+  String historyPinForgotMigrationCopyLeft(String path);
 
   /// No description provided for @historyPinForgotConfirmAction.
   ///
   /// In en, this message translates to:
-  /// **'Delete history'**
+  /// **'Delete'**
   String get historyPinForgotConfirmAction;
 
   /// No description provided for @historyPinSetTitle.
@@ -6339,7 +7789,7 @@ abstract class L10n {
   /// No description provided for @historyPinSetSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'4–8 digits. Keeps others from casually viewing your history on this computer — it does not encrypt it.'**
+  /// **'4–8 digits. Keeps others from casually viewing your transcriptions on this computer — it does not encrypt them.'**
   String get historyPinSetSubtitle;
 
   /// No description provided for @historyPinInvalid.
@@ -6363,7 +7813,7 @@ abstract class L10n {
   /// No description provided for @settingsHistoryPinSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Require a PIN to show the history, including side panel, floating button menu and automation API.'**
+  /// **'Require a PIN to show recordings and notes, including side panel, the floating button\'s menu and automation API.'**
   String get settingsHistoryPinSubtitle;
 
   /// No description provided for @settingsHistoryPinChange.
@@ -6387,7 +7837,7 @@ abstract class L10n {
   /// No description provided for @settingsHistoryAutoLockSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Hide the history again after this much inactivity.'**
+  /// **'Hide recordings again after this much inactivity.'**
   String get settingsHistoryAutoLockSubtitle;
 
   /// No description provided for @settingsHistoryAutoLockNever.
@@ -6402,10 +7852,16 @@ abstract class L10n {
   /// **'After {minutes} min'**
   String settingsHistoryAutoLockMinutes(int minutes);
 
+  /// No description provided for @settingsFloatingButtonLookLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on the floating button to change this.'**
+  String get settingsFloatingButtonLookLocked;
+
   /// No description provided for @settingsFloatingButtonSection.
   ///
   /// In en, this message translates to:
-  /// **'Floating Button'**
+  /// **'Floating button'**
   String get settingsFloatingButtonSection;
 
   /// No description provided for @settingsFloatingButtonSectionSubtitle.
@@ -6417,13 +7873,13 @@ abstract class L10n {
   /// No description provided for @settingsSttIdleTimeout.
   ///
   /// In en, this message translates to:
-  /// **'Engine idle timeout'**
+  /// **'Speech model idle timeout'**
   String get settingsSttIdleTimeout;
 
   /// No description provided for @settingsSttIdleTimeoutSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'How long the speech service stays loaded after use'**
+  /// **'How long the speech model stays loaded after use'**
   String get settingsSttIdleTimeoutSubtitle;
 
   /// No description provided for @settingsSttIdleTimeoutKeepAlive.
@@ -6431,6 +7887,48 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Keep alive'**
   String get settingsSttIdleTimeoutKeepAlive;
+
+  /// No description provided for @settingsSttKeepLoaded.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep model loaded'**
+  String get settingsSttKeepLoaded;
+
+  /// No description provided for @settingsSttKeepLoadedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A loaded model starts recording without waiting for it to load. While it is loaded, it takes up memory.'**
+  String get settingsSttKeepLoadedSubtitle;
+
+  /// No description provided for @settingsSttKeepLoadedMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Loaded, the model needs about {size} of memory.'**
+  String settingsSttKeepLoadedMemory(String size);
+
+  /// No description provided for @settingsSttKeepLoadedAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'Always'**
+  String get settingsSttKeepLoadedAlways;
+
+  /// No description provided for @settingsSttKeepLoadedAutomatic.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic'**
+  String get settingsSttKeepLoadedAutomatic;
+
+  /// No description provided for @settingsSttKeepLoadedAfterIdle.
+  ///
+  /// In en, this message translates to:
+  /// **'After idle time'**
+  String get settingsSttKeepLoadedAfterIdle;
+
+  /// No description provided for @settingsSttKeepLoadedUnloadAfter.
+  ///
+  /// In en, this message translates to:
+  /// **'Unload after'**
+  String get settingsSttKeepLoadedUnloadAfter;
 
   /// No description provided for @settingsSttIdleTimeoutMinutes.
   ///
@@ -6471,32 +7969,14 @@ abstract class L10n {
   /// No description provided for @reviewPromptStarGitHub.
   ///
   /// In en, this message translates to:
-  /// **'⭐ Star on GitHub'**
+  /// **'Star on GitHub'**
   String get reviewPromptStarGitHub;
 
   /// No description provided for @reviewPromptRateStore.
   ///
   /// In en, this message translates to:
-  /// **'★ Rate on the Store'**
+  /// **'Rate on the Store'**
   String get reviewPromptRateStore;
-
-  /// No description provided for @reviewPromptGateBody.
-  ///
-  /// In en, this message translates to:
-  /// **'Just a quick question for us, this isn\'t a store rating.'**
-  String get reviewPromptGateBody;
-
-  /// No description provided for @reviewPromptGateYes.
-  ///
-  /// In en, this message translates to:
-  /// **'Yes, I like it'**
-  String get reviewPromptGateYes;
-
-  /// No description provided for @reviewPromptGateNo.
-  ///
-  /// In en, this message translates to:
-  /// **'Not really'**
-  String get reviewPromptGateNo;
 
   /// No description provided for @reviewSupportEntry.
   ///
@@ -6507,14 +7987,8 @@ abstract class L10n {
   /// No description provided for @reviewSupportLabel.
   ///
   /// In en, this message translates to:
-  /// **'Your rating'**
+  /// **'Rate the app'**
   String get reviewSupportLabel;
-
-  /// No description provided for @reviewSupportSubtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Your rating helps others discover WhisPaste and supports the project.'**
-  String get reviewSupportSubtitle;
 
   /// No description provided for @reviewSupportAction.
   ///
@@ -6540,70 +8014,124 @@ abstract class L10n {
   /// **'Suggest & vote on ideas'**
   String get feedbackIdeasLink;
 
-  /// No description provided for @insufficientRamTitle.
+  /// No description provided for @feedbackTypeProblem.
   ///
   /// In en, this message translates to:
-  /// **'Not Enough Memory'**
-  String get insufficientRamTitle;
+  /// **'Problem'**
+  String get feedbackTypeProblem;
 
-  /// No description provided for @insufficientRamBody.
+  /// No description provided for @feedbackTypeIdea.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste requires at least {requiredGb} GB of RAM to run. Your system has {detectedGb} GB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.'**
-  String insufficientRamBody(double detectedGb, int requiredGb);
+  /// **'Idea'**
+  String get feedbackTypeIdea;
 
-  /// No description provided for @insufficientRamQuit.
+  /// No description provided for @feedbackTypePraise.
   ///
   /// In en, this message translates to:
-  /// **'Quit WhisPaste'**
-  String get insufficientRamQuit;
+  /// **'Praise'**
+  String get feedbackTypePraise;
 
-  /// No description provided for @insufficientRamLearnMore.
+  /// No description provided for @feedbackTypeQuestion.
   ///
   /// In en, this message translates to:
-  /// **'System requirements'**
-  String get insufficientRamLearnMore;
+  /// **'Question'**
+  String get feedbackTypeQuestion;
 
-  /// No description provided for @insufficientRamSystemCheck.
+  /// No description provided for @feedbackPromptProblem.
   ///
   /// In en, this message translates to:
-  /// **'System Check'**
-  String get insufficientRamSystemCheck;
+  /// **'What went wrong? Tell us what you did and what happened.'**
+  String get feedbackPromptProblem;
 
-  /// No description provided for @insufficientRamYourSystem.
+  /// No description provided for @feedbackPromptIdea.
   ///
   /// In en, this message translates to:
-  /// **'Your system'**
-  String get insufficientRamYourSystem;
+  /// **'What would make WhisPaste better for you?'**
+  String get feedbackPromptIdea;
 
-  /// No description provided for @insufficientRamRequired.
+  /// No description provided for @feedbackPromptPraise.
   ///
   /// In en, this message translates to:
-  /// **'Required'**
-  String get insufficientRamRequired;
+  /// **'What works well for you?'**
+  String get feedbackPromptPraise;
+
+  /// No description provided for @feedbackPromptQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'What would you like to know?'**
+  String get feedbackPromptQuestion;
+
+  /// No description provided for @feedbackDiagnosticsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Attach diagnostics'**
+  String get feedbackDiagnosticsLabel;
+
+  /// No description provided for @feedbackDiagnosticsExplanation.
+  ///
+  /// In en, this message translates to:
+  /// **'Adds the app version, operating system, speech engine and backend. Recordings and transcripts are never attached.'**
+  String get feedbackDiagnosticsExplanation;
+
+  /// No description provided for @feedbackDiagnosticsPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Show preview'**
+  String get feedbackDiagnosticsPreview;
+
+  /// No description provided for @feedbackDiagnosticsPreviewHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide preview'**
+  String get feedbackDiagnosticsPreviewHide;
+
+  /// No description provided for @feedbackDiagnosticsPreviewHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'This exact text is added to your message:'**
+  String get feedbackDiagnosticsPreviewHeading;
+
+  /// No description provided for @feedbackIdeaBoardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You can also post your idea on the public ideas board and vote on others.'**
+  String get feedbackIdeaBoardHint;
+
+  /// No description provided for @feedbackTextTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'The text is too long to attach the diagnostics. Shorten it a little.'**
+  String get feedbackTextTooLong;
 
   /// No description provided for @hotkeyRegistrationFailed.
   ///
   /// In en, this message translates to:
-  /// **'Hotkey registration failed, please re-bind your shortcut in Settings.'**
+  /// **'Hotkey registration failed. Choose a new key combination in Settings.'**
   String get hotkeyRegistrationFailed;
 
-  /// No description provided for @hotkeyRegistrationFailedDefaultActive.
+  /// No description provided for @hotkeyFallbackActive.
   ///
   /// In en, this message translates to:
-  /// **'Hotkey registration failed, using Ctrl+Shift+Space as fallback. Please re-bind in Settings.'**
-  String get hotkeyRegistrationFailedDefaultActive;
+  /// **'{taken} is already used by another app. Until you choose a different combination, {active} starts a recording.'**
+  String hotkeyFallbackActive(String taken, String active);
+
+  /// Toast when a secondary hotkey (quick note, snippet picker) is held by another app and stays off. {action} is the action's name (UIA-SHL-05).
+  ///
+  /// In en, this message translates to:
+  /// **'Another app holds the hotkey for {action}. It stays off until you pick a free combination in Settings.'**
+  String hotkeyConflictActive(String action);
 
   /// No description provided for @hotkeyConflictWarning.
   ///
   /// In en, this message translates to:
-  /// **'This shortcut is reserved by {platform} ({note}) and may not work.'**
+  /// **'This key combination is reserved by {platform} ({note}) and may not work.'**
   String hotkeyConflictWarning(String platform, String note);
 
   /// No description provided for @exportFormatPickerTitle.
   ///
   /// In en, this message translates to:
-  /// **'Choose Export Format'**
+  /// **'Choose export format'**
   String get exportFormatPickerTitle;
 
   /// No description provided for @exportFormatText.
@@ -6645,7 +8173,7 @@ abstract class L10n {
   /// No description provided for @recoveryExhaustedToast.
   ///
   /// In en, this message translates to:
-  /// **'Voice service cannot start. Please restart the app or reload the voice model.'**
+  /// **'Speech model cannot start. Please restart the app or reload the speech model.'**
   String get recoveryExhaustedToast;
 
   /// No description provided for @recoveryExhaustedAction.
@@ -6657,7 +8185,7 @@ abstract class L10n {
   /// No description provided for @recoveryVcRuntimeToast.
   ///
   /// In en, this message translates to:
-  /// **'Voice service cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.'**
+  /// **'Speech model cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.'**
   String get recoveryVcRuntimeToast;
 
   /// No description provided for @recoveryVcRuntimeAction.
@@ -6675,13 +8203,13 @@ abstract class L10n {
   /// No description provided for @recoveryGpuDisabledToast.
   ///
   /// In en, this message translates to:
-  /// **'WhisPaste is now running without GPU acceleration due to a problem on the last launch. Dictation still works as usual.'**
+  /// **'WhisPaste is now running without GPU acceleration due to a problem on the last launch. Recording still works as usual.'**
   String get recoveryGpuDisabledToast;
 
   /// No description provided for @serverDownloadFailedToast.
   ///
   /// In en, this message translates to:
-  /// **'Voice service could not be downloaded. Check your internet connection?'**
+  /// **'Speech model could not be downloaded. Check your internet connection?'**
   String get serverDownloadFailedToast;
 
   /// No description provided for @serverDownloadFailedAction.
@@ -6707,18 +8235,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Copy diagnostics'**
   String get historyWriteFailedAction;
-
-  /// No description provided for @factoryResetFailedToast.
-  ///
-  /// In en, this message translates to:
-  /// **'Factory reset incomplete. Restart the app?'**
-  String get factoryResetFailedToast;
-
-  /// No description provided for @factoryResetFailedAction.
-  ///
-  /// In en, this message translates to:
-  /// **'Quit app'**
-  String get factoryResetFailedAction;
 
   /// No description provided for @errorSttRejectEmpty.
   ///
@@ -6747,13 +8263,13 @@ abstract class L10n {
   /// No description provided for @settingsGpuAcceleration.
   ///
   /// In en, this message translates to:
-  /// **'Graphics Acceleration'**
+  /// **'Graphics acceleration'**
   String get settingsGpuAcceleration;
 
   /// No description provided for @settingsGpuAccelerationSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Controls whether the speech service uses GPU or CPU for local recognition'**
+  /// **'Automatic uses the graphics card when it is available. \"CPU only\" is slower but works on every device. Force GPU only if automatic mode doesn\'t work.'**
   String get settingsGpuAccelerationSubtitle;
 
   /// No description provided for @settingsGpuAccelerationAuto.
@@ -6777,13 +8293,13 @@ abstract class L10n {
   /// No description provided for @settingsSttEngine.
   ///
   /// In en, this message translates to:
-  /// **'Engine'**
+  /// **'Speech model'**
   String get settingsSttEngine;
 
   /// No description provided for @settingsSttEngineSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Whisper covers 99 languages and every GPU backend; Parakeet is much faster and covers ~25 languages, on the GPU where available'**
+  /// **'Whisper: 99 languages. Parakeet: faster, about 25 languages.'**
   String get settingsSttEngineSubtitle;
 
   /// No description provided for @settingsSttEngineWhisper.
@@ -6795,13 +8311,19 @@ abstract class L10n {
   /// No description provided for @settingsSttEngineParakeet.
   ///
   /// In en, this message translates to:
-  /// **'Parakeet (fastest, ~25 languages)'**
+  /// **'Parakeet'**
   String get settingsSttEngineParakeet;
+
+  /// Badge on the speech-recognition engine that the dictation language recommends (UIA-RT-03). One word, shown next to the engine name.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended'**
+  String get settingsSttEngineRecommended;
 
   /// No description provided for @parakeetModelTitle.
   ///
   /// In en, this message translates to:
-  /// **'Parakeet TDT model'**
+  /// **'Parakeet model'**
   String get parakeetModelTitle;
 
   /// No description provided for @parakeetModelSubtitle.
@@ -6849,7 +8371,7 @@ abstract class L10n {
   /// No description provided for @settingsSearchNoResults.
   ///
   /// In en, this message translates to:
-  /// **'No Results'**
+  /// **'No results'**
   String get settingsSearchNoResults;
 
   /// No description provided for @settingsSearchNoResultsHint.
@@ -6891,20 +8413,44 @@ abstract class L10n {
   /// No description provided for @settingsShareUsageStatsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Cookieless, with a random per-session ID and a weekly changing pseudonym — helps us understand how WhisPaste is used'**
+  /// **'Anonymous usage counts, no cookies, not linked to you. Helps us see which features are used. Your text and audio are never included.'**
   String get settingsShareUsageStatsSubtitle;
 
   /// No description provided for @settingsRetainRecentAudio.
   ///
   /// In en, this message translates to:
-  /// **'Keep recent recordings'**
+  /// **'Keep audio of recent recordings'**
   String get settingsRetainRecentAudio;
 
   /// No description provided for @settingsRetainRecentAudioSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically'**
-  String get settingsRetainRecentAudioSubtitle;
+  /// **'Keep the audio of your last {count} recordings on this device for debugging or restoring a past transcript; recordings and imported files are deleted automatically after {days} days at most'**
+  String settingsRetainRecentAudioSubtitle(int count, int days);
+
+  /// Privacy note in Settings: recordings whose transcription failed keep their audio for 24 hours for a retry, even when audio retention is off.
+  ///
+  /// In en, this message translates to:
+  /// **'A recording whose transcription failed keeps its audio for up to 24 hours, so you can try again, even when this is off.'**
+  String get pendingAudioRetentionNote;
+
+  /// Title of the Settings section listing recordings kept for a retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Recordings waiting for a retry'**
+  String get pendingAudioSectionTitle;
+
+  /// Explanation under the title of the Settings section listing recordings kept for a retry.
+  ///
+  /// In en, this message translates to:
+  /// **'These recordings could not be transcribed, for example because the connection dropped. The audio is deleted after 24 hours at most, or when you discard it.'**
+  String get pendingAudioSectionBody;
+
+  /// Shown in the retry list when no recording waits for a retry.
+  ///
+  /// In en, this message translates to:
+  /// **'No recordings are waiting.'**
+  String get pendingAudioEmpty;
 
   /// No description provided for @featureSpotlightHeading.
   ///
@@ -6921,7 +8467,7 @@ abstract class L10n {
   /// No description provided for @featureSpotlightSnippetPickerTitle.
   ///
   /// In en, this message translates to:
-  /// **'Snippet Picker'**
+  /// **'Snippet picker'**
   String get featureSpotlightSnippetPickerTitle;
 
   /// No description provided for @featureSpotlightSnippetPickerDescription.
@@ -6933,7 +8479,7 @@ abstract class L10n {
   /// No description provided for @featureSpotlightSidePanelTitle.
   ///
   /// In en, this message translates to:
-  /// **'Clipboard Side Panel'**
+  /// **'Clipboard side panel'**
   String get featureSpotlightSidePanelTitle;
 
   /// No description provided for @featureSpotlightSidePanelDescription.
@@ -6945,13 +8491,13 @@ abstract class L10n {
   /// No description provided for @featureSpotlightInteractiveSnippetsTitle.
   ///
   /// In en, this message translates to:
-  /// **'Interactive Snippets'**
+  /// **'Interactive snippets'**
   String get featureSpotlightInteractiveSnippetsTitle;
 
   /// No description provided for @featureSpotlightInteractiveSnippetsDescription.
   ///
   /// In en, this message translates to:
-  /// **'Snippets with blanks: WhisPaste walks you through each field — dictate, press Enter for the next one, and the finished text is pasted in one piece.'**
+  /// **'Snippets with blanks: WhisPaste walks you through each field — speak, press Enter for the next one, and the finished text is pasted in one piece.'**
   String get featureSpotlightInteractiveSnippetsDescription;
 
   /// No description provided for @featureSpotlightSmartModeTitle.
@@ -6963,19 +8509,19 @@ abstract class L10n {
   /// No description provided for @featureSpotlightSmartModeDescription.
   ///
   /// In en, this message translates to:
-  /// **'Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.'**
+  /// **'Clean up, shorten, or translate your text before it is pasted — fully on-device, with its own hotkey, preset, and target language.'**
   String get featureSpotlightSmartModeDescription;
 
   /// No description provided for @featureSpotlightHistoryPinTitle.
   ///
   /// In en, this message translates to:
-  /// **'Lock your history with a PIN'**
+  /// **'Lock your recordings with a PIN'**
   String get featureSpotlightHistoryPinTitle;
 
   /// No description provided for @featureSpotlightHistoryPinDescription.
   ///
   /// In en, this message translates to:
-  /// **'Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.'**
+  /// **'Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → Recordings.'**
   String get featureSpotlightHistoryPinDescription;
 
   /// No description provided for @featureSpotlightEditSelectionTitle.
@@ -6987,7 +8533,7 @@ abstract class L10n {
   /// No description provided for @featureSpotlightEditSelectionDescription.
   ///
   /// In en, this message translates to:
-  /// **'Select text in any app, press the edit-selection hotkey and say what should change — or just “shorter”, “improve” or “translate”. Uses your Smart Mode engine. Off by default: turn it on under Settings → Smart Mode.'**
+  /// **'Select text in any app, press the edit-selection hotkey and say what should change — or just “shorter”, “improve” or “translate”. Uses the Smart Mode text model. Off by default: turn it on under Settings → Smart Mode.'**
   String get featureSpotlightEditSelectionDescription;
 
   /// No description provided for @featureSpotlightChangelogLink.
@@ -7107,7 +8653,7 @@ abstract class L10n {
   /// No description provided for @notesMoveToTrash.
   ///
   /// In en, this message translates to:
-  /// **'Move to Trash'**
+  /// **'Move to trash'**
   String get notesMoveToTrash;
 
   /// No description provided for @notesMovedToTrash.
@@ -7335,7 +8881,7 @@ abstract class L10n {
   /// No description provided for @sidePanelClipboardHistoryTitle.
   ///
   /// In en, this message translates to:
-  /// **'Clipboard History'**
+  /// **'Clipboard history'**
   String get sidePanelClipboardHistoryTitle;
 
   /// No description provided for @sidePanelClipboardHistoryEmpty.
@@ -7389,7 +8935,7 @@ abstract class L10n {
   /// No description provided for @settingsSmartModeSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Local text cleanup, shortening, and translation after dictation'**
+  /// **'Local text cleanup, shortening, and translation after recording'**
   String get settingsSmartModeSubtitle;
 
   /// No description provided for @smartModeStandardPreset.
@@ -7407,7 +8953,7 @@ abstract class L10n {
   /// No description provided for @smartModePresetOffDescription.
   ///
   /// In en, this message translates to:
-  /// **'No automatic post-processing — the dictated text is used exactly as transcribed.'**
+  /// **'No automatic post-processing — the text is used exactly as transcribed.'**
   String get smartModePresetOffDescription;
 
   /// No description provided for @smartModePresetCleanup.
@@ -7443,7 +8989,7 @@ abstract class L10n {
   /// No description provided for @smartModePresetTranslateDescription.
   ///
   /// In en, this message translates to:
-  /// **'Translates the dictated text into the target language set below.'**
+  /// **'Translates the transcribed text into the target language set below.'**
   String get smartModePresetTranslateDescription;
 
   /// No description provided for @smartModeTargetLanguage.
@@ -7503,7 +9049,7 @@ abstract class L10n {
   /// No description provided for @smartModeDownloadComplete.
   ///
   /// In en, this message translates to:
-  /// **'Smart Mode model ready to use'**
+  /// **'Text model ready to use'**
   String get smartModeDownloadComplete;
 
   /// No description provided for @smartModeRamWarningTitle.
@@ -7515,7 +9061,7 @@ abstract class L10n {
   /// No description provided for @smartModeRamWarningBody.
   ///
   /// In en, this message translates to:
-  /// **'Smart Mode\'s local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?'**
+  /// **'Smart Mode\'s local text model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?'**
   String get smartModeRamWarningBody;
 
   /// No description provided for @smartModeRamWarningContinue.
@@ -7530,16 +9076,34 @@ abstract class L10n {
   /// **'Cancel'**
   String get smartModeRamWarningCancel;
 
+  /// No description provided for @smartModeModelDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this text model?'**
+  String get smartModeModelDeleteConfirm;
+
+  /// No description provided for @smartModeModelDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The text model file is deleted from this device. You can re-download it any time.'**
+  String get smartModeModelDeleteConfirmMessage;
+
   /// No description provided for @smartModeMemoryFootprintInfo.
   ///
   /// In en, this message translates to:
-  /// **'Runs fully on-device. While active, it uses about 4–5 GB of RAM in addition to disk space — shared with the transcription model, so total memory use depends on which STT model you also have loaded.'**
+  /// **'Runs fully on-device. While active, the text model uses about 4–5 GB of RAM in addition to disk space — shared with the speech model, so total memory use depends on which speech model you also have loaded.'**
   String get smartModeMemoryFootprintInfo;
+
+  /// No description provided for @smartModeFactGuardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The fact guard checks numbers, dates, links, e-mail addresses and IBANs. Dictionary names stay intact. Free instructions can change names that are not in the dictionary – add them to the dictionary if they must stay.'**
+  String get smartModeFactGuardHint;
 
   /// No description provided for @smartModeSpeedExampleInfo.
   ///
   /// In en, this message translates to:
-  /// **'Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device\'s hardware.'**
+  /// **'Example: a typical 50-word recording takes roughly 1–6 seconds to process, depending on your device\'s hardware.'**
   String get smartModeSpeedExampleInfo;
 
   /// Shown in Smart Mode settings when the on-device engine library is not bundled in this build (e.g. a Linux dev build); also the tooltip of the disabled on-device option.
@@ -7557,13 +9121,13 @@ abstract class L10n {
   /// No description provided for @settingsSmartModeHotkeyEnabled.
   ///
   /// In en, this message translates to:
-  /// **'Smart-Mode hotkey'**
+  /// **'Record with Smart Mode'**
   String get settingsSmartModeHotkeyEnabled;
 
   /// No description provided for @settingsSmartModeHotkeyHint.
   ///
   /// In en, this message translates to:
-  /// **'Starts a recording with a fixed preset, independent of your standard preset above. Supports push-to-talk just like the main hotkey.'**
+  /// **'Starts a recording with a fixed preset, independent of your standard preset in Smart Mode. “Hold to record” applies here too.'**
   String get settingsSmartModeHotkeyHint;
 
   /// No description provided for @settingsSmartModeHotkeyPreset.
@@ -7575,7 +9139,7 @@ abstract class L10n {
   /// No description provided for @settingsSmartModeCurrentHotkey.
   ///
   /// In en, this message translates to:
-  /// **'Combination'**
+  /// **'Current hotkey'**
   String get settingsSmartModeCurrentHotkey;
 
   /// No description provided for @settingsSmartModeHotkeyCollision.
@@ -7599,13 +9163,13 @@ abstract class L10n {
   /// No description provided for @smartModeOnboardingHintBody.
   ///
   /// In en, this message translates to:
-  /// **'Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.'**
-  String get smartModeOnboardingHintBody;
+  /// **'Smart Mode can clean up, shorten, or translate your text automatically — fully on-device. The local text model takes {size} on disk. Download it now, or set it up later in Settings.'**
+  String smartModeOnboardingHintBody(String size);
 
   /// No description provided for @smartModeOnboardingHintExampleBeforeLabel.
   ///
   /// In en, this message translates to:
-  /// **'Raw dictation'**
+  /// **'Raw text'**
   String get smartModeOnboardingHintExampleBeforeLabel;
 
   /// No description provided for @smartModeOnboardingHintExampleBefore.
@@ -7635,19 +9199,19 @@ abstract class L10n {
   /// No description provided for @smartModeOnboardingHintSkipCta.
   ///
   /// In en, this message translates to:
-  /// **'Skip'**
+  /// **'Later'**
   String get smartModeOnboardingHintSkipCta;
 
   /// No description provided for @smartModeUsageHintTitle.
   ///
   /// In en, this message translates to:
-  /// **'Try Smart Mode on your next dictation'**
+  /// **'Try Smart Mode on your next recording'**
   String get smartModeUsageHintTitle;
 
   /// No description provided for @smartModeUsageHintBody.
   ///
   /// In en, this message translates to:
-  /// **'Smart Mode can clean up, shorten, or translate text like this automatically, right on your device. Here\'s what you just dictated:'**
+  /// **'Smart Mode can clean up, shorten, or translate text like this automatically, right on your device. Here\'s what you just said:'**
   String get smartModeUsageHintBody;
 
   /// No description provided for @smartModeUsageHintCta.
@@ -7665,13 +9229,13 @@ abstract class L10n {
   /// No description provided for @settingsAutomationApi.
   ///
   /// In en, this message translates to:
-  /// **'Local Automation API'**
+  /// **'Local automation API'**
   String get settingsAutomationApi;
 
   /// No description provided for @settingsAutomationApiSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Trigger dictation from your own scripts over a loopback-only HTTP API'**
+  /// **'Other programs and scripts on this computer can control WhisPaste, for example start a recording. Devices on your network can\'t reach it.'**
   String get settingsAutomationApiSubtitle;
 
   /// No description provided for @settingsAutomationApiEnable.
@@ -7836,13 +9400,13 @@ abstract class L10n {
   /// Settings row label: toggle for the edit-selection-by-voice hotkey
   ///
   /// In en, this message translates to:
-  /// **'Edit-selection hotkey'**
+  /// **'Edit selection'**
   String get settingsSelectionEditHotkeyEnabled;
 
   /// Settings hint below the edit-selection hotkey toggle; the quoted words are the spoken quick-action keywords
   ///
   /// In en, this message translates to:
-  /// **'Select text in any app, press this hotkey and say what to change — or just \"shorter\", \"improve\" or \"translate\". The result replaces the selection; undo in the app brings the original back. Uses the Smart Mode engine configured above.'**
+  /// **'Select text in any app, press this hotkey and say what to change — or just \"shorter\", \"improve\" or \"translate\". The result replaces the selection; undo in the app brings the original back. Uses the text model set up in Smart Mode.'**
   String get settingsSelectionEditHotkeyHint;
 
   /// Shown when the edit-selection hotkey combination could not be registered with the OS
@@ -7890,7 +9454,7 @@ abstract class L10n {
   /// Overlay error: the edit-selection hotkey needs a configured Smart Mode engine
   ///
   /// In en, this message translates to:
-  /// **'Set up Smart Mode first (download the local model or add an OpenAI key) to edit selections'**
+  /// **'Set up Smart Mode first (download the local text model or add an OpenAI key) to edit selections'**
   String get errorSelectionEditNoEngine;
 
   /// Overlay error: this build has no auto-paste, so selections cannot be edited
@@ -7911,6 +9475,18 @@ abstract class L10n {
   /// **'Editing failed — your text was left unchanged'**
   String get errorSelectionEditFailed;
 
+  /// Overlay error: a free instruction would change a protected fact it does not name; nothing was replaced
+  ///
+  /// In en, this message translates to:
+  /// **'The edit would have changed facts your instruction does not mention — your text was left unchanged'**
+  String get errorSelectionEditFactsChanged;
+
+  /// Overlay error: a free instruction would change a protected value it does not name; {value} is the shortened value, nothing was replaced
+  ///
+  /// In en, this message translates to:
+  /// **'The edit would change “{value}” without your instruction naming it. Name the old and new value, e.g. “change 3 to 5” — your text was left unchanged'**
+  String errorSelectionEditFactsChangedValue(String value);
+
   /// Overlay error: the edited text could not be pasted; nothing was replaced
   ///
   /// In en, this message translates to:
@@ -7926,7 +9502,7 @@ abstract class L10n {
   /// No description provided for @settingsCudaPackSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Faster dictation on GeForce RTX and GTX 16 cards. One-time download of {size}.'**
+  /// **'Faster transcription on GeForce RTX and GTX 16 cards. One-time download of {size}.'**
   String settingsCudaPackSubtitle(String size);
 
   /// No description provided for @settingsCudaPackInstalledSubtitle.
@@ -7965,6 +9541,18 @@ abstract class L10n {
   /// **'Remove CUDA pack'**
   String get settingsCudaPackRemove;
 
+  /// No description provided for @settingsCudaPackRemoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove CUDA pack?'**
+  String get settingsCudaPackRemoveConfirm;
+
+  /// No description provided for @settingsCudaPackRemoveConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The CUDA pack is removed from this device. You can download it again any time.'**
+  String get settingsCudaPackRemoveConfirmMessage;
+
   /// No description provided for @settingsCudaPackToggle.
   ///
   /// In en, this message translates to:
@@ -7992,7 +9580,7 @@ abstract class L10n {
   /// No description provided for @recoveryCudaDisabledToast.
   ///
   /// In en, this message translates to:
-  /// **'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.'**
+  /// **'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, recording works as usual.'**
   String get recoveryCudaDisabledToast;
 
   /// No description provided for @supportPromptSnooze.
@@ -8024,12 +9612,6 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Support WhisPaste'**
   String get supportPageTitle;
-
-  /// No description provided for @supportPageOpenAction.
-  ///
-  /// In en, this message translates to:
-  /// **'All ways to help'**
-  String get supportPageOpenAction;
 
   /// No description provided for @supportIntroDirect.
   ///
@@ -8289,6 +9871,18 @@ abstract class L10n {
   /// **'Link copied'**
   String get supportShareCopied;
 
+  /// Error toast when no app or browser opened an external link (help, about, support, review and settings links).
+  ///
+  /// In en, this message translates to:
+  /// **'The link couldn\'t be opened'**
+  String get externalLinkOpenFailed;
+
+  /// Action on the failed-link toast that copies the link address so the user can paste it into a browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy address'**
+  String get externalLinkCopyAddress;
+
   /// No description provided for @supportShareEmail.
   ///
   /// In en, this message translates to:
@@ -8319,12 +9913,6 @@ abstract class L10n {
   /// **'Thank you for your support'**
   String get supportChipThanksTooltip;
 
-  /// No description provided for @supportChipHide.
-  ///
-  /// In en, this message translates to:
-  /// **'Hide'**
-  String get supportChipHide;
-
   /// No description provided for @settingsSponsorChip.
   ///
   /// In en, this message translates to:
@@ -8334,8 +9922,4511 @@ abstract class L10n {
   /// No description provided for @settingsSponsorChipSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Shows the way to the support page. You can hide it once you have supported the project in the store or confirmed it here.'**
+  /// **'Shows the way to the support page. You can hide it at any time and show it again here.'**
   String get settingsSponsorChipSubtitle;
+
+  /// Title of the dialog that previews multiline text before an automation inserts it.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert multiline text?'**
+  String get automationPreviewTitle;
+
+  /// Explains why the multiline preview dialog is shown.
+  ///
+  /// In en, this message translates to:
+  /// **'An automation wants to insert text with line breaks. Check it before it reaches the active app.'**
+  String get automationPreviewBody;
+
+  /// Number of lines in the multiline text shown in the automation preview.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 line} other{{count} lines}}'**
+  String automationPreviewLineCount(int count);
+
+  /// Confirm button that lets the automation insert the previewed multiline text.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert'**
+  String get automationPreviewInsert;
+
+  /// Cancel button that stops the automation from inserting the previewed multiline text.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get automationPreviewCancel;
+
+  /// Heading of the integrations group in the automation settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Integrations'**
+  String get automationIntegrationsHeading;
+
+  /// Row title for event hooks in the automation settings; also the title of the hooks dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Send events to other apps'**
+  String get automationIntegrationsHooksTitle;
+
+  /// Explains what event hooks send, shown under the row title.
+  ///
+  /// In en, this message translates to:
+  /// **'Send finished transcripts and changed notes to an app on this computer. Hooks keep firing even when the API server is off.'**
+  String get automationIntegrationsHooksSubtitle;
+
+  /// Number of configured event hooks, shown next to the manage button.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No hooks} one{1 hook} other{{count} hooks}}'**
+  String automationIntegrationsHooksCount(int count);
+
+  /// Button that opens the event hooks dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage'**
+  String get automationIntegrationsHooksManage;
+
+  /// Row title for the command line and MCP entry points.
+  ///
+  /// In en, this message translates to:
+  /// **'Command line and MCP'**
+  String get automationIntegrationsCliTitle;
+
+  /// Explains where the CLI and MCP server run. They exist only in source checkouts, not in store builds.
+  ///
+  /// In en, this message translates to:
+  /// **'Source checkouts only. Run {path} with {token} set; the {command} command starts the MCP server.'**
+  String automationIntegrationsCliSubtitle(
+    String path,
+    String token,
+    String command,
+  );
+
+  /// Intro text in the hooks dialog: hooks only reach loopback addresses, and delivery is retried once.
+  ///
+  /// In en, this message translates to:
+  /// **'Finished transcripts and changed notes go to an app on this computer. The address has to be on this device.'**
+  String get automationHooksIntro;
+
+  /// Shown in the hooks dialog when no hook is configured.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection set up yet.'**
+  String get automationHooksEmpty;
+
+  /// Label of the URL input for a new hook.
+  ///
+  /// In en, this message translates to:
+  /// **'Target address (this computer only)'**
+  String get automationHooksUrlLabel;
+
+  /// Label above the event checkboxes of a new hook.
+  ///
+  /// In en, this message translates to:
+  /// **'Events'**
+  String get automationHooksEventsLabel;
+
+  /// Checkbox label for the transcript.finished event.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcript finished'**
+  String get automationHooksEventTranscript;
+
+  /// Checkbox label for the note.changed event.
+  ///
+  /// In en, this message translates to:
+  /// **'Note changed'**
+  String get automationHooksEventNote;
+
+  /// Button that adds the hook typed in the dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Add hook'**
+  String get automationHooksAdd;
+
+  /// Tooltip and label of the button that removes one hook.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove hook'**
+  String get automationHooksRemove;
+
+  /// No description provided for @automationHooksRemoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove this hook?'**
+  String get automationHooksRemoveConfirm;
+
+  /// No description provided for @automationHooksRemoveConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The hook is removed from the list. You can add it again later.'**
+  String get automationHooksRemoveConfirmMessage;
+
+  /// Validation message for a hook URL that is not a loopback http address.
+  ///
+  /// In en, this message translates to:
+  /// **'Use {ipv4}, {ipv6} or {localhost} with a port, for example {example}.'**
+  String automationHooksInvalidUrl(
+    String ipv4,
+    String ipv6,
+    String localhost,
+    String example,
+  );
+
+  /// Validation message when a new hook has no event selected.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least one event.'**
+  String get automationHooksNoEvents;
+
+  /// Validation message when the hook limit is reached.
+  ///
+  /// In en, this message translates to:
+  /// **'You can add up to {max} hooks.'**
+  String automationHooksTooMany(int max);
+
+  /// Button that closes the hooks dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get automationHooksDone;
+
+  /// No description provided for @navSmartMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get navSmartMode;
+
+  /// No description provided for @dockDictate.
+  ///
+  /// In en, this message translates to:
+  /// **'Dictate'**
+  String get dockDictate;
+
+  /// No description provided for @dockOverflow.
+  ///
+  /// In en, this message translates to:
+  /// **'More'**
+  String get dockOverflow;
+
+  /// No description provided for @dockMenuGroupStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get dockMenuGroupStatus;
+
+  /// No description provided for @dockMenuGroupNotices.
+  ///
+  /// In en, this message translates to:
+  /// **'Notices'**
+  String get dockMenuGroupNotices;
+
+  /// No description provided for @dockMenuHotkeyChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change shortcut…'**
+  String get dockMenuHotkeyChange;
+
+  /// No description provided for @dockMenuSmartModeSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode settings…'**
+  String get dockMenuSmartModeSettings;
+
+  /// No description provided for @dockMenuSttModels.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage speech models…'**
+  String get dockMenuSttModels;
+
+  /// No description provided for @dockMenuGroupCloud.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud'**
+  String get dockMenuGroupCloud;
+
+  /// No description provided for @dockMenuModelDownload.
+  ///
+  /// In en, this message translates to:
+  /// **'Download'**
+  String get dockMenuModelDownload;
+
+  /// No description provided for @dockMenuModelLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'loading'**
+  String get dockMenuModelLoading;
+
+  /// No description provided for @dockMenuSttLockedReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked during a recording'**
+  String get dockMenuSttLockedReason;
+
+  /// Placeholder of the search field in a dock dropdown with many options.
+  ///
+  /// In en, this message translates to:
+  /// **'Search…'**
+  String get dockMenuSearchHint;
+
+  /// Shown in a dock dropdown when the search matches no option.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get dockMenuSearchNoMatches;
+
+  /// No description provided for @dockMenuAppliesNextRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Applies from the next recording'**
+  String get dockMenuAppliesNextRecording;
+
+  /// No description provided for @dockStopDictation.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop recording'**
+  String get dockStopDictation;
+
+  /// Button that opens the file dialog to add audio files to the import queue.
+  ///
+  /// In en, this message translates to:
+  /// **'Add files'**
+  String get historyImportAddFiles;
+
+  /// Hint under the import button: which audio formats are accepted and that transcription happens on this device. {formats} lists the formats this platform reads, e.g. WAV on Linux and Windows.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribe audio files ({formats}) on this device. Drag files onto this page or add them.'**
+  String historyImportDescription(String formats);
+
+  /// Heading above the list of import jobs.
+  ///
+  /// In en, this message translates to:
+  /// **'Import queue'**
+  String get historyImportQueueTitle;
+
+  /// Status of an import job that has not started yet.
+  ///
+  /// In en, this message translates to:
+  /// **'Waiting'**
+  String get historyImportStatusQueued;
+
+  /// Status while the file is copied into the app container.
+  ///
+  /// In en, this message translates to:
+  /// **'Copying'**
+  String get historyImportStatusCopying;
+
+  /// Status while the audio is decoded to 16 kHz mono.
+  ///
+  /// In en, this message translates to:
+  /// **'Decoding'**
+  String get historyImportStatusDecoding;
+
+  /// Status while the speech engine transcribes the imported file.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribing'**
+  String get historyImportStatusTranscribing;
+
+  /// Status of an import job that finished and created a history entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get historyImportStatusDone;
+
+  /// Status of an import job that failed; the reason is shown below it.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed'**
+  String get historyImportStatusFailed;
+
+  /// Status of an import job the user cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get historyImportStatusCancelled;
+
+  /// Reason shown when the file could not be copied into the app.
+  ///
+  /// In en, this message translates to:
+  /// **'The file could not be copied. Check that it still exists and can be read, then try again.'**
+  String get historyImportFailureCopy;
+
+  /// Reason shown when the format cannot be decoded on this platform. Must not claim success.
+  ///
+  /// In en, this message translates to:
+  /// **'This format is not supported on this platform. Convert the file to WAV and import it again.'**
+  String get historyImportFailureUnsupported;
+
+  /// Reason shown when a supported file cannot be decoded (corrupt or truncated).
+  ///
+  /// In en, this message translates to:
+  /// **'The file could not be decoded. It is probably damaged or incomplete. Import another copy or convert it to WAV.'**
+  String get historyImportFailureDecode;
+
+  /// Reason shown when the file exceeds the import size or duration limit.
+  ///
+  /// In en, this message translates to:
+  /// **'The file is too large or longer than 6 hours. Please split it into shorter parts.'**
+  String get historyImportFailureInputLimit;
+
+  /// Reason shown when the speech engine fails on the imported file. Retry is offered.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription failed. Check speech recognition in Settings, then try again.'**
+  String get historyImportFailureTranscription;
+
+  /// Reason shown when the finished transcript could not be saved to history.
+  ///
+  /// In en, this message translates to:
+  /// **'The transcript could not be saved. Check the free disk space, then try again.'**
+  String get historyImportFailureSave;
+
+  /// Message shown when the user picks a folder instead of audio files.
+  ///
+  /// In en, this message translates to:
+  /// **'Folders cannot be imported. Choose the audio files inside them.'**
+  String get historyImportRejectedFolder;
+
+  /// Message shown when a picked file no longer exists.
+  ///
+  /// In en, this message translates to:
+  /// **'The file was not found.'**
+  String get historyImportRejectedNotFound;
+
+  /// Message shown when a dropped file has an extension the import cannot read. {formats} lists the readable extensions, e.g. WAV, MP3.
+  ///
+  /// In en, this message translates to:
+  /// **'This file type cannot be imported. Supported: {formats}.'**
+  String historyImportRejectedType(String formats);
+
+  /// Error toast when the system file dialog for the audio import cannot be opened. Names the drag-and-drop alternative.
+  ///
+  /// In en, this message translates to:
+  /// **'The file dialog could not be opened. Try again, or drag the files onto this page.'**
+  String get historyImportDialogFailed;
+
+  /// Shown over the history page while audio files are dragged onto it.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop audio files here to transcribe them'**
+  String get historyImportDropHere;
+
+  /// Tooltip of the button that cancels an import job.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel import'**
+  String get historyImportCancel;
+
+  /// Tooltip of the button that retries a failed or cancelled import job.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry import'**
+  String get historyImportRetry;
+
+  /// Banner offering to recover the audio of an interrupted recording.
+  ///
+  /// In en, this message translates to:
+  /// **'An interrupted recording was found. Recover its audio and transcribe it?'**
+  String get recoveryOffer;
+
+  /// Banner for an interrupted recording whose audio was not kept because audio retention is off.
+  ///
+  /// In en, this message translates to:
+  /// **'An interrupted recording was found, but no audio was kept because audio retention is off.'**
+  String get recoveryNoAudioKept;
+
+  /// Banner for an interrupted recording that had no audio written before it stopped.
+  ///
+  /// In en, this message translates to:
+  /// **'An interrupted recording was found, but it holds no audio.'**
+  String get recoveryNoAudioCaptured;
+
+  /// Button that recovers the audio of an interrupted recording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recover'**
+  String get recoveryRestore;
+
+  /// Button that discards an interrupted recording and its audio.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get recoveryDiscard;
+
+  /// No description provided for @recoveryDiscardConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard this recording?'**
+  String get recoveryDiscardConfirm;
+
+  /// No description provided for @recoveryDiscardConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This interrupted recording is removed from this device, together with any audio it kept.'**
+  String get recoveryDiscardConfirmMessage;
+
+  /// Message shown when recovering the audio failed. The audio is kept for a retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Recovery failed. The audio was kept, so you can try again.'**
+  String get recoveryFailed;
+
+  /// Notice with the number of damaged recovery entries that were skipped. {count} is the number.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} damaged recovery entries were skipped and kept on disk.'**
+  String recoverySkippedCorrupt(int count);
+
+  /// No description provided for @settingsGroupApp.
+  ///
+  /// In en, this message translates to:
+  /// **'App'**
+  String get settingsGroupApp;
+
+  /// No description provided for @settingsGroupDictation.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice input'**
+  String get settingsGroupDictation;
+
+  /// No description provided for @settingsGroupSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsGroupSystem;
+
+  /// No description provided for @settingsAreaGeneral.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get settingsAreaGeneral;
+
+  /// No description provided for @settingsAreaAppearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance'**
+  String get settingsAreaAppearance;
+
+  /// No description provided for @settingsAreaShortcuts.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard shortcuts'**
+  String get settingsAreaShortcuts;
+
+  /// No description provided for @settingsSmartModeShortcutLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard shortcut: {combo}'**
+  String settingsSmartModeShortcutLink(String combo);
+
+  /// No description provided for @settingsAreaRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording & audio'**
+  String get settingsAreaRecording;
+
+  /// No description provided for @settingsAreaSpeech.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech recognition'**
+  String get settingsAreaSpeech;
+
+  /// No description provided for @settingsAreaTextInsert.
+  ///
+  /// In en, this message translates to:
+  /// **'Text & insertion'**
+  String get settingsAreaTextInsert;
+
+  /// No description provided for @settingsAreaPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy & data'**
+  String get settingsAreaPrivacy;
+
+  /// No description provided for @settingsAreaAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get settingsAreaAdvanced;
+
+  /// Version line under the settings navigation.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste {version}'**
+  String settingsNavVersion(String version);
+
+  /// No description provided for @settingsNavUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to date'**
+  String get settingsNavUpToDate;
+
+  /// No description provided for @settingsNavUpdateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available'**
+  String get settingsNavUpdateAvailable;
+
+  /// No description provided for @settingsNavStoreUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates via the Store'**
+  String get settingsNavStoreUpdates;
+
+  /// No description provided for @settingsStoreUpdatesUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'The store delivers updates for this build. Checking for updates in the app is not available here.'**
+  String get settingsStoreUpdatesUnavailable;
+
+  /// No description provided for @settingsStoreBetaUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview builds are not offered in the store build.'**
+  String get settingsStoreBetaUnavailable;
+
+  /// No description provided for @settingsStoreCudaUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available in the store build, driver downloads outside the store are not allowed there.'**
+  String get settingsStoreCudaUnavailable;
+
+  /// No description provided for @settingsOverlayPreview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay preview'**
+  String get settingsOverlayPreview;
+
+  /// No description provided for @settingsPreviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview'**
+  String get settingsPreviewTitle;
+
+  /// No description provided for @settingsPreviewHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This is how the overlay and button look while recording. Changes apply right away.'**
+  String get settingsPreviewHint;
+
+  /// No description provided for @settingsPreviewOverlayCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay'**
+  String get settingsPreviewOverlayCaption;
+
+  /// No description provided for @settingsOverlayOptionsGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Overlay'**
+  String get settingsOverlayOptionsGroup;
+
+  /// No description provided for @settingsOverlayForm.
+  ///
+  /// In en, this message translates to:
+  /// **'Shape'**
+  String get settingsOverlayForm;
+
+  /// No description provided for @settingsOverlayFormSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pill or rounded rectangle.'**
+  String get settingsOverlayFormSubtitle;
+
+  /// No description provided for @settingsOverlayFormPill.
+  ///
+  /// In en, this message translates to:
+  /// **'Pill'**
+  String get settingsOverlayFormPill;
+
+  /// No description provided for @settingsOverlayFormRoundedRect.
+  ///
+  /// In en, this message translates to:
+  /// **'Rounded'**
+  String get settingsOverlayFormRoundedRect;
+
+  /// No description provided for @settingsOverlayWaveStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wave style'**
+  String get settingsOverlayWaveStyle;
+
+  /// No description provided for @settingsOverlayWaveStyleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How your voice is drawn in the overlay.'**
+  String get settingsOverlayWaveStyleSubtitle;
+
+  /// No description provided for @settingsOverlayWaveBars.
+  ///
+  /// In en, this message translates to:
+  /// **'Bars'**
+  String get settingsOverlayWaveBars;
+
+  /// No description provided for @settingsOverlayWaveLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Line'**
+  String get settingsOverlayWaveLine;
+
+  /// No description provided for @settingsOverlayWaveDots.
+  ///
+  /// In en, this message translates to:
+  /// **'Dots'**
+  String get settingsOverlayWaveDots;
+
+  /// No description provided for @settingsOverlayWaveFluid.
+  ///
+  /// In en, this message translates to:
+  /// **'Fluid outline'**
+  String get settingsOverlayWaveFluid;
+
+  /// No description provided for @settingsOverlayWaveFluidSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The edge reacts to your voice. Off when reduce motion is on.'**
+  String get settingsOverlayWaveFluidSubtitle;
+
+  /// No description provided for @settingsOverlayShowTimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Show timer'**
+  String get settingsOverlayShowTimer;
+
+  /// No description provided for @settingsOverlayShowTimerSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the elapsed recording time in the overlay.'**
+  String get settingsOverlayShowTimerSubtitle;
+
+  /// No description provided for @settingsOverlayShowCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel symbol'**
+  String get settingsOverlayShowCancel;
+
+  /// No description provided for @settingsOverlayShowCancelSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop always stays visible. Esc still cancels.'**
+  String get settingsOverlayShowCancelSubtitle;
+
+  /// No description provided for @settingsOverlayOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'Opacity'**
+  String get settingsOverlayOpacity;
+
+  /// No description provided for @settingsOverlayOpacitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Raised automatically when the wave would otherwise be too faint.'**
+  String get settingsOverlayOpacitySubtitle;
+
+  /// No description provided for @settingsOverlayOpacityFull.
+  ///
+  /// In en, this message translates to:
+  /// **'100 %'**
+  String get settingsOverlayOpacityFull;
+
+  /// No description provided for @settingsOverlayOpacityReduced.
+  ///
+  /// In en, this message translates to:
+  /// **'80 %'**
+  String get settingsOverlayOpacityReduced;
+
+  /// No description provided for @settingsOverlayOpacitySubtle.
+  ///
+  /// In en, this message translates to:
+  /// **'60 %'**
+  String get settingsOverlayOpacitySubtle;
+
+  /// No description provided for @settingsFloatingButtonSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Size'**
+  String get settingsFloatingButtonSize;
+
+  /// No description provided for @settingsFloatingButtonSizeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Diameter of the floating button'**
+  String get settingsFloatingButtonSizeSubtitle;
+
+  /// No description provided for @settingsFloatingButtonSizeSmall.
+  ///
+  /// In en, this message translates to:
+  /// **'Small'**
+  String get settingsFloatingButtonSizeSmall;
+
+  /// No description provided for @settingsFloatingButtonSizeMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get settingsFloatingButtonSizeMedium;
+
+  /// No description provided for @settingsFloatingButtonSizeLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get settingsFloatingButtonSizeLarge;
+
+  /// No description provided for @settingsFloatingButtonShape.
+  ///
+  /// In en, this message translates to:
+  /// **'Shape'**
+  String get settingsFloatingButtonShape;
+
+  /// No description provided for @settingsFloatingButtonShapeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Round or rounded square'**
+  String get settingsFloatingButtonShapeSubtitle;
+
+  /// No description provided for @settingsFloatingButtonShapeRound.
+  ///
+  /// In en, this message translates to:
+  /// **'Round'**
+  String get settingsFloatingButtonShapeRound;
+
+  /// No description provided for @settingsFloatingButtonShapeSquare.
+  ///
+  /// In en, this message translates to:
+  /// **'Rounded square'**
+  String get settingsFloatingButtonShapeSquare;
+
+  /// No description provided for @settingsFloatingButtonRing.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording ring'**
+  String get settingsFloatingButtonRing;
+
+  /// No description provided for @settingsFloatingButtonRingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Coloured ring around the button while recording'**
+  String get settingsFloatingButtonRingSubtitle;
+
+  /// No description provided for @settingsFloatingButtonIdleOpacity.
+  ///
+  /// In en, this message translates to:
+  /// **'Opacity when idle'**
+  String get settingsFloatingButtonIdleOpacity;
+
+  /// No description provided for @settingsFloatingButtonIdleOpacitySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How visible the button is when not recording'**
+  String get settingsFloatingButtonIdleOpacitySubtitle;
+
+  /// No description provided for @settingsFloatingButtonIdleOpacityReduced.
+  ///
+  /// In en, this message translates to:
+  /// **'70 %'**
+  String get settingsFloatingButtonIdleOpacityReduced;
+
+  /// No description provided for @settingsFloatingButtonIdleOpacitySubtle.
+  ///
+  /// In en, this message translates to:
+  /// **'40 %'**
+  String get settingsFloatingButtonIdleOpacitySubtle;
+
+  /// No description provided for @settingsOverlayColorsGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared (colours)'**
+  String get settingsOverlayColorsGroup;
+
+  /// No description provided for @settingsAreaSmartMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get settingsAreaSmartMode;
+
+  /// No description provided for @settingsAreaDictionary.
+  ///
+  /// In en, this message translates to:
+  /// **'Dictionary'**
+  String get settingsAreaDictionary;
+
+  /// No description provided for @settingsSearchEmptyHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Search in help'**
+  String get settingsSearchEmptyHelp;
+
+  /// No description provided for @dictionaryTabTerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms'**
+  String get dictionaryTabTerms;
+
+  /// No description provided for @dictionaryTabReplacements.
+  ///
+  /// In en, this message translates to:
+  /// **'Replacements'**
+  String get dictionaryTabReplacements;
+
+  /// No description provided for @dictionaryTabSuggestions.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggestions'**
+  String get dictionaryTabSuggestions;
+
+  /// No description provided for @dictionaryTermsEffectPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Passed to the speech recogniser as a hint. It can favour these spellings but never changes text by itself.'**
+  String get dictionaryTermsEffectPrompt;
+
+  /// No description provided for @dictionaryTermsEffectReplacementOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'The active speech engine takes no hints. Only replacements change the text. Your terms stay saved.'**
+  String get dictionaryTermsEffectReplacementOnly;
+
+  /// No description provided for @dictionaryTermsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Names, jargon and acronyms the recogniser often gets wrong. Separate them with commas or line breaks.'**
+  String get dictionaryTermsHelp;
+
+  /// No description provided for @dictionaryReplacementsHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Only add words the recogniser actually gets wrong. Correctly recognised words stay untouched.'**
+  String get dictionaryReplacementsHelp;
+
+  /// No description provided for @dictionaryTestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Try it'**
+  String get dictionaryTestTitle;
+
+  /// No description provided for @dictionaryTestInputLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sample sentence'**
+  String get dictionaryTestInputLabel;
+
+  /// No description provided for @dictionaryTestInputHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Type a sentence to see which replacements apply.'**
+  String get dictionaryTestInputHint;
+
+  /// No description provided for @dictionaryTestResultLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Result'**
+  String get dictionaryTestResultLabel;
+
+  /// No description provided for @dictionaryTestNoChange.
+  ///
+  /// In en, this message translates to:
+  /// **'No replacement applies.'**
+  String get dictionaryTestNoChange;
+
+  /// No description provided for @dictionaryCsvTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Import and export (CSV)'**
+  String get dictionaryCsvTitle;
+
+  /// No description provided for @dictionaryCsvHint.
+  ///
+  /// In en, this message translates to:
+  /// **'One line per entry: triggers separated by {pipe}, replacement text, match mode (exact or fuzzy), threshold.'**
+  String dictionaryCsvHint(String pipe);
+
+  /// No description provided for @dictionaryCsvImport.
+  ///
+  /// In en, this message translates to:
+  /// **'Import CSV'**
+  String get dictionaryCsvImport;
+
+  /// No description provided for @dictionaryCsvExport.
+  ///
+  /// In en, this message translates to:
+  /// **'Export CSV'**
+  String get dictionaryCsvExport;
+
+  /// Shown under the CSV export button while there are no replacements to export
+  ///
+  /// In en, this message translates to:
+  /// **'There are no replacements to export yet.'**
+  String get dictionaryCsvExportEmpty;
+
+  /// No description provided for @dictionaryCsvImportTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is larger than 1 MB. Split it into smaller files.'**
+  String get dictionaryCsvImportTooLarge;
+
+  /// No description provided for @dictionaryCsvImportReadError.
+  ///
+  /// In en, this message translates to:
+  /// **'The file could not be read.'**
+  String get dictionaryCsvImportReadError;
+
+  /// No description provided for @dictionaryCsvImportNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'No valid entries found.'**
+  String get dictionaryCsvImportNothing;
+
+  /// No description provided for @dictionaryCsvErrorSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} lines were skipped because they are incomplete or invalid.'**
+  String dictionaryCsvErrorSummary(int count);
+
+  /// No description provided for @dictionaryCsvTruncated.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the first {count} entries were read.'**
+  String dictionaryCsvTruncated(int count);
+
+  /// No description provided for @dictionaryCsvImportDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{added} entries added.'**
+  String dictionaryCsvImportDone(int added);
+
+  /// Error toast when the dictionary CSV file could not be written (folder missing, no permission, disk full).
+  ///
+  /// In en, this message translates to:
+  /// **'The CSV file couldn\'t be saved.'**
+  String get dictionaryCsvExportFailed;
+
+  /// No description provided for @dictionaryCsvExportDone.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} entries exported.'**
+  String dictionaryCsvExportDone(int count);
+
+  /// No description provided for @dictionaryCsvLineError.
+  ///
+  /// In en, this message translates to:
+  /// **'Line {line}: {reason}'**
+  String dictionaryCsvLineError(int line, String reason);
+
+  /// No description provided for @dictionaryCsvReasonMissingFields.
+  ///
+  /// In en, this message translates to:
+  /// **'Too few columns.'**
+  String get dictionaryCsvReasonMissingFields;
+
+  /// No description provided for @dictionaryCsvReasonEmptyTrigger.
+  ///
+  /// In en, this message translates to:
+  /// **'No trigger phrase.'**
+  String get dictionaryCsvReasonEmptyTrigger;
+
+  /// No description provided for @dictionaryCsvReasonTriggerTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'The trigger phrase is too long.'**
+  String get dictionaryCsvReasonTriggerTooLong;
+
+  /// No description provided for @dictionaryCsvReasonEmptyReplacement.
+  ///
+  /// In en, this message translates to:
+  /// **'No replacement text.'**
+  String get dictionaryCsvReasonEmptyReplacement;
+
+  /// No description provided for @dictionaryCsvReasonReplacementTooLong.
+  ///
+  /// In en, this message translates to:
+  /// **'The replacement text is too long.'**
+  String get dictionaryCsvReasonReplacementTooLong;
+
+  /// No description provided for @dictionaryCsvReasonUnknownMatchMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Match mode must be exact or fuzzy.'**
+  String get dictionaryCsvReasonUnknownMatchMode;
+
+  /// No description provided for @dictionaryCsvReasonInvalidThreshold.
+  ///
+  /// In en, this message translates to:
+  /// **'The threshold must be strict, standard, tolerant or a number from 0.5 to 1.'**
+  String get dictionaryCsvReasonInvalidThreshold;
+
+  /// No description provided for @dictionaryCsvPreviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the entries'**
+  String get dictionaryCsvPreviewTitle;
+
+  /// No description provided for @dictionaryDuplicateBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get dictionaryDuplicateBadge;
+
+  /// No description provided for @dictionaryDuplicateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Another entry uses the same trigger. The entry listed first applies.'**
+  String get dictionaryDuplicateHint;
+
+  /// No description provided for @dictionaryUsageCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Used {count}×'**
+  String dictionaryUsageCount(int count);
+
+  /// No description provided for @dictionaryFavouriteLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Favourite'**
+  String get dictionaryFavouriteLabel;
+
+  /// No description provided for @dictionarySuggestionsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A suggestion appears once the same correction was made {count} times. Nothing is added without your confirmation.'**
+  String dictionarySuggestionsHint(int count);
+
+  /// No description provided for @dictionarySuggestionsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No suggestions yet'**
+  String get dictionarySuggestionsEmpty;
+
+  /// No description provided for @dictionarySuggestionsEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'When you correct the same word twice, WhisPaste offers a replacement here.'**
+  String get dictionarySuggestionsEmptyHint;
+
+  /// No description provided for @dictionarySuggestionAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get dictionarySuggestionAccept;
+
+  /// No description provided for @dictionarySuggestionReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Dismiss'**
+  String get dictionarySuggestionReject;
+
+  /// No description provided for @dictionarySuggestionAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Replacement added.'**
+  String get dictionarySuggestionAccepted;
+
+  /// No description provided for @dictionarySuggestionRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggestion dismissed. It will not come back.'**
+  String get dictionarySuggestionRejected;
+
+  /// No description provided for @dictionaryCsvPreviewIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Entries marked “will be added” go into your list. Existing entries stay as they are.'**
+  String get dictionaryCsvPreviewIntro;
+
+  /// No description provided for @dictionaryCsvPreviewAddCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Add {count} entries'**
+  String dictionaryCsvPreviewAddCount(int count);
+
+  /// No description provided for @dictionaryCsvSkippedDuplicates.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} duplicates are skipped.'**
+  String dictionaryCsvSkippedDuplicates(int count);
+
+  /// No description provided for @dictionaryCsvRowWillAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Will be added'**
+  String get dictionaryCsvRowWillAdd;
+
+  /// No description provided for @dictionaryCsvRowSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate, skipped'**
+  String get dictionaryCsvRowSkipped;
+
+  /// No description provided for @settingsBetaGroupHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Pre-releases'**
+  String get settingsBetaGroupHeading;
+
+  /// No description provided for @analyticsWordingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wording'**
+  String get analyticsWordingTitle;
+
+  /// No description provided for @analyticsWordingPanelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Words: raw vs. revised'**
+  String get analyticsWordingPanelTitle;
+
+  /// No description provided for @analyticsRawWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Raw words'**
+  String get analyticsRawWords;
+
+  /// No description provided for @analyticsRevisedWords.
+  ///
+  /// In en, this message translates to:
+  /// **'Revised words'**
+  String get analyticsRevisedWords;
+
+  /// No description provided for @analyticsTransformActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Recordings revised by actions'**
+  String get analyticsTransformActions;
+
+  /// No description provided for @analyticsCorrectionsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Frequent corrections'**
+  String get analyticsCorrectionsTitle;
+
+  /// No description provided for @analyticsNoCorrections.
+  ///
+  /// In en, this message translates to:
+  /// **'No corrections recorded yet.'**
+  String get analyticsNoCorrections;
+
+  /// No description provided for @errorNoticeNoModelCause.
+  ///
+  /// In en, this message translates to:
+  /// **'No speech model is installed.'**
+  String get errorNoticeNoModelCause;
+
+  /// No description provided for @errorNoticeNoModelNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Download a model in Settings, then try again.'**
+  String get errorNoticeNoModelNext;
+
+  /// No description provided for @errorNoticeMicCause.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste has no access to the microphone.'**
+  String get errorNoticeMicCause;
+
+  /// No description provided for @errorNoticeMicNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow access in your system settings, then try again.'**
+  String get errorNoticeMicNext;
+
+  /// No description provided for @errorNoticeTranscribeCause.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription failed.'**
+  String get errorNoticeTranscribeCause;
+
+  /// No description provided for @errorNoticeTranscribeNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again. If it keeps failing, restart WhisPaste or choose another model in Settings.'**
+  String get errorNoticeTranscribeNext;
+
+  /// No description provided for @errorNoticeCpuCause.
+  ///
+  /// In en, this message translates to:
+  /// **'The GPU could not be used for this transcription.'**
+  String get errorNoticeCpuCause;
+
+  /// No description provided for @errorNoticeCpuNext.
+  ///
+  /// In en, this message translates to:
+  /// **'It ran on the CPU instead, which is slower. Check GPU acceleration in Settings.'**
+  String get errorNoticeCpuNext;
+
+  /// No description provided for @languageMismatchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The detected language does not match your setting.'**
+  String get languageMismatchHint;
+
+  /// No description provided for @languageMismatchSwitch.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch language'**
+  String get languageMismatchSwitch;
+
+  /// Notice when the Parakeet engine is active but the recognition language is not in its supported set. {language} is the localized language name.
+  ///
+  /// In en, this message translates to:
+  /// **'Parakeet cannot transcribe {language}. Switch to Whisper?'**
+  String parakeetLanguageUnsupported(String language);
+
+  /// No description provided for @parakeetLanguageSwitchToWhisper.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to Whisper'**
+  String get parakeetLanguageSwitchToWhisper;
+
+  /// Screen reader label of the minimize button in the custom title bar (Windows and Linux).
+  ///
+  /// In en, this message translates to:
+  /// **'Minimize window'**
+  String get titleBarMinimizeLabel;
+
+  /// Screen reader label of the close button in the custom title bar (Windows and Linux).
+  ///
+  /// In en, this message translates to:
+  /// **'Close window'**
+  String get titleBarCloseLabel;
+
+  /// Screen reader label of the maximize button in the custom title bar (Windows and Linux).
+  ///
+  /// In en, this message translates to:
+  /// **'Maximize window'**
+  String get titleBarMaximizeLabel;
+
+  /// Screen reader label of the maximize button while the window is maximized (Windows and Linux).
+  ///
+  /// In en, this message translates to:
+  /// **'Restore window'**
+  String get titleBarRestoreLabel;
+
+  /// No description provided for @notificationSmartModeSkippedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste: Smart Mode skipped'**
+  String get notificationSmartModeSkippedTitle;
+
+  /// Title of the system notification when another app holds the configured hotkey and the safe default is active (XP-5-09). The body reuses hotkeyFallbackActive.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste: hotkey taken'**
+  String get notificationHotkeyFallbackTitle;
+
+  /// No description provided for @notificationSmartModeSkippedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Post-processing could not be applied.'**
+  String get notificationSmartModeSkippedBody;
+
+  /// No description provided for @notificationSmartModeSkippedNoTextModel.
+  ///
+  /// In en, this message translates to:
+  /// **'No text model is loaded, so post-processing was skipped.'**
+  String get notificationSmartModeSkippedNoTextModel;
+
+  /// No description provided for @notificationSmartModeSkippedTimedOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Post-processing took too long.'**
+  String get notificationSmartModeSkippedTimedOut;
+
+  /// No description provided for @notificationSmartModeOutcomePasted.
+  ///
+  /// In en, this message translates to:
+  /// **'The unedited text was pasted.'**
+  String get notificationSmartModeOutcomePasted;
+
+  /// No description provided for @notificationSmartModeOutcomeUnconfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'It could not be confirmed whether the unedited text was pasted.'**
+  String get notificationSmartModeOutcomeUnconfirmed;
+
+  /// No description provided for @notificationSmartModeOutcomeClipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'The unedited text is on the clipboard, but it was not pasted.'**
+  String get notificationSmartModeOutcomeClipboard;
+
+  /// No description provided for @notificationSmartModeOutcomeNone.
+  ///
+  /// In en, this message translates to:
+  /// **'The unedited text was not pasted.'**
+  String get notificationSmartModeOutcomeNone;
+
+  /// No description provided for @smartModeNoTextModelHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No text model is set up – until one is, only “Off” can be picked.'**
+  String get smartModeNoTextModelHint;
+
+  /// No description provided for @smartModeLoadTextModelAction.
+  ///
+  /// In en, this message translates to:
+  /// **'No text model – load now'**
+  String get smartModeLoadTextModelAction;
+
+  /// No description provided for @smartModeAddOpenAiKeyAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add OpenAI key'**
+  String get smartModeAddOpenAiKeyAction;
+
+  /// No description provided for @settingsPortabilityErrorInvalidFile.
+  ///
+  /// In en, this message translates to:
+  /// **'The file is not a valid WhisPaste export.'**
+  String get settingsPortabilityErrorInvalidFile;
+
+  /// No description provided for @settingsPortabilityErrorGeneric.
+  ///
+  /// In en, this message translates to:
+  /// **'The file or settings could not be processed.'**
+  String get settingsPortabilityErrorGeneric;
+
+  /// No description provided for @historyImportAudioLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Audio'**
+  String get historyImportAudioLabel;
+
+  /// No description provided for @hotkeyConflictNoteSpotlight.
+  ///
+  /// In en, this message translates to:
+  /// **'Spotlight'**
+  String get hotkeyConflictNoteSpotlight;
+
+  /// No description provided for @hotkeyConflictNoteAppSwitcher.
+  ///
+  /// In en, this message translates to:
+  /// **'App Switcher'**
+  String get hotkeyConflictNoteAppSwitcher;
+
+  /// No description provided for @hotkeyConflictNoteQuitApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit App'**
+  String get hotkeyConflictNoteQuitApp;
+
+  /// No description provided for @hotkeyConflictNoteCloseWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Close window'**
+  String get hotkeyConflictNoteCloseWindow;
+
+  /// No description provided for @hotkeyConflictNoteHideApp.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide App'**
+  String get hotkeyConflictNoteHideApp;
+
+  /// No description provided for @hotkeyConflictNoteMinimizeWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimize window'**
+  String get hotkeyConflictNoteMinimizeWindow;
+
+  /// No description provided for @hotkeyConflictNoteCycleWindows.
+  ///
+  /// In en, this message translates to:
+  /// **'Cycle windows'**
+  String get hotkeyConflictNoteCycleWindows;
+
+  /// No description provided for @hotkeyConflictNoteScreenshotFullScreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Screenshot (full screen)'**
+  String get hotkeyConflictNoteScreenshotFullScreen;
+
+  /// No description provided for @hotkeyConflictNoteScreenshotSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Screenshot (selection)'**
+  String get hotkeyConflictNoteScreenshotSelection;
+
+  /// No description provided for @hotkeyConflictNoteScreenshotRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Screenshot/Screen Recording'**
+  String get hotkeyConflictNoteScreenshotRecording;
+
+  /// No description provided for @hotkeyConflictNoteEmojiPicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Emoji & Symbols picker'**
+  String get hotkeyConflictNoteEmojiPicker;
+
+  /// No description provided for @hotkeyConflictNoteForceQuit.
+  ///
+  /// In en, this message translates to:
+  /// **'Force Quit dialog'**
+  String get hotkeyConflictNoteForceQuit;
+
+  /// No description provided for @hotkeyConflictNoteLockWorkstation.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock workstation'**
+  String get hotkeyConflictNoteLockWorkstation;
+
+  /// No description provided for @hotkeyConflictNoteShowDesktop.
+  ///
+  /// In en, this message translates to:
+  /// **'Show/Hide Desktop'**
+  String get hotkeyConflictNoteShowDesktop;
+
+  /// No description provided for @hotkeyConflictNoteFileExplorer.
+  ///
+  /// In en, this message translates to:
+  /// **'File Explorer'**
+  String get hotkeyConflictNoteFileExplorer;
+
+  /// No description provided for @hotkeyConflictNoteRunDialog.
+  ///
+  /// In en, this message translates to:
+  /// **'Run dialog'**
+  String get hotkeyConflictNoteRunDialog;
+
+  /// No description provided for @hotkeyConflictNoteSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get hotkeyConflictNoteSettings;
+
+  /// No description provided for @hotkeyConflictNoteSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Search'**
+  String get hotkeyConflictNoteSearch;
+
+  /// No description provided for @hotkeyConflictNoteTaskView.
+  ///
+  /// In en, this message translates to:
+  /// **'Task View'**
+  String get hotkeyConflictNoteTaskView;
+
+  /// No description provided for @hotkeyConflictNoteInputLanguageSwitch.
+  ///
+  /// In en, this message translates to:
+  /// **'Input language switch'**
+  String get hotkeyConflictNoteInputLanguageSwitch;
+
+  /// No description provided for @hotkeyConflictNoteMaximizeWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximize window'**
+  String get hotkeyConflictNoteMaximizeWindow;
+
+  /// No description provided for @hotkeyConflictNoteSnapLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Snap window left'**
+  String get hotkeyConflictNoteSnapLeft;
+
+  /// No description provided for @hotkeyConflictNoteSnapRight.
+  ///
+  /// In en, this message translates to:
+  /// **'Snap window right'**
+  String get hotkeyConflictNoteSnapRight;
+
+  /// No description provided for @hotkeyConflictNoteSecurityOptionsTaskManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Security options / Task Manager'**
+  String get hotkeyConflictNoteSecurityOptionsTaskManager;
+
+  /// No description provided for @hotkeyConflictNoteTaskManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Task Manager'**
+  String get hotkeyConflictNoteTaskManager;
+
+  /// No description provided for @hotkeyConflictNoteLockScreenGnomeKde.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock screen (GNOME/KDE)'**
+  String get hotkeyConflictNoteLockScreenGnomeKde;
+
+  /// No description provided for @hotkeyConflictNoteRunDialogKde.
+  ///
+  /// In en, this message translates to:
+  /// **'Run dialog (KDE)'**
+  String get hotkeyConflictNoteRunDialogKde;
+
+  /// No description provided for @hotkeyConflictNoteLogoutShutdownDialog.
+  ///
+  /// In en, this message translates to:
+  /// **'System logout/shutdown dialog'**
+  String get hotkeyConflictNoteLogoutShutdownDialog;
+
+  /// No description provided for @hotkeyConflictNoteOpenTerminal.
+  ///
+  /// In en, this message translates to:
+  /// **'Open terminal (GNOME/KDE default)'**
+  String get hotkeyConflictNoteOpenTerminal;
+
+  /// No description provided for @hotkeyConflictNoteLockScreenGnome.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock screen (GNOME)'**
+  String get hotkeyConflictNoteLockScreenGnome;
+
+  /// No description provided for @hotkeyConflictNoteActivityOverviewKde.
+  ///
+  /// In en, this message translates to:
+  /// **'Activity overview (KDE)'**
+  String get hotkeyConflictNoteActivityOverviewKde;
+
+  /// No description provided for @settingsTextProcessingHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Text processing'**
+  String get settingsTextProcessingHeading;
+
+  /// No description provided for @settingsShowNotificationsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports problems, for example blocked Auto-Paste or a missing microphone signal.'**
+  String get settingsShowNotificationsSubtitle;
+
+  /// No description provided for @settingsGainSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Boosts the microphone signal before it is recorded. Values that are too high can distort the recording.'**
+  String get settingsGainSubtitle;
+
+  /// No description provided for @settingsAfterTranscriptionActionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'What happens to the recognized text. Auto-Paste puts it right at the cursor.'**
+  String get settingsAfterTranscriptionActionSubtitle;
+
+  /// No description provided for @settingsRecognitionLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The language the recognition expects. Automatic detection works well in most cases. A fixed language is often more accurate for short recordings.'**
+  String get settingsRecognitionLanguageSubtitle;
+
+  /// No description provided for @settingsOpenAiApiKeySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your own OpenAI key. Only needed if you use OpenAI for recognition or Smart Mode. Audio and text then go straight to OpenAI and are billed by them.'**
+  String get settingsOpenAiApiKeySubtitle;
+
+  /// No description provided for @settingsDeepgramApiKeySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your own Deepgram key. Only needed if you use Deepgram for recognition. Audio then goes straight to Deepgram and is billed by them.'**
+  String get settingsDeepgramApiKeySubtitle;
+
+  /// No description provided for @settingsResetToDefaultsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Resets all settings, API keys and statistics. Recordings, notes and models are kept.'**
+  String get settingsResetToDefaultsSubtitle;
+
+  /// No description provided for @settingsFactoryResetSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Immediately deletes all transcriptions, notes, audio files, Dictionary, Snippets, models, logs and settings on this device. This can\'t be undone.'**
+  String get settingsFactoryResetSubtitle;
+
+  /// No description provided for @settingsHotkeyEnabledSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'The hotkey starts a recording from any app. When it\'s off, WhisPaste ignores the hotkey.'**
+  String get settingsHotkeyEnabledSubtitle;
+
+  /// No description provided for @settingsCheckForUpdatesNowSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks for a new version right away. It\'s only installed after you confirm.'**
+  String get settingsCheckForUpdatesNowSubtitle;
+
+  /// No description provided for @settingsHistoryRetentionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How many transcriptions are kept before older ones move to the trash. Trashed transcriptions are permanently deleted after the chosen time. Favorites always stay. Saved audio files are removed no later than 30 days after recording, regardless of this setting.'**
+  String get settingsHistoryRetentionSubtitle;
+
+  /// No description provided for @smartModeTargetLanguageSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Only for the Translate preset.'**
+  String get smartModeTargetLanguageSubtitle;
+
+  /// No description provided for @settingsPortabilityErrorTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'The file is too large to import (limit: about 5 MB). Choose a settings file that WhisPaste exported.'**
+  String get settingsPortabilityErrorTooLarge;
+
+  /// No description provided for @settingsSearchKeywordsInterface.
+  ///
+  /// In en, this message translates to:
+  /// **'theme, dark mode, light mode, appearance, language, startup, launch, minimized, notifications, system language, panel, side panel, quick paste, quick-paste, clipboard panel, panel position, screen edge, edge, dock, tray, CPU, indicator, status bar, utilization'**
+  String get settingsSearchKeywordsInterface;
+
+  /// No description provided for @settingsSearchKeywordsStt.
+  ///
+  /// In en, this message translates to:
+  /// **'model, whisper, quality, transcription, speech recognition, local, on-device, cloud, language, timeout, vocabulary, dictionary, words, STT, voice, deepgram, openai, api key, numbers only, punctuation, priming, engine, silence, trim, filler words, filler, line break, paragraph, new line, GPU, graphics, acceleration, processor, hardware'**
+  String get settingsSearchKeywordsStt;
+
+  /// No description provided for @settingsSearchKeywordsSmartMode.
+  ///
+  /// In en, this message translates to:
+  /// **'preset, cleanup, concise, translate, gemma, model, text model, download, post-processing, polish, edit selection, selection, selected text, rewrite'**
+  String get settingsSearchKeywordsSmartMode;
+
+  /// No description provided for @settingsSearchKeywordsAudio.
+  ///
+  /// In en, this message translates to:
+  /// **'microphone, recording, gain, volume, push to talk, hold to record, input, mic'**
+  String get settingsSearchKeywordsAudio;
+
+  /// No description provided for @settingsSearchKeywordsAfterTranscription.
+  ///
+  /// In en, this message translates to:
+  /// **'clipboard, paste, auto-paste, copy, action, output, do nothing, blocklist, restore clipboard, keep transcript, previous content'**
+  String get settingsSearchKeywordsAfterTranscription;
+
+  /// No description provided for @settingsSearchKeywordsOverlay.
+  ///
+  /// In en, this message translates to:
+  /// **'overlay, floating overlay, display, status, position, waveform, top center, bottom center, start position, live transcript'**
+  String get settingsSearchKeywordsOverlay;
+
+  /// No description provided for @settingsSearchKeywordsOverlayBackground.
+  ///
+  /// In en, this message translates to:
+  /// **'background, color, colour, marine, graphite, glacier, glass, solid, amber'**
+  String get settingsSearchKeywordsOverlayBackground;
+
+  /// No description provided for @settingsSearchKeywordsOverlayWave.
+  ///
+  /// In en, this message translates to:
+  /// **'wave, waves, color, colour, cyan, violet, neutral, animation, amber'**
+  String get settingsSearchKeywordsOverlayWave;
+
+  /// No description provided for @settingsSearchKeywordsFloatingButton.
+  ///
+  /// In en, this message translates to:
+  /// **'floating button, always on top, recording button, quick access, button'**
+  String get settingsSearchKeywordsFloatingButton;
+
+  /// No description provided for @settingsSearchKeywordsHotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'keyboard shortcut, hotkey, key binding, shortcut, global key, keyboard, hotkeys, keybinding'**
+  String get settingsSearchKeywordsHotkey;
+
+  /// No description provided for @settingsSearchKeywordsSound.
+  ///
+  /// In en, this message translates to:
+  /// **'sound, audio cue, beep, volume, recording sound, notification, completion sound, cue'**
+  String get settingsSearchKeywordsSound;
+
+  /// No description provided for @settingsSearchKeywordsRecordingSafety.
+  ///
+  /// In en, this message translates to:
+  /// **'safety, silence, auto-stop, timeout, microphone timeout, silence detection, protection, dead mic, max duration'**
+  String get settingsSearchKeywordsRecordingSafety;
+
+  /// No description provided for @settingsSearchKeywordsHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'recordings, entries, trash, cleanup, retention, maximum, auto-delete, storage, delete, hide, privacy, lock, protect, PIN protection, history'**
+  String get settingsSearchKeywordsHistory;
+
+  /// No description provided for @settingsSearchKeywordsSettingsPortability.
+  ///
+  /// In en, this message translates to:
+  /// **'export, import, migrate, transfer, move, backup, restore, device change, portability, new computer, automatic backup, auto backup, autosave'**
+  String get settingsSearchKeywordsSettingsPortability;
+
+  /// No description provided for @settingsSearchKeywordsAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'reset, defaults, factory reset'**
+  String get settingsSearchKeywordsAdvanced;
+
+  /// No description provided for @settingsSearchKeywordsAutomationApi.
+  ///
+  /// In en, this message translates to:
+  /// **'automation, api, script, token, bearer, http, localhost, port'**
+  String get settingsSearchKeywordsAutomationApi;
+
+  /// No description provided for @settingsSearchKeywordsUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'update, beta, channel, release channel, pre-release, check, automatic, new version, stable, version'**
+  String get settingsSearchKeywordsUpdates;
+
+  /// No description provided for @settingsSearchKeywordsOnboardingReview.
+  ///
+  /// In en, this message translates to:
+  /// **'introduction, onboarding, setup, first run, tour, walkthrough, getting started, again, replay'**
+  String get settingsSearchKeywordsOnboardingReview;
+
+  /// No description provided for @settingsSearchKeywordsReviewSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'rate, rating, review, stars, store, support'**
+  String get settingsSearchKeywordsReviewSupport;
+
+  /// No description provided for @settingsSearchKeywordsPrivacy.
+  ///
+  /// In en, this message translates to:
+  /// **'privacy, analytics, statistics, tracking, anonymous, error reports, crash reports, usage stats, data, share, consent, keep recordings, recent recordings'**
+  String get settingsSearchKeywordsPrivacy;
+
+  /// No description provided for @manualNoticeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Message shown in the app'**
+  String get manualNoticeLabel;
+
+  /// No description provided for @manualC01Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting started'**
+  String get manualC01Title;
+
+  /// No description provided for @manualC01S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup on first start'**
+  String get manualC01S1Heading;
+
+  /// No description provided for @manualC01S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'On first start, WhisPaste guides you through the setup. You can go back to any step, and you can change everything later in Settings.'**
+  String get manualC01S1B1;
+
+  /// No description provided for @manualC01S1B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome: a short overview of WhisPaste.'**
+  String get manualC01S1B2I1;
+
+  /// No description provided for @manualC01S1B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy: what stays on your device.'**
+  String get manualC01S1B2I2;
+
+  /// No description provided for @manualC01S1B2I3.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech model: choose the speech model and download it. If an API key for a cloud provider is already saved, you can choose that provider instead.'**
+  String get manualC01S1B2I3;
+
+  /// No description provided for @manualC01S1B2I4.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotkey: set the key combination that starts a recording.'**
+  String get manualC01S1B2I4;
+
+  /// No description provided for @manualC01S1B2I5.
+  ///
+  /// In en, this message translates to:
+  /// **'Appearance: turn start at login on or off.'**
+  String get manualC01S1B2I5;
+
+  /// No description provided for @manualC01S1B2I6.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: whether text is pasted automatically. On Linux, this step is skipped.'**
+  String manualC01S1B2I6(String k1);
+
+  /// No description provided for @manualC01S1B2I7.
+  ///
+  /// In en, this message translates to:
+  /// **'Try it: a test recording, then you are ready. Without a speech model or a chosen cloud provider with an API key, finishing stays locked.'**
+  String get manualC01S1B2I7;
+
+  /// No description provided for @manualC01S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'System requirements'**
+  String get manualC01S2Heading;
+
+  /// No description provided for @manualC01S2B1.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste needs a device with at least {ram} of memory (RAM). On devices with less, WhisPaste shows only a notice instead of the app.'**
+  String manualC01S2B1(String ram);
+
+  /// No description provided for @manualC01S2B2.
+  ///
+  /// In en, this message translates to:
+  /// **'You need a microphone to record. In onboarding you can continue without one, but you can only record once a microphone is connected.'**
+  String get manualC01S2B2;
+
+  /// No description provided for @manualC01S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading a speech model'**
+  String get manualC01S3Heading;
+
+  /// No description provided for @manualC01S3B1.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste turns your speech into text, either on your device or through a cloud provider with your own key. On your device it needs a model. You start the download yourself; it does not start automatically.'**
+  String get manualC01S3B1;
+
+  /// No description provided for @manualC01S3B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'Parakeet: fast, for European languages, about {k1}.'**
+  String manualC01S3B2I1(String k1);
+
+  /// No description provided for @manualC01S3B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'Whisper: all 99 languages, models from about {k1} to about {k2}.'**
+  String manualC01S3B2I2(String k1, String k2);
+
+  /// No description provided for @manualC01S3B2I3.
+  ///
+  /// In en, this message translates to:
+  /// **'The models are stored in the app’s data folder, in the {k1} subfolder.'**
+  String manualC01S3B2I3(String k1);
+
+  /// No description provided for @manualC01S3B4.
+  ///
+  /// In en, this message translates to:
+  /// **'A Whisper model stays loaded after a recording, so the next start is faster. Under “Keep model loaded” in the speech recognition section you choose: Always (default) saves waiting time but needs the memory all the time. Automatic keeps the model loaded when your computer has enough memory, otherwise it unloads after 5 minutes. After idle time unloads it after the time you set. When memory runs short, WhisPaste unloads the model automatically and loads it again once there is room.'**
+  String get manualC01S3B4;
+
+  /// No description provided for @manualC01S3B3.
+  ///
+  /// In en, this message translates to:
+  /// **'In the Speech recognition area, the entry “Re-run benchmark” measures how fast each installed tier runs on your computer. The results show on the model cards how much longer a tier takes and determine the recommended Whisper tier. For European languages WhisPaste recommends Parakeet instead. The test does not start during a recording.'**
+  String get manualC01S3B3;
+
+  /// No description provided for @manualC02Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording and pasting'**
+  String get manualC02Title;
+
+  /// No description provided for @manualC02S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'The hotkey'**
+  String get manualC02S1Heading;
+
+  /// No description provided for @manualC02S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The hotkey is a key combination that works in every program. Default: {k2} on Windows and Linux, {k3} on Mac. You can change it under Settings → Keyboard shortcuts.'**
+  String manualC02S1B1(String k2, String k3);
+
+  /// No description provided for @manualC02S1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'If another program already uses the combination, WhisPaste uses {k2} instead for the hotkey (on Mac, {k3}). The other hotkeys stay off until you set a free combination.'**
+  String manualC02S1B2(String k2, String k3);
+
+  /// No description provided for @manualC02S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold or toggle'**
+  String get manualC02S2Heading;
+
+  /// No description provided for @manualC02S2B1.
+  ///
+  /// In en, this message translates to:
+  /// **'In Settings → Keyboard shortcuts, choose how the hotkey works:'**
+  String get manualC02S2B1;
+
+  /// No description provided for @manualC02S2B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'“Hold to record” on: hold the hotkey, speak, and release. Releasing ends the recording.'**
+  String get manualC02S2B2I1;
+
+  /// No description provided for @manualC02S2B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'Off: one press starts the recording, a second press ends it.'**
+  String get manualC02S2B2I2;
+
+  /// No description provided for @manualC02S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Seeing the recording'**
+  String get manualC02S3Heading;
+
+  /// No description provided for @manualC02S3B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The dock at the bottom of the main window shows the current state. While recording, the main button changes to “Stop recording”, and the status area shows the current step. The dock is always there and cannot be turned off.'**
+  String get manualC02S3B1;
+
+  /// No description provided for @manualC02S3B3.
+  ///
+  /// In en, this message translates to:
+  /// **'In a narrow window, the dock moves less important controls into the “More” menu, including the hotkey, the Auto-Paste hint, and the update notice. Everything stays reachable there.'**
+  String get manualC02S3B3;
+
+  /// No description provided for @manualC02S3B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'“Recording overlay” set to “Floating (always visible)”: a small waveform overlay above all programs. Default: off.'**
+  String get manualC02S3B2I1;
+
+  /// No description provided for @manualC02S3B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'“Floating button”: a button above all windows that you click to record. Default: off.'**
+  String get manualC02S3B2I2;
+
+  /// No description provided for @manualC02S4Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Pasting after recording'**
+  String get manualC02S4Heading;
+
+  /// No description provided for @manualC02S4B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Under “After transcription”, choose what happens after each recording:'**
+  String get manualC02S4B1;
+
+  /// No description provided for @manualC02S4B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'“Copy to clipboard” (default): the text goes to the clipboard, and you paste it yourself.'**
+  String get manualC02S4B2I1;
+
+  /// No description provided for @manualC02S4B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'“Auto-Paste at cursor”: WhisPaste pastes the text at the cursor.'**
+  String get manualC02S4B2I2;
+
+  /// No description provided for @manualC02S4B2I3.
+  ///
+  /// In en, this message translates to:
+  /// **'“Copy & Auto-Paste”: both.'**
+  String get manualC02S4B2I3;
+
+  /// No description provided for @manualC02S4B2I4.
+  ///
+  /// In en, this message translates to:
+  /// **'“Do nothing”: WhisPaste neither copies nor pastes the text.'**
+  String get manualC02S4B2I4;
+
+  /// No description provided for @manualC02S4B3.
+  ///
+  /// In en, this message translates to:
+  /// **'Apps on the “Auto-Paste blocklist” get no automatic pasting. The text then goes to the clipboard, or only to Recordings if “Copy to the clipboard when apps are blocked” is off.'**
+  String get manualC02S4B3;
+
+  /// No description provided for @manualC02S4B4.
+  ///
+  /// In en, this message translates to:
+  /// **'On Windows, auto-paste does not work in programs running with administrator rights.'**
+  String get manualC02S4B4;
+
+  /// Linux clipboard history: only KDE Klipper honours the hint; other clipboard managers still record transcripts.
+  ///
+  /// In en, this message translates to:
+  /// **'On Linux, WhisPaste marks the text with a hint that only KDE\'s Klipper honours. Other clipboard managers such as GPaste or CopyQ also store your transcripts: turn off their clipboard recording or delete the entry there.'**
+  String get manualC02S4B5;
+
+  /// No description provided for @manualC02S4B6.
+  ///
+  /// In en, this message translates to:
+  /// **'After pasting, WhisPaste normally puts back what was on your clipboard before. Under “Clipboard after pasting” you can choose “Keep the transcript” instead: then the transcript stays on the clipboard. If a paste cannot be confirmed in time, the transcript always stays there. If macOS denies access to the clipboard, WhisPaste cannot keep the previous content and does not restore it; the transcript then stays on the clipboard. Once, a hint shows the way to System Settings.'**
+  String get manualC02S4B6;
+
+  /// No description provided for @manualC03Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick note'**
+  String get manualC03Title;
+
+  /// No description provided for @manualC03S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What the quick note does'**
+  String get manualC03S1Heading;
+
+  /// No description provided for @manualC03S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The quick note is a note that WhisPaste appends new recordings to. This lets you collect thoughts or a list without creating a new note each time.'**
+  String get manualC03S1B1;
+
+  /// No description provided for @manualC03S1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'If no note is marked yet, WhisPaste creates a new one the first time and marks it.'**
+  String get manualC03S1B2;
+
+  /// No description provided for @manualC03S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting it up'**
+  String get manualC03S2Heading;
+
+  /// No description provided for @manualC03S2B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the note in the Notes area and turn on “Make this the quick note the hotkey appends to”. “Quick note — remove the mark” removes the mark.'**
+  String get manualC03S2B1I1;
+
+  /// No description provided for @manualC03S2B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn on the quick-note hotkey under Settings → Keyboard shortcuts. It is off by default. The key is {k1} ({k2}, or {k3} on Mac).'**
+  String manualC03S2B1I2(String k1, String k2, String k3);
+
+  /// No description provided for @manualC04Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode'**
+  String get manualC04Title;
+
+  /// No description provided for @manualC04S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What Smart Mode does'**
+  String get manualC04S1Heading;
+
+  /// No description provided for @manualC04S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1} edits the recognized text before it is pasted. It is off by default; you turn it on yourself.'**
+  String manualC04S1B1(String k1);
+
+  /// No description provided for @manualC04S1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'By default, processing runs on your device (“Locally on device”). With “OpenAI”, the text is sent to OpenAI. The privacy chapter has the details.'**
+  String get manualC04S1B2;
+
+  /// No description provided for @manualC04S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Presets'**
+  String get manualC04S2Heading;
+
+  /// No description provided for @manualC04S2B1.
+  ///
+  /// In en, this message translates to:
+  /// **'A preset decides what happens to the text:'**
+  String get manualC04S2B1;
+
+  /// No description provided for @manualC04S2B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'“Off”: no post-processing; the text stays as it was recognized.'**
+  String get manualC04S2B2I1;
+
+  /// No description provided for @manualC04S2B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'“Cleanup”: removes filler words such as “um” and fixes punctuation and capitalization, without changing the wording, meaning, or language.'**
+  String get manualC04S2B2I2;
+
+  /// No description provided for @manualC04S2B2I3.
+  ///
+  /// In en, this message translates to:
+  /// **'“Concise”: removes repetition and filler, keeps every important fact and the language.'**
+  String get manualC04S2B2I3;
+
+  /// No description provided for @manualC04S2B2I4.
+  ///
+  /// In en, this message translates to:
+  /// **'“Translate”: translates the text into the target language you set.'**
+  String get manualC04S2B2I4;
+
+  /// No description provided for @manualC04S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Target language and hotkey'**
+  String get manualC04S3Heading;
+
+  /// No description provided for @manualC04S3B1.
+  ///
+  /// In en, this message translates to:
+  /// **'For “Translate”, choose a target language: German, English, Spanish, French, Portuguese, Mandarin, or Russian. The default is English.'**
+  String get manualC04S3B1;
+
+  /// No description provided for @manualC04S3B2.
+  ///
+  /// In en, this message translates to:
+  /// **'A separate hotkey for {k1} is off by default. It uses the preset and target language from the settings.'**
+  String manualC04S3B2(String k1);
+
+  /// No description provided for @manualC04S4Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Resources'**
+  String get manualC04S4Heading;
+
+  /// No description provided for @manualC04S4B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The local variant downloads a text model of about {size}. If your device has less than {ram} of RAM, WhisPaste warns before the download, but you can still download. While running, the text model needs an extra 4 to 5 GB of RAM.'**
+  String manualC04S4B1(String size, String ram);
+
+  /// No description provided for @manualC04S4B2.
+  ///
+  /// In en, this message translates to:
+  /// **'While no text model is set up (local model not downloaded, or no OpenAI key for OpenAI), all presets except “Off” are locked. The dock and Settings name the reason and lead you to the download or the key. If post-processing still fails, WhisPaste says so and tells you whether the unedited text was pasted or is only on the clipboard.'**
+  String get manualC04S4B2;
+
+  /// No description provided for @manualC05Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Dictionary'**
+  String get manualC05Title;
+
+  /// No description provided for @manualC05S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'How replacements work'**
+  String get manualC05S1Heading;
+
+  /// No description provided for @manualC05S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'A replacement automatically swaps certain words or phrases for other text in every recording.'**
+  String get manualC05S1B1;
+
+  /// No description provided for @manualC05S1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'Each replacement has one or more trigger phrases, the phrases to look for, and the new text. Enter several trigger phrases for the same text under “Trigger phrases”.'**
+  String get manualC05S1B2;
+
+  /// No description provided for @manualC05S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Matching'**
+  String get manualC05S2Heading;
+
+  /// No description provided for @manualC05S2B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'Exact: only the identical spelling is replaced.'**
+  String get manualC05S2B1I1;
+
+  /// No description provided for @manualC05S2B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'Similar: slightly different spellings are replaced too. This applies only to trigger phrases of at least 4 characters.'**
+  String get manualC05S2B1I2;
+
+  /// No description provided for @manualC05S2B1I3.
+  ///
+  /// In en, this message translates to:
+  /// **'Tolerance (strict, standard, or tolerant): set per entry, not for all entries at once.'**
+  String get manualC05S2B1I3;
+
+  /// No description provided for @manualC05S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Import and export (CSV)'**
+  String get manualC05S3Heading;
+
+  /// No description provided for @manualC05S3B1.
+  ///
+  /// In en, this message translates to:
+  /// **'You can back up or transfer your replacements as a CSV file. The file has the columns {k1}. Separate several trigger phrases with {k2}. A file can be at most {k3} and {k4} lines.'**
+  String manualC05S3B1(String k1, String k2, String k3, String k4);
+
+  /// No description provided for @manualC06Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippets'**
+  String get manualC06Title;
+
+  /// No description provided for @manualC06S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What snippets are'**
+  String get manualC06S1Heading;
+
+  /// No description provided for @manualC06S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'A snippet is a block of text you insert with a trigger word or a hotkey, such as a signature or a standard reply.'**
+  String get manualC06S1B1;
+
+  /// No description provided for @manualC06S1B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'“Static”: the text is inserted exactly as you saved it.'**
+  String get manualC06S1B2I1;
+
+  /// No description provided for @manualC06S1B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'“Interactive”: WhisPaste asks for individual fields one after another by recording, and places them in your template.'**
+  String get manualC06S1B2I2;
+
+  /// No description provided for @manualC06S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening the snippet picker'**
+  String get manualC06S2Heading;
+
+  /// No description provided for @manualC06S2B1.
+  ///
+  /// In en, this message translates to:
+  /// **'There are two ways to open the picker:'**
+  String get manualC06S2B1;
+
+  /// No description provided for @manualC06S2B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'With the picker trigger word: say only this word. It counts only if the whole recording is exactly this word. You set the trigger word on the Snippets page. Leave it empty to turn the picker off.'**
+  String get manualC06S2B2I1;
+
+  /// No description provided for @manualC06S2B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'With the picker hotkey: off by default; turn it on under “Picker hotkey”.'**
+  String get manualC06S2B2I2;
+
+  /// No description provided for @manualC06S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating a snippet'**
+  String get manualC06S3Heading;
+
+  /// No description provided for @manualC06S3B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a snippet with “Add” and choose “Static” or “Interactive”.'**
+  String get manualC06S3B1I1;
+
+  /// No description provided for @manualC06S3B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'For “Interactive”, define the fields and write the template. Put placeholders in double curly braces, such as {k1}.'**
+  String manualC06S3B1I2(String k1);
+
+  /// No description provided for @manualC07Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get manualC07Title;
+
+  /// No description provided for @manualC07S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Working with notes'**
+  String get manualC07S1Heading;
+
+  /// No description provided for @manualC07S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The Notes area collects text, such as ideas or research. Recordings go straight into a note when you use the quick note.'**
+  String get manualC07S1B1;
+
+  /// No description provided for @manualC07S1B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'“Mark as favorite” highlights a note.'**
+  String get manualC07S1B2I1;
+
+  /// No description provided for @manualC07S1B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'“Add tag” assigns a note to a category.'**
+  String get manualC07S1B2I2;
+
+  /// No description provided for @manualC07S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Trash'**
+  String get manualC07S2Heading;
+
+  /// No description provided for @manualC07S2B1.
+  ///
+  /// In en, this message translates to:
+  /// **'“Move to trash” puts a note in the trash. It stays there until you delete it for good. The trash is never emptied automatically.'**
+  String get manualC07S2B1;
+
+  /// No description provided for @manualC07S2B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'“Delete forever” removes the note from the trash.'**
+  String get manualC07S2B2I1;
+
+  /// No description provided for @manualC07S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick note'**
+  String get manualC07S3Heading;
+
+  /// No description provided for @manualC07S3B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The Notes area shows which note is the quick note. Details are in the quick note chapter.'**
+  String get manualC07S3B1;
+
+  /// No description provided for @manualC07S4Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Images and privacy'**
+  String get manualC07S4Heading;
+
+  /// No description provided for @manualC07S4B1.
+  ///
+  /// In en, this message translates to:
+  /// **'When you add an image, WhisPaste removes metadata such as the location (GPS), camera data, and EXIF, XMP and IPTC information. Only the cleaned copy is stored.'**
+  String get manualC07S4B1;
+
+  /// No description provided for @notesPinGateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes are locked'**
+  String get notesPinGateTitle;
+
+  /// No description provided for @notesPinGateHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your PIN to show your notes.'**
+  String get notesPinGateHint;
+
+  /// No description provided for @manualC08Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Recordings'**
+  String get manualC08Title;
+
+  /// No description provided for @manualC08S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What recordings hold'**
+  String get manualC08S1Heading;
+
+  /// No description provided for @manualC08S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Recordings shows every entry: the recognized text, with its date. If audio was saved, the audio file belongs to that entry.'**
+  String get manualC08S1B1;
+
+  /// No description provided for @manualC08S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Search and filter'**
+  String get manualC08S2Heading;
+
+  /// No description provided for @manualC08S2B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'Type {k1} to filter by tags.'**
+  String manualC08S2B1I1(String k1);
+
+  /// No description provided for @manualC08S2B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'Type {k1} and a language to filter by language.'**
+  String manualC08S2B1I2(String k1);
+
+  /// No description provided for @manualC08S2B1I3.
+  ///
+  /// In en, this message translates to:
+  /// **'Or just type a keyword.'**
+  String get manualC08S2B1I3;
+
+  /// No description provided for @manualC08S2B1I4.
+  ///
+  /// In en, this message translates to:
+  /// **'Above the list are the filters “Favorites”, “Archived”, “Trash”, and “All”.'**
+  String get manualC08S2B1I4;
+
+  /// No description provided for @manualC08S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Managing entries'**
+  String get manualC08S3Heading;
+
+  /// No description provided for @manualC08S3B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'“Copy text” copies the text to the clipboard again.'**
+  String get manualC08S3B1I1;
+
+  /// No description provided for @manualC08S3B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'“Add to favorites” keeps an entry at the top. “Remove from favorites” undoes that.'**
+  String get manualC08S3B1I2;
+
+  /// No description provided for @manualC08S3B1I3.
+  ///
+  /// In en, this message translates to:
+  /// **'“Archive” moves an entry out of the main list without deleting it.'**
+  String get manualC08S3B1I3;
+
+  /// No description provided for @manualC08S3B1I4.
+  ///
+  /// In en, this message translates to:
+  /// **'“Duplicate”, “Merge” (several entries into one), and “Select multiple” help you tidy up.'**
+  String get manualC08S3B1I4;
+
+  /// No description provided for @manualC08S3B1I5.
+  ///
+  /// In en, this message translates to:
+  /// **'“Add annotation” and “Add tag…” add details to an entry.'**
+  String get manualC08S3B1I5;
+
+  /// No description provided for @manualC08S4Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Voice note'**
+  String get manualC08S4Heading;
+
+  /// No description provided for @manualC08S4B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Start a voice note on the entry. Say “tag: name” to set a tag, or “correct: text” to replace the entry’s text.'**
+  String get manualC08S4B1;
+
+  /// No description provided for @manualC08S4B2.
+  ///
+  /// In en, this message translates to:
+  /// **'A correction replaces the entry’s whole text, not just one word. “korrektur: text” works the same way. Right afterwards you can undo the change from the notice.'**
+  String get manualC08S4B2;
+
+  /// No description provided for @manualC08S5Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'PIN protection'**
+  String get manualC08S5Heading;
+
+  /// No description provided for @manualC08S5B1.
+  ///
+  /// In en, this message translates to:
+  /// **'With “PIN protection”, a PIN is required before recordings are shown. This also applies to the side panel, the menu of the floating button, and the automation API. The PIN keeps others from casually viewing your transcriptions, but it does not encrypt them. Notes are locked the same way.'**
+  String get manualC08S5B1;
+
+  /// No description provided for @manualC08S5B2.
+  ///
+  /// In en, this message translates to:
+  /// **'A forgotten PIN cannot be recovered. To reset it, all transcriptions and saved audio files (including archive and trash), all notes with their versions, and all note images are deleted immediately. Settings, snippets, and replacements are kept.'**
+  String get manualC08S5B2;
+
+  /// No description provided for @manualC08S6Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic emptying'**
+  String get manualC08S6Heading;
+
+  /// No description provided for @manualC08S6B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Under “Auto-delete trash after”, set how long deleted entries stay in the trash before they are removed automatically.'**
+  String get manualC08S6B1;
+
+  /// No description provided for @manualC09Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Importing audio files'**
+  String get manualC09Title;
+
+  /// No description provided for @manualC09S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcribing audio files'**
+  String get manualC09S1Heading;
+
+  /// No description provided for @manualC09S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'You can have existing audio files transcribed. Choose “{k1}” and pick the file.'**
+  String manualC09S1B1(String k1);
+
+  /// No description provided for @manualC09S1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'Besides {k1}, you can import more formats depending on your system: on Mac {k2}, on Linux {k3}, on Windows {k4}.'**
+  String manualC09S1B2(String k1, String k2, String k3, String k4);
+
+  /// No description provided for @manualC09S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Limits'**
+  String get manualC09S2Heading;
+
+  /// No description provided for @manualC09S2B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: split the recording into shorter parts and import them one by one.'**
+  String get manualC09S2B2;
+
+  /// No description provided for @manualC09S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Import errors'**
+  String get manualC09S3Heading;
+
+  /// No description provided for @manualC09S3B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: try again. If that does not help, restart WhisPaste or choose another model under {k1}.'**
+  String manualC09S3B2(String k1);
+
+  /// No description provided for @manualC10Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Statistics'**
+  String get manualC10Title;
+
+  /// No description provided for @manualC10S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'The areas'**
+  String get manualC10S1Heading;
+
+  /// No description provided for @manualC10S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The statistics have three areas: {k1}, {k2}, and {k3}.'**
+  String manualC10S1B1(String k1, String k2, String k3);
+
+  /// No description provided for @manualC10S1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'Use {k1} and {k2} to choose the time range.'**
+  String manualC10S1B2(String k1, String k2);
+
+  /// No description provided for @manualC10S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What the numbers mean'**
+  String get manualC10S2Heading;
+
+  /// No description provided for @manualC10S2B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1} and {k2} count your recordings and how long you recorded.'**
+  String manualC10S2B1I1(String k1, String k2);
+
+  /// No description provided for @manualC10S2B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1} is a rough estimate: WhisPaste counts two thirds of the recording time as saved, because speaking is usually faster than typing. It is not a measurement.'**
+  String manualC10S2B1I2(String k1);
+
+  /// No description provided for @manualC10S2B1I3.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: local recordings save cloud costs. WhisPaste estimates this at {k2} per minute, a fixed reference rate.'**
+  String manualC10S2B1I3(String k1, String k2);
+
+  /// No description provided for @manualC10S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get manualC10S3Heading;
+
+  /// No description provided for @manualC10S3B1.
+  ///
+  /// In en, this message translates to:
+  /// **'“{k1}” deletes all statistics data. WhisPaste asks first, and this cannot be undone.'**
+  String manualC10S3B1(String k1);
+
+  /// No description provided for @manualC11Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get manualC11Title;
+
+  /// No description provided for @manualC11S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'The sections'**
+  String get manualC11S1Heading;
+
+  /// No description provided for @manualC11S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings are grouped into sections. The most important ones:'**
+  String get manualC11S1B1;
+
+  /// No description provided for @manualC11S1B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: how the app looks.'**
+  String manualC11S1B2I1(String k1);
+
+  /// No description provided for @manualC11S1B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: model and recognition language.'**
+  String manualC11S1B2I2(String k1);
+
+  /// No description provided for @manualC11S1B2I3.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: microphone and volume.'**
+  String manualC11S1B2I3(String k1);
+
+  /// No description provided for @manualC11S1B2I4.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: preset, target language, and provider.'**
+  String manualC11S1B2I4(String k1);
+
+  /// No description provided for @manualC11S1B2I5.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: what happens after a recording.'**
+  String manualC11S1B2I5(String k1);
+
+  /// No description provided for @manualC11S1B2I6.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: hotkeys.'**
+  String manualC11S1B2I6(String k1);
+
+  /// No description provided for @manualC11S1B2I7.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: trash period.'**
+  String manualC11S1B2I7(String k1);
+
+  /// No description provided for @manualC11S1B2I8.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: export, import, and automatic backup.'**
+  String manualC11S1B2I8(String k1);
+
+  /// No description provided for @manualC11S1B2I9.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: local API and event hooks for programs on this computer.'**
+  String manualC11S1B2I9(String k1);
+
+  /// No description provided for @manualC11S1B2I10.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: more options, such as reset.'**
+  String manualC11S1B2I10(String k1);
+
+  /// No description provided for @manualC11S1B2I11.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: version, update check, links, and licences.'**
+  String manualC11S1B2I11(String k1);
+
+  /// No description provided for @manualC11S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Back up and reset'**
+  String get manualC11S2Heading;
+
+  /// No description provided for @manualC11S2B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1} saves your settings automatically after changes. The last five files are kept. It is off by default.'**
+  String manualC11S2B1I1(String k1);
+
+  /// No description provided for @manualC11S2B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1} immediately deletes all transcriptions, audio files and settings and resets WhisPaste. Read the confirmation carefully before you confirm.'**
+  String manualC11S2B1I2(String k1);
+
+  /// No description provided for @manualC12Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy and offline use'**
+  String get manualC12Title;
+
+  /// No description provided for @manualC12S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What stays on your device'**
+  String get manualC12S1Heading;
+
+  /// No description provided for @manualC12S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'By default, speech recognition runs on your device. Audio goes to a cloud service only when you actively choose a cloud provider. Transcriptions are stored in a local database on your device, and saved audio files as files next to it. The audio of your last {count} recordings is kept only while “{k1}” is on, and for {days} days at most.'**
+  String manualC12S1B1(String k1, int count, int days);
+
+  /// No description provided for @manualC12S1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'The update check asks GitHub for new versions. Feedback is sent only when you submit it.'**
+  String get manualC12S1B2;
+
+  /// Handbook paragraph on the audio of a failed transcription, kept for a retry for up to 24 hours.
+  ///
+  /// In en, this message translates to:
+  /// **'If a transcription fails because the server or the connection is not available, the audio of that recording is kept for up to 24 hours, so you can try again from the error message or under Privacy. This also applies when audio retention is off. If it is on, the normal retention applies instead.'**
+  String get manualC12S1B3;
+
+  /// No description provided for @manualC12S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud providers'**
+  String get manualC12S2Heading;
+
+  /// No description provided for @manualC12S2B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The providers OpenAI and Deepgram need your own API key. Enter it under {k1}.'**
+  String manualC12S2B1(String k1);
+
+  /// No description provided for @manualC12S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Usage statistics and error reports'**
+  String get manualC12S3Heading;
+
+  /// No description provided for @manualC12S3B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Two options are on by default: {k1} and {k2}. You can turn both off in {k3}.'**
+  String manualC12S3B1(String k1, String k2, String k3);
+
+  /// No description provided for @manualC13Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Hardware and performance'**
+  String get manualC13Title;
+
+  /// No description provided for @manualC13S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory'**
+  String get manualC13S1Heading;
+
+  /// No description provided for @manualC13S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste recommends at least {k1} of memory. With less, the app still starts and recommends the “Fast” speech model.'**
+  String manualC13S1B1(String k1);
+
+  /// No description provided for @manualC13S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Graphics card'**
+  String get manualC13S2Heading;
+
+  /// No description provided for @manualC13S2B1.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste uses the graphics card when it can speed up speech recognition:'**
+  String get manualC13S2B1;
+
+  /// No description provided for @manualC13S2B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: {k2}, Apple’s graphics interface.'**
+  String manualC13S2B2I1(String k1, String k2);
+
+  /// No description provided for @manualC13S2B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1} and {k2} with AMD or Intel graphics: {k3}, a widely used graphics interface.'**
+  String manualC13S2B2I2(String k1, String k2, String k3);
+
+  /// No description provided for @manualC13S2B2I3.
+  ///
+  /// In en, this message translates to:
+  /// **'NVIDIA cards also use {k1}. With the optional CUDA pack, recognition also uses {k2}.'**
+  String manualC13S2B2I3(String k1, String k2);
+
+  /// No description provided for @manualC13S2B2I4.
+  ///
+  /// In en, this message translates to:
+  /// **'Without a suitable graphics card, WhisPaste computes on the processor ({k1}). That is slower.'**
+  String manualC13S2B2I4(String k1);
+
+  /// No description provided for @manualC13S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'The CUDA pack'**
+  String get manualC13S3Heading;
+
+  /// No description provided for @manualC13S3B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The CUDA pack is an optional add-on for NVIDIA cards, per the app for {k1} and {k2}. It is available for {k3} and {k4} (x64). Turn it on under {k5}.'**
+  String manualC13S3B1(String k1, String k2, String k3, String k4, String k5);
+
+  /// No description provided for @manualC13S3B2.
+  ///
+  /// In en, this message translates to:
+  /// **'The download is one-time. The app shows its size.'**
+  String get manualC13S3B2;
+
+  /// No description provided for @manualC13S4Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Graphics acceleration'**
+  String get manualC13S4Heading;
+
+  /// No description provided for @manualC13S4B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Under {k1}, choose whether WhisPaste uses the graphics card. Processor only is usually slower.'**
+  String manualC13S4B1(String k1);
+
+  /// No description provided for @manualC13S5Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Models and size'**
+  String get manualC13S5Heading;
+
+  /// No description provided for @manualC13S5B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The Whisper models come in three tiers: Fast, Balanced, and Accurate. More accurate tiers usually recognise better but need more processing time.'**
+  String get manualC13S5B1;
+
+  /// No description provided for @manualC14Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Troubleshooting'**
+  String get manualC14Title;
+
+  /// No description provided for @manualC14S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'How to read this page'**
+  String get manualC14S1Heading;
+
+  /// No description provided for @manualC14S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Each section starts with a notice WhisPaste shows. The wording is the app’s own text. Below it are the cause and the next step.'**
+  String get manualC14S1B1;
+
+  /// No description provided for @manualC14S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'No microphone access'**
+  String get manualC14S2Heading;
+
+  /// No description provided for @manualC14S2B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: allow WhisPaste microphone access in your system settings. Then start the recording again.'**
+  String get manualC14S2B2;
+
+  /// No description provided for @manualC14S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'No microphone found'**
+  String get manualC14S3Heading;
+
+  /// No description provided for @manualC14S3B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: connect a microphone and choose it under {k1}.'**
+  String manualC14S3B2(String k1);
+
+  /// No description provided for @manualC14S4Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'No audio captured'**
+  String get manualC14S4Heading;
+
+  /// No description provided for @manualC14S4B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: check that the right microphone is selected and the {k1} is not at zero. Then record again.'**
+  String manualC14S4B2(String k1);
+
+  /// No description provided for @manualC14S5Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'No speech model'**
+  String get manualC14S5Heading;
+
+  /// No description provided for @manualC14S5B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: download a model under {k1}, then try again.'**
+  String manualC14S5B2(String k1);
+
+  /// No description provided for @manualC14S6Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown model'**
+  String get manualC14S6Heading;
+
+  /// No description provided for @manualC14S6B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: choose an installed model under {k1}.'**
+  String manualC14S6B2(String k1);
+
+  /// No description provided for @manualC14S7Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcription failed'**
+  String get manualC14S7Heading;
+
+  /// No description provided for @manualC14S7B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: try again. If that does not help, restart WhisPaste or choose another model under {k1}.'**
+  String manualC14S7B2(String k1);
+
+  /// No description provided for @manualC14S8Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'No text recognized'**
+  String get manualC14S8Heading;
+
+  /// No description provided for @manualC14S8B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: speak more clearly or a little longer and try again. Also check the microphone.'**
+  String get manualC14S8B2;
+
+  /// No description provided for @manualC14S9Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording or transcription too long'**
+  String get manualC14S9Heading;
+
+  /// No description provided for @manualC14S9B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: record shorter sections.'**
+  String get manualC14S9B2;
+
+  /// No description provided for @manualC14S10Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud key missing or invalid'**
+  String get manualC14S10Heading;
+
+  /// No description provided for @manualC14S10B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: enter the key again under {k1}, or switch to on-device recognition.'**
+  String manualC14S10B2(String k1);
+
+  /// No description provided for @manualC14S11Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Graphics memory full'**
+  String get manualC14S11Heading;
+
+  /// No description provided for @manualC14S11B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: nothing. You can choose the model again later in Settings.'**
+  String get manualC14S11B2;
+
+  /// No description provided for @manualC14S12Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Calculated on the processor'**
+  String get manualC14S12Heading;
+
+  /// No description provided for @manualC14S12B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: usually nothing. If it happens often, check the setting under {k1} and update the graphics driver.'**
+  String manualC14S12B2(String k1);
+
+  /// No description provided for @manualC14S13Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste blocked (macOS)'**
+  String get manualC14S13Heading;
+
+  /// No description provided for @manualC14S13B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: allow WhisPaste accessibility access in the system settings. If the message stays, restart WhisPaste.'**
+  String get manualC14S13B2;
+
+  /// No description provided for @manualC14S14Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste blocked (Windows)'**
+  String get manualC14S14Heading;
+
+  /// No description provided for @manualC14S14B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: start WhisPaste as an administrator too.'**
+  String get manualC14S14B2;
+
+  /// Heading of handbook chapter 14, section 15: auto-paste on Linux.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-Paste on Linux'**
+  String get manualC14S15Heading;
+
+  /// Explains that auto-paste on Linux uses a virtual input device (uinput), and what to check when it does not work.
+  ///
+  /// In en, this message translates to:
+  /// **'On Linux, auto-paste uses a virtual input device (uinput). If it does not work, check whether WhisPaste may access that device.'**
+  String get manualC14S15B1;
+
+  /// Shown when the current Linux system needs no extra setup for auto-paste.
+  ///
+  /// In en, this message translates to:
+  /// **'On this system, no setup is needed. WhisPaste pastes the text at the cursor after each recording.'**
+  String get manualC14S15B2;
+
+  /// Flatpak note: what the sandbox permission gives the app. Plain language, no technical flags.
+  ///
+  /// In en, this message translates to:
+  /// **'The Flatpak build gives the app access to the system\'s input devices so that auto-paste can work. WhisPaste itself does not read input devices.'**
+  String get manualC14S15B3;
+
+  /// Lead-in before the Snap command; the command itself follows in its own copyable block.
+  ///
+  /// In en, this message translates to:
+  /// **'In the Snap build, run this once in a terminal:'**
+  String get manualC14S15B4;
+
+  /// AppImage setup options (udev rule or input group) and what happens until setup is done.
+  ///
+  /// In en, this message translates to:
+  /// **'The AppImage needs access to /dev/uinput. Either install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/, or add your user to the input group and sign in again. Until then, auto-paste only copies the text.'**
+  String get manualC14S15B5;
+
+  /// Handbook troubleshooting heading: terminal paste shortcut under Wayland.
+  ///
+  /// In en, this message translates to:
+  /// **'Terminals and Wayland'**
+  String get manualC14S15TerminalHeading;
+
+  /// Handbook: Linux terminals paste with Ctrl+Shift+V; where WhisPaste recognises them on its own.
+  ///
+  /// In en, this message translates to:
+  /// **'On Linux, terminals paste with Ctrl+Shift+V. WhisPaste recognises common terminals and uses that shortcut there on its own: under X11 and XWayland, and on KDE Plasma, Sway, Hyprland, niri, labwc, Wayfire and other wlroots desktops.'**
+  String get manualC14S15T1;
+
+  /// Handbook: GNOME Wayland needs the optional WhisPaste GNOME extension to identify the target app.
+  ///
+  /// In en, this message translates to:
+  /// **'Under GNOME with Wayland, WhisPaste identifies the target app only with the optional WhisPaste extension for GNOME. Without it, WhisPaste does not recognise terminals, and a block list only copies the text.'**
+  String get manualC14S15T2;
+
+  /// Handbook: fallback switch. {k1} = the switch title, {k2} = the settings section name.
+  ///
+  /// In en, this message translates to:
+  /// **'If a terminal still shows ^V instead of the text, turn on “{k1}” under {k2}. WhisPaste then pastes with Ctrl+Shift+V everywhere. Some apps use these keys for something else; LibreOffice, for example, opens a dialog.'**
+  String manualC14S15T3(String k1, String k2);
+
+  /// Handbook: how to install and turn on the GNOME extension. {k1} = the button label.
+  ///
+  /// In en, this message translates to:
+  /// **'Under GNOME, turn on the WhisPaste extension in the settings with {k1}. The .deb package already installs it. With Flatpak, AppImage or the tarball, install it once with the script from the unpacked Linux package, then turn it on:'**
+  String manualC14S15T4(String k1);
+
+  /// Terminal command, not translated.
+  ///
+  /// In en, this message translates to:
+  /// **'bash install-gnome-extension.sh'**
+  String get manualC14S15InstallExtCmd;
+
+  /// Terminal command, not translated.
+  ///
+  /// In en, this message translates to:
+  /// **'gnome-extensions enable whispaste-focus@whispaste.de'**
+  String get manualC14S15EnableExtCmd;
+
+  /// Handbook: portal paste without uinput. {k1} = button label, {k2} = settings section name.
+  ///
+  /// In en, this message translates to:
+  /// **'Without uinput set up, for example in Flatpak, WhisPaste pastes through desktop permission: {k1} under {k2}. Your desktop asks once; you can withdraw the permission there at any time'**
+  String manualC14S15T5(String k1, String k2);
+
+  /// Linux Wayland without the GlobalShortcuts portal (GNOME before 48): notice under the hotkey. {shortcut} = the hotkey as key caps text, e.g. Ctrl+Shift+D. Keep GNOME untranslated.
+  ///
+  /// In en, this message translates to:
+  /// **'This desktop does not let apps use system-wide shortcuts yet. WhisPaste can add {shortcut} to the GNOME keyboard shortcuts instead.'**
+  String settingsDesktopShortcutGnome(String shortcut);
+
+  /// No description provided for @settingsDesktopShortcutAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to GNOME'**
+  String get settingsDesktopShortcutAdd;
+
+  /// Shown once WhisPaste added its hotkey to the GNOME keyboard shortcuts. {shortcut} = the hotkey, e.g. Ctrl+Shift+D.
+  ///
+  /// In en, this message translates to:
+  /// **'{shortcut} is set up in the GNOME keyboard shortcuts. If you change the hotkey, WhisPaste updates it there.'**
+  String settingsDesktopShortcutInstalled(String shortcut);
+
+  /// No description provided for @settingsDesktopShortcutRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from GNOME'**
+  String get settingsDesktopShortcutRemove;
+
+  /// No description provided for @settingsDesktopShortcutFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The GNOME keyboard shortcuts could not be changed.'**
+  String get settingsDesktopShortcutFailed;
+
+  /// Linux Wayland desktops without the GlobalShortcuts portal where WhisPaste cannot add the shortcut itself (e.g. Sway, Flatpak). A command follows below the text.
+  ///
+  /// In en, this message translates to:
+  /// **'This desktop does not let apps use system-wide shortcuts. Assign this command to a key combination in your system settings:'**
+  String get settingsDesktopShortcutManual;
+
+  /// No description provided for @manualC14S15HotkeyHeading.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotkey under Wayland'**
+  String get manualC14S15HotkeyHeading;
+
+  /// Handbook: hotkey under Wayland. {k1} = the button label “Add to GNOME”, {k2} = settings section name.
+  ///
+  /// In en, this message translates to:
+  /// **'Under Wayland, an app gets system-wide shortcuts only through the desktop. KDE Plasma and GNOME 48 or newer provide them. Older GNOME versions, such as in Ubuntu 24.04, cannot: WhisPaste then offers “{k1}” under {k2} and adds the hotkey to the GNOME keyboard shortcuts.'**
+  String manualC14S15H1(String k1, String k2);
+
+  /// Handbook: manual shortcut on other Wayland desktops. {k1} = settings section name.
+  ///
+  /// In en, this message translates to:
+  /// **'On other desktops, such as Sway or Hyprland, assign the command to a key combination yourself. Settings shows the exact command for your installation under {k1}.'**
+  String manualC14S15H2(String k1);
+
+  /// Subheading for the Flatpak build, a Linux app package format. Keep the name as is.
+  ///
+  /// In en, this message translates to:
+  /// **'Flatpak'**
+  String get manualC14S15FlatpakHeading;
+
+  /// Security warning about access to input devices in the Flatpak build.
+  ///
+  /// In en, this message translates to:
+  /// **'With this access, the app could in theory read keystrokes of other programs if your user can read the input devices (e.g. as a member of the input group). Members of the input group can also generate virtual input.'**
+  String get manualC14S15B3W;
+
+  /// Lead-in before the udev command block (Flatpak). The commands follow in their own copyable block.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-paste also needs write access to /dev/uinput on the host. Install the udev rule 71-whispaste-uinput.rules into /etc/udev/rules.d/ and then run these commands:'**
+  String get manualC14S15B3S;
+
+  /// Shell command shown in a copyable block. Keep the command unchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'sudo udevadm control --reload-rules && sudo udevadm trigger --subsystem-match=misc --sysname-match=uinput'**
+  String get manualC14S15Cmd;
+
+  /// Label of the copy button next to a command block, also its tooltip. Use the same wording as pasteFailureLinuxUinputCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy command'**
+  String get manualCodeCopy;
+
+  /// Confirmation toast after a command has been copied to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Command copied'**
+  String get manualCodeCopied;
+
+  /// No description provided for @manualCodeCopyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not copy. Select the command and copy it by hand.'**
+  String get manualCodeCopyFailed;
+
+  /// Warning that the udev rule gives write access to the logged-in user and the input group, and that the commands need administrator rights.
+  ///
+  /// In en, this message translates to:
+  /// **'The rule gives write access to the logged-in user and to every member of the input group. These commands need administrator rights (sudo) and change the system. If you do not want this, leave auto-paste off and paste the text by hand.'**
+  String get manualC14S15B3E;
+
+  /// Subheading for the Snap build, a Linux app package format. Keep the name as is.
+  ///
+  /// In en, this message translates to:
+  /// **'Snap'**
+  String get manualC14S15SnapHeading;
+
+  /// Shell command for the Snap build. Keep the command unchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'sudo snap connect whispaste:uinput'**
+  String get manualC14S15SnapCmd;
+
+  /// Sentence after the setup options: until setup is done, auto-paste only copies the text.
+  ///
+  /// In en, this message translates to:
+  /// **'Until then, auto-paste only copies the text.'**
+  String get manualC14S15Fallback;
+
+  /// Subheading for the AppImage build, a Linux app package format. Keep the name as is.
+  ///
+  /// In en, this message translates to:
+  /// **'AppImage'**
+  String get manualC14S15AppImageHeading;
+
+  /// No description provided for @manualC14S16Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Hotkey already in use'**
+  String get manualC14S16Heading;
+
+  /// No description provided for @manualC14S16B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: choose a different combination under {k1}.'**
+  String manualC14S16B2(String k1);
+
+  /// No description provided for @manualC14S17Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Autostart not set up'**
+  String get manualC14S17Heading;
+
+  /// No description provided for @manualC14S17B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: check the autostart permissions in your operating system. Without autostart, WhisPaste does not start on its own.'**
+  String get manualC14S17B2;
+
+  /// No description provided for @manualC14S18Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic backup failed'**
+  String get manualC14S18Heading;
+
+  /// No description provided for @manualC14S18B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: choose a different, reachable folder under {k1}.'**
+  String manualC14S18B2(String k1);
+
+  /// No description provided for @manualC14S19Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Factory reset incomplete'**
+  String get manualC14S19Heading;
+
+  /// No description provided for @manualC14S19B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: choose “Try again”, or restart WhisPaste and run the reset again afterwards.'**
+  String get manualC14S19B2;
+
+  /// No description provided for @manualC14S20Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'No sound detected'**
+  String get manualC14S20Heading;
+
+  /// No description provided for @manualC14S20B2.
+  ///
+  /// In en, this message translates to:
+  /// **'What to do: check the microphone under {k1} and then record again.'**
+  String manualC14S20B2(String k1);
+
+  /// No description provided for @manualC14S21Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Not enough memory'**
+  String get manualC14S21Heading;
+
+  /// No description provided for @manualC14S21B1.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste still starts with less memory than the recommended {k1}. The app then recommends the “Fast” speech model.'**
+  String manualC14S21B1(String k1);
+
+  /// No description provided for @manualC15Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Keyboard shortcuts'**
+  String get manualC15Title;
+
+  /// No description provided for @manualC15S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Only inside WhisPaste'**
+  String get manualC15S1Heading;
+
+  /// No description provided for @manualC15S1B1.
+  ///
+  /// In en, this message translates to:
+  /// **'These keyboard shortcuts work only while the WhisPaste window is active. The system-wide hotkey, by contrast, is set under {k2}.'**
+  String manualC15S1B1(String k2);
+
+  /// No description provided for @manualC15S1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'On Mac, {k1} usually replaces {k2}.'**
+  String manualC15S1B2(String k1, String k2);
+
+  /// Shortcut reference: the F1 key opens help.
+  ///
+  /// In en, this message translates to:
+  /// **'F1 opens help.'**
+  String get manualC15S1B3I1;
+
+  /// Shortcut reference: the platform chord {k} also opens help.
+  ///
+  /// In en, this message translates to:
+  /// **'{k} opens help as well.'**
+  String manualC15S1B3I2(String k);
+
+  /// No description provided for @manualC15S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Recordings'**
+  String get manualC15S2Heading;
+
+  /// No description provided for @manualC15S2B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: delete the entry.'**
+  String manualC15S2B1I1(String k1);
+
+  /// No description provided for @manualC15S2B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: toggle favorite.'**
+  String manualC15S2B1I2(String k1);
+
+  /// No description provided for @manualC15S2B1I3.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: search.'**
+  String manualC15S2B1I3(String k1);
+
+  /// No description provided for @manualC15S2B1I4.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: close search or the detail view.'**
+  String manualC15S2B1I4(String k1);
+
+  /// Handbuch Kap. 15, Aufnahmen: Enter copies the focused entry. {k1} is the key name.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: copy the entry.'**
+  String manualC15S2B1I5(String k1);
+
+  /// Handbuch Kap. 15, Aufnahmen: Esc in the transcript editor discards the edit; unsaved changes ask first. {k1} is the key name.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: discard an edit. Unsaved changes ask first.'**
+  String manualC15S2B1I6(String k1);
+
+  /// No description provided for @manualC15S3Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get manualC15S3Heading;
+
+  /// No description provided for @manualC15S3B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: delete the entry.'**
+  String manualC15S3B1I1(String k1);
+
+  /// No description provided for @manualC15S3B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: create a new note.'**
+  String manualC15S3B1I2(String k1);
+
+  /// No description provided for @manualC15S3B1I3.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: search.'**
+  String manualC15S3B1I3(String k1);
+
+  /// No description provided for @manualC15S4Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Dictionary and snippets'**
+  String get manualC15S4Heading;
+
+  /// No description provided for @manualC15S4B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'{k1}: delete the entry.'**
+  String manualC15S4B1I1(String k1);
+
+  /// Manual heading: cancelling a dictation with Esc, which is caught system-wide while a recording runs (UIA-SHL-14).
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel during a recording'**
+  String get manualC15S5Heading;
+
+  /// Manual paragraph: while a recording or transcription runs, WhisPaste catches the cancel key ({k1}, Esc) system-wide; {k2} (F12) is the alternative to choose in Settings (UIA-SHL-14).
+  ///
+  /// In en, this message translates to:
+  /// **'While a recording or transcription runs, WhisPaste catches the {k1} key system-wide so you can cancel. {k1} then does nothing in other apps. If that bothers you, choose {k2} as the cancel key in Settings.'**
+  String manualC15S5B1(String k1, String k2);
+
+  /// No description provided for @manualC16Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Feedback and support'**
+  String get manualC16Title;
+
+  /// No description provided for @manualC16S1Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Sending feedback'**
+  String get manualC16S1Heading;
+
+  /// No description provided for @manualC16S1B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating: required.'**
+  String get manualC16S1B1I1;
+
+  /// No description provided for @manualC16S1B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'Type: required. Choose Problem, Idea, Praise, or Question.'**
+  String get manualC16S1B1I2;
+
+  /// No description provided for @manualC16S1B1I3.
+  ///
+  /// In en, this message translates to:
+  /// **'Free text up to 1000 characters.'**
+  String get manualC16S1B1I3;
+
+  /// No description provided for @manualC16S1B1I4.
+  ///
+  /// In en, this message translates to:
+  /// **'An email address is optional.'**
+  String get manualC16S1B1I4;
+
+  /// No description provided for @manualC16S1B2.
+  ///
+  /// In en, this message translates to:
+  /// **'If you have sent feedback recently, the app shows this notice:'**
+  String get manualC16S1B2;
+
+  /// No description provided for @manualC16S2Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Support'**
+  String get manualC16S2Heading;
+
+  /// No description provided for @manualC16S2B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The {k1} tab on the Help page shows how you can support WhisPaste.'**
+  String manualC16S2B1(String k1);
+
+  /// Handbook heading: rating reminder and how to lift a 'Never ask again' choice.
+  ///
+  /// In en, this message translates to:
+  /// **'Rating reminder'**
+  String get manualC16S3Heading;
+
+  /// Handbook paragraph: where the switch that lifts 'Never ask again' is. {k1} is the Interface area, {k2} the switch label.
+  ///
+  /// In en, this message translates to:
+  /// **'If you chose “Never ask again” for the rating reminder, you find the switch “{k2}” under {k1}. It appears only in that case.'**
+  String manualC16S3B1(String k1, String k2);
+
+  /// No description provided for @manualC16S4B1.
+  ///
+  /// In en, this message translates to:
+  /// **'You can send feedback from the Help tab, from the Help menu in the menu bar (macOS) or the title-bar menu (Windows and Linux), and from the tray. The form is two steps away.'**
+  String get manualC16S4B1;
+
+  /// No description provided for @manualC16S5Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Share an idea'**
+  String get manualC16S5Heading;
+
+  /// No description provided for @manualC16S5B1.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Idea, or open Suggest an idea from the Help menu: the type is already set. You can also post your idea on the public ideas board and vote on others.'**
+  String get manualC16S5B1;
+
+  /// No description provided for @manualC16S6Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Write by voice'**
+  String get manualC16S6Heading;
+
+  /// No description provided for @manualC16S6B1.
+  ///
+  /// In en, this message translates to:
+  /// **'The microphone button in the message field records your voice and inserts the recognized text at the cursor.'**
+  String get manualC16S6B1;
+
+  /// No description provided for @manualC16S7Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'What is sent'**
+  String get manualC16S7Heading;
+
+  /// No description provided for @manualC16S7B1I1.
+  ///
+  /// In en, this message translates to:
+  /// **'The type you chose and your message.'**
+  String get manualC16S7B1I1;
+
+  /// No description provided for @manualC16S7B1I3.
+  ///
+  /// In en, this message translates to:
+  /// **'Your e-mail address only if you entered one. It is used only for a reply and deleted after 90 days.'**
+  String get manualC16S7B1I3;
+
+  /// No description provided for @manualC16S7B1I4.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostics only if you turn on Attach diagnostics: app version, operating system, speech engine and backend. Show preview displays the exact text before you send.'**
+  String get manualC16S7B1I4;
+
+  /// No description provided for @manualC16S7B2.
+  ///
+  /// In en, this message translates to:
+  /// **'Recordings and transcripts are never attached.'**
+  String get manualC16S7B2;
+
+  /// No description provided for @manualC16S4Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Where to find the form'**
+  String get manualC16S4Heading;
+
+  /// No description provided for @manualC16S7B1I2.
+  ///
+  /// In en, this message translates to:
+  /// **'The rating you chose.'**
+  String get manualC16S7B1I2;
+
+  /// No description provided for @pasteFailureClipboardCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not paste – the text is on the clipboard ({paste}).'**
+  String pasteFailureClipboardCopy(Object paste);
+
+  /// No description provided for @pasteFailureCheckPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Check permission'**
+  String get pasteFailureCheckPermission;
+
+  /// No description provided for @autoPasteResetConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset entry and allow again?'**
+  String get autoPasteResetConfirmTitle;
+
+  /// No description provided for @autoPasteResetConfirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS stored an old entry for WhisPaste that no longer applies. WhisPaste removes only this Accessibility entry. macOS will then ask you again. Other permissions stay unchanged.'**
+  String get autoPasteResetConfirmBody;
+
+  /// No description provided for @autoPasteResetConfirmButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset entry and allow again'**
+  String get autoPasteResetConfirmButton;
+
+  /// No description provided for @permissionRowMicTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone'**
+  String get permissionRowMicTitle;
+
+  /// No description provided for @permissionRowMicPurpose.
+  ///
+  /// In en, this message translates to:
+  /// **'Records your voice. Without it nothing can be recorded.'**
+  String get permissionRowMicPurpose;
+
+  /// No description provided for @permissionRowPasteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-paste'**
+  String get permissionRowPasteTitle;
+
+  /// No description provided for @permissionRowPastePurpose.
+  ///
+  /// In en, this message translates to:
+  /// **'Places the text at the cursor. Without it, the text lands on the clipboard.'**
+  String get permissionRowPastePurpose;
+
+  /// No description provided for @permissionRowAllow.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow'**
+  String get permissionRowAllow;
+
+  /// No description provided for @permissionRowMissingSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing – open Settings'**
+  String get permissionRowMissingSettings;
+
+  /// No description provided for @permissionRowGranted.
+  ///
+  /// In en, this message translates to:
+  /// **'Allowed'**
+  String get permissionRowGranted;
+
+  /// No description provided for @permissionRowOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional'**
+  String get permissionRowOptional;
+
+  /// No description provided for @autostartApprovalBody.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS is waiting for your approval: WhisPaste only starts at login once you switch it on under Login Items.'**
+  String get autostartApprovalBody;
+
+  /// No description provided for @autostartApprovalAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Login Items'**
+  String get autostartApprovalAction;
+
+  /// No description provided for @pasteFailureLinuxUinputHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-paste needs one-time access to /dev/uinput. Copy the command and run it in a terminal.'**
+  String get pasteFailureLinuxUinputHint;
+
+  /// No description provided for @pasteFailureLinuxUinputCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy command'**
+  String get pasteFailureLinuxUinputCopy;
+
+  /// No description provided for @pasteFailureLinuxNoDeviceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-paste is not available on this system: there is no virtual keyboard device.'**
+  String get pasteFailureLinuxNoDeviceHint;
+
+  /// No description provided for @pasteFailureLinuxUinputSettingsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-paste needs one-time access to /dev/uinput. Open the Auto-Paste settings for the one-time setup.'**
+  String get pasteFailureLinuxUinputSettingsHint;
+
+  /// No description provided for @settingsSecureKeysNotRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'API keys could not be fully removed.'**
+  String get settingsSecureKeysNotRemoved;
+
+  /// No description provided for @analyticsDurationHours.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} h'**
+  String analyticsDurationHours(String hours);
+
+  /// No description provided for @analyticsDurationMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String analyticsDurationMinutes(String minutes);
+
+  /// No description provided for @dockErrorCauseEngine.
+  ///
+  /// In en, this message translates to:
+  /// **'The speech model stopped with an error.'**
+  String get dockErrorCauseEngine;
+
+  /// No description provided for @dockErrorCauseRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'The recording could not be transcribed.'**
+  String get dockErrorCauseRecording;
+
+  /// No description provided for @dockErrorAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Open speech settings to check the speech model.'**
+  String get dockErrorAction;
+
+  /// No description provided for @overlayDoneCopiedOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Only copied – target app blocked or not recognised'**
+  String get overlayDoneCopiedOnly;
+
+  /// No description provided for @overlayDoneNotPasted.
+  ///
+  /// In en, this message translates to:
+  /// **'Not pasted – saved in Recordings'**
+  String get overlayDoneNotPasted;
+
+  /// No description provided for @overlayDonePasteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste not possible – copy the text'**
+  String get overlayDonePasteFailed;
+
+  /// No description provided for @databaseTooNewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste cannot open your data'**
+  String get databaseTooNewTitle;
+
+  /// No description provided for @databaseTooNewCause.
+  ///
+  /// In en, this message translates to:
+  /// **'Your data was written by a newer version of WhisPaste (database version {storedVersion}). This version supports up to version {supportedVersion}.'**
+  String databaseTooNewCause(int storedVersion, int supportedVersion);
+
+  /// No description provided for @databaseTooNewNextStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Install the latest version of WhisPaste and start it again. Nothing has been changed or deleted.'**
+  String get databaseTooNewNextStep;
+
+  /// No description provided for @databaseTooNewQuit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit'**
+  String get databaseTooNewQuit;
+
+  /// No description provided for @pasteFailureTargetChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-paste cancelled: you switched apps during processing. The text is in the clipboard.'**
+  String get pasteFailureTargetChanged;
+
+  /// No description provided for @pasteFailureUnconfirmed.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-paste not confirmed. The text is in the clipboard, paste it with {paste}.'**
+  String pasteFailureUnconfirmed(String paste);
+
+  /// No description provided for @onboardingAppearanceSettingsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Changeable anytime under Settings → Appearance'**
+  String get onboardingAppearanceSettingsHint;
+
+  /// No description provided for @onboardingAppearanceSettingsLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the live preview in Settings (ends setup)'**
+  String get onboardingAppearanceSettingsLink;
+
+  /// No description provided for @onboardingAppearanceSettingsLinkRevision.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the live preview in Settings (show again later)'**
+  String get onboardingAppearanceSettingsLinkRevision;
+
+  /// Linux file dialog text the runner shows instead of GTK's English default (XP-5-13): dialog titles and the folder dialog's confirm button.
+  ///
+  /// In en, this message translates to:
+  /// **'Open file'**
+  String get fileDialogOpenTitle;
+
+  /// No description provided for @fileDialogOpenFilesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open files'**
+  String get fileDialogOpenFilesTitle;
+
+  /// No description provided for @fileDialogSaveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Save file'**
+  String get fileDialogSaveTitle;
+
+  /// No description provided for @fileDialogFolderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose folder'**
+  String get fileDialogFolderTitle;
+
+  /// No description provided for @fileDialogSelectFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get fileDialogSelectFolder;
+
+  /// Value of the dock's language chip while the speech engine detects the language itself; keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get dockLanguageAuto;
+
+  /// Tooltip and label of the star on a language tile that adds it to the favorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to favorites'**
+  String get settingsLanguageFavoriteAdd;
+
+  /// Tooltip and label of the star on a language tile that removes it from the favorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from favorites'**
+  String get settingsLanguageFavoriteRemove;
+
+  /// Hint in the language dialog shown when three favorites are already set.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to 3 favorites. Remove one to add another.'**
+  String get settingsLanguageFavoritesLimit;
+
+  /// Heading of the favorites block at the top of a dock language dropdown.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get dockMenuFavorites;
+
+  /// Heading of the full language list below the favorites block in the dock dropdown.
+  ///
+  /// In en, this message translates to:
+  /// **'All languages'**
+  String get dockMenuAllLanguages;
+
+  /// Label of the Speech model submenu in the tray context menu. Same term as the dock.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech model'**
+  String get traySpeechModel;
+
+  /// Tray tooltip line for the Smart Mode preset. {preset} is the localized preset name.
+  ///
+  /// In en, this message translates to:
+  /// **'Smart Mode: {preset}'**
+  String trayTooltipSmartMode(String preset);
+
+  /// Shown in the app when Linux has no tray host (GNOME without AppIndicator), so the tray quick switch is not silently missing.
+  ///
+  /// In en, this message translates to:
+  /// **'The tray icon needs a tray host. On GNOME, install the AppIndicator extension; until then the quick-switch menu is not available.'**
+  String get trayLinuxNoTrayHost;
+
+  /// Label of the Language submenu in the tray context menu, next to the microphone submenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get trayLanguage;
+
+  /// Last entry of the tray Language submenu. Opens the app window with the full language list in the dock.
+  ///
+  /// In en, this message translates to:
+  /// **'More…'**
+  String get trayLanguageMore;
+
+  /// No description provided for @trayProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get trayProfile;
+
+  /// No description provided for @trayProfileAutomatic.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic, by app'**
+  String get trayProfileAutomatic;
+
+  /// No description provided for @trayProfileNone.
+  ///
+  /// In en, this message translates to:
+  /// **'No profile'**
+  String get trayProfileNone;
+
+  /// No description provided for @profileSwitchedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile: {name}'**
+  String profileSwitchedToast(String name);
+
+  /// Name of the next-favorite-language hotkey in collision messages.
+  ///
+  /// In en, this message translates to:
+  /// **'Next favorite language'**
+  String get settingsHotkeyActionLanguageCycle;
+
+  /// Title of the switch for the next-favorite-language hotkey in the Dictation card. Must not contain the word global.
+  ///
+  /// In en, this message translates to:
+  /// **'Next favorite language'**
+  String get settingsLanguageCycleHotkeyEnabled;
+
+  /// Subtitle of the next-favorite-language switch: what the hotkey does and where favorites come from.
+  ///
+  /// In en, this message translates to:
+  /// **'Switches the recording language to the next favorite. Star up to three languages under Speech-to-text.'**
+  String get settingsLanguageCycleHotkeyHint;
+
+  /// Shown when the chosen combination is already used by another WhisPaste hotkey. {action} is the other hotkey's name.
+  ///
+  /// In en, this message translates to:
+  /// **'Already used by {action}. Choose another combination.'**
+  String settingsLanguageCycleHotkeyCollision(String action);
+
+  /// Shown when the registration of the next-favorite-language hotkey failed.
+  ///
+  /// In en, this message translates to:
+  /// **'The shortcut is taken by another app or could not be registered. Choose another combination.'**
+  String get settingsLanguageCycleHotkeyInactive;
+
+  /// Notice on Linux under Wayland: the hotkey may not work system-wide there.
+  ///
+  /// In en, this message translates to:
+  /// **'Under Wayland, this shortcut may not work in other apps. Set a desktop shortcut for it if it does not respond.'**
+  String get settingsLanguageCycleHotkeyWaylandNotice;
+
+  /// Toast after the next-favorite-language hotkey switched the dictation language. {language} is the native name of the language.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording language: {language}'**
+  String languageCycleSwitchedToast(String language);
+
+  /// Toast after the next-favorite-language hotkey was pressed while a recording runs: the new language applies from the next recording. {language} is the native name of the language.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording language: {language}. Applies from the next recording.'**
+  String languageCycleSwitchedNextRecordingToast(String language);
+
+  /// Toast when the next-favorite-language hotkey is pressed but no favorite is set. Points to the settings.
+  ///
+  /// In en, this message translates to:
+  /// **'No favorite languages yet. Star up to three languages under Speech-to-text to use this shortcut.'**
+  String get languageCycleNoFavoritesToast;
+
+  /// Action button on the no-favorites toast that opens the speech-to-text settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get languageCycleOpenSettings;
+
+  /// Manual section heading: favorite speech languages.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorite languages'**
+  String get manualLangFavHeading;
+
+  /// Manual paragraph explaining the up-to-three favorite languages and where they appear.
+  ///
+  /// In en, this message translates to:
+  /// **'In the speech recognition settings, mark up to three languages as favorites with the star in the language list. Favorites appear first in the language menu of the recording dock and in the tray menu, so you can switch in one click.'**
+  String get manualLangFavB1;
+
+  /// Manual section heading: the Language submenu in the tray menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Language in the tray menu'**
+  String get manualLangTrayHeading;
+
+  /// Manual paragraph on the tray menu Language submenu.
+  ///
+  /// In en, this message translates to:
+  /// **'The tray menu has a Language submenu. It lists your favorites and puts a check mark on the active language. More… opens the window with the full list. Parakeet picks its own language, so the submenu is hidden there.'**
+  String get manualLangTrayB1;
+
+  /// Manual section heading: the next-favorite-language hotkey.
+  ///
+  /// In en, this message translates to:
+  /// **'Next favorite language'**
+  String get manualLangCycleHeading;
+
+  /// Manual paragraph on the next-favorite-language hotkey, including the Wayland limit.
+  ///
+  /// In en, this message translates to:
+  /// **'In the Dictate card you can assign a key combination that switches the recording language to the next favorite on each press. The shortcut stays off until you record a combination. Without favorites, WhisPaste points you to the setting. Under Linux with Wayland, other apps may not respond to the shortcut.'**
+  String get manualLangCycleB1;
+
+  /// Onboarding last page, Linux Wayland without the GlobalShortcuts portal: the hotkey still needs the desktop shortcut set up on the Hotkey page (XP-6-14). {shortcut} = the hotkey as key caps text, e.g. Ctrl+Shift+D.
+  ///
+  /// In en, this message translates to:
+  /// **'{shortcut} does not work system-wide on this desktop yet. Go back to the page where you chose your hotkey to set it up.'**
+  String onboardingReadyDesktopShortcutHint(String shortcut);
+
+  /// Main window toast, GNOME on Wayland without the GlobalShortcuts portal and without WhisPaste's GNOME entry (XP-6-14). {shortcut} = the hotkey as key caps text. Keep GNOME untranslated.
+  ///
+  /// In en, this message translates to:
+  /// **'{shortcut} works system-wide only after it is added to the GNOME keyboard shortcuts.'**
+  String desktopShortcutToast(String shortcut);
+
+  /// Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended because Parakeet covers your language and is fast on any device.'**
+  String get recommendationReasonLanguage;
+
+  /// Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended from the measurement on this device.'**
+  String get recommendationReasonMeasured;
+
+  /// Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended for your Apple chip (Metal) with {memory}.'**
+  String recommendationReasonApple(String memory);
+
+  /// Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended for your NVIDIA graphics card with {gb} GB of video memory (CUDA).'**
+  String recommendationReasonCuda(String gb);
+
+  /// Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended for your graphics card {name} (Vulkan).'**
+  String recommendationReasonVulkan(String name);
+
+  /// Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Recommended for the processor, as there is no usable graphics card: {cores} cores, {memory}.'**
+  String recommendationReasonCpu(int cores, String memory);
+
+  /// Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} is software graphics, so the processor does the work: {cores} cores, {memory}.'**
+  String recommendationReasonSoftware(String name, int cores, String memory);
+
+  /// Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'{gb} GB of RAM'**
+  String recommendationMemory(String gb);
+
+  /// Model recommendation reason (MV-03): one short line under the recommendation in onboarding and Settings.
+  ///
+  /// In en, this message translates to:
+  /// **'RAM unknown'**
+  String get recommendationMemoryUnknown;
+
+  /// Dock speech selector: first entry while the selected speech model is not on disk; starts its download (UIA-MDL-GATE b).
+  ///
+  /// In en, this message translates to:
+  /// **'No speech model – download {name} now ({size})'**
+  String dockMenuDownloadMissing(String name, String size);
+
+  /// Manual, chapter model download: what the dock, the shortcut and the engine switch do when the selected speech model is missing (UIA-MDL-GATE b, UIA-XP-7-04).
+  ///
+  /// In en, this message translates to:
+  /// **'If the selected speech model is missing, the dock shows “Speech model missing”. The dock’s speech menu then offers it as its first entry to download, for Whisper and Parakeet alike. Pressing the shortcut without a model shows a notice with “Download now”. When you switch to Whisper in Settings and the selected Whisper model is missing, WhisPaste picks one that is already downloaded.'**
+  String get manualC01S3B5;
+
+  /// Benchmark compute path when Vulkan runs on a software renderer such as llvmpipe: the work is done by the processor, not a graphics card (UIA-XP-7-03).
+  ///
+  /// In en, this message translates to:
+  /// **'Processor (software Vulkan, {name})'**
+  String benchmarkBackendSoftwareVulkan(String name);
+
+  /// No description provided for @menuBarMenuEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get menuBarMenuEdit;
+
+  /// No description provided for @menuBarMenuWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'Window'**
+  String get menuBarMenuWindow;
+
+  /// No description provided for @menuBarEditUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get menuBarEditUndo;
+
+  /// No description provided for @menuBarEditRedo.
+  ///
+  /// In en, this message translates to:
+  /// **'Redo'**
+  String get menuBarEditRedo;
+
+  /// No description provided for @menuBarEditCut.
+  ///
+  /// In en, this message translates to:
+  /// **'Cut'**
+  String get menuBarEditCut;
+
+  /// No description provided for @menuBarEditCopy.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy'**
+  String get menuBarEditCopy;
+
+  /// No description provided for @menuBarEditPaste.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste'**
+  String get menuBarEditPaste;
+
+  /// No description provided for @menuBarEditSelectAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Select All'**
+  String get menuBarEditSelectAll;
+
+  /// No description provided for @menuBarWindowMinimize.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimize'**
+  String get menuBarWindowMinimize;
+
+  /// No description provided for @menuBarWindowZoom.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom'**
+  String get menuBarWindowZoom;
+
+  /// No description provided for @menuBarAppQuit.
+  ///
+  /// In en, this message translates to:
+  /// **'Quit WhisPaste'**
+  String get menuBarAppQuit;
+
+  /// No description provided for @menuBarMenuRecording.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording'**
+  String get menuBarMenuRecording;
+
+  /// No description provided for @menuBarAppSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings…'**
+  String get menuBarAppSettings;
+
+  /// No description provided for @menuBarHelpManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Open manual'**
+  String get menuBarHelpManual;
+
+  /// No description provided for @menuBarHelpFeedback.
+  ///
+  /// In en, this message translates to:
+  /// **'Send feedback…'**
+  String get menuBarHelpFeedback;
+
+  /// No description provided for @menuBarHelpIdea.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggest an idea…'**
+  String get menuBarHelpIdea;
+
+  /// No description provided for @manualC15S6Heading.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get manualC15S6Heading;
+
+  /// No description provided for @manualC15S6B1.
+  ///
+  /// In en, this message translates to:
+  /// **'On the Mac, the most important commands are also in the menu bar at the top. The Recording menu starts and stops a recording and sets the language, speech model, Smart Mode, what happens after transcription, the microphone and the profile.'**
+  String get manualC15S6B1;
+
+  /// No description provided for @manualC15S6B2I1.
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste: open Settings with {k1}'**
+  String manualC15S6B2I1(String k1);
+
+  /// No description provided for @manualC15S6B2I2.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit: Cut, Copy, Paste and Select All act on the text field that has focus.'**
+  String get manualC15S6B2I2;
+
+  /// No description provided for @manualC15S6B2I3.
+  ///
+  /// In en, this message translates to:
+  /// **'Window: minimize and zoom the main window.'**
+  String get manualC15S6B2I3;
+
+  /// No description provided for @manualC15S6B2I4.
+  ///
+  /// In en, this message translates to:
+  /// **'Help: open the manual, send feedback and suggest an idea.'**
+  String get manualC15S6B2I4;
+
+  /// No description provided for @manualC15S6B3.
+  ///
+  /// In en, this message translates to:
+  /// **'On Windows and Linux, the same commands are in a menu button at the top right of the title bar. Press Alt or F10 to open it, use the arrow keys to choose an entry, Enter to run it and Escape to close the menu.'**
+  String get manualC15S6B3;
+
+  /// No description provided for @menuBarAppAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About WhisPaste'**
+  String get menuBarAppAbout;
+
+  /// No description provided for @menuBarAppHide.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide'**
+  String get menuBarAppHide;
+
+  /// No description provided for @menuBarAppHideOthers.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide Others'**
+  String get menuBarAppHideOthers;
+
+  /// No description provided for @menuBarAppShowAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Show All'**
+  String get menuBarAppShowAll;
+
+  /// No description provided for @titleBarMenuLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get titleBarMenuLabel;
+
+  /// No description provided for @notesTitleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Title'**
+  String get notesTitleLabel;
+
+  /// No description provided for @notesMoreActions.
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get notesMoreActions;
+
+  /// No description provided for @notesVersionSaveNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Save version now'**
+  String get notesVersionSaveNow;
+
+  /// No description provided for @notesMenuMark.
+  ///
+  /// In en, this message translates to:
+  /// **'Highlight'**
+  String get notesMenuMark;
+
+  /// No description provided for @notesMenuAddImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert image'**
+  String get notesMenuAddImage;
+
+  /// No description provided for @notesMenuVersions.
+  ///
+  /// In en, this message translates to:
+  /// **'Versions'**
+  String get notesMenuVersions;
+
+  /// No description provided for @notesMenuSnippet.
+  ///
+  /// In en, this message translates to:
+  /// **'Save as snippet'**
+  String get notesMenuSnippet;
+
+  /// No description provided for @notesVersionsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No versions yet.'**
+  String get notesVersionsEmpty;
+
+  /// No description provided for @notesVersionTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Too large to preview'**
+  String get notesVersionTooLarge;
+
+  /// No description provided for @notesVersionDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete version'**
+  String get notesVersionDelete;
+
+  /// No description provided for @notesVersionSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Version saved'**
+  String get notesVersionSaved;
+
+  /// No description provided for @notesVersionUnchanged.
+  ///
+  /// In en, this message translates to:
+  /// **'No changes since the last version.'**
+  String get notesVersionUnchanged;
+
+  /// No description provided for @notesVersionRestored.
+  ///
+  /// In en, this message translates to:
+  /// **'Version restored'**
+  String get notesVersionRestored;
+
+  /// No description provided for @notesVersionRestoreMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Only the title and text are restored to this version. Images stay as they are.'**
+  String get notesVersionRestoreMessage;
+
+  /// No description provided for @notesVersionDeleteMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This version is deleted permanently and cannot be recovered.'**
+  String get notesVersionDeleteMessage;
+
+  /// No description provided for @notesImageFilesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Images'**
+  String get notesImageFilesLabel;
+
+  /// No description provided for @notesImageRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is not a supported image (PNG, JPEG, GIF or WebP).'**
+  String get notesImageRejected;
+
+  /// No description provided for @notesImageRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove image'**
+  String get notesImageRemove;
+
+  /// No description provided for @notesSnippetCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippet created'**
+  String get notesSnippetCreated;
+
+  /// No description provided for @notesSnippetNothing.
+  ///
+  /// In en, this message translates to:
+  /// **'This note has no text to save as a snippet.'**
+  String get notesSnippetNothing;
+
+  /// No description provided for @notesMarkNeedsSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Select some text first.'**
+  String get notesMarkNeedsSelection;
+
+  /// No description provided for @notesImageLimitCount.
+  ///
+  /// In en, this message translates to:
+  /// **'This note already has the maximum number of images.'**
+  String get notesImageLimitCount;
+
+  /// No description provided for @notesImageLimitBytes.
+  ///
+  /// In en, this message translates to:
+  /// **'The images of this note would exceed the size limit.'**
+  String get notesImageLimitBytes;
+
+  /// No description provided for @notesImageLimitTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Image storage is full. Remove an image to add another.'**
+  String get notesImageLimitTotal;
+
+  /// No description provided for @historyImportFailureCopyInterrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'The file was too slow to copy or changed while it was being copied. Please try again.'**
+  String get historyImportFailureCopyInterrupted;
+
+  /// Shown when the import format has no decoder on this system.
+  ///
+  /// In en, this message translates to:
+  /// **'This format is not available on this system. Convert the file to WAV and import it again.'**
+  String get historyImportFailureDecoderUnavailable;
+
+  /// Hint on the drop overlay while audio files are dragged over the window.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop audio files here to transcribe them'**
+  String get audioDropHint;
+
+  /// Toast for dropped folders. {names} is a comma-separated list of file names.
+  ///
+  /// In en, this message translates to:
+  /// **'Folders cannot be imported: {names}'**
+  String audioDropRejectedFolder(String names);
+
+  /// Toast for dropped paths that no longer exist. {names} is a list of file names.
+  ///
+  /// In en, this message translates to:
+  /// **'File not found: {names}'**
+  String audioDropRejectedNotFound(String names);
+
+  /// Toast for dropped files with an unsupported format. {formats} is the list of allowed extensions.
+  ///
+  /// In en, this message translates to:
+  /// **'Not supported: {names}. Allowed formats: {formats}.'**
+  String audioDropRejectedFormat(String names, String formats);
+
+  /// Import refusal message (audioDropRejectedNotRegular).
+  ///
+  /// In en, this message translates to:
+  /// **'Not an ordinary file (such as a device or pipe), cannot be imported: {names}'**
+  String audioDropRejectedNotRegular(Object names);
+
+  /// Import refusal message (audioDropRejectedTooLarge).
+  ///
+  /// In en, this message translates to:
+  /// **'Too large (1 GB at most): {names}'**
+  String audioDropRejectedTooLarge(Object names);
+
+  /// Import refusal message (historyImportRejectedNotRegularFile).
+  ///
+  /// In en, this message translates to:
+  /// **'This is not an ordinary file and cannot be imported.'**
+  String get historyImportRejectedNotRegularFile;
+
+  /// Import refusal message (historyImportRejectedTooLarge).
+  ///
+  /// In en, this message translates to:
+  /// **'The file is larger than 1 GB.'**
+  String get historyImportRejectedTooLarge;
+
+  /// Import refusal or failure message (audioDropRejectedReservedName).
+  ///
+  /// In en, this message translates to:
+  /// **'Reserved device name, cannot be imported: {names}'**
+  String audioDropRejectedReservedName(Object names);
+
+  /// Import refusal or failure message (historyImportRejectedReservedName).
+  ///
+  /// In en, this message translates to:
+  /// **'Windows reserves this file name, so it cannot be imported. Rename the file.'**
+  String get historyImportRejectedReservedName;
+
+  /// Import refusal or failure message (historyImportFailureIo).
+  ///
+  /// In en, this message translates to:
+  /// **'The storage is full or not writable.'**
+  String get historyImportFailureIo;
+
+  /// Fixed subtitle of the Hold-to-record switch (onboarding and Settings): explains both states, so it never reads as contradicting the title (UIA-XP-7-12).
+  ///
+  /// In en, this message translates to:
+  /// **'On: hold the hotkey and speak, release to finish. Off: press once to start, press again to finish.'**
+  String get holdToRecordExplained;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

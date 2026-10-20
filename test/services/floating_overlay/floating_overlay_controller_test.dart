@@ -6,6 +6,7 @@ import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
 import 'package:whispaste/services/floating_overlay/macos_floating_overlay_controller.dart';
+import 'package:whispaste/services/floating_overlay/overlay_waveform_payload.dart';
 import 'package:whispaste/services/floating_overlay/windows_floating_overlay_controller.dart';
 
 void main() {
@@ -143,33 +144,46 @@ void main() {
       },
     );
 
-    test('toMap() includes all 15 keys', () {
-      const snap = FloatingOverlaySnapshot(
-        visible: false,
-        state: OverlayVisualState.recording,
-        label: '',
-      );
+    test(
+      'toMap() includes all 19 base keys and the 6 WP-95 appearance keys',
+      () {
+        const snap = FloatingOverlaySnapshot(
+          visible: false,
+          state: OverlayVisualState.recording,
+          label: '',
+        );
 
-      final map = snap.toMap();
-      expect(map.keys, hasLength(15));
-      expect(map.keys.toSet(), {
-        'visible',
-        'state',
-        'size',
-        'style',
-        'compact',
-        'label',
-        'secondaryLabel',
-        'elapsed',
-        'hint',
-        'transcript',
-        'errorMessage',
-        'privacyMode',
-        'doneMessage',
-        'progress',
-        'liveTranscript',
-      });
-    });
+        final map = snap.toMap();
+        expect(map.keys, hasLength(25));
+        expect(map.keys.toSet(), {
+          'visible',
+          'state',
+          'size',
+          'background',
+          'wave',
+          'compact',
+          'label',
+          'languageChip',
+          'profileChip',
+          'secondaryLabel',
+          'elapsed',
+          'hint',
+          'transcript',
+          'errorMessage',
+          'privacyMode',
+          'doneMessage',
+          'donePasteFailed',
+          'progress',
+          'liveTranscript',
+          'form',
+          'waveStyle',
+          'waveFluid',
+          'showTimer',
+          'showCancel',
+          'opacity',
+        });
+      },
+    );
 
     test('defaults are applied correctly', () {
       const snap = FloatingOverlaySnapshot(
@@ -184,6 +198,7 @@ void main() {
       expect(snap.errorMessage, isNull);
       expect(snap.privacyMode, 'local');
       expect(snap.doneMessage, isNull);
+      expect(snap.donePasteFailed, isFalse);
       expect(snap.progress, 0.0);
     });
 
@@ -192,7 +207,8 @@ void main() {
         visible: true,
         state: OverlayVisualState.done,
         size: OverlaySizeVariant.compact,
-        style: OverlayStyleVariant.solid,
+        background: OverlayBackground.gletscher,
+        wave: OverlayWave.violett,
         label: 'Done',
         elapsed: '0:07',
         hint: 'Press ⌘ to stop',
@@ -200,6 +216,7 @@ void main() {
         errorMessage: 'boom',
         privacyMode: 'cloud',
         doneMessage: 'Copied',
+        donePasteFailed: true,
         progress: 0.42,
       );
 
@@ -208,7 +225,8 @@ void main() {
       expect(restored.visible, original.visible);
       expect(restored.state, original.state);
       expect(restored.size, original.size);
-      expect(restored.style, original.style);
+      expect(restored.background, original.background);
+      expect(restored.wave, original.wave);
       expect(restored.label, original.label);
       expect(restored.elapsed, original.elapsed);
       expect(restored.hint, original.hint);
@@ -216,6 +234,7 @@ void main() {
       expect(restored.errorMessage, original.errorMessage);
       expect(restored.privacyMode, original.privacyMode);
       expect(restored.doneMessage, original.doneMessage);
+      expect(restored.donePasteFailed, isTrue);
       expect(restored.progress, original.progress);
     });
 
@@ -250,23 +269,26 @@ void main() {
       expect(normal.size, OverlaySizeVariant.normal);
     });
 
-    test('fromMap() falls back to glass style without a style key', () {
+    test('fromMap() falls back to marine and cyan without theme keys', () {
       final snap = FloatingOverlaySnapshot.fromMap({
         'visible': true,
         'state': 'recording',
         'label': '',
       });
-      expect(snap.style, OverlayStyleVariant.glass);
+      expect(snap.background, OverlayBackground.marine);
+      expect(snap.wave, OverlayWave.cyan);
     });
 
-    test('fromMap() resolves an unknown style name to glass', () {
+    test('fromMap() resolves unknown theme names to the defaults', () {
       final snap = FloatingOverlaySnapshot.fromMap({
         'visible': true,
         'state': 'recording',
-        'style': 'not-a-real-style',
+        'background': 'not-a-real-background',
+        'wave': 'not-a-real-wave',
         'label': '',
       });
-      expect(snap.style, OverlayStyleVariant.glass);
+      expect(snap.background, OverlayBackground.marine);
+      expect(snap.wave, OverlayWave.cyan);
     });
 
     test('fromMap() falls back to safe defaults on a malformed payload', () {
@@ -420,8 +442,21 @@ void main() {
       expect(calls.single.method, 'setWaveformBars');
       expect(calls.single.arguments, isA<Map>());
       final args = calls.single.arguments as Map;
-      expect(args['bars'], isA<List>());
-      expect((args['bars'] as List).cast<double>(), bars);
+      // WP-84 phase 2: macOS sends one byte per bar (see encodeWaveformBars).
+      expect(args['bars'], isA<Uint8List>());
+      expect(args['bars'], encodeWaveformBars(bars));
+    });
+
+    test('skips a payload identical to the last one sent', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async => null, recordedCalls: calls);
+
+      final controller = MacOSFloatingOverlayController();
+      final silence = List<double>.filled(30, 0.0);
+      await controller.setWaveformBars(silence);
+      await controller.setWaveformBars(silence);
+
+      expect(calls, hasLength(1));
     });
   });
 

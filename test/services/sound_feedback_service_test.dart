@@ -18,6 +18,9 @@
 /// 6. **Edge cases** — rapid concurrent calls, dispose without init, etc.
 library;
 
+import 'dart:typed_data';
+
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
@@ -642,6 +645,64 @@ void main() {
 
       // Settings don't change mid-container in this test, but the service
       // re-reads on every call (verified by code inspection).
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // XP-2-07: cues load from memory, never through a temp file
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  group('loadSoundCues', () {
+    test('reads each cue asset and hands its bytes to the loader', () async {
+      final read = <String>[];
+      final loaded = <String, int>{};
+      final failures = <String>[];
+
+      final sources = await loadSoundCues<String>(
+        readAsset: (key) async {
+          read.add(key);
+          return Uint8List.fromList([1, 2, 3]);
+        },
+        load: (key, bytes) async {
+          loaded[key] = bytes.length;
+          return 'source:$key';
+        },
+        onFailure: (name, error) => failures.add(name),
+      );
+
+      expect(read, [for (final n in soundCueAssets) 'assets/sounds/$n']);
+      expect(loaded.values, everyElement(3));
+      expect(sources.keys, soundCueAssets);
+      expect(sources['start.wav'], 'source:assets/sounds/start.wav');
+      expect(failures, isEmpty);
+    });
+
+    test('one failing cue does not stop the others', () async {
+      final failures = <String>[];
+
+      final sources = await loadSoundCues<String>(
+        readAsset: (key) async => Uint8List(1),
+        load: (key, bytes) async {
+          if (key.endsWith('stop.wav')) throw StateError('broken');
+          return key;
+        },
+        onFailure: (name, error) => failures.add(name),
+      );
+
+      expect(failures, ['stop.wav']);
+      expect(sources.keys, hasLength(soundCueAssets.length - 1));
+      expect(sources.containsKey('stop.wav'), isFalse);
+    });
+
+    test('every cue is a bundled WAV file', () async {
+      for (final name in soundCueAssets) {
+        final data = await rootBundle.load('assets/sounds/$name');
+        final bytes = data.buffer.asUint8List(
+          data.offsetInBytes,
+          data.lengthInBytes,
+        );
+        expect(String.fromCharCodes(bytes.take(4)), 'RIFF', reason: name);
+      }
     });
   });
 }

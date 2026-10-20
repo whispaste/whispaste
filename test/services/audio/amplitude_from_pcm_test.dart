@@ -148,4 +148,84 @@ void main() {
       });
     });
   });
+
+  group('AmplitudeFromPcm — batched chunks', () {
+    test('a tick without a new chunk repeats the last level', () {
+      fakeAsync((async) {
+        final calc = AmplitudeFromPcm(pollInterval: interval);
+        final values = <double>[];
+        final sub = calc.stream.listen(values.add);
+
+        // The platform delivers PCM in batches every ~120 ms, so two of
+        // three ticks see no new data.
+        for (var i = 0; i < 4; i++) {
+          calc.addChunk(_pcmFromSamples(_sineSamples(count: 1920, peak: 8000)));
+          async.elapse(const Duration(milliseconds: 120));
+        }
+
+        expect(values, hasLength(12));
+        expect(values.where((v) => v.isInfinite), isEmpty);
+
+        sub.cancel();
+        calc.dispose();
+      });
+    });
+
+    test('a stream that stops delivering falls back to silence', () {
+      fakeAsync((async) {
+        final calc = AmplitudeFromPcm(pollInterval: interval);
+        final values = <double>[];
+        final sub = calc.stream.listen(values.add);
+
+        calc.addChunk(_pcmFromSamples(_sineSamples(count: 1920, peak: 8000)));
+        async.elapse(const Duration(milliseconds: 40));
+        expect(values.last.isFinite, isTrue);
+
+        // The source stalls without an error: the level must not stay loud,
+        // or the silence guards would never see the stall.
+        async.elapse(AmplitudeFromPcm.maxHold + interval * 2);
+
+        expect(values.last, double.negativeInfinity);
+
+        sub.cancel();
+        calc.dispose();
+      });
+    });
+
+    test('reports the longest gap between chunks', () {
+      fakeAsync((async) {
+        final calc = AmplitudeFromPcm(pollInterval: interval);
+        final sub = calc.stream.listen((_) {});
+
+        calc.addChunk(_pcmFromSamples(_sineSamples(count: 320, peak: 8000)));
+        async.elapse(const Duration(milliseconds: 120));
+        calc.addChunk(_pcmFromSamples(_sineSamples(count: 320, peak: 8000)));
+        async.elapse(const Duration(milliseconds: 240));
+        calc.addChunk(_pcmFromSamples(_sineSamples(count: 320, peak: 8000)));
+        // The gap is recorded when the tick picks the chunk up.
+        async.elapse(interval);
+
+        expect(calc.longestChunkGap, const Duration(milliseconds: 240));
+
+        sub.cancel();
+        calc.dispose();
+      });
+    });
+
+    test('a stream that never delivers a chunk stays silent', () {
+      fakeAsync((async) {
+        final calc = AmplitudeFromPcm(pollInterval: interval);
+        final values = <double>[];
+        final sub = calc.stream.listen(values.add);
+
+        async.elapse(const Duration(milliseconds: 400));
+
+        expect(values, isNotEmpty);
+        expect(values.every((v) => v == double.negativeInfinity), isTrue);
+
+        sub.cancel();
+        calc.dispose();
+      });
+    });
+  });
 }

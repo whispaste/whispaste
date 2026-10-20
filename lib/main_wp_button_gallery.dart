@@ -58,7 +58,7 @@ class _WpButtonGalleryAppState extends State<WpButtonGalleryApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'WpButton Gallery',
-      theme: wpDarkTheme(),
+      theme: wpLightTheme(),
       home: const _GalleryScreen(),
     );
   }

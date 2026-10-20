@@ -25,6 +25,7 @@ import '../../../core/navigation/page_state.dart';
 import '../../../core/theme/colors.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../widgets/wp_search_field.dart';
+import '../../help/help_target.dart';
 import '../search/settings_search_provider.dart';
 
 class SettingsSearchField extends ConsumerStatefulWidget {
@@ -175,9 +176,25 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
     _clearSearch();
     _focusNode.unfocus();
 
-    // Trigger scroll + brief highlight via the existing infrastructure.
-    ref.read(settingsScrollTargetProvider.notifier).set(entry.sectionKey);
-    ref.read(settingsHighlightTargetProvider.notifier).set(entry.sectionKey);
+    // Dictionary rows live on the Wörterbuch page; its default tab is "Begriffe",
+    // which holds the vocabulary terms.
+    if (entry.area == SettingsRowArea.dictionary) {
+      ref.read(activePageProvider.notifier).setPage('replacements');
+      return;
+    }
+    // Rows that moved to the Help page (Hilfe) open that page instead.
+    if (entry.area == SettingsRowArea.help) {
+      ref
+          .read(helpTargetProvider.notifier)
+          .set(HelpTarget(tab: helpTabForRow(entry.rowId)));
+      ref.read(activePageProvider.notifier).setPage('help');
+      return;
+    }
+
+    // Jump to the entry's area and row, then highlight its section. The page
+    // switches the area first and scrolls once the section is built.
+    ref.read(settingsScrollTargetProvider.notifier).set(entry.rowId);
+    ref.read(settingsHighlightTargetProvider.notifier).set(entry.rowId);
   }
 
   // ---------------------------------------------------------------------------
@@ -187,10 +204,10 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
   @override
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
-    const accent = WpColors.accent;
-    const textMuted = WpColors.textMuted;
-    const surface = WpColors.surfaceElevated;
-    const borderCol = WpColors.borderDefault;
+    final accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
+    final surface = WpColors.surfaceElevated;
+    final borderCol = WpColors.borderDefault;
 
     // Read current matches from the provider (populated after debounce)
     final matches = ref.watch(settingsSearchMatchesProvider);
@@ -248,10 +265,7 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
 
         // ── Suggestion dropdown ──────────────────────────────────────────
         WpAnimatedSize(
-          duration: WpMotion.durationFor(
-            context,
-            const Duration(milliseconds: 120),
-          ),
+          duration: WpMotion.durationFor(context, WpMotion.fast),
           curve: Curves.easeOut,
           alignment: Alignment.topCenter,
           child: _showDropdown && matches.isNotEmpty
@@ -261,7 +275,7 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
                     color: surface,
                     borderRadius: WpRadius.borderSm,
                     border: Border.all(color: borderCol),
-                    boxShadow: WpShadows.subtle,
+                    boxShadow: WpShadows.elevated,
                   ),
                   // Same width as the field it hangs under, which now takes
                   // the full column — `minWidth` rather than a wrapper, so
@@ -297,29 +311,46 @@ class _SettingsSearchFieldState extends ConsumerState<SettingsSearchField> {
                             ),
                             child: Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   LucideIcons.settings2,
                                   size: WpIconSize.xs,
                                   color: accent,
                                 ),
                                 const SizedBox(width: WpSpacing.xs),
                                 Expanded(
-                                  child: Text(
-                                    entry.title(
-                                      Localizations.localeOf(
-                                        context,
-                                      ).languageCode,
-                                    ),
-                                    style: const TextStyle(
-                                      fontSize: WpTypography.body,
-                                      fontWeight: FontWeight.w500,
-                                      color: WpColors.textPrimary,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        settingsRowAreaLabel(l10n, entry.area),
+                                        style: TextStyle(
+                                          fontSize: WpTypography.caption,
+                                          fontWeight: FontWeight.w600,
+                                          color: textMuted,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      Text(
+                                        entry.title(
+                                          Localizations.localeOf(
+                                            context,
+                                          ).languageCode,
+                                        ),
+                                        style: TextStyle(
+                                          fontSize: WpTypography.body,
+                                          fontWeight: FontWeight.w500,
+                                          color: WpColors.textPrimary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const Icon(
+                                Icon(
                                   LucideIcons.arrowRight,
                                   size: WpIconSize.xs,
                                   color: textMuted,

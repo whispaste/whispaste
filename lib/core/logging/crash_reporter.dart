@@ -10,7 +10,7 @@
 /// - Path sanitization: home directory → `~`, account name → `<user>` in
 ///   messages, exception values and breadcrumbs ([scrubUserPaths])
 /// - Breadcrumb context from AppLogger ring buffer
-/// - Anonymous device ID (MD5 hash of hostname, not a hardware identifier)
+/// - Random per-install ID (install_id.dart), not derived from the machine
 ///
 /// Architecture:
 /// ```
@@ -29,11 +29,9 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:developer' as dev;
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
@@ -41,7 +39,9 @@ import 'package:whispaste_diagnostics/whispaste_diagnostics.dart'
 
 import '../app_info.dart';
 import 'breadcrumbs.dart';
+import 'crash_error_redaction.dart';
 import 'crash_reporting_consent.dart';
+import 'install_id.dart';
 import 'user_path_scrubber.dart';
 
 // ---------------------------------------------------------------------------
@@ -110,8 +110,7 @@ class CrashReporter {
     }
   }
 
-  /// Anonymous per-install id (hashed hostname) attached to every event;
-  /// `'unknown'` when it could not be derived.
+  /// Random per-install id (install_id.dart) attached to every event.
   String get deviceId => _deviceId;
 
   /// Whether crash reporting consent has been granted.
@@ -157,7 +156,7 @@ class CrashReporter {
     CrashReportingConsentMarker? consentMarker,
   }) {
     final cr = CrashReporter._();
-    cr._deviceId = _deriveDeviceId();
+    cr._deviceId = readInstallId();
     cr._consentGranted = consentGranted;
     cr._consentMarker = consentMarker;
     cr._sentryRunning = Sentry.isEnabled;
@@ -226,7 +225,7 @@ class CrashReporter {
     if (error != null) {
       _trackCapture(
         Sentry.captureException(
-          error,
+          redactForCrashReport(error),
           stackTrace: stackTrace,
           withScope: (scope) {
             scope.level = sentryLevel;
@@ -291,6 +290,12 @@ class CrashReporter {
     _errorCount++;
     if (_errorCount > _maxErrorsPerWindow) return null;
 
+    // Remove SqliteException bound parameters (transcript and note text)
+    // from every text field before the checks below. Covers unhandled errors
+    // that sentry_flutter captures itself, log breadcrumbs and captureMessage
+    // alike, not only the paths that pass through redactForCrashReport.
+    _redactSqliteParameters(event);
+
     // Drop events containing API keys, tokens, or other secrets.
     final exceptions = event.exceptions;
     if (exceptions != null) {
@@ -325,6 +330,23 @@ class CrashReporter {
 
     _scrubUserPaths(event);
     return event;
+  }
+
+  /// Strips SqliteException bound parameters from the free-text parts of
+  /// [event]: exception values, the message and breadcrumb messages.
+  static void _redactSqliteParameters(SentryEvent event) {
+    final message = event.message;
+    if (message != null) {
+      message.formatted = redactSqliteParametersInText(message.formatted);
+    }
+    for (final ex in event.exceptions ?? const <SentryException>[]) {
+      final value = ex.value;
+      if (value != null) ex.value = redactSqliteParametersInText(value);
+    }
+    for (final b in event.breadcrumbs ?? const <Breadcrumb>[]) {
+      final text = b.message;
+      if (text != null) b.message = redactSqliteParametersInText(text);
+    }
   }
 
   /// Replaces the OS account name in the free-text parts of [event]: home
@@ -406,20 +428,5 @@ class CrashReporter {
     // them — so drop them here instead of shipping unchecked log lines.
     transaction.breadcrumbs = null;
     return transaction;
-  }
-
-  // -------------------------------------------------------------------------
-  // Private — helpers
-  // -------------------------------------------------------------------------
-
-  /// Derives a stable, anonymous device identifier from hostname.
-  static String _deriveDeviceId() {
-    try {
-      final hostname = Platform.localHostname;
-      final bytes = utf8.encode('${hostname}_whispaste');
-      return md5.convert(bytes).toString().substring(0, 12);
-    } on Exception {
-      return 'unknown';
-    }
   }
 }

@@ -18,7 +18,7 @@ import 'package:whispaste/features/notes/notes_page.dart';
 import 'package:whispaste/features/notes/widgets/note_editor_panel.dart';
 import 'package:whispaste/features/notes/widgets/notes_list_tile.dart';
 import 'package:whispaste/features/notes/widgets/quick_note_hotkey_line.dart';
-import 'package:whispaste/features/settings/sections/feedback_section.dart';
+import 'package:whispaste/features/settings/sections/shortcuts_section.dart';
 import 'package:whispaste/features/settings/settings_widgets.dart';
 import 'package:whispaste/widgets/hotkey_recorder.dart';
 
@@ -28,7 +28,7 @@ import '../../fixtures/test_helpers.dart';
 /// editor's — scope finders to the editor panel where a test cares
 /// specifically about the note body/tag input, not the search field.
 Finder _editorTextFields() => find.descendant(
-  of: find.byType(NoteEditorPanel),
+  of: find.byKey(const ValueKey('notes-editor-body')),
   matching: find.byType(TextField),
 );
 
@@ -194,14 +194,13 @@ void main() {
         // report (the user already has notes before hitting this). The
         // empty state shows two "New note" buttons (header + empty-state
         // action, see the comment at its actionLabel) — `.first` picks either.
-        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.tap(find.byTooltip(l10n.notesNewNote).first);
         await tester.pumpAndSettle();
         expect(_editorTextFields(), findsOneWidget);
 
         // Now create the SECOND note — the reported scenario.
-        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.tap(find.byTooltip(l10n.notesNewNote).first);
         await tester.pumpAndSettle();
-
         expect(_editorTextFields(), findsOneWidget);
         final focusNode = tester
             .widget<TextField>(_editorTextFields())
@@ -317,7 +316,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(NoteEditorPanel), findsOneWidget);
 
-        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.tap(find.byTooltip(l10n.notesNewNote).first);
         // Deliberately no emit on `controller`: the new row exists in the db
         // and nowhere else yet. Pump well past the close animation.
         await tester.pumpAndSettle();
@@ -534,8 +533,10 @@ void main() {
       expect(find.text(l10n.notesMovedToTrash), findsOneWidget);
       expect(find.text(l10n.notesUndo), findsOneWidget);
 
-      // Drain the toast's 4s auto-dismiss timer so no Timer outlives the test.
-      await tester.pumpAndSettle(const Duration(seconds: 5));
+      // Drain the undo toast's 10 s auto-dismiss timer (actionable minimum)
+      // so no Timer outlives the test.
+      await tester.pump(const Duration(seconds: 11));
+      await tester.pumpAndSettle();
     });
 
     testWidgets(
@@ -553,7 +554,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.tap(find.text(l10n.notesNewNote).first);
+        await tester.tap(find.byTooltip(l10n.notesNewNote).first);
         await tester.pumpAndSettle();
         await tester.enterText(_editorTextFields(), 'Duplicate me');
         await tester.pumpAndSettle();
@@ -657,10 +658,14 @@ void main() {
       // Reveal the inline tag input, type a name, confirm with Enter.
       await tester.tap(find.text(l10n.notesAddTag));
       await tester.pumpAndSettle();
-      // The inline tag field renders above the divider/main editor TextField
-      // within NoteEditorPanel — `.first` there is the tag input, not the
-      // note body (scoped to exclude the page's separate search TextField).
-      await tester.enterText(_editorTextFields().first, 'errands');
+      // The inline tag field lives under the note's tags key, not the body.
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('tags-n1')),
+          matching: find.byType(TextField),
+        ),
+        'errands',
+      );
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await tester.pumpAndSettle();
 
@@ -695,7 +700,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.notesAddTag));
       await tester.pumpAndSettle();
-      await tester.enterText(_editorTextFields().first, 'errands');
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('tags-n1')),
+          matching: find.byType(TextField),
+        ),
+        'errands',
+      );
       await tester.pumpAndSettle();
       expect(find.text('errands'), findsOneWidget);
 
@@ -762,7 +773,7 @@ void main() {
         await tester.tap(find.text('Grocery list'));
         await tester.pumpAndSettle();
 
-        await tester.tap(find.bySemanticsLabel('Remove work'));
+        await tester.tap(find.bySemanticsLabel('Remove tag "work"'));
         await tester.pumpAndSettle();
 
         expect(actions.lastRemoveTag, ('n1', 't1'));
@@ -1288,7 +1299,9 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byType(NotesListTile).first);
+        // Tap the title, not the tile's centre: with 48 px touch targets the
+        // centre can fall on a row action, which would toggle state instead.
+        await tester.tap(find.text('Inbox').first);
         await tester.pumpAndSettle();
         while (tester.takeException() != null) {}
         return tester.getRect(find.byType(NotesListTile).first);
@@ -1367,6 +1380,10 @@ void main() {
       await tester.pumpWidget(bothSurfaces(_hotkeyOn));
       await tester.pumpAndSettle();
 
+      // The page scrolls in the app; the combination sits below the fold here.
+      await tester.ensureVisible(
+        find.byKey(const Key('notesQuickNoteHotkeyCombo')),
+      );
       await tester.tap(find.byKey(const Key('notesQuickNoteHotkeyCombo')));
       await tester.pumpAndSettle();
       await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -1397,6 +1414,9 @@ void main() {
         findsOneWidget,
       );
 
+      await tester.ensureVisible(
+        find.byKey(const Key('quickNoteHotkeyToggle')),
+      );
       await tester.tap(find.byKey(const Key('quickNoteHotkeyToggle')));
       await tester.pumpAndSettle();
 

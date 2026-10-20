@@ -444,7 +444,7 @@ void main() {
       await tester.enterText(
         find
             .descendant(
-              of: find.byType(NoteEditorPanel),
+              of: find.byKey(const ValueKey('notes-editor-body')),
               matching: find.byType(TextField),
             )
             .first,
@@ -498,7 +498,7 @@ void main() {
       await tester.enterText(
         find
             .descendant(
-              of: find.byType(NoteEditorPanel),
+              of: find.byKey(const ValueKey('notes-editor-body')),
               matching: find.byType(TextField),
             )
             .first,

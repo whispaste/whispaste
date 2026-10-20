@@ -183,7 +183,7 @@ class _WpSidePanelViewState extends State<WpSidePanelView> {
                           key: ValueKey(_selected),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: WpColors.textPrimary,
                             fontSize: WpTypography.heading,
                             fontWeight: FontWeight.w600,
@@ -405,7 +405,7 @@ class _SidePanelTabState extends State<_SidePanelTab> {
                 border: Border.all(
                   color: widget.isSelected
                       ? WpColors.accentBorder20
-                      : const Color(0x006FDDF0),
+                      : WpColors.accent.withValues(alpha: 0),
                   width: 1,
                 ),
               ),
@@ -518,7 +518,7 @@ class _EmptySectionState extends StatelessWidget {
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: WpColors.textSecondary,
                 fontSize: WpTypography.body,
                 fontWeight: FontWeight.w600,
@@ -528,7 +528,7 @@ class _EmptySectionState extends StatelessWidget {
             Text(
               hint,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 color: WpColors.textMuted,
                 fontSize: WpTypography.caption,
                 height: 1.35,

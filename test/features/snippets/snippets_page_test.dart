@@ -148,10 +148,16 @@ void main() {
       // And nothing in it stacks the in-plane card material on top of that
       // floating one — the "Fläche auf einer Fläche" Ticket 16 exists to
       // remove, in the one editor that never had it.
+      // The light sets paint the floating surface and the lifted card the
+      // same white, so the shell's own box is excluded by identity.
+      final shellBox = dialogBoxes.singleWhere(
+        (d) => d.color == WpColors.floatingSurface,
+      );
       final stackedCards = dialogBoxes.where(
         (d) =>
-            d.color == WpColors.cardFill ||
-            d.color == WpColors.cardFillElevated,
+            !identical(d, shellBox) &&
+            (d.color == WpColors.cardFill ||
+                d.color == WpColors.cardFillElevated),
       );
       expect(stackedCards, isEmpty);
     });
@@ -456,6 +462,34 @@ void main() {
       expect(find.text(l10n.snippetsDeleteTitle), findsOneWidget);
     });
 
+    // UIA-SNP-07: the duplicate keeps the copy suffix in the app language.
+    testWidgets('a duplicate gets a localised copy suffix (UIA-SNP-07)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const SnippetsPage(), locale: const Locale('de')),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SnippetsPage)),
+      );
+      await container
+          .read(snippetsProvider.notifier)
+          .add('Signature', 'Best, Silvio');
+      await tester.pumpAndSettle();
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(find.text('Signature')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(LucideIcons.files));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Signature (Kopie)'), findsOneWidget);
+      expect(find.textContaining('(copy)'), findsNothing);
+    });
+
     // The picker-trigger header (and thus its empty-list hint) only renders
     // on macOS — see the `Platform.isMacOS` guard in `SnippetsPage`.
     testWidgets('a set trigger word with an empty snippet list shows the '
@@ -494,6 +528,35 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.snippetsPickerTriggerEmptyListHint), findsNothing);
+    });
+
+    // UIA-SNP-03: the trigger word typed inside the debounce window is saved
+    // when the page is left. The field exists on macOS only (see above).
+    testWidgets('a trigger word typed right before leaving the page is saved', (
+      tester,
+    ) async {
+      if (!Platform.isMacOS) return;
+      final notifier = _FakeSettingsNotifier(const AppSettings());
+      final showPage = ValueNotifier<bool>(true);
+      addTearDown(showPage.dispose);
+      await tester.pumpWidget(
+        makeTestable(
+          ValueListenableBuilder<bool>(
+            valueListenable: showPage,
+            builder: (_, visible, _) =>
+                visible ? const SnippetsPage() : const SizedBox.shrink(),
+          ),
+          locale: const Locale('en'),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'snippet');
+      showPage.value = false;
+      await tester.pump();
+
+      expect(notifier.state.value!.behavior.snippetPickerTrigger, 'snippet');
     });
 
     testWidgets('an empty trigger word shows no empty-list hint even while '

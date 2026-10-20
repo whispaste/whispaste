@@ -23,10 +23,31 @@ import 'package:whispaste/services/side_panel/side_panel_events.dart';
 import 'package:whispaste/services/side_panel/side_panel_service.dart';
 import 'package:whispaste/services/side_panel/side_panel_snapshot.dart';
 
-class _FakeDesktopPasteController implements DesktopPasteController {
+class _FakeDesktopPasteController
+    implements DesktopPasteController, ClipboardReceiptBridge {
   int captureCalls = 0;
   int pasteCalls = 0;
   bool pasteSucceeds = true;
+  final List<String> receiptWrites = <String>[];
+
+  /// The target reads the clipboard after a successful paste; that read is
+  /// the only proof the paster accepts (briefing N12).
+  Completer<ClipboardReadReceipt> _read = Completer<ClipboardReadReceipt>();
+
+  @override
+  Future<bool> writeClipboardTextWithReceipt(String text) async {
+    _read = Completer<ClipboardReadReceipt>();
+    receiptWrites.add(text);
+    return true;
+  }
+
+  @override
+  Future<ClipboardReadReceipt> waitForClipboardRead() => _read.future;
+
+  @override
+  Future<ClipboardRestoreOutcome> restoreClipboardTextIfOwner(
+    String text,
+  ) async => ClipboardRestoreOutcome.restored;
 
   @override
   Future<bool> capturePasteTarget() async {
@@ -40,11 +61,11 @@ class _FakeDesktopPasteController implements DesktopPasteController {
   @override
   Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
     pasteCalls += 1;
-    return NativePasteResult(
-      status: pasteSucceeds
-          ? NativePasteStatus.success
-          : NativePasteStatus.postFailed,
-    );
+    if (!pasteSucceeds) {
+      return const NativePasteResult(status: NativePasteStatus.postFailed);
+    }
+    if (!_read.isCompleted) _read.complete(ClipboardReadReceipt.read);
+    return const NativePasteResult(status: NativePasteStatus.success);
   }
 
   @override
@@ -406,7 +427,7 @@ void main() {
         // The clipboard is restored to its previous (empty) content once
         // the paste lands, so check the write happened rather than the
         // final resting value.
-        expect(clipboardWrites, contains('Hello from history'));
+        expect(fakeDesktopPaste.receiptWrites, contains('Hello from history'));
         expect(fakePanel.snapshots.last.visible, isFalse);
       },
     );
@@ -425,7 +446,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       expect(fakeDesktopPaste.pasteCalls, 1);
-      expect(clipboardText, 'Best, Me');
+      expect(fakeDesktopPaste.receiptWrites, contains('Best, Me'));
     });
 
     test(
@@ -453,7 +474,7 @@ void main() {
         await Future<void>.delayed(Duration.zero);
 
         expect(fakeDesktopPaste.pasteCalls, 1);
-        expect(clipboardText, 'copied earlier');
+        expect(fakeDesktopPaste.receiptWrites, contains('copied earlier'));
         // End-to-end proof the suppression design holds at the panel layer:
         // AppClipboard.setText (called inside DesktopPaster.paste) marked
         // the registry for exactly the content that was just pasted.

@@ -20,6 +20,15 @@ enum NativePasteStatus {
   /// specific — restart WhisPaste elevated — not "just retry".
   foregroundBlocked,
   postFailed,
+
+  /// The captured target is no longer the frontmost app: the user switched
+  /// away during transcription. Nothing is pasted into the wrong window.
+  targetChanged,
+
+  /// macOS 15.4+: the user denied WhisPaste access to the general pasteboard
+  /// (NSPasteboard accessBehavior "always deny"). Nothing is read or
+  /// overwritten, so the clipboard stays as the user left it.
+  clipboardAccessDenied,
   unknown;
 
   static NativePasteStatus fromCode(String? code) => switch (code) {
@@ -29,6 +38,8 @@ enum NativePasteStatus {
     'permission_missing' => NativePasteStatus.permissionMissing,
     'foreground_blocked' => NativePasteStatus.foregroundBlocked,
     'post_failed' || 'send_input_failed' => NativePasteStatus.postFailed,
+    'target_changed' => NativePasteStatus.targetChanged,
+    'clipboard_access_denied' => NativePasteStatus.clipboardAccessDenied,
     _ => NativePasteStatus.unknown,
   };
 }
@@ -183,17 +194,17 @@ enum ClipboardRestoreOutcome {
   };
 }
 
-/// Receipt-based clipboard restore (macOS/Windows only — Linux keeps its
-/// fixed-delay uinput path).
+/// Receipt-based clipboard restore on all three desktop platforms.
 ///
 /// Instead of "write transcript → paste → wait a fixed buffer → restore",
 /// the transcript is put on the clipboard *lazily* (macOS
 /// `NSPasteboardItemDataProvider`, Windows delayed rendering via
-/// `SetClipboardData(fmt, NULL)` + `WM_RENDERFORMAT`), so the native host
-/// learns the moment the target app actually reads it. The restore then
-/// happens right after that read, and only while WhisPaste still owns the
-/// clipboard (macOS `changeCount`, Windows `WM_DESTROYCLIPBOARD`/
-/// `GetClipboardOwner`).
+/// `SetClipboardData(fmt, NULL)` + `WM_RENDERFORMAT`, Linux
+/// `gtk_clipboard_set_with_data`, served per X selection request), so the
+/// native host learns the moment the target app actually reads it. The
+/// restore then happens right after that read, and only while WhisPaste
+/// still owns the clipboard (macOS `changeCount`, Windows
+/// `WM_DESTROYCLIPBOARD`/`GetClipboardOwner`, Linux the selection clear).
 abstract interface class ClipboardReceiptBridge {
   /// Writes [text] as a lazily rendered, history-excluded clipboard item
   /// (macOS: marked `org.nspasteboard.TransientType` + `ConcealedType`).
@@ -252,10 +263,14 @@ abstract class DesktopPasteController {
   /// history / cloud-clipboard opt-out formats where available (Windows'
   /// `ExcludeClipboardContentFromMonitorProcessing` etc.), so a transient
   /// write never surfaces as a new entry in e.g. Windows' Win+V history.
+  /// On macOS the native write marks the item `org.nspasteboard.TransientType`
+  /// and `ConcealedType` (BIZ-61). On Linux it sets the
+  /// `x-kde-passwordManagerHint` target, which only Klipper honours; GPaste
+  /// and other managers still record the text.
   ///
-  /// Returns `false` on platforms with no such mechanism (macOS, Linux) or
-  /// on any channel failure — callers then fall back to an ordinary
-  /// clipboard write that the OS may record in its own history.
+  /// Returns `false` on any channel failure — callers then fall back to an
+  /// ordinary clipboard write that the OS may record in its own history. The
+  /// fallback is a warning on Windows and macOS, info on Linux (6c+a).
   Future<bool> writeClipboardTextExcludingHistory(String text);
 
   /// Probes whether the OS would allow Auto-Paste right now — without

@@ -105,6 +105,9 @@ final _accentRgb = <int>{
     WpColors.accentRowHover,
     WpColors.accentLocatorRing,
     WpColors.decorativeGlyphWash,
+    // ADR 0023: the light sets paint accent fills with the separate `action`
+    // role (cyan) while `accent` stays the petrol ink.
+    WpColors.action,
   ])
     c.toARGB32() & 0x00FFFFFF,
 };
@@ -121,34 +124,34 @@ bool _isAccent(Color c) {
 /// is attributed to the chip rather than to the input.
 const _anchors = <String, String>{
   '_NavItemWidget': 'app chrome — sidebar: the active nav item',
+  'WpDockDictate': 'app chrome — recording dock: the Diktieren button',
   '_NewRecordingButton': 'history toolbar — the primary "New recording" button',
   'WpFilterChip': 'history toolbar — the active filter chip',
   '_HistoryViewModeButton': 'history toolbar — the active view-mode segment',
-  'HistoryEntryRow': 'history list — the selected row',
   '_TagChip': 'detail panel — a tag chip (one per tag on the entry)',
   '_AddTagTrigger': 'detail panel — the add-tag trigger',
   'VoiceNoteButton': 'detail panel — the voice-note microphone button',
   'HistoryNotesSection': 'detail panel — the add-note "+" button',
+  'AudioImportPanel': 'history import — the add-files button',
 };
 
 /// The set. Every entry is a decision; the numbers are surfaces, not
 /// components, so adding a second accent plate inside a component that is
 /// already listed still fails here.
 const _auditedAccentSurfaces = <String, int>{
-  // Chrome. The pill and the indicator bar beside it. Outside this ticket's
-  // files, counted because B6 counted it and because it shares the screen.
-  'app chrome — sidebar: the active nav item': 2,
+  // Chrome. The soft fill, the petrol bar on the reading-start edge, and the
+  // accent-coloured label and icon. Outside this ticket's files, counted
+  // because it shares the screen.
+  'app chrome — sidebar: the active nav item': 3,
 
-  // The one loud action of the screen. Its fill *is* the accent.
-  'history toolbar — the primary "New recording" button': 1,
+  // The dock's primary action (chat-08 §2): the cyan Diktieren button is the
+  // one loud control in the chrome, next to the page's New recording button.
+  'app chrome — recording dock: the Diktieren button': 1,
 
   // Two selected states in the toolbar, both on the `accentActiveFill` rung:
   // which slice of the history is shown, and in which layout.
   'history toolbar — the active filter chip': 1,
   'history toolbar — the active view-mode segment': 2,
-
-  // Which row the detail panel is showing — fill and stroke on one box.
-  'history list — the selected row': 1,
 
   // The detail panel's two operable tag controls. The chip count follows the
   // fixture: `_seed` puts exactly one tag on the opened entry, and that chip
@@ -159,6 +162,11 @@ const _auditedAccentSurfaces = <String, int>{
   // The two ways to attach a note, side by side on the section's own line.
   'detail panel — the voice-note microphone button': 1,
   'detail panel — the add-note "+" button': 1,
+
+  // The import panel's add-files action: a secondary WpButton whose glyph
+  // takes the accent. It is operable (it opens a file picker), so the accent
+  // says the right thing here.
+  'history import — the add-files button': 1,
 };
 
 void main() {
@@ -219,17 +227,18 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  test('the audit is not vacuous: the accent tokens still share one hue', () {
-    // The RGB reduction above is the whole matcher. If the ladder ever splits
-    // into two hues, half the tokens stop matching and the audit quietly
-    // starts counting fewer surfaces than exist.
+  test('the audit is not vacuous: the accent tokens stay one small family', () {
+    // The RGB reduction above is the whole matcher. The light sets split the
+    // accent on purpose into ink, ink hover, tint and action (ADR 0023), so
+    // up to four triples are expected; a fifth means a new rung appeared that
+    // this list does not name, and the audit would quietly miss it.
     expect(
       _accentRgb.length,
-      lessThanOrEqualTo(2),
+      lessThanOrEqualTo(4),
       reason:
           'the generic-accent tokens resolved to ${_accentRgb.length} '
-          'different RGB triples — the ladder has split, and this audit now '
-          'sees only part of it',
+          'different RGB triples — the ladder has grown a rung, and this '
+          'audit now sees only part of it',
     );
     expect(
       _accentRgb,
