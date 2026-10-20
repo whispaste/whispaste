@@ -128,7 +128,7 @@
       ],
       "interpretation": "Ein Snippet-Rewrite kann keine Impressionen erzeugen. Der Sprung um Faktor 4,8 bei den Impressionen ist daher positionsgetrieben und dem Hero-/FAQ-/Struktur-Umbau zuzuschreiben, nicht den Meta-Texten.",
       "decision": "whisper-desktop, offline-speech-to-text und privacy (je DE+EN) werden in diesem Durchgang NICHT erneut umgeschrieben. Wiedervorlage 2026-08-21 bis 08-26, Re-Run mit period1 2026-07-20..07-28 gegen period2 2026-08-13..08-21.",
-      "intentMismatch": "Die SERP zu 'whisper desktop' wird von Datei-/Batch-Transkriptionswerkzeugen dominiert; GSC-Queries belegen das direkt (whisperdesktop.exe, whisperdesktop.zip, whisper-bin-ubuntu-x64.tar.gz, whisper desktop cli). WhisPaste ist ein Live-Diktat-Werkzeug ohne Datei-Import (im Code geprueft: kein FilePicker in lib/). Realistisches CTR-Ziel deshalb 2,5-3,5 %, nicht 5-8 %."
+      "intentMismatch": "Die SERP zu 'whisper desktop' wird von Datei-/Batch-Transkriptionswerkzeugen dominiert; GSC-Queries belegen das direkt (whisperdesktop.exe, whisperdesktop.zip, whisper-bin-ubuntu-x64.tar.gz, whisper desktop cli). WhisPaste ist vor allem ein Live-Diktat-Werkzeug; seit dem App-Redesign 2026 kann es zusaetzlich Audiodateien importieren und lokal transkribieren (WAV, MP3, FLAC, M4A/AAC, Ogg/Opus). Die Suchabsicht passt damit teilweise; realistisches CTR-Ziel bleibt 2,5-3,5 % (Stand 2026-10-20, neu messen nach Release)."
     }
   },
   "web": {
