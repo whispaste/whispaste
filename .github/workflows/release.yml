@@ -73,7 +73,7 @@ jobs:
       # and the bundle picks it up at build time. Release gate: scripts/check-no-espeak.sh.
       - name: Cache sherpa-onnx build (Windows)
         id: sherpa_cache_windows
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .build/sherpa-onnx/windows
           key: sherpa-onnx-windows-v1.13.4-1428072-${{ hashFiles('scripts/build-sherpa-onnx.ps1', 'scripts/check-no-espeak.sh', 'scripts/sherpa-onnx.pin', 'scripts/check-sherpa-stage.cmake') }}
@@ -962,7 +962,7 @@ jobs:
       # and the bundle picks it up at build time. Release gate: scripts/check-no-espeak.sh.
       - name: Cache sherpa-onnx build (macOS)
         id: sherpa_cache_macos
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .build/sherpa-onnx/macos
           key: sherpa-onnx-macos-v1.13.4-1428072-${{ hashFiles('scripts/build-sherpa-onnx.sh', 'scripts/sherpa-stage-libs.sh', 'scripts/fetch-onnxruntime.sh', 'scripts/check-no-espeak.sh', 'macos/embed_sherpa_onnx.sh', 'scripts/sherpa-onnx.pin', 'scripts/check-sherpa-stage.cmake') }}
@@ -1341,7 +1341,7 @@ jobs:
       # and the bundle picks it up at build time. Release gate: scripts/check-no-espeak.sh.
       - name: Cache sherpa-onnx build (Linux)
         id: sherpa_cache_linux
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .build/sherpa-onnx/linux
           key: sherpa-onnx-linux-v1.13.4-1428072-${{ hashFiles('scripts/build-sherpa-onnx.sh', 'scripts/sherpa-stage-libs.sh', 'scripts/fetch-onnxruntime.sh', 'scripts/check-no-espeak.sh', 'scripts/sherpa-onnx.pin', 'scripts/check-sherpa-stage.cmake') }}
