@@ -2418,7 +2418,7 @@
   "manualC08S4B1": "Am Eintrag startest du eine Sprachnotiz. Sag „tag: Name“, um einen Tag zu setzen, oder „korrektur: Text“, um den Text des Eintrags zu ersetzen.",
   "manualC08S4B2": "Eine Korrektur ersetzt den gesamten Text des Eintrags, nicht nur ein Wort. „correct: Text“ funktioniert genauso. Direkt danach kannst du die Änderung in der Meldung rückgängig machen.",
   "manualC08S5Heading": "PIN-Schutz",
-  "manualC08S5B1": "Mit „PIN-Schutz“ verlangst du eine PIN, bevor die Aufnahmen angezeigt werden. Das gilt auch für die Seitenleiste, das Menü des schwebenden Buttons und die Automatisierungs-API. Die PIN hält andere davon ab, die Transkriptionen einfach einzusehen, verschlüsselt sie aber nicht. Notizen sind ebenso gesperrt.",
+  "manualC08S5B1": "Mit „PIN-Schutz“ verlangst du eine PIN, bevor die Aufnahmen angezeigt werden. Das gilt auch für die Seitenleiste, das Menü des schwebenden Buttons und die Automatisierungs-API. Die PIN hält andere davon ab, die Transkriptionen einfach einzusehen, verschlüsselt sie aber nicht. Notizen sind ebenso gesperrt. Ist eine PIN gesetzt, zeigt das Tray-Menü bei den letzten Aufnahmen nur Uhrzeit und Wortzahl statt des Textanfangs.",
   "manualC08S5B2": "Eine vergessene PIN lässt sich nicht wiederherstellen. Zum Zurücksetzen werden sofort alle Aufnahmen und gespeicherten Audiodateien (einschließlich Archiv und Papierkorb), alle Notizen mit Versionen und alle Notizbilder gelöscht. Einstellungen, Textbausteine und Ersetzungen bleiben erhalten.",
   "manualC08S5B3": "Solange die Aufnahmen mit PIN gesperrt sind, zeigt der Zwischenablage-Reiter im Seitenpanel keinen kopierten Text und fügt auch keinen ein. Nach dem Entsperren ist er wieder sichtbar.",
   "manualC08S6Heading": "Automatisch leeren",

@@ -7652,7 +7652,7 @@ class L10nPt extends L10n {
 
   @override
   String get manualC08S5B1 =>
-      'Com «Proteção por PIN», um PIN é exigido antes de mostrar as gravações. Isso vale também para o painel lateral, o menu do botão flutuante e a API de automação. O PIN impede que outros vejam suas transcrições, mas não as criptografa. As notas ficam bloqueadas da mesma forma.';
+      'Com «Proteção por PIN», um PIN é exigido antes de mostrar as gravações. Isso vale também para o painel lateral, o menu do botão flutuante e a API de automação. O PIN impede que outros vejam suas transcrições, mas não as criptografa. As notas ficam bloqueadas da mesma forma. Com um PIN definido, o menu da bandeja mostra as gravações recentes apenas com a hora e o número de palavras, sem o início do texto.';
 
   @override
   String get manualC08S5B2 =>

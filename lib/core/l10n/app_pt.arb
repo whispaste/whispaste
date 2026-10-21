@@ -2204,7 +2204,7 @@
   "manualC08S4B1": "Inicie uma nota de voz na entrada. Diga «tag: nome» para definir uma tag, ou «correct: texto» para substituir o texto da entrada.",
   "manualC08S4B2": "Uma correção substitui todo o texto da entrada, não só uma palavra. «korrektur: texto» funciona da mesma forma. Logo depois você pode desfazer a alteração pelo aviso.",
   "manualC08S5Heading": "Proteção por PIN",
-  "manualC08S5B1": "Com «Proteção por PIN», um PIN é exigido antes de mostrar as gravações. Isso vale também para o painel lateral, o menu do botão flutuante e a API de automação. O PIN impede que outros vejam suas transcrições, mas não as criptografa. As notas ficam bloqueadas da mesma forma.",
+  "manualC08S5B1": "Com «Proteção por PIN», um PIN é exigido antes de mostrar as gravações. Isso vale também para o painel lateral, o menu do botão flutuante e a API de automação. O PIN impede que outros vejam suas transcrições, mas não as criptografa. As notas ficam bloqueadas da mesma forma. Com um PIN definido, o menu da bandeja mostra as gravações recentes apenas com a hora e o número de palavras, sem o início do texto.",
   "manualC08S5B2": "Um PIN esquecido não pode ser recuperado. Para o repor, são apagados de imediato todas as transcrições e ficheiros de áudio guardados (incluindo arquivo e lixo), todas as notas com as suas versões e todas as imagens das notas. As definições, os blocos de texto e as substituições são mantidos.",
   "manualC08S5B3": "Enquanto as gravações estiverem bloqueadas por PIN, a aba da área de transferência no painel lateral não mostra texto copiado nem o cola. O texto volta a aparecer ao desbloqueá-las.",
   "manualC08S6Heading": "Esvaziamento automático",

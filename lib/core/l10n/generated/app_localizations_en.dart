@@ -7584,7 +7584,7 @@ class L10nEn extends L10n {
 
   @override
   String get manualC08S5B1 =>
-      'With “PIN protection”, a PIN is required before recordings are shown. This also applies to the side panel, the menu of the floating button, and the automation API. The PIN keeps others from casually viewing your transcriptions, but it does not encrypt them. Notes are locked the same way.';
+      'With “PIN protection”, a PIN is required before recordings are shown. This also applies to the side panel, the menu of the floating button, and the automation API. The PIN keeps others from casually viewing your transcriptions, but it does not encrypt them. Notes are locked the same way. With a PIN set, the tray menu lists recent recordings by time and word count instead of their first words.';
 
   @override
   String get manualC08S5B2 =>

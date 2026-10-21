@@ -567,11 +567,17 @@ class TrayService extends Notifier<void> implements TrayListener {
     );
   }
 
-  /// Menu label of a recent recording: time and word count, never the text.
-  String _recentLabel(HistoryEntry entry, L10n l10n) {
+  /// Menu label of a recent recording: time and a text preview, or time and
+  /// word count when [textPreview] is off (history PIN set).
+  String _recentLabel(
+    HistoryEntry entry,
+    L10n l10n, {
+    required bool textPreview,
+  }) {
     final time = DateFormat.Hm(
       l10n.localeName,
     ).format(entry.timestamp.toLocal());
+    if (textPreview) return '$time \u00b7 ${trayRecentLabel(entry.content)}';
     final words = entry.content
         .split(RegExp(r'\s+'))
         .where((w) => w.isNotEmpty)
@@ -607,11 +613,15 @@ class TrayService extends Notifier<void> implements TrayListener {
               .take(trayRecentLimit)
               .toList();
     _recentCopier.replace({for (final e in recent) e.id: e.content});
+    final textPreview = trayTextPreviewEnabled(
+      historyPin: settings?.history.historyPin ?? '',
+    );
     final commands = trayCommandTree(
       l,
       historyLocked: historyLocked,
       recentRecordings: [
-        for (final e in recent) (id: e.id, label: _recentLabel(e, l)),
+        for (final e in recent)
+          (id: e.id, label: _recentLabel(e, l, textPreview: textPreview)),
       ],
       recording: _lastRecording,
       micDeviceLabels: _micDeviceLabels,

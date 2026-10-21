@@ -7654,7 +7654,7 @@ class L10nEs extends L10n {
 
   @override
   String get manualC08S5B1 =>
-      'Con «Protección con PIN», se exige un PIN antes de mostrar las grabaciones. Esto también aplica al panel lateral, al menú del botón flotante y a la API de automatización. El PIN evita que otros vean tus transcripciones, pero no las cifra. Las notas se bloquean de la misma forma.';
+      'Con «Protección con PIN», se exige un PIN antes de mostrar las grabaciones. Esto también aplica al panel lateral, al menú del botón flotante y a la API de automatización. El PIN evita que otros vean tus transcripciones, pero no las cifra. Las notas se bloquean de la misma forma. Con un PIN configurado, el menú de la bandeja muestra las grabaciones recientes solo con la hora y el número de palabras, sin el inicio del texto.';
 
   @override
   String get manualC08S5B2 =>

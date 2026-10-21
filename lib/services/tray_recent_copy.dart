@@ -5,9 +5,18 @@
 /// reaches this map, and a lock that engages clears it.
 library;
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart';
 
+import '../core/logging/app_logger.dart';
 import 'clipboard_history/app_clipboard.dart';
+
+final _log = AppLogger('TrayRecentCopy');
+bool _fallbackLogged = false;
+
+/// Lets tests observe the one-time fallback log again.
+@visibleForTesting
+void resetTrayCopyFallbackLogForTesting() => _fallbackLogged = false;
 
 /// Writes [text] to the OS clipboard the way paste does: first the native
 /// history-excluded write (macOS concealed/transient type, Windows
@@ -20,7 +29,15 @@ Future<void> writeTrayCopyTransient(
 }) async {
   AppClipboard.markTransientWrite(text);
   final excluded = excludedWrite == null ? false : await excludedWrite(text);
-  if (!excluded) await Clipboard.setData(ClipboardData(text: text));
+  if (excluded) return;
+  // GS-114: name the case once, never the text.
+  if (!_fallbackLogged) {
+    _fallbackLogged = true;
+    _log.info(
+      'Tray copy not excluded from clipboard history; plain write used',
+    );
+  }
+  await Clipboard.setData(ClipboardData(text: text));
 }
 
 /// Holds the texts behind the tray's recent-recording items.

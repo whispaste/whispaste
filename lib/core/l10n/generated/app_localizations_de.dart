@@ -7650,7 +7650,7 @@ class L10nDe extends L10n {
 
   @override
   String get manualC08S5B1 =>
-      'Mit „PIN-Schutz“ verlangst du eine PIN, bevor die Aufnahmen angezeigt werden. Das gilt auch für die Seitenleiste, das Menü des schwebenden Buttons und die Automatisierungs-API. Die PIN hält andere davon ab, die Transkriptionen einfach einzusehen, verschlüsselt sie aber nicht. Notizen sind ebenso gesperrt.';
+      'Mit „PIN-Schutz“ verlangst du eine PIN, bevor die Aufnahmen angezeigt werden. Das gilt auch für die Seitenleiste, das Menü des schwebenden Buttons und die Automatisierungs-API. Die PIN hält andere davon ab, die Transkriptionen einfach einzusehen, verschlüsselt sie aber nicht. Notizen sind ebenso gesperrt. Ist eine PIN gesetzt, zeigt das Tray-Menü bei den letzten Aufnahmen nur Uhrzeit und Wortzahl statt des Textanfangs.';
 
   @override
   String get manualC08S5B2 =>

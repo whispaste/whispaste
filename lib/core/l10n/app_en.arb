@@ -3304,7 +3304,7 @@
   "manualC08S4B1": "Start a voice note on the entry. Say “tag: name” to set a tag, or “correct: text” to replace the entry’s text.",
   "manualC08S4B2": "A correction replaces the entry’s whole text, not just one word. “korrektur: text” works the same way. Right afterwards you can undo the change from the notice.",
   "manualC08S5Heading": "PIN protection",
-  "manualC08S5B1": "With “PIN protection”, a PIN is required before recordings are shown. This also applies to the side panel, the menu of the floating button, and the automation API. The PIN keeps others from casually viewing your transcriptions, but it does not encrypt them. Notes are locked the same way.",
+  "manualC08S5B1": "With “PIN protection”, a PIN is required before recordings are shown. This also applies to the side panel, the menu of the floating button, and the automation API. The PIN keeps others from casually viewing your transcriptions, but it does not encrypt them. Notes are locked the same way. With a PIN set, the tray menu lists recent recordings by time and word count instead of their first words.",
   "manualC08S5B2": "A forgotten PIN cannot be recovered. To reset it, all transcriptions and saved audio files (including archive and trash), all notes with their versions, and all note images are deleted immediately. Settings, snippets, and replacements are kept.",
   "manualC08S5B3": "While the recordings are locked by a PIN, the clipboard tab in the side panel shows no copied text and pastes none. Copied text comes back once you unlock them.",
   "manualC08S6Heading": "Automatic emptying",

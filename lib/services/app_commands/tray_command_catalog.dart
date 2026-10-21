@@ -66,6 +66,26 @@ String? trayRecentIdFromKey(String key) => key.startsWith(trayRecentIdPrefix)
     ? key.substring(trayRecentIdPrefix.length)
     : null;
 
+/// Longest text preview a recent-recording item shows, ellipsis included.
+const trayRecentLabelMaxLength = 48;
+
+/// Text preview of a recent recording: its first non-blank line, cut with an
+/// ellipsis when it is longer than [trayRecentLabelMaxLength].
+String trayRecentLabel(String content) {
+  final line = content
+      .split('\n')
+      .map((l) => l.trim())
+      .firstWhere((l) => l.isNotEmpty, orElse: () => '');
+  if (line.isEmpty) return '\u2026';
+  if (line.length <= trayRecentLabelMaxLength) return line;
+  return '${line.substring(0, trayRecentLabelMaxLength - 1)}\u2026';
+}
+
+/// Whether recent-recording items show their text (decision 2026-10-21):
+/// always, unless a history PIN is set. With a PIN the items show only time
+/// and word count, even while the history is unlocked.
+bool trayTextPreviewEnabled({required String historyPin}) => historyPin.isEmpty;
+
 /// Everything the tray menu shows, as plain values.
 @immutable
 class TrayMenuState {

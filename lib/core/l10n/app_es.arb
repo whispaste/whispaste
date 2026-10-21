@@ -2204,7 +2204,7 @@
   "manualC08S4B1": "Inicia una nota de voz en la entrada. Di «tag: nombre» para poner una etiqueta, o «correct: texto» para sustituir el texto de la entrada.",
   "manualC08S4B2": "Una corrección sustituye todo el texto de la entrada, no solo una palabra. «korrektur: texto» funciona igual. Justo después puedes deshacer el cambio desde el aviso.",
   "manualC08S5Heading": "Protección con PIN",
-  "manualC08S5B1": "Con «Protección con PIN», se exige un PIN antes de mostrar las grabaciones. Esto también aplica al panel lateral, al menú del botón flotante y a la API de automatización. El PIN evita que otros vean tus transcripciones, pero no las cifra. Las notas se bloquean de la misma forma.",
+  "manualC08S5B1": "Con «Protección con PIN», se exige un PIN antes de mostrar las grabaciones. Esto también aplica al panel lateral, al menú del botón flotante y a la API de automatización. El PIN evita que otros vean tus transcripciones, pero no las cifra. Las notas se bloquean de la misma forma. Con un PIN configurado, el menú de la bandeja muestra las grabaciones recientes solo con la hora y el número de palabras, sin el inicio del texto.",
   "manualC08S5B2": "Un PIN olvidado no se puede recuperar. Para restablecerlo, se borran de inmediato todas las grabaciones y archivos de audio guardados (incluidos archivo y papelera), todas las notas con sus versiones y todas las imágenes de las notas. Los ajustes, fragmentos y reemplazos se conservan.",
   "manualC08S5B3": "Mientras las grabaciones estén bloqueadas con un PIN, la pestaña del portapapeles del panel lateral no muestra texto copiado ni lo pega. El texto vuelve a aparecer al desbloquearlas.",
   "manualC08S6Heading": "Vaciado automático",

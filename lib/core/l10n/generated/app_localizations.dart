@@ -12835,7 +12835,7 @@ abstract class L10n {
   /// No description provided for @manualC08S5B1.
   ///
   /// In en, this message translates to:
-  /// **'With “PIN protection”, a PIN is required before recordings are shown. This also applies to the side panel, the menu of the floating button, and the automation API. The PIN keeps others from casually viewing your transcriptions, but it does not encrypt them. Notes are locked the same way.'**
+  /// **'With “PIN protection”, a PIN is required before recordings are shown. This also applies to the side panel, the menu of the floating button, and the automation API. The PIN keeps others from casually viewing your transcriptions, but it does not encrypt them. Notes are locked the same way. With a PIN set, the tray menu lists recent recordings by time and word count instead of their first words.'**
   String get manualC08S5B1;
 
   /// No description provided for @manualC08S5B2.
