@@ -5795,6 +5795,12 @@ class L10nEs extends L10n {
       'Instalado. Si el controlador gráfico es demasiado antiguo, WhisPaste sigue usando Vulkan.';
 
   @override
+  String get settingsCudaPackConsentRequired => 'Se requiere consentimiento';
+
+  @override
+  String get settingsCudaPackConsentReview => 'Revisar licencia';
+
+  @override
   String get settingsCudaPackDownload => 'Descargar';
 
   @override
@@ -5838,11 +5844,17 @@ class L10nEs extends L10n {
 
   @override
   String cudaEulaDialogBody(String version) {
-    return 'El paquete CUDA contiene componentes de NVIDIA bajo el Acuerdo de licencia de usuario final de NVIDIA CUDA (versión $version). El texto vinculante es la copia del paquete (LICENSE-NVIDIA.txt); el enlace abre la versión actual de NVIDIA. Debes aceptarlo para descargar.';
+    return 'El paquete CUDA contiene componentes de NVIDIA bajo el Acuerdo de licencia de usuario final de NVIDIA CUDA ($version). Aceptas el texto completo de esta versión, que puedes leer en «Ver texto completo». Una versión posterior en NVIDIA puede diferir. Debes aceptarlo para descargar.';
   }
 
   @override
-  String get cudaEulaDialogLink => 'Abrir la licencia en NVIDIA';
+  String get cudaEulaDialogLink => 'Otra versión en NVIDIA';
+
+  @override
+  String get cudaEulaFullTextOpen => 'Ver texto completo';
+
+  @override
+  String get cudaEulaFullTextClose => 'Cerrar';
 
   @override
   String get cudaEulaDialogCancel => 'Cancelar';
@@ -7913,7 +7925,7 @@ class L10nEs extends L10n {
 
   @override
   String get manualC13S3B3 =>
-      'El paquete contiene componentes de NVIDIA. Antes de la descarga aceptas el acuerdo de licencia CUDA de NVIDIA, al que enlaza el diálogo.';
+      'El paquete contiene componentes de NVIDIA. Antes de la primera descarga aceptas la licencia CUDA de NVIDIA (versión 2026-01-26); el consentimiento vale para esta instalación. Sin un consentimiento válido, la fila muestra «Se requiere consentimiento» y WhisPaste usa Vulkan o la CPU hasta que aceptes. Si cambia el texto de la licencia o el paquete, se vuelve a preguntar.';
 
   @override
   String get manualC13S4Heading => 'Aceleración gráfica';

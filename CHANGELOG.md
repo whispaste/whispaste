@@ -43,7 +43,8 @@ All entries are written in English.
 - **Linux: Auto-Paste asks before it gets keyboard access:** the .deb package no longer grants /dev/uinput when it is installed. WhisPaste asks first and needs your administrator password. You can remove the permission again in the settings.
 - **Crash reports keep less personal data:** file names, local paths and imported document text are removed from crash reports, their breadcrumbs and log entries. Only the file extension and the error type remain.
 - **GPU crashes stop repeating:** after a second crash while a GPU speech model loads, WhisPaste keeps that model on the CPU. A successful warm-up no longer resets the crash count, and a GPU transcription that hangs moves to the CPU engine once.
-- **CUDA pack asks for the NVIDIA licence:** the optional CUDA pack downloads only after you accept the NVIDIA CUDA licence, which the app links to before the download.
+- **CUDA pack asks for the NVIDIA licence:** the optional CUDA pack downloads only after you accept the NVIDIA CUDA licence. The consent dialog shows the full licence text before you accept, and your consent applies to that text.
+- **CUDA needs your consent to load:** an installed CUDA pack is used only after you accept the NVIDIA licence, also after a headless download. Without that consent WhisPaste uses Vulkan or the CPU, and the settings row asks you to review the licence.
 - **Settings changed during start-up are kept:** a change made before your stored settings finished loading is applied once they are loaded, instead of being overwritten by the defaults.
 - **Model downloads resume after a sibling cleanup:** a paused model download is no longer deleted by another download's cleanup, so it can continue where it stopped.
 - **Automation API: stalled requests time out:** a request whose body stops or trickles in gets a 408 response after 30 seconds instead of holding the connection open.
@@ -51,6 +52,7 @@ All entries are written in English.
 - **Computers with less than 8 GB of RAM start:** WhisPaste no longer stops at start on such machines. It starts and recommends the compact speech model.
 - **Hotkey after idle:** the first press after idle starts recording at once, and a press right after a released start is no longer dropped.
 - **Failed transcriptions:** the audio of a failed transcription stays parked for 24 hours and can be retried; unfinished or orphaned audio files are cleaned up.
+- **Audio not kept stays off the disk:** with "Keep recent audio" off, a dictation whose history save failed keeps only its text. No audio file is left behind for it.
 - **Sleep and wake:** a recording in progress finishes before the computer sleeps, and the speech engine is checked again after wake.
 - **Database from a newer build:** WhisPaste shows a start screen instead of failing when the database was written by a newer version.
 - **Snippet picker trigger:** the trigger word is limited to 64 characters on one line, and a word still being typed is saved when the app leaves the foreground.

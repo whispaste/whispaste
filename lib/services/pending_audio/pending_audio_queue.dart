@@ -144,21 +144,49 @@ class PendingAudioQueue {
   /// of a dictation stopped before its text steps ran; the recovery runs
   /// those steps, as the live pipeline would have. Smart Mode is not among
   /// them: a background recovery never refines the text.
+  ///
+  /// With [keepAudio] false (the user does not keep audio) only the text is
+  /// parked: [wavPath] is deleted and the later save runs from the text alone.
   Future<void> park(
     String wavPath,
     RecordingInput input, {
     DictationTextSteps? rawTextSteps,
+    bool keepAudio = true,
   }) async {
     final id = input.entryId;
     if (id == null) {
       throw ArgumentError.value(input, 'input', 'entryId is required');
     }
-    await _parkRecord(
-      wavPath,
-      id,
-      _PendingRecord.fromInput(input, attempts: 0, rawTextSteps: rawTextSteps),
+    final record = _PendingRecord.fromInput(
+      input,
+      attempts: 0,
+      rawTextSteps: rawTextSteps,
+      hasAudio: keepAudio,
     );
+    if (!keepAudio) {
+      await _parkTextOnly(wavPath, id, record);
+      _log.warning('Kept the text of entry $id for a later history save');
+      return;
+    }
+    await _parkRecord(wavPath, id, record);
     _log.warning('Kept audio of entry $id for a later history save');
+  }
+
+  /// Writes [record] without audio and deletes [wavPath]. The record goes
+  /// first: if it cannot be written, the WAV stays for the pipeline's cleanup.
+  Future<void> _parkTextOnly(
+    String wavPath,
+    String id,
+    _PendingRecord record,
+  ) async {
+    if (!isValidPendingEntryId(id)) {
+      throw ArgumentError('entryId has an unexpected format');
+    }
+    final dir = Directory(directory());
+    await userAudioDirs.ensure(dir.path);
+    await _writeRecord(p.join(dir.path, '$id.json'), record);
+    await _deleteIfExists(wavPath);
+    await _enforceCap(dir);
   }
 
   /// Keeps the audio of a dictation whose transcription failed with a
@@ -374,17 +402,20 @@ class PendingAudioQueue {
           await _removeFiles(dir, id);
           continue;
         }
-        if (!await File(wavPath).exists()) {
+        if (record.hasAudio && !await File(wavPath).exists()) {
           _log.error('Audio of entry $id is missing; dropping its record');
           await _removeFiles(dir, id);
           skipped++;
           continue;
         }
         await save(await record.toInput(applyReplacements));
-        if (retainAudio && this.retainAudio != null) {
-          await this.retainAudio!(id, wavPath);
-        } else {
-          await _deleteIfExists(wavPath);
+        // A record parked without audio has no WAV to keep or delete.
+        if (record.hasAudio) {
+          if (retainAudio && this.retainAudio != null) {
+            await this.retainAudio!(id, wavPath);
+          } else {
+            await _deleteIfExists(wavPath);
+          }
         }
         await _deleteIfExists(p.join(dir.path, '$id.json'));
         saved++;
@@ -560,6 +591,7 @@ class _PendingRecord {
     this.rawTextSteps,
     this.retryErrorCode,
     this.expiresAt,
+    this.hasAudio = true,
   });
 
   /// A kept audio whose transcription failed (UIA-FLW-01). The history fields
@@ -590,8 +622,10 @@ class _PendingRecord {
     RecordingInput input, {
     required int attempts,
     DictationTextSteps? rawTextSteps,
+    bool hasAudio = true,
   }) {
     return _PendingRecord(
+      hasAudio: hasAudio,
       entryId: input.entryId!,
       createdAt: input.createdAt ?? DateTime.now(),
       transcript: input.transcript,
@@ -636,6 +670,7 @@ class _PendingRecord {
       expiresAt: json['expiresAt'] == null
           ? null
           : DateTime.parse(json['expiresAt'] as String),
+      hasAudio: json['hasAudio'] != false,
     );
   }
 
@@ -661,7 +696,12 @@ class _PendingRecord {
   final String? retryErrorCode;
   final DateTime? expiresAt;
 
+  /// False when the dictation was parked without audio ("do not keep audio"):
+  /// the save then runs from the text alone and there is no WAV to find.
+  final bool hasAudio;
+
   _PendingRecord withAttempts(int value) => _PendingRecord(
+    hasAudio: hasAudio,
     entryId: entryId,
     createdAt: createdAt,
     transcript: transcript,
@@ -734,6 +774,7 @@ class _PendingRecord {
     'attempts': attempts,
     'retryErrorCode': retryErrorCode,
     'expiresAt': expiresAt?.toIso8601String(),
+    'hasAudio': hasAudio,
   };
 }
 

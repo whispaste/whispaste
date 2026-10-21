@@ -5788,6 +5788,12 @@ class L10nDe extends L10n {
       'Installiert. Ist der Grafiktreiber zu alt, nutzt WhisPaste weiter Vulkan.';
 
   @override
+  String get settingsCudaPackConsentRequired => 'Zustimmung erforderlich';
+
+  @override
+  String get settingsCudaPackConsentReview => 'Lizenz prüfen';
+
+  @override
   String get settingsCudaPackDownload => 'Herunterladen';
 
   @override
@@ -5831,11 +5837,17 @@ class L10nDe extends L10n {
 
   @override
   String cudaEulaDialogBody(String version) {
-    return 'Das CUDA-Paket enthält NVIDIA-Komponenten unter der NVIDIA-CUDA-Endbenutzer-Lizenzvereinbarung (Stand $version). Maßgeblich ist der Wortlaut im Paket (LICENSE-NVIDIA.txt); der Link führt zur aktuellen Fassung bei NVIDIA. Zum Herunterladen musst du zustimmen.';
+    return 'Das CUDA-Paket enthält NVIDIA-Komponenten unter der NVIDIA-CUDA-Endbenutzer-Lizenzvereinbarung ($version). Zugestimmt wird dem Volltext dieser Fassung, den du über „Volltext anzeigen“ lesen kannst. Eine weitere Fassung bei NVIDIA kann davon abweichen. Zum Herunterladen musst du zustimmen.';
   }
 
   @override
-  String get cudaEulaDialogLink => 'Lizenz bei NVIDIA öffnen';
+  String get cudaEulaDialogLink => 'Weitere Fassung bei NVIDIA';
+
+  @override
+  String get cudaEulaFullTextOpen => 'Volltext anzeigen';
+
+  @override
+  String get cudaEulaFullTextClose => 'Schließen';
 
   @override
   String get cudaEulaDialogCancel => 'Abbrechen';
@@ -7910,7 +7922,7 @@ class L10nDe extends L10n {
 
   @override
   String get manualC13S3B3 =>
-      'Das Paket enthält NVIDIA-Komponenten. Vor dem Download stimmst du der NVIDIA-CUDA-Lizenzvereinbarung zu, die der Dialog verlinkt.';
+      'Das Paket enthält NVIDIA-Komponenten. Vor dem ersten Download stimmst du der NVIDIA-CUDA-Lizenz (Version 2026-01-26) zu; die Zustimmung gilt für diese Installation. Ohne gültige Zustimmung zeigt die Zeile „Zustimmung erforderlich“, und WhisPaste nutzt bis dahin Vulkan oder die CPU. Ändert sich der Lizenztext oder das Paket, wird erneut gefragt.';
 
   @override
   String get manualC13S4Heading => 'Grafikbeschleunigung';

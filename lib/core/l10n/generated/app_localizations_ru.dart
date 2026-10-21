@@ -5863,6 +5863,12 @@ class L10nRu extends L10n {
       'Установлено. Если драйвер видеокарты слишком старый, WhisPaste продолжит использовать Vulkan.';
 
   @override
+  String get settingsCudaPackConsentRequired => 'Требуется согласие';
+
+  @override
+  String get settingsCudaPackConsentReview => 'Посмотреть лицензию';
+
+  @override
   String get settingsCudaPackDownload => 'Загрузить';
 
   @override
@@ -5906,11 +5912,17 @@ class L10nRu extends L10n {
 
   @override
   String cudaEulaDialogBody(String version) {
-    return 'Пакет CUDA содержит компоненты NVIDIA по Лицензионному соглашению конечного пользователя NVIDIA CUDA (версия $version). Обязательный текст — копия в пакете (LICENSE-NVIDIA.txt); ссылка открывает актуальную версию NVIDIA. Для загрузки его нужно принять.';
+    return 'Пакет CUDA содержит компоненты NVIDIA по Лицензионному соглашению конечного пользователя NVIDIA CUDA ($version). Вы соглашаетесь с полным текстом этой версии, его можно открыть через «Полный текст». Другая версия на сайте NVIDIA может отличаться. Для загрузки его нужно принять.';
   }
 
   @override
-  String get cudaEulaDialogLink => 'Открыть лицензию NVIDIA';
+  String get cudaEulaDialogLink => 'Другая версия на сайте NVIDIA';
+
+  @override
+  String get cudaEulaFullTextOpen => 'Полный текст';
+
+  @override
+  String get cudaEulaFullTextClose => 'Закрыть';
 
   @override
   String get cudaEulaDialogCancel => 'Отмена';
@@ -8002,7 +8014,7 @@ class L10nRu extends L10n {
 
   @override
   String get manualC13S3B3 =>
-      'Пакет содержит компоненты NVIDIA. Перед загрузкой вы принимаете лицензионное соглашение NVIDIA CUDA, ссылка на которое есть в окне.';
+      'Пакет содержит компоненты NVIDIA. Перед первой загрузкой вы принимаете лицензию NVIDIA CUDA (версия 2026-01-26); согласие действует для этой установки. Без действующего согласия в строке показано «Требуется согласие», а WhisPaste использует Vulkan или процессор, пока вы не примете лицензию. Если текст лицензии или пакет изменятся, вас спросят снова.';
 
   @override
   String get manualC13S4Heading => 'Графическое ускорение';

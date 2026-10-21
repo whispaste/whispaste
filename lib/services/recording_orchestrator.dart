@@ -3021,7 +3021,8 @@ class RecordingOrchestrator extends Notifier<void> {
   /// so [PendingAudioQueue.recoverAll] can write the entry on a later start.
   /// Without this, the `finally` cleanup of the pipeline deletes the WAV and
   /// the dictation is lost. Entries that never reach history (quick note,
-  /// template field) have nothing to retry and are not kept.
+  /// template field) have nothing to retry and are not kept. With "do not
+  /// keep audio" only the text is parked and the WAV is deleted.
   Future<void> _keepUnsavedAudio(
     String sid,
     String wavPath,
@@ -3029,11 +3030,19 @@ class RecordingOrchestrator extends Notifier<void> {
     DictationTextSteps? rawTextSteps,
   }) async {
     if (!input.insertHistoryEntry) return;
+    final keepAudio = (ref.read(settingsProvider).value ?? AppSettings.defaults)
+        .privacy
+        .retainRecentAudio;
     try {
       await ref
           .read(pendingAudioQueueProvider)
-          .park(wavPath, input, rawTextSteps: rawTextSteps);
-      _retainedWavPath = wavPath;
+          .park(
+            wavPath,
+            input,
+            rawTextSteps: rawTextSteps,
+            keepAudio: keepAudio,
+          );
+      if (keepAudio) _retainedWavPath = wavPath;
       ref
           .read(pendingAudioNoticeProvider.notifier)
           .report(PendingAudioNotice.saveLater);

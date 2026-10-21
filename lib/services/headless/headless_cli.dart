@@ -24,6 +24,7 @@ import '../stt/whisper/cuda_pack.dart'
         CudaPackError,
         activeCudaPackDirProvider,
         cudaPackForThisPlatform,
+        cudaEulaConsentStorageMap,
         cudaEulaConsentValue,
         cudaPackProvider,
         kCudaNvidiaEulaUrl;
@@ -117,6 +118,16 @@ Future<int> runCudaPackDownloadCli(List<String> args) async {
     await notifier.install();
     final state = container.read(cudaPackProvider);
     if (state.installed) {
+      // The app loads the pack only with a stored consent (see
+      // activeCudaPackDirFor), so a successful run records it like the dialog.
+      try {
+        await container
+            .read(historyDatabaseProvider)
+            .writeAppSettings(cudaEulaConsentStorageMap(pack.id));
+      } catch (e) {
+        stderr.writeln('whispaste: could not save the NVIDIA EULA consent: $e');
+        return 1;
+      }
       stdout.writeln('CUDA pack ${pack.id} installed');
       return 0;
     }

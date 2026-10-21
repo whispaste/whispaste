@@ -218,32 +218,49 @@ bool isCudaPackOffered({
 
 /// NVIDIA's CUDA End User License Agreement. The pack ships NVIDIA
 /// components under it, so the download waits for explicit consent (see
-/// [isCudaEulaAcceptedFor]). The text itself is not copied into the app: the
-/// consent dialog links here.
+/// [isCudaEulaAcceptedFor]). The consent dialog shows the bundled full text
+/// (see [kCudaEulaAssetPath]) before the download, and links to NVIDIA's
+/// current version here.
 const kCudaNvidiaEulaUrl = 'https://docs.nvidia.com/cuda/eula/index.html';
 
 /// Version label of the NVIDIA CUDA EULA the pack ships. The bundled copy is
-/// dated 26 Jan 2026; the authoritative text is `LICENSE-NVIDIA.txt` inside
-/// the pack, and [kCudaNvidiaEulaUrl] opens NVIDIA's current version.
+/// dated 26 Jan 2026; [kCudaNvidiaEulaUrl] opens NVIDIA's current version.
 const kCudaEulaVersion = '2026-01-26';
 
-/// SHA-256 of the bundled `LICENSE-NVIDIA.txt`, pinned in the build drivers.
+/// SHA-256 of the licence text: `scripts/LICENSE-NVIDIA.txt`, bundled as the
+/// app asset [kCudaEulaAssetPath] and shipped in every pack. A test binds the
+/// bundled copy to this value.
 const kCudaEulaSha256 =
     '95815d3a862cf6bb5b3b58b661c3a3172a58b9ca6fcfa36b0e3d19a8e63a18e3';
 
-/// The consent value stored once the user accepts [packId]: the pack version
-/// and the EULA version together. Changing either makes it stale.
-String cudaEulaConsentValue(String packId) => '$packId+eula-$kCudaEulaVersion';
+/// The licence text as an app asset, shown in the consent dialog.
+const kCudaEulaAssetPath = 'assets/licenses/nvidia-cuda-eula-2026-01-26.txt';
 
-/// Whether the stored consent [accepted] covers the pack [packId].
+/// The consent base for [packId]: pack id, licence label and the SHA-256
+/// prefix of the licence text. Changing any of them invalidates a consent.
+String _cudaEulaConsentBase(String packId) =>
+    '$packId+eula-$kCudaEulaVersion+${kCudaEulaSha256.substring(0, 12)}';
+
+/// The consent value stored once the user accepts [packId]: the consent base
+/// plus the time of acceptance (UTC, ISO 8601), e.g.
+/// `ggml-v1.9.5-cu12.8-r1+eula-2026-01-26+95815d3a862c@2026-10-18T09:00:00.000Z`.
+String cudaEulaConsentValue(String packId, {DateTime? at}) {
+  final stamp = (at ?? DateTime.now()).toUtc().toIso8601String();
+  return '${_cudaEulaConsentBase(packId)}@$stamp';
+}
+
+/// Whether the stored consent [accepted] covers the pack [packId] as it is
+/// now.
 ///
-/// Consent is per pack version and per EULA version: a new pack id or a new
-/// EULA text asks again. An empty string (never accepted) never matches. Pure,
-/// so the rule is testable.
+/// Consent is bound to the pack id, the licence label and the licence text
+/// hash: a new pack id or a new licence text asks again. A value stored before
+/// the text binding has no match and is asked once more with the current text.
+/// An empty string (never accepted) never matches. Pure, so the rule is
+/// testable.
 bool isCudaEulaAcceptedFor({
   required String accepted,
   required String packId,
-}) => accepted.isNotEmpty && accepted == cudaEulaConsentValue(packId);
+}) => accepted.startsWith('${_cudaEulaConsentBase(packId)}@');
 
 /// Whether a CUDA pack may be downloaded or loaded in this build. Store
 /// builds never do (Store policy 10.2.2, AR-19); the row shows the reason
@@ -517,6 +534,22 @@ class CudaPackNotifier extends Notifier<CudaPackState> {
     await _install(pack);
   }
 
+  /// Records consent for an already installed pack, after the user has read
+  /// the licence in the dialog. No download happens.
+  Future<void> recordEulaConsent() async {
+    final pack = state.pack;
+    if (pack == null) return;
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            behavior: s.behavior.copyWith(
+              cudaEulaAccepted: cudaEulaConsentValue(pack.id),
+            ),
+          ),
+        );
+  }
+
   Future<void> _install(CudaPackInfo pack) async {
     if (state.isBusy || state.installed) return;
     if (!isCudaPackDownloadAllowed(channel: ref.read(deployChannelProvider))) {
@@ -596,21 +629,75 @@ final cudaPackOfferedProvider = Provider<bool>((ref) {
   );
 });
 
+/// Pure load rule behind [activeCudaPackDirProvider]: the pack folder to load,
+/// or `null`. Nothing loads without the NVIDIA EULA consent for this pack id,
+/// label and text hash (Maintainer decision 3a, 2026-10-18), so the engine
+/// falls back to Vulkan or CPU.
+String? activeCudaPackDirFor({
+  required bool offered,
+  required bool downloadAllowed,
+  required bool enabled,
+  required CudaPackState state,
+  required String accepted,
+  required String rootDir,
+}) {
+  if (!offered || !downloadAllowed || !enabled) return null;
+  final pack = state.pack;
+  if (pack == null || !state.installed) return null;
+  if (!isCudaEulaAcceptedFor(accepted: accepted, packId: pack.id)) return null;
+  return p.join(rootDir, pack.id);
+}
+
 /// Folder of the installed CUDA pack the Whisper engine should load, or
-/// `null` (not offered, not installed, or switched off by the user or by the
-/// GPU-load crash recovery).
+/// `null` (not offered, not installed, no current NVIDIA consent, or switched
+/// off by the user or by the GPU-load crash recovery).
 final activeCudaPackDirProvider = Provider<String?>((ref) {
-  if (!ref.watch(cudaPackOfferedProvider)) return null;
+  final offered = ref.watch(cudaPackOfferedProvider);
   // Store builds never load a driver pack: the download is not allowed there.
-  if (!isCudaPackDownloadAllowed(channel: ref.watch(deployChannelProvider))) {
-    return null;
-  }
+  final downloadAllowed = isCudaPackDownloadAllowed(
+    channel: ref.watch(deployChannelProvider),
+  );
   final enabled = ref.watch(
     settingsProvider.select((s) => s.value?.behavior.cudaAcceleration ?? true),
   );
-  if (!enabled) return null;
+  final accepted = ref.watch(
+    settingsProvider.select((s) => s.value?.behavior.cudaEulaAccepted ?? ''),
+  );
+  // While settings are still loading the consent reads as empty; the engine
+  // provider watches this one and rebuilds once they arrive, so stay quiet.
+  final settingsLoaded = ref.watch(
+    settingsProvider.select((s) => s.value != null),
+  );
   final state = ref.watch(cudaPackProvider);
+  final dir = activeCudaPackDirFor(
+    offered: offered,
+    downloadAllowed: downloadAllowed,
+    enabled: enabled,
+    state: state,
+    accepted: accepted,
+    rootDir: cudaPackRootDir(),
+  );
   final pack = state.pack;
-  if (pack == null || !state.installed) return null;
-  return p.join(cudaPackRootDir(), pack.id);
+  if (dir == null &&
+      settingsLoaded &&
+      offered &&
+      downloadAllowed &&
+      enabled &&
+      pack != null &&
+      state.installed) {
+    _log.warning(
+      'CUDA pack ${pack.id} not loaded: NVIDIA EULA consent is missing or out '
+      'of date; using Vulkan or CPU',
+    );
+  }
+  return dir;
 });
+
+/// Settings key of the NVIDIA EULA consent (see `AppSettings.toStorageMap`).
+const kCudaEulaSettingsKey = 'cuda_eula_accepted';
+
+/// Storage entry that records consent for [packId] in the same format the
+/// dialog writes, for the headless download.
+Map<String, String> cudaEulaConsentStorageMap(String packId) => {
+  kCudaEulaSettingsKey: cudaEulaConsentValue(packId),
+};

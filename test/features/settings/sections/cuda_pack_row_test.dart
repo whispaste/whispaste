@@ -54,6 +54,11 @@ class _FakeCudaPackNotifier extends CudaPackNotifier {
   Future<void> remove() async => removeCalls++;
   @override
   Future<void> acceptEulaAndInstall() async => acceptCalls++;
+
+  int consentCalls = 0;
+
+  @override
+  Future<void> recordEulaConsent() async => consentCalls++;
 }
 
 /// Settings with the NVIDIA EULA accepted for [packId].
@@ -132,6 +137,34 @@ void main() {
       expect(notifier.installCalls, 0);
       expect(notifier.acceptCalls, 0);
       expect(settings._settings.behavior.cudaEulaAccepted, isEmpty);
+    });
+
+    testWidgets('the bundled licence text opens from the dialog before any '
+        'download', (tester) async {
+      final settings = _FakeSettingsNotifier(AppSettings.defaults);
+      final notifier = _FakeCudaPackNotifier(const CudaPackState(pack: _pack));
+      await tester.pumpWidget(
+        row(notifier._initial, settings: settings, notifier: notifier),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('settings-cuda-pack-download')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('cuda-eula-fulltext-open')));
+      // The bundled text loads through real asset I/O, outside the fake clock.
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
+      await tester.pumpAndSettle();
+
+      final text = tester
+          .widget<SelectableText>(find.byKey(const Key('cuda-eula-fulltext')))
+          .data;
+      expect(text, contains('NVIDIA'));
+      await tester.tap(find.byKey(const Key('cuda-eula-fulltext-close')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('cuda-eula-dialog')), findsOneWidget);
+      expect(notifier.installCalls, 0);
     });
 
     testWidgets('accept hands over to the download with consent recorded', (
@@ -243,8 +276,33 @@ void main() {
     expect(notifier.removeCalls, 1);
   });
 
+  testWidgets('an installed pack without consent asks for it, not a toggle', (
+    tester,
+  ) async {
+    const installed = CudaPackState(pack: _pack, installed: true);
+    final notifier = _FakeCudaPackNotifier(installed);
+    await tester.pumpWidget(row(installed, notifier: notifier));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('settings-cuda-pack-toggle')), findsNothing);
+    await tester.tap(find.byKey(const Key('settings-cuda-pack-consent')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cuda-eula-dialog')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('cuda-eula-cancel')));
+    await tester.pumpAndSettle();
+    expect(notifier.consentCalls, 0);
+
+    await tester.tap(find.byKey(const Key('settings-cuda-pack-consent')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cuda-eula-accept')));
+    await tester.pumpAndSettle();
+    expect(notifier.consentCalls, 1);
+    expect(notifier.installCalls, 0);
+  });
+
   testWidgets('switches CUDA off once installed', (tester) async {
-    final settings = _FakeSettingsNotifier(AppSettings.defaults);
+    final settings = _FakeSettingsNotifier(_acceptedFor(_pack.id));
     await tester.pumpWidget(
       row(
         const CudaPackState(pack: _pack, installed: true),

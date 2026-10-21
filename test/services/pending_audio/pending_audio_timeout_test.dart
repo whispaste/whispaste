@@ -117,6 +117,28 @@ void main() {
       expect(Directory(retainedDir).existsSync(), isFalse);
     },
   );
+
+  test('with audio not kept, a parked dictation leaves no WAV behind and '
+      'its save retry runs from the text alone', () async {
+    final wav = p.join(tmp.path, 'whispaste_no_keep.wav');
+    File(wav).writeAsBytesSync(List.filled(64, 1));
+
+    await queue(retainAudio: false).park(wav, _input(), keepAudio: false);
+
+    expect(File(wav).existsSync(), isFalse, reason: 'temp WAV must be gone');
+    final wavs = Directory(pendingDir).existsSync()
+        ? Directory(pendingDir).listSync().where((e) => e.path.endsWith('.wav'))
+        : const <FileSystemEntity>[];
+    expect(wavs, isEmpty, reason: 'no parked WAV may survive');
+
+    final result = await queue(
+      retainAudio: false,
+    ).recoverAll(retainAudio: false);
+
+    expect(result.saved, 1);
+    expect(await db.getEntry(_entryId), isNotNull);
+    expect(Directory(pendingDir).listSync(), isEmpty);
+  });
 }
 
 void _ignoreBreadcrumb(Object? _) {}

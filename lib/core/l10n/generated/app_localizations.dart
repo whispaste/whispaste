@@ -9745,6 +9745,18 @@ abstract class L10n {
   /// **'Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.'**
   String get settingsCudaPackInstalledSubtitle;
 
+  /// No description provided for @settingsCudaPackConsentRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Consent required'**
+  String get settingsCudaPackConsentRequired;
+
+  /// No description provided for @settingsCudaPackConsentReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review licence'**
+  String get settingsCudaPackConsentReview;
+
   /// No description provided for @settingsCudaPackDownload.
   ///
   /// In en, this message translates to:
@@ -9820,14 +9832,26 @@ abstract class L10n {
   /// No description provided for @cudaEulaDialogBody.
   ///
   /// In en, this message translates to:
-  /// **'The CUDA pack contains NVIDIA components under the NVIDIA CUDA End User License Agreement (version {version}). The authoritative text is the copy in the pack (LICENSE-NVIDIA.txt); the link opens NVIDIA\'s current version. You need to accept it to download.'**
+  /// **'The CUDA pack contains NVIDIA components under the NVIDIA CUDA End User License Agreement ({version}). You agree to the full text of this version, which you can read via “Full text”. A further version at NVIDIA may differ. You need to accept it to download.'**
   String cudaEulaDialogBody(String version);
 
   /// No description provided for @cudaEulaDialogLink.
   ///
   /// In en, this message translates to:
-  /// **'Open the licence on NVIDIA'**
+  /// **'Further version at NVIDIA'**
   String get cudaEulaDialogLink;
+
+  /// No description provided for @cudaEulaFullTextOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Full text'**
+  String get cudaEulaFullTextOpen;
+
+  /// No description provided for @cudaEulaFullTextClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get cudaEulaFullTextClose;
 
   /// No description provided for @cudaEulaDialogCancel.
   ///
@@ -13207,7 +13231,7 @@ abstract class L10n {
   /// No description provided for @manualC13S3B3.
   ///
   /// In en, this message translates to:
-  /// **'The pack contains NVIDIA components. Before the download, you accept NVIDIA\'s CUDA licence agreement, which the dialog links to.'**
+  /// **'The pack contains NVIDIA components. Before the first download you accept the NVIDIA CUDA licence (version 2026-01-26); the consent applies to this installation. Without a valid consent the row shows “Consent required”, and WhisPaste uses Vulkan or the CPU until you accept. If the licence text or the pack changes, you are asked again.'**
   String get manualC13S3B3;
 
   /// No description provided for @manualC13S4Heading.

@@ -46,6 +46,45 @@ class CudaPackRow extends ConsumerWidget {
     final notifier = ref.read(cudaPackProvider.notifier);
 
     if (state.installed && !state.isBusy) {
+      // Without a current consent the pack is not loaded (see
+      // activeCudaPackDirFor), so offer the review instead of the switch.
+      final consented = ref.watch(
+        settingsProvider.select(
+          (s) => isCudaEulaAcceptedFor(
+            accepted: s.value?.behavior.cudaEulaAccepted ?? '',
+            packId: pack.id,
+          ),
+        ),
+      );
+      if (!consented) {
+        return WpSettingsRow(
+          rowId: 'speech-cuda-pack',
+          title: l10n.settingsCudaPackTitle,
+          key: const Key('settings-cuda-pack-row'),
+          subtitle: l10n.settingsCudaPackConsentRequired,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              WpButton(
+                key: const Key('settings-cuda-pack-consent'),
+                label: l10n.settingsCudaPackConsentReview,
+                variant: WpButtonVariant.secondary,
+                onPressed: () => _reviewConsent(context, ref),
+              ),
+              Semantics(
+                label: l10n.settingsCudaPackRemove,
+                button: true,
+                child: IconButton(
+                  key: const Key('settings-cuda-pack-remove'),
+                  icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
+                  tooltip: l10n.settingsCudaPackRemove,
+                  onPressed: () => _confirmRemove(context, notifier),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
       final enabled = ref.watch(
         settingsProvider.select(
           (s) => s.value?.behavior.cudaAcceleration ?? true,
@@ -81,16 +120,7 @@ class CudaPackRow extends ConsumerWidget {
                 key: const Key('settings-cuda-pack-remove'),
                 icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
                 tooltip: l10n.settingsCudaPackRemove,
-                onPressed: () async {
-                  final confirmed = await confirmDestructive(
-                    context: context,
-                    title: l10n.settingsCudaPackRemoveConfirm,
-                    message: l10n.settingsCudaPackRemoveConfirmMessage,
-                    confirmLabel: l10n.settingsCudaPackRemove,
-                    cancelLabel: l10n.actionCancel,
-                  );
-                  if (confirmed) notifier.remove();
-                },
+                onPressed: () => _confirmRemove(context, notifier),
               ),
             ),
           ],
@@ -187,6 +217,29 @@ class CudaPackRow extends ConsumerWidget {
       ),
       trailing: trailing,
     );
+  }
+
+  Future<void> _confirmRemove(
+    BuildContext context,
+    CudaPackNotifier notifier,
+  ) async {
+    final l10n = L10n.of(context);
+    final confirmed = await confirmDestructive(
+      context: context,
+      title: l10n.settingsCudaPackRemoveConfirm,
+      message: l10n.settingsCudaPackRemoveConfirmMessage,
+      confirmLabel: l10n.settingsCudaPackRemove,
+      cancelLabel: l10n.actionCancel,
+    );
+    if (confirmed) notifier.remove();
+  }
+
+  /// Opens the licence dialog for an installed pack. Accepting only records
+  /// the consent; nothing is downloaded here.
+  Future<void> _reviewConsent(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showCudaEulaDialog(context);
+    if (!confirmed || !context.mounted) return;
+    await ref.read(cudaPackProvider.notifier).recordEulaConsent();
   }
 
   /// Download entry point: the NVIDIA EULA must be accepted for this pack

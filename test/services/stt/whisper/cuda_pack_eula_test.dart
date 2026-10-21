@@ -5,6 +5,7 @@ library;
 
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -116,6 +117,35 @@ void main() {
         isFalse,
       );
     });
+
+    test('the consent is bound to the licence text hash and records the time '
+        'of acceptance', () {
+      final value = cudaEulaConsentValue(
+        _pack.id,
+        at: DateTime.utc(2026, 10, 18, 9),
+      );
+      expect(
+        value,
+        '${_pack.id}+eula-$kCudaEulaVersion+'
+        '${kCudaEulaSha256.substring(0, 12)}@2026-10-18T09:00:00.000Z',
+      );
+      expect(isCudaEulaAcceptedFor(accepted: value, packId: _pack.id), isTrue);
+    });
+
+    test('a consent stored before the text binding asks again once', () {
+      expect(
+        isCudaEulaAcceptedFor(
+          accepted: '${_pack.id}+eula-$kCudaEulaVersion',
+          packId: _pack.id,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  test('the bundled licence text is the text the consent is bound to', () {
+    final bytes = File(kCudaEulaAssetPath).readAsBytesSync();
+    expect(sha256.convert(bytes).toString(), kCudaEulaSha256);
   });
 
   test(
@@ -192,7 +222,11 @@ void main() {
             .value!
             .behavior
             .cudaEulaAccepted;
-        expect(stored, cudaEulaConsentValue(_pack.id));
+        // The value carries the time of acceptance, so compare the binding.
+        expect(
+          isCudaEulaAcceptedFor(accepted: stored, packId: _pack.id),
+          isTrue,
+        );
         expect(fetcher.calls, 1);
       },
     );

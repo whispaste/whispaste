@@ -5740,6 +5740,12 @@ class L10nEn extends L10n {
       'Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.';
 
   @override
+  String get settingsCudaPackConsentRequired => 'Consent required';
+
+  @override
+  String get settingsCudaPackConsentReview => 'Review licence';
+
+  @override
   String get settingsCudaPackDownload => 'Download';
 
   @override
@@ -5783,11 +5789,17 @@ class L10nEn extends L10n {
 
   @override
   String cudaEulaDialogBody(String version) {
-    return 'The CUDA pack contains NVIDIA components under the NVIDIA CUDA End User License Agreement (version $version). The authoritative text is the copy in the pack (LICENSE-NVIDIA.txt); the link opens NVIDIA\'s current version. You need to accept it to download.';
+    return 'The CUDA pack contains NVIDIA components under the NVIDIA CUDA End User License Agreement ($version). You agree to the full text of this version, which you can read via “Full text”. A further version at NVIDIA may differ. You need to accept it to download.';
   }
 
   @override
-  String get cudaEulaDialogLink => 'Open the licence on NVIDIA';
+  String get cudaEulaDialogLink => 'Further version at NVIDIA';
+
+  @override
+  String get cudaEulaFullTextOpen => 'Full text';
+
+  @override
+  String get cudaEulaFullTextClose => 'Close';
 
   @override
   String get cudaEulaDialogCancel => 'Cancel';
@@ -7844,7 +7856,7 @@ class L10nEn extends L10n {
 
   @override
   String get manualC13S3B3 =>
-      'The pack contains NVIDIA components. Before the download, you accept NVIDIA\'s CUDA licence agreement, which the dialog links to.';
+      'The pack contains NVIDIA components. Before the first download you accept the NVIDIA CUDA licence (version 2026-01-26); the consent applies to this installation. Without a valid consent the row shows “Consent required”, and WhisPaste uses Vulkan or the CPU until you accept. If the licence text or the pack changes, you are asked again.';
 
   @override
   String get manualC13S4Heading => 'Graphics acceleration';

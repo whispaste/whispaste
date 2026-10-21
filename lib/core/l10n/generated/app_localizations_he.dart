@@ -5681,6 +5681,12 @@ class L10nHe extends L10n {
       'מותקן. אם מנהל ההתקן הגרפי ישן מדי, WhisPaste ימשיך להשתמש ב-Vulkan.';
 
   @override
+  String get settingsCudaPackConsentRequired => 'נדרש אישור';
+
+  @override
+  String get settingsCudaPackConsentReview => 'בדיקת הרישיון';
+
+  @override
   String get settingsCudaPackDownload => 'הורדה';
 
   @override
@@ -5724,11 +5730,17 @@ class L10nHe extends L10n {
 
   @override
   String cudaEulaDialogBody(String version) {
-    return 'חבילת CUDA כוללת רכיבים של NVIDIA לפי הסכם הרישיון למשתמש הקצה של NVIDIA CUDA (גרסה $version). הנוסח המחייב הוא העותק שבחבילה (LICENSE-NVIDIA.txt); הקישור פותח את הגרסה העדכנית של NVIDIA. יש לאשר אותו כדי להוריד.';
+    return 'חבילת CUDA כוללת רכיבים של NVIDIA לפי הסכם הרישיון למשתמש הקצה של NVIDIA CUDA ($version). מאשרים את הנוסח המלא של גרסה זו, הנגיש דרך „הצגת הנוסח המלא“. גרסה אחרת באתר NVIDIA עשויה להיות שונה. יש לאשר אותו כדי להוריד.';
   }
 
   @override
-  String get cudaEulaDialogLink => 'פתיחת הרישיון של NVIDIA';
+  String get cudaEulaDialogLink => 'גרסה אחרת ב-NVIDIA';
+
+  @override
+  String get cudaEulaFullTextOpen => 'הצגת הנוסח המלא';
+
+  @override
+  String get cudaEulaFullTextClose => 'סגירה';
 
   @override
   String get cudaEulaDialogCancel => 'ביטול';
@@ -7752,7 +7764,7 @@ class L10nHe extends L10n {
 
   @override
   String get manualC13S3B3 =>
-      'החבילה כוללת רכיבים של NVIDIA. לפני ההורדה מאשרים את הסכם הרישיון של NVIDIA ל-CUDA, שאליו הדיאלוג מפנה.';
+      'החבילה כוללת רכיבים של NVIDIA. לפני ההורדה הראשונה מאשרים את הרישיון של NVIDIA ל-CUDA (גרסה 2026-01-26); האישור חל על ההתקנה הזו. בלי אישור תקף השורה מציגה „נדרש אישור“, ו-WhisPaste משתמש ב-Vulkan או במעבד עד לאישור. אם נוסח הרישיון או החבילה ישתנו, ישאלו שוב.';
 
   @override
   String get manualC13S4Heading => 'האצה גרפית';

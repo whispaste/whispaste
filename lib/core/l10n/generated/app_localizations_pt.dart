@@ -5789,6 +5789,12 @@ class L10nPt extends L10n {
       'Instalado. Se o driver de vídeo for antigo demais, o WhisPaste continua usando Vulkan.';
 
   @override
+  String get settingsCudaPackConsentRequired => 'Consentimento necessário';
+
+  @override
+  String get settingsCudaPackConsentReview => 'Revisar licença';
+
+  @override
   String get settingsCudaPackDownload => 'Baixar';
 
   @override
@@ -5832,11 +5838,17 @@ class L10nPt extends L10n {
 
   @override
   String cudaEulaDialogBody(String version) {
-    return 'O pacote CUDA contém componentes da NVIDIA sob o Contrato de Licença de Usuário Final NVIDIA CUDA (versão $version). O texto válido é a cópia no pacote (LICENSE-NVIDIA.txt); o link abre a versão atual da NVIDIA. Você precisa aceitá-lo para baixar.';
+    return 'O pacote CUDA contém componentes da NVIDIA sob o Contrato de Licença de Usuário Final NVIDIA CUDA ($version). Você aceita o texto completo desta versão, que pode ler em «Ver texto completo». Uma versão posterior na NVIDIA pode diferir. Você precisa aceitá-lo para baixar.';
   }
 
   @override
-  String get cudaEulaDialogLink => 'Abrir a licença na NVIDIA';
+  String get cudaEulaDialogLink => 'Outra versão na NVIDIA';
+
+  @override
+  String get cudaEulaFullTextOpen => 'Ver texto completo';
+
+  @override
+  String get cudaEulaFullTextClose => 'Fechar';
 
   @override
   String get cudaEulaDialogCancel => 'Cancelar';
@@ -7911,7 +7923,7 @@ class L10nPt extends L10n {
 
   @override
   String get manualC13S3B3 =>
-      'O pacote contém componentes da NVIDIA. Antes do download, você aceita o contrato de licença CUDA da NVIDIA, ao qual o diálogo leva.';
+      'O pacote contém componentes da NVIDIA. Antes do primeiro download você aceita a licença CUDA da NVIDIA (versão 2026-01-26); o consentimento vale para esta instalação. Sem um consentimento válido, a linha mostra «Consentimento necessário» e o WhisPaste usa Vulkan ou a CPU até você aceitar. Se o texto da licença ou o pacote mudar, a pergunta é feita de novo.';
 
   @override
   String get manualC13S4Heading => 'Aceleração gráfica';

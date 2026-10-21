@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../services/stt/whisper/cuda_pack.dart'
-    show kCudaEulaSha256, kCudaEulaVersion, kCudaNvidiaEulaUrl;
+    show
+        kCudaEulaAssetPath,
+        kCudaEulaSha256,
+        kCudaEulaVersion,
+        kCudaNvidiaEulaUrl;
 import '../../../widgets/dialog.dart';
 import '../../../widgets/wp_button.dart';
 import '../../../widgets/wp_text_link.dart';
@@ -51,6 +56,41 @@ Future<bool> showCudaEulaDialog(BuildContext context) async {
   return result ?? false;
 }
 
+/// Shows the licence text bundled with the app: the same text that ships as
+/// `LICENSE-NVIDIA.txt` in every pack, readable before any download starts.
+Future<void> showCudaEulaFullText(BuildContext context) async {
+  final l10n = L10n.of(context);
+  final text = await rootBundle.loadString(kCudaEulaAssetPath);
+  if (!context.mounted) return;
+  await showWpDialog<void>(
+    context: context,
+    title: l10n.cudaEulaDialogTitle,
+    content: SizedBox(
+      height: 360,
+      child: Scrollbar(
+        child: SingleChildScrollView(
+          child: SelectableText(
+            text,
+            key: const Key('cuda-eula-fulltext'),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ),
+    ),
+    actions: [
+      Expanded(
+        child: WpButton(
+          key: const Key('cuda-eula-fulltext-close'),
+          label: l10n.cudaEulaFullTextClose,
+          variant: WpButtonVariant.primary,
+          expanded: true,
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+    ],
+  );
+}
+
 class _CudaEulaContent extends StatelessWidget {
   const _CudaEulaContent({required this.l10n});
 
@@ -71,20 +111,41 @@ class _CudaEulaContent extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: WpSpacing.sm),
-        ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: WpLayout.minTouchTarget),
-          child: Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: WpTextLink(
-              key: const Key('cuda-eula-link'),
-              label: l10n.cudaEulaDialogLink,
-              icon: LucideIcons.externalLink,
-              onPressed: () => launchUrl(
-                Uri.parse(kCudaNvidiaEulaUrl),
-                mode: LaunchMode.externalApplication,
+        Wrap(
+          spacing: WpSpacing.md,
+          children: [
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: WpLayout.minTouchTarget,
+              ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: WpTextLink(
+                  key: const Key('cuda-eula-fulltext-open'),
+                  label: l10n.cudaEulaFullTextOpen,
+                  icon: LucideIcons.fileText,
+                  onPressed: () => showCudaEulaFullText(context),
+                ),
               ),
             ),
-          ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: WpLayout.minTouchTarget,
+              ),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: WpTextLink(
+                  key: const Key('cuda-eula-link'),
+                  label: l10n.cudaEulaDialogLink,
+                  icon: LucideIcons.externalLink,
+                  onPressed: () => launchUrl(
+                    Uri.parse(kCudaNvidiaEulaUrl),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
