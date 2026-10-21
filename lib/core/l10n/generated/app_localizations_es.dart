@@ -8147,6 +8147,10 @@ class L10nEs extends L10n {
   }
 
   @override
+  String get manualC14S15H3 =>
+      'Si el atajo no funciona en otras apps, Ajustes y la configuración inicial muestran un aviso con el motivo, el comando para una combinación propia y el botón «Volver a conectar», que vuelve a pedir el atajo al escritorio.';
+
+  @override
   String get manualC14S15FlatpakHeading => 'Flatpak';
 
   @override
@@ -9275,4 +9279,36 @@ class L10nEs extends L10n {
   @override
   String get profileAppCaptureUnavailable =>
       'Esta sesión no puede leer la app en primer plano (por ejemplo Wayland). Escribe el identificador a mano.';
+
+  @override
+  String get waylandHotkeyPortalDescription => 'Dictado de WhisPaste';
+
+  @override
+  String get waylandHotkeyNoAppId =>
+      'Tu escritorio no pudo identificar WhisPaste y no ha activado el atajo, así que no funciona en otras apps.';
+
+  @override
+  String get waylandHotkeyUnavailable =>
+      'Tu escritorio no permite que las apps usen un atajo global, así que el atajo no funciona en otras apps.';
+
+  @override
+  String get waylandHotkeyDeclined =>
+      'El atajo no se confirmó en el diálogo de tu escritorio, así que no funciona en otras apps.';
+
+  @override
+  String get waylandHotkeyFallback =>
+      'En su lugar, puedes crear un atajo de teclado en la configuración del sistema con este comando:';
+
+  @override
+  String get waylandHotkeyReconnect => 'Volver a conectar';
+
+  @override
+  String get waylandHotkeyCopyCommand => 'Copiar comando';
+
+  @override
+  String get waylandHotkeyCommandCopied => 'Copiado';
+
+  @override
+  String get waylandHotkeyOpenKeyboardSettings =>
+      'Abrir configuración del teclado';
 }

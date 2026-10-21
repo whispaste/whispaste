@@ -8238,6 +8238,10 @@ class L10nRu extends L10n {
   }
 
   @override
+  String get manualC14S15H3 =>
+      'Если горячая клавиша не работает в других приложениях, в настройках и при первом запуске появляется уведомление с причиной, командой для собственного сочетания клавиш и кнопкой «Подключить снова», которая заново запрашивает клавишу у рабочего стола.';
+
+  @override
   String get manualC14S15FlatpakHeading => 'Flatpak';
 
   @override
@@ -9360,4 +9364,36 @@ class L10nRu extends L10n {
   @override
   String get profileAppCaptureUnavailable =>
       'Эта сессия не может определить приложение на переднем плане (например Wayland). Введите идентификатор вручную.';
+
+  @override
+  String get waylandHotkeyPortalDescription => 'Диктовка WhisPaste';
+
+  @override
+  String get waylandHotkeyNoAppId =>
+      'Рабочий стол не смог опознать WhisPaste и не включил горячую клавишу, поэтому она не работает в других приложениях.';
+
+  @override
+  String get waylandHotkeyUnavailable =>
+      'Рабочий стол не позволяет приложениям задавать глобальные горячие клавиши, поэтому горячая клавиша не работает в других приложениях.';
+
+  @override
+  String get waylandHotkeyDeclined =>
+      'Горячая клавиша не была подтверждена в диалоге рабочего стола, поэтому она не работает в других приложениях.';
+
+  @override
+  String get waylandHotkeyFallback =>
+      'Вместо этого можно добавить сочетание клавиш в системных настройках с этой командой:';
+
+  @override
+  String get waylandHotkeyReconnect => 'Подключить снова';
+
+  @override
+  String get waylandHotkeyCopyCommand => 'Копировать команду';
+
+  @override
+  String get waylandHotkeyCommandCopied => 'Скопировано';
+
+  @override
+  String get waylandHotkeyOpenKeyboardSettings =>
+      'Открыть настройки клавиатуры';
 }

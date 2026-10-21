@@ -40,6 +40,7 @@ All entries are written in English.
 
 ### Fixes
 
+- **Hotkey under Wayland explains itself:** if the desktop does not bind the hotkey for other apps, Settings and onboarding say why, offer “Reconnect” and show the command for a custom shortcut. Unpackaged Linux builds install their own GNOME launcher entry, so the desktop can find WhisPaste.
 - **Linux: Auto-Paste asks before it gets keyboard access:** the .deb package no longer grants /dev/uinput when it is installed. WhisPaste asks first and needs your administrator password. You can remove the permission again in the settings.
 - **Crash reports keep less personal data:** file names, local paths and imported document text are removed from crash reports, their breadcrumbs and log entries. Only the file extension and the error type remain.
 - **GPU crashes stop repeating:** after a second crash while a GPU speech model loads, WhisPaste keeps that model on the CPU. A successful warm-up no longer resets the crash count, and a GPU transcription that hangs moves to the CPU engine once.

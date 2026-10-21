@@ -147,6 +147,145 @@ void main() {
     });
   });
 
+  group('waylandHotkeyBindingFrom (XP-2-06)', () {
+    test('no Wayland session, old runner or odd reply → not applicable', () {
+      expect(
+        waylandHotkeyBindingFrom({'x11': true, 'portal': false}),
+        WaylandHotkeyBinding.notApplicable,
+      );
+      expect(
+        waylandHotkeyBindingFrom({'x11': true, 'wayland': false}),
+        WaylandHotkeyBinding.notApplicable,
+      );
+      expect(
+        waylandHotkeyBindingFrom(false),
+        WaylandHotkeyBinding.notApplicable,
+      );
+    });
+
+    test('portal found, binding not confirmed yet → pending', () {
+      expect(
+        waylandHotkeyBindingFrom({'wayland': true, 'portal': true}),
+        WaylandHotkeyBinding.pending,
+      );
+    });
+
+    test('bound wins', () {
+      expect(
+        waylandHotkeyBindingFrom({
+          'wayland': true,
+          'portal': true,
+          'bound': true,
+        }),
+        WaylandHotkeyBinding.bound,
+      );
+    });
+
+    test('each native reason maps to its own binding', () {
+      Map<String, Object> failed(String reason) => {
+        'wayland': true,
+        'portal': false,
+        'reason': reason,
+      };
+      expect(
+        waylandHotkeyBindingFrom(failed('no-app-id')),
+        WaylandHotkeyBinding.noAppId,
+      );
+      expect(
+        waylandHotkeyBindingFrom(failed('unavailable')),
+        WaylandHotkeyBinding.unavailable,
+      );
+      expect(
+        waylandHotkeyBindingFrom(failed('declined')),
+        WaylandHotkeyBinding.declined,
+      );
+    });
+
+    test('Wayland without portal and without a reason → unavailable', () {
+      expect(
+        waylandHotkeyBindingFrom({'wayland': true, 'portal': false}),
+        WaylandHotkeyBinding.unavailable,
+      );
+    });
+  });
+
+  group('ChannelKeyboardUpMonitor — Wayland binding', () {
+    test('start passes the localized shortcut description', () async {
+      final calls = <MethodCall>[];
+      _mockNative((call) async {
+        calls.add(call);
+        return {'x11': false, 'portal': true, 'wayland': true};
+      });
+      final monitor = ChannelKeyboardUpMonitor(isWindows: false, isLinux: true);
+
+      await monitor.start(_hotKey, description: 'WhisPaste-Diktat');
+
+      expect(
+        calls.single.arguments,
+        containsPair('description', 'WhisPaste-Diktat'),
+      );
+      expect(monitor.waylandBinding, WaylandHotkeyBinding.pending);
+    });
+
+    test(
+      'a later bound / failed push updates the binding and notifies',
+      () async {
+        _mockNative(
+          (_) async => {'x11': false, 'portal': true, 'wayland': true},
+        );
+        final monitor = ChannelKeyboardUpMonitor(
+          isWindows: false,
+          isLinux: true,
+        );
+        var changes = 0;
+        monitor.onWaylandBindingChanged = () => changes++;
+        await monitor.start(_hotKey);
+        expect(changes, 1);
+
+        await _nativeCall('onCapabilities', {
+          'x11': false,
+          'portal': true,
+          'wayland': true,
+          'bound': true,
+        });
+        expect(monitor.waylandBinding, WaylandHotkeyBinding.bound);
+        expect(monitor.supportsKeyUp, isTrue);
+
+        await _nativeCall('onCapabilities', {
+          'x11': false,
+          'portal': false,
+          'wayland': true,
+          'reason': 'declined',
+        });
+        expect(monitor.waylandBinding, WaylandHotkeyBinding.declined);
+        expect(changes, 3);
+      },
+    );
+
+    test('an unchanged report does not notify again', () async {
+      _mockNative((_) async => {'x11': true, 'portal': false});
+      final monitor = ChannelKeyboardUpMonitor(isWindows: false, isLinux: true);
+      var changes = 0;
+      monitor.onWaylandBindingChanged = () => changes++;
+
+      await monitor.start(_hotKey);
+
+      expect(monitor.waylandBinding, WaylandHotkeyBinding.notApplicable);
+      expect(changes, 0);
+    });
+
+    test('Windows and the no-op monitor are never Wayland', () async {
+      _mockNative((_) async => null);
+      final windows = ChannelKeyboardUpMonitor(isWindows: true, isLinux: false);
+      await windows.start(_hotKey);
+      expect(windows.waylandBinding, WaylandHotkeyBinding.notApplicable);
+      expect(
+        NoopKeyboardUpMonitor().waylandBinding,
+        WaylandHotkeyBinding.notApplicable,
+      );
+    });
+  });
+
   group('ChannelKeyboardUpMonitor — Windows unchanged', () {
     test('supports key-up without a probe and is not experimental', () {
       final monitor = ChannelKeyboardUpMonitor(isWindows: true, isLinux: false);

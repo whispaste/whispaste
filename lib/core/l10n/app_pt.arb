@@ -2335,6 +2335,7 @@
   "@manualC14S15H1": {"placeholders": {"k1": {"type": "String"}, "k2": {"type": "String"}}},
   "manualC14S15H2": "Em outros desktops, como Sway ou Hyprland, associe você mesmo o comando a uma combinação de teclas. As configurações mostram o comando exato para a sua instalação em {k1}.",
   "@manualC14S15H2": {"placeholders": {"k1": {"type": "String"}}},
+  "manualC14S15H3": "Se o atalho não funciona em outros apps, as Configurações e a introdução mostram um aviso com o motivo, o comando para uma combinação própria e o botão «Reconectar», que pede o atalho ao ambiente de novo.",
   "manualC14S15FlatpakHeading": "Flatpak",
   "manualC14S15B3W": "Com esse acesso, o app poderia, em teoria, ler as teclas digitadas em outros programas, se o seu usuário tiver permissão de leitura nos dispositivos de entrada (por exemplo, como membro do grupo input). Os membros do grupo input também podem gerar entradas virtuais.",
   "manualC14S15B3S": "O Auto-Paste também precisa de acesso de escrita a /dev/uinput no computador: instale a regra udev 71-whispaste-uinput.rules em /etc/udev/rules.d/ e execute depois estes comandos:",
@@ -2691,5 +2692,14 @@
   "profileAppCaptured": "«{identifier}» foi adicionado como app de destino.",
   "@profileAppCaptured": {"placeholders": {"identifier": {}}},
   "profileAppCaptureNone": "Nenhum outro app está em primeiro plano. Mude para o app de destino antes da contagem terminar.",
-  "profileAppCaptureUnavailable": "Esta sessão não consegue ler o app em primeiro plano (por exemplo Wayland). Digite o identificador manualmente."
+  "profileAppCaptureUnavailable": "Esta sessão não consegue ler o app em primeiro plano (por exemplo Wayland). Digite o identificador manualmente.",
+  "waylandHotkeyPortalDescription": "Ditado do WhisPaste",
+  "waylandHotkeyNoAppId": "Sua área de trabalho não conseguiu identificar o WhisPaste e não ativou o atalho, por isso ele não funciona em outros apps.",
+  "waylandHotkeyUnavailable": "Sua área de trabalho não permite que apps usem um atalho global, por isso o atalho não funciona em outros apps.",
+  "waylandHotkeyDeclined": "O atalho não foi confirmado no diálogo da sua área de trabalho, por isso ele não funciona em outros apps.",
+  "waylandHotkeyFallback": "Em vez disso, você pode criar um atalho de teclado nas configurações do sistema com este comando:",
+  "waylandHotkeyReconnect": "Reconectar",
+  "waylandHotkeyCopyCommand": "Copiar comando",
+  "waylandHotkeyCommandCopied": "Copiado",
+  "waylandHotkeyOpenKeyboardSettings": "Abrir configurações do teclado"
 }

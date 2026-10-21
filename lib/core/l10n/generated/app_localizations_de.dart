@@ -8144,6 +8144,10 @@ class L10nDe extends L10n {
   }
 
   @override
+  String get manualC14S15H3 =>
+      'Ist der Hotkey in anderen Apps ohne Wirkung, zeigen Einstellungen und Einrichtung einen Hinweis mit dem Grund, den Befehl für eine eigene Tastenkombination und die Schaltfläche „Erneut verbinden“, die den Desktop erneut fragt.';
+
+  @override
   String get manualC14S15FlatpakHeading => 'Flatpak';
 
   @override
@@ -9271,4 +9275,36 @@ class L10nDe extends L10n {
   @override
   String get profileAppCaptureUnavailable =>
       'Diese Sitzung kann die Ziel-App nicht erkennen (z. B. Wayland). Trage die Kennung von Hand ein.';
+
+  @override
+  String get waylandHotkeyPortalDescription => 'WhisPaste-Diktat';
+
+  @override
+  String get waylandHotkeyNoAppId =>
+      'Dein Desktop konnte WhisPaste nicht zuordnen und hat den Hotkey nicht aktiviert. Er funktioniert deshalb nicht in anderen Apps.';
+
+  @override
+  String get waylandHotkeyUnavailable =>
+      'Dein Desktop erlaubt Apps keinen systemweiten Hotkey. Der Hotkey funktioniert deshalb nicht in anderen Apps.';
+
+  @override
+  String get waylandHotkeyDeclined =>
+      'Der Hotkey wurde im Dialog deines Desktops nicht bestätigt. Er funktioniert deshalb nicht in anderen Apps.';
+
+  @override
+  String get waylandHotkeyFallback =>
+      'Du kannst stattdessen in den Systemeinstellungen ein Tastenkürzel anlegen. Nutze diesen Befehl:';
+
+  @override
+  String get waylandHotkeyReconnect => 'Erneut verbinden';
+
+  @override
+  String get waylandHotkeyCopyCommand => 'Befehl kopieren';
+
+  @override
+  String get waylandHotkeyCommandCopied => 'Kopiert';
+
+  @override
+  String get waylandHotkeyOpenKeyboardSettings =>
+      'Tastatur-Einstellungen öffnen';
 }

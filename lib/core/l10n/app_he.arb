@@ -2868,6 +2868,7 @@
   "@manualC14S15H1": {"placeholders": {"k1": {"type": "String"}, "k2": {"type": "String"}}},
   "manualC14S15H2": "בשולחנות עבודה אחרים, כמו Sway או Hyprland, הקצה את הפקודה לצירוף מקשים בעצמך. ההגדרות מציגות תחת {k1} את הפקודה המדויקת להתקנה שלך.",
   "@manualC14S15H2": {"placeholders": {"k1": {"type": "String"}}},
+  "manualC14S15H3": "אם מקש הקיצור לא פועל באפליקציות אחרות, ההגדרות וההיכרות הראשונית מציגות הודעה עם הסיבה, הפקודה לקיצור מקלדת משלכם והלחצן «חיבור מחדש», שמבקש שוב מהשולחן את הקיצור.",
   "manualC14S15FlatpakHeading": "Flatpak",
   "manualC14S15B3W": "עם הגישה הזו, האפליקציה יכולה תיאורטית לקרוא הקשות של תוכנות אחרות, אם למשתמש שלך יש הרשאת קריאה להתקני הקלט (למשל כחבר בקבוצה input). חברי הקבוצה input יכולים גם ליצור קלט וירטואלי.",
   "manualC14S15B3S": "להדבקה אוטומטית המחשב צריך גם הרשאת כתיבה ל-/dev/uinput: התקן את כלל udev 71-whispaste-uinput.rules ב-/etc/udev/rules.d/ והרץ אחר כך את הפקודות האלה:",
@@ -3224,5 +3225,14 @@
   "profileAppCaptured": "„{identifier}“ נוספה כאפליקציית יעד.",
   "@profileAppCaptured": {"placeholders": {"identifier": {}}},
   "profileAppCaptureNone": "אין אפליקציה אחרת בחזית. עבור לאפליקציית היעד לפני שהספירה לאחור מסתיימת.",
-  "profileAppCaptureUnavailable": "הסשן הזה לא יכול לקרוא את האפליקציה שבחזית (למשל Wayland). הזן את המזהה ידנית."
+  "profileAppCaptureUnavailable": "הסשן הזה לא יכול לקרוא את האפליקציה שבחזית (למשל Wayland). הזן את המזהה ידנית.",
+  "waylandHotkeyPortalDescription": "הכתבה ב-WhisPaste",
+  "waylandHotkeyNoAppId": "שולחן העבודה לא הצליח לזהות את WhisPaste ולא הפעיל את הקיצור, ולכן הוא לא פועל באפליקציות אחרות.",
+  "waylandHotkeyUnavailable": "שולחן העבודה לא מאפשר לאפליקציות להגדיר קיצור גלובלי, ולכן הקיצור לא פועל באפליקציות אחרות.",
+  "waylandHotkeyDeclined": "הקיצור לא אושר בחלון הדו-שיח של שולחן העבודה, ולכן הוא לא פועל באפליקציות אחרות.",
+  "waylandHotkeyFallback": "במקום זאת אפשר להוסיף קיצור מקשים בהגדרות המערכת עם הפקודה הזו:",
+  "waylandHotkeyReconnect": "חיבור מחדש",
+  "waylandHotkeyCopyCommand": "העתקת הפקודה",
+  "waylandHotkeyCommandCopied": "הועתק",
+  "waylandHotkeyOpenKeyboardSettings": "פתיחת הגדרות המקלדת"
 }

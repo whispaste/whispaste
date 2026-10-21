@@ -37,6 +37,52 @@ import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../core/logging/app_logger.dart';
 
+/// Who owns the global hotkey in a Linux Wayland session (XP-2-06).
+///
+/// There the X11 grab only fires while an XWayland window has focus, so the
+/// hotkey works system-wide only once the compositor binds it through the
+/// GlobalShortcuts portal. Everywhere else the registrar owns the hotkey and
+/// this stays [notApplicable].
+enum WaylandHotkeyBinding {
+  /// Not a Wayland session (X11, Windows, macOS, or an older runner).
+  notApplicable,
+
+  /// Portal found, binding requested — the desktop may still be asking the
+  /// user to confirm it.
+  pending,
+
+  /// The compositor owns the hotkey.
+  bound,
+
+  /// The portal could not identify WhisPaste (no installed desktop entry).
+  noAppId,
+
+  /// The session has no GlobalShortcuts portal.
+  unavailable,
+
+  /// The user or the desktop declined the binding.
+  declined;
+
+  /// Whether the hotkey does not work outside WhisPaste in this session.
+  bool get isUnbound =>
+      this == noAppId || this == unavailable || this == declined;
+}
+
+/// Maps a Linux host report (`start` reply or `onCapabilities` push) to a
+/// [WaylandHotkeyBinding].
+WaylandHotkeyBinding waylandHotkeyBindingFrom(Object? report) {
+  if (report is! Map || report['wayland'] != true) {
+    return WaylandHotkeyBinding.notApplicable;
+  }
+  if (report['bound'] == true) return WaylandHotkeyBinding.bound;
+  if (report['portal'] == true) return WaylandHotkeyBinding.pending;
+  return switch (report['reason']) {
+    'no-app-id' => WaylandHotkeyBinding.noAppId,
+    'declined' => WaylandHotkeyBinding.declined,
+    _ => WaylandHotkeyBinding.unavailable,
+  };
+}
+
 /// Observes key-up for the registered global hotkey on platforms whose hotkey
 /// registrar is key-down only. Swap with a fake in unit tests.
 abstract class KeyboardUpMonitor {
@@ -48,8 +94,9 @@ abstract class KeyboardUpMonitor {
   /// Begins observing [hotKey] for the release (break) of its main key.
   ///
   /// Safe to call repeatedly; the latest [hotKey] replaces any previous watch.
-  /// No-op when [supportsKeyUp] is `false`.
-  Future<void> start(HotKey hotKey);
+  /// No-op when [supportsKeyUp] is `false`. [description] names the hotkey
+  /// in the desktop's GlobalShortcuts dialog (Linux Wayland only).
+  Future<void> start(HotKey hotKey, {String? description});
 
   /// Arms the release-watch — call when the hotkey fires (key-down). The native
   /// side snapshots the currently-held main key so its release ends the hold.
@@ -74,6 +121,13 @@ abstract class KeyboardUpMonitor {
   /// Linux portal path does, since the compositor (not the X11 grab) owns the
   /// shortcut there.
   set onKeyDown(VoidCallback? handler);
+
+  /// Who owns the global hotkey in a Linux Wayland session; see
+  /// [WaylandHotkeyBinding]. Kept across [stop], like the key-up capability.
+  WaylandHotkeyBinding get waylandBinding;
+
+  /// Called whenever [waylandBinding] changes.
+  set onWaylandBindingChanged(VoidCallback? handler);
 }
 
 /// No-op monitor for platforms that already have key-up (macOS) or have no
@@ -86,7 +140,7 @@ class NoopKeyboardUpMonitor implements KeyboardUpMonitor {
   bool get experimental => false;
 
   @override
-  Future<void> start(HotKey hotKey) async {}
+  Future<void> start(HotKey hotKey, {String? description}) async {}
 
   @override
   Future<void> armRelease() async {}
@@ -99,6 +153,12 @@ class NoopKeyboardUpMonitor implements KeyboardUpMonitor {
 
   @override
   set onKeyDown(VoidCallback? handler) {}
+
+  @override
+  WaylandHotkeyBinding get waylandBinding => WaylandHotkeyBinding.notApplicable;
+
+  @override
+  set onWaylandBindingChanged(VoidCallback? handler) {}
 }
 
 /// Production monitor backed by the native `com.whispaste.keyboard_monitor`
@@ -127,14 +187,24 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
     'com.whispaste.keyboard_monitor',
   );
 
+  WaylandHotkeyBinding _waylandBinding = WaylandHotkeyBinding.notApplicable;
+
   VoidCallback? _onKeyUp;
   VoidCallback? _onKeyDown;
+  VoidCallback? _onWaylandBindingChanged;
 
   @override
   set onKeyUp(VoidCallback? handler) => _onKeyUp = handler;
 
   @override
   set onKeyDown(VoidCallback? handler) => _onKeyDown = handler;
+
+  @override
+  WaylandHotkeyBinding get waylandBinding => _waylandBinding;
+
+  @override
+  set onWaylandBindingChanged(VoidCallback? handler) =>
+      _onWaylandBindingChanged = handler;
 
   // Windows always ships the RawInput host; on Linux it depends on the
   // session (X11 vs. Wayland with/without portal) and is probed by [start].
@@ -145,8 +215,8 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
   bool get experimental => _isLinux && _linuxKeyUp;
 
   @override
-  Future<void> start(HotKey hotKey) async {
-    if (_isLinux) return _startLinux(hotKey);
+  Future<void> start(HotKey hotKey, {String? description}) async {
+    if (_isLinux) return _startLinux(hotKey, description);
     if (!supportsKeyUp) return;
     try {
       await _channel.invokeMethod<void>('start');
@@ -157,10 +227,11 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
     }
   }
 
-  Future<void> _startLinux(HotKey hotKey) async {
+  Future<void> _startLinux(HotKey hotKey, String? description) async {
     try {
       final reply = await _channel.invokeMethod<Object?>('start', {
         'trigger': xdgShortcutTrigger(hotKey),
+        'description': ?description,
       });
       _applyLinuxCapabilities(reply);
     } on Object catch (e) {
@@ -175,7 +246,14 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
     final x11 = reply is Map && reply['x11'] == true;
     final portal = reply is Map && reply['portal'] == true;
     _linuxKeyUp = x11 || portal;
-    _log.info('Linux key-up capability: x11=$x11 portal=$portal');
+    final binding = waylandHotkeyBindingFrom(reply);
+    _log.info(
+      'Linux key-up capability: x11=$x11 portal=$portal '
+      'wayland=${binding.name}',
+    );
+    if (binding == _waylandBinding) return;
+    _waylandBinding = binding;
+    _onWaylandBindingChanged?.call();
   }
 
   @override

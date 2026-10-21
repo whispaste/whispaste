@@ -503,6 +503,10 @@ jobs:
       # synthetic Ctrl+V on Linux (linux/runner/modifier_release.h).
       - name: Linux modifier release unit test
         run: bash test/scripts/modifier_release_test.sh
+      # Pure C++ unit test of the GNOME desktop entry for unpackaged Linux
+      # builds (linux/runner/desktop_entry.h): Exec quoting, ownership marker.
+      - name: Linux desktop entry unit test
+        run: bash test/scripts/desktop_entry_test.sh
       # Pure C++ unit test of the tiling-WM detection that keeps helper
       # windows from being tiled (linux/runner/window_manager_kind.h).
       - name: Linux window manager kind unit test

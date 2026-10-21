@@ -447,3 +447,55 @@ Future<void> removeDesktopShortcutForReset(
   }
   if (installed) await shortcut.remove();
 }
+
+/// The command [DesktopShortcutFallback.manual] shows, and the one the
+/// Wayland hotkey notice copies. A provider so tests do not depend on the
+/// test runner's own executable.
+final manualToggleCommandProvider = Provider<String>(
+  (ref) =>
+      manualToggleCommand(Platform.environment, Platform.resolvedExecutable),
+);
+
+/// Executable and arguments that open [desktop]'s keyboard shortcut settings,
+/// or null for a desktop WhisPaste cannot open them on.
+(String, List<String>)? keyboardShortcutSettingsCommand(
+  LinuxFocusDesktop desktop,
+) => switch (desktop) {
+  LinuxFocusDesktop.gnome => ('gnome-control-center', ['keyboard']),
+  LinuxFocusDesktop.kde => ('systemsettings', ['kcm_keys']),
+  _ => null,
+};
+
+/// Opens the keyboard shortcut settings of [desktop]. Returns false when they
+/// cannot be opened.
+Future<bool> openKeyboardShortcutSettings(LinuxFocusDesktop desktop) async {
+  final command = keyboardShortcutSettingsCommand(desktop);
+  if (command == null) return false;
+  final (executable, args) = command;
+  try {
+    await Process.start(executable, args, mode: ProcessStartMode.detached);
+    return true;
+  } on ProcessException catch (e) {
+    _log.warning('Could not open keyboard settings ($executable): $e');
+    return false;
+  }
+}
+
+/// Injected so tests never start a settings app.
+final keyboardShortcutSettingsOpenerProvider =
+    Provider<Future<bool> Function(LinuxFocusDesktop)>(
+      (ref) => openKeyboardShortcutSettings,
+    );
+
+/// The desktop whose keyboard shortcut settings WhisPaste can open (GNOME,
+/// KDE), or null. Not inside Flatpak: the settings app would start inside the
+/// sandbox, where it is not installed.
+final keyboardShortcutSettingsDesktopProvider = Provider<LinuxFocusDesktop?>((
+  ref,
+) {
+  if (!ref.watch(linuxDesktopShortcutHostProvider)) return null;
+  final env = Platform.environment;
+  if ((env['FLATPAK_ID'] ?? '').isNotEmpty) return null;
+  final desktop = detectLinuxFocusDesktop(env);
+  return keyboardShortcutSettingsCommand(desktop) == null ? null : desktop;
+});

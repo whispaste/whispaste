@@ -59,8 +59,6 @@ import 'package:whispaste/features/onboarding/steps/test_recording_step.dart'
         kTestRecordingStepMicBypassButtonKey,
         kTestRecordingStepReassuranceHintKey;
 import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
-import 'package:whispaste/features/settings/sections/linux_desktop_shortcut_block.dart'
-    show manualToggleCommandProvider;
 import 'package:whispaste/features/settings/settings_widgets.dart'
     show SettingRow;
 import 'package:whispaste/features/onboarding/steps/auto_paste_step.dart';

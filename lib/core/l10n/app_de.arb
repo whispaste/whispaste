@@ -2550,6 +2550,7 @@
   "@manualC14S15H1": {"placeholders": {"k1": {"type": "String"}, "k2": {"type": "String"}}},
   "manualC14S15H2": "Auf anderen Desktops wie Sway oder Hyprland legst du den Befehl selbst auf eine Tastenkombination. Den genauen Befehl für deine Installation zeigen die Einstellungen unter {k1}.",
   "@manualC14S15H2": {"placeholders": {"k1": {"type": "String"}}},
+  "manualC14S15H3": "Ist der Hotkey in anderen Apps ohne Wirkung, zeigen Einstellungen und Einrichtung einen Hinweis mit dem Grund, den Befehl für eine eigene Tastenkombination und die Schaltfläche „Erneut verbinden“, die den Desktop erneut fragt.",
   "manualC14S15FlatpakHeading": "Flatpak",
   "manualC14S15B3W": "Mit diesem Zugriff könnte die App theoretisch Tastatureingaben anderer Programme mitlesen, wenn dein Benutzer Leserechte auf die Eingabegeräte hat (z. B. als Mitglied der Gruppe input). Mitglieder der Gruppe input können außerdem virtuelle Eingaben erzeugen.",
   "manualC14S15B3S": "Auto-Paste braucht zusätzlich Schreibzugriff auf /dev/uinput auf dem Rechner. Installiere dafür die udev-Regel 71-whispaste-uinput.rules nach /etc/udev/rules.d/ und führe danach diese Befehle aus:",
@@ -2937,5 +2938,14 @@
   "profileAppCaptured": "„{identifier}“ wurde als Ziel-App übernommen.",
   "@profileAppCaptured": {"placeholders": {"identifier": {}}},
   "profileAppCaptureNone": "Keine fremde App im Vordergrund. Wechsle in die Ziel-App, bevor der Countdown endet.",
-  "profileAppCaptureUnavailable": "Diese Sitzung kann die Ziel-App nicht erkennen (z. B. Wayland). Trage die Kennung von Hand ein."
+  "profileAppCaptureUnavailable": "Diese Sitzung kann die Ziel-App nicht erkennen (z. B. Wayland). Trage die Kennung von Hand ein.",
+  "waylandHotkeyPortalDescription": "WhisPaste-Diktat",
+  "waylandHotkeyNoAppId": "Dein Desktop konnte WhisPaste nicht zuordnen und hat den Hotkey nicht aktiviert. Er funktioniert deshalb nicht in anderen Apps.",
+  "waylandHotkeyUnavailable": "Dein Desktop erlaubt Apps keinen systemweiten Hotkey. Der Hotkey funktioniert deshalb nicht in anderen Apps.",
+  "waylandHotkeyDeclined": "Der Hotkey wurde im Dialog deines Desktops nicht bestätigt. Er funktioniert deshalb nicht in anderen Apps.",
+  "waylandHotkeyFallback": "Du kannst stattdessen in den Systemeinstellungen ein Tastenkürzel anlegen. Nutze diesen Befehl:",
+  "waylandHotkeyReconnect": "Erneut verbinden",
+  "waylandHotkeyCopyCommand": "Befehl kopieren",
+  "waylandHotkeyCommandCopied": "Kopiert",
+  "waylandHotkeyOpenKeyboardSettings": "Tastatur-Einstellungen öffnen"
 }

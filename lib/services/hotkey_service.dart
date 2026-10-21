@@ -14,8 +14,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import 'dart:ui' show Locale;
+
 import '../core/config/settings_labels.dart';
 import '../core/config/settings_provider.dart';
+import '../core/l10n/generated/app_localizations.dart';
 import '../core/logging/app_logger.dart';
 import '../core/logging/perf_instrumentation.dart';
 import 'hotkey_key_resolver.dart';
@@ -81,7 +84,11 @@ class _PackageHotKeyRegistrar implements HotKeyRegistrar {
 ///   because another app or the OS owns the same shortcut). The service falls
 ///   back to the safe-default in this case, but UI surfaces should still prompt
 ///   the user to re-bind before continuing.
-enum HotkeyRegistrationStatus { unknown, success, conflict }
+/// - [waylandUnbound]: Linux Wayland only — the hotkey is registered, but the
+///   desktop has not bound it through the GlobalShortcuts portal, so it does
+///   not fire in other apps ([waylandHotkeyBindingProvider] says why). Main
+///   hotkey only; UI offers a reconnect and the `--toggle` fallback.
+enum HotkeyRegistrationStatus { unknown, success, conflict, waylandUnbound }
 
 /// Notifier holding the latest [HotkeyRegistrationStatus]. Written by
 /// [HotkeyService]; watched by [ReadyStep] and any other surface that needs
@@ -105,6 +112,24 @@ final hotkeyRegistrationStatusProvider =
       HotkeyRegistrationStatusController,
       HotkeyRegistrationStatus
     >(HotkeyRegistrationStatusController.new);
+
+/// Notifier holding the main hotkey's latest [WaylandHotkeyBinding] — the
+/// reason behind [HotkeyRegistrationStatus.waylandUnbound]. Written by
+/// [HotkeyService].
+class WaylandHotkeyBindingController extends Notifier<WaylandHotkeyBinding> {
+  @override
+  WaylandHotkeyBinding build() => WaylandHotkeyBinding.notApplicable;
+
+  void set(WaylandHotkeyBinding binding) {
+    state = binding;
+  }
+}
+
+/// Provider for the main hotkey's [WaylandHotkeyBinding].
+final waylandHotkeyBindingProvider =
+    NotifierProvider<WaylandHotkeyBindingController, WaylandHotkeyBinding>(
+      WaylandHotkeyBindingController.new,
+    );
 
 /// Notifier holding the [HotkeyRegistrationStatus] for the quick-note hotkey
 /// (ticket 20) — kept fully separate from [hotkeyRegistrationStatusProvider]
@@ -652,6 +677,70 @@ class HotkeyService extends Notifier<void> {
   void _wireMonitor() {
     _monitor.onKeyUp = () => _handleKeyUp(_globalActionId, 'Global');
     _monitor.onKeyDown = () => _handleKeyDown(_globalActionId, 'Global');
+    _monitor.onWaylandBindingChanged = _applyWaylandBinding;
+  }
+
+  /// Starts the key-up monitor for the global [hotKey]. On Linux Wayland this
+  /// also asks the desktop to bind it (GlobalShortcuts portal), under the
+  /// localized name the desktop shows in its dialog.
+  Future<void> _startMonitor(HotKey hotKey) async {
+    await _monitor.start(
+      hotKey,
+      description: _resolveL10n().waylandHotkeyPortalDescription,
+    );
+    _applyWaylandBinding();
+  }
+
+  /// Asks the desktop again to bind the global hotkey (Linux Wayland, after
+  /// the portal dialog was declined or the app ID was missing). No-op without
+  /// a registered global hotkey.
+  Future<void> reconnectWaylandHotkey() async {
+    final hotKey = _stateFor(_globalActionId).registeredHotKey;
+    if (hotKey == null) return;
+    await _startMonitor(hotKey);
+  }
+
+  /// Mirrors the monitor's [WaylandHotkeyBinding] into the main hotkey's
+  /// status: an unbound Wayland hotkey is registered but does not fire in
+  /// other apps, so it must not read as [HotkeyRegistrationStatus.success].
+  /// A conflict (or no attempt yet) is never overwritten.
+  void _applyWaylandBinding() {
+    final binding = _monitor.waylandBinding;
+    try {
+      ref.read(waylandHotkeyBindingProvider.notifier).set(binding);
+      final current = ref.read(hotkeyRegistrationStatusProvider);
+      if (current != HotkeyRegistrationStatus.success &&
+          current != HotkeyRegistrationStatus.waylandUnbound) {
+        return;
+      }
+    } on Object catch (e) {
+      _log.debug('Wayland binding update skipped (standalone test): $e');
+      return;
+    }
+    _setStatus(
+      binding.isUnbound
+          ? HotkeyRegistrationStatus.waylandUnbound
+          : HotkeyRegistrationStatus.success,
+    );
+  }
+
+  /// The app's own language setting, falling back to English (same rule as
+  /// the recording orchestrator's native texts).
+  L10n _resolveL10n() {
+    String? localeCode;
+    try {
+      localeCode = ref.read(settingsProvider).value?.locale;
+    } on Object catch (e) {
+      _log.debug('No settings for the portal text (standalone test): $e');
+    }
+    if (localeCode != null) {
+      try {
+        return lookupL10n(Locale(localeCode));
+      } on Object catch (e) {
+        _log.debug('Unsupported locale "$localeCode", falling back to en: $e');
+      }
+    }
+    return lookupL10n(const Locale('en'));
   }
 
   /// Injects a custom [HotKeyRegistrar] for unit testing.
@@ -690,7 +779,7 @@ class HotkeyService extends Notifier<void> {
       _setFallbackActive(false);
       // Start the RawInput key-up monitor for the same combo (Windows; no-op
       // elsewhere) so push-to-talk has a release event (#39).
-      await _monitor.start(hotKey);
+      await _startMonitor(hotKey);
     } on Object catch (e, st) {
       // Catch Object (not just Exception) so TypeError from hotkey_manager
       // is handled gracefully.
@@ -1336,7 +1425,7 @@ class HotkeyService extends Notifier<void> {
         'Safe-default hotkey registered successfully ($safeDefaultHotKeyLabel)',
       );
       _initialized = true;
-      await _monitor.start(fallback);
+      await _startMonitor(fallback);
       _setFallbackActive(true);
       onRegistrationFailed?.call();
     } on Object catch (e) {

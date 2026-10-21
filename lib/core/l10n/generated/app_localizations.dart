@@ -13576,6 +13576,12 @@ abstract class L10n {
   /// **'On other desktops, such as Sway or Hyprland, assign the command to a key combination yourself. Settings shows the exact command for your installation under {k1}.'**
   String manualC14S15H2(String k1);
 
+  /// Handbook: what the Wayland hotkey notice offers. “{r}” = the Reconnect button label.
+  ///
+  /// In en, this message translates to:
+  /// **'If the hotkey does not work in other apps, Settings and onboarding show a notice with the reason, the command for your own key combination, and a “Reconnect” button that asks the desktop again.'**
+  String get manualC14S15H3;
+
   /// Subheading for the Flatpak build, a Linux app package format. Keep the name as is.
   ///
   /// In en, this message translates to:
@@ -15423,6 +15429,60 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'This session cannot read the app in front (for example Wayland). Enter the identifier by hand.'**
   String get profileAppCaptureUnavailable;
+
+  /// Name of the dictation hotkey in the Linux desktop's own global-shortcuts dialog (GNOME/KDE, Wayland). Neutral, no mode (toggle or push-to-talk).
+  ///
+  /// In en, this message translates to:
+  /// **'WhisPaste dictation'**
+  String get waylandHotkeyPortalDescription;
+
+  /// Inline notice under the hotkey (Settings and onboarding) on Linux Wayland when the desktop portal could not identify the app, so the hotkey is not bound system-wide.
+  ///
+  /// In en, this message translates to:
+  /// **'Your desktop could not identify WhisPaste and has not activated the hotkey, so it does not work in other apps.'**
+  String get waylandHotkeyNoAppId;
+
+  /// Inline notice under the hotkey on Linux Wayland when the desktop offers no global-shortcuts portal.
+  ///
+  /// In en, this message translates to:
+  /// **'Your desktop does not let apps set a system-wide hotkey, so the hotkey does not work in other apps.'**
+  String get waylandHotkeyUnavailable;
+
+  /// Inline notice under the hotkey on Linux Wayland when the user or the desktop declined the global-shortcut dialog.
+  ///
+  /// In en, this message translates to:
+  /// **'The hotkey was not confirmed in your desktop\'s dialog, so it does not work in other apps.'**
+  String get waylandHotkeyDeclined;
+
+  /// Second sentence of the Wayland hotkey notice, followed by a shell command (whispaste --toggle) the user can bind as a custom shortcut in GNOME/KDE settings.
+  ///
+  /// In en, this message translates to:
+  /// **'You can add a keyboard shortcut in your system settings instead. Use this command:'**
+  String get waylandHotkeyFallback;
+
+  /// Button in the Wayland hotkey notice: asks the desktop again to bind the hotkey (may reopen its dialog).
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get waylandHotkeyReconnect;
+
+  /// Button in the Wayland hotkey notice: copies the fallback command to the clipboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy command'**
+  String get waylandHotkeyCopyCommand;
+
+  /// Label the copy button shows after the command was copied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied'**
+  String get waylandHotkeyCommandCopied;
+
+  /// Button in the Wayland hotkey notice: opens the desktop's keyboard shortcut settings (GNOME Settings / KDE System Settings).
+  ///
+  /// In en, this message translates to:
+  /// **'Open keyboard settings'**
+  String get waylandHotkeyOpenKeyboardSettings;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

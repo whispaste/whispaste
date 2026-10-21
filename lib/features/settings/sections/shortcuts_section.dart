@@ -30,6 +30,7 @@ import '../selection_edit_hotkey_flow.dart';
 import '../settings_widgets.dart';
 import '../smart_mode_hotkey_flow.dart';
 import '../snippet_picker_hotkey_flow.dart';
+import '../widgets/wayland_hotkey_notice.dart';
 import '../widgets/wp_settings_group.dart';
 import 'linux_desktop_shortcut_block.dart';
 import 'smart_mode_section.dart' show smartModeTargetLanguageLabel;
@@ -127,6 +128,9 @@ class _KeyboardShortcutSectionState
                     color: WpColors.warning,
                     text: hotkeyFallbackMessage(settings, l10n),
                   ),
+                // Linux Wayland: registered, but the desktop has not bound it
+                // (XP-2-06). Says why, with reconnect and the command.
+                const WaylandHotkeyNotice(idPrefix: 'settings'),
                 // Linux Wayland without the GlobalShortcuts portal: the
                 // hotkey goes through the desktop's own shortcuts.
                 LinuxDesktopShortcutBlock(settings: settings),

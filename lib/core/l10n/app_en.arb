@@ -3515,6 +3515,8 @@
   "@manualC14S15H1": {"description": "Handbook: hotkey under Wayland. {k1} = the button label “Add to GNOME”, {k2} = settings section name.", "placeholders": {"k1": {"type": "String"}, "k2": {"type": "String"}}},
   "manualC14S15H2": "On other desktops, such as Sway or Hyprland, assign the command to a key combination yourself. Settings shows the exact command for your installation under {k1}.",
   "@manualC14S15H2": {"description": "Handbook: manual shortcut on other Wayland desktops. {k1} = settings section name.", "placeholders": {"k1": {"type": "String"}}},
+  "manualC14S15H3": "If the hotkey does not work in other apps, Settings and onboarding show a notice with the reason, the command for your own key combination, and a “Reconnect” button that asks the desktop again.",
+  "@manualC14S15H3": {"description": "Handbook: what the Wayland hotkey notice offers. “{r}” = the Reconnect button label."},
   "manualC14S15FlatpakHeading": "Flatpak",
   "@manualC14S15FlatpakHeading": {
     "description": "Subheading for the Flatpak build, a Linux app package format. Keep the name as is."
@@ -4057,5 +4059,23 @@
   "profileAppCaptured": "“{identifier}” was added as target app.",
   "@profileAppCaptured": {"placeholders": {"identifier": {}}},
   "profileAppCaptureNone": "No other app is in front. Switch to the target app before the countdown ends.",
-  "profileAppCaptureUnavailable": "This session cannot read the app in front (for example Wayland). Enter the identifier by hand."
+  "profileAppCaptureUnavailable": "This session cannot read the app in front (for example Wayland). Enter the identifier by hand.",
+  "waylandHotkeyPortalDescription": "WhisPaste dictation",
+  "@waylandHotkeyPortalDescription": {"description": "Name of the dictation hotkey in the Linux desktop's own global-shortcuts dialog (GNOME/KDE, Wayland). Neutral, no mode (toggle or push-to-talk)."},
+  "waylandHotkeyNoAppId": "Your desktop could not identify WhisPaste and has not activated the hotkey, so it does not work in other apps.",
+  "@waylandHotkeyNoAppId": {"description": "Inline notice under the hotkey (Settings and onboarding) on Linux Wayland when the desktop portal could not identify the app, so the hotkey is not bound system-wide."},
+  "waylandHotkeyUnavailable": "Your desktop does not let apps set a system-wide hotkey, so the hotkey does not work in other apps.",
+  "@waylandHotkeyUnavailable": {"description": "Inline notice under the hotkey on Linux Wayland when the desktop offers no global-shortcuts portal."},
+  "waylandHotkeyDeclined": "The hotkey was not confirmed in your desktop's dialog, so it does not work in other apps.",
+  "@waylandHotkeyDeclined": {"description": "Inline notice under the hotkey on Linux Wayland when the user or the desktop declined the global-shortcut dialog."},
+  "waylandHotkeyFallback": "You can add a keyboard shortcut in your system settings instead. Use this command:",
+  "@waylandHotkeyFallback": {"description": "Second sentence of the Wayland hotkey notice, followed by a shell command (whispaste --toggle) the user can bind as a custom shortcut in GNOME/KDE settings."},
+  "waylandHotkeyReconnect": "Reconnect",
+  "@waylandHotkeyReconnect": {"description": "Button in the Wayland hotkey notice: asks the desktop again to bind the hotkey (may reopen its dialog)."},
+  "waylandHotkeyCopyCommand": "Copy command",
+  "@waylandHotkeyCopyCommand": {"description": "Button in the Wayland hotkey notice: copies the fallback command to the clipboard."},
+  "waylandHotkeyCommandCopied": "Copied",
+  "@waylandHotkeyCommandCopied": {"description": "Label the copy button shows after the command was copied."},
+  "waylandHotkeyOpenKeyboardSettings": "Open keyboard settings",
+  "@waylandHotkeyOpenKeyboardSettings": {"description": "Button in the Wayland hotkey notice: opens the desktop's keyboard shortcut settings (GNOME Settings / KDE System Settings)."}
 }

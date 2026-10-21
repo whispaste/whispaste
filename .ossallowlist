@@ -80,6 +80,10 @@ linux/runner/clipboard_hint.h
 linux/runner/clipboard_receipt.cc
 linux/runner/clipboard_receipt.h
 linux/runner/clipboard_receipt_test.cc
+linux/runner/desktop_entry.h
+linux/runner/desktop_entry_installer.cc
+linux/runner/desktop_entry_installer.h
+linux/runner/desktop_entry_test.cc
 linux/runner/desktop_paste_host.cc
 linux/runner/desktop_paste_host.h
 linux/runner/floating_button_host.cc

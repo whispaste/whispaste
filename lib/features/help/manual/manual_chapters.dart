@@ -734,6 +734,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
             ),
           ),
           ManualParagraph((l) => l.manualC14S15H2(l.settingsKeyboardShortcut)),
+          ManualParagraph((l) => l.manualC14S15H3),
         ],
       ),
       ManualSection(

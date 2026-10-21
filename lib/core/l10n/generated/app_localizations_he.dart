@@ -7984,6 +7984,10 @@ class L10nHe extends L10n {
   }
 
   @override
+  String get manualC14S15H3 =>
+      'אם מקש הקיצור לא פועל באפליקציות אחרות, ההגדרות וההיכרות הראשונית מציגות הודעה עם הסיבה, הפקודה לקיצור מקלדת משלכם והלחצן «חיבור מחדש», שמבקש שוב מהשולחן את הקיצור.';
+
+  @override
   String get manualC14S15FlatpakHeading => 'Flatpak';
 
   @override
@@ -9094,4 +9098,35 @@ class L10nHe extends L10n {
   @override
   String get profileAppCaptureUnavailable =>
       'הסשן הזה לא יכול לקרוא את האפליקציה שבחזית (למשל Wayland). הזן את המזהה ידנית.';
+
+  @override
+  String get waylandHotkeyPortalDescription => 'הכתבה ב-WhisPaste';
+
+  @override
+  String get waylandHotkeyNoAppId =>
+      'שולחן העבודה לא הצליח לזהות את WhisPaste ולא הפעיל את הקיצור, ולכן הוא לא פועל באפליקציות אחרות.';
+
+  @override
+  String get waylandHotkeyUnavailable =>
+      'שולחן העבודה לא מאפשר לאפליקציות להגדיר קיצור גלובלי, ולכן הקיצור לא פועל באפליקציות אחרות.';
+
+  @override
+  String get waylandHotkeyDeclined =>
+      'הקיצור לא אושר בחלון הדו-שיח של שולחן העבודה, ולכן הוא לא פועל באפליקציות אחרות.';
+
+  @override
+  String get waylandHotkeyFallback =>
+      'במקום זאת אפשר להוסיף קיצור מקשים בהגדרות המערכת עם הפקודה הזו:';
+
+  @override
+  String get waylandHotkeyReconnect => 'חיבור מחדש';
+
+  @override
+  String get waylandHotkeyCopyCommand => 'העתקת הפקודה';
+
+  @override
+  String get waylandHotkeyCommandCopied => 'הועתק';
+
+  @override
+  String get waylandHotkeyOpenKeyboardSettings => 'פתיחת הגדרות המקלדת';
 }

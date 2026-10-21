@@ -1,6 +1,7 @@
 #include "keyboard_monitor_host.h"
 
 #include "autorepeat_filter.h"
+#include "desktop_entry_installer.h"
 
 #include <X11/Xlib.h>
 #include <X11/extensions/XInput2.h>
@@ -22,6 +23,17 @@ constexpr char kPortalObjectPath[] = "/org/freedesktop/portal/desktop";
 constexpr char kGlobalShortcutsIface[] = "org.freedesktop.portal.GlobalShortcuts";
 constexpr char kRequestIface[] = "org.freedesktop.portal.Request";
 constexpr char kShortcutId[] = "whispaste-push-to-talk";
+constexpr char kDefaultShortcutDescription[] = "WhisPaste dictation";
+
+// Why a Wayland session has no portal binding, as reported to Dart.
+constexpr char kReasonNoAppId[] = "no-app-id";
+constexpr char kReasonUnavailable[] = "unavailable";
+constexpr char kReasonDeclined[] = "declined";
+
+// The portal resolves the app ID from its own desktop file index, which picks
+// up a just-written entry asynchronously; Register is retried briefly.
+constexpr int kRegisterAttempts = 3;
+constexpr guint kRegisterRetryMs = 400;
 
 // D-Bus calls must never stall the hotkey path for long; the portal answers in
 // milliseconds when it exists at all.
@@ -46,12 +58,37 @@ bool IsCancelled(GError* error) {
          g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED);
 }
 
+// Older portals (< 1.19) lack the host Registry; they are not an app ID
+// failure, the probe simply goes on.
+bool IsMissingRegistry(GError* error) {
+  return error != nullptr &&
+         (g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_UNKNOWN_METHOD) ||
+          g_error_matches(error, G_DBUS_ERROR,
+                          G_DBUS_ERROR_UNKNOWN_INTERFACE) ||
+          g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_UNKNOWN_OBJECT));
+}
+
+// No xdg-desktop-portal service on the bus at all.
+bool IsNoPortal(GError* error) {
+  return error != nullptr &&
+         (g_error_matches(error, G_DBUS_ERROR, G_DBUS_ERROR_SERVICE_UNKNOWN) ||
+          g_error_matches(error, G_DBUS_ERROR,
+                          G_DBUS_ERROR_NAME_HAS_NO_OWNER));
+}
+
 // Answers a pending `start` call. Must run for every probe — including a
 // cancelled one — or Dart's hotkey registration would await it forever.
-void RespondStart(FlMethodCall* method_call, bool x11, bool portal) {
+// [reason] is set when a Wayland session ends up without a portal binding.
+void RespondStart(FlMethodCall* method_call, bool x11, bool portal,
+                  const char* reason = nullptr) {
   g_autoptr(FlValue) result = fl_value_new_map();
   fl_value_set_string_take(result, "x11", fl_value_new_bool(x11));
   fl_value_set_string_take(result, "portal", fl_value_new_bool(portal));
+  fl_value_set_string_take(result, "wayland",
+                           fl_value_new_bool(IsWaylandSession()));
+  if (reason != nullptr) {
+    fl_value_set_string_take(result, "reason", fl_value_new_string(reason));
+  }
   fl_method_call_respond_success(method_call, result, nullptr);
 }
 
@@ -105,8 +142,9 @@ void KeyboardMonitorHost::HandleMethodCall(FlMethodCall* method_call) {
 
   if (strcmp(method, "start") == 0) {
     // Replies itself — possibly asynchronously, after the portal probe.
-    Start(method_call,
-          GetString(fl_method_call_get_args(method_call), "trigger"));
+    FlValue* args = fl_method_call_get_args(method_call);
+    Start(method_call, GetString(args, "trigger"),
+          GetString(args, "description"));
     return;
   }
 
@@ -122,9 +160,12 @@ void KeyboardMonitorHost::HandleMethodCall(FlMethodCall* method_call) {
 }
 
 void KeyboardMonitorHost::Start(FlMethodCall* method_call,
-                                const std::string& trigger) {
+                                const std::string& trigger,
+                                const std::string& description) {
   Stop();
   trigger_ = trigger;
+  description_ =
+      description.empty() ? kDefaultShortcutDescription : description;
 
   // X11 grabs + raw events only cover the whole desktop in an X11 session;
   // under XWayland they would silently miss every native Wayland window.
@@ -145,6 +186,7 @@ void KeyboardMonitorHost::Stop() {
     cancellable_ = destroyed_ ? nullptr : g_cancellable_new();
   }
   CancelPendingRelease();
+  CancelRegisterRetry();
   watched_keycode_ = 0;
   x11_active_ = false;
   ClosePortalSession();
@@ -160,6 +202,13 @@ void KeyboardMonitorHost::SendCapabilities() {
   g_autoptr(FlValue) caps = fl_value_new_map();
   fl_value_set_string_take(caps, "x11", fl_value_new_bool(x11_active_));
   fl_value_set_string_take(caps, "portal", fl_value_new_bool(portal_active_));
+  fl_value_set_string_take(caps, "wayland",
+                           fl_value_new_bool(IsWaylandSession()));
+  fl_value_set_string_take(caps, "bound", fl_value_new_bool(portal_bound_));
+  if (!portal_reason_.empty()) {
+    fl_value_set_string_take(caps, "reason",
+                             fl_value_new_string(portal_reason_.c_str()));
+  }
   SendToDart("onCapabilities", caps);
 }
 
@@ -322,24 +371,80 @@ void KeyboardMonitorHost::ProbePortal(FlMethodCall* method_call) {
   auto* ctx = new AsyncCall{this, generation_,
                             FL_METHOD_CALL(g_object_ref(method_call))};
   if (bus_ == nullptr) {
+    // A private connection, not the process-wide shared one: the portal ties
+    // an app ID to the connection's first portal call, and GTK or a plugin
+    // (file chooser, URL opener) may have used the shared one already.
     g_autoptr(GError) error = nullptr;
-    bus_ = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, &error);
+    g_autofree gchar* address =
+        g_dbus_address_get_for_bus_sync(G_BUS_TYPE_SESSION, nullptr, &error);
+    if (address != nullptr) {
+      bus_ = g_dbus_connection_new_for_address_sync(
+          address,
+          static_cast<GDBusConnectionFlags>(
+              G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
+              G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION),
+          nullptr, nullptr, &error);
+    }
     if (bus_ == nullptr) {
       g_warning("KeyboardMonitorHost: no session bus: %s",
                 error ? error->message : "?");
-      FinishProbe(ctx, false);
+      FinishProbe(ctx, false, kReasonUnavailable);
       return;
     }
   }
+  // The portal resolves the app ID through `<app-id>.desktop`; a tarball or
+  // AppImage has none until WhisPaste writes it.
+  EnsureDesktopEntry(APPLICATION_ID);
+  // Register works once per connection; a reconnect reuses the ID.
+  if (app_id_registered_) {
+    ProbeVersion(ctx);
+    return;
+  }
+  register_attempt_ = 0;
+  CallRegister(ctx);
+}
+
+void KeyboardMonitorHost::ProbeVersion(AsyncCall* ctx) {
+  g_dbus_connection_call(
+      bus_, kPortalBusName, kPortalObjectPath,
+      "org.freedesktop.DBus.Properties", "Get",
+      g_variant_new("(ss)", kGlobalShortcutsIface, "version"),
+      G_VARIANT_TYPE("(v)"), G_DBUS_CALL_FLAGS_NONE, kDbusTimeoutMs,
+      cancellable_, OnVersionDone, ctx);
+}
+
+void KeyboardMonitorHost::CallRegister(AsyncCall* ctx) {
+  ++register_attempt_;
   // Unsandboxed apps must tell the portal who they are before any other
-  // portal call (xdg-desktop-portal >= 1.19); older portals lack the
-  // interface, which is fine — the reply is ignored either way.
+  // portal call (xdg-desktop-portal >= 1.19). Without it GlobalShortcuts
+  // refuses the session ("An app id is required").
   g_dbus_connection_call(
       bus_, kPortalBusName, kPortalObjectPath,
       "org.freedesktop.host.portal.Registry", "Register",
       g_variant_new("(sa{sv})", APPLICATION_ID, nullptr), nullptr,
       G_DBUS_CALL_FLAGS_NONE, kDbusTimeoutMs, cancellable_, OnRegisterDone,
       ctx);
+}
+
+// static
+gboolean KeyboardMonitorHost::OnRegisterRetry(gpointer user_data) {
+  auto* self = static_cast<KeyboardMonitorHost*>(user_data);
+  AsyncCall* ctx = self->register_retry_ctx_;
+  self->register_retry_ctx_ = nullptr;
+  self->register_retry_id_ = 0;
+  self->CallRegister(ctx);
+  return G_SOURCE_REMOVE;
+}
+
+void KeyboardMonitorHost::CancelRegisterRetry() {
+  if (register_retry_id_ == 0) return;
+  g_source_remove(register_retry_id_);
+  register_retry_id_ = 0;
+  // The superseded probe still owes Dart its reply.
+  RespondStart(register_retry_ctx_->method_call, false, false);
+  g_object_unref(register_retry_ctx_->method_call);
+  delete register_retry_ctx_;
+  register_retry_ctx_ = nullptr;
 }
 
 // static
@@ -359,12 +464,26 @@ void KeyboardMonitorHost::OnRegisterDone(GObject* source, GAsyncResult* result,
     return;
   }
   KeyboardMonitorHost* self = ctx->host;
-  g_dbus_connection_call(
-      self->bus_, kPortalBusName, kPortalObjectPath,
-      "org.freedesktop.DBus.Properties", "Get",
-      g_variant_new("(ss)", kGlobalShortcutsIface, "version"),
-      G_VARIANT_TYPE("(v)"), G_DBUS_CALL_FLAGS_NONE, kDbusTimeoutMs,
-      self->cancellable_, OnVersionDone, ctx);
+  if (IsNoPortal(error)) {
+    self->FinishProbe(ctx, false, kReasonUnavailable);
+    return;
+  }
+  if (error != nullptr && !IsMissingRegistry(error)) {
+    if (self->register_attempt_ < kRegisterAttempts) {
+      self->register_retry_ctx_ = ctx;
+      self->register_retry_id_ =
+          g_timeout_add(kRegisterRetryMs, OnRegisterRetry, self);
+      return;
+    }
+    // Reported instead of carrying on: every later portal call would fail
+    // with "An app id is required".
+    g_message("KeyboardMonitorHost: portal app ID registration failed: %s",
+              error->message);
+    self->FinishProbe(ctx, false, kReasonNoAppId);
+    return;
+  }
+  if (error == nullptr) self->app_id_registered_ = true;
+  self->ProbeVersion(ctx);
 }
 
 // static
@@ -386,14 +505,20 @@ void KeyboardMonitorHost::OnVersionDone(GObject* source, GAsyncResult* result,
     g_message("KeyboardMonitorHost: GlobalShortcuts portal unavailable: %s",
               error ? error->message : "?");
   }
-  ctx->host->FinishProbe(ctx, reply != nullptr);
+  ctx->host->FinishProbe(ctx, reply != nullptr,
+                         reply != nullptr ? nullptr : kReasonUnavailable);
 }
 
-void KeyboardMonitorHost::FinishProbe(AsyncCall* ctx, bool portal_available) {
+void KeyboardMonitorHost::FinishProbe(AsyncCall* ctx, bool portal_available,
+                                      const char* reason) {
   const bool current = !destroyed_ && ctx->generation == generation_;
-  if (current) portal_active_ = portal_available;
+  if (current) {
+    portal_active_ = portal_available;
+    portal_reason_ = reason != nullptr ? reason : "";
+  }
 
-  RespondStart(ctx->method_call, false, current && portal_available);
+  RespondStart(ctx->method_call, false, current && portal_available,
+               current ? reason : nullptr);
   g_object_unref(ctx->method_call);
   delete ctx;
 
@@ -446,7 +571,9 @@ void KeyboardMonitorHost::OnPortalCallDone(GObject* source,
   delete ctx;
   if (IsCancelled(error) || generation != self->generation_) return;
   if (reply == nullptr) {
-    self->PortalFailed(error ? error->message : "call failed");
+    // A refused call (no app ID, NotAllowed) — the request never ran.
+    self->PortalFailed(error ? error->message : "call failed",
+                       kReasonDeclined);
   }
 }
 
@@ -508,7 +635,7 @@ void KeyboardMonitorHost::OnSessionCreated(guint32 response,
   if (handle == nullptr ||
       !(g_variant_is_of_type(handle, G_VARIANT_TYPE_STRING) ||
         g_variant_is_of_type(handle, G_VARIANT_TYPE_OBJECT_PATH))) {
-    PortalFailed("CreateSession declined");
+    PortalFailed("CreateSession declined", kReasonDeclined);
     return;
   }
   session_handle_ = g_variant_get_string(handle, nullptr);
@@ -516,7 +643,7 @@ void KeyboardMonitorHost::OnSessionCreated(guint32 response,
   GVariantBuilder props;
   g_variant_builder_init(&props, G_VARIANT_TYPE("a{sv}"));
   g_variant_builder_add(&props, "{sv}", "description",
-                        g_variant_new_string("Push-to-talk dictation"));
+                        g_variant_new_string(description_.c_str()));
   if (!trigger_.empty()) {
     g_variant_builder_add(&props, "{sv}", "preferred_trigger",
                           g_variant_new_string(trigger_.c_str()));
@@ -539,11 +666,13 @@ void KeyboardMonitorHost::OnSessionCreated(guint32 response,
 void KeyboardMonitorHost::OnShortcutsBound(guint32 response,
                                            GVariant* /*results*/) {
   if (response != 0) {
-    PortalFailed("BindShortcuts declined");
+    PortalFailed("BindShortcuts declined", kReasonDeclined);
     return;
   }
   portal_bound_ = true;
-  g_message("KeyboardMonitorHost: push-to-talk bound via GlobalShortcuts");
+  g_message("KeyboardMonitorHost: hotkey bound via GlobalShortcuts");
+  // Dart only learns from this that the compositor now owns the hotkey.
+  SendCapabilities();
 }
 
 // static
@@ -567,9 +696,10 @@ void KeyboardMonitorHost::OnPortalSignal(
                                                           : "onKeyUp");
 }
 
-void KeyboardMonitorHost::PortalFailed(const char* why) {
+void KeyboardMonitorHost::PortalFailed(const char* why, const char* reason) {
   g_message("KeyboardMonitorHost: GlobalShortcuts binding failed (%s)", why);
   ClosePortalSession();
+  portal_reason_ = reason;
   SendCapabilities();
 }
 
@@ -595,4 +725,5 @@ void KeyboardMonitorHost::ClosePortalSession() {
   session_handle_.clear();
   portal_bound_ = false;
   portal_active_ = false;
+  portal_reason_.clear();
 }

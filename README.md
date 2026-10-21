@@ -78,6 +78,8 @@ whispaste --cancel   # discard the running dictation
 
 The call is forwarded to the running WhisPaste and the second process exits right away. If WhisPaste is not running, `--toggle` starts it and then begins a dictation; `--cancel` does nothing. On Linux and macOS, `pkill -USR2 -x whispaste` toggles too, without starting a second process (only send it to a running instance).
 
+On GNOME and KDE under Wayland, WhisPaste's hotkey works in other apps only after the desktop binds it. If it does not, Settings and onboarding show the reason and a button to ask the desktop again; without a portal, the same notice names the keyboard settings to use.
+
 | Platform | Command |
 |---|---|
 | Linux (`.deb`) | `whispaste --toggle` |

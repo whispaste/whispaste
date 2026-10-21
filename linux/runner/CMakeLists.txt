@@ -29,6 +29,7 @@ add_executable(${BINARY_NAME}
   "side_panel_window.cc"
   "side_panel_host.cc"
   "keyboard_monitor_host.cc"
+  "desktop_entry_installer.cc"
   "power_event_host.cc"
   "file_dialog_host.cc"
   "xvfb_launcher.cc"

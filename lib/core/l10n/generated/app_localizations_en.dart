@@ -8078,6 +8078,10 @@ class L10nEn extends L10n {
   }
 
   @override
+  String get manualC14S15H3 =>
+      'If the hotkey does not work in other apps, Settings and onboarding show a notice with the reason, the command for your own key combination, and a “Reconnect” button that asks the desktop again.';
+
+  @override
   String get manualC14S15FlatpakHeading => 'Flatpak';
 
   @override
@@ -9198,4 +9202,35 @@ class L10nEn extends L10n {
   @override
   String get profileAppCaptureUnavailable =>
       'This session cannot read the app in front (for example Wayland). Enter the identifier by hand.';
+
+  @override
+  String get waylandHotkeyPortalDescription => 'WhisPaste dictation';
+
+  @override
+  String get waylandHotkeyNoAppId =>
+      'Your desktop could not identify WhisPaste and has not activated the hotkey, so it does not work in other apps.';
+
+  @override
+  String get waylandHotkeyUnavailable =>
+      'Your desktop does not let apps set a system-wide hotkey, so the hotkey does not work in other apps.';
+
+  @override
+  String get waylandHotkeyDeclined =>
+      'The hotkey was not confirmed in your desktop\'s dialog, so it does not work in other apps.';
+
+  @override
+  String get waylandHotkeyFallback =>
+      'You can add a keyboard shortcut in your system settings instead. Use this command:';
+
+  @override
+  String get waylandHotkeyReconnect => 'Reconnect';
+
+  @override
+  String get waylandHotkeyCopyCommand => 'Copy command';
+
+  @override
+  String get waylandHotkeyCommandCopied => 'Copied';
+
+  @override
+  String get waylandHotkeyOpenKeyboardSettings => 'Open keyboard settings';
 }

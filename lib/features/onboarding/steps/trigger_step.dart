@@ -15,6 +15,7 @@ import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/wp_button.dart';
 import '../../settings/sections/linux_desktop_shortcut_block.dart';
 import '../../settings/settings_widgets.dart';
+import '../../settings/widgets/wayland_hotkey_notice.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 
 /// Widget keys exposed for testing. Kept in one place so tests and production
@@ -56,6 +57,9 @@ class TriggerStep extends ConsumerWidget {
     final settings = ref.watch(settingsProvider).value ?? AppSettings.defaults;
     final status = ref.watch(hotkeyRegistrationStatusProvider);
     final desktopShortcutPending = ref.watch(desktopShortcutPendingProvider);
+    // Non-null while the Wayland notice explains an unbound hotkey (XP-2-06);
+    // then the "works system-wide" hint below would be wrong.
+    final waylandNotice = ref.watch(waylandHotkeyNoticeReasonProvider);
     // Read once — this step only needs the platform capability, not live
     // updates to it (mirrors `_PushToTalkRow` in `feedback_section.dart`).
     final hotkeyService = ref.read(hotkeyServiceProvider.notifier);
@@ -199,6 +203,8 @@ class TriggerStep extends ConsumerWidget {
             ],
           ),
         ),
+        // Linux Wayland: registered, but the desktop has not bound it (XP-2-06).
+        const WaylandHotkeyNotice(idPrefix: 'onboarding'),
         // Gap between two sibling setting rows, so `lg` — the same token the
         // Privacy page puts between its two rows, which is the flow's rhythm
         // for exactly this role. It used to be a flat `sm` on both branches,
@@ -239,7 +245,8 @@ class TriggerStep extends ConsumerWidget {
             desktopShortcutPending) ...[
           const SizedBox(height: WpSpacing.lg),
           LinuxDesktopShortcutBlock(settings: settings),
-        ] else if (status != HotkeyRegistrationStatus.conflict) ...[
+        ] else if (status != HotkeyRegistrationStatus.conflict &&
+            waylandNotice == null) ...[
           const SizedBox(height: WpSpacing.lg),
           // Start-inset: the icon leads this line, and it sat at the bare
           // frame edge while every text block around it starts on the shared

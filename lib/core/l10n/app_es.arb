@@ -2335,6 +2335,7 @@
   "@manualC14S15H1": {"placeholders": {"k1": {"type": "String"}, "k2": {"type": "String"}}},
   "manualC14S15H2": "En otros escritorios, como Sway o Hyprland, asigna tú mismo el comando a una combinación de teclas. Los ajustes muestran el comando exacto para tu instalación en {k1}.",
   "@manualC14S15H2": {"placeholders": {"k1": {"type": "String"}}},
+  "manualC14S15H3": "Si el atajo no funciona en otras apps, Ajustes y la configuración inicial muestran un aviso con el motivo, el comando para una combinación propia y el botón «Volver a conectar», que vuelve a pedir el atajo al escritorio.",
   "manualC14S15FlatpakHeading": "Flatpak",
   "manualC14S15B3W": "Con este acceso, la app podría en teoría leer las pulsaciones de otros programas si tu usuario puede leer los dispositivos de entrada (p. ej. como miembro del grupo input). Los miembros del grupo input también pueden generar entradas virtuales.",
   "manualC14S15B3S": "Auto-Paste además necesita acceso de escritura a /dev/uinput en el equipo: instala la regla udev 71-whispaste-uinput.rules en /etc/udev/rules.d/ y ejecuta después estos comandos:",
@@ -2691,5 +2692,14 @@
   "profileAppCaptured": "«{identifier}» se añadió como app de destino.",
   "@profileAppCaptured": {"placeholders": {"identifier": {}}},
   "profileAppCaptureNone": "No hay otra app en primer plano. Cambia a la app de destino antes de que termine la cuenta atrás.",
-  "profileAppCaptureUnavailable": "Esta sesión no puede leer la app en primer plano (por ejemplo Wayland). Escribe el identificador a mano."
+  "profileAppCaptureUnavailable": "Esta sesión no puede leer la app en primer plano (por ejemplo Wayland). Escribe el identificador a mano.",
+  "waylandHotkeyPortalDescription": "Dictado de WhisPaste",
+  "waylandHotkeyNoAppId": "Tu escritorio no pudo identificar WhisPaste y no ha activado el atajo, así que no funciona en otras apps.",
+  "waylandHotkeyUnavailable": "Tu escritorio no permite que las apps usen un atajo global, así que el atajo no funciona en otras apps.",
+  "waylandHotkeyDeclined": "El atajo no se confirmó en el diálogo de tu escritorio, así que no funciona en otras apps.",
+  "waylandHotkeyFallback": "En su lugar, puedes crear un atajo de teclado en la configuración del sistema con este comando:",
+  "waylandHotkeyReconnect": "Volver a conectar",
+  "waylandHotkeyCopyCommand": "Copiar comando",
+  "waylandHotkeyCommandCopied": "Copiado",
+  "waylandHotkeyOpenKeyboardSettings": "Abrir configuración del teclado"
 }

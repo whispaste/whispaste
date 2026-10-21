@@ -98,8 +98,13 @@ class FakeKeyboardUpMonitor implements KeyboardUpMonitor {
   @override
   set onKeyDown(VoidCallback? handler) => _onKeyDown = handler;
 
+  final List<String?> descriptions = [];
+
   @override
-  Future<void> start(HotKey hotKey) async => started.add(hotKey);
+  Future<void> start(HotKey hotKey, {String? description}) async {
+    started.add(hotKey);
+    descriptions.add(description);
+  }
 
   @override
   Future<void> armRelease() async => armCount++;
@@ -112,6 +117,22 @@ class FakeKeyboardUpMonitor implements KeyboardUpMonitor {
 
   /// Simulates a monitor-sourced press (Linux GlobalShortcuts portal).
   void emitKeyDown() => _onKeyDown?.call();
+
+  WaylandHotkeyBinding _waylandBinding = WaylandHotkeyBinding.notApplicable;
+  VoidCallback? _onWaylandBindingChanged;
+
+  @override
+  WaylandHotkeyBinding get waylandBinding => _waylandBinding;
+
+  @override
+  set onWaylandBindingChanged(VoidCallback? handler) =>
+      _onWaylandBindingChanged = handler;
+
+  /// Simulates the Linux host reporting a new Wayland binding outcome.
+  void emitWaylandBinding(WaylandHotkeyBinding binding) {
+    _waylandBinding = binding;
+    _onWaylandBindingChanged?.call();
+  }
 }
 
 /// A [FakeHotKeyRegistrar] whose [register] can be held open via [gate] —

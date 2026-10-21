@@ -19,8 +19,6 @@ import 'package:whispaste/core/config/settings_labels.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/onboarding/steps/trigger_step.dart';
-import 'package:whispaste/features/settings/sections/linux_desktop_shortcut_block.dart'
-    show manualToggleCommandProvider;
 import 'package:whispaste/services/hotkey_service.dart'
     show
         HotKeyRegistrar,

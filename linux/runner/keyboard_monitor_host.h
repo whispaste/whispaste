@@ -31,12 +31,16 @@ typedef struct _XDisplay Display;
 //     (GNOME >= 48, KDE Plasma >= 6), via GDBus. X11 grabs over XWayland only
 //     fire while an X11 window has focus, so here the compositor owns the
 //     shortcut: CreateSession + BindShortcuts with the hotkey as preferred
-//     trigger, then Activated/Deactivated become onKeyDown/onKeyUp.
+//     trigger, then Activated/Deactivated become onKeyDown/onKeyUp. The
+//     portal needs an app ID, which an unsandboxed app only has with an
+//     installed `<app-id>.desktop` (desktop_entry_installer.h writes one).
 //
-// `start` replies {x11: bool, portal: bool}. Neither path → both false and
-// Dart keeps the toggle-only behaviour; nothing here may crash or block the
-// hotkey. A portal binding that fails after the reply (user declined the
-// dialog, no backend) is pushed as onCapabilities {x11, portal: false}.
+// `start` replies {x11, portal, wayland: bool, reason?: string}. Neither path
+// → both false and Dart keeps the toggle-only behaviour; nothing here may
+// crash or block the hotkey. On Wayland the binding outcome arrives later as
+// onCapabilities {x11, portal, wayland, bound, reason?}: bound once the
+// compositor owns the hotkey, or portal: false with a reason ("no-app-id",
+// "unavailable", "declined") when it never will.
 class KeyboardMonitorHost {
  public:
   explicit KeyboardMonitorHost(FlBinaryMessenger* main_messenger);
@@ -62,7 +66,8 @@ class KeyboardMonitorHost {
                            gpointer user_data);
   void HandleMethodCall(FlMethodCall* method_call);
 
-  void Start(FlMethodCall* method_call, const std::string& trigger);
+  void Start(FlMethodCall* method_call, const std::string& trigger,
+             const std::string& description);
   void ArmRelease();
   void Stop();
   void SendToDart(const char* method, FlValue* args = nullptr);
@@ -80,12 +85,17 @@ class KeyboardMonitorHost {
 
   // ── GlobalShortcuts portal ───────────────────────────────────────────────
   void ProbePortal(FlMethodCall* method_call);
-  void FinishProbe(AsyncCall* ctx, bool portal_available);
+  void CallRegister(AsyncCall* ctx);
+  void ProbeVersion(AsyncCall* ctx);
+  void CancelRegisterRetry();
+  static gboolean OnRegisterRetry(gpointer user_data);
+  void FinishProbe(AsyncCall* ctx, bool portal_available,
+                   const char* reason);
   void CreatePortalSession();
   void OnSessionCreated(guint32 response, GVariant* results);
   void OnShortcutsBound(guint32 response, GVariant* results);
   void ClosePortalSession();
-  void PortalFailed(const char* why);
+  void PortalFailed(const char* why, const char* reason);
   // Calls a GlobalShortcuts method that answers through an
   // org.freedesktop.portal.Request::Response signal; `handler` receives it.
   // Only one request is ever in flight (CreateSession, then BindShortcuts).
@@ -130,7 +140,9 @@ class KeyboardMonitorHost {
   // Portal path.
   GDBusConnection* bus_ = nullptr;
   std::string trigger_;
+  std::string description_;
   std::string session_handle_;
+  std::string portal_reason_;
   bool portal_active_ = false;
   bool portal_bound_ = false;
   guint activated_sub_id_ = 0;
@@ -138,6 +150,10 @@ class KeyboardMonitorHost {
   guint request_sub_id_ = 0;
   ResponseHandler request_handler_ = nullptr;
   guint token_counter_ = 0;
+  bool app_id_registered_ = false;
+  int register_attempt_ = 0;
+  guint register_retry_id_ = 0;
+  AsyncCall* register_retry_ctx_ = nullptr;
 };
 
 #endif  // FLUTTER_KEYBOARD_MONITOR_HOST_H_

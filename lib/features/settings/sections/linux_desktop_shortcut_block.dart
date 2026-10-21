@@ -4,8 +4,6 @@
 /// block shows the command to bind by hand.
 library;
 
-import 'dart:io' show Platform;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,13 +20,6 @@ import '../../../widgets/wp_button.dart';
 import '../settings_widgets.dart';
 
 final _log = AppLogger('LinuxDesktopShortcutBlock');
-
-/// The command [DesktopShortcutFallback.manual] shows. A provider so tests
-/// do not depend on the test runner's own executable.
-final manualToggleCommandProvider = Provider<String>(
-  (ref) =>
-      manualToggleCommand(Platform.environment, Platform.resolvedExecutable),
-);
 
 class LinuxDesktopShortcutBlock extends ConsumerStatefulWidget {
   const LinuxDesktopShortcutBlock({super.key, required this.settings});
