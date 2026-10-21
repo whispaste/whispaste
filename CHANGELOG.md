@@ -37,6 +37,7 @@ All entries are written in English.
 - **GPU memory check:** a speech model larger than the detected graphics memory loads on the CPU, and the speech settings say why.
 - **GPU details in crash reports:** crash reports and the GPU vendor report carry the GPU name, its memory, the backend and, on Windows, the driver version.
 - **Swatch rows announce their choice:** each colour row is announced as a radio group with one checked swatch.
+- **Linux and onboarding wording is accurate:** the Linux speech-to-text page no longer promises dictation into every app, since auto-paste needs a one-time uinput setup and Wayland limits hotkeys and paste. The onboarding model step says the voice stays on your device with local recognition, because the step can also lead to a cloud engine.
 
 ### Fixes
 
