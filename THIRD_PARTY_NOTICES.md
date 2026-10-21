@@ -61,7 +61,7 @@ bundle for speech-synthesis engine code before publishing.
 
 ## 3. Dart and Flutter packages
 
-Packages are grouped by identical licence text. Local workspace packages (auto_updater_windows, hotkey_manager_linux, whispaste_diagnostics) are part of this project and MIT-licensed.
+Packages are grouped by identical licence text. Local workspace packages (auto_updater_windows, hotkey_manager_linux, whispaste_diagnostics, whispaste_gpu_probe) are part of this project and MIT-licensed.
 
 ### 25 package(s): Copyright 2013 The Flutter Authors
 
