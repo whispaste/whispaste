@@ -2083,6 +2083,10 @@ class L10nDe extends L10n {
       'Das Trigger-Wort ist gesetzt, aber es gibt noch keine Textbausteine — sagst du es, wird es als normaler Text eingefügt, bis du deinen ersten Textbaustein anlegst.';
 
   @override
+  String get snippetsPickerSettingsLink =>
+      'Trigger-Wort und Tastenkürzel in den Einstellungen';
+
+  @override
   String get snippetsPickerHotkeyLabel => 'Hotkey für die Auswahl';
 
   @override
@@ -7555,7 +7559,7 @@ class L10nDe extends L10n {
 
   @override
   String get manualC06S2B2I1 =>
-      'Mit dem Trigger-Wort für die Auswahl: Sag nur dieses Wort. Es zählt nur, wenn die ganze Aufnahme genau aus diesem Wort besteht. Das Trigger-Wort stellst du auf der Seite Textbausteine ein. Leer lassen schaltet die Auswahl aus.';
+      'Mit dem Trigger-Wort für die Auswahl: Sag nur dieses Wort. Es zählt nur, wenn die ganze Aufnahme genau aus diesem Wort besteht. Das Trigger-Wort stellst du in den Einstellungen unter „Tastenkürzel“ ein, Gruppe „Notizen & Textbausteine“, direkt unter dem Hotkey für die Auswahl. Leer lassen schaltet die Auswahl aus.';
 
   @override
   String get manualC06S2B2I2 =>

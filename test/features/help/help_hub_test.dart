@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/navigation/help_target.dart';
+import 'package:whispaste/core/theme/tokens.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/features/help/help_page.dart';
 import 'package:whispaste/features/help/manual/user_manual_view.dart';
 import 'package:whispaste/services/deploy_channel_service.dart';
 import 'package:whispaste/services/support/support_capabilities.dart';
 import 'package:whispaste/services/support/support_state.dart';
+import 'package:whispaste/widgets/wp_tabs.dart';
 
 import '../../fixtures/support_fakes.dart';
 import '../../fixtures/test_helpers.dart';
@@ -49,6 +51,17 @@ void main() {
       expect(find.byType(UserManualView), findsOneWidget);
     });
   }
+
+  testWidgets('the handbook starts right under the tabs, with no empty band '
+      '(UX-032)', (tester) async {
+    await _pump(tester, const Size(800, 716));
+
+    final tabsBottom = tester.getBottomLeft(find.byType(WpTabs)).dy;
+    final searchTop = tester
+        .getTopLeft(find.byKey(const ValueKey('manual-search')))
+        .dy;
+    expect(searchTop - tabsBottom, lessThanOrEqualTo(WpSpacing.md));
+  });
 
   testWidgets('tabs switch the body between handbook and support', (
     tester,

@@ -41,7 +41,6 @@ const double kUxMaxChromeAbove = 0.35;
 const Map<String, String> kUxGuardSkips = {
   'history@800x716':
       'WP-82 / UX-031: Aufnahmen, Filterleiste umbricht ueber der Liste',
-  'help@800x716': 'WP-82 / UX-032: Hilfe, leerer Kopfbereich ueber dem Inhalt',
   'analytics@800x716':
       'UX-035: Harness-Luecke, Statistik zeigt Leerzustand trotz Seeds',
   'analytics@1100x720':

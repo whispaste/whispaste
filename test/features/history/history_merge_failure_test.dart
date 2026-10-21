@@ -11,7 +11,6 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/history_page.dart';
-import 'package:whispaste/features/history/widgets/history_search_filter_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -77,11 +76,12 @@ void main() {
     await tester.sendKeyUpEvent(primaryShortcutModifier);
     await tester.pumpAndSettle();
 
-    tester
-        .widget<HistoryMultiSelectAction>(
-          find.widgetWithText(HistoryMultiSelectAction, l10n.historyMerge),
-        )
-        .onTap();
+    // Merge lives in the bar's overflow menu (UIA-HIS-18).
+    await tester.tap(find.byKey(const ValueKey('history-multiselect-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('history-multiselect-more-merge')),
+    );
     await tester.pumpAndSettle();
     // The confirm dialog repeats the label; its button is the last match.
     await tester.tap(find.text(l10n.historyMerge).last);

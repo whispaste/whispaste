@@ -2085,6 +2085,10 @@ class L10nPt extends L10n {
       'A palavra-gatilho está definida, mas ainda não há snippets — ditá-la insere a palavra como texto comum até você adicionar o primeiro snippet.';
 
   @override
+  String get snippetsPickerSettingsLink =>
+      'Palavra-gatilho e atalho nas Configurações';
+
+  @override
   String get snippetsPickerHotkeyLabel => 'Atalho do seletor';
 
   @override
@@ -7558,7 +7562,7 @@ class L10nPt extends L10n {
 
   @override
   String get manualC06S2B2I1 =>
-      'Com a palavra-gatilho do seletor: diga só essa palavra. Ela só conta se a gravação inteira for exatamente essa palavra. Você a define na página Snippets; deixe vazia para desligar o seletor.';
+      'Com a palavra-gatilho do seletor: diga só essa palavra. Ela só conta se a gravação inteira for exatamente essa palavra. Você a define em Configurações, em Atalhos de teclado, grupo Notas e snippets, logo abaixo do atalho do seletor; deixe vazia para desligar o seletor.';
 
   @override
   String get manualC06S2B2I2 =>

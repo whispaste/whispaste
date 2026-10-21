@@ -2086,6 +2086,10 @@ class L10nEs extends L10n {
       'La palabra de activación está definida, pero aún no hay snippets: decirla inserta la palabra como texto normal hasta que añadas el primero.';
 
   @override
+  String get snippetsPickerSettingsLink =>
+      'Palabra de activación y atajo en Ajustes';
+
+  @override
   String get snippetsPickerHotkeyLabel => 'Atajo del selector';
 
   @override
@@ -7561,7 +7565,7 @@ class L10nEs extends L10n {
 
   @override
   String get manualC06S2B2I1 =>
-      'Con la palabra de activación del selector: di solo esa palabra. Solo cuenta si toda la grabación es exactamente esa palabra. La defines en la página Snippets; déjala vacía para desactivar el selector.';
+      'Con la palabra de activación del selector: di solo esa palabra. Solo cuenta si toda la grabación es exactamente esa palabra. La defines en Ajustes, en Atajos de teclado, grupo Notas y snippets, justo debajo del atajo del selector; déjala vacía para desactivar el selector.';
 
   @override
   String get manualC06S2B2I2 =>

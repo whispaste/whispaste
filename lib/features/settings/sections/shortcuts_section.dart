@@ -28,6 +28,7 @@ import '../language_cycle_hotkey_flow.dart';
 import '../quick_note_hotkey_flow.dart';
 import '../selection_edit_hotkey_flow.dart';
 import '../settings_widgets.dart';
+import '../snippet_picker_trigger_row.dart';
 import '../smart_mode_hotkey_flow.dart';
 import '../snippet_picker_hotkey_flow.dart';
 import '../widgets/wayland_hotkey_notice.dart';
@@ -148,6 +149,12 @@ class _KeyboardShortcutSectionState
           children: [
             _QuickNoteHotkeyBlock(settings: settings),
             _SnippetPickerHotkeyBlock(settings: settings),
+            // The spoken word opens the same picker as the hotkey, so it sits
+            // under it. Without a native picker there is nothing to set.
+            if (ref.watch(snippetPickerAvailabilityProvider))
+              SnippetPickerTriggerRow(
+                trigger: settings.behavior.snippetPickerTrigger,
+              ),
           ],
         ),
         settingsSectionBreak,

@@ -2064,6 +2064,10 @@ class L10nEn extends L10n {
       'The trigger word is set, but there are no snippets yet — saying it inserts the word as normal text until you add your first snippet.';
 
   @override
+  String get snippetsPickerSettingsLink =>
+      'Trigger word and hotkey in Settings';
+
+  @override
   String get snippetsPickerHotkeyLabel => 'Picker hotkey';
 
   @override
@@ -7492,7 +7496,7 @@ class L10nEn extends L10n {
 
   @override
   String get manualC06S2B2I1 =>
-      'With the picker trigger word: say only this word. It counts only if the whole recording is exactly this word. You set the trigger word on the Snippets page. Leave it empty to turn the picker off.';
+      'With the picker trigger word: say only this word. It counts only if the whole recording is exactly this word. You set it in Settings under Keyboard shortcuts, group Notes & snippets, right below the picker hotkey. Leave it empty to turn the picker off.';
 
   @override
   String get manualC06S2B2I2 =>

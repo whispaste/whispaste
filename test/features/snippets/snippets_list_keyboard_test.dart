@@ -9,13 +9,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
-import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 
 import '../../fixtures/test_helpers.dart';
 
-/// The picker-trigger field precedes the search field where the picker
-/// exists on this platform, as in `snippets_page_test.dart`.
-final _fieldOffset = snippetPickerAvailableOnPlatform ? 1 : 0;
+/// The add/edit dialog's fields, found by their keys rather than by position
+/// on the page (the page itself holds a search field only).
+final _titleField = find.descendant(
+  of: find.byKey(const ValueKey('snippets-title-field')),
+  matching: find.byType(EditableText),
+);
+final _bodyField = find.descendant(
+  of: find.byKey(const ValueKey('snippets-body-field')),
+  matching: find.byType(EditableText),
+);
 
 Future<void> _addSnippet(
   WidgetTester tester,
@@ -25,19 +31,16 @@ Future<void> _addSnippet(
 }) async {
   await tester.tap(find.byIcon(LucideIcons.plus));
   await tester.pumpAndSettle();
-  await tester.enterText(find.byType(TextField).at(_fieldOffset + 1), title);
-  await tester.enterText(find.byType(TextField).at(_fieldOffset + 2), text);
+  await tester.enterText(_titleField, title);
+  await tester.enterText(_bodyField, text);
   await tester.pumpAndSettle();
   await tester.tap(find.text(l10n.snippetsAdd).last);
   await tester.pumpAndSettle();
 }
 
-/// Title of the snippet currently open in the edit dialog: the first field
-/// after the page's own fields, as in the add-dialog tests.
-String _openTitle(WidgetTester tester) => tester
-    .widget<TextField>(find.byType(TextField).at(_fieldOffset + 1))
-    .controller!
-    .text;
+/// Title of the snippet currently open in the edit dialog.
+String _openTitle(WidgetTester tester) =>
+    tester.widget<EditableText>(_titleField).controller.text;
 
 void main() {
   late L10n l10n;

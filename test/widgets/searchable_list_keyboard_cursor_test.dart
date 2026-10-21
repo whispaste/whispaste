@@ -23,6 +23,7 @@ import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/replacements/replacements_page.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
 import 'package:whispaste/widgets/wp_list_tile_surface.dart';
+import 'package:whispaste/widgets/searchable_list_page.dart';
 import 'package:whispaste/widgets/wp_search_field.dart';
 
 import '../fixtures/test_helpers.dart';
@@ -97,6 +98,46 @@ final _pages = <_Page>[
     deleteTitle: (l) => l.replacementsDeleteTitle,
   ),
 ];
+
+// A bare shell page with a text field in its header: the case DEV-278/279
+// guard. No product page holds such a field any more (the Snippets picker
+// trigger moved to Settings, UX-030), so the shell is driven directly here.
+const _headerFieldItems = ['Alpha', 'Bravo', 'Charlie'];
+
+final _headerFieldPage = _Page(
+  name: 'Header field',
+  build: () => WpSearchableListPage<String>(
+    asyncAll: const AsyncData<List<String>>(_headerFieldItems),
+    searchMatches: (s, q) => q.hasMatch(s),
+    searchHint: 'Search',
+    searchFieldLabel: 'Search',
+    addLabel: 'Add',
+    onAdd: () {},
+    onRetry: () {},
+    emptyIcon: LucideIcons.notebookText,
+    emptyTitle: 'Empty',
+    emptyHint: 'Empty',
+    emptyActionLabel: 'Add',
+    noMatchesTitle: 'No matches',
+    noMatchesHint: 'No matches',
+    header: const Padding(
+      padding: EdgeInsets.all(8),
+      child: TextField(key: ValueKey('header-field')),
+    ),
+    itemBuilder: (context, s, isCursor) => WpListTileSurface(
+      variant: WpListTileVariant.card,
+      isFocused: isCursor,
+      child: Text(s),
+    ),
+    onItemActivate: (_) {},
+  ),
+  seed: (_) async {},
+  rowTexts: _headerFieldItems,
+  query: 'Brav',
+  queryMatch: 'Bravo',
+  editTitle: (l) => l.snippetsEditSnippet,
+  deleteTitle: (l) => l.snippetsDeleteTitle,
+);
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -193,8 +234,8 @@ void _expectNoCursor(WidgetTester tester, _Page page) {
 
 /// The search field's own focus node, identified by the debug label the shell
 /// gives it. Asserting on the node rather than on "some text field has focus"
-/// keeps the Snippets case honest, where a second field (the picker trigger)
-/// sits above the search field on macOS.
+/// keeps the header-field case honest, where a second field sits above the
+/// search field.
 bool _searchFieldHasFocus() =>
     FocusManager.instance.primaryFocus?.debugLabel ==
     'WpSearchableListPage search';
@@ -459,12 +500,12 @@ void main() {
   });
 
   // DEV-278 / DEV-279: a text field on the page owns its own arrow and Escape
-  // keys. The Snippets picker's trigger field sits inside the page's key
-  // scope, so arrows typed there must not start the list cursor, and Escape
-  // there must not clear the list search.
+  // keys. A field in the page's header sits inside the page's key scope, so
+  // arrows typed there must not start the list cursor, and Escape there must
+  // not clear the list search.
   testWidgets('arrows and Escape typed in a foreign text field leave the list '
       'cursor and the search alone', (tester) async {
-    final page = _pages.firstWhere((p) => p.name == 'Snippets');
+    final page = _headerFieldPage;
     await _pumpPage(tester, page);
 
     final search = find.descendant(
@@ -479,11 +520,14 @@ void main() {
       reason: 'precondition: the list is filtered',
     );
 
-    final trigger = find.byType(EditableText).last;
+    final trigger = find.descendant(
+      of: find.byKey(const ValueKey('header-field')),
+      matching: find.byType(EditableText),
+    );
     expect(
       find.descendant(of: find.byType(WpSearchField), matching: trigger),
       findsNothing,
-      reason: 'precondition: the trigger field is not the search field',
+      reason: 'precondition: the header field is not the search field',
     );
     await tester.tap(trigger);
     await tester.pumpAndSettle();

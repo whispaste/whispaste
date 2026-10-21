@@ -160,16 +160,13 @@ void main() {
         await tester.tap(find.text(l10n.historySelectAll));
         await tester.pumpAndSettle();
 
-        // The multi-select bar should now show the new "Export…" action.
-        expect(find.text(l10n.historyExportAction), findsOneWidget);
-        // Scroll the action into view if the horizontal action list pushed it
-        // out, then tap.
-        await tester.ensureVisible(find.text(l10n.historyExportAction));
-        await tester.pumpAndSettle();
+        // Export lives in the multi-select bar's overflow menu (UIA-HIS-18).
         await tester.tap(
-          find.text(l10n.historyExportAction),
-          warnIfMissed: false,
+          find.byKey(const ValueKey('history-multiselect-more')),
         );
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.historyExportAction), findsOneWidget);
+        await tester.tap(find.text(l10n.historyExportAction));
         await tester.pumpAndSettle();
 
         // The exporter received a single batched call with multiple entries.

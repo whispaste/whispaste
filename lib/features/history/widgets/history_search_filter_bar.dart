@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -836,8 +837,8 @@ class _HistorySearchFilterBarState
           // ── Filter chips + controls (row 2) ──────────────────────────────
           //
           // Row 2 sits below the search row, which matches Notes. The chips
-          // wrap onto further lines when the content column is narrow; they
-          // never scroll sideways, so every filter stays visible (Ticket 03).
+          // stay on one line and scroll sideways when the column is narrow
+          // (`_FilterChipScroller`, UX-031), so no filter drops below the fold.
           // The trailing controls keep their place on the right, beside the
           // chips, and wrap inside their own half of the row. The three view tools
           // (select, sort, view) sit inline while the row is wide enough for
@@ -1186,163 +1187,260 @@ class HistoryMultiSelectBar extends StatelessWidget {
     // the list, and the frost keeps the ambient running under it.
     final bg = WpColors.cardFillElevated;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: WpSpacing.xl,
-        vertical: WpSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: bg,
-        // The band's lower edge is `cardEdgeHighlight`, not `accentBorder20`
-        // (Ticket 13): the line is load-bearing — it is what separates the
-        // mode band from the list underneath it — but the *accent* on it was
-        // not. Accent means "you can act on this", and nothing happens when
-        // you touch a boundary. Structurally the same finding as Ticket 32's
-        // B3 (the section-head accent bar, removed by Ticket 08). The accent
-        // that stays on this bar is the selection-count pill, which reports
-        // what the operable controls beside it will act on.
-        border: Border(
-          bottom: BorderSide(color: WpColors.cardEdgeHighlight, width: 1),
+    // Secondary actions sit in the overflow menu, so the destructive action
+    // and Cancel stay on the bar at every width and never need a horizontal
+    // scroll to be reached (UIA-HIS-18).
+    final overflowActions = <_HistoryMultiSelectOverflowAction>[
+      if (onMerge != null)
+        _HistoryMultiSelectOverflowAction(
+          id: 'merge',
+          icon: LucideIcons.merge,
+          label: l10n.historyMerge,
+          shortcutHint: formatHotkeyShortcut('ctrl', 'm', l10n: l10n),
+          onTap: onMerge!,
         ),
-      ),
-      child: Row(
-        children: [
-          // Selection count
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: WpSpacing.sm,
-                vertical: WpSpacing.xxs,
-              ),
-              decoration: BoxDecoration(
-                color: WpColors.accentBadgeFill,
-                borderRadius: WpRadius.borderFull,
-              ),
-              child: Text(
-                l10n.historyItemsSelected(selectedCount),
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: WpTypography.body,
-                  fontWeight: FontWeight.w600,
-                  color: accent,
-                ),
-              ),
+      if (onBatchCopy != null)
+        _HistoryMultiSelectOverflowAction(
+          id: 'copy',
+          icon: LucideIcons.copy,
+          label: l10n.historyCopyText,
+          shortcutHint: formatHotkeyShortcut('ctrl', 'c', l10n: l10n),
+          onTap: onBatchCopy!,
+        ),
+      if (onBatchCopyMarkdown != null)
+        _HistoryMultiSelectOverflowAction(
+          id: 'markdown',
+          icon: LucideIcons.fileText,
+          label: l10n.historyCopyAsMarkdown,
+          onTap: onBatchCopyMarkdown!,
+        ),
+      if (onExport != null)
+        _HistoryMultiSelectOverflowAction(
+          id: 'export',
+          icon: LucideIcons.download,
+          label: l10n.historyExportAction,
+          onTap: onExport!,
+        ),
+      if (onRestore != null)
+        _HistoryMultiSelectOverflowAction(
+          id: 'restore',
+          icon: LucideIcons.undo2,
+          label: l10n.historyRestore,
+          onTap: onRestore!,
+        ),
+      if (onArchive != null)
+        _HistoryMultiSelectOverflowAction(
+          id: 'archive',
+          icon: isArchiveView
+              ? LucideIcons.archiveRestore
+              : LucideIcons.archive,
+          label: isArchiveView ? l10n.historyUnarchive : l10n.historyArchive,
+          onTap: onArchive!,
+        ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final barWidth = constraints.maxWidth - 2 * WpSpacing.xl - WpSpacing.sm;
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: WpSpacing.xl,
+            vertical: WpSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: bg,
+            // The band's lower edge is `cardEdgeHighlight`, not `accentBorder20`
+            // (Ticket 13): the line is load-bearing — it is what separates the
+            // mode band from the list underneath it — but the *accent* on it was
+            // not. Accent means "you can act on this", and nothing happens when
+            // you touch a boundary. Structurally the same finding as Ticket 32's
+            // B3 (the section-head accent bar, removed by Ticket 08). The accent
+            // that stays on this bar is the selection-count pill, which reports
+            // what the operable controls beside it will act on.
+            border: Border(
+              bottom: BorderSide(color: WpColors.cardEdgeHighlight, width: 1),
             ),
           ),
-          const SizedBox(width: WpSpacing.sm),
-          // Select All / Deselect All toggle
-          if (onSelectAll != null)
-            InkWell(
-              borderRadius: WpRadius.borderSm,
-              onTap: onSelectAll,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: WpSpacing.xs,
-                  vertical: WpSpacing.xxs,
+          child: Row(
+            children: [
+              // Count and select-all shrink (ellipsis) when space runs out; the
+              // trailing group below never does.
+              Expanded(
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: WpSpacing.sm,
+                          vertical: WpSpacing.xxs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: WpColors.accentBadgeFill,
+                          borderRadius: WpRadius.borderFull,
+                        ),
+                        child: Text(
+                          l10n.historyItemsSelected(selectedCount),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: WpTypography.body,
+                            fontWeight: FontWeight.w600,
+                            color: accent,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (onSelectAll != null) ...[
+                      const SizedBox(width: WpSpacing.sm),
+                      // Select All / Deselect All toggle
+                      Flexible(
+                        child: InkWell(
+                          borderRadius: WpRadius.borderSm,
+                          onTap: onSelectAll,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: WpSpacing.xs,
+                              vertical: WpSpacing.xxs,
+                            ),
+                            child: Text(
+                              totalCount != null && selectedCount >= totalCount!
+                                  ? l10n.historyDeselectAll
+                                  : l10n.historySelectAll,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              style: TextStyle(
+                                fontSize: WpTypography.small,
+                                color: accent,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                child: Text(
-                  totalCount != null && selectedCount >= totalCount!
-                      ? l10n.historyDeselectAll
-                      : l10n.historySelectAll,
-                  style: TextStyle(
-                    fontSize: WpTypography.small,
-                    color: accent,
-                    fontWeight: FontWeight.w500,
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              // A non-flex child of the outer Row would get unbounded width, so
+              // the Flexible delete label below could never wrap. Bounding the
+              // group keeps a minimum for the count pill and lets the label wrap.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: math.max(
+                    0,
+                    barWidth - _kMultiSelectLeadingMinWidth,
                   ),
                 ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (overflowActions.isNotEmpty)
+                      _HistoryMultiSelectMoreButton(actions: overflowActions),
+                    if (onDelete != null)
+                      // Flexible, so the destructive label gets the width that is
+                      // left after Cancel and the overflow button and wraps at large
+                      // text sizes, instead of pushing Cancel past the bar's edge.
+                      Flexible(
+                        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
+                        child: HistoryMultiSelectAction(
+                          key: const ValueKey('history-multiselect-delete'),
+                          icon: LucideIcons.trash2,
+                          label: isTrashView
+                              ? l10n.historyDeleteForever
+                              : l10n.actionDelete,
+                          shortcutHint: hotkeyKeyLabel('delete', l10n: l10n),
+                          onTap: onDelete!,
+                          isDestructive: true,
+                        ),
+                      ),
+                    // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+                    WpButton(
+                      label: l10n.actionCancel,
+                      variant: WpButtonVariant.ghost,
+                      tone: WpButtonTone.neutral,
+                      icon: LucideIcons.x,
+                      onPressed: onCancelSelection,
+                      testId: 'history-multiselect-cancel',
+                    ),
+                  ],
+                ),
               ),
-            ),
-          const SizedBox(width: WpSpacing.sm),
-          // Action buttons — wrap in Flexible to prevent overflow
-          Flexible(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (onMerge != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.merge,
-                      label: l10n.historyMerge,
-                      shortcutHint: formatHotkeyShortcut(
-                        'ctrl',
-                        'm',
-                        l10n: l10n,
-                      ),
-                      onTap: onMerge!,
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// One secondary action of [HistoryMultiSelectBar], shown in its overflow menu.
+class _HistoryMultiSelectOverflowAction {
+  const _HistoryMultiSelectOverflowAction({
+    required this.id,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.shortcutHint,
+  });
+
+  /// Stable suffix for the menu item's test key (`history-multiselect-more-<id>`).
+  final String id;
+  final IconData icon;
+  final String label;
+  final String? shortcutHint;
+  final VoidCallback onTap;
+}
+
+/// The overflow menu of [HistoryMultiSelectBar]: every secondary batch action,
+/// each with its keyboard shortcut where one exists.
+class _HistoryMultiSelectMoreButton extends StatelessWidget {
+  const _HistoryMultiSelectMoreButton({required this.actions});
+
+  final List<_HistoryMultiSelectOverflowAction> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textMuted = WpColors.textMuted;
+    final textSecondary = WpColors.textSecondary;
+
+    return PopupMenuButton<VoidCallback>(
+      key: const ValueKey('history-multiselect-more'),
+      icon: Icon(LucideIcons.ellipsis, size: WpIconSize.sm, color: textMuted),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      tooltip: l10n.historyMoreActions,
+      shape: RoundedRectangleBorder(borderRadius: WpRadius.borderSm),
+      onSelected: (onTap) => onTap(),
+      itemBuilder: (_) => [
+        for (final action in actions)
+          PopupMenuItem<VoidCallback>(
+            key: ValueKey('history-multiselect-more-${action.id}'),
+            value: action.onTap,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(action.icon, size: WpIconSize.sm, color: textSecondary),
+                const SizedBox(width: WpSpacing.xs),
+                Text(
+                  action.label,
+                  style: const TextStyle(fontSize: WpTypography.body),
+                ),
+                if (action.shortcutHint != null) ...[
+                  const SizedBox(width: WpSpacing.lg),
+                  Text(
+                    action.shortcutHint!,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
                     ),
-                  if (onBatchCopy != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.copy,
-                      label: l10n.historyCopyText,
-                      shortcutHint: formatHotkeyShortcut(
-                        'ctrl',
-                        'c',
-                        l10n: l10n,
-                      ),
-                      onTap: onBatchCopy!,
-                    ),
-                  if (onBatchCopyMarkdown != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.fileText,
-                      label: l10n.historyCopyAsMarkdown,
-                      onTap: onBatchCopyMarkdown!,
-                    ),
-                  if (onExport != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.download,
-                      label: l10n.historyExportAction,
-                      onTap: onExport!,
-                    ),
-                  if (onRestore != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.undo2,
-                      label: l10n.historyRestore,
-                      onTap: onRestore!,
-                    ),
-                  if (onArchive != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: isArchiveView
-                          ? LucideIcons.archiveRestore
-                          : LucideIcons.archive,
-                      label: isArchiveView
-                          ? l10n.historyUnarchive
-                          : l10n.historyArchive,
-                      onTap: onArchive!,
-                    ),
-                  if (onDelete != null)
-                    // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryMultiSelectActionState.build
-                    HistoryMultiSelectAction(
-                      icon: LucideIcons.trash2,
-                      label: isTrashView
-                          ? l10n.historyDeleteForever
-                          : l10n.actionDelete,
-                      shortcutHint: hotkeyKeyLabel('delete', l10n: l10n),
-                      onTap: onDelete!,
-                      isDestructive: true,
-                    ),
+                  ),
                 ],
-              ),
+              ],
             ),
           ),
-          const SizedBox(width: WpSpacing.sm),
-          // Cancel
-          // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-          WpButton(
-            label: l10n.actionCancel,
-            variant: WpButtonVariant.ghost,
-            tone: WpButtonTone.neutral,
-            icon: LucideIcons.x,
-            onPressed: onCancelSelection,
-          ),
-        ],
-      ),
+      ],
     );
   }
 }
@@ -1420,11 +1518,13 @@ class _HistoryMultiSelectActionState extends State<HistoryMultiSelectAction> {
                       // .md would overwhelm this pill's 12px label.
                       Icon(widget.icon, size: WpIconSize.sm, color: color),
                       const SizedBox(width: 4),
-                      Text(
-                        widget.label,
-                        style: TextStyle(
-                          fontSize: WpTypography.small,
-                          color: color,
+                      Flexible(
+                        child: Text(
+                          widget.label,
+                          style: TextStyle(
+                            fontSize: WpTypography.small,
+                            color: color,
+                          ),
                         ),
                       ),
                     ],
@@ -1875,6 +1975,10 @@ class _SortDropdown extends StatelessWidget {
 /// filter chips still fit on the row's first line beside the three tools; the
 /// chips wrap inside the row either way, the tools never leave it.
 const double _inlineToolsMinWidth = 720;
+
+/// Width the multi-select bar always leaves for the selection count, so the
+/// trailing action group cannot squeeze it to nothing.
+const double _kMultiSelectLeadingMinWidth = 96;
 
 /// The one 48 × 48 button that stands in for the select, sort and view tools
 /// on a narrow filter row. Its menu lists the same three controls; the current

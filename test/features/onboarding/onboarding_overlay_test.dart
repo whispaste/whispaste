@@ -2325,6 +2325,61 @@ void main() {
       }
     });
 
+    testWidgets('keeps the primary action on screen at 800x716 with a compact '
+        'preview or a text that says why there is none (UX-041)', (
+      tester,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await goToAppearance(tester, const Size(800, 716));
+        final hint = find.byWidgetPredicate(
+          (w) =>
+              w is Semantics &&
+              w.properties.identifier == kAppearanceStepHintTextId,
+        );
+        expect(
+          find.byType(WpOverlayRealPreview).evaluate().isNotEmpty ||
+              hint.evaluate().isNotEmpty,
+          isTrue,
+          reason: 'the choice must be visible, not silently missing',
+        );
+        expect(
+          tester.getRect(find.byKey(kOnboardingNextButtonKey)).bottom,
+          lessThanOrEqualTo(716),
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('the colour swatches sit in a scroll view below the minimum '
+        'height, not clipped (UX-042)', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      final handle = tester.ensureSemantics();
+      try {
+        await goToAppearance(tester, const Size(800, 600));
+        final swatch = find.bySemanticsIdentifier('overlay-background-marine');
+        expect(swatch, findsOneWidget);
+        expect(
+          find.ancestor(of: swatch, matching: find.byType(Scrollable)),
+          findsWidgets,
+        );
+        await tester.scrollUntilVisible(swatch, 40);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(swatch).bottom,
+          lessThanOrEqualTo(
+            tester.getTopLeft(find.byKey(kOnboardingNextButtonKey)).dy,
+          ),
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        handle.dispose();
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
     for (final code in const ['de', 'en', 'es', 'pt', 'ru', 'he']) {
       testWidgets('falls back to the Settings hint in $code when even the pill '
           'does not fit', (tester) async {

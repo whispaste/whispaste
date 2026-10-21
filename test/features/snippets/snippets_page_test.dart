@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/theme/colors.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
@@ -30,29 +31,12 @@ import '../../fixtures/test_helpers.dart';
 
 late L10n l10n;
 
-/// The page header renders the picker-trigger [TextField] ahead of the search
-/// field wherever the Snippet-Picker exists at all — shifts every subsequent
-/// `find.byType(TextField).at(N)` index by one relative to a platform without
-/// a picker.
-///
-/// Read from the same availability answer the page reads
-/// ([snippetPickerAvailableOnPlatform]) rather than from `Platform` directly:
-/// a test that *injects* unavailability must not keep counting a field that
-/// is no longer rendered.
-final _fieldOffset = snippetPickerAvailableOnPlatform ? 1 : 0;
-
 /// The toolbar search field. Found through its wrapper, not by tree index:
 /// the toolbar sits above the list header, so its position shifted.
 Finder get _searchField => find.descendant(
   of: find.byType(WpSearchField),
   matching: find.byType(TextField),
 );
-
-/// The picker-trigger field: the only text field capped at the trigger's
-/// maximum length (64). Found by its limit, not by tree index, because the
-/// search toolbar now sits above the header that holds it.
-Finder get _pickerTriggerField =>
-    find.byWidgetPredicate((w) => w is TextField && w.maxLength == 64);
 
 /// Sends the platform's "new item" chord — Cmd on macOS, Ctrl elsewhere,
 /// exactly as `WpSearchableListPage` binds it.
@@ -199,10 +183,7 @@ void main() {
       // free — and it edits the body field, not the title. Body text goes in
       // first: opening the bar inserts two more TextFields ahead of the body
       // in tree order.
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 2),
-        'draft draft',
-      );
+      await tester.enterText(find.byType(TextField).at(2), 'draft draft');
       await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -238,7 +219,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 2),
+        find.byType(TextField).at(2),
         'a template worth keeping',
       );
       await tester.tap(find.bySemanticsLabel(l10n.findReplaceToggle));
@@ -317,16 +298,9 @@ void main() {
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
 
-      // TextFields in tree order: [0] picker trigger (macOS only), [_fieldOffset]
-      // page search, [_fieldOffset + 1] title, [_fieldOffset + 2] body
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 1),
-        'Signature',
-      );
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 2),
-        'Best,\nSilvio',
-      );
+      // TextFields in tree order: [0] page search, [1] title, [2] body
+      await tester.enterText(find.byType(TextField).at(1), 'Signature');
+      await tester.enterText(find.byType(TextField).at(2), 'Best,\nSilvio');
       await tester.pumpAndSettle();
 
       await tester.tap(find.text(l10n.snippetsAdd).last);
@@ -354,14 +328,8 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 1),
-        'Greeting',
-      );
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 2),
-        'Hi there',
-      );
+      await tester.enterText(find.byType(TextField).at(1), 'Greeting');
+      await tester.enterText(find.byType(TextField).at(2), 'Hi there');
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
@@ -385,14 +353,8 @@ void main() {
       ]) {
         await tester.tap(find.byIcon(LucideIcons.plus));
         await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 1),
-          title,
-        );
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 2),
-          body,
-        );
+        await tester.enterText(find.byType(TextField).at(1), title);
+        await tester.enterText(find.byType(TextField).at(2), body);
         await tester.pumpAndSettle();
         await tester.tap(find.text(l10n.snippetsAdd).last);
         await tester.pumpAndSettle();
@@ -418,14 +380,8 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 1),
-        'Signature',
-      );
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 2),
-        'Best, Silvio',
-      );
+      await tester.enterText(find.byType(TextField).at(1), 'Signature');
+      await tester.enterText(find.byType(TextField).at(2), 'Best, Silvio');
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
@@ -446,14 +402,8 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 1),
-        'Signature',
-      );
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 2),
-        'Best, Silvio',
-      );
+      await tester.enterText(find.byType(TextField).at(1), 'Signature');
+      await tester.enterText(find.byType(TextField).at(2), 'Best, Silvio');
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
@@ -543,94 +493,6 @@ void main() {
 
     // UIA-SNP-03: the trigger word typed inside the debounce window is saved
     // when the page is left. The field exists on macOS only (see above).
-    testWidgets('a trigger word typed right before leaving the page is saved', (
-      tester,
-    ) async {
-      if (!Platform.isMacOS) return;
-      final notifier = _FakeSettingsNotifier(const AppSettings());
-      final showPage = ValueNotifier<bool>(true);
-      addTearDown(showPage.dispose);
-      await tester.pumpWidget(
-        makeTestable(
-          ValueListenableBuilder<bool>(
-            valueListenable: showPage,
-            builder: (_, visible, _) =>
-                visible ? const SnippetsPage() : const SizedBox.shrink(),
-          ),
-          locale: const Locale('en'),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.enterText(_pickerTriggerField, 'snippet');
-      showPage.value = false;
-      await tester.pump();
-
-      expect(notifier.state.value!.behavior.snippetPickerTrigger, 'snippet');
-    });
-
-    // Round 2 (WP-87): a trigger word is one short spoken word. A pasted line
-    // break must not survive into the setting, and a long value is cut short.
-    testWidgets('a trigger word is one line and at most 64 characters', (
-      tester,
-    ) async {
-      if (!Platform.isMacOS) return;
-      final notifier = _FakeSettingsNotifier(const AppSettings());
-      final showPage = ValueNotifier<bool>(true);
-      addTearDown(showPage.dispose);
-      await tester.pumpWidget(
-        makeTestable(
-          ValueListenableBuilder<bool>(
-            valueListenable: showPage,
-            builder: (_, visible, _) =>
-                visible ? const SnippetsPage() : const SizedBox.shrink(),
-          ),
-          locale: const Locale('en'),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.enterText(_pickerTriggerField, 'snip\npet${'x' * 80}');
-      showPage.value = false;
-      await tester.pump();
-
-      final saved = notifier.state.value!.behavior.snippetPickerTrigger;
-      expect(saved.contains('\n'), isFalse);
-      expect(saved.length, lessThanOrEqualTo(64));
-    });
-
-    // Round 2 (WP-87): leaving the app (Cmd+Tab, lock screen) writes a pending
-    // trigger word right away, not only when the page is left.
-    testWidgets('a pending trigger word is saved when the app is paused', (
-      tester,
-    ) async {
-      if (!Platform.isMacOS) return;
-      final notifier = _FakeSettingsNotifier(const AppSettings());
-      await tester.pumpWidget(
-        makeTestable(
-          const SnippetsPage(),
-          locale: const Locale('en'),
-          overrides: [settingsProvider.overrideWith(() => notifier)],
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.enterText(_pickerTriggerField, 'snippet');
-      final binding = tester.binding;
-      binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-      binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-      await tester.pump();
-
-      expect(notifier.state.value!.behavior.snippetPickerTrigger, 'snippet');
-      // Back to the foreground along the engine's own path.
-      binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
-      binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    });
-
     testWidgets('an empty trigger word shows no empty-list hint even while '
         'the snippet list is empty', (tester) async {
       if (!Platform.isMacOS) return;
@@ -692,14 +554,8 @@ void main() {
 
       await tester.tap(find.byIcon(LucideIcons.plus));
       await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 1),
-        'Signature',
-      );
-      await tester.enterText(
-        find.byType(TextField).at(_fieldOffset + 2),
-        'Best, Silvio',
-      );
+      await tester.enterText(find.byType(TextField).at(1), 'Signature');
+      await tester.enterText(find.byType(TextField).at(2), 'Best, Silvio');
       await tester.pumpAndSettle();
       await tester.tap(find.text(l10n.snippetsAdd).last);
       await tester.pumpAndSettle();
@@ -748,20 +604,11 @@ void main() {
 
         expect(find.text(l10n.snippetsTemplateLabel), findsOneWidget);
 
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 1),
-          'Bug Report',
-        );
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 2),
-          'Titel',
-        );
+        await tester.enterText(find.byType(TextField).at(1), 'Bug Report');
+        await tester.enterText(find.byType(TextField).at(2), 'Titel');
         await tester.tap(find.text(l10n.snippetsFieldAdd));
         await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 3),
-          'Beschreibung',
-        );
+        await tester.enterText(find.byType(TextField).at(3), 'Beschreibung');
         await tester.pumpAndSettle();
 
         expect(
@@ -785,20 +632,11 @@ void main() {
       (tester) async {
         await openInteractiveDialog(tester);
 
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 1),
-          'Bug Report',
-        );
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 2),
-          'Titel',
-        );
+        await tester.enterText(find.byType(TextField).at(1), 'Bug Report');
+        await tester.enterText(find.byType(TextField).at(2), 'Titel');
         await tester.tap(find.text(l10n.snippetsFieldAdd));
         await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 3),
-          'Beschreibung',
-        );
+        await tester.enterText(find.byType(TextField).at(3), 'Beschreibung');
         await tester.pumpAndSettle();
 
         final insertButtons = find.byTooltip(
@@ -814,9 +652,7 @@ void main() {
           find.text(l10n.snippetsTemplateMissingFieldsWarning),
           findsNothing,
         );
-        final template = tester.widget<TextField>(
-          find.byType(TextField).at(_fieldOffset + 4),
-        );
+        final template = tester.widget<TextField>(find.byType(TextField).at(4));
         expect(template.controller!.text, '{{Titel}}{{Beschreibung}}');
 
         await tester.tap(find.text(l10n.snippetsAdd).last);
@@ -835,20 +671,11 @@ void main() {
       'reopening an existing interactive snippet pre-fills its template',
       (tester) async {
         await openInteractiveDialog(tester);
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 1),
-          'Bug Report',
-        );
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 2),
-          'Titel',
-        );
+        await tester.enterText(find.byType(TextField).at(1), 'Bug Report');
+        await tester.enterText(find.byType(TextField).at(2), 'Titel');
         await tester.tap(find.text(l10n.snippetsFieldAdd));
         await tester.pumpAndSettle();
-        await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 3),
-          'Beschreibung',
-        );
+        await tester.enterText(find.byType(TextField).at(3), 'Beschreibung');
         await tester.pumpAndSettle();
         final insertButtons = find.byTooltip(
           l10n.snippetsFieldInsertIntoTemplate,
@@ -856,7 +683,7 @@ void main() {
         await tester.tap(insertButtons.at(0));
         await tester.pumpAndSettle();
         await tester.enterText(
-          find.byType(TextField).at(_fieldOffset + 4),
+          find.byType(TextField).at(4),
           'Betreff: {{Titel}}\n\n{{Beschreibung}}',
         );
         await tester.pumpAndSettle();
@@ -869,9 +696,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text(l10n.snippetsEditSnippet), findsOneWidget);
-        final template = tester.widget<TextField>(
-          find.byType(TextField).at(_fieldOffset + 4),
-        );
+        final template = tester.widget<TextField>(find.byType(TextField).at(4));
         expect(template.controller!.text, contains('Betreff: {{Titel}}'));
       },
     );
@@ -881,223 +706,77 @@ void main() {
   // Picker-Hotkey auf der Seite — zweite Aufrufstelle, eine Wahrheit (Ticket 27)
   // ---------------------------------------------------------------------------
 
-  group('SnippetsPage — Picker-Hotkey', () {
-    Widget subject({AppSettings? settings, bool available = true}) =>
-        makeTestable(
-          const SnippetsPage(),
-          locale: const Locale('en'),
-          overrides: [
-            settingsProvider.overrideWith(
-              () => _FakeSettingsNotifier(settings ?? const AppSettings()),
-            ),
-            // Dieselbe eine Verfügbarkeits-Aussage, die auch die
-            // Einstellungs-Zeile liest — hier gestellt, damit beide Zweige
-            // unabhängig vom Rechner prüfbar sind, auf dem der Test läuft.
-            snippetPickerAvailabilityProvider.overrideWithValue(available),
-          ],
-        );
-
-    const enabledHotkey = AppSettings(
-      snippetPickerHotkey: SnippetPickerHotkeySettings(
-        snippetPickerHotkeyEnabled: true,
-        snippetPickerHotkeyKey: ';',
-        snippetPickerHotkeyKeyDisplay: 'Ö',
-        snippetPickerHotkeyModifiers: 'ctrl+alt',
+  group('SnippetsPage — picker link (UX-030)', () {
+    Widget subject({
+      AppSettings? settings,
+      bool available = true,
+      double textScale = 1.0,
+    }) => makeTestable(
+      MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+        child: const SnippetsPage(),
       ),
+      locale: const Locale('en'),
+      overrides: [
+        settingsProvider.overrideWith(
+          () => _FakeSettingsNotifier(settings ?? const AppSettings()),
+        ),
+        // The one availability answer the Settings row reads as well.
+        snippetPickerAvailabilityProvider.overrideWithValue(available),
+      ],
     );
 
-    testWidgets('shows the combination next to the spoken trigger word', (
-      tester,
-    ) async {
-      await tester.pumpWidget(subject(settings: enabledHotkey));
-      await tester.pumpAndSettle();
-
-      // Beide Auslösewege in Sichtweite: das gesprochene Trigger-Wort und die
-      // Tastenkombination stehen in derselben Kopfkarte.
-      expect(find.text(l10n.snippetsPickerTriggerLabel), findsOneWidget);
-      expect(find.text(l10n.snippetsPickerHotkeyLabel), findsOneWidget);
-      // Anzeige-Taste, nicht Speicher-Token — dieselbe Darstellungsform wie
-      // in den Einstellungen.
-      expect(find.text('Ö'), findsOneWidget);
-      expect(find.text(';'), findsNothing);
-    });
-
-    testWidgets('the combination is per page, not per snippet', (tester) async {
-      await tester.pumpWidget(subject(settings: enabledHotkey));
-      await tester.pumpAndSettle();
-
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(SnippetsPage)),
-      );
-      await container.read(snippetsProvider.notifier).add('Signature', 'Best');
-      await container.read(snippetsProvider.notifier).add('Address', 'Street');
-      await tester.pumpAndSettle();
-
-      // Der Hotkey gehört dem Picker, nicht dem einzelnen Snippet — sonst
-      // stünde er zweimal in der Liste.
-      expect(find.text(l10n.snippetsPickerHotkeyLabel), findsOneWidget);
-      expect(
-        find.byKey(const Key('snippetsPickerHotkeyChange')),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('changing it here opens the same recorder dialog and writes '
-        'the same single stored state', (tester) async {
-      await tester.pumpWidget(subject(settings: enabledHotkey));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('snippetsPickerHotkeyChange')));
-      await tester.pumpAndSettle();
-      // Derselbe Dialog wie in den Einstellungen — kein zweiter.
-      expect(find.text(l10n.settingsHotkeyRecorderTitle), findsOneWidget);
-
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyK);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
-      await tester.pumpAndSettle();
-
-      final saved = ProviderScope.containerOf(
-        tester.element(find.byType(SnippetsPage)),
-      ).read(settingsProvider).value!.snippetPickerHotkey;
-      expect(saved.snippetPickerHotkeyKey, 'K');
-      expect(saved.snippetPickerHotkeyModifiers, 'ctrl+alt');
-      // Die Seite zeigt sofort, was gespeichert wurde: ein zweiter Zustand
-      // fiele genau hier auf.
-      expect(find.text('K'), findsOneWidget);
-    });
-
-    testWidgets('a combination already used by another WhisPaste hotkey is '
-        'refused here too', (tester) async {
-      await tester.pumpWidget(
-        subject(
-          settings: const AppSettings(
-            hotkey: HotkeySettings(
-              hotkeyEnabled: true,
-              hotkeyKey: 'D',
-              hotkeyModifiers: 'ctrl+shift',
-            ),
-            snippetPickerHotkey: SnippetPickerHotkeySettings(
-              snippetPickerHotkeyEnabled: true,
-              snippetPickerHotkeyKey: 'E',
-              snippetPickerHotkeyModifiers: 'ctrl+alt',
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const Key('snippetsPickerHotkeyChange')));
-      await tester.pumpAndSettle();
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-      await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(l10n.settingsHotkeyRecorderSave));
-      await tester.pumpAndSettle();
-
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(SnippetsPage)),
-      );
-      expect(
-        container
-            .read(settingsProvider)
-            .value!
-            .snippetPickerHotkey
-            .snippetPickerHotkeyKey,
-        'E',
-        reason: 'the collision check is the settings one, not a second copy',
-      );
-      expect(
-        find.byKey(const Key('snippetsPickerHotkeyCollisionNotice')),
-        findsOneWidget,
-      );
-      expect(
-        find.text(
-          l10n.settingsSnippetPickerHotkeyCollision(
-            l10n.settingsHotkeyActionRecording,
-          ),
-        ),
-        findsOneWidget,
-      );
-    });
-
-    testWidgets('a switched-off hotkey says so and can be switched on from '
-        'here', (tester) async {
+    testWidgets('the page links to Settings and holds no trigger field or '
+        'hotkey control of its own', (tester) async {
       await tester.pumpWidget(subject());
       await tester.pumpAndSettle();
 
-      expect(find.text(l10n.snippetsPickerHotkeyOff), findsOneWidget);
-      expect(find.byKey(const Key('snippetsPickerHotkeyChange')), findsNothing);
+      expect(find.text(l10n.snippetsPickerSettingsLink), findsOneWidget);
+      expect(find.text(l10n.snippetsPickerTriggerLabel), findsNothing);
+      expect(find.text(l10n.snippetsPickerHotkeyLabel), findsNothing);
+    });
 
-      await tester.tap(find.byKey(const Key('snippetsPickerHotkeyEnable')));
+    testWidgets('the link opens Settings at the trigger-word row', (
+      tester,
+    ) async {
+      await tester.pumpWidget(subject());
       await tester.pumpAndSettle();
+
+      await tester.tap(find.text(l10n.snippetsPickerSettingsLink));
+      await tester.pump();
 
       final container = ProviderScope.containerOf(
         tester.element(find.byType(SnippetsPage)),
       );
       expect(
-        container
-            .read(settingsProvider)
-            .value!
-            .snippetPickerHotkey
-            .snippetPickerHotkeyEnabled,
-        isTrue,
+        container.read(settingsScrollTargetProvider),
+        'general-snippet-picker-trigger',
       );
-      // Und die Zeile zeigt danach die Kombination, ohne dass jemand die Seite
-      // verlassen musste.
-      expect(find.text(l10n.snippetsPickerHotkeyOff), findsNothing);
-      expect(
-        find.byKey(const Key('snippetsPickerHotkeyChange')),
-        findsOneWidget,
-      );
+      expect(container.read(activePageProvider), 'settings');
     });
 
-    testWidgets('where the platform has no picker, the page says so and offers '
-        'neither trigger word nor hotkey', (tester) async {
-      await tester.pumpWidget(
-        subject(settings: enabledHotkey, available: false),
-      );
+    testWidgets('where the platform has no picker, the page says so and '
+        'offers no link', (tester) async {
+      await tester.pumpWidget(subject(available: false));
       await tester.pumpAndSettle();
 
       expect(
         find.byKey(const Key('snippetsPickerUnavailable')),
         findsOneWidget,
       );
-      // Derselbe Satz wie in den Einstellungen — eine Auskunft, ein Wortlaut.
+      // Same sentence as in Settings: one fact, one wording.
       expect(find.text(l10n.snippetsPickerUnavailable), findsOneWidget);
-      expect(find.text(l10n.snippetsPickerTriggerLabel), findsNothing);
-      expect(find.text(l10n.snippetsPickerHotkeyLabel), findsNothing);
-      expect(find.byKey(const Key('snippetsPickerHotkeyChange')), findsNothing);
-      expect(find.byKey(const Key('snippetsPickerHotkeyEnable')), findsNothing);
+      expect(find.text(l10n.snippetsPickerSettingsLink), findsNothing);
     });
 
-    testWidgets('the combination survives an accessibility text size without '
-        'clipping', (tester) async {
-      await tester.pumpWidget(
-        makeTestable(
-          const MediaQuery(
-            data: MediaQueryData(textScaler: TextScaler.linear(2.0)),
-            child: SnippetsPage(),
-          ),
-          locale: const Locale('en'),
-          overrides: [
-            settingsProvider.overrideWith(
-              () => _FakeSettingsNotifier(enabledHotkey),
-            ),
-            snippetPickerAvailabilityProvider.overrideWithValue(true),
-          ],
-        ),
-      );
+    testWidgets('the link stays whole at an accessibility text size', (
+      tester,
+    ) async {
+      await tester.pumpWidget(subject(textScale: 2.0));
       await tester.pumpAndSettle();
 
       expect(tester.takeException(), isNull);
-      expect(
-        find.byKey(const Key('snippetsPickerHotkeyComboLine')),
-        findsOneWidget,
-      );
+      expect(find.text(l10n.snippetsPickerSettingsLink), findsOneWidget);
     });
   });
 }

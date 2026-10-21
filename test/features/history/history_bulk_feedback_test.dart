@@ -11,7 +11,6 @@ import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/data/database.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/history/history_page.dart';
-import 'package:whispaste/features/history/widgets/history_search_filter_bar.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -68,13 +67,18 @@ void main() {
     await tester.sendKeyUpEvent(primaryShortcutModifier);
     await tester.pumpAndSettle();
 
-    // The action sits under the title bar at this surface size, so the test
-    // fires its callback directly instead of hit-testing it.
+    // Archive is a secondary batch action, so it sits in the bar's overflow
+    // menu (UIA-HIS-18). The menu opens through its state, as the button can
+    // sit under the title bar at this surface size.
     tester
-        .widget<HistoryMultiSelectAction>(
-          find.widgetWithText(HistoryMultiSelectAction, l10n.historyArchive),
+        .state<PopupMenuButtonState<VoidCallback>>(
+          find.byKey(const ValueKey('history-multiselect-more')),
         )
-        .onTap();
+        .showButtonMenu();
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('history-multiselect-more-archive')),
+    );
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text(l10n.historyBulkArchived(2)), findsOneWidget);

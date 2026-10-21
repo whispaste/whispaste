@@ -112,6 +112,38 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('the mood ratings are icons, never emoji text (UX-034)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          FeedbackPage(submissionService: _sentService()),
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The rating row appears once a type is chosen, as in _fillAndSubmit.
+      await tester.tap(find.text(l10n.feedbackTypePraise));
+      await tester.pumpAndSettle();
+
+      for (var rating = 1; rating <= 5; rating++) {
+        expect(
+          find.bySemanticsIdentifier('feedback-rating-$rating'),
+          findsOneWidget,
+        );
+      }
+      // Emoji need a colour-emoji font that some Linux installs lack.
+      final emoji = RegExp(
+        r'[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]',
+        unicode: true,
+      );
+      final texts = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((t) => t.data ?? '');
+      expect(texts.where(emoji.hasMatch), isEmpty);
+    });
+
     testWidgets('a feedback sent within 24 h is flagged when the form opens, '
         'and sending is blocked (UIA-FBK-04)', (tester) async {
       SharedPreferences.setMockInitialValues({

@@ -3525,6 +3525,12 @@ abstract class L10n {
   /// **'The trigger word is set, but there are no snippets yet — saying it inserts the word as normal text until you add your first snippet.'**
   String get snippetsPickerTriggerEmptyListHint;
 
+  /// No description provided for @snippetsPickerSettingsLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger word and hotkey in Settings'**
+  String get snippetsPickerSettingsLink;
+
   /// No description provided for @snippetsPickerHotkeyLabel.
   ///
   /// In en, this message translates to:
@@ -12685,7 +12691,7 @@ abstract class L10n {
   /// No description provided for @manualC06S2B2I1.
   ///
   /// In en, this message translates to:
-  /// **'With the picker trigger word: say only this word. It counts only if the whole recording is exactly this word. You set the trigger word on the Snippets page. Leave it empty to turn the picker off.'**
+  /// **'With the picker trigger word: say only this word. It counts only if the whole recording is exactly this word. You set it in Settings under Keyboard shortcuts, group Notes & snippets, right below the picker hotkey. Leave it empty to turn the picker off.'**
   String get manualC06S2B2I1;
 
   /// No description provided for @manualC06S2B2I2.

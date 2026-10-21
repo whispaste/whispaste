@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/features/snippets/snippets_page.dart';
-import 'package:whispaste/services/snippet_picker/snippet_picker_controller.dart';
 
 import '../../fixtures/test_helpers.dart';
 
@@ -45,12 +44,16 @@ void main() {
 
     await tester.tap(find.byIcon(LucideIcons.plus));
     await tester.pumpAndSettle();
-    final offset = snippetPickerAvailableOnPlatform ? 1 : 0;
-    await tester.enterText(find.byType(TextField).at(offset + 1), 'Signature');
-    await tester.enterText(
-      find.byType(TextField).at(offset + 2),
-      'Best,\nSilvio',
+    final titleField = find.descendant(
+      of: find.byKey(const ValueKey('snippets-title-field')),
+      matching: find.byType(EditableText),
     );
+    final bodyField = find.descendant(
+      of: find.byKey(const ValueKey('snippets-body-field')),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(titleField, 'Signature');
+    await tester.enterText(bodyField, 'Best,\nSilvio');
     await tester.pumpAndSettle();
 
     await tester.tap(find.text(l10n.snippetsAdd).last);
@@ -58,10 +61,7 @@ void main() {
 
     expect(find.text(l10n.snippetsAdd), findsWidgets);
     expect(
-      tester
-          .widget<TextField>(find.byType(TextField).at(offset + 1))
-          .controller!
-          .text,
+      tester.widget<EditableText>(titleField).controller.text,
       'Signature',
     );
     expect(find.text(l10n.errorGeneric), findsOneWidget);

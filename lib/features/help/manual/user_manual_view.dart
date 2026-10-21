@@ -109,7 +109,7 @@ class _UserManualViewState extends State<UserManualView> {
             ),
           ),
         ],
-        const SizedBox(height: WpSpacing.md),
+        const SizedBox(height: WpSpacing.xxs),
         Expanded(
           child: visible.isEmpty
               ? _NoMatch(l10n: l10n)
@@ -205,7 +205,7 @@ class _Reader extends StatelessWidget {
               selected: index,
               onSelected: select,
             ),
-            const SizedBox(height: WpSpacing.md),
+            const SizedBox(height: WpSpacing.xxs),
             Expanded(child: content),
           ],
         );

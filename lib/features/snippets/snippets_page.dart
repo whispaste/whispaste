@@ -23,9 +23,8 @@ import '../../widgets/wp_accent_badge.dart';
 import '../../widgets/wp_button.dart';
 import '../../widgets/wp_segmented_selector.dart';
 import '../../widgets/wp_text_field.dart';
-import '../settings/hotkey_flow.dart';
-import '../settings/settings_widgets.dart';
-import '../settings/snippet_picker_hotkey_flow.dart';
+import '../../widgets/wp_text_link.dart';
+import '../../core/navigation/page_state.dart';
 import 'package:whispaste/core/data/database.dart';
 
 // ---------------------------------------------------------------------------
@@ -208,9 +207,7 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
 
     return WpSearchableListPage<SnippetItem>(
       identifierPrefix: 'snippets',
-      header: _SnippetPickerHeader(
-        trigger: trigger,
-        pageRef: ref,
+      header: _SnippetPickerSettingsLink(
         showEmptyListHint: trigger.trim().isNotEmpty && !hasSnippets,
       ),
       asyncAll: ref.watch(snippetsProvider),
@@ -332,34 +329,21 @@ class _SnippetsPageState extends ConsumerState<SnippetsPage> {
 }
 
 // ---------------------------------------------------------------------------
-// Picker header card: trigger word (ticket 06) + hotkey (ticket 27)
+// Settings link for the picker (UX-030)
 // ---------------------------------------------------------------------------
 
-/// Header card above the snippet list — everything about *getting to* the
-/// Snippet-Picker, in one place above the snippets themselves.
+/// One line above the list that leads to the Settings row for the spoken
+/// trigger word and the picker hotkey.
 ///
-/// Both ways in stand here together on purpose: the spoken trigger word and
-/// the key combination are not two features but two doors to the same panel,
-/// and whoever is maintaining their snippets is exactly the person asking
-/// "how do I call these up again?". Sending them to Settings for one of the
-/// two answers is the trip this card exists to save.
-///
-/// Where the platform has no native picker at all, the card says so instead
-/// of offering either — the availability answer comes from
-/// [snippetPickerAvailabilityProvider], the same one the settings row reads
-/// (ticket 26/27), so tickets 29/30 flip one getter and both places follow.
-class _SnippetPickerHeader extends ConsumerWidget {
-  const _SnippetPickerHeader({
-    required this.trigger,
-    required this.pageRef,
-    required this.showEmptyListHint,
-  });
+/// Both are global settings that change rarely, so they live in General ›
+/// Tastenkürzel. This page keeps only the affordance, so the list starts right
+/// under the search bar. Where the platform has no native picker, the page says
+/// so and offers no link: there is nothing to set.
+class _SnippetPickerSettingsLink extends ConsumerWidget {
+  const _SnippetPickerSettingsLink({required this.showEmptyListHint});
 
-  final String trigger;
-
-  /// The page's own [WidgetRef] — the trigger field commits through it.
-  final WidgetRef pageRef;
-
+  /// True when a trigger word is set but the snippet list is empty: the trigger
+  /// does nothing yet, which this page must say out loud.
   final bool showEmptyListHint;
 
   @override
@@ -370,352 +354,75 @@ class _SnippetPickerHeader extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         WpSpacing.xl,
-        WpSpacing.sm,
+        WpSpacing.xs,
         WpSpacing.xl,
         0,
       ),
-      child: Container(
-        padding: const EdgeInsets.all(WpSpacing.xxs),
-        // Card material, not the flat `surfaceElevated` it used to be: this
-        // header is a plate on the content plane like every list row below
-        // it, and the frost fill lets the one ambient gradient keep running
-        // underneath instead of cutting an opaque band across the page.
-        decoration: BoxDecoration(
-          color: WpColors.cardFill,
-          borderRadius: WpRadius.borderMd,
-          border: Border.all(color: WpColors.borderSubtle),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: available
-              ? [
-                  _SnippetPickerTriggerField(
-                    trigger: trigger,
-                    ref: pageRef,
-                    showEmptyListHint: showEmptyListHint,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showEmptyListHint)
+            Padding(
+              padding: const EdgeInsets.only(bottom: WpSpacing.xxs),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    LucideIcons.triangleAlert,
+                    size: WpIconSize.xs,
+                    color: WpColors.warning,
                   ),
-                  const _SnippetPickerHotkeyRow(),
-                ]
-              : [
-                  // Ganz bewusst kein abgeblendeter Umschalter und kein
-                  // Eingabefeld: hier ist nichts einzustellen, und der
-                  // Trigger würde ohne Picker still als normaler Text
-                  // eingefügt. Derselbe Satz wie in den Einstellungen.
-                  Padding(
-                    key: const Key('snippetsPickerUnavailable'),
-                    padding: const EdgeInsets.fromLTRB(
-                      WpSpacing.md,
-                      WpSpacing.sm,
-                      WpSpacing.md,
-                      WpSpacing.sm,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          LucideIcons.info,
-                          size: WpIconSize.xs,
-                          color: WpColors.textMuted,
-                        ),
-                        const SizedBox(width: WpSpacing.xs),
-                        Expanded(
-                          child: Text(
-                            l10n.snippetsPickerUnavailable,
-                            style: TextStyle(
-                              color: WpColors.textMuted,
-                              fontSize: WpTypography.small,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(width: WpSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      l10n.snippetsPickerTriggerEmptyListHint,
+                      style: TextStyle(
+                        color: WpColors.warning,
+                        fontSize: WpTypography.small,
+                        height: 1.4,
+                      ),
                     ),
                   ),
                 ],
-        ),
+              ),
+            ),
+          if (available)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: WpTextLink(
+                label: l10n.snippetsPickerSettingsLink,
+                icon: LucideIcons.settings,
+                testID: 'snippets-picker-settings-link',
+                onPressed: () => _openPickerSettings(ref),
+              ),
+            )
+          else
+            // Deliberately no link: there is nothing to set. Same sentence as
+            // in Settings.
+            Padding(
+              key: const Key('snippetsPickerUnavailable'),
+              padding: const EdgeInsets.only(bottom: WpSpacing.xxs),
+              child: Text(
+                l10n.snippetsPickerUnavailable,
+                style: TextStyle(
+                  color: WpColors.textMuted,
+                  fontSize: WpTypography.small,
+                  height: 1.4,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
-}
 
-/// The single global trigger word that opens the Snippet-Picker when a
-/// transcript matches it exactly.
-///
-/// Lives on this page (not in Settings) because the trigger only matters in
-/// the context of Snippets. Empty string means the picker is off — the
-/// subtitle copy spells that out so the off-state is legible at a glance.
-/// Debounced-commit shape copied from `_AutoPasteBlocklistField`.
-class _SnippetPickerTriggerField extends StatefulWidget {
-  const _SnippetPickerTriggerField({
-    required this.trigger,
-    required this.ref,
-    required this.showEmptyListHint,
-  });
-
-  final String trigger;
-  final WidgetRef ref;
-
-  /// True when a trigger word is set but the snippet list is empty — the
-  /// trigger currently does nothing (dictating it falls through to a normal
-  /// paste), which this card must say out loud instead of letting the user
-  /// discover it mid-dictation.
-  final bool showEmptyListHint;
-
-  @override
-  State<_SnippetPickerTriggerField> createState() =>
-      _SnippetPickerTriggerFieldState();
-}
-
-/// The trigger word is one spoken word: no line breaks or other control
-/// characters, and a bounded length.
-const int _kSnippetPickerTriggerMaxLength = 64;
-final TextInputFormatter _noControlCharacters =
-    FilteringTextInputFormatter.deny(RegExp(r'[\x00-\x1F\x7F]'));
-
-class _SnippetPickerTriggerFieldState extends State<_SnippetPickerTriggerField>
-    with WidgetsBindingObserver {
-  late final TextEditingController _controller;
-  Timer? _debounce;
-  void Function()? _pendingWrite;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.trigger);
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  /// Leaving the app (Cmd+Tab, lock screen, quit) writes a pending word now,
-  /// not only when the page is left.
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
-      _debounce?.cancel();
-      _debounce = null;
-      final write = _pendingWrite;
-      _pendingWrite = null;
-      write?.call();
-    }
-  }
-
-  @override
-  void didUpdateWidget(_SnippetPickerTriggerField old) {
-    super.didUpdateWidget(old);
-    // External change (e.g. settings import) — not an echo of our own commit.
-    if (old.trigger != widget.trigger && widget.trigger != _controller.text) {
-      _controller.text = widget.trigger;
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    // Save an edit still inside the debounce window instead of dropping it.
-    // Deferred: dispose runs inside the widget build, and a provider write
-    // there is rejected by Riverpod.
-    final pending = _pendingWrite;
-    _pendingWrite = null;
-    _debounce?.cancel();
-    if (pending != null) Future.microtask(pending);
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onChanged(String value) {
-    // Capture the notifier now: `ref` must not be used once the state is
-    // disposed, and the flush can run during dispose.
-    final notifier = widget.ref.read(settingsProvider.notifier);
-    // Raw value on purpose: the dispatcher normalizes both sides via
-    // `normalizeForExactMatch` (see `snippet_picker_dispatch.dart`).
-    _pendingWrite = () => notifier.updateSettings(
-      (s) => s.copyWithSections(
-        behavior: s.behavior.copyWith(snippetPickerTrigger: value),
-      ),
-    );
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 600), () {
-      final write = _pendingWrite;
-      _pendingWrite = null;
-      write?.call();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SettingRow(
-          icon: LucideIcons.audioLines,
-          label: l10n.snippetsPickerTriggerLabel,
-          subtitle: l10n.snippetsPickerTriggerSubtitle,
-          trailing: settingsTextField(
-            context: context,
-            controller: _controller,
-            hintText: l10n.snippetsPickerTriggerHint,
-            onChanged: _onChanged,
-            semanticLabel: l10n.snippetsPickerTriggerLabel,
-            maxLength: _kSnippetPickerTriggerMaxLength,
-            inputFormatters: [_noControlCharacters],
-          ),
-        ),
-        if (widget.showEmptyListHint)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              WpSpacing.md,
-              WpSpacing.xxs,
-              WpSpacing.md,
-              WpSpacing.sm,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  LucideIcons.triangleAlert,
-                  size: WpIconSize.xs,
-                  color: WpColors.warning,
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    l10n.snippetsPickerTriggerEmptyListHint,
-                    style: TextStyle(
-                      color: WpColors.warning,
-                      fontSize: WpTypography.small,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Picker hotkey line (ticket 27)
-// ---------------------------------------------------------------------------
-
-/// The key combination that opens the Snippet-Picker — second call site of the
-/// settings flow, not a second setting.
-///
-/// It reads [settingsProvider] and writes through [recordSnippetPickerHotkey]:
-/// the same dialog, the same collision check, the same stored state the
-/// Settings page shows. Deliberately subordinate — one row in the header card,
-/// no toggle of its own, no notice the picker itself does not need; this stays
-/// a snippets screen rather than becoming half a settings page. The switch
-/// lives in Settings, but a hotkey that is off can be turned on from right
-/// here, because "it does nothing and this page won't say why" is exactly the
-/// dead end the row exists to prevent.
-class _SnippetPickerHotkeyRow extends ConsumerStatefulWidget {
-  const _SnippetPickerHotkeyRow();
-
-  @override
-  ConsumerState<_SnippetPickerHotkeyRow> createState() =>
-      _SnippetPickerHotkeyRowState();
-}
-
-class _SnippetPickerHotkeyRowState
-    extends ConsumerState<_SnippetPickerHotkeyRow>
-    with HotkeyCollisionNotice {
-  Future<void> _record(AppSettings settings) => recordAndReport(
-    () => recordSnippetPickerHotkey(
-      context: context,
-      ref: ref,
-      settings: settings,
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = L10n.of(context);
-    // Solange die Einstellungen nicht geladen sind, behauptet die Zeile
-    // nichts — weder eine Kombination noch „ausgeschaltet". Beides wäre
-    // geraten.
-    final settings = ref.watch(settingsProvider).value;
-    if (settings == null) return const SizedBox.shrink();
-
-    final hotkey = settings.snippetPickerHotkey;
-    final enabled = hotkey.snippetPickerHotkeyEnabled;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SettingRow(
-          icon: LucideIcons.keyboard,
-          label: l10n.snippetsPickerHotkeyLabel,
-          // Eingeschaltet sagt die Unterzeile, wozu die Kombination gut ist
-          // („der zweite Weg zum selben Panel") — ausgeschaltet ist sie die
-          // ganze Auskunft, die diesen Zustand überhaupt erklärt.
-          subtitle: enabled
-              ? l10n.snippetsPickerHotkeySubtitle
-              : l10n.snippetsPickerHotkeyOff,
-          trailing: enabled
-              ? const SizedBox.shrink()
-              // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
-              : WpButton(
-                  key: const Key('snippetsPickerHotkeyEnable'),
-                  label: l10n.snippetsPickerHotkeyEnable,
-                  variant: WpButtonVariant.ghost,
-                  size: WpButtonSize.dense,
-                  onPressed: () => unawaited(
-                    setSnippetPickerHotkeyEnabled(ref, enabled: true),
-                  ),
-                ),
-        ),
-        if (enabled)
-          HotkeyComboLine(
-            key: const Key('snippetsPickerHotkeyComboLine'),
-            label: l10n.settingsSnippetPickerCurrentHotkey,
-            hotkeyKey: hotkey.snippetPickerHotkeyKey,
-            hotkeyModifiers: hotkey.snippetPickerHotkeyModifiers,
-            hotkeyKeyDisplay: hotkey.snippetPickerHotkeyKeyDisplay,
-            changeButtonKey: const Key('snippetsPickerHotkeyChange'),
-            padding: const EdgeInsets.fromLTRB(
-              WpSpacing.md,
-              0,
-              WpSpacing.md,
-              WpSpacing.sm,
-            ),
-            onChange: () => unawaited(_record(settings)),
-          ),
-        if (collidingAction != null)
-          Padding(
-            key: const Key('snippetsPickerHotkeyCollisionNotice'),
-            padding: const EdgeInsets.fromLTRB(
-              WpSpacing.md,
-              0,
-              WpSpacing.md,
-              WpSpacing.sm,
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  LucideIcons.circleAlert,
-                  size: WpIconSize.xs,
-                  color: WpColors.error,
-                ),
-                const SizedBox(width: WpSpacing.xs),
-                Expanded(
-                  child: Text(
-                    l10n.settingsSnippetPickerHotkeyCollision(collidingAction!),
-                    style: TextStyle(
-                      color: WpColors.error,
-                      fontSize: WpTypography.small,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
+  /// Opens Settings at the trigger-word row, the same way other pages hand a
+  /// row over.
+  void _openPickerSettings(WidgetRef ref) {
+    ref
+        .read(settingsScrollTargetProvider.notifier)
+        .set('general-snippet-picker-trigger');
+    ref.read(activePageProvider.notifier).setPage('settings');
   }
 }
 

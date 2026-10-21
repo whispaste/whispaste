@@ -93,7 +93,9 @@ class _WpTextLinkState extends State<WpTextLink> {
                       Icon(widget.icon, size: WpIconSize.sm, color: color),
                       const SizedBox(width: WpSpacing.xxs),
                     ],
-                    Text(widget.label, style: style),
+                    // Flexible so a long label wraps at large text sizes instead
+                    // of overflowing the row (inflexible children get unbounded width).
+                    Flexible(child: Text(widget.label, style: style)),
                   ],
                 ),
               ),

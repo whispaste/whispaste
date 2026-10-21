@@ -123,7 +123,6 @@ class _HelpPageState extends ConsumerState<HelpPage> {
               for (final tab in HelpTab.values) 'help-hub-tab-${tab.name}',
             ],
           ),
-          const SizedBox(height: WpSpacing.md),
         ],
       ),
       child: _body(l10n, langCode),

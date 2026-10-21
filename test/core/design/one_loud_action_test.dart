@@ -787,7 +787,7 @@ void main() {
 
       await tester.tap(find.text(l10n.feedbackTypePraise));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('🤩'));
+      await tester.tap(find.bySemanticsIdentifier('feedback-rating-5'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('feedbackCommentField')),

@@ -825,16 +825,24 @@ void main() {
       expect(rtlSnippet.left, closeTo(rtlMain.left, 0.01));
     });
 
-    testWidgets('says what the hotkey opens, and never names it like the '
-        'spoken trigger word', (tester) async {
+    testWidgets('says what the hotkey opens, and gives the spoken trigger word '
+        'its own row under it', (tester) async {
       await tester.pumpWidget(subject());
       await tester.pumpAndSettle();
 
       expect(find.text(l10n.settingsSnippetPickerHotkeyHint), findsOneWidget);
-      // Das gesprochene Trigger-Wort ist eine andere Sache an einem anderen
-      // Ort (Snippets-Seite). Stünde sein Eingabefeld hier, wären die beiden
-      // Auslösewege genau das, was sie nicht sind: eine Einstellung.
-      expect(find.text(l10n.snippetsPickerTriggerLabel), findsNothing);
+      // Das gesprochene Trigger-Wort ist ein eigener Eintrag (UX-030) und kein
+      // Umschalter dieses Blocks: die beiden Auslösewege öffnen dasselbe
+      // Panel, bleiben aber getrennte Einstellungen.
+      expect(find.text(l10n.snippetsPickerTriggerLabel), findsOneWidget);
+      expect(
+        find.byKey(settingsRowKey('general-snippet-picker-trigger')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('snippetPickerHotkeyToggle')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('the toggle writes the snippet-picker setting, not the other '

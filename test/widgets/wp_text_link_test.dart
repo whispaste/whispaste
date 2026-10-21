@@ -92,4 +92,29 @@ void main() {
 
     expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
   });
+  testWidgets('a long label wraps at a large text size instead of '
+      'overflowing (UX-030)', (tester) async {
+    await tester.pumpWidget(
+      makeTestable(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+          child: SizedBox(
+            width: 240,
+            child: WpTextLink(
+              label: 'Trigger word and hotkey in Settings',
+              icon: Icons.settings,
+              onPressed: () {},
+            ),
+          ),
+        ),
+        size: const Size(400, 600),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getSize(find.text('Trigger word and hotkey in Settings')).width,
+      lessThanOrEqualTo(240),
+    );
+  });
 }

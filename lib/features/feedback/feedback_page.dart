@@ -1282,7 +1282,15 @@ class _EmojiRatingRow extends StatelessWidget {
   final int rating;
   final ValueChanged<int> onChanged;
 
-  static const _emojis = ['😟', '😐', '🙂', '😊', '🤩'];
+  // Lucide faces, not emoji: emoji need a colour-emoji font, which Linux
+  // installs often lack (empty boxes, UX-034).
+  static const _icons = <IconData>[
+    LucideIcons.frown,
+    LucideIcons.meh,
+    LucideIcons.smile,
+    LucideIcons.smilePlus,
+    LucideIcons.laugh,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -1300,7 +1308,7 @@ class _EmojiRatingRow extends StatelessWidget {
           child: Semantics(
             identifier: 'feedback-rating-${i + 1}',
             child: _EmojiRatingOption(
-              emoji: _emojis[i],
+              icon: _icons[i],
               label: labels[i],
               isSelected: rating == i + 1,
               isLast: i == 4,
@@ -1324,14 +1332,14 @@ class _EmojiRatingRow extends StatelessWidget {
 /// page, so both of this form's pickers now behave identically.
 class _EmojiRatingOption extends StatefulWidget {
   const _EmojiRatingOption({
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.isSelected,
     required this.isLast,
     required this.onTap,
   });
 
-  final String emoji;
+  final IconData icon;
   final String label;
   final bool isSelected;
   final bool isLast;
@@ -1381,12 +1389,18 @@ class _EmojiRatingOptionState extends State<_EmojiRatingOption> {
           // font size, which the OS text scaler can still act on.
           ExcludeSemantics(
             // The label underneath already names this option. Without this,
-            // a screen reader reads the glyph too ("worried face, Frustrated").
+            // a screen reader would also announce the icon's own name.
             child: AnimatedScale(
               scale: widget.isSelected ? 1.25 : 1.0,
               duration: WpMotion.durationFor(context, WpMotion.fast),
               curve: WpMotion.defaultCurve,
-              child: Text(widget.emoji, style: const TextStyle(fontSize: 22)),
+              child: Icon(
+                widget.icon,
+                size: WpIconSize.lg,
+                color: widget.isSelected
+                    ? WpColors.textPrimary
+                    : WpColors.textMuted,
+              ),
             ),
           ),
           const SizedBox(height: WpSpacing.xxs),
