@@ -1255,6 +1255,18 @@ void showRecoveryToast({
           onPressed: () => openSettings('stt'),
         ),
       );
+    case RecoveryToastKind.gpuProbeFailed:
+      WpToast.show(
+        context,
+        message: l10n.recoveryGpuProbeFailedToast,
+        type: WpToastType.warning,
+        duration: const Duration(seconds: 8),
+        // loam-ignore: a11y-interactive-semantics – WpToastAction is a data class; label is the button text
+        action: WpToastAction(
+          label: l10n.recoveryExhaustedAction,
+          onPressed: () => openSettings('stt'),
+        ),
+      );
   }
 }
 

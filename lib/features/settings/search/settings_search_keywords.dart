@@ -47,6 +47,7 @@ const Map<String, List<String>> kSharedSectionRowIds = {
     'text-paste-clipboard-after',
   ],
   'recordingSafety': ['recording-max-duration'],
+  'stt': ['speech-gpu-probe'],
 };
 
 /// Rows that carry their own localized synonym list, for rows that are not

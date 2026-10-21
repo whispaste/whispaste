@@ -31,8 +31,7 @@ namespace {
 
 bool g_backends_loaded = false;
 
-void ensure_backends_loaded() {
-  if (g_backends_loaded) return;
+void load_backends() {
 #if defined(_WIN32)
   // ggml_backend_load_all() (no explicit path) searches only the *executable's*
   // directory and the current working directory (see
@@ -60,7 +59,6 @@ void ensure_backends_loaded() {
           std::string dir_utf8(static_cast<size_t>(utf8_len) - 1, '\0');
           WideCharToMultiByte(CP_UTF8, 0, dir.c_str(), -1, dir_utf8.data(), utf8_len, nullptr, nullptr);
           ggml_backend_load_all_from_path(dir_utf8.c_str());
-          g_backends_loaded = true;
           return;
         }
       }
@@ -80,12 +78,23 @@ void ensure_backends_loaded() {
     auto last_slash = path.find_last_of('/');
     if (last_slash != std::string::npos) {
       ggml_backend_load_all_from_path(path.substr(0, last_slash).c_str());
-      g_backends_loaded = true;
       return;
     }
   }
 #endif
   ggml_backend_load_all();
+}
+
+// ggml backend loading is native code outside wp_ffi_guard. An exception from
+// it must not unwind across the C ABI into Dart: the shim then runs on the CPU
+// backend that is already compiled in, and the load is not retried.
+void ensure_backends_loaded() {
+  if (g_backends_loaded) return;
+  try {
+    load_backends();
+  } catch (...) {
+    // Swallowed on purpose, see above.
+  }
   g_backends_loaded = true;
 }
 

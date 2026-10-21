@@ -24,3 +24,17 @@ void throw_from_nested_frame(int kind) {
 extern "C" void wpg_selftest_throw(const void* kind, const void* /*unused*/) {
   throw_from_nested_frame(*static_cast<const int*>(kind));
 }
+
+extern "C" void wpg_selftest_throw_void(void) {
+  throw_from_nested_frame(1);
+}
+
+extern "C" void wpg_selftest_throw_cstr(const char* arg) {
+  throw std::runtime_error(std::string("wpg selftest: ") +
+                           (arg != nullptr ? arg : ""));
+}
+
+extern "C" void* wpg_selftest_throw_ptr_cstr(const char* arg) {
+  wpg_selftest_throw_cstr(arg);
+  return nullptr;
+}

@@ -60,6 +60,8 @@ import 'services/smart_mode/smart_mode_presets.dart'
     show smartModePresetFromSettingsValue;
 import 'services/sound_feedback_service.dart';
 import 'services/stt/whisper/gpu_load_crash_guard.dart';
+import 'services/stt/whisper/gpu_probe.dart'
+    show kGpuProbeChildEnv, kGpuProbeStartedLine;
 import 'services/stt_parakeet/parakeet_language_support.dart';
 import 'services/stt_parakeet/parakeet_model_registry.dart';
 import 'services/telemetry_service.dart';
@@ -251,6 +253,11 @@ Future<void> main(List<String> args) async {
     return;
   }
 
+  // Tells the GPU probe parent (gpu_probe.dart) that the child reached the
+  // app: a child without this line never got to the GPU code.
+  if (Platform.environment[kGpuProbeChildEnv] == '1') {
+    stdout.writeln(kGpuProbeStartedLine);
+  }
   // `whispaste --transcribe-file <wav> …`: headless transcription/latency
   // benchmark (lib/services/headless/). Runs before crash reporting, the
   // single-instance guard and any window/UI setup, then exits.

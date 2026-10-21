@@ -137,6 +137,168 @@ typedef _CallVoidPPDart =
       int,
     );
 
+typedef _GuardVoidVoidNative =
+    ffi.Int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>, ffi.Size);
+typedef _GuardVoidVoidDart =
+    int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>, int);
+typedef _GuardVoidCStrNative =
+    ffi.Int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Size,
+    );
+typedef _GuardVoidCStrDart =
+    int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Char>,
+      int,
+    );
+typedef _GuardPtrCStrNative =
+    ffi.Int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Size,
+    );
+typedef _GuardPtrCStrDart =
+    int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+      ffi.Pointer<ffi.Char>,
+      int,
+    );
+typedef _GuardCStrOutNative =
+    ffi.Int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Pointer<ffi.Char>>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Size,
+    );
+typedef _GuardCStrOutDart =
+    int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Pointer<ffi.Char>>,
+      ffi.Pointer<ffi.Char>,
+      int,
+    );
+typedef _GuardCStrPtrNative =
+    ffi.Int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Pointer<ffi.Char>>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Size,
+    );
+typedef _GuardCStrPtrDart =
+    int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Pointer<ffi.Char>>,
+      ffi.Pointer<ffi.Char>,
+      int,
+    );
+typedef _GuardSizeOutNative =
+    ffi.Int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Size>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Size,
+    );
+typedef _GuardSizeOutDart =
+    int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Size>,
+      ffi.Pointer<ffi.Char>,
+      int,
+    );
+typedef _GuardPtrSizeNative =
+    ffi.Int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Size,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Size,
+    );
+typedef _GuardPtrSizeDart =
+    int Function(
+      ffi.Pointer<ffi.Void>,
+      int,
+      ffi.Pointer<ffi.Pointer<ffi.Void>>,
+      ffi.Pointer<ffi.Char>,
+      int,
+    );
+typedef _GuardIntPtrNative =
+    ffi.Int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Int>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Size,
+    );
+typedef _GuardScoreNative =
+    ffi.Int Function(
+      ffi.Pointer<Utf8>,
+      ffi.Pointer<ffi.Int>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Size,
+    );
+typedef _GuardScoreDart =
+    int Function(
+      ffi.Pointer<Utf8>,
+      ffi.Pointer<ffi.Int>,
+      ffi.Pointer<ffi.Char>,
+      int,
+    );
+typedef _GuardIntPtrDart =
+    int Function(
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Void>,
+      ffi.Pointer<ffi.Int>,
+      ffi.Pointer<ffi.Char>,
+      int,
+    );
+typedef _GuardFlagGetNative = ffi.Int Function(ffi.Int);
+typedef _GuardFlagGetDart = int Function(int);
+typedef _GuardFlagSetNative = ffi.Void Function(ffi.Int, ffi.Int);
+typedef _GuardFlagSetDart = void Function(int, int);
+typedef _GuardLogInstallNative =
+    ffi.Int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>, ffi.Size);
+typedef _GuardLogInstallDart =
+    int Function(ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>, int);
+typedef _GuardLogSinkNative =
+    ffi.Void Function(ffi.Int, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Void>);
+typedef _GuardLogSinkDart =
+    void Function(int, ffi.Pointer<ffi.Char>, ffi.Pointer<ffi.Void>);
+typedef _GuardLogPopNative =
+    ffi.Int Function(ffi.Pointer<ffi.Int>, ffi.Pointer<ffi.Char>, ffi.Size);
+typedef _GuardLogPopDart =
+    int Function(ffi.Pointer<ffi.Int>, ffi.Pointer<ffi.Char>, int);
+typedef _GuardTakeDroppedNative = ffi.Size Function();
+typedef _GuardTakeDroppedDart = int Function();
+
+/// `wpg_process_flag_*` slots (`ffi_guard.h`). Process-wide on the native
+/// side, so every isolate of the process sees the same value.
+abstract final class WpgFlag {
+  /// 0 none, 1 CPU module only, 2 all backend modules.
+  static const int backends = 1;
+
+  /// 0 not attempted, 1 attempted.
+  static const int cudaPack = 2;
+}
+
+/// One line popped from the native ggml/whisper log ring.
+class NativeLogLine {
+  const NativeLogLine(this.level, this.text);
+
+  /// `ggml_log_level`: 0 none, 1 debug, 2 info, 3 warn, 4 error, 5 continue.
+  final int level;
+  final String text;
+}
+
 /// Loaded `wp_ffi_guard` library. Obtain via [NativeCallGuard.nextTo] or
 /// [NativeCallGuard.tryOpen]; every call throws [NativeCallException] when
 /// the target threw.
@@ -170,7 +332,7 @@ class NativeCallGuard {
               ffi.sizeOf<whisper_full_params>();
 
   /// `WPG_ABI_VERSION` this binding was written against (`ffi_guard.h`).
-  static const abiVersion = 1;
+  static const abiVersion = 2;
 
   /// Bytes reserved for the exception message (truncated natively).
   static const _errorBufferLength = 512;
@@ -382,4 +544,222 @@ class NativeCallGuard {
       calloc.free(kindPtr);
     }
   }
+
+  // ── ggml backend registry and log sink (ABI 2) ─────────────────────────
+  //
+  // Each wrapper takes the target's address (`fn`, resolved by the caller
+  // from the app's own library) and turns a C++ exception from it into a
+  // [NativeCallException]. The lookups are lazy: they are only needed on the
+  // backend-load path and in tests.
+
+  late final _GuardVoidVoidDart _callVoidFn = library
+      .lookupFunction<_GuardVoidVoidNative, _GuardVoidVoidDart>(
+        'wpg_call_void',
+      );
+  late final _GuardVoidCStrDart _callVoidCStrFn = library
+      .lookupFunction<_GuardVoidCStrNative, _GuardVoidCStrDart>(
+        'wpg_call_void_cstr',
+      );
+  late final _GuardPtrCStrDart _callPtrCStrFn = library
+      .lookupFunction<_GuardPtrCStrNative, _GuardPtrCStrDart>(
+        'wpg_call_ptr_cstr',
+      );
+  late final _GuardCStrOutDart _callCStrVoidFn = library
+      .lookupFunction<_GuardCStrOutNative, _GuardCStrOutDart>(
+        'wpg_call_cstr_void',
+      );
+  late final _GuardCStrPtrDart _callCStrPtrFn = library
+      .lookupFunction<_GuardCStrPtrNative, _GuardCStrPtrDart>(
+        'wpg_call_cstr_ptr',
+      );
+  late final _GuardSizeOutDart _callSizeVoidFn = library
+      .lookupFunction<_GuardSizeOutNative, _GuardSizeOutDart>(
+        'wpg_call_size_void',
+      );
+  late final _GuardPtrSizeDart _callPtrSizeFn = library
+      .lookupFunction<_GuardPtrSizeNative, _GuardPtrSizeDart>(
+        'wpg_call_ptr_size',
+      );
+  late final _GuardIntPtrDart _callIntPtrFn = library
+      .lookupFunction<_GuardIntPtrNative, _GuardIntPtrDart>('wpg_call_int_ptr');
+  late final _GuardScoreDart _backendScoreFn = library
+      .lookupFunction<_GuardScoreNative, _GuardScoreDart>('wpg_backend_score');
+  late final _GuardFlagGetDart _flagGetFn = library
+      .lookupFunction<_GuardFlagGetNative, _GuardFlagGetDart>(
+        'wpg_process_flag_get',
+      );
+  late final _GuardFlagSetDart _flagSetFn = library
+      .lookupFunction<_GuardFlagSetNative, _GuardFlagSetDart>(
+        'wpg_process_flag_set',
+      );
+  late final _GuardLogInstallDart _logInstallFn = library
+      .lookupFunction<_GuardLogInstallNative, _GuardLogInstallDart>(
+        'wpg_log_install',
+      );
+  late final _GuardLogSinkDart _logSinkFn = library
+      .lookupFunction<_GuardLogSinkNative, _GuardLogSinkDart>('wpg_log_sink');
+  late final _GuardLogPopDart _logPopFn = library
+      .lookupFunction<_GuardLogPopNative, _GuardLogPopDart>('wpg_log_pop');
+  late final _GuardTakeDroppedDart _takeDroppedFn = library
+      .lookupFunction<_GuardTakeDroppedNative, _GuardTakeDroppedDart>(
+        'wpg_log_take_dropped',
+      );
+
+  /// `ggml_backend_load_all()` via [fn].
+  void callVoid(ffi.Pointer<ffi.Void> fn) {
+    _run((err, len) => _callVoidFn(fn, err, len));
+  }
+
+  /// `ggml_backend_load_all_from_path(arg)` via [fn].
+  void callVoidCString(ffi.Pointer<ffi.Void> fn, String arg) {
+    final argC = arg.toNativeUtf8();
+    try {
+      _run((err, len) => _callVoidCStrFn(fn, argC.cast(), err, len));
+    } finally {
+      malloc.free(argC);
+    }
+  }
+
+  /// `ggml_backend_load(arg)` via [fn]: the registered backend, or `null`
+  /// when ggml rejected the module.
+  ffi.Pointer<ffi.Void> callPtrCString(ffi.Pointer<ffi.Void> fn, String arg) {
+    final argC = arg.toNativeUtf8();
+    final out = calloc<ffi.Pointer<ffi.Void>>();
+    try {
+      _run((err, len) => _callPtrCStrFn(fn, argC.cast(), out, err, len));
+      return out.value;
+    } finally {
+      calloc.free(out);
+      malloc.free(argC);
+    }
+  }
+
+  /// `whisper_print_system_info()` or any `const char*` function without
+  /// arguments, via [fn].
+  String? callCStringVoid(ffi.Pointer<ffi.Void> fn) {
+    final out = calloc<ffi.Pointer<ffi.Char>>();
+    try {
+      _run((err, len) => _callCStrVoidFn(fn, out, err, len));
+      final ptr = out.value;
+      return ptr == ffi.nullptr ? null : ptr.cast<Utf8>().toDartString();
+    } finally {
+      calloc.free(out);
+    }
+  }
+
+  /// `ggml_backend_dev_name(dev)` via [fn]; `null` for a null result.
+  String? callCStringPtr(ffi.Pointer<ffi.Void> fn, ffi.Pointer<ffi.Void> dev) {
+    final out = calloc<ffi.Pointer<ffi.Char>>();
+    try {
+      _run((err, len) => _callCStrPtrFn(fn, dev, out, err, len));
+      final ptr = out.value;
+      return ptr == ffi.nullptr ? null : ptr.cast<Utf8>().toDartString();
+    } finally {
+      calloc.free(out);
+    }
+  }
+
+  /// `ggml_backend_dev_count()` via [fn].
+  int callSizeVoid(ffi.Pointer<ffi.Void> fn) {
+    final out = calloc<ffi.Size>();
+    try {
+      _run((err, len) => _callSizeVoidFn(fn, out, err, len));
+      return out.value;
+    } finally {
+      calloc.free(out);
+    }
+  }
+
+  /// `ggml_backend_dev_get(index)` via [fn].
+  ffi.Pointer<ffi.Void> callPtrSize(ffi.Pointer<ffi.Void> fn, int index) {
+    final out = calloc<ffi.Pointer<ffi.Void>>();
+    try {
+      _run((err, len) => _callPtrSizeFn(fn, index, out, err, len));
+      return out.value;
+    } finally {
+      calloc.free(out);
+    }
+  }
+
+  /// Score of the ggml backend module at [path] (`wpg_backend_score`): it is
+  /// opened and closed inside the guard. 0 when the module cannot be opened.
+  /// Throws [NativeCallException] when opening or scoring threw.
+  int backendScore(String path) {
+    final pathC = path.toNativeUtf8();
+    final out = calloc<ffi.Int>();
+    try {
+      _run((err, len) => _backendScoreFn(pathC, out, err, len));
+      return out.value;
+    } finally {
+      calloc.free(out);
+      calloc.free(pathC);
+    }
+  }
+
+  /// `ggml_backend_dev_type(dev)` via [fn].
+  int callIntPtr(ffi.Pointer<ffi.Void> fn, ffi.Pointer<ffi.Void> dev) {
+    final out = calloc<ffi.Int>();
+    try {
+      _run((err, len) => _callIntPtrFn(fn, dev, out, err, len));
+      return out.value;
+    } finally {
+      calloc.free(out);
+    }
+  }
+
+  /// Reads a process-wide [WpgFlag] slot.
+  int processFlag(int which) => _flagGetFn(which);
+
+  /// Writes a process-wide [WpgFlag] slot.
+  void setProcessFlag(int which, int value) => _flagSetFn(which, value);
+
+  /// Routes ggml/whisper logging into the native ring buffer. [whisperLogSet]
+  /// is the address of the target's `whisper_log_set`. Idempotent per
+  /// process; the sink never calls into Dart (see `ffi_guard.h`).
+  void installLogSink(ffi.Pointer<ffi.Void> whisperLogSet) {
+    _run((err, len) => _logInstallFn(whisperLogSet, err, len));
+  }
+
+  /// Pops every buffered log line, oldest first.
+  List<NativeLogLine> drainLog() {
+    final level = calloc<ffi.Int>();
+    const bufferLength = 512;
+    final text = calloc<ffi.Char>(bufferLength);
+    try {
+      final lines = <NativeLogLine>[];
+      while (_logPopFn(level, text, bufferLength) == 1) {
+        lines.add(NativeLogLine(level.value, text.cast<Utf8>().toDartString()));
+      }
+      return lines;
+    } finally {
+      calloc
+        ..free(level)
+        ..free(text);
+    }
+  }
+
+  /// Lines dropped from the ring since the last call.
+  int takeDroppedLogLines() => _takeDroppedFn();
+
+  /// Feeds one line through the sink exactly as ggml would (tests only).
+  void pushLogLineForTesting(int level, String text) {
+    final textC = text.toNativeUtf8();
+    try {
+      _logSinkFn(level, textC.cast(), ffi.nullptr);
+    } finally {
+      malloc.free(textC);
+    }
+  }
+
+  /// `wpg_selftest_throw_void` (tests only): throws inside a nested frame.
+  ffi.Pointer<ffi.Void> get selfTestThrowVoid =>
+      library.lookup<ffi.Void>('wpg_selftest_throw_void');
+
+  /// `wpg_selftest_throw_cstr` (tests only): throws "wpg selftest: " plus the argument.
+  ffi.Pointer<ffi.Void> get selfTestThrowCString =>
+      library.lookup<ffi.Void>('wpg_selftest_throw_cstr');
+
+  /// `wpg_selftest_throw_ptr_cstr` (tests only): throws like the above.
+  ffi.Pointer<ffi.Void> get selfTestThrowPtrCString =>
+      library.lookup<ffi.Void>('wpg_selftest_throw_ptr_cstr');
 }

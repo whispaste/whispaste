@@ -39,6 +39,7 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/utils/windows_dll_search_path.dart';
 import '../../audio/pcm_wav_codec.dart';
 import '../native_call_guard.dart';
+import 'ggml_backend_registry.dart';
 import 'whisper_bindings.dart';
 import 'whisper_language_probe.dart';
 import 'whisper_engine.dart';
@@ -319,24 +320,41 @@ class WhisperFfiEngine
     try {
       ensureWindowsDllSearchPath(_libraryPath);
       final dylib = ffi.DynamicLibrary.open(_libraryPath);
-      _ensureBackendsLoaded(
+      final ggml = _registryFor(_libraryPath);
+      // A backend module that throws (caught by the guard) must not take the
+      // process down: the load goes on with CPU and the reason in the log.
+      final backendFailure = _ensureBackendsLoaded(
         dylib,
         _libraryPath,
         cpuOnly: _backend == WhisperBackend.cpu,
       );
+      if (backendFailure != null) {
+        _log.warning(
+          'GPU backend unavailable, loading on CPU: $backendFailure',
+        );
+      }
+      final requested = backendFailure == null ? _backend : WhisperBackend.cpu;
       final cudaPackDir = _cudaPackDir;
-      if (cudaPackDir != null && _backend != WhisperBackend.cpu) {
+      if (cudaPackDir != null && requested != WhisperBackend.cpu) {
         _ensureCudaPackLoaded(dylib, cudaPackDir, _libraryPath);
       }
       final (backend, gpuDevice, gpuIndex) = _confirmBackend(
         dylib,
-        _backend,
+        requested,
         preferCuda: cudaPackDir != null,
+        ggml: ggml,
       );
       _confirmedBackend = backend;
       _gpuDevice = gpuDevice;
+      if (!_hasCpuDevice(dylib, ggml)) {
+        // whisper_init would dereference the null CPU device and abort.
+        _errorMessage = 'whisper_no_cpu_backend';
+        throw StateError(
+          'whisper_no_cpu_backend: ggml registered no CPU device',
+        );
+      }
       final bindings = WhisperBindings.fromLookup(dylib.lookup);
-      _cpuFeatures = _readCpuFeatures(bindings);
+      _cpuFeatures = _readCpuFeatures(dylib, ggml);
       _resolveSegmentTimestampLookups(dylib);
       _resolveLanguageLookups(dylib);
       final guard = NativeCallGuard.nextTo(_libraryPath);
@@ -384,6 +402,8 @@ class WhisperFfiEngine
     } catch (e) {
       _errorMessage = 'whisper_library_load_failed';
       throw StateError('whisper_library_load_failed: $e');
+    } finally {
+      drainNativeLog(_libraryPath);
     }
   }
 
@@ -393,19 +413,23 @@ class WhisperFfiEngine
   /// `whispaste --diagnose` to prove a package's backend modules are found.
   static String? probeCpuBackend(ffi.DynamicLibrary dylib, String libraryPath) {
     _ensureBackendsLoaded(dylib, libraryPath);
-    return _readCpuFeatures(WhisperBindings.fromLookup(dylib.lookup));
+    return _readCpuFeatures(dylib, _registryFor(libraryPath));
   }
 
   /// Reads which CPU backend variant ggml loaded (see
   /// [cpuBackendFeaturesFromSystemInfo]) and logs it once per load, so
   /// both the app log and the In-App-Diagnostik show it. Never throws —
   /// a library without the call just reports nothing.
-  static String? _readCpuFeatures(WhisperBindings bindings) {
+  static String? _readCpuFeatures(
+    ffi.DynamicLibrary dylib,
+    GgmlBackendRegistry ggml,
+  ) {
     try {
-      final info = bindings
-          .whisper_print_system_info()
-          .cast<Utf8>()
-          .toDartString();
+      final info = ggml.printSystemInfo(dylib);
+      if (info == null) {
+        _log.info('whisper_print_system_info is not exported');
+        return null;
+      }
       final features = cpuBackendFeaturesFromSystemInfo(info);
       _log.info('ggml CPU backend features: ${features ?? '(none reported)'}');
       return features;
@@ -417,75 +441,97 @@ class WhisperFfiEngine
 
   static bool _logForwarderInstalled = false;
 
-  // Never read — this reference keeps the NativeCallable (and the native
-  // function pointer ggml holds via whisper_log_set) alive for the process
-  // lifetime. Letting it go out of scope would let the GC close the callable
-  // and invalidate that pointer while ggml still has it registered.
-  // ignore: unused_field
-  static ffi.NativeCallable<GgmlLogCallbackNative>? _logCallable;
-
-  /// Redirects ggml/whisper.cpp's internal logging away from its stderr
-  /// default (see `whisper_log_set`'s doc comment in ggml.h: "If this is
-  /// not called, or NULL is supplied, everything is output on stderr") — a
-  /// console-less Windows GUI/MSIX process has no guaranteed-valid stderr
-  /// handle for that default path (FLUTTER_WHISPASTE-BB).
+  /// Routes ggml/whisper.cpp's internal logging into the native ring buffer
+  /// of `wp_ffi_guard` (`wpg_log_sink`, `native/ffi_guard/ffi_guard.cpp`)
+  /// instead of its stderr default — a console-less Windows GUI/MSIX process
+  /// has no guaranteed-valid stderr handle (FLUTTER_WHISPASTE-BB).
   ///
-  /// Must run in the long-lived main isolate, never in a worker: ggml keeps
-  /// this native function pointer for the whole process, but a
-  /// `NativeCallable` is closed when the isolate that created it ends. A
-  /// worker that registered its own callable (WP-48) left ggml with a dangling
-  /// pointer after shutdown, and the next log line aborted the VM ("Callback
-  /// invoked after it has been deleted"). Idempotent per isolate. Never throws:
-  /// a library that cannot be opened here fails again in the worker's load(),
-  /// which reports it.
+  /// There is no Dart callback in this path any more. The earlier
+  /// `NativeCallable.listener` (WP-48) was closed with its isolate: ggml kept
+  /// the pointer, and a line logged after a worker isolate had ended — or
+  /// logged from a backend module during a load in a fresh worker — called
+  /// into a dead Dart callback and aborted the VM (`dart::Assert::Fail`,
+  /// Sentry 153865283). The sink is plain C++ and cannot call into Dart; the
+  /// lines are fetched by [drainNativeLog] on whatever isolate runs a load.
   ///
-  /// Deliberately does NOT read the native `text` pointer: ggml formats each
-  /// log line into a buffer that is stack-local (or freed immediately after
-  /// the synchronous call) in `ggml_log_internal_v` — safe to read only
-  /// within that synchronous call, which `NativeCallable.listener` cannot
-  /// guarantee (it defers running the Dart callback body onto the isolate's
-  /// event loop, by which point the native buffer may already be gone).
-  /// `.listener` is required over `.isolateLocal` because ggml can log from
-  /// worker threads never registered with the Dart isolate. Only the `level`
-  /// (a plain int, always safe to read) is forwarded.
+  /// Idempotent per process. Without the guard library ggml keeps logging to
+  /// stderr (the pre-guard behaviour).
   static void installProcessLogForwarder(String libraryPath) {
     if (_logForwarderInstalled) return;
     _logForwarderInstalled = true;
     try {
       ensureWindowsDllSearchPath(libraryPath);
-      final bindings = WhisperBindings.fromLookup(
-        ffi.DynamicLibrary.open(libraryPath).lookup,
-      );
-      final callable = ffi.NativeCallable<GgmlLogCallbackNative>.listener(
-        _onGgmlLog,
-      );
-      _logCallable = callable;
-      bindings.whisper_log_set(callable.nativeFunction, ffi.nullptr);
+      final guard = NativeCallGuard.nextTo(libraryPath);
+      if (guard == null) {
+        _log.warning(
+          'ggml log forwarding not installed: wp_ffi_guard missing — '
+          'ggml logs to stderr',
+        );
+        return;
+      }
+      final dylib = ffi.DynamicLibrary.open(libraryPath);
+      guard.installLogSink(dylib.lookup<ffi.Void>('whisper_log_set'));
     } catch (e) {
       _log.warning('ggml log forwarding not installed: $e');
     }
   }
 
-  static void _onGgmlLog(
-    int level,
-    ffi.Pointer<ffi.Char> text,
-    ffi.Pointer<ffi.Void> userData,
-  ) {
-    // level: 0=none 1=debug 2=info 3=warn 4=error 5=cont (ggml_log_level).
-    if (level >= 4) {
-      _log.warning('native ggml/whisper log (level=$level)');
-    } else {
-      _log.debug('native ggml/whisper log (level=$level)');
+  /// Moves every ggml/whisper line buffered natively since the last drain
+  /// into the app log. Safe on any isolate (the buffer is process-wide) and
+  /// never throws. Called at the end of each [WhisperFfiEngine.load].
+  static void drainNativeLog(String libraryPath) {
+    final guard = NativeCallGuard.nextTo(libraryPath);
+    if (guard == null) return;
+    // These lines never carry dictated text. whisper.cpp prints segment text
+    // only under print_realtime, with printf, not through the log callback
+    // that fills this ring. Both whisper_full call sites in this file set
+    // print_realtime, print_progress, print_timestamps and print_special to
+    // false, so the callback carries model, backend and error metadata only.
+    // The allowlist entry for `text` in no_transcript_in_logs_test.dart
+    // refers to this reasoning.
+    try {
+      for (final line in guard.drainLog()) {
+        if (line.level >= 4) {
+          _log.warning('native ggml/whisper: ${line.text}');
+        } else {
+          _log.debug('native ggml/whisper: ${line.text}');
+        }
+      }
+      final dropped = guard.takeDroppedLogLines();
+      if (dropped > 0) {
+        _log.warning('$dropped native ggml/whisper log lines dropped');
+      }
+    } on Object catch (e) {
+      _log.debug('native log drain failed: $e');
     }
   }
 
-  static bool _backendsLoaded = false;
+  /// Process-wide state of the backend registration, see [_ensureBackendsLoaded].
+  /// Read and written through `wp_ffi_guard` when it is present (a Dart static
+  /// is per isolate, and every worker isolate starts with it cleared); the
+  /// static is the fallback without the guard.
+  static const int _backendsNone = 0;
+  static const int _backendsCpuOnly = 1;
+  static const int _backendsAll = 2;
+  static const int _backendsFailed = 3;
+  static int _backendsState = _backendsNone;
 
-  /// Registers ggml's dynamically loaded backends exactly once per process —
-  /// see the file doc comment for why this is required at all with
-  /// `-DGGML_BACKEND_DL=ON`. Safe/idempotent to skip on repeat [load] calls;
-  /// ggml's own registry dedupes by backend name regardless, this guard just
-  /// avoids the redundant directory scan.
+  static int _readBackendsState(NativeCallGuard? guard) =>
+      guard?.processFlag(WpgFlag.backends) ?? _backendsState;
+
+  static void _writeBackendsState(NativeCallGuard? guard, int state) {
+    guard?.setProcessFlag(WpgFlag.backends, state);
+    _backendsState = state;
+  }
+
+  /// The [GgmlBackendRegistry] for [libraryPath]: guarded when `wp_ffi_guard`
+  /// is bundled next to it.
+  static GgmlBackendRegistry _registryFor(String libraryPath) =>
+      GgmlBackendRegistry(NativeCallGuard.nextTo(libraryPath));
+
+  /// Registers ggml's dynamically loaded backends — once per PROCESS, not per
+  /// isolate — see the file doc comment for why this is required at all with
+  /// `-DGGML_BACKEND_DL=ON`.
   ///
   /// Scans [libraryPath]'s own directory via
   /// `ggml_backend_load_all_from_path` — that is where every build script
@@ -498,49 +544,51 @@ class WhisperFfiEngine
   /// null CPU device. `ggml_backend_load_all()` stays as the fallback for an
   /// older bundled library without the `_from_path` export.
   ///
-  /// Usually exported by a separate `ggml` shared library next to
-  /// [libraryPath] (confirmed via `dumpbin /exports` against the real
-  /// production DLLs on Windows: `ggml.dll` exports the full registry API —
-  /// `ggml_backend_load_all`, `ggml_backend_dev_by_type`, etc. — while
-  /// `ggml-base.dll` only exports lower-level per-device accessors like
-  /// `ggml_backend_dev_backend_reg`, which is where the crash this fixes
-  /// symbolicated via WinDbg) — but some bundles statically link ggml into
-  /// the main whisper library instead, so [dylib] itself is tried first.
+  /// The registry is process-wide, so a second isolate that loads again would
+  /// only re-scan the same modules. Each isolate still re-resolves the ggml
+  /// library handles it needs ([_resolvedGgmlLibrary], [_ggmlBaseLibrary]) —
+  /// those are per isolate.
   ///
   /// With [cpuOnly] (the user chose "Nur CPU") only the CPU module is loaded,
   /// see [_loadBestCpuModule]: loading the GPU modules would initialise GPU
   /// drivers (Vulkan/CUDA device enumeration) that a CPU-only run never uses.
   /// A full load still happens later if a GPU engine is needed in the same
   /// process; a CPU-only load never blocks it.
-  static void _ensureBackendsLoaded(
+  ///
+  /// Returns `null` when the backends this request needs are registered, or
+  /// the reason they are not. A backend module that throws is caught by the
+  /// guard, so the process survives; the caller then runs on CPU with the
+  /// reason in the log. The failure is recorded process-wide, so later
+  /// isolates do not retry the module that threw.
+  static String? _ensureBackendsLoaded(
     ffi.DynamicLibrary dylib,
     String libraryPath, {
     bool cpuOnly = false,
   }) {
-    if (_backendsLoadedFull || (_backendsLoaded && cpuOnly)) return;
+    final guard = NativeCallGuard.nextTo(libraryPath);
+    final registry = GgmlBackendRegistry(guard);
     var resolved = dylib;
     if (!dylib.providesSymbol('ggml_backend_load_all')) {
       final ggmlName = Platform.isWindows
           ? 'ggml.dll'
           : (Platform.isMacOS ? 'libggml.dylib' : 'libggml.so');
       final ggmlPath = p.join(p.dirname(libraryPath), ggmlName);
-      if (!File(ggmlPath).existsSync()) return;
+      if (!File(ggmlPath).existsSync()) return null;
       resolved = ffi.DynamicLibrary.open(ggmlPath);
     }
-    final libraryDir = p.dirname(libraryPath);
-    if (cpuOnly && _loadBestCpuModule(resolved, libraryDir)) {
-      // Only the CPU backend is registered; the GPU modules stay unloaded.
-    } else {
-      if (cpuOnly) {
-        // Expected for a static CPU build (no module exists); otherwise it
-        // keeps whisper from aborting on a null CPU device.
-        _log.info(
-          'No ggml CPU backend module in $libraryDir (static CPU build?) — '
-          'loading all backends',
-        );
-      }
-      _loadAllBackends(resolved, libraryDir);
-      _backendsLoadedFull = true;
+    final state = _readBackendsState(guard);
+    String? failure;
+    if (state == _backendsFailed) {
+      failure = 'ggml backend load failed earlier in this process';
+    } else if (!(state == _backendsAll ||
+        (state == _backendsCpuOnly && cpuOnly))) {
+      failure = _loadBackendModules(
+        registry,
+        resolved,
+        p.dirname(libraryPath),
+        cpuOnly: cpuOnly,
+        guard: guard,
+      );
     }
     _resolvedGgmlLibrary = resolved;
     // The per-device accessors (`ggml_backend_dev_type`/`_name`) live in
@@ -550,37 +598,63 @@ class WhisperFfiEngine
     if (Platform.isWindows && File(basePath).existsSync()) {
       _ggmlBaseLibrary = ffi.DynamicLibrary.open(basePath);
     }
-    _backendsLoaded = true;
+    return failure;
+  }
+
+  /// Does the actual registration for [_ensureBackendsLoaded]; returns the
+  /// failure reason, or `null` on success.
+  static String? _loadBackendModules(
+    GgmlBackendRegistry registry,
+    ffi.DynamicLibrary lib,
+    String libraryDir, {
+    required bool cpuOnly,
+    required NativeCallGuard? guard,
+  }) {
+    // Without the guard no backend module is opened at all: loading one
+    // unguarded could abort the process (see ggml_backend_registry.dart).
+    if (guard == null) {
+      _log.warning(
+        'wp_ffi_guard is not bundled next to $libraryDir: ggml backends '
+        'are not loaded',
+      );
+      _writeBackendsState(guard, _backendsFailed);
+      return 'wp_ffi_guard is not bundled: ggml backends are not loaded';
+    }
+    try {
+      if (cpuOnly && _loadBestCpuModule(registry, lib, libraryDir)) {
+        // Only the CPU backend is registered; the GPU modules stay unloaded.
+        _writeBackendsState(guard, _backendsCpuOnly);
+        return null;
+      }
+      if (cpuOnly) {
+        // Expected for a static CPU build (no module exists); otherwise it
+        // keeps whisper from aborting on a null CPU device.
+        _log.info(
+          'No ggml CPU backend module in $libraryDir (static CPU build?) — '
+          'loading all backends',
+        );
+      }
+      registry.loadAllFromPath(lib, libraryDir) || registry.loadAll(lib);
+      _writeBackendsState(guard, _backendsAll);
+      return null;
+    } on NativeCallException catch (e) {
+      // ggml-vulkan / a GPU driver threw while registering a module
+      // (Sentry 155114205). Keep the process; run on CPU and remember it.
+      _log.warning(
+        'ggml backend load threw natively: ${e.message} — running on CPU',
+      );
+      _writeBackendsState(guard, _backendsFailed);
+      try {
+        _loadBestCpuModule(registry, lib, libraryDir);
+      } on NativeCallException catch (cpuError) {
+        _log.warning('ggml CPU module load threw too: ${cpuError.message}');
+      }
+      return 'ggml backend load threw: ${e.message}';
+    }
   }
 
   /// `ggml-base.dll` on Windows (see [_ensureBackendsLoaded]), else `null`.
   static ffi.DynamicLibrary? _ggmlBaseLibrary;
-
-  /// Whether [_ensureBackendsLoaded] has registered every backend module, not
-  /// just the CPU one. A full load satisfies any later request.
-  static bool _backendsLoadedFull = false;
-
-  /// `ggml_backend_load_all_from_path(dir)`, or the argument-less
-  /// `ggml_backend_load_all()` for a bundle without the `_from_path` export.
-  static void _loadAllBackends(ffi.DynamicLibrary lib, String dir) {
-    if (lib.providesSymbol('ggml_backend_load_all_from_path')) {
-      final loadAllFromPath = lib
-          .lookupFunction<
-            ffi.Void Function(ffi.Pointer<Utf8>),
-            void Function(ffi.Pointer<Utf8>)
-          >('ggml_backend_load_all_from_path');
-      final dirC = dir.toNativeUtf8();
-      try {
-        loadAllFromPath(dirC);
-      } finally {
-        malloc.free(dirC);
-      }
-    } else {
-      lib.lookupFunction<ffi.Void Function(), void Function()>(
-        'ggml_backend_load_all',
-      )();
-    }
-  }
 
   /// Loads only the ggml CPU module that ggml itself would pick from [dir],
   /// returning `false` (nothing loaded) when there is none to load.
@@ -589,15 +663,19 @@ class WhisperFfiEngine
   /// this mirrors it: each `ggml-cpu-<level>` module exports
   /// `ggml_backend_score()` (0 = unsupported by this CPU), and the highest
   /// score wins. Candidates are only opened for their score here; the chosen
-  /// one is then registered with `ggml_backend_load`.
-  static bool _loadBestCpuModule(ffi.DynamicLibrary lib, String dir) {
+  /// one is then registered with `ggml_backend_load` through the guard.
+  static bool _loadBestCpuModule(
+    GgmlBackendRegistry registry,
+    ffi.DynamicLibrary lib,
+    String dir,
+  ) {
     if (!lib.providesSymbol('ggml_backend_load')) return false;
     final scores = <String, int>{};
     try {
       for (final entity in Directory(dir).listSync()) {
         if (entity is! File) continue;
         if (!_isCpuModuleFileName(p.basename(entity.path))) continue;
-        scores[entity.path] = _backendScore(entity.path);
+        scores[entity.path] = _scoreModule(registry, entity.path);
       }
     } on FileSystemException catch (e) {
       _log.warning('Cannot list backend modules in $dir: $e');
@@ -605,18 +683,8 @@ class WhisperFfiEngine
     }
     final best = pickBestCpuModule(scores);
     if (best == null) return false;
-    final load = lib
-        .lookupFunction<
-          ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>),
-          ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>)
-        >('ggml_backend_load');
-    final pathC = best.toNativeUtf8();
-    try {
-      final reg = load(pathC);
-      if (reg == ffi.nullptr) return false;
-    } finally {
-      malloc.free(pathC);
-    }
+    final reg = registry.loadModule(lib, best);
+    if (reg == null) return false;
     _log.info('CPU-only backend load: registered ${p.basename(best)}');
     return true;
   }
@@ -632,18 +700,16 @@ class WhisperFfiEngine
     return stem && lower.endsWith(ext);
   }
 
-  /// `ggml_backend_score()` of the module at [modulePath]. A module without
-  /// the export counts as supported (score 1); one that cannot be opened
-  /// counts as unsupported (0).
-  static int _backendScore(String modulePath) {
+  /// `ggml_backend_score()` of the module at [modulePath], opened and closed
+  /// inside the guard. A module that cannot be opened, or that threw while it
+  /// was opened or scored, counts as unsupported (0).
+  static int _scoreModule(GgmlBackendRegistry registry, String modulePath) {
     try {
-      final lib = ffi.DynamicLibrary.open(modulePath);
-      if (!lib.providesSymbol('ggml_backend_score')) return 1;
-      return lib.lookupFunction<ffi.Int32 Function(), int Function()>(
-        'ggml_backend_score',
-      )();
-    } on ArgumentError catch (e) {
-      _log.warning('Cannot open backend module $modulePath: $e');
+      return registry.backendScore(modulePath);
+    } on NativeCallException catch (e) {
+      _log.warning(
+        'Backend module $modulePath threw while scored: ${e.message}',
+      );
       return 0;
     }
   }
@@ -680,10 +746,32 @@ class WhisperFfiEngine
   /// library predates the registry API.
   static ({List<String?> names, List<int> types})? _gpuDevices(
     ffi.DynamicLibrary dylib,
+    GgmlBackendRegistry ggml,
   ) {
-    // A split Windows bundle spreads the registry API over ggml.dll
-    // (count/get) and ggml-base.dll (type/name); each symbol comes from the
-    // first library that exports it.
+    final all = _registryDevices(dylib, ggml);
+    if (all == null) return null;
+    // Same filter and order as whisper_backend_init_gpu: only GPU and IGPU
+    // devices count, and `gpu_device` indexes into exactly this list.
+    final names = <String?>[];
+    final types = <int>[];
+    for (final device in all) {
+      if (device.type == ggmlDeviceTypeGpu ||
+          device.type == ggmlDeviceTypeIgpu) {
+        names.add(device.name);
+        types.add(device.type);
+      }
+    }
+    return (names: names, types: types);
+  }
+
+  /// Every device in ggml's registry, in registry order, or `null` when the
+  /// library has no registry API. A split Windows bundle spreads the API over
+  /// ggml.dll (count/get) and ggml-base.dll (type/name); each symbol comes
+  /// from the first library that exports it.
+  static List<({String? name, int type})>? _registryDevices(
+    ffi.DynamicLibrary dylib,
+    GgmlBackendRegistry ggml,
+  ) {
     final candidates = <ffi.DynamicLibrary>[
       dylib,
       ?_resolvedGgmlLibrary,
@@ -701,33 +789,29 @@ class WhisperFfiEngine
     final typeLib = providing('ggml_backend_dev_type');
     final nameLib = providing('ggml_backend_dev_name');
     if (countLib == null || getLib == null || typeLib == null) return null;
-    final devCount = countLib
-        .lookupFunction<ffi.Size Function(), int Function()>(
-          'ggml_backend_dev_count',
-        );
-    final devGet = getLib
-        .lookupFunction<
-          ffi.Pointer<ffi.Void> Function(ffi.Size),
-          ffi.Pointer<ffi.Void> Function(int)
-        >('ggml_backend_dev_get');
-    final devType = typeLib
-        .lookupFunction<
-          ffi.Int32 Function(ffi.Pointer<ffi.Void>),
-          int Function(ffi.Pointer<ffi.Void>)
-        >('ggml_backend_dev_type');
-    // Same filter and order as whisper_backend_init_gpu: only GPU and IGPU
-    // devices count, and `gpu_device` indexes into exactly this list.
-    final names = <String?>[];
-    final types = <int>[];
-    for (var i = 0; i < devCount(); i++) {
-      final dev = devGet(i);
-      final type = devType(dev);
-      if (type == ggmlDeviceTypeGpu || type == ggmlDeviceTypeIgpu) {
-        names.add(nameLib == null ? null : _deviceName(nameLib, dev));
-        types.add(type);
-      }
+    final count = ggml.devCount(countLib) ?? 0;
+    final devices = <({String? name, int type})>[];
+    for (var i = 0; i < count; i++) {
+      final dev = ggml.devGet(getLib, i);
+      if (dev == null) continue;
+      final type = ggml.devType(typeLib, dev) ?? -1;
+      final name = nameLib == null ? null : ggml.devName(nameLib, dev);
+      devices.add((name: name, type: type));
     }
-    return (names: names, types: types);
+    return devices;
+  }
+
+  /// Whether ggml registered a CPU device. whisper.cpp dereferences the CPU
+  /// device without a null check (GGML_ASSERT → abort), so [load] refuses to
+  /// call into whisper when there is none. An old bundle without the
+  /// registry API reports `true` and keeps the pre-existing behaviour.
+  static bool _hasCpuDevice(
+    ffi.DynamicLibrary dylib,
+    GgmlBackendRegistry ggml,
+  ) {
+    final all = _registryDevices(dylib, ggml);
+    if (all == null) return true;
+    return all.any((device) => device.type == ggmlDeviceTypeCpu);
   }
 
   /// Lists the GPU devices in [dylib] for `whispaste --diagnose`, with the
@@ -737,7 +821,8 @@ class WhisperFfiEngine
   static ({List<({String? name, int type})> devices, int? defaultIndex})?
   probeGpuDevices(ffi.DynamicLibrary dylib, String libraryPath) {
     _ensureBackendsLoaded(dylib, libraryPath);
-    final registry = _gpuDevices(dylib);
+    final ggml = _registryFor(libraryPath);
+    final registry = _gpuDevices(dylib, ggml);
     if (registry == null) return null;
     final devices = [
       for (var i = 0; i < registry.names.length; i++)
@@ -760,9 +845,10 @@ class WhisperFfiEngine
     ffi.DynamicLibrary dylib,
     WhisperBackend requested, {
     bool preferCuda = false,
+    GgmlBackendRegistry ggml = const GgmlBackendRegistry(null),
   }) {
     if (requested == WhisperBackend.cpu) return (WhisperBackend.cpu, null, 0);
-    final registry = _gpuDevices(dylib);
+    final registry = _gpuDevices(dylib, ggml);
     // Older bundled library without the registry API: trust [requested].
     if (registry == null) return (requested, null, 0);
     final gpuNames = registry.names;
@@ -805,6 +891,13 @@ class WhisperFfiEngine
   /// not the process; the old module keeps working until the next launch).
   static String? _cudaPackLoadedFrom;
 
+  /// Whether the CUDA module was already attempted in this PROCESS. Read
+  /// through the guard so a worker isolate does not register it a second time
+  /// (ggml would list the CUDA devices twice and shift `gpu_device`).
+  static bool _cudaAttempted(NativeCallGuard? guard) => guard != null
+      ? guard.processFlag(WpgFlag.cudaPack) == 1
+      : _cudaPackLoadedFrom != null;
+
   /// Registers the optional CUDA module from [packDir] with ggml via
   /// `ggml_backend_load`, once per process. The module lives outside the
   /// app's own library folder (installed packages are read-only), so
@@ -820,14 +913,16 @@ class WhisperFfiEngine
   ///
   /// Never throws: a missing, corrupt or driver-incompatible pack only means
   /// no `CUDA*` device gets registered, and [_confirmBackend] then keeps the
-  /// Vulkan device.
+  /// Vulkan device. A module that throws while registering is caught by the
+  /// guard and recorded as attempted, so it is not retried in this process.
   static void _ensureCudaPackLoaded(
     ffi.DynamicLibrary dylib,
     String packDir,
     String libraryPath,
   ) {
-    if (_cudaPackLoadedFrom != null) {
-      if (_cudaPackLoadedFrom != packDir) {
+    final guard = NativeCallGuard.nextTo(libraryPath);
+    if (_cudaAttempted(guard)) {
+      if (_cudaPackLoadedFrom != null && _cudaPackLoadedFrom != packDir) {
         _log.warning(
           'CUDA module already loaded from $_cudaPackLoadedFrom; '
           'ignoring $packDir until the next launch',
@@ -841,46 +936,23 @@ class WhisperFfiEngine
       return;
     }
     final lib = _resolvedGgmlLibrary ?? dylib;
+    guard?.setProcessFlag(WpgFlag.cudaPack, 1);
+    _cudaPackLoadedFrom = packDir;
     try {
-      final load = lib
-          .lookupFunction<
-            ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>),
-            ffi.Pointer<ffi.Void> Function(ffi.Pointer<Utf8>)
-          >('ggml_backend_load');
-      final pathC = modulePath.toNativeUtf8();
-      try {
-        ensureWindowsDllSearchPath(modulePath);
-        final reg = load(pathC);
-        _cudaPackLoadedFrom = packDir;
-        if (reg == ffi.nullptr) {
-          _log.warning('ggml_backend_load rejected the CUDA module');
-        } else {
-          _log.info('CUDA module registered from $packDir');
-        }
-      } finally {
-        ensureWindowsDllSearchPath(libraryPath);
-        malloc.free(pathC);
+      ensureWindowsDllSearchPath(modulePath);
+      final reg = GgmlBackendRegistry(guard).loadModule(lib, modulePath);
+      if (reg == null) {
+        _log.warning('ggml_backend_load rejected the CUDA module');
+      } else {
+        _log.info('CUDA module registered from $packDir');
       }
-    } on ArgumentError {
-      _log.warning('ggml_backend_load is not exported — CUDA pack unusable');
-    }
-  }
-
-  /// `ggml_backend_dev_name(dev)`, or `null` if [lib] does not export it.
-  static String? _deviceName(
-    ffi.DynamicLibrary lib,
-    ffi.Pointer<ffi.Void> dev,
-  ) {
-    try {
-      final name = lib
-          .lookupFunction<
-            ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>),
-            ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>)
-          >('ggml_backend_dev_name');
-      final ptr = name(dev);
-      return ptr == ffi.nullptr ? null : ptr.toDartString();
-    } on ArgumentError {
-      return null;
+    } on NativeCallException catch (e) {
+      _log.warning(
+        'CUDA module threw while registering: ${e.message} — CUDA is not '
+        'used this session, Vulkan stays',
+      );
+    } finally {
+      ensureWindowsDllSearchPath(libraryPath);
     }
   }
 
@@ -1892,6 +1964,7 @@ class WhisperFfiEngine
   final (backend, device, _) = WhisperFfiEngine._confirmBackend(
     dylib,
     requested,
+    ggml: WhisperFfiEngine._registryFor(libraryPath),
   );
   return (backend, device);
 }

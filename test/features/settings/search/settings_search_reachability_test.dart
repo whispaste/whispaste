@@ -58,6 +58,8 @@ const Set<String> _renderedOnlyInState = {
   'recording-clipping-hint',
   'speech-cuda-pack',
   'speech-deepgram-key',
+  // Only with a graphics card that the GPU check applies to (not macOS).
+  'speech-gpu-probe',
   // Linux only, under Auto-Paste (V1 Wayland); the fixture renders as macOS.
   'text-linux-always-shift-paste',
   'speech-keep-loaded-minutes',

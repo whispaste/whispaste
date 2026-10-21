@@ -37,7 +37,7 @@ extern "C" {
 
 // Bumped whenever an export's signature changes; Dart refuses a guard whose
 // version it does not know and falls back to unguarded calls.
-#define WPG_ABI_VERSION 1
+#define WPG_ABI_VERSION 2
 
 WPG_API int wpg_abi_version(void);
 
@@ -94,6 +94,81 @@ WPG_API int wpg_call_void_pp(wpg_void_pp_fn fn, const void* a, const void* b,
 // so a raise mid-encoder takes effect once the encoder finishes.
 WPG_API bool wpg_abort_flag_cb(void* flag);
 
+// ggml backend registry (ggml.h / whisper.h). Every call that loads or
+// enumerates a backend goes through the guard: a backend module that throws
+// (ggml-vulkan's vk::resultCheck, a driver that aborts with an exception) must
+// come back as a NativeCallException, not unwind into a Dart frame.
+typedef void (*wpg_void_void_fn)(void);
+typedef void (*wpg_void_cstr_fn)(const char*);
+typedef void* (*wpg_ptr_cstr_fn)(const char*);
+typedef const char* (*wpg_cstr_void_fn)(void);
+typedef size_t (*wpg_size_void_fn)(void);
+typedef void* (*wpg_ptr_size_fn)(size_t);
+typedef int (*wpg_int_ptr_fn)(const void*);
+typedef const char* (*wpg_cstr_ptr_fn)(const void*);
+
+// ggml_backend_load_all()
+WPG_API int wpg_call_void(wpg_void_void_fn fn, char* err, size_t err_len);
+
+// ggml_backend_load_all_from_path(dir)
+WPG_API int wpg_call_void_cstr(wpg_void_cstr_fn fn, const char* arg, char* err,
+                               size_t err_len);
+
+// ggml_backend_load(path) -> reg (NULL when rejected), via *out
+WPG_API int wpg_call_ptr_cstr(wpg_ptr_cstr_fn fn, const char* arg, void** out,
+                              char* err, size_t err_len);
+
+// whisper_print_system_info() / ggml_backend_dev_name(dev) style strings.
+WPG_API int wpg_call_cstr_void(wpg_cstr_void_fn fn, const char** out, char* err,
+                               size_t err_len);
+WPG_API int wpg_call_cstr_ptr(wpg_cstr_ptr_fn fn, const void* arg,
+                              const char** out, char* err, size_t err_len);
+
+// ggml_backend_dev_count(), ggml_backend_dev_get(i), ggml_backend_dev_type(dev)
+WPG_API int wpg_call_size_void(wpg_size_void_fn fn, size_t* out, char* err,
+                               size_t err_len);
+WPG_API int wpg_call_ptr_size(wpg_ptr_size_fn fn, size_t index, void** out,
+                              char* err, size_t err_len);
+WPG_API int wpg_call_int_ptr(wpg_int_ptr_fn fn, const void* arg, int* out,
+                             char* err, size_t err_len);
+
+// Scores the ggml backend module at `path` without leaving it loaded: opens
+// it, reads `ggml_backend_score()` and closes it again. *out_score is the
+// score, 1 when the module exports no score, 0 when it cannot be opened.
+// Opening runs the module's static initialisers (vendor driver code), so it
+// goes through the guard like every other ggml call.
+WPG_API int wpg_backend_score(const char* path, int* out_score, char* err,
+                              size_t err_len);
+
+// Process-wide flags. ggml's backend registry is process-wide, but the Dart
+// statics that remember "already loaded" are per isolate: a worker isolate
+// started after Isolate.exit would load every backend module again. The
+// flags live here instead. Values are owned by the caller (Dart).
+#define WPG_FLAG_BACKENDS 1  // 0 none, 1 CPU module only, 2 all modules
+#define WPG_FLAG_CUDA_PACK 2  // 0 not attempted, 1 attempted
+WPG_API int wpg_process_flag_get(int which);
+WPG_API void wpg_process_flag_set(int which, int value);
+
+// Process-wide ggml/whisper log sink. Installs `wpg_log_sink` through the
+// target's `whisper_log_set(cb, user_data)` (passed as `fn`; the guard
+// never links whisper). The sink copies each line into a fixed ring buffer
+// that Dart drains with wpg_log_pop(); it never calls into Dart, so a log
+// line from any thread at any time (also after a worker isolate has ended)
+// is safe. Idempotent.
+typedef void (*wpg_log_set_fn)(void (*cb)(int, const char*, void*), void*);
+WPG_API int wpg_log_install(wpg_log_set_fn fn, char* err, size_t err_len);
+
+// ggml_log_callback shape. Exported so tests can feed lines through the same
+// code path as ggml.
+WPG_API void wpg_log_sink(int level, const char* text, void* user_data);
+
+// Pops the oldest buffered line. Returns 1 and fills `level` and `text`
+// (truncated, NUL-terminated), or 0 when the buffer is empty.
+WPG_API int wpg_log_pop(int* level, char* text, size_t text_len);
+
+// Lines dropped because the ring was full since the last call; reset to 0.
+WPG_API size_t wpg_log_take_dropped(void);
+
 // Test hook with the wpg_void_pp_fn shape, deliberately UNGUARDED and built
 // in its own translation unit with the platform's default exception model
 // (MSVC /EHsc, like the third-party DLLs): `*(const int*)kind` 0 returns
@@ -101,6 +176,13 @@ WPG_API bool wpg_abort_flag_cb(void* flag);
 // non-std::exception type. Called through wpg_call_void_pp it exercises the
 // exact production path; called directly from Dart it aborts the process.
 WPG_API void wpg_selftest_throw(const void* kind, const void* unused);
+
+// Throwing hooks for the ggml-shaped wrappers above, same contract as
+// wpg_selftest_throw: each throws std::runtime_error("wpg selftest") (or
+// "wpg selftest: <arg>" for the string variant) from a nested frame.
+WPG_API void wpg_selftest_throw_void(void);
+WPG_API void wpg_selftest_throw_cstr(const char* arg);
+WPG_API void* wpg_selftest_throw_ptr_cstr(const char* arg);
 
 #ifdef __cplusplus
 }

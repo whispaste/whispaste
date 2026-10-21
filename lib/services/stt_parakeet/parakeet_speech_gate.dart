@@ -25,7 +25,8 @@ import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 
 import '../stt/whisper/whisper_bindings.dart' show whisper_vad_params;
-import 'parakeet_gpu_engine.dart' show loadGgmlBackendModules, openGgmlLibrary;
+import 'parakeet_gpu_engine.dart'
+    show ggmlDeviceCount, loadGgmlBackendModules, openGgmlLibrary;
 import '../stt/whisper/whisper_ffi_engine.dart'
     show defaultWhisperLibraryPath, defaultWhisperVadModelPath;
 
@@ -174,12 +175,7 @@ int? _countVadSegments(
   // (libparakeet or the Whisper engine may already have done it).
   final dir = p.dirname(libraryPath);
   final ggml = openGgmlLibrary(dir);
-  if (ggml != null &&
-      ggml.providesSymbol('ggml_backend_dev_count') &&
-      ggml.lookupFunction<ffi.Size Function(), int Function()>(
-            'ggml_backend_dev_count',
-          )() ==
-          0) {
+  if (ggml != null && (ggmlDeviceCount(ggml, dir) ?? 0) == 0) {
     loadGgmlBackendModules(ggml, dir);
   }
 

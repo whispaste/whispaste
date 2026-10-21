@@ -21,6 +21,8 @@ import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 
 import '../../core/logging/app_logger.dart';
+import '../stt/native_call_guard.dart';
+import '../stt/whisper/ggml_backend_registry.dart';
 import 'parakeet_audio_chunker.dart';
 import 'parakeet_bindings.dart';
 
@@ -160,7 +162,7 @@ void _gpuWorkerMain(SendPort mainPort) {
   final base = Platform.isWindows && File(basePath).existsSync()
       ? ffi.DynamicLibrary.open(basePath)
       : null;
-  final device = _gpuDeviceName([?ggml, ?base]);
+  final device = _gpuDeviceName([?ggml, ?base], _ggmlRegistryIn(backendDir));
   if (device == null) throw ParakeetGpuException('no_gpu_device');
 
   final params = bindings.contextDefaultParams();
@@ -237,23 +239,29 @@ ffi.DynamicLibrary? openGgmlLibrary(String dir) {
   return null;
 }
 
+/// The ggml registry calls for the libraries in [dir], through `wp_ffi_guard`.
+GgmlBackendRegistry _ggmlRegistryIn(String dir) =>
+    GgmlBackendRegistry(NativeCallGuard.nextTo(p.join(dir, 'libggml')));
+
+/// Registers the ggml backend modules in [dir] through the guard. A backend
+/// that throws is logged and leaves the GPU unregistered (CPU fallback).
 void loadGgmlBackendModules(ffi.DynamicLibrary ggml, String dir) {
-  if (ggml.providesSymbol('ggml_backend_load_all_from_path')) {
-    final loadFromPath = ggml
-        .lookupFunction<
-          ffi.Void Function(ffi.Pointer<Utf8>),
-          void Function(ffi.Pointer<Utf8>)
-        >('ggml_backend_load_all_from_path');
-    final dirC = dir.toNativeUtf8();
-    try {
-      loadFromPath(dirC);
-    } finally {
-      malloc.free(dirC);
-    }
-  } else if (ggml.providesSymbol('ggml_backend_load_all')) {
-    ggml.lookupFunction<ffi.Void Function(), void Function()>(
-      'ggml_backend_load_all',
-    )();
+  final registry = _ggmlRegistryIn(dir);
+  try {
+    if (!registry.loadAllFromPath(ggml, dir)) registry.loadAll(ggml);
+  } on NativeCallException catch (e) {
+    _log.warning('ggml backend load threw natively: ${e.message}');
+  }
+}
+
+/// Number of devices ggml has registered, or `null` when it cannot be asked
+/// (no guard, or the call threw).
+int? ggmlDeviceCount(ffi.DynamicLibrary ggml, String dir) {
+  try {
+    return _ggmlRegistryIn(dir).devCount(ggml);
+  } on NativeCallException catch (e) {
+    _log.warning('ggml device count threw natively: ${e.message}');
+    return null;
   }
 }
 
@@ -263,7 +271,10 @@ void loadGgmlBackendModules(ffi.DynamicLibrary ggml, String dir) {
 /// A split Windows bundle spreads the registry API over ggml.dll
 /// (count/get) and ggml-base.dll (type/name); each symbol comes from the
 /// first of [libs] that exports it.
-String? _gpuDeviceName(List<ffi.DynamicLibrary> libs) {
+String? _gpuDeviceName(
+  List<ffi.DynamicLibrary> libs,
+  GgmlBackendRegistry registry,
+) {
   ffi.DynamicLibrary? providing(String symbol) {
     for (final lib in libs) {
       if (lib.providesSymbol(symbol)) return lib;
@@ -281,28 +292,16 @@ String? _gpuDeviceName(List<ffi.DynamicLibrary> libs) {
       nameLib == null) {
     return null;
   }
-  final count = countLib.lookupFunction<ffi.Size Function(), int Function()>(
-    'ggml_backend_dev_count',
-  )();
-  final devGet = getLib
-      .lookupFunction<
-        ffi.Pointer<ffi.Void> Function(ffi.Size),
-        ffi.Pointer<ffi.Void> Function(int)
-      >('ggml_backend_dev_get');
-  final devType = typeLib
-      .lookupFunction<
-        ffi.Int32 Function(ffi.Pointer<ffi.Void>),
-        int Function(ffi.Pointer<ffi.Void>)
-      >('ggml_backend_dev_type');
-  final devName = nameLib
-      .lookupFunction<
-        ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>),
-        ffi.Pointer<Utf8> Function(ffi.Pointer<ffi.Void>)
-      >('ggml_backend_dev_name');
-  for (var i = 0; i < count; i++) {
-    final dev = devGet(i);
-    final type = devType(dev);
-    if (type == 1 || type == 2) return devName(dev).toDartString();
+  try {
+    final count = registry.devCount(countLib) ?? 0;
+    for (var i = 0; i < count; i++) {
+      final dev = registry.devGet(getLib, i);
+      if (dev == null) return null;
+      final type = registry.devType(typeLib, dev);
+      if (type == 1 || type == 2) return registry.devName(nameLib, dev);
+    }
+  } on NativeCallException catch (e) {
+    _log.warning('ggml device enumeration threw natively: ${e.message}');
   }
   return null;
 }

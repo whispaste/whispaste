@@ -5871,6 +5871,27 @@ class L10nEs extends L10n {
       'La aceleración CUDA se desactivó por un problema en el último inicio. WhisPaste usa ahora Vulkan y la grabación funciona como siempre.';
 
   @override
+  String get recoveryGpuProbeFailedToast =>
+      'La aceleración por GPU no se usa en esta sesión: la comprobación de la tarjeta gráfica no terminó. WhisPaste transcribe con el procesador. Grabar funciona como siempre.';
+
+  @override
+  String get settingsGpuProbeTitle => 'Comprobación de GPU';
+
+  @override
+  String get settingsGpuProbeNotChecked =>
+      'Aún no comprobada. La comprobación se hace al cargar el modelo por primera vez.';
+
+  @override
+  String get settingsGpuProbeUsable => 'Comprobada: se usa la tarjeta gráfica.';
+
+  @override
+  String get settingsGpuProbeUnusable =>
+      'No utilizable: WhisPaste usa el procesador. Vuelve a comprobar tras actualizar el controlador o la app.';
+
+  @override
+  String get settingsGpuProbeRetry => 'Comprobar de nuevo';
+
+  @override
   String get supportPromptSnooze => 'No preguntar durante 90 días';
 
   @override

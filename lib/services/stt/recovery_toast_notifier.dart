@@ -47,6 +47,11 @@ enum RecoveryToastKind {
   /// only the pack was switched off, Vulkan stays. Informational toast with
   /// the same "open settings" action.
   cudaLoadCrashDisabled,
+
+  /// The out-of-process GPU probe (`gpu_probe.dart`) failed for this GPU, so
+  /// this session runs on CPU. Same "open settings" action; the retry lives
+  /// there.
+  gpuProbeFailed,
 }
 
 /// One recovery event emitted by `_attemptRecovery`.

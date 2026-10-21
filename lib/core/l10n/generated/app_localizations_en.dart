@@ -5816,6 +5816,27 @@ class L10nEn extends L10n {
       'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, recording works as usual.';
 
   @override
+  String get recoveryGpuProbeFailedToast =>
+      'GPU acceleration is not used in this session: the check of the graphics card did not finish. WhisPaste transcribes on the processor. Recording works as usual.';
+
+  @override
+  String get settingsGpuProbeTitle => 'GPU check';
+
+  @override
+  String get settingsGpuProbeNotChecked =>
+      'Not checked yet. The check runs when the model loads for the first time.';
+
+  @override
+  String get settingsGpuProbeUsable => 'Checked: the graphics card is used.';
+
+  @override
+  String get settingsGpuProbeUnusable =>
+      'Not usable: WhisPaste uses the processor. Check again after a driver or app update.';
+
+  @override
+  String get settingsGpuProbeRetry => 'Check again';
+
+  @override
   String get supportPromptSnooze => 'Don\'t ask for 90 days';
 
   @override

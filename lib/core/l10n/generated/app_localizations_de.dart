@@ -5864,6 +5864,27 @@ class L10nDe extends L10n {
       'Die CUDA-Beschleunigung wurde ausgeschaltet, weil es beim letzten Start ein Problem gab. WhisPaste nutzt jetzt Vulkan, Aufnehmen funktioniert unverändert.';
 
   @override
+  String get recoveryGpuProbeFailedToast =>
+      'Die Grafikkarten-Beschleunigung wird in dieser Sitzung nicht genutzt, weil die Prüfung der Grafikkarte nicht abgeschlossen wurde. WhisPaste nutzt den Prozessor. Aufnehmen funktioniert unverändert.';
+
+  @override
+  String get settingsGpuProbeTitle => 'GPU-Prüfung';
+
+  @override
+  String get settingsGpuProbeNotChecked =>
+      'Noch nicht geprüft. Die Prüfung läuft beim ersten Laden des Modells.';
+
+  @override
+  String get settingsGpuProbeUsable => 'Geprüft: Die Grafikkarte wird genutzt.';
+
+  @override
+  String get settingsGpuProbeUnusable =>
+      'Nicht nutzbar: WhisPaste nutzt den Prozessor. Nach einem Treiber- oder App-Update erneut prüfen.';
+
+  @override
+  String get settingsGpuProbeRetry => 'Erneut prüfen';
+
+  @override
   String get supportPromptSnooze => '90 Tage nicht fragen';
 
   @override

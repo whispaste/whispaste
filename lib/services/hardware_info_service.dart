@@ -181,7 +181,6 @@ final _driverVersionPattern = RegExp(r'^[0-9][0-9A-Za-z._-]{0,39}$');
 
 /// The driver version to report, or `unknown` when the OS did not provide a
 /// plain version string (macOS Metal has none; the probe may come back empty).
-@visibleForTesting
 String gpuDriverVersionForTelemetry(String? raw) {
   final version = raw?.trim() ?? '';
   return _driverVersionPattern.hasMatch(version) ? version : 'unknown';

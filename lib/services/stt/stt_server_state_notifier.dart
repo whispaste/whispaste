@@ -45,8 +45,11 @@ import 'stt_benchmark.dart' show SttBenchmark;
 import 'stt_benchmark_run.dart';
 import 'transcript_hallucination_filter.dart';
 import 'wav_header_repair.dart';
+import 'recovery_toast_notifier.dart';
 import 'whisper/cuda_pack.dart';
 import 'whisper/gpu_load_crash_guard.dart';
+import '../gpu_probe_process.dart';
+import 'whisper/gpu_probe.dart';
 import 'whisper/vram_gate.dart';
 import 'whisper/whisper_engine.dart';
 import 'whisper/whisper_ffi_engine.dart' show defaultWhisperVadModelPath;
@@ -1944,19 +1947,47 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     return buffer;
   }
 
-  Future<void> _start({required String modelId, bool warmup = true}) async {
-    _transition(const SttStatus(serverState: SttServerState.starting));
+  /// Runs the out-of-process GPU probe (gpu_probe.dart) before the first GPU
+  /// load: the GPU backend first runs in a child process, and a GPU that
+  /// crashed or hung there is not used in this process. An unknown verdict
+  /// keeps the GPU path, with its crash marker. Only the first GPU load per
+  /// probe key starts a child. Returns false when the notifier was disposed
+  /// while probing.
+  Future<bool> _probeGpuBeforeLoad(String modelId) async {
+    final backend = _engine!.status.backend;
+    if (backend == WhisperBackend.cpu) return true;
+    final gpu = ref.read(hw.gpuInfoProvider).value;
+    if (gpu == null) return true;
+    final verdict = await ref
+        .read(gpuProbeServiceProvider)
+        .verdict(gpu: gpu, backend: backend.name, modelId: modelId);
+    if (!ref.mounted) return false;
+    if (verdict == GpuProbeVerdict.unusable) {
+      _log.warning(
+        '${backend.name} failed the GPU probe — loading $modelId on CPU',
+      );
+      _engine = ref.read(whisperCpuFallbackEngineProvider);
+      ref
+          .read(recoveryToastNotifierProvider.notifier)
+          .report(RecoveryToastKind.gpuProbeFailed);
+    }
+    return true;
+  }
 
+  /// Returns the model file path when the file can be loaded. Otherwise the
+  /// failure is reported (a truncated file also starts a silent re-download)
+  /// and null is returned.
+  Future<String?> _usableModelPath(String modelId) async {
     final modelPath = sttModelPath(modelId);
     if (modelPath == null) {
       _fail('stt_model_unknown', detail: 'no model file path for $modelId');
-      return;
+      return null;
     }
 
     final modelFile = File(modelPath);
     if (!await modelFile.exists()) {
       _fail('stt_model_file_missing', detail: 'not found at $modelPath');
-      return;
+      return null;
     }
 
     const minModelBytes = 10 * 1024 * 1024;
@@ -2006,10 +2037,22 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
               );
             }),
       );
-      return;
+      return null;
     }
 
+    return modelPath;
+  }
+
+  Future<void> _start({required String modelId, bool warmup = true}) async {
+    _transition(const SttStatus(serverState: SttServerState.starting));
+
+    final modelPath = await _usableModelPath(modelId);
+    if (modelPath == null) return;
+
     _log.info('Loading STT model: $modelId ($modelPath)');
+
+    // Out-of-process GPU probe (gpu_probe.dart), see _probeGpuBeforeLoad.
+    if (!await _probeGpuBeforeLoad(modelId)) return;
 
     // Crash-loop breaker (see gpu_load_crash_guard.dart): a genuine native
     // fault has no catchable Dart exception and kills the whole process

@@ -17,6 +17,7 @@ library;
 
 import 'dart:ffi' as ffi;
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +25,7 @@ import 'package:path/path.dart' as p;
 import 'package:whispaste/services/headless/package_diagnose.dart'
     show selfCheckNativeCallGuard;
 import 'package:whispaste/services/stt/native_call_guard.dart';
+import 'package:whispaste/services/stt/whisper/whisper_bindings.dart';
 import 'package:whispaste/services/stt/whisper/whisper_engine.dart';
 import 'package:whispaste/services/stt/whisper/whisper_ffi_engine.dart';
 import 'package:whispaste/services/stt/whisper/whisper_resilience_policy.dart';
@@ -150,6 +152,85 @@ void main() {
         expect(cb(ffi.nullptr), isFalse);
       });
 
+      test('a throwing void() backend call becomes a NativeCallException', () {
+        expect(
+          () => guard.callVoid(guard.selfTestThrowVoid),
+          throwsA(isA<NativeCallException>().having((e) => e.code, 'code', -1)),
+        );
+      });
+
+      test('a throwing void(cstr) backend call carries what()', () {
+        expect(
+          () => guard.callVoidCString(guard.selfTestThrowCString, 'vk'),
+          throwsA(
+            isA<NativeCallException>().having(
+              (e) => e.message,
+              'message',
+              'wpg selftest: vk',
+            ),
+          ),
+        );
+      });
+
+      test(
+        'a throwing ptr(cstr) backend call (ggml_backend_load) is caught',
+        () {
+          expect(
+            () => guard.callPtrCString(guard.selfTestThrowPtrCString, 'x.so'),
+            throwsA(isA<NativeCallException>()),
+          );
+        },
+      );
+
+      test(
+        'process flags are shared by every isolate of the process',
+        () async {
+          guard.setProcessFlag(WpgFlag.backends, 2);
+          addTearDown(() => guard.setProcessFlag(WpgFlag.backends, 0));
+          final seen = await _processFlagInIsolate(
+            guardPath!,
+            WpgFlag.backends,
+          );
+          expect(seen, 2);
+        },
+      );
+
+      test('log lines pushed from another isolate are popped here', () async {
+        // Simulates ggml logging from a worker isolate that has already ended:
+        // the sink is native, so no Dart callback can be invoked late.
+        await _pushLogInIsolate(guardPath!, 3, 'from worker\n');
+        final lines = guard.drainLog();
+        expect(
+          lines.any((l) => l.level == 3 && l.text == 'from worker'),
+          isTrue,
+        );
+      });
+
+      test('the log ring drops the oldest lines when full and counts them', () {
+        guard.drainLog();
+        guard.takeDroppedLogLines();
+        for (var i = 0; i < 300; i++) {
+          guard.pushLogLineForTesting(2, 'line $i');
+        }
+        final lines = guard.drainLog();
+        expect(lines.length, lessThanOrEqualTo(256));
+        expect(lines.last.text, 'line 299');
+        expect(guard.takeDroppedLogLines(), greaterThanOrEqualTo(44));
+      });
+
+      test('backendScore: a missing module scores 0 without a crash', () {
+        expect(
+          guard.backendScore(
+            p.join(Directory.systemTemp.path, 'wpg_no_such_module.so'),
+          ),
+          0,
+        );
+      });
+
+      test('backendScore: a library without ggml_backend_score scores 1', () {
+        expect(guard.backendScore(guardPath!), 1);
+      });
+
       test('was built against the bundled whisper.h struct layouts', () {
         expect(guard.supportsWhisperStructs, isTrue);
       });
@@ -161,6 +242,31 @@ void main() {
     skip: available
         ? false
         : 'wp_ffi_guard not built (scripts/build-libwhisper-macos.sh)',
+  );
+
+  test(
+    'whisper_log_set through the guard routes ggml errors into the ring',
+    () {
+      final bindings = WhisperBindings.fromLookup(
+        ffi.DynamicLibrary.open(whisperPath!).lookup,
+      );
+      final guard = NativeCallGuard.tryOpen(guardPath!)!;
+      final setFn = ffi.DynamicLibrary.open(
+        whisperPath,
+      ).lookup<ffi.Void>('whisper_log_set');
+      guard.installLogSink(setFn);
+      guard.drainLog();
+      final missing = p.join(Directory.systemTemp.path, 'wpg_missing.bin');
+      final path = missing.toNativeUtf8();
+      addTearDown(() => malloc.free(path));
+      final ctx = bindings.whisper_init_from_file_with_params(
+        path.cast<ffi.Char>(),
+        bindings.whisper_context_default_params(),
+      );
+      expect(ctx, ffi.nullptr);
+      expect(guard.drainLog(), isNotEmpty);
+    },
+    skip: available ? false : 'wp_ffi_guard not built',
   );
 
   final modelPath = root == null
@@ -196,3 +302,14 @@ void main() {
         : 'needs wp_ffi_guard + .build/test-models/whisper/ggml-tiny.bin',
   );
 }
+
+// Top-level helpers so the isolate closures capture only the path: a closure
+// created inside a test body would carry the test's context, which holds the
+// guard and its DynamicLibrary, and those cannot cross an isolate boundary.
+Future<int> _processFlagInIsolate(String path, int flag) =>
+    Isolate.run(() => NativeCallGuard.tryOpen(path)!.processFlag(flag));
+
+Future<void> _pushLogInIsolate(String path, int level, String text) =>
+    Isolate.run(
+      () => NativeCallGuard.tryOpen(path)!.pushLogLineForTesting(level, text),
+    );

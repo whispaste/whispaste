@@ -29,6 +29,7 @@ import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/wp_stt_model_manager.dart';
 import '../../../widgets/wp_button.dart';
+import 'gpu_probe_row.dart';
 import '../../../widgets/dialog.dart';
 import '../settings_widgets.dart';
 import '../widgets/wp_language_dialog.dart';
@@ -259,6 +260,12 @@ class _SpeechRecognitionSectionState
               ref.watch(cudaPackOfferedProvider) &&
               ref.watch(cudaPackProvider).pack != null)
             const CudaPackRow(),
+          // GPU check result and a retry (see gpu_probe_row.dart); shown only
+          // where the GPU setting itself applies.
+          if (settings.onDeviceEngine == OnDeviceEngine.whisper &&
+              settings.behavior.gpuAcceleration !=
+                  GpuAcceleration.disabled.value)
+            const SttGpuProbeRow(),
           settingsInlineBreak,
         ],
 

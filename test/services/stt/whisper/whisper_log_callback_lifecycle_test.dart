@@ -86,14 +86,17 @@ void main() {
       );
 
       test(
-        'a second worker loads after the first one was shut down',
+        'workers load and shut down 50 times without aborting the process',
         () async {
           final dir = Directory.systemTemp.createTempSync('whisper_log_hook_');
           addTearDown(() => dir.deleteSync(recursive: true));
           final bogusModel = File(p.join(dir.path, 'bogus.bin'))
             ..writeAsBytesSync([0, 1, 2, 3]);
 
-          for (var round = 0; round < 2; round++) {
+          // Each round is a new worker isolate. Backend registration is
+          // process-wide, so the modules are not loaded again per round, and
+          // no ggml log line may reach a callback of an ended isolate.
+          for (var round = 0; round < 50; round++) {
             final engine = WhisperIsolateEngine(
               libraryPath: dylibPath,
               backend: WhisperBackend.cpu,

@@ -5757,6 +5757,27 @@ class L10nHe extends L10n {
       'האצת CUDA כובתה בגלל בעיה בהפעלה האחרונה. WhisPaste משתמש כעת ב-Vulkan, וההקלטה פועלת כרגיל.';
 
   @override
+  String get recoveryGpuProbeFailedToast =>
+      'האצת כרטיס המסך אינה בשימוש בהפעלה זו: הבדיקה של כרטיס המסך לא הסתיימה. WhisPaste מתמלל במעבד. ההקלטה פועלת כרגיל.';
+
+  @override
+  String get settingsGpuProbeTitle => 'בדיקת GPU';
+
+  @override
+  String get settingsGpuProbeNotChecked =>
+      'עדיין לא נבדק. הבדיקה מתבצעת בטעינת המודל הראשונה.';
+
+  @override
+  String get settingsGpuProbeUsable => 'נבדק: כרטיס המסך נמצא בשימוש.';
+
+  @override
+  String get settingsGpuProbeUnusable =>
+      'לא ניתן לשימוש: WhisPaste משתמש במעבד. בדקו שוב אחרי עדכון מנהל ההתקן או האפליקציה.';
+
+  @override
+  String get settingsGpuProbeRetry => 'בדוק שוב';
+
+  @override
   String get supportPromptSnooze => 'אל תשאל למשך 90 יום';
 
   @override

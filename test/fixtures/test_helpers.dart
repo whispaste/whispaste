@@ -32,6 +32,9 @@ Widget makeTestable(
   // Tests of the note image strip pass true to keep the real
   // noteAssetsProvider query instead of the empty default stream below.
   bool liveNoteAssets = false,
+  // The GPU row states pass a graphics card here: `overrides` cannot carry a
+  // second `gpuInfoProvider` override either.
+  GpuInfo? gpuInfo,
 }) {
   final resolvedTheme = theme ?? wpDarkTheme();
 
@@ -45,7 +48,8 @@ Widget makeTestable(
       }),
       // Prevent real GPU detection (spawns subprocess → pending timers).
       gpuInfoProvider.overrideWith(
-        (ref) async => const GpuInfo(vendor: GpuVendor.none, name: 'Test'),
+        (ref) async =>
+            gpuInfo ?? const GpuInfo(vendor: GpuVendor.none, name: 'Test'),
       ),
       // The note editor watches its image list. Without an override that is a
       // live Drift stream, whose teardown leaves a pending timer behind.

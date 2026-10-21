@@ -64,6 +64,8 @@ All entries are written in English.
 - **Footer version:** the footer hides the app version until it is known, instead of showing a placeholder.
 - **PIN lock covers copied text in the side panel:** while the recordings are locked by a PIN, the clipboard tab of the side panel shows no copied text and cannot paste it.
 
+- **GPU crashes fall back to the processor:** graphics-driver errors that used to close WhisPaste during model load now end in a CPU fallback with a logged reason. The app checks the graphics card in a separate process before using it. If the check fails, WhisPaste uses the processor and shows a notice; a graphics-driver update triggers a new check by itself, and Settings > Speech recognition offers "Check again" at any time.
+
 ### Known issues
 
 - **Flatpak (Flathub): voice-note import may be unavailable.** Importing Ogg/Opus, FLAC and M4A files depends on libopusfile and libFLAC in the GNOME runtime, which is not verified yet. Until it is, use the .deb, AppImage or Windows/macOS builds for importing those formats, or convert the file to WAV.

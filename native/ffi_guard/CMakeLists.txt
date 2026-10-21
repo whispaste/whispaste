@@ -31,4 +31,6 @@ else()
     CXX_VISIBILITY_PRESET hidden
     INSTALL_NAME_DIR "@rpath"
     BUILD_WITH_INSTALL_NAME_DIR ON)
+  # dlopen/dlsym/dlclose for wpg_backend_score (libdl before glibc 2.34).
+  target_link_libraries(wp_ffi_guard PRIVATE ${CMAKE_DL_LIBS})
 endif()

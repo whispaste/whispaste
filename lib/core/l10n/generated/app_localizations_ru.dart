@@ -5939,6 +5939,27 @@ class L10nRu extends L10n {
       'Ускорение CUDA отключено из-за проблемы при последнем запуске. WhisPaste теперь использует Vulkan, запись работает как обычно.';
 
   @override
+  String get recoveryGpuProbeFailedToast =>
+      'Ускорение на видеокарте в этом сеансе не используется: проверка видеокарты не завершилась. WhisPaste распознаёт речь на процессоре. Запись работает как обычно.';
+
+  @override
+  String get settingsGpuProbeTitle => 'Проверка GPU';
+
+  @override
+  String get settingsGpuProbeNotChecked =>
+      'Ещё не проверялась. Проверка выполнится при первой загрузке модели.';
+
+  @override
+  String get settingsGpuProbeUsable => 'Проверена: используется видеокарта.';
+
+  @override
+  String get settingsGpuProbeUnusable =>
+      'Не работает: WhisPaste использует процессор. Проверьте снова после обновления драйвера или приложения.';
+
+  @override
+  String get settingsGpuProbeRetry => 'Проверить снова';
+
+  @override
   String get supportPromptSnooze => 'Не спрашивать 90 дней';
 
   @override

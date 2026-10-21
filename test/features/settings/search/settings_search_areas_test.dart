@@ -7,6 +7,8 @@
 /// the test asserts that its rows render there.
 library;
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +22,9 @@ import 'package:whispaste/features/recording/clipping_state.dart';
 import 'package:whispaste/features/settings/search/settings_search_provider.dart';
 import 'package:whispaste/features/settings/sections/linux_paste_shortcut_row.dart';
 import 'package:whispaste/services/app_profiles/app_profile.dart';
+import 'package:whispaste/services/gpu_probe_process.dart';
+import 'package:whispaste/services/hardware_info_service.dart' as hw;
+import 'package:whispaste/services/stt/whisper/gpu_probe.dart';
 import 'package:whispaste/services/app_profiles/app_profile_repository.dart';
 import 'package:whispaste/features/settings/settings_areas.dart';
 import 'package:whispaste/features/settings/settings_page.dart';
@@ -124,12 +129,14 @@ class _RowState {
     required this.name,
     required this.area,
     required this.rowIds,
+    this.gpuInfo,
     required this.overrides,
   });
 
   final String name;
   final SettingsArea area;
   final Set<String> rowIds;
+  final hw.GpuInfo? gpuInfo;
   final List<Override> Function() overrides;
 }
 
@@ -231,6 +238,31 @@ final List<_RowState> _states = [
       ),
       cudaPackProvider.overrideWith(_CudaPackOffered.new),
       cudaPackOfferedProvider.overrideWith((ref) => true),
+    ],
+  ),
+  _RowState(
+    name: 'a graphics card is found and the GPU check applies on this OS',
+    area: SettingsArea.speech,
+    rowIds: const {'speech-gpu-probe'},
+    gpuInfo: const hw.GpuInfo(
+      vendor: hw.GpuVendor.nvidia,
+      name: 'Test GPU',
+      cudaAvailable: true,
+    ),
+    overrides: () => [
+      gpuProbeServiceProvider.overrideWith(
+        (ref) => GpuProbeService(
+          store: GpuProbeStore(
+            File('${Directory.systemTemp.path}/wp_test_gpu_probe.json'),
+          ),
+          run: ({required modelId, required timeout}) async =>
+              const GpuProbeOutcome.unavailable('test'),
+          appVersion: 'test',
+          osVersion: 'test',
+          enabled: false,
+          operatingSystem: 'windows',
+        ),
+      ),
     ],
   ),
   // Store build: the driver download is not allowed, so the row stays with
@@ -399,7 +431,11 @@ bool _rendersInSettings(SettingsSearchEntry entry) =>
     entry.area != SettingsRowArea.dictionary &&
     entry.area != SettingsRowArea.help;
 
-Future<void> _pump(WidgetTester tester, List<Override> overrides) async {
+Future<void> _pump(
+  WidgetTester tester,
+  List<Override> overrides, {
+  hw.GpuInfo? gpuInfo,
+}) async {
   tester.view.physicalSize = const Size(1280, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
@@ -408,6 +444,7 @@ Future<void> _pump(WidgetTester tester, List<Override> overrides) async {
     makeTestable(
       const SettingsPage(),
       locale: const Locale('en'),
+      gpuInfo: gpuInfo,
       overrides: [
         hotkeyServiceProvider.overrideWith(() => _NoopHotkeyService()),
         ...overrides,
@@ -477,7 +514,10 @@ void main() {
       _desktopTest('area ${area.id} renders rows of: ${state.name}', (
         tester,
       ) async {
-        await _pump(tester, [settingsAreaAt(area), ...state.overrides()]);
+        await _pump(tester, [
+          settingsAreaAt(area),
+          ...state.overrides(),
+        ], gpuInfo: state.gpuInfo);
         final rendered = _renderedRowIds(tester);
         expect(
           rendered.containsAll(state.rowIds),
@@ -518,7 +558,7 @@ void main() {
           () => _DeepLinkScrollTarget(entry.rowId),
         ),
         ...?state?.overrides(),
-      ]);
+      ], gpuInfo: state?.gpuInfo);
       final container = ProviderScope.containerOf(
         tester.element(find.byType(SettingsPage)),
       );

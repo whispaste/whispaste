@@ -293,6 +293,22 @@ void main() {
       expect(out!.message!.toLowerCase(), isNot(contains('alice')));
     });
 
+    test('a native log line from the ring carries no account name', () {
+      // Shape of a line drained from the native log ring (drainNativeLog),
+      // logged through AppLogger and turned into a breadcrumb.
+      final crumb = Breadcrumb(
+        message:
+            r'WhisperFfiEngine: ggml: model C:\Users\Alice\m.bin, '
+            '/Users/alice/Library/Containers/x/y.so',
+        category: 'native',
+      );
+
+      final out = CrashReporter.beforeBreadcrumb(crumb, Hint());
+
+      expect(out!.message!.toLowerCase(), isNot(contains('alice')));
+      expect(out.category, 'native');
+    });
+
     test('a breadcrumb without user paths passes through unchanged', () {
       final crumb = Breadcrumb(message: 'stt: idle', category: 'stt');
 

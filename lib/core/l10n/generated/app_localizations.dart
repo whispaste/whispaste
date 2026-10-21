@@ -9877,6 +9877,42 @@ abstract class L10n {
   /// **'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, recording works as usual.'**
   String get recoveryCudaDisabledToast;
 
+  /// No description provided for @recoveryGpuProbeFailedToast.
+  ///
+  /// In en, this message translates to:
+  /// **'GPU acceleration is not used in this session: the check of the graphics card did not finish. WhisPaste transcribes on the processor. Recording works as usual.'**
+  String get recoveryGpuProbeFailedToast;
+
+  /// No description provided for @settingsGpuProbeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'GPU check'**
+  String get settingsGpuProbeTitle;
+
+  /// No description provided for @settingsGpuProbeNotChecked.
+  ///
+  /// In en, this message translates to:
+  /// **'Not checked yet. The check runs when the model loads for the first time.'**
+  String get settingsGpuProbeNotChecked;
+
+  /// No description provided for @settingsGpuProbeUsable.
+  ///
+  /// In en, this message translates to:
+  /// **'Checked: the graphics card is used.'**
+  String get settingsGpuProbeUsable;
+
+  /// No description provided for @settingsGpuProbeUnusable.
+  ///
+  /// In en, this message translates to:
+  /// **'Not usable: WhisPaste uses the processor. Check again after a driver or app update.'**
+  String get settingsGpuProbeUnusable;
+
+  /// No description provided for @settingsGpuProbeRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Check again'**
+  String get settingsGpuProbeRetry;
+
   /// No description provided for @supportPromptSnooze.
   ///
   /// In en, this message translates to:

@@ -18,6 +18,14 @@ const _allowlist = <String, Map<String, String>>{
         'The hotkey label ("Ctrl+Shift+Space"), not dictated text; it names '
         'the shortcut a slow hotkey→text measurement belongs to.',
   },
+  'lib/services/stt/whisper/whisper_ffi_engine.dart': {
+    'text':
+        'drainNativeLog forwards ggml/whisper log-callback lines (model, '
+        'backend, errors). Segment text is never in them: whisper.cpp prints '
+        'it only under print_realtime (printf, not the log callback), and both '
+        'whisper_full call sites set print_realtime to false. Reasoning in the '
+        'comment at drainNativeLog.',
+  },
 };
 
 final _sensitive = RegExp(
