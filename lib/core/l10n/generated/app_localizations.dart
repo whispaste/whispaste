@@ -3951,6 +3951,12 @@ abstract class L10n {
   /// **'Off by default. Only your text and rating are shown, never your name or email. You can withdraw this at any time with one click on the Feedback page in the app.'**
   String get feedbackPublishConsentExplanation;
 
+  /// No description provided for @feedbackPublishReviewHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Quotes are written like a rating: what you like and where there is still room to improve. Bug reports and wishes belong to Problem or Idea and are never published.'**
+  String get feedbackPublishReviewHint;
+
   /// No description provided for @feedbackWithdrawConsentLabel.
   ///
   /// In en, this message translates to:
@@ -13959,6 +13965,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Diagnostics only if you turn on Attach diagnostics: app version, operating system, speech engine and backend. Show preview displays the exact text before you send.'**
   String get manualC16S7B1I4;
+
+  /// No description provided for @manualC16S7B1I5.
+  ///
+  /// In en, this message translates to:
+  /// **'Only for Praise: the consent to show your praise as a quote on the website. It is off by default and you can withdraw it with one click on this page.'**
+  String get manualC16S7B1I5;
 
   /// No description provided for @manualC16S7B2.
   ///

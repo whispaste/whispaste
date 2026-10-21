@@ -97,4 +97,6 @@ done
 psql_run -t -A -f "$here/privileges_assert.sql"
 psql_run -t -A -f "$here/withdraw_cleanup_assert.sql"
 psql_run -t -A -f "$here/feedback_quote_v2_assert.sql"
+psql_run -t -A -f "$here/public_quote_scope_assert.sql"
+psql_run -t -A -f "$here/feedback_insert_grants_assert.sql"
 echo "withdraw cleanup and privileges: all checks passed"

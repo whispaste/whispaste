@@ -956,6 +956,7 @@ final List<ManualChapter> manualChapters = <ManualChapter>[
             (l) => l.manualC16S7B1I2,
             (l) => l.manualC16S7B1I3,
             (l) => l.manualC16S7B1I4,
+            (l) => l.manualC16S7B1I5,
           ]),
           ManualParagraph((l) => l.manualC16S7B2),
         ],

@@ -2322,6 +2322,10 @@ class L10nPt extends L10n {
       'Desligado por padrão. Só são mostrados o seu texto e a sua avaliação, nunca o seu nome ou e-mail. Pode retirar esta autorização a qualquer momento com um clique na página Feedback da app.';
 
   @override
+  String get feedbackPublishReviewHint =>
+      'As citações são escritas como uma avaliação: o que gosta e o que ainda pode melhorar. Erros e ideias vão em «Problema» ou «Ideia» e nunca são publicados.';
+
+  @override
   String get feedbackWithdrawConsentLabel => 'Retirar consentimento';
 
   @override
@@ -8389,6 +8393,10 @@ class L10nPt extends L10n {
   @override
   String get manualC16S7B1I4 =>
       'Diagnóstico somente se você ativar Anexar diagnóstico: versão do app, sistema operacional, motor de voz e backend. Mostrar prévia exibe o texto exato antes de enviar.';
+
+  @override
+  String get manualC16S7B1I5 =>
+      'Apenas em Elogio: a autorização para mostrar o seu elogio como citação no site. Vem desligada por padrão e pode ser retirada com um clique nesta página.';
 
   @override
   String get manualC16S7B2 => 'Gravações e transcrições nunca são anexadas.';

@@ -2320,6 +2320,10 @@ class L10nDe extends L10n {
       'Standardmäßig aus. Gezeigt werden nur dein Text und deine Bewertung, nie Name oder E-Mail. Du kannst die Zustimmung jederzeit mit einem Klick auf der Seite Feedback in der App zurückziehen.';
 
   @override
+  String get feedbackPublishReviewHint =>
+      'Zitate werden wie eine Bewertung formuliert: was dir gefällt und wo es noch Nachholbedarf gibt. Fehlerberichte und Wünsche gehören zu „Problem“ bzw. „Idee“ und werden nie veröffentlicht.';
+
+  @override
   String get feedbackWithdrawConsentLabel => 'Zustimmung zurückziehen';
 
   @override
@@ -8388,6 +8392,10 @@ class L10nDe extends L10n {
   @override
   String get manualC16S7B1I4 =>
       'Diagnose nur, wenn du Diagnose anhängen einschaltest: App-Version, Betriebssystem, Spracherkennung und Backend. Vorschau anzeigen zeigt dir den genauen Text vor dem Senden.';
+
+  @override
+  String get manualC16S7B1I5 =>
+      'Nur bei Lob: die Zustimmung, dein Lob als Zitat auf der Website zu zeigen. Sie ist standardmäßig aus und lässt sich auf dieser Seite mit einem Klick zurückziehen.';
 
   @override
   String get manualC16S7B2 => 'Aufnahmen und Transkripte werden nie angehängt.';

@@ -79,14 +79,36 @@ void main() {
     return (tableInsert: tableInsert, columns: columns);
   }
 
-  test('the latest migration state lets anon insert into user_feedback', () {
+  test('anon may insert exactly the columns the app sends', () {
+    // FeedbackPayload.toJson() in lib/services/feedback_submission_service.dart.
+    const appColumns = {
+      'rating',
+      'feedback_text',
+      'category',
+      'app_version',
+      'device_id_hash',
+      'locale',
+      'contact_email',
+      'contact_locale',
+      'publish_consent',
+      'consent_text_version',
+      'withdraw_token_hash',
+    };
     final state = anonInsertState();
     expect(
-      state.tableInsert || state.columns.contains('publish_consent'),
-      isTrue,
+      state.tableInsert,
+      isFalse,
       reason:
-          'After replaying all migrations in order, anon has no INSERT on '
-          'user_feedback (a later REVOKE without a re-grant?).',
+          'anon must not hold a table-level INSERT on user_feedback; it '
+          'would make every column writable (server fields included).',
+    );
+    expect(
+      state.columns,
+      equals(appColumns),
+      reason:
+          'After replaying all migrations in order, anon INSERT columns must '
+          'match the app payload. A missing column breaks submission, an extra '
+          'one lets a client set server-side fields.',
     );
   });
 }

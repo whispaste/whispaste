@@ -2322,6 +2322,10 @@ class L10nEs extends L10n {
       'Desactivado por defecto. Solo se muestran tu texto y tu valoración, nunca tu nombre ni tu correo. Puedes retirar este permiso en cualquier momento con un clic en la página Comentarios de la app.';
 
   @override
+  String get feedbackPublishReviewHint =>
+      'Las citas se escriben como una valoración: qué te gusta y qué aún puede mejorar. Los errores y las ideas van en «Problema» o «Idea» y nunca se publican.';
+
+  @override
   String get feedbackWithdrawConsentLabel => 'Retirar el consentimiento';
 
   @override
@@ -8391,6 +8395,10 @@ class L10nEs extends L10n {
   @override
   String get manualC16S7B1I4 =>
       'El diagnóstico solo si activas Adjuntar diagnóstico: versión de la app, sistema operativo, motor de voz y backend. Mostrar vista previa te enseña el texto exacto antes de enviar.';
+
+  @override
+  String get manualC16S7B1I5 =>
+      'Solo en Elogio: el permiso para mostrar tu elogio como cita en la web. Está desactivado por defecto y puedes retirarlo con un clic en esta página.';
 
   @override
   String get manualC16S7B2 =>

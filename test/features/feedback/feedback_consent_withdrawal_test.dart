@@ -367,8 +367,9 @@ void main() {
     );
   });
 
+  // Only praise offers the quote consent (decision 24), so the form uses it.
   Future<void> fillForm(WidgetTester tester, {required bool consent}) async {
-    await tester.tap(find.text(l10n.feedbackTypeQuestion));
+    await tester.tap(find.text(l10n.feedbackTypePraise));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const Key('feedbackCommentField')),

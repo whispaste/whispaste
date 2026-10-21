@@ -461,7 +461,14 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
                                 icon: icon,
                                 label: label,
                                 isActive: _type == type,
-                                onTap: () => setState(() => _type = type),
+                                onTap: () => setState(() {
+                                  _type = type;
+                                  // The quote consent belongs to praise only:
+                                  // a switch drops a consent given before.
+                                  if (type != FeedbackType.praise) {
+                                    _publishConsent = false;
+                                  }
+                                }),
                               ),
                             ),
                         ],
@@ -516,8 +523,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
 
                         const SizedBox(height: WpSpacing.xxl),
 
-                        // Rating: optional. Until the server accepts an empty
-                        // rating, a skipped one is sent as the default.
+                        // Rating: required (see _ratingOk). Never invented.
                         _fieldLabel(
                           l10n.feedbackRatingLabel,
                           ts,
@@ -564,15 +570,29 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
 
                         const SizedBox(height: WpSpacing.xxl),
 
-                        // Opt-in to quote this text on the website. Off by
-                        // default and never implied by the rating or by sending.
-                        WpConsentCheckbox(
-                          key: const Key('feedbackPublishConsent'),
-                          value: _publishConsent,
-                          label: l10n.feedbackPublishConsentLabel,
-                          explanation: l10n.feedbackPublishConsentExplanation,
-                          onChanged: (v) => setState(() => _publishConsent = v),
-                        ),
+                        // Quotes are written like a rating, so only praise
+                        // offers the consent. Problems and ideas are never
+                        // published (decision 24, CONTEXT 6.7a).
+                        if (_type == FeedbackType.praise) ...[
+                          Text(
+                            l10n.feedbackPublishReviewHint,
+                            style: ts.bodySmall?.copyWith(
+                              color: WpColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: WpSpacing.md),
+                          // Opt-in to quote this text on the website. Off by
+                          // default and never implied by the rating or by
+                          // sending.
+                          WpConsentCheckbox(
+                            key: const Key('feedbackPublishConsent'),
+                            value: _publishConsent,
+                            label: l10n.feedbackPublishConsentLabel,
+                            explanation: l10n.feedbackPublishConsentExplanation,
+                            onChanged: (v) =>
+                                setState(() => _publishConsent = v),
+                          ),
+                        ],
                       ],
                     ],
                   ),
@@ -704,7 +724,9 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
 
       final email = _emailController.text.trim();
       // A fresh secret per consented submission; only its hash is sent.
-      final consentToken = _publishConsent ? newConsentToken() : null;
+      // Only praise can carry the quote consent (decision 24).
+      final publish = _publishConsent && _type == FeedbackType.praise;
+      final consentToken = publish ? newConsentToken() : null;
       final payload = FeedbackPayload(
         rating: _rating!,
         feedbackText: _composedText,
@@ -714,7 +736,7 @@ class _FeedbackPageState extends ConsumerState<FeedbackPage> {
         locale: locale,
         contactEmail: email.isEmpty ? null : email,
         contactLocale: email.isEmpty ? null : (_contactLocale ?? locale),
-        publishConsent: _publishConsent,
+        publishConsent: publish,
         withdrawTokenHash: consentToken == null
             ? null
             : consentTokenHash(consentToken),

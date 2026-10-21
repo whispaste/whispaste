@@ -2299,6 +2299,10 @@ class L10nEn extends L10n {
       'Off by default. Only your text and rating are shown, never your name or email. You can withdraw this at any time with one click on the Feedback page in the app.';
 
   @override
+  String get feedbackPublishReviewHint =>
+      'Quotes are written like a rating: what you like and where there is still room to improve. Bug reports and wishes belong to Problem or Idea and are never published.';
+
+  @override
   String get feedbackWithdrawConsentLabel => 'Withdraw consent';
 
   @override
@@ -8322,6 +8326,10 @@ class L10nEn extends L10n {
   @override
   String get manualC16S7B1I4 =>
       'Diagnostics only if you turn on Attach diagnostics: app version, operating system, speech engine and backend. Show preview displays the exact text before you send.';
+
+  @override
+  String get manualC16S7B1I5 =>
+      'Only for Praise: the consent to show your praise as a quote on the website. It is off by default and you can withdraw it with one click on this page.';
 
   @override
   String get manualC16S7B2 => 'Recordings and transcripts are never attached.';
