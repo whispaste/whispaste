@@ -131,6 +131,31 @@ void main() {
     await tempDir.delete(recursive: true);
   });
 
+  group('capture end before the final decode', () {
+    test('stopping the recording stops the live preview and the final decode '
+        'gets full threads', () async {
+      final engine = _RecordingEngine();
+      final container = _makeContainer(
+        engine: engine,
+        phase: RecordingPhase.recording,
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+      notifier.notifyRecordingStarted();
+      await Future<void>.delayed(Duration.zero);
+      expect(notifier.livePreviewStream, isNotNull);
+
+      notifier.notifyRecordingStopped();
+      expect(notifier.livePreviewStream, isNull);
+
+      await notifier.transcribeBytes(buildWavBytes());
+      expect(engine.lastReducedThreads, isFalse);
+    });
+  });
+
   group('background completion during a live dictation', () {
     test('keeps the recording flag: the live preview stays and the engine '
         'still gets reduced threads', () async {

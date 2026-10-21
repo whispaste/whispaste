@@ -44,6 +44,13 @@ class _NativeFake implements WhisperEngine, LivePreviewEngine {
   /// Final-decode calls wait for this; null returns at once (warmup).
   Completer<void>? gate;
 
+  /// Backend the fake reports; a GPU fake can crash once (GPU-to-CPU retry).
+  WhisperBackend backendKind = WhisperBackend.cpu;
+  bool crashNext = false;
+
+  /// Loads wait for this when set (a slow CPU model load).
+  Completer<void>? loadGate;
+
   /// Preview decodes wait for this; null returns at once.
   Completer<void>? previewGate;
 
@@ -53,12 +60,13 @@ class _NativeFake implements WhisperEngine, LivePreviewEngine {
 
   @override
   WhisperEngineStatus get status =>
-      WhisperEngineStatus(isLoaded: _loaded, backend: WhisperBackend.cpu);
+      WhisperEngineStatus(isLoaded: _loaded, backend: backendKind);
 
   @override
   Future<void> load({required String modelPath, String? vadModelPath}) async {
     calls.add('load');
     loadedPaths.add(modelPath);
+    await loadGate?.future;
     _loaded = true;
   }
 
@@ -71,6 +79,13 @@ class _NativeFake implements WhisperEngine, LivePreviewEngine {
     bool reducedThreads = false,
   }) async {
     calls.add('transcribe');
+    if (crashNext) {
+      crashNext = false;
+      throw const WhisperEngineException(
+        WhisperFailureKind.gpuCrash,
+        'simulated GPU crash',
+      );
+    }
     final gated = gate;
     // Warmup and benchmark calls run before a test sets its gate.
     if (gated == null) return 'warmup';
@@ -144,10 +159,13 @@ class _FakeModelDownloadNotifier extends ModelDownloadNotifier {
 ProviderContainer _makeContainer({
   required WhisperEngine engine,
   required RecordingPhase phase,
+  WhisperEngine? cpuFallbackEngine,
 }) {
   return ProviderContainer(
     overrides: [
       whisperEngineProvider.overrideWithValue(engine),
+      if (cpuFallbackEngine != null)
+        whisperCpuFallbackEngineProvider.overrideWithValue(cpuFallbackEngine),
       settingsProvider.overrideWith(
         () => _FakeSettingsNotifier(
           AppSettings.defaults.copyWith(
@@ -368,6 +386,33 @@ void main() {
       expect(fake.calls.where((c) => c == 'unload'), hasLength(1));
       expect(fake.unloadWhileBusy, 0);
     });
+
+    test('a deferred idle unload does not run when a new recording started '
+        'while the call was still running', () async {
+      SttServerStateNotifier.debugIdleUnloadDelay = const Duration(
+        milliseconds: 50,
+      );
+      final fake = _NativeFake();
+      final container = _makeContainer(
+        engine: fake,
+        phase: RecordingPhase.transcribing,
+      );
+      addTearDown(container.dispose);
+      final (:notifier, :decode) = await _startBusyDecode(container, fake);
+
+      // The idle timer fires during the call: its unload is deferred.
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      // The next dictation starts before that call returns.
+      notifier.notifyRecordingStarted();
+
+      fake.gate!.complete();
+      await decode;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      expect(fake.calls, isNot(contains('unload')));
+      expect(notifier.state.isReady, isTrue);
+      expect(fake.unloadWhileBusy, 0);
+    });
   });
 
   group('no second native call on the same instance (DEV-233)', () {
@@ -413,6 +458,97 @@ void main() {
       fake.gate!.complete();
       await decode;
       expect(fake.maxConcurrent, 1);
+    });
+
+    test('after the stuck guard gave up on a decode, the next decode fails at '
+        'the preview drain cap instead of waiting the full idle cap', () async {
+      final previousStuckGuard = SttServerStateNotifier.stuckGuardTimeout;
+      addTearDown(
+        () => SttServerStateNotifier.stuckGuardTimeout = previousStuckGuard,
+      );
+      SttServerStateNotifier.stuckGuardTimeout = const Duration(
+        milliseconds: 100,
+      );
+      SttServerStateNotifier.nativeIdleCap = const Duration(seconds: 3);
+      SttServerStateNotifier.previewDrainCap = const Duration(
+        milliseconds: 100,
+      );
+      final fake = _NativeFake();
+      final container = _makeContainer(
+        engine: fake,
+        phase: RecordingPhase.transcribing,
+      );
+      addTearDown(container.dispose);
+      final (:notifier, :decode) = await _startBusyDecode(container, fake);
+
+      // The stuck guard abandons the first decode; its native call still runs.
+      await expectLater(decode, throwsA(anything));
+
+      final watch = Stopwatch()..start();
+      await expectLater(
+        notifier.transcribeBytes(buildWavBytes()),
+        throwsA(anything),
+      );
+      watch.stop();
+
+      expect(
+        watch.elapsed,
+        lessThan(const Duration(seconds: 2)),
+        reason: 'the stuck engine must fail fast, not wait nativeIdleCap',
+      );
+      expect(fake.transcribeCount, 1, reason: 'no second native call');
+      expect(
+        notifier.state.restartNeeded,
+        isTrue,
+        reason: 'a hung engine asks for a restart',
+      );
+
+      fake.gate!.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(
+        notifier.state.restartNeeded,
+        isFalse,
+        reason: 'the notice clears once the native call returned',
+      );
+    });
+
+    test('a GPU-to-CPU retry keeps the engine busy while the CPU model loads, '
+        'so an idle unload cannot run under the retry', () async {
+      SttServerStateNotifier.debugIdleUnloadDelay = const Duration(
+        milliseconds: 50,
+      );
+      final previousDrain = SttServerStateNotifier.stopDrainTimeout;
+      SttServerStateNotifier.stopDrainTimeout = const Duration(
+        milliseconds: 10,
+      );
+      addTearDown(
+        () => SttServerStateNotifier.stopDrainTimeout = previousDrain,
+      );
+      final gpu = _NativeFake()..backendKind = WhisperBackend.metal;
+      final cpu = _NativeFake()..loadGate = Completer<void>();
+      final container = _makeContainer(
+        engine: gpu,
+        phase: RecordingPhase.transcribing,
+        cpuFallbackEngine: cpu,
+      );
+      addTearDown(container.dispose);
+      await container.read(settingsProvider.future);
+      final notifier = container.read(localSttBundleProvider.notifier);
+      await notifier.ensureRunning();
+      gpu.crashNext = true;
+
+      final decode = notifier.transcribeBytes(buildWavBytes());
+      // The GPU call crashed and the CPU model is still loading. Several idle
+      // periods pass in that window.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(
+        gpu.calls,
+        isNot(contains('unload')),
+        reason: 'the idle unload ran while the CPU retry was loading',
+      );
+
+      cpu.loadGate!.complete();
+      expect(await decode, isNotEmpty);
     });
   });
 

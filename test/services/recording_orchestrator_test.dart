@@ -296,6 +296,21 @@ class FakeSttService extends SttServerStateNotifier {
   /// Counts how many times [transcribeBytes] was invoked.
   int transcribeCallCount = 0;
 
+  /// Ordered engine-lifecycle calls: 'started', 'stopped', 'transcribe'.
+  final List<String> lifecycleCalls = [];
+
+  @override
+  void notifyRecordingStarted() {
+    lifecycleCalls.add('started');
+    super.notifyRecordingStarted();
+  }
+
+  @override
+  void notifyRecordingStopped() {
+    lifecycleCalls.add('stopped');
+    super.notifyRecordingStopped();
+  }
+
   /// Language the engine reports for its last transcription (DEV-83).
   String? detectedLanguageToReturn;
 
@@ -332,6 +347,7 @@ class FakeSttService extends SttServerStateNotifier {
   @override
   Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
     transcribeCallCount++;
+    lifecycleCalls.add('transcribe');
     lastLanguage = language;
     if (transcribeError != null) throw transcribeError!;
     if (transcribeThrows) {
@@ -2897,6 +2913,89 @@ void main() {
       final entries = await db.allEntries();
       expect(entries, isEmpty);
     });
+  });
+
+  // =========================================================================
+  // Engine lifecycle: recording-stop signal (decode threads, live preview)
+  // =========================================================================
+
+  group('Engine stop signal after capture', () {
+    int stoppedCount() =>
+        fakeStt.lifecycleCalls.where((c) => c == 'stopped').length;
+
+    test(
+      'a successful dictation signals stop before the final decode, once',
+      () async {
+        fakeStt.transcriptToReturn = 'Hello';
+        final orch = await startRecordingPhase();
+
+        await orch.stopRecording();
+
+        expect(
+          fakeStt.lifecycleCalls,
+          containsAllInOrder(['stopped', 'transcribe']),
+        );
+        expect(stoppedCount(), 1);
+      },
+    );
+
+    test('a transcription error signals stop exactly once', () async {
+      fakeStt.transcribeThrows = true;
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.error);
+      expect(stoppedCount(), 1);
+    });
+
+    test('a failed STT start signals stop exactly once', () async {
+      fakeStt.ensureRunningThrows = true;
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(stoppedCount(), 1);
+    });
+
+    test('a missing WAV (no audio) signals stop exactly once', () async {
+      fakeAudio.wavPathToReturn = null;
+      final orch = await startRecordingPhase();
+
+      await orch.stopRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.error);
+      expect(stoppedCount(), 1);
+    });
+
+    test('cancel during recording signals stop exactly once', () async {
+      final orch = await startRecordingPhase();
+
+      await orch.cancelRecording();
+
+      expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+      expect(stoppedCount(), 1);
+    });
+
+    test(
+      'cancel while transcribing does not signal stop a second time',
+      () async {
+        final gate = Completer<String>();
+        fakeStt.transcribeGate = gate;
+        final orch = await startRecordingPhase();
+
+        final stopping = orch.stopRecording();
+        while (fakeStt.transcribeCallCount == 0) {
+          await Future<void>.delayed(const Duration(milliseconds: 1));
+        }
+        await orch.cancelRecording();
+        gate.complete('late result');
+        await stopping;
+
+        expect(container.read(recordingProvider).phase, RecordingPhase.idle);
+        expect(stoppedCount(), 1);
+      },
+    );
   });
 
   // =========================================================================

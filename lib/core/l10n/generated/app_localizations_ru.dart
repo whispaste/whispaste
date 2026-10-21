@@ -9417,4 +9417,8 @@ class L10nRu extends L10n {
   @override
   String get waylandHotkeyOpenKeyboardSettings =>
       'Открыть настройки клавиатуры';
+
+  @override
+  String get sttEngineRestartHint =>
+      'Распознавание речи зависло. Перезапустите WhisPaste: закройте его через меню в трее («Выход») и откройте снова.';
 }

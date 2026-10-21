@@ -886,6 +886,9 @@ class RecordingOrchestrator extends Notifier<void> {
     // generous because it is always overridden below — it only serves as a
     // last-resort safety net if a call site omits the explicit timeout.
     const runner = PipelineStepRunner(timeout: Duration(seconds: 120));
+    // Set once the engine has been told that capture ended, so the catch-all
+    // below does not signal a second time.
+    var engineStopSignalled = false;
 
     try {
       // Cancel amplitude subscription.
@@ -893,6 +896,11 @@ class RecordingOrchestrator extends Notifier<void> {
 
       // ── Step 1: Capture — stop audio and flush WAV (10 s budget) ─────────
       final captureResult = await _runCaptureStep(runner, sid);
+      // Capture is over on every path from here, whatever its outcome. Signal
+      // it once, before the decode starts: the live preview stops and the
+      // final decode runs at full threads, not reduced ones (f049e67cd).
+      engineStopSignalled = true;
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
       switch (captureResult) {
         case _CaptureAbort(:final outcome):
           timing.outcome = outcome;
@@ -925,7 +933,9 @@ class RecordingOrchestrator extends Notifier<void> {
         return;
       }
       _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
-      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+      if (!engineStopSignalled) {
+        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+      }
       _log.error('[$sid] Pipeline error: ${e.runtimeType}');
       await _keepInFlightAudio(sid, session, inFlight, timing);
     } finally {
@@ -1186,7 +1196,6 @@ class RecordingOrchestrator extends Notifier<void> {
           errorMessage: 'stt_start_timeout',
         );
         _log.warning('[$sid] STT server start timed out after 120s');
-        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return null;
       case FailedWith(:final error) when error is TranscriberException:
         timing.outcome = 'stt_start_error';
@@ -1195,13 +1204,11 @@ class RecordingOrchestrator extends Notifier<void> {
           errorMessage: transcriberErrorCode(error),
         );
         _log.warning('[$sid] STT prepare failed: ${error.message}');
-        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return null;
       case FailedWith(:final error):
         timing.outcome = 'stt_start_error';
         _stateMachine.transition(RecordingIntent.fail, errorMessage: '$error');
         _log.warning('[$sid] STT prepare failed: $error');
-        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return null;
       case Ok():
         // prepare succeeded — fall through.
@@ -1263,7 +1270,6 @@ class RecordingOrchestrator extends Notifier<void> {
           errorMessage: 'transcription_timeout',
         );
         _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
-        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return false;
       case FailedWith(:final error)
           when error is SocketException || error is http.ClientException:
@@ -1283,7 +1289,6 @@ class RecordingOrchestrator extends Notifier<void> {
           '[$sid] STT server connection lost during inference'
           '${error is http.ClientException ? " (ClientException)" : ""}',
         );
-        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return false;
       case FailedWith(:final error) when error is InferenceClientRejected:
         // Pre-flight reject — validator already emitted a Sentry
@@ -1298,7 +1303,6 @@ class RecordingOrchestrator extends Notifier<void> {
         _log.warning(
           '[$sid] Inference rejected pre-flight: ${error.userMessageKey}',
         );
-        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return false;
       case FailedWith(:final error) when error is TranscriberException:
         timing.outcome = 'transcribe_error';
@@ -1317,7 +1321,6 @@ class RecordingOrchestrator extends Notifier<void> {
           '[$sid] Transcription failed: ${error.reason.name} '
           '(${errorKind(error)})',
         );
-        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         return false;
       case FailedWith(:final error):
         timing.outcome = 'transcribe_error';
@@ -1327,7 +1330,6 @@ class RecordingOrchestrator extends Notifier<void> {
           return false;
         }
         _stateMachine.transition(RecordingIntent.fail, errorMessage: '$error');
-        ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
         // Downgraded to `_log.warning` — see the parallel comment a
         // few lines up. The notifier-side `captureError` is the
         // single source of truth for inference Sentry events.
@@ -1648,7 +1650,6 @@ class RecordingOrchestrator extends Notifier<void> {
       errorMessage: 'quick_note_append_failed',
       transcript: finalText,
     );
-    ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
     return true;
   }
 
@@ -2480,7 +2481,6 @@ class RecordingOrchestrator extends Notifier<void> {
     // The oomRetry intent (error→recording) is intentionally NOT used here
     // because the user must explicitly choose a fallback model first.
     _stateMachine.transition(RecordingIntent.reset);
-    ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
 
     _log.warning(
       '[$sid] CUDA OOM detected for model=$currentModelId '

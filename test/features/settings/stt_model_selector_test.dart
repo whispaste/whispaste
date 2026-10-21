@@ -67,16 +67,22 @@ class _ControllableDownloadNotifier extends ModelDownloadNotifier {
 }
 
 class _FakeSttNotifier extends SttServerStateNotifier {
-  _FakeSttNotifier({this.isBenchmarking = false, this.benchmarkingTier});
+  _FakeSttNotifier({
+    this.isBenchmarking = false,
+    this.benchmarkingTier,
+    this.restartNeeded = false,
+  });
 
   final bool isBenchmarking;
   final QualityTier? benchmarkingTier;
+  final bool restartNeeded;
 
   @override
   SttStatus build() => SttStatus(
     serverState: SttServerState.stopped,
     isBenchmarking: isBenchmarking,
     benchmarkingTier: benchmarkingTier,
+    restartNeeded: restartNeeded,
   );
 }
 
@@ -98,6 +104,8 @@ Widget _makeTestable({
   void Function(String)? onModelSelected,
   bool isBenchmarking = false,
   QualityTier? benchmarkingTier,
+  bool restartNeeded = false,
+  double textScale = 1.0,
 }) {
   return ProviderScope(
     overrides: [
@@ -108,6 +116,7 @@ Widget _makeTestable({
         () => _FakeSttNotifier(
           isBenchmarking: isBenchmarking,
           benchmarkingTier: benchmarkingTier,
+          restartNeeded: restartNeeded,
         ),
       ),
       // Prevent real GPU detection (spawns subprocess → pending timers).
@@ -123,6 +132,12 @@ Widget _makeTestable({
       locale: const Locale('en'),
       localizationsDelegates: L10n.localizationsDelegates,
       supportedLocales: L10n.supportedLocales,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(textScale)),
+        child: child!,
+      ),
       home: Scaffold(
         body: SttModelSelector(
           currentModelId: currentModelId,
@@ -142,6 +157,46 @@ Widget _makeTestable({
 void main() {
   setUpAll(() async {
     l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
+  group('restart hint', () {
+    const hintKey = ValueKey('settings-stt-engine-restart-hint');
+
+    testWidgets('shows the restart hint when the engine is stuck', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_makeTestable(restartNeeded: true));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(hintKey), findsOneWidget);
+      expect(find.text(l10n.sttEngineRestartHint), findsOneWidget);
+    });
+
+    testWidgets('hides the restart hint while the engine is healthy', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_makeTestable());
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(hintKey), findsNothing);
+    });
+
+    testWidgets('the restart hint fits at 800 px and text scale 1.3', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        _makeTestable(restartNeeded: true, textScale: 1.3),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(hintKey), findsOneWidget);
+    });
   });
 
   group('SttModelSelector', () {

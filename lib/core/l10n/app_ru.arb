@@ -2728,5 +2728,6 @@
   "waylandHotkeyReconnect": "Подключить снова",
   "waylandHotkeyCopyCommand": "Копировать команду",
   "waylandHotkeyCommandCopied": "Скопировано",
-  "waylandHotkeyOpenKeyboardSettings": "Открыть настройки клавиатуры"
+  "waylandHotkeyOpenKeyboardSettings": "Открыть настройки клавиатуры",
+  "sttEngineRestartHint": "Распознавание речи зависло. Перезапустите WhisPaste: закройте его через меню в трее («Выход») и откройте снова."
 }

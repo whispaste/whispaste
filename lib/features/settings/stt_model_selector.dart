@@ -113,6 +113,14 @@ class _SttModelSelectorState extends ConsumerState<SttModelSelector> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (sttStatus.restartNeeded) ...[
+          Text(
+            l10n.sttEngineRestartHint,
+            key: const ValueKey('settings-stt-engine-restart-hint'),
+            style: TextStyle(color: WpColors.error),
+          ),
+          const SizedBox(height: WpSpacing.sm),
+        ],
         // Tier cards
         for (final tier in QualityTier.values) ...[
           _TierRow(

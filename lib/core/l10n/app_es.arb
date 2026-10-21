@@ -2707,5 +2707,6 @@
   "waylandHotkeyReconnect": "Volver a conectar",
   "waylandHotkeyCopyCommand": "Copiar comando",
   "waylandHotkeyCommandCopied": "Copiado",
-  "waylandHotkeyOpenKeyboardSettings": "Abrir configuración del teclado"
+  "waylandHotkeyOpenKeyboardSettings": "Abrir configuración del teclado",
+  "sttEngineRestartHint": "El reconocimiento de voz está bloqueado. Reinicia WhisPaste: ciérralo desde el menú de la bandeja (Salir) y vuelve a abrirlo."
 }

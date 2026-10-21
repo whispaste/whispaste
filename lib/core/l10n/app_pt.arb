@@ -2707,5 +2707,6 @@
   "waylandHotkeyReconnect": "Reconectar",
   "waylandHotkeyCopyCommand": "Copiar comando",
   "waylandHotkeyCommandCopied": "Copiado",
-  "waylandHotkeyOpenKeyboardSettings": "Abrir configurações do teclado"
+  "waylandHotkeyOpenKeyboardSettings": "Abrir configurações do teclado",
+  "sttEngineRestartHint": "O reconhecimento de voz travou. Reinicie o WhisPaste: feche-o pelo menu da bandeja (Sair) e abra-o de novo."
 }

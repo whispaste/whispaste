@@ -3240,5 +3240,6 @@
   "waylandHotkeyReconnect": "חיבור מחדש",
   "waylandHotkeyCopyCommand": "העתקת הפקודה",
   "waylandHotkeyCommandCopied": "הועתק",
-  "waylandHotkeyOpenKeyboardSettings": "פתיחת הגדרות המקלדת"
+  "waylandHotkeyOpenKeyboardSettings": "פתיחת הגדרות המקלדת",
+  "sttEngineRestartHint": "זיהוי הדיבור תקוע. הפעל מחדש את WhisPaste: סגור אותו מתפריט המגש (יציאה) ופתח אותו שוב."
 }

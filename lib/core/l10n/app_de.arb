@@ -2953,5 +2953,6 @@
   "waylandHotkeyReconnect": "Erneut verbinden",
   "waylandHotkeyCopyCommand": "Befehl kopieren",
   "waylandHotkeyCommandCopied": "Kopiert",
-  "waylandHotkeyOpenKeyboardSettings": "Tastatur-Einstellungen öffnen"
+  "waylandHotkeyOpenKeyboardSettings": "Tastatur-Einstellungen öffnen",
+  "sttEngineRestartHint": "Die Spracherkennung hängt. WhisPaste neu starten: über das Tray-Menü „Beenden“ schließen und wieder öffnen."
 }

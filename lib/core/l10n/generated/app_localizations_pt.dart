@@ -9328,4 +9328,8 @@ class L10nPt extends L10n {
   @override
   String get waylandHotkeyOpenKeyboardSettings =>
       'Abrir configurações do teclado';
+
+  @override
+  String get sttEngineRestartHint =>
+      'O reconhecimento de voz travou. Reinicie o WhisPaste: feche-o pelo menu da bandeja (Sair) e abra-o de novo.';
 }

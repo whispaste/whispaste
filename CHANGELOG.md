@@ -41,6 +41,11 @@ All entries are written in English.
 
 ### Fixes
 
+- **Stuck speech engine:** when the speech engine stops answering, Settings shows a hint to restart WhisPaste instead of failing silently.
+- **Faster final transcription:** the last transcription of a dictation now runs at full CPU threads. Before, it ran with reduced threads and the live preview kept running.
+- **Speech model stays loaded during a dictation:** an idle unload that comes due while a transcription is still running no longer unloads the model under the next dictation.
+- **Stuck engine fails sooner:** after a transcription got stuck, the next dictation reports the problem after about 2 seconds instead of waiting 30 seconds.
+
 - **Hotkey under Wayland explains itself:** if the desktop does not bind the hotkey for other apps, Settings and onboarding say why, offer “Reconnect” and show the command for a custom shortcut. Unpackaged Linux builds install their own GNOME launcher entry, so the desktop can find WhisPaste.
 - **Linux: Auto-Paste asks before it gets keyboard access:** the .deb package no longer grants /dev/uinput when it is installed. WhisPaste asks first and needs your administrator password. You can remove the permission again in the settings.
 - **Crash reports keep less personal data:** file names, local paths and imported document text are removed from crash reports, their breadcrumbs and log entries. Only the file extension and the error type remain.

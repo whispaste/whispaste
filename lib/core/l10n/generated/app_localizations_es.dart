@@ -9332,4 +9332,8 @@ class L10nEs extends L10n {
   @override
   String get waylandHotkeyOpenKeyboardSettings =>
       'Abrir configuración del teclado';
+
+  @override
+  String get sttEngineRestartHint =>
+      'El reconocimiento de voz está bloqueado. Reinicia WhisPaste: ciérralo desde el menú de la bandeja (Salir) y vuelve a abrirlo.';
 }

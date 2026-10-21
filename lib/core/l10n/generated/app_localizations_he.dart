@@ -9150,4 +9150,8 @@ class L10nHe extends L10n {
 
   @override
   String get waylandHotkeyOpenKeyboardSettings => 'פתיחת הגדרות המקלדת';
+
+  @override
+  String get sttEngineRestartHint =>
+      'זיהוי הדיבור תקוע. הפעל מחדש את WhisPaste: סגור אותו מתפריט המגש (יציאה) ופתח אותו שוב.';
 }

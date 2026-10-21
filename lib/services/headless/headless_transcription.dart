@@ -342,6 +342,10 @@ Future<HeadlessTranscriptionReport> runHeadlessTranscription(
     await transcriber.prepare();
   } on TranscriberException catch (e) {
     throw HeadlessTranscriptionException('engine failed to load: ${e.message}');
+  } finally {
+    // The load is over, success or not. The busy window ends here, once,
+    // before the timed decodes, so they run at full threads like a dictation.
+    lifecycle.notifyRecordingStopped();
   }
   final status = lifecycle.status;
   if (!status.isReady) {

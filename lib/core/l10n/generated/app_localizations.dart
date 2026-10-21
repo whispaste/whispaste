@@ -15519,6 +15519,12 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Open keyboard settings'**
   String get waylandHotkeyOpenKeyboardSettings;
+
+  /// No description provided for @sttEngineRestartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech recognition is stuck. Restart WhisPaste: quit it from the tray menu (Quit) and open it again.'**
+  String get sttEngineRestartHint;
 }
 
 class _L10nDelegate extends LocalizationsDelegate<L10n> {

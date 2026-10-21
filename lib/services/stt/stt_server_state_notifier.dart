@@ -79,12 +79,17 @@ class SttStatus {
     this.cpuFallbackActive = false,
     this.backend,
     this.pendingModelId,
+    this.restartNeeded = false,
   });
 
   final SttServerState serverState;
 
   /// Model whose switch is deferred until a running native call finishes.
   final String? pendingModelId;
+
+  /// A native call still runs on this engine past its cap, so the engine
+  /// cannot be freed or reused in this session. Settings asks for a restart.
+  final bool restartNeeded;
 
   /// Legacy HTTP-era field, permanently `0` since the Issue 03 cutover to the
   /// in-process [WhisperEngine] — there is no localhost port to bind. Kept
@@ -137,6 +142,7 @@ class SttStatus {
     WhisperBackend? backend,
     String? pendingModelId,
     bool clearPendingModelId = false,
+    bool? restartNeeded,
   }) {
     return SttStatus(
       serverState: serverState ?? this.serverState,
@@ -153,6 +159,7 @@ class SttStatus {
       pendingModelId: clearPendingModelId
           ? null
           : (pendingModelId ?? this.pendingModelId),
+      restartNeeded: restartNeeded ?? this.restartNeeded,
     );
   }
 
@@ -336,6 +343,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// Set by an idle timer that fired during a native call; the unload runs
   /// when the native calls have returned.
   bool _unloadWhenIdle = false;
+
+  /// Set when the stuck guard gave up on a decode whose native call is still
+  /// running. A further decode then waits only [previewDrainCap] instead of
+  /// [nativeIdleCap] (fail fast). Cleared once no native call runs.
+  bool _engineMarkedStuck = false;
 
   /// Model switch deferred because a native call outlived [nativeIdleCap].
   String? _deferredModelChangeId;
@@ -1141,7 +1153,9 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   Future<void> _awaitNativeGate() async {
     if (_nativeBusy == 0) return;
     final previewOnly = _nativePreviewBusy == _nativeBusy;
-    final cap = previewOnly ? previewDrainCap : nativeIdleCap;
+    final cap = (previewOnly || _engineMarkedStuck)
+        ? previewDrainCap
+        : nativeIdleCap;
     if (!await _awaitNativeIdle(cap)) {
       throw StateError(
         'STT engine is still busy with a native call; decode not started',
@@ -1149,10 +1163,19 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     }
   }
 
+  /// The stuck guard gave up on a decode whose native call still runs: the
+  /// next decode fails fast and Settings asks for a restart.
+  void _markEngineStuck() {
+    _engineMarkedStuck = true;
+    if (ref.mounted) _transition(state.copyWith(restartNeeded: true));
+  }
+
   /// Runs when a native call returns: wakes the waiters, releases a retired
   /// engine, runs an idle unload and a deferred model switch that were held.
   void _onNativeIdle() {
     if (_nativeBusy > 0) return;
+    _engineMarkedStuck = false;
+    if (state.restartNeeded) _transition(state.copyWith(restartNeeded: false));
     final idle = _nativeIdle;
     _nativeIdle = null;
     idle?.complete();
@@ -1170,7 +1193,13 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
     if (_unloadWhenIdle) {
       _unloadWhenIdle = false;
-      unawaited(stop());
+      if (_isRecordingActive || _transcribeInFlight > 0) {
+        // A dictation started meanwhile owns the engine. Re-arm the idle
+        // timer instead of unloading under the next decode.
+        _resetIdleTimer();
+      } else {
+        unawaited(stop());
+      }
     }
 
     final deferred = _deferredModelChangeId;
@@ -1303,9 +1332,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       cudaPack: false,
     );
     try {
-      await cpuEngine.load(
-        modelPath: modelPath,
-        vadModelPath: defaultWhisperVadModelPath(),
+      await _nativeCall(
+        () => cpuEngine.load(
+          modelPath: modelPath,
+          vadModelPath: defaultWhisperVadModelPath(),
+        ),
       );
     } catch (cpuError) {
       _log.warning('CPU load after GPU crash failed: $cpuError');
@@ -1341,6 +1372,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     required int audioDurationMs,
     required bool cpuFallbackTried,
   }) async {
+    _markEngineStuck();
     const failure = WhisperEngineException(
       WhisperFailureKind.timeout,
       'pipeline_timeout: transcription exceeded the stuck-guard budget',
@@ -1635,6 +1667,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       if (_nativeBusy > 0) {
         _unloadWhenIdle = true;
         _log.info('STT idle unload deferred: a native call is still running');
+        return;
+      }
+      if (_transcribeInFlight > 0) {
+        // A transcription has claimed the engine but not reached native yet.
+        _resetIdleTimer();
         return;
       }
       _log.info(

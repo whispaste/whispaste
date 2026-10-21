@@ -9254,4 +9254,8 @@ class L10nEn extends L10n {
 
   @override
   String get waylandHotkeyOpenKeyboardSettings => 'Open keyboard settings';
+
+  @override
+  String get sttEngineRestartHint =>
+      'Speech recognition is stuck. Restart WhisPaste: quit it from the tray menu (Quit) and open it again.';
 }

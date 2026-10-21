@@ -368,7 +368,71 @@ void main() {
         clockMs: () => clock.nowMs,
       );
 
-      expect(lifecycle.events, ['recordingStarted', 'transcriptionCompleted']);
+      expect(lifecycle.events, [
+        'recordingStarted',
+        'recordingStopped',
+        'transcriptionCompleted',
+      ]);
+    });
+
+    test('ends the busy window before the timed decodes, so they run at full '
+        'threads like a dictation after capture', () async {
+      final container = containerWith(_FakeTranscriber(clock));
+
+      await runHeadlessTranscription(
+        container,
+        options([]),
+        _wav(),
+        clockMs: () => clock.nowMs,
+      );
+
+      expect(
+        lifecycle.events.where((e) => e == 'recordingStopped'),
+        hasLength(1),
+      );
+      expect(
+        lifecycle.events.indexOf('recordingStopped'),
+        lessThan(lifecycle.events.indexOf('transcriptionCompleted')),
+      );
+    });
+
+    test('signals stop exactly once when the engine is not ready', () async {
+      lifecycle = _FakeLifecycle(ready: false, error: 'model file not found');
+      final container = containerWith(_FakeTranscriber(clock));
+
+      await expectLater(
+        runHeadlessTranscription(
+          container,
+          options([]),
+          _wav(),
+          clockMs: () => clock.nowMs,
+        ),
+        throwsA(isA<HeadlessTranscriptionException>()),
+      );
+
+      expect(
+        lifecycle.events.where((e) => e == 'recordingStopped'),
+        hasLength(1),
+      );
+    });
+
+    test('signals stop exactly once when the transcript is empty', () async {
+      final container = containerWith(_FakeTranscriber(clock, text: ' \n '));
+
+      await expectLater(
+        runHeadlessTranscription(
+          container,
+          options([]),
+          _wav(),
+          clockMs: () => clock.nowMs,
+        ),
+        throwsA(isA<HeadlessTranscriptionException>()),
+      );
+
+      expect(
+        lifecycle.events.where((e) => e == 'recordingStopped'),
+        hasLength(1),
+      );
     });
 
     test('applies the pipeline whitespace cleanup and, only when asked, the '

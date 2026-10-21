@@ -4083,5 +4083,6 @@
   "waylandHotkeyCommandCopied": "Copied",
   "@waylandHotkeyCommandCopied": {"description": "Label the copy button shows after the command was copied."},
   "waylandHotkeyOpenKeyboardSettings": "Open keyboard settings",
-  "@waylandHotkeyOpenKeyboardSettings": {"description": "Button in the Wayland hotkey notice: opens the desktop's keyboard shortcut settings (GNOME Settings / KDE System Settings)."}
+  "@waylandHotkeyOpenKeyboardSettings": {"description": "Button in the Wayland hotkey notice: opens the desktop's keyboard shortcut settings (GNOME Settings / KDE System Settings)."},
+  "sttEngineRestartHint": "Speech recognition is stuck. Restart WhisPaste: quit it from the tray menu (Quit) and open it again."
 }

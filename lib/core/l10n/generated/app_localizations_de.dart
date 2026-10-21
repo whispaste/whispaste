@@ -9328,4 +9328,8 @@ class L10nDe extends L10n {
   @override
   String get waylandHotkeyOpenKeyboardSettings =>
       'Tastatur-Einstellungen öffnen';
+
+  @override
+  String get sttEngineRestartHint =>
+      'Die Spracherkennung hängt. WhisPaste neu starten: über das Tray-Menü „Beenden“ schließen und wieder öffnen.';
 }
