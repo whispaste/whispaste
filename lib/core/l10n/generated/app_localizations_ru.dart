@@ -4058,7 +4058,7 @@ class L10nRu extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'Скачайте голосовую модель для записи офлайн. Ваш голос не покидает устройство.';
+      'Скачайте голосовую модель для записи офлайн. При локальном распознавании ваш голос остаётся на устройстве.';
 
   @override
   String get onboardingModelRecommended => 'Рекомендуется';

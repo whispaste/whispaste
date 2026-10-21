@@ -609,7 +609,7 @@ const dict: Record<string, string> = {
   'explainer.offlineStt.cta.label': 'Consigue WhisPaste, código abierto y gratis en GitHub',
   'linuxStt.breadcrumb': 'Voz a texto en Linux',
   'linuxStt.seoTitle': 'Whisper en Linux: voz a texto con AppImage y .deb | WhisPaste',
-  'linuxStt.seoDescription': 'Whisper de voz a texto en Linux sin compilar whisper.cpp: descarga el AppImage, .deb o tar.gz y dicta en cualquier app. Sin conexión, GPU con Vulkan, sin Python.',
+  'linuxStt.seoDescription': 'Whisper de voz a texto en Linux sin compilar whisper.cpp: descarga el AppImage, .deb o tar.gz y dicta en la mayoría de los campos de texto (limitado en Wayland). Sin conexión, GPU con Vulkan, sin Python.',
   'linuxStt.heroHeading': 'Voz a texto en Linux: descarga un archivo, hazlo ejecutable y habla.',
   'linuxStt.heroLead': 'WhisPaste se distribuye precompilado para Linux en x86_64. Descargas un archivo, lo marcas como ejecutable y pulsas tu atajo. La transcripción se pega directamente en tu cursor una vez configurado Auto-Paste, que necesita una regla de permisos única para /dev/uinput: con el paquete .deb la permites en la app con tu contraseña de administrador y, con AppImage o tar.gz, la configuras una sola vez con sudo. Sin ella, el texto acaba en tu portapapeles, listo para pegarlo con Ctrl+V en el editor, la terminal o el campo del navegador en el que estés trabajando.',
   'linuxStt.tldr': 'Respuesta corta: sí, existe un único archivo ejecutable. WhisPaste publica un AppImage para Linux que se ejecuta sin instalación, un .deb para Debian y Ubuntu, y un tar.gz simple del paquete de la versión. El motor de reconocimiento de voz va compilado dentro de la descarga: no hay que crear ningún entorno de Python, ni hacer pip install, ni compilar nada.',

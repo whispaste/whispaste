@@ -6682,7 +6682,7 @@ abstract class L10n {
   /// No description provided for @onboardingModelSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Download the speech model to record offline. Your voice never leaves your device.'**
+  /// **'Download the speech model to record offline. With local recognition, your voice stays on your device.'**
   String get onboardingModelSubtitle;
 
   /// No description provided for @onboardingModelRecommended.

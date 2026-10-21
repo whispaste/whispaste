@@ -612,7 +612,7 @@ const dict: Record<string, string> = {
   'explainer.offlineStt.cta.label': '获取 WhisPaste，开源且在 GitHub 上免费',
   'linuxStt.breadcrumb': 'Linux 语音转文字',
   'linuxStt.seoTitle': 'Linux 上的 Whisper 语音转文字：AppImage 与 .deb | WhisPaste',
-  'linuxStt.seoDescription': '无需自行编译 whisper.cpp，即可在 Linux 上使用 Whisper 语音转文字：下载 AppImage、.deb 或 tar.gz，在任意应用中听写。离线运行，支持 Vulkan GPU，无需 Python。',
+  'linuxStt.seoDescription': '无需自行编译 whisper.cpp，即可在 Linux 上使用 Whisper 语音转文字：下载 AppImage、.deb 或 tar.gz，在大多数文本输入框中听写（Wayland 下有限制）。离线运行，支持 Vulkan GPU，无需 Python。',
   'linuxStt.heroHeading': 'Linux 上的语音转文字：下载一个文件，设为可执行，然后开口说话。',
   'linuxStt.heroLead': 'WhisPaste 为 x86_64 架构的 Linux 提供预编译版本。你下载一个文件，将其设为可执行，然后按下快捷键。设置好自动粘贴后，转写文本会直接粘贴到光标处；这需要为 /dev/uinput 添加一条一次性的权限规则：.deb 包需在应用中输入管理员密码授权，AppImage 或 tar.gz 则需用 sudo 设置一次。没有该规则时，文本会进入剪贴板，你可以在正在使用的编辑器、终端或浏览器输入框中用 Ctrl+V 粘贴。',
   'linuxStt.tldr': '简短回答：是的，只有一个可执行文件。WhisPaste 提供无需安装步骤即可运行的 Linux AppImage，适用于 Debian 和 Ubuntu 的 .deb，以及发布包的纯 tar.gz。语音识别引擎已编译进下载内容中——无需创建 Python 环境，无需 pip 安装，也无需编译步骤。',

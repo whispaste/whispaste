@@ -1460,7 +1460,7 @@
   "onboardingMicChipPending": "גישה למיקרופון ממתינה",
   "onboardingMicChipAction": "מיקרופון: נדרשת פעולה",
   "onboardingModelTitle": "הגדר מודל זיהוי דיבור",
-  "onboardingModelSubtitle": "הורד את מנוע הדיבור כדי להקליט offline. הקול שלך לא עוזב את המכשיר.",
+  "onboardingModelSubtitle": "הורד את מנוע הדיבור כדי להקליט offline. עם זיהוי מקומי, הקול שלך נשאר במכשיר.",
   "onboardingModelRecommended": "מומלץ",
   "onboardingModelChangeLater": "תוכל לשנות את האיכות מאוחר יותר בהגדרות",
   "onboardingModelNextBlocked": "הורד מודל זיהוי דיבור, או השתמש בספק ענן עם מפתח API שמור, כדי להמשיך.",

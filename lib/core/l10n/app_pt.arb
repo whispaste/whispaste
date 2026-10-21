@@ -1143,7 +1143,7 @@
   "onboardingMicChipPending": "Acesso ao microfone pendente",
   "onboardingMicChipAction": "Microfone: ação necessária",
   "onboardingModelTitle": "Configurar o modelo de voz",
-  "onboardingModelSubtitle": "Baixe o modelo de voz para gravar offline. Sua voz nunca sai do seu dispositivo.",
+  "onboardingModelSubtitle": "Baixe o modelo de voz para gravar offline. Com o reconhecimento local, sua voz fica no seu dispositivo.",
   "onboardingModelRecommended": "Recomendado",
   "onboardingModelChangeLater": "Você pode ajustar a qualidade depois nas Configurações",
   "onboardingModelNextBlocked": "Baixe um modelo de voz ou use um provedor na nuvem com uma chave de API salva para continuar.",

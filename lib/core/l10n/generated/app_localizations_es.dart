@@ -3993,7 +3993,7 @@ class L10nEs extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'Descarga el modelo de voz para grabar sin conexión. Tu voz nunca sale de tu dispositivo.';
+      'Descarga el modelo de voz para grabar sin conexión. Con el reconocimiento local, tu voz se queda en tu dispositivo.';
 
   @override
   String get onboardingModelRecommended => 'Recomendado';

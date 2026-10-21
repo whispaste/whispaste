@@ -647,7 +647,7 @@ const dict: Record<string, string> = {
   // is there an install package, and does any of it need Python or a build.
   'linuxStt.breadcrumb': 'Linux speech to text',
   'linuxStt.seoTitle': 'Whisper Speech to Text on Linux: AppImage & .deb | WhisPaste',
-  'linuxStt.seoDescription': 'Run Whisper speech to text on Linux without compiling whisper.cpp: download the AppImage, .deb or tar.gz and dictate into any app. Offline, Vulkan GPU support, no Python.',
+  'linuxStt.seoDescription': 'Run Whisper speech to text on Linux without compiling whisper.cpp: download the AppImage, .deb or tar.gz and dictate into most text fields (limited on Wayland). Offline, Vulkan GPU, no Python.',
   'linuxStt.heroHeading': 'Speech to text on Linux: download a file, make it executable, speak.',
   'linuxStt.heroLead': 'WhisPaste ships prebuilt for Linux on x86_64. You download one file, mark it executable, and press your hotkey. The transcript is pasted straight at your cursor once automatic paste is set up: that needs a one-time permission rule for /dev/uinput: with the .deb package you allow it in the app with your administrator password, and with the AppImage or tar.gz you set it up once with sudo. Without it, the text lands in your clipboard, ready to paste with Ctrl+V into the editor, terminal or browser field you are working in.',
   'linuxStt.tldr': 'Short answer: yes, there is a single executable file. WhisPaste publishes a Linux AppImage that runs without an install step, a .deb for Debian and Ubuntu, and a plain tar.gz of the release bundle. The speech-recognition engine is compiled into the download — there is no Python environment to create, no pip install, and no compile step.',

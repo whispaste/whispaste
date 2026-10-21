@@ -3988,7 +3988,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'Lade das Sprachmodell herunter, um offline aufzunehmen. Deine Stimme verlässt nie dein Gerät.';
+      'Lade das Sprachmodell herunter, um offline aufzunehmen. Mit lokaler Erkennung bleibt deine Stimme auf deinem Gerät.';
 
   @override
   String get onboardingModelRecommended => 'Empfohlen';

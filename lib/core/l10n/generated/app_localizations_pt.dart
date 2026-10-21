@@ -3988,7 +3988,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'Baixe o modelo de voz para gravar offline. Sua voz nunca sai do seu dispositivo.';
+      'Baixe o modelo de voz para gravar offline. Com o reconhecimento local, sua voz fica no seu dispositivo.';
 
   @override
   String get onboardingModelRecommended => 'Recomendado';

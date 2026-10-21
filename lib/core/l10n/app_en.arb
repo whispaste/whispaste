@@ -1594,7 +1594,7 @@
   "onboardingMicChipPending": "Microphone access pending",
   "onboardingMicChipAction": "Microphone: action needed",
   "onboardingModelTitle": "Set up speech model",
-  "onboardingModelSubtitle": "Download the speech model to record offline. Your voice never leaves your device.",
+  "onboardingModelSubtitle": "Download the speech model to record offline. With local recognition, your voice stays on your device.",
   "onboardingModelRecommended": "Recommended",
   "onboardingModelChangeLater": "You can adjust quality later in Settings",
   "onboardingModelNextBlocked": "Download a speech model or use a cloud provider with a saved API key to continue.",

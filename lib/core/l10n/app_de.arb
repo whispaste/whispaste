@@ -1264,7 +1264,7 @@
   "onboardingMicChipPending": "Mikrofonzugriff ausstehend",
   "onboardingMicChipAction": "Mikrofon: Aktion nötig",
   "onboardingModelTitle": "Sprachmodell einrichten",
-  "onboardingModelSubtitle": "Lade das Sprachmodell herunter, um offline aufzunehmen. Deine Stimme verlässt nie dein Gerät.",
+  "onboardingModelSubtitle": "Lade das Sprachmodell herunter, um offline aufzunehmen. Mit lokaler Erkennung bleibt deine Stimme auf deinem Gerät.",
   "onboardingModelRecommended": "Empfohlen",
   "onboardingModelChangeLater": "Du kannst die Qualität später in den Einstellungen anpassen",
   "onboardingModelNextBlocked": "Lade ein Sprachmodell herunter oder nutze einen Cloud-Anbieter mit gespeichertem API-Schlüssel, um fortzufahren.",

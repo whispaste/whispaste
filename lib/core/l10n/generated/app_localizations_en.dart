@@ -3953,7 +3953,7 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'Download the speech model to record offline. Your voice never leaves your device.';
+      'Download the speech model to record offline. With local recognition, your voice stays on your device.';
 
   @override
   String get onboardingModelRecommended => 'Recommended';

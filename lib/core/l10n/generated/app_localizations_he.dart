@@ -3909,7 +3909,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingModelSubtitle =>
-      'הורד את מנוע הדיבור כדי להקליט offline. הקול שלך לא עוזב את המכשיר.';
+      'הורד את מנוע הדיבור כדי להקליט offline. עם זיהוי מקומי, הקול שלך נשאר במכשיר.';
 
   @override
   String get onboardingModelRecommended => 'מומלץ';
