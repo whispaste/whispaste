@@ -1543,6 +1543,8 @@
   "settingsSttKeepLoadedSubtitle": "Ein geladenes Modell startet Aufnahmen ohne Wartezeit. Solange es geladen ist, belegt es Arbeitsspeicher.",
   "settingsSttKeepLoadedMemory": "Im geladenen Zustand braucht das Modell etwa {size} Arbeitsspeicher.",
   "@settingsSttKeepLoadedMemory": { "placeholders": { "size": { "type": "String" } } },
+  "settingsSttVramGateNotice": "Der Grafikspeicher ({vramMb} MB) reicht für dieses Modell nicht ({requiredMb} MB). Es läuft auf dem Prozessor.",
+  "@settingsSttVramGateNotice": { "placeholders": { "vramMb": { "type": "int" }, "requiredMb": { "type": "int" } } },
   "settingsSttKeepLoadedAlways": "Immer",
   "settingsSttKeepLoadedAutomatic": "Automatisch",
   "settingsSttKeepLoadedAfterIdle": "Nach Leerlauf",

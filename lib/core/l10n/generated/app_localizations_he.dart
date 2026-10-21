@@ -4716,6 +4716,11 @@ class L10nHe extends L10n {
   }
 
   @override
+  String settingsSttVramGateNotice(int vramMb, int requiredMb) {
+    return 'זיכרון כרטיס המסך ($vramMb MB) לא מספיק למודל הזה ($requiredMb MB). המודל רץ על המעבד.';
+  }
+
+  @override
   String get settingsSttKeepLoadedAlways => 'תמיד';
 
   @override

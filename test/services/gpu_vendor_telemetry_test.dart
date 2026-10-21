@@ -35,6 +35,7 @@ const _nvidiaGpu = hw.GpuInfo(
   vramMB: 24576,
   cudaAvailable: true,
   vulkanAvailable: true,
+  driverVersion: '31.0.15.4601',
 );
 
 void main() {
@@ -128,13 +129,34 @@ void main() {
 
         final extrasCtx = ev.contexts['extras'] as Map?;
         expect(extrasCtx, isNotNull);
-        // Regression protection: exactly {vendor, platform} — no device
-        // name, no serial, no other field ever sneaks in here.
-        expect(extrasCtx!.keys.toSet(), {'vendor', 'platform'});
+        // Regression protection: exactly {vendor, platform, driver_version}
+        // — no device name, no serial, no other field ever sneaks in here.
+        expect(extrasCtx!.keys.toSet(), {
+          'vendor',
+          'platform',
+          'driver_version',
+        });
         expect(extrasCtx['vendor'], 'nvidia');
         expect(extrasCtx['platform'], 'windows');
+        expect(extrasCtx['driver_version'], '31.0.15.4601');
       },
     );
+
+    test('an unknown driver version is sent as "unknown", not omitted', () {
+      expect(hw.gpuDriverVersionForTelemetry(null), 'unknown');
+      expect(hw.gpuDriverVersionForTelemetry('   '), 'unknown');
+    });
+
+    test('only a plain version string is sent — anything that is not one '
+        '(a path, an account name, a long text) becomes "unknown"', () {
+      expect(hw.gpuDriverVersionForTelemetry('31.0.15.4601'), '31.0.15.4601');
+      expect(
+        hw.gpuDriverVersionForTelemetry(r'31.0 C:\Users\alice\drv'),
+        'unknown',
+      );
+      expect(hw.gpuDriverVersionForTelemetry('x' * 200), 'unknown');
+      expect(hw.gpuDriverVersionForTelemetry('1' * 41), 'unknown');
+    });
 
     test('Linux is also reported (not just Windows)', () async {
       hw.reportGpuVendorTelemetry(

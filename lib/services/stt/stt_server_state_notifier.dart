@@ -47,6 +47,7 @@ import 'transcript_hallucination_filter.dart';
 import 'wav_header_repair.dart';
 import 'whisper/cuda_pack.dart';
 import 'whisper/gpu_load_crash_guard.dart';
+import 'whisper/vram_gate.dart';
 import 'whisper/whisper_engine.dart';
 import 'whisper/whisper_ffi_engine.dart' show defaultWhisperVadModelPath;
 import 'whisper/whisper_isolate_engine.dart';
@@ -296,6 +297,15 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// Set when a load skipped its warm-up and its GPU crash-guard marker is
   /// still pending; cleared by the first real inference that completes.
   bool _crashProofPending = false;
+
+  /// Crash-streak key of the GPU load that still has to prove itself with a
+  /// real transcription before its streak may be reset. Null when the load
+  /// was CPU-only, abandoned for CPU, or its warm-up failed.
+  String? _crashStreakResetKey;
+
+  /// True while [_engine] is the CPU engine only because the active model
+  /// does not fit the detected GPU VRAM (see [_applyVramGate]).
+  bool _vramGatedEngine = false;
 
   /// True while [runBenchmark] measures its tiers; suppresses the automatic
   /// post-load benchmark for the models that run loads.
@@ -828,13 +838,21 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
   /// A load that skipped its warm-up leaves the GPU crash-guard marker set.
   /// The first real inference that completes proves the GPU path survived the
-  /// first compute dispatch, so only then the marker is cleared.
+  /// first compute dispatch, so only then the marker is cleared. The crash
+  /// streak is reset only here too: a successful warm-up alone does not prove
+  /// the GPU healthy, because a reload after an idle unload can still crash.
   void _settleCrashGuardAfterInference() {
-    if (!_crashProofPending) return;
-    _crashProofPending = false;
+    final streakKey = _crashStreakResetKey;
+    if (!_crashProofPending && streakKey == null) return;
     final crashGuard = ref.read(gpuLoadCrashGuardProvider);
-    crashGuard.clearAttempt();
-    crashGuard.resetCrashStreak();
+    if (_crashProofPending) {
+      _crashProofPending = false;
+      crashGuard.clearAttempt();
+    }
+    if (streakKey != null) {
+      _crashStreakResetKey = null;
+      crashGuard.resetCrashStreak(key: streakKey);
+    }
   }
 
   Future<String> _transcribeBytesInner(
@@ -1276,6 +1294,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     final cpuEngine = ref.read(whisperCpuFallbackEngineProvider);
     if (modelPath == null || gpuEngine == null) return false;
     if (identical(gpuEngine, cpuEngine)) return false;
+    _recordGpuLoadContext(
+      backend: WhisperBackend.cpu,
+      modelId: modelId!,
+      cudaPack: false,
+    );
     try {
       await cpuEngine.load(
         modelPath: modelPath,
@@ -1303,6 +1326,36 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     return true;
   }
 
+  /// Handles a stuck-guard timeout. The native inference cannot be cancelled,
+  /// so a hung GPU call keeps its engine busy; the active model moves to the
+  /// CPU engine once and the caller retries there, otherwise every later
+  /// dictation would queue behind the hang. Returns normally when a CPU retry
+  /// was set up; otherwise captures the failure and throws it. A hang on CPU
+  /// has no fallback and ends here.
+  Future<void> _handleStuckGuardTimeout({
+    required String lang,
+    required int wavSizeBytes,
+    required int audioDurationMs,
+    required bool cpuFallbackTried,
+  }) async {
+    const failure = WhisperEngineException(
+      WhisperFailureKind.timeout,
+      'pipeline_timeout: transcription exceeded the stuck-guard budget',
+    );
+    _captureInferenceFailure(
+      failure,
+      sttExitOther,
+      lang,
+      wavSizeBytes,
+      audioDurationMs,
+    );
+    final onGpu = _engine!.status.backend != WhisperBackend.cpu;
+    if (!cpuFallbackTried && onGpu && await _swapToCpuEngineForRetry()) {
+      return;
+    }
+    throw failure;
+  }
+
   /// Runs [WhisperEngine.transcribe] behind the FFI resilience chain
   /// (CONTEXT.md §3.3), reacting to the engine's distinguishable
   /// [WhisperFailureKind] signals:
@@ -1310,7 +1363,8 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// - **Stuck-Guard** — the call is raced against
   ///   `transcriptionStuckBudget(audio, floor: stuckGuardTimeout)`, so long
   ///   recordings get a budget that scales with their length; a hang ends as a
-  ///   clean [WhisperFailureKind.timeout] error, never a deadlock.
+  ///   clean [WhisperFailureKind.timeout] error, never a deadlock. A hang on
+  ///   a GPU engine additionally moves the model to CPU once and retries.
   /// - **CPU-Fallback** — a [WhisperFailureKind.gpuCrash] degrades to CPU once
   ///   (`cpuFallbackActive` set) and retries.
   /// - **Retry** — a [WhisperFailureKind.transient] failure is retried up to
@@ -1360,18 +1414,14 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
           ),
         );
       } on TimeoutException {
-        const failure = WhisperEngineException(
-          WhisperFailureKind.timeout,
-          'pipeline_timeout: transcription exceeded the stuck-guard budget',
+        await _handleStuckGuardTimeout(
+          lang: lang,
+          wavSizeBytes: wavSizeBytes,
+          audioDurationMs: audioDurationMs,
+          cpuFallbackTried: cpuFallbackTried,
         );
-        _captureInferenceFailure(
-          failure,
-          sttExitOther,
-          lang,
-          wavSizeBytes,
-          audioDurationMs,
-        );
-        throw failure;
+        cpuFallbackTried = true;
+        continue;
       } on WhisperEngineException catch (e) {
         switch (e.kind) {
           case WhisperFailureKind.gpuCrash:
@@ -1638,6 +1688,69 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   /// Failures are non-fatal — mirrors the pre-cutover HTTP warmup's contract.
   /// Returns `false` when the warmup threw: a failed warmup proves nothing
   /// about the GPU, so the caller must not count it as a surviving GPU path.
+  /// Keeps a model that does not fit the detected GPU VRAM off the GPU engine:
+  /// for this load [_engine] is the always-CPU engine. Only a swap made here
+  /// is undone, so a load-time CPU fallback after a GPU crash stays in place.
+  void _applyVramGate(String modelId) {
+    final primary = ref.read(whisperEngineProvider);
+    final gpuInfo = ref.read(hw.gpuInfoProvider).value;
+    final gated =
+        primary.status.backend != WhisperBackend.cpu &&
+        modelExceedsGpuVram(modelId: modelId, gpu: gpuInfo);
+    if (gated) {
+      if (!identical(_engine, primary) && _vramGatedEngine) return;
+      _log.warning(
+        'STT model $modelId needs more VRAM than the detected GPU has '
+        '(${gpuInfo?.vramMB} MB) — loading on CPU',
+      );
+      _engine = ref.read(whisperCpuFallbackEngineProvider);
+      _vramGatedEngine = true;
+    } else if (_vramGatedEngine) {
+      _vramGatedEngine = false;
+      _engine = primary;
+    }
+  }
+
+  /// Puts the hardware context of the engine load about to run into Sentry
+  /// (breadcrumb plus scope tags and a `gpu` context), so a native crash is
+  /// reported with the backend, GPU, VRAM and model it happened on. Only
+  /// hardware and model identifiers go in: no paths and no transcript text.
+  /// Sentry itself is inert when crash reporting is off (opt-out), so the
+  /// consent gate needs no extra check here.
+  void _recordGpuLoadContext({
+    required WhisperBackend backend,
+    required String modelId,
+    required bool cudaPack,
+  }) {
+    final gpu = ref.read(hw.gpuInfoProvider).value;
+    final vendor = gpu?.vendor.name ?? 'unknown';
+    final gpuName = gpu?.name ?? 'unknown';
+    final context = <String, Object?>{
+      'backend': backend.name,
+      'gpu_vendor': vendor,
+      'gpu_name': gpuName,
+      'gpu_vram_mb': gpu?.vramMB,
+      'model_id': modelId,
+      'model_ram_mb': hw.sttModelVramMB[modelId],
+      'cuda_pack': cudaPack,
+      'app_version': app.appVersion,
+    };
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        message: 'STT load: backend=${backend.name} model=$modelId',
+        category: 'stt.gpu',
+        level: SentryLevel.info,
+        data: context,
+      ),
+    );
+    Sentry.configureScope((scope) {
+      scope.setTag('stt_backend', backend.name);
+      scope.setTag('gpu_vendor', vendor);
+      scope.setTag('cuda_pack', cudaPack ? 'on' : 'off');
+      scope.setContexts('gpu', context);
+    });
+  }
+
   Future<bool> _warmupInference() async {
     final sw = Stopwatch()..start();
     try {
@@ -1907,10 +2020,22 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // `load()` would let that exact crash repeat the loop undetected. Only
     // clear once the process has provably survived both load AND the first
     // inference, or once the GPU path has been abandoned for CPU.
+    _applyVramGate(modelId);
     final crashGuard = ref.read(gpuLoadCrashGuardProvider);
     final attemptingGpu = _engine!.status.backend != WhisperBackend.cpu;
+    final cudaPack = ref.read(activeCudaPackDirProvider) != null;
+    final attemptKey = GpuLoadCrashGuard.attemptKey(
+      backend: _engine!.status.backend.name,
+      modelId: modelId,
+      appVersion: app.appVersion,
+    );
+    _recordGpuLoadContext(
+      backend: _engine!.status.backend,
+      modelId: modelId,
+      cudaPack: cudaPack,
+    );
     if (attemptingGpu) {
-      crashGuard.markAttempt(cuda: ref.read(activeCudaPackDirProvider) != null);
+      crashGuard.markAttempt(cuda: cudaPack, key: attemptKey);
     }
     // Tracks whether the marker set above still needs clearing — a plain
     // bool rather than re-deriving from `attemptingGpu` at each call site,
@@ -1946,6 +2071,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         '($e) — retrying once on CPU',
       );
       final cpuEngine = ref.read(whisperCpuFallbackEngineProvider);
+      _recordGpuLoadContext(
+        backend: WhisperBackend.cpu,
+        modelId: modelId,
+        cudaPack: false,
+      );
       try {
         await cpuEngine.load(
           modelPath: modelPath,
@@ -1961,7 +2091,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         state = state.copyWith(cpuFallbackActive: true);
       }
     }
-    if (!ref.mounted) return;
+    if (!ref.mounted) {
+      // The load returned, so the process survived it: no marker may stay
+      // behind to be read as a crash on the next launch.
+      if (gpuAttemptPending) crashGuard.clearAttempt();
+      return;
+    }
 
     _activeModel = modelId;
     _resetIdleTimer();
@@ -1972,13 +2107,18 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     // comment above. Only fires if the catch branch above didn't already
     // clear it (GPU abandoned for CPU before we got this far). The in-flight
     // marker is cleared either way (a Dart-level warmup exception is not a
-    // native crash), but the consecutive-crash streak is only reset when the
-    // warmup actually succeeded: a failed warmup is not proof the GPU works.
+    // native crash).
     if (gpuAttemptPending && warmup) {
       crashGuard.clearAttempt();
-      if (warmupOk ?? false) crashGuard.resetCrashStreak();
       gpuAttemptPending = false;
     }
+    // The streak is not reset here. Only a real transcription on this same
+    // key proves the GPU healthy (see [_settleCrashGuardAfterInference]); a
+    // failed warm-up is no proof at all, so it leaves no reset pending.
+    final gpuInUse = _engine!.status.backend != WhisperBackend.cpu;
+    _crashStreakResetKey = gpuInUse && (!warmup || (warmupOk ?? false))
+        ? attemptKey
+        : null;
     // Without the warm-up the marker stays set until the first real inference
     // completes (see [_settleCrashGuardAfterInference]).
     _crashProofPending = gpuAttemptPending;

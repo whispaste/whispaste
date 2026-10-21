@@ -263,4 +263,43 @@ void main() {
       expect(json, isNot(contains('secret')));
     });
   });
+
+  group('CrashReporter.beforeBreadcrumb scrubs user paths', () {
+    test('message and nested data (maps and lists) carry no account name', () {
+      final crumb = Breadcrumb(
+        message: r'loaded C:\Users\Alice\AppData\x.bin',
+        data: {
+          'paths': [r'C:\Users\Alice\a.wav', '/home/alice/b.wav'],
+          'nested': {'file': '/Users/alice/c.db', 'count': 2},
+        },
+      );
+
+      final out = CrashReporter.beforeBreadcrumb(crumb, Hint());
+
+      expect(out, isNotNull);
+      final serialized = '${out!.message} ${out.data}';
+      expect(serialized.toLowerCase(), isNot(contains('alice')));
+      final nested = out.data!['nested']! as Map<String, dynamic>;
+      expect(nested['count'], 2, reason: 'non-string leaves are kept');
+    });
+
+    test('a percent-encoded Windows file URL is scrubbed as well', () {
+      final crumb = Breadcrumb(
+        message: 'open file:///C%3A%5CUsers%5CAlice%5Cx.wav',
+      );
+
+      final out = CrashReporter.beforeBreadcrumb(crumb, Hint());
+
+      expect(out!.message!.toLowerCase(), isNot(contains('alice')));
+    });
+
+    test('a breadcrumb without user paths passes through unchanged', () {
+      final crumb = Breadcrumb(message: 'stt: idle', category: 'stt');
+
+      final out = CrashReporter.beforeBreadcrumb(crumb, Hint());
+
+      expect(out!.message, 'stt: idle');
+      expect(out.category, 'stt');
+    });
+  });
 }

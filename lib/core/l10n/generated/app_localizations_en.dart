@@ -4764,6 +4764,11 @@ class L10nEn extends L10n {
   }
 
   @override
+  String settingsSttVramGateNotice(int vramMb, int requiredMb) {
+    return 'The GPU memory ($vramMb MB) is not enough for this model ($requiredMb MB). It runs on the processor.';
+  }
+
+  @override
   String get settingsSttKeepLoadedAlways => 'Always';
 
   @override

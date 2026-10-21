@@ -1420,6 +1420,7 @@
   "settingsSttKeepLoaded": "Держать модель загруженной",
   "settingsSttKeepLoadedSubtitle": "Загруженная модель начинает диктовку без ожидания загрузки. Пока она загружена, она занимает память.",
   "settingsSttKeepLoadedMemory": "В загруженном состоянии модель занимает около {size} памяти.",
+  "settingsSttVramGateNotice": "Памяти видеокарты ({vramMb} МБ) недостаточно для этой модели ({requiredMb} МБ). Модель работает на процессоре.",
   "settingsSttKeepLoadedAlways": "Всегда",
   "settingsSttKeepLoadedAutomatic": "Автоматически",
   "settingsSttKeepLoadedAfterIdle": "После простоя",

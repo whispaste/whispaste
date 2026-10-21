@@ -1742,6 +1742,13 @@ packages:
       relative: true
     source: path
     version: "0.1.0"
+  whispaste_gpu_probe:
+    dependency: "direct main"
+    description:
+      path: "packages/whispaste_gpu_probe"
+      relative: true
+    source: path
+    version: "0.1.0"
   win32:
     dependency: transitive
     description:

@@ -1782,6 +1782,7 @@
   "settingsSttKeepLoaded": "להשאיר את המודל טעון",
   "settingsSttKeepLoadedSubtitle": "מודל טעון מתחיל הכתבה בלי להמתין לטעינה. כל עוד הוא טעון, הוא תופס זיכרון.",
   "settingsSttKeepLoadedMemory": "כשהמודל טעון, הוא דורש כ-{size} זיכרון.",
+  "settingsSttVramGateNotice": "זיכרון כרטיס המסך ({vramMb} MB) לא מספיק למודל הזה ({requiredMb} MB). המודל רץ על המעבד.",
   "settingsSttKeepLoadedAlways": "תמיד",
   "settingsSttKeepLoadedAutomatic": "אוטומטי",
   "settingsSttKeepLoadedAfterIdle": "אחרי זמן המתנה",

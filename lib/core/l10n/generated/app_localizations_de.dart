@@ -4803,6 +4803,11 @@ class L10nDe extends L10n {
   }
 
   @override
+  String settingsSttVramGateNotice(int vramMb, int requiredMb) {
+    return 'Der Grafikspeicher ($vramMb MB) reicht für dieses Modell nicht ($requiredMb MB). Es läuft auf dem Prozessor.';
+  }
+
+  @override
   String get settingsSttKeepLoadedAlways => 'Immer';
 
   @override

@@ -4803,6 +4803,11 @@ class L10nPt extends L10n {
   }
 
   @override
+  String settingsSttVramGateNotice(int vramMb, int requiredMb) {
+    return 'A memória da GPU ($vramMb MB) não basta para este modelo ($requiredMb MB). Ele roda na CPU.';
+  }
+
+  @override
   String get settingsSttKeepLoadedAlways => 'Sempre';
 
   @override

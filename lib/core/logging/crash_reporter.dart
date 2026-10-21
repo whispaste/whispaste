@@ -376,15 +376,21 @@ class CrashReporter {
       final text = b.message;
       if (text != null) b.message = redactPathsInText(text);
       final data = b.data;
-      if (data != null) {
-        b.data = {
-          for (final e in data.entries)
-            e.key: e.value is String
-                ? redactPathsInText(e.value as String)
-                : e.value,
-        };
-      }
+      if (data != null) b.data = redactPathsInMap(data);
     }
+  }
+
+  /// Sentry `beforeBreadcrumb` callback: applies the same path redaction as
+  /// [beforeSend] as each breadcrumb is recorded. Breadcrumbs are the main
+  /// carrier of home paths (log lines, file operations), so they are cleaned
+  /// at the source and do not depend on the event that later carries them.
+  static Breadcrumb? beforeBreadcrumb(Breadcrumb? breadcrumb, Hint hint) {
+    if (breadcrumb == null) return null;
+    final text = breadcrumb.message;
+    if (text != null) breadcrumb.message = redactPathsInText(text);
+    final data = breadcrumb.data;
+    if (data != null) breadcrumb.data = redactPathsInMap(data);
+    return breadcrumb;
   }
 
   /// Redacts paths in the URL, query, fragment and header values of

@@ -1979,6 +1979,8 @@
   "settingsSttKeepLoadedSubtitle": "A loaded model starts recording without waiting for it to load. While it is loaded, it takes up memory.",
   "settingsSttKeepLoadedMemory": "Loaded, the model needs about {size} of memory.",
   "@settingsSttKeepLoadedMemory": { "placeholders": { "size": { "type": "String" } } },
+  "settingsSttVramGateNotice": "The GPU memory ({vramMb} MB) is not enough for this model ({requiredMb} MB). It runs on the processor.",
+  "@settingsSttVramGateNotice": { "placeholders": { "vramMb": { "type": "int" }, "requiredMb": { "type": "int" } } },
   "settingsSttKeepLoadedAlways": "Always",
   "settingsSttKeepLoadedAutomatic": "Automatic",
   "settingsSttKeepLoadedAfterIdle": "After idle time",

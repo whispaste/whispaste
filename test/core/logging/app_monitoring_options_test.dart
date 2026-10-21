@@ -43,6 +43,10 @@ void main() {
       expect(options.tracesSampler, same(CrashReporter.tracesSampler));
     });
 
+    test('scrubs breadcrumbs as they are recorded, not only in events', () {
+      expect(options.beforeBreadcrumb, same(CrashReporter.beforeBreadcrumb));
+    });
+
     test('never propagates trace headers to any host', () {
       expect(options.tracePropagationTargets, isEmpty);
     });

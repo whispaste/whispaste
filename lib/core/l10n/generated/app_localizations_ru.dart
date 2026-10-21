@@ -4874,6 +4874,11 @@ class L10nRu extends L10n {
   }
 
   @override
+  String settingsSttVramGateNotice(int vramMb, int requiredMb) {
+    return 'Памяти видеокарты ($vramMb МБ) недостаточно для этой модели ($requiredMb МБ). Модель работает на процессоре.';
+  }
+
+  @override
   String get settingsSttKeepLoadedAlways => 'Всегда';
 
   @override

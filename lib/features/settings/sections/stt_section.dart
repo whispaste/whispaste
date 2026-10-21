@@ -24,6 +24,7 @@ import '../../../services/engine_recommendation.dart';
 import '../../../services/model_download_service.dart'
     show modelDownloadProvider, sttModels;
 import '../../../services/stt/whisper/cuda_pack.dart';
+import '../../../services/stt/whisper/vram_gate.dart';
 import '../../../services/stt_parakeet/parakeet_download_service.dart';
 import '../../../services/telemetry_service.dart';
 import '../../../widgets/wp_stt_model_manager.dart';
@@ -212,6 +213,7 @@ class _SpeechRecognitionSectionState
                     ),
                   ),
                   const WpSttModelManager(),
+                  const _SttVramGateNotice(),
                 ],
               ),
             ),
@@ -637,6 +639,29 @@ class _LanguageSummary extends StatelessWidget {
           onPressed: onChange,
         ),
       ],
+    );
+  }
+}
+
+/// Tells the user why the selected model runs on the CPU although GPU
+/// acceleration is on: its weights do not fit the detected VRAM.
+class _SttVramGateNotice extends ConsumerWidget {
+  const _SttVramGateNotice();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notice = ref.watch(sttVramGateNoticeProvider);
+    if (notice == null) return const SizedBox.shrink();
+    final l10n = L10n.of(context);
+    return Padding(
+      key: const ValueKey('speech-vram-notice'),
+      padding: const EdgeInsets.only(top: WpSpacing.sm),
+      child: Text(
+        l10n.settingsSttVramGateNotice(notice.vramMb, notice.requiredMb),
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: WpColors.textMuted),
+      ),
     );
   }
 }

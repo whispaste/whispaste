@@ -174,6 +174,19 @@ bool isInGpuVendorTelemetrySample(String deviceId) {
   return bucket == 0;
 }
 
+/// A driver version string is sent only in this shape: a leading digit, then
+/// letters, digits, dots, dashes or underscores, at most 40 characters. A
+/// version never contains a path or a user name, so anything else is dropped.
+final _driverVersionPattern = RegExp(r'^[0-9][0-9A-Za-z._-]{0,39}$');
+
+/// The driver version to report, or `unknown` when the OS did not provide a
+/// plain version string (macOS Metal has none; the probe may come back empty).
+@visibleForTesting
+String gpuDriverVersionForTelemetry(String? raw) {
+  final version = raw?.trim() ?? '';
+  return _driverVersionPattern.hasMatch(version) ? version : 'unknown';
+}
+
 /// One-shot guard so [reportGpuVendorTelemetry] sends at most once per app
 /// session. Re-armed by [resetGpuVendorTelemetryForTesting].
 bool _gpuVendorTelemetrySent = false;
@@ -182,9 +195,10 @@ bool _gpuVendorTelemetrySent = false;
 /// existing opt-out Sentry channel — at most once per app session, and only
 /// on Windows/Linux (see [shouldReportGpuVendorTelemetry]).
 ///
-/// The payload is deliberately exactly two categorical fields — `vendor`
-/// (e.g. `nvidia`/`amd`/`intel`/`none`) and `platform` — never a device
-/// name, serial, or any content. Covered by
+/// The payload is deliberately exactly three fields — `vendor` (e.g.
+/// `nvidia`/`amd`/`intel`/`none`), `platform` and `driver_version` (a plain
+/// version string or `unknown`, see [gpuDriverVersionForTelemetry]) — never a
+/// device name, serial, or any content. Covered by
 /// `test/services/gpu_vendor_telemetry_test.dart`, which pins the exact
 /// field set as a regression guard.
 ///
@@ -211,7 +225,11 @@ void reportGpuVendorTelemetry(
     severity: 'info',
     type: 'gpu_vendor_telemetry',
     fingerprint: const [gpuVendorTelemetry],
-    extras: {'vendor': gpu.vendor.name, 'platform': os},
+    extras: {
+      'vendor': gpu.vendor.name,
+      'platform': os,
+      'driver_version': gpuDriverVersionForTelemetry(gpu.driverVersion),
+    },
   );
 }
 

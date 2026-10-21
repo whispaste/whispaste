@@ -1399,6 +1399,7 @@
   "settingsSttKeepLoaded": "Manter o modelo carregado",
   "settingsSttKeepLoadedSubtitle": "Um modelo carregado inicia o ditado sem esperar pelo carregamento. Enquanto estiver carregado, ocupa memória.",
   "settingsSttKeepLoadedMemory": "Carregado, o modelo precisa de cerca de {size} de memória.",
+  "settingsSttVramGateNotice": "A memória da GPU ({vramMb} MB) não basta para este modelo ({requiredMb} MB). Ele roda na CPU.",
   "settingsSttKeepLoadedAlways": "Sempre",
   "settingsSttKeepLoadedAutomatic": "Automático",
   "settingsSttKeepLoadedAfterIdle": "Após um período ocioso",

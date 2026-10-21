@@ -142,11 +142,16 @@ class GpuInfo {
     this.vramMB,
     this.cudaAvailable = false,
     this.vulkanAvailable = false,
+    this.driverVersion,
   });
 
   final GpuVendor vendor;
   final String name;
   final int? vramMB;
+
+  /// Driver version string as the OS reports it, or `null` when unknown.
+  /// Only Windows fills it in today; macOS Metal has no driver version.
+  final String? driverVersion;
   final bool cudaAvailable;
   final bool vulkanAvailable;
 
@@ -830,11 +835,13 @@ Future<_WindowsDetection> _detectWindowsDetection() async {
   String gpuName = 'Unknown';
   GpuVendor vendor = GpuVendor.none;
   int? vramMB;
+  String? driverVersion;
 
   if (parsed != null) {
     gpuName = parsed.name;
     vendor = parsed.vendor;
     vramMB = parsed.vramMB;
+    driverVersion = parsed.driverVersion;
   }
 
   // Dual-GPU detection: if CUDA DLLs exist but wmic found Intel/AMD as
@@ -875,6 +882,7 @@ Future<_WindowsDetection> _detectWindowsDetection() async {
       vramMB: vramMB,
       cudaAvailable: cudaAvailable,
       vulkanAvailable: vendor != GpuVendor.none,
+      driverVersion: driverVersion,
     ),
     settled: settled,
   );
@@ -995,13 +1003,15 @@ _GpuParsed _preferDiscrete(List<_GpuParsed> gpus) {
     vendor: best.vendor,
     vramMB: best.vramMB,
     adapterNames: adapterNames,
+    driverVersion: best.driverVersion,
   );
 }
 
 /// PowerShell script for [_powershellGetGpus]. Prints `name|AdapterRAM|qwMemorySize`
 /// per adapter. `HardwareInformation.qwMemorySize` is the display-class
 /// registry value holding the true 64-bit VRAM size; it is matched by
-/// `DriverDesc`, which equals the Win32_VideoController name.
+/// `DriverDesc`, which equals the Win32_VideoController name. The fourth
+/// field is the driver version reported by Win32_VideoController.
 const _powershellGpuScript =
     r"$reg = @{}; "
     r"Get-ChildItem -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}' "
@@ -1009,7 +1019,7 @@ const _powershellGpuScript =
     r"$p = Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue; "
     r"if ($p.DriverDesc) { $reg[[string]$p.DriverDesc] = $p.'HardwareInformation.qwMemorySize' } }; "
     r"Get-CimInstance Win32_VideoController | ForEach-Object { "
-    r"[string]$_.Name + '|' + [string]$_.AdapterRAM + '|' + [string]$reg[[string]$_.Name] }";
+    r"[string]$_.Name + '|' + [string]$_.AdapterRAM + '|' + [string]$reg[[string]$_.Name] + '|' + [string]$_.DriverVersion }";
 
 /// VRAM in MB from a Windows adapter's byte counts, preferring the 64-bit
 /// registry value. The uint32 `AdapterRAM` is only used when no registry
@@ -1021,6 +1031,28 @@ int? windowsVramMB({int? qwMemoryBytes, int? adapterRamBytes}) {
       : adapterRamBytes;
   if (bytes == null || bytes <= 0) return null;
   return bytes ~/ (1024 * 1024);
+}
+
+/// One adapter from a line of [_powershellGpuScript] output:
+/// `name|AdapterRAM|qwMemorySize|DriverVersion`. Returns `null` for a line
+/// without a name. A missing or blank driver field yields a `null`
+/// `driverVersion` rather than an empty string.
+@visibleForTesting
+({String name, int? vramMB, String? driverVersion})? parseWindowsGpuLine(
+  String line,
+) {
+  final parts = line.trim().split('|');
+  if (parts.isEmpty || parts[0].isEmpty) return null;
+
+  final adapterRam = parts.length > 1 ? int.tryParse(parts[1]) : null;
+  final qwMemory = parts.length > 2 ? int.tryParse(parts[2]) : null;
+  final driver = parts.length > 3 ? parts[3].trim() : '';
+
+  return (
+    name: parts[0],
+    vramMB: windowsVramMB(qwMemoryBytes: qwMemory, adapterRamBytes: adapterRam),
+    driverVersion: driver.isEmpty ? null : driver,
+  );
 }
 
 Future<_GpuParsed?> _powershellGetGpus() async {
@@ -1035,21 +1067,14 @@ Future<_GpuParsed?> _powershellGetGpus() async {
 
     final gpus = <_GpuParsed>[];
     for (final line in result.stdout.toString().split('\n')) {
-      final parts = line.trim().split('|');
-      if (parts.isEmpty || parts[0].isEmpty) continue;
-
-      final name = parts[0];
-      final adapterRam = parts.length > 1 ? int.tryParse(parts[1]) : null;
-      final qwMemory = parts.length > 2 ? int.tryParse(parts[2]) : null;
-
+      final parsed = parseWindowsGpuLine(line);
+      if (parsed == null) continue;
       gpus.add(
         _GpuParsed(
-          name: name,
-          vendor: _classifyVendor(name),
-          vramMB: windowsVramMB(
-            qwMemoryBytes: qwMemory,
-            adapterRamBytes: adapterRam,
-          ),
+          name: parsed.name,
+          vendor: _classifyVendor(parsed.name),
+          vramMB: parsed.vramMB,
+          driverVersion: parsed.driverVersion,
         ),
       );
     }
@@ -1586,10 +1611,12 @@ class _GpuParsed {
     required this.vendor,
     this.vramMB,
     this.adapterNames = const [],
+    this.driverVersion,
   });
   final String name;
   final GpuVendor vendor;
   final int? vramMB;
+  final String? driverVersion;
 
   /// Raw names of every adapter the probe reported, not only [name].
   final List<String> adapterNames;

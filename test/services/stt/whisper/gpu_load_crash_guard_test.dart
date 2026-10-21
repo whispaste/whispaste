@@ -147,6 +147,38 @@ void main() {
       expect(guard.consecutiveCrashes, 0);
       expect(guard.recordCrash(), 1);
     });
+
+    test('resetCrashStreak only clears the streak of its own key — a '
+        'success on one backend/model/app version must not erase a crash '
+        'recorded for another', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      guard.recordCrash(key: 'vulkan|whisper-small|1.4.2');
+
+      guard.resetCrashStreak(key: 'cuda|whisper-small|1.4.2');
+      expect(guard.consecutiveCrashes, 1);
+
+      guard.resetCrashStreak(key: 'vulkan|whisper-small|1.4.2');
+      expect(guard.consecutiveCrashes, 0);
+    });
+
+    test('a crash under a different key restarts the streak at 1 — the '
+        'streak only counts crashes of the same backend, model and app '
+        'version', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      expect(guard.recordCrash(key: 'vulkan|whisper-small|1.4.1'), 1);
+      expect(guard.recordCrash(key: 'vulkan|whisper-small|1.4.2'), 1);
+      expect(guard.recordCrash(key: 'vulkan|whisper-small|1.4.2'), 2);
+    });
+
+    test('markAttempt stores the attempt key, so the next launch can name the '
+        'crashed attempt; the CUDA flag stays readable alongside it', () {
+      final guard = GpuLoadCrashGuard(dataDir: tempDir.path);
+      guard.markAttempt(cuda: true, key: 'cuda|whisper-medium|1.4.2');
+
+      final next = GpuLoadCrashGuard(dataDir: tempDir.path);
+      expect(next.crashedLastAttemptKey, 'cuda|whisper-medium|1.4.2');
+      expect(next.crashedLastAttemptWithCuda, isTrue);
+    });
   });
 
   group('recoverFromGpuLoadCrash', () {

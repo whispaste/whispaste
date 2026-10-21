@@ -127,6 +127,10 @@ dependencies:
   # Pure-Dart diagnostics core — shared between In-App-Diagnostik and CLI.
   whispaste_diagnostics:
     path: packages/whispaste_diagnostics
+  # Pure-Dart GPU probe — provides the VRAM gate (checkVramGate) that keeps a
+  # GPU backend off models that do not fit the detected VRAM.
+  whispaste_gpu_probe:
+    path: packages/whispaste_gpu_probe
 
   # Pure-Dart FileSystem abstraction (LocalFileSystem, MemoryFileSystem).
   # Used by `FactoryResetCoordinator` so production and tests share the

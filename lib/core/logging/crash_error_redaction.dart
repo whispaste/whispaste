@@ -111,9 +111,9 @@ String redactPathsInText(String text) {
 
 const _maxDecodeRounds = 8;
 
-/// The encoded separators plus `%25`, the encoded percent sign of a second
-/// encoding round.
-final _encodedSeparator = RegExp(r'%(2[Ff]|5[Cc]|7[Ee]|25)');
+/// The encoded separators and the colon of a drive letter (`C%3A`), plus
+/// `%25`, the encoded percent sign of a second encoding round.
+final _encodedSeparator = RegExp(r'%(2[Ff]|3[Aa]|5[Cc]|7[Ee]|25)');
 
 String _redactPlainPaths(String text) =>
     shortenFileNamesInText(scrubUserPaths(text));

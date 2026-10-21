@@ -34,12 +34,15 @@ All entries are written in English.
 - **Statistics:** shows raw versus revised words, transform actions and frequent corrections, and labels the time saved as an estimate.
 - **Onboarding:** Enter and Escape move through the setup, a model download can be cancelled, and a download the disk cannot hold is refused before it starts.
 - **Replacements use the page:** the explanation cards are gone, so search and Add stay fixed while the list scrolls. Import, export and the try-it test sit in the "more" menu; while replacements are off, a banner offers to turn them on.
+- **GPU memory check:** a speech model larger than the detected graphics memory loads on the CPU, and the speech settings say why.
+- **GPU details in crash reports:** crash reports and the GPU vendor report carry the GPU name, its memory, the backend and, on Windows, the driver version.
 - **Swatch rows announce their choice:** each colour row is announced as a radio group with one checked swatch.
 
 ### Fixes
 
 - **Linux: Auto-Paste asks before it gets keyboard access:** the .deb package no longer grants /dev/uinput when it is installed. WhisPaste asks first and needs your administrator password. You can remove the permission again in the settings.
-- **Crash reports keep less personal data:** file names, local paths and imported document text are removed from crash reports and log entries. Only the file extension and the error type remain.
+- **Crash reports keep less personal data:** file names, local paths and imported document text are removed from crash reports, their breadcrumbs and log entries. Only the file extension and the error type remain.
+- **GPU crashes stop repeating:** after a second crash while a GPU speech model loads, WhisPaste keeps that model on the CPU. A successful warm-up no longer resets the crash count, and a GPU transcription that hangs moves to the CPU engine once.
 - **CUDA pack asks for the NVIDIA licence:** the optional CUDA pack downloads only after you accept the NVIDIA CUDA licence, which the app links to before the download.
 - **Settings changed during start-up are kept:** a change made before your stored settings finished loading is applied once they are loaded, instead of being overwritten by the defaults.
 - **Model downloads resume after a sibling cleanup:** a paused model download is no longer deleted by another download's cleanup, so it can continue where it stopped.

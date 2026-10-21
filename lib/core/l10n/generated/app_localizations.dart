@@ -8074,6 +8074,12 @@ abstract class L10n {
   /// **'Loaded, the model needs about {size} of memory.'**
   String settingsSttKeepLoadedMemory(String size);
 
+  /// No description provided for @settingsSttVramGateNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'The GPU memory ({vramMb} MB) is not enough for this model ({requiredMb} MB). It runs on the processor.'**
+  String settingsSttVramGateNotice(int vramMb, int requiredMb);
+
   /// No description provided for @settingsSttKeepLoadedAlways.
   ///
   /// In en, this message translates to:

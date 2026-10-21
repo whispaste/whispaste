@@ -95,15 +95,32 @@ class GpuLoadCrashGuard {
     }
   }
 
-  /// Call immediately before a GPU-backed `WhisperEngine.load()`; [cuda]
-  /// records that the optional CUDA pack is part of this attempt.
-  void markAttempt({bool cuda = false}) {
+  /// Identity of the crashed attempt (see [crashedLastAttempt]), as passed to
+  /// [markAttempt]: backend, model and app version. Empty when unknown.
+  String get crashedLastAttemptKey {
+    try {
+      if (!_markerFile.existsSync()) return '';
+      final content = _markerFile.readAsStringSync();
+      return content.startsWith(_cudaMarkerPrefix)
+          ? content.substring(_cudaMarkerPrefix.length)
+          : content;
+    } catch (e) {
+      _log.error('Failed to read GPU-load crash marker: $e', e);
+      return '';
+    }
+  }
+
+  /// Call immediately before every GPU-backed `WhisperEngine.load()`,
+  /// including reloads after an idle unload and loads on a fresh worker
+  /// isolate. [cuda] records that the optional CUDA pack is part of this
+  /// attempt; [key] identifies it (see [attemptKey]) for the crash streak.
+  void markAttempt({bool cuda = false, String key = ''}) {
     try {
       _markerFile.parent.createSync(recursive: true);
       // flush: the marker must reach the disk before the risky GPU load,
       // otherwise a hard crash right after can leave no marker behind.
       _markerFile.writeAsStringSync(
-        '${cuda ? _cudaMarkerPrefix : ''}${DateTime.now().toIso8601String()}',
+        '${cuda ? _cudaMarkerPrefix : ''}$key',
         flush: true,
       );
     } catch (e) {
@@ -175,41 +192,65 @@ class GpuLoadCrashGuard {
     }
   }
 
-  /// Number of consecutive GPU-load crashes recorded so far — 0 if none, or
-  /// after the streak was last reset by a confirmed successful GPU load.
-  int get consecutiveCrashes {
-    try {
-      if (!_strikesFile.existsSync()) return 0;
-      return int.tryParse(_strikesFile.readAsStringSync().trim()) ?? 0;
-    } catch (e) {
-      _log.error('Failed to read GPU-load crash streak: $e', e);
-      return 0;
-    }
-  }
+  /// Number of consecutive GPU-load crashes recorded so far for the current
+  /// attempt key — 0 if none, or after the streak was reset by a confirmed
+  /// successful GPU transcription on that key.
+  int get consecutiveCrashes => _readStrikes().count;
 
-  /// Records one more consecutive GPU-load crash and returns the new count.
-  /// Called by [recoverFromGpuLoadCrash] once per detected crash.
-  int recordCrash() {
-    final next = consecutiveCrashes + 1;
+  /// Records one more consecutive GPU-load crash for [key] and returns the
+  /// new count. A streak recorded under another key (other backend, model or
+  /// app version) does not carry over: it restarts at 1. Called by
+  /// [recoverFromGpuLoadCrash] once per detected crash.
+  int recordCrash({String key = ''}) {
+    final stored = _readStrikes();
+    final next = (stored.key == key ? stored.count : 0) + 1;
     try {
       _strikesFile.parent.createSync(recursive: true);
-      _strikesFile.writeAsStringSync('$next', flush: true);
+      _strikesFile.writeAsStringSync('$key\n$next', flush: true);
     } catch (e) {
       _log.error('Failed to write GPU-load crash streak: $e', e);
     }
     return next;
   }
 
-  /// Resets the crash streak to zero — call once a GPU-backed load has been
-  /// confirmed to survive both the load and the warmup inference, since the
-  /// GPU turned out fine after all.
-  void resetCrashStreak() {
+  /// Resets the crash streak for [key] to zero — call only once a GPU-backed
+  /// load on that key has survived the load, the warmup inference AND a real
+  /// transcription. A successful warmup alone is not enough: a reload after
+  /// an idle unload can still crash (the streak must survive it), and a
+  /// streak recorded for another key is left alone.
+  void resetCrashStreak({String key = ''}) {
     try {
-      if (_strikesFile.existsSync()) _strikesFile.deleteSync();
+      if (_readStrikes().key == key && _strikesFile.existsSync()) {
+        _strikesFile.deleteSync();
+      }
     } catch (e) {
       _log.error('Failed to reset GPU-load crash streak: $e', e);
     }
   }
+
+  /// Reads the streak file: the key it was recorded for (null for a legacy
+  /// file without one) and the count. Missing or unreadable means no streak.
+  ({String? key, int count}) _readStrikes() {
+    try {
+      if (!_strikesFile.existsSync()) return (key: null, count: 0);
+      final text = _strikesFile.readAsStringSync();
+      final split = text.lastIndexOf('\n');
+      if (split < 0) return (key: null, count: 0);
+      final count = int.tryParse(text.substring(split + 1).trim()) ?? 0;
+      return (key: text.substring(0, split), count: count);
+    } catch (e) {
+      _log.error('Failed to read GPU-load crash streak: $e', e);
+      return (key: null, count: 0);
+    }
+  }
+
+  /// Identity of a GPU load attempt for the crash streak: backend, model and
+  /// app version. Crashes count together only while this key stays the same.
+  static String attemptKey({
+    required String backend,
+    required String modelId,
+    required String appVersion,
+  }) => '$backend|$modelId|$appVersion';
 }
 
 /// Consecutive GPU-load crashes required before [recoverFromGpuLoadCrash]
@@ -284,7 +325,8 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
   // Always clear the in-flight marker: reaching this point already proves
   // last session's crash has been accounted for (via recordCrash below),
   // independent of whether the streak has hit the threshold yet.
-  final strikes = guard.recordCrash();
+  final crashKey = guard.crashedLastAttemptKey;
+  final strikes = guard.recordCrash(key: crashKey);
   guard.clearAttempt();
 
   if (strikes < kGpuCrashStrikeThreshold) {
@@ -326,7 +368,7 @@ Future<void> recoverFromGpuLoadCrash(ProviderContainer container) async {
     // very next crash retries this same escalation instead of demanding a
     // fresh two-strike run.
     guard.markPendingUserNotice();
-    guard.resetCrashStreak();
+    guard.resetCrashStreak(key: crashKey);
   } catch (e, st) {
     CrashReporter.instance?.captureError(
       message:

@@ -132,6 +132,7 @@ class AppMonitoring {
     // bucket and reduce noise in issue grouping.
     options.maxBreadcrumbs = 30;
     options.beforeSend = CrashReporter.beforeSend;
+    options.beforeBreadcrumb = CrashReporter.beforeBreadcrumb;
     options.beforeSendTransaction = CrashReporter.beforeSendTransaction;
     // tracesSampler takes precedence over tracesSampleRate when both are
     // set — see sentry_traces_sampler.dart. Our sampler returns 0.0 on
