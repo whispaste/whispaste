@@ -26,6 +26,15 @@ expect "$ROOT/scripts/build-libllama-windows.ps1" "\$env:CFLAGS = '/Z7'" "liblla
 expect "$ROOT/scripts/build-libllama-windows.ps1" "collect-pdbs-windows.ps1" "libllama (Windows) PDBs are not collected"
 expect "$ROOT/scripts/build-smartmode-shim-windows.ps1" "/DEBUG" "smartmode_shim.dll is linked without /DEBUG"
 expect "$ROOT/scripts/build-smartmode-shim-windows.ps1" "collect-pdbs-windows.ps1" "smartmode_shim PDB is not collected"
+# sherpa-onnx C API (Windows) is ours to build, so it needs a PDB too; the PDB
+# lives beside the stage (windows-pdb), never inside it.
+expect "$ROOT/scripts/build-sherpa-onnx.ps1" "'-DCMAKE_C_FLAGS=/Z7'" "sherpa-onnx (Windows) is not built with /Z7"
+expect "$ROOT/scripts/build-sherpa-onnx.ps1" "'-DCMAKE_SHARED_LINKER_FLAGS=/DEBUG /OPT:REF /OPT:ICF'" "sherpa-onnx (Windows) is linked without /DEBUG"
+expect "$ROOT/scripts/build-sherpa-onnx.ps1" "sherpa-onnx-c-api.pdb" "sherpa-onnx (Windows) PDB is not kept"
+# CUDA backend pack (built by hand on the Windows box): same flags, PDB outside the stage.
+expect "$ROOT/scripts/build-cuda-pack-windows.ps1" "'-DCMAKE_C_FLAGS=/Z7'" "CUDA pack ggml-cuda is not built with /Z7"
+expect "$ROOT/scripts/build-cuda-pack-windows.ps1" "'-DCMAKE_SHARED_LINKER_FLAGS=/DEBUG /OPT:REF /OPT:ICF'" "CUDA pack ggml-cuda is linked without /DEBUG"
+expect "$ROOT/scripts/build-cuda-pack-windows.ps1" "ggml-cuda.pdb missing" "CUDA pack PDB is not checked"
 
 # Linux: -g, then DWARF split off so the shipped .so stay small.
 for s in build-libwhisper-linux.sh build-libllama-linux.sh; do
@@ -36,6 +45,9 @@ done
 # release.yml uploads both directory sets and rebuilds when the helpers change.
 expect "$RELEASE" ".build/libwhisper/windows/pdb .build/libllama/windows/pdb" "Windows PDBs are not uploaded to Sentry"
 expect "$RELEASE" ".build/libwhisper/linux/debug .build/libllama/linux/debug" "Linux debug files are not uploaded to Sentry"
+# sherpa PDB: cached, uploaded to Sentry and offered to the .msixupload.
+n=$(grep -cE 'sherpa-onnx[/\\]windows-pdb' "$RELEASE" || true)
+[[ $n -ge 3 ]] || { echo "FAIL: sherpa-onnx PDB dir is not cached, uploaded and packaged in .msixupload ($n/3)"; fail=1; }
 n=$(grep -c "hashFiles(.*'scripts/collect-pdbs-windows.ps1'" "$RELEASE" || true)
 [[ $n -ge 2 ]] || { echo "FAIL: Windows lib cache keys do not hash collect-pdbs-windows.ps1 ($n/2)"; fail=1; }
 n=$(grep -c "hashFiles(.*'scripts/split-debug-linux.sh'" "$RELEASE" || true)
@@ -57,7 +69,7 @@ expect "$RELEASE" "build/windows/x64/symbols .build/libwhisper/windows/pdb" "whi
 # Partner Center: the .msixupload must carry the PDBs from the symbol dirs
 # (up to v1.3.0 it searched only the Release dir, found 0 PDBs and was
 # skipped), must fail loudly, and the Store submission must use it.
-expect "$RELEASE" 'foreach ($dir in @("build\windows\x64\symbols", ".build\libllama\windows\pdb", ".build\libwhisper\windows\pdb"))' ".msixupload does not collect the runner/whisper/llama PDBs"
+expect "$RELEASE" 'foreach ($dir in @("build\windows\x64\symbols", ".build\libllama\windows\pdb", ".build\libwhisper\windows\pdb", ".build\sherpa-onnx\windows-pdb"))' ".msixupload does not collect the runner/whisper/llama/sherpa PDBs"
 expect "$RELEASE" 'Move-Item $zip "store-upload\WhisPaste.msixupload"' ".msixupload is not built"
 expect "$RELEASE" "-Filter *.msixupload" "Store submission does not prefer the .msixupload"
 if grep -qF 'Write-Warning "No PDBs' "$RELEASE"; then

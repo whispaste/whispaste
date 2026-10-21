@@ -51,6 +51,8 @@ $SherpaRepo = 'https://github.com/k2-fsa/sherpa-onnx'
 $src = Join-Path $RepoRoot ".build\deps\sherpa-onnx\$SherpaTag"
 $build = Join-Path $RepoRoot '.build\sherpa-onnx\windows-build'
 $stage = Join-Path $RepoRoot '.build\sherpa-onnx\windows'
+# Sibling of the stage, never inside it: bundle and stage checks only know the DLLs.
+$pdbDir = Join-Path $RepoRoot '.build\sherpa-onnx\windows-pdb'
 
 # 1. Fetch the pinned tag and verify the commit (supply-chain guard).
 if (-not (Test-Path (Join-Path $src '.git'))) {
@@ -99,7 +101,12 @@ $cmakeArgs = @(
   '-DSHERPA_ONNX_ENABLE_PORTAUDIO=OFF',
   '-DSHERPA_ONNX_ENABLE_WEBSOCKET=OFF',
   '-DSHERPA_ONNX_ENABLE_JNI=OFF',
-  '-DSHERPA_ONNX_ENABLE_C_API=ON'
+  '-DSHERPA_ONNX_ENABLE_C_API=ON',
+  # /Z7 + /DEBUG: PDB for Sentry (same flags as libwhisper/libllama). /OPT:REF
+  # /OPT:ICF are restored because /DEBUG alone switches the linker to NOREF.
+  '-DCMAKE_C_FLAGS=/Z7',
+  '-DCMAKE_CXX_FLAGS=/Z7',
+  '-DCMAKE_SHARED_LINKER_FLAGS=/DEBUG /OPT:REF /OPT:ICF'
 )
 Write-Host "==> configure windows x64 ($SherpaTag, TTS=OFF)"
 cmake @cmakeArgs
@@ -120,6 +127,14 @@ foreach ($name in $wanted) {
   if (-not $found) { throw "$name not found under $build (Release)" }
   Copy-Item $found.FullName $stage -Force
 }
+# PDB of the C API DLL for Sentry and the .msixupload (release.yml). onnxruntime.dll
+# is a prebuilt download we do not compile, so it has no PDB here.
+if (Test-Path $pdbDir) { Remove-Item $pdbDir -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $pdbDir | Out-Null
+$pdb = Get-ChildItem $build -Recurse -File -Filter 'sherpa-onnx-c-api.pdb' |
+  Where-Object { $_.FullName -match '\\Release\\' } | Select-Object -First 1
+if (-not $pdb) { throw 'sherpa-onnx-c-api.pdb not found (Release) -- /Z7 + /DEBUG lost from the sherpa build?' }
+Copy-Item $pdb.FullName $pdbDir -Force
 $info = @(
   "sherpa-onnx $SherpaTag ($SherpaCommit)",
   'platform: windows-x64',

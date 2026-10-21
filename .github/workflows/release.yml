@@ -75,7 +75,9 @@ jobs:
         id: sherpa_cache_windows
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: .build/sherpa-onnx/windows
+          path: |
+            .build/sherpa-onnx/windows
+            .build/sherpa-onnx/windows-pdb
           key: sherpa-onnx-windows-v1.13.4-1428072-${{ hashFiles('scripts/build-sherpa-onnx.ps1', 'scripts/check-no-espeak.sh', 'scripts/sherpa-onnx.pin', 'scripts/check-sherpa-stage.cmake') }}
 
       - name: Build + stage sherpa-onnx without TTS (Windows)
@@ -299,13 +301,14 @@ jobs:
           dart run sentry_dart_plugin
           # The plugin only scans the Flutter Release dir, where no PDB may
           # go (it is packaged as-is). Upload the runner (whispaste.exe) and
-          # whisper/ggml/llama/shim PDBs from their staging dirs with the
+          # whisper/ggml/llama/shim/sherpa PDBs from their staging dirs with the
           # sentry-cli the plugin just downloaded and checksum-verified. A
           # failed upload must not block the release, so it only warns.
           & .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli.exe --url https://de.sentry.io `
             debug-files upload --org silvio-lindstedt-und-maik-g-y2 --project flutter_whispaste `
-            build/windows/x64/symbols .build/libwhisper/windows/pdb .build/libllama/windows/pdb
-          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Native PDB upload to Sentry failed -- crash frames in whispaste.exe/whisper/ggml/llama stay unsymbolicated for this release." }
+            build/windows/x64/symbols .build/libwhisper/windows/pdb .build/libllama/windows/pdb `
+            .build/sherpa-onnx/windows-pdb
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Native PDB upload to Sentry failed -- crash frames in whispaste.exe/whisper/ggml/llama/sherpa stay unsymbolicated for this release." }
 
       - name: Guard — no espeak-ng in the Windows bundle
         shell: bash
@@ -544,7 +547,7 @@ jobs:
       # for PDBs only in the Release bundle dir, where none may live, so it
       # always logged "No PDBs (0)" and was skipped silently.
       # PDB sources: the runner (windows/runner/CMakeLists.txt) plus the
-      # whisper/ggml/llama/shim staging dirs. ggml backend DLLs exist in both
+      # whisper/ggml/llama/shim/sherpa staging dirs. ggml backend DLLs exist in both
       # the whisper and the llama tree under the same name; the .appxsym is
       # flat, so for those names the whisper PDB (dictation hot path) wins.
       # Fails the job on purpose: a release without symbols is what hid the
@@ -563,7 +566,7 @@ jobs:
           if (Test-Path $symStaging) { Remove-Item -Recurse -Force $symStaging }
           New-Item -ItemType Directory -Path $symStaging -Force | Out-Null
           # Order matters for name collisions: later copies win (see above).
-          foreach ($dir in @("build\windows\x64\symbols", ".build\libllama\windows\pdb", ".build\libwhisper\windows\pdb")) {
+          foreach ($dir in @("build\windows\x64\symbols", ".build\libllama\windows\pdb", ".build\libwhisper\windows\pdb", ".build\sherpa-onnx\windows-pdb")) {
             if (-not (Test-Path $dir)) { throw "PDB dir $dir missing" }
             Get-ChildItem -Path $dir -Filter *.pdb | ForEach-Object {
               if (Test-Path (Join-Path $symStaging $_.Name)) { Write-Host "PDB name collision, $dir wins: $($_.Name)" }

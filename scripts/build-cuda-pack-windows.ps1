@@ -191,6 +191,11 @@ function Invoke-Pack {
     '-DGGML_CUDA=ON',
     "-DCMAKE_CUDA_ARCHITECTURES=$CudaArchs",
     '-DCMAKE_CUDA_FLAGS=-allow-unsupported-compiler',
+    # /Z7 + /DEBUG: PDB for Sentry; /OPT:REF /OPT:ICF restored because /DEBUG
+    # alone switches the linker to NOREF. Same flags as libwhisper/libllama.
+    '-DCMAKE_C_FLAGS=/Z7',
+    '-DCMAKE_CXX_FLAGS=/Z7',
+    '-DCMAKE_SHARED_LINKER_FLAGS=/DEBUG /OPT:REF /OPT:ICF',
     '-DGGML_VULKAN=OFF',
     '-DGGML_NATIVE=OFF',
     '-DGGML_OPENMP=OFF',
@@ -204,6 +209,15 @@ function Invoke-Pack {
   $module = @(Get-ChildItem -Path $Build -Recurse -Filter 'ggml-cuda.dll' -File)
   if ($module.Count -ne 1) { throw "expected exactly one ggml-cuda.dll, found $($module.Count)" }
   $modulePath = $module[0].FullName
+
+  # ggml-cuda.pdb goes to $WorkDir\pdb for a manual Sentry upload. It stays out
+  # of the stage on purpose: the pack zip is built from the stage directory.
+  $pdbDir = Join-Path $WorkDir 'pdb'
+  Remove-Item $pdbDir -Recurse -Force -ErrorAction SilentlyContinue
+  New-Item -ItemType Directory -Force -Path $pdbDir | Out-Null
+  $modulePdb = [IO.Path]::ChangeExtension($modulePath, '.pdb')
+  if (-not (Test-Path $modulePdb)) { throw "ggml-cuda.pdb missing next to $modulePath -- /Z7 + /DEBUG lost?" }
+  Copy-Item $modulePdb $pdbDir -Force
 
   Write-Step '[4/6] staging ggml-cuda.dll + CUDA runtime DLLs'
   Remove-Item $Stage -Recurse -Force -ErrorAction SilentlyContinue
