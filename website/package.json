@@ -43,7 +43,7 @@
   },
   "overrides": {
     "devalue": "^5.9.2",
-    "vite": "8.1.5",
+    "vite": "8.1.6",
     "esbuild": "^0.28.1",
     "@opentelemetry/core": "^2.8.0",
     "svgo": "^4.1.0",
