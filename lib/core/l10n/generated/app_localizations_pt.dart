@@ -3973,7 +3973,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'A transcrição acontece no seu dispositivo, sem necessidade de internet.';
+      'Por padrão, o reconhecimento de voz roda no seu dispositivo, e suas gravações ficam ali.';
 
   @override
   String get onboardingBeat3Title => 'Em qualquer lugar onde você digita';
@@ -5200,7 +5200,7 @@ class L10nPt extends L10n {
 
   @override
   String get featureSpotlightSmartModeDescription =>
-      'Limpe, encurte ou traduza seu texto antes de ele ser colado — totalmente no dispositivo, com atalho, predefinição e idioma de destino próprios.';
+      'Limpe, encurte ou traduza seu texto antes de ele ser colado — por padrão, totalmente no dispositivo, com atalho, predefinição e idioma de destino próprios.';
 
   @override
   String get featureSpotlightHistoryPinTitle =>
@@ -5540,7 +5540,7 @@ class L10nPt extends L10n {
 
   @override
   String get smartModeMemoryFootprintInfo =>
-      'Roda totalmente no dispositivo. Enquanto ativo, o modelo de texto usa cerca de 4–5 GB de RAM além do espaço em disco — compartilhados com o modelo de voz, então o uso total de memória depende de qual modelo de voz você também tem carregado.';
+      'Com o modelo de texto local, tudo roda no dispositivo. Enquanto ativo, o modelo de texto usa cerca de 4–5 GB de RAM além do espaço em disco — compartilhados com o modelo de voz, então o uso total de memória depende de qual modelo de voz você também tem carregado.';
 
   @override
   String get smartModeFactGuardHint =>
@@ -5584,7 +5584,7 @@ class L10nPt extends L10n {
 
   @override
   String smartModeOnboardingHintBody(String size) {
-    return 'O Smart Mode pode limpar, encurtar ou traduzir seu texto automaticamente, totalmente no seu dispositivo. O modelo de texto local ocupa $size no disco. Baixe agora ou configure depois nas Configurações.';
+    return 'O Smart Mode pode limpar, encurtar ou traduzir seu texto automaticamente, por padrão, totalmente no seu dispositivo. O modelo de texto local ocupa $size no disco. Baixe agora ou configure depois nas Configurações.';
   }
 
   @override

@@ -3892,7 +3892,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'התמלול מתבצע במכשיר שלך – בלי צורך באינטרנט.';
+      'כברירת מחדל, זיהוי הדיבור פועל במכשיר שלך – וההקלטות נשארות בו.';
 
   @override
   String get onboardingBeat3Title => 'בכל מקום שבו אתה מקליד';
@@ -5102,7 +5102,7 @@ class L10nHe extends L10n {
 
   @override
   String get featureSpotlightSmartModeDescription =>
-      'נקה, קצר או תרגם את הטקסט שלך לפני ההדבקה – לגמרי במכשיר שלך, עם קיצור ייעודי ושפת יעד משלו.';
+      'נקה, קצר או תרגם את הטקסט שלך לפני ההדבקה – כברירת מחדל, לגמרי במכשיר שלך, עם קיצור ייעודי ושפת יעד משלו.';
 
   @override
   String get featureSpotlightHistoryPinTitle => 'נעילת ההקלטות בקוד PIN';
@@ -5436,7 +5436,7 @@ class L10nHe extends L10n {
 
   @override
   String get smartModeMemoryFootprintInfo =>
-      'פועל לגמרי במכשיר. בזמן פעילות מודל הטקסט צורך כ-4–5GB זיכרון RAM בנוסף לשטח האחסון — משותף עם מודל זיהוי הדיבור, כך שהצריכה הכוללת תלויה גם במודל זיהוי הדיבור שטעון.';
+      'עם מודל הטקסט המקומי, הכול פועל במכשיר. בזמן פעילות מודל הטקסט צורך כ-4–5GB זיכרון RAM בנוסף לשטח האחסון — משותף עם מודל זיהוי הדיבור, כך שהצריכה הכוללת תלויה גם במודל זיהוי הדיבור שטעון.';
 
   @override
   String get smartModeFactGuardHint =>
@@ -5480,7 +5480,7 @@ class L10nHe extends L10n {
 
   @override
   String smartModeOnboardingHintBody(String size) {
-    return 'Smart Mode יכול לנקות, לקצר או לתרגם את הטקסט שלך אוטומטית — לגמרי במכשיר שלך. מודל הטקסט המקומי תופס $size בדיסק. הורד אותו עכשיו, או הגדר אותו מאוחר יותר בהגדרות.';
+    return 'Smart Mode יכול לנקות, לקצר או לתרגם את הטקסט שלך אוטומטית — כברירת מחדל, לגמרי במכשיר שלך. מודל הטקסט המקומי תופס $size בדיסק. הורד אותו עכשיו, או הגדר אותו מאוחר יותר בהגדרות.';
   }
 
   @override

@@ -3973,7 +3973,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'Die Transkription läuft auf deinem Gerät – ganz ohne Internet.';
+      'Standardmäßig läuft die Spracherkennung auf deinem Gerät – deine Aufnahmen bleiben dort.';
 
   @override
   String get onboardingBeat3Title => 'Überall, wo du tippst';
@@ -5201,7 +5201,7 @@ class L10nDe extends L10n {
 
   @override
   String get featureSpotlightSmartModeDescription =>
-      'Bereinige, kürze oder übersetze deinen Text vor dem Einfügen – komplett lokal auf deinem Gerät, mit eigenem Hotkey, Preset und eigener Zielsprache.';
+      'Bereinige, kürze oder übersetze deinen Text vor dem Einfügen – standardmäßig komplett lokal auf deinem Gerät, mit eigenem Hotkey, Preset und eigener Zielsprache.';
 
   @override
   String get featureSpotlightHistoryPinTitle => 'Aufnahmen mit PIN schützen';
@@ -5539,7 +5539,7 @@ class L10nDe extends L10n {
 
   @override
   String get smartModeMemoryFootprintInfo =>
-      'Läuft vollständig auf dem Gerät. Im aktiven Zustand belegt das Textmodell zusätzlich zum Speicherplatz etwa 4–5 GB RAM. Den Arbeitsspeicher teilt es sich mit dem Sprachmodell, der Gesamtverbrauch hängt also auch davon ab, welches Sprachmodell geladen ist.';
+      'Mit dem lokalen Textmodell läuft alles auf dem Gerät. Im aktiven Zustand belegt das Textmodell zusätzlich zum Speicherplatz etwa 4–5 GB RAM. Den Arbeitsspeicher teilt es sich mit dem Sprachmodell, der Gesamtverbrauch hängt also auch davon ab, welches Sprachmodell geladen ist.';
 
   @override
   String get smartModeFactGuardHint =>
@@ -5583,7 +5583,7 @@ class L10nDe extends L10n {
 
   @override
   String smartModeOnboardingHintBody(String size) {
-    return 'Smart Mode kann deinen Text automatisch bereinigen, kürzen oder übersetzen — komplett lokal auf deinem Gerät. Das lokale Textmodell braucht $size Speicherplatz. Lade es jetzt herunter oder richte es später in den Einstellungen ein.';
+    return 'Smart Mode kann deinen Text automatisch bereinigen, kürzen oder übersetzen — standardmäßig lokal auf deinem Gerät. Das lokale Textmodell braucht $size Speicherplatz. Lade es jetzt herunter oder richte es später in den Einstellungen ein.';
   }
 
   @override

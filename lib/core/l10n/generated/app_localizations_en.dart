@@ -3937,7 +3937,7 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'Transcription happens on your device — no internet needed.';
+      'By default, speech recognition runs on your device, and your recordings stay there.';
 
   @override
   String get onboardingBeat3Title => 'Everywhere you type';
@@ -5155,7 +5155,7 @@ class L10nEn extends L10n {
 
   @override
   String get featureSpotlightSmartModeDescription =>
-      'Clean up, shorten, or translate your text before it is pasted — fully on-device, with its own hotkey, preset, and target language.';
+      'Clean up, shorten, or translate your text before it is pasted — on-device by default, with its own hotkey, preset, and target language.';
 
   @override
   String get featureSpotlightHistoryPinTitle =>
@@ -5494,7 +5494,7 @@ class L10nEn extends L10n {
 
   @override
   String get smartModeMemoryFootprintInfo =>
-      'Runs fully on-device. While active, the text model uses about 4–5 GB of RAM in addition to disk space — shared with the speech model, so total memory use depends on which speech model you also have loaded.';
+      'With the local text model, everything runs on-device. While active, the text model uses about 4–5 GB of RAM in addition to disk space — shared with the speech model, so total memory use depends on which speech model you also have loaded.';
 
   @override
   String get smartModeFactGuardHint =>
@@ -5538,7 +5538,7 @@ class L10nEn extends L10n {
 
   @override
   String smartModeOnboardingHintBody(String size) {
-    return 'Smart Mode can clean up, shorten, or translate your text automatically — fully on-device. The local text model takes $size on disk. Download it now, or set it up later in Settings.';
+    return 'Smart Mode can clean up, shorten, or translate your text automatically — on-device by default. The local text model takes $size on disk. Download it now, or set it up later in Settings.';
   }
 
   @override

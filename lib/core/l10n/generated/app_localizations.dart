@@ -6652,7 +6652,7 @@ abstract class L10n {
   /// No description provided for @onboardingBeat2Caption.
   ///
   /// In en, this message translates to:
-  /// **'Transcription happens on your device — no internet needed.'**
+  /// **'By default, speech recognition runs on your device, and your recordings stay there.'**
   String get onboardingBeat2Caption;
 
   /// No description provided for @onboardingBeat3Title.
@@ -8743,7 +8743,7 @@ abstract class L10n {
   /// No description provided for @featureSpotlightSmartModeDescription.
   ///
   /// In en, this message translates to:
-  /// **'Clean up, shorten, or translate your text before it is pasted — fully on-device, with its own hotkey, preset, and target language.'**
+  /// **'Clean up, shorten, or translate your text before it is pasted — on-device by default, with its own hotkey, preset, and target language.'**
   String get featureSpotlightSmartModeDescription;
 
   /// No description provided for @featureSpotlightHistoryPinTitle.
@@ -9343,7 +9343,7 @@ abstract class L10n {
   /// No description provided for @smartModeMemoryFootprintInfo.
   ///
   /// In en, this message translates to:
-  /// **'Runs fully on-device. While active, the text model uses about 4–5 GB of RAM in addition to disk space — shared with the speech model, so total memory use depends on which speech model you also have loaded.'**
+  /// **'With the local text model, everything runs on-device. While active, the text model uses about 4–5 GB of RAM in addition to disk space — shared with the speech model, so total memory use depends on which speech model you also have loaded.'**
   String get smartModeMemoryFootprintInfo;
 
   /// No description provided for @smartModeFactGuardHint.
@@ -9415,7 +9415,7 @@ abstract class L10n {
   /// No description provided for @smartModeOnboardingHintBody.
   ///
   /// In en, this message translates to:
-  /// **'Smart Mode can clean up, shorten, or translate your text automatically — fully on-device. The local text model takes {size} on disk. Download it now, or set it up later in Settings.'**
+  /// **'Smart Mode can clean up, shorten, or translate your text automatically — on-device by default. The local text model takes {size} on disk. Download it now, or set it up later in Settings.'**
   String smartModeOnboardingHintBody(String size);
 
   /// No description provided for @smartModeOnboardingHintExampleBeforeLabel.
