@@ -77,6 +77,7 @@ class _TranscribeRequest {
     this.prompt,
     this.vadEnabled = false,
     this.reducedThreads = false,
+    this.reportProgress = false,
   });
   final int requestId;
   final Uint8List wavBytes;
@@ -84,6 +85,21 @@ class _TranscribeRequest {
   final String? prompt;
   final bool vadEnabled;
   final bool reducedThreads;
+
+  /// Whether the worker should forward engine progress for this request.
+  final bool reportProgress;
+}
+
+/// Forwards one whisper.cpp progress fraction (`0..1`) for an in-flight
+/// transcription (IMP-PROG-2). Sent from the worker while `whisper_full` runs;
+/// FIFO on the same port, so it always arrives before that request's result.
+class _TranscribeProgressUpdate {
+  const _TranscribeProgressUpdate({
+    required this.requestId,
+    required this.fraction,
+  });
+  final int requestId;
+  final double fraction;
 }
 
 class _TranscribeResult {
@@ -244,6 +260,18 @@ class WorkerAckQueue {
   }
 }
 
+/// Sink that forwards a request's progress to the main isolate, or `null` when
+/// the request did not ask for progress (IMP-PROG-2).
+void Function(double fraction)? _progressForwarder(
+  SendPort mainSendPort,
+  _TranscribeRequest req,
+) {
+  if (!req.reportProgress) return null;
+  return (fraction) => mainSendPort.send(
+    _TranscribeProgressUpdate(requestId: req.requestId, fraction: fraction),
+  );
+}
+
 /// Isolate entry point. Must be a top-level/static function (Dart isolate
 /// requirement) — receives the main isolate's [SendPort] and spawns its own
 /// [ReceivePort], sending its own [SendPort] back as the first message so the
@@ -308,6 +336,7 @@ void _whisperIsolateMain(SendPort mainSendPort) {
             prompt: req.prompt,
             vadEnabled: req.vadEnabled,
             reducedThreads: req.reducedThreads,
+            onProgress: _progressForwarder(mainSendPort, req),
           );
           mainSendPort.send(
             _TranscribeResult(
@@ -449,6 +478,7 @@ class WhisperIsolateEngine
     implements
         WhisperEngine,
         PartialTranscriptSource,
+        TranscriptionProgressSource,
         DetectedLanguageSource,
         LivePreviewEngine,
         PromptTokenCounter {
@@ -579,6 +609,42 @@ class WhisperIsolateEngine
     String? prompt,
     bool vadEnabled = false,
     bool reducedThreads = false,
+  }) => _transcribe(
+    wavBytes,
+    language: language,
+    prompt: prompt,
+    vadEnabled: vadEnabled,
+    reducedThreads: reducedThreads,
+  );
+
+  @override
+  Future<String> transcribeWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
+  }) => _transcribe(
+    wavBytes,
+    language: language,
+    prompt: prompt,
+    vadEnabled: vadEnabled,
+    reducedThreads: reducedThreads,
+    onProgress: onProgress,
+  );
+
+  /// Progress sinks of in-flight requests, keyed by request id. Removed in
+  /// [_transcribe]'s `finally`, so nothing is delivered after it returns.
+  final Map<int, void Function(double fraction)> _progressSinks = {};
+
+  Future<String> _transcribe(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
   }) async {
     if (!_isLoaded || _workerPort == null) {
       throw StateError('whisper_engine_not_loaded');
@@ -587,19 +653,30 @@ class WhisperIsolateEngine
     final requestId = _nextRequestId++;
     final completer = Completer<_TranscribeResult>();
     _pending[requestId] = completer;
-    _workerPort!.send(
-      _TranscribeRequest(
-        requestId: requestId,
-        wavBytes: wavBytes is Uint8List
-            ? wavBytes
-            : Uint8List.fromList(wavBytes),
-        language: language,
-        prompt: prompt,
-        vadEnabled: vadEnabled,
-        reducedThreads: reducedThreads,
-      ),
-    );
+    if (onProgress != null) _progressSinks[requestId] = onProgress;
+    try {
+      _workerPort!.send(
+        _TranscribeRequest(
+          requestId: requestId,
+          wavBytes: wavBytes is Uint8List
+              ? wavBytes
+              : Uint8List.fromList(wavBytes),
+          language: language,
+          prompt: prompt,
+          vadEnabled: vadEnabled,
+          reducedThreads: reducedThreads,
+          reportProgress: onProgress != null,
+        ),
+      );
+      return await _awaitTranscribeResult(completer);
+    } finally {
+      _progressSinks.remove(requestId);
+    }
+  }
 
+  Future<String> _awaitTranscribeResult(
+    Completer<_TranscribeResult> completer,
+  ) async {
     final result = await completer.future;
     if (result.error != null) {
       final kindName = result.failureKind;
@@ -860,6 +937,8 @@ class WhisperIsolateEngine
         _completeIfPending(_loadCompleter, r);
       case final _TranscribeResult r:
         _completeIfPending(_pending.remove(r.requestId), r);
+      case final _TranscribeProgressUpdate u:
+        _progressSinks[u.requestId]?.call(u.fraction);
       case final _PartialTranscriptUpdate u:
         _partialController.add(u.text);
       case final _StartLivePreviewResult r:

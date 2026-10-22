@@ -2,8 +2,9 @@
 /// decode to 16 kHz mono WAV, transcribe, and save a history entry.
 ///
 /// Each job runs one step at a time. Progress is reported for the copy step
-/// (by bytes); decoding and transcription are indeterminate. Cancel and retry
-/// are per job. Folders and missing files are rejected at enqueue time with a
+/// (by bytes) and, when the engine reports it, for transcription; decoding is
+/// indeterminate. Transcription also records when it started, so the UI can
+/// show elapsed time. Cancel and retry are per job. Folders and missing files are rejected at enqueue time with a
 /// message, and a failed job keeps its [ImportFailure] so the UI can say why.
 ///
 /// The queue does not know about Riverpod or the database; the caller passes
@@ -58,6 +59,7 @@ class ImportJob {
     required this.fileName,
     this.status = ImportStatus.queued,
     this.progress,
+    this.transcribingSince,
     this.failure,
     this.entryId,
   });
@@ -66,8 +68,12 @@ class ImportJob {
   final String fileName;
   final ImportStatus status;
 
-  /// Copy progress in `0..1`; null while the step is indeterminate.
+  /// Progress in `0..1` of the copy, or of the transcription when the engine
+  /// reports it. Null while the step is indeterminate.
   final double? progress;
+
+  /// When the transcription step started; null outside `transcribing`.
+  final DateTime? transcribingSince;
   final ImportFailure? failure;
 
   /// History entry created for a finished job.
@@ -82,6 +88,8 @@ class ImportJob {
     ImportStatus? status,
     double? progress,
     bool clearProgress = false,
+    DateTime? transcribingSince,
+    bool clearTranscribingSince = false,
     ImportFailure? failure,
     bool clearFailure = false,
     String? entryId,
@@ -90,6 +98,9 @@ class ImportJob {
     fileName: fileName,
     status: status ?? this.status,
     progress: clearProgress ? null : (progress ?? this.progress),
+    transcribingSince: clearTranscribingSince
+        ? null
+        : (transcribingSince ?? this.transcribingSince),
     failure: clearFailure ? null : (failure ?? this.failure),
     entryId: entryId ?? this.entryId,
   );
@@ -131,7 +142,17 @@ typedef ImportDecodeStep =
       required String outputWavPath,
     });
 
-typedef ImportTranscribeStep = Future<String> Function(Uint8List wavBytes);
+/// Transcribes the WAV bytes. [onProgress] receives fractions in `0..1` while
+/// the engine works; an engine that cannot report progress never calls it.
+typedef ImportTranscribeStep =
+    Future<String> Function(
+      Uint8List wavBytes, {
+      void Function(double fraction)? onProgress,
+    });
+
+/// Shortest gap between two transcription progress updates (about 4 per
+/// second); a faster engine is throttled so the UI does not rebuild per tick.
+const kTranscribeProgressInterval = Duration(milliseconds: 250);
 
 /// Saves the finished import and returns the new history entry id. Receives
 /// [audioPath] only when audio retention is on; otherwise null.
@@ -169,7 +190,10 @@ class AudioImportQueue {
     this.maxInputBytes = kMaxImportFileBytes,
     this.openSource,
     this.stallTimeout = kCopyStallTimeout,
-  });
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now;
+
+  final DateTime Function() _clock;
 
   /// Opens a source for the copy. Tests substitute a fake stream here.
   final Stream<List<int>> Function(String path)? openSource;
@@ -332,13 +356,21 @@ class AudioImportQueue {
         return;
       }
 
-      _set(id, status: ImportStatus.transcribing);
+      _set(
+        id,
+        status: ImportStatus.transcribing,
+        clearProgress: true,
+        transcribingSince: _clock(),
+      );
       final String transcript;
       final double durationSec;
       try {
         final wavBytes = await File(wavPath).readAsBytes();
         durationSec = (wavBytes.length - 44) / 32000;
-        transcript = await transcribe(wavBytes);
+        transcript = await transcribe(
+          wavBytes,
+          onProgress: _transcribeProgressReporter(id),
+        );
       } on Object {
         _fail(id, ImportFailure.transcriptionFailed);
         return;
@@ -360,7 +392,13 @@ class AudioImportQueue {
         _fail(id, ImportFailure.saveFailed);
         return;
       }
-      _set(id, status: ImportStatus.done, entryId: entryId);
+      _set(
+        id,
+        status: ImportStatus.done,
+        entryId: entryId,
+        clearProgress: true,
+        clearTranscribingSince: true,
+      );
     } finally {
       _cancelRequested.remove(id);
       final status = _statusOf(id);
@@ -380,6 +418,32 @@ class AudioImportQueue {
         }
       }
     }
+  }
+
+  /// Builds the progress sink for one transcription. Updates are dropped
+  /// unless the job is still transcribing, so a late report from the engine
+  /// cannot change a finished job. Non-finite values are ignored, others are
+  /// clamped to `0..1`, and updates come at most once per
+  /// [kTranscribeProgressInterval].
+  void Function(double fraction) _transcribeProgressReporter(String id) {
+    DateTime? lastReportAt;
+    var highest = 0.0;
+    return (fraction) {
+      if (!fraction.isFinite) return;
+      if (_statusOf(id) != ImportStatus.transcribing) return;
+      final clamped = fraction.clamp(0.0, 1.0).toDouble();
+      // Never move the bar backwards, even if the engine restarts a decode
+      // (for example a retry on another backend) and reports from zero again.
+      if (clamped <= highest) return;
+      final now = _clock();
+      final last = lastReportAt;
+      if (last != null && now.difference(last) < kTranscribeProgressInterval) {
+        return;
+      }
+      lastReportAt = now;
+      highest = clamped;
+      _set(id, progress: clamped);
+    };
   }
 
   /// Runs the decode step. Returns null on success, otherwise the failure to
@@ -504,6 +568,7 @@ class AudioImportQueue {
       status: ImportStatus.failed,
       failure: failure,
       clearProgress: true,
+      clearTranscribingSince: true,
     );
     _notify();
   }
@@ -511,7 +576,11 @@ class AudioImportQueue {
   void _finish(String id, ImportStatus status) {
     final index = _indexOf(id);
     if (index < 0) return;
-    _jobs[index] = _jobs[index].copyWith(status: status, clearProgress: true);
+    _jobs[index] = _jobs[index].copyWith(
+      status: status,
+      clearProgress: true,
+      clearTranscribingSince: true,
+    );
     _notify();
   }
 
@@ -520,6 +589,8 @@ class AudioImportQueue {
     ImportStatus? status,
     double? progress,
     bool clearProgress = false,
+    DateTime? transcribingSince,
+    bool clearTranscribingSince = false,
     String? entryId,
   }) {
     final index = _indexOf(id);
@@ -528,6 +599,8 @@ class AudioImportQueue {
       status: status,
       progress: progress,
       clearProgress: clearProgress,
+      transcribingSince: transcribingSince,
+      clearTranscribingSince: clearTranscribingSince,
       entryId: entryId,
     );
     _notify();

@@ -2377,6 +2377,16 @@
   "historyImportStatusCopying": "בהעתקה",
   "historyImportStatusDecoding": "בפענוח",
   "historyImportStatusTranscribing": "בתמלול",
+  "historyImportElapsed": "פועל כבר {elapsed}",
+  "@historyImportElapsed": {
+    "description": "הזמן מאז תחילת התמלול, בזמן שהמנוע אינו מדווח על התקדמות.",
+    "placeholders": { "elapsed": { "type": "String" } }
+  },
+  "historyImportPercent": "{percent}%",
+  "@historyImportPercent": {
+    "description": "אחוז התמלול שהושלם, רק כשהמנוע מדווח עליו.",
+    "placeholders": { "percent": { "type": "int" } }
+  },
   "historyImportStatusDone": "הושלם",
   "historyImportStatusFailed": "נכשל",
   "historyImportStatusCancelled": "בוטל",

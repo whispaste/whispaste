@@ -6346,6 +6346,16 @@ class L10nPt extends L10n {
   String get historyImportStatusTranscribing => 'Transcrevendo';
 
   @override
+  String historyImportElapsed(String elapsed) {
+    return 'Em andamento há $elapsed';
+  }
+
+  @override
+  String historyImportPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
   String get historyImportStatusDone => 'Concluído';
 
   @override

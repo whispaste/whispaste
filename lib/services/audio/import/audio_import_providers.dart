@@ -65,6 +65,7 @@ class AudioImportQueueNotifier extends Notifier<List<ImportJob>> {
       transcribe: _transcribe,
       save: _save,
       onChanged: (jobs) => state = jobs,
+      clock: () => ref.read(audioImportClockProvider)(),
       onCleanupError: (error) => _log.warning(
         'Could not remove import scratch files: ${describeImportError(error)}',
       ),
@@ -85,12 +86,22 @@ class AudioImportQueueNotifier extends Notifier<List<ImportJob>> {
 
   Future<void> retry(String id) => _queue.retry(id);
 
-  Future<String> _transcribe(List<int> wavBytes) async {
+  /// Local whisper reports progress through [onProgress] (IMP-PROG-2). Other
+  /// adapters (Parakeet, cloud) do not implement the capability, so the
+  /// callback is never called and the import row stays indeterminate.
+  Future<String> _transcribe(
+    List<int> wavBytes, {
+    void Function(double fraction)? onProgress,
+  }) async {
     await waitForDictationIdle(ref.container);
     final transcriber = ref.read(transcriberProvider);
     await transcriber.prepare();
     try {
-      final text = await transcriber.transcribe(wavBytes);
+      final text = await switch (transcriber) {
+        final ProgressReportingTranscriber progressive =>
+          progressive.transcribeWithProgress(wavBytes, onProgress: onProgress),
+        _ => transcriber.transcribe(wavBytes),
+      };
       return collapseTranscriptWhitespace(text);
     } finally {
       transcriber.release();

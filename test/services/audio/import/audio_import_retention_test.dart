@@ -46,7 +46,7 @@ void main() {
           await File(outputWavPath).writeAsBytes(_toneWav());
           queue.cancel(id);
         },
-        transcribe: (_) async => 'hallo',
+        transcribe: (_, {onProgress}) async => 'hallo',
         save:
             ({
               required fileName,
@@ -78,7 +78,7 @@ void main() {
         workDir: workDir,
         keepAudio: () => false,
         decode: ({required inputPath, required outputWavPath}) async {},
-        transcribe: (_) async => 'hallo',
+        transcribe: (_, {onProgress}) async => 'hallo',
         save:
             ({
               required fileName,

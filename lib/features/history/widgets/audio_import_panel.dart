@@ -271,7 +271,9 @@ class _ImportJobRow extends ConsumerWidget {
                 ),
             ],
           ),
-          if (job.progress != null)
+          if (job.status == ImportStatus.transcribing)
+            _TranscribeProgress(job: job)
+          else if (job.progress != null)
             LinearProgressIndicator(value: job.progress),
           if (job.failure != null)
             Text(
@@ -313,6 +315,105 @@ class _ImportJobRow extends ConsumerWidget {
     ImportFailure.transcriptionFailed => l10n.historyImportFailureTranscription,
     ImportFailure.saveFailed => l10n.historyImportFailureSave,
   };
+}
+
+/// Progress line of a transcribing job. A determinate bar with the percentage
+/// when the engine reports one; otherwise an indeterminate bar and the time
+/// since the step started. No percentage or time remaining is ever guessed.
+class _TranscribeProgress extends ConsumerStatefulWidget {
+  const _TranscribeProgress({required this.job});
+
+  final ImportJob job;
+
+  @override
+  ConsumerState<_TranscribeProgress> createState() =>
+      _TranscribeProgressState();
+}
+
+class _TranscribeProgressState extends ConsumerState<_TranscribeProgress> {
+  // Redraws the elapsed time once a second while no engine value is known.
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final job = widget.job;
+    final fraction = job.progress;
+    if (fraction != null) {
+      final percent = (fraction * 100).round();
+      final text = l10n.historyImportPercent(percent);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Semantics(
+            value: text,
+            child: LinearProgressIndicator(
+              key: ValueKey('history-import-progress-${job.id}'),
+              value: fraction,
+            ),
+          ),
+          Text(
+            text,
+            key: ValueKey('history-import-percent-${job.id}'),
+            style: TextStyle(
+              fontSize: WpTypography.caption,
+              color: WpColors.textMuted,
+            ),
+          ),
+        ],
+      );
+    }
+    final since = job.transcribingSince;
+    final elapsed = since == null
+        ? Duration.zero
+        : ref.read(audioImportClockProvider)().difference(since);
+    final text = l10n.historyImportElapsed(_formatElapsed(elapsed));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          value: text,
+          child: LinearProgressIndicator(
+            key: ValueKey('history-import-progress-${job.id}'),
+          ),
+        ),
+        Text(
+          text,
+          key: ValueKey('history-import-elapsed-${job.id}'),
+          style: TextStyle(
+            fontSize: WpTypography.caption,
+            color: WpColors.textMuted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// `m:ss`, or `h:mm:ss` from one hour on. Negative durations show as zero.
+String _formatElapsed(Duration elapsed) {
+  final total = elapsed.inSeconds < 0 ? 0 : elapsed.inSeconds;
+  final hours = total ~/ 3600;
+  final minutes = (total % 3600) ~/ 60;
+  final seconds = total % 60;
+  String two(int n) => n.toString().padLeft(2, '0');
+  return hours > 0
+      ? '$hours:${two(minutes)}:${two(seconds)}'
+      : '$minutes:${two(seconds)}';
 }
 
 /// The formats this platform imports, as shown to the user ("WAV, MP3").

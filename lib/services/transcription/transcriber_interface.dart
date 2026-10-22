@@ -29,6 +29,19 @@ abstract class Transcriber {
   void release();
 }
 
+/// Optional capability (IMP-PROG-2): an adapter that reports transcription
+/// progress while it runs. [onProgress] gets fractions in `0..1`, monotone
+/// within one call, and is never called after the returned future completes.
+/// Adapters without it (cloud) stay indeterminate; callers probe with
+/// `is ProgressReportingTranscriber`.
+abstract class ProgressReportingTranscriber {
+  Future<String> transcribeWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+  });
+}
+
 /// Optional capability: an adapter that can report the language the last
 /// [Transcriber.transcribe] call decoded in (9.10). Only the local whisper
 /// adapter has one; cloud adapters do not implement it.

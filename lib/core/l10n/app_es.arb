@@ -1844,6 +1844,16 @@
   "historyImportStatusCopying": "Copiando",
   "historyImportStatusDecoding": "Decodificando",
   "historyImportStatusTranscribing": "Transcribiendo",
+  "historyImportElapsed": "En curso desde hace {elapsed}",
+  "@historyImportElapsed": {
+    "description": "Tiempo desde el inicio de la transcripción, mientras el motor no informa del progreso.",
+    "placeholders": { "elapsed": { "type": "String" } }
+  },
+  "historyImportPercent": "{percent} %",
+  "@historyImportPercent": {
+    "description": "Porcentaje de la transcripción completado, solo si el motor lo informa.",
+    "placeholders": { "percent": { "type": "int" } }
+  },
   "historyImportStatusDone": "Listo",
   "historyImportStatusFailed": "Error",
   "historyImportStatusCancelled": "Cancelado",

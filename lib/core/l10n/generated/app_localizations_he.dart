@@ -6233,6 +6233,16 @@ class L10nHe extends L10n {
   String get historyImportStatusTranscribing => 'בתמלול';
 
   @override
+  String historyImportElapsed(String elapsed) {
+    return 'פועל כבר $elapsed';
+  }
+
+  @override
+  String historyImportPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
   String get historyImportStatusDone => 'הושלם';
 
   @override

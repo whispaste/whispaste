@@ -831,7 +831,17 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     return (engine as DetectedLanguageSource).lastDetectedLanguage;
   }
 
-  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) =>
+      transcribeBytesWithProgress(wavBytes, language: language);
+
+  /// [transcribeBytes] that also reports engine progress through [onProgress]
+  /// (IMP-PROG-2). Kept separate so existing overrides of [transcribeBytes]
+  /// stay valid.
+  Future<String> transcribeBytesWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+  }) async {
     if (!state.isReady) {
       throw StateError('STT server is not running');
     }
@@ -841,7 +851,11 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
     _transcribeInFlight++;
     try {
       await _awaitNativeGate();
-      return await _transcribeBytesInner(wavBytes, language: language);
+      return await _transcribeBytesInner(
+        wavBytes,
+        language: language,
+        onProgress: onProgress,
+      );
     } finally {
       _transcribeInFlight--;
       if (_transcribeInFlight == 0) {
@@ -873,6 +887,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   Future<String> _transcribeBytesInner(
     List<int> wavBytes, {
     String? language,
+    void Function(double fraction)? onProgress,
   }) async {
     _resetIdleTimer();
     final lang = language ?? 'auto';
@@ -956,6 +971,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         wavBytes.length,
         audioDurationMs,
         settings?.stt.vadEnabled ?? true,
+        onProgress: onProgress,
       );
       _settleCrashGuardAfterInference();
     } catch (e) {
@@ -1410,14 +1426,48 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   ///
   /// Surfaced (unrecovered) failures are captured to Sentry with a stable
   /// fingerprint before the exception propagates.
+  /// One engine decode. Reports progress only when the engine opts in via
+  /// [TranscriptionProgressSource] (IMP-PROG-2); other engines ignore
+  /// [onProgress], so the caller simply stays indeterminate.
+  Future<String> _transcribeOnEngine(
+    List<int> payload, {
+    required String lang,
+    required String? prompt,
+    required bool vadEnabled,
+    void Function(double fraction)? onProgress,
+  }) {
+    final engine = _engine!;
+    final reducedThreads = _isRecordingActive;
+    final progress = onProgress;
+    return switch (engine) {
+      final TranscriptionProgressSource progressive when progress != null =>
+        progressive.transcribeWithProgress(
+          payload,
+          language: lang,
+          prompt: prompt,
+          vadEnabled: vadEnabled,
+          reducedThreads: reducedThreads,
+          onProgress: progress,
+        ),
+      _ => engine.transcribe(
+        payload,
+        language: lang,
+        prompt: prompt,
+        vadEnabled: vadEnabled,
+        reducedThreads: reducedThreads,
+      ),
+    };
+  }
+
   Future<String> _transcribeResilient(
     List<int> payload,
     String lang,
     String? prompt,
     int wavSizeBytes,
     int audioDurationMs,
-    bool vadEnabled,
-  ) async {
+    bool vadEnabled, {
+    void Function(double fraction)? onProgress,
+  }) async {
     var transientAttempts = 0;
     var cpuFallbackTried = false;
 
@@ -1435,12 +1485,12 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
         // batch architecture where that contention is real and something
         // this app actually controls).
         return await _nativeCall(
-          () => _engine!.transcribe(
+          () => _transcribeOnEngine(
             payload,
-            language: lang,
+            lang: lang,
             prompt: prompt,
             vadEnabled: vadEnabled,
-            reducedThreads: _isRecordingActive,
+            onProgress: onProgress,
           ),
         ).timeout(
           transcriptionStuckBudget(

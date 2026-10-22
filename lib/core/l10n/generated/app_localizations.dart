@@ -10702,6 +10702,18 @@ abstract class L10n {
   /// **'Transcribing'**
   String get historyImportStatusTranscribing;
 
+  /// Time since the transcription started, shown while the engine reports no progress.
+  ///
+  /// In en, this message translates to:
+  /// **'Running for {elapsed}'**
+  String historyImportElapsed(String elapsed);
+
+  /// Percentage of the transcription done, shown only when the engine reports it.
+  ///
+  /// In en, this message translates to:
+  /// **'{percent}%'**
+  String historyImportPercent(int percent);
+
   /// Status of an import job that finished and created a history entry.
   ///
   /// In en, this message translates to:

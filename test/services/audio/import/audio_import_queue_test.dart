@@ -44,16 +44,18 @@ void main() {
     void Function(List<ImportJob>)? onChanged,
     List<String>? savedTranscripts,
     List<String?>? savedAudioPaths,
+    DateTime Function()? clock,
   }) {
     return AudioImportQueue(
       workDir: workDir,
+      clock: clock,
       keepAudio: () => keepAudio,
       decode: ({required inputPath, required outputWavPath}) =>
           decodeAudioFileToSttWav(
             inputPath: inputPath,
             outputWavPath: outputWavPath,
           ),
-      transcribe: transcribe ?? (_) async => 'hallo welt',
+      transcribe: transcribe ?? (_, {onProgress}) async => 'hallo welt',
       save:
           save ??
           ({
@@ -151,7 +153,7 @@ void main() {
     final a = writeFile('a.wav', _toneWav());
     var calls = 0;
     final queue = buildQueue(
-      transcribe: (_) async {
+      transcribe: (_, {onProgress}) async {
         calls++;
         if (calls == 1) throw Exception('engine not ready');
         return 'nach dem Retry';
@@ -174,7 +176,7 @@ void main() {
     final gate = Completer<void>();
     final transcribed = <int>[];
     final queue = buildQueue(
-      transcribe: (bytes) async {
+      transcribe: (bytes, {onProgress}) async {
         transcribed.add(bytes.length);
         await gate.future;
         return 'x';
@@ -192,6 +194,148 @@ void main() {
       ImportStatus.cancelled,
     ]);
     expect(transcribed, hasLength(1));
+  });
+
+  group('transcribing progress', () {
+    test(
+      'reports the engine fraction while transcribing, clamped and throttled',
+      () async {
+        final a = writeFile('a.wav', _toneWav());
+        var now = DateTime(2026, 10, 22, 12);
+        final seen = <double>[];
+        void Function(double)? report;
+        final queue = buildQueue(
+          clock: () => now,
+          transcribe: (_, {onProgress}) async {
+            report = onProgress;
+            onProgress!(0.1); // first update: accepted
+            onProgress(0.2); // same instant: dropped by the throttle
+            now = now.add(const Duration(milliseconds: 300));
+            onProgress(0.35); // accepted
+            now = now.add(const Duration(milliseconds: 300));
+            onProgress(1.7); // clamped to 1.0
+            now = now.add(const Duration(milliseconds: 300));
+            onProgress(double.nan); // ignored
+            return 'x';
+          },
+          onChanged: (jobs) {
+            final job = jobs.first;
+            if (job.status == ImportStatus.transcribing &&
+                job.progress != null) {
+              if (seen.isEmpty || seen.last != job.progress) {
+                seen.add(job.progress!);
+              }
+            }
+          },
+        );
+
+        await queue.enqueue([a.path]);
+
+        expect(seen, [0.1, 0.35, 1.0]);
+        expect(queue.jobs.single.status, ImportStatus.done);
+        expect(queue.jobs.single.progress, isNull);
+        expect(report, isNotNull);
+      },
+    );
+
+    test('a late report after the transcription ended is ignored', () async {
+      final a = writeFile('a.wav', _toneWav());
+      void Function(double)? report;
+      final queue = buildQueue(
+        transcribe: (_, {onProgress}) async {
+          report = onProgress;
+          return 'x';
+        },
+      );
+
+      await queue.enqueue([a.path]);
+      report!(0.5);
+
+      expect(queue.jobs.single.status, ImportStatus.done);
+      expect(queue.jobs.single.progress, isNull);
+    });
+
+    test('a lower report never moves the bar backwards', () async {
+      final a = writeFile('a.wav', _toneWav());
+      var now = DateTime(2026, 10, 22, 12);
+      final seen = <double>[];
+      final queue = buildQueue(
+        clock: () => now,
+        transcribe: (_, {onProgress}) async {
+          // A retry inside the engine may restart from zero; the bar must
+          // stay at the highest value already shown.
+          for (final value in [0.6, 0.0, 0.3, 0.9]) {
+            now = now.add(const Duration(seconds: 1));
+            onProgress!(value);
+          }
+          return 'x';
+        },
+        onChanged: (jobs) {
+          final progress = jobs.first.progress;
+          if (jobs.first.status == ImportStatus.transcribing &&
+              progress != null &&
+              (seen.isEmpty || seen.last != progress)) {
+            seen.add(progress);
+          }
+        },
+      );
+
+      await queue.enqueue([a.path]);
+
+      expect(seen, [0.6, 0.9]);
+      expect(queue.jobs.single.status, ImportStatus.done);
+    });
+
+    test(
+      'the job records when transcribing started and clears it when done',
+      () async {
+        final a = writeFile('a.wav', _toneWav());
+        final start = DateTime(2026, 10, 22, 12, 5);
+        DateTime? seenSince;
+        final queue = buildQueue(
+          clock: () => start,
+          transcribe: (_, {onProgress}) async => 'x',
+          onChanged: (jobs) {
+            if (jobs.first.status == ImportStatus.transcribing) {
+              seenSince ??= jobs.first.transcribingSince;
+            }
+          },
+        );
+
+        await queue.enqueue([a.path]);
+
+        expect(seenSince, start);
+        expect(queue.jobs.single.transcribingSince, isNull);
+      },
+    );
+
+    test(
+      'cancel during transcription ends the job and saves nothing',
+      () async {
+        final a = writeFile('a.wav', _toneWav());
+        final gate = Completer<void>();
+        final saved = <String>[];
+        final queue = buildQueue(
+          transcribe: (_, {onProgress}) async {
+            onProgress!(0.5);
+            await gate.future;
+            return 'x';
+          },
+          savedTranscripts: saved,
+        );
+
+        final run = queue.enqueue([a.path]);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(queue.jobs.single.status, ImportStatus.transcribing);
+        queue.cancel(queue.jobs.single.id);
+        gate.complete();
+        await run;
+
+        expect(queue.jobs.single.status, ImportStatus.cancelled);
+        expect(queue.jobs.single.progress, isNull);
+        expect(saved, isEmpty);
+      },
+    );
   });
 
   test('keeps the decoded audio only when audio retention is on', () async {

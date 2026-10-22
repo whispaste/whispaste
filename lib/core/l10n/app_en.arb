@@ -2709,6 +2709,16 @@
   "@historyImportStatusTranscribing": {
     "description": "Status while the speech engine transcribes the imported file."
   },
+  "historyImportElapsed": "Running for {elapsed}",
+  "@historyImportElapsed": {
+    "description": "Time since the transcription started, shown while the engine reports no progress.",
+    "placeholders": { "elapsed": { "type": "String" } }
+  },
+  "historyImportPercent": "{percent}%",
+  "@historyImportPercent": {
+    "description": "Percentage of the transcription done, shown only when the engine reports it.",
+    "placeholders": { "percent": { "type": "int" } }
+  },
   "historyImportStatusDone": "Done",
   "@historyImportStatusDone": {
     "description": "Status of an import job that finished and created a history entry."

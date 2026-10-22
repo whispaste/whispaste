@@ -6422,6 +6422,16 @@ class L10nRu extends L10n {
   String get historyImportStatusTranscribing => 'Расшифровка';
 
   @override
+  String historyImportElapsed(String elapsed) {
+    return 'Идёт $elapsed';
+  }
+
+  @override
+  String historyImportPercent(int percent) {
+    return '$percent%';
+  }
+
+  @override
   String get historyImportStatusDone => 'Готово';
 
   @override

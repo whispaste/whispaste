@@ -60,6 +60,35 @@ typedef WhisperNewSegmentCallbackNative =
       ffi.Pointer<ffi.Void> userData,
     );
 
+/// Native signature of `whisper_full_params.progress_callback` (IMP-PROG-2).
+/// whisper.cpp passes an integer percentage `0..100` of the current
+/// `whisper_full` call. Registered per call in [WhisperFfiEngine._decodeOnce]
+/// and closed only after `whisper_full` has returned (WP-48).
+typedef WhisperProgressCallbackNative =
+    ffi.Void Function(
+      ffi.Pointer<whisper_context> ctx,
+      ffi.Pointer<whisper_state> state,
+      ffi.Int progress,
+      ffi.Pointer<ffi.Void> userData,
+    );
+
+/// Overall fraction `0..1` of a transcription split into [chunkCount] chunks,
+/// given the fraction [withinChunk] (`0..1`) of the chunk at [chunkIndex].
+/// Chunks are weighted equally, so the result rises monotonically from 0
+/// (first chunk, nothing done) to 1 (last chunk, complete). Inputs outside
+/// their range are clamped.
+@visibleForTesting
+double chunkedProgressFraction({
+  required int chunkIndex,
+  required int chunkCount,
+  required double withinChunk,
+}) {
+  if (chunkCount <= 0) return 0;
+  final index = chunkIndex.clamp(0, chunkCount - 1);
+  final within = withinChunk.isFinite ? withinChunk.clamp(0.0, 1.0) : 0.0;
+  return ((index + within) / chunkCount).clamp(0.0, 1.0);
+}
+
 /// Absolute path to the `libwhisper` shared library bundled next to the running
 /// app, per platform. `libwhisper` (plus its `ggml*` backends) is embedded and
 /// signed into each platform bundle at build time (ADR-01, Option C) — never
@@ -1089,6 +1118,7 @@ class WhisperFfiEngine
     bool includeTimestamps = false,
     bool vadEnabled = false,
     bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
   }) async {
     final bindings = _bindings;
     final ctx = _ctx;
@@ -1158,6 +1188,7 @@ class WhisperFfiEngine
         includeTimestamps: includeTimestamps,
         vadEnabled: vadEnabled,
         reducedThreads: reducedThreads,
+        onProgress: onProgress,
       );
     }
 
@@ -1173,6 +1204,7 @@ class WhisperFfiEngine
       segmentTimeOffsetMs: 0,
       segmentIndexOffset: 0,
       resetLastSegments: true,
+      onProgress: onProgress,
     );
   }
 
@@ -1301,6 +1333,7 @@ class WhisperFfiEngine
     required bool includeTimestamps,
     required bool vadEnabled,
     required bool reducedThreads,
+    void Function(double fraction)? onProgress,
   }) async {
     final splitPoints = findPauseSplitPoints(samples);
     if (splitPoints.isEmpty) {
@@ -1322,6 +1355,7 @@ class WhisperFfiEngine
         segmentTimeOffsetMs: 0,
         segmentIndexOffset: 0,
         resetLastSegments: true,
+        onProgress: onProgress,
       );
     }
 
@@ -1355,6 +1389,15 @@ class WhisperFfiEngine
         segmentTimeOffsetMs: chunkStartMs,
         segmentIndexOffset: segmentIndexOffset,
         resetLastSegments: i == 0,
+        onProgress: onProgress == null
+            ? null
+            : (withinChunk) => onProgress(
+                chunkedProgressFraction(
+                  chunkIndex: i,
+                  chunkCount: boundaries.length,
+                  withinChunk: withinChunk,
+                ),
+              ),
       );
       buffer.write(chunkText);
       // Advance the live-transcript prefix so the next chunk's callback
@@ -1389,6 +1432,7 @@ class WhisperFfiEngine
     required int segmentTimeOffsetMs,
     required int segmentIndexOffset,
     required bool resetLastSegments,
+    void Function(double withinCall)? onProgress,
   }) async {
     final samplesPtr = malloc<ffi.Float>(samples.length);
     samplesPtr.asTypedList(samples.length).setAll(0, samples);
@@ -1603,6 +1647,28 @@ class WhisperFfiEngine
       params.new_segment_callback = segmentCallable.nativeFunction;
       params.new_segment_callback_user_data = ffi.nullptr;
 
+      // ── Progress callback (IMP-PROG-2) ─────────────────────────────────
+      // Same threading model as the segment callback above: whisper.cpp
+      // fires it on the thread blocked inside `whisper_full`, which is this
+      // isolate's own thread, so `.isolateLocal` is safe. It is closed only
+      // after `whisper_full` returned (WP-48): native code may call it at
+      // any point before that. Absent when nobody listens.
+      final progressSink = onProgress;
+      final progressCallable = progressSink == null
+          ? null
+          : ffi.NativeCallable<WhisperProgressCallbackNative>.isolateLocal((
+              ffi.Pointer<whisper_context> progCtx,
+              ffi.Pointer<whisper_state> progState,
+              int progress,
+              ffi.Pointer<ffi.Void> userData,
+            ) {
+              progressSink((progress.clamp(0, 100)) / 100.0);
+            });
+      if (progressCallable != null) {
+        params.progress_callback = progressCallable.nativeFunction;
+        params.progress_callback_user_data = ffi.nullptr;
+      }
+
       final int rc;
       try {
         final guard = _guard;
@@ -1619,6 +1685,7 @@ class WhisperFfiEngine
         throw _nativeInferenceFailure('whisper_full', e);
       } finally {
         segmentCallable.close();
+        progressCallable?.close();
       }
       if (rc != 0) {
         // whisper.cpp reports decode failures as a generic non-zero return

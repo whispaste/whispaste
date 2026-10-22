@@ -6344,6 +6344,16 @@ class L10nDe extends L10n {
   String get historyImportStatusTranscribing => 'Wird transkribiert';
 
   @override
+  String historyImportElapsed(String elapsed) {
+    return 'Läuft seit $elapsed';
+  }
+
+  @override
+  String historyImportPercent(int percent) {
+    return '$percent %';
+  }
+
+  @override
   String get historyImportStatusDone => 'Fertig';
 
   @override

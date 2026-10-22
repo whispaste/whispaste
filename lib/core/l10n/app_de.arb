@@ -2059,6 +2059,16 @@
   "historyImportStatusCopying": "Wird kopiert",
   "historyImportStatusDecoding": "Wird dekodiert",
   "historyImportStatusTranscribing": "Wird transkribiert",
+  "historyImportElapsed": "Läuft seit {elapsed}",
+  "@historyImportElapsed": {
+    "description": "Zeit seit Beginn der Transkription, solange die Engine keinen Fortschritt meldet.",
+    "placeholders": { "elapsed": { "type": "String" } }
+  },
+  "historyImportPercent": "{percent} %",
+  "@historyImportPercent": {
+    "description": "Anteil der Transkription, nur wenn die Engine ihn meldet.",
+    "placeholders": { "percent": { "type": "int" } }
+  },
   "historyImportStatusDone": "Fertig",
   "historyImportStatusFailed": "Fehlgeschlagen",
   "historyImportStatusCancelled": "Abgebrochen",

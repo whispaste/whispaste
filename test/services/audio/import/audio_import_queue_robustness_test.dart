@@ -37,7 +37,7 @@ void main() {
       workDir: workDir,
       keepAudio: () => keepAudio,
       decode: decode,
-      transcribe: (_) async => 'hallo',
+      transcribe: (_, {onProgress}) async => 'hallo',
       save:
           ({
             required fileName,
@@ -86,7 +86,7 @@ void main() {
               inputPath: inputPath,
               outputWavPath: outputWavPath,
             ),
-        transcribe: (_) async => throw _FakeOom(),
+        transcribe: (_, {onProgress}) async => throw _FakeOom(),
         save:
             ({
               required fileName,
@@ -167,7 +167,7 @@ void main() {
         decode: ({required inputPath, required outputWavPath}) async {
           fail('an oversize file must never reach the decoder');
         },
-        transcribe: (_) async => 'hallo',
+        transcribe: (_, {onProgress}) async => 'hallo',
         save:
             ({
               required fileName,
@@ -220,7 +220,7 @@ void main() {
           await File(outputWavPath).writeAsBytes(const [1, 2, 3]);
           throw const AudioDecoderIoException('disk full');
         },
-        transcribe: (_) async => 'hallo',
+        transcribe: (_, {onProgress}) async => 'hallo',
         save:
             ({
               required fileName,
@@ -249,7 +249,7 @@ void main() {
       decode: ({required inputPath, required outputWavPath}) async {
         throw StateError('decode must not run after a failed copy');
       },
-      transcribe: (_) async => 'hallo',
+      transcribe: (_, {onProgress}) async => 'hallo',
       save:
           ({
             required fileName,

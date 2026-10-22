@@ -1865,6 +1865,16 @@
   "historyImportStatusCopying": "Копирование",
   "historyImportStatusDecoding": "Декодирование",
   "historyImportStatusTranscribing": "Расшифровка",
+  "historyImportElapsed": "Идёт {elapsed}",
+  "@historyImportElapsed": {
+    "description": "Время с начала расшифровки, пока движок не сообщает прогресс.",
+    "placeholders": { "elapsed": { "type": "String" } }
+  },
+  "historyImportPercent": "{percent}%",
+  "@historyImportPercent": {
+    "description": "Доля выполненной расшифровки, только если движок её сообщает.",
+    "placeholders": { "percent": { "type": "int" } }
+  },
   "historyImportStatusDone": "Готово",
   "historyImportStatusFailed": "Ошибка",
   "historyImportStatusCancelled": "Отменено",

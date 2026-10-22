@@ -293,3 +293,21 @@ abstract class PromptTokenCounter {
 abstract class DetectedLanguageSource {
   String? get lastDetectedLanguage;
 }
+
+/// Optional capability (IMP-PROG-2): an engine that reports decode progress
+/// while [transcribeWithProgress] runs. [onProgress] receives fractions in
+/// `0..1`, monotone within one call, and is never called after the returned
+/// future completes. Engines without it stay indeterminate in the UI.
+///
+/// Kept out of [WhisperEngine] like [PartialTranscriptSource]: test doubles
+/// implement [WhisperEngine] directly and must not all grow this method.
+abstract class TranscriptionProgressSource {
+  Future<String> transcribeWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    String? prompt,
+    bool vadEnabled = false,
+    bool reducedThreads = false,
+    void Function(double fraction)? onProgress,
+  });
+}
