@@ -138,8 +138,11 @@ echo "      staged: $(cd "$STAGE_DIR" && ls *.dylib *.so | tr '\n' ' ')"
 echo "[4/4] writing SHA256SUMS"
 ( cd "$STAGE_DIR" && shasum -a 256 *.dylib *.so > SHA256SUMS )
 # Pin stamp: lets the Xcode embed phase notice dylibs staged from an older
-# whisper.cpp pin and rebuild them.
-echo "$WHISPER_TAG@$WHISPER_PINNED_COMMIT" > "$STAGE_DIR/WHISPER_PIN"
+# whisper.cpp pin or older native/ffi_guard sources and rebuild them. The
+# guard part matters: a stage from before an ABI bump ships a guard the Dart
+# side rejects, and without it no ggml backend (not even CPU) gets loaded.
+FFI_GUARD_HASH="$(cat "$REPO_ROOT"/native/ffi_guard/* | shasum -a 256 | cut -c1-16)"
+echo "$WHISPER_TAG@$WHISPER_PINNED_COMMIT+ffi_guard:$FFI_GUARD_HASH" > "$STAGE_DIR/WHISPER_PIN"
 cat "$STAGE_DIR/SHA256SUMS"
 
 echo "=== done. Now run: flutter build macos ==="
