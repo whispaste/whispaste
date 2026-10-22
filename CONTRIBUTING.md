@@ -48,6 +48,11 @@ npx vitest run <path>
 npx playwright test <path>
 ```
 
+The git hooks in `.githooks/` run the same repo gates as CI
+(`scripts/ci-gates.sh`) on commit and push. A push that touches `website/`
+also runs the website gate (`npm audit`, vitest, Playwright), so install the
+website dependencies first with `npm ci --prefix website`.
+
 ### Prerequisites
 
 [Flutter](https://flutter.dev/docs/get-started/install) 3.x, and Windows 10
