@@ -348,8 +348,10 @@ if [ -n "$DART_STAGED" ]; then
   # Commit-Hash überschrieben wird ("0.0.0-unknown" → pub-Resolution
   # schlägt fehl). Reproduzierbar aus jedem Worktree heraus.
   flutter_ok=true
+  # Same scope as ci.yml's Analyze step: a bare `flutter analyze` descends into
+  # packages/ (own lints, not resolved by the root pub get) and fails there.
   env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_PREFIX \
-    flutter analyze --fatal-infos --fatal-warnings 2>&1 || flutter_ok=false
+    flutter analyze --fatal-infos --fatal-warnings lib test integration_test tool 2>&1 || flutter_ok=false
 
   # flutter analyze regeneriert GeneratedPluginRegistrant.swift als
   # Nebeneffekt und entfernt dabei den MAS-Guard erneut -- unabhängig davon,

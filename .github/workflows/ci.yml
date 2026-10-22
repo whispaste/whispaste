@@ -438,7 +438,7 @@ jobs:
             libgtk-3-dev liblzma-dev libsecret-1-dev \
             libkeybinder-3.0-dev libnotify-dev libcurl4-openssl-dev \
             libayatana-appindicator3-dev libasound2-dev libxss-dev xvfb \
-            libxtst-dev x11-xkb-utils
+            libxtst-dev x11-xkb-utils libopusfile-dev libflac-dev
           pkg-config --exists xscrnsaver || { echo "::error::xscrnsaver (libxss-dev) missing"; exit 1; }
 
       - name: Set up Flutter
