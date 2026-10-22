@@ -692,6 +692,48 @@ EOF
   fi
 fi
 
+# Website-Pfade im Push? Dann darf der Website-Gate nie stillschweigend
+# entfallen (fehlende node_modules = Push blockiert, mit Anleitung). Ohne
+# Website-Änderung bleibt der bisherige sparsame Lauf unverändert.
+website_touched=0
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr _lsha _rr _rsha <<<"$_refline" || true
+  [ "$_lsha" = "$ZERO" ] && continue
+  if [ "$_rsha" != "$ZERO" ]; then
+    _wrange="${_rsha}..${_lsha}"
+  else
+    _wrange="$_lsha --not --remotes"
+  fi
+  # shellcheck disable=SC2086
+  if git log --format= --name-only $_wrange -- website 2>/dev/null | grep -q .; then
+    website_touched=1
+  fi
+done
+if [ "$website_touched" = 1 ] && { [ ! -d "$ROOT/website/node_modules" ] || ! command -v npm >/dev/null 2>&1; }; then
+  cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Website-Gate nicht lauffähig               ║
+╚══════════════════════════════════════════════════════════════╝
+Lokal fehlen die Website-Abhängigkeiten, daher liefe der Website-Gate
+(Audit, Vitest, Playwright) ins Leere. Erst \`npm ci --prefix website\`
+ausführen, dann erneut pushen.
+EOF
+  exit 1
+fi
+
+# Repo-Gates wie CI (scripts/ci-gates.sh), Hard-Fail vor dem Push
+echo ""; echo "Repo-Gates (wie CI)..."
+if ! bash "$ROOT/scripts/ci-gates.sh"; then
+  cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Repo-Gate fehlgeschlagen (ci-gates.sh)     ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+  exit 1
+fi
+
 # Website CI (sparsam: nur wenn module installiert)
 if [ -f "$ROOT/website/package.json" ] && command -v npm >/dev/null 2>&1 \
    && [ -d "$ROOT/website/node_modules" ]; then
@@ -714,7 +756,9 @@ if [ -f "$ROOT/website/package.json" ] && command -v npm >/dev/null 2>&1 \
   # a push just because of that. GitHub Actions runners are always fresh, so
   # the workflow itself keeps relying on playwright.config.ts's 4321 default.
   website_ci_port="$(node "$ROOT/website/scripts/find-free-port.mjs")"
-  if ! (cd "$ROOT/website" && npm run build && npx playwright install chromium webkit && CI=true PLAYWRIGHT_PORT="$website_ci_port" npm run test:ci) 2>&1; then
+  # Same steps as the CI "Website" job: audit (high), vitest unit tests,
+  # build, Playwright E2E.
+  if ! (cd "$ROOT/website" && npm audit --audit-level=high && npm run test:unit && npm run build && npx playwright install chromium webkit && CI=true PLAYWRIGHT_PORT="$website_ci_port" npm run test:ci) 2>&1; then
     cat >&2 <<EOF
 
 ╔══════════════════════════════════════════════════════════════╗

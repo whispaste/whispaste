@@ -494,6 +494,24 @@ EOF
   echo "  Website CI: OK"
 fi
 
+# ── 7b. Repo-Gates aus CI (scripts/ci-gates.sh, ~2 s) ─────────────────
+# Dieselben Gates wie der CI-Job "Secret scan": dev.log/debugPrint-Gate und
+# Secret-Muster. Ein Verstoß, der hier fehlt, wird erst als roter CI-Lauf
+# sichtbar (2026-10-20: das Logging-Gate hat jeden dev-Push rot gemacht).
+if [ -f "$ROOT/scripts/ci-gates.sh" ]; then
+  echo ""
+  echo "Repo-Gates (wie CI)..."
+  if ! bash "$ROOT/scripts/ci-gates.sh"; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Repo-Gate fehlgeschlagen (scripts/ci-gates.sh)  ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+fi
+
 # ── 8. Doc-Gate (Content-Level: Infra-Leaks, Sprache, Security-Werbung) ─
 if [ -f "$ROOT/.githooks/check-docs.sh" ]; then
   bash "$ROOT/.githooks/check-docs.sh" staged || exit 1

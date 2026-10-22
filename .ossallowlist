@@ -179,6 +179,7 @@ scripts/docs-attest.sh
 scripts/approve-release.sh
 scripts/docs-drift.sh
 scripts/check-workflow-hygiene.sh
+scripts/ci-gates.sh
 scripts/ci/detect-changes.sh
 scripts/ci/flutter-test.sh
 scripts/smoke/
