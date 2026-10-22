@@ -833,9 +833,14 @@ void main() {
         final (h2, b) = await stallable(
           frameDeadline: const Duration(seconds: 2),
         );
+        // Let the initial sync land first, then the write and any sync it
+        // triggers, and only then take the baseline. Otherwise the first show
+        // of the session is counted as a reaction to the write.
+        await _waitFor(() => b.states.isNotEmpty, 'the initial sync');
         await h2.container
             .read(settingsProvider.notifier)
             .updateSettings((s) => s.copyWith(floatingButtonRing: false));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
         final pushes = b.states.length;
         final geometry = b.geometryCalls;
 
