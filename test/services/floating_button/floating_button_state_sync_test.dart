@@ -823,10 +823,11 @@ void main() {
     test(
       'a healthy engine acknowledges every push and is never re-booted',
       () async {
-        // The deadline is long on purpose: this test asserts that a healthy
-        // engine is never judged stalled, so the window must dwarf any load.
+        // The deadline dwarfs the harness setup (database and file prep run on
+        // the same clock): startup pushes must not be judged stalled, or a slow
+        // runner reboots a healthy engine before the test even starts.
         final (h2, b) = await stallable(
-          frameDeadline: const Duration(seconds: 2),
+          frameDeadline: const Duration(seconds: 30),
         );
         await h2.container
             .read(settingsProvider.notifier)

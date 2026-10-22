@@ -654,7 +654,7 @@ class _HoldOrTapRow extends ConsumerWidget {
         subtitle: supportsKeyUp
             ? l10n.settingsHoldOrTapHint
             : '${l10n.settingsHoldOrTapHint}\n'
-                  '${pushToTalkUnavailableMessage(l10n)}',
+                  '${pushToTalkUnavailableMessage(l10n, operatingSystem: defaultTargetPlatform == TargetPlatform.linux ? 'linux' : 'other')}',
         semanticToggledValue: enabled ? audio.holdOrTap : null,
         // Same reasoning as in _PushToTalkRow: a disabled Switch would
         // otherwise merge its own toggled-state flags into the row.
