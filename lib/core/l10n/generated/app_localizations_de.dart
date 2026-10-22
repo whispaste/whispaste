@@ -3973,7 +3973,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'Standardmäßig läuft die Spracherkennung auf deinem Gerät – deine Aufnahmen bleiben dort.';
+      'Nach dem Modell-Download läuft die Spracherkennung auf deinem Gerät – auch offline.';
 
   @override
   String get onboardingBeat3Title => 'Überall, wo du tippst';
@@ -6433,10 +6433,16 @@ class L10nDe extends L10n {
 
   @override
   String get settingsPreviewHint =>
-      'So erscheinen Overlay und Button beim Aufnehmen. Änderungen wirken sofort.';
+      'So sehen Overlay und Button im Ruhezustand und beim Aufnehmen aus. Änderungen wirken sofort.';
 
   @override
   String get settingsPreviewOverlayCaption => 'Overlay';
+
+  @override
+  String get settingsPreviewButtonIdleCaption => 'Bereit';
+
+  @override
+  String get settingsPreviewButtonRecordingCaption => 'Aufnahme';
 
   @override
   String get settingsOverlayOptionsGroup => 'Overlay';

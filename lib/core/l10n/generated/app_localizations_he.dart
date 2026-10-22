@@ -3892,7 +3892,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'כברירת מחדל, זיהוי הדיבור פועל במכשיר שלך – וההקלטות נשארות בו.';
+      'לאחר הורדת המודל, זיהוי הדיבור פועל במכשיר שלך – גם במצב לא מקוון.';
 
   @override
   String get onboardingBeat3Title => 'בכל מקום שבו אתה מקליד';
@@ -6321,10 +6321,16 @@ class L10nHe extends L10n {
 
   @override
   String get settingsPreviewHint =>
-      'כך נראים השכבה והכפתור בזמן הקלטה. השינויים נכנסים לתוקף מיד.';
+      'כך נראים השכבה והכפתור במצב רגיל ובזמן הקלטה. השינויים נכנסים לתוקף מיד.';
 
   @override
   String get settingsPreviewOverlayCaption => 'שכבה';
+
+  @override
+  String get settingsPreviewButtonIdleCaption => 'מוכן';
+
+  @override
+  String get settingsPreviewButtonRecordingCaption => 'מקליט';
 
   @override
   String get settingsOverlayOptionsGroup => 'שכבה';

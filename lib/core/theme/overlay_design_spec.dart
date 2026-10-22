@@ -299,7 +299,6 @@ class OverlayThemeColors {
     required this.transcribingAccent,
     required this.success,
     required this.error,
-    required this.recordingDot,
   });
 
   /// Resolves the colour set for [background] paired with [wave].
@@ -347,11 +346,6 @@ class OverlayThemeColors {
             ? WpOverlayTokens.overlaySignalDarkError
             : WpOverlayTokens.overlaySignalLightError,
       ),
-      recordingDot: legible(
-        dark
-            ? WpOverlayTokens.overlaySignalDarkDot
-            : WpOverlayTokens.overlaySignalLightDot,
-      ),
     );
   }
 
@@ -376,7 +370,8 @@ class OverlayThemeColors {
   /// Hairline border of the pill: the wave colour at 20 percent.
   final Color capsuleBorder;
 
-  /// Wave colour: live waveform bars, recording dot and progress timeline.
+  /// Wave colour: live waveform bars, the recording mark (pill dot and button
+  /// mic while recording, ring) and progress timeline.
   final Color accent;
 
   /// Amber owned by the transcribing state (processing spinner and ripple).
@@ -389,9 +384,6 @@ class OverlayThemeColors {
 
   /// Error colour: error icon and message.
   final Color error;
-
-  /// Recording dot.
-  final Color recordingDot;
 
   /// Every colour in declaration order; equality and hashing run over this.
   List<Object> get _values => [
@@ -406,7 +398,6 @@ class OverlayThemeColors {
     transcribingAccent,
     success,
     error,
-    recordingDot,
   ];
 
   @override
@@ -1545,12 +1536,19 @@ abstract final class OverlayDesignSpec {
   /// Glyph colour stops of the floating button's mic for [state], taken from
   /// the resolved [colors] of the background, so an amber background gets the
   /// legible signal (WP-75). Flat: both stops are the same colour (ADR 0024).
+  ///
+  /// While recording the mic takes the wave colour, like the dot in the pill
+  /// (ADR 0024, Nachtrag 2026-10-22). Only where the wave is not legible on the
+  /// fill (3:1) does it fall back to the ink, the same rule the signals use.
   static List<Color> glyphStopsFor(
     OverlayDesignState state,
     OverlayThemeColors colors,
   ) {
     final color = switch (state) {
-      OverlayDesignState.recording => colors.recordingDot,
+      OverlayDesignState.recording =>
+        contrastRatio(colors.accent, colors.capsuleFill) >= 3.0
+            ? colors.accent
+            : colors.ink,
       OverlayDesignState.transcribing => colors.transcribingAccent,
       OverlayDesignState.done => colors.success,
       OverlayDesignState.error => colors.error,

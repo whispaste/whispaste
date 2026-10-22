@@ -21,10 +21,11 @@ import '../../../services/floating_button/floating_button_controller_interface.d
 import '../../../widgets/floating_button/floating_button_view.dart';
 import '../../../widgets/overlay_preview.dart';
 
-/// Narrowest stage content width (at text scale 1) that keeps overlay and
-/// button side by side: the button with its caption plus a pill scaled to
-/// roughly two thirds of its normal size.
-const double _minRowWidth = 420;
+/// Narrowest stage content width (at text scale 1) that keeps overlay and both
+/// button previews side by side: the two buttons with their captions and the
+/// gap between them, plus a pill scaled to roughly two thirds of its normal
+/// size.
+const double _minRowWidth = 520;
 
 class WpOverlayPreviewStage extends StatelessWidget {
   const WpOverlayPreviewStage({
@@ -99,20 +100,47 @@ class WpOverlayPreviewStage extends StatelessWidget {
                   ),
                 );
                 if (!showButton) return overlay;
+                // Both states of the button: the resting look (ink mic, resting
+                // opacity, no ring) and the recording look (wave-coloured mic
+                // and ring), exactly as the native button shows them.
                 final button = _PreviewItem(
                   caption: l10n.settingsFloatingButtonSection,
-                  child: IgnorePointer(
-                    child: WpFloatingButtonView(
-                      key: const ValueKey('overlay-preview-floating-button'),
-                      // The overlay preview beside it shows a recording, so the
-                      // button shows the recording look (mic colour + ring),
-                      // exactly as the native button does while recording.
-                      state: FloatingButtonVisualState.recording,
-                      diameter: buttonLook.diameter,
-                      background: background,
-                      wave: wave,
-                      look: buttonLook,
-                    ),
+                  child: Wrap(
+                    spacing: WpSpacing.lg,
+                    runSpacing: WpSpacing.md,
+                    crossAxisAlignment: WrapCrossAlignment.end,
+                    children: [
+                      _PreviewItem(
+                        caption: l10n.settingsPreviewButtonIdleCaption,
+                        child: IgnorePointer(
+                          child: WpFloatingButtonView(
+                            key: const ValueKey(
+                              'overlay-preview-floating-button-idle',
+                            ),
+                            state: FloatingButtonVisualState.idle,
+                            diameter: buttonLook.diameter,
+                            background: background,
+                            wave: wave,
+                            look: buttonLook,
+                          ),
+                        ),
+                      ),
+                      _PreviewItem(
+                        caption: l10n.settingsPreviewButtonRecordingCaption,
+                        child: IgnorePointer(
+                          child: WpFloatingButtonView(
+                            key: const ValueKey(
+                              'overlay-preview-floating-button-recording',
+                            ),
+                            state: FloatingButtonVisualState.recording,
+                            diameter: buttonLook.diameter,
+                            background: background,
+                            wave: wave,
+                            look: buttonLook,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 );
                 // Side by side while the pill keeps a legible size; the pill

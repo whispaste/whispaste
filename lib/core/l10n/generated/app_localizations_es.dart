@@ -3978,7 +3978,7 @@ class L10nEs extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'Por defecto, el reconocimiento de voz se hace en tu dispositivo, y tus grabaciones se quedan ahí.';
+      'Una vez descargado el modelo, el reconocimiento de voz se ejecuta en tu dispositivo, incluso sin conexión.';
 
   @override
   String get onboardingBeat3Title => 'En cualquier lugar donde escribas';
@@ -6441,10 +6441,16 @@ class L10nEs extends L10n {
 
   @override
   String get settingsPreviewHint =>
-      'Así se ven el overlay y el botón al grabar. Los cambios se aplican al momento.';
+      'Así se ven el overlay y el botón en reposo y al grabar. Los cambios se aplican al momento.';
 
   @override
   String get settingsPreviewOverlayCaption => 'Overlay';
+
+  @override
+  String get settingsPreviewButtonIdleCaption => 'Listo';
+
+  @override
+  String get settingsPreviewButtonRecordingCaption => 'Grabando';
 
   @override
   String get settingsOverlayOptionsGroup => 'Overlay';

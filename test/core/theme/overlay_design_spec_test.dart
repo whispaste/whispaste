@@ -523,7 +523,6 @@ void main() {
     test('transcribing owns its own accent, distinct from the wave accent', () {
       final c = OverlayDesignSpec.colorsFor();
       expect(c.transcribingAccent, isNot(c.accent));
-      expect(c.transcribingAccent, isNot(c.recordingDot));
       // One colour language with the floating button's mic tint.
       expect(
         OverlayDesignSpec.glyphStopsFor(

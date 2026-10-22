@@ -125,7 +125,6 @@ void main() {
               reason: 'glyph ink ${colors.ink} on $surface ($label)',
             );
             for (final signal in [
-              colors.recordingDot,
               colors.transcribingAccent,
               colors.success,
               colors.error,
@@ -190,10 +189,6 @@ void main() {
         background: OverlayBackground.amber,
       );
       expect(colors.success, WpOverlayTokens.overlayAmberInk);
-      expect(
-        _contrast(colors.recordingDot, OverlayBackground.amber.surfaceStart),
-        greaterThanOrEqualTo(3.0),
-      );
     });
 
     test('pairings that already pass keep their token values', () {
@@ -217,7 +212,6 @@ void main() {
       expect(colors.capsuleFill, WpOverlayTokens.overlayMarineSurface);
       expect(colors.ink, WpOverlayTokens.overlayMarineInk);
       expect(colors.inkOutline, WpOverlayTokens.overlayMarineInkOutline);
-      expect(colors.recordingDot, WpOverlayTokens.overlaySignalDarkDot);
       expect(
         colors.transcribingAccent,
         WpOverlayTokens.overlaySignalDarkTranscribing,
@@ -231,7 +225,6 @@ void main() {
       );
       expect(colors.tone, OverlayDesignTheme.light);
       expect(colors.accent, WpOverlayTokens.overlayWaveViolettLight);
-      expect(colors.recordingDot, WpOverlayTokens.overlaySignalLightDot);
       expect(
         colors.transcribingAccent,
         WpOverlayTokens.overlaySignalLightTranscribing,
@@ -257,6 +250,54 @@ void main() {
       );
       expect(a, equals(b));
       expect(a.hashCode, b.hashCode);
+    });
+  });
+
+  group('recording mic follows the wave (ADR 0024, Nachtrag 2026-10-22)', () {
+    const pairings = [
+      (OverlayBackground.amber, OverlayWave.ink),
+      (OverlayBackground.amber, OverlayWave.cyan),
+      (OverlayBackground.marine, OverlayWave.cyan),
+      (OverlayBackground.graphit, OverlayWave.neutral),
+      (OverlayBackground.gletscher, OverlayWave.violett),
+    ];
+
+    for (final (background, wave) in pairings) {
+      test('${background.value} x ${wave.value}: the recording mic is the wave '
+          'colour, as the dot in the pill', () {
+        final colors = OverlayDesignSpec.colorsFor(
+          background: background,
+          wave: wave,
+        );
+        expect(
+          OverlayDesignSpec.glyphStopsFor(OverlayDesignState.recording, colors),
+          [colors.accent, colors.accent],
+        );
+      });
+    }
+
+    test('falls back to the ink where the wave is not legible on the fill', () {
+      final base = OverlayDesignSpec.colorsFor();
+      final illegible = OverlayThemeColors(
+        tone: base.tone,
+        capsuleFill: const Color(0xFFFFFFFF),
+        ink: base.ink,
+        inkOutline: base.inkOutline,
+        edge: base.edge,
+        shadow: base.shadow,
+        capsuleBorder: base.capsuleBorder,
+        accent: const Color(0xFFF2F2F2),
+        transcribingAccent: base.transcribingAccent,
+        success: base.success,
+        error: base.error,
+      );
+      expect(
+        OverlayDesignSpec.glyphStopsFor(
+          OverlayDesignState.recording,
+          illegible,
+        ),
+        [base.ink, base.ink],
+      );
     });
   });
 }

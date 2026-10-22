@@ -4043,7 +4043,7 @@ class L10nRu extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'По умолчанию распознавание речи работает на вашем устройстве, а записи остаются на нём.';
+      'После загрузки модели распознавание речи работает на вашем устройстве — даже без сети.';
 
   @override
   String get onboardingBeat3Title => 'Везде, где печатаете';
@@ -6512,10 +6512,16 @@ class L10nRu extends L10n {
 
   @override
   String get settingsPreviewHint =>
-      'Так выглядят оверлей и кнопка во время записи. Изменения применяются сразу.';
+      'Так выглядят оверлей и кнопка в покое и во время записи. Изменения применяются сразу.';
 
   @override
   String get settingsPreviewOverlayCaption => 'Оверлей';
+
+  @override
+  String get settingsPreviewButtonIdleCaption => 'Готов';
+
+  @override
+  String get settingsPreviewButtonRecordingCaption => 'Запись';
 
   @override
   String get settingsOverlayOptionsGroup => 'Оверлей';

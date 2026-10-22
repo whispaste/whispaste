@@ -1,5 +1,6 @@
 /// WP-95: the settings preview stage is labelled, cannot be operated, and
-/// reflows at large text scales and in RTL.
+/// reflows at large text scales and in RTL. Shows both button states, the
+/// resting look and the recording look (2026-10-22).
 library;
 
 import 'package:flutter/material.dart';
@@ -14,6 +15,9 @@ import 'package:whispaste/widgets/floating_button/floating_button_view.dart';
 import 'package:whispaste/widgets/overlay_preview.dart';
 
 import '../../../fixtures/test_helpers.dart';
+
+const _idleKey = ValueKey('overlay-preview-floating-button-idle');
+const _recordingKey = ValueKey('overlay-preview-floating-button-recording');
 
 Widget _stage({
   bool showButton = true,
@@ -49,15 +53,24 @@ Widget _stage({
   );
 }
 
+/// Opacity the button applies to its own disc (its resting fade).
+double _opacityOf(WidgetTester tester, Key key) {
+  return tester
+      .widget<Opacity>(
+        find.descendant(of: find.byKey(key), matching: find.byType(Opacity)),
+      )
+      .opacity;
+}
+
 void main() {
-  testWidgets('floating button preview shows the recording look and ring', (
+  testWidgets('recording button shows the recording look and ring', (
     tester,
   ) async {
     await tester.pumpWidget(_stage(buttonLook: const FloatingButtonLook()));
     await tester.pump();
 
     final button = tester.widget<WpFloatingButtonView>(
-      find.byKey(const ValueKey('overlay-preview-floating-button')),
+      find.byKey(_recordingKey),
     );
     expect(button.state, FloatingButtonVisualState.recording);
     expect(
@@ -66,11 +79,37 @@ void main() {
         look: button.look,
       ).spec.borderWidth,
       2.0,
-      reason: 'preview ring should be drawn while the preview is recording',
+      reason: 'the ring is drawn in the recording preview',
     );
   });
 
-  testWidgets('is labelled as a preview with captions for both elements', (
+  testWidgets('resting button shows no ring and the resting opacity', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _stage(buttonLook: const FloatingButtonLook(idleOpacity: '40')),
+    );
+    await tester.pump();
+
+    final idle = tester.widget<WpFloatingButtonView>(find.byKey(_idleKey));
+    expect(idle.state, FloatingButtonVisualState.idle);
+    expect(
+      WpFloatingButtonView.painterFor(
+        state: idle.state,
+        look: idle.look,
+      ).spec.borderWidth,
+      isNot(2.0),
+      reason: 'no ring at rest',
+    );
+    expect(_opacityOf(tester, _idleKey), 0.4);
+    expect(
+      _opacityOf(tester, _recordingKey),
+      1.0,
+      reason: 'a recording is always shown at full strength',
+    );
+  });
+
+  testWidgets('both button states are shown with their own captions', (
     tester,
   ) async {
     await tester.pumpWidget(_stage());
@@ -81,49 +120,54 @@ void main() {
     expect(find.text(l10n.settingsPreviewHint), findsOneWidget);
     expect(find.text(l10n.settingsPreviewOverlayCaption), findsOneWidget);
     expect(find.text(l10n.settingsFloatingButtonSection), findsOneWidget);
+    expect(find.text(l10n.settingsPreviewButtonIdleCaption), findsOneWidget);
     expect(
-      find.byKey(const ValueKey('overlay-preview-floating-button')),
+      find.text(l10n.settingsPreviewButtonRecordingCaption),
       findsOneWidget,
     );
+    expect(find.byKey(_idleKey), findsOneWidget);
+    expect(find.byKey(_recordingKey), findsOneWidget);
   });
 
-  testWidgets('both previews are excluded from hit testing', (tester) async {
-    await tester.pumpWidget(_stage());
-    await tester.pump();
+  testWidgets(
+    'overlay and both button previews are excluded from hit testing',
+    (tester) async {
+      await tester.pumpWidget(_stage());
+      await tester.pump();
 
-    final ignoring = find.ancestor(
-      of: find.byKey(const ValueKey('overlay-preview-floating-button')),
-      matching: find.byType(IgnorePointer),
-    );
-    expect(ignoring, findsWidgets);
-    expect(tester.widget<IgnorePointer>(ignoring.first).ignoring, isTrue);
+      for (final key in [
+        _idleKey,
+        _recordingKey,
+        const ValueKey('overlay-real-preview-normal'),
+      ]) {
+        final ignoring = find.ancestor(
+          of: find.byKey(key),
+          matching: find.byType(IgnorePointer),
+        );
+        expect(ignoring, findsWidgets, reason: '$key has no IgnorePointer');
+        expect(
+          tester.widget<IgnorePointer>(ignoring.first).ignoring,
+          isTrue,
+          reason: '$key takes pointer input',
+        );
+      }
+    },
+  );
 
-    final overlayIgnoring = find.ancestor(
-      of: find.byKey(const ValueKey('overlay-real-preview-normal')),
-      matching: find.byType(IgnorePointer),
-    );
-    expect(overlayIgnoring, findsWidgets);
-    expect(
-      tester.widget<IgnorePointer>(overlayIgnoring.first).ignoring,
-      isTrue,
-    );
-  });
+  testWidgets(
+    'the button previews are absent when the platform has no button',
+    (tester) async {
+      await tester.pumpWidget(_stage(showButton: false));
+      await tester.pump();
 
-  testWidgets('the button preview is absent when the platform has no button', (
-    tester,
-  ) async {
-    await tester.pumpWidget(_stage(showButton: false));
-    await tester.pump();
-
-    expect(
-      find.byKey(const ValueKey('overlay-preview-floating-button')),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey('overlay-real-preview-normal')),
-      findsOneWidget,
-    );
-  });
+      expect(find.byKey(_idleKey), findsNothing);
+      expect(find.byKey(_recordingKey), findsNothing);
+      expect(
+        find.byKey(const ValueKey('overlay-real-preview-normal')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('reflows without overflow at text scale 2.0 and a narrow width', (
     tester,
@@ -143,30 +187,62 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  // 480 is the settings content width in a 1100 px window; German has the
-  // longest button caption ("Schwebender Button").
-  for (final width in [480.0, 1100.0]) {
-    testWidgets('stays compact at $width: overlay and button share one row', (
+  // An 800 px window with the settings column, at the large text scale the
+  // accessibility checks use, in both text directions.
+  for (final direction in TextDirection.values) {
+    testWidgets('fits an 800 px window at text scale 1.3 (${direction.name})', (
       tester,
     ) async {
-      await tester.pumpWidget(_stage(width: width, locale: const Locale('de')));
+      await tester.pumpWidget(
+        _stage(
+          width: 800,
+          textScale: 1.3,
+          direction: direction,
+          locale: const Locale('de'),
+        ),
+      );
       await tester.pump();
-
-      final stage = tester.getRect(
-        find.byKey(const ValueKey('overlay-preview-stage')),
-      );
-      final overlay = tester.getRect(find.byType(WpOverlayRealPreview));
-      final button = tester.getRect(
-        find.byKey(const ValueKey('overlay-preview-floating-button')),
-      );
-
-      // The pill keeps its own width (scaling down when space is short)
-      // instead of filling the stage, so the button sits beside it and the
-      // stage is not a large empty panel.
       expect(tester.takeException(), isNull);
-      expect(button.left, greaterThan(overlay.right));
-      expect(button.top, lessThan(overlay.bottom));
-      expect(stage.height, lessThan(200));
+      expect(find.byKey(_recordingKey), findsOneWidget);
+      expect(find.byKey(_idleKey), findsOneWidget);
     });
   }
+
+  testWidgets('a wide stage keeps overlay and both button states in one row', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_stage(width: 1100, locale: const Locale('de')));
+    await tester.pump();
+
+    final stage = tester.getRect(
+      find.byKey(const ValueKey('overlay-preview-stage')),
+    );
+    final overlay = tester.getRect(find.byType(WpOverlayRealPreview));
+    final idle = tester.getRect(find.byKey(_idleKey));
+    final recording = tester.getRect(find.byKey(_recordingKey));
+
+    // The pill keeps its own width instead of filling the stage, so both
+    // buttons sit beside it and the stage is not a large empty panel.
+    expect(tester.takeException(), isNull);
+    expect(idle.left, greaterThan(overlay.right));
+    expect(idle.top, lessThan(overlay.bottom));
+    expect(recording.left, greaterThan(idle.right));
+    expect(stage.height, lessThan(200));
+  });
+
+  testWidgets(
+    'a narrow stage stacks the buttons below the pill without overflow',
+    (tester) async {
+      await tester.pumpWidget(_stage(width: 480, locale: const Locale('de')));
+      await tester.pump();
+
+      final overlay = tester.getRect(find.byType(WpOverlayRealPreview));
+      final idle = tester.getRect(find.byKey(_idleKey));
+      final recording = tester.getRect(find.byKey(_recordingKey));
+
+      expect(tester.takeException(), isNull);
+      expect(idle.top, greaterThanOrEqualTo(overlay.bottom));
+      expect(recording.left, greaterThan(idle.right));
+    },
+  );
 }
