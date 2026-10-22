@@ -494,6 +494,8 @@ class AudioImportQueue {
         openSource ?? (path) => File(path).openRead();
     var copied = 0;
     var tooLarge = false;
+    // The copy starts by reporting 0 (see `_set` above), so 0 counts as reported.
+    var reportedPercent = 0;
     try {
       final total = check.size;
       final sink = File(target).openWrite();
@@ -526,7 +528,14 @@ class AudioImportQueue {
             break;
           }
           sink.add(chunk);
-          _set(id, progress: total == 0 ? 1 : (copied / total).clamp(0.0, 1.0));
+          // Report at most once per whole percent. A 1 GB copy in 64 KiB chunks
+          // would otherwise rebuild the import list about 16 000 times.
+          final fraction = total == 0 ? 1.0 : (copied / total).clamp(0.0, 1.0);
+          final percent = (fraction * 100).floor();
+          if (percent != reportedPercent) {
+            reportedPercent = percent;
+            _set(id, progress: fraction);
+          }
         }
       } finally {
         await sink.close();
