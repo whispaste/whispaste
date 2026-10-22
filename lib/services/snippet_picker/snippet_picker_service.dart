@@ -105,6 +105,12 @@ class SnippetPickerService
   /// [Paster]/[SnippetItem] only).
   Future<void> Function(SnippetItem snippet)? onInteractiveSnippetSelected;
 
+  /// Receives the outcome of each pasted snippet. Wired by the composition root
+  /// to the paste-result reporter, for the same reason as
+  /// [onInteractiveSnippetSelected]: the reporter reaches the tray, which
+  /// reaches back into this file.
+  Future<void> Function(PasteOutcome outcome)? onPasteResult;
+
   /// Whether the panel is currently open (a [show] call succeeded and
   /// neither a selection nor a cancellation event has arrived yet). Read by
   /// [RecordingOrchestrator.openSnippetPickerViaHotkey] (ticket 26) to avoid
@@ -193,7 +199,8 @@ class SnippetPickerService
       return;
     }
 
-    await _paste(snippet.body);
+    final outcome = await _paste(snippet.body);
+    unawaited(onPasteResult?.call(outcome));
   }
 
   /// The actual "write this body to the target window" mechanics, shared by

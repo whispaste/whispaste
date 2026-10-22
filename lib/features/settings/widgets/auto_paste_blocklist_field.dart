@@ -62,9 +62,30 @@ String _idPart(String identifier) =>
       '-',
     );
 
-/// Identifiers never contain control characters (line breaks, tabs).
+/// Identifiers never contain control characters. Line breaks are not in this
+/// set: [_LineBreaksToList] turns them into list separators instead.
 final TextInputFormatter _noControlCharacters =
-    FilteringTextInputFormatter.deny(RegExp(r'[\x00-\x1F\x7F]'));
+    FilteringTextInputFormatter.deny(RegExp(r'[\x00-\x09\x0B-\x1F\x7F]'));
+
+/// A pasted list with line breaks becomes a comma list in the field: one entry
+/// per line, trimmed, blanks dropped. Without line breaks the text is left as
+/// typed.
+class _LineBreaksToList extends TextInputFormatter {
+  const _LineBreaksToList();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (!newValue.text.contains(RegExp(r'[\r\n]'))) return newValue;
+    final list = autoPasteIdentifiersFromInput(newValue.text).join(', ');
+    return TextEditingValue(
+      text: list,
+      selection: TextSelection.collapsed(offset: list.length),
+    );
+  }
+}
 
 class AutoPasteBlocklistField extends ConsumerWidget {
   const AutoPasteBlocklistField({
@@ -238,13 +259,13 @@ class AutoPasteBlocklistField extends ConsumerWidget {
       context: context,
       title: l10n.settingsPasteBlocklistPickerTitle,
       content: _AutoPasteAppPicker(
-        onPicked: (identifier) {
+        onPicked: (identifiers) {
           final current = ref.read(settingsProvider).value?.behavior;
           _writeBlocklist(
             ref,
-            autoPasteBlocklistWith(
+            autoPasteBlocklistWithAll(
               current?.autoPasteBlocklist ?? '',
-              identifier,
+              identifiers,
             ),
           );
         },
@@ -266,7 +287,8 @@ class AutoPasteBlocklistField extends ConsumerWidget {
 class _AutoPasteAppPicker extends ConsumerStatefulWidget {
   const _AutoPasteAppPicker({required this.onPicked});
 
-  final void Function(String identifier) onPicked;
+  /// Receives one identifier per entry; the manual field may give several.
+  final void Function(List<String> identifiers) onPicked;
 
   @override
   ConsumerState<_AutoPasteAppPicker> createState() =>
@@ -284,7 +306,14 @@ class _AutoPasteAppPickerState extends ConsumerState<_AutoPasteAppPicker> {
 
   void _pick(String identifier) {
     if (identifier.trim().isEmpty) return;
-    widget.onPicked(identifier);
+    widget.onPicked([identifier]);
+    Navigator.of(context).pop();
+  }
+
+  void _addManual() {
+    final identifiers = autoPasteIdentifiersFromInput(_manual.text);
+    if (identifiers.isEmpty) return;
+    widget.onPicked(identifiers);
     Navigator.of(context).pop();
   }
 
@@ -349,8 +378,16 @@ class _AutoPasteAppPickerState extends ConsumerState<_AutoPasteAppPicker> {
                       hintText: _manualPlaceholder(l10n),
                       semanticLabel: l10n.settingsPasteBlocklistManualHeading,
                       onChanged: (_) => setState(() {}),
-                      // One identifier per entry: no line breaks or tabs.
-                      inputFormatters: [_noControlCharacters],
+                      // More than one line on purpose: a single-line field
+                      // turns line breaks into spaces before the formatter
+                      // below sees them. The field still shows one line.
+                      maxLines: 2,
+                      // One identifier per entry: a pasted line break separates
+                      // entries, tabs and other control characters are dropped.
+                      inputFormatters: [
+                        _noControlCharacters,
+                        const _LineBreaksToList(),
+                      ],
                     ),
                   ),
                 ),
@@ -359,9 +396,9 @@ class _AutoPasteAppPickerState extends ConsumerState<_AutoPasteAppPicker> {
                   testId: 'settings-paste-blocklist-manual-add',
                   label: l10n.settingsPasteBlocklistManualAdd,
                   variant: WpButtonVariant.secondary,
-                  onPressed: _manual.text.trim().isEmpty
+                  onPressed: autoPasteIdentifiersFromInput(_manual.text).isEmpty
                       ? null
-                      : () => _pick(_manual.text),
+                      : _addManual,
                 ),
               ],
             ),

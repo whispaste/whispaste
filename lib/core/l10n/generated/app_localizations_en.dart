@@ -765,6 +765,9 @@ class L10nEn extends L10n {
   String get pasteNotificationFailedTray => 'Auto-Paste failed';
 
   @override
+  String get pasteNotificationClipboardHint => 'The text is on the clipboard.';
+
+  @override
   String pasteNotificationLinuxUinputBody(String paste) {
     return 'WhisPaste can\'t use the virtual keyboard device /dev/uinput yet. The text is on the clipboard, paste it with $paste. Click here to set it up.';
   }
@@ -7328,7 +7331,7 @@ class L10nEn extends L10n {
 
   @override
   String get manualC02S4B3 =>
-      'Apps on the “Auto-Paste blocklist” get no automatic pasting. The text then goes to the clipboard, or only to Recordings if “Copy to the clipboard when apps are blocked” is off.';
+      'Apps on the “Auto-Paste blocklist” get no automatic pasting. The text then goes to the clipboard, or only to Recordings if “Copy to the clipboard when apps are blocked” is off. Enter one app per line in the field. If a paste fails, WhisPaste shows a notice and the text stays on the clipboard.';
 
   @override
   String get manualC02S4B4 =>

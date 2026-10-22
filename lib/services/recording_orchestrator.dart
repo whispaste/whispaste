@@ -7,11 +7,9 @@ library;
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show Locale;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
@@ -34,8 +32,6 @@ import 'app_profiles/app_profile_storage.dart';
 import 'audio/signal_loss_detector.dart';
 import 'audio/user_audio_dirs.dart';
 import 'clipboard_history/app_clipboard.dart';
-import 'desktop_paste/linux_uinput_access.dart';
-import 'desktop_paste/linux_uinput_consent_notice.dart';
 import 'model_download_service.dart';
 import 'path_service.dart';
 import 'recording/oom_recovery_handler.dart';
@@ -61,18 +57,15 @@ import 'smart_mode/smart_mode_text_model.dart';
 import 'sound_feedback_service.dart';
 import 'support_prompt_service.dart';
 import 'telemetry_service.dart';
-import 'paste/paste_capability_notifier.dart';
-import 'paste/paste_failure_notifier.dart';
 import 'paste/paste_policy.dart';
+import 'paste/paste_result_notice.dart';
 import 'paste/paster.dart';
-import 'permissions/tcc_entry_reset_confirm.dart';
 import 'selection_edit/selection_edit_service.dart'
     show SelectionEditOutcome, selectionEditServiceProvider;
 import 'system_attention_service.dart';
 import 'number_transforms.dart';
 import 'dictation_text_steps.dart';
 import 'text_transforms.dart';
-import 'tray_service.dart';
 import 'pending_audio/pending_audio_notice.dart';
 import 'pending_audio/pending_audio_providers.dart';
 import 'audio/retention/audio_retention.dart';
@@ -89,7 +82,6 @@ import 'automation_api/automation_hook_dispatcher_provider.dart';
 import 'transcription/language_mismatch_hint.dart';
 import 'transcription/transcriber.dart';
 import '../core/utils/word_count.dart';
-import '../core/config/settings_labels.dart';
 
 // ---------------------------------------------------------------------------
 // Orchestrator
@@ -185,7 +177,7 @@ class RecordingOrchestrator extends Notifier<void> {
   /// or finalized.
   _RecordingSession _session = _RecordingSession();
 
-  /// Set by [_reportPasteFailure] when it plays the paste-failure error
+  /// Set by [PasteResultReporter] when it plays the paste-failure error
   /// tone for the current pipeline run, then read (and reset) right before
   /// the `RecordingIntent.complete` transition — so the resulting
   /// `RecordingState.pasteFailed` lets the UI skip the separate
@@ -3466,11 +3458,10 @@ class RecordingOrchestrator extends Notifier<void> {
     onQuickNoteAppended?.call(note.id);
   }
 
-  /// Logs an unconfirmed paste. Only [PasteOutcome.unconfirmed] (a receipt
-  /// was armed but timed out or ownership was lost) raises a warning;
-  /// [PasteOutcome.unconfirmedNoBridge] (no receipt could be armed) says
-  /// nothing about this paste.
-  void _reportUnconfirmedPaste(PasteOutcome outcome) {
+  /// Logs an unconfirmed paste. [PasteOutcome.unconfirmedNoBridge] (no receipt
+  /// could be armed) says nothing about this paste and gets no warning. The
+  /// user-facing notice comes from [PasteResultReporter].
+  void _logUnconfirmedPaste(PasteOutcome outcome) {
     if (outcome == PasteOutcome.unconfirmedNoBridge) {
       _log.info(
         'Paste unconfirmed: no read receipt armed; transcript kept on the '
@@ -3483,18 +3474,6 @@ class RecordingOrchestrator extends Notifier<void> {
     _log.warning(
       'Paste unconfirmed: no proof the text reached the field; transcript kept '
       'on the clipboard',
-    );
-    ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
-  }
-
-  /// A failed paste is the moment a revoked permission shows up. Re-probe so
-  /// the Settings card, tray and recovery surfaces stop reading "ready".
-  void _recheckCapabilityAfterPasteFailure(PasteOutcome outcome) {
-    if (outcome == PasteOutcome.success) return;
-    unawaited(
-      ref
-          .read(pasteCapabilityNotifierProvider.notifier)
-          .recheckAfterPasteFailure(),
     );
   }
 
@@ -3529,12 +3508,15 @@ class RecordingOrchestrator extends Notifier<void> {
     if (outcome != PasteOutcome.success) {
       _pasteNotConfirmedThisPipeline = true;
     }
-    _recheckCapabilityAfterPasteFailure(outcome);
+
+    // The reporter alerts the user (in-app toast, OS notice, tray, sound) for
+    // every paste path. The pipeline only logs and decides what it returns.
+    final alerted = await ref.read(pasteResultReporterProvider).report(outcome);
+    if (alerted) _pasteFailureSoundPlayedThisPipeline = true;
 
     switch (outcome) {
       case PasteOutcome.success:
         _log.info('Pasted transcript (${transcript.length} chars)');
-        _clearPasteAttention();
         return true;
       case PasteOutcome.blocked:
         _log.info('Auto-paste blocked for current app (in blocklist)');
@@ -3550,31 +3532,15 @@ class RecordingOrchestrator extends Notifier<void> {
           'frontmost when recording started. Focus the destination app '
           'first, then trigger recording.',
         );
-        final noTargetL10n = _resolveL10n();
-        _reportPasteFailure(
-          outcome: PasteOutcome.noTarget,
-          kind: AttentionKind.pasteBlockedNoTarget,
-          title: noTargetL10n.pasteNotificationNoTargetTitle,
-          body: noTargetL10n.pasteNotificationNoTargetBody,
-          trayLabel: noTargetL10n.pasteNotificationNoTargetTray,
-        );
         return false;
       case PasteOutcome.permissionMissing:
-        await _reportPermissionMissingPaste();
+        _log.warning(pasteInjectionDeniedLogMessage(defaultTargetPlatform));
         return false;
       case PasteOutcome.elevationBlocked:
         _log.warning(
           'Paste failed: target window runs elevated, WhisPaste does not '
           '(Windows UIPI). Restart WhisPaste as an administrator to paste '
           'into that window.',
-        );
-        final elevationL10n = _resolveL10n();
-        _reportPasteFailure(
-          outcome: PasteOutcome.elevationBlocked,
-          kind: AttentionKind.pasteBlockedElevation,
-          title: elevationL10n.pasteNotificationElevationBlockedTitle,
-          body: elevationL10n.pasteNotificationElevationBlockedBody,
-          trayLabel: elevationL10n.pasteNotificationElevationBlockedTray,
         );
         return false;
       case PasteOutcome.targetChanged:
@@ -3584,230 +3550,29 @@ class RecordingOrchestrator extends Notifier<void> {
           'Paste refused: target app changed during processing; transcript '
           'kept on the clipboard',
         );
-        ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
         return false;
       case PasteOutcome.unconfirmed:
       case PasteOutcome.unconfirmedNoBridge:
-        _reportUnconfirmedPaste(outcome);
+        _logUnconfirmedPaste(outcome);
         return false;
       // platformUnavailable: the native paste channel is missing, so nothing
       // was pasted. It reports like an unknown failure. Otherwise the run
       // completes as a success (chime, toast) over text that never landed.
       case PasteOutcome.failed || PasteOutcome.platformUnavailable:
         _log.warning('Paste failed: native paste bridge reported $outcome');
-        final failedL10n = _resolveL10n();
-        _reportPasteFailure(
-          outcome: outcome,
-          kind: AttentionKind.pasteFailedUnknown,
-          title: failedL10n.pasteNotificationFailedTitle,
-          body: failedL10n.pasteNotificationFailedBody(
-            pasteShortcutLabel(l10n: failedL10n),
-          ),
-          trayLabel: failedL10n.pasteNotificationFailedTray,
-        );
         return false;
     }
   }
 
-  /// Reports a paste refused for a missing permission. Linux names the
-  /// uinput udev rule; macOS and Windows pick the recovery arm below.
-  Future<void> _reportPermissionMissingPaste() async {
-    _log.warning(pasteInjectionDeniedLogMessage(defaultTargetPlatform));
-    // Two distinct causes look identical from the paste outcome alone,
-    // so branch on the shared [PasteCapabilityNotifier.needsRestart]
-    // signal — the same one the settings indicator and onboarding use —
-    // before choosing the click target. A genuinely-missing grant needs
-    // the Settings pane; a grant WhisPaste already handed the user off to
-    // that still reads as missing is the known stale in-process view
-    // (Settings would show the toggle already on, which reads as "nothing
-    // to do here" and just re-confuses the user). That case needs a
-    // restart, not another trip to Settings. Routing the grant click
-    // through the notifier's `openAccessibilitySettings` records the
-    // handoff, so the *next* failure/surface correctly resolves to
-    // restart instead of sending the user to Settings a second time.
-    // Linux has no permission dialog to send the user to: the uinput
-    // device needs a one-time udev rule, and the Auto-Paste settings show
-    // the command for it (XP-5-06). The macOS arms below would show
-    // macOS copy and record a grant handoff that never happens.
-    if (defaultTargetPlatform == TargetPlatform.linux) {
-      final linuxL10n = _resolveL10n();
-      // Without any /dev/uinput node the udev rule cannot help, and the
-      // native bridge reports the same permission_missing for that case
-      // (PAR-025). The notice then must not ask for the rule.
-      final noDevice =
-          ref.read(pasteCapabilityNotifierProvider).capability?.status ==
-          PasteCapabilityStatus.unsupported;
-      final shortcut = pasteShortcutLabel(l10n: linuxL10n);
-      // After a .deb upgrade took the install-time access away (R-02), the
-      // first blocked paste says why, once.
-      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
-      final upgraded = !noDevice && await _takeLinuxConsentNotice(settings);
-      _reportPasteFailure(
-        outcome: PasteOutcome.permissionMissing,
-        kind: AttentionKind.pasteBlockedPermission,
-        title: linuxL10n.pasteNotificationPermissionBlockedTitle,
-        body: upgraded
-            ? linuxL10n.linuxUinputConsentNotice(shortcut)
-            : noDevice
-            ? linuxL10n.pasteNotificationLinuxNoDeviceBody(shortcut)
-            : linuxL10n.pasteNotificationLinuxUinputBody(shortcut),
-        trayLabel: noDevice
-            ? linuxL10n.pasteNotificationLinuxNoDeviceTray
-            : linuxL10n.pasteNotificationLinuxUinputTray,
-        onClick: () => ref
-            .read(trayServiceProvider.notifier)
-            .openActionNeeded(kTrayPasteActionNeededKey),
-      );
-      return;
-    }
-    final capNotifier = ref.read(pasteCapabilityNotifierProvider.notifier);
-    final staleGrant = capNotifier.needsRestart;
-    // Third arm, ahead of the plain Settings deep-link: on a live-probe
-    // build a missing permission can be a TCC entry pinned to a binary
-    // that no longer exists, and Settings then shows the toggle already
-    // ON — "nichts zu tun" — which is precisely the dead end the user
-    // reported. Clearing the entry first makes the row honest before the
-    // user ever gets there. See
-    // [PasteCapabilityNotifier.grantRequiresEntryReset] for why this is
-    // unconditional rather than gated on detected staleness.
-    final resetEntryFirst = !staleGrant && capNotifier.staleEntryResetCandidate;
-    // Name the chosen arm in the log: all three arms report the same
-    // `permissionMissing` outcome, so without this a support log cannot
-    // tell which recovery the user was actually offered.
-    _log.info(
-      'Auto-paste permission recovery arm: '
-      '${staleGrant
-          ? 'restart'
-          : resetEntryFirst
-          ? 'reset-entry-then-grant'
-          : 'open-settings'}',
-    );
-    final permissionL10n = _resolveL10n();
-    _reportPasteFailure(
-      outcome: PasteOutcome.permissionMissing,
-      kind: AttentionKind.pasteBlockedPermission,
-      title: staleGrant
-          ? permissionL10n.pasteNotificationRestartNeededTitle
-          : permissionL10n.pasteNotificationPermissionBlockedTitle,
-      body: staleGrant
-          ? permissionL10n.pasteNotificationRestartNeededBody
-          : resetEntryFirst
-          ? permissionL10n.pasteNotificationPermissionResetEntryBody
-          : permissionL10n.pasteNotificationPermissionOpenSettingsBody,
-      trayLabel: staleGrant
-          ? permissionL10n.pasteNotificationRestartNeededTray
-          : permissionL10n.pasteNotificationPermissionBlockedTray,
-      // The arms above pick the *wording*; the click itself re-resolves
-      // the arm when it fires. A notification can sit unread and the tray
-      // entry waits indefinitely, so the state at click time is the one
-      // that counts.
-      onClick: () => capNotifier.runMissingPermissionRecovery(
-        confirmReset: () => confirmTccEntryReset(l10n: permissionL10n),
-      ),
-      // Own tray key, so the persistent surface runs this recovery too
-      // instead of the default "open the after-transcription settings"
-      // jump — being sent to a settings page to hunt for a fix is the
-      // dead end this whole branch exists to remove.
-      trayMenuItemKey: kTrayPastePermissionActionNeededKey,
-      // Own tray key, so the persistent surface runs this recovery too
-      // instead of the default "open the after-transcription settings"
-      // jump — being sent to a settings page to hunt for a fix is the
-      // dead end this whole branch exists to remove.
-    );
-  }
-
   /// Resolves the app's own persisted language setting (`AppSettings.locale`,
   /// Settings → Language) for the native OS notification / tray text
-  /// [_reportPasteFailure] builds — not the raw OS locale, mirroring the fix
+  /// [PasteResultReporter] builds — not the raw OS locale, mirroring the fix
   /// for `FloatingOverlayService._resolveL10n()` (issue
   /// `overlay-status-l10n/01`, root cause 1). Falls back to English if the
   /// setting is missing or names an unsupported locale — English is always
   /// resolvable ([lookupL10n]'s template locale), so this never throws.
-  L10n _resolveL10n() {
-    final localeCode = ref.read(settingsProvider).value?.locale;
-    if (localeCode != null) {
-      try {
-        return lookupL10n(Locale(localeCode));
-      } catch (e) {
-        _log.debug('Unsupported locale "$localeCode", falling back to en: $e');
-      }
-    }
-    return lookupL10n(const Locale('en'));
-  }
-
-  Future<bool> _takeLinuxConsentNotice(AppSettings settings) async {
-    try {
-      return await takeLinuxUinputConsentNotice(
-        prefs: await SharedPreferences.getInstance(),
-        canManage: ref.read(linuxUinputAccessProvider).canManage,
-        // This paste ran, so Auto-Paste is on, and it was just refused.
-        autoPasteOn: true,
-        onboardingDone: settings.onboarding.onboardingCompleted,
-        pasteBlocked: () async => true,
-      );
-    } on Object catch (e) {
-      _log.warning('Consent notice check failed: $e');
-      return false;
-    }
-  }
-
-  void _reportPasteFailure({
-    required PasteOutcome outcome,
-    required AttentionKind kind,
-    required String title,
-    required String body,
-    required String trayLabel,
-    void Function()? onClick,
-    String trayMenuItemKey = kTrayPasteActionNeededKey,
-  }) {
-    ref.read(pasteFailureNotifierProvider.notifier).report(outcome);
-    _pasteFailureSoundPlayedThisPipeline = true;
-
-    // Dezenter Fehlerton — hörbar auch, wenn der Nutzer beim Diktieren nicht
-    // auf den Bildschirm schaut. Respektiert Sound-Volume + errorSound-Setting
-    // (siehe SoundFeedbackService.playError).
-    try {
-      ref.read(soundFeedbackProvider.notifier).playError();
-    } catch (e) {
-      _log.warning('Error sound failed: $e');
-    }
-
-    // Fire out-of-app surfaces (dock-bounce + native notification + tray
-    // badge) so the user sees the failure even when the main window is
-    // hidden — the common case for WhisPaste. Callers that promise a click
-    // target in their title/body pass [onClick] so the click actually does
-    // that instead of just foregrounding the app.
-    unawaited(
-      ref
-          .read(systemAttentionServiceProvider)
-          .requestAttention(
-            kind: kind,
-            title: title,
-            body: body,
-            onClick: onClick,
-          ),
-    );
-    try {
-      ref
-          .read(trayServiceProvider.notifier)
-          .setActionNeeded(
-            label: trayLabel,
-            tooltip: 'WhisPaste — $trayLabel',
-            menuItemKey: trayMenuItemKey,
-          );
-    } on Exception catch (e) {
-      _log.warning('Tray action-needed update failed', e);
-    }
-  }
-
-  void _clearPasteAttention() {
-    unawaited(ref.read(systemAttentionServiceProvider).clearAttention());
-    try {
-      ref.read(trayServiceProvider.notifier).clearActionNeeded();
-    } on Exception catch (e) {
-      _log.debug('clearActionNeeded failed', e);
-    }
-  }
+  L10n _resolveL10n() =>
+      appNoticeL10n(ref.read(settingsProvider).value?.locale);
 }
 
 // ---------------------------------------------------------------------------

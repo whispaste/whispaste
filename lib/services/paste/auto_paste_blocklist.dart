@@ -120,6 +120,24 @@ String autoPasteBlocklistWith(String raw, String identifier) {
   return [...autoPasteBlocklistEntries(raw), trimmed].join(', ');
 }
 
+/// The identifiers typed or pasted into the manual entry field. Line breaks
+/// separate entries, as do commas; each entry is trimmed and blanks are dropped.
+List<String> autoPasteIdentifiersFromInput(String text) => [
+  for (final part in text.split(RegExp(r'[\r\n,]+')))
+    if (part.trim() case final identifier when identifier.isNotEmpty)
+      identifier.trim(),
+];
+
+/// [raw] with every one of [identifiers] appended, in order (see
+/// [autoPasteBlocklistWith] for the rules per entry).
+String autoPasteBlocklistWithAll(String raw, Iterable<String> identifiers) {
+  var value = raw;
+  for (final identifier in identifiers) {
+    value = autoPasteBlocklistWith(value, identifier);
+  }
+  return value;
+}
+
 /// [raw] without the entries that match [identifier] by key.
 String autoPasteBlocklistWithout(String raw, String identifier) {
   final key = normalizeAppIdentifier(identifier);

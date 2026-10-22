@@ -770,6 +770,10 @@ class L10nDe extends L10n {
   String get pasteNotificationFailedTray => 'Auto-Paste fehlgeschlagen';
 
   @override
+  String get pasteNotificationClipboardHint =>
+      'Der Text liegt in der Zwischenablage.';
+
+  @override
   String pasteNotificationLinuxUinputBody(String paste) {
     return 'WhisPaste darf das virtuelle Tastaturgerät /dev/uinput noch nicht nutzen. Der Text liegt in der Zwischenablage, füge ihn mit $paste ein. Klicke hier, um es einzurichten.';
   }
@@ -7390,7 +7394,7 @@ class L10nDe extends L10n {
 
   @override
   String get manualC02S4B3 =>
-      'Apps auf der „Auto-Paste-Sperrliste“ bekommen kein Auto-Paste. Der Text landet dann in der Zwischenablage, oder nur in den Aufnahmen, wenn der Schalter „Bei gesperrten Apps in die Zwischenablage kopieren“ aus ist.';
+      'Apps auf der „Auto-Paste-Sperrliste“ bekommen kein Auto-Paste. Der Text landet dann in der Zwischenablage, oder nur in den Aufnahmen, wenn der Schalter „Bei gesperrten Apps in die Zwischenablage kopieren“ aus ist. Trag im Feld eine App pro Zeile ein. Klappt ein Einfügen nicht, zeigt WhisPaste einen Hinweis, und der Text liegt in der Zwischenablage.';
 
   @override
   String get manualC02S4B4 =>

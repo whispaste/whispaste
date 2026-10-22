@@ -22,6 +22,13 @@ import 'package:whispaste/services/side_panel/side_panel_controller_provider.dar
 import 'package:whispaste/services/side_panel/side_panel_events.dart';
 import 'package:whispaste/services/side_panel/side_panel_service.dart';
 import 'package:whispaste/services/side_panel/side_panel_snapshot.dart';
+import 'package:whispaste/services/paste/paste_failure_notifier.dart';
+import 'package:whispaste/services/paste/paster.dart';
+import 'package:whispaste/services/sound_feedback_service.dart';
+import 'package:whispaste/services/system_attention_service.dart';
+import 'package:whispaste/services/tray_service.dart';
+
+import '../../test_helpers/paste_notice_fakes.dart';
 
 class _FakeDesktopPasteController
     implements DesktopPasteController, ClipboardReceiptBridge {
@@ -148,6 +155,10 @@ void main() {
 
   ProviderContainer buildContainer() => ProviderContainer(
     overrides: [
+      trayServiceProvider.overrideWith(() => FakeNoticeTray()),
+      systemAttentionServiceProvider.overrideWith(
+        (ref) => RecordingSystemAttention(ref),
+      ),
       historyDatabaseProvider.overrideWith((ref) => db),
       desktopPasteControllerProvider.overrideWith((ref) => fakeDesktopPaste),
       sidePanelControllerProvider.overrideWith((ref) => fakePanel),
@@ -399,6 +410,10 @@ void main() {
       () async {
         container = ProviderContainer(
           overrides: [
+            trayServiceProvider.overrideWith(() => FakeNoticeTray()),
+            systemAttentionServiceProvider.overrideWith(
+              (ref) => RecordingSystemAttention(ref),
+            ),
             historyDatabaseProvider.overrideWith((ref) => db),
             desktopPasteControllerProvider.overrideWith(
               (ref) => fakeDesktopPaste,
@@ -447,6 +462,48 @@ void main() {
 
       expect(fakeDesktopPaste.pasteCalls, 1);
       expect(fakeDesktopPaste.receiptWrites, contains('Best, Me'));
+    });
+
+    test('a row whose paste fails sends the failure notice and keeps the '
+        'panel open', () async {
+      fakeDesktopPaste.pasteSucceeds = false;
+      late RecordingSystemAttention attention;
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.value([_historyEntry()]),
+          ),
+          systemAttentionServiceProvider.overrideWith(
+            (ref) => attention = RecordingSystemAttention(ref),
+          ),
+          trayServiceProvider.overrideWith(() => FakeNoticeTray()),
+          soundFeedbackProvider.overrideWith(() => FakeNoticeSound()),
+        ],
+      );
+      final service = _readService(container);
+      await service.open();
+
+      fakePanel.fireEvent(
+        const SidePanelRowClicked(SidePanelSection.transcriptions, 'entry-1'),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+
+      expect(attention.requests, hasLength(1));
+      expect(attention.requests.single.kind, AttentionKind.pasteFailedUnknown);
+      expect(
+        container.read(pasteFailureNotifierProvider)?.outcome,
+        isNot(PasteOutcome.success),
+      );
+      expect(
+        fakePanel.snapshots.last.visible,
+        isTrue,
+        reason: 'a failed insert must not close the panel silently',
+      );
     });
 
     test(

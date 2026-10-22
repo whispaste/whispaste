@@ -41,6 +41,7 @@ import '../services/permissions/tcc_entry_reset_confirm.dart';
 import '../services/recording_orchestrator.dart';
 import '../services/recording_trigger_handler.dart';
 import '../services/smart_mode/smart_mode_presets.dart';
+import '../services/paste/paste_result_notice.dart';
 import '../services/snippet_picker/snippet_picker_service.dart';
 import '../services/snippets/interactive_snippet_controller.dart';
 import '../services/side_panel/side_panel_service.dart';
@@ -322,6 +323,11 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
       await ref
           .read(interactiveSnippetControllerProvider.notifier)
           .start(fields, template: snippet.body);
+    };
+    ref
+        .read(snippetPickerServiceProvider.notifier)
+        .onPasteResult = (outcome) async {
+      await ref.read(pasteResultReporterProvider).report(outcome);
     };
 
     // ── CLI remote control (`whispaste --toggle` / `--cancel`) — forwarded

@@ -1329,6 +1329,12 @@ abstract class L10n {
   /// **'Auto-Paste failed'**
   String get pasteNotificationFailedTray;
 
+  /// No description provided for @pasteNotificationClipboardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The text is on the clipboard.'**
+  String get pasteNotificationClipboardHint;
+
   /// No description provided for @pasteNotificationLinuxUinputBody.
   ///
   /// In en, this message translates to:
@@ -12421,7 +12427,7 @@ abstract class L10n {
   /// No description provided for @manualC02S4B3.
   ///
   /// In en, this message translates to:
-  /// **'Apps on the “Auto-Paste blocklist” get no automatic pasting. The text then goes to the clipboard, or only to Recordings if “Copy to the clipboard when apps are blocked” is off.'**
+  /// **'Apps on the “Auto-Paste blocklist” get no automatic pasting. The text then goes to the clipboard, or only to Recordings if “Copy to the clipboard when apps are blocked” is off. Enter one app per line in the field. If a paste fails, WhisPaste shows a notice and the text stays on the clipboard.'**
   String get manualC02S4B3;
 
   /// No description provided for @manualC02S4B4.

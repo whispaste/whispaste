@@ -82,6 +82,7 @@ import 'package:whispaste/services/stt/stt_bundle.dart';
 import 'package:whispaste/services/system_attention_service.dart';
 import 'package:whispaste/services/telemetry_service.dart';
 import 'package:whispaste/services/tray_service.dart';
+import '../test_helpers/paste_notice_fakes.dart';
 
 // ---------------------------------------------------------------------------
 // Fakes
@@ -4129,6 +4130,14 @@ void main() {
           behavior: BehaviorSettings(autoPasteDelay: 175),
           onboarding: OnboardingSettings(onboardingCompleted: true),
         ),
+        extraOverrides: [
+          // The reporter now posts an OS notice for this outcome; keep it
+          // away from the real tray and attention plugins.
+          trayServiceProvider.overrideWith(() => FakeNoticeTray()),
+          systemAttentionServiceProvider.overrideWith(
+            (ref) => RecordingSystemAttention(ref),
+          ),
+        ],
       );
       await container.read(settingsProvider.future);
 

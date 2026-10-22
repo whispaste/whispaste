@@ -770,6 +770,10 @@ class L10nEs extends L10n {
   String get pasteNotificationFailedTray => 'Error en Auto-Paste';
 
   @override
+  String get pasteNotificationClipboardHint =>
+      'El texto está en el portapapeles.';
+
+  @override
   String pasteNotificationLinuxUinputBody(String paste) {
     return 'WhisPaste aún no puede usar el teclado virtual /dev/uinput. El texto está en el portapapeles; pégalo con $paste. Haz clic aquí para configurarlo.';
   }
@@ -7397,7 +7401,7 @@ class L10nEs extends L10n {
 
   @override
   String get manualC02S4B3 =>
-      'Las apps de la «Lista de bloqueo de Auto-Paste» no reciben pegado automático. El texto va entonces al portapapeles, o solo a Grabaciones si «Copiar al portapapeles en apps bloqueadas» está desactivado.';
+      'Las apps de la «Lista de bloqueo de Auto-Paste» no reciben pegado automático. El texto va entonces al portapapeles, o solo a Grabaciones si «Copiar al portapapeles en apps bloqueadas» está desactivado. Escribe una app por línea en el campo. Si un pegado falla, WhisPaste muestra un aviso y el texto queda en el portapapeles.';
 
   @override
   String get manualC02S4B4 =>

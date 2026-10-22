@@ -12,6 +12,7 @@ import '../../features/snippets/snippets_page.dart'
 import '../clipboard_history/clipboard_history_entry.dart';
 import '../clipboard_history/clipboard_history_provider.dart';
 import '../floating_platform_service_base.dart';
+import '../paste/paste_result_notice.dart';
 import '../paste/paster.dart';
 import '../telemetry_service.dart';
 import 'side_panel_controller_interface.dart';
@@ -279,6 +280,9 @@ class SidePanelService
       return;
     }
 
+    // Read before the paste: paste() can outlive this panel, and the notice for
+    // a failed row must still reach the user.
+    final reporter = ref.read(pasteResultReporterProvider);
     final paster = ref.read(pasterProvider);
     if (paster == null) {
       // Silent from the user's perspective otherwise: no paste target, no
@@ -289,6 +293,7 @@ class SidePanelService
         'Row activation aborted: no paster available for '
         '${section.name}/$id',
       );
+      unawaited(reporter.report(PasteOutcome.platformUnavailable));
       return;
     }
 
@@ -305,6 +310,9 @@ class SidePanelService
       'Row activation paste() for ${section.name}/$id returned $outcome '
       'after ${stopwatch.elapsedMilliseconds}ms',
     );
+    // Reported before the mounted guard: paste() may still be mid clipboard-
+    // restore delay when this panel is disposed, and the notice must survive.
+    unawaited(reporter.report(outcome));
     // paste() may still be mid clipboard-restore delay (>=500ms) when the
     // panel/provider is disposed in the meantime -- guard the post-await ref
     // use per Riverpod's own advice (same guard as SnippetPickerService).

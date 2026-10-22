@@ -771,6 +771,10 @@ class L10nPt extends L10n {
   String get pasteNotificationFailedTray => 'Falha no Auto-Paste';
 
   @override
+  String get pasteNotificationClipboardHint =>
+      'O texto está na área de transferência.';
+
+  @override
   String pasteNotificationLinuxUinputBody(String paste) {
     return 'O WhisPaste ainda não pode usar o teclado virtual /dev/uinput. O texto está na área de transferência; cole-o com $paste. Clique aqui para configurar.';
   }
@@ -7394,7 +7398,7 @@ class L10nPt extends L10n {
 
   @override
   String get manualC02S4B3 =>
-      'Os apps na «Lista de bloqueio do Auto-Paste» não recebem colagem automática. O texto vai então para a área de transferência, ou só para as Gravações se «Copiar para a área de transferência em apps bloqueados» estiver desligado.';
+      'Os apps na «Lista de bloqueio do Auto-Paste» não recebem colagem automática. O texto vai então para a área de transferência, ou só para as Gravações se «Copiar para a área de transferência em apps bloqueados» estiver desligado. Escreva um app por linha no campo. Se uma colagem falhar, o WhisPaste mostra um aviso e o texto fica na área de transferência.';
 
   @override
   String get manualC02S4B4 =>

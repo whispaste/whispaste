@@ -267,8 +267,8 @@ void main() {
       },
     );
 
-    // Round 2 (WP-87): a pasted line break or tab must not end up inside an
-    // identifier; control characters are dropped as they are typed or pasted.
+    // Round 2 (WP-87): a pasted tab must not end up inside an identifier;
+    // other control characters are dropped as they are typed or pasted.
     testWidgets('manual identifier entry drops control characters', (
       tester,
     ) async {
@@ -285,7 +285,7 @@ void main() {
           ),
           matching: find.byType(TextField),
         ),
-        'note\npad\t.exe',
+        'note\tpad.exe',
       );
       await tester.pump();
       await tester.tap(
@@ -294,6 +294,38 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(_stored(notifier), 'notepad.exe');
+    });
+
+    // A pasted list with line breaks becomes one entry per line: the line
+    // breaks turn into commas in the field, blanks and spaces go, and the add
+    // button adds every entry.
+    testWidgets('a pasted list with line breaks adds one entry per line', (
+      tester,
+    ) async {
+      final notifier = await _pump(tester, blocklist: '');
+
+      await tester.tap(
+        find.byKey(const ValueKey('settings-paste-blocklist-add')),
+      );
+      await tester.pumpAndSettle();
+      final field = find.descendant(
+        of: find.byKey(const ValueKey('settings-paste-blocklist-manual-field')),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(field, ' note \npad.exe\n\n  Safari  \n');
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(field).controller!.text,
+        'note, pad.exe, Safari',
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('settings-paste-blocklist-manual-add')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(_stored(notifier), 'note, pad.exe, Safari');
     });
   });
 

@@ -764,6 +764,9 @@ class L10nHe extends L10n {
   String get pasteNotificationFailedTray => 'ההדבקה האוטומטית נכשלה';
 
   @override
+  String get pasteNotificationClipboardHint => 'הטקסט נמצא בלוח ההעתקה.';
+
+  @override
   String pasteNotificationLinuxUinputBody(String paste) {
     return 'WhisPaste עדיין לא יכולה להשתמש במקלדת הווירטואלית /dev/uinput. הטקסט נמצא בלוח הגזירים, הדבק אותו עם $paste. לחץ כאן כדי להגדיר זאת.';
   }
@@ -7243,7 +7246,7 @@ class L10nHe extends L10n {
 
   @override
   String get manualC02S4B3 =>
-      'לאפליקציות ב„רשימת חסימה להדבקה אוטומטית“ אין הדבקה אוטומטית. הטקסט נכנס אז ללוח ההעתקה, או רק להקלטות אם „להעתיק ללוח ההעתקה באפליקציות חסומות“ כבוי.';
+      'לאפליקציות ב„רשימת חסימה להדבקה אוטומטית“ אין הדבקה אוטומטית. הטקסט נכנס אז ללוח ההעתקה, או רק להקלטות אם „להעתיק ללוח ההעתקה באפליקציות חסומות“ כבוי. הזן אפליקציה אחת בכל שורה בשדה. אם הדבקה נכשלת, WhisPaste מציג הודעה והטקסט נשאר בלוח ההעתקה.';
 
   @override
   String get manualC02S4B4 =>
