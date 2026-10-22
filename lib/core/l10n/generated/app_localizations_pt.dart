@@ -6436,10 +6436,16 @@ class L10nPt extends L10n {
 
   @override
   String get settingsPreviewHint =>
-      'É assim que o overlay e o botão aparecem ao gravar. As alterações valem na hora.';
+      'É assim que o overlay e o botão aparecem em repouso e ao gravar. As alterações valem na hora.';
 
   @override
   String get settingsPreviewOverlayCaption => 'Overlay';
+
+  @override
+  String get settingsPreviewButtonIdleCaption => 'Pronto';
+
+  @override
+  String get settingsPreviewButtonRecordingCaption => 'Gravando';
 
   @override
   String get settingsOverlayOptionsGroup => 'Overlay';

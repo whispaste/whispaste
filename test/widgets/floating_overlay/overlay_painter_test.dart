@@ -110,13 +110,6 @@ void main() {
       expect(colors.capsuleBorder, colors.accent.withValues(alpha: 0.2));
     });
 
-    test('recording dot uses the accent colour, not the red recordingDot', () {
-      // The painter draws the dot in colors.accent; the legacy red
-      // recordingDot token is no longer the dot colour (spike: teal dot).
-      final colors = OverlayDesignSpec.colorsFor();
-      expect(colors.accent, isNot(colors.recordingDot));
-    });
-
     test('window size reserves shadow padding around the pill', () {
       expect(
         OverlayDesignSpec.windowSize(compact: false),

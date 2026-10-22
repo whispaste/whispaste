@@ -45,6 +45,7 @@ All entries are written in English.
 
 ### Fixes
 
+- **Floating button mic matches the wave colour:** while recording, the button's microphone uses the chosen wave colour, like the dot in the overlay. Before, it stayed red, which clashed with an amber background or a black wave. The settings preview now shows the button at rest and while recording, side by side.
 - **Failed pastes are reported everywhere:** a paste from the side panel or the snippet picker that does not land now gives the same warning as a dictation: a message, the tray entry and the error tone, and the message says the text is on the clipboard. An unconfirmed paste and a missing permission warn; Linux without a receipt stays quiet.
 - **Pasting a list into the auto-paste block list:** line breaks in the manual entry field become one app per line. Blank lines are dropped and spaces trimmed. Before, the lines were joined into one wrong identifier.
 - **Stuck speech engine:** when the speech engine stops answering, Settings shows a hint to restart WhisPaste instead of failing silently.

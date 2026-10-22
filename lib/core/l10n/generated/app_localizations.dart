@@ -10849,7 +10849,7 @@ abstract class L10n {
   /// No description provided for @settingsPreviewHint.
   ///
   /// In en, this message translates to:
-  /// **'This is how the overlay and button look while recording. Changes apply right away.'**
+  /// **'This is how the overlay and button look at rest and while recording. Changes apply right away.'**
   String get settingsPreviewHint;
 
   /// No description provided for @settingsPreviewOverlayCaption.
@@ -10857,6 +10857,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Overlay'**
   String get settingsPreviewOverlayCaption;
+
+  /// No description provided for @settingsPreviewButtonIdleCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get settingsPreviewButtonIdleCaption;
+
+  /// No description provided for @settingsPreviewButtonRecordingCaption.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording'**
+  String get settingsPreviewButtonRecordingCaption;
 
   /// No description provided for @settingsOverlayOptionsGroup.
   ///

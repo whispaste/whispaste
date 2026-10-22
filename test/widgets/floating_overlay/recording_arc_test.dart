@@ -439,7 +439,7 @@ void main() {
       // dead-code or the AC4 assertion here would fail on inspection.
       final colors = OverlayDesignSpec.colorsFor();
       // All defined fields: capsuleFill, capsuleFillEnd, capsuleBorder,
-      // ink, accent, success, error, recordingDot. None is "glow".
+      // ink, accent, transcribingAccent, success, error. None is "glow".
       expect(
         colors.accent,
         isNotNull,

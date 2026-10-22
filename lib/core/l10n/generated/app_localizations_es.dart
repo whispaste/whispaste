@@ -6441,10 +6441,16 @@ class L10nEs extends L10n {
 
   @override
   String get settingsPreviewHint =>
-      'Así se ven el overlay y el botón al grabar. Los cambios se aplican al momento.';
+      'Así se ven el overlay y el botón en reposo y al grabar. Los cambios se aplican al momento.';
 
   @override
   String get settingsPreviewOverlayCaption => 'Overlay';
+
+  @override
+  String get settingsPreviewButtonIdleCaption => 'Listo';
+
+  @override
+  String get settingsPreviewButtonRecordingCaption => 'Grabando';
 
   @override
   String get settingsOverlayOptionsGroup => 'Overlay';
