@@ -1,11 +1,8 @@
 name: CI
 
 on:
-  # TEMPORARY (2026-10-22, maintainer decision): the dev-push trigger is off
-  # while fix/ci-green repairs the failures the logging gate hid since
-  # 2026-10-20; every push mailed a failure. fix/ci-green restores it:
-  #   push:
-  #     branches: [dev]
+  push:
+    branches: [dev]
   # Full run (every job, every test on every OS, incl. perf-tagged tests):
   # weekly and on demand. A dev push runs the slim variant below — see
   # "What a dev push runs" — so whatever a push skips still runs here
