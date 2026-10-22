@@ -82,6 +82,12 @@ class KeyboardMonitorHost {
   // release (break) fires `onKeyUp`.
   USHORT watched_vk_ = 0;
 
+  // Virtual-key of a watched modifier-only hotkey (0 = none). Pass-through
+  // only: every make/break of this key fires `onModifierDown` / `onModifierUp`,
+  // and any non-modifier make fires `onOtherKey`. Gesture decisions stay in
+  // Dart (HotkeyGestureMachine).
+  USHORT watched_mod_vk_ = 0;
+
   std::unique_ptr<flutter::MethodChannel<flutter::EncodableValue>> channel_;
 };
 

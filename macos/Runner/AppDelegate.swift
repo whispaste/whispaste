@@ -15,6 +15,7 @@ class AppDelegate: FlutterAppDelegate {
   private var audioRoutingHost: AudioRoutingHost?
   private var bundleIdMigrationHost: BundleIdMigrationHost?
   private var autostartHost: AutostartHost?
+  private var modifierKeyHost: ModifierKeyHost?
 private var audioFileDecodeHost: AudioFileDecodeHost?
   private var secureBookmarkHost: SecureBookmarkHost?
   private var supportStoreHost: SupportStoreHost?
@@ -123,6 +124,7 @@ private var audioFileDecodeHost: AudioFileDecodeHost?
     audioRoutingHost = AudioRoutingHost(messenger: messenger)
     bundleIdMigrationHost = BundleIdMigrationHost(messenger: messenger)
     autostartHost = AutostartHost(messenger: messenger)
+    modifierKeyHost = ModifierKeyHost(messenger: messenger)
     audioFileDecodeHost = AudioFileDecodeHost(messenger: messenger)
     secureBookmarkHost = SecureBookmarkHost(messenger: messenger)
     supportStoreHost = SupportStoreHost(messenger: messenger)

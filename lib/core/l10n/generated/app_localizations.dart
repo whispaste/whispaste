@@ -963,6 +963,126 @@ abstract class L10n {
   /// **'A short tap starts and stops recording; holding records until you let go.'**
   String get settingsHoldOrTapHint;
 
+  /// No description provided for @settingsHoldOrTapThreshold.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold threshold'**
+  String get settingsHoldOrTapThreshold;
+
+  /// No description provided for @settingsHoldOrTapThresholdValue.
+  ///
+  /// In en, this message translates to:
+  /// **'{ms} ms'**
+  String settingsHoldOrTapThresholdValue(int ms);
+
+  /// No description provided for @settingsDoubleTapAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Double tap'**
+  String get settingsDoubleTapAction;
+
+  /// No description provided for @settingsDoubleTapActionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Two quick taps on the hotkey run this action. A key with a double tap has no single tap of its own.'**
+  String get settingsDoubleTapActionHint;
+
+  /// No description provided for @settingsDoubleTapNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get settingsDoubleTapNone;
+
+  /// No description provided for @settingsDoubleTapHandsFree.
+  ///
+  /// In en, this message translates to:
+  /// **'Hands-free dictation'**
+  String get settingsDoubleTapHandsFree;
+
+  /// No description provided for @settingsDoubleTapQuickNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick note'**
+  String get settingsDoubleTapQuickNote;
+
+  /// No description provided for @settingsDoubleTapSnippetPicker.
+  ///
+  /// In en, this message translates to:
+  /// **'Snippet picker'**
+  String get settingsDoubleTapSnippetPicker;
+
+  /// No description provided for @settingsHoldOrTapBlockedByDoubleTap.
+  ///
+  /// In en, this message translates to:
+  /// **'Not available with double tap on the same key'**
+  String get settingsHoldOrTapBlockedByDoubleTap;
+
+  /// No description provided for @settingsHotkeyModifierOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Modifier key only'**
+  String get settingsHotkeyModifierOnly;
+
+  /// No description provided for @settingsHotkeyModifierOnlyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold a single modifier key to dictate. Off uses the key combination above.'**
+  String get settingsHotkeyModifierOnlyHint;
+
+  /// No description provided for @settingsModifierOnlyNone.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get settingsModifierOnlyNone;
+
+  /// No description provided for @settingsModifierRightControl.
+  ///
+  /// In en, this message translates to:
+  /// **'Right Control'**
+  String get settingsModifierRightControl;
+
+  /// No description provided for @settingsModifierRightAlt.
+  ///
+  /// In en, this message translates to:
+  /// **'Right Alt or Option'**
+  String get settingsModifierRightAlt;
+
+  /// No description provided for @settingsModifierRightMeta.
+  ///
+  /// In en, this message translates to:
+  /// **'Right Command or Windows'**
+  String get settingsModifierRightMeta;
+
+  /// No description provided for @settingsModifierFn.
+  ///
+  /// In en, this message translates to:
+  /// **'Fn (macOS only)'**
+  String get settingsModifierFn;
+
+  /// No description provided for @settingsModifierInputTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow keyboard monitoring'**
+  String get settingsModifierInputTitle;
+
+  /// No description provided for @settingsModifierInputBody.
+  ///
+  /// In en, this message translates to:
+  /// **'macOS asks for Input Monitoring. WhisPaste only watches when the chosen key is pressed and released. Other keys are not recorded and what you type is not read. Without this permission the key combination above stays active.'**
+  String get settingsModifierInputBody;
+
+  /// No description provided for @settingsModifierInputContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get settingsModifierInputContinue;
+
+  /// No description provided for @settingsModifierInputLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get settingsModifierInputLater;
+
   /// No description provided for @settingsSpeechRecognition.
   ///
   /// In en, this message translates to:
@@ -7005,6 +7125,18 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'Works system-wide — not just inside WhisPaste.'**
   String get onboardingTriggerSystemWideHint;
+
+  /// No description provided for @onboardingTriggerModifierSuggestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Suggested for this platform: {key}'**
+  String onboardingTriggerModifierSuggestion(String key);
+
+  /// No description provided for @onboardingTriggerModifierApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this key'**
+  String get onboardingTriggerModifierApply;
 
   /// No description provided for @onboardingStartUsing.
   ///
@@ -13641,6 +13773,24 @@ abstract class L10n {
   /// In en, this message translates to:
   /// **'If the hotkey does not work in other apps, Settings and onboarding show a notice with the reason, the command for your own key combination, and a “Reconnect” button that asks the desktop again.'**
   String get manualC14S15H3;
+
+  /// No description provided for @manualC14S15G1.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold or tap: Hold the key longer than the threshold (default 250 ms) and it works like push-to-talk. A short tap starts and stops a recording.'**
+  String get manualC14S15G1;
+
+  /// No description provided for @manualC14S15G2.
+  ///
+  /// In en, this message translates to:
+  /// **'Doppeltippen: Unter den Tastenoptionen legst du eine eigene Aktion für Doppeltippen fest, etwa Freihändig, Schnellnotiz oder Snippet-Auswahl. Der zweite Tipp muss innerhalb von 400 ms erfolgen.'**
+  String get manualC14S15G2;
+
+  /// No description provided for @manualC14S15G3.
+  ///
+  /// In en, this message translates to:
+  /// **'Einzeltaste: Die rechte Strg-, rechte Alt- oder rechte Befehl-Taste bzw. Fn kann allein als Diktiertaste dienen. Auf dem Mac fragt WhisPaste vorher nach der Berechtigung zur Tastatur-Überwachung. Unter Linux mit Wayland ist das nicht verfügbar. On the Mac, the suggested key is Fn. The Globe key does nothing in WhisPaste.'**
+  String get manualC14S15G3;
 
   /// Subheading for the Flatpak build, a Linux app package format. Keep the name as is.
   ///

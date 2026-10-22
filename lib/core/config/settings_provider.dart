@@ -437,11 +437,26 @@ class AppSettings {
     selectionEditHotkey: buildDefaultSelectionEditHotkeySettings(),
   );
 
+  /// Existing installs (onboarding finished before the threshold setting
+  /// existed) keep the former fixed 1000 ms; new installs take the 250 ms
+  /// default. A stored value always wins.
+  static AudioInputSettings _withLegacyHoldOrTapThreshold(
+    AudioInputSettings audio,
+    Map<String, String> values,
+  ) {
+    if (values.containsKey('hold_or_tap_threshold_ms')) return audio;
+    if (values['onboarding_completed'] != 'true') return audio;
+    return audio.copyWith(holdOrTapThresholdMs: 1000);
+  }
+
   /// Creates settings from persisted key-value storage.
   factory AppSettings.fromStorageMap(Map<String, String> values) {
     return AppSettings(
       interface_: InterfaceSettings.fromMap(values),
-      audioInput: AudioInputSettings.fromMap(values),
+      audioInput: _withLegacyHoldOrTapThreshold(
+        AudioInputSettings.fromMap(values),
+        values,
+      ),
       recordingSafety: RecordingSafetySettings.fromMap(values),
       stt: SttSettings.fromMap(values),
       sound: SoundSettings.fromMap(values),

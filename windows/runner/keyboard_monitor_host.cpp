@@ -124,6 +124,31 @@ void KeyboardMonitorHost::HandleMethodCall(
 
   if (method == "start") {
     watched_vk_ = 0;
+    watched_mod_vk_ = 0;
+    result->Success(EncodableValue(EnsureRawInputRegistered()));
+    return;
+  }
+
+  if (method == "watchModifier") {
+    const auto* args = call.arguments();
+    const EncodableMap* map = args ? std::get_if<EncodableMap>(args) : nullptr;
+    std::string key;
+    if (map) {
+      auto it = map->find(EncodableValue("key"));
+      if (it != map->end()) {
+        if (const auto* v = std::get_if<std::string>(&it->second)) key = *v;
+      }
+    }
+    // Same names as the macOS and Linux hosts; Fn has no Windows key.
+    USHORT vk = 0;
+    if (key == "rightControl") vk = VK_RCONTROL;
+    else if (key == "rightAlt") vk = VK_RMENU;
+    else if (key == "rightMeta") vk = VK_RWIN;
+    if (vk == 0) {
+      result->Error("INVALID_ARGS", "Unknown modifier key name");
+      return;
+    }
+    watched_mod_vk_ = vk;
     result->Success(EncodableValue(EnsureRawInputRegistered()));
     return;
   }
@@ -164,6 +189,7 @@ void KeyboardMonitorHost::HandleMethodCall(
 
   if (method == "stop") {
     watched_vk_ = 0;
+    watched_mod_vk_ = 0;
     UnregisterRawInput();
     result->Success();
     return;
@@ -202,7 +228,7 @@ void KeyboardMonitorHost::UnregisterRawInput() {
 }
 
 void KeyboardMonitorHost::HandleRawInput(HRAWINPUT raw_input) {
-  if (destroyed_ || watched_vk_ == 0) return;
+  if (destroyed_ || (watched_vk_ == 0 && watched_mod_vk_ == 0)) return;
 
   UINT size = 0;
   if (::GetRawInputData(raw_input, RID_INPUT, nullptr, &size,
@@ -222,9 +248,19 @@ void KeyboardMonitorHost::HandleRawInput(HRAWINPUT raw_input) {
 
   const RAWKEYBOARD& kb = ri->data.keyboard;
   const bool is_break = (kb.Flags & RI_KEY_BREAK) != 0;
+
+  if (watched_mod_vk_ != 0) {
+    if (kb.VKey == watched_mod_vk_) {
+      channel_->InvokeMethod(is_break ? "onModifierUp" : "onModifierDown",
+                             nullptr);
+    } else if (!is_break && !IsModifierVk(kb.VKey)) {
+      channel_->InvokeMethod("onOtherKey", nullptr);
+    }
+  }
+
   // Only the RELEASE is matched: arming happens via ArmRelease() because
   // RegisterHotKey hides the hotkey key's DOWN from RawInput (#39).
-  if (is_break && kb.VKey == watched_vk_) {
+  if (watched_vk_ != 0 && is_break && kb.VKey == watched_vk_) {
     watched_vk_ = 0;
     // Window-proc thread == platform thread, so InvokeMethod is safe here.
     channel_->InvokeMethod("onKeyUp", nullptr);

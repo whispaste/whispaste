@@ -14,6 +14,7 @@ import '../../../services/telemetry_service.dart';
 import '../../../widgets/hotkey_recorder.dart';
 import '../../../widgets/wp_button.dart';
 import '../../settings/sections/linux_desktop_shortcut_block.dart';
+import '../../settings/modifier_only_flow.dart';
 import '../../settings/settings_widgets.dart';
 import '../../settings/widgets/wayland_hotkey_notice.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
@@ -34,6 +35,12 @@ const kTriggerStepPttExperimentalBadgeKey = Key(
 const kTriggerStepConflictWarnBoxKey = Key('triggerStepHotkeyConflictWarnBox');
 @visibleForTesting
 const kTriggerStepInlineRecorderKey = Key('triggerStepInlineHotkeyRecorder');
+@visibleForTesting
+const kTriggerStepModifierSuggestionKey = Key(
+  'onboarding-hotkey-modifier-suggestion',
+);
+@visibleForTesting
+const kTriggerStepModifierApplyKey = Key('onboarding-hotkey-modifier-apply');
 
 /// Content of the Hotkey onboarding page: the global hotkey, and whether it's
 /// held (push-to-talk) or pressed-to-toggle.
@@ -205,6 +212,23 @@ class TriggerStep extends ConsumerWidget {
         ),
         // Linux Wayland: registered, but the desktop has not bound it (XP-2-06).
         const WaylandHotkeyNotice(idPrefix: 'onboarding'),
+        // Modifier-only key suggestion (2c): offered only while none is set,
+        // on the normal branch. Existing users keep their binding because
+        // this page only shows on a fresh onboarding.
+        if (settings.hotkey.hotkeyModifierOnly.isEmpty &&
+            status != HotkeyRegistrationStatus.conflict &&
+            waylandNotice == null) ...[
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: kSettingRowInset),
+            child: _ModifierSuggestionRow(
+              key: kTriggerStepModifierSuggestionKey,
+              suggestion: modifierOnlySuggestion(
+                isMacOS: defaultTargetPlatform == TargetPlatform.macOS,
+              ),
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xs),
+        ],
         // Gap between two sibling setting rows, so `lg` — the same token the
         // Privacy page puts between its two rows, which is the flow's rhythm
         // for exactly this role. It used to be a flat `sm` on both branches,
@@ -258,6 +282,45 @@ class TriggerStep extends ConsumerWidget {
             ),
           ),
         ],
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Modifier-only key suggestion (2c) — one line plus an apply button.
+// ---------------------------------------------------------------------------
+
+class _ModifierSuggestionRow extends ConsumerWidget {
+  const _ModifierSuggestionRow({super.key, required this.suggestion});
+
+  final String suggestion;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            l10n.onboardingTriggerModifierSuggestion(
+              modifierOnlyLabel(l10n, suggestion),
+            ),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        const SizedBox(width: WpSpacing.sm),
+        WpButton(
+          key: kTriggerStepModifierApplyKey,
+          label: l10n.onboardingTriggerModifierApply,
+          variant: WpButtonVariant.secondary,
+          size: WpButtonSize.dense,
+          onPressed: () => applyModifierOnlyHotkey(
+            context: context,
+            ref: ref,
+            name: suggestion,
+          ),
+        ),
       ],
     );
   }

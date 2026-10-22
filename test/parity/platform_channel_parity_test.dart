@@ -69,6 +69,12 @@ const _allowlist = <String, Map<String, String>>{
     'windows':
         'Linux-only: file_selector_linux shows no title and English buttons, so LinuxFileSelector is installed only on Linux (service_bootstrap.dart); Windows keeps file_selector_windows.',
   },
+  'com.whispaste.modifier_monitor': {
+    'windows':
+        'Modifier-only dictation keys are macOS-only: HotkeyService starts ModifierKeyMonitor only on macOS, and Windows keeps the regular hotkey (RawInput handles the modifier keys in keyboard_monitor).',
+    'linux':
+        'Modifier-only dictation keys are macOS-only: HotkeyService starts ModifierKeyMonitor only on macOS, and Linux keeps the regular hotkey (XInput2 handles the modifier keys in keyboard_monitor).',
+  },
   'com.whispaste.keyboard_monitor': {
     'macos':
         'macOS key-up comes from hotkey_manager (HotkeyService.supportsKeyUp); the channel is used only on Windows and Linux.',
@@ -450,6 +456,8 @@ bool _isWhispasteChannel(String name) =>
 /// Files whose channel is injected at runtime (generic render hosts). Calls
 /// through their channel field cannot be attributed statically. Recorded gap.
 const _unresolvedAllowlist = <String, String>{
+  'lib/services/modifier_key_monitor.dart':
+      'The channel is injected by the constructor (tests pass a fake); the static name is _defaultChannel, so its calls are not attributed statically.',
   'lib/services/side_panel/side_panel_render_channel.dart':
       'Generic render channel: the channel name is injected by the caller, so its calls are not attributed statically.',
   'lib/services/floating_button/floating_button_render_channel.dart':

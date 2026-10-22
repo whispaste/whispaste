@@ -556,6 +556,73 @@ class L10nDe extends L10n {
       'Kurz tippen startet und stoppt die Aufnahme, gedrückt halten nimmt bis zum Loslassen auf.';
 
   @override
+  String get settingsHoldOrTapThreshold => 'Haltezeit-Schwelle';
+
+  @override
+  String settingsHoldOrTapThresholdValue(int ms) {
+    return '$ms ms';
+  }
+
+  @override
+  String get settingsDoubleTapAction => 'Doppeltipp';
+
+  @override
+  String get settingsDoubleTapActionHint =>
+      'Zwei kurze Tipps auf die Taste lösen diese Aktion aus. Eine Taste mit Doppeltipp hat keinen eigenen Einzel-Tipp.';
+
+  @override
+  String get settingsDoubleTapNone => 'Aus';
+
+  @override
+  String get settingsDoubleTapHandsFree => 'Freihand-Diktat';
+
+  @override
+  String get settingsDoubleTapQuickNote => 'Schnellnotiz';
+
+  @override
+  String get settingsDoubleTapSnippetPicker => 'Textbaustein-Auswahl';
+
+  @override
+  String get settingsHoldOrTapBlockedByDoubleTap =>
+      'Nicht zusammen mit Doppeltipp auf derselben Taste';
+
+  @override
+  String get settingsHotkeyModifierOnly => 'Nur Modifier-Taste';
+
+  @override
+  String get settingsHotkeyModifierOnlyHint =>
+      'Eine einzelne Modifier-Taste halten, um zu diktieren. Aus nutzt die Tastenkombination oben.';
+
+  @override
+  String get settingsModifierOnlyNone => 'Aus';
+
+  @override
+  String get settingsModifierRightControl => 'Rechte Strg-Taste';
+
+  @override
+  String get settingsModifierRightAlt => 'Rechte Alt- bzw. Wahltaste';
+
+  @override
+  String get settingsModifierRightMeta => 'Rechte Befehls- bzw. Windows-Taste';
+
+  @override
+  String get settingsModifierFn => 'Fn (nur macOS)';
+
+  @override
+  String get settingsModifierInputTitle =>
+      'Tastatureingaben überwachen erlauben';
+
+  @override
+  String get settingsModifierInputBody =>
+      'macOS fragt nach der Eingabeüberwachung. WhisPaste beobachtet nur, wann die gewählte Taste gedrückt und losgelassen wird. Andere Tasten werden nicht protokolliert, Eingaben nicht gelesen. Ohne Erlaubnis bleibt die Tastenkombination oben aktiv.';
+
+  @override
+  String get settingsModifierInputContinue => 'Weiter';
+
+  @override
+  String get settingsModifierInputLater => 'Nicht jetzt';
+
+  @override
   String get settingsSpeechRecognition => 'Spracherkennung';
 
   @override
@@ -4191,6 +4258,14 @@ class L10nDe extends L10n {
   @override
   String get onboardingTriggerSystemWideHint =>
       'Funktioniert systemweit — nicht nur innerhalb von WhisPaste.';
+
+  @override
+  String onboardingTriggerModifierSuggestion(String key) {
+    return 'Empfehlung für diese Plattform: $key';
+  }
+
+  @override
+  String get onboardingTriggerModifierApply => 'Diese Taste nutzen';
 
   @override
   String get onboardingStartUsing => 'Los geht\'s';
@@ -8181,6 +8256,18 @@ class L10nDe extends L10n {
   @override
   String get manualC14S15H3 =>
       'Ist der Hotkey in anderen Apps ohne Wirkung, zeigen Einstellungen und Einrichtung einen Hinweis mit dem Grund, den Befehl für eine eigene Tastenkombination und die Schaltfläche „Erneut verbinden“, die den Desktop erneut fragt.';
+
+  @override
+  String get manualC14S15G1 =>
+      'Halten oder tippen: Hältst du die Taste länger als die Schwelle (Standard 250 ms), wirkt sie wie Push-to-talk. Ein kurzes Tippen startet und beendet die Aufnahme.';
+
+  @override
+  String get manualC14S15G2 =>
+      'Doppeltippen: Unter den Tastenoptionen legst du eine eigene Aktion für Doppeltippen fest, etwa Freihändig, Schnellnotiz oder Textbaustein-Auswahl. Der zweite Tipp muss innerhalb von 400 ms erfolgen.';
+
+  @override
+  String get manualC14S15G3 =>
+      'Einzeltaste: Die rechte Strg-, rechte Alt- oder rechte Befehl-Taste bzw. Fn kann allein als Diktiertaste dienen. Auf dem Mac fragt WhisPaste vorher nach der Berechtigung zur Tastatur-Überwachung. Unter Linux mit Wayland ist das nicht verfügbar. Auf dem Mac empfehlen wir Fn. Die Globus-Taste hat in WhisPaste keine Funktion.';
 
   @override
   String get manualC14S15FlatpakHeading => 'Flatpak';

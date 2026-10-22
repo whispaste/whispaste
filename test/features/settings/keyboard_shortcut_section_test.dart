@@ -222,7 +222,11 @@ void main() {
   group('KeyboardShortcutSection — hold-or-tap (ticket handy-catchup/07)', () {
     const toggleKey = Key('holdOrTapToggle');
 
-    Widget subject({required bool supportsKeyUp, required bool pushToTalk}) {
+    Widget subject({
+      required bool supportsKeyUp,
+      required bool pushToTalk,
+      bool holdOrTap = false,
+    }) {
       final svc = HotkeyService()
         ..injectRegistrar(_KeyUpRegistrar(supportsKeyUp: supportsKeyUp))
         // Pin the monitor so the capability equals the registrar value on
@@ -236,7 +240,10 @@ void main() {
           settingsProvider.overrideWith(
             () => _FakeSettings(
               AppSettings(
-                audioInput: AudioInputSettings(pushToTalk: pushToTalk),
+                audioInput: AudioInputSettings(
+                  pushToTalk: pushToTalk,
+                  holdOrTap: holdOrTap,
+                ),
               ),
             ),
           ),
@@ -278,6 +285,37 @@ void main() {
       ).read(settingsProvider).value!;
       expect(updated.audioInput.holdOrTap, isTrue);
       expect(updated.audioInput.pushToTalk, isTrue);
+    });
+
+    testWidgets('threshold slider shows only while hold-or-tap is on, '
+        'with the value in milliseconds (default 250)', (tester) async {
+      await tester.pumpWidget(
+        subject(supportsKeyUp: true, pushToTalk: true, holdOrTap: true),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('settings-hotkey-main-threshold')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(l10n.settingsHoldOrTapThresholdValue(250)),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('threshold slider is hidden while hold-or-tap is off', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        subject(supportsKeyUp: true, pushToTalk: true, holdOrTap: false),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('settings-hotkey-main-threshold')),
+        findsNothing,
+      );
     });
 
     testWidgets('is disabled while push-to-talk itself is off', (tester) async {

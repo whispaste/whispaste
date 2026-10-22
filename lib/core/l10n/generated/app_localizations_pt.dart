@@ -555,6 +555,72 @@ class L10nPt extends L10n {
       'Um toque curto inicia e para a gravação; mantendo pressionado, a gravação dura até você soltar.';
 
   @override
+  String get settingsHoldOrTapThreshold => 'Limiar de manter pressionado';
+
+  @override
+  String settingsHoldOrTapThresholdValue(int ms) {
+    return '$ms ms';
+  }
+
+  @override
+  String get settingsDoubleTapAction => 'Toque duplo';
+
+  @override
+  String get settingsDoubleTapActionHint =>
+      'Dois toques rápidos na tecla executam esta ação. Uma tecla com toque duplo não tem toque simples próprio.';
+
+  @override
+  String get settingsDoubleTapNone => 'Desativado';
+
+  @override
+  String get settingsDoubleTapHandsFree => 'Ditado mãos livres';
+
+  @override
+  String get settingsDoubleTapQuickNote => 'Nota rápida';
+
+  @override
+  String get settingsDoubleTapSnippetPicker => 'Seletor de trechos';
+
+  @override
+  String get settingsHoldOrTapBlockedByDoubleTap =>
+      'Não disponível com toque duplo na mesma tecla';
+
+  @override
+  String get settingsHotkeyModifierOnly => 'Somente tecla modificadora';
+
+  @override
+  String get settingsHotkeyModifierOnlyHint =>
+      'Mantenha uma única tecla modificadora para ditar. Desativado usa a combinação acima.';
+
+  @override
+  String get settingsModifierOnlyNone => 'Desativado';
+
+  @override
+  String get settingsModifierRightControl => 'Control direito';
+
+  @override
+  String get settingsModifierRightAlt => 'Alt direito ou Option';
+
+  @override
+  String get settingsModifierRightMeta => 'Command direito ou Windows';
+
+  @override
+  String get settingsModifierFn => 'Fn (somente macOS)';
+
+  @override
+  String get settingsModifierInputTitle => 'Permitir monitoramento do teclado';
+
+  @override
+  String get settingsModifierInputBody =>
+      'O macOS pede o monitoramento de entrada. O WhisPaste observa apenas quando a tecla escolhida é pressionada e solta. Outras teclas não são registradas e o que você digita não é lido. Sem essa permissão, a combinação acima continua ativa.';
+
+  @override
+  String get settingsModifierInputContinue => 'Continuar';
+
+  @override
+  String get settingsModifierInputLater => 'Agora não';
+
+  @override
   String get settingsSpeechRecognition => 'Reconhecimento de fala';
 
   @override
@@ -4191,6 +4257,14 @@ class L10nPt extends L10n {
   @override
   String get onboardingTriggerSystemWideHint =>
       'Funciona em todo o sistema — não só dentro do WhisPaste.';
+
+  @override
+  String onboardingTriggerModifierSuggestion(String key) {
+    return 'Recomendada para esta plataforma: $key';
+  }
+
+  @override
+  String get onboardingTriggerModifierApply => 'Usar esta tecla';
 
   @override
   String get onboardingStartUsing => 'Vamos lá';
@@ -8182,6 +8256,18 @@ class L10nPt extends L10n {
   @override
   String get manualC14S15H3 =>
       'Se o atalho não funciona em outros apps, as Configurações e a introdução mostram um aviso com o motivo, o comando para uma combinação própria e o botão «Reconectar», que pede o atalho ao ambiente de novo.';
+
+  @override
+  String get manualC14S15G1 =>
+      'Manter ou tocar: se mantiveres a tecla mais tempo do que o limiar (250 ms por padrão), ela funciona como pulsar para falar. Um toque curto inicia e para a gravação.';
+
+  @override
+  String get manualC14S15G2 =>
+      'Duplo toque: nas opções da tecla escolhes uma ação própria para o duplo toque, por exemplo mãos livres, nota rápida ou seletor de snippets. O segundo toque tem de ocorrer em 400 ms.';
+
+  @override
+  String get manualC14S15G3 =>
+      'Tecla isolada: Control direito, Alt direito ou Opção direita, Comando direito ou Fn podem servir sozinhas como tecla de ditado. No Mac, o WhisPaste pede antes a permissão de monitorização do teclado. No Linux com Wayland não está disponível. No Mac, a tecla sugerida é Fn. A tecla Globo não faz nada no WhisPaste.';
 
   @override
   String get manualC14S15FlatpakHeading => 'Flatpak';

@@ -25,6 +25,7 @@ import 'hotkey_key_resolver.dart';
 import 'profile_hotkey_plan.dart';
 import 'prompt_display_arbiter.dart';
 import 'keyboard_up_monitor.dart';
+import 'modifier_key_monitor.dart';
 
 // ---------------------------------------------------------------------------
 // Registrar abstraction (enables unit testing without platform channels)
@@ -335,6 +336,13 @@ LogicalKeyboardKey logicalKeyForCancelDictation(String name) => switch (name) {
   _ => LogicalKeyboardKey.escape,
 };
 
+ModifierHotkey? _modifierHotkeyNamed(String name) {
+  for (final key in ModifierHotkey.values) {
+    if (key.name == name) return key;
+  }
+  return null;
+}
+
 class HotkeyService extends Notifier<void> {
   static final _log = AppLogger('HotkeyService');
 
@@ -511,6 +519,17 @@ class HotkeyService extends Notifier<void> {
       ? ChannelKeyboardUpMonitor()
       : NoopKeyboardUpMonitor();
 
+  /// Native observer for a modifier-only global hotkey on macOS. Windows and
+  /// Linux route the same events through [_monitor] instead.
+  ModifierKeyMonitor _modifierMonitor = ModifierKeyMonitor();
+
+  /// True while the global hotkey is a modifier-only key instead of a combo.
+  bool _modifierOnlyActive = false;
+
+  /// Called when another key is pressed while the modifier-only hotkey is
+  /// held (⌘+C stays ⌘+C). The recording trigger cancels its recording here.
+  VoidCallback? onModifierOtherKey;
+
   /// How long a key-down stream is treated as OS auto-repeat. Refreshed on
   /// every key-down (including suppressed repeats), so a held key keeps the
   /// window alive; a genuine re-press arrives after a longer gap and is
@@ -535,11 +554,14 @@ class HotkeyService extends Notifier<void> {
       final globalChanged =
           previous.hotkeyKey != current.hotkeyKey ||
           previous.hotkeyModifiers != current.hotkeyModifiers ||
+          previous.hotkey.hotkeyModifierOnly !=
+              current.hotkey.hotkeyModifierOnly ||
           previous.hotkeyEnabled != current.hotkeyEnabled;
       if (globalChanged) {
         if (current.hotkeyEnabled) {
           unawaited(_registerFromSettings(current));
         } else {
+          unawaited(_stopModifierOnly());
           unawaited(_unregisterAction(_globalActionId, stopMonitor: true));
           _setFallbackActive(false);
           _log.info('Global hotkey disabled by user');
@@ -663,6 +685,54 @@ class HotkeyService extends Notifier<void> {
 
   // ── Public API ────────────────────────────────────────────────────────────
 
+  /// Injects the macOS modifier observer for unit testing.
+  @visibleForTesting
+  void injectModifierMonitor(ModifierKeyMonitor monitor) {
+    _modifierMonitor = monitor;
+  }
+
+  /// Makes [key] the global hotkey without a key combination: hold starts,
+  /// release stops, another key cancels. Returns false when the platform
+  /// cannot observe the key; the caller then keeps the combination.
+  Future<bool> registerModifierOnly(ModifierHotkey key) async {
+    if (!_isDesktop) return false;
+    await _unregisterAction(_globalActionId, stopMonitor: true);
+    final bool started;
+    if (Platform.isMacOS) {
+      _modifierMonitor.onInput = _routeModifierInput;
+      started = await _modifierMonitor.start(key);
+    } else if (_monitor case final ChannelKeyboardUpMonitor channelMonitor) {
+      channelMonitor.onModifierInput = _routeModifierInput;
+      started = await channelMonitor.watchModifier(key);
+    } else {
+      started = false;
+    }
+    _modifierOnlyActive = started;
+    if (started) {
+      _log.info('Modifier-only global hotkey active: ${key.name}');
+    }
+    return started;
+  }
+
+  void _routeModifierInput(ModifierInput input) {
+    switch (input) {
+      case ModifierInput.down:
+        _handleKeyDown(_globalActionId, 'Global');
+      case ModifierInput.up:
+        _handleKeyUp(_globalActionId, 'Global');
+      case ModifierInput.other:
+        onModifierOtherKey?.call();
+    }
+  }
+
+  /// Ends the modifier-only observer before a combination takes its place.
+  Future<void> _stopModifierOnly() async {
+    if (!_modifierOnlyActive) return;
+    _modifierOnlyActive = false;
+    _modifierMonitor.onInput = null;
+    await _modifierMonitor.stop();
+  }
+
   /// Injects a custom [KeyboardUpMonitor] for unit testing and wires its
   /// key-up callback. Call before [updateHotkey].
   @visibleForTesting
@@ -761,6 +831,7 @@ class HotkeyService extends Notifier<void> {
     List<HotKeyModifier> modifiers = const [],
   }) async {
     if (!_isDesktop) return;
+    await _stopModifierOnly();
     await _unregisterAction(_globalActionId, stopMonitor: true);
 
     final hotKey = HotKey(key: key, modifiers: modifiers);
@@ -1152,6 +1223,14 @@ class HotkeyService extends Notifier<void> {
   // ── Private ───────────────────────────────────────────────────────────────
 
   Future<void> _registerFromSettings(AppSettings settings) async {
+    final modifierOnly = _modifierHotkeyNamed(
+      settings.hotkey.hotkeyModifierOnly,
+    );
+    if (modifierOnly != null && await registerModifierOnly(modifierOnly)) {
+      _setStatus(HotkeyRegistrationStatus.success);
+      _initialized = true;
+      return;
+    }
     try {
       await updateHotkey(
         key: resolveKey(settings.hotkeyKey),

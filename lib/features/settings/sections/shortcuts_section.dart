@@ -13,6 +13,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/config/settings_labels.dart';
 import '../../../core/config/settings_provider.dart';
+import '../../../core/config/settings_sections.dart';
 import '../../../core/l10n/generated/app_localizations.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/colors.dart';
@@ -27,6 +28,7 @@ import '../hotkey_flow.dart';
 import '../language_cycle_hotkey_flow.dart';
 import '../quick_note_hotkey_flow.dart';
 import '../selection_edit_hotkey_flow.dart';
+import '../modifier_only_flow.dart';
 import '../settings_widgets.dart';
 import '../snippet_picker_trigger_row.dart';
 import '../smart_mode_hotkey_flow.dart';
@@ -140,6 +142,8 @@ class _KeyboardShortcutSectionState
             // Modes of the recording hotkey: they also apply to Smart Mode.
             _PushToTalkRow(settings: settings),
             _HoldOrTapRow(settings: settings),
+            _ModifierOnlyRow(settings: settings),
+            _DoubleTapRow(settings: settings),
             _LanguageCycleHotkeyBlock(settings: settings),
           ],
         ),
@@ -619,7 +623,10 @@ class _HoldOrTapRow extends ConsumerWidget {
         .read(hotkeyServiceProvider.notifier)
         .supportsKeyUp;
     final audio = settings.audioInput;
-    final enabled = supportsKeyUp && audio.pushToTalk;
+    // Hold plus double tap is the only combination on one key: a tap or
+    // automatic mode cannot share it with a double-tap action.
+    final doubleTapSet = audio.doubleTapAction != DoubleTapAction.none;
+    final enabled = supportsKeyUp && audio.pushToTalk && !doubleTapSet;
 
     final toggle = settingsToggle(
       key: const Key('holdOrTapToggle'),
@@ -644,21 +651,187 @@ class _HoldOrTapRow extends ConsumerWidget {
 
     // Dimmed like every other dependent option whose parent is off, so a
     // disabled switch never passes for an ordinary "off".
-    return settingsDimmedWhen(
-      context,
-      enabled: enabled,
-      child: WpSettingsRow(
-        rowId: 'general-hold-or-tap',
-        indent: true,
-        title: l10n.settingsHoldOrTap,
-        subtitle: supportsKeyUp
-            ? l10n.settingsHoldOrTapHint
-            : '${l10n.settingsHoldOrTapHint}\n'
-                  '${pushToTalkUnavailableMessage(l10n)}',
-        semanticToggledValue: enabled ? audio.holdOrTap : null,
-        // Same reasoning as in _PushToTalkRow: a disabled Switch would
-        // otherwise merge its own toggled-state flags into the row.
-        trailing: supportsKeyUp ? toggle : ExcludeSemantics(child: toggle),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        settingsDimmedWhen(
+          context,
+          enabled: enabled,
+          child: WpSettingsRow(
+            rowId: 'general-hold-or-tap',
+            indent: true,
+            title: l10n.settingsHoldOrTap,
+            subtitle: !supportsKeyUp
+                ? '${l10n.settingsHoldOrTapHint}\n'
+                      '${pushToTalkUnavailableMessage(l10n)}'
+                : doubleTapSet
+                ? '${l10n.settingsHoldOrTapHint}\n'
+                      '${l10n.settingsHoldOrTapBlockedByDoubleTap}'
+                : l10n.settingsHoldOrTapHint,
+            semanticToggledValue: enabled ? audio.holdOrTap : null,
+            // Same reasoning as in _PushToTalkRow: a disabled Switch would
+            // otherwise merge its own toggled-state flags into the row.
+            trailing: supportsKeyUp ? toggle : ExcludeSemantics(child: toggle),
+          ),
+        ),
+        if (audio.holdOrTap)
+          settingsDimmedWhen(
+            context,
+            enabled: enabled,
+            child: _HoldOrTapThresholdRow(
+              thresholdMs: audio.holdOrTapThresholdMs,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Threshold slider under the hold-or-tap switch (Automatisch): presses
+/// shorter than the value latch the recording, longer ones are push-to-talk.
+/// Steps of 50 ms within the clamped settings range.
+class _HoldOrTapThresholdRow extends ConsumerStatefulWidget {
+  const _HoldOrTapThresholdRow({required this.thresholdMs});
+
+  final int thresholdMs;
+
+  @override
+  ConsumerState<_HoldOrTapThresholdRow> createState() =>
+      _HoldOrTapThresholdRowState();
+}
+
+class _HoldOrTapThresholdRowState
+    extends ConsumerState<_HoldOrTapThresholdRow> {
+  static const _step = 50;
+
+  /// Slider position while a drag runs; null otherwise.
+  int? _dragMs;
+
+  void _store(int ms) {
+    ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWithSections(
+            audioInput: s.audioInput.copyWith(holdOrTapThresholdMs: ms),
+          ),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final shown = _dragMs ?? widget.thresholdMs;
+    return WpSettingsRow(
+      key: const Key('settings-hotkey-main-threshold'),
+      rowId: 'general-hold-or-tap-threshold',
+      indent: true,
+      title: l10n.settingsHoldOrTapThreshold,
+      trailing: settingsSlider(
+        context: context,
+        value: shown.toDouble(),
+        min: minHoldOrTapThresholdMs.toDouble(),
+        max: maxHoldOrTapThresholdMs.toDouble(),
+        divisions: (maxHoldOrTapThresholdMs - minHoldOrTapThresholdMs) ~/ _step,
+        valueLabel: l10n.settingsHoldOrTapThresholdValue(shown),
+        onChanged: (v) => setState(() => _dragMs = _snap(v)),
+        onChangeEnd: (v) {
+          setState(() => _dragMs = null);
+          _store(_snap(v));
+        },
+      ),
+    );
+  }
+
+  int _snap(double v) {
+    final steps = ((v - minHoldOrTapThresholdMs) / _step).round();
+    return minHoldOrTapThresholdMs + steps * _step;
+  }
+}
+
+/// Double tap on the main hotkey: a second action beside the dictation, run
+/// by two quick taps. Off by default. Refused while automatic (hold-or-tap)
+/// mode is on, since that mode needs the tap of the same key.
+class _DoubleTapRow extends ConsumerWidget {
+  const _DoubleTapRow({required this.settings});
+
+  final AppSettings settings;
+
+  static String _label(L10n l10n, DoubleTapAction action) => switch (action) {
+    DoubleTapAction.none => l10n.settingsDoubleTapNone,
+    DoubleTapAction.handsFree => l10n.settingsDoubleTapHandsFree,
+    DoubleTapAction.quickNote => l10n.settingsDoubleTapQuickNote,
+    DoubleTapAction.snippetPicker => l10n.settingsDoubleTapSnippetPicker,
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final audio = settings.audioInput;
+    final items = [for (final a in DoubleTapAction.values) a.name];
+    // A double tap and automatic mode cannot share the key.
+    final disabled = audio.holdOrTap
+        ? {
+            for (final a in DoubleTapAction.values)
+              if (a != DoubleTapAction.none) a.name,
+          }
+        : const <String>{};
+    return WpSettingsRow(
+      rowId: 'general-hotkey-double-tap',
+      title: l10n.settingsDoubleTapAction,
+      subtitle: l10n.settingsDoubleTapActionHint,
+      trailing: settingsDropdown(
+        context: context,
+        value: audio.doubleTapAction.name,
+        items: items,
+        labels: [for (final a in DoubleTapAction.values) _label(l10n, a)],
+        disabledItems: disabled,
+        disabledTooltip: l10n.settingsHoldOrTapBlockedByDoubleTap,
+        keyPrefix: 'settings-hotkey-main-double-tap',
+        onChanged: (v) {
+          if (v == null) return;
+          ref
+              .read(settingsProvider.notifier)
+              .updateSettings(
+                (s) => s.copyWithSections(
+                  audioInput: s.audioInput.copyWith(
+                    doubleTapAction: DoubleTapAction.values.byName(v),
+                  ),
+                ),
+              );
+        },
+      ),
+    );
+  }
+}
+
+/// Modifier-only dictation key: one modifier (right Control, right Alt or
+/// Option, right Command or Windows, Fn) replaces the key combination. On
+/// macOS the first pick explains Input Monitoring before the system asks.
+class _ModifierOnlyRow extends ConsumerWidget {
+  const _ModifierOnlyRow({required this.settings});
+
+  final AppSettings settings;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final current = settings.hotkey.hotkeyModifierOnly;
+    final items = ['', ...modifierOnlyHotkeyChoices];
+    return WpSettingsRow(
+      rowId: 'general-hotkey-modifier-only',
+      title: l10n.settingsHotkeyModifierOnly,
+      subtitle: l10n.settingsHotkeyModifierOnlyHint,
+      trailing: settingsDropdown(
+        context: context,
+        value: current,
+        items: items,
+        labels: [for (final i in items) modifierOnlyLabel(l10n, i)],
+        keyPrefix: 'settings-hotkey-main-modifier-only',
+        onChanged: (v) async {
+          if (v == null || v == current) return;
+          await applyModifierOnlyHotkey(context: context, ref: ref, name: v);
+        },
       ),
     );
   }

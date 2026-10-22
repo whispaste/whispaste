@@ -6,6 +6,7 @@ All entries are written in English.
 
 ### New Features
 
+- **Hotkey gestures:** the dictation key can work as hold-or-tap: holding it longer than a threshold (default 250 ms, existing installs keep 1000 ms) acts as push-to-talk, a short tap toggles. Double tap runs its own action (hands-free, quick note or snippet picker). A single modifier key (right Control, right Alt or Option, right Command or Windows, or Fn on macOS) can serve as the dictation key. On macOS, WhisPaste asks for Input Monitoring first and explains why. Modifier-only keys and double tap are not available under Wayland.
 - **Redesigned main window:** a sidebar leads to Recordings, Notes, Dictionary, Snippets, Statistics and Help, and a dock at the bottom holds the Dictate button with the speech model, Smart Mode, language and output selectors.
 - **Import audio files:** drop a file onto the window or the Recordings page to transcribe it on this device. WAV works everywhere; MP3, FLAC, M4A/AAC and Ogg/Opus work on macOS, Windows and Linux.
 - **Notes:** write notes with titles, images and highlights, keep a version history, lock them behind the History PIN, and save quick notes in the background.
@@ -22,6 +23,7 @@ All entries are written in English.
 - **Dictionary CSV import review:** the review lists each row with its planned outcome (added, already present, conflict, circular reference). A conflict follows the strategy you choose (skip, overwrite or keep both). Rows can be unticked, and the import is written in one transaction.
 - **Dictionary CSV export choice:** the export lets you choose which entries go into the file. The file carries the package name and the export date in its metadata line.
 - **Floating button on Linux:** Settings offers the floating button on Linux. Where the desktop cannot run it, the switch is disabled with an explanation. On Wayland the section names the limits: the desktop decides the position and whether the button stays on top.
+- **Hold or tap threshold:** with hold-or-tap on, a press shorter than the threshold toggles recording and a longer press dictates while held. The threshold (150 to 1500 ms, default 250 ms) is set in Shortcuts. Existing installations keep 1000 ms.
 
 ### Improvements
 

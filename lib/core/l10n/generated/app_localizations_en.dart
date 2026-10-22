@@ -554,6 +554,72 @@ class L10nEn extends L10n {
       'A short tap starts and stops recording; holding records until you let go.';
 
   @override
+  String get settingsHoldOrTapThreshold => 'Hold threshold';
+
+  @override
+  String settingsHoldOrTapThresholdValue(int ms) {
+    return '$ms ms';
+  }
+
+  @override
+  String get settingsDoubleTapAction => 'Double tap';
+
+  @override
+  String get settingsDoubleTapActionHint =>
+      'Two quick taps on the hotkey run this action. A key with a double tap has no single tap of its own.';
+
+  @override
+  String get settingsDoubleTapNone => 'Off';
+
+  @override
+  String get settingsDoubleTapHandsFree => 'Hands-free dictation';
+
+  @override
+  String get settingsDoubleTapQuickNote => 'Quick note';
+
+  @override
+  String get settingsDoubleTapSnippetPicker => 'Snippet picker';
+
+  @override
+  String get settingsHoldOrTapBlockedByDoubleTap =>
+      'Not available with double tap on the same key';
+
+  @override
+  String get settingsHotkeyModifierOnly => 'Modifier key only';
+
+  @override
+  String get settingsHotkeyModifierOnlyHint =>
+      'Hold a single modifier key to dictate. Off uses the key combination above.';
+
+  @override
+  String get settingsModifierOnlyNone => 'Off';
+
+  @override
+  String get settingsModifierRightControl => 'Right Control';
+
+  @override
+  String get settingsModifierRightAlt => 'Right Alt or Option';
+
+  @override
+  String get settingsModifierRightMeta => 'Right Command or Windows';
+
+  @override
+  String get settingsModifierFn => 'Fn (macOS only)';
+
+  @override
+  String get settingsModifierInputTitle => 'Allow keyboard monitoring';
+
+  @override
+  String get settingsModifierInputBody =>
+      'macOS asks for Input Monitoring. WhisPaste only watches when the chosen key is pressed and released. Other keys are not recorded and what you type is not read. Without this permission the key combination above stays active.';
+
+  @override
+  String get settingsModifierInputContinue => 'Continue';
+
+  @override
+  String get settingsModifierInputLater => 'Not now';
+
+  @override
   String get settingsSpeechRecognition => 'Speech recognition';
 
   @override
@@ -4153,6 +4219,14 @@ class L10nEn extends L10n {
   @override
   String get onboardingTriggerSystemWideHint =>
       'Works system-wide — not just inside WhisPaste.';
+
+  @override
+  String onboardingTriggerModifierSuggestion(String key) {
+    return 'Suggested for this platform: $key';
+  }
+
+  @override
+  String get onboardingTriggerModifierApply => 'Use this key';
 
   @override
   String get onboardingStartUsing => 'Let\'s go';
@@ -8114,6 +8188,18 @@ class L10nEn extends L10n {
   @override
   String get manualC14S15H3 =>
       'If the hotkey does not work in other apps, Settings and onboarding show a notice with the reason, the command for your own key combination, and a “Reconnect” button that asks the desktop again.';
+
+  @override
+  String get manualC14S15G1 =>
+      'Hold or tap: Hold the key longer than the threshold (default 250 ms) and it works like push-to-talk. A short tap starts and stops a recording.';
+
+  @override
+  String get manualC14S15G2 =>
+      'Doppeltippen: Unter den Tastenoptionen legst du eine eigene Aktion für Doppeltippen fest, etwa Freihändig, Schnellnotiz oder Snippet-Auswahl. Der zweite Tipp muss innerhalb von 400 ms erfolgen.';
+
+  @override
+  String get manualC14S15G3 =>
+      'Einzeltaste: Die rechte Strg-, rechte Alt- oder rechte Befehl-Taste bzw. Fn kann allein als Diktiertaste dienen. Auf dem Mac fragt WhisPaste vorher nach der Berechtigung zur Tastatur-Überwachung. Unter Linux mit Wayland ist das nicht verfügbar. On the Mac, the suggested key is Fn. The Globe key does nothing in WhisPaste.';
 
   @override
   String get manualC14S15FlatpakHeading => 'Flatpak';

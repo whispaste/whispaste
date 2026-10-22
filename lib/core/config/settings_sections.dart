@@ -311,19 +311,47 @@ class InterfaceSettings {
 const cancelDictationKeyEscape = 'escape';
 const cancelDictationKeyChoices = [cancelDictationKeyEscape, 'f12'];
 
+/// Default Hold-or-Tap threshold (Automatisch): 250 ms, per product decision.
+const defaultHoldOrTapThresholdMs = 250;
+const minHoldOrTapThresholdMs = 150;
+const maxHoldOrTapThresholdMs = 1500;
+
+int _readHoldOrTapThresholdMs(Map<String, String> v) {
+  final raw = int.tryParse(v['hold_or_tap_threshold_ms'] ?? '');
+  if (raw == null) return defaultHoldOrTapThresholdMs;
+  return raw.clamp(minHoldOrTapThresholdMs, maxHoldOrTapThresholdMs);
+}
+
+/// What a double tap of a hold (push-to-talk) key does. Double tap never
+/// shares a key with tap or auto (the settings UI prevents it).
+enum DoubleTapAction { none, handsFree, quickNote, snippetPicker }
+
+/// Reads the double-tap action. A stored `double_tap_action` wins; otherwise
+/// the legacy `double_tap_hands_free` bool maps to handsFree (true) or none.
+DoubleTapAction _readDoubleTapAction(Map<String, String> v) {
+  final stored = v['double_tap_action'];
+  for (final action in DoubleTapAction.values) {
+    if (action.name == stored) return action;
+  }
+  return v['double_tap_hands_free'] == 'true'
+      ? DoubleTapAction.handsFree
+      : DoubleTapAction.none;
+}
+
 class AudioInputSettings {
   const AudioInputSettings({
     this.microphone = 'Default',
     this.pushToTalk = false,
     this.holdOrTap = false,
-    this.doubleTapHandsFree = false,
+    this.holdOrTapThresholdMs = defaultHoldOrTapThresholdMs,
+    this.doubleTapAction = DoubleTapAction.none,
     this.cancelDictationKey = cancelDictationKeyEscape,
     this.inputGain = 1.0,
     this.microphonePriority = const [],
   });
 
-  /// Push-to-talk only: two quick taps latch the recording hands-free.
-  final bool doubleTapHandsFree;
+  /// What a double tap of the hold key does (see [DoubleTapAction]).
+  final DoubleTapAction doubleTapAction;
 
   /// Key that cancels a running dictation. One of [cancelDictationKeyChoices].
   final String cancelDictationKey;
@@ -343,6 +371,11 @@ class AudioInputSettings {
   /// degrades gracefully to plain push-to-talk.
   final bool holdOrTap;
 
+  /// Hold-or-Tap threshold in milliseconds: a press released earlier latches
+  /// the recording (tap), a longer press is push-to-talk (hold). Clamped to
+  /// [minHoldOrTapThresholdMs]..[maxHoldOrTapThresholdMs] on read.
+  final int holdOrTapThresholdMs;
+
   /// User-controlled gain multiplier applied to the raw PCM stream during
   /// recording. `1.0` is identity (no scaling). The settings UI exposes this
   /// as a 0–300 % slider (0.0–3.0). When non-default, the recording pipeline
@@ -357,11 +390,8 @@ class AudioInputSettings {
         microphone: v['microphone'] ?? defaults.microphone,
         pushToTalk: _readBool(v, 'push_to_talk', defaults.pushToTalk),
         holdOrTap: _readBool(v, 'hold_or_tap', defaults.holdOrTap),
-        doubleTapHandsFree: _readBool(
-          v,
-          'double_tap_hands_free',
-          defaults.doubleTapHandsFree,
-        ),
+        holdOrTapThresholdMs: _readHoldOrTapThresholdMs(v),
+        doubleTapAction: _readDoubleTapAction(v),
         cancelDictationKey:
             cancelDictationKeyChoices.contains(v['cancel_dictation_key'])
             ? v['cancel_dictation_key']!
@@ -374,7 +404,8 @@ class AudioInputSettings {
     'microphone': microphone,
     'push_to_talk': '$pushToTalk',
     'hold_or_tap': '$holdOrTap',
-    'double_tap_hands_free': '$doubleTapHandsFree',
+    'hold_or_tap_threshold_ms': '$holdOrTapThresholdMs',
+    'double_tap_action': doubleTapAction.name,
     'cancel_dictation_key': cancelDictationKey,
     'input_gain': '$inputGain',
     'microphone_priority': jsonEncode(microphonePriority),
@@ -384,7 +415,8 @@ class AudioInputSettings {
     String? microphone,
     bool? pushToTalk,
     bool? holdOrTap,
-    bool? doubleTapHandsFree,
+    int? holdOrTapThresholdMs,
+    DoubleTapAction? doubleTapAction,
     String? cancelDictationKey,
     double? inputGain,
     List<String>? microphonePriority,
@@ -393,7 +425,8 @@ class AudioInputSettings {
     microphone: microphone ?? this.microphone,
     pushToTalk: pushToTalk ?? this.pushToTalk,
     holdOrTap: holdOrTap ?? this.holdOrTap,
-    doubleTapHandsFree: doubleTapHandsFree ?? this.doubleTapHandsFree,
+    holdOrTapThresholdMs: holdOrTapThresholdMs ?? this.holdOrTapThresholdMs,
+    doubleTapAction: doubleTapAction ?? this.doubleTapAction,
     cancelDictationKey: cancelDictationKey ?? this.cancelDictationKey,
     inputGain: inputGain ?? this.inputGain,
     microphonePriority: microphonePriority ?? this.microphonePriority,
@@ -406,7 +439,8 @@ class AudioInputSettings {
           microphone == other.microphone &&
           pushToTalk == other.pushToTalk &&
           holdOrTap == other.holdOrTap &&
-          doubleTapHandsFree == other.doubleTapHandsFree &&
+          holdOrTapThresholdMs == other.holdOrTapThresholdMs &&
+          doubleTapAction == other.doubleTapAction &&
           cancelDictationKey == other.cancelDictationKey &&
           inputGain == other.inputGain &&
           _sameStrings(microphonePriority, other.microphonePriority);
@@ -416,7 +450,8 @@ class AudioInputSettings {
     microphone,
     pushToTalk,
     holdOrTap,
-    doubleTapHandsFree,
+    holdOrTapThresholdMs,
+    doubleTapAction,
     cancelDictationKey,
     inputGain,
     Object.hashAll(microphonePriority),
@@ -1678,13 +1713,27 @@ class HistorySettings {
 // Section 13 — Hotkey
 // ===========================================================================
 
+/// Modifier-only hotkeys a user can choose instead of a key combination.
+/// Stored as the names shared with the native hosts. Empty = no modifier-only
+/// hotkey (the combination in [HotkeySettings.hotkeyKey] is used).
+const modifierOnlyHotkeyChoices = [
+  'rightControl',
+  'rightAlt',
+  'rightMeta',
+  'fn',
+];
+
 class HotkeySettings {
   const HotkeySettings({
     this.hotkeyEnabled = true,
     this.hotkeyKey = 'D',
     this.hotkeyKeyDisplay = '',
     this.hotkeyModifiers = 'ctrl+shift',
+    this.hotkeyModifierOnly = '',
   });
+
+  /// One of [modifierOnlyHotkeyChoices], or empty for none.
+  final String hotkeyModifierOnly;
 
   final bool hotkeyEnabled;
 
@@ -1709,6 +1758,10 @@ class HotkeySettings {
     hotkeyKeyDisplay: v['hotkey_key_display'] ?? defaults.hotkeyKeyDisplay,
     hotkeyModifiers:
         v['hotkey_modifiers'] ?? buildDefaultHotkeySettings().hotkeyModifiers,
+    hotkeyModifierOnly:
+        modifierOnlyHotkeyChoices.contains(v['hotkey_modifier_only'])
+        ? v['hotkey_modifier_only']!
+        : '',
   );
 
   Map<String, String> toMap() => {
@@ -1716,6 +1769,7 @@ class HotkeySettings {
     'hotkey_key': hotkeyKey,
     'hotkey_key_display': hotkeyKeyDisplay,
     'hotkey_modifiers': hotkeyModifiers,
+    'hotkey_modifier_only': hotkeyModifierOnly,
   };
 
   HotkeySettings copyWith({
@@ -1723,11 +1777,13 @@ class HotkeySettings {
     String? hotkeyKey,
     String? hotkeyKeyDisplay,
     String? hotkeyModifiers,
+    String? hotkeyModifierOnly,
   }) => HotkeySettings(
     hotkeyEnabled: hotkeyEnabled ?? this.hotkeyEnabled,
     hotkeyKey: hotkeyKey ?? this.hotkeyKey,
     hotkeyKeyDisplay: hotkeyKeyDisplay ?? this.hotkeyKeyDisplay,
     hotkeyModifiers: hotkeyModifiers ?? this.hotkeyModifiers,
+    hotkeyModifierOnly: hotkeyModifierOnly ?? this.hotkeyModifierOnly,
   );
 
   @override
@@ -1737,11 +1793,17 @@ class HotkeySettings {
           hotkeyEnabled == other.hotkeyEnabled &&
           hotkeyKey == other.hotkeyKey &&
           hotkeyKeyDisplay == other.hotkeyKeyDisplay &&
-          hotkeyModifiers == other.hotkeyModifiers;
+          hotkeyModifiers == other.hotkeyModifiers &&
+          hotkeyModifierOnly == other.hotkeyModifierOnly;
 
   @override
-  int get hashCode =>
-      Object.hash(hotkeyEnabled, hotkeyKey, hotkeyKeyDisplay, hotkeyModifiers);
+  int get hashCode => Object.hash(
+    hotkeyEnabled,
+    hotkeyKey,
+    hotkeyKeyDisplay,
+    hotkeyModifiers,
+    hotkeyModifierOnly,
+  );
 }
 
 // ===========================================================================

@@ -526,6 +526,44 @@ void main() {
       expect(r.inputGain, 1.75);
     });
 
+    test('hold-or-tap threshold defaults to 250 ms and roundtrips', () {
+      expect(AppSettings.defaults.audioInput.holdOrTapThresholdMs, 250);
+      final s = AppSettings.defaults.copyWithSections(
+        audioInput: const AudioInputSettings(
+          pushToTalk: true,
+          holdOrTap: true,
+          holdOrTapThresholdMs: 600,
+        ),
+      );
+      expect(s.toStorageMap()['hold_or_tap_threshold_ms'], '600');
+      expect(_roundtrip(s).audioInput.holdOrTapThresholdMs, 600);
+    });
+
+    test(
+      'existing install (onboarding done, key missing) keeps the old 1000 ms '
+      'threshold; a new install gets 250 ms',
+      () {
+        final existing = AppSettings.fromStorageMap({
+          'onboarding_completed': 'true',
+        });
+        expect(existing.audioInput.holdOrTapThresholdMs, 1000);
+        final fresh = AppSettings.fromStorageMap({});
+        expect(fresh.audioInput.holdOrTapThresholdMs, 250);
+        final onboardingOpen = AppSettings.fromStorageMap({
+          'onboarding_completed': 'false',
+        });
+        expect(onboardingOpen.audioInput.holdOrTapThresholdMs, 250);
+      },
+    );
+
+    test('a stored threshold is never overridden by the legacy migration', () {
+      final s = AppSettings.fromStorageMap({
+        'onboarding_completed': 'true',
+        'hold_or_tap_threshold_ms': '400',
+      });
+      expect(s.audioInput.holdOrTapThresholdMs, 400);
+    });
+
     test('holdOrTap defaults to off and roundtrips under hold_or_tap', () {
       // Default for new installs stays plain Toggle (ticket handy-catchup/07).
       expect(AppSettings.defaults.audioInput.holdOrTap, isFalse);

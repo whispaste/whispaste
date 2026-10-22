@@ -159,6 +159,18 @@ final List<_RowState> _states = [
     overrides: () => [appProfilesProvider.overrideWith(_SeededProfiles.new)],
   ),
   _RowState(
+    name: 'hold-or-tap on (the threshold slider shows)',
+    area: SettingsArea.shortcuts,
+    rowIds: const {'general-hold-or-tap-threshold'},
+    overrides: () => [
+      _settingsWith(
+        (s) => s.copyWithSections(
+          audioInput: s.audioInput.copyWith(pushToTalk: true, holdOrTap: true),
+        ),
+      ),
+    ],
+  ),
+  _RowState(
     name: 'autostart failed',
     area: SettingsArea.general,
     rowIds: const {'general-autostart-error'},

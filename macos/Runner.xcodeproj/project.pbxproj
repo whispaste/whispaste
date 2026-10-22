@@ -41,6 +41,7 @@
 		AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0006002044A3C60003C045 /* AudioRoutingHost.swift */; };
 		AA0007012044A3C60003C045 /* BundleIdMigrationHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */; };
 		1B902E470889FBF4F29B228B /* AutostartHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EE32718BA61789B0C68DFFB /* AutostartHost.swift */; };
+		5A1C0E0F00A1B2C3D4E5F602 /* ModifierKeyHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1C0E0F00A1B2C3D4E5F601 /* ModifierKeyHost.swift */; };
 		A1F0D3C0DE0000000000B001 /* AudioFileDecodeHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A001 /* AudioFileDecodeHost.swift */; };
 		A1F0D3C0DE0000000000B002 /* WhispasteOpusDecode.cc in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A002 /* WhispasteOpusDecode.cc */; settings = {COMPILER_FLAGS = "-std=c++17"; }; };
 		A1F0D3C0DE0000000000B003 /* audio_file_decode_core.cc in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D3C0DE0000000000A005 /* audio_file_decode_core.cc */; settings = {COMPILER_FLAGS = "-std=c++17 -DWP_WITH_FLAC=0"; }; };
@@ -123,6 +124,7 @@
 		AA0006002044A3C60003C045 /* AudioRoutingHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRoutingHost.swift; sourceTree = "<group>"; };
 		AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleIdMigrationHost.swift; sourceTree = "<group>"; };
 		1EE32718BA61789B0C68DFFB /* AutostartHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutostartHost.swift; sourceTree = "<group>"; };
+		5A1C0E0F00A1B2C3D4E5F601 /* ModifierKeyHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModifierKeyHost.swift; sourceTree = "<group>"; };
 		A1F0D3C0DE0000000000A001 /* AudioFileDecodeHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFileDecodeHost.swift; sourceTree = "<group>"; };
 		A1F0D3C0DE0000000000A002 /* WhispasteOpusDecode.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WhispasteOpusDecode.cc; sourceTree = "<group>"; };
 		A1F0D3C0DE0000000000A003 /* WhispasteOpusDecode.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WhispasteOpusDecode.h; sourceTree = "<group>"; };
@@ -247,6 +249,7 @@
 				AA0006002044A3C60003C045 /* AudioRoutingHost.swift */,
 				AA0007002044A3C60003C045 /* BundleIdMigrationHost.swift */,
 				1EE32718BA61789B0C68DFFB /* AutostartHost.swift */,
+				5A1C0E0F00A1B2C3D4E5F601 /* ModifierKeyHost.swift */,
 				A1F0D3C0DE0000000000A001 /* AudioFileDecodeHost.swift */,
 				A1F0D3C0DE0000000000A002 /* WhispasteOpusDecode.cc */,
 				A1F0D3C0DE0000000000A003 /* WhispasteOpusDecode.h */,
@@ -647,6 +650,7 @@
 				AA0006012044A3C60003C045 /* AudioRoutingHost.swift in Sources */,
 				AA0007012044A3C60003C045 /* BundleIdMigrationHost.swift in Sources */,
 				1B902E470889FBF4F29B228B /* AutostartHost.swift in Sources */,
+				5A1C0E0F00A1B2C3D4E5F602 /* ModifierKeyHost.swift in Sources */,
 				A1F0D3C0DE0000000000B001 /* AudioFileDecodeHost.swift in Sources */,
 				A1F0D3C0DE0000000000B002 /* WhispasteOpusDecode.cc in Sources */,
 				A1F0D3C0DE0000000000B003 /* audio_file_decode_core.cc in Sources */,

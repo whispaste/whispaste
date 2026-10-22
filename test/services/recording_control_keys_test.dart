@@ -10,17 +10,17 @@ import 'package:whispaste/services/hotkey_service.dart';
 void main() {
   group('AudioInputSettings recording controls', () {
     test('defaults: double tap off, cancel key Escape', () {
-      expect(AudioInputSettings.defaults.doubleTapHandsFree, isFalse);
+      expect(AudioInputSettings.defaults.doubleTapAction, DoubleTapAction.none);
       expect(AudioInputSettings.defaults.cancelDictationKey, 'escape');
     });
 
     test('round-trip through the string map', () {
       const original = AudioInputSettings(
-        doubleTapHandsFree: true,
+        doubleTapAction: DoubleTapAction.handsFree,
         cancelDictationKey: 'f12',
       );
       final restored = AudioInputSettings.fromMap(original.toMap());
-      expect(restored.doubleTapHandsFree, isTrue);
+      expect(restored.doubleTapAction, DoubleTapAction.handsFree);
       expect(restored.cancelDictationKey, 'f12');
       expect(restored, original);
     });

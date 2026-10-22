@@ -31,11 +31,12 @@ library;
 
 import 'dart:io';
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show ValueChanged, visibleForTesting;
 import 'package:flutter/services.dart';
 import 'package:hotkey_manager/hotkey_manager.dart';
 
 import '../core/logging/app_logger.dart';
+import 'modifier_key_monitor.dart';
 
 /// Who owns the global hotkey in a Linux Wayland session (XP-2-06).
 ///
@@ -199,6 +200,29 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
   @override
   set onKeyDown(VoidCallback? handler) => _onKeyDown = handler;
 
+  /// Receives modifier-only inputs from the Windows and Linux hosts.
+  ValueChanged<ModifierInput>? _onModifierInput;
+  set onModifierInput(ValueChanged<ModifierInput>? handler) =>
+      _onModifierInput = handler;
+
+  /// Asks the native host to pass [key] through as `onModifierDown`,
+  /// `onModifierUp` and `onOtherKey`. Returns false when the host cannot see
+  /// that key (Wayland, Fn off macOS), so the caller keeps the combination.
+  Future<bool> watchModifier(ModifierHotkey key) async {
+    if (!_isWindows && !_isLinux) return false;
+    if (!modifierHotkeySupported(key, isMacOS: false)) return false;
+    try {
+      return await _channel.invokeMethod<bool>('watchModifier', {
+            'key': key.name,
+          }) ??
+          false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   @override
   WaylandHotkeyBinding get waylandBinding => _waylandBinding;
 
@@ -284,6 +308,9 @@ class ChannelKeyboardUpMonitor implements KeyboardUpMonitor {
         _onKeyDown?.call();
       case 'onCapabilities':
         if (_isLinux) _applyLinuxCapabilities(call.arguments);
+      default:
+        final input = modifierInputForNativeCall(call.method);
+        if (input != null) _onModifierInput?.call(input);
     }
   }
 }

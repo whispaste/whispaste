@@ -5,6 +5,7 @@
 #include <gio/gio.h>
 
 #include <string>
+#include <vector>
 
 // Xlib's own typedef, repeated so this header does not drag the Xlib macros
 // (None, Bool, Status, ...) into every includer.
@@ -70,6 +71,9 @@ class KeyboardMonitorHost {
              const std::string& description);
   void ArmRelease();
   void Stop();
+
+  // Modifier-only pass-through for `watchModifier` (replies itself).
+  void WatchModifier(FlMethodCall* method_call, const std::string& key);
   void SendToDart(const char* method, FlValue* args = nullptr);
   void SendCapabilities();
 
@@ -135,6 +139,12 @@ class KeyboardMonitorHost {
   guint x_watch_id_ = 0;
   bool x11_active_ = false;
   unsigned int watched_keycode_ = 0;
+
+  // Modifier-only pass-through (see `watchModifier`): the X keycode of the
+  // watched modifier (0 = none) and the modifier keycodes of the current
+  // keymap, looked up once when the watch starts.
+  unsigned int watched_modifier_keycode_ = 0;
+  std::vector<unsigned int> modifier_keycodes_;
   guint release_timer_id_ = 0;
 
   // Portal path.

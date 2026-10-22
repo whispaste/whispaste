@@ -15,6 +15,7 @@ import '../core/data/database.dart' show historyDatabaseProvider;
 import '../core/navigation/page_state.dart'
     show activePageProvider, settingsScrollTargetProvider;
 import '../core/config/settings_provider.dart';
+import '../core/config/settings_sections.dart' show DoubleTapAction;
 import '../core/l10n/locale_provider.dart';
 import '../core/logging/ui_thread_watchdog.dart';
 import '../core/recording/discard_confirmation.dart';
@@ -165,6 +166,25 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
     }
   }
 
+  DoubleTapAction _doubleTapAction() =>
+      (ref.read(settingsProvider).value ?? AppSettings.defaults)
+          .audioInput
+          .doubleTapAction;
+
+  /// Quick note and snippet picker are the other hotkeys' actions; hands-free
+  /// latching is handled by the trigger handler itself.
+  void _runDoubleTapAction(HotkeyService hotkeySvc) {
+    switch (_doubleTapAction()) {
+      case DoubleTapAction.quickNote:
+        hotkeySvc.onQuickNoteHotkeyPressed?.call();
+      case DoubleTapAction.snippetPicker:
+        hotkeySvc.onSnippetPickerHotkeyPressed?.call();
+      case DoubleTapAction.handsFree:
+      case DoubleTapAction.none:
+        break;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -211,14 +231,20 @@ class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
           (ref.read(settingsProvider).value ?? AppSettings.defaults)
               .audioInput
               .holdOrTap,
-      doubleTapEnabled: () =>
+      holdOrTapThresholdMs: () =>
           (ref.read(settingsProvider).value ?? AppSettings.defaults)
               .audioInput
-              .doubleTapHandsFree,
+              .holdOrTapThresholdMs,
+      doubleTapEnabled: () => _doubleTapAction() != DoubleTapAction.none,
+      doubleTapLatches: () => _doubleTapAction() == DoubleTapAction.handsFree,
+      onDoubleTap: () async => _runDoubleTapAction(hotkeySvc),
       isRecording: () => ref.read(recordingProvider).isRecording,
+      cancelRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).cancelRecording(),
     );
     hotkeySvc.onHotkeyPressed = _triggerHandler.onKeyDown;
     hotkeySvc.onHotkeyReleased = _triggerHandler.onKeyUp;
+    hotkeySvc.onModifierOtherKey = _triggerHandler.onOtherKey;
 
     // ── Quick-note trigger handler (ticket 20) — toggle-only, no PTT ──
     _quickNoteTriggerHandler = RecordingTriggerHandler(

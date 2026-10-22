@@ -190,12 +190,13 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'hotkey_key',
   'hotkey_key_display',
   'hotkey_modifiers',
+  'hotkey_modifier_only',
   'input_gain',
   // User-ordered microphone fallback list — a preference, travels with the
   // selected microphone.
   'microphone_priority',
   // WP-39, 9.1: recording controls — preferences.
-  'double_tap_hands_free',
+  'double_tap_action',
   'cancel_dictation_key',
   'launch_at_startup',
   'locale',
@@ -225,6 +226,8 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // Ticket handy-catchup/07: hold-or-tap sub-option of push-to-talk — same
   // behavior-preference portability as 'push_to_talk' itself.
   'hold_or_tap',
+  // Hold-or-Tap threshold (Automatisch): behavior preference, travels with it.
+  'hold_or_tap_threshold_ms',
   // Ticket 20: second, independently configurable hotkey — same portability
   // rationale as the existing 'hotkey_*' keys above.
   'quick_note_hotkey_enabled',

@@ -597,6 +597,72 @@ class L10nRu extends L10n {
       'Короткое нажатие запускает и останавливает запись, удержание записывает до отпускания.';
 
   @override
+  String get settingsHoldOrTapThreshold => 'Порог удержания';
+
+  @override
+  String settingsHoldOrTapThresholdValue(int ms) {
+    return '$ms мс';
+  }
+
+  @override
+  String get settingsDoubleTapAction => 'Двойное нажатие';
+
+  @override
+  String get settingsDoubleTapActionHint =>
+      'Два быстрых нажатия клавиши запускают это действие. У клавиши с двойным нажатием нет собственного одиночного нажатия.';
+
+  @override
+  String get settingsDoubleTapNone => 'Выкл.';
+
+  @override
+  String get settingsDoubleTapHandsFree => 'Диктовка без рук';
+
+  @override
+  String get settingsDoubleTapQuickNote => 'Быстрая заметка';
+
+  @override
+  String get settingsDoubleTapSnippetPicker => 'Выбор фрагмента';
+
+  @override
+  String get settingsHoldOrTapBlockedByDoubleTap =>
+      'Недоступно вместе с двойным нажатием на той же клавише';
+
+  @override
+  String get settingsHotkeyModifierOnly => 'Только клавиша-модификатор';
+
+  @override
+  String get settingsHotkeyModifierOnlyHint =>
+      'Удерживайте одну клавишу-модификатор для диктовки. Выкл. использует комбинацию выше.';
+
+  @override
+  String get settingsModifierOnlyNone => 'Выкл.';
+
+  @override
+  String get settingsModifierRightControl => 'Правый Control';
+
+  @override
+  String get settingsModifierRightAlt => 'Правый Alt или Option';
+
+  @override
+  String get settingsModifierRightMeta => 'Правый Command или Windows';
+
+  @override
+  String get settingsModifierFn => 'Fn (только macOS)';
+
+  @override
+  String get settingsModifierInputTitle => 'Разрешить отслеживание клавиатуры';
+
+  @override
+  String get settingsModifierInputBody =>
+      'macOS запрашивает мониторинг ввода. WhisPaste отслеживает только нажатие и отпускание выбранной клавиши. Другие клавиши не записываются, введённый текст не читается. Без этого разрешения комбинация выше остаётся активной.';
+
+  @override
+  String get settingsModifierInputContinue => 'Продолжить';
+
+  @override
+  String get settingsModifierInputLater => 'Не сейчас';
+
+  @override
   String get settingsSpeechRecognition => 'Распознавание речи';
 
   @override
@@ -4261,6 +4327,14 @@ class L10nRu extends L10n {
   @override
   String get onboardingTriggerSystemWideHint =>
       'Работает во всей системе — не только внутри WhisPaste.';
+
+  @override
+  String onboardingTriggerModifierSuggestion(String key) {
+    return 'Рекомендуется для этой платформы: $key';
+  }
+
+  @override
+  String get onboardingTriggerModifierApply => 'Использовать эту клавишу';
 
   @override
   String get onboardingStartUsing => 'Поехали';
@@ -8275,6 +8349,18 @@ class L10nRu extends L10n {
   @override
   String get manualC14S15H3 =>
       'Если горячая клавиша не работает в других приложениях, в настройках и при первом запуске появляется уведомление с причиной, командой для собственного сочетания клавиш и кнопкой «Подключить снова», которая заново запрашивает клавишу у рабочего стола.';
+
+  @override
+  String get manualC14S15G1 =>
+      'Удержание или нажатие: если удерживать клавишу дольше порога (по умолчанию 250 мс), она работает как говорить при удержании. Короткое нажатие начинает и останавливает запись.';
+
+  @override
+  String get manualC14S15G2 =>
+      'Двойное нажатие: в настройках клавиши выберите отдельное действие для двойного нажатия, например без рук, быструю заметку или выбор фрагментов. Второе нажатие должно последовать в течение 400 мс.';
+
+  @override
+  String get manualC14S15G3 =>
+      'Одиночная клавиша: правый Control, правый Alt или Option, правый Command или Fn могут работать сами по себе как клавиша диктовки. На Mac WhisPaste сначала запрашивает разрешение на отслеживание клавиатуры. В Linux с Wayland это недоступно. На Mac рекомендуется клавиша Fn. Клавиша Globe в WhisPaste ничего не делает.';
 
   @override
   String get manualC14S15FlatpakHeading => 'Flatpak';

@@ -7,6 +7,7 @@
 #include <X11/extensions/XInput2.h>
 #include <glib-unix.h>
 
+#include <algorithm>
 #include <cstring>
 
 namespace {
@@ -148,6 +149,12 @@ void KeyboardMonitorHost::HandleMethodCall(FlMethodCall* method_call) {
     return;
   }
 
+  if (strcmp(method, "watchModifier") == 0) {
+    FlValue* args = fl_method_call_get_args(method_call);
+    WatchModifier(method_call, GetString(args, "key"));
+    return;
+  }
+
   if (strcmp(method, "armRelease") == 0) {
     ArmRelease();
   } else if (strcmp(method, "stop") == 0) {
@@ -178,8 +185,49 @@ void KeyboardMonitorHost::Start(FlMethodCall* method_call,
   RespondStart(method_call, x11_active_, false);
 }
 
+void KeyboardMonitorHost::WatchModifier(FlMethodCall* method_call,
+                                        const std::string& key) {
+  // Same names as the macOS and Windows hosts; Fn has no X11 keysym here.
+  const char* keysym_name = nullptr;
+  if (key == "rightControl") keysym_name = "Control_R";
+  else if (key == "rightAlt") keysym_name = "Alt_R";
+  else if (key == "rightMeta") keysym_name = "Super_R";
+  if (keysym_name == nullptr) {
+    fl_method_call_respond_error(method_call, "INVALID_ARGS",
+                                 "Unknown modifier key name", nullptr, nullptr);
+    return;
+  }
+
+  // Like Start(): XI2 cannot see native Wayland windows, so report
+  // unsupported and let Dart keep the normal key combination.
+  const bool ok = !IsWaylandSession() && EnsureXi2() && x_display_ != nullptr;
+  if (!ok) {
+    fl_method_call_respond_success(method_call, fl_value_new_bool(false),
+                                   nullptr);
+    return;
+  }
+
+  watched_modifier_keycode_ = XKeysymToKeycode(
+      x_display_, XStringToKeysym(keysym_name));
+  modifier_keycodes_.clear();
+  XModifierKeymap* modmap = XGetModifierMapping(x_display_);
+  if (modmap != nullptr) {
+    const int count = 8 * modmap->max_keypermod;
+    for (int i = 0; i < count; ++i) {
+      if (modmap->modifiermap[i] != 0) {
+        modifier_keycodes_.push_back(modmap->modifiermap[i]);
+      }
+    }
+    XFreeModifiermap(modmap);
+  }
+  fl_method_call_respond_success(
+      method_call, fl_value_new_bool(watched_modifier_keycode_ != 0), nullptr);
+}
+
 void KeyboardMonitorHost::Stop() {
   generation_++;
+  watched_modifier_keycode_ = 0;
+  modifier_keycodes_.clear();
   if (cancellable_) {
     g_cancellable_cancel(cancellable_);
     g_object_unref(cancellable_);
@@ -325,6 +373,18 @@ void KeyboardMonitorHost::DrainX11Events() {
     if (cookie->evtype == XI_RawKeyRelease ||
         cookie->evtype == XI_RawKeyPress) {
       const auto* raw = static_cast<XIRawEvent*>(cookie->data);
+      const auto detail = static_cast<unsigned int>(raw->detail);
+      const bool is_release = cookie->evtype == XI_RawKeyRelease;
+      if (watched_modifier_keycode_ != 0) {
+        if (detail == watched_modifier_keycode_) {
+          SendToDart(is_release ? "onModifierUp" : "onModifierDown");
+        } else if (!is_release &&
+                   std::find(modifier_keycodes_.begin(),
+                             modifier_keycodes_.end(),
+                             detail) == modifier_keycodes_.end()) {
+          SendToDart("onOtherKey");
+        }
+      }
       switch (ClassifyRawKeyEvent(watched_keycode_,
                                   static_cast<unsigned int>(raw->detail),
                                   cookie->evtype == XI_RawKeyRelease)) {

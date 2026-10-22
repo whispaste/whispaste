@@ -554,6 +554,72 @@ class L10nHe extends L10n {
       'הקשה קצרה מתחילה ועוצרת את ההקלטה; החזקה מקליטה עד שמשחררים.';
 
   @override
+  String get settingsHoldOrTapThreshold => 'סף החזקה';
+
+  @override
+  String settingsHoldOrTapThresholdValue(int ms) {
+    return '$ms ms';
+  }
+
+  @override
+  String get settingsDoubleTapAction => 'הקשה כפולה';
+
+  @override
+  String get settingsDoubleTapActionHint =>
+      'שתי הקשות מהירות על המקש מפעילות פעולה זו. למקש עם הקשה כפולה אין הקשה בודדת משלו.';
+
+  @override
+  String get settingsDoubleTapNone => 'כבוי';
+
+  @override
+  String get settingsDoubleTapHandsFree => 'הכתבה ללא ידיים';
+
+  @override
+  String get settingsDoubleTapQuickNote => 'הערה מהירה';
+
+  @override
+  String get settingsDoubleTapSnippetPicker => 'בורר קטעי טקסט';
+
+  @override
+  String get settingsHoldOrTapBlockedByDoubleTap =>
+      'לא זמין עם הקשה כפולה על אותו מקש';
+
+  @override
+  String get settingsHotkeyModifierOnly => 'רק מקש שינוי';
+
+  @override
+  String get settingsHotkeyModifierOnlyHint =>
+      'החזק מקש שינוי בודד כדי להכתיב. כבוי משתמש בשילוב המקשים שלמעלה.';
+
+  @override
+  String get settingsModifierOnlyNone => 'כבוי';
+
+  @override
+  String get settingsModifierRightControl => 'Control ימני';
+
+  @override
+  String get settingsModifierRightAlt => 'Alt ימני או Option';
+
+  @override
+  String get settingsModifierRightMeta => 'Command ימני או Windows';
+
+  @override
+  String get settingsModifierFn => 'Fn (רק macOS)';
+
+  @override
+  String get settingsModifierInputTitle => 'אפשר ניטור מקלדת';
+
+  @override
+  String get settingsModifierInputBody =>
+      'macOS מבקש ניטור קלט. WhisPaste מתעדת רק מתי המקש שנבחר נלחץ ומשתחרר. מקשים אחרים לא נרשמים והקלדה לא נקראת. בלי ההרשאה הזו שילוב המקשים שלמעלה נשאר פעיל.';
+
+  @override
+  String get settingsModifierInputContinue => 'המשך';
+
+  @override
+  String get settingsModifierInputLater => 'לא עכשיו';
+
+  @override
   String get settingsSpeechRecognition => 'זיהוי דיבור';
 
   @override
@@ -4107,6 +4173,14 @@ class L10nHe extends L10n {
   @override
   String get onboardingTriggerSystemWideHint =>
       'עובד בכל המערכת — לא רק בתוך WhisPaste.';
+
+  @override
+  String onboardingTriggerModifierSuggestion(String key) {
+    return 'מומלץ לפלטפורמה זו: $key';
+  }
+
+  @override
+  String get onboardingTriggerModifierApply => 'להשתמש במקש זה';
 
   @override
   String get onboardingStartUsing => 'בוא נתחיל';
@@ -8019,6 +8093,18 @@ class L10nHe extends L10n {
   @override
   String get manualC14S15H3 =>
       'אם מקש הקיצור לא פועל באפליקציות אחרות, ההגדרות וההיכרות הראשונית מציגות הודעה עם הסיבה, הפקודה לקיצור מקלדת משלכם והלחצן «חיבור מחדש», שמבקש שוב מהשולחן את הקיצור.';
+
+  @override
+  String get manualC14S15G1 =>
+      'החזקה או הקשה: החזקת המקש מעבר לסף (ברירת מחדל 250 ms) פועלת כמו דיבור בלחיצה. הקשה קצרה מתחילה ומסיימת הקלטה.';
+
+  @override
+  String get manualC14S15G2 =>
+      'הקשה כפולה: באפשרויות המקש בוחרים פעולה משלה להקשה כפולה, למשל ללא ידיים, פתק מהיר או בחירת קטעים. ההקשה השנייה צריכה להגיע תוך 400 ms.';
+
+  @override
+  String get manualC14S15G3 =>
+      'מקש בודד: Control ימני, Alt ימני או Option ימני, Command ימני או Fn יכולים לשמש לבדם כמקש הכתבה. ב-Mac, WhisPaste מבקש קודם הרשאת ניטור מקלדת. ב-Linux עם Wayland זה לא זמין. ב-Mac המקש המומלץ הוא Fn. מקש הכדור (Globe) לא פועל ב-WhisPaste.';
 
   @override
   String get manualC14S15FlatpakHeading => 'Flatpak';

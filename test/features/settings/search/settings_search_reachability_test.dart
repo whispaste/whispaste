@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/l10n/generated/app_localizations.dart';
 import 'package:whispaste/core/navigation/page_state.dart';
 import 'package:whispaste/features/help/help_page.dart';
@@ -150,6 +151,9 @@ void main() {
               helpTargetProvider.overrideWith(
                 () => _TabAt(helpTabForRow(entry.rowId)),
               ),
+              // The hold-or-tap threshold renders only while that switch is on.
+              if (entry.rowId == 'general-hold-or-tap-threshold')
+                settingsProvider.overrideWith(() => _HoldOrTapOn()),
             ],
           ),
         );
@@ -236,4 +240,14 @@ class _SeededProfiles extends AppProfilesController {
   Future<List<AppProfile>> build() async => const [
     AppProfile(id: 'profile-seed', name: 'Mail'),
   ];
+}
+
+class _HoldOrTapOn extends SettingsNotifier {
+  @override
+  Future<AppSettings> build() async => AppSettings.defaults.copyWithSections(
+    audioInput: AppSettings.defaults.audioInput.copyWith(
+      pushToTalk: true,
+      holdOrTap: true,
+    ),
+  );
 }
