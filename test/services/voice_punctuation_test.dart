@@ -230,26 +230,30 @@ void main() {
   group('linearity and language switches', () {
     const chunk = 'Hallo Komma wie geht es dir Punkt das ist gut Fragezeichen ';
 
-    int bestOf3(String text) {
-      var best = 1 << 30;
-      for (var run = 0; run < 3; run++) {
+    // Median of five timed runs: one slow run on a loaded runner must not
+    // decide the ratio. Linear growth gives about 4x for 4x input, quadratic
+    // about 16x; the bound of 10x separates the two with margin.
+    int medianOf5(String text) {
+      final times = <int>[];
+      for (var run = 0; run < 5; run++) {
         final watch = Stopwatch()..start();
         _apply(text);
         watch.stop();
-        if (watch.elapsedMicroseconds < best) best = watch.elapsedMicroseconds;
+        times.add(watch.elapsedMicroseconds);
       }
-      return best;
+      times.sort();
+      return times[2];
     }
 
     test('run time grows linearly with the text, not quadratically', () {
       final small = List.filled(500, chunk).join();
       final large = List.filled(2000, chunk).join(); // 4x the input
       _apply(small); // warm up the compiled matcher
-      final t1 = bestOf3(small);
-      final t4 = bestOf3(large);
+      final t1 = medianOf5(small);
+      final t4 = medianOf5(large);
       expect(
         t4,
-        lessThan(8 * t1),
+        lessThan(10 * t1),
         reason: 'x4 input took $t4 us, x1 took $t1 us',
       );
     });

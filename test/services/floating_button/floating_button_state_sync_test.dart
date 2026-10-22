@@ -141,6 +141,9 @@ class _StallableButtonController extends _FakeButtonController
 
   int rebootCalls = 0;
 
+  /// Call site of the latest re-boot request, reported on assertion failure.
+  StackTrace? lastRebootTrace;
+
   /// Reboot count at the moment each state push arrived, parallel to [states].
   /// Read at push time, so the assertion does not depend on when the test
   /// looks: a re-push that happens before any reboot records 0.
@@ -199,6 +202,7 @@ class _StallableButtonController extends _FakeButtonController
   @override
   Future<void> rebootRenderEngine() async {
     rebootCalls++;
+    lastRebootTrace = StackTrace.current;
     if (rebootHeals) {
       frozen = false;
       paintFrame();
@@ -676,7 +680,10 @@ void main() {
   test(
     'unrelated settings write does not touch the native button geometry',
     () async {
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // The initial sync ends with its first state push. Capture the baseline
+      // only after it, or a slow runner counts that sync as a settings-write
+      // reaction.
+      await _waitFor(() => h.button.states.isNotEmpty, 'the initial sync');
       final before = h.button.geometryCalls;
       await h.container
           .read(settingsProvider.notifier)
@@ -823,11 +830,8 @@ void main() {
     test(
       'a healthy engine acknowledges every push and is never re-booted',
       () async {
-        // The deadline dwarfs the harness setup (database and file prep run on
-        // the same clock): startup pushes must not be judged stalled, or a slow
-        // runner reboots a healthy engine before the test even starts.
         final (h2, b) = await stallable(
-          frameDeadline: const Duration(seconds: 30),
+          frameDeadline: const Duration(seconds: 2),
         );
         await h2.container
             .read(settingsProvider.notifier)
@@ -837,7 +841,11 @@ void main() {
 
         await Future<void>.delayed(const Duration(milliseconds: 200));
 
-        expect(b.rebootCalls, 0);
+        expect(
+          b.rebootCalls,
+          0,
+          reason: 'reboot requested from: ${b.lastRebootTrace}',
+        );
         expect(b.states.length, pushes, reason: 'no re-push without a stall');
         expect(b.geometryCalls, geometry, reason: 'no re-push without a stall');
       },
