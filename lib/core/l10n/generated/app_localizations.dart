@@ -6652,7 +6652,7 @@ abstract class L10n {
   /// No description provided for @onboardingBeat2Caption.
   ///
   /// In en, this message translates to:
-  /// **'By default, speech recognition runs on your device, and your recordings stay there.'**
+  /// **'Once the model is downloaded, speech recognition runs on your device — even offline.'**
   String get onboardingBeat2Caption;
 
   /// No description provided for @onboardingBeat3Title.

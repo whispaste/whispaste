@@ -4043,7 +4043,7 @@ class L10nRu extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'По умолчанию распознавание речи работает на вашем устройстве, а записи остаются на нём.';
+      'После загрузки модели распознавание речи работает на вашем устройстве — даже без сети.';
 
   @override
   String get onboardingBeat3Title => 'Везде, где печатаете';

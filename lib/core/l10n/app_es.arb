@@ -1138,7 +1138,7 @@
   "onboardingBeat1Title": "Pulsa el atajo, habla y listo",
   "onboardingBeat1Caption": "La grabación empieza al instante: tus palabras aparecen como texto justo en el cursor.",
   "onboardingBeat2Title": "Funciona en local, en tu hardware",
-  "onboardingBeat2Caption": "Por defecto, el reconocimiento de voz se hace en tu dispositivo, y tus grabaciones se quedan ahí.",
+  "onboardingBeat2Caption": "Una vez descargado el modelo, el reconocimiento de voz se ejecuta en tu dispositivo, incluso sin conexión.",
   "onboardingBeat3Title": "En cualquier lugar donde escribas",
   "onboardingBeat3Caption": "Navegador, correo, editor: WhisPaste funciona en todo el sistema.",
   "onboardingMicChipReady": "Micrófono listo",

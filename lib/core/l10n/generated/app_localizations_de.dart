@@ -3973,7 +3973,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'Standardmäßig läuft die Spracherkennung auf deinem Gerät – deine Aufnahmen bleiben dort.';
+      'Nach dem Modell-Download läuft die Spracherkennung auf deinem Gerät – auch offline.';
 
   @override
   String get onboardingBeat3Title => 'Überall, wo du tippst';

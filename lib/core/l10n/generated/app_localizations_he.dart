@@ -3892,7 +3892,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'כברירת מחדל, זיהוי הדיבור פועל במכשיר שלך – וההקלטות נשארות בו.';
+      'לאחר הורדת המודל, זיהוי הדיבור פועל במכשיר שלך – גם במצב לא מקוון.';
 
   @override
   String get onboardingBeat3Title => 'בכל מקום שבו אתה מקליד';

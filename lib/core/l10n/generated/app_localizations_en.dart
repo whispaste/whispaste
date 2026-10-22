@@ -3937,7 +3937,7 @@ class L10nEn extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'By default, speech recognition runs on your device, and your recordings stay there.';
+      'Once the model is downloaded, speech recognition runs on your device — even offline.';
 
   @override
   String get onboardingBeat3Title => 'Everywhere you type';

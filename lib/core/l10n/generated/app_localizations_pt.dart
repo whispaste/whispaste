@@ -3973,7 +3973,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingBeat2Caption =>
-      'Por padrão, o reconhecimento de voz roda no seu dispositivo, e suas gravações ficam ali.';
+      'Depois de baixar o modelo, o reconhecimento de fala roda no seu dispositivo — mesmo offline.';
 
   @override
   String get onboardingBeat3Title => 'Em qualquer lugar onde você digita';

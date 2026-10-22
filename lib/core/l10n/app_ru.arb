@@ -1159,7 +1159,7 @@
   "onboardingBeat1Title": "Хоткей, голос, готово",
   "onboardingBeat1Caption": "Запись начинается мгновенно — слова становятся текстом у курсора.",
   "onboardingBeat2Title": "Локально, на вашем железе",
-  "onboardingBeat2Caption": "По умолчанию распознавание речи работает на вашем устройстве, а записи остаются на нём.",
+  "onboardingBeat2Caption": "После загрузки модели распознавание речи работает на вашем устройстве — даже без сети.",
   "onboardingBeat3Title": "Везде, где печатаете",
   "onboardingBeat3Caption": "Браузер, почта, редактор — WhisPaste работает везде.",
   "onboardingMicChipReady": "Микрофон готов",

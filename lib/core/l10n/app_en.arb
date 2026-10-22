@@ -1589,7 +1589,7 @@
   "onboardingBeat1Title": "Press the hotkey, speak, done",
   "onboardingBeat1Caption": "Recording starts instantly — your words land as text right at your cursor.",
   "onboardingBeat2Title": "Runs locally, on your hardware",
-  "onboardingBeat2Caption": "By default, speech recognition runs on your device, and your recordings stay there.",
+  "onboardingBeat2Caption": "Once the model is downloaded, speech recognition runs on your device — even offline.",
   "onboardingBeat3Title": "Everywhere you type",
   "onboardingBeat3Caption": "Browser, mail, editor — WhisPaste works system-wide.",
   "onboardingMicChipReady": "Microphone ready",

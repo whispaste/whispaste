@@ -1259,7 +1259,7 @@
   "onboardingBeat1Title": "Hotkey drücken, sprechen, fertig",
   "onboardingBeat1Caption": "Die Aufnahme startet sofort – deine Worte landen als Text direkt an der Cursor-Position.",
   "onboardingBeat2Title": "Läuft lokal, auf deiner Hardware",
-  "onboardingBeat2Caption": "Standardmäßig läuft die Spracherkennung auf deinem Gerät – deine Aufnahmen bleiben dort.",
+  "onboardingBeat2Caption": "Nach dem Modell-Download läuft die Spracherkennung auf deinem Gerät – auch offline.",
   "onboardingBeat3Title": "Überall, wo du tippst",
   "onboardingBeat3Caption": "Browser, Mail, Editor – WhisPaste funktioniert systemweit.",
   "onboardingMicChipReady": "Mikrofon bereit",

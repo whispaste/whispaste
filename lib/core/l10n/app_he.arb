@@ -1455,7 +1455,7 @@
   "onboardingBeat1Title": "לחץ על הקיצור, דבר, סיימת",
   "onboardingBeat1Caption": "ההקלטה מתחילה מיד – המילים שלך הופכות לטקסט ישירות במיקום הסמן.",
   "onboardingBeat2Title": "פועל מקומית, על החומרה שלך",
-  "onboardingBeat2Caption": "כברירת מחדל, זיהוי הדיבור פועל במכשיר שלך – וההקלטות נשארות בו.",
+  "onboardingBeat2Caption": "לאחר הורדת המודל, זיהוי הדיבור פועל במכשיר שלך – גם במצב לא מקוון.",
   "onboardingBeat3Title": "בכל מקום שבו אתה מקליד",
   "onboardingBeat3Caption": "דפדפן, אימייל, עורך – WhisPaste עובד בכל המערכת.",
   "onboardingMicChipReady": "המיקרופון מוכן",

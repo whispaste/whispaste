@@ -198,8 +198,8 @@
           "en": "/en/offline-speech-to-text/"
         },
         "tldr": {
-          "en": "WhisPaste is a free, open-source offline speech-to-text tool for Windows, macOS and Linux. It runs Whisper models entirely on your own machine — your audio never leaves your computer, and no internet connection or account is required.",
-          "de": "WhisPaste ist ein kostenloses, quelloffenes Offline-Spracherkennungs-Tool für Windows, macOS und Linux. Es führt Whisper-Modelle vollständig auf dem eigenen Rechner aus — dein Audio verlässt nie den Computer, und du brauchst weder Internet noch Konto."
+          "en": "WhisPaste is an open-source offline speech-to-text tool for Windows, macOS and Linux, free on GitHub. In local mode it runs Whisper models entirely on your own machine — your audio stays on your computer, and, after a one-time model download, no internet connection or account is required.",
+          "de": "WhisPaste ist ein quelloffenes Offline-Spracherkennungs-Tool für Windows, macOS und Linux, kostenlos auf GitHub. Im lokalen Modus führt es Whisper-Modelle vollständig auf dem eigenen Rechner aus — dein Audio bleibt auf dem Computer, und nach dem einmaligen Modell-Download brauchst du weder Internet noch Konto."
         },
         "faq": {
           "en": [
@@ -252,7 +252,7 @@
           "en": [
             {
               "question": "Is WhisPaste private?",
-              "answer": "Yes. Your audio is transcribed on your own machine and never sent to any server. WhisPaste requires no account, works fully offline, and collects no telemetry by default — and as open-source software, the code is public for anyone to audit.",
+              "answer": "Yes. Your audio is transcribed on your own machine and never sent to any server. WhisPaste requires no account, works fully offline once the model is downloaded, and collects no telemetry by default — and as open-source software, the code is public for anyone to audit.",
               "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (dataLeaves/account/historyStorage)"
             },
             {
@@ -269,7 +269,7 @@
           "de": [
             {
               "question": "Ist WhisPaste datenschutzfreundlich?",
-              "answer": "Ja. Dein Audio wird auf dem eigenen Rechner transkribiert und nie an einen Server gesendet. WhisPaste braucht kein Konto, arbeitet komplett offline und erfasst standardmäßig keine Telemetrie — und als quelloffene Software ist der Code für alle einsehbar.",
+              "answer": "Ja. Dein Audio wird auf dem eigenen Rechner transkribiert und nie an einen Server gesendet. WhisPaste braucht kein Konto, arbeitet nach dem Modell-Download komplett offline und erfasst standardmäßig keine Telemetrie — und als quelloffene Software ist der Code für alle einsehbar.",
               "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (dataLeaves/account/historyStorage)"
             },
             {
