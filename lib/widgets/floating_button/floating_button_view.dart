@@ -16,11 +16,14 @@
 /// same total, not to the bare disc.
 ///
 /// All design values come from [OverlayDesignSpec]; this widget contributes no
-/// constants of its own and renders no light effect or accent ring.
+/// constants of its own and renders no light effect. While recording, the mic
+/// becomes a stop square and the wave-coloured ring sits outside the disc
+/// (BTN-REC), without changing the footprint.
 library;
 
 import 'package:flutter/widgets.dart';
 
+import '../../core/l10n/generated/app_localizations.dart';
 import '../../core/theme/overlay_customization.dart';
 import '../../core/theme/overlay_design_spec.dart';
 import '../../services/floating_button/floating_button_controller_interface.dart';
@@ -107,6 +110,7 @@ class WpFloatingButtonView extends StatelessWidget {
       iconColor: colors.ink,
       iconGradient: iconGradientFor(state, colors),
       square: look.square,
+      stopSquare: state == FloatingButtonVisualState.recording,
     );
   }
 
@@ -114,7 +118,7 @@ class WpFloatingButtonView extends StatelessWidget {
   Widget build(BuildContext context) {
     final window = OverlayDesignSpec.buttonWindowSize(diameter);
     final idle = state == FloatingButtonVisualState.idle;
-    return Opacity(
+    Widget button = Opacity(
       // Resting opacity applies only while idle; a recording or a result is
       // always shown at full strength.
       opacity: idle ? look.idleAlpha : 1.0,
@@ -135,5 +139,14 @@ class WpFloatingButtonView extends StatelessWidget {
         ),
       ),
     );
+    // While recording the button is a stop control (BTN-REC). The label comes
+    // from the ARB; the bare widget (tests without localizations) stays silent.
+    final stopLabel = state == FloatingButtonVisualState.recording
+        ? Localizations.of<L10n>(context, L10n)?.dockStopDictation
+        : null;
+    if (stopLabel != null) {
+      button = Semantics(button: true, label: stopLabel, child: button);
+    }
+    return button;
   }
 }

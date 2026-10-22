@@ -6,6 +6,7 @@ All entries are written in English.
 
 ### New Features
 
+- **Stop sign on the floating button:** while recording, the floating button shows a stop square instead of the microphone and a ring around its edge. Screen readers announce it as "Stop recording".
 - **Hotkey gestures:** the dictation key can work as hold-or-tap: holding it longer than a threshold (default 250 ms, existing installs keep 1000 ms) acts as push-to-talk, a short tap toggles. Double tap runs its own action (hands-free, quick note or snippet picker). A single modifier key (right Control, right Alt or Option, right Command or Windows, or Fn on macOS) can serve as the dictation key. On macOS, WhisPaste asks for Input Monitoring first and explains why. Modifier-only keys and double tap are not available under Wayland.
 - **Redesigned main window:** a sidebar leads to Recordings, Notes, Dictionary, Snippets, Statistics and Help, and a dock at the bottom holds the Dictate button with the speech model, Smart Mode, language and output selectors.
 - **Import audio files:** drop a file onto the window or the Recordings page to transcribe it on this device. WAV works everywhere; MP3, FLAC, M4A/AAC and Ogg/Opus work on macOS, Windows and Linux. While a file is transcribed, its row shows the progress in percent with Whisper, otherwise the elapsed time.

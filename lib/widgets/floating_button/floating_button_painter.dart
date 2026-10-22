@@ -4,8 +4,9 @@
 /// hosts it in a thin native window shell (macOS/Windows now, Linux via issue
 /// 09). It reproduces the approved spike design (`spike/lib/main.dart`
 /// `_drawButton` / `_mic`), flattened in the WP-75 flat pass: a single-colour disc with a painted soft
-/// shadow, a thin neutral hairline border and a dark mic glyph — explicitly
-/// **no** accent ring and **no** light effect (ADR 0002, calm UI).
+/// shadow, a thin neutral hairline border and a dark mic glyph, which becomes a
+/// stop square while recording (BTN-REC). The recording ring is painted outside
+/// the disc. Still **no** light effect (ADR 0002, calm UI).
 ///
 /// Every dimension, colour and gradient comes from [OverlayDesignSpec.button]
 /// (flat disc colour, border, mic geometry as ratios of the disc diameter) and
@@ -30,11 +31,15 @@ class WpFloatingButtonPainter extends CustomPainter {
     required this.iconColor,
     required this.iconGradient,
     this.square = false,
+    this.stopSquare = false,
   });
 
   /// Draws a rounded square ([OverlayDesignSpec.buttonSquareCornerRatio])
   /// instead of the round disc (WP-95 button shape).
   final bool square;
+
+  /// Draws a stop square in place of the mic glyph (BTN-REC: recording).
+  final bool stopSquare;
 
   /// The V2 button appearance tokens, from the spec.
   final FloatingButtonSpec spec;
@@ -165,6 +170,18 @@ class WpFloatingButtonPainter extends CustomPainter {
       stroke.color = iconColor;
     }
 
+    if (stopSquare) {
+      final side = OverlayDesignSpec.buttonStopSquareRatio * d;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: center, width: side, height: side),
+          Radius.circular(side * OverlayDesignSpec.buttonStopSquareCornerRatio),
+        ),
+        fill,
+      );
+      return;
+    }
+
     // Capsule body.
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -204,6 +221,7 @@ class WpFloatingButtonPainter extends CustomPainter {
         old.diameter != diameter ||
         old.iconColor != iconColor ||
         old.square != square ||
+        old.stopSquare != stopSquare ||
         !_sameGradient(old.iconGradient, iconGradient);
   }
 

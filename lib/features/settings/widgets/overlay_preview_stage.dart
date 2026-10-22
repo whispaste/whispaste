@@ -101,8 +101,9 @@ class WpOverlayPreviewStage extends StatelessWidget {
                 );
                 if (!showButton) return overlay;
                 // Both states of the button: the resting look (ink mic, resting
-                // opacity, no ring) and the recording look (wave-coloured mic
-                // and ring), exactly as the native button shows them.
+                // opacity, no ring) and the recording look (wave-coloured stop
+                // square and an outer ring, same size as the resting disc),
+                // exactly as the native button shows them (BTN-REC).
                 final button = _PreviewItem(
                   caption: l10n.settingsFloatingButtonSection,
                   child: Wrap(

@@ -32,6 +32,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/widgets.dart';
 
+import 'colors_dark.dart';
 import 'generated/wp_tokens.g.dart';
 
 /// The four real recording states the overlay and button render.
@@ -1792,9 +1793,36 @@ abstract final class OverlayDesignSpec {
     shadowColor: WpOverlayTokens.overlayShadowLight,
   );
 
+  /// Width of the recording ring (BTN-REC). The ring is painted outside the
+  /// disc edge, so the disc keeps its diameter and the footprint does not move.
+  static const double buttonRingWidth = 2.0;
+
+  /// Side of the recording stop square as a share of the disc diameter (BTN-REC,
+  /// replaces the mic while recording).
+  static const double buttonStopSquareRatio = 0.36;
+
+  /// Corner radius of the stop square as a share of its side.
+  static const double buttonStopSquareCornerRatio = 0.2;
+
+  /// The surface the button ring is checked against: the settings stage
+  /// backdrop, the nearest fixed backdrop the ring sits on (WCAG 1.4.11).
+  static const Color buttonRingBackdrop = WpColorsDark.background;
+
   /// The floating button's appearance for [colors] (WP-75, ADR 0024): disc
-  /// from the background, mic glyph in its ink, and the hairline in the wave
-  /// colour while [ringed] (recording).
+  /// from the background, mic glyph in its ink, and while [ringed] (recording)
+  /// a [buttonRingWidth] ring outside the disc edge. The ring takes the wave
+  /// colour when it reaches 3:1 on [buttonRingBackdrop], otherwise the ink,
+  /// otherwise the disc colour (light themes like gletscher have a dark ink).
+  ///
+  /// The ring uses a negative [FloatingButtonSpec.borderInset], which moves the
+  /// stroke centre outwards: half the stroke lies beyond the disc radius.
+  static Color _ringColorFor(OverlayThemeColors colors) {
+    for (final candidate in [colors.accent, colors.ink, colors.capsuleFill]) {
+      if (contrastRatio(candidate, buttonRingBackdrop) >= 3.0) return candidate;
+    }
+    return colors.capsuleFill;
+  }
+
   static FloatingButtonSpec buttonSpecFor(
     OverlayThemeColors colors, {
     bool ringed = false,
@@ -1802,9 +1830,11 @@ abstract final class OverlayDesignSpec {
     discColor: colors.capsuleFill,
     discFillOpacity: button.discFillOpacity,
     iconColor: colors.ink,
-    borderColor: ringed ? colors.accent : colors.ink.withValues(alpha: 0.1),
-    borderWidth: ringed ? 2.0 : button.borderWidth,
-    borderInset: ringed ? 1.0 : button.borderInset,
+    borderColor: ringed
+        ? _ringColorFor(colors)
+        : colors.ink.withValues(alpha: 0.1),
+    borderWidth: ringed ? buttonRingWidth : button.borderWidth,
+    borderInset: ringed ? -buttonRingWidth / 2 : button.borderInset,
     iconRatio: button.iconRatio,
     mic: button.mic,
     edgeColor: colors.edge,
