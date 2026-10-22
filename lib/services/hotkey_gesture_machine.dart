@@ -70,7 +70,9 @@ class HotkeyGestureMachine {
   final HotkeyGesture gesture;
 
   /// Ab dieser Haltedauer gilt ein Druck als Halten (Standard 250 ms).
-  final Duration holdThreshold;
+  /// Wird beim Druck eingefroren: eine Änderung während des Drucks gilt erst
+  /// für den nächsten Druck.
+  Duration holdThreshold;
 
   /// Zwei kurze Drücke gelten als Doppeltipp, wenn der zweite Druck innerhalb
   /// dieser Zeit nach dem Loslassen des ersten beginnt.
@@ -89,6 +91,9 @@ class HotkeyGestureMachine {
   final void Function(GestureOutput output) _onOutput;
 
   bool _held = false;
+
+  /// Haltedauer-Schwelle des laufenden Drucks (beim Druck eingefroren).
+  Duration _pressThreshold = const Duration(milliseconds: 250);
   DateTime? _lastDownAt;
   DateTime? _downAt;
 
@@ -119,6 +124,7 @@ class HotkeyGestureMachine {
     _held = true;
     _aborted = false;
     _downAt = now;
+    _pressThreshold = holdThreshold;
 
     switch (gesture) {
       case HotkeyGesture.hold:
@@ -147,7 +153,12 @@ class HotkeyGestureMachine {
         _pressStarted = false;
         final lastRelease = _pendingTapReleaseAt;
         _pendingTapReleaseAt = null;
-        if (!_pairConsumed &&
+        if (isRecording) {
+          // A tap while a (hands-free) recording runs stops it. This press
+          // cannot start a pair.
+          _pairConsumed = true;
+          _onOutput(GestureOutput.toggle);
+        } else if (!_pairConsumed &&
             lastRelease != null &&
             now.difference(lastRelease) < doubleTapWindow) {
           _pairConsumed = true;
@@ -169,7 +180,7 @@ class HotkeyGestureMachine {
     final aborted = _aborted;
     _aborted = false;
     final held = downAt == null ? Duration.zero : now.difference(downAt);
-    final isShort = held < holdThreshold;
+    final isShort = held < _pressThreshold;
 
     switch (gesture) {
       case HotkeyGesture.hold:

@@ -1,17 +1,19 @@
-/// Decouples hotkey events from recording mode (Toggle vs Push-to-Talk).
+/// Decouples hotkey events from recording actions.
 ///
-/// In Push-to-Talk mode (pushToTalkEnabled + supportsKeyUp):
-///   - keyDown → startRecording
-///   - keyUp   → stopRecording  (only if held ≥ 100 ms; anti-glitch)
+/// Every gesture is decided by [HotkeyGestureMachine], the single rule source.
+/// This handler only maps the configured settings to one gesture and carries
+/// out the machine's outputs:
 ///
-/// In Hold-or-Tap mode (pushToTalkEnabled + holdOrTapEnabled + supportsKeyUp):
-///   - keyDown → toggleRecording (a short tap behaves exactly like Toggle)
-///   - keyUp   → stopRecording, but only if this press started the recording
-///               and the key was held ≥ the configured threshold (settings, default 250 ms)
+///   - hold-or-tap on a key that reports key-up: `auto` (short press latches,
+///     hold of at least the threshold is push-to-talk)
+///   - push-to-talk on a key that reports key-up: `hold` (every release stops
+///     the press's own recording); with double tap, `hold` + double tap
+///   - double tap without push-to-talk: `doubleTap` (a double tap starts
+///     hands-free, a single tap stops it)
+///   - otherwise: `tap` (each press toggles)
 ///
-/// Otherwise (toggle mode or platform without keyUp support):
-///   - keyDown → toggleRecording
-///   - keyUp   → no-op
+/// Ownership: a press only stops a recording it started itself. A rejected or
+/// foreign recording is never stopped by a release.
 library;
 
 import 'dart:async';
@@ -21,8 +23,8 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import '../core/logging/app_logger.dart';
 import 'hotkey_gesture_machine.dart';
 
-/// Handles hotkey keyDown / keyUp events and dispatches the appropriate
-/// recording action based on the current mode.
+/// Handles hotkey keyDown / keyUp events and dispatches the recording actions
+/// the gesture machine decides on.
 class RecordingTriggerHandler {
   RecordingTriggerHandler({
     required this._startRecording,
@@ -38,12 +40,12 @@ class RecordingTriggerHandler {
     Future<void> Function()? onDoubleTap,
     bool Function()? isRecording,
     DateTime Function()? clock,
-  }) : _holdOrTapEnabled = holdOrTapEnabled ?? _never,
-       _cancelRecording = cancelRecording ?? _noop,
+  }) : _cancelRecording = cancelRecording ?? _noop,
+       _holdOrTapEnabled = holdOrTapEnabled ?? _never,
+       _holdOrTapThresholdMs = holdOrTapThresholdMs ?? _defaultThresholdMs,
        _doubleTapEnabled = doubleTapEnabled ?? _never,
        _doubleTapLatches = doubleTapLatches ?? _never,
        _onDoubleTap = onDoubleTap ?? _noop,
-       _holdOrTapThresholdMs = holdOrTapThresholdMs ?? _defaultThresholdMs,
        _isRecording = isRecording ?? _never,
        _clock = clock ?? DateTime.now;
 
@@ -55,25 +57,16 @@ class RecordingTriggerHandler {
 
   static final _log = AppLogger('RecordingTriggerHandler');
 
-  /// Minimum hold duration for Push-to-Talk to trigger a stop on keyUp.
+  /// Hold-with-double-tap and double-tap-only: a press shorter than this is a
+  /// tap of a possible pair; a longer press is no tap.
   static const _minHoldMs = 100;
 
-  /// Hold-or-Tap: a press released before this duration is a tap (latches
-  /// the recording like Toggle); held at least this long it is push-to-talk
-  /// (release stops). Hold-or-Tap always runs on one shared hotkey (toggle and
-  /// push-to-talk are not separate keys in this mode), so the threshold is
-  /// generous enough for slower presses. Hold-or-Tap has no double-tap path,
-  /// so this window never overlaps [_doubleTapWindow].
   /// Default hold-or-tap threshold in ms (settings default: 250 ms).
   static const defaultHoldOrTapThresholdMs = 250;
 
   static const holdOrTapThreshold = Duration(
     milliseconds: defaultHoldOrTapThresholdMs,
   );
-
-  /// Push-to-talk double tap: two taps (presses shorter than [_minHoldMs])
-  /// within this window latch the recording hands-free.
-  static const _doubleTapWindow = Duration(milliseconds: 400);
 
   final Future<void> Function() _startRecording;
   final Future<void> Function() _stopRecording;
@@ -82,85 +75,60 @@ class RecordingTriggerHandler {
   final bool Function() _pushToTalkEnabled;
   final bool Function() _registrarSupportsKeyUp;
   final bool Function() _holdOrTapEnabled;
+  final int Function() _holdOrTapThresholdMs;
   final bool Function() _doubleTapEnabled;
   final bool Function() _doubleTapLatches;
   final Future<void> Function() _onDoubleTap;
-  final int Function() _holdOrTapThresholdMs;
   final bool Function() _isRecording;
   final DateTime Function() _clock;
 
-  DateTime? _keyDownAt;
+  /// One machine per gesture shape, reused across presses.
+  final Map<String, HotkeyGestureMachine> _machines = {};
 
-  /// Double-tap latch: when the last quick tap was released, and whether the
-  /// recording is latched hands-free (release no longer stops it).
-  DateTime? _lastQuickTapReleaseAt;
+  /// Machine of the press whose key-up is still awaited.
+  HotkeyGestureMachine? _activeMachine;
+
+  /// Press start time, for the Sentry breadcrumb of the first push-to-talk
+  /// release.
+  DateTime? _pressDownAt;
+  int _lastHeldMs = 0;
+  bool _keyUpBreadcrumbSent = false;
+
+  /// This handler's recording is the one running (only such a recording may
+  /// be stopped by a release).
+  bool _owned = false;
+
+  /// Own start or toggle is still in progress (slow pre-check).
+  bool _ownPending = false;
+
+  /// A release that arrived during [_ownPending] and waits for it to finish.
+  _PendingRelease _pendingRelease = _PendingRelease.none;
+
+  /// Latched hands-free recording (release no longer stops it).
   bool _latched = false;
 
-  /// Hold-or-Tap press state lives in [HotkeyGestureMachine] (gesture
-  /// `auto`), rebuilt when the configured threshold changes.
-  HotkeyGestureMachine? _hybridMachine;
-  int _hybridMachineThresholdMs = -1;
-
-  bool get _holdOrTapActive =>
-      _pushToTalkEnabled() && _holdOrTapEnabled() && _registrarSupportsKeyUp();
-
-  /// Whether a Sentry breadcrumb for the first keyUp PTT event has been sent
-  /// this session. Avoids emitting one breadcrumb per press.
-  bool _keyUpBreadcrumbSent = false;
+  /// Cancellation of the recording discarded by the first tap of a pair. The
+  /// double-tap action waits for it (no race).
+  Future<void>? _cancelInFlight;
 
   /// Called when the global hotkey is pressed (key-down).
   void onKeyDown() {
-    if (_holdOrTapActive) {
-      _onHybridKeyDown();
-      return;
-    }
-    if (_pushToTalkEnabled() && _registrarSupportsKeyUp()) {
-      final now = _clock();
-      if (_latched) {
-        _latched = false;
-        _keyDownAt = null;
-        _log.debug('PTT keyDown while latched → stopRecording');
-        _stopRecording();
-        return;
-      }
-      if (_doubleTapEnabled() && _isDoubleTap(now)) {
-        _lastQuickTapReleaseAt = null;
-        _keyDownAt = null;
-        if (_doubleTapLatches()) {
-          _latched = true;
-          _log.debug('PTT double tap → latched hands-free');
-          return;
-        }
-        _log.debug('PTT double tap → discard first tap, run action');
-        unawaited(_cancelRecording());
-        unawaited(_onDoubleTap());
-        return;
-      }
-      _log.debug('PTT keyDown → startRecording');
-      _keyDownAt = now;
-      _startRecording();
-    } else if (_doubleTapEnabled()) {
-      // Double tap only: the key has no tap of its own, so the first press
-      // starts nothing and the second press within the window runs the action.
-      final now = _clock();
-      final lastRelease = _lastQuickTapReleaseAt;
-      _keyDownAt = now;
-      if (lastRelease != null &&
-          now.difference(lastRelease) < _doubleTapWindow) {
-        _lastQuickTapReleaseAt = null;
-        _keyDownAt = null;
-        if (_doubleTapLatches()) {
-          _log.debug('Double tap only → hands-free recording');
-          unawaited(_startRecording());
-        } else {
-          _log.debug('Double tap only → action');
-          unawaited(_onDoubleTap());
-        }
-      }
+    final now = _clock();
+    _forgetEndedRecording();
+    _pressDownAt ??= now;
+
+    final keyUpObservable = _registrarSupportsKeyUp();
+    final machine = _select(
+      pushToTalk: _pushToTalkEnabled() && keyUpObservable,
+      keyUpObservable: keyUpObservable,
+    );
+    machine.down(now, isRecording: _isRecording());
+    if (keyUpObservable) {
+      _activeMachine = machine;
     } else {
-      _log.debug('Toggle keyDown → toggleRecording');
-      _keyDownAt = null;
-      _toggleRecording();
+      // Without key-up the press is over at once; a double tap then pairs by
+      // press-to-press timing.
+      machine.up(now);
     }
   }
 
@@ -168,128 +136,214 @@ class RecordingTriggerHandler {
   /// hotkey this makes the press no gesture (⌘+C stays ⌘+C): a recording the
   /// press started is cancelled, and the release that follows does nothing.
   void onOtherKey() {
-    if (_holdOrTapActive) {
-      _hybrid().otherKey(_clock());
+    final machine = _activeMachine;
+    if (machine == null) return;
+    if (machine.gesture != HotkeyGesture.hold &&
+        machine.gesture != HotkeyGesture.auto) {
       return;
     }
-    if (!_pushToTalkEnabled() || !_registrarSupportsKeyUp()) return;
-    if (_latched || _keyDownAt == null) return;
-    _keyDownAt = null;
-    _log.debug('PTT other key during press → cancelRecording');
-    _cancelRecording();
+    machine.otherKey(_clock());
   }
 
   /// Called when the global hotkey is released (key-up).
-  ///
-  /// Only relevant in Push-to-Talk mode; ignored otherwise.
   void onKeyUp() {
-    if (_holdOrTapActive) {
-      _onHybridKeyUp();
-      return;
-    }
-    if (!_pushToTalkEnabled() || !_registrarSupportsKeyUp()) {
-      if (_doubleTapEnabled()) {
-        // Double tap only: remember a quick tap so the next press can pair.
-        final pressedAt = _keyDownAt;
-        _keyDownAt = null;
-        final releasedAt = _clock();
-        _lastQuickTapReleaseAt =
-            pressedAt != null &&
-                releasedAt.difference(pressedAt).inMilliseconds < _minHoldMs
-            ? releasedAt
-            : null;
-      }
-      return; // toggle mode — keyUp is otherwise a no-op
-    }
-
-    if (_latched) return; // hands-free: releasing changes nothing
-
-    final pressedAt = _keyDownAt;
-    _keyDownAt = null;
-
-    if (pressedAt == null) return;
-
-    final releasedAt = _clock();
-    final heldMs = releasedAt.difference(pressedAt).inMilliseconds;
-    if (heldMs < _minHoldMs) {
-      _log.debug(
-        'PTT keyUp ignored — held only ${heldMs}ms (< $_minHoldMs ms)',
-      );
-      _lastQuickTapReleaseAt = releasedAt;
-      return;
-    }
-    _lastQuickTapReleaseAt = null;
-
-    _log.debug('PTT keyUp → stopRecording (held ${heldMs}ms)');
-
-    if (!_keyUpBreadcrumbSent) {
-      _keyUpBreadcrumbSent = true;
-      Sentry.addBreadcrumb(
-        Breadcrumb(
-          message: 'push_to_talk_key_up_first',
-          level: SentryLevel.info,
-          // No PII — held duration only.
-          data: {'held_ms': heldMs},
-        ),
-      );
-    }
-
-    _stopRecording();
+    final now = _clock();
+    final machine = _activeMachine;
+    _activeMachine = null;
+    final pressedAt = _pressDownAt;
+    _pressDownAt = null;
+    _lastHeldMs = pressedAt == null
+        ? 0
+        : now.difference(pressedAt).inMilliseconds;
+    machine?.up(now);
   }
 
-  /// Whether a press at [now] completes a double tap: the previous press was
-  /// a quick tap released within [_doubleTapWindow], and a recording is
-  /// running to latch.
-  bool _isDoubleTap(DateTime now) {
-    final lastRelease = _lastQuickTapReleaseAt;
-    return lastRelease != null &&
-        now.difference(lastRelease) < _doubleTapWindow &&
-        _isRecording();
+  /// Picks the gesture of the configured settings and returns its machine
+  /// with the current threshold applied.
+  HotkeyGestureMachine _select({
+    required bool pushToTalk,
+    required bool keyUpObservable,
+  }) {
+    if (pushToTalk && _holdOrTapEnabled()) {
+      return _machine(HotkeyGesture.auto, doubleTap: false)
+        ..holdThreshold = Duration(milliseconds: _holdOrTapThresholdMs());
+    }
+    if (pushToTalk) {
+      return _machine(HotkeyGesture.hold, doubleTap: _doubleTapEnabled())
+        ..holdThreshold = const Duration(milliseconds: _minHoldMs);
+    }
+    if (_doubleTapEnabled()) {
+      return _machine(HotkeyGesture.doubleTap, doubleTap: false)
+        ..holdThreshold = const Duration(milliseconds: _minHoldMs);
+    }
+    return _machine(HotkeyGesture.tap, doubleTap: false);
   }
 
-  HotkeyGestureMachine _hybrid() {
-    final ms = _holdOrTapThresholdMs();
-    final current = _hybridMachine;
-    if (current != null && ms == _hybridMachineThresholdMs) return current;
-    _hybridMachineThresholdMs = ms;
-    return _hybridMachine = HotkeyGestureMachine(
-      gesture: HotkeyGesture.auto,
-      holdThreshold: Duration(milliseconds: ms),
-      onOutput: _onHybridOutput,
+  HotkeyGestureMachine _machine(
+    HotkeyGesture gesture, {
+    required bool doubleTap,
+  }) {
+    final key = '${gesture.name}-$doubleTap';
+    return _machines.putIfAbsent(
+      key,
+      () => HotkeyGestureMachine(
+        gesture: gesture,
+        doubleTapEnabled: doubleTap,
+        onOutput: (output) => _dispatch(output, gesture),
+      ),
     );
   }
 
-  void _onHybridKeyDown() {
-    _hybrid().down(_clock(), isRecording: _isRecording());
-  }
-
-  void _onHybridKeyUp() {
-    _hybrid().up(_clock());
-  }
-
-  void _onHybridOutput(GestureOutput output) {
+  void _dispatch(GestureOutput output, HotkeyGesture gesture) {
     switch (output) {
-      case GestureOutput.toggle:
-        _log.debug('Hold-or-tap keyDown → toggleRecording');
-        _toggleRecording();
-      case GestureOutput.stop:
-        // Guard against a press the orchestrator ignored (e.g. still
-        // transcribing) — there is nothing to stop then.
-        if (!_isRecording()) return;
-        _log.debug('Hold-or-tap: hold → stop');
-        _stopRecording();
-      case GestureOutput.abort:
-        _log.debug('Hold-or-tap: another key during press → cancelRecording');
-        _cancelRecording();
-      case GestureOutput.doubleTap:
-        if (_doubleTapLatches()) {
-          unawaited(_startRecording());
-        } else {
-          unawaited(_onDoubleTap());
-        }
       case GestureOutput.start:
-        // Not produced by the `auto` gesture on the Hold-or-Tap path.
+        unawaited(_start());
+      case GestureOutput.toggle:
+        unawaited(_toggle());
+      case GestureOutput.stop:
+        _sendBreadcrumbOnce(gesture);
+        _release(_PendingRelease.stop);
+      case GestureOutput.abort:
+        _release(_PendingRelease.abort);
+      case GestureOutput.doubleTap:
+        unawaited(_doubleTapAction());
+    }
+  }
+
+  /// Hold press: start, or stop a latched recording.
+  Future<void> _start() async {
+    if (_latched && _isRecording()) {
+      _latched = false;
+      _owned = false;
+      _log.debug('Hold while latched → stopRecording');
+      await _stopRecording();
+      return;
+    }
+    _latched = false;
+    _log.debug('Hold → startRecording');
+    await _ownStart(_startRecording);
+  }
+
+  /// Tap press: toggle. A toggle while a recording runs stops it.
+  Future<void> _toggle() async {
+    if (_isRecording()) {
+      _owned = false;
+      _latched = false;
+      _log.debug('Toggle while recording → stopRecording');
+      await _toggleRecording();
+      return;
+    }
+    _latched = false;
+    _log.debug('Toggle → toggleRecording');
+    await _ownStart(_toggleRecording);
+  }
+
+  /// Double tap: action, or a hands-free start.
+  Future<void> _doubleTapAction() async {
+    final cancel = _cancelInFlight;
+    _cancelInFlight = null;
+    if (cancel != null) await cancel;
+    if (_doubleTapLatches()) {
+      _log.debug('Double tap → hands-free recording');
+      await _ownStart(_startRecording);
+      _latched = _owned;
+      return;
+    }
+    _log.debug('Double tap → action');
+    await _onDoubleTap();
+  }
+
+  /// Runs a start or toggle that begins a recording and records whether this
+  /// handler owns the result. A start that is refused stays unowned.
+  Future<void> _ownStart(Future<void> Function() begin) async {
+    if (_isRecording()) {
+      // A recording is already running: the press does not own it.
+      _owned = false;
+      await begin();
+      return;
+    }
+    final run = begin();
+    if (_isRecording()) {
+      _owned = true;
+      await run;
+      return;
+    }
+    _ownPending = true;
+    _owned = false;
+    await run;
+    _ownPending = false;
+    _owned = _isRecording();
+    await _settlePendingRelease();
+  }
+
+  /// Applies a release that arrived while the own start was still running.
+  Future<void> _settlePendingRelease() async {
+    final pending = _pendingRelease;
+    _pendingRelease = _PendingRelease.none;
+    if (pending == _PendingRelease.none || !_owned || !_isRecording()) {
+      _owned = false;
+      return;
+    }
+    switch (pending) {
+      case _PendingRelease.stop:
+        await _stopOwned();
+      case _PendingRelease.abort:
+        _abortOwned();
+      case _PendingRelease.none:
         break;
     }
   }
+
+  /// A release: stop or discard the recording this press started. Foreign or
+  /// refused recordings are never touched.
+  void _release(_PendingRelease kind) {
+    if (_ownPending) {
+      _pendingRelease = kind;
+      return;
+    }
+    if (!_owned) return;
+    if (kind == _PendingRelease.stop) {
+      unawaited(_stopOwned());
+    } else {
+      _abortOwned();
+    }
+  }
+
+  Future<void> _stopOwned() async {
+    _owned = false;
+    _latched = false;
+    if (!_isRecording()) return; // guard: nothing to stop
+    _log.debug('Release → stopRecording');
+    await _stopRecording();
+  }
+
+  void _abortOwned() {
+    _owned = false;
+    _latched = false;
+    _log.debug('Release (short first tap) → cancelRecording');
+    _cancelInFlight = _cancelRecording();
+  }
+
+  /// Forgets latch and ownership once the recording ended elsewhere.
+  void _forgetEndedRecording() {
+    if (_ownPending || _isRecording()) return;
+    _latched = false;
+    _owned = false;
+  }
+
+  void _sendBreadcrumbOnce(HotkeyGesture gesture) {
+    if (gesture != HotkeyGesture.hold || _keyUpBreadcrumbSent) return;
+    _keyUpBreadcrumbSent = true;
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        message: 'push_to_talk_key_up_first',
+        level: SentryLevel.info,
+        // No PII — held duration only.
+        data: {'held_ms': _lastHeldMs},
+      ),
+    );
+  }
 }
+
+/// Release that is still waiting for the own start to finish.
+enum _PendingRelease { none, stop, abort }

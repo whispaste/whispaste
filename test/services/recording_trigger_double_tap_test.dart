@@ -10,6 +10,13 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/services/recording_trigger_handler.dart';
 
+/// Lets queued async handler work run.
+Future<void> _settle() async {
+  for (var i = 0; i < 5; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -112,13 +119,14 @@ void main() {
   group('push-to-talk with double tap', () {
     test(
       'a short first tap is discarded and the second tap runs the action',
-      () {
+      () async {
         build(pushToTalk: true, latches: false);
 
         tapOnce();
         expect(started, 1, reason: 'the first press starts a recording');
         now = now.add(const Duration(milliseconds: 150));
         handler.onKeyDown();
+        await _settle();
 
         expect(cancelled, 1);
         expect(actionRuns, 1);
@@ -126,15 +134,21 @@ void main() {
       },
     );
 
-    test('hands-free latches the recording on the second tap instead', () {
-      build(pushToTalk: true, latches: true);
+    test(
+      'hands-free latches a new recording on the second tap instead',
+      () async {
+        build(pushToTalk: true, latches: true);
 
-      tapOnce();
-      now = now.add(const Duration(milliseconds: 150));
-      handler.onKeyDown();
+        tapOnce();
+        now = now.add(const Duration(milliseconds: 150));
+        handler.onKeyDown();
+        await _settle();
 
-      expect(actionRuns, 0);
-      expect(cancelled, 0);
-    });
+        expect(actionRuns, 0);
+        expect(cancelled, 1, reason: 'the first short tap is discarded');
+        expect(started, 2, reason: 'the second tap starts the latched one');
+        expect(recording, isTrue);
+      },
+    );
   });
 }

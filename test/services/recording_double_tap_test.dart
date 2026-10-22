@@ -22,9 +22,14 @@ class _Harness {
         recording = false;
       },
       toggleRecording: () async {},
+      cancelRecording: () async {
+        recording = false; // a discard really ends the recording
+      },
       pushToTalkEnabled: () => true,
       registrarSupportsKeyUp: () => true,
       doubleTapEnabled: () => doubleTap,
+      // Hands-free is the double tap action under test.
+      doubleTapLatches: () => true,
       isRecording: () => recording,
       clock: () => _now,
     );
@@ -53,13 +58,15 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('double tap latches hands-free in push-to-talk mode', () {
-    test('two quick taps latch: the second release keeps recording', () {
+    test('two quick taps latch: the second release keeps recording', () async {
       final h = _Harness();
-      h.quickTap(); // starts the recording
+      h.quickTap(); // starts, then the short first tap is discarded
       h.gap(const Duration(milliseconds: 200));
-      h.quickTap(); // second tap within the window: latch, no new start
+      h.quickTap(); // second tap within the window: latched start
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
 
-      expect(h.start, 1);
+      expect(h.start, 2);
       expect(h.stop, 0);
       expect(h.recording, isTrue);
     });
@@ -96,14 +103,14 @@ void main() {
       expect(h.stop, 1, reason: 'the single quick tap must not latch');
     });
 
-    test('off by default: two quick taps are two starts', () {
+    test('off by default: two quick taps are two starts, each released', () {
       final h = _Harness(doubleTap: false);
       h.quickTap();
       h.gap(const Duration(milliseconds: 200));
       h.quickTap();
 
       expect(h.start, 2);
-      expect(h.stop, 0);
+      expect(h.stop, 2, reason: 'every release ends its own press (Befund 2)');
     });
   });
 }

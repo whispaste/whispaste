@@ -1,6 +1,8 @@
 /// Unit tests for [RecordingTriggerHandler] — Push-to-Talk vs Toggle mode.
 library;
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:whispaste/services/recording_trigger_handler.dart';
@@ -13,6 +15,7 @@ class _Counters {
   int start = 0;
   int stop = 0;
   int toggle = 0;
+  bool recording = false;
 
   void reset() {
     start = 0;
@@ -27,11 +30,22 @@ RecordingTriggerHandler _make({
   required bool supportsKeyUp,
 }) {
   return RecordingTriggerHandler(
-    startRecording: () async => counters.start++,
-    stopRecording: () async => counters.stop++,
-    toggleRecording: () async => counters.toggle++,
+    startRecording: () async {
+      counters.start++;
+      counters.recording = true;
+    },
+    stopRecording: () async {
+      counters.stop++;
+      counters.recording = false;
+    },
+    toggleRecording: () async {
+      counters.toggle++;
+      counters.recording = !counters.recording;
+    },
     pushToTalkEnabled: () => pushToTalk,
     registrarSupportsKeyUp: () => supportsKeyUp,
+    // The handler only stops recordings it started, so it needs the state.
+    isRecording: () => counters.recording,
   );
 }
 
@@ -88,7 +102,7 @@ void main() {
       });
 
       test(
-        'T3: hold < 100 ms → startRecording only, no stopRecording',
+        'T3 (Befund 2): hold < 100 ms → start, and the release still stops',
         () async {
           final c = _Counters();
           final handler = _make(
@@ -102,7 +116,7 @@ void main() {
 
           // Do NOT wait — keyUp fires immediately (< 100 ms).
           handler.onKeyUp();
-          expect(c.stop, equals(0), reason: 'anti-glitch: held < 100 ms');
+          expect(c.stop, equals(1), reason: 'every release ends the press');
           expect(c.toggle, equals(0));
         },
       );
@@ -290,6 +304,255 @@ void main() {
       expect(h.stop, 0);
     });
   });
+
+  group('HK-A1 gesture runtime (single rule source: HotkeyGestureMachine)', () {
+    test('Befund 2: hold releases stop at 0, 99 and 100 ms', () {
+      for (final ms in [0, 99, 100]) {
+        final g = _Gesture();
+        g.handler.onKeyDown();
+        g.advance(Duration(milliseconds: ms));
+        g.handler.onKeyUp();
+        expect(g.start, 1, reason: '$ms ms');
+        expect(g.stop, 1, reason: '$ms ms: every release ends the press');
+        expect(g.recording, isFalse, reason: '$ms ms');
+      }
+    });
+
+    test('Befund 2: hybrid threshold boundaries 249 / 250 / 251 ms', () {
+      final below = _Gesture(holdOrTap: true);
+      below.handler.onKeyDown();
+      below.advance(const Duration(milliseconds: 249));
+      below.handler.onKeyUp();
+      expect(below.stop, 0, reason: '249 ms latches');
+
+      for (final ms in [250, 251]) {
+        final g = _Gesture(holdOrTap: true);
+        g.handler.onKeyDown();
+        g.advance(Duration(milliseconds: ms));
+        g.handler.onKeyUp();
+        expect(g.stop, 1, reason: '$ms ms is push-to-talk');
+      }
+    });
+
+    test('Befund 3: double tap starts hands-free, one tap stops it', () async {
+      final g = _Gesture(pushToTalk: false, doubleTap: true, latch: true);
+      g.handler.onKeyDown();
+      g.advance(const Duration(milliseconds: 80));
+      g.handler.onKeyUp();
+      g.advance(const Duration(milliseconds: 150));
+      g.handler.onKeyDown();
+      await _pump();
+      expect(g.start, 1, reason: 'double tap starts');
+      expect(g.recording, isTrue);
+      g.advance(const Duration(milliseconds: 80));
+      g.handler.onKeyUp();
+      g.advance(const Duration(seconds: 2));
+      g.handler.onKeyDown();
+      await _pump();
+      expect(g.toggle, 1, reason: 'a single tap stops the latched recording');
+      expect(g.recording, isFalse);
+      g.handler.onKeyUp();
+      expect(g.stop, 0, reason: 'release after the stop changes nothing');
+    });
+
+    test('Befund 3: a single tap alone starts nothing', () async {
+      final g = _Gesture(pushToTalk: false, doubleTap: true, latch: true);
+      g.handler.onKeyDown();
+      g.advance(const Duration(milliseconds: 80));
+      g.handler.onKeyUp();
+      await _pump();
+      expect(g.start, 0);
+      expect(g.toggle, 0);
+    });
+
+    test(
+      'Befund 5 / Grenzwerte: double-tap window 399 pairs, 400 and 401 do not',
+      () async {
+        for (final gap in [399, 400, 401]) {
+          final g = _Gesture(pushToTalk: false, doubleTap: true, latch: true);
+          g.handler.onKeyDown();
+          g.advance(const Duration(milliseconds: 80));
+          g.handler.onKeyUp();
+          g.advance(Duration(milliseconds: gap));
+          g.handler.onKeyDown();
+          await _pump();
+          expect(
+            g.start,
+            gap == 399 ? 1 : 0,
+            reason: 'gap $gap ms after release',
+          );
+        }
+      },
+    );
+
+    test(
+      'Befund 4: action waits until the aborted recording is cancelled',
+      () async {
+        final gate = Completer<void>();
+        final g = _Gesture(doubleTap: true)..cancelGate = () => gate.future;
+        g.handler.onKeyDown();
+        g.advance(const Duration(milliseconds: 80));
+        g.handler.onKeyUp(); // short first tap: discard starts
+        g.advance(const Duration(milliseconds: 150));
+        g.handler.onKeyDown(); // second tap: action must wait for the discard
+        await _pump();
+        expect(g.cancel, 1);
+        expect(g.action, 0, reason: 'no race with the still-running cancel');
+
+        gate.complete();
+        await _pump();
+        expect(g.action, 1);
+      },
+    );
+
+    test(
+      'Befund 15: a press that did not start the recording never stops it',
+      () async {
+        final rejected = _Gesture()..startRejects = true;
+        rejected.handler.onKeyDown();
+        rejected.advance(const Duration(milliseconds: 1000));
+        rejected.handler.onKeyUp();
+        expect(rejected.stop, 0, reason: 'rejected start is not owned');
+
+        final foreign = _Gesture()..recording = true;
+        foreign.handler.onKeyDown();
+        foreign.advance(const Duration(milliseconds: 1000));
+        foreign.handler.onKeyUp();
+        expect(foreign.stop, 0, reason: 'foreign recording is not ours');
+        expect(foreign.recording, isTrue);
+      },
+    );
+
+    test(
+      'Befund 15: hybrid release during a slow start stops after it',
+      () async {
+        final gate = Completer<void>();
+        final g = _Gesture(holdOrTap: true)..toggleGate = () => gate.future;
+        g.handler.onKeyDown();
+        g.advance(const Duration(milliseconds: 1500));
+        g.handler.onKeyUp();
+        await _pump();
+        expect(g.stop, 0, reason: 'recording is not running yet');
+
+        gate.complete();
+        await _pump();
+        expect(g.stop, 1, reason: 'the release is caught up once it runs');
+        expect(g.recording, isFalse);
+      },
+    );
+
+    test(
+      'Befund 15: changing the threshold mid-press keeps the press state',
+      () async {
+        final g = _Gesture(holdOrTap: true);
+        g.handler.onKeyDown();
+        g.advance(const Duration(milliseconds: 100));
+        g.thresholdMs = 1000;
+        g.advance(const Duration(milliseconds: 300));
+        g.handler.onKeyUp();
+        await _pump();
+        expect(g.stop, 1, reason: 'the press keeps its own threshold (250 ms)');
+      },
+    );
+
+    test(
+      'Befund 15: an externally ended latched recording resets the latch',
+      () async {
+        final g = _Gesture(doubleTap: true, latch: true);
+        g.handler.onKeyDown();
+        g.advance(const Duration(milliseconds: 80));
+        g.handler.onKeyUp();
+        g.advance(const Duration(milliseconds: 150));
+        g.handler.onKeyDown();
+        await _pump();
+        expect(g.recording, isTrue, reason: 'hands-free recording latched');
+        g.handler.onKeyUp();
+
+        g.recording = false; // e.g. silence auto-stop
+        g.advance(const Duration(seconds: 3));
+        g.handler.onKeyDown();
+        await _pump();
+        expect(g.recording, isTrue, reason: 'a new press starts, not stops');
+        g.advance(const Duration(seconds: 1));
+        g.handler.onKeyUp();
+        await _pump();
+        expect(g.recording, isFalse);
+      },
+    );
+  });
+}
+
+/// Lets queued microtasks and async handler work run.
+Future<void> _pump() async {
+  for (var i = 0; i < 5; i++) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+/// Gesture harness: fake clock, fake recording state, optional async gates
+/// (slow or rejected starts, a cancel that really takes time).
+class _Gesture {
+  _Gesture({
+    this.pushToTalk = true,
+    this.holdOrTap = false,
+    this.doubleTap = false,
+    this.latch = false,
+  }) {
+    handler = RecordingTriggerHandler(
+      startRecording: () async {
+        start++;
+        if (startGate != null) await startGate!();
+        if (!startRejects) recording = true;
+      },
+      stopRecording: () async {
+        stop++;
+        recording = false;
+      },
+      toggleRecording: () async {
+        toggle++;
+        final was = recording;
+        if (toggleGate != null) await toggleGate!();
+        recording = !was;
+      },
+      cancelRecording: () async {
+        cancel++;
+        if (cancelGate != null) await cancelGate!();
+        recording = false;
+      },
+      onDoubleTap: () async {
+        action++;
+      },
+      pushToTalkEnabled: () => pushToTalk,
+      registrarSupportsKeyUp: () => supportsKeyUp,
+      holdOrTapEnabled: () => holdOrTap,
+      holdOrTapThresholdMs: () => thresholdMs,
+      doubleTapEnabled: () => doubleTap,
+      doubleTapLatches: () => latch,
+      isRecording: () => recording,
+      clock: () => _now,
+    );
+  }
+
+  late final RecordingTriggerHandler handler;
+  final bool pushToTalk;
+  final bool holdOrTap;
+  final bool doubleTap;
+  final bool latch;
+  final bool supportsKeyUp = true;
+  int thresholdMs = 250;
+  DateTime _now = DateTime(2026);
+  bool recording = false;
+  bool startRejects = false;
+  Future<void> Function()? startGate;
+  Future<void> Function()? toggleGate;
+  Future<void> Function()? cancelGate;
+  int start = 0;
+  int stop = 0;
+  int toggle = 0;
+  int cancel = 0;
+  int action = 0;
+
+  void advance(Duration d) => _now = _now.add(d);
 }
 
 /// Hybrid-mode harness with a fake clock and a fake recording state, so tap

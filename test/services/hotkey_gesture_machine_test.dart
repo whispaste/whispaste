@@ -313,4 +313,95 @@ void main() {
       expect(out, [GestureOutput.start, GestureOutput.start]);
     });
   });
+
+  group('HK-A1 boundaries and rules', () {
+    test('plain hold: every release stops, at 0, 99 and 100 ms', () {
+      for (final ms in [0, 99, 100]) {
+        out.clear();
+        final m = make(HotkeyGesture.hold);
+        at(0);
+        m.down(t, isRecording: false);
+        at(ms);
+        m.up(t);
+        expect(out, [GestureOutput.start, GestureOutput.stop], reason: '$ms');
+      }
+    });
+
+    test(
+      'hold + double tap: short release (< 100 ms) aborts, 100 ms stops',
+      () {
+        for (final ms in [0, 99]) {
+          out.clear();
+          final m = make(
+            HotkeyGesture.hold,
+            doubleTapEnabled: true,
+            holdThreshold: const Duration(milliseconds: 100),
+          );
+          at(0);
+          m.down(t, isRecording: false);
+          at(ms);
+          m.up(t);
+          expect(out, [
+            GestureOutput.start,
+            GestureOutput.abort,
+          ], reason: '$ms');
+        }
+        out.clear();
+        final m = make(
+          HotkeyGesture.hold,
+          doubleTapEnabled: true,
+          holdThreshold: const Duration(milliseconds: 100),
+        );
+        at(0);
+        m.down(t, isRecording: false);
+        at(100);
+        m.up(t);
+        expect(out, [GestureOutput.start, GestureOutput.stop]);
+      },
+    );
+
+    test('hold + double tap: 249 / 250 / 251 ms are holds (stop)', () {
+      for (final ms in [249, 250, 251]) {
+        out.clear();
+        final m = make(
+          HotkeyGesture.hold,
+          doubleTapEnabled: true,
+          holdThreshold: const Duration(milliseconds: 100),
+        );
+        at(0);
+        m.down(t, isRecording: false);
+        at(ms);
+        m.up(t);
+        expect(out, [GestureOutput.start, GestureOutput.stop], reason: '$ms');
+      }
+    });
+
+    test('double tap window: 399 ms pairs, 400 and 401 ms do not', () {
+      for (final gap in [399, 400, 401]) {
+        out.clear();
+        final m = make(HotkeyGesture.doubleTap);
+        m.down(t, isRecording: false);
+        at(80);
+        m.up(t);
+        at(80 + gap);
+        m.down(t, isRecording: false);
+        expect(
+          out,
+          gap == 399 ? [GestureOutput.doubleTap] : isEmpty,
+          reason: 'gap $gap',
+        );
+      }
+    });
+
+    test('double-tap key: a tap while recording stops it, no pair', () {
+      final m = make(HotkeyGesture.doubleTap);
+      m.down(t, isRecording: true);
+      expect(out, [GestureOutput.toggle]);
+      at(50);
+      m.up(t);
+      at(120);
+      m.down(t, isRecording: false);
+      expect(out, [GestureOutput.toggle], reason: 'stop press cannot pair');
+    });
+  });
 }
