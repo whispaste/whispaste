@@ -41,6 +41,7 @@ All entries are written in English.
 - **Feedback mood ratings use icons:** the five ratings are drawn icons instead of emoji, so they look the same on every system.
 - **Multi-select bar in History:** Delete and Cancel stay on the bar at every text size. Merge, copy, export, restore and archive moved into a "More actions" menu, and the destructive label wraps instead of pushing Cancel out of view.
 - **Linux and onboarding wording is accurate:** the Linux speech-to-text page no longer promises dictation into every app, since auto-paste needs a one-time uinput setup and Wayland limits hotkeys and paste. The onboarding model step says the voice stays on your device with local recognition, because the step can also lead to a cloud engine.
+- **Website and app copy no longer promise dictation into every app:** the website, the SEO descriptions, the AI-facing `llms.txt` and the app's shortcut and paste-blocklist texts now say "in almost any app" or "in most text fields", since Linux under Wayland limits global hotkeys and paste.
 
 ### Fixes
 

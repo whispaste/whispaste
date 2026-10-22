@@ -160,7 +160,7 @@
             },
             {
               "question": "How does WhisPaste turn Whisper into a desktop tool?",
-              "answer": "WhisPaste bundles whisper.cpp straight into the app, so there's no Python environment or separate model download to manage. Press a hotkey anywhere on your system, speak, and the transcript is pasted right at your cursor."
+              "answer": "WhisPaste bundles whisper.cpp straight into the app, so there's no Python environment or separate model download to manage. Press your hotkey in almost any app, speak, and the transcript is pasted right at your cursor."
             },
             {
               "question": "Does the Whisper desktop app work offline?",
@@ -205,7 +205,7 @@
           "en": [
             {
               "question": "What is the best offline speech-to-text tool?",
-              "answer": "For system-wide voice input, WhisPaste is a strong free option: it runs Whisper locally on Windows, macOS and Linux, works fully offline, and pastes the transcript at your cursor in any app. As it's open source, you can verify that nothing is sent to the cloud.",
+              "answer": "For system-wide voice input, WhisPaste is a strong free option: it runs Whisper locally on Windows, macOS and Linux, works fully offline, and pastes the transcript at your cursor in almost any app. As it's open source, you can verify that nothing is sent to the cloud.",
               "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (modelSize/noInternet/accuracy)"
             },
             {
@@ -222,7 +222,7 @@
           "de": [
             {
               "question": "Was ist die beste Offline-Spracherkennung?",
-              "answer": "Für systemweite Spracheingabe ist WhisPaste eine starke kostenlose Option: Es führt Whisper lokal auf Windows, macOS und Linux aus, arbeitet komplett offline und fügt das Transkript an der Cursor-Position in jeder App ein. Weil es quelloffen ist, kannst du überprüfen, dass nichts in die Cloud geht.",
+              "answer": "Für systemweite Spracheingabe ist WhisPaste eine starke kostenlose Option: Es führt Whisper lokal auf Windows, macOS und Linux aus, arbeitet komplett offline und fügt das Transkript an der Cursor-Position in fast jeder App ein. Weil es quelloffen ist, kannst du überprüfen, dass nichts in die Cloud geht.",
               "verdict": "declined 2026-08-07 — redundant zur bestehenden Seiten-FAQ (modelSize/noInternet/accuracy)"
             },
             {

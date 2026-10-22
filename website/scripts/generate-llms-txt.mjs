@@ -317,12 +317,12 @@ const LLMS_TXT_SECTIONS = Object.freeze([
       {
         label: "Anwendungsfälle (Deutsch)",
         url: "https://whispaste.de/use-cases/",
-        note: "Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in jeder App",
+        note: "Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in fast jeder App",
       },
       {
         label: "Use cases (English)",
         url: "https://whispaste.de/en/use-cases/",
-        note: "Voice input for developers, students, and everyday writing — straight at the cursor in any app",
+        note: "Voice input for developers, students, and everyday writing — straight at the cursor in almost any app",
       },
     ],
   },

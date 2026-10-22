@@ -3439,7 +3439,7 @@ class L10nHe extends L10n {
 
   @override
   String get shortcutsAreaIntro =>
-      'המקשים האלה פועלים במערכת כולה: בכל אפליקציה, גם כש-WhisPaste רץ ברקע. כל שילוב שייך למקש אחד בלבד.';
+      'המקשים האלה פועלים במערכת כולה: בכמעט כל אפליקציה, גם כש-WhisPaste רץ ברקע. כל שילוב שייך למקש אחד בלבד.';
 
   @override
   String get settingsKeyboardShortcutSubtitle => 'קיצור להתחלת ועצירת הקלטה';
@@ -3759,7 +3759,7 @@ class L10nHe extends L10n {
 
   @override
   String get settingsPasteBlocklistEmpty =>
-      'אין אפליקציה חסומה – ההדבקה האוטומטית פועלת בכל מקום.';
+      'אין אפליקציה חסומה – ההדבקה האוטומטית פועלת בכמעט כל מקום.';
 
   @override
   String settingsPasteBlocklistRemoveTooltip(String name) {
@@ -4016,7 +4016,7 @@ class L10nHe extends L10n {
 
   @override
   String get onboardingTestRecordingDoneMessage =>
-      'זהו! כך זה עובד בדיוק בכל אפליקציה.';
+      'זהו! כך זה עובד בדיוק בכמעט כל אפליקציה.';
 
   @override
   String get onboardingTestRecordingReassurance =>

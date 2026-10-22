@@ -3577,7 +3577,7 @@ class L10nRu extends L10n {
 
   @override
   String get shortcutsAreaIntro =>
-      'Эти горячие клавиши работают во всей системе: в любом приложении, даже когда WhisPaste работает в фоне. Каждая комбинация относится только к одной клавише.';
+      'Эти горячие клавиши работают во всей системе: почти в любом приложении, даже когда WhisPaste работает в фоне. Каждая комбинация относится только к одной клавише.';
 
   @override
   String get settingsKeyboardShortcutSubtitle =>
@@ -3904,7 +3904,7 @@ class L10nRu extends L10n {
 
   @override
   String get settingsPasteBlocklistEmpty =>
-      'Ни одно приложение не заблокировано — автовставка работает везде.';
+      'Ни одно приложение не заблокировано — автовставка работает почти везде.';
 
   @override
   String settingsPasteBlocklistRemoveTooltip(String name) {
@@ -4167,7 +4167,7 @@ class L10nRu extends L10n {
 
   @override
   String get onboardingTestRecordingDoneMessage =>
-      'Вот и все! Именно так это работает в любом приложении.';
+      'Вот и все! Именно так это работает почти в любом приложении.';
 
   @override
   String get onboardingTestRecordingReassurance =>

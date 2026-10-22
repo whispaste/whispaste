@@ -5880,7 +5880,7 @@ abstract class L10n {
   /// Intro above the Keyboard shortcuts area: the one place that says hotkeys work system-wide.
   ///
   /// In en, this message translates to:
-  /// **'These hotkeys work system-wide: in every app, even while WhisPaste runs in the background. Each combination belongs to just one hotkey.'**
+  /// **'These hotkeys work system-wide: in almost every app, even while WhisPaste runs in the background. Each combination belongs to just one hotkey.'**
   String get shortcutsAreaIntro;
 
   /// No description provided for @settingsKeyboardShortcutSubtitle.
@@ -6424,7 +6424,7 @@ abstract class L10n {
   /// No description provided for @settingsPasteBlocklistEmpty.
   ///
   /// In en, this message translates to:
-  /// **'No app blocked – auto-paste works everywhere.'**
+  /// **'No app blocked – auto-paste works in almost every app.'**
   String get settingsPasteBlocklistEmpty;
 
   /// No description provided for @settingsPasteBlocklistRemoveTooltip.
@@ -6856,7 +6856,7 @@ abstract class L10n {
   /// No description provided for @onboardingTestRecordingDoneMessage.
   ///
   /// In en, this message translates to:
-  /// **'That\'s it! This is exactly how it works in every app.'**
+  /// **'That\'s it! This is exactly how it works in almost every app.'**
   String get onboardingTestRecordingDoneMessage;
 
   /// No description provided for @onboardingTestRecordingReassurance.

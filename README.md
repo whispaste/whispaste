@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>Press. Speak. Done.</strong><br>
-  Stop typing — speak, and your words land at the cursor in any app.<br>
+  Stop typing — speak, and your words land at the cursor in most apps.<br>
   A free, open-source <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> desktop voice-input tool — offline by default, cloud providers optional, no subscription.<br>
   Windows · macOS · Linux · MIT-licensed.
 </p>
@@ -51,7 +51,7 @@ Hotkey → Speak → Text appears at your cursor
 2. **Speak naturally** — a minimal overlay shows a live waveform while the mic is open
 3. **Done** — the transcript is pasted wherever your cursor sits
 
-Works in emails, chat apps, code editors, browsers, terminals — anywhere you would otherwise type.
+Works in emails, chat apps, code editors, browsers, terminals — almost anywhere you would otherwise type.
 
 ## Key Features
 

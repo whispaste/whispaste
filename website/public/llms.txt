@@ -31,8 +31,8 @@
 
 ## Use Cases
 
-- [Anwendungsfälle (Deutsch)](https://whispaste.de/use-cases/): Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in jeder App
-- [Use cases (English)](https://whispaste.de/en/use-cases/): Voice input for developers, students, and everyday writing — straight at the cursor in any app
+- [Anwendungsfälle (Deutsch)](https://whispaste.de/use-cases/): Spracheingabe für Entwickler, Studierende und den Schreib-Alltag — direkt am Cursor in fast jeder App
+- [Use cases (English)](https://whispaste.de/en/use-cases/): Voice input for developers, students, and everyday writing — straight at the cursor in almost any app
 
 ## Comparisons
 

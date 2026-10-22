@@ -3507,7 +3507,7 @@ class L10nPt extends L10n {
 
   @override
   String get shortcutsAreaIntro =>
-      'Estes atalhos funcionam em todo o sistema: em qualquer app, mesmo com o WhisPaste em segundo plano. Cada combinação pertence a um único atalho.';
+      'Estes atalhos funcionam em todo o sistema: em quase qualquer app, mesmo com o WhisPaste em segundo plano. Cada combinação pertence a um único atalho.';
 
   @override
   String get settingsKeyboardShortcutSubtitle =>
@@ -3834,7 +3834,7 @@ class L10nPt extends L10n {
 
   @override
   String get settingsPasteBlocklistEmpty =>
-      'Nenhum app bloqueado: o auto-colar funciona em todos.';
+      'Nenhum app bloqueado: o auto-colar funciona em quase todos.';
 
   @override
   String settingsPasteBlocklistRemoveTooltip(String name) {
@@ -4096,7 +4096,7 @@ class L10nPt extends L10n {
 
   @override
   String get onboardingTestRecordingDoneMessage =>
-      'Pronto! É exatamente assim que funciona em qualquer app.';
+      'Pronto! É exatamente assim que funciona em quase qualquer app.';
 
   @override
   String get onboardingTestRecordingReassurance =>

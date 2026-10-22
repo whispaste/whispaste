@@ -3511,7 +3511,7 @@ class L10nDe extends L10n {
 
   @override
   String get shortcutsAreaIntro =>
-      'Diese Hotkeys wirken systemweit: in jeder App, auch wenn WhisPaste im Hintergrund läuft. Jede Kombination gehört nur einem Hotkey.';
+      'Diese Hotkeys wirken systemweit: in fast jeder App, auch wenn WhisPaste im Hintergrund läuft. Jede Kombination gehört nur einem Hotkey.';
 
   @override
   String get settingsKeyboardShortcutSubtitle =>
@@ -3839,7 +3839,7 @@ class L10nDe extends L10n {
 
   @override
   String get settingsPasteBlocklistEmpty =>
-      'Keine App gesperrt – Auto-Paste funktioniert überall.';
+      'Keine App gesperrt – Auto-Paste funktioniert in fast jeder App.';
 
   @override
   String settingsPasteBlocklistRemoveTooltip(String name) {
@@ -4096,7 +4096,7 @@ class L10nDe extends L10n {
 
   @override
   String get onboardingTestRecordingDoneMessage =>
-      'Klappt! Genau so funktioniert es in jeder App.';
+      'Klappt! Genau so funktioniert es in fast jeder App.';
 
   @override
   String get onboardingTestRecordingReassurance =>
