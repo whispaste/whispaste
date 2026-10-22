@@ -175,7 +175,10 @@ void main() {
 
       expect(gsettings.entry('name'), "'WhisPaste'");
       expect(gsettings.entry('binding'), "'<Control><Shift>d'");
-      expect(gsettings.entry('command'), "'sh \\'${dir.path}/toggle.sh\\''");
+      expect(
+        gsettings.entry('command'),
+        "'sh \\'${p.join(dir.path, 'toggle.sh')}\\''",
+      );
       expect(parseGvStringList(gsettings.list), [
         '/custom0/',
         GnomeToggleShortcut.entryPath,

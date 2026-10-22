@@ -15,6 +15,7 @@ import 'package:whispaste/features/notes/data/notes_actions.dart';
 import 'package:whispaste/features/notes/notes_page.dart';
 
 import '../../fixtures/test_helpers.dart';
+import '../../test_helpers/temp_dir_cleanup.dart';
 
 /// Complete 1x1 PNG, 45 bytes: signature, IHDR, IEND.
 Uint8List _png() {
@@ -54,7 +55,7 @@ void main() {
 
   tearDown(() async {
     await db.close();
-    if (appData.existsSync()) appData.deleteSync(recursive: true);
+    deleteTempDir(appData);
   });
 
   testWidgets('an open note shows all of its attached images', (tester) async {

@@ -204,13 +204,20 @@ void main() {
         // users never see a tooltip. Host-specific copy (Linux gets its own
         // hint), same as the app shows.
         expect(
-          find.textContaining(pushToTalkUnavailableMessage(l10n)),
+          find.textContaining(
+            pushToTalkUnavailableMessage(l10n, operatingSystem: 'other'),
+          ),
           findsOneWidget,
         );
         expect(
           find.byWidgetPredicate(
             (w) =>
-                w is Tooltip && w.message == pushToTalkUnavailableMessage(l10n),
+                w is Tooltip &&
+                w.message ==
+                    pushToTalkUnavailableMessage(
+                      l10n,
+                      operatingSystem: 'other',
+                    ),
           ),
           findsNothing,
         );

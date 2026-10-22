@@ -101,7 +101,7 @@ void main() {
             label: l10n.settingsHoldToRecord,
             hint:
                 '${l10n.onboardingTriggerModeToggleHint}\n'
-                '${pushToTalkUnavailableMessage(l10n)}',
+                '${pushToTalkUnavailableMessage(l10n, operatingSystem: 'other')}',
           ),
         );
       }
@@ -296,7 +296,9 @@ void main() {
       // The reason is printed under the row, not only in a hover tooltip.
       // Both dependent rows (push-to-talk and hold-or-tap) explain it.
       expect(
-        find.textContaining(pushToTalkUnavailableMessage(l10n)),
+        find.textContaining(
+          pushToTalkUnavailableMessage(l10n, operatingSystem: 'other'),
+        ),
         findsNWidgets(2),
       );
       expect(
@@ -304,7 +306,12 @@ void main() {
           of: find.byKey(toggleKey),
           matching: find.byWidgetPredicate(
             (w) =>
-                w is Tooltip && w.message == pushToTalkUnavailableMessage(l10n),
+                w is Tooltip &&
+                w.message ==
+                    pushToTalkUnavailableMessage(
+                      l10n,
+                      operatingSystem: 'other',
+                    ),
           ),
         ),
         findsNothing,
