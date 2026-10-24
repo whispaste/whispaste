@@ -141,6 +141,21 @@ class _StallableButtonController extends _FakeButtonController
 
   int rebootCalls = 0;
 
+  /// Call site of the latest re-boot request, reported on assertion failure.
+  StackTrace? lastRebootTrace;
+
+  /// Reboot count at the moment each state push arrived, parallel to [states].
+  /// Read at push time, so the assertion does not depend on when the test
+  /// looks: a re-push that happens before any reboot records 0.
+  final rebootsAtState = <int>[];
+
+  /// Every push (state, look or size), counted to script a heal at a chosen
+  /// push via [healAtPush].
+  int pushCount = 0;
+
+  /// When set, the engine heals (and acknowledges) on that push number.
+  int? healAtPush;
+
   /// Acknowledges a frame asynchronously, like a post-frame callback.
   void paintFrame() {
     scheduleMicrotask(() => _events.add(const FloatingButtonRenderFrame()));
@@ -150,8 +165,18 @@ class _StallableButtonController extends _FakeButtonController
     if (!frozen) paintFrame();
   }
 
+  void _countPush() {
+    pushCount++;
+    if (pushCount == healAtPush) {
+      frozen = false;
+      paintFrame();
+    }
+  }
+
   @override
   Future<void> setState(FloatingButtonVisualState state) async {
+    rebootsAtState.add(rebootCalls);
+    _countPush();
     await super.setState(state);
     _ackIfHealthy();
   }
@@ -162,12 +187,14 @@ class _StallableButtonController extends _FakeButtonController
     required String wave,
     FloatingButtonLook look = FloatingButtonLook.defaults,
   }) async {
+    _countPush();
     await super.setTheme(background: background, wave: wave, look: look);
     _ackIfHealthy();
   }
 
   @override
   Future<void> setSize(int size) async {
+    _countPush();
     await super.setSize(size);
     _ackIfHealthy();
   }
@@ -175,10 +202,23 @@ class _StallableButtonController extends _FakeButtonController
   @override
   Future<void> rebootRenderEngine() async {
     rebootCalls++;
+    lastRebootTrace = StackTrace.current;
     if (rebootHeals) {
       frozen = false;
       paintFrame();
     }
+  }
+}
+
+/// Polls [condition] until it holds, failing after 5 s. Used for events that
+/// must happen eventually; a fixed sleep would race the watchdog under load.
+Future<void> _waitFor(bool Function() condition, String what) async {
+  final waited = Stopwatch()..start();
+  while (!condition()) {
+    if (waited.elapsed > const Duration(seconds: 5)) {
+      fail('timed out waiting for $what');
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 1));
   }
 }
 
@@ -222,12 +262,14 @@ class _FakeOverlayController implements FloatingOverlayController {
 }
 
 class _TestableButtonService extends FloatingButtonService {
-  _TestableButtonService(this._fake);
+  _TestableButtonService(this._fake, this._frameDeadline);
   final _FakeButtonController _fake;
+  final Duration _frameDeadline;
 
-  /// Short deadline so the heartbeat tests run in milliseconds, not seconds.
+  /// Per-test deadline. Short where a stall must be observed, long where a
+  /// healthy engine must never be judged stalled (see the heartbeat group).
   @override
-  Duration get renderFrameDeadline => const Duration(milliseconds: 40);
+  Duration get renderFrameDeadline => _frameDeadline;
 
   @override
   FloatingButtonController? createController() => _fake;
@@ -419,7 +461,10 @@ class _Harness {
   RecordingOrchestrator get orchestrator =>
       container.read(recordingOrchestratorProvider.notifier);
 
-  static Future<_Harness> create({_FakeButtonController? button}) async {
+  static Future<_Harness> create({
+    _FakeButtonController? button,
+    Duration frameDeadline = const Duration(milliseconds: 40),
+  }) async {
     sttDirOverride = _scratchDir.path;
     final wavPath = _prepareFiles();
     final db = HistoryDatabase.forTesting(NativeDatabase.memory());
@@ -440,7 +485,7 @@ class _Harness {
         ),
         modelDownloadProvider.overrideWith(_FakeModelDownloadNotifier.new),
         floatingButtonServiceProvider.overrideWith(
-          () => _TestableButtonService(fake),
+          () => _TestableButtonService(fake, frameDeadline),
         ),
         floatingOverlayServiceProvider.overrideWith(
           () => _TestableOverlayService(overlay),
@@ -639,7 +684,10 @@ void main() {
   test(
     'unrelated settings write does not touch the native button geometry',
     () async {
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      // The initial sync ends with its first state push. Capture the baseline
+      // only after it, or a slow runner counts that sync as a settings-write
+      // reaction.
+      await _waitFor(() => h.button.states.isNotEmpty, 'the initial sync');
       final before = h.button.geometryCalls;
       await h.container
           .read(settingsProvider.notifier)
@@ -768,28 +816,45 @@ void main() {
   }
 
   group('render-engine frame heartbeat', () {
-    Future<(_Harness, _StallableButtonController)> stallable() async {
+    // Stall tests use a short deadline (40 ms) so a stall shows up quickly.
+    // Nothing asserts a wall-clock duration: positive events are awaited with
+    // [_waitFor], and reboot counts are read at the moment of each push.
+    Future<(_Harness, _StallableButtonController)> stallable({
+      Duration frameDeadline = const Duration(milliseconds: 40),
+    }) async {
       final button = _StallableButtonController();
-      final harness = await _Harness.create(button: button);
+      final harness = await _Harness.create(
+        button: button,
+        frameDeadline: frameDeadline,
+      );
       addTearDown(harness.dispose);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
       return (harness, button);
     }
 
     test(
       'a healthy engine acknowledges every push and is never re-booted',
       () async {
-        final (h2, b) = await stallable();
+        final (h2, b) = await stallable(
+          frameDeadline: const Duration(seconds: 2),
+        );
+        // Let the initial sync land first, then the write and any sync it
+        // triggers, and only then take the baseline. Otherwise the first show
+        // of the session is counted as a reaction to the write.
+        await _waitFor(() => b.states.isNotEmpty, 'the initial sync');
         await h2.container
             .read(settingsProvider.notifier)
             .updateSettings((s) => s.copyWith(floatingButtonRing: false));
-        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await Future<void>.delayed(const Duration(milliseconds: 200));
         final pushes = b.states.length;
         final geometry = b.geometryCalls;
 
         await Future<void>.delayed(const Duration(milliseconds: 200));
 
-        expect(b.rebootCalls, 0);
+        expect(
+          b.rebootCalls,
+          0,
+          reason: 'reboot requested from: ${b.lastRebootTrace}',
+        );
         expect(b.states.length, pushes, reason: 'no re-push without a stall');
         expect(b.geometryCalls, geometry, reason: 'no re-push without a stall');
       },
@@ -802,27 +867,30 @@ void main() {
           .read(settingsProvider.notifier)
           .updateSettings((s) => s.copyWith(floatingButtonRing: false));
       h2.orchestrator.toggleRecording();
-      await h2.until((p) => p == RecordingPhase.recording);
 
-      // Wait for the re-push itself. The engine stays frozen, so a second
-      // missed deadline (and a re-boot) follows 40 ms later; the check below
-      // runs before it.
-      final waited = Stopwatch()..start();
-      while (b.states
-              .where((s) => s == FloatingButtonVisualState.recording)
-              .length <
-          2) {
-        if (waited.elapsed > const Duration(milliseconds: 150)) break;
-        await Future<void>.delayed(const Duration(milliseconds: 1));
-      }
+      await _waitFor(
+        () =>
+            b.states
+                .where((s) => s == FloatingButtonVisualState.recording)
+                .length >=
+            2,
+        'the stall re-push of the recording state',
+      );
 
+      final recordingPushes = [
+        for (var i = 0; i < b.states.length; i++)
+          if (b.states[i] == FloatingButtonVisualState.recording) i,
+      ];
       expect(
-        b.states.where((s) => s == FloatingButtonVisualState.recording).length,
-        2,
+        recordingPushes,
+        hasLength(greaterThanOrEqualTo(2)),
         reason: 'the phase push and the stall re-push',
       );
-      expect(b.rebootCalls, 0, reason: 'the first miss only re-pushes');
-      expect(b.lastState, FloatingButtonVisualState.recording);
+      expect(
+        b.rebootsAtState[recordingPushes[1]],
+        0,
+        reason: 'the first miss only re-pushes; no re-boot before the re-push',
+      );
       expect(
         b.lastTheme?.look.ring,
         isFalse,
@@ -839,8 +907,7 @@ void main() {
             .read(settingsProvider.notifier)
             .updateSettings((s) => s.copyWith(floatingButtonRing: false));
 
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-
+        await _waitFor(() => b.rebootCalls >= 1, 'the single re-boot');
         expect(b.rebootCalls, 1);
         expect(
           b.frozen,
@@ -861,13 +928,14 @@ void main() {
       () async {
         final (h2, b) = await stallable();
         b.frozen = true;
+        // The engine heals on the second push: the re-push itself. The ack
+        // then lands before the next deadline, so no re-boot may follow.
+        b.healAtPush = 2;
         await h2.container
             .read(settingsProvider.notifier)
             .updateSettings((s) => s.copyWith(floatingButtonRing: false));
-        await Future<void>.delayed(const Duration(milliseconds: 60));
 
-        b.frozen = false;
-        b.paintFrame();
+        await _waitFor(() => !b.frozen, 'the engine to heal on the re-push');
         await Future<void>.delayed(const Duration(milliseconds: 200));
 
         expect(b.rebootCalls, 0);
@@ -884,14 +952,16 @@ void main() {
             .read(settingsProvider.notifier)
             .updateSettings((s) => s.copyWith(floatingButtonRing: false));
 
-        await Future<void>.delayed(const Duration(milliseconds: 400));
+        await _waitFor(
+          () => b.rebootCalls >= 3,
+          'the full re-boot budget to be spent',
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 200));
         expect(
           b.rebootCalls,
           3,
           reason: 'kRenderRebootBudget re-boots, then stop',
         );
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-        expect(b.rebootCalls, 3);
       },
     );
 

@@ -122,8 +122,11 @@ void main() {
         await tester.pumpWidget(_makeSection(supportsKeyUp: false));
         await tester.pump();
         // Host-specific copy (Linux gets its own hint), same as the app shows.
+        // Production resolves the host via defaultTargetPlatform, which is
+        // android in widget tests, so the generic copy is the expected one.
         final expected = pushToTalkUnavailableMessage(
           await L10n.delegate.load(const Locale('en')),
+          operatingSystem: 'other',
         );
 
         expect(

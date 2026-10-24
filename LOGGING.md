@@ -25,12 +25,13 @@ AppLogger (lib/core/logging/app_logger.dart)
 Alles App-Level-Logging läuft über `AppLogger`. Es gibt **keinen** zweiten,
 parallelen Logging-Weg — `print()` ist per Lint (`avoid_print`,
 `--fatal-infos` in CI) verboten, `dev.log()`/`debugPrint()` außerhalb von
-`AppLogger` selbst sind seit diesem Commit per CI-Gate
-(`.github/workflows/ci.yml`, Job „Secret scan“ → Step „Logging gate“)
-verboten. Ausnahmen (dokumentiert im Gate-Script): `app_logger.dart` /
-`app_monitoring.dart` / `crash_reporter.dart` / `crash_reporting_consent.dart`
-selbst (vermeiden rekursive
-Logger-Aufrufe) sowie die sekundären Flutter-Engine-Entrypoints
+`AppLogger` selbst sind per Gate verboten (`scripts/ci-gates.sh logging`,
+läuft in CI, im pre-commit- und im pre-push-Hook). Ausnahmen (Allowlist im
+Skript): `app_logger.dart` / `app_monitoring.dart` / `crash_reporter.dart` /
+`crash_reporting_consent.dart` selbst (vermeiden rekursive Logger-Aufrufe),
+`install_id.dart` (die Id-Quelle des Crash-Reporters, die `crash_reporter.dart`
+importiert; ein AppLogger-Aufruf würde im Bootstrap den Zyklus
+`install_id → app_logger → crash_reporter → install_id` schließen) sowie die sekundären Flutter-Engine-Entrypoints
 (`*_render_entrypoint.dart`, `overlay_render_channel.dart`), die vor dem
 regulären App-Bootstrap laufen können.
 
@@ -188,8 +189,11 @@ Server-seitig (Supabase RLS + Trigger).
 
 - `analysis_options.yaml`: `avoid_print` (+ `flutter analyze --fatal-infos`
   macht das zum Hard-Fail).
-- `.github/workflows/ci.yml`, Job `secret-scan`, Step „Logging gate“: verbietet
-  `dev.log()`/`debugPrint()` außerhalb der dokumentierten Ausnahmen.
-- `.github/workflows/ci.yml`, Job `secret-scan`, Step „Scan for potential
-  secrets“: repo-weiter Regex-Scan gegen eingecheckte Secrets (ergänzt, nicht
-  ersetzt, die Laufzeit-Redaction in `AppLogger`).
+- `scripts/ci-gates.sh`, Gate `logging`: verbietet `dev.log()`/`debugPrint()`
+  außerhalb der dokumentierten Ausnahmen. CI (Job `secret-scan`), pre-commit
+  und pre-push rufen dasselbe Skript auf; die Allowlist steht nur dort.
+- `scripts/ci-gates.sh`, Gate `secrets`: repo-weiter Regex-Scan gegen
+  eingecheckte Secrets (ergänzt, nicht ersetzt, die Laufzeit-Redaction in
+  `AppLogger`).
+- `scripts/check-workflow-hygiene.sh` (Regel 4) prüft, dass jedes Gate aus
+  `ci-gates.sh` in ci.yml und in den Hooks läuft.

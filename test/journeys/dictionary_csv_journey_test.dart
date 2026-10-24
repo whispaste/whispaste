@@ -55,6 +55,7 @@ import 'package:whispaste/widgets/wp_button.dart';
 import 'package:whispaste/widgets/wp_list_skeleton.dart';
 
 import '../fixtures/test_helpers.dart';
+import '../test_helpers/temp_dir_cleanup.dart';
 
 const _fileSelectorChannel = MethodChannel('plugins.flutter.io/file_selector');
 const _settleTimeout = Duration(seconds: 20);
@@ -553,7 +554,7 @@ void main() {
         .setMockMethodCallHandler(SystemChannels.platform, null);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_fileSelectorChannel, null);
-    if (_tmp.existsSync()) _tmp.deleteSync(recursive: true);
+    deleteTempDir(_tmp);
   });
 
   testWidgets(

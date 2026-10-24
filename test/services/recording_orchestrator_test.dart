@@ -1098,7 +1098,9 @@ void main() {
       'opens, and the post-capture load skips the warm-up inference',
       () async {
         final orch = container.read(recordingOrchestratorProvider.notifier);
-        await Future<void>.delayed(Duration.zero);
+        // The startup prewarm checks the model file on real IO. Let that check
+        // finish before the fake model appears, or it counts as a press prewarm.
+        await Future<void>.delayed(const Duration(milliseconds: 100));
 
         await withFakeSttModel(() => orch.toggleRecording());
         await Future<void>.delayed(Duration.zero);

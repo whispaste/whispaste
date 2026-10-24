@@ -3010,7 +3010,23 @@ void main() {
           );
           expect(settings.current.sttProviderType, SttProviderType.onDevice);
 
-          await tester.tap(find.byKey(kModelStepUseCloudKey));
+          // Reachability first: a real user must be able to see and press the
+          // button inside the onboarding window. A miss here is a layout
+          // problem, not a flaky tap.
+          final cloudButton = find.byKey(kModelStepUseCloudKey);
+          expect(cloudButton, findsOneWidget);
+          final window = tester.getRect(find.byType(OnboardingOverlay));
+          final cloudRect = tester.getRect(cloudButton);
+          expect(
+            window.contains(cloudRect.center),
+            isTrue,
+            reason:
+                'the cloud button ($cloudRect) lies outside the onboarding '
+                'window ($window): a user cannot reach it',
+          );
+          await tester.ensureVisible(cloudButton);
+          await tester.pumpAndSettle();
+          await tester.tap(cloudButton);
           await tester.pumpAndSettle();
 
           expect(settings.current.sttProviderType, SttProviderType.deepgram);

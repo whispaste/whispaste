@@ -175,7 +175,10 @@ void main() {
 
       expect(gsettings.entry('name'), "'WhisPaste'");
       expect(gsettings.entry('binding'), "'<Control><Shift>d'");
-      expect(gsettings.entry('command'), "'sh \\'${dir.path}/toggle.sh\\''");
+      // gsettings stores the command as a string literal, so every backslash
+      // of the Windows path is escaped as '\\'.
+      final quoted = p.join(dir.path, 'toggle.sh').replaceAll(r'\', r'\\');
+      expect(gsettings.entry('command'), "'sh \\'$quoted\\''");
       expect(parseGvStringList(gsettings.list), [
         '/custom0/',
         GnomeToggleShortcut.entryPath,

@@ -181,6 +181,11 @@ wack-report.xml
 # │  PROTECTED-END                                                      │
 # └─────────────────────────────────────────────────────────────────────┘
 
+# Repo-Gates, shared by CI and the hooks (scripts/ci-gates.sh). Outside the
+# protected block on purpose: this only re-includes one script the scripts/*
+# rule above hides.
+!scripts/ci-gates.sh
+
 # Screenshots (local output only — golden test sources are tracked)
 # Leading slash anchors to repo root, so website/public/screenshots/ is NOT ignored
 /screenshots/

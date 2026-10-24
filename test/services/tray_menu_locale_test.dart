@@ -32,10 +32,19 @@ class _LocaleSettingsNotifier extends SettingsNotifier {
   }
 }
 
-/// Lets the async notifier and the tray's listener run to completion.
-Future<void> _settle() async {
-  for (var i = 0; i < 20; i++) {
-    await Future<void>.delayed(Duration.zero);
+/// Lets the async notifier, the tray's listeners and the channel round trips
+/// of pending menu rebuilds finish: returns once [count] has stayed unchanged
+/// for a while. A fixed number of zero-delay ticks is not enough on a loaded
+/// runner, and a rebuild that lands late is then counted as a second one.
+Future<void> _settle(int Function() count) async {
+  var last = count();
+  var quietTicks = 0;
+  final waited = Stopwatch()..start();
+  while (quietTicks < 10 && waited.elapsed < const Duration(seconds: 5)) {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    final now = count();
+    quietTicks = now == last ? quietTicks + 1 : 0;
+    last = now;
   }
 }
 
@@ -81,7 +90,7 @@ void main() {
     await container.read(settingsProvider.future);
     final tray = container.read(trayServiceProvider.notifier);
     await tray.initDone;
-    await _settle();
+    await _settle(() => menus.length);
 
     expect(menus, isNotEmpty, reason: 'the tray menu must be built at start');
     expect(menus.last, contains(de.trayStartRecording));
@@ -100,16 +109,16 @@ void main() {
     await container.read(settingsProvider.future);
     final tray = container.read(trayServiceProvider.notifier);
     await tray.initDone;
-    await _settle();
+    await _settle(() => menus.length);
     expect(menus.last, contains(de.traySettings));
 
     // ServiceBootstrap forwards each locale change to the tray; this is the
     // call it makes, so the tray must rebuild once in the new language.
     final rebuildsBefore = menus.length;
     notifier.setLocale('en');
-    await _settle();
+    await _settle(() => menus.length);
     tray.updateLocalizations(l10nForLocaleCode('en'));
-    await _settle();
+    await _settle(() => menus.length);
 
     expect(
       menus.length,
@@ -131,12 +140,12 @@ void main() {
     await container.read(settingsProvider.future);
     final tray = container.read(trayServiceProvider.notifier);
     await tray.initDone;
-    await _settle();
+    await _settle(() => menus.length);
 
     tray.updateRecordingState(
       const RecordingState(phase: RecordingPhase.recording),
     );
-    await _settle();
+    await _settle(() => menus.length);
 
     expect(menus.last, contains(de.trayStopRecording));
     expect(menus.last, isNot(contains(en.trayStopRecording)));

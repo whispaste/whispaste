@@ -4,6 +4,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/services/stt/whisper/cuda_pack.dart';
 
@@ -59,7 +60,7 @@ void main() {
   test('current consent loads the installed pack folder', () {
     expect(
       _dirFor(accepted: cudaEulaConsentValue(_pack.id)),
-      '/root/${_pack.id}',
+      p.join('/root', _pack.id),
     );
   });
 

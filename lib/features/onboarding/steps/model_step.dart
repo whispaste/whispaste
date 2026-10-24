@@ -1457,7 +1457,10 @@ class _DownloadError extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: WpSpacing.sm),
+        // `xs` between the error banner and the retry it belongs to: the
+        // German download-error page needs 4 px more than the fixed window
+        // offers at `sm` (onboarding_overlay_test measures it per locale).
+        const SizedBox(height: WpSpacing.xs),
         WpButton(
           label: l10n.overlayRetry,
           variant: WpButtonVariant.secondary,

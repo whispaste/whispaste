@@ -664,7 +664,7 @@ class _HoldOrTapRow extends ConsumerWidget {
             title: l10n.settingsHoldOrTap,
             subtitle: !supportsKeyUp
                 ? '${l10n.settingsHoldOrTapHint}\n'
-                      '${pushToTalkUnavailableMessage(l10n)}'
+                      '${pushToTalkUnavailableMessage(l10n, operatingSystem: defaultTargetPlatform == TargetPlatform.linux ? 'linux' : 'other')}'
                 : doubleTapSet
                 ? '${l10n.settingsHoldOrTapHint}\n'
                       '${l10n.settingsHoldOrTapBlockedByDoubleTap}'
