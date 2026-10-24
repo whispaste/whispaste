@@ -118,7 +118,11 @@ class _FakeStt extends SttServerStateNotifier {
   }
 
   @override
-  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribeBytesWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+  }) async {
     languages.add(language);
     return transcript;
   }

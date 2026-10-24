@@ -345,8 +345,14 @@ class FakeSttService extends SttServerStateNotifier {
     state = state.copyWith(serverState: SttServerState.ready);
   }
 
+  // LocalSttTranscriber reaches the engine through transcribeBytesWithProgress
+  // (e736c1e0c). Override that entry point: transcribeBytes forwards to it.
   @override
-  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribeBytesWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+  }) async {
     transcribeCallCount++;
     lifecycleCalls.add('transcribe');
     lastLanguage = language;
@@ -8092,9 +8098,10 @@ class _NotReadySttService extends SttServerStateNotifier {
   }
 
   @override
-  Future<String> transcribeBytes(
+  Future<String> transcribeBytesWithProgress(
     List<int> wavBytes, {
     String? language,
+    void Function(double fraction)? onProgress,
   }) async => '';
 
   @override

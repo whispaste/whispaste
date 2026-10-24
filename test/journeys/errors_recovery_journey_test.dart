@@ -77,7 +77,11 @@ class _FakeSttService extends SttServerStateNotifier {
   Future<void> ensureRunning({bool warmup = true}) async {}
 
   @override
-  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribeBytesWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+  }) async {
     return 'unused';
   }
 

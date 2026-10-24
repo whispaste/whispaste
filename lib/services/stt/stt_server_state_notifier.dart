@@ -835,8 +835,8 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
       transcribeBytesWithProgress(wavBytes, language: language);
 
   /// [transcribeBytes] that also reports engine progress through [onProgress]
-  /// (IMP-PROG-2). Kept separate so existing overrides of [transcribeBytes]
-  /// stay valid.
+  /// (IMP-PROG-2). This is the entry point callers use, so test fakes must
+  /// override this method; an override of [transcribeBytes] alone is bypassed.
   Future<String> transcribeBytesWithProgress(
     List<int> wavBytes, {
     String? language,

@@ -290,7 +290,11 @@ class _FakeSttService extends SttServerStateNotifier {
   }
 
   @override
-  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+  Future<String> transcribeBytesWithProgress(
+    List<int> wavBytes, {
+    String? language,
+    void Function(double fraction)? onProgress,
+  }) async {
     if (failTranscription) throw Exception('Transcription failed');
     return 'Hello world';
   }
