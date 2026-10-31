@@ -1,5 +1,5 @@
 /// Widget tests for the "Remove filler words" toggle inside
-/// [TextProcessingSection] (handy-catchup ticket 16). Same cloud-mode
+/// [TextProcessingSection] (catchup ticket 16). Same cloud-mode
 /// setup as `numeric_only_mode_toggle_test.dart`, so the local-only model
 /// manager stays out of the tree.
 library;

@@ -28,7 +28,7 @@ library;
 // ---------------------------------------------------------------------------
 
 /// `STATUS_DLL_NOT_FOUND` / DLL entry-point exits from `whisper-server`.
-/// Collapses the WP-74 + WP-75 cluster (50 users, 70 events at PRD time).
+/// Collapses the ticket + ticket cluster (50 users, 70 events at PRD time).
 const String sttExitDllMissing = 'stt-exit-dll-missing';
 
 /// GPU-fatal exit from `whisper-server` (driver crash, CUDA OOM-side abort,
@@ -49,7 +49,7 @@ const String sttExitOther = 'stt-exit-other';
 /// `modelLoad` exit when the model SHA-256 matches expected — i.e. the
 /// model file is intact but the installed `whisper-server` binary cannot
 /// load it (ABI mismatch after a server-variant change). This is the
-/// WP-32 cluster (75 users, 186 events at PRD time).
+/// ticket cluster (75 users, 186 events at PRD time).
 const String sttModelAbiMismatch = 'stt-model-abi-mismatch';
 
 /// `modelLoad` exit when the model SHA-256 does NOT match expected.

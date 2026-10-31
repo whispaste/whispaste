@@ -1,4 +1,4 @@
-/// Route tests for `POST /v1/transcriptions` (WP-38 / 8.2).
+/// Route tests for `POST /v1/transcriptions` (ticket / 8.2).
 library;
 
 import 'dart:convert';

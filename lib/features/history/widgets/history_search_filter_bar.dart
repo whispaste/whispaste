@@ -1733,7 +1733,7 @@ class _NewRecordingButton extends ConsumerWidget {
         phase == RecordingPhase.refining;
 
     // Beside the 44 px search field: an icon button of the same height
-    // (WP-14 spec §4). Its label is the tooltip and accessible name.
+    // (ticket spec §4). Its label is the tooltip and accessible name.
     return WpIconButton(
       icon: isRecording ? LucideIcons.square : LucideIcons.mic,
       // While transcribing the tooltip says why the press does nothing.

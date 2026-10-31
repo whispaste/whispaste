@@ -1,4 +1,4 @@
-/// Compact waveform payload for the macOS overlay path (WP-84 phase 2, plan
+/// Compact waveform payload for the macOS overlay path (ticket phase 2, plan
 /// item 5).
 ///
 /// The 30 Hz waveform push used to send one 8-byte double per bar through two

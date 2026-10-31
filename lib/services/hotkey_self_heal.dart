@@ -102,11 +102,22 @@ class HotkeyHealGate {
 
 /// Process-wide count of open hotkey captures (recorder dialogs and the
 /// onboarding hotkey step). Counted, so nested or overlapping captures
-/// balance out. Only ever read by [HotkeyService] before a heal.
+/// balance out. [HotkeyService] reads [active] before a heal.
+///
+/// A recorder that is actually listening for keys counts in [listening] as
+/// well. While it does, [HotkeyService] takes the app's system-wide hotkeys
+/// off the system, because a registered combination never reaches the
+/// recorder. The onboarding hotkey page only counts in [active]: its practice
+/// press needs the registered hotkey.
 abstract final class HotkeyCaptureGuard {
   static int _depth = 0;
+  static int _listening = 0;
+  static void Function(bool listening)? _onListeningChanged;
 
   static bool get active => _depth > 0;
+
+  /// A recorder is listening for keys right now.
+  static bool get listening => _listening > 0;
 
   static void begin() => _depth++;
 
@@ -114,9 +125,33 @@ abstract final class HotkeyCaptureGuard {
     if (_depth > 0) _depth--;
   }
 
-  /// Test helper: forgets all open captures.
+  /// A recorder starts listening. Also counts as an open capture.
+  static void beginListening() {
+    _depth++;
+    _listening++;
+    if (_listening == 1) _onListeningChanged?.call(true);
+  }
+
+  /// The recorder from [beginListening] stops listening.
+  static void endListening() {
+    if (_listening == 0) return;
+    _listening--;
+    end();
+    if (_listening == 0) _onListeningChanged?.call(false);
+  }
+
+  /// Called when [listening] turns on or off. One listener: the hotkey
+  /// service. Passing null removes it.
+  static void setListeningListener(void Function(bool listening)? listener) =>
+      _onListeningChanged = listener;
+
+  /// Test helper: forgets all open captures and the listener.
   @visibleForTesting
-  static void reset() => _depth = 0;
+  static void reset() {
+    _depth = 0;
+    _listening = 0;
+    _onListeningChanged = null;
+  }
 }
 
 /// Wraps a page or dialog that captures a hotkey, so the global registration

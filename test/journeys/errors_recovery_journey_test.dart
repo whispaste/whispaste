@@ -456,7 +456,7 @@ void main() {
         await tester.pump();
 
         expect(container.read(activePageProvider), 'settings');
-        // WP-23: the model row, `stt` migrated to its row id (spec 07 §4).
+        // ticket: the model row, `stt` migrated to its row id (spec 07 §4).
         expect(container.read(settingsScrollTargetProvider), 'stt-model');
         await _teardown(tester);
       },

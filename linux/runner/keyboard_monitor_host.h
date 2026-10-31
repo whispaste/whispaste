@@ -16,7 +16,7 @@
 typedef struct _XDisplay Display;
 
 // Owns the public MethodChannel com.whispaste.keyboard_monitor on Linux —
-// the push-to-talk key-up source (handy-catchup/09, shipped as experimental).
+// the push-to-talk key-up source (catchup/09, shipped as experimental).
 // Dart side: lib/services/keyboard_up_monitor.dart.
 //
 // The global hotkey itself stays an X11 grab (hotkey_manager/keybinder, the

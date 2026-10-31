@@ -100,7 +100,7 @@ void main() {
     expect(WpColors.background, wpLightColors.background);
   });
 
-  group('navy is the renamed brand mode (WP-50)', () {
+  group('navy is the renamed brand mode (ticket)', () {
     test('stores as navy and loads a legacy brand value as navy', () {
       expect(AppearanceMode.navy.value, 'navy');
       expect(AppearanceMode.fromValue('brand'), AppearanceMode.navy);

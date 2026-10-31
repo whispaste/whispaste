@@ -139,7 +139,7 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
 
   } else if (strcmp(method, "setTheme") == 0) {
     // ── setTheme ──────────────────────────────────────────────────────────
-    // args: { background: string, wave: string } (WP-75). Cached so the ready
+    // args: { background: string, wave: string } (ticket). Cached so the ready
     // flush can replay them.
     // A missing or non-string id resets to the default, like macOS and
     // Windows; an unknown string is replaced by the default as well.
@@ -156,7 +156,7 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
       pending_background_ =
           KnownPreset(background, kBackgroundPresets, "marine");
       pending_wave_ = KnownPreset(wave, kWavePresets, "cyan");
-      // WP-95 button look: shape, recording ring, resting opacity (40-100 %).
+      // ticket button look: shape, recording ring, resting opacity (40-100 %).
       FlValue* shv = fl_value_lookup_string(args, "shape");
       pending_shape_ = (shv && fl_value_get_type(shv) == FL_VALUE_TYPE_STRING &&
                         strcmp(fl_value_get_string(shv), "square") == 0)
@@ -174,6 +174,11 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
         idle = static_cast<double>(fl_value_get_int(ov));
       }
       pending_idle_opacity_ = idle < 0.4 ? 0.4 : (idle > 1.0 ? 1.0 : idle);
+      FlValue* icv = fl_value_lookup_string(args, "idleCapsule");
+      pending_idle_capsule_ =
+          (icv && fl_value_get_type(icv) == FL_VALUE_TYPE_BOOL)
+              ? fl_value_get_bool(icv)
+              : false;
     }
     if (render_ready_) {
       g_autoptr(FlValue) theme_args = fl_value_new_map();
@@ -187,6 +192,8 @@ void FloatingButtonHost::HandleMethodCall(FlMethodCall* method_call) {
                                fl_value_new_bool(pending_ring_));
       fl_value_set_string_take(theme_args, "idleOpacity",
                                fl_value_new_float(pending_idle_opacity_));
+      fl_value_set_string_take(theme_args, "idleCapsule",
+                               fl_value_new_bool(pending_idle_capsule_));
       InvokeRenderChannel("setTheme", theme_args);
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
@@ -443,9 +450,42 @@ void FloatingButtonHost::HandleRenderMethodCall(FlMethodCall* method_call) {
                               fl_value_new_bool(pending_ring_));
     fl_value_set_string_take(theme_args, "idleOpacity",
                               fl_value_new_float(pending_idle_opacity_));
+    fl_value_set_string_take(theme_args, "idleCapsule",
+                              fl_value_new_bool(pending_idle_capsule_));
     InvokeRenderChannel("setTheme", theme_args);
 
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+
+  } else if (strcmp(method, "setWindowSize") == 0) {
+    // ── setWindowSize ─────────────────────────────────────────────────────
+    // The render engine asks for the content size of its current form (disc,
+    // idle capsule or pill). The shell adds the shadow padding.
+    FlValue* args = fl_method_call_get_args(method_call);
+    double width = 0.0;
+    double height = 0.0;
+    bool expanded = false;
+    if (args && fl_value_get_type(args) == FL_VALUE_TYPE_MAP) {
+      FlValue* wv = fl_value_lookup_string(args, "width");
+      FlValue* hv = fl_value_lookup_string(args, "height");
+      if (wv && fl_value_get_type(wv) == FL_VALUE_TYPE_FLOAT)
+        width = fl_value_get_float(wv);
+      if (hv && fl_value_get_type(hv) == FL_VALUE_TYPE_FLOAT)
+        height = fl_value_get_float(hv);
+      FlValue* ev = fl_value_lookup_string(args, "expanded");
+      if (ev && fl_value_get_type(ev) == FL_VALUE_TYPE_BOOL)
+        expanded = fl_value_get_bool(ev);
+    }
+    g_autoptr(FlValue) reply = fl_value_new_map();
+    if (button_window_ && button_window_->IsCreated() && width > 0 &&
+        height > 0) {
+      auto pins = button_window_->SetWindowSizeAnchored(
+          static_cast<int>(width), static_cast<int>(height), expanded);
+      fl_value_set_string_take(reply, "pinnedRight",
+                               fl_value_new_bool(pins.right));
+      fl_value_set_string_take(reply, "pinnedBottom",
+                               fl_value_new_bool(pins.bottom));
+    }
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(reply));
 
   } else if (strcmp(method, "clicked") == 0) {
     // ── clicked ───────────────────────────────────────────────────────────
@@ -463,6 +503,7 @@ void FloatingButtonHost::HandleRenderMethodCall(FlMethodCall* method_call) {
     // TUNING: X11-only, like every window move here (GDK_BACKEND=x11, see
     // main.cc); without XWayland the pointer cannot be queried.
     if (button_window_ && button_window_->IsCreated()) {
+      button_window_->ForgetCapsuleHome();
       drag_mover_.Start(GTK_WINDOW(button_window_->GetGtkWindow()));
     }
     response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));

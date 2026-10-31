@@ -74,7 +74,7 @@ enum OverlayDesignTheme { dark, light }
 /// The two chrome styles the overlay pill can render.
 ///
 /// Background presets of the recording overlay and the floating button
-/// (WP-75, ADR 0024). Each preset is a flat token set from
+/// (ticket, ADR 0024). Each preset is a flat token set from
 /// `design-tokens/app.tokens.json` (`overlay.*`, [WpOverlayTokens]); its
 /// [tone] decides which wave and signal values pair with it.
 ///
@@ -133,7 +133,7 @@ enum OverlayBackground {
   /// Whether this background is dark or light; selects the wave and signal set.
   final OverlayDesignTheme tone;
 
-  /// The flat pill and button fill (WP-75 flat pass: one colour, no gradient).
+  /// The flat pill and button fill (ticket flat pass: one colour, no gradient).
   final Color surfaceStart;
 
   /// Glyph fill (timer, status text, close glyph, stop square).
@@ -154,7 +154,7 @@ enum OverlayBackground {
   );
 }
 
-/// Wave colour presets (WP-75, ADR 0024; palette and validity WP-75b). A wave
+/// Wave colour presets (ticket, ADR 0024; palette and validity WP-75b). A wave
 /// has one value per tone. A background × wave pairing is valid only when the
 /// wave, or its darker light step, reaches 3:1 on the fill ([effectiveOn]).
 /// Invalid pairings are disabled in the settings, never drawn in a stand-in
@@ -182,7 +182,7 @@ enum OverlayWave {
     WpOverlayTokens.overlayWaveInkLightStrong,
   ),
 
-  /// Bernstein wave (WP-75 flat pass). Amber on dark, dark amber on light.
+  /// Bernstein wave (ticket flat pass). Amber on dark, dark amber on light.
   amber(
     'amber',
     WpOverlayTokens.overlayWaveAmberDark,
@@ -271,7 +271,7 @@ double contrastRatio(Color a, Color b) {
 }
 
 /// A complete, resolved colour set for one background × wave pairing
-/// (WP-75, ADR 0024). Build it with [OverlayThemeColors.resolve] or
+/// (ticket, ADR 0024). Build it with [OverlayThemeColors.resolve] or
 /// [OverlayDesignSpec.colorsFor]; every field is non-null for every pairing.
 @immutable
 class OverlayThemeColors {
@@ -440,14 +440,12 @@ class OverlaySizeSpec {
     required this.width,
     required this.height,
     required this.cornerRadius,
-    required this.dotSize,
     required this.closeButtonSize,
     required this.stopButtonSize,
     required this.statusIconSize,
     required this.waveformMaxHeight,
     required this.waveformBarWidth,
     required this.waveformBarGap,
-    required this.dotTextGap,
     required this.timerWaveformGap,
     required this.pillGap,
     required this.bottomProgressHeight,
@@ -473,9 +471,6 @@ class OverlaySizeSpec {
 
   // -- Content metrics (compact = normal × compactScale) ---------------------
 
-  /// Recording state dot diameter.
-  final double dotSize;
-
   /// Close (cancel-X) button diameter.
   final double closeButtonSize;
 
@@ -493,9 +488,6 @@ class OverlaySizeSpec {
 
   /// Minimum gap between waveform bars.
   final double waveformBarGap;
-
-  /// Gap between the dot and the following text.
-  final double dotTextGap;
 
   /// Gap between the timer and the waveform.
   final double timerWaveformGap;
@@ -551,14 +543,12 @@ class OverlaySizeSpec {
     width: 330,
     height: 64,
     cornerRadius: 18,
-    dotSize: 8,
     closeButtonSize: 36,
     stopButtonSize: 36,
     statusIconSize: 16,
     waveformMaxHeight: 24,
     waveformBarWidth: 2.5,
     waveformBarGap: 1.5,
-    dotTextGap: 8,
     timerWaveformGap: 18,
     pillGap: 14,
     bottomProgressHeight: 4,
@@ -601,14 +591,12 @@ class OverlaySizeSpec {
     width: 150,
     height: 34,
     cornerRadius: 17,
-    dotSize: 5,
     closeButtonSize: 18,
     stopButtonSize: 18,
     statusIconSize: 14,
     waveformMaxHeight: 18,
     waveformBarWidth: 2.0,
     waveformBarGap: 1.5,
-    dotTextGap: 6,
     timerWaveformGap: 8,
     pillGap: 8,
     bottomProgressHeight: 2,
@@ -636,14 +624,12 @@ class OverlaySizeSpec {
       width: width,
       height: height,
       cornerRadius: cornerRadius,
-      dotSize: dotSize * s,
       closeButtonSize: closeButtonSize * s,
       stopButtonSize: stopButtonSize * s,
       statusIconSize: statusIconSize * s,
       waveformMaxHeight: waveformMaxHeight * s,
       waveformBarWidth: waveformBarWidth * s,
       waveformBarGap: waveformBarGap * s,
-      dotTextGap: dotTextGap * s,
       timerWaveformGap: timerWaveformGap * s,
       pillGap: pillGap * s,
       bottomProgressHeight: bottomProgressHeight * s,
@@ -691,13 +677,13 @@ class OverlayLayoutSpec {
   /// Close-glyph centre, measured from `left + padH`.
   final double closeOffset;
 
-  /// Recording-dot / status-icon centre, measured from `left + padH`.
+  /// Status-icon / spinner centre, measured from `left + padH`.
   final double dotInset;
 
-  /// Recording-dot radius.
+  /// Radius of the transcribing spinner and the done/error icons.
   final double dotRadius;
 
-  /// Gap from the dot centre to the timer/label left edge.
+  /// Gap from the status glyph (or close glyph) to the timer/label left edge.
   final double timerGap;
 
   /// Timer/label font size (semibold).
@@ -751,7 +737,7 @@ class OverlayLayoutSpec {
     lineStrokeMin: 1.5,
   );
 
-  /// Mini-size layout. The mini painter branch renders dot + waveform while
+  /// Mini-size layout. The mini painter branch renders the waveform while
   /// recording, spinner + status label while transcribing (which consumes
   /// [dotInset]/[timerGap]/[timerFontSize]) and a centred status icon for
   /// done/error; the close/stop values here are conservative fallbacks that
@@ -899,28 +885,6 @@ class OverlayArcMotion {
   );
 }
 
-/// Calm animation timings. No light effects, no shimmer — soft and slow by brand rule.
-@immutable
-class OverlayMotion {
-  const OverlayMotion({
-    required this.dotPulsePeriod,
-    required this.dotPulseMinAlpha,
-    required this.dotPulseMinScale,
-  });
-
-  /// Recording dot pulse period.
-  final Duration dotPulsePeriod;
-
-  /// Minimum alpha the recording dot dips to at the bottom of its pulse.
-  final double dotPulseMinAlpha;
-
-  /// Minimum scale the recording dot dips to at the bottom of its pulse
-  /// (task #polish-cross-platform-glass). Paired with [dotPulseMinAlpha] so
-  /// the pulse reads as a soft breathing motion rather than a flat opacity
-  /// flicker — still calm, no size overshoot past 1.0.
-  final double dotPulseMinScale;
-}
-
 /// Mic-glyph geometry for the floating button, expressed as **ratios of the
 /// disc diameter** so the glyph scales identically across the settings-owned
 /// button sizes (44/56/80). Every ratio is the approved spike value
@@ -1029,7 +993,7 @@ class FloatingButtonSpec {
   /// Painted drop shadow of the disc, alpha included (UX-048).
   final Color shadowColor;
 
-  /// Flat disc fill (WP-75 flat pass: no tint gradient). White on the default
+  /// Flat disc fill (ticket flat pass: no tint gradient). White on the default
   /// button; the preset's surface colour for a background.
   final Color discColor;
 
@@ -1086,7 +1050,7 @@ abstract final class OverlayDesignSpec {
   /// [WpOverlayPainter], the pill now reads as a bare glass body. The content
   /// no longer depends on the fill at all: every dark-ink glyph became a
   /// white glyph with a dark outline — see [OverlayBackground.ink].)
-  /// Superseded for the fill by the opaque flat fill (UX-013, 2026-10-17; WP-75
+  /// Superseded for the fill by the opaque flat fill (UX-013, 2026-10-17; ticket
   /// flat pass): no longer applied to any painted layer; kept only as a
   /// documented value.
   static const double fillOpacityFactor = 0.14;
@@ -1222,9 +1186,15 @@ abstract final class OverlayDesignSpec {
   /// Stop-square corner radius (spike `2`).
   static const double stopSquareRadius = 2.0;
 
-  /// Corner radius of the rounded-rect form (WP-95). The pill uses half its
-  /// height instead.
-  static const double roundedRectRadius = 12.0;
+  /// Corner radius of the rounded-rect form as a share of its height
+  /// (ticket). A fixed radius turned the small sizes into near-pills (12 px on
+  /// a 34 px mini is 35 %); a constant share keeps the same silhouette in
+  /// every size — 12 px at the normal 64 px. The pill uses half its height.
+  static const double roundedRectRadiusShare = 0.1875;
+
+  /// Rounded-rect corner radius for a capsule of [height].
+  static double roundedRectRadiusFor(double height) =>
+      height * roundedRectRadiusShare;
 
   /// Stop-square fill opacity over the content colour (spike `0.9`).
   static const double stopSquareOpacity = 0.9;
@@ -1246,10 +1216,6 @@ abstract final class OverlayDesignSpec {
   static const double timelineLeadDotRadius = 2.2;
 
   // -- Waveform line rendering (thin accent lines) ---------------------------
-
-  /// Number of trailing (most-recent) bars drawn in the bright active accent;
-  /// the rest are drawn muted (spike `i > len − 5`).
-  static const int waveformActiveCount = 5;
 
   // Mirrored-bar waveform (Maintainer decision, 2026-07-29): the bars are
   // FULLY OPAQUE filled capsules, mirrored around the centre axis
@@ -1444,12 +1410,12 @@ abstract final class OverlayDesignSpec {
   // (formerly `borderColorFor`) was removed after live feedback: over a small
   // translucent capsule the red recording stroke read as a diffuse pink
   // "light effect" — exactly the effect ADR 0002 forbids. State identity lives ONLY
-  // in crisp content glyphs: the pulsing dot, the live waveform, the done
+  // in crisp content glyphs: the live waveform, the done
   // check (green) and the error icon/text (red).
 
   // -- Theme colours ---------------------------------------------------------
 
-  /// The colour set for [background] paired with [wave] (WP-75, ADR 0024).
+  /// The colour set for [background] paired with [wave] (ticket, ADR 0024).
   static OverlayThemeColors colorsFor({
     OverlayBackground background = OverlayBackground.marine,
     OverlayWave wave = OverlayWave.cyan,
@@ -1457,7 +1423,7 @@ abstract final class OverlayDesignSpec {
 
   /// Glyph colour stops of the floating button's mic for [state], taken from
   /// the resolved [colors] of the background, so an amber background gets the
-  /// legible signal (WP-75). Flat: both stops are the same colour (ADR 0024).
+  /// legible signal (ticket). Flat: both stops are the same colour (ADR 0024).
   ///
   /// While recording the mic takes the wave colour, like the dot in the pill
   /// (ADR 0024, Nachtrag 2026-10-22). Only where the wave is not legible on the
@@ -1516,15 +1482,6 @@ abstract final class OverlayDesignSpec {
       };
 
   // -- Motion ----------------------------------------------------------------
-
-  /// Calm animation timings.
-  static const OverlayMotion motion = OverlayMotion(
-    dotPulsePeriod: Duration(milliseconds: 900),
-    // Approved spike pulse range is 0.6 .. 1.0 (`0.6 + 0.4 × …`).
-    dotPulseMinAlpha: 0.6,
-    // Subtler than the alpha range — a soft breathing scale, not a resize.
-    dotPulseMinScale: 0.88,
-  );
 
   /// Signature recording-arc motion parameters (Phase-0, issue 09).
   ///
@@ -1643,8 +1600,10 @@ abstract final class OverlayDesignSpec {
         !sizeSpec.minimalContent || state == OverlayDesignState.transcribing;
     if (!paintsText) return baseWidth;
     if (text.isEmpty && secondaryText.isEmpty) return baseWidth;
-    // Mirrors WpOverlayPainter._drawContent's textLeft/maxTextWidth geometry:
-    // textLeft sits at padH + dotInset + timerGap from the pill's left edge,
+    // Mirrors WpOverlayPainter._drawContent's textLeft/maxTextWidth geometry.
+    // Recording has no lead dot, so its timer starts after the close glyph;
+    // the other states keep the status icon slot (dotInset). The text
+    // starts at padH + that slot + timerGap from the pill's left edge,
     // and padH is reserved again on the right — solved for the pill width
     // that gives the measured text exactly enough room. A secondary line
     // (guided-sequence frames) shares the same left edge at its smaller
@@ -1660,8 +1619,11 @@ abstract final class OverlayDesignSpec {
     final widestLine = measuredTextWidth > measuredSecondaryWidth
         ? measuredTextWidth
         : measuredSecondaryWidth;
+    final leadSlot = state == OverlayDesignState.recording
+        ? layout.closeOffset + layout.closeArm
+        : layout.dotInset;
     final requiredWidth =
-        widestLine + 2 * layout.padH + layout.dotInset + layout.timerGap;
+        widestLine + 2 * layout.padH + leadSlot + layout.timerGap;
     return requiredWidth.clamp(baseWidth, sizeSpec.width);
   }
 
@@ -1714,7 +1676,7 @@ abstract final class OverlayDesignSpec {
   /// backdrop, the nearest fixed backdrop the ring sits on (WCAG 1.4.11).
   static const Color buttonRingBackdrop = WpColorsDark.background;
 
-  /// The floating button's appearance for [colors] (WP-75, ADR 0024): disc
+  /// The floating button's appearance for [colors] (ticket, ADR 0024): disc
   /// from the background, mic glyph in its ink, and while [ringed] (recording)
   /// a [buttonRingWidth] ring outside the disc edge. The ring takes the wave
   /// colour when it reaches 3:1 on [buttonRingBackdrop], otherwise the ink,
@@ -1751,7 +1713,7 @@ abstract final class OverlayDesignSpec {
   /// (mirrors [windowSize] for the overlay). The disc centre is painted at
   /// `Offset(shadowPadding + diameter / 2, shadowPadding + diameter / 2)`.
   /// Corner radius of the rounded-square button, as a share of its half
-  /// diameter (0 = square, 1 = disc). WP-95 button shape.
+  /// diameter (0 = square, 1 = disc). ticket button shape.
   static const double buttonSquareCornerRatio = 0.45;
 
   static Size buttonWindowSize(double diameter) =>

@@ -1280,6 +1280,13 @@ class L10nRu extends L10n {
       'Маленькая кнопка всегда поверх окон для быстрого запуска записи';
 
   @override
+  String get settingsFloatingButtonIdleCapsule => 'Узкая капсула в покое';
+
+  @override
+  String get settingsFloatingButtonIdleCapsuleSubtitle =>
+      'Узкая и ненавязчивая; раскрывается в пилюлю при наведении';
+
+  @override
   String get settingsLanguage => 'Язык';
 
   @override
@@ -4878,6 +4885,14 @@ class L10nRu extends L10n {
   String get overlayMicSignalLost => 'Нет сигнала с микрофона';
 
   @override
+  String get overlayMicVeryQuiet => 'Микрофон очень тихий';
+
+  @override
+  String overlayRemainingTime(String time) {
+    return 'Осталось $time';
+  }
+
+  @override
   String get overlayDoneQuickNote => 'Добавлено в заметку';
 
   @override
@@ -8094,7 +8109,7 @@ class L10nRu extends L10n {
 
   @override
   String get manualC02S3B2I2 =>
-      '«Плавающая кнопка»: кнопка, которой запись запускается кликом. По умолчанию: выкл. В Linux с Wayland рабочий стол может ограничивать положение кнопки и то, остаётся ли она поверх окон.';
+      '«Плавающая кнопка»: кнопка, которой запись запускается кликом. По умолчанию: выкл. С опцией «Узкая капсула в покое» кнопка остаётся узкой капсулой и раскрывается в полную пилюлю, когда на неё наводят указатель. В Linux с Wayland капсула остаётся узкой, а рабочий стол может ограничивать положение кнопки и то, остаётся ли она поверх окон.';
 
   @override
   String get manualC02S4Heading => 'Вставка после записи';

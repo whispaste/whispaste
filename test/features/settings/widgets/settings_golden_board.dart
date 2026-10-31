@@ -1,4 +1,4 @@
-/// Shared board for the WP-23 settings goldens: one colour set active, one
+/// Shared board for the ticket settings goldens: one colour set active, one
 /// text scale, one surface. The set is applied through [WpColors.activate]
 /// and [wpThemeFor] by the caller, so the board only lays out the child.
 library;

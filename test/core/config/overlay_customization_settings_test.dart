@@ -1,4 +1,4 @@
-/// WP-95: persistence of the overlay customization keys.
+/// ticket: persistence of the overlay customization keys.
 ///
 /// Defaults must keep today's look, unknown stored values must fall back to
 /// it, and every key must survive a round trip.

@@ -1,4 +1,4 @@
-/// Which Help tab a settings row jumps to (WP-78).
+/// Which Help tab a settings row jumps to (ticket).
 library;
 
 import '../../core/navigation/help_target.dart';

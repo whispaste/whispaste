@@ -1,4 +1,4 @@
-/// Settings row table and search model (WP-23, spec §3 and §4).
+/// Settings row table and search model (ticket, spec §3 and §4).
 ///
 /// [kSettingsSearchTable] holds one entry per settings row (84 rows, spec §3):
 /// a stable kebab-case [SettingsSearchEntry.rowId], the [SettingsRowArea] that
@@ -31,7 +31,7 @@ enum SettingsRowArea {
   smartMode,
   dictionary,
 
-  /// The About content, the last area of Settings (WP-78).
+  /// The About content, the last area of Settings (ticket).
   about,
 
   /// Rows that moved to the Help page (the rail's "Hilfe" entry). They are
@@ -51,7 +51,7 @@ enum SettingsRowArea {
     SettingsRowArea.profiles => SettingsArea.profiles,
     SettingsRowArea.privacy => SettingsArea.privacy,
     SettingsRowArea.advanced => SettingsArea.advanced,
-    // Smart Mode (WP-21) and the dictionary (WP-34) are feature pages that
+    // Smart Mode (ticket) and the dictionary (ticket) are feature pages that
     // do not exist in this branch yet; their rows stay where they render now.
     SettingsRowArea.smartMode => SettingsArea.textInsert,
     SettingsRowArea.dictionary => SettingsArea.speech,
@@ -121,7 +121,7 @@ L10n settingsL10nFor(String locale) {
   return lookupL10n(Locale(supported ? language : 'en'));
 }
 
-/// Legacy deep-link keys (section keys from before WP-23) and their row ids.
+/// Legacy deep-link keys (section keys from before ticket) and their row ids.
 const Map<String, String> kLegacySettingsDeepLinkRowIds = {
   'interface': 'general-app-language',
   'hotkey': 'general-hotkey-dictation',
@@ -142,7 +142,7 @@ const Map<String, String> kLegacySettingsDeepLinkRowIds = {
   'automationApi': 'advanced-automation-api',
   'onboardingReview': 'advanced-onboarding-again',
   'reviewSupport': 'advanced-review',
-  // The retired About page (WP-78) lands on the first "Über WhisPaste" row.
+  // The retired About page (ticket) lands on the first "Über WhisPaste" row.
   'about': 'about-check-updates',
 };
 
@@ -1937,6 +1937,25 @@ final List<SettingsSearchEntry> kSettingsSearchTable = [
       'opacity',
       'idle',
       'transparency',
+    ],
+  ),
+  SettingsSearchEntry(
+    rowId: 'appearance-floating-button-idle-capsule',
+    area: SettingsRowArea.appearance,
+    labelKey: 'settingsFloatingButtonIdleCapsule',
+    cardKey: null,
+    titleOf: (l10n) => l10n.settingsFloatingButtonIdleCapsule,
+    keywords: [
+      'Kapsel',
+      'schmal',
+      'Ruhezustand',
+      'unauffällig',
+      'capsule',
+      'slim',
+      'idle',
+      'compact',
+      'Button',
+      'button',
     ],
   ),
   SettingsSearchEntry(

@@ -1,4 +1,4 @@
-/// Pure rendering rules for `POST /v1/snippets/render` (WP-38 / 8.1).
+/// Pure rendering rules for `POST /v1/snippets/render` (ticket / 8.1).
 library;
 
 import 'package:flutter_test/flutter_test.dart';

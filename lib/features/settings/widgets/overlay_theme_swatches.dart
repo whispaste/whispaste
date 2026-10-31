@@ -1,8 +1,8 @@
-/// Swatch pickers for the overlay theme presets (WP-75, ADR 0024; validity
+/// Swatch pickers for the overlay theme presets (ticket, ADR 0024; validity
 /// WP-75b).
 ///
 /// Two rows of round swatches: one for the pill/button background, one for
-/// the wave colour (both offer Bernstein, WP-75 flat pass). Each swatch is a 48 px hit target (WCAG 2.5.5) with its
+/// the wave colour (both offer Bernstein, ticket flat pass). Each swatch is a 48 px hit target (WCAG 2.5.5) with its
 /// name printed underneath, so the names are visible without hovering. The
 /// rows follow the appearance cards: the arrow keys move focus only, and Enter,
 /// Space or a click selects. The colours come from the token-backed presets in

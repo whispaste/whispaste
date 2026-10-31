@@ -364,7 +364,7 @@ class AppSettings {
       OverlayBackground.fromValue(overlay.overlayBackground);
   OverlayWave get overlayWaveType => OverlayWave.fromValue(overlay.overlayWave);
 
-  /// The WP-95 appearance options as one value for the overlay snapshot.
+  /// The ticket appearance options as one value for the overlay snapshot.
   OverlayAppearance get overlayAppearance => OverlayAppearance.fromValues(
     form: overlay.overlayForm,
     waveStyle: overlay.overlayWaveStyle,
@@ -374,12 +374,13 @@ class AppSettings {
     opacity: overlay.overlayOpacity,
   );
 
-  /// The WP-95 floating-button look (size, shape, ring, resting opacity).
+  /// The ticket floating-button look (size, shape, ring, resting opacity).
   FloatingButtonLook get floatingButtonLook => FloatingButtonLook.fromValues(
     size: overlay.floatingButtonSize,
     shape: overlay.floatingButtonShape,
     ring: overlay.floatingButtonRing,
     idleOpacity: overlay.floatingButtonIdleOpacity,
+    idleCapsule: overlay.floatingButtonIdleCapsule,
   );
 
   /// Whether the overlay shows the live/partial recognized text (ticket 11).
@@ -764,6 +765,7 @@ class AppSettings {
     bool? floatingButtonRing,
     String? floatingButtonIdleOpacity,
     bool? showFloatingButton,
+    bool? floatingButtonIdleCapsule,
     bool? overlayShowLiveTranscript,
     String? openAiApiKey,
     String? deepgramApiKey,
@@ -854,6 +856,7 @@ class AppSettings {
         floatingButtonRing: floatingButtonRing,
         floatingButtonIdleOpacity: floatingButtonIdleOpacity,
         showFloatingButton: showFloatingButton,
+        floatingButtonIdleCapsule: floatingButtonIdleCapsule,
         overlayShowLiveTranscript: overlayShowLiveTranscript,
       ),
       cloudProvider: cloudProvider.copyWith(

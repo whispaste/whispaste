@@ -1,4 +1,4 @@
-/// Double-tap hands-free latch in plain push-to-talk mode (WP-39, matrix 9.1).
+/// Double-tap hands-free latch in plain push-to-talk mode (ticket, matrix 9.1).
 ///
 /// In push-to-talk a press shorter than 100 ms is a tap: its release does not
 /// stop the recording. Two such taps within 400 ms latch the recording, so

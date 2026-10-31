@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # gpu_bench_vast.sh — CUDA vs Vulkan vs CPU whisper benchmark on a rented
-# NVIDIA box (handy-catchup ticket 13). Runs the real app headless
+# NVIDIA box (catchup ticket 13). Runs the real app headless
 # (`whispaste --transcribe-file`, lib/services/headless/) with the optional
 # ggml CUDA backend built by scripts/build-libwhisper-linux.sh --cuda.
 #

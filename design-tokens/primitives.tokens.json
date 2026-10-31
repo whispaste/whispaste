@@ -125,7 +125,7 @@
   "radius": {
     "$type": "dimension",
     "xs": { "$value": "4px", "$description": "Checkbox (20 px box) and micro indicators." },
-    "sm": { "$value": "8px", "$description": "Fields, buttons, dropdowns and the segmented frame (WP-14 spec §3–4)." },
+    "sm": { "$value": "8px", "$description": "Fields, buttons, dropdowns and the segmented frame (ticket spec §3–4)." },
     "chip": { "$value": "6px", "$description": "Micro chips and tags under ~24px height." },
     "control": { "$value": "8px", "$description": "Every control: buttons, input fields, banners, error notices, keycaps (UIA-FND-02, one radius on every control)." },
     "card": { "$value": "14px", "$description": "Cards (WpRadius.lg range)." },

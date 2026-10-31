@@ -1,4 +1,4 @@
-/// WP-95: the appearance bundle that travels in the overlay snapshot.
+/// ticket: the appearance bundle that travels in the overlay snapshot.
 library;
 
 import 'package:flutter_test/flutter_test.dart';

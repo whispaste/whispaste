@@ -1,4 +1,4 @@
-/// Paint-cost micro-benchmark for the WP-95 floating button look.
+/// Paint-cost micro-benchmark for the ticket floating button look.
 ///
 /// PROXY, NOT FIRST-FRAME. The coordinator asked for an overlay first-frame
 /// measurement before and after the look options. This file measures only the

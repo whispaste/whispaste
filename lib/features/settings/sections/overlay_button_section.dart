@@ -48,7 +48,7 @@ class OverlaySection extends ConsumerWidget {
         : OverlayStartPosition.off.value;
 
     // Edge bar is not offered yet: its docking is not implemented on any
-    // platform (WP-95 open point), so the picker lists only the shapes that
+    // platform (ticket open point), so the picker lists only the shapes that
     // render. A stored edge bar shows as the pill it falls back to.
     const offeredForms = [OverlayForm.pill, OverlayForm.roundedRect];
     final formValue = offeredForms.contains(look.form)
@@ -375,6 +375,21 @@ class FloatingButtonSection extends ConsumerWidget {
                     : null,
               ),
             ],
+          ),
+        ),
+        WpSettingsRow(
+          rowId: 'appearance-floating-button-idle-capsule',
+          title: l10n.settingsFloatingButtonIdleCapsule,
+          subtitle: l10n.settingsFloatingButtonIdleCapsuleSubtitle,
+          disabledReason: lookReason,
+          semanticToggledValue: settings.overlay.floatingButtonIdleCapsule,
+          trailing: settingsToggle(
+            value: settings.overlay.floatingButtonIdleCapsule,
+            onChanged: shown
+                ? (v) => notifier.updateSettings(
+                    (s) => s.copyWith(floatingButtonIdleCapsule: v),
+                  )
+                : null,
           ),
         ),
         _lookRow(

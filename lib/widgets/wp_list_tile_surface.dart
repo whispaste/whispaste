@@ -175,7 +175,7 @@ class WpListTileSurface extends StatelessWidget {
         // real hover affordance is the action slot it reveals.
         return _isActive ? WpColors.cardFillElevated : WpColors.cardFill;
       case WpListTileVariant.panel:
-        // Selected rows are white cards, never a cyan wash (WP-14 §3).
+        // Selected rows are white cards, never a cyan wash (ticket §3).
         if (isSelected) {
           return WpColors.surfaceElevated;
         }
@@ -257,7 +257,7 @@ class WpListTileSurface extends StatelessWidget {
 
   BorderRadius _radius() {
     switch (variant) {
-      // One radius for every row (WP-14 §3: selected row radius 10).
+      // One radius for every row (ticket §3: selected row radius 10).
       case WpListTileVariant.overview:
       case WpListTileVariant.card:
       case WpListTileVariant.panel:

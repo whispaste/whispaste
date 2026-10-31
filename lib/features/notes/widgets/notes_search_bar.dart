@@ -77,7 +77,7 @@ class NotesSearchBar extends StatelessWidget {
               ),
               const SizedBox(width: WpSpacing.sm),
               // Beside the 44 px field: an icon button of the same height
-              // (WP-14 spec §4). The label becomes the tooltip and the
+              // (ticket spec §4). The label becomes the tooltip and the
               // accessible name.
               WpIconButton(
                 key: const ValueKey('notes-new-note'),

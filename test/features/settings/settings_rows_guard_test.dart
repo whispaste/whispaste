@@ -1,4 +1,4 @@
-/// Guard for the row table (WP-23, spec §7.1 and §3): all 84 settings rows
+/// Guard for the row table (ticket, spec §7.1 and §3): all 84 settings rows
 /// exist once, carry a stable kebab-case rowId and an area, and every label
 /// key of the search coverage registry appears exactly once in the table.
 library;
@@ -22,9 +22,9 @@ void main() {
   final en = _arb('en');
 
   test(
-    'the table holds exactly the 156 rows (the repaste hotkey row (2026-10-30), the first-steps restore row (2026-10-30), the six written-form rows of the text area (2026-10-30), the double-tap hands-free row (2026-10-30), the eight own-endpoint rows of W-M3 in speech and Smart Mode, the three hotkey gesture rows, hold-or-tap threshold, spec §3, the snippet picker trigger row of the general area (R3 UX ports), the GPU check row of the speech area, the 11 profile rows of the Profiles area (2026-10-19), the next-favorite-language hotkey row in the Dictation card, the retry list of kept recordings (UIA-FLW-01), the rating-reminder restore row (UIA-C2), the Smart Mode link row to the Keyboard shortcuts area (2026-10-19), the quick-note open-in-main-window row (UIA-SHL-08), the two automation rows, spoken punctuation, the overlay background/wave split, the About and Help rows of WP-78, the six WP-95 overlay option rows, the four floating button look rows, the WP-33a blocklist copy switch and clipboard-after-paste setting and the two keep-model-loaded rows and the permanent GitHub star row and the Linux Wayland limits row of the floating button card and the failed-recording retention row of the Privacy area (183ec9128) and the clipboard-without-receipt row of W-E1 and the two Save-recordings rows (privacy-history-save, privacy-history-delete-existing)',
+    'the table holds exactly the 157 rows (the idle-capsule row of the floating button card (2026-10-31), the repaste hotkey row (2026-10-30), the first-steps restore row (2026-10-30), the six written-form rows of the text area (2026-10-30), the double-tap hands-free row (2026-10-30), the eight own-endpoint rows of W-M3 in speech and Smart Mode, the three hotkey gesture rows, hold-or-tap threshold, spec §3, the snippet picker trigger row of the general area (R3 UX ports), the GPU check row of the speech area, the 11 profile rows of the Profiles area (2026-10-19), the next-favorite-language hotkey row in the Dictation card, the retry list of kept recordings (UIA-FLW-01), the rating-reminder restore row (UIA-C2), the Smart Mode link row to the Keyboard shortcuts area (2026-10-19), the quick-note open-in-main-window row (UIA-SHL-08), the two automation rows, spoken punctuation, the overlay background/wave split, the About and Help rows of ticket, the six ticket overlay option rows, the four floating button look rows, the WP-33a blocklist copy switch and clipboard-after-paste setting and the two keep-model-loaded rows and the permanent GitHub star row and the Linux Wayland limits row of the floating button card and the failed-recording retention row of the Privacy area (183ec9128) and the clipboard-without-receipt row of W-E1 and the two Save-recordings rows (privacy-history-save, privacy-history-delete-existing)',
     () {
-      expect(kSettingsSearchTable, hasLength(156));
+      expect(kSettingsSearchTable, hasLength(157));
     },
   );
 
@@ -74,7 +74,7 @@ void main() {
     }
   });
 
-  test('the rows moved to the Help page (UX-015, WP-78) are exactly these', () {
+  test('the rows moved to the Help page (UX-015, ticket) are exactly these', () {
     expect(
       kSettingsSearchTable
           .where((row) => row.area == SettingsRowArea.help)

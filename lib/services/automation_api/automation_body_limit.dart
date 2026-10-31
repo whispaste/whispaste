@@ -1,4 +1,4 @@
-/// Request-size limit for the local automation API (WP-38 / 8.1).
+/// Request-size limit for the local automation API (ticket / 8.1).
 ///
 /// Runs after the bearer-token check, so unauthenticated callers never get
 /// a body read. A declared `Content-Length` above the limit is refused

@@ -1,4 +1,4 @@
-/// UX probe: the flat snippet picker panel (WP-75 flat pass, no glass) on a
+/// UX probe: the flat snippet picker panel (ticket flat pass, no glass) on a
 /// neutral desktop ground, in the dark and navy themes, with a long German
 /// title to check truncation. Writes one PNG per variant into UX_SCREENS_DIR.
 ///

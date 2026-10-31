@@ -1,4 +1,4 @@
-/// Assembles the automation API request pipeline (WP-38).
+/// Assembles the automation API request pipeline (ticket).
 ///
 /// Order matters: the Host check and the bearer check run before any body
 /// is read, so an unauthenticated caller can never make the app buffer a

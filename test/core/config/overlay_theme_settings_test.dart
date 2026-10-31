@@ -1,4 +1,4 @@
-/// Persistence of the overlay theme presets (WP-75, ADR 0024).
+/// Persistence of the overlay theme presets (ticket, ADR 0024).
 ///
 /// The old `overlay_style` (glass/solid) key is no longer written. Both of
 /// its values rendered the same opaque fill, so both map to marine (ADR 0024).

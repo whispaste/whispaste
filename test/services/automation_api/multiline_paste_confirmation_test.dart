@@ -1,4 +1,4 @@
-/// Provider tests for the multiline paste preview (WP-38 / 8.5). Nothing is
+/// Provider tests for the multiline paste preview (ticket / 8.5). Nothing is
 /// inserted by this provider; it only holds the request and resolves the
 /// caller's wait with the user's decision.
 library;

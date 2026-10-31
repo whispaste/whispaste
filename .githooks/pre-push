@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 #
-# WhisPaste — pre-push Hook (OSS-Allowlist-Guard, dritte Schicht)
+# WhisPaste — pre-push Hook
 #
-# Fängt Commits ab, die den pre-commit-Hook umgangen haben
-# (`git commit --no-verify`). Scannt den gesamten Push-Range + HEAD-Baum.
+# origin ist das interne Repo (Forgejo auf dem NAS) und nimmt auch interne
+# Pfade; GitHub beschreibt nur der gefilterte NAS-Export. Der Hook fängt
+# Commits ab, die den pre-commit-Hook umgangen haben (`--no-verify`),
+# blockt direkte Pushes zu registrierten öffentlichen Repos
+# (oss-direct-push.sh; den Export prüft das NAS-Gate) und führt
+# Release-Freigabe, Branch-Hygiene und Quality-Gates aus.
 #
 # Aktivierung: `git config core.hooksPath .githooks`.
 # Bash-3.2-kompatibel (macOS /bin/bash) — kein mapfile/readarray.
@@ -11,10 +15,15 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-ALLOWLIST="$ROOT/.ossallowlist"
+# Helpers come from this hook's directory (see pre-commit).
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# flutter/dart without the git variables of the hook (scripts/sdk-env.sh).
+# shellcheck disable=SC1091  # scripts/sdk-env.sh: two wrapper functions
+[ ! -f "$ROOT/scripts/sdk-env.sh" ] || . "$ROOT/scripts/sdk-env.sh"
 ATTESTSH="$ROOT/scripts/docs-attest.sh"
 DRIFTSH="$ROOT/scripts/docs-drift.sh"
 REMOTE="${1:-}"
+REMOTE_URL="${2:-}"
 ZERO="0000000000000000000000000000000000000000"
 
 # Git liefert die Ref-Update-Zeilen (<local ref> <local sha1> <remote ref>
@@ -31,6 +40,13 @@ while IFS= read -r _refline; do
   REF_LINES+=("$_refline")
 done
 
+# core.hooksPath bypasses the global hooks, so call the global guard that
+# keeps registered public repos writable only by the NAS export. It takes
+# the remote URL and reads no stdin; machines without it skip the check.
+if [ -x "$HOME/.git-hooks/oss-direct-push.sh" ]; then
+  "$HOME/.git-hooks/oss-direct-push.sh" "$REMOTE_URL" || exit 1
+fi
+
 # Git invokes this hook even when there is nothing to push (e.g. `git push`
 # on an already up-to-date branch) — stdin is then empty, so REF_LINES stays
 # a zero-element array. Nothing below has anything to check in that case, so
@@ -42,24 +58,6 @@ done
 if [ ${#REF_LINES[@]} -eq 0 ]; then
   exit 0
 fi
-
-# Third-party product name guard (and agent instruction guard, see
-# instruction-guard.sh): no commit in the push range may carry the
-# name of another dictation/transcription product (messages, added lines,
-# paths), and the pushed tree must be free of them as well.
-for _refline in "${REF_LINES[@]}"; do
-  read -r _lr _lsha _rr _rsha <<<"$_refline" || true
-  [ "$_lsha" = "$ZERO" ] && continue
-  if [ "$_rsha" != "$ZERO" ]; then
-    "$ROOT/.githooks/name-guard.sh" range "${_rsha}..${_lsha}"
-    "$(dirname "$0")/instruction-guard.sh" range "${_rsha}..${_lsha}"
-  else
-    "$ROOT/.githooks/name-guard.sh" range "$_lsha --not --remotes"
-    "$(dirname "$0")/instruction-guard.sh" range "$_lsha --not --remotes"
-  fi
-  "$ROOT/.githooks/name-guard.sh" tree "$_lsha"
-  "$(dirname "$0")/instruction-guard.sh" tree "$_lsha"
-done
 
 # Closed-source guard: the server API (services/api/) lives in its own private
 # repository and must never reach this public repo — not in the pushed tree
@@ -141,7 +139,7 @@ if [ -f "$ROOT/tool/macos_plugins.dart" ] && command -v dart >/dev/null 2>&1; th
     _mp_out=$(cd "$ROOT" && dart tool/macos_plugins.dart 2>&1) || _mp_rc=$?
     if [ "$_mp_rc" -eq 1 ] && [ "$(uname -s)" = "Darwin" ]; then
       _mp_rc=0
-      (cd "$ROOT" && env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE flutter pub get >/dev/null 2>&1) || true
+      (cd "$ROOT" && flutter pub get >/dev/null 2>&1) || true
       _mp_out=$(cd "$ROOT" && dart tool/macos_plugins.dart 2>&1) || _mp_rc=$?
     fi
     if [ "$_mp_rc" -eq 1 ]; then
@@ -159,83 +157,10 @@ if [ -f "$ROOT/tool/macos_plugins.dart" ] && command -v dart >/dev/null 2>&1; th
   fi
 fi
 
-# ── 1. Allowlist-Schranke (Push-Range + HEAD-Baum) ──────────────────────
-if [ ! -f "$ALLOWLIST" ]; then
-  echo "pre-push: WARN — .ossallowlist nicht gefunden, Guard inaktiv." >&2
-else
-  ALLOWED=()
-  while IFS= read -r line; do
-    case "$line" in ''|\#*) continue ;; esac
-    ALLOWED+=("$line")
-  done < "$ALLOWLIST"
-
-  is_allowed() {
-    local p="$1" a
-    # Guarded expansion: an empty ALLOWED (e.g. an allowlist with only
-    # comments/blank lines) would otherwise throw "unbound variable" under
-    # `set -u` on bash 3.2 — see the REF_LINES comment above for why.
-    for a in "${ALLOWED[@]+"${ALLOWED[@]}"}"; do
-      [ "$p" = "$a" ] && return 0
-      case "$a" in */) [[ "$p" == "$a"* ]] && return 0 ;; esac
-    done
-    return 1
-  }
-
-  violations=()
-  block() { cat >&2 <<EOF
-
-╔══════════════════════════════════════════════════════════════╗
-║  PUSH BLOCKIERT durch .ossallowlist                         ║
-╠══════════════════════════════════════════════════════════════╣
-║  $1
-╚══════════════════════════════════════════════════════════════╝
-EOF
-    printf '  - %s\n' "${violations[@]}" >&2
-    cat >&2 <<EOF
-
-Nicht-öffentliche Pfade würden auf origin landen.
-Datei mit `git rm --cached` aus dem Tracking nehmen oder nach
-internal-notes verschieben. Bei bewusster Ausnahme: .ossallowlist
-erweitern (nach Review).
-EOF
-    exit 1
-  }
-
-  for _refline in "${REF_LINES[@]}"; do
-    read -r local_ref local_sha remote_ref remote_sha <<<"$_refline" || true
-    [ "$local_sha" = "$ZERO" ] && continue
-
-    if [ "$remote_sha" != "$ZERO" ]; then
-      range="${remote_sha}..${local_sha}"
-    else
-      range="$(git rev-list "$local_sha" --not --branches --remotes 2>/dev/null \
-        || echo "$local_sha")"
-    fi
-
-    # (a) Im Range hinzugefügte Dateien
-    while IFS= read -r path; do
-      [ -z "$path" ] && continue
-      ! is_allowed "$path" && violations+=("$path")
-    done < <(git log --diff-filter=A --name-only --pretty=format: "$range" 2>/dev/null || true)
-
-    # (b) HEAD-Baum komplett (aktuell getrackte Dateien am Push-Stand)
-    while IFS= read -r path; do
-      [ -z "$path" ] && continue
-      ! is_allowed "$path" && violations+=("$path")
-    done < <(git ls-tree -r --name-only "$local_sha" 2>/dev/null || true)
-
-    advise_two_path_sync "$remote_ref"
-  done
-
-  if [ ${#violations[@]} -gt 0 ]; then
-    unique=()
-    while IFS= read -r line; do
-      [ -n "$line" ] && unique+=("$line")
-    done < <(printf '%s\n' "${violations[@]}" | sort -u)
-    violations=("${unique[@]}")
-    block "Nicht-öffentliche Pfade im Push:"
-  fi
-fi
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr _ls remote_ref _rs <<<"$_refline" || true
+  advise_two_path_sync "$remote_ref"
+done
 
 # ── 2. Force-push auf main blockiert ───────────────────────────────────
 for _refline in "${REF_LINES[@]}"; do
@@ -413,10 +338,9 @@ EOF
   fi
 fi
 
-# ── 3. Full Push-Range Scan (PROTECTED, Secrets, AI-Trailer) ───────────
+# ── 3. Full Push-Range Scan (Secrets, Bot-Identität) ───────────────────
 B1="SUPA"; B2="BASE_SERVICE_ROLE_KEY"; B3="ADMIN_API"; B4="_KEY"
 SECRET_PATTERNS="${B1}${B2}=.{20,}|${B3}${B4}=.{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}"
-AI_TRAILER_RE='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude|cursor|codeium|opencode)'
 # Kein bare `noreply@github\.com` hier: das ist die Committer-Identität, die
 # GitHubs eigener "Merge pull request"-Button JEDEM per Web-UI gemergten PR
 # gibt (Author bleibt der echte Mensch) -- kein Bot-Signal, sondern die
@@ -430,7 +354,7 @@ BOT_RE='(co-?pilot|anthropic|claude|opencode|github-actions|dependabot|\[bot\]|u
 # IMMER github-actions[bot]-authored. Der Bot-Author-Check unten ist für
 # menschliche/Agent-Commits auf dev/main gedacht; ein manueller Recovery-Push dieser
 # Branch (z. B. nach versehentlichem Löschen) würde sonst am eigenen Zweck der
-# Branch scheitern. Secret-Scan/.gitignore-PROTECTED/AI-Trailer-Check bleiben aktiv.
+# Branch scheitern. Der Secret-Scan bleibt aktiv.
 for _refline in "${REF_LINES[@]}"; do
   read -r _lr local_sha rref remote_sha <<<"$_refline" || true
   [ "$local_sha" = "$ZERO" ] && continue
@@ -447,30 +371,6 @@ for _refline in "${REF_LINES[@]}"; do
     files=$(git diff-tree --no-commit-id --name-only --diff-filter=ACMR -r "$commit" 2>/dev/null || true)
     [ -z "$files" ] && continue
 
-    # .gitignore PROTECTED weakening
-    if echo "$files" | grep -q "^\.gitignore$"; then
-      new_block=$(git show "$commit:.gitignore" 2>/dev/null \
-        | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
-      old_block=$(git show "${commit}^:.gitignore" 2>/dev/null \
-        | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p' || true)
-      if [ -n "$old_block" ]; then
-        old_ents=$(echo "$old_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
-        new_ents=$(echo "$new_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
-        removed=$(comm -23 <(echo "$old_ents") <(echo "$new_ents") 2>/dev/null || true)
-        if [ -n "$removed" ]; then
-          cat >&2 <<EOF
-
-╔══════════════════════════════════════════════════════════════╗
-║  PUSH BLOCKIERT: .gitignore PROTECTED entries entfernt      ║
-║  Commit: ${commit:0:12}
-╚══════════════════════════════════════════════════════════════╝
-EOF
-          echo "$removed" >&2
-          exit 1
-        fi
-      fi
-    fi
-
     # Secret patterns
     smatch=$(git show "$commit" 2>/dev/null \
       | grep -oE "$SECRET_PATTERNS" 2>/dev/null | head -1 || true)
@@ -480,21 +380,6 @@ EOF
 ╔══════════════════════════════════════════════════════════════╗
 ║  PUSH BLOCKIERT: potentielles Secret in Commit ${commit:0:12}
 ║  ${smatch:0:60}
-╚══════════════════════════════════════════════════════════════╝
-EOF
-      exit 1
-    fi
-
-    # AI/Co-Authored-By Trailer — HARD RULE (global CLAUDE.md)
-    trailer=$(git log -1 --format='%B' "$commit" 2>/dev/null \
-      | grep -iE "$AI_TRAILER_RE" | head -1 || true)
-    if [ -n "$trailer" ]; then
-      cat >&2 <<EOF
-
-╔══════════════════════════════════════════════════════════════╗
-║  PUSH BLOCKIERT: KI-Co-Authored-By-Trailer in Commit ${commit:0:12}
-║  $(echo "$trailer" | cut -c1-72)
-║  Trailer entfernen (rebase -i / commit --amend), dann pushen.
 ╚══════════════════════════════════════════════════════════════╝
 EOF
       exit 1
@@ -591,8 +476,8 @@ EOF
 fi
 
 # ── 4b. Doc-Gate (Content-Level: Infra-Leaks, Sprache, Security-Werbung) ─
-if [ -f "$ROOT/.githooks/check-docs.sh" ]; then
-  bash "$ROOT/.githooks/check-docs.sh" head || exit 1
+if [ -f "$HOOK_DIR/check-docs.sh" ]; then
+  bash "$HOOK_DIR/check-docs.sh" head || exit 1
 fi
 
 # ── 5. Quality/Security-Gates (sparsam, blockierend) ───────────────────
@@ -620,13 +505,13 @@ EOF
   # Resolve Dart SDK path (must follow Homebrew symlinks on macOS)
   if [ -z "${DART_SDK:-}" ]; then
     if command -v flutter >/dev/null 2>&1; then
-      _f=$(command -v flutter)
+      _f=$(type -P flutter)
       while [ -L "$_f" ]; do
         _t=$(readlink "$_f"); case "$_t" in /*) _f="$_t" ;; *) _f="$(dirname "$_f")/$_t" ;; esac
       done
       export DART_SDK="$(dirname "$_f")/cache/dart-sdk"
     elif command -v dart >/dev/null 2>&1; then
-      _d=$(command -v dart)
+      _d=$(type -P dart)
       while [ -L "$_d" ]; do
         _t=$(readlink "$_d"); case "$_t" in /*) _d="$_t" ;; *) _d="$(dirname "$_d")/$_t" ;; esac
       done

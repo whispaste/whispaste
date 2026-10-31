@@ -58,7 +58,7 @@ const Set<String> settingsPortabilityDenyList = {
   'window_width',
   'window_height',
   'window_maximized',
-  // Monitor-bound overlay positions (WP-39, 9.4): meaningless on another machine.
+  // Monitor-bound overlay positions (ticket, 9.4): meaningless on another machine.
   'overlay_positions_by_monitor',
   // OnboardingSettings — Fortschritt/Zustand, keine Präferenz.
   'onboarding_completed',
@@ -226,7 +226,7 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   // User-ordered microphone fallback list — a preference, travels with the
   // selected microphone.
   'microphone_priority',
-  // WP-39, 9.1: recording controls — preferences.
+  // ticket, 9.1: recording controls — preferences.
   'cancel_dictation_key',
   'launch_at_startup',
   'locale',
@@ -239,7 +239,7 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'overlay_start_position',
   'overlay_background',
   'overlay_wave',
-  // WP-95: overlay shape, waveform style, content and opacity — display
+  // ticket: overlay shape, waveform style, content and opacity — display
   // preferences like the 'overlay_*' keys around them.
   'overlay_form',
   'overlay_wave_style',
@@ -247,13 +247,14 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'overlay_show_timer',
   'overlay_show_cancel',
   'overlay_opacity',
-  // WP-95 floating-button look: size, shape, recording ring, resting opacity.
+  // ticket floating-button look: size, shape, recording ring, resting opacity.
   'overlay_button_size',
   'overlay_button_shape',
   'overlay_button_ring',
   'overlay_button_idle_opacity',
+  'overlay_button_idle_capsule',
   'push_to_talk',
-  // Ticket handy-catchup/07: hold-or-tap sub-option of push-to-talk — same
+  // Ticket catchup/07: hold-or-tap sub-option of push-to-talk — same
   // behavior-preference portability as 'push_to_talk' itself.
   'hold_or_tap',
   // Hold-or-Tap threshold (Automatisch): behavior preference, travels with it.
@@ -302,7 +303,7 @@ const Set<String> settingsPortabilityPortableKeysForTest = {
   'show_backend_utilization',
   'show_floating_button',
   'show_notifications',
-  // WP-39 category switches for native notifications — display preferences.
+  // ticket category switches for native notifications — display preferences.
   'notify_paste_problems',
   'notify_smart_mode_fallback',
   'notify_microphone_problems',

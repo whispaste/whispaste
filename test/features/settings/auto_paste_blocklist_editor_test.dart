@@ -267,7 +267,7 @@ void main() {
       },
     );
 
-    // Round 2 (WP-87): a pasted tab must not end up inside an identifier;
+    // Round 2 (ticket): a pasted tab must not end up inside an identifier;
     // other control characters are dropped as they are typed or pasted.
     testWidgets('manual identifier entry drops control characters', (
       tester,

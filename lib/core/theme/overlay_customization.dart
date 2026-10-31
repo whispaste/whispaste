@@ -1,4 +1,4 @@
-/// Overlay customization policies (WP-95, ADR 0024 addendum).
+/// Overlay customization policies (ticket, ADR 0024 addendum).
 ///
 /// Pure Dart: no widget, platform or native calls. The persisted names are
 /// the contract with the native shells, so they must not be renamed.
@@ -16,20 +16,16 @@ enum OverlayForm {
   pill('pill'),
 
   /// Pill with smaller corner radius.
-  roundedRect('rounded-rect'),
-
-  /// 44 x 44 circle: pegelring around a stop button, Esc cancels.
-  compactCircle('compact-circle'),
-
-  /// 44 px thick bar, docked to a screen edge, laid out vertically at the sides.
-  edgeBar('edge-bar');
+  roundedRect('rounded-rect');
 
   const OverlayForm(this.value);
 
   /// Persisted name (`overlay_form`).
   final String value;
 
-  /// Unknown or null falls back to [pill].
+  /// Unknown or null falls back to [pill]. This also covers the retired
+  /// values `compact-circle` and `edge-bar`, which were removed in favour of
+  /// the pill.
   static OverlayForm fromValue(String? name) =>
       values.firstWhere((v) => v.value == name, orElse: () => OverlayForm.pill);
 }
@@ -85,20 +81,6 @@ enum OverlayOpacity {
 
 /// Resolution rules that depend on the platform or the system settings.
 abstract final class OverlayPolicy {
-  /// Edge bar needs a window that stays above other windows and can be docked
-  /// to a screen edge. Wayland gives no such guarantee for normal windows, so
-  /// there the bar falls back to [OverlayForm.pill]. The settings screen
-  /// explains the fallback.
-  static OverlayForm effectiveForm(
-    OverlayForm requested, {
-    required bool edgeDockingSupported,
-  }) {
-    if (requested == OverlayForm.edgeBar && !edgeDockingSupported) {
-      return OverlayForm.pill;
-    }
-    return requested;
-  }
-
   /// The fluid, speech-reactive edge is motion. With "reduce motion" set in
   /// the system, it is always off and the outline is static.
   static bool effectiveWaveFluid({
@@ -174,7 +156,7 @@ abstract final class OverlayOpacityGate {
   );
 }
 
-/// The WP-95 appearance options as one value, carried by the overlay snapshot.
+/// The ticket appearance options as one value, carried by the overlay snapshot.
 ///
 /// Defaults equal today's look, so a snapshot without this value renders as
 /// before. Persisted names are read by [fromValues] and written by the
@@ -260,7 +242,7 @@ class OverlayAppearance {
       Object.hash(form, waveStyle, waveFluid, showTimer, showCancel, opacity);
 }
 
-/// The floating button's look (WP-95 button customisation).
+/// The floating button's look (ticket button customisation).
 ///
 /// [size] reaches the native shell through `setSize` (the window and disc
 /// diameter); [toThemeMap] carries the render-only parts (shape, recording
@@ -273,6 +255,7 @@ class FloatingButtonLook {
     this.square = false,
     this.ring = true,
     this.idleOpacity = '100',
+    this.idleCapsule = false,
   });
 
   /// Reads the persisted strings and bools; unknown values fall back.
@@ -281,6 +264,7 @@ class FloatingButtonLook {
     String? shape,
     bool? ring,
     String? idleOpacity,
+    bool? idleCapsule,
   }) => FloatingButtonLook(
     size: _sizes.contains(size) ? size! : defaults.size,
     square: shape == 'square',
@@ -288,6 +272,7 @@ class FloatingButtonLook {
     idleOpacity: _idleOpacities.contains(idleOpacity)
         ? idleOpacity!
         : defaults.idleOpacity,
+    idleCapsule: idleCapsule ?? defaults.idleCapsule,
   );
 
   /// Reads the render-only `setTheme` keys (see [toThemeMap]). The resting
@@ -298,6 +283,7 @@ class FloatingButtonLook {
       shape: map['shape'] as String?,
       ring: map['ring'] as bool?,
       idleOpacity: alpha is num ? '${(alpha * 100).round()}' : null,
+      idleCapsule: map['idleCapsule'] as bool?,
     );
   }
 
@@ -319,6 +305,10 @@ class FloatingButtonLook {
   /// Resting opacity percentage: '100', '70' or '40'.
   final String idleOpacity;
 
+  /// Idle button is a slim capsule that opens to the pill on hover
+  /// (`overlay_button_idle_capsule`, see `IdleCapsule`). Off keeps the disc.
+  final bool idleCapsule;
+
   /// Disc diameter in logical pixels: 44, 56 or 80.
   double get diameter => switch (size) {
     'small' => 44,
@@ -339,6 +329,7 @@ class FloatingButtonLook {
     'shape': square ? 'square' : 'round',
     'ring': ring,
     'idleOpacity': idleAlpha,
+    'idleCapsule': idleCapsule,
   };
 
   @override
@@ -347,8 +338,9 @@ class FloatingButtonLook {
       other.size == size &&
       other.square == square &&
       other.ring == ring &&
-      other.idleOpacity == idleOpacity;
+      other.idleOpacity == idleOpacity &&
+      other.idleCapsule == idleCapsule;
 
   @override
-  int get hashCode => Object.hash(size, square, ring, idleOpacity);
+  int get hashCode => Object.hash(size, square, ring, idleOpacity, idleCapsule);
 }

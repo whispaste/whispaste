@@ -34,7 +34,7 @@ abstract class FloatingButtonController {
   /// Update the visual state (gradient, icon, animation).
   Future<void> setState(FloatingButtonVisualState state);
 
-  /// Relays the overlay presets to the render engine (WP-75, ADR 0024): the
+  /// Relays the overlay presets to the render engine (ticket, ADR 0024): the
   /// persisted preset names, e.g. `marine` and `cyan`.
   Future<void> setTheme({
     required String background,

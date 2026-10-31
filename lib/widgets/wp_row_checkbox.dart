@@ -9,7 +9,7 @@ import 'wp_touch_target.dart';
 // §5.5.13). Single source for a styling block that used to be copied into
 // the history list and compact views at two different sizes (24 vs 18).
 //
-// WP-14 spec §4: the visible box is 20 px with 4 px corners. The layout slot
+// ticket spec §4: the visible box is 20 px with 4 px corners. The layout slot
 // and the tap target are both 48 px (WpLayout.minTouchTarget), so the slot
 // grows by 24 px against the former 24 px slot. Material draws its checkbox
 // at a fixed 18 px, so the box is scaled up to 20 px; the tick gains weight
@@ -37,7 +37,7 @@ class WpRowCheckbox extends StatelessWidget {
   /// Layout extent, so rows can reserve space for the leading slot.
   static const double extent = WpLayout.minTouchTarget;
 
-  /// The visible box (WP-14 spec §4).
+  /// The visible box (ticket spec §4).
   static const double boxSize = 20;
 
   /// Material's fixed checkbox extent that [boxSize] scales from.

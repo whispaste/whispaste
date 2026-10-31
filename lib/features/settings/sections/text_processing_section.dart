@@ -66,7 +66,7 @@ class TextProcessingSection extends ConsumerWidget {
         ),
 
         // Filler word removal — same engine/provider-independent text
-        // transform path as the two rows above (handy-catchup ticket 16),
+        // transform path as the two rows above (catchup ticket 16),
         // so it stays visible for every engine. Default off.
         WpSettingsRow(
           rowId: 'text-remove-filler',

@@ -186,7 +186,7 @@ enum AppearanceMode {
   final String value;
 
   static AppearanceMode fromValue(String? v) {
-    // WP-50: the mode was called "brand" until 1.4.x. Stored values keep
+    // ticket: the mode was called "brand" until 1.4.x. Stored values keep
     // loading; the next write stores the new name.
     if (v == 'brand') return navy;
     for (final e in values) {

@@ -1,6 +1,6 @@
-# Base components (WP-14 status)
+# Base components (ticket status)
 
-Reference for the shared `Wp*` base components as they stand on the WP-14
+Reference for the shared `Wp*` base components as they stand on the ticket
 branch. Values come from `design-tokens/*.tokens.json` through
 `lib/core/theme/generated/wp_tokens.g.dart`; the spec is
 `internal-notes` (§3 list/detail,
@@ -42,8 +42,8 @@ scrim behind every dialog barrier. Dialogs use no backdrop blur (no glass).
 | `WpDropdown` | `lib/widgets/wp_dropdown.dart` | 40 px trigger, 8 px radius, palette read per build. |
 | `WpSegmentedSelector` | `lib/widgets/wp_segmented_selector.dart` | Active segment `accentSubtle` with `accent` text. No caller yet. |
 | `WpAccentBadge` | `lib/widgets/wp_accent_badge.dart` | Tones `accent` (imported, interactive) and `highlight` (suggestions, amber). |
-| `WpFilterChip` | `lib/widgets/wp_filter_chip.dart` | Already on roles only (resting, hover, selected, count). Unchanged in WP-14. |
-| `WpTriggerChip` | `lib/widgets/trigger_chip.dart` | Value pill on accent roles. Unchanged in WP-14. |
+| `WpFilterChip` | `lib/widgets/wp_filter_chip.dart` | Already on roles only (resting, hover, selected, count). Unchanged in ticket. |
+| `WpTriggerChip` | `lib/widgets/trigger_chip.dart` | Value pill on accent roles. Unchanged in ticket. |
 | `WpToast` | `lib/widgets/toast.dart` | Floating surface, `shadow` role, labelled focusable close button. Optional `body:` widget replaces the icon and message line; the body gets its own line and the buttons sit below it. |
 | Dialogs (`showWpDialog`, `showWpConfirmDialog`, `showWpChoiceDialog`, `showWpFormDialog` + `WpFormDialogShell`) | `lib/widgets/dialog.dart` | One card for all: floating surface, `cardEdgeHighlight` rim, elevated shadow, 420 px (760 px `wide`), flat scrim. One footer for all, see "Dialogs" below. |
 | `WpEmptyState` | `lib/widgets/empty_state.dart` | Icon disc `accentSubtle` with a `borderSubtle` ring; primary action only where the area has one. |
@@ -57,7 +57,7 @@ scrim behind every dialog barrier. Dialogs use no backdrop blur (no glass).
 | `WpBanner` | `lib/widgets/wp_banner.dart` | Tones info (accent), warning (amber soft fill, `highlightText` icon, 4.5:1 gated), error (red); each a tinted fill with a rim from the roles, optional action. No success tone: green is earned, see open items. |
 | `WpErrorNotice` | `lib/widgets/wp_error_notice.dart` | Error notice with a cause line and a next-step line (separate texts), optional trailing action. Error red, same tokens as `WpBanner` error tone. Used as the body of recording error toasts via `WpToast.show(body:)` (missing model, denied microphone, failed transcription) and of the GPU-to-CPU fallback toast. |
 | `WpTabs` | `lib/widgets/wp_tabs.dart` | Text tabs, selected accent with a 2 px underline over a 1 px `borderSubtle` rule. Left/Right move focus (mirrored under RTL, wrapping), Home/End jump to the ends; Enter/Space select. Selected state in semantics. |
-| `WpPageHeader` | `lib/widgets/wp_page_header.dart` | Bricolage page title (28 px, bold) as a heading, optional trailing action slot (the 44 px outlined `WpIconButton`). Not applied to pages yet (WP-21). |
+| `WpPageHeader` | `lib/widgets/wp_page_header.dart` | Bricolage page title (28 px, bold) as a heading, optional trailing action slot (the 44 px outlined `WpIconButton`). Not applied to pages yet (ticket). |
 | `WpRowDivider` | `lib/widgets/wp_row_divider.dart` | The 1 px subtle line between two rows of a card or list; `inset` starts it under the row text. Replaces the private dividers of the first steps and the Übersicht. |
 | Switch | `lib/core/theme/theme.dart` (`switchTheme`) | Track `accent` when on, `borderDefault` when off; white thumb. |
 | Checkbox | `lib/core/theme/theme.dart` (`checkboxTheme`), `lib/widgets/wp_row_checkbox.dart` | 20 px box inside a 24 px slot, 4 px corners, 1.5 px `borderDefault` side. |
@@ -137,13 +137,13 @@ The footer is laid out by `WpDialogAction.role`, never by the caller:
 - **Dock ready dot is green, allowlisted.** `WpStatusDot` has one `success`
   tone, allowlisted in `test/core/design/earned_green_test.dart` with the reason
   "dock ready state, successor of the status bar". No other dot paints green.
-  The dock itself (WP-20) must use this tone for its ready state.
+  The dock itself (ticket) must use this tone for its ready state.
 - **Card rows still rest as cards.** Snippets and replacements use the card
   variant, whose resting plate contradicts spec §3's flat list row. Decision
   needed: flatten the card variant too (touches two refreshed screens) or keep
   it as a deliberate card list.
 - **WpPageHeader is not applied to any page.** The 44 px "+" slot exists, but
-  pages adopt `WpPageHeader` in WP-21.
+  pages adopt `WpPageHeader` in ticket.
 - Hover look of chips and tabs is judged visually. Keyboard focus and keyboard operation are behaviour and stay covered by widget tests.
 
 ## Tests

@@ -151,7 +151,7 @@ class WhisPasteApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider);
-    // Starts the sleep/wake channel handler (WP-39, 9.5). Watched without
+    // Starts the sleep/wake channel handler (ticket, 9.5). Watched without
     // using the value: the provider lives for the whole app session.
     ref.watch(powerEventServiceProvider);
     ref.watch(memoryPressureMonitorProvider);
@@ -1851,7 +1851,7 @@ class _AppShellState extends ConsumerState<_AppShell>
           meta: Platform.isMacOS,
         ): () =>
             ref.read(activePageProvider.notifier).setPage('settings'),
-        // F1 and Cmd/Ctrl+?: open Help from anywhere (WP-78).
+        // F1 and Cmd/Ctrl+?: open Help from anywhere (ticket).
         ...helpShortcuts(
           () => ref.read(activePageProvider.notifier).setPage('help'),
         ),
@@ -1884,7 +1884,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                           child: const SizedBox.expand(),
                         ),
                         // Main layout: the title band, the full-height sidebar and the
-                        // content panel with its dock (chat-08, WP-20).
+                        // content panel with its dock (chat-08, ticket).
                         WpAppShell(
                           titleBar: WpTitleBar(
                             // macOS has the global menu bar instead.
@@ -2212,7 +2212,7 @@ class _AppShellState extends ConsumerState<_AppShell>
                         // with setup already done — so the ephemeral revision
                         // flag breaks the tie; the two are mutually exclusive
                         // by construction (see `OnboardingOverlay.revisionRun`).
-                        // Multiline preview for automation inserts (WP-38 / 8.5).
+                        // Multiline preview for automation inserts (ticket / 8.5).
                         const WpMultilinePastePreviewHost(),
                         if (ref.watch(onboardingSurfaceActiveProvider))
                           Positioned.fill(

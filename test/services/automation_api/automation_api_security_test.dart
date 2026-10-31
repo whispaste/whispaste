@@ -1,4 +1,4 @@
-/// Security tests for the WP-38 automation surface.
+/// Security tests for the ticket automation surface.
 ///
 /// They run the real pipeline (Host guard, bearer check, body limit, router)
 /// with every route group registered, so a new endpoint that is added
@@ -202,7 +202,7 @@ void main() {
 
   test('new automation source never reaches keystrokes, paste or a shell', () {
     // Only the files this ticket added. The older insert route and the
-    // dictation trigger predate WP-38 and are reviewed separately.
+    // dictation trigger predate ticket and are reviewed separately.
     const newFiles = [
       'lib/services/automation_api/automation_api_pipeline.dart',
       'lib/services/automation_api/automation_api_responses.dart',

@@ -6,6 +6,7 @@ import '../../core/theme/overlay_customization.dart';
 import '../../core/theme/overlay_design_spec.dart';
 import '../../shared_render_engine_helpers.dart' show RenderChannel;
 import 'floating_button_controller_interface.dart';
+import 'idle_capsule.dart';
 
 final _log = AppLogger('FloatingButtonRenderChannel');
 
@@ -73,12 +74,12 @@ class FloatingButtonRenderChannel implements RenderChannel {
   /// Called when the native shell relays a new disc diameter in logical pixels.
   final void Function(double diameter) onDiameter;
 
-  /// Called when the host relays the overlay presets (WP-75, ADR 0024): the
+  /// Called when the host relays the overlay presets (ticket, ADR 0024): the
   /// background the disc is drawn on and the wave colour of its recording
   /// ring. Absent or unknown names keep the defaults.
   final void Function(OverlayBackground background, OverlayWave wave)? onTheme;
 
-  /// Called with the shape, recording ring and resting opacity (WP-95) that
+  /// Called with the shape, recording ring and resting opacity (ticket) that
   /// arrive in the same `setTheme` payload.
   final void Function(FloatingButtonLook look)? onLook;
 
@@ -140,6 +141,28 @@ class FloatingButtonRenderChannel implements RenderChannel {
   /// Asks the native shell to start an OS window drag (macOS `performDrag`).
   void startDrag() {
     _channel.invokeMethod('startDrag');
+  }
+
+  /// Asks the native shell to resize its window to [contentSize] (logical
+  /// pixels, without the shadow padding, which the shell adds). An [expanded]
+  /// pill grows toward the screen interior; the shell returns the edges it
+  /// pinned ([CapsulePins]), and a rest size returns to the capsule's home
+  /// position with the default pins. Null when the shell reports none.
+  Future<CapsulePins?> setWindowSize(
+    Size contentSize, {
+    required bool expanded,
+  }) async {
+    final result = await _channel
+        .invokeMapMethod<String, Object?>('setWindowSize', {
+          'width': contentSize.width,
+          'height': contentSize.height,
+          'expanded': expanded,
+        });
+    if (result == null) return null;
+    return CapsulePins(
+      pinnedRight: result['pinnedRight'] == true,
+      pinnedBottom: result['pinnedBottom'] == true,
+    );
   }
 
   /// Reports a tap on the button disc.

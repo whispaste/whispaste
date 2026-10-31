@@ -305,7 +305,7 @@ void FloatingButtonHost::HandleMethodCall(
   }
 
   // ── setTheme ────────────────────────────────────────────────────────
-  // WP-75: background and wave presets, cached so the ready flush can
+  // ticket: background and wave presets, cached so the ready flush can
   // replay them.
   if (method == "setTheme") {
     if (map) {
@@ -314,12 +314,13 @@ void FloatingButtonHost::HandleMethodCall(
                       kBackgroundPresets, "marine");
       latest_wave_ =
           KnownPreset(GetString(*map, "wave", "cyan"), kWavePresets, "cyan");
-      // WP-95 button look. Opacity is clamped to the 40-100 % presets.
+      // ticket button look. Opacity is clamped to the 40-100 % presets.
       latest_shape_ =
           GetString(*map, "shape", "round") == "square" ? "square" : "round";
       latest_ring_ = GetBool(*map, "ring", true);
       double idle = GetDouble(*map, "idleOpacity", 1.0);
       latest_idle_opacity_ = idle < 0.4 ? 0.4 : (idle > 1.0 ? 1.0 : idle);
+      latest_idle_capsule_ = GetBool(*map, "idleCapsule", false);
       if (render_ready_) RelaySetTheme(latest_background_, latest_wave_);
     }
     result->Success();
@@ -490,6 +491,25 @@ void FloatingButtonHost::HandleRenderCall(
   }
 
   // ── clicked ──────────────────────────────────────────────────────────
+  // The render engine asks for the content size of its current form (disc,
+  // idle capsule or pill). The shell adds the shadow padding (8 px a side)
+  // and keeps its top-left corner, so the window grows right and down.
+  if (method == "setWindowSize") {
+    auto* args_map = std::get_if<EncodableMap>(call.arguments());
+    EncodableMap reply;
+    if (window_ && args_map) {
+      int width = static_cast<int>(GetDouble(*args_map, "width", 56.0)) + 16;
+      int height = static_cast<int>(GetDouble(*args_map, "height", 56.0)) + 16;
+      bool expanded = GetBool(*args_map, "expanded", false);
+      auto pins = window_->SetWindowSizeAnchored(width, height, expanded);
+      reply[EncodableValue("pinnedRight")] = EncodableValue(pins.right);
+      reply[EncodableValue("pinnedBottom")] = EncodableValue(pins.bottom);
+    }
+    result->Success(EncodableValue(reply));
+    return;
+  }
+
+  // ── clicked ──────────────────────────────────────────────────────────
   if (method == "clicked") {
     SendEvent("onClicked");
     result->Success();
@@ -553,6 +573,7 @@ void FloatingButtonHost::HandleRenderCall(
 
 void FloatingButtonHost::BeginDrag() {
   if (!window_ || !window_->GetHandle()) return;
+  window_->ForgetCapsuleHome();
   HWND hwnd = window_->GetHandle();
 
   // Release any existing mouse capture (Flutter may hold it).
@@ -661,6 +682,7 @@ void FloatingButtonHost::RelaySetTheme(const std::string& background,
   m[EncodableValue("shape")] = EncodableValue(latest_shape_);
   m[EncodableValue("ring")] = EncodableValue(latest_ring_);
   m[EncodableValue("idleOpacity")] = EncodableValue(latest_idle_opacity_);
+  m[EncodableValue("idleCapsule")] = EncodableValue(latest_idle_capsule_);
   render_channel_->InvokeMethod("setTheme",
                                 std::make_unique<EncodableValue>(m));
 }

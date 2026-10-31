@@ -29,34 +29,14 @@ import 'hotkey_key_resolver.dart';
 import 'hotkey_trigger.dart';
 import 'profile_hotkey_plan.dart';
 import 'short_press_hint.dart';
+import 'hotkey_registrar.dart';
 import 'prompt_display_arbiter.dart';
 import 'hotkey_heal_notice.dart';
 import 'hotkey_self_heal.dart';
 import 'keyboard_up_monitor.dart';
 import 'modifier_key_monitor.dart';
 
-// ---------------------------------------------------------------------------
-// Registrar abstraction (enables unit testing without platform channels)
-// ---------------------------------------------------------------------------
-
-/// Thin abstraction over the two [hotKeyManager] operations used by
-/// [HotkeyService]. Swap with a [FakeHotKeyRegistrar] in tests.
-abstract class HotKeyRegistrar {
-  Future<void> register(
-    HotKey hotKey, {
-    HotKeyHandler? keyDownHandler,
-    HotKeyHandler? keyUpHandler,
-  });
-
-  Future<void> unregister(HotKey hotKey);
-
-  /// Whether this registrar supports key-up events.
-  ///
-  /// macOS: true (hotkey_manager native layer fires onKeyUp).
-  /// Windows/Linux: false (RegisterHotKey is key-down only; WH_KEYBOARD_LL
-  /// not yet implemented).
-  bool get supportsKeyUp;
-}
+export 'hotkey_registrar.dart' show HotKeyRegistrar;
 
 /// Production registrar — delegates to the package singleton.
 class _PackageHotKeyRegistrar implements HotKeyRegistrar {
@@ -540,7 +520,7 @@ class HotkeyService extends Notifier<void> {
   bool get optionalActionsSupportKeyUp => _registrar.supportsKeyUp;
 
   /// Whether push-to-talk rests solely on the experimental Linux key-up
-  /// monitor (handy-catchup/09) — the settings UI marks the option then.
+  /// monitor (catchup/09) — the settings UI marks the option then.
   bool get keyUpExperimental =>
       !_registrar.supportsKeyUp &&
       _monitor.supportsKeyUp &&
@@ -585,12 +565,16 @@ class HotkeyService extends Notifier<void> {
       _actionStates.putIfAbsent(actionId, _ActionHotkeyState.new);
 
   /// Pluggable registrar — defaults to the package singleton; override in
-  /// tests by calling [injectRegistrar].
-  HotKeyRegistrar _registrar = const _PackageHotKeyRegistrar();
+  /// tests by calling [injectRegistrar]. Wrapped so a hotkey recorder can
+  /// take every registration off the system while it listens
+  /// ([_syncCaptureSuspension]).
+  SuspendableHotKeyRegistrar _registrar = SuspendableHotKeyRegistrar(
+    const _PackageHotKeyRegistrar(),
+  );
 
   /// Key-up source for platforms whose registrar is key-down only (Windows
   /// RawInput, issue #39; Linux XInput2/GlobalShortcuts portal, experimental,
-  /// handy-catchup/09). On macOS this is a no-op monitor and the registrar
+  /// catchup/09). On macOS this is a no-op monitor and the registrar
   /// provides key-up. Override in tests via [injectMonitor].
   KeyboardUpMonitor _monitor = (Platform.isWindows || Platform.isLinux)
       ? ChannelKeyboardUpMonitor()
@@ -708,6 +692,10 @@ class HotkeyService extends Notifier<void> {
     if (!_isDesktop) return;
 
     _wireMonitor();
+    HotkeyCaptureGuard.setListeningListener(
+      (_) => unawaited(_captureSync = _syncCaptureSuspension()),
+    );
+    ref.onDispose(() => HotkeyCaptureGuard.setListeningListener(null));
     _healTimer = Timer.periodic(
       kHotkeyHealInterval,
       (_) => unawaited(requestHotkeyHeal(HotkeyHealTrigger.timer)),
@@ -1104,7 +1092,8 @@ class HotkeyService extends Notifier<void> {
   /// Call this before [updateHotkey] to avoid real platform-channel calls.
   @visibleForTesting
   void injectRegistrar(HotKeyRegistrar registrar) {
-    _registrar = registrar;
+    _registrar.dispose();
+    _registrar = SuspendableHotKeyRegistrar(registrar);
   }
 
   /// Re-registers the hotkey with a new combination.
@@ -1581,6 +1570,33 @@ class HotkeyService extends Notifier<void> {
       return Future<void>.value();
     }
     return _serializeGlobal(() => _healGlobal(trigger));
+  }
+
+  Future<void> _captureSync = Future<void>.value();
+
+  /// Test seam: completes once the registrations follow the last change of
+  /// [HotkeyCaptureGuard.listening].
+  @visibleForTesting
+  Future<void> get captureSuspensionSettled => _captureSync;
+
+  /// Brings the system registrations in line with [HotkeyCaptureGuard]:
+  /// off while a recorder listens, back on afterwards. Reads the guard when it
+  /// runs, so quick open/close sequences settle on the current state. A
+  /// global hotkey the system refuses on the way back is reported like any
+  /// failed registration; the periodic self-heal registers it again.
+  Future<void> _syncCaptureSuspension() async {
+    if (HotkeyCaptureGuard.listening) {
+      await _registrar.suspend();
+      return;
+    }
+    final refused = await _registrar.resume();
+    if (refused.isEmpty) return;
+    final global = _stateFor(_globalActionId).registeredHotKey;
+    if (global != null &&
+        refused.any((h) => h.identifier == global.identifier)) {
+      _log.warning('Global hotkey refused after recording; self-heal retries');
+      _setStatus(HotkeyRegistrationStatus.conflict);
+    }
   }
 
   Future<void> _healGlobal(HotkeyHealTrigger trigger) async {
@@ -2141,6 +2157,13 @@ class HotkeyService extends Notifier<void> {
     String label, {
     bool checkReleasedAtArm = false,
   }) {
+    // While a recorder listens, a press is the user recording a key, never a
+    // trigger: this covers the modifier-only and monitor paths, which are not
+    // taken off the system.
+    if (HotkeyCaptureGuard.listening) {
+      _log.debug('$label hotkey press ignored while a hotkey is recorded');
+      return;
+    }
     final state = _stateFor(actionId);
     final now = DateTime.now();
     final last = state.lastKeyDownAt;
@@ -2368,6 +2391,7 @@ class HotkeyService extends Notifier<void> {
       timer.cancel();
     }
     _chainTimers.clear();
+    _registrar.dispose();
     for (final actionId in _profileRegistrations.keys.toList()) {
       await _unregisterProfileAction(actionId);
     }

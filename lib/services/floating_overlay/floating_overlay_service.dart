@@ -26,6 +26,8 @@ import '../../core/theme/overlay_design_spec.dart'
         OverlaySizeVariant,
         OverlayBackground,
         OverlayWave;
+import '../audio/quiet_microphone_watch.dart' show micQuietProvider;
+import '../recording/duration_countdown.dart';
 import '../audio/signal_loss_detector.dart' show micSignalLostProvider;
 import '../app_profiles/app_profile_choice.dart';
 import '../audio_service.dart' show AudioStatus, audioServiceProvider;
@@ -40,6 +42,7 @@ import '../transcription/slice_progress.dart';
 import 'floating_overlay_controller.dart';
 import 'floating_overlay_events.dart';
 import 'overlay_positioning.dart';
+import 'overlay_key_hints.dart';
 import 'overlay_render_recovery.dart';
 import 'overlay_shell_gate.dart';
 import 'overlay_start_feedback.dart';
@@ -245,6 +248,9 @@ class FloatingOverlayService
       _onMicStateChanged(prev, next);
     });
     ref.listen(micSignalLostProvider, (_, _) {
+      _onElapsedChanged(ref.read(recordingElapsedProvider));
+    });
+    ref.listen(micQuietProvider, (_, _) {
       _onElapsedChanged(ref.read(recordingElapsedProvider));
     });
     ref.listen(discardConfirmProvider, (_, _) {
@@ -870,6 +876,7 @@ class FloatingOverlayService
       firstSampleSeen: ref.read(audioServiceProvider).hasLiveSamples,
     );
     final live = phase == RecordingPhase.recording && !starting;
+    final countdown = _countdownDue(live, elapsed, s);
 
     final snapshot = FloatingOverlaySnapshot(
       visible: true,
@@ -884,6 +891,7 @@ class FloatingOverlayService
       elapsed: live
           ? _recordingElapsedTextFor(elapsed, sizeVariant, target, l10n, s)
           : '',
+      countdown: countdown,
       hint: starting ? '' : _hintFor(phase, s, l10n, target),
       transcript: recording.transcript,
       errorMessage: recording.errorMessage != null && l10n != null
@@ -911,6 +919,7 @@ class FloatingOverlayService
               s.overlayShowLiveTranscript
           ? _liveTranscript
           : null,
+      keyHints: _keyHintsFor(sizeVariant, live, s, l10n),
     );
 
     _log.debug(
@@ -918,6 +927,37 @@ class FloatingOverlayService
       'visible=true',
     );
     _pushToShell(c, snapshot, 'Failed to send overlay snapshot');
+  }
+
+  /// Stop and cancel hints for the normal live recording pill, or null. The
+  /// stop hint is the active dictation hotkey; the cancel hint is the cancel
+  /// key, shown only while its glyph is.
+  OverlayKeyHints? _keyHintsFor(
+    OverlaySizeVariant size,
+    bool live,
+    AppSettings s,
+    L10n? l10n,
+  ) {
+    if (!OverlayKeyHints.showsFor(size: size, live: live)) return null;
+    final hotkey = activeGlobalHotkey(
+      s,
+      fallback: ref.read(globalHotkeyFallbackActiveProvider),
+    );
+    final stop = formatHotkeyShortcut(
+      hotkey.modifiers,
+      hotkey.key,
+      displayOverride: hotkey.display,
+      l10n: l10n,
+    );
+    final cancel = s.overlayAppearance.showCancel
+        ? hotkeyKeyLabel(s.audioInput.cancelDictationKey, l10n: l10n)
+        : null;
+    return OverlayKeyHints.forRecording(
+      size: size,
+      live: live,
+      stopLabel: stop,
+      cancelLabel: cancel,
+    );
   }
 
   /// Single exit to the native shell for every overlay snapshot. Routes the
@@ -940,7 +980,7 @@ class FloatingOverlayService
     });
   }
 
-  // ── Render-engine frame heartbeat (WP-84 phase 2, plan item 1) ───────────
+  // ── Render-engine frame heartbeat (ticket phase 2, plan item 1) ───────────
 
   void _markShellShown(FloatingOverlayController c) {
     if (_shellShown) return;
@@ -1114,7 +1154,7 @@ class FloatingOverlayService
           displays: displays,
         );
         // A monitor the overlay was dragged to before keeps its own spot
-        // (WP-39, 9.4); otherwise the clamped position stands.
+        // (ticket, 9.4); otherwise the clamped position stands.
         final target =
             MonitorRelativePosition.restoreAt(
               topLeft: clamped,
@@ -1424,11 +1464,32 @@ class FloatingOverlayService
     if (ref.read(micSignalLostProvider)) {
       return l10n?.overlayMicSignalLost ?? 'No microphone signal';
     }
+    // The last 30 s before the duration limit replace the elapsed time.
+    final remaining = _countdownFor(elapsed, s);
+    if (remaining != null) {
+      final time = formatOverlayElapsed(remaining);
+      return l10n?.overlayRemainingTime(time) ?? '$time left';
+    }
+    // Too-quiet hint (5 s below the RMS threshold): recording keeps running.
+    if (ref.read(micQuietProvider)) {
+      return l10n?.overlayMicVeryQuiet ?? 'Microphone very quiet';
+    }
     if (s.overlayShowLiveTranscript && _liveTranscript.trim().isNotEmpty) {
       return _liveTranscript;
     }
     return _recordingTextFor(elapsed, size, target, l10n);
   }
+
+  /// Remaining time to the duration limit while the countdown is due.
+  Duration? _countdownFor(Duration elapsed, AppSettings s) =>
+      remainingUntilDurationLimit(
+        elapsed: elapsed,
+        maxDurationSeconds: s.behavior.maxRecordDuration,
+      );
+
+  /// Whether the timer slot shows the countdown; only on a live recording.
+  bool _countdownDue(bool live, Duration elapsed, AppSettings s) =>
+      live && _countdownFor(elapsed, s) != null;
 
   String _recordingTextFor(
     Duration elapsed,

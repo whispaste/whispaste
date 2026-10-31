@@ -70,7 +70,7 @@ export default defineConfig({
     // werden — siehe TODO unten.
     sentry({
       // Region "de" → Org liegt in der EU-Instanz.
-      org: 'silvio-lindstedt-und-maik-g-y2',
+      org: 'org',
       project: 'whispaste-website',
       authToken: process.env.SENTRY_AUTH_TOKEN,
       // Kein Telemetry-Ping vom sentry-vite-plugin an Sentry über sich selbst.

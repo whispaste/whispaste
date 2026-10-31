@@ -1,4 +1,4 @@
-/// Port constants of the local automation API (WP-38 / 8.1).
+/// Port constants of the local automation API (ticket / 8.1).
 ///
 /// Kept free of Flutter imports so the CLI and the MCP server can read the
 /// default without loading the app.

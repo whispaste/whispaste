@@ -1,5 +1,5 @@
 /// Minimal stdio MCP server that forwards tool calls to the automation API
-/// (WP-38 / 8.4).
+/// (ticket / 8.4).
 ///
 /// Hand-written JSON-RPC 2.0 over newline-delimited messages, as the MCP
 /// stdio transport specifies. Only the pieces a tools-only server needs:

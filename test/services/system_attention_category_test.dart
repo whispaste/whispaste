@@ -1,4 +1,4 @@
-/// Category gating of native attention notifications (WP-39, matrix 9.6).
+/// Category gating of native attention notifications (ticket, matrix 9.6).
 library;
 
 import 'package:flutter_test/flutter_test.dart';

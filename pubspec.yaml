@@ -277,7 +277,7 @@ msix_config:
 # against Sentry's Free-Tier event/span quotas.
 sentry:
   project: flutter_whispaste
-  org: silvio-lindstedt-und-maik-g-y2
+  org: org
   url: https://de.sentry.io
   upload_debug_symbols: true
   upload_sources: false

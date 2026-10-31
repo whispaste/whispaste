@@ -1,4 +1,4 @@
-/// Shared JSON response helper for the WP-38 route groups.
+/// Shared JSON response helper for the ticket route groups.
 library;
 
 import 'dart:convert';

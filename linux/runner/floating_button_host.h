@@ -53,13 +53,14 @@ class FloatingButtonHost {
   bool render_ready_ = false;
   std::string pending_state_ = "idle";
   int pending_diameter_ = kButtonDefaultDiameter;
-  // WP-75: last setTheme presets, replayed on ready.
+  // ticket: last setTheme presets, replayed on ready.
   std::string pending_background_ = "marine";
   std::string pending_wave_ = "cyan";
-  // WP-95 button look, cached like the presets for the ready flush.
+  // ticket button look, cached like the presets for the ready flush.
   std::string pending_shape_ = "round";
   bool pending_ring_ = true;
   double pending_idle_opacity_ = 1.0;
+  bool pending_idle_capsule_ = false;  // overlay_button_idle_capsule
 
   void EnsureButtonWindow();
   void OpenRenderChannel();

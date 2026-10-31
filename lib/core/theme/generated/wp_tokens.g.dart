@@ -148,7 +148,7 @@ final class WpSurfacePalette {
   /// Off-state switch track. White thumb on it >= 3:1, track on the window ground >= 3:1 (WCAG 1.4.11).
   final Color switchTrackOff;
 
-  /// Unselected colour swatch boundary (WP-75). One solid value for both themes: 3:1 or better on every journal surface (3.7:1 at the weakest, canvas E6EEF7) and every stage surface (3.6:1 at the weakest, card 122247). Dark alpha borders reach only 2.1:1, so they are not used.
+  /// Unselected colour swatch boundary (ticket). One solid value for both themes: 3:1 or better on every journal surface (3.7:1 at the weakest, canvas E6EEF7) and every stage surface (3.6:1 at the weakest, card 122247). Dark alpha borders reach only 2.1:1, so they are not used.
   final Color selectionBorder;
 
   /// Petrol: secondary actions, links, icons, active nav text, tab indicator. AA on every journal surface.
@@ -163,7 +163,7 @@ final class WpSurfacePalette {
   final Color action;
   final Color actionHover;
 
-  /// Primary record button fill (dock dictate). Cyan in light and dark. The navy set uses amber for this role (WP-50); that value lives in theme_colors.dart, because the generator emits only journal and stage.
+  /// Primary record button fill (dock dictate). Cyan in light and dark. The navy set uses amber for this role (ticket); that value lives in theme_colors.dart, because the generator emits only journal and stage.
   final Color primaryRecord;
   final Color primaryRecordHover;
   final Color onPrimaryRecord;
@@ -494,7 +494,7 @@ abstract final class WpTypeScaleTokens {
   static const double overline = 11.0;
 }
 
-/// Recording dock geometry (WP-79).
+/// Recording dock geometry (ticket).
 abstract final class WpDockTokens {
   static const double controlHeight = 48.0;
   static const double controlRadius = 8.0;

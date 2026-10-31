@@ -79,7 +79,6 @@ void main() {
                     painter: WpFloatingOverlayView.painterFor(
                       snapshot: snapshot,
                       waveformBars: bars,
-                      dotPulse: 1.0,
                       glassPhase: 0.3,
                       liquidMotion: 1.0,
                       liquidLevel: 0.8,

@@ -30,9 +30,9 @@
 #   WP_PUSH_MAX_DISTANCE  import distance of the tests run (1: changed tests,
 #                         guards, direct importers); farther ones are left
 #                         to CI
-#   WP_PUSH_UBU_WAIT      seconds to wait for a lab ubu guest (120), then the
-#                         Mac at nice 19 if its load guard allows, else a
-#                         warning
+#   WP_PUSH_UBU_WAIT      seconds to wait for a lab ubu guest (default: the
+#                         rest of the budget), then a warning listing the
+#                         unverified tests; never a Dart test run on the Mac
 #   WP_PUSH_WIN_WAIT      seconds to wait for the lab's Windows guest (60)
 #                         for the platform-branching files, then a warning
 #                         listing them
@@ -45,6 +45,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+# shellcheck disable=SC1091  # scripts/sdk-env.sh: two wrapper functions
+. "$ROOT/scripts/sdk-env.sh"
 
 EXCLUDE_TAGS='canary,perf,ux-screens,store,capture'
 WP_TEST="${WP_TEST:-$HOME/.claude/infrastructure/test-dispatch/wp-test.sh}"
@@ -102,20 +104,13 @@ capped() {
   wait "$pid"
 }
 
-# main_run <file...>: the Linux-side run of one batch within the budget. The
-# lab's ubu first; when no guest frees up within WP_PUSH_UBU_WAIT seconds,
-# the Mac at nice 19 (the dispatcher asks the Mac's load guard first). rc 75:
-# no host at all (Mac under load), rc 124: budget used up.
+# main_run <file...>: the Linux-side run of one batch within the budget, on a
+# lab ubu guest only: Dart tests never run on the Mac (maintainer rule), so a
+# busy lab means waiting, up to WP_PUSH_UBU_WAIT or the rest of the budget.
+# rc 75: no guest freed up, rc 124: budget used up.
 main_run() {
   [ -x "$WP_TEST" ] || { capped "$(budget_left)" run_tests auto "$@"; return; }
-  local rc=0
-  WP_QUEUE_TIMEOUT="${WP_PUSH_UBU_WAIT:-120}" capped "$(budget_left)" run_tests ubu "$@" || rc=$?
-  [ "$rc" -ne 75 ] && return "$rc"
-  echo "check: no ubu guest within ${WP_PUSH_UBU_WAIT:-120} s, running on the Mac (nice 19)."
-  rc=0
-  WP_QUEUE_TIMEOUT=60 capped "$(budget_left)" nice -n 19 "$WP_TEST" run "$ROOT" --host mac \
-    --exclude-tags="$EXCLUDE_TAGS" "$@" || rc=$?
-  return "$rc"
+  WP_QUEUE_TIMEOUT="${WP_PUSH_UBU_WAIT:-$(budget_left)}" capped "$(budget_left)" run_tests ubu "$@"
 }
 
 budget_left() { echo $((DEADLINE - SECONDS)); }
@@ -206,7 +201,7 @@ tier_tests() {
       fi
       case "$rc" in
         124) reason="test budget (${WP_PUSH_TEST_BUDGET:-300} s) used up" ;;
-        75) reason="no test host free (lab busy, Mac under load)" ;;
+        75) reason="no lab ubu guest free within the wait (the Mac runs no Dart tests)" ;;
         *) reason="the test run broke off without a test result (rc $rc, log $log)" ;;
       esac
       skipped=("${run[@]:$i}")
@@ -260,6 +255,9 @@ tier_full() {
   grep -E '\[E\]|All tests passed|Some tests failed' "$log" | tail -20 || true
   [ "$rc_main" -eq 0 ] && [ "$rc_win" -eq 0 ]
 }
+
+# Sourced (scripts/check.test.sh): functions only.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
 
 case "${1:-}" in
   commit) tier_commit ;;

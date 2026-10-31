@@ -1,4 +1,4 @@
-/// Unit tests for the microphone priority decision (WP-39, matrix 9.2).
+/// Unit tests for the microphone priority decision (ticket, matrix 9.2).
 library;
 
 import 'package:flutter_test/flutter_test.dart';

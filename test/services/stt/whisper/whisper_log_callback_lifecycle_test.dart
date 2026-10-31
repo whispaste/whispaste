@@ -1,5 +1,5 @@
 /// Regression test for ggml's process-wide log hook across worker isolates
-/// (WP-48). [WhisperIsolateEngine] runs libwhisper in a worker isolate; the
+/// (ticket). [WhisperIsolateEngine] runs libwhisper in a worker isolate; the
 /// hook used to be registered from inside that worker. Once the worker shut
 /// down, ggml still held the pointer to the closed `NativeCallable`, and the
 /// next native log line aborted the VM ("Callback invoked after it has been

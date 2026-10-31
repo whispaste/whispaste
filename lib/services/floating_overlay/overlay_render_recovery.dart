@@ -1,5 +1,5 @@
 /// Frame-heartbeat recovery policy for the overlay and button render engines
-/// on macOS, Windows and Linux (WP-84 phase 2, plan item 1).
+/// on macOS, Windows and Linux (ticket phase 2, plan item 1).
 ///
 /// The overlay renders in a second Flutter engine whose boot can stall
 /// silently (the native shell cannot observe that). After every hidden→visible
@@ -12,11 +12,11 @@
 library;
 
 /// How long a shown render engine may go without a painted frame before the
-/// shell is asked to recover it (WP-84 phase 2). Shared by the overlay and the
+/// shell is asked to recover it (ticket phase 2). Shared by the overlay and the
 /// floating button, so both engines are judged by the same threshold.
 const Duration kRenderFrameDeadline = Duration(milliseconds: 500);
 
-/// Re-boots one render engine may request per app session (WP-84 phase 2).
+/// Re-boots one render engine may request per app session (ticket phase 2).
 /// Never restored: a reset on `ready` caused re-boot cascades.
 const int kRenderRebootBudget = 3;
 
@@ -51,7 +51,7 @@ enum RenderRecoveryAction {
 ///
 /// The budget is intentionally never restored: neither a frame acknowledgement
 /// nor a `ready` handshake nor a new show resets it. A reset on `ready` caused
-/// re-boot cascades in the field (WP-84 analysis, plan item 4).
+/// re-boot cascades in the field (ticket analysis, plan item 4).
 class RenderRecoveryMachine {
   RenderRecoveryMachine({
     required this.frameDeadline,

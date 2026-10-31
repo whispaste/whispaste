@@ -1,4 +1,4 @@
-// Floating button look relay parity guard (WP-95, see internal-notes).
+// Floating button look relay parity guard (ticket, see internal-notes).
 //
 // The button's shape, recording ring and resting opacity are drawn by the
 // shared Dart button view. They reach the button render engine only if every

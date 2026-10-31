@@ -1,4 +1,4 @@
-/// Tests for the `whispaste` CLI (WP-38 / 8.2).
+/// Tests for the `whispaste` CLI (ticket / 8.2).
 ///
 /// Each test runs the real command runner against a loopback fake of the API,
 /// so the assertions cover what goes over the wire, not only what gets printed.

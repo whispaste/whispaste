@@ -627,7 +627,7 @@ void main() {
   });
 
   group(
-    'DesktopPaster.paste — restore only over an unchanged clipboard (WP-39, 9.9)',
+    'DesktopPaster.paste — restore only over an unchanged clipboard (ticket, 9.9)',
     () {
       test(
         'a copy the user makes during the paste window is not overwritten',

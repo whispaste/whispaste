@@ -1,4 +1,4 @@
-/// Focused UX harness for the overlay and floating-button settings (WP-95):
+/// Focused UX harness for the overlay and floating-button settings (ticket):
 /// selects the Appearance area and captures views of it: the top (as the
 /// user first sees it), the shared colours (dark and light background), a
 /// locked-colour state (a wave that is disabled on its background, focused so

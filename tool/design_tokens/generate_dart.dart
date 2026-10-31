@@ -138,7 +138,7 @@ String generateDartTokens(Directory tokenDir) {
   );
   scale('WpShellTokens', 'Desktop shell geometry.', dims(app, 'shell'));
   scale('WpTypeScaleTokens', 'App type scale (logical px).', dims(app, 'type'));
-  scale('WpDockTokens', 'Recording dock geometry (WP-79).', dims(app, 'dock'));
+  scale('WpDockTokens', 'Recording dock geometry (ticket).', dims(app, 'dock'));
 
   return out.toString();
 }

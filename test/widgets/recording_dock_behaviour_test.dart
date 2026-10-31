@@ -1,4 +1,4 @@
-/// Behaviour of the WP-79 dock row: stable keys for every control and Mehr
+/// Behaviour of the ticket dock row: stable keys for every control and Mehr
 /// entry, keyboard use of the Mehr menu, icon-only accessible names and
 /// tooltips, text scaling, and the minimal plan at narrow widths.
 library;

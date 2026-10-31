@@ -2,18 +2,23 @@
 #
 # WhisPaste — third-party product name guard.
 #
-# Names of other dictation/transcription products must never enter this
-# repository: not in code, comments, docs, website copy, file paths or commit
-# messages. The patterns are stored base64-encoded on purpose, so this file
-# itself never contains any of the names in plain text.
+# Names of other dictation/transcription products must never reach the
+# public export: not in public code, comments, docs, website copy or file
+# paths, and never in a commit message. Public means listed in .ossallowlist
+# (oss-public.sh); internal files, such as research notes, may name them. The
+# patterns are stored base64-encoded on purpose, so this file itself never
+# contains any of the names in plain text.
 #
-# Usage (all modes exit 1 and print the offending lines on a match):
+# Usage (exit 1 and print the offending lines on a match):
 #   name-guard.sh stdin            scan text from stdin
-#   name-guard.sh staged           scan added lines + paths of the index
+#   name-guard.sh staged           public added lines + paths of the index
+#                                  block; internal ones only get a note
 #   name-guard.sh file <path>      scan one file (e.g. a commit message)
-#   name-guard.sh tree <rev>       scan every text file of a tree
-#   name-guard.sh range <range>    scan messages, added lines and paths of
-#                                  all commits in a rev range
+#   name-guard.sh tree <rev>       scan every public text file of a tree
+#                                  (CI on the exported tree)
+#
+# Push ranges are not scanned: GitHub receives only the NAS export, which
+# rebuilds tree and commits and checks them.
 #
 # Bash-3.2-compatible (macOS /bin/bash).
 #
@@ -26,6 +31,25 @@ name_guard_regex() {
 }
 
 RX="$(name_guard_regex)"
+ROOT="$(git rev-parse --show-toplevel)"
+PUBLIC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/oss-public.sh"
+
+# Pathspecs of the public paths (the .ossallowlist entries, literal). Empty
+# without an allowlist, so every path is checked.
+SPECS=()
+if [ -f "$ROOT/.ossallowlist" ]; then
+  while IFS= read -r line; do
+    case "$line" in ''|\#*) continue ;; esac
+    SPECS+=("$line")
+  done < "$ROOT/.ossallowlist"
+fi
+pub() { git --literal-pathspecs "$@" -- "${SPECS[@]+"${SPECS[@]}"}"; }
+
+# Paths of the index that are not public.
+internal_staged() {
+  comm -23 <(git diff --cached --name-only --diff-filter=ACMR | sort) \
+    <(git diff --cached --name-only --diff-filter=ACMR | "$PUBLIC" | sort)
+}
 
 report() {
   echo "╳ name-guard: BLOCKED — name of another dictation/transcription product found ($1):" >&2
@@ -49,30 +73,28 @@ case "$mode" in
     scan_stdin "${2:?path}" < "${2:?path}"
     ;;
   staged)
-    git diff --cached --name-only --diff-filter=ACMR | scan_stdin "staged path"
-    git diff --cached -U0 --no-color --diff-filter=ACMR \
+    git diff --cached --name-only --diff-filter=ACMR | "$PUBLIC" \
+      | scan_stdin "staged path"
+    pub diff --cached -U0 --no-color --diff-filter=ACMR \
       | { grep -E '^\+' || true; } | { grep -vE '^\+\+\+ ' || true; } \
       | scan_stdin "staged change"
+    internal=()
+    while IFS= read -r f; do internal+=("$f"); done < <(internal_staged)
+    added=""
+    [ ${#internal[@]} -eq 0 ] || added="$(git --literal-pathspecs diff --cached -U0 --no-color -- "${internal[@]}" \
+      | { grep -E '^\+' || true; } | { grep -vE '^\+\+\+ ' || true; })"
+    if printf '%s\n' "$added" | grep -i -E -- "$RX" >/dev/null; then
+      echo "name-guard: note — a product name in internal files (allowed, never exported)" >&2
+    fi
     ;;
   tree)
     rev="${2:?rev}"
-    hits="$(git grep -I -n -i -E -e "$RX" "$rev" -- || true)"
+    hits="$(pub grep -I -n -i -E -e "$RX" "$rev" || true)"
     [ -z "$hits" ] || printf '%s\n' "$hits" | report "tree $rev"
-    git ls-tree -r --name-only "$rev" | scan_stdin "path in $rev"
-    ;;
-  range)
-    range="${2:?range}"
-    # shellcheck disable=SC2086
-    git log --format='%H %B' $range | scan_stdin "commit message in $range"
-    # shellcheck disable=SC2086
-    git log -p -U0 --no-color --format='commit %H' $range \
-      | { grep -E '^\+' || true; } | { grep -vE '^\+\+\+ ' || true; } \
-      | scan_stdin "added line in $range"
-    # shellcheck disable=SC2086
-    git log --name-only --format='' $range | scan_stdin "path in $range"
+    git ls-tree -r --name-only "$rev" | "$PUBLIC" | scan_stdin "path in $rev"
     ;;
   *)
-    echo "usage: name-guard.sh stdin|staged|file <path>|tree <rev>|range <range>" >&2
+    echo "usage: name-guard.sh stdin|staged|file <path>|tree <rev>" >&2
     exit 2
     ;;
 esac

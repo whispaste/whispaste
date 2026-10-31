@@ -1,4 +1,4 @@
-/// Main-window preview for multiline automation inserts (WP-38 / 8.5).
+/// Main-window preview for multiline automation inserts (ticket / 8.5).
 ///
 /// [WpMultilinePastePreviewHost] watches [multilinePasteConfirmationProvider]
 /// and opens a dialog while a request is pending. Confirm inserts, cancel,

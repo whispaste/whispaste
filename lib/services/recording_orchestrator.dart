@@ -258,7 +258,7 @@ class RecordingOrchestrator extends Notifier<void> {
   /// stop-to-text time excludes the speaking time (XP-6-09).
   DateTime? _recordingStoppedAtForLatencyKpi;
 
-  /// Mic-start trace of the most recent start (handy-catchup ticket 19):
+  /// Mic-start trace of the most recent start (catchup ticket 19):
   /// hotkey → phase change → paster primed → capture started → first real
   /// sample, logged at debug level once the first sample arrives.
   MicStartTrace? _micStartTrace;
@@ -1843,7 +1843,7 @@ class RecordingOrchestrator extends Notifier<void> {
       // The same outcome as a flag for subscribers (the "Erste Schritte" card).
       pasted: _pasteOutcomeThisPipeline == PasteOutcome.success,
     );
-    // Automation hooks (WP-38 / 8.3): fire-and-forget, never awaited, so a
+    // Automation hooks (ticket / 8.3): fire-and-forget, never awaited, so a
     // slow or failing hook cannot delay the pipeline's own completion.
     unawaited(
       ref

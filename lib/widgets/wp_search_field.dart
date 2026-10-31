@@ -548,7 +548,7 @@ class _WpSearchFieldState extends State<WpSearchField> {
 // Resolved tokens
 // ---------------------------------------------------------------------------
 
-/// Height of the field box (WP-14 §3). Icon slots are pinned to it so the
+/// Height of the field box (ticket §3). Icon slots are pinned to it so the
 /// box stays exactly this tall at every text size up to the floor.
 const double _kFieldHeight = WpShellTokens.fieldHeight;
 

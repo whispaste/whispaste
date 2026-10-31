@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// WpIconButton — the 44 px icon-only control (WP-14 spec §4).
+// WpIconButton — the 44 px icon-only control (ticket spec §4).
 //
 // Sits beside a 44 px search field, so it shares that height instead of the
 // 48 px text button. Outlined like the field: `cardFillElevated` fill,

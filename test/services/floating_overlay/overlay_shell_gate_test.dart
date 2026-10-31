@@ -3,7 +3,7 @@ import 'package:whispaste/core/theme/overlay_design_spec.dart';
 import 'package:whispaste/services/floating_overlay/floating_overlay_controller_interface.dart';
 import 'package:whispaste/services/floating_overlay/overlay_shell_gate.dart';
 
-/// WP-84 phase 2, plan items 2 and 3: the Dart side only sends a hide when the
+/// ticket phase 2, plan items 2 and 3: the Dart side only sends a hide when the
 /// shell actually needs one (a visible→hidden change, or a size change that
 /// must reach the hidden shell), so an idle settings sync does not re-order
 /// an already hidden panel.

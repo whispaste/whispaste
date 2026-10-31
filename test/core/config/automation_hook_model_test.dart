@@ -1,4 +1,4 @@
-/// Settings model for automation hooks (WP-38 / 8.3): validation at save
+/// Settings model for automation hooks (ticket / 8.3): validation at save
 /// time, tolerant decoding at load time, and the versioned event payload.
 library;
 

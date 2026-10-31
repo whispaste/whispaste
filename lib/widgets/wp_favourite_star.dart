@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// WpFavouriteStar — the favourite toggle of a list row or detail (WP-14 §4).
+// WpFavouriteStar — the favourite toggle of a list row or detail (ticket §4).
 //
 // Off: a 1.6 px outline in `textMuted`. On: filled `highlight` (amber) with a
 // `highlightText` stroke, so the edge keeps 3:1 against a white card. Drawn

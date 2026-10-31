@@ -101,6 +101,66 @@ void FloatingButtonWindow::SetDiameter(int diameter) {
   gtk_widget_set_size_request(window_, side, side);
 }
 
+void FloatingButtonWindow::SetWindowSize(int width, int height) {
+  if (!window_) return;
+  const int w = width + 2 * kButtonShadowPadding;
+  const int h = height + 2 * kButtonShadowPadding;
+  gtk_window_resize(GTK_WINDOW(window_), w, h);
+  gtk_widget_set_size_request(window_, w, h);
+}
+
+FloatingButtonWindow::CapsulePins FloatingButtonWindow::SetWindowSizeAnchored(
+    int width, int height, bool expanded) {
+  CapsulePins pins;
+  if (!window_) return pins;
+  gint cur_x = 0, cur_y = 0, cur_w = 0, cur_h = 0;
+  gtk_window_get_position(GTK_WINDOW(window_), &cur_x, &cur_y);
+  gtk_window_get_size(GTK_WINDOW(window_), &cur_w, &cur_h);
+  if (expanded && !has_capsule_home_) {
+    home_x_ = cur_x;
+    home_y_ = cur_y;
+    home_w_ = cur_w;
+    home_h_ = cur_h;
+    has_capsule_home_ = true;
+  }
+  const int hx = has_capsule_home_ ? home_x_ : cur_x;
+  const int hy = has_capsule_home_ ? home_y_ : cur_y;
+  const int hw = has_capsule_home_ ? home_w_ : cur_w;
+  const int hh = has_capsule_home_ ? home_h_ : cur_h;
+  const int pw = width + 2 * kButtonShadowPadding;
+  const int ph = height + 2 * kButtonShadowPadding;
+
+  int x = hx;
+  int y = hy;
+  if (expanded) {
+    // Grow toward the interior of the monitor work area (CapsulePins.resolve).
+    GdkDisplay* display = gtk_widget_get_display(window_);
+    GdkMonitor* monitor = gdk_display_get_monitor_at_window(
+        display, gtk_widget_get_window(window_));
+    if (monitor) {
+      GdkRectangle work = {};
+      gdk_monitor_get_workarea(monitor, &work);
+      const int home_right = hx + hw;
+      const int home_bottom = hy + hh;
+      const bool right_fits = home_right - pw >= work.x;
+      const bool left_fits = hx + pw <= work.x + work.width;
+      const bool up_fits = home_bottom - ph >= work.y;
+      const bool down_fits = hy + ph <= work.y + work.height;
+      pins.right = !left_fits && right_fits;
+      pins.bottom = !down_fits && up_fits;
+      x = pins.right ? home_right - pw : hx;
+      y = pins.bottom ? home_bottom - ph : hy;
+    }
+  } else {
+    has_capsule_home_ = false;
+  }
+  // gtk_window_move is only honoured under X11/XWayland; Wayland never
+  // expands (no hover), so it never reaches this branch there.
+  gtk_window_move(GTK_WINDOW(window_), x, y);
+  SetWindowSize(width, height);
+  return pins;
+}
+
 void FloatingButtonWindow::MoveTo(int x, int y) {
   if (!window_) return;
   // gtk_window_move is only reliable under X11/XWayland.

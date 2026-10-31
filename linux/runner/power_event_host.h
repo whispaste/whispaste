@@ -1,4 +1,4 @@
-// Owns the public MethodChannel com.whispaste.power (WP-39, 9.5).
+// Owns the public MethodChannel com.whispaste.power (ticket, 9.5).
 //
 // Forwards system sleep and resume to Dart as `willSleep` / `didWake`. The
 // source is logind's PrepareForSleep signal on the system bus, which systemd

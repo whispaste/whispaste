@@ -469,7 +469,7 @@ Future<void> _openDictionary(
 }
 
 /// Opens the replacements toolbar's ⋯ menu. CSV import and export live there
-/// (WP-81), so the journey reaches them the way a user does.
+/// (ticket), so the journey reaches them the way a user does.
 Future<void> _openMenu(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('replacements-more')));
   await tester.pumpAndSettle();

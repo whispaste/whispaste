@@ -1,6 +1,6 @@
-// Overlay appearance relay parity guard (WP-95, see internal-notes).
+// Overlay appearance relay parity guard (ticket, see internal-notes).
 //
-// The WP-95 options (form, wave style, fluid outline, timer, cancel glyph,
+// The ticket options (form, wave style, fluid outline, timer, cancel glyph,
 // opacity) are drawn by the shared Dart overlay view, not by the native
 // shells. They reach the render engine only if every platform host relays the
 // whole snapshot payload unchanged. This static check proves each host still

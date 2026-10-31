@@ -1,4 +1,4 @@
-/// Route group: list and create notes (WP-38 / 8.1).
+/// Route group: list and create notes (ticket / 8.1).
 ///
 /// Creating a note never pastes or types anything; it only writes to the
 /// Notizen store. The controller decides whether the write fires a hook.

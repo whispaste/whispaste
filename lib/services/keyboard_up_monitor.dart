@@ -19,7 +19,7 @@
 /// can be enabled even before a recording is in progress. macOS gets its key-up
 /// from the registrar and needs no monitor.
 ///
-/// Linux (experimental, handy-catchup/09): the same channel is served by the
+/// Linux (experimental, catchup/09): the same channel is served by the
 /// GTK runner's `KeyboardMonitorHost`, which has two paths — XInput2 raw key
 /// releases on the X display (X11 sessions) and the xdg-desktop-portal
 /// `GlobalShortcuts` interface (Wayland, GNOME ≥ 48 / KDE Plasma ≥ 6), whose

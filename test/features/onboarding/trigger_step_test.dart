@@ -91,7 +91,7 @@ class _NoopHotkeyService extends HotkeyService {
   void build() {}
 }
 
-/// Linux-style monitor: experimental native key-up (handy-catchup/09).
+/// Linux-style monitor: experimental native key-up (catchup/09).
 class _ExperimentalMonitor extends NoopKeyboardUpMonitor {
   @override
   bool get supportsKeyUp => true;

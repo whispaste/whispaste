@@ -29,6 +29,7 @@
 #ifndef FLOATING_BUTTON_WINDOW_H_
 #define FLOATING_BUTTON_WINDOW_H_
 
+#include <optional>
 #include <windows.h>
 #include <dwmapi.h>
 
@@ -66,6 +67,23 @@ class FloatingButtonWindow {
   // Resize the shell (and its Flutter child) to |total_logical_size| × same.
   // total_logical_size = disc_diameter + 2 * shadowPadding (i.e. size + 16).
   void SetTotalSize(int total_logical_size);
+
+  // Sets a non-square content window for the idle capsule (logical pixels,
+  // shadow padding already included). The window keeps its top-left corner
+  // and grows right and down. Its hit test then covers the whole rectangle
+  // instead of the disc.
+  void SetWindowSize(int total_width, int total_height);
+
+  // Edges an open capsule pinned (see CapsulePins in idle_capsule.dart).
+  struct CapsulePins {
+    bool right;
+    bool bottom;
+  };
+  // Like SetWindowSize, but an open pill grows toward the interior of the
+  // work area, and a rest size returns to the capsule's home rectangle.
+  CapsulePins SetWindowSizeAnchored(int total_width, int total_height,
+                                    bool expanded);
+  void ForgetCapsuleHome() { capsule_home_.reset(); }
 
   void SetPosition(double logical_x, double logical_y);
   std::pair<double, double> GetPosition() const;
@@ -111,7 +129,11 @@ class FloatingButtonWindow {
   bool visible_ = false;
   DWORD creating_thread_id_ = 0;
 
-  int total_logical_size_ = 72;  // disc + 2*shadowPadding
+  int total_logical_size_ = 72;  // disc + 2*shadowPadding (width when non-square)
+  int total_logical_height_ = 72;  // equals total_logical_size_ unless capsule
+  bool rect_hit_test_ = false;     // capsule: hit test the whole rectangle
+  // Capsule rectangle at rest (physical pixels) while the pill is open.
+  std::optional<RECT> capsule_home_;
   double logical_x_ = 0.0;
   double logical_y_ = 0.0;
 

@@ -126,7 +126,7 @@ exports no espeak symbol at all (only its strings carry the names), so the byte
 markers are what catches it. The control for the rest is the build itself:
 `-DSHERPA_ONNX_ENABLE_TTS=OFF` plus the stage check below.
 
-Supply-chain controls (WP-57 security review):
+Supply-chain controls (ticket security review):
 
 - **Pins**: `scripts/sherpa-onnx.pin` holds the sherpa-onnx tag and commit, the
   onnxruntime archive names and their SHA-256. The build asserts that sherpa's own

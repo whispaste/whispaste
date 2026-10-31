@@ -1,4 +1,4 @@
-/// Pure-Dart client for the local automation API (WP-38 / 8.2).
+/// Pure-Dart client for the local automation API (ticket / 8.2).
 ///
 /// Shared by the `tool/whispaste.dart` CLI and the MCP server. It talks only
 /// to the IPv4 loopback address with the bearer token, so it cannot reach a

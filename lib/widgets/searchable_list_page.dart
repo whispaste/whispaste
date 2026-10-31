@@ -471,7 +471,7 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
 
     // Explanation, banners and a feature's own header card are the first
     // sliver of the same scroll view as the rows, so they scroll away with
-    // the list instead of taking the viewport from it (WP-81). Only the
+    // the list instead of taking the viewport from it (ticket). Only the
     // toolbar stays fixed above the scroll view.
     final headerChildren = <Widget>[?subtitleLine, ?widget.header];
     final headerSliver = SliverToBoxAdapter(
@@ -708,7 +708,7 @@ class _WpSearchableListPageState<T> extends State<WpSearchableListPage<T>> {
           ),
           const SizedBox(width: WpSpacing.sm),
           // Add button — beside the 44 px field: an icon button of the same
-          // height (WP-14 spec §4). The label is the tooltip and the
+          // height (ticket spec §4). The label is the tooltip and the
           // accessible name.
           Semantics(
             identifier: _id('add'),

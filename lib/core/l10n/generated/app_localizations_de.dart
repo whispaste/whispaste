@@ -1238,6 +1238,14 @@ class L10nDe extends L10n {
       'Kleiner immer sichtbarer Button zum Starten oder Stoppen der Aufnahme aus jeder App';
 
   @override
+  String get settingsFloatingButtonIdleCapsule =>
+      'Als schmale Kapsel im Ruhezustand';
+
+  @override
+  String get settingsFloatingButtonIdleCapsuleSubtitle =>
+      'Schmal und unauffällig; beim Darüberfahren öffnet sie sich zur Pille';
+
+  @override
   String get settingsLanguage => 'Sprache';
 
   @override
@@ -4801,6 +4809,14 @@ class L10nDe extends L10n {
   String get overlayMicSignalLost => 'Kein Mikrofonsignal';
 
   @override
+  String get overlayMicVeryQuiet => 'Mikrofon sehr leise';
+
+  @override
+  String overlayRemainingTime(String time) {
+    return 'Noch $time';
+  }
+
+  @override
   String get overlayDoneQuickNote => 'An Notiz angehängt';
 
   @override
@@ -7981,7 +7997,7 @@ class L10nDe extends L10n {
 
   @override
   String get manualC02S3B2I2 =>
-      '„Schwebender Button“: ein Button, mit dem du per Klick aufnimmst. Standard: aus. Unter Linux mit Wayland kann der Desktop Position und Oben-Bleiben begrenzen.';
+      '„Schwebender Button“: ein Button, mit dem du per Klick aufnimmst. Standard: aus. Mit „Als schmale Kapsel im Ruhezustand“ bleibt er schmal und öffnet sich beim Darüberfahren zur Pille. Unter Linux mit Wayland bleibt die Kapsel schmal, und der Desktop kann Position und Oben-Bleiben begrenzen.';
 
   @override
   String get manualC02S4Heading => 'Nach der Aufnahme einfügen';

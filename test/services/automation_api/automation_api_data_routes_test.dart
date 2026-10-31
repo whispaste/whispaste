@@ -1,4 +1,4 @@
-/// Route-level tests for the WP-38 endpoints: status, notes, snippet catalog
+/// Route-level tests for the ticket endpoints: status, notes, snippet catalog
 /// and render, and WAV transcription. Each route group gets fakes injected,
 /// so these run without a database, a socket or the recording pipeline.
 library;

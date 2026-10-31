@@ -477,6 +477,8 @@
   "settingsOverlayStartLastPosition": "Remember last position",
   "settingsShowFloatingButton": "Floating button",
   "settingsShowFloatingButtonSubtitle": "Small always-on-top button for starting or stopping recording from any app",
+  "settingsFloatingButtonIdleCapsule": "Slim capsule when idle",
+  "settingsFloatingButtonIdleCapsuleSubtitle": "Narrow and unobtrusive; opens to the pill when hovered",
   "settingsLanguage": "Language",
   "settingsRecognitionLanguage": "Recognition language",
   "settingsCustomVocabulary": "Custom vocabulary",
@@ -2024,6 +2026,19 @@
     }
   },
   "overlayMicSignalLost": "No microphone signal",
+  "overlayMicVeryQuiet": "Microphone very quiet",
+  "overlayRemainingTime": "{time} left",
+  "@overlayRemainingTime": {
+    "description": "Overlay line in the last 30 seconds before the recording duration limit stops it: the remaining time as m:ss. Replaces the elapsed time, in amber, and stays short.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "@overlayMicVeryQuiet": {
+    "description": "Overlay line during a recording when the microphone level stays very low for several seconds. The recording keeps running and the hint goes away when the level returns. Replaces the timer like the no-signal line; keep it short."
+  },
   "@overlayMicSignalLost": {
     "description": "Overlay recording line while the microphone stopped delivering signal mid-recording, e.g. unplugged (XP-5-08). Recording keeps running; disappears when the signal returns. Replaces the timer in every size; keep it short, the line does not grow."
   },
@@ -3461,7 +3476,7 @@
   "manualC02S3B1": "The dock at the bottom of the main window shows the current state. While recording, the main button changes to “Stop recording”, and the status area shows the current step. The dock is always there and cannot be turned off.",
   "manualC02S3B3": "In a narrow window, the dock moves less important controls into the “More” menu, including the hotkey, the Auto-Paste hint, and the update notice. Everything stays reachable there.",
   "manualC02S3B2I1": "“Recording overlay” set to “Floating (always visible)”: a small waveform overlay above all programs. Default: off.",
-  "manualC02S3B2I2": "“Floating button”: a button you click to record. Default: off. On Linux under Wayland, the desktop may limit its position and whether it stays on top.",
+  "manualC02S3B2I2": "“Floating button”: a button you click to record. Default: off. With “Slim capsule when idle”, it rests as a narrow capsule and opens to the full pill while you hover over it. Under Linux with Wayland the capsule stays narrow, and the desktop may limit its position and whether it stays on top.",
   "manualC02S4Heading": "Pasting after recording",
   "manualC02S4B1": "Under “After transcription”, choose what happens after each recording:",
   "manualC02S4B2I1": "“Copy to clipboard” (default): the text goes to the clipboard, and you paste it yourself.",

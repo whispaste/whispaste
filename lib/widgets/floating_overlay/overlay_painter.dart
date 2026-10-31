@@ -4,7 +4,7 @@
 /// (macOS, Windows and — via issue 07 — Linux) and the website mirrors the same
 /// math (issue 10). It reproduces the approved spike design
 /// (`spike/lib/main.dart` `kFinalDesign` / `_drawPill`): a light tint-gradient
-/// **capsule** with a painted soft shadow, an accent (teal) recording dot, an
+/// **capsule** with a painted soft shadow, an accent timer, a
 /// accent timer, thin accent line-bars (the most recent few brighter), a small
 /// dark stop square and a subtle inset accent progress timeline.
 ///
@@ -23,9 +23,19 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/theme/overlay_customization.dart';
 import '../../core/theme/overlay_design_spec.dart';
+import '../../services/floating_overlay/overlay_key_hints.dart';
+import '../level_history/level_history_bars.dart';
 import 'live_text_tail.dart';
 
 /// Paints the overlay capsule and its per-state content from the SSOT spec.
+/// Where the key hints sit in the normal recording pill; see
+/// [WpOverlayPainter.keyHintPlacement].
+typedef WpOverlayKeyHintPlacement = ({
+  double cancelShift,
+  double stopLeft,
+  double waveRight,
+});
+
 class WpOverlayPainter extends CustomPainter {
   /// Creates a painter for one immutable overlay frame.
   ///
@@ -48,7 +58,6 @@ class WpOverlayPainter extends CustomPainter {
     this.languageChip,
     this.profileChip,
     required this.progress,
-    required this.dotPulse,
     this.paintFill = true,
     this.paintContent = true,
     this.pillWidth,
@@ -62,8 +71,18 @@ class WpOverlayPainter extends CustomPainter {
     this.waveStyle = OverlayWaveStyle.bars,
     this.showTimer = true,
     this.showCancel = true,
+    this.timerEmphasis = false,
     this.fillOpacity = 1.0,
+    this.keyHints,
   });
+
+  /// Stop and cancel key hints for the normal live pill. Null hides them.
+  final OverlayKeyHints? keyHints;
+
+  /// Draws the timer in a heavier weight (the duration countdown). The colour
+  /// stays the preset's ink: the amber default cannot carry an amber accent,
+  /// and the text itself ("left") carries the meaning, not colour alone.
+  final bool timerEmphasis;
 
   /// Done state of a run whose paste failed: draws a neutral notice glyph
   /// instead of the green check, so "not pasted" never reads as success.
@@ -74,7 +93,7 @@ class WpOverlayPainter extends CustomPainter {
   final double fillOpacity;
 
   /// Outline of the capsule. Only [OverlayForm.roundedRect] changes the
-  /// painted shape; the other forms paint the pill for now (WP-95).
+  /// painted shape; the other forms paint the pill for now (ticket).
   final OverlayForm form;
 
   /// Drawing style of the live recording waveform. Bars are the default.
@@ -127,9 +146,6 @@ class WpOverlayPainter extends CustomPainter {
 
   /// Recording progress toward the max duration (0–1); 0 hides the timeline.
   final double progress;
-
-  /// Recording-dot pulse phase (0–1), driven by the host widget's ticker.
-  final double dotPulse;
 
   /// Whether to draw the capsule fill layer (shadow, gradient background,
   /// border). Defaults to `true`. Set `false` on content-only painters during
@@ -194,7 +210,7 @@ class WpOverlayPainter extends CustomPainter {
       sizeSpec.height,
     );
     final radius = form == OverlayForm.roundedRect
-        ? OverlayDesignSpec.roundedRectRadius
+        ? OverlayDesignSpec.roundedRectRadiusFor(sizeSpec.height)
         : sizeSpec.capsuleRadius;
     final rrect = RRect.fromRectAndRadius(
       pill.deflate(1),
@@ -320,7 +336,7 @@ class WpOverlayPainter extends CustomPainter {
   }
 
   void _drawFill(Canvas canvas, Path shape) {
-    // One flat, opaque preset colour for every state (UX-013, WP-75 flat pass):
+    // One flat, opaque preset colour for every state (UX-013, ticket flat pass):
     // no gradient, no sheen, no specular streak. The content stays legible over
     // any desktop because the fill is opaque.
     canvas.drawPath(
@@ -368,9 +384,14 @@ class WpOverlayPainter extends CustomPainter {
     final cy = pill.center.dy;
     final base = pill.left + layout.padH;
 
+    // Key hints move the timer right when the cancel hint sits beside the close
+    // glyph; they are dropped entirely when the waveform would be too narrow.
+    final placement = _keyHintPlacement(pill);
+
     if (showCancel) {
       _drawClose(canvas, Offset(base + layout.closeOffset, cy));
     }
+    _drawCancelHint(canvas, placement, base, cy);
 
     // Transcribing has its own shared composition (label in the amber
     // processing stream) — identical across all three sizes.
@@ -379,26 +400,17 @@ class WpOverlayPainter extends CustomPainter {
       return;
     }
 
-    // Leading glyph: pulsing accent dot (recording) or the done/error
-    // status icon (transcribing returned above).
-    final leadCenter = Offset(base + layout.dotInset, cy);
-    switch (state) {
-      case OverlayDesignState.recording:
-        _drawDot(canvas, leadCenter);
-      case OverlayDesignState.transcribing:
-        break; // Handled by _drawTranscribing above.
-      case OverlayDesignState.done:
-        _drawDoneIcon(canvas, leadCenter);
-      case OverlayDesignState.error:
-        _drawErrorIcon(canvas, leadCenter, colors.error, iconRevealFraction);
-    }
+    final leadCenter = _leadCenter(base, cy);
+    _drawStatusGlyph(canvas, leadCenter);
 
     // Universal-legibility scheme (2026-07-29): ALL text renders as white
     // glyphs with a dark outline (subtitle/map-label technique) so it stays
     // readable over any desktop behind the near-clear glass. State semantics
-    // live in the dot and the done/error icons, not in text colour.
+    // live in the waveform and the done/error icons, not in text colour.
     final textColor = colors.ink;
-    final textLeft = leadCenter.dx + layout.timerGap;
+    final textLeft = _isRecording
+        ? _recordingTextLeft(base, placement?.cancelShift ?? 0)
+        : leadCenter.dx + layout.timerGap;
     final maxTextWidth = _isRecording
         ? recordingTextMaxWidth(pill, textLeft)
         : pill.right - layout.padH - textLeft;
@@ -411,6 +423,7 @@ class WpOverlayPainter extends CustomPainter {
             layout.timerFontSize,
             textColor,
             maxWidth: maxTextWidth,
+            weight: _isRecording && timerEmphasis ? FontWeight.w700 : null,
           );
 
     // Waveform + stop square (recording only — live bars). The chip sits
@@ -421,15 +434,136 @@ class WpOverlayPainter extends CustomPainter {
       final stopSize = layout.stopSize;
       final waveLeft =
           (chip?.badge.right ?? textLeft + textWidth) + layout.waveStartGap;
-      final waveRight = pill.right - layout.padH - stopSize - layout.waveEndGap;
+      final waveRight = _waveRight(pill, placement);
       _drawWaveform(canvas, waveLeft, waveRight, cy, pill.height);
       _drawStop(canvas, Offset(pill.right - layout.padH - stopSize / 2, cy));
+      _drawStopHint(canvas, placement, cy);
     }
 
     // Inset accent progress timeline (recording only).
     if (_isRecording && progress > 0) {
       _drawTimeline(canvas, pill);
     }
+  }
+
+  /// Where the key hints sit in the normal recording pill, or null when they
+  /// do not show (no hints, not recording, or the waveform would be squeezed
+  /// below [OverlayKeyHints.minWaveWidth]). [cancelShift] moves the timer right
+  /// to make room for the cancel hint; [stopLeft] is the left edge of the stop
+  /// hint; [waveRight] is where the waveform ends before that hint.
+  @visibleForTesting
+  WpOverlayKeyHintPlacement? keyHintPlacement(Rect pill) =>
+      _keyHintPlacement(pill);
+
+  /// The done/error status icon in the lead slot. Recording has no lead glyph
+  /// and transcribing returns before this point.
+  void _drawStatusGlyph(Canvas canvas, Offset center) {
+    switch (state) {
+      case OverlayDesignState.recording:
+      case OverlayDesignState.transcribing:
+        break;
+      case OverlayDesignState.done:
+        _drawDoneIcon(canvas, center);
+      case OverlayDesignState.error:
+        _drawErrorIcon(canvas, center, colors.error, iconRevealFraction);
+    }
+  }
+
+  /// Centre of the done/error status icon. Recording and transcribing do not
+  /// use it: the recording pill starts its timer after the close glyph.
+  Offset _leadCenter(double base, double cy) =>
+      Offset(base + layout.dotInset, cy);
+
+  /// Where the recording timer starts: after the close glyph, moved right past
+  /// the cancel hint by [cancelShift]. Without the close glyph it starts at the
+  /// padding.
+  double _recordingTextLeft(double base, double cancelShift) {
+    if (!showCancel) return base;
+    final glyphEnd = base + layout.closeOffset + layout.closeArm;
+    return glyphEnd + cancelShift + layout.timerGap;
+  }
+
+  /// Right edge of the waveform: before the stop hint when it shows.
+  double _waveRight(Rect pill, WpOverlayKeyHintPlacement? placement) =>
+      placement?.waveRight ??
+      pill.right - layout.padH - layout.stopSize - layout.waveEndGap;
+
+  void _drawCancelHint(
+    Canvas canvas,
+    WpOverlayKeyHintPlacement? placement,
+    double base,
+    double cy,
+  ) {
+    final cancelHint = keyHints?.cancel;
+    if (placement == null || !showCancel || cancelHint == null) return;
+    _drawKeyHint(
+      canvas,
+      cancelHint,
+      Offset(
+        base + layout.closeOffset + layout.closeArm + OverlayKeyHints.gap,
+        cy,
+      ),
+    );
+  }
+
+  void _drawStopHint(
+    Canvas canvas,
+    WpOverlayKeyHintPlacement? placement,
+    double cy,
+  ) {
+    final stopHint = keyHints?.stop;
+    if (placement == null || stopHint == null) return;
+    _drawKeyHint(canvas, stopHint, Offset(placement.stopLeft, cy));
+  }
+
+  WpOverlayKeyHintPlacement? _keyHintPlacement(Rect pill) {
+    final hints = keyHints;
+    if (hints == null || !_isRecording || sizeSpec.minimalContent) return null;
+    final base = pill.left + layout.padH;
+    final cancelHint = hints.cancel;
+    final cancelWidth = showCancel && cancelHint != null
+        ? _hintWidth(cancelHint)
+        : 0.0;
+    final cancelShift = cancelWidth > 0
+        ? cancelWidth + OverlayKeyHints.gap
+        : 0.0;
+    final stopLeft =
+        pill.right -
+        layout.padH -
+        layout.stopSize -
+        OverlayKeyHints.gap -
+        _hintWidth(hints.stop);
+    final textLeft = _recordingTextLeft(base, cancelShift);
+    final timerRight = showTimer
+        ? textLeft +
+              _layoutTextPainter(
+                timerText,
+                _textStyle(layout.timerFontSize),
+                null,
+              ).width
+        : textLeft;
+    final chip = chipFor(pill, timerRight);
+    final waveLeft = (chip?.badge.right ?? timerRight) + layout.waveStartGap;
+    final waveRight = stopLeft - OverlayKeyHints.gap;
+    if (!OverlayKeyHints.fitsWave(waveRight - waveLeft)) return null;
+    return (cancelShift: cancelShift, stopLeft: stopLeft, waveRight: waveRight);
+  }
+
+  double _hintWidth(String text) => _layoutTextPainter(
+    text,
+    _textStyle(OverlayKeyHints.fontSize),
+    null,
+  ).width;
+
+  /// Paints one key hint left-anchored at [leftCenter] in the dimmed ink.
+  void _drawKeyHint(Canvas canvas, String text, Offset leftCenter) {
+    _drawText(
+      canvas,
+      text,
+      leftCenter,
+      OverlayKeyHints.fontSize,
+      OverlayKeyHints.inkFor(ink: colors.ink, fill: colors.capsuleFill),
+    );
   }
 
   /// The recording chip for [pill] right after the timer ends at [timerRight],
@@ -483,8 +617,8 @@ class WpOverlayPainter extends CustomPainter {
   }
 
   /// Mini (waveform-first) content: the waveform IS the overlay while
-  /// recording — a small pulsing dot plus live bars spanning the remaining
-  /// width. Transcribing renders the shared label-in-the-stream composition
+  /// recording — live bars spanning the remaining width from the padding on.
+  /// Transcribing renders the shared label-in-the-stream composition
   /// ([_drawTranscribing]) — the same one normal/compact paint, so all three
   /// sizes speak one language. Done/error collapse to a single centred
   /// status icon. No close glyph, no timer, no stop square. The thin
@@ -495,13 +629,10 @@ class WpOverlayPainter extends CustomPainter {
 
     switch (state) {
       case OverlayDesignState.recording:
-        final dotCenter = Offset(base + layout.dotInset, cy);
-        _drawDot(canvas, dotCenter);
-        final waveLeft = dotCenter.dx + layout.timerGap;
         final waveRight = pill.right - layout.padH;
         _drawWaveform(
           canvas,
-          waveLeft,
+          base,
           waveRight,
           cy,
           pill.height,
@@ -640,23 +771,10 @@ class WpOverlayPainter extends CustomPainter {
     );
   }
 
-  void _drawDot(Canvas canvas, Offset center) {
-    final minAlpha = OverlayDesignSpec.motion.dotPulseMinAlpha;
-    final minScale = OverlayDesignSpec.motion.dotPulseMinScale;
-    final alpha = minAlpha + (1.0 - minAlpha) * dotPulse;
-    final scale = minScale + (1.0 - minScale) * dotPulse;
-    canvas.drawCircle(
-      center,
-      layout.dotRadius * scale,
-      Paint()..color = colors.accent.withValues(alpha: alpha),
-    );
-  }
-
   /// Transcribing "working" glyph (state-distinction pass, 2026-08-17): a
   /// small rotating open arc over a faint full-circle track, in the state's
   /// own amber [OverlayThemeColors.transcribingAccent] — clearly a machine
-  /// working, where the recording state's pulsing cyan dot is a microphone
-  /// listening. Rotation rides the existing liquid-glass phase
+  /// working, where the recording state's live wave is a microphone listening. Rotation rides the existing liquid-glass phase
   /// ([OverlayDesignSpec.transcribingSpinnerTurnsPerLoop] integer turns per
   /// loop → seamless at the phase wrap, no extra AnimationController, one
   /// arc + one circle of paint cost). Reduced-motion and the static settings
@@ -764,7 +882,7 @@ class WpOverlayPainter extends CustomPainter {
     return floor + (1 - floor) * smooth;
   }
 
-  /// Line and dot waveform for the recording state (WP-95). Both mirror the
+  /// Line and dot waveform for the recording state (ticket). Both mirror the
   /// level samples around the centre line, like the bar style does.
   void _drawWaveAlternative(
     Canvas canvas,
@@ -849,84 +967,49 @@ class WpOverlayPainter extends CustomPainter {
     // shader across the wave zone, so every bar reads lit from its middle
     // and the light stays consistent while bars move.
     final zone = Rect.fromLTRB(left, cy - maxH / 2, right, cy + maxH / 2);
-    // The live recording bars speak the cyan accent; the transcribing
-    // processing ripple speaks the state's own amber accent — the waveform
-    // keeps moving through the transition (no hard state cut) but its colour
-    // says which phase owns it (state-distinction pass, 2026-08-17).
-    final accent = _isRecording ? colors.accent : colors.transcribingAccent;
-    final tip = Color.lerp(
-      accent,
-      const Color(0xFF000000),
-      OverlayDesignSpec.waveformTipShadeFraction,
-    )!;
-    Shader coreShader(double coreLight) => LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        tip,
-        Color.lerp(accent, const Color(0xFFFFFFFF), coreLight)!,
-        tip,
-      ],
-      stops: const [0.0, 0.5, 1.0],
-    ).createShader(zone);
-    final mutedPaint = Paint()
-      ..shader = coreShader(OverlayDesignSpec.waveformCoreMutedLightFraction);
-    final activePaint = Paint()
-      ..shader = coreShader(OverlayDesignSpec.waveformCoreActiveLightFraction);
-    for (var i = 0; i < count; i++) {
-      final x = left + i * barW + barW / 2;
-      var rawLevel = _isRecording
-          ? (i < waveformBars.length ? waveformBars[i].clamp(0.0, 1.0) : 0.0)
-          : transcribingBarLevel(i, count, glassPhase);
-      // Transcribing label notch: the ripple amplitude (never the rest
-      // baseline) ducks beneath the status label so the stream parts around
-      // the text instead of running through it.
-      if (!_isRecording && notchStart != null && notchEnd != null) {
-        rawLevel =
-            OverlayDesignSpec.waveformRestLevel +
-            (rawLevel - OverlayDesignSpec.waveformRestLevel) *
-                notchAttenuation(x, notchStart, notchEnd);
-      }
-      // The level is already perceptual (SpeechLevelMapper); no second curve
-      // here, so the overlay and the onboarding mic test move alike.
-      final level = rawLevel;
-      final active =
-          _isRecording && i > count - OverlayDesignSpec.waveformActiveCount;
-      // Playhead encoding: wider bar + hotter core — never a washed history.
-      final wBar = math.max(
-        layout.lineStrokeMin,
-        barW *
-            (active
-                ? OverlayDesignSpec.waveformActiveBarFillFactor
-                : OverlayDesignSpec.waveformBarFillFactor),
-      );
-      // Height floor: never below the bar's own width — a resting bar
-      // becomes a perfect bead (circle), a speaking bar a capsule. Without
-      // this the full round radius squashes short bars into horizontal
-      // lozenges.
-      final h = math.max(
-        math.max(OverlayDesignSpec.waveform.minBarHeightPx, wBar),
-        level * maxH,
-      );
-      final paint = active ? activePaint : mutedPaint;
-      // The paint colour's alpha modulates the shader: fully opaque while
-      // recording (maximum contrast), quieter for the decorative rest state.
-      paint.color = const Color(0xFFFFFFFF).withValues(
-        alpha: _isRecording
-            ? (active
-                  ? OverlayDesignSpec.waveformActiveOpacity
-                  : OverlayDesignSpec.waveformMutedLineOpacity)
-            : OverlayDesignSpec.waveformInactiveStateOpacity,
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(center: Offset(x, cy), width: wBar, height: h),
-          Radius.circular(wBar / 2),
-        ),
-        paint,
-      );
-    }
+    final levels = _isRecording
+        ? [
+            for (var i = 0; i < count; i++)
+              i < waveformBars.length ? waveformBars[i].clamp(0.0, 1.0) : 0.0,
+          ]
+        : _processingLevels(count, left, barW, notchStart, notchEnd);
+    // The shared bar-history element (also used by the onboarding mic test)
+    // paints the bars. The newest bar is the "now" marker while recording.
+    WpLevelHistoryBars.paint(
+      canvas,
+      zone,
+      levels,
+      accent: _isRecording ? colors.accent : colors.transcribingAccent,
+      lineStrokeMin: layout.lineStrokeMin,
+      mutedAlpha: _isRecording
+          ? OverlayDesignSpec.waveformMutedLineOpacity
+          : OverlayDesignSpec.waveformInactiveStateOpacity,
+      nowAlpha: _isRecording
+          ? OverlayDesignSpec.waveformActiveOpacity
+          : OverlayDesignSpec.waveformInactiveStateOpacity,
+      highlightNewest: _isRecording,
+    );
   }
+
+  /// The transcribing ripple per bar. A label notch ducks the ripple beneath
+  /// the status text, so the stream parts around the words.
+  List<double> _processingLevels(
+    int count,
+    double left,
+    double barW,
+    double? notchStart,
+    double? notchEnd,
+  ) => [
+    for (var i = 0; i < count; i++)
+      () {
+        final raw = transcribingBarLevel(i, count, glassPhase);
+        if (notchStart == null || notchEnd == null) return raw;
+        final x = left + i * barW + barW / 2;
+        return OverlayDesignSpec.waveformRestLevel +
+            (raw - OverlayDesignSpec.waveformRestLevel) *
+                notchAttenuation(x, notchStart, notchEnd);
+      }(),
+  ];
 
   void _drawTimeline(Canvas canvas, Rect pill) {
     final radius = sizeSpec.capsuleRadius;
@@ -1058,7 +1141,7 @@ class WpOverlayPainter extends CustomPainter {
   /// [tailFirstText] is set, in which case an overflowing live transcript is
   /// cut down to its newest words ([tailThatFits]).
   ///
-  /// The overlay repaints every frame while recording (dot pulse, waveform)
+  /// The overlay repaints every frame while recording (waveform)
   /// but the live text only changes every ~2 s, so the last result is cached
   /// — the binary-search layouts run once per new preview, not per frame.
   @visibleForTesting
@@ -1163,9 +1246,10 @@ class WpOverlayPainter extends CustomPainter {
     double fontSize,
     Color color, {
     double? maxWidth,
+    FontWeight? weight,
   }) {
     if (text.isEmpty) return 0;
-    final baseStyle = _textStyle(fontSize);
+    final baseStyle = _textStyle(fontSize).copyWith(fontWeight: weight);
     final fillTp = _layoutTextPainter(
       text,
       baseStyle.copyWith(color: color),
@@ -1177,10 +1261,12 @@ class WpOverlayPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant WpOverlayPainter old) {
-    return old.fillOpacity != fillOpacity ||
+    return old.keyHints != keyHints ||
+        old.fillOpacity != fillOpacity ||
         old.form != form ||
         old.waveStyle != waveStyle ||
         old.showTimer != showTimer ||
+        old.timerEmphasis != timerEmphasis ||
         old.showCancel != showCancel ||
         old.state != state ||
         old.theme != theme ||
@@ -1191,7 +1277,6 @@ class WpOverlayPainter extends CustomPainter {
         old.statusText != statusText ||
         old.secondaryText != secondaryText ||
         old.progress != progress ||
-        old.dotPulse != dotPulse ||
         old.paintFill != paintFill ||
         old.paintContent != paintContent ||
         old.pillWidth != pillWidth ||
@@ -1205,7 +1290,7 @@ class WpOverlayPainter extends CustomPainter {
   }
 }
 
-// Line and dot waveform geometry (WP-95). Kept private to the painter: they
+// Line and dot waveform geometry (ticket). Kept private to the painter: they
 // are only read by the alternative wave styles.
 const double _waveLineStrokeWidth = 2.0;
 const double _waveDotMinRadius = 1.0;

@@ -78,7 +78,7 @@ class FlutterWindow : public Win32Window {
   // Name and icon of target apps for the recording rows.
   std::unique_ptr<AppIdentityHost> app_identity_host_;
 
-  // System sleep/resume source for the recording safety net (WP-39, 9.5).
+  // System sleep/resume source for the recording safety net (ticket, 9.5).
   std::unique_ptr<PowerEventHost> power_event_host_;
 
   // RawInput key-up source for global hotkeys, enabling push-to-talk on

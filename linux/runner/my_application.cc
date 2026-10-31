@@ -45,10 +45,10 @@ struct _MyApplication {
   // window (issue 06). Same lifecycle as the hosts above.
   SidePanelHost* side_panel_host;
   // Owns com.whispaste.keyboard_monitor — push-to-talk key-up via XInput2 or
-  // the GlobalShortcuts portal (handy-catchup/09). Same lifecycle as above.
+  // the GlobalShortcuts portal (catchup/09). Same lifecycle as above.
   KeyboardMonitorHost* keyboard_monitor_host;
   // Owns com.whispaste.power — system sleep/resume for the recording safety
-  // net (WP-39, 9.5). Same lifecycle as the hosts above.
+  // net (ticket, 9.5). Same lifecycle as the hosts above.
   PowerEventHost* power_event_host;
   // Owns com.whispaste.file_dialog — open/save/folder dialogs in the app
   // language (XP-5-13). Same lifecycle as the hosts above.

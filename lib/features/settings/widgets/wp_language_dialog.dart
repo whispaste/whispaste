@@ -1,4 +1,4 @@
-/// Recognition-language dialog and its row (WP-23e, spec 06 §5.4, WP-23 IA §5).
+/// Recognition-language dialog and its row (WP-23e, spec 06 §5.4, ticket IA §5).
 ///
 /// Single select today: the dialog keeps the choice as a list
 /// ([WpLanguageSelection.codes]) so WP-23e2 can extend it to several languages

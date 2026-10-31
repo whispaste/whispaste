@@ -51,6 +51,13 @@ class AmplitudeFromPcm implements PcmLevelMeter {
   /// Whether any chunk arrived since the last flush.
   bool _sawChunk = false;
 
+  /// Sum of squared samples and sample count since the last flush, for the RMS.
+  double _sumSquares = 0;
+  int _sampleCount = 0;
+
+  /// RMS dBFS of the last flush that saw a chunk, `-inf` for silence.
+  double _lastRmsDbFs = double.negativeInfinity;
+
   /// Time since the last chunk, advanced by one [pollInterval] per empty
   /// tick.
   Duration _sinceChunk = Duration.zero;
@@ -85,6 +92,12 @@ class AmplitudeFromPcm implements PcmLevelMeter {
   @override
   Stream<double> get stream => _controller.stream;
 
+  /// RMS level in dBFS of the audio of the last flush that had samples, read
+  /// alongside [stream]. Unlike the peak it stays low for a steady quiet
+  /// voice, so it tells "too quiet" apart from a loud transient. `-inf` after
+  /// a stall or on digital silence.
+  double get lastRmsDbFs => _lastRmsDbFs;
+
   /// Feeds a PCM chunk into the calculator.
   ///
   /// [bytes] must be little-endian signed 16-bit PCM. Odd-length chunks are
@@ -106,6 +119,8 @@ class AmplitudeFromPcm implements PcmLevelMeter {
       }
       final abs = sample < 0 ? -sample : sample;
       if (abs > _peakAbs) _peakAbs = abs;
+      _sumSquares += sample.toDouble() * sample;
+      _sampleCount++;
     }
   }
 
@@ -119,12 +134,20 @@ class AmplitudeFromPcm implements PcmLevelMeter {
       if (_hadChunk && gap > _longestChunkGap) _longestChunkGap = gap;
       _hadChunk = true;
       _lastDbFs = _peakToDbFs(_peakAbs);
+      _lastRmsDbFs = _sampleCount == 0
+          ? double.negativeInfinity
+          : _rmsToDbFs(_sumSquares, _sampleCount);
       _peakAbs = 0;
+      _sumSquares = 0;
+      _sampleCount = 0;
       _sawChunk = false;
       _sinceChunk = Duration.zero;
     } else {
       _sinceChunk += pollInterval;
-      if (_sinceChunk > maxHold) _lastDbFs = double.negativeInfinity;
+      if (_sinceChunk > maxHold) {
+        _lastDbFs = double.negativeInfinity;
+        _lastRmsDbFs = double.negativeInfinity;
+      }
     }
     _controller.add(_lastDbFs);
   }
@@ -136,6 +159,13 @@ class AmplitudeFromPcm implements PcmLevelMeter {
     if (peakAbs <= 0) return double.negativeInfinity;
     final normalised = peakAbs / _int16FullScale;
     return 20 * math.log(normalised) / math.ln10;
+  }
+
+  /// Converts a sum of squared int16 samples over [count] samples to RMS dBFS.
+  static double _rmsToDbFs(double sumSquares, int count) {
+    if (sumSquares <= 0) return double.negativeInfinity;
+    final rms = math.sqrt(sumSquares / count) / _int16FullScale;
+    return 20 * math.log(rms) / math.ln10;
   }
 
   /// Cancels the timer and closes the output stream.

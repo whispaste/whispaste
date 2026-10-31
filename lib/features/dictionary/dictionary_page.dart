@@ -15,7 +15,7 @@ import 'dictionary_terms_tab.dart';
 class DictionaryPage extends StatefulWidget {
   const DictionaryPage({super.key, this.extraTermsSections = const []});
 
-  /// Extra cards shown under the terms field. The vocabulary row of WP-23
+  /// Extra cards shown under the terms field. The vocabulary row of ticket
   /// is added here, so this page does not need to know about it.
   final List<Widget> extraTermsSections;
 

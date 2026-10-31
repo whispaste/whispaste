@@ -1,4 +1,4 @@
-/// Controls of the recording dock (WP-79, ADR 0024): the Dictate button with
+/// Controls of the recording dock (ticket, ADR 0024): the Dictate button with
 /// its keycap, the selectors, the Mehr button and the one popup every dock
 /// control opens. One chrome for every control: 48 px tall, a 12 px radius, the
 /// stage's control fill with a 3:1 outline, and the same hover, pressed and
@@ -85,7 +85,7 @@ TextStyle dockValueStyle(BuildContext context) =>
     );
 
 /// The Dictate button: the one filled control of the dock. Cyan in the light
-/// and navy modes; amber in Marine (WP-50, an accent surface under the amber
+/// and navy modes; amber in Marine (ticket, an accent surface under the amber
 /// rule, WCAG AA). The hotkey is shown once, as a keycap inside the
 /// button, when [keycapLabel] is set.
 class WpDockDictate extends StatefulWidget {

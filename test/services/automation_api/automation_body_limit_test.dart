@@ -1,4 +1,4 @@
-/// Request-size limit for the local automation API (WP-38 / 8.1).
+/// Request-size limit for the local automation API (ticket / 8.1).
 library;
 
 import 'dart:async';

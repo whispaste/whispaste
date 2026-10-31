@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// The window's layout (WP-20, chat-08): the title band across the top, the
+/// The window's layout (ticket, chat-08): the title band across the top, the
 /// sidebar running the full height below it, and the content panel beside it.
 ///
 /// The recording dock lives inside the content panel, under the page, so it

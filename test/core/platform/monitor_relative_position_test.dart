@@ -1,4 +1,4 @@
-/// Per-monitor memory of a window position (WP-39, matrix 9.4).
+/// Per-monitor memory of a window position (ticket, matrix 9.4).
 library;
 
 import 'dart:ui';

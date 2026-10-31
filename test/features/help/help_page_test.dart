@@ -1,4 +1,4 @@
-/// The Help hub (WP-78): the rail's Hilfe entry opens the handbook first, with
+/// The Help hub (ticket): the rail's Hilfe entry opens the handbook first, with
 /// the support, introduction and diagnostics sections one tab away. Deep links
 /// pick the tab, and a chapter slug picks the handbook chapter.
 library;

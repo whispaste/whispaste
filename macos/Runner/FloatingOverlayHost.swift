@@ -211,7 +211,7 @@ class FloatingOverlayHost {
       result(nil)
 
     case "rebootRenderEngine":
-      // Dart's frame heartbeat (WP-84 phase 2) found no painted frame after a
+      // Dart's frame heartbeat (ticket phase 2) found no painted frame after a
       // show. Re-boots the render engine inside the existing panel; the Dart
       // side owns the session budget and the logging.
       rebootRenderEngine()
@@ -260,7 +260,7 @@ class FloatingOverlayHost {
     // frame, so it isn't a wedge risk.
     // Dart re-sends `visible: true` on every elapsed tick (~1 Hz). Re-ordering
     // an already visible panel is redundant and, on the shared main thread, can
-    // wait on a frame (WP-84 analysis: 90 redundant calls per debug run), so
+    // wait on a frame (ticket analysis: 90 redundant calls per debug run), so
     // only a hidden panel is ordered front.
     if visible {
       if panel?.isVisible != true {
@@ -505,7 +505,7 @@ class FloatingOverlayHost {
 
   private func resizePanelToContent() {
     guard let p = panel else { return }
-    // Resize only when needed (WP-84 phase 2, plan item 2): a synchronous
+    // Resize only when needed (ticket phase 2, plan item 2): a synchronous
     // content-size change waits on a frame at the new size.
     guard p.contentView?.frame.size != contentSize() else { return }
     let origin = p.frame.origin
@@ -530,7 +530,7 @@ class FloatingOverlayHost {
       NSLog("[overlay] render engine ready — flushing cached state")
       renderReadyTimeoutTimer?.invalidate()
       renderReadyTimeoutTimer = nil
-      // `ready` does NOT reset the recovery counters (WP-84 phase 2, plan
+      // `ready` does NOT reset the recovery counters (ticket phase 2, plan
       // item 4): a reset here let each successful boot re-arm the stall
       // rebuild cascade. The budget is per session; `ready` only proves the
       // handshake, not that a frame reached the screen.
@@ -563,7 +563,7 @@ class FloatingOverlayHost {
       result(nil)
 
     case "frameRendered":
-      // First painted frame of the current show (frame heartbeat, WP-84
+      // First painted frame of the current show (frame heartbeat, ticket
       // phase 2). Relayed so the Dart side can stop its re-boot deadline and
       // record the first-frame latency.
       channel.invokeMethod("onRenderFrame", arguments: nil)

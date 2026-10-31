@@ -332,7 +332,9 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
   @override
   void initState() {
     super.initState();
-    HotkeyCaptureGuard.begin();
+    // Takes the app's registered hotkeys off the system while the recorder
+    // listens, so a combination that is already in use reaches it.
+    HotkeyCaptureGuard.beginListening();
     _loadInitialCombo();
   }
 
@@ -390,7 +392,7 @@ class _WpHotkeyRecorderDialogState extends State<WpHotkeyRecorderDialog> {
 
   @override
   void dispose() {
-    HotkeyCaptureGuard.end();
+    HotkeyCaptureGuard.endListening();
     _focusNode.dispose();
     super.dispose();
   }

@@ -1,4 +1,4 @@
-/// Which Help tab a settings row jumps to (WP-78). Every row that moved to the
+/// Which Help tab a settings row jumps to (ticket). Every row that moved to the
 /// Help page maps to exactly one tab, and the handbook has a tab of its own.
 library;
 

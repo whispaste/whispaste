@@ -1,4 +1,4 @@
-// Unit tests for the WP-95 floating button look (overlay_customization.dart).
+// Unit tests for the ticket floating button look (overlay_customization.dart).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
 import 'package:whispaste/core/theme/overlay_customization.dart';
@@ -27,14 +27,22 @@ void main() {
   });
 
   group('theme payload', () {
-    test('toThemeMap sends shape, ring and the resting fraction', () {
-      final map = const FloatingButtonLook(
-        square: true,
-        ring: false,
-        idleOpacity: '70',
-      ).toThemeMap();
-      expect(map, {'shape': 'square', 'ring': false, 'idleOpacity': 0.7});
-    });
+    test(
+      'toThemeMap sends shape, ring, the resting fraction and the capsule',
+      () {
+        final map = const FloatingButtonLook(
+          square: true,
+          ring: false,
+          idleOpacity: '70',
+        ).toThemeMap();
+        expect(map, {
+          'shape': 'square',
+          'ring': false,
+          'idleOpacity': 0.7,
+          'idleCapsule': false,
+        });
+      },
+    );
 
     test('fromThemeMap reads what toThemeMap writes', () {
       const look = FloatingButtonLook(
@@ -46,6 +54,14 @@ void main() {
       expect(back.square, isTrue);
       expect(back.ring, isFalse);
       expect(back.idleOpacity, '40');
+    });
+
+    test('fromThemeMap reads the idle capsule', () {
+      const look = FloatingButtonLook(idleCapsule: true);
+      expect(
+        FloatingButtonLook.fromThemeMap(look.toThemeMap()).idleCapsule,
+        isTrue,
+      );
     });
 
     test('fromThemeMap falls back for a missing or odd payload', () {

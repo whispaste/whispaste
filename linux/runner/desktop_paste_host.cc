@@ -806,7 +806,7 @@ FlValue* DesktopPasteHost::TypeText(const std::string& text, int delay_ms,
   std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
   // Restore only while the clipboard still holds the text written above. A
-  // copy the user made in the meantime stays (WP-39, 9.9).
+  // copy the user made in the meantime stays (ticket, 9.9).
   gchar* current = gtk_clipboard_wait_for_text(clipboard);
   const bool unchanged = current != nullptr && text == current;
   g_free(current);

@@ -1,4 +1,4 @@
-/// Route group: `GET /v1/status` (WP-38 / 8.1).
+/// Route group: `GET /v1/status` (ticket / 8.1).
 library;
 
 import 'package:shelf/shelf.dart';

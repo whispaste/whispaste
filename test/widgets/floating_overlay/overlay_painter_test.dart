@@ -48,7 +48,7 @@ FloatingOverlaySnapshot _snap(
 void main() {
   // ── Dynamic pill-width (issue 10) ─────────────────────────────────────────
 
-  group('Overlay theme presets — background and wave (WP-75, ADR 0024)', () {
+  group('Overlay theme presets — background and wave (ticket, ADR 0024)', () {
     test('default presets are marine and cyan', () {
       final painter = WpFloatingOverlayView.painterFor(
         snapshot: _snap(OverlayVisualState.recording),

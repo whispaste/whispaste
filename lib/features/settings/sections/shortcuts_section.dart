@@ -662,7 +662,7 @@ class _PushToTalkRow extends ConsumerWidget {
       rowId: 'general-hold-to-record',
       title: l10n.settingsHoldToRecord,
       subtitle: modeHint,
-      // Linux key-up (handy-catchup/09) is not verified on a real GNOME/KDE
+      // Linux key-up (catchup/09) is not verified on a real GNOME/KDE
       // desktop yet — say so right at the option instead of hiding it.
       badge: hotkeyService.keyUpExperimental
           ? l10n.settingsExperimentalBadge
@@ -684,7 +684,7 @@ class _PushToTalkRow extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Hold-or-tap sub-option of push-to-talk (ticket handy-catchup/07)
+// Hold-or-tap sub-option of push-to-talk (ticket catchup/07)
 // ---------------------------------------------------------------------------
 
 /// Hybrid hotkey mode: with push-to-talk on, a short tap toggles and a longer

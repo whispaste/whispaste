@@ -3,7 +3,7 @@
 ///
 /// [kSettingsSearchTable] carries curated synonyms in DE and EN. For every
 /// other app language these lists add the UI language's own words, one comma-separated ARB value per
-/// pre-WP-23 settings section. Each list sits on the section's anchor row
+/// pre-ticket settings section. Each list sits on the section's anchor row
 /// from [kLegacySettingsDeepLinkRowIds] and on the rows in
 /// [kSharedSectionRowIds], so a search in any language lands where it landed
 /// before the row model.
@@ -68,7 +68,7 @@ final Map<String, SettingsSearchLabel> _rowKeywords = {
 };
 
 /// Languages whose synonyms already live in [kSettingsSearchTable]; their
-/// broader pre-WP-23 lists would only add noise to the curated rows.
+/// broader pre-ticket lists would only add noise to the curated rows.
 const Set<String> _tableLanguages = {'de', 'en'};
 
 /// The synonyms for [rowId] in [locale]; empty when the row has none or the

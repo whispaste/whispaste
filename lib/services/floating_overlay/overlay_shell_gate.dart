@@ -1,4 +1,4 @@
-/// Decides whether a snapshot must reach the native overlay shell (WP-84 phase
+/// Decides whether a snapshot must reach the native overlay shell (ticket phase
 /// 2, plan items 2 and 3).
 ///
 /// Every visible snapshot is sent: it carries content. A hidden snapshot is

@@ -1,4 +1,4 @@
-/// Search jumps land in the right area (WP-23, `07-settings-ia.md` §4):
+/// Search jumps land in the right area (ticket, `07-settings-ia.md` §4):
 /// every search row is rendered by the area its entry names, and a jump to
 /// that row switches the page there and shows the row.
 ///

@@ -24,6 +24,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'onboarding_test_doubles.dart';
+
 import 'package:whispaste/features/onboarding/onboarding_mic_gate.dart';
 import 'package:whispaste/core/config/settings_provider.dart';
 import 'package:whispaste/core/config/settings_sections.dart';
@@ -42,6 +43,7 @@ import 'package:whispaste/services/onboarding_telemetry.dart';
 import 'package:whispaste/widgets/wp_hero_button.dart';
 
 import '../../fixtures/test_helpers.dart';
+
 import 'package:golden_screenshot/golden_screenshot.dart' show loadAppFonts;
 import 'package:whispaste/services/audio_service.dart'
     show audioInputDevicesProvider;

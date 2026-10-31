@@ -316,7 +316,7 @@ class SnippetPickerService
   /// Looks up a **static** snippet by exact [title] match and pastes its
   /// body — the automation-API insertion path (ticket 04). A multiline body
   /// is first passed to [confirmMultiline]; nothing is pasted unless that
-  /// resolves `true` (WP-38 / 8.5). Reuses
+  /// resolves `true` (ticket / 8.5). Reuses
   /// [_paste] for the actual insertion, so the automation API shares every
   /// bit of paste behavior (delay, blocklist, telemetry) with the
   /// Snippet-Picker's own selection path; only the *lookup* differs (by

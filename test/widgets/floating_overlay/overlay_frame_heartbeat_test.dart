@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/floating_overlay/overlay_render_channel.dart';
 
-/// WP-84 phase 2, plan items 1 and 6: the render engine acknowledges the first
+/// ticket phase 2, plan items 1 and 6: the render engine acknowledges the first
 /// painted frame after each hidden→visible show. No real engine is booted; the
 /// heartbeat is driven by the widget test binding's frame pump.
 void main() {

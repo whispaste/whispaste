@@ -32,7 +32,7 @@ class ActivePageNotifier extends Notifier<String> {
   }
 
   /// A retired id that pointed at a section also sets that section's target,
-  /// so the old bookmark still lands on the same content (WP-78).
+  /// so the old bookmark still lands on the same content (ticket).
   void _landOnRetiredTarget(String id) {
     switch (id) {
       case 'support':
@@ -46,7 +46,7 @@ class ActivePageNotifier extends Notifier<String> {
 }
 
 /// Page ids that were retired, mapped to the page that now shows them. A
-/// stored or deep-linked id on the left keeps working (WP-78):
+/// stored or deep-linked id on the left keeps working (ticket):
 /// - `about` opened the About page, which is now the "Über WhisPaste" area of
 ///   Settings (the scroll target `about` is set on the way);
 /// - `support` opened the support page, which is now the Support tab of the

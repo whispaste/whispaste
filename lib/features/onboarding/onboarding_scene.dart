@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/colors.dart';
 import '../../core/theme/generated/wp_tokens.g.dart';
 import '../../core/theme/tokens.dart';
+import '../../widgets/level_history/level_history_bars.dart';
 
 /// Width of the scene's card on the panel.
 const double kOnboardingSceneWidth = 360;
@@ -99,10 +100,12 @@ class OnboardingSceneCard extends StatelessWidget {
   }
 }
 
-/// The waveform pill below the card. The bars breathe with [pulse], follow a
-/// live input [level] (0..1) when one is given, or rest in their shape.
-/// [lit] runs from 0 (muted grey: nothing is listening) to 1 (amber).
-class OnboardingWavePill extends StatelessWidget {
+/// The waveform pill below the card. It paints the shared level history
+/// ([WpLevelHistoryView], the same element as the recording overlay): live
+/// [level] values scroll in as bars, [pulse] drives the resting shape, and
+/// without either the pill rests in its fixed shape. [lit] runs from 0 (muted
+/// grey: nothing is listening) to 1 (amber).
+class OnboardingWavePill extends StatefulWidget {
   const OnboardingWavePill({
     super.key,
     this.pulse,
@@ -123,36 +126,46 @@ class OnboardingWavePill extends StatelessWidget {
 
   static double _rest(int i) => _heights[i] / _fullHeight;
 
-  /// Per-bar share of the live level: the resting shape squeezed into
-  /// 0.6..1, so even the shortest bar reaches well up on a loud syllable.
-  static double _liveShape(int i) => 0.6 + 0.4 * (_heights[i] - 6) / (22 - 6);
+  /// Each bar runs a little behind its left neighbour, so the pulse travels.
+  static double _phase(double t, int i) =>
+      0.5 + 0.5 * math.sin((t + i * 0.12) * math.pi * 2);
+
+  @override
+  State<OnboardingWavePill> createState() => _OnboardingWavePillState();
+}
+
+class _OnboardingWavePillState extends State<OnboardingWavePill> {
+  /// Newest level last; one bar per resting-shape bar.
+  List<double> _history = WpLevelHistory.zeros(
+    OnboardingWavePill._heights.length,
+  );
+
+  @override
+  void didUpdateWidget(OnboardingWavePill old) {
+    super.didUpdateWidget(old);
+    final level = widget.level;
+    if (level != null && level != old.level) {
+      _history = WpLevelHistory.push(_history, level);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pill = widget;
+    final count = OnboardingWavePill._heights.length;
     final color = Color.lerp(
       wpStagePalette.textMuted.withValues(alpha: 0.45),
-      WpColors.highlight,
-      lit,
+      WpPalette.amber400,
+      pill.lit,
     )!;
-    // [height] is the share of the full pill height per bar.
-    Widget bars(double Function(int i) height) => Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < _heights.length; i++) ...[
-          Container(
-            width: 3 * scale,
-            height: math.max(3 * scale, _fullHeight * scale * height(i)),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: WpRadius.borderFull,
-            ),
-          ),
-          if (i < _heights.length - 1) SizedBox(width: 3 * scale),
-        ],
-      ],
+    Widget bars(List<double> levels) => WpLevelHistoryView(
+      levels: levels,
+      color: color,
+      width: count * 6 * pill.scale - 3 * pill.scale,
+      height: OnboardingWavePill._fullHeight * pill.scale,
+      lineStrokeMin: 2 * pill.scale,
     );
-    final pulse = this.pulse;
-    final level = this.level;
+    final pulse = pill.pulse;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: wpStagePalette.surfaceSunken,
@@ -161,32 +174,28 @@ class OnboardingWavePill extends StatelessWidget {
       ),
       child: Padding(
         padding: EdgeInsets.symmetric(
-          horizontal: WpSpacing.md * scale,
-          vertical: WpSpacing.xs * scale,
+          horizontal: WpSpacing.md * pill.scale,
+          vertical: WpSpacing.xs * pill.scale,
         ),
-        child: SizedBox(
-          height: _fullHeight * scale,
-          child: level != null
-              // The live level spans the full pill height; each bar keeps
-              // its own share, so speech reads as a shape and not as one
-              // block moving up and down.
-              ? bars((i) => 0.12 + 0.88 * level * _liveShape(i))
-              : pulse != null
-              ? AnimatedBuilder(
-                  animation: pulse,
-                  builder: (context, _) => bars(
-                    (i) => _rest(i) * (0.55 + 0.45 * _phase(pulse.value, i)),
-                  ),
-                )
-              : bars((i) => _rest(i) * 0.8),
-        ),
+        child: pill.level != null
+            ? bars(_history)
+            : pulse != null
+            ? AnimatedBuilder(
+                animation: pulse,
+                builder: (context, _) => bars([
+                  for (var i = 0; i < count; i++)
+                    OnboardingWavePill._rest(i) *
+                        (0.55 +
+                            0.45 * OnboardingWavePill._phase(pulse.value, i)),
+                ]),
+              )
+            : bars([
+                for (var i = 0; i < count; i++)
+                  OnboardingWavePill._rest(i) * 0.8,
+              ]),
       ),
     );
   }
-
-  /// Each bar runs a little behind its left neighbour, so the pulse travels.
-  static double _phase(double t, int i) =>
-      0.5 + 0.5 * math.sin((t + i * 0.12) * math.pi * 2);
 }
 
 /// Card above pill, centred on the panel at [kOnboardingSceneWidth]: the

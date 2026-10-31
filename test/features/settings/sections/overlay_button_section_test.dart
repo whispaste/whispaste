@@ -67,7 +67,7 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 // Platform guards (evaluated at runtime, not at compile time)
 // ---------------------------------------------------------------------------
 
-/// The start-position dropdown: WP-95 added more dropdowns (form, wave style,
+/// The start-position dropdown: ticket added more dropdowns (form, wave style,
 /// opacity) to the same section, so the count-based checks are scoped to it.
 Finder _startPositionDropdown() => find.descendant(
   of: find.byKey(settingsRowKey('appearance-overlay-start')),
@@ -181,7 +181,7 @@ void main() {
         );
         expect(notifier.state.value!.overlay.showOverlay, isTrue);
         // Start-position dropdown stays; background and wave are swatch rows
-        // (WP-75), and the size setting is the WpOverlaySizeSelector card
+        // (ticket), and the size setting is the WpOverlaySizeSelector card
         // control (Ticket 13), not a dropdown.
         expect(_startPositionDropdown(), findsOneWidget);
         expect(find.byType(WpOverlayBackgroundSwatches), findsOneWidget);
@@ -212,7 +212,7 @@ void main() {
       await tester.pump();
 
       // Floating mode reveals the start-position dropdown, the background and
-      // wave swatch rows (WP-75) and the overlay-size card selector.
+      // wave swatch rows (ticket) and the overlay-size card selector.
       expect(_startPositionDropdown(), findsOneWidget);
       expect(find.byType(WpOverlaySizeSelector), findsOneWidget);
     });
@@ -238,7 +238,7 @@ void main() {
         OverlayBackground.amber,
       );
 
-      // The preview sits at the top of the section (WP-95), so the swatch is
+      // The preview sits at the top of the section (ticket), so the swatch is
       // scrolled into view before the tap.
       final swatch = find.byKey(const ValueKey('overlay-background-graphit'));
       await tester.ensureVisible(swatch);
@@ -354,7 +354,7 @@ void main() {
         // Even with overlay enabled, no *show/hide-overlay* Switch should
         // appear in the start-position row — that toggle was consolidated
         // into the position dropdown. The other switches in this section
-        // (live transcript, WP-95 fluid outline, timer, cancel) are
+        // (live transcript, ticket fluid outline, timer, cancel) are
         // differently purposed and live in their own rows.
         final notifier = _FakeSettingsNotifier(
           AppSettings.defaults.copyWithSections(
@@ -380,7 +380,7 @@ void main() {
       },
     );
 
-    // -- WP-95 option rows ----------------------------------------------------
+    // -- ticket option rows ----------------------------------------------------
     testWidgets(
       'form, wave style, fluid outline, timer, cancel and opacity rows '
       'write their setting',
@@ -543,10 +543,12 @@ void main() {
           );
           await tester.pumpAndSettle();
 
-          // The show toggle and the recording-ring switch, plus the four look
-          // rows (size, shape, ring, resting opacity) on Windows.
-          expect(find.byType(Switch), findsNWidgets(2));
+          // The show toggle, the idle-capsule switch and the recording-ring
+          // switch, plus the four look rows (size, shape, ring, resting
+          // opacity) on Windows.
+          expect(find.byType(Switch), findsNWidgets(3));
           for (final id in [
+            'appearance-floating-button-idle-capsule',
             'appearance-button-size',
             'appearance-button-shape',
             'appearance-button-ring',

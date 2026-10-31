@@ -33,7 +33,7 @@ class OverlayContextMenuAction extends FloatingOverlayEvent {
 }
 
 /// The render engine painted its first frame for the current show (macOS
-/// frame heartbeat, WP-84 phase 2). Stops the re-boot deadline.
+/// frame heartbeat, ticket phase 2). Stops the re-boot deadline.
 class OverlayRenderFrame extends FloatingOverlayEvent {
   const OverlayRenderFrame();
 }

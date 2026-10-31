@@ -1,4 +1,4 @@
-/// Settings card group and row (WP-23a, spec 06 §5, WP-23 IA §2).
+/// Settings card group and row (WP-23a, spec 06 §5, ticket IA §2).
 ///
 /// A group is a heading outside a card (radius 12, `cardFill`). Rows inside it
 /// carry a title, at most one explanation line and a trailing control on the

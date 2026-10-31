@@ -1,4 +1,4 @@
-// Keyboard and label behaviour of the overlay theme swatch rows (WP-75, ADR
+// Keyboard and label behaviour of the overlay theme swatch rows (ticket, ADR
 // 0024). The rows follow the appearance cards: Tab reaches a row, the arrow
 // keys and Home/End move focus only, and Enter or Space select the focused
 // swatch. Every swatch prints its name underneath.

@@ -71,7 +71,7 @@ export interface OverlayThemeTokens {
   readonly fillStart: string;
   /** Capsule tint gradient bottom-right stop. */
   readonly fillEnd: string;
-  /** Accent — recording dot, waveform bars, progress timeline, hairline border. */
+  /** Accent — waveform bars, transcribing dot, progress timeline, hairline border. */
   readonly accent: string;
   /** Waveform colour (amber) — every bar, flat and fully opaque. */
   readonly wave: string;
@@ -149,8 +149,6 @@ export const OVERLAY_CHROME = {
   contactShadowOpacity: 0.12, //contactShadowOpacity
   contactShadowBlur: 2, //      contactShadowBlur (Gaussian sigma)
   contactShadowDy: 1, //        contactShadowOffset.dy
-  dotMinAlpha: 0.6, //          motion.dotPulseMinAlpha
-  dotMinScale: 0.88, //         motion.dotPulseMinScale
   timelineInsetBottom: 6,
   timelineStroke: 2,
   timelineEndOpacity: 0.25,
@@ -166,7 +164,7 @@ export const OVERLAY_CHROME = {
  * unlike `OVERLAY_TOKENS`' near-clear glass tint: "no sheen, no rim light, no
  * specular drift... the fill is the app's own frame gradient instead of a
  * near-clear tint" (former `OverlayStyleVariant.solid` doc comment, removed in
- * WP-75). Theme-invariant,
+ * ticket). Theme-invariant,
  * same precedent as `OVERLAY_TOKENS` (`dark = light`) — the SSOT declares one
  * gradient, not a per-theme pair.
  */
@@ -319,8 +317,6 @@ export interface OverlayFrame {
   readonly statusText: string;
   /** Recording progress 0–1; 0 hides the timeline (recording only). */
   readonly progress: number;
-  /** Recording-dot pulse phase 0–1. */
-  readonly dotPulse: number;
   /** Liquid-glass drift phase [0, 1); 0 = static baseline frame. */
   readonly glassPhase?: number;
   /** Master switch/scale [0, 1] for the silhouette wobble; 0 = rigid capsule. */
@@ -402,7 +398,9 @@ export function pillWidthForText(
   const base = g.width * pillWidthRatio(state);
   if (!text) return base;
   // Mirrors OverlayPainter._drawContent's textLeft/maxTextWidth geometry.
-  const required = measure(text) + 2 * g.padH + g.dotInset + g.timerGap;
+  // Recording has no lead dot: its timer starts after the close glyph.
+  const lead = state === 'recording' ? g.closeOffset + g.closeArm : g.dotInset;
+  const required = measure(text) + 2 * g.padH + lead + g.timerGap;
   return Math.min(Math.max(required, base), g.width);
 }
 
@@ -991,13 +989,14 @@ function drawContent(
 
   drawClose(ctx, base + g.closeOffset, cy);
 
-  // Leading glyph: pulsing accent dot (recording/transcribing) or the
-  // done/error status icon.
+  // Leading glyph: the done/error status icon. Recording has none, so its
+  // timer starts after the close glyph; transcribing keeps a static dot.
   const leadX = base + g.dotInset;
   switch (frame.state) {
     case 'recording':
+      break;
     case 'transcribing':
-      drawDot(ctx, tok, leadX, cy, frame.dotPulse);
+      drawDot(ctx, tok, leadX, cy);
       break;
     case 'done':
       drawCheckIcon(ctx, leadX, cy, tok.success, iconReveal);
@@ -1009,7 +1008,9 @@ function drawContent(
 
   // Universal-legibility text: white glyphs over a soft dark shadow — state
   // semantics live in the dot and the done/error icons, not in text colour.
-  const textLeft = leadX + g.timerGap;
+  const textLeft = isRecording
+    ? base + g.closeOffset + g.closeArm + g.timerGap
+    : leadX + g.timerGap;
   const maxTextWidth = x + w - g.padH - textLeft;
   const textWidth = drawGlyphText(
     ctx,
@@ -1062,21 +1063,16 @@ function drawClose(ctx: CanvasRenderingContext2D, cx: number, cy: number): void 
   strokes(0);
 }
 
-/** Pulsing accent recording dot — alpha AND scale breathe with the pulse. */
+/** Static accent dot (transcribing). Recording draws no dot. */
 function drawDot(
   ctx: CanvasRenderingContext2D,
   tok: OverlayThemeTokens,
   cx: number,
   cy: number,
-  pulse: number,
 ): void {
-  const c = OVERLAY_CHROME;
-  const p = clamp01(pulse);
-  const alpha = c.dotMinAlpha + (1 - c.dotMinAlpha) * p;
-  const scale = c.dotMinScale + (1 - c.dotMinScale) * p;
-  ctx.fillStyle = rgba(tok.accent, alpha);
+  ctx.fillStyle = rgba(tok.accent, 1);
   ctx.beginPath();
-  ctx.arc(cx, cy, OVERLAY_GEOMETRY.dotRadius * scale, 0, TAU);
+  ctx.arc(cx, cy, OVERLAY_GEOMETRY.dotRadius, 0, TAU);
   ctx.fill();
 }
 

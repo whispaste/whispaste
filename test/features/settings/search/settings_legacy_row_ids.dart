@@ -6,7 +6,7 @@ String legacyRowId(String section) =>
     kLegacySettingsDeepLinkRowIds[section] ??
     (throw ArgumentError('no row for section "$section"'));
 
-/// Rows that belonged to a pre-WP-23 section (spec §3 table). Search tests
+/// Rows that belonged to a pre-ticket section (spec §3 table). Search tests
 /// written against section keys now expect one of these rows.
 const Map<String, List<String>> _legacySectionRows = {
   'interface': [
@@ -149,7 +149,7 @@ const Map<String, List<String>> _legacySectionRows = {
   'reviewSupport': ['advanced-review'],
 };
 
-/// Every row of a pre-WP-23 section.
+/// Every row of a pre-ticket section.
 List<String> legacyRowIds(String section) =>
     _legacySectionRows[section] ??
     (throw ArgumentError('no rows for section "$section"'));

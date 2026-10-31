@@ -145,7 +145,7 @@ void main() {
     );
 
     test(
-      'toMap() includes all 19 base keys and the 6 WP-95 appearance keys',
+      'toMap() includes all 22 base keys and the 6 ticket appearance keys',
       () {
         const snap = FloatingOverlaySnapshot(
           visible: false,
@@ -154,7 +154,7 @@ void main() {
         );
 
         final map = snap.toMap();
-        expect(map.keys, hasLength(25));
+        expect(map.keys, hasLength(28));
         expect(map.keys.toSet(), {
           'visible',
           'state',
@@ -167,6 +167,9 @@ void main() {
           'profileChip',
           'secondaryLabel',
           'elapsed',
+          'countdown',
+          'stopHint',
+          'cancelHint',
           'hint',
           'transcript',
           'errorMessage',
@@ -442,7 +445,7 @@ void main() {
       expect(calls.single.method, 'setWaveformBars');
       expect(calls.single.arguments, isA<Map>());
       final args = calls.single.arguments as Map;
-      // WP-84 phase 2: macOS sends one byte per bar (see encodeWaveformBars).
+      // ticket phase 2: macOS sends one byte per bar (see encodeWaveformBars).
       expect(args['bars'], isA<Uint8List>());
       expect(args['bars'], encodeWaveformBars(bars));
     });

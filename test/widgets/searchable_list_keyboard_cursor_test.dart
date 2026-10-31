@@ -259,7 +259,7 @@ void main() {
 
   tearDownAll(() => semantics.dispose());
 
-  // Rows are 48 px tap areas (WP-58), so the Replacements list does not fit
+  // Rows are 48 px tap areas (ticket), so the Replacements list does not fit
   // the flutter_test default view (800x600): its third row would never be
   // built. Both pages run in the 1280x800 desktop view here.
   TestFlutterView desktopView() =>

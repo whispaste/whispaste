@@ -1,8 +1,8 @@
-/// WAV format gate for `POST /v1/transcriptions` (WP-38 / 8.2).
+/// WAV format gate for `POST /v1/transcriptions` (ticket / 8.2).
 ///
 /// The API accepts only what the existing transcription path takes today:
 /// RIFF/WAVE, PCM, mono, 16 kHz, 16-bit. Anything else is refused with a
-/// reason, never guessed at. The general decoder (WP-35) will widen this.
+/// reason, never guessed at. The general decoder (ticket) will widen this.
 library;
 
 import 'dart:math';

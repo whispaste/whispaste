@@ -65,7 +65,7 @@ typedef WhisperNewSegmentCallbackNative =
 /// Native signature of `whisper_full_params.progress_callback` (IMP-PROG-2).
 /// whisper.cpp passes an integer percentage `0..100` of the current
 /// `whisper_full` call. Registered per call in [WhisperFfiEngine._decodeOnce]
-/// and closed only after `whisper_full` has returned (WP-48).
+/// and closed only after `whisper_full` has returned (ticket).
 typedef WhisperProgressCallbackNative =
     ffi.Void Function(
       ffi.Pointer<whisper_context> ctx,
@@ -537,7 +537,7 @@ class WhisperFfiEngine
   /// has no guaranteed-valid stderr handle (FLUTTER_WHISPASTE-BB).
   ///
   /// There is no Dart callback in this path any more. The earlier
-  /// `NativeCallable.listener` (WP-48) was closed with its isolate: ggml kept
+  /// `NativeCallable.listener` (ticket) was closed with its isolate: ggml kept
   /// the pointer, and a line logged after a worker isolate had ended — or
   /// logged from a backend module during a load in a fresh worker — called
   /// into a dead Dart callback and aborted the VM (`dart::Assert::Fail`,
@@ -1799,7 +1799,7 @@ class WhisperFfiEngine
       // Same threading model as the segment callback above: whisper.cpp
       // fires it on the thread blocked inside `whisper_full`, which is this
       // isolate's own thread, so `.isolateLocal` is safe. It is closed only
-      // after `whisper_full` returned (WP-48): native code may call it at
+      // after `whisper_full` returned (ticket): native code may call it at
       // any point before that. Absent when nobody listens.
       final progressSink = onProgress;
       final progressCallable = progressSink == null

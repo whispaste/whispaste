@@ -4,7 +4,7 @@
 ///
 /// The start tone and overlay fire on the phase change, before the capture is
 /// open; this trace measures that gap so the decision whether to delay the
-/// tone (handy-catchup ticket 19) rests on numbers per OS.
+/// tone (catchup ticket 19) rests on numbers per OS.
 library;
 
 import 'dart:typed_data';

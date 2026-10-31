@@ -25,14 +25,14 @@
     "text-muted": { "$value": "{color.glacier.600}" },
     "text-disabled": { "$value": "{color.glacier.500}" },
     "switch-track-off": { "$value": "{color.glacier.600}", "$description": "Off-state switch track. White thumb on it >= 3:1, track on the window ground >= 3:1 (WCAG 1.4.11)." },
-    "selection-border": { "$value": "#6B7A96", "$description": "Unselected colour swatch boundary (WP-75). One solid value for both themes: 3:1 or better on every journal surface (3.7:1 at the weakest, canvas E6EEF7) and every stage surface (3.6:1 at the weakest, card 122247). Dark alpha borders reach only 2.1:1, so they are not used." },
+    "selection-border": { "$value": "#6B7A96", "$description": "Unselected colour swatch boundary (ticket). One solid value for both themes: 3:1 or better on every journal surface (3.7:1 at the weakest, canvas E6EEF7) and every stage surface (3.6:1 at the weakest, card 122247). Dark alpha borders reach only 2.1:1, so they are not used." },
     "accent": { "$value": "{color.cyan.700}", "$description": "Petrol: secondary actions, links, icons, active nav text, tab indicator. AA on every journal surface." },
     "accent-hover": { "$value": "{color.cyan.600}" },
     "accent-fill": { "$value": "{color.cyan.700}", "$description": "Filled emphasis on light (checkbox, switch track, rare primary button)." },
     "on-accent-fill": { "$value": "{color.white}" },
     "action": { "$value": "{color.cyan.300}", "$description": "Bright cyan: recording / dictation action. On light only as a fill with navy text, never as text." },
     "action-hover": { "$value": "{color.cyan.200}" },
-    "primary-record": { "$value": "{color.cyan.300}", "$description": "Primary record button fill (dock dictate). Cyan in light and dark. The navy set uses amber for this role (WP-50); that value lives in theme_colors.dart, because the generator emits only journal and stage." },
+    "primary-record": { "$value": "{color.cyan.300}", "$description": "Primary record button fill (dock dictate). Cyan in light and dark. The navy set uses amber for this role (ticket); that value lives in theme_colors.dart, because the generator emits only journal and stage." },
     "primary-record-hover": { "$value": "{color.cyan.200}" },
     "on-primary-record": { "$value": "{color.navy.900}" },
     "on-action": { "$value": "{color.navy.900}" },
@@ -77,7 +77,7 @@
     "text-muted": { "$value": "{color.frost.400}" },
     "text-disabled": { "$value": "#8A99B2A0", "$description": "Disabled text on the navy stage: the only exemption from 4.5:1, still 3:1 or more." },
     "switch-track-off": { "$value": "{color.glacier.500}", "$description": "Off-state switch track on the navy stage: white thumb 4.3:1, track on the navy ground 4.3:1. Lighter tracks (frost.400) fail the thumb check." },
-    "selection-border": { "$value": "#6B7A96", "$description": "Unselected colour swatch boundary (WP-75). One solid value for both themes: 3:1 or better on every journal surface (3.7:1 at the weakest, canvas E6EEF7) and every stage surface (3.6:1 at the weakest, card 122247). Dark alpha borders reach only 2.1:1, so they are not used." },
+    "selection-border": { "$value": "#6B7A96", "$description": "Unselected colour swatch boundary (ticket). One solid value for both themes: 3:1 or better on every journal surface (3.7:1 at the weakest, canvas E6EEF7) and every stage surface (3.6:1 at the weakest, card 122247). Dark alpha borders reach only 2.1:1, so they are not used." },
     "accent": { "$value": "{color.cyan.300}" },
     "accent-hover": { "$value": "{color.cyan.200}" },
     "accent-fill": { "$value": "{color.cyan.300}" },
@@ -113,7 +113,7 @@
     "list-pane-width-wide": { "$value": "420px" },
     "dock-height": {
       "$value": "76px",
-      "$description": "Recording dock height (WP-79, ADR 0024): 48 px controls with 14 px above and below."
+      "$description": "Recording dock height (ticket, ADR 0024): 48 px controls with 14 px above and below."
     },
     "dock-radius": { "$value": "16px" },
     "dock-inset": { "$value": "12px" },
@@ -130,7 +130,7 @@
   },
   "dock": {
     "$type": "dimension",
-    "$description": "Recording dock component geometry (WP-79, ADR 0024). Breakpoints are dock widths: the dock width is the window minus the sidebar minus 2 x dock-inset.",
+    "$description": "Recording dock component geometry (ticket, ADR 0024). Breakpoints are dock widths: the dock width is the window minus the sidebar minus 2 x dock-inset.",
     "control-height": { "$value": "48px", "$description": "Every dock control (Dictate, selectors, keycap, overflow): the 48 px desktop hit target." },
     "control-radius": { "$value": "8px", "$description": "Selector and keycap corner radius. The same on every control (8 px, UIA-FND-02)." },
     "dictate-width": { "$value": "232px" },

@@ -565,7 +565,7 @@ void main() {
     });
 
     test('holdOrTap defaults to off and roundtrips under hold_or_tap', () {
-      // Default for new installs stays plain Toggle (ticket handy-catchup/07).
+      // Default for new installs stays plain Toggle (ticket catchup/07).
       expect(AppSettings.defaults.audioInput.holdOrTap, isFalse);
       final s = AppSettings.defaults.copyWithSections(
         audioInput: const AudioInputSettings(pushToTalk: true, holdOrTap: true),

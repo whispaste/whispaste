@@ -1,4 +1,4 @@
-/// Delivers automation events to user-configured loopback hooks (WP-38 / 8.3).
+/// Delivers automation events to user-configured loopback hooks (ticket / 8.3).
 ///
 /// Each delivery:
 /// - re-checks the target at send time and connects to the pinned loopback

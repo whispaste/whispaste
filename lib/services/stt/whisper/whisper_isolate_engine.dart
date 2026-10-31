@@ -620,7 +620,7 @@ class WhisperIsolateEngine
     if (_isolate == null) {
       // ggml's log hook must outlive the worker, so it is installed here in
       // the main isolate before any worker can log (see
-      // WhisperFfiEngine.installProcessLogForwarder, WP-48).
+      // WhisperFfiEngine.installProcessLogForwarder, ticket).
       WhisperFfiEngine.installProcessLogForwarder(
         _config.libraryPath ?? defaultWhisperLibraryPath(),
       );

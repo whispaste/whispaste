@@ -243,7 +243,7 @@ ThemeData _buildTheme(
       hintStyle: TextStyle(color: muted, fontSize: WpTypography.body),
     ),
 
-    // Switch / Toggle (WP-14 §4): petrol track when on, white thumb in both
+    // Switch / Toggle (ticket §4): petrol track when on, white thumb in both
     // states. The off track is the muted text tone rather than the hairline
     // border: a border sits at 1.3–1.8:1 against its surface, a switch needs
     // 3:1 as a UI component boundary (UX-008).
@@ -256,7 +256,7 @@ ThemeData _buildTheme(
       trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
     ),
 
-    // Checkbox theme (WP-14 §4): 4 px corner, petrol fill with a contrasting tick.
+    // Checkbox theme (ticket §4): 4 px corner, petrol fill with a contrasting tick.
     checkboxTheme: CheckboxThemeData(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(WpRadiusTokens.xs),
@@ -355,7 +355,7 @@ ThemeData _buildTheme(
 ///
 /// Hanken Grotesk for UI text, Bricolage Grotesque for the three title
 /// roles (ADR 0018); all bundled, so they render identically on Windows,
-/// macOS and Linux. Sizes are unchanged until the shell rework (WP-20/21).
+/// macOS and Linux. Sizes are unchanged until the shell rework (ticket/21).
 ///
 /// | Role           | Size | Weight | LS    | LH  |
 /// |----------------|------|--------|-------|-----|

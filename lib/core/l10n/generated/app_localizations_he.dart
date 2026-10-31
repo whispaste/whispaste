@@ -1221,6 +1221,13 @@ class L10nHe extends L10n {
       'כפתור קטן תמיד עליון להתחלת/עצירת הקלטה';
 
   @override
+  String get settingsFloatingButtonIdleCapsule => 'קפסולה דקה במנוחה';
+
+  @override
+  String get settingsFloatingButtonIdleCapsuleSubtitle =>
+      'צרה ולא מפריעה; נפתחת לכדור בעת ריחוף';
+
+  @override
   String get settingsLanguage => 'שפה';
 
   @override
@@ -4701,6 +4708,14 @@ class L10nHe extends L10n {
   String get overlayMicSignalLost => 'אין אות מהמיקרופון';
 
   @override
+  String get overlayMicVeryQuiet => 'המיקרופון חלש מאוד';
+
+  @override
+  String overlayRemainingTime(String time) {
+    return 'נותרו $time';
+  }
+
+  @override
   String get overlayDoneQuickNote => 'נוסף לפתק';
 
   @override
@@ -7817,7 +7832,7 @@ class L10nHe extends L10n {
 
   @override
   String get manualC02S3B2I2 =>
-      '„כפתור צף“: כפתור שמקליטים בלחיצה. ברירת מחדל: כבוי. ב-Linux עם Wayland, שולחן העבודה עשוי להגביל את המיקום ואת השארת הכפתור מעל החלונות.';
+      '„כפתור צף“: כפתור שמקליטים בלחיצה. ברירת מחדל: כבוי. עם „קפסולה דקה במנוחה“ הכפתור נשאר קפסולה דקה ונפתח לכפתור המלא כשמצביעים עליו. ב-Linux עם Wayland הקפסולה נשארת דקה, ושולחן העבודה עשוי להגביל את המיקום ואת השארת הכפתור מעל החלונות.';
 
   @override
   String get manualC02S4Heading => 'הדבקה אחרי ההקלטה';

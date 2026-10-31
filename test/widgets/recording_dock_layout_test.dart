@@ -1,4 +1,4 @@
-/// Unit tests for the dock row plan (WP-79, ADR 0024): which selectors show
+/// Unit tests for the dock row plan (ticket, ADR 0024): which selectors show
 /// their label, which show icon and value or the icon alone, and which move
 /// into Mehr for a given dock width. Pure arithmetic, no widget tree.
 ///

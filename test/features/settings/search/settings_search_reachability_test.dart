@@ -46,6 +46,7 @@ const Set<String> _renderedOnlyInState = {
   'appearance-floating-button',
   'appearance-floating-button-wayland',
   // Button look rows: only in the floating-button section (macOS/Windows).
+  'appearance-floating-button-idle-capsule',
   'appearance-button-idle-opacity',
   'appearance-button-ring',
   'appearance-button-shape',

@@ -1,4 +1,4 @@
-/// Widget tests for the multiline paste preview (WP-38 / 8.5).
+/// Widget tests for the multiline paste preview (ticket / 8.5).
 ///
 /// The harness triggers a request through the real provider, so these tests
 /// cover the same path an API call takes: confirm and cancel resolve the

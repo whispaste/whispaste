@@ -1,37 +1,33 @@
 #!/usr/bin/env bash
-# ai-attribution-guard (mirror ~/.git-hooks/pre-commit) — KI-Autor/Committer blocken
-ident="$(git var GIT_AUTHOR_IDENT 2>/dev/null) $(git var GIT_COMMITTER_IDENT 2>/dev/null)"
-if printf '%s' "$ident" | grep -qiE 'anthropic|claude|copilot|cursor\.so|codeium|\[bot\]@'; then
-  echo "╳ Commit blockiert — KI-Agent als Autor/Committer: $ident" >&2
-  exit 1
-fi
 #
-# WhisPaste — pre-commit Hook (OSS-Allowlist-Guard + Quality Gates)
+# WhisPaste — pre-commit Hook (Schutzprüfungen + Quality Gates)
 #
-# Zwei Schichten:
-#   1. Allowlist-Schranke — nur Pfade aus .ossallowlist dürfen committet
-#      werden. Fängt `git add -f` und versehentliches Stagen ab.
-#      Default-deny: neue interne Pfade sind standardmäßig blockiert.
-#   2. Quality-Gates — Flutter analyze, Loam ratchet, ESLint, cppcheck,
-#      Website CI. Erzwingen Code-Qualität vor dem Commit.
+# Interne Pfade (außerhalb von .ossallowlist) dürfen committet werden: das
+# interne Repo versioniert sie, öffentlich wird nur, was der gefilterte
+# Export übernimmt. Dieser Hook prüft Namen, Anweisungsdateien, KI-Identität
+# und Secrets, danach die Quality-Gates (Format,
+# analyze, Loam, ESLint, cppcheck, Repo-Gates, Doc-Gate).
 #
 # Aktivierung: `git config core.hooksPath .githooks` (einmalig pro Clone).
-# Umgehen mit `git commit --no-verify` → dann greift pre-push als dritte Schicht.
+# Umgehen mit `git commit --no-verify` → dann greift pre-push.
 #
 # Bash-3.2-kompatibel (macOS /bin/bash) — kein mapfile/readarray.
 #
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-ALLOWLIST="$ROOT/.ossallowlist"
+# Helpers come from this hook's directory: core.hooksPath may point at
+# another checkout (dev's hooks in a main worktree for a hotfix).
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# flutter/dart without the git variables of the hook (scripts/sdk-env.sh).
+# shellcheck disable=SC1091  # scripts/sdk-env.sh: two wrapper functions
+[ ! -f "$ROOT/scripts/sdk-env.sh" ] || . "$ROOT/scripts/sdk-env.sh"
 
 # ── 0. Third-party product name guard (staged paths + added lines) ──────
-"$ROOT/.githooks/name-guard.sh" staged
+"$HOOK_DIR/name-guard.sh" staged
 
 # ── 0b. Agent instruction guard (CLAUDE.md & co. never leave this machine) ─
-# Taken from the hook directory, not $ROOT: worktrees on an older base
-# do not carry the script yet.
-"$(dirname "$0")/instruction-guard.sh" staged
+"$HOOK_DIR/instruction-guard.sh" staged
 
 # ── -1. Self-install: git clean filters (idempotent) ───────────────────
 # .gitattributes assigns the generated macOS files to the `mas-guard` and
@@ -74,58 +70,6 @@ EOF
   fi
 fi
 
-# ── 1. Allowlist-Schranke ───────────────────────────────────────────────
-if [ ! -f "$ALLOWLIST" ]; then
-  echo "pre-commit: WARN — .ossallowlist nicht gefunden, Guard inaktiv." >&2
-else
-  ALLOWED=()
-  while IFS= read -r line; do
-    case "$line" in
-      ''|\#*) continue ;;
-    esac
-    ALLOWED+=("$line")
-  done < "$ALLOWLIST"
-
-  is_allowed() {
-    local p="$1" a
-    for a in "${ALLOWED[@]}"; do
-      [ "$p" = "$a" ] && return 0
-      case "$a" in
-        */) [[ "$p" == "$a"* ]] && return 0 ;;
-      esac
-    done
-    return 1
-  }
-
-  violations=()
-  while IFS= read -r p; do
-    [ -z "$p" ] && continue
-    if ! is_allowed "$p"; then
-      violations+=("$p")
-    fi
-  done < <(git diff --cached --name-only --diff-filter=ACM)
-
-  if [ ${#violations[@]} -gt 0 ]; then
-    cat >&2 <<EOF
-
-╔══════════════════════════════════════════════════════════════╗
-║  BLOCKIERT durch .ossallowlist — nicht-öffentliche Pfade   ║
-╠══════════════════════════════════════════════════════════════╣
-║  Die folgenden Dateien sind nicht in der Allowlist und     ║
-║  dürfen nicht ins öffentliche Repo committet werden:       ║
-╚══════════════════════════════════════════════════════════════╝
-EOF
-    printf '  - %s\n' "${violations[@]}" >&2
-    cat >&2 <<EOF
-
-Interne Doku/Planung gehört nach internal-notes (gitignored).
-Öffentlich erlaubte Pfade stehen in .ossallowlist.
-Bei bewusster Ausnahme: .ossallowlist erweitern (nach Review).
-EOF
-    exit 1
-  fi
-fi
-
 # ── 0b. AI-Identity-Guard ───────────────────────────────────────────────
 # Blockt Commits, deren Author oder Committer ein KI-Agent ist (Identität,
 # nicht nur Trailer). Spiegelt den globalen ~/.git-hooks/pre-commit Guard,
@@ -149,35 +93,6 @@ fi
 
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
 [ -z "$STAGED_FILES" ] && exit 0
-
-# ── 2. .gitignore PROTECTED section nicht geschwächt? ──────────────────
-if echo "$STAGED_FILES" | grep -q "^\.gitignore$"; then
-  STAGED_PROTECTED=$(git show :0:.gitignore 2>/dev/null | tr -d '\r' \
-    | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
-  COMMITTED_PROTECTED=$(git show HEAD:.gitignore 2>/dev/null | tr -d '\r' \
-    | sed -n '/PROTECTED-START/,/PROTECTED-END/p' || true)
-
-  if [ -n "$COMMITTED_PROTECTED" ] && [ "$STAGED_PROTECTED" != "$COMMITTED_PROTECTED" ]; then
-    COMMITTED_ENTRIES=$(echo "$COMMITTED_PROTECTED" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort)
-    STAGED_ENTRIES=$(echo "$STAGED_PROTECTED" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort)
-    REMOVED=$(comm -23 <(echo "$COMMITTED_ENTRIES") <(echo "$STAGED_ENTRIES") 2>/dev/null || true)
-
-    if [ -n "$REMOVED" ]; then
-      cat >&2 <<EOF
-
-╔══════════════════════════════════════════════════════════════╗
-║  BLOCKIERT: .gitignore PROTECTED section geschwächt        ║
-╠══════════════════════════════════════════════════════════════╣
-║  Entfernte PROTECTED-Einträge:                              ║
-╚══════════════════════════════════════════════════════════════╝
-EOF
-      echo "$REMOVED" >&2
-      echo "" >&2
-      echo "Neue Einträge sind erlaubt. Bestehende zu entfernen nicht." >&2
-      exit 1
-    fi
-  fi
-fi
 
 # ── 3. Secrets-Muster ──────────────────────────────────────────────────
 B1="SUPA"; B2="BASE_SERVICE_ROLE_KEY"; B3="ADMIN_API"; B4="_KEY"
@@ -407,7 +322,7 @@ if [ -n "$DART_STAGED" ]; then
     export PATH="$HOME/.pub-cache/bin:$PATH"
     if [ -z "${DART_SDK:-}" ]; then
       if command -v flutter >/dev/null 2>&1; then
-        _f=$(command -v flutter)
+        _f=$(type -P flutter)
         while [ -L "$_f" ]; do
           _t=$(readlink "$_f"); case "$_t" in /*) _f="$_t" ;; *) _f="$(dirname "$_f")/$_t" ;; esac
         done
@@ -522,8 +437,8 @@ EOF
 fi
 
 # ── 8. Doc-Gate (Content-Level: Infra-Leaks, Sprache, Security-Werbung) ─
-if [ -f "$ROOT/.githooks/check-docs.sh" ]; then
-  bash "$ROOT/.githooks/check-docs.sh" staged || exit 1
+if [ -f "$HOOK_DIR/check-docs.sh" ]; then
+  bash "$HOOK_DIR/check-docs.sh" staged || exit 1
 fi
 
 exit 0

@@ -42,7 +42,7 @@ class _FakeRegistrar implements HotKeyRegistrar {
 // ---------------------------------------------------------------------------
 
 /// Linux-style monitor: key-up comes from the experimental native host
-/// (handy-catchup/09), not from the registrar.
+/// (catchup/09), not from the registrar.
 class _ExperimentalMonitor extends NoopKeyboardUpMonitor {
   @override
   bool get supportsKeyUp => true;
@@ -164,7 +164,7 @@ void main() {
     });
   });
   group(
-    'Push-to-Talk toggle — experimental Linux key-up (handy-catchup/09)',
+    'Push-to-Talk toggle — experimental Linux key-up (catchup/09)',
     () {
       const badgeKey = Key('settings-push-to-talk-experimental-badge');
 

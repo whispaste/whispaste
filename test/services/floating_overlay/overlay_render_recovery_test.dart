@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/floating_overlay/overlay_render_recovery.dart';
 
-/// Fake-clock tests for the render-engine frame heartbeat policy (WP-84 phase 2,
+/// Fake-clock tests for the render-engine frame heartbeat policy (ticket phase 2,
 /// plan item 1). The machine is pure: every instant is passed in explicitly.
 void main() {
   final t0 = DateTime(2026, 10, 18, 12);

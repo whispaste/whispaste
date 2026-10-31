@@ -1,5 +1,5 @@
 /// Updates settings section: the automatic update check (`checkUpdates`). The
-/// manual check moved to the About area (WP-78), where the version and the
+/// manual check moved to the About area (ticket), where the version and the
 /// update status are; the release channel toggle lives under Erweitert.
 ///
 /// Store builds have no self-updater and no release channel at all (PRD §6.3:

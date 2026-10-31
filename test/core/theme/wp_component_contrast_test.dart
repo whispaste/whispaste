@@ -1,4 +1,4 @@
-/// WCAG AA contrast for the colour roles the WP-14 components paint with.
+/// WCAG AA contrast for the colour roles the ticket components paint with.
 ///
 /// Covers the pairs introduced or reused by the restyled base components,
 /// across the light, dark and brand appearances. Translucent roles are

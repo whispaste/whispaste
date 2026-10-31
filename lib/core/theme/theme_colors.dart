@@ -427,7 +427,7 @@ const WpThemeColors wpDarkColors = WpThemeColors(
 );
 
 /// Navy: website language, navy frame around light content, amber primary
-/// record button (WP-50).
+/// record button (ticket).
 const WpThemeColors wpNavyColors = WpThemeColors(
   brightness: Brightness.light,
   frameOverride: wpDarkColors,
@@ -537,7 +537,7 @@ const WpThemeColors wpNavyColors = WpThemeColors(
   highlight: WpPalette.amber400,
   highlightSoft: Color(0x33FFB547),
   highlightText: WpPalette.amber800,
-  // Navy only: amber as the primary record fill (WP-50, a deliberate accent
+  // Navy only: amber as the primary record fill (ticket, a deliberate accent
   // surface under the amber rule, WCAG AA). The light and dark values mirror the
   // primary-record roles in app.tokens.json; navy has no generated surface.
   primaryRecordFill: WpPalette.amber400,

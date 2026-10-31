@@ -221,7 +221,7 @@ class CrashReporter {
   /// empty list lets Sentry's default grouping apply (still allowed, but
   /// reviewers must see the explicit empty-list choice).
   ///
-  /// Why required: it pre-empts the WP-74/75 + WP-7B…7M cluster of
+  /// Why required: it pre-empts the ticket/75 + WP-7B…7M cluster of
   /// duplicated Sentry issues that burned through the Free-Tier quota
   /// because ad-hoc capture sites kept inventing slightly different
   /// fingerprint spellings. See `internal-notes`

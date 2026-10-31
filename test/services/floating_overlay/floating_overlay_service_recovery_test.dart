@@ -1,4 +1,4 @@
-/// Service wiring for WP-84 phase 2:
+/// Service wiring for ticket phase 2:
 ///   - the render-frame heartbeat drives at most a budgeted re-boot request
 ///     (plan item 1), and a frame acknowledgement ends the episode;
 ///   - the start feedback shows the preparing state until the microphone is

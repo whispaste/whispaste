@@ -1,4 +1,4 @@
-/// Pure validation rules for automation hook URLs (WP-38 / 8.3).
+/// Pure validation rules for automation hook URLs (ticket / 8.3).
 ///
 /// Hooks are HTTP POSTs to URLs the user configures. Only loopback targets
 /// are accepted: `127.0.0.0/8`, `::1`, and the hostname `localhost` (which

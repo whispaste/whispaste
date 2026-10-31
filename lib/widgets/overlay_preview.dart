@@ -45,15 +45,15 @@ class WpOverlayRealPreview extends StatelessWidget {
 
   final FloatingOverlaySize size;
 
-  /// WP-95 appearance options the preview renders (form, wave style, timer,
+  /// ticket appearance options the preview renders (form, wave style, timer,
   /// cancel glyph, opacity), so the preview matches the live overlay.
   final OverlayAppearance appearance;
 
-  /// Background preset the preview renders (WP-75, ADR 0024), reactive to
+  /// Background preset the preview renders (ticket, ADR 0024), reactive to
   /// the Settings swatches, independent of [size].
   final OverlayBackground background;
 
-  /// Wave colour preset the preview renders (WP-75, ADR 0024).
+  /// Wave colour preset the preview renders (ticket, ADR 0024).
   final OverlayWave wave;
 
   /// Pill only: no surrounding padding, so a short box shows the pill itself.

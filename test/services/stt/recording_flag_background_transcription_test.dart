@@ -1,7 +1,7 @@
 /// A background transcription (automation API, file import) reports completion
 /// through [SttServerStateNotifier.notifyTranscriptionCompleted]. While a
 /// dictation is still busy, that must not clear the recording flag: the engine
-/// call keeps its reduced-thread setting for the live recording (WP-38).
+/// call keeps its reduced-thread setting for the live recording (ticket).
 library;
 
 import 'dart:io';

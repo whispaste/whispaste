@@ -73,7 +73,7 @@ bool FlutterWindow::OnCreate() {
   keyboard_monitor_host_ = std::make_unique<KeyboardMonitorHost>(
       flutter_controller_->engine(), GetHandle());
 
-  // Create the power-event host (sleep/resume, WP-39 9.5) AFTER plugins are
+  // Create the power-event host (sleep/resume, ticket 9.5) AFTER plugins are
   // registered.
   power_event_host_ =
       std::make_unique<PowerEventHost>(flutter_controller_->engine());
@@ -194,7 +194,7 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   // Observe RawInput for the global hotkey's key-up (push-to-talk, #39). This
   // never consumes the message — it falls through to DefWindowProc so RawInput
   // is cleaned up and normal key delivery is unaffected.
-  // Sleep and resume (WP-39, 9.5). Never consumed: DefWindowProc still
+  // Sleep and resume (ticket, 9.5). Never consumed: DefWindowProc still
   // grants the suspend request.
   if (message == WM_POWERBROADCAST && power_event_host_) {
     power_event_host_->HandlePowerBroadcast(wparam);

@@ -150,7 +150,7 @@ String pasteShortcutLabel({L10n? l10n, bool? isMacOS}) {
 
 /// Tooltip for the disabled push-to-talk switch when the platform reports no
 /// key-up. On Linux the desktop can still trigger recording through the
-/// `whispaste --toggle` CLI (handy-catchup/23), so point there instead of
+/// `whispaste --toggle` CLI (catchup/23), so point there instead of
 /// the generic "not available" hint.
 String pushToTalkUnavailableMessage(L10n l10n, {String? operatingSystem}) {
   final os = operatingSystem ?? Platform.operatingSystem;

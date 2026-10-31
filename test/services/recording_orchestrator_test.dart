@@ -5831,7 +5831,7 @@ void main() {
   });
 
   // =========================================================================
-  // Mic-start trace (handy-catchup ticket 19): hotkey → first real sample,
+  // Mic-start trace (catchup ticket 19): hotkey → first real sample,
   // split into the startRecording steps. Debug log only.
   // =========================================================================
 

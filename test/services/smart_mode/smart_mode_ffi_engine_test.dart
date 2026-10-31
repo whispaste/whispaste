@@ -38,7 +38,7 @@ void main() {
       expect(p.dirname(smartModeLib), p.join(p.dirname(exe), 'smart_mode'));
     }, skip: Platform.isWindows ? null : 'Windows-only path shape');
 
-    // Ticket handy-catchup/21: Linux bundles libllama under
+    // Ticket catchup/21: Linux bundles libllama under
     // `lib/smart_mode/` of the Flutter bundle — a sibling of the `lib/`
     // directory libwhisper ships in, kept disjoint for the same reason as
     // Windows' `smart_mode\` (two independently pinned ggml builds).

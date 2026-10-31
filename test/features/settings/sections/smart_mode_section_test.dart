@@ -135,7 +135,7 @@ void main() {
       expect(notifier.state.value!.smartMode.standardPreset, 'cleanup');
     });
 
-    // Ticket handy-catchup/21: a build without the bundled local engine
+    // Ticket catchup/21: a build without the bundled local engine
     // (Linux before libllama shipped, any dev build that skipped the
     // bundling step) must not offer a local option that can only fail.
     testWidgets('local engine missing: shows the unavailable hint instead of '

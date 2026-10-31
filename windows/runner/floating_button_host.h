@@ -99,14 +99,15 @@ class FloatingButtonHost {
   // the latest state/diameter and flush them in HandleRenderCall("ready").
   bool render_ready_ = false;
   std::string latest_state_ = "idle";
-  // Last setTheme presets (WP-75); cached like latest_state_ for the ready flush.
+  // Last setTheme presets (ticket); cached like latest_state_ for the ready flush.
   std::string latest_background_ = "marine";
   std::string latest_wave_ = "cyan";
-  // WP-95 button look: shape ("round"/"square"), recording ring, and the
+  // ticket button look: shape ("round"/"square"), recording ring, and the
   // resting opacity (0.4-1.0). Relayed with the presets above.
   std::string latest_shape_ = "round";
   bool latest_ring_ = true;
   double latest_idle_opacity_ = 1.0;
+  bool latest_idle_capsule_ = false;  // overlay_button_idle_capsule
   int latest_disc_size_ = 56;  // logical pixels (without shadow padding)
 
   // ── Context menu items ────────────────────────────────────────────

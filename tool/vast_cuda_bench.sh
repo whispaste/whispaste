@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # vast_cuda_bench.sh — CUDA vs Vulkan vs CPU whisper benchmark on a rented
-# NVIDIA GPU (Vast.ai, default RTX 3090), orchestrated entirely from this Mac (handy-catchup
+# NVIDIA GPU (Vast.ai, default RTX 3090), orchestrated entirely from this Mac (catchup
 # ticket 13). Runs tool/gpu_bench_vast.sh on the box.
 #
 # Flow: search offers (free) -> rent -> wait for SSH (6 min) -> if SSH never

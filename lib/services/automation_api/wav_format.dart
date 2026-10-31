@@ -1,4 +1,4 @@
-/// WAV format gate for the automation API transcription route (WP-38 / 8.2).
+/// WAV format gate for the automation API transcription route (ticket / 8.2).
 ///
 /// Accepts exactly what the existing transcription path is fed today: RIFF
 /// WAVE, uncompressed PCM, one channel, 16 kHz, 16 bit. The check reads only

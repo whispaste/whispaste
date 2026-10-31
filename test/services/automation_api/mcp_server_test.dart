@@ -1,4 +1,4 @@
-/// Protocol tests for the stdio MCP server (WP-38 / 8.4).
+/// Protocol tests for the stdio MCP server (ticket / 8.4).
 ///
 /// Covers initialize, tools/list, tools/call, malformed input, and an unknown
 /// method. Tool calls go through a loopback fake of the API, so the tests also

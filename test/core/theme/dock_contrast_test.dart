@@ -1,4 +1,4 @@
-/// WCAG contrast over the dock's token pairs (WP-79).
+/// WCAG contrast over the dock's token pairs (ticket).
 ///
 /// The dock sits on the navy stage in every appearance mode, so every pair is
 /// measured against the stage canvas (translucent roles are composited over

@@ -1,4 +1,4 @@
-/// System sleep and wake for the recording safety net (WP-39, matrix 9.5).
+/// System sleep and wake for the recording safety net (ticket, matrix 9.5).
 ///
 /// The native runners send `willSleep` just before the machine suspends and
 /// `didWake` after it resumes, on the channel `com.whispaste.power`. A

@@ -69,7 +69,6 @@ Widget _pill(FloatingOverlaySnapshot snapshot) {
       painter: WpFloatingOverlayView.painterFor(
         snapshot: snapshot,
         waveformBars: bars,
-        dotPulse: 1.0,
       ),
     ),
   );

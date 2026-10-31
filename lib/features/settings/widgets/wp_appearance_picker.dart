@@ -1,5 +1,5 @@
 /// Appearance picker: three preview cards (Light, Dark, Navy) and the
-/// "Follow system" switch (WP-23d, spec 06 §5.6, WP-23 IA §3 "Modus").
+/// "Follow system" switch (WP-23d, spec 06 §5.6, ticket IA §3 "Modus").
 ///
 /// Each card paints a miniature of sidebar, content card and navy dock from
 /// the real [WpThemeColors] set it stands for, so the choice is seen before it

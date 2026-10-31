@@ -310,7 +310,7 @@ jobs:
           # sentry-cli the plugin just downloaded and checksum-verified. A
           # failed upload must not block the release, so it only warns.
           & .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli.exe --url https://de.sentry.io `
-            debug-files upload --org silvio-lindstedt-und-maik-g-y2 --project flutter_whispaste `
+            debug-files upload --org org --project flutter_whispaste `
             build/windows/x64/symbols .build/libwhisper/windows/pdb .build/libllama/windows/pdb `
             .build/sherpa-onnx/windows-pdb
           if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Native PDB upload to Sentry failed -- crash frames in whispaste.exe/whisper/ggml/llama/sherpa stay unsymbolicated for this release." }
@@ -604,7 +604,7 @@ jobs:
           path: store-upload/WhisPaste.msixupload
           if-no-files-found: error
 
-      # Package smoke test (handy-catchup ticket 11): silent NSIS install +
+      # Package smoke test (catchup ticket 11): silent NSIS install +
       # MSIX side-load (throwaway test certificate, the uploaded MSIX stays
       # untouched), each started once with `whispaste.exe --diagnose`. Runs
       # before mark_success, so a failure keeps create-release and the Store
@@ -1132,7 +1132,7 @@ jobs:
           # Must match `sentryRelease` in lib/core/app_info.dart.
           SENTRY_RELEASE="whispaste@$VERSION" dart run sentry_dart_plugin
           if ! .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli --url https://de.sentry.io \
-            debug-files upload --org silvio-lindstedt-und-maik-g-y2 --project flutter_whispaste \
+            debug-files upload --org org --project flutter_whispaste \
             .build/libwhisper/linux/debug .build/libllama/linux/debug; then
             echo "::warning::Native debug-file upload to Sentry failed — crash frames in whisper/ggml/llama stay unsymbolicated for this release."
           fi
@@ -1223,7 +1223,7 @@ jobs:
           echo "All Linux release artifacts:"
           ls -lh release-artifacts
 
-      # Package smoke test (handy-catchup ticket 11): installs the .deb,
+      # Package smoke test (catchup ticket 11): installs the .deb,
       # extracts the AppImage, runs ldd over every bundled ELF file and starts
       # each once with `whispaste --diagnose` under Xvfb. Fails the job before
       # upload/mark_success, so nothing broken gets published.
@@ -1430,7 +1430,7 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           # Org/Project/URL must match values in lib/core/app_info.dart
-          SENTRY_ORG: silvio-lindstedt-und-maik-g-y2
+          SENTRY_ORG: org
           SENTRY_PROJECT: flutter_whispaste
           SENTRY_URL: https://de.sentry.io
         with:

@@ -9,7 +9,7 @@ enum WpAccentBadgeTone {
   accent,
 
   /// Amber: a marker for something the app suggested, which the user should
-  /// check (WP-14 spec §4: amber marks, never a button fill).
+  /// check (ticket spec §4: amber marks, never a button fill).
   highlight,
 }
 

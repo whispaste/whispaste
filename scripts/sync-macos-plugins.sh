@@ -18,6 +18,9 @@ set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT" || exit 3
+# Run from a hook, flutter would read its version from this repository.
+# shellcheck disable=SC1091  # scripts/sdk-env.sh: two wrapper functions
+. "$ROOT/scripts/sdk-env.sh"
 REGISTRANT=macos/Flutter/GeneratedPluginRegistrant.swift
 LOCKFILE=macos/Podfile.lock
 STAGE=0

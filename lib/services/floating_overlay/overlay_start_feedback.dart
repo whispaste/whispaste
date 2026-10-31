@@ -1,4 +1,4 @@
-/// Start-feedback rule (briefing criterion 4, WP-84): the overlay must not
+/// Start-feedback rule (briefing criterion 4, ticket): the overlay must not
 /// claim a live recording before the microphone is open.
 ///
 /// `RecordingPhase.recording` is entered before the audio capture starts (the

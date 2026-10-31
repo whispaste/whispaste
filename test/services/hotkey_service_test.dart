@@ -439,6 +439,102 @@ void main() {
     });
   });
 
+  group('re-recording a hotkey (fix/hotkey-rerecord-same)', () {
+    // A registered combination never reaches the recorder, its own included:
+    // the saved Cmd+Ä pressed again left only Cmd in the recorder.
+    tearDown(HotkeyCaptureGuard.reset);
+
+    ProviderContainer makeContainer(FakeHotKeyRegistrar registrar) {
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith(
+            () => _MutableSettingsNotifier(
+              AppSettings.defaults.copyWith(hotkeyEnabled: false),
+            ),
+          ),
+          hotkeyServiceProvider.overrideWith(() {
+            final service = HotkeyService()..injectRegistrar(registrar);
+            return service..injectMonitor(NoopKeyboardUpMonitor());
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      return container;
+    }
+
+    test('a listening recorder takes the hotkey off the system and puts it '
+        'back on cancel', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final container = makeContainer(registrar);
+      final service = container.read(hotkeyServiceProvider.notifier);
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      final hotKey = registrar.registered.single;
+
+      HotkeyCaptureGuard.beginListening();
+      await service.captureSuspensionSettled;
+      expect(registrar.registered, isEmpty);
+
+      HotkeyCaptureGuard.endListening();
+      await service.captureSuspensionSettled;
+      expect(registrar.registered.map((h) => h.identifier), [
+        hotKey.identifier,
+      ]);
+    });
+
+    test('a hotkey saved while recording is registered once recording '
+        'ends', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final container = makeContainer(registrar);
+      final service = container.read(hotkeyServiceProvider.notifier);
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+
+      HotkeyCaptureGuard.beginListening();
+      await service.updateHotkey(key: LogicalKeyboardKey.keyE);
+      expect(registrar.registered, isEmpty);
+      HotkeyCaptureGuard.endListening();
+      await service.captureSuspensionSettled;
+
+      expect(registrar.registered.map((h) => h.logicalKey), [
+        LogicalKeyboardKey.keyE,
+      ]);
+    });
+
+    test('a press while a recorder listens triggers nothing', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final container = makeContainer(registrar);
+      final service = container.read(hotkeyServiceProvider.notifier);
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+      final keyDown = registrar.capturedKeyDownHandler!;
+      final hotKey = registrar.registered.single;
+      var presses = 0;
+      service.onHotkeyPressed = () => presses++;
+
+      HotkeyCaptureGuard.beginListening();
+      keyDown(hotKey);
+
+      expect(presses, 0);
+    });
+
+    test('a hotkey the system refuses after recording shows as a '
+        'conflict', () async {
+      final registrar = FakeHotKeyRegistrar();
+      final container = makeContainer(registrar);
+      final service = container.read(hotkeyServiceProvider.notifier);
+      await service.updateHotkey(key: LogicalKeyboardKey.keyD);
+
+      HotkeyCaptureGuard.beginListening();
+      await service.captureSuspensionSettled;
+      registrar.refuseKey = LogicalKeyboardKey.keyD;
+      HotkeyCaptureGuard.endListening();
+      await service.captureSuspensionSettled;
+
+      expect(
+        container.read(hotkeyRegistrationStatusProvider),
+        HotkeyRegistrationStatus.conflict,
+      );
+    });
+  });
+
   group('globalHotkeyFallbackActiveProvider (XP-5-09)', () {
     // The fallback used to be silent: settings and dock kept showing the
     // configured combination although only the safe default listened.
@@ -810,7 +906,7 @@ void main() {
     });
   });
 
-  group('HotkeyService — Linux monitor (handy-catchup/09)', () {
+  group('HotkeyService — Linux monitor (catchup/09)', () {
     test('a portal press + release drives a full hold cycle', () async {
       final registrar = FakeHotKeyRegistrar(supportsKeyUp: false);
       final service = _makeService(registrar);

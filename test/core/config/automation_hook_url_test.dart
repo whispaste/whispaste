@@ -1,4 +1,4 @@
-/// Security tests for automation hook URLs (WP-38 / 8.3).
+/// Security tests for automation hook URLs (ticket / 8.3).
 ///
 /// Only loopback targets may ever receive hook events. These tests pin the
 /// save-time check (`isLoopbackHookUrl`) against the usual IP-literal tricks

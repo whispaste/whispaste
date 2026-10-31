@@ -1,5 +1,5 @@
 // Guard for the preset IDs copied into the three native floating-button hosts
-// (WP-75, DEV-177). The hosts sanitise setTheme against their own lists, so a
+// (ticket, DEV-177). The hosts sanitise setTheme against their own lists, so a
 // preset added in Dart but missing there would silently fall back to marine
 // or cyan. The lists are read from the source files and compared to the enums.
 import 'dart:io';

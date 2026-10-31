@@ -1,4 +1,4 @@
-/// The recording dock's row plan (WP-79, ADR 0024): for a dock width and the
+/// The recording dock's row plan (ticket, ADR 0024): for a dock width and the
 /// measured text widths, which controls show their label, their icon and
 /// value, only their icon, or move into the Mehr menu, and whether the keycap,
 /// the Dictate button and the status shrink. Pure arithmetic, so the collapse

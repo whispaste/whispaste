@@ -26,6 +26,10 @@ class FloatingButtonHost {
   // Lazy-created on first show.
   private var panel: FloatingButtonPanel?
 
+  /// Frame of the capsule at rest while the pill is open (AppKit coordinates);
+  /// nil at rest. Shrinking restores it exactly.
+  private var capsuleHome: NSRect?
+
   // Secondary Flutter engine that renders the shared FloatingButtonView.
   private var renderEngine: FlutterEngine?
   private var renderViewController: FlutterViewController?
@@ -58,7 +62,49 @@ private static func timedPanelOp(_ name: String, _ operation: () -> Void) {
     }
 }
 
-private static func logicalOrigin(of panel: NSPanel) -> NSPoint {
+/// Resizes the panel to the requested content size and returns the pinned
+  /// edges (`pinnedRight`, `pinnedBottom`), or nil without a panel.
+  private func setWindowSize(_ args: [String: Any]?) -> [String: Bool]? {
+    guard let args = args,
+          let w = (args["width"] as? NSNumber)?.doubleValue,
+          let h = (args["height"] as? NSNumber)?.doubleValue,
+          let p = panel else { return nil }
+    let expanded = (args["expanded"] as? NSNumber)?.boolValue ?? false
+    let size = NSSize(
+      width: CGFloat(w) + 2 * Self.shadowPadding,
+      height: CGFloat(h) + 2 * Self.shadowPadding
+    )
+    var frame = NSRect(origin: p.frame.origin, size: size)
+    var pins = (right: false, bottom: true)
+    if expanded {
+      let home = capsuleHome ?? p.frame
+      capsuleHome = home
+      let screen = (p.screen ?? NSScreen.main)?.visibleFrame ?? home
+      pins = Self.capsulePins(home: home, size: size, screen: screen)
+      frame.origin = NSPoint(
+        x: pins.right ? home.maxX - size.width : home.minX,
+        y: pins.bottom ? home.minY : home.maxY - size.height
+      )
+    } else if let home = capsuleHome {
+      capsuleHome = nil
+      frame.origin = home.origin
+    }
+    Self.timedPanelOp("setWindowSize.setFrame") { p.setFrame(frame, display: true) }
+    return ["pinnedRight": pins.right, "pinnedBottom": pins.bottom]
+  }
+
+  /// Mirrors `CapsulePins.resolve` (lib/services/floating_button/idle_capsule.dart)
+  /// in AppKit coordinates: a pinned bottom keeps minY, otherwise maxY stays.
+  private static func capsulePins(home: NSRect, size: NSSize, screen: NSRect)
+    -> (right: Bool, bottom: Bool) {
+    let leftFits = home.minX + size.width <= screen.maxX
+    let rightFits = home.maxX - size.width >= screen.minX
+    let upFits = home.minY + size.height <= screen.maxY
+    let downFits = home.maxY - size.height >= screen.minY
+    return (right: !leftFits && rightFits, bottom: !(!upFits && downFits))
+  }
+
+  private static func logicalOrigin(of panel: NSPanel) -> NSPoint {
     NSPoint(x: panel.frame.origin.x + shadowPadding, y: panel.frame.origin.y + shadowPadding)
 }
 
@@ -67,7 +113,7 @@ private static func panelOrigin(forLogical x: Double, _ y: Double) -> NSPoint {
 }
   private var latestState: String?
   private var latestDiameter: Double = 56
-  // Last `setTheme` arguments ({background, wave}, WP-75). Cached like the
+  // Last `setTheme` arguments ({background, wave}, ticket). Cached like the
   // state so the first frame after the boot race already has the preset.
   private var latestTheme: [String: Any]?
 
@@ -89,18 +135,22 @@ private static func panelOrigin(forLogical x: Double, _ y: Double) -> NSPoint {
     let wave = (args["wave"] as? String).flatMap {
       wavePresets.contains($0) ? $0 : nil
     } ?? "cyan"
-    // WP-95 button look: shape, recording ring and resting opacity. The
+    // ticket button look: shape, recording ring and resting opacity. The
     // opacity is clamped to the presets the render engine knows (40-100 %).
     let shape = (args["shape"] as? String) == "square" ? "square" : "round"
     let ring = (args["ring"] as? Bool) ?? true
     let idle = (args["idleOpacity"] as? NSNumber)?.doubleValue ?? 1.0
     let idleOpacity = min(max(idle, 0.4), 1.0)
+    // Idle capsule (overlay_button_idle_capsule): the render engine sizes the
+    // capsule itself and asks for the window size through `setWindowSize`.
+    let idleCapsule = (args["idleCapsule"] as? Bool) ?? false
     return [
       "background": background,
       "wave": wave,
       "shape": shape,
       "ring": ring,
       "idleOpacity": idleOpacity,
+      "idleCapsule": idleCapsule,
     ]
   }
   private static let maxRenderReadyRetries = 2
@@ -404,6 +454,7 @@ private static func panelOrigin(forLogical x: Double, _ y: Double) -> NSPoint {
       result(nil)
 
     case "startDrag":
+      capsuleHome = nil
       if let event = NSApp.currentEvent, let p = panel {
         p.performDrag(with: event)
         // The drag loop has ended — persist the final origin via the existing
@@ -423,6 +474,13 @@ private static func panelOrigin(forLogical x: Double, _ y: Double) -> NSPoint {
     case "showContextMenu":
       showNativeContextMenu()
       result(nil)
+
+    case "setWindowSize":
+      // The render engine asks for the content size of its current form (disc,
+      // idle capsule or pill). An open pill grows toward the interior of the
+      // screen; the edges it pins are reported back. The rest size restores the
+      // capsule's home frame exactly.
+      result(setWindowSize(call.arguments as? [String: Any]))
 
     case "frameRendered":
       // The render engine painted the frame for its latest state message

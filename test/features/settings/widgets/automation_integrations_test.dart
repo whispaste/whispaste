@@ -1,4 +1,4 @@
-/// Widget tests for the automation integrations block (WP-38 / 8.2 to 8.4).
+/// Widget tests for the automation integrations block (ticket / 8.2 to 8.4).
 ///
 /// Covers the hooks dialog: adding a loopback hook, the rejection messages
 /// for non-loopback URLs and an empty event set, the eight-hook limit, and

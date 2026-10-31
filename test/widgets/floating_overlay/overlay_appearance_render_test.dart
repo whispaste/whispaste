@@ -1,4 +1,4 @@
-/// WP-95: the appearance options reach the painter, and every wave style and
+/// ticket: the appearance options reach the painter, and every wave style and
 /// content toggle paints without error.
 library;
 

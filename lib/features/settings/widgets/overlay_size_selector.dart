@@ -42,7 +42,7 @@ class WpOverlaySizeSelector extends StatelessWidget {
     final l10n = L10n.of(context);
 
     // Wrap, not Row: at large text scales the card labels grow and the three
-    // cards reflow onto a second line instead of overflowing the row (WP-95).
+    // cards reflow onto a second line instead of overflowing the row (ticket).
     return Wrap(
       alignment: WrapAlignment.end,
       spacing: WpSpacing.xs,

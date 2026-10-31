@@ -1,4 +1,4 @@
-/// Contract tests for the WP-20 app shell: the rail's navigation order, the
+/// Contract tests for the ticket app shell: the rail's navigation order, the
 /// recording dock's Dictate button, the hotkey keycap, the status truth of the
 /// dock's "Local ready" wording, and layout under RTL and large text.
 ///

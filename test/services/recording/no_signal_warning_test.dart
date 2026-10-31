@@ -1,4 +1,4 @@
-/// Non-terminal no-signal hint of [SafetyGuard] (WP-39, matrix 9.3).
+/// Non-terminal no-signal hint of [SafetyGuard] (ticket, matrix 9.3).
 library;
 
 import 'package:flutter_test/flutter_test.dart';

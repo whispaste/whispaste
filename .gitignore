@@ -70,33 +70,20 @@ fastlane/*.certSigningRequest
 fastlane/*.provisionprofile
 
 # ┌─────────────────────────────────────────────────────────────────────┐
-# │  PROTECTED PATHS — DO NOT MODIFY THIS SECTION                      │
-# │  These entries protect internal files from being pushed to GitHub.  │
-# │  The pre-commit hook enforces this section cannot be weakened.      │
-# │  Any change to lines between PROTECTED-START and PROTECTED-END     │
-# │  will be rejected by the hook.                                     │
+# │  PROTECTED PATHS — secrets, credentials, build and local output.   │
+# │  Remove an entry only on purpose: GitHub receives only the NAS     │
+# │  export (allowlist + gate), but these files must not even be       │
+# │  versioned internally.                                             │
 # ├─────────────────────────────────────────────────────────────────────┤
 # │  PROTECTED-START                                                    │
 # ├─────────────────────────────────────────────────────────────────────┤
 
-# Internal files — blanket ignore (NEVER track contents)
-.internal/
-.impeccable/
-docs/
-
-# AI agent / skill config (local only)
-opencode.json
-rules/
-skills-lock.json
-skills.yaml
-.github/copilot-instructions.md
-.skills/
-.agent/
-.agents/
-.claude/
+# Internal docs and agent config are versioned in the internal repository
+# (maintainer 2026-10-31); only the filtered NAS export reaches GitHub
+# (.ossallowlist + export gate). What stays local:
+.claude/worktrees/
+.claude/scheduled_tasks.lock
 .scratch/
-CLAUDE.md
-CONTEXT.md
 
 # ASO-Research-Runs (lokale Analyse-Outputs — nie öffentlich)
 .aso-research/
@@ -202,6 +189,9 @@ wack-report.xml
 !scripts/ci-gates.sh
 # Local check entry point (commit/push/full tiers, same commands as CI).
 !scripts/check.sh
+!scripts/sdk-env.sh
+!scripts/sdk-env.test.sh
+!scripts/check.test.sh
 !scripts/worktree-prepare.sh
 !scripts/worktree-prepare.test.sh
 !scripts/mac-build-smoke.sh

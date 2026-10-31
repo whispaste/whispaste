@@ -148,7 +148,7 @@ private var audioFileDecodeHost: AudioFileDecodeHost?
       self?.handleLifecycleCall(call, result: result)
     }
 
-    // Power channel (WP-39, 9.5): system sleep and wake, so Dart can finish a
+    // Power channel (ticket, 9.5): system sleep and wake, so Dart can finish a
     // running recording before the machine suspends. Outbound only.
     powerChannel = FlutterMethodChannel(
       name: "com.whispaste.power",

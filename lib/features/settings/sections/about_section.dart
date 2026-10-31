@@ -1,4 +1,4 @@
-/// "Über WhisPaste" — the About content as the last settings area (WP-78).
+/// "Über WhisPaste" — the About content as the last settings area (ticket).
 ///
 /// What a user needs to know about the installed app lives here: the version,
 /// the update check, the links, the licences and the credits. The support

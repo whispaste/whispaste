@@ -24,6 +24,7 @@ import 'audio/user_audio_dirs.dart';
 import 'audio/input_device_lookup.dart';
 import 'audio/mic_start_cache.dart';
 import 'audio/pcm_gain_processor.dart';
+import 'audio/quiet_microphone_watch.dart';
 import 'audio/recording_start_stop_arbiter.dart';
 import 'audio/recovery/recording_journal.dart';
 import 'audio/recovery/recording_journal_provider.dart';
@@ -694,13 +695,18 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     final lossDetector = SignalLossDetector(
       samplesPerSecond: amplitudeSamplesPerSecond,
     );
+    final quietWatch = QuietMicrophoneWatch();
     _setMicSignalLost(false);
+    _setMicQuiet(false);
     _ampSub?.cancel();
     _ampSub = amplitudeFromPcm.stream.listen(
       (dbFs) {
         _amplitudeController?.add(levelMapper.map(dbFs));
         final lost = lossDetector.observe(dbFs);
         if (lost != null) _setMicSignalLost(lost);
+        if (quietWatch.observe(amplitudeFromPcm.lastRmsDbFs, DateTime.now())) {
+          _setMicQuiet(quietWatch.hinting);
+        }
       },
       onError: (Object e) {
         _log.error('Amplitude error: $e', e);
@@ -715,6 +721,15 @@ class AudioServiceNotifier extends Notifier<AudioStatus> {
     } on Object catch (e) {
       // Only a disposed container lands here; the recording itself is fine.
       _log.debug('Mic signal state update skipped: $e');
+    }
+  }
+
+  /// Too-quiet hint for the overlay. Recording keeps running either way.
+  void _setMicQuiet(bool quiet) {
+    try {
+      ref.read(micQuietProvider.notifier).set(quiet);
+    } on Object catch (e) {
+      _log.debug('Mic quiet state update skipped: $e');
     }
   }
 

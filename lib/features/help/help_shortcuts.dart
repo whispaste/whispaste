@@ -1,4 +1,4 @@
-/// App-wide shortcuts that open the Help hub (WP-78): F1 and Cmd/Ctrl+?, the
+/// App-wide shortcuts that open the Help hub (ticket): F1 and Cmd/Ctrl+?, the
 /// two keys people reach for when they look for help.
 library;
 

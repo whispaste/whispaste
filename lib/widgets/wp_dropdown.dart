@@ -18,7 +18,7 @@
 /// Merging the two wrappers left a `WpDropdownSize` enum behind, and the
 /// 32px `dense` trigger it offered made every settings row shorter than its
 /// neighbours. There is now exactly one trigger: [WpShellTokens.controlHeight]
-/// (40, WP-14 §4) tall, [WpRadiusTokens.sm] round, [WpTypography.body] text.
+/// (40, ticket §4) tall, [WpRadiusTokens.sm] round, [WpTypography.body] text.
 /// Buttons (48) and the search field (44) keep their own heights.
 ///
 /// ## What it fixes in the opened menu
@@ -56,12 +56,12 @@ import 'wp_touch_target.dart';
 // Geometry
 // ---------------------------------------------------------------------------
 //
-// One trigger, one geometry — see the library docs. WP-14 §4 fixes the closed
+// One trigger, one geometry — see the library docs. ticket §4 fixes the closed
 // trigger's visible box at 40 px with an 8 px radius. Its tap area is the
 // 48 px touch target (`WpLayout.minTouchTarget`): the 4 px above and below
 // the box are a transparent `WpTouchTarget` ring that opens the menu.
 
-/// Resting height of the closed trigger (WP-14 §4).
+/// Resting height of the closed trigger (ticket §4).
 const double _kTriggerHeight = WpShellTokens.controlHeight;
 
 /// Chevron glyph — the same [WpIconSize.sm] every other 48px control puts in

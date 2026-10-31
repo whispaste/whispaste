@@ -1,4 +1,4 @@
-/// Integrations block of the automation settings (WP-38 / 8.2, 8.3, 8.4).
+/// Integrations block of the automation settings (ticket / 8.2, 8.3, 8.4).
 ///
 /// Two rows in a settings group: event hooks, which open a dialog to add and
 /// remove loopback hook URLs, and an informational row for the CLI and MCP

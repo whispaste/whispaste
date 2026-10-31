@@ -2097,6 +2097,18 @@ abstract class L10n {
   /// **'Small always-on-top button for starting or stopping recording from any app'**
   String get settingsShowFloatingButtonSubtitle;
 
+  /// No description provided for @settingsFloatingButtonIdleCapsule.
+  ///
+  /// In en, this message translates to:
+  /// **'Slim capsule when idle'**
+  String get settingsFloatingButtonIdleCapsule;
+
+  /// No description provided for @settingsFloatingButtonIdleCapsuleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Narrow and unobtrusive; opens to the pill when hovered'**
+  String get settingsFloatingButtonIdleCapsuleSubtitle;
+
   /// No description provided for @settingsLanguage.
   ///
   /// In en, this message translates to:
@@ -7972,6 +7984,18 @@ abstract class L10n {
   /// **'No microphone signal'**
   String get overlayMicSignalLost;
 
+  /// Overlay line during a recording when the microphone level stays very low for several seconds. The recording keeps running and the hint goes away when the level returns. Replaces the timer like the no-signal line; keep it short.
+  ///
+  /// In en, this message translates to:
+  /// **'Microphone very quiet'**
+  String get overlayMicVeryQuiet;
+
+  /// Overlay line in the last 30 seconds before the recording duration limit stops it: the remaining time as m:ss. Replaces the elapsed time, in amber, and stays short.
+  ///
+  /// In en, this message translates to:
+  /// **'{time} left'**
+  String overlayRemainingTime(String time);
+
   /// Overlay completion message when the text was appended to the quick note — nothing was copied or pasted
   ///
   /// In en, this message translates to:
@@ -13255,7 +13279,7 @@ abstract class L10n {
   /// No description provided for @manualC02S3B2I2.
   ///
   /// In en, this message translates to:
-  /// **'“Floating button”: a button you click to record. Default: off. On Linux under Wayland, the desktop may limit its position and whether it stays on top.'**
+  /// **'“Floating button”: a button you click to record. Default: off. With “Slim capsule when idle”, it rests as a narrow capsule and opens to the full pill while you hover over it. Under Linux with Wayland the capsule stays narrow, and the desktop may limit its position and whether it stays on top.'**
   String get manualC02S3B2I2;
 
   /// No description provided for @manualC02S4Heading.

@@ -1,4 +1,4 @@
-/// Route group: list snippets and render one with field values (WP-38 / 8.1).
+/// Route group: list snippets and render one with field values (ticket / 8.1).
 ///
 /// Rendering returns text only. Insertion (paste) stays on
 /// `POST /v1/snippets/insert`, which is the one path that is gated by the

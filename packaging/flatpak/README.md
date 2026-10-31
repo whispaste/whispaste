@@ -53,7 +53,7 @@ Flatpak-Sandbox braucht das zwei Dinge, die die `finish-args` setzen:
 | Display | `--socket=wayland`, `--socket=fallback-x11`, `--device=dri`, `--share=ipc` |
 | Tray / Notifications | `--talk-name=org.kde.StatusNotifierWatcher`, `--talk-name=org.freedesktop.Notifications` |
 | Secret Service (flutter_secure_storage) | `--talk-name=org.freedesktop.secrets` (bewusste Entscheidung, siehe unten) |
-| Stromereignisse, Sicherheitsnetz (WP-39, PAR-030) | `--system-talk-name=org.freedesktop.login1` (nur dieser Dienst) |
+| Stromereignisse, Sicherheitsnetz (ticket, PAR-030) | `--system-talk-name=org.freedesktop.login1` (nur dieser Dienst) |
 
 **Secret Service, bewusste Entscheidung (R-03, 2026-10-19):** Die Freigabe
 reicht an alle Einträge des entsperrten Schlüsselbunds, nicht nur an die von

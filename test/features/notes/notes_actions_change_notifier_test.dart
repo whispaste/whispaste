@@ -1,4 +1,4 @@
-/// [NotesActions] reports saved content to its change notifier (WP-38 / 8.3).
+/// [NotesActions] reports saved content to its change notifier (ticket / 8.3).
 /// Creating an empty note does not count as a change.
 library;
 

@@ -1,4 +1,4 @@
-/// Pure rendering rules for `POST /v1/snippets/render` (WP-38 / 8.1).
+/// Pure rendering rules for `POST /v1/snippets/render` (ticket / 8.1).
 ///
 /// Rendering only produces text. Nothing here pastes, types or sends keys —
 /// the insertion path stays the separate `POST /v1/snippets/insert` route.

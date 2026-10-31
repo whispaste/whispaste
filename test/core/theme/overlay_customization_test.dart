@@ -1,4 +1,4 @@
-/// WP-95: overlay shape, waveform style, content and opacity policies.
+/// ticket: overlay shape, waveform style, content and opacity policies.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
@@ -9,12 +9,7 @@ import 'package:whispaste/core/theme/overlay_design_spec.dart';
 void main() {
   group('persisted names', () {
     test('form values match the native contract', () {
-      expect(OverlayForm.values.map((f) => f.value), [
-        'pill',
-        'rounded-rect',
-        'compact-circle',
-        'edge-bar',
-      ]);
+      expect(OverlayForm.values.map((f) => f.value), ['pill', 'rounded-rect']);
     });
 
     test('wave style values match the native contract', () {
@@ -34,6 +29,9 @@ void main() {
     test('unknown form falls back to pill', () {
       expect(OverlayForm.fromValue('hexagon'), OverlayForm.pill);
       expect(OverlayForm.fromValue(null), OverlayForm.pill);
+      // Retired forms (removed 2026-10-30) parse to the pill.
+      expect(OverlayForm.fromValue('compact-circle'), OverlayForm.pill);
+      expect(OverlayForm.fromValue('edge-bar'), OverlayForm.pill);
     });
 
     test('unknown wave style falls back to bars', () {
@@ -61,37 +59,6 @@ void main() {
   });
 
   group('OverlayPolicy', () {
-    test('edge bar falls back to pill without edge docking (Wayland)', () {
-      expect(
-        OverlayPolicy.effectiveForm(
-          OverlayForm.edgeBar,
-          edgeDockingSupported: false,
-        ),
-        OverlayForm.pill,
-      );
-    });
-
-    test('edge bar stays where edge docking is supported', () {
-      expect(
-        OverlayPolicy.effectiveForm(
-          OverlayForm.edgeBar,
-          edgeDockingSupported: true,
-        ),
-        OverlayForm.edgeBar,
-      );
-    });
-
-    test('other forms are never changed by the fallback', () {
-      for (final form in OverlayForm.values.where(
-        (f) => f != OverlayForm.edgeBar,
-      )) {
-        expect(
-          OverlayPolicy.effectiveForm(form, edgeDockingSupported: false),
-          form,
-        );
-      }
-    });
-
     test('reduce motion turns the fluid outline off', () {
       expect(
         OverlayPolicy.effectiveWaveFluid(setting: true, reduceMotion: true),

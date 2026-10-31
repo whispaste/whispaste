@@ -1235,6 +1235,13 @@ class L10nEs extends L10n {
       'Botón pequeño siempre visible para iniciar o detener la grabación desde cualquier app';
 
   @override
+  String get settingsFloatingButtonIdleCapsule => 'Cápsula discreta en reposo';
+
+  @override
+  String get settingsFloatingButtonIdleCapsuleSubtitle =>
+      'Estrecha y discreta; se abre a la píldora al pasar el cursor';
+
+  @override
   String get settingsLanguage => 'Idioma';
 
   @override
@@ -4801,6 +4808,14 @@ class L10nEs extends L10n {
   String get overlayMicSignalLost => 'Sin señal del micrófono';
 
   @override
+  String get overlayMicVeryQuiet => 'Micrófono muy bajo';
+
+  @override
+  String overlayRemainingTime(String time) {
+    return 'Quedan $time';
+  }
+
+  @override
   String get overlayDoneQuickNote => 'Añadido a la nota';
 
   @override
@@ -7983,7 +7998,7 @@ class L10nEs extends L10n {
 
   @override
   String get manualC02S3B2I2 =>
-      '«Botón flotante»: un botón para grabar con un clic. Por defecto: desactivado. En Linux con Wayland, el escritorio puede limitar su posición y si se mantiene encima.';
+      '«Botón flotante»: un botón para grabar con un clic. Por defecto: desactivado. Con «Cápsula discreta en reposo», permanece como cápsula estrecha y se abre a la píldora completa al pasar el puntero. En Linux con Wayland la cápsula sigue estrecha, y el escritorio puede limitar su posición y si se mantiene encima.';
 
   @override
   String get manualC02S4Heading => 'Pegar después de grabar';

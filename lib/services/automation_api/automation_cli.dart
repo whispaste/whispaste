@@ -1,4 +1,4 @@
-/// Command-line front end for the local automation API (WP-38 / 8.2).
+/// Command-line front end for the local automation API (ticket / 8.2).
 ///
 /// `tool/whispaste.dart` is a thin wrapper around [runAutomationCli]. The
 /// CLI only talks to a running app over loopback. It never starts the app,

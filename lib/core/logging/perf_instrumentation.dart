@@ -228,7 +228,7 @@ class PerfMarkers {
   }
 
   /// Stamps the first painted frame of the show started by [markOverlayShown]
-  /// (WP-84 phase 2, plan item 6). Fed by the render engine's frame
+  /// (ticket phase 2, plan item 6). Fed by the render engine's frame
   /// acknowledgement, so it includes the cross-engine hop and is the only
   /// measure of what the user actually sees. Logs nothing when no show is
   /// awaiting a frame, so repeated acknowledgements cost nothing.

@@ -1,5 +1,5 @@
 /// Unit tests for [ChannelKeyboardUpMonitor]'s Linux path (ticket
-/// handy-catchup/09): runtime capability probe, MissingPluginException
+/// catchup/09): runtime capability probe, MissingPluginException
 /// fallback, portal Activated/Deactivated → key-down/key-up mapping and the
 /// XDG shortcut trigger derived from the hotkey.
 library;

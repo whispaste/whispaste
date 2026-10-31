@@ -90,7 +90,7 @@ class _OverlayRenderAppState
   List<double> _bars = const [];
 
   /// Acknowledges the first painted frame of each show to the native shell
-  /// (WP-84 phase 2 frame heartbeat). Created lazily: `channel` exists only
+  /// (ticket phase 2 frame heartbeat). Created lazily: `channel` exists only
   /// after [initState].
   late final OverlayFrameHeartbeat _heartbeat = OverlayFrameHeartbeat(
     onFrame: () => channel.frameRendered(),

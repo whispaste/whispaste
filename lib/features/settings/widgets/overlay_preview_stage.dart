@@ -1,5 +1,5 @@
 /// Labelled, non-interactive preview stage for the recording overlay and the
-/// floating button (WP-95).
+/// floating button (ticket).
 ///
 /// Both elements sit on one fixed desktop-like backdrop, so the preview reads
 /// as a preview and not as controls. [IgnorePointer] keeps them out of hit
@@ -38,10 +38,10 @@ class WpOverlayPreviewStage extends StatelessWidget {
     this.buttonLook = FloatingButtonLook.defaults,
   });
 
-  /// WP-95 appearance options shown in the overlay preview.
+  /// ticket appearance options shown in the overlay preview.
   final OverlayAppearance appearance;
 
-  /// WP-95 floating-button look (size, shape, ring, resting opacity).
+  /// ticket floating-button look (size, shape, ring, resting opacity).
   final FloatingButtonLook buttonLook;
 
   final FloatingOverlaySize size;

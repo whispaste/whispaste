@@ -1,4 +1,4 @@
-/// Import of an export file from before the overlay presets (WP-75, ADR 0024).
+/// Import of an export file from before the overlay presets (ticket, ADR 0024).
 ///
 /// A file that still carries `overlay_style` must map it onto the preset keys
 /// instead of silently keeping the current look.

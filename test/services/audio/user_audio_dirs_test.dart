@@ -32,21 +32,28 @@ void main() {
   late List<LogRecord> warnings;
   late List<String> listed;
 
+  // A foreign owner can only be faked through the `stat` process. On macOS
+  // the owner is read in process (libc, see capture_dir.dart), so the owner
+  // cases use the POSIX process path, which runs on every POSIX host with
+  // that host's own `stat` syntax. The native path is covered by
+  // posix_native_test.
+  UserAudioDirs makeDirs({required bool viaProcesses}) => UserAudioDirs(
+    system: () => CaptureSystem(
+      platform: Platform.isMacOS && !viaProcesses
+          ? CapturePlatform.macos
+          : CapturePlatform.linux,
+      environment: const {},
+      appDataDir: root.path,
+      runProcess: process.call,
+    ),
+    directories: () => listed,
+  );
+
   setUp(() {
     root = Directory.systemTemp.createTempSync('wp_user_audio_');
     process = _CountingProcess();
     listed = [];
-    dirs = UserAudioDirs(
-      system: () => CaptureSystem(
-        platform: Platform.isMacOS
-            ? CapturePlatform.macos
-            : CapturePlatform.linux,
-        environment: const {},
-        appDataDir: root.path,
-        runProcess: process.call,
-      ),
-      directories: () => listed,
-    );
+    dirs = makeDirs(viaProcesses: false);
     warnings = [];
     Logger.root.level = Level.ALL;
     Logger.root.onRecord
@@ -91,6 +98,7 @@ void main() {
 
     test('a folder owned by someone else only warns', () async {
       process.ownerUid = '4242';
+      dirs = makeDirs(viaProcesses: true);
       final dir = p.join(root.path, 'recordings');
 
       expect(await dirs.ensure(dir), isFalse);
@@ -119,6 +127,7 @@ void main() {
 
     test('a failed folder warns only once per process', () async {
       process.ownerUid = '4242';
+      dirs = makeDirs(viaProcesses: true);
       final dir = p.join(root.path, 'recordings');
       expect(await dirs.ensure(dir), isFalse);
       expect(await dirs.ensure(dir), isFalse, reason: 'cached result');
@@ -142,6 +151,7 @@ void main() {
 
     test('never throws, also when a folder cannot be made private', () async {
       process.ownerUid = '4242';
+      dirs = makeDirs(viaProcesses: true);
       final retained = Directory(p.join(root.path, 'recordings'))..createSync();
       listed.add(retained.path);
 

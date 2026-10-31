@@ -9,6 +9,7 @@ import '../../core/theme/overlay_customization.dart';
 import '../../core/theme/overlay_design_spec.dart'
     show OverlayBackground, OverlaySizeVariant, OverlayThemeColors, OverlayWave;
 import 'floating_overlay_events.dart';
+import 'overlay_key_hints.dart';
 
 /// Visual state of the overlay (matches C++ OverlayVisualState).
 enum OverlayVisualState { recording, transcribing, done, error }
@@ -49,6 +50,8 @@ class FloatingOverlaySnapshot {
     this.languageChip,
     this.profileChip,
     this.appearance = OverlayAppearance.defaults,
+    this.countdown = false,
+    this.keyHints,
   });
 
   final bool visible;
@@ -58,10 +61,10 @@ class FloatingOverlaySnapshot {
   /// size their window from the serialised `size` name.
   final OverlaySizeVariant size;
 
-  /// Background preset of the pill (WP-75, ADR 0024), independent of [size].
+  /// Background preset of the pill (ticket, ADR 0024), independent of [size].
   final OverlayBackground background;
 
-  /// Wave colour preset of the pill (WP-75, ADR 0024).
+  /// Wave colour preset of the pill (ticket, ADR 0024).
   final OverlayWave wave;
 
   final String label;
@@ -104,9 +107,17 @@ class FloatingOverlaySnapshot {
   /// chip as the language. Null while automatic or no profile is chosen.
   final String? profileChip;
 
-  /// WP-95 appearance options (form, wave style, fluid outline, timer and
+  /// ticket appearance options (form, wave style, fluid outline, timer and
   /// cancel glyph, requested opacity step). Defaults to today's look.
   final OverlayAppearance appearance;
+
+  /// The last 30 seconds before the duration limit: [elapsed] then carries the
+  /// remaining time and the timer is drawn in the amber accent.
+  final bool countdown;
+
+  /// Stop and cancel key hints in the normal recording pill; null when they
+  /// are not shown (other sizes, other states, or no live microphone).
+  final OverlayKeyHints? keyHints;
 
   /// The opacity step actually rendered: the requested step lifted by the
   /// contrast gate for the active background and wave.
@@ -132,6 +143,9 @@ class FloatingOverlaySnapshot {
     'compact': size == OverlaySizeVariant.compact,
     'label': label,
     'elapsed': elapsed,
+    'countdown': countdown,
+    'stopHint': keyHints?.stop,
+    'cancelHint': keyHints?.cancel,
     'hint': hint,
     'transcript': transcript,
     'errorMessage': errorMessage,
@@ -192,12 +206,17 @@ class FloatingOverlaySnapshot {
       languageChip: map['languageChip'] as String?,
       profileChip: map['profileChip'] as String?,
       appearance: OverlayAppearance.fromMap(map),
+      countdown: map['countdown'] as bool? ?? false,
+      keyHints: OverlayKeyHints.fromStrings(
+        stop: map['stopHint'] as String?,
+        cancel: map['cancelHint'] as String?,
+      ),
     );
   }
 }
 
 /// Optional capability: a shell whose render engine can be re-booted on
-/// request (macOS, Windows, Linux; WP-84 phase 2). The service only runs the frame-heartbeat
+/// request (macOS, Windows, Linux; ticket phase 2). The service only runs the frame-heartbeat
 /// recovery against controllers that implement it, so a platform without a
 /// render engine never gets a re-boot request.
 abstract interface class RenderEngineRecovery {

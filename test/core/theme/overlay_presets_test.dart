@@ -1,4 +1,4 @@
-/// Overlay theme presets (WP-75, ADR 0024): background × wave × signal
+/// Overlay theme presets (ticket, ADR 0024): background × wave × signal
 /// contrast, and the preset identity/defaults.
 ///
 /// Every combination a user can pick must keep the graphics above the

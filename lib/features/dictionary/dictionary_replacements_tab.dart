@@ -1,7 +1,7 @@
 /// Replacements tab: the replacement list itself, with its secondary actions
 /// (try-it test, CSV import/export) behind the toolbar's overflow button.
 ///
-/// The list is the only thing above the fold on purpose (WP-81): explanation
+/// The list is the only thing above the fold on purpose (ticket): explanation
 /// and rows scroll together, search and Add stay fixed, and nothing else takes
 /// vertical space until it is asked for. The learning cards live on the
 /// Suggestions tab.

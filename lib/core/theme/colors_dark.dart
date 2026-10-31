@@ -407,7 +407,7 @@ abstract final class WpColorsDark {
   /// 223.5° at the minimum window. The stop is solved to the middle of that run
   /// (#152750, 221.7°). Against the frame at the 1100 × 750 the app opens at
   /// (#061740, 222.8°) it lands 1.1° off in hue, 2 steps wider in spread and
-  /// 1.19:1 lighter. It had been solved for the pre-WP-20 corner (72, 64) at
+  /// 1.19:1 lighter. It had been solved for the pre-ticket corner (72, 64) at
   /// 220.0°; widening the rail to 232 px moved the corner along the frame, and
   /// at the minimum window the hue fell 3.5° out of step. *(Ticket 07 first
   /// shipped this stop at Y 0.01241 = 1.034:1; see the perceptibility re-solve

@@ -1,4 +1,4 @@
-/// Settings and key mapping for the configurable recording controls (WP-39,
+/// Settings and key mapping for the configurable recording controls (ticket,
 /// matrix 9.1): double-tap hands-free and the cancel-dictation key.
 library;
 

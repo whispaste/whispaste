@@ -3,7 +3,7 @@
 /// One [CustomPainter] draws the V2 floating button for **every** platform that
 /// hosts it in a thin native window shell (macOS/Windows now, Linux via issue
 /// 09). It reproduces the approved spike design (`spike/lib/main.dart`
-/// `_drawButton` / `_mic`), flattened in the WP-75 flat pass: a single-colour disc with a painted soft
+/// `_drawButton` / `_mic`), flattened in the ticket flat pass: a single-colour disc with a painted soft
 /// shadow, a thin neutral hairline border and a dark mic glyph, which becomes a
 /// stop square while recording (BTN-REC). The recording ring is painted outside
 /// the disc. Still **no** light effect (ADR 0002, calm UI).
@@ -11,7 +11,7 @@
 /// Every dimension, colour and gradient comes from [OverlayDesignSpec.button]
 /// (flat disc colour, border, mic geometry as ratios of the disc diameter) and
 /// [OverlayDesignSpec.glyphStopsFor] (per-state mic tint, resolved per
-/// background tone, WP-75) — there are deliberately **no** design constants in
+/// background tone, ticket) — there are deliberately **no** design constants in
 /// this file.
 ///
 /// The disc chrome (flat fill + painted shadow) uses the intrinsic
@@ -32,10 +32,21 @@ class WpFloatingButtonPainter extends CustomPainter {
     required this.iconGradient,
     this.square = false,
     this.stopSquare = false,
+    this.capsuleWidth,
+    this.showGlyph = true,
   });
 
+  /// Width of the idle capsule (WP-idle capsule). When set, the outline is a
+  /// pill of this width and [diameter] as its height, and the disc, the
+  /// square and the mic all keep their geometry from [diameter].
+  final double? capsuleWidth;
+
+  /// Draws the mic (or the stop square) on top. The resting capsule is too
+  /// slim for it and paints the body only.
+  final bool showGlyph;
+
   /// Draws a rounded square ([OverlayDesignSpec.buttonSquareCornerRatio])
-  /// instead of the round disc (WP-95 button shape).
+  /// instead of the round disc (ticket button shape).
   final bool square;
 
   /// Draws a stop square in place of the mic glyph (BTN-REC: recording).
@@ -58,30 +69,48 @@ class WpFloatingButtonPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final r = diameter / 2;
+    final halfW = (capsuleWidth ?? diameter) / 2;
     final center = Offset(
-      OverlayDesignSpec.shadowPadding + r,
+      OverlayDesignSpec.shadowPadding + halfW,
       OverlayDesignSpec.shadowPadding + r,
     );
 
-    _drawShadow(canvas, center, r);
-    _drawDisc(canvas, center, r);
-    _drawBorder(canvas, center, r);
-    _drawMic(canvas, center);
+    _drawShadow(canvas, center, halfW, r);
+    _drawDisc(canvas, center, halfW, r);
+    _drawBorder(canvas, center, halfW, r);
+    if (showGlyph) _drawMic(canvas, center);
   }
 
-  /// The disc, the shadow and the border share one outline: a circle, or a
-  /// rounded square of the same size when [square] is set.
-  void _outline(Canvas canvas, Offset center, double r, Paint paint) {
+  /// The disc, the shadow and the border share one outline: a circle, a
+  /// rounded square when [square] is set, or a pill when a [capsuleWidth] is
+  /// set. [halfW] and [halfH] are the half extents of the outline.
+  void _outline(
+    Canvas canvas,
+    Offset center,
+    double halfW,
+    double halfH,
+    Paint paint,
+  ) {
+    if (capsuleWidth != null) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: center, width: halfW * 2, height: halfH * 2),
+          Radius.circular(halfH),
+        ),
+        paint,
+      );
+      return;
+    }
     if (!square) {
-      canvas.drawCircle(center, r, paint);
+      canvas.drawCircle(center, halfH, paint);
       return;
     }
     final radius = Radius.circular(
-      r * OverlayDesignSpec.buttonSquareCornerRatio,
+      halfH * OverlayDesignSpec.buttonSquareCornerRatio,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCircle(center: center, radius: r),
+        Rect.fromCircle(center: center, radius: halfH),
         radius,
       ),
       paint,
@@ -90,10 +119,11 @@ class WpFloatingButtonPainter extends CustomPainter {
 
   // ── Chrome ────────────────────────────────────────────────────────────────────
 
-  void _drawShadow(Canvas canvas, Offset center, double r) {
+  void _drawShadow(Canvas canvas, Offset center, double halfW, double r) {
     _outline(
       canvas,
       center + OverlayDesignSpec.shadowOffset,
+      halfW,
       r,
       Paint()
         ..color = spec.shadowColor
@@ -104,20 +134,22 @@ class WpFloatingButtonPainter extends CustomPainter {
     );
   }
 
-  void _drawDisc(Canvas canvas, Offset center, double r) {
-    // Flat disc (WP-75 flat pass): one colour, no tint gradient.
+  void _drawDisc(Canvas canvas, Offset center, double halfW, double r) {
+    // Flat disc (ticket flat pass): one colour, no tint gradient.
     _outline(
       canvas,
       center,
+      halfW,
       r,
       Paint()..color = spec.discColor.withValues(alpha: spec.discFillOpacity),
     );
   }
 
-  void _drawBorder(Canvas canvas, Offset center, double r) {
+  void _drawBorder(Canvas canvas, Offset center, double halfW, double r) {
     _outline(
       canvas,
       center,
+      halfW - spec.borderInset,
       r - spec.borderInset,
       Paint()
         ..style = PaintingStyle.stroke
@@ -130,6 +162,7 @@ class WpFloatingButtonPainter extends CustomPainter {
       _outline(
         canvas,
         center,
+        halfW - 0.5,
         r - 0.5,
         Paint()
           ..style = PaintingStyle.stroke
@@ -222,6 +255,8 @@ class WpFloatingButtonPainter extends CustomPainter {
         old.iconColor != iconColor ||
         old.square != square ||
         old.stopSquare != stopSquare ||
+        old.capsuleWidth != capsuleWidth ||
+        old.showGlyph != showGlyph ||
         !_sameGradient(old.iconGradient, iconGradient);
   }
 

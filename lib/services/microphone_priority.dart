@@ -1,4 +1,4 @@
-/// Microphone priority list and virtual-input exclusion (WP-39, matrix 9.2).
+/// Microphone priority list and virtual-input exclusion (ticket, matrix 9.2).
 ///
 /// Pure decision logic, no platform calls: [AudioService] enumerates the
 /// devices once at start and hands the labels here. The explicit choice

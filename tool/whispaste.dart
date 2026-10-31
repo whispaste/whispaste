@@ -1,4 +1,4 @@
-/// Command-line entry point for the WhisPaste automation API (WP-38 / 8.2).
+/// Command-line entry point for the WhisPaste automation API (ticket / 8.2).
 ///
 /// Run with `dart run tool/whispaste.dart <command>`. See `--help`.
 library;

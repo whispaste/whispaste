@@ -56,7 +56,7 @@ enum AttentionKind {
   /// blocks the paste).
   smartModeFallback,
 
-  /// WP-39 (9.3): no microphone signal shortly after the start. Recording
+  /// ticket (9.3): no microphone signal shortly after the start. Recording
   /// continues; the dead-mic timeout still stops it if nothing arrives.
   silentMicrophone,
 

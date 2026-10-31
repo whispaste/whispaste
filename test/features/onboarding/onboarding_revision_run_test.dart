@@ -675,7 +675,7 @@ void main() {
             findsOneWidget,
           );
           // The catch-up address is not decoration — it names the Help page
-          // entry that reopens exactly these steps (WP-65 moved it there).
+          // entry that reopens exactly these steps (ticket moved it there).
           expect(
             l10n.onboardingRevisionExitConfirmBody,
             contains(l10n.onboardingReviewLabel),

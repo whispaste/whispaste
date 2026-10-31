@@ -101,7 +101,7 @@ abstract final class WpShadows {
   // alpha, plus a 2 px contact shadow, left a hard grey strip under every
   // light card: the offset reached past the soft part of the blur, so the
   // shadow read as a second, detached shape (the "Loch" effect, UX-020/UX-032;
-  // render check in the WP-65 worktree). The lift stays; the strip is gone.
+  // render check in the ticket worktree). The lift stays; the strip is gone.
   static const List<BoxShadow> elevated = [
     BoxShadow(color: Color(0x1F000000), blurRadius: 24, offset: Offset(0, 2)),
   ];

@@ -4,8 +4,8 @@
 /// and become lifecycle-only hosts for this widget. It takes a fully-resolved
 /// [FloatingOverlaySnapshot] (localized, themed, formatted by
 /// `FloatingOverlayService`) plus the live waveform levels, drives the calm
-/// accent-dot pulse, and feeds the shared [WpOverlayPainter] that reproduces the
-/// approved spike capsule design.
+/// liquid-glass drift, and feeds the shared [WpOverlayPainter] that reproduces
+/// the approved spike capsule design.
 ///
 /// ## Signature recording arc (issue 09 — C1a)
 ///
@@ -21,7 +21,7 @@
 /// easeOutCubic 300 ms). No scattered/decorative motion anywhere else.
 ///
 /// **Reduced-motion**: all animations gate on `MediaQuery.disableAnimations`.
-/// When true the appear is instant (Duration.zero), the dot pulse is skipped,
+/// When true the appear is instant (Duration.zero), the glass drift is skipped,
 /// and `pumpAndSettle` completes without hanging.
 ///
 /// ## Vibrancy
@@ -73,7 +73,7 @@ class WpFloatingOverlayView extends StatefulWidget {
   /// Live normalised waveform levels (length [WaveformSpec.barCount]).
   final List<double> waveformBars;
 
-  /// Whether to run the calm accent-dot pulse. The live overlay animates; a
+  /// Whether to run the calm liquid-glass drift. The live overlay animates; a
   /// static preview (e.g. the Settings page) passes `false` so the widget
   /// settles — a perpetual animation never lets `pumpAndSettle` complete.
   final bool animate;
@@ -127,7 +127,6 @@ class WpFloatingOverlayView extends StatefulWidget {
   static WpOverlayPainter painterFor({
     required FloatingOverlaySnapshot snapshot,
     List<double> waveformBars = const [],
-    double dotPulse = 1.0,
     bool paintFill = true,
     bool paintContent = true,
     double? pillWidth,
@@ -149,6 +148,7 @@ class WpFloatingOverlayView extends StatefulWidget {
       waveStyle: appearance.waveStyle,
       showTimer: appearance.showTimer,
       showCancel: appearance.showCancel,
+      timerEmphasis: snapshot.countdown,
       fillOpacity: snapshot.effectiveOpacity.alpha,
       state: designState,
       theme: colors.tone,
@@ -162,7 +162,6 @@ class WpFloatingOverlayView extends StatefulWidget {
       statusText: statusTextFor(snapshot),
       secondaryText: secondaryTextFor(snapshot),
       progress: snapshot.progress,
-      dotPulse: dotPulse,
       paintFill: paintFill,
       paintContent: paintContent,
       pillWidth: pillWidth,
@@ -171,6 +170,7 @@ class WpFloatingOverlayView extends StatefulWidget {
       glassPhase: glassPhase,
       liquidMotion: liquidMotion,
       liquidLevel: liquidLevel,
+      keyHints: snapshot.keyHints,
       tailFirstText:
           (snapshot.liveTranscript ?? '').trim().isNotEmpty &&
           (snapshot.state == OverlayVisualState.recording ||
@@ -184,10 +184,6 @@ class WpFloatingOverlayView extends StatefulWidget {
 
 class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
     with TickerProviderStateMixin {
-  // -- Dot pulse (accent dot during recording / transcribing) ------------------
-
-  late final AnimationController _dot;
-
   // -- Liquid-glass drift (slow material light movement) -----------------------
 
   /// Drives the liquid-glass phase: one slow 8 s loop that drifts the
@@ -248,7 +244,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   /// Set to true after the first [didChangeDependencies] call so that
   /// subsequent calls with the same [_reducedMotion] value are no-ops.
   /// Without this flag the initial call (both sides are `false`) would
-  /// short-circuit and never start the dot pulse.
+  /// short-circuit and never start the drift.
   bool _motionInitialized = false;
 
   // ---------------------------------------------------------------------------
@@ -256,12 +252,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   @override
   void initState() {
     super.initState();
-
-    _dot = AnimationController(
-      vsync: this,
-      duration: OverlayDesignSpec.motion.dotPulsePeriod,
-      value: 1.0,
-    );
 
     _glass = AnimationController(
       vsync: this,
@@ -300,16 +290,16 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
     _pillToWidth = initialWidth;
     _pillWidth = AnimationController(vsync: this, value: 1.0);
 
-    // Dot pulse is started in didChangeDependencies once we have a context
-    // and know the reduced-motion preference.
+    // Motion is started in didChangeDependencies once we have a context and
+    // know the reduced-motion preference.
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final nowDisabled = MediaQuery.of(context).disableAnimations;
-    // Always apply on the very first call so the dot pulse (or its absence)
-    // is established at mount time — the early return would skip that.
+    // Always apply on the very first call so the motion state is established
+    // at mount time — the early return would skip that.
     if (nowDisabled == _reducedMotion && _motionInitialized) return;
     _reducedMotion = nowDisabled;
     _motionInitialized = true;
@@ -319,8 +309,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   void _applyReducedMotion() {
     if (_reducedMotion) {
       // Collapse all animations to their final values immediately.
-      _dot.stop();
-      _dot.value = 1.0;
       // Liquid glass rests at phase 0 — the static baseline frame.
       _glass.stop();
       _glass.value = 0.0;
@@ -352,8 +340,8 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
     _syncContinuousAnimations();
   }
 
-  /// Runs the two perpetual animations — the accent-dot pulse and the
-  /// liquid-glass drift — exactly while the overlay is on screen.
+  /// Runs the perpetual liquid-glass drift exactly while the overlay is on
+  /// screen.
   ///
   /// The visibility gate is what makes the render engine's
   /// `detachFromEmbedderAppLifecycle()` safe: with this engine no longer
@@ -365,17 +353,14 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
   /// happened to stop these tickers.
   void _syncContinuousAnimations() {
     if (widget.animate && !_reducedMotion && widget.snapshot.visible) {
-      if (!_dot.isAnimating) _dot.repeat(reverse: true);
       if (!_glass.isAnimating) _glass.repeat();
       return;
     }
-    _dot.stop();
     _glass.stop();
     if (_reducedMotion || !widget.animate) {
-      // Static frame: the pulse rests at full and the glass at phase 0.
+      // Static frame: the glass rests at phase 0.
       // A merely-hidden overlay keeps its values — nothing is on screen to
       // notice, and the next appear starts from a live phase.
-      _dot.value = 1.0;
       _glass.value = 0.0;
     }
   }
@@ -422,7 +407,7 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         // the next appear starts from the correct initial value.
         _appear.value = 0.0;
       }
-      // Start/stop the perpetual pulse + drift with the panel itself.
+      // Start/stop the perpetual drift with the panel itself.
       _syncContinuousAnimations();
     } else if (widget.snapshot.visible &&
         _appear.status == AnimationStatus.dismissed) {
@@ -612,7 +597,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
 
   @override
   void dispose() {
-    _dot.dispose();
     _glass.dispose();
     _appear.dispose();
     _stateTransition.dispose();
@@ -664,7 +648,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
         height: window.height,
         child: AnimatedBuilder(
           animation: Listenable.merge([
-            _dot,
             _glass,
             _appear,
             _stateTransition,
@@ -700,7 +683,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
                     painter: WpFloatingOverlayView.painterFor(
                       snapshot: widget.snapshot,
                       waveformBars: widget.waveformBars,
-                      dotPulse: _dot.value,
                       paintFill: true,
                       paintContent: false,
                       pillWidth: animatedPillWidth,
@@ -717,7 +699,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
                       painter: WpFloatingOverlayView.painterFor(
                         snapshot: outgoing,
                         waveformBars: widget.waveformBars,
-                        dotPulse: _dot.value,
                         paintFill: false,
                         paintContent: true,
                         pillWidth: animatedPillWidth,
@@ -742,7 +723,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
                       painter: WpFloatingOverlayView.painterFor(
                         snapshot: widget.snapshot,
                         waveformBars: widget.waveformBars,
-                        dotPulse: _dot.value,
                         paintFill: false,
                         paintContent: true,
                         pillWidth: animatedPillWidth,
@@ -760,7 +740,6 @@ class _WpFloatingOverlayViewState extends State<WpFloatingOverlayView>
                 painter: WpFloatingOverlayView.painterFor(
                   snapshot: widget.snapshot,
                   waveformBars: widget.waveformBars,
-                  dotPulse: _dot.value,
                   pillWidth: animatedPillWidth,
                   glassPhase: _glass.value,
                   liquidMotion: _liquidMotion,

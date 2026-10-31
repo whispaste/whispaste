@@ -1227,6 +1227,13 @@ class L10nEn extends L10n {
       'Small always-on-top button for starting or stopping recording from any app';
 
   @override
+  String get settingsFloatingButtonIdleCapsule => 'Slim capsule when idle';
+
+  @override
+  String get settingsFloatingButtonIdleCapsuleSubtitle =>
+      'Narrow and unobtrusive; opens to the pill when hovered';
+
+  @override
   String get settingsLanguage => 'Language';
 
   @override
@@ -4759,6 +4766,14 @@ class L10nEn extends L10n {
   String get overlayMicSignalLost => 'No microphone signal';
 
   @override
+  String get overlayMicVeryQuiet => 'Microphone very quiet';
+
+  @override
+  String overlayRemainingTime(String time) {
+    return '$time left';
+  }
+
+  @override
   String get overlayDoneQuickNote => 'Added to note';
 
   @override
@@ -7915,7 +7930,7 @@ class L10nEn extends L10n {
 
   @override
   String get manualC02S3B2I2 =>
-      '“Floating button”: a button you click to record. Default: off. On Linux under Wayland, the desktop may limit its position and whether it stays on top.';
+      '“Floating button”: a button you click to record. Default: off. With “Slim capsule when idle”, it rests as a narrow capsule and opens to the full pill while you hover over it. Under Linux with Wayland the capsule stays narrow, and the desktop may limit its position and whether it stays on top.';
 
   @override
   String get manualC02S4Heading => 'Pasting after recording';

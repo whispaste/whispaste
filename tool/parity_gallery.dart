@@ -244,7 +244,6 @@ class _OverlayTile extends StatelessWidget {
               painter: WpFloatingOverlayView.painterFor(
                 snapshot: snapshot,
                 waveformBars: bars,
-                dotPulse: 1,
               ),
             ),
           ),

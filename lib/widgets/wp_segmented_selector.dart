@@ -82,7 +82,7 @@ class WpSegmentedChoice<T> extends StatelessWidget {
   }
 }
 
-/// Horizontal segmented control (WP-14 §4): one frame with an 8 px radius, an
+/// Horizontal segmented control (ticket §4): one frame with an 8 px radius, an
 /// active segment on a cyan-soft fill with petrol semibold text, and equal
 /// tap targets. The indicator slides behind the active segment.
 class WpSegmentedSelector extends StatelessWidget {

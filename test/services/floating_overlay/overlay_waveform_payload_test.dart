@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:whispaste/services/floating_overlay/overlay_waveform_payload.dart';
 
-/// WP-84 phase 2, plan item 5: the macOS waveform path sends one byte per bar
+/// ticket phase 2, plan item 5: the macOS waveform path sends one byte per bar
 /// instead of one 8-byte double, and skips a payload identical to the last one.
 void main() {
   group('encodeWaveformBars', () {

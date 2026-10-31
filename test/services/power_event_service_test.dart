@@ -1,4 +1,4 @@
-/// Dispatch of native sleep and wake events (WP-39, matrix 9.5).
+/// Dispatch of native sleep and wake events (ticket, matrix 9.5).
 library;
 
 import 'package:flutter/services.dart';

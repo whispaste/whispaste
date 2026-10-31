@@ -1,4 +1,4 @@
-// Runner-owned MethodChannel bridge for system sleep and resume (WP-39, 9.5).
+// Runner-owned MethodChannel bridge for system sleep and resume (ticket, 9.5).
 //
 // Windows delivers WM_POWERBROADCAST to top-level windows. FlutterWindow
 // forwards those messages here; this host turns suspend and resume into

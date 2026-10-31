@@ -22,7 +22,7 @@
   of the msstore-CLI's PascalCase one (Title/Description/Features/Keywords/
   ReleaseNotes under Listings.<locale>.BaseListing).
 
-  RESOLVED 2026-09-04 (Microsoft support ticket API TrackingID#2608200050000071
+  RESOLVED 2026-09-04 (Microsoft support ticket API REDACTED
   — see docs/store-release.md and ~/.claude/infrastructure/microsoft-
   partner-center.md §12 for the full trail): pricing.priceId is NOT
   unwritable for this account, and it must NEVER be passed through
@@ -266,7 +266,7 @@ Microsoft Store price tier. Set it to 'Free' or a 'TierNNNN' value looked
 up in Partner Center -> Pricing and availability -> the tier conversion
 table for WhisPaste's real price (isAdvancedPricingModel accounts use the
 Tier1001+ range; legacy Tier2-Tier96 are rejected for this pricing model
-per Microsoft support ticket API TrackingID#2608200050000071 -- see this
+per Microsoft support ticket API REDACTED -- see this
 script's header and docs/store-release.md). Never guess a tier number:
 committing a wrong-but-valid-looking tier silently changes the live price.
 "@

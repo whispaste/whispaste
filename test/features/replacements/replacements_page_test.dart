@@ -55,7 +55,7 @@ class _FakeSettingsNotifier extends SettingsNotifier {
 late L10n l10n;
 
 void main() {
-  // Rows are 48 px tap areas (WP-58), about 90 px apart with their dividers.
+  // Rows are 48 px tap areas (ticket), about 90 px apart with their dividers.
   // The flutter_test default view (800x600) leaves the third sample row below
   // the fold, where the lazy list never builds it, so every test gets the
   // 1280x800 desktop view the app runs in.
@@ -302,7 +302,7 @@ void main() {
     testWidgets(
       'the master switch sits in the overflow menu and turns the list off',
       (tester) async {
-        // The switch is no longer a card above the list (WP-81): it is a
+        // The switch is no longer a card above the list (ticket): it is a
         // checkable row in the ⋯ menu, and while it is off a banner offers to
         // turn it back on.
         final notifier = _FakeSettingsNotifier(
@@ -710,7 +710,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The folder import lives in the overflow menu (WP-81).
+      // The folder import lives in the overflow menu (ticket).
       await tester.tap(find.byKey(const ValueKey('replacements-more')));
       await tester.pumpAndSettle();
       await tester.tap(

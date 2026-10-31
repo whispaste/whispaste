@@ -1,4 +1,4 @@
-/// Route group: transcribe an uploaded WAV file (WP-38 / 8.2).
+/// Route group: transcribe an uploaded WAV file (ticket / 8.2).
 ///
 /// The body is the raw WAV file. Only the format the existing transcription
 /// path accepts gets through ([checkWav16kMono16]); anything else is a 415

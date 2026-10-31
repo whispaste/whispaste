@@ -552,7 +552,7 @@ class _WpButtonPalette {
       onFill: WpColors.onAction,
       content: WpColors.accent,
       // Outline of the secondary button: borderDefault reads as a control edge
-      // on the light ground (WP-14 §1 spec), borderSubtle vanished.
+      // on the light ground (ticket §1 spec), borderSubtle vanished.
       border: WpColors.controlEdge,
       hoverWash: WpColors.accentRowHover,
       pressedWash: WpColors.accentActiveFill,

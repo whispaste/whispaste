@@ -221,7 +221,7 @@ void main() {
     });
   });
 
-  group('KeyboardShortcutSection — hold-or-tap (ticket handy-catchup/07)', () {
+  group('KeyboardShortcutSection — hold-or-tap (ticket catchup/07)', () {
     const toggleKey = Key('holdOrTapToggle');
 
     Widget subject({
@@ -768,7 +768,7 @@ void main() {
       );
 
       // Scrolled into view first: since the hold-or-tap row (ticket
-      // handy-catchup/07) the toggle sits below the 800x600 test surface.
+      // catchup/07) the toggle sits below the 800x600 test surface.
       await tester.ensureVisible(
         find.byKey(const Key('snippetPickerHotkeyToggle')),
       );

@@ -262,7 +262,7 @@ void main() {
     });
   });
 
-  group('OverlayRenderChannel — frame acknowledgement (WP-84 phase 2)', () {
+  group('OverlayRenderChannel — frame acknowledgement (ticket phase 2)', () {
     test(
       'frameRendered does not raise when the shell rejects the call (Windows)',
       () async {

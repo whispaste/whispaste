@@ -1,4 +1,4 @@
-/// Holds one pending multiline paste for the main-window preview (WP-38 /
+/// Holds one pending multiline paste for the main-window preview (ticket /
 /// 8.5).
 ///
 /// An automation call that would insert multiline text waits here until the

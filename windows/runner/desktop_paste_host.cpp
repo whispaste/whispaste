@@ -564,7 +564,7 @@ bool DesktopPasteHost::WriteClipboardTextExcludingHistory(
   return WriteClipboardText(owner_, Utf8ToWide(text));
 }
 
-// Receipt-based clipboard restore (handy-catchup 06). Puts the transcript
+// Receipt-based clipboard restore (catchup 06). Puts the transcript
 // on the clipboard via delayed rendering: SetClipboardData(CF_UNICODETEXT,
 // NULL) only *announces* the text, and Windows sends WM_RENDERFORMAT to this
 // owner window the moment a reader actually asks for it -- that request is

@@ -1,4 +1,4 @@
-/// App-level wiring for the automation hook dispatcher (WP-38 / 8.3).
+/// App-level wiring for the automation hook dispatcher (ticket / 8.3).
 ///
 /// The hook list is read from settings at send time, so an edit in the
 /// Integrationen editor applies to the next event without a restart.

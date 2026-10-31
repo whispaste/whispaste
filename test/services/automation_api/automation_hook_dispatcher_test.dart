@@ -1,4 +1,4 @@
-/// Delivery tests for automation hooks (WP-38 / 8.3) against a real
+/// Delivery tests for automation hooks (ticket / 8.3) against a real
 /// loopback HTTP server. Covers the payload, the event filter, the
 /// send-time loopback re-check (including a DNS answer that moved to a
 /// public address), no redirects, a timeout, at most one retry, and the

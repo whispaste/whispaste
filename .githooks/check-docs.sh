@@ -17,7 +17,6 @@
 #
 set -euo pipefail
 
-ROOT="$(git rev-parse --show-toplevel)"
 MODE="${1:-staged}"
 
 fail=0
@@ -32,7 +31,7 @@ IP_RE='192\.168\.[0-9]|10\.[0-9]+\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0
 KEY_RE='(API_KEY|SECRET_KEY|SERVICE_ROLE_KEY|ACCESS_KEY)\s*[:=]\s*["\x27][A-Za-z0-9_-]{16,}'
 
 # --- Projektspezifische Blockliste (NICHT eingecheckt, gitignored) ---
-LOCAL_BLOCK="$ROOT/.githooks/leak-blocklist.local"
+LOCAL_BLOCK="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/leak-blocklist.local"
 LOCAL_RE=""
 if [ -f "$LOCAL_BLOCK" ]; then
   LOCAL_RE="$(grep -vE '^[[:space:]]*(#|$)' "$LOCAL_BLOCK" | paste -sd '|' - || true)"

@@ -1100,6 +1100,7 @@ class OverlaySettings {
     this.floatingButtonShape = 'round',
     this.floatingButtonRing = true,
     this.floatingButtonIdleOpacity = '100',
+    this.floatingButtonIdleCapsule = false,
   });
 
   final bool showOverlay;
@@ -1121,8 +1122,8 @@ class OverlaySettings {
   /// (ADR 0024). Retired 'neutral' is loaded as 'ink'.
   final String overlayWave;
 
-  /// Window shape: 'pill', 'rounded-rect', 'compact-circle' or 'edge-bar'
-  /// (WP-95, see `OverlayForm` in `overlay_customization.dart`).
+  /// Window shape: 'pill' or 'rounded-rect' (other stored values read as 'pill')
+  /// (ticket, see `OverlayForm` in `overlay_customization.dart`).
   final String overlayForm;
 
   /// Waveform drawing: 'bars', 'line' or 'dots' (`OverlayWaveStyle`).
@@ -1156,6 +1157,10 @@ class OverlaySettings {
   final String floatingButtonIdleOpacity;
 
   final bool showFloatingButton;
+
+  /// Idle form of the floating button: a small capsule that expands to the
+  /// pill on hover ("Immer sichtbar"). Off keeps the disc.
+  final bool floatingButtonIdleCapsule;
 
   /// Whether the overlay shows the live/partial recognized text (as far as
   /// the active STT engine has decoded it) instead of staying waveform-only.
@@ -1217,6 +1222,11 @@ class OverlaySettings {
         'show_floating_button',
         defaults.showFloatingButton,
       ),
+      floatingButtonIdleCapsule: _readBool(
+        v,
+        'overlay_button_idle_capsule',
+        defaults.floatingButtonIdleCapsule,
+      ),
       // 'floating_button_size' is intentionally not read — removed in issue 11.
       // Old configs may have it; the key is silently ignored (no migration needed).
       overlayShowLiveTranscript: _readBool(
@@ -1245,6 +1255,7 @@ class OverlaySettings {
     'overlay_button_ring': '$floatingButtonRing',
     'overlay_button_idle_opacity': floatingButtonIdleOpacity,
     'show_floating_button': '$showFloatingButton',
+    'overlay_button_idle_capsule': '$floatingButtonIdleCapsule',
     'overlay_show_live_transcript': '$overlayShowLiveTranscript',
   };
 
@@ -1266,8 +1277,12 @@ class OverlaySettings {
     bool? floatingButtonRing,
     String? floatingButtonIdleOpacity,
     bool? showFloatingButton,
+    bool? floatingButtonIdleCapsule,
     bool? overlayShowLiveTranscript,
+    // loam-ignore: code-duplicates – same copyWith return shape by design as every other settings-section class in this file.
   }) => OverlaySettings(
+    floatingButtonIdleCapsule:
+        floatingButtonIdleCapsule ?? this.floatingButtonIdleCapsule,
     showOverlay: showOverlay ?? this.showOverlay,
     overlayMode: overlayMode ?? this.overlayMode,
     overlayStartPosition: overlayStartPosition ?? this.overlayStartPosition,
@@ -1311,6 +1326,7 @@ class OverlaySettings {
           floatingButtonRing == other.floatingButtonRing &&
           floatingButtonIdleOpacity == other.floatingButtonIdleOpacity &&
           showFloatingButton == other.showFloatingButton &&
+          floatingButtonIdleCapsule == other.floatingButtonIdleCapsule &&
           overlayShowLiveTranscript == other.overlayShowLiveTranscript;
 
   @override
@@ -1332,6 +1348,7 @@ class OverlaySettings {
     floatingButtonRing,
     floatingButtonIdleOpacity,
     showFloatingButton,
+    floatingButtonIdleCapsule,
     overlayShowLiveTranscript,
   );
 }
@@ -3413,7 +3430,7 @@ class AutomationApiSettings {
   /// `AutomationApiController._start`).
   final int? customPort;
 
-  /// Outbound event hooks (WP-38 / 8.3). Loopback-only; see
+  /// Outbound event hooks (ticket / 8.3). Loopback-only; see
   /// `automation_hooks.dart`. Stored under the additive key
   /// `automation_hooks`.
   final List<AutomationHook> hooks;
