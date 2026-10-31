@@ -9,6 +9,9 @@
 #   1. Keine Infra-/Secret-Leaks — generische Marker (private IPs ausser in Tests,
 #      lokale Pfade, Private-Key-/Access-Key-Muster) PLUS eine projektspezifische,
 #      NICHT eingecheckte Blockliste (.githooks/leak-blocklist.local, gitignored).
+#      Secret patterns apply to every file; local paths, private IPs and the
+#      blocklist only to public paths (.ossallowlist, via oss-public.sh):
+#      internal files stay on the NAS and are never exported.
 #   2. Öffentliche GitHub-Markdown (README/SECURITY/CHANGELOG) ist Englisch.
 #   3. Keine Security-Werbung (Guardrail), keine falsche Identität, keine Platzhalter.
 #   4. Pflichtdateien vorhanden + nicht leer; die lokale Blockliste bleibt ungetrackt.
@@ -48,6 +51,9 @@ list_files(){
     git ls-tree -r --name-only HEAD
   fi
 }
+# Public paths of this check (oss-public.sh next to this script).
+PUBLIC_LIST="$(list_files | "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/oss-public.sh")"
+is_public(){ LC_ALL=C grep -qxF -- "$1" <<<"$PUBLIC_LIST"; }
 read_file(){ if [ "$MODE" = "staged" ]; then git show ":$1" 2>/dev/null; else git show "HEAD:$1" 2>/dev/null; fi; }
 exists(){
   if [ "$MODE" = "staged" ]; then git ls-files --cached --error-unmatch "$1" >/dev/null 2>&1
@@ -82,10 +88,12 @@ while IFS= read -r f; do
   skip_file "$f" && continue
   content="$(read_file "$f")"
   [ -z "$content" ] && continue
+  public=false
+  ! is_public "$f" || public=true
 
   # Lokale Pfade — nur in Nicht-Test-Dateien flaggen (Test-Fixtures dürfen
   # /Users/test/, /home/user/ etc. enthalten).
-  if ! is_test "$f"; then
+  if $public && ! is_test "$f"; then
     if LC_ALL=C grep -qE "$PATH_RE" <<<"$content"; then
       hit="$(LC_ALL=C grep -nE "$PATH_RE" <<<"$content" | sed -n '1p' | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
       err "$f: lokaler Pfad (Infra-Leak) → $hit"
@@ -100,12 +108,12 @@ while IFS= read -r f; do
     hit="$(LC_ALL=C grep -nE "$KEY_RE" <<<"$content" | sed -n '1p' | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
     err "$f: Secret/Key-Pattern → $hit"
   fi
-  if [ -n "$LOCAL_RE" ] && LC_ALL=C grep -qiE "$LOCAL_RE" <<<"$content"; then
+  if $public && [ -n "$LOCAL_RE" ] && LC_ALL=C grep -qiE "$LOCAL_RE" <<<"$content"; then
     hit="$(LC_ALL=C grep -niE "$LOCAL_RE" <<<"$content" | sed -n '1p' | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
     err "$f: Blocklisten-Treffer (Internas) → $hit"
   fi
   # Private IPs — nicht in Test-Dateien und nicht in Source-Code (Build-Nummern, SDK-Versionen).
-  if ! is_test "$f" && ! is_source "$f"; then
+  if $public && ! is_test "$f" && ! is_source "$f"; then
     if LC_ALL=C grep -qE "$IP_RE" <<<"$content"; then
       hit="$(LC_ALL=C grep -nE "$IP_RE" <<<"$content" | sed -n '1p' | sed 's/^[[:space:]]*//; s/  */ /g' | cut -c1-100)"
       err "$f: private IP (Infra-Leak) → $hit"

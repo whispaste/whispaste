@@ -11,6 +11,7 @@
 #   6. name-guard file: a name in a commit message blocks
 #   7. guards run from a directory outside the repo (core.hooksPath of
 #      another checkout) still find oss-public.sh
+#   8. check-docs: local paths only matter in public files, secrets in all
 # Run: bash .githooks/oss-guards.test.sh
 set -uo pipefail
 
@@ -95,6 +96,25 @@ expect_rc 1 "guards outside the repo find their helpers (name-guard)" "$WORK/hoo
 git restore --staged lib/a.dart && git checkout -q -- lib/a.dart
 expect_rc 0 "guards outside the repo find their helpers (instruction-guard)" "$WORK/hooks/instruction-guard.sh" staged
 mv "$WORK/repo-hooks" .githooks
+
+# 8
+cp "$HOOKS/check-docs.sh" .githooks/
+echo clean > SECURITY.md && echo clean > LICENSE
+git add SECURITY.md LICENSE && gc -m "required files"
+U="/Users"
+echo "see $U/someone/notes" > notes/setup.md
+git add notes/setup.md
+expect_rc 0 "check-docs: a local path in an internal file passes" .githooks/check-docs.sh staged
+git restore --staged notes/setup.md && rm notes/setup.md
+echo "// $U/someone/build" >> lib/a.dart
+git add lib/a.dart
+expect_rc 1 "check-docs: a local path in a public file blocks" .githooks/check-docs.sh staged
+git restore --staged lib/a.dart && git checkout -q -- lib/a.dart
+K="PRIVATE"
+printf '%s\n' "-----BEGIN RSA $K KEY-----" > notes/key.md
+git add notes/key.md
+expect_rc 1 "check-docs: a private key blocks in internal files too" .githooks/check-docs.sh staged
+git restore --staged notes/key.md && rm notes/key.md
 
 echo
 if [ "$failures" -gt 0 ]; then
