@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Builds a WhisPaste AppImage from the prebuilt Linux x86_64 release bundle
+# produced by the `build-linux` job in .github/workflows/release.yml (the Flutter
+# bundle under build/linux/x64/release/bundle, packaged as
+# WhisPaste-<version>-linux-x64.tar.gz, artifact `linux-release`).
+#
+# We do NOT rebuild Flutter — all §3.1 build pitfalls are already baked into the
+# bundle. We assemble an AppDir, then call linuxdeploy to bundle the Flutter
+# bundle's shared libs and emit a single relocatable AppImage.
+#
+# Runtime writable paths: an AppImage is unsandboxed, so the app self-downloads
+# the Sprachdienst (whisper-server) + Sprachmodell at first run into the user's
+# config dir ($XDG_CONFIG_HOME/whispaste/models/stt, default
+# ~/.config/whispaste/models/stt — see appDataDir()/sttDir() in
+# packages/whispaste_diagnostics/.../path_service.dart). That path is writable
+# and not noexec, so the downloaded binary is chmod +x'd and executed there.
+# The AppImage mount itself is read-only, which is correct — nothing runtime is
+# written inside it.
+#
+# Usage:
+#   build-appimage.sh <bundle-dir> <version> <out-dir>
+#
+# Requires linuxdeploy (downloaded by the CI job). Validate syntax without
+# running:
+#   bash -n packaging/appimage/build-appimage.sh
+set -euo pipefail
+
+BUNDLE_DIR="${1:?usage: build-appimage.sh <bundle-dir> <version> <out-dir>}"
+VERSION="${2:?missing version}"
+OUT_DIR="${3:?missing out-dir}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PKG_ROOT="$SCRIPT_DIR/../.."
+
+APP_ID="de.whispaste.app"
+APPDIR="$(mktemp -d)/WhisPaste.AppDir"
+trap 'rm -rf "$(dirname "$APPDIR")"' EXIT
+
+# ── 1. Lay out the AppDir ────────────────────────────────────────────────────
+install -d "$APPDIR/usr/bin"
+cp -r "$BUNDLE_DIR"/. "$APPDIR/usr/bin/"
+chmod +x "$APPDIR/usr/bin/whispaste"
+# crashpad_handler (sentry-native) must stay executable (§3.1).
+if [ -f "$APPDIR/usr/bin/lib/crashpad_handler" ]; then
+  chmod +x "$APPDIR/usr/bin/lib/crashpad_handler"
+fi
+
+# Desktop entry + icon (reused verbatim from packaging/flatpak — single source
+# of truth). linuxdeploy reads these to populate the AppDir root.
+install -Dm644 "$PKG_ROOT/packaging/flatpak/$APP_ID.desktop" \
+  "$APPDIR/usr/share/applications/$APP_ID.desktop"
+install -Dm644 "$PKG_ROOT/packaging/flatpak/$APP_ID.metainfo.xml" \
+  "$APPDIR/usr/share/metainfo/$APP_ID.metainfo.xml"
+# The hicolor 512x512 slot needs a real 512px icon — the master app_icon.png is
+# 1024x1024, which linuxdeploy rejects ("invalid x resolution: 1024"). Use the
+# committed 512px derivative so no build-time image tooling is required.
+install -Dm644 "$PKG_ROOT/assets/icons/app_icon_512.png" \
+  "$APPDIR/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
+
+# Licence text of libXScrnSaver, which the app links against (BIZ-92). The Flutter
+# bundle also carries it for the in-app licences page.
+install -Dm644 "$(cd "$(dirname "$(readlink -f "$0")")/../.." && pwd)/assets/licenses/libxscrnsaver-LICENSE.txt" \
+  "$APPDIR/usr/share/licenses/libXScrnSaver/COPYING"
+
+# ── 2. Run linuxdeploy ───────────────────────────────────────────────────────
+# linuxdeploy bundles the executable's shared-library dependencies. The Flutter
+# plugin .so files already sit in the AppDir at usr/bin/lib (copied above);
+# --deploy-deps-only points linuxdeploy at them so it resolves THEIR system
+# dependencies and fixes their rpath without re-copying. (There is no
+# --library-path flag in linuxdeploy — that was rejected as an unknown option.)
+export ARCH=x86_64
+export OUTPUT="$OUT_DIR/WhisPaste-${VERSION}-linux-x64.AppImage"
+install -d "$OUT_DIR"
+
+linuxdeploy \
+  --appdir "$APPDIR" \
+  --executable "$APPDIR/usr/bin/whispaste" \
+  --desktop-file "$APPDIR/usr/share/applications/$APP_ID.desktop" \
+  --icon-file "$APPDIR/usr/share/icons/hicolor/512x512/apps/$APP_ID.png" \
+  --deploy-deps-only "$APPDIR/usr/bin/lib" \
+  --output appimage
+
+echo "Built $OUTPUT"
+# The undo idle gate needs libXss.so.1 (XScreenSaver). linuxdeploy bundles it
+# unless its excludelist matches, so warn loudly when the release log shows no
+# bundled copy; the README then keeps libxss1 as a host dependency.
+bundled_xss=$(find "$APPDIR" -name 'libXss.so.1*' -print -quit)
+if [ -z "$bundled_xss" ]; then
+  echo "::warning::libXss.so.1 is not bundled in the AppImage; hosts need libxss1" >&2
+fi
+
+
+# Stable-name alias (mirrors WhisPaste-Setup.exe / WhisPaste-macos-arm64.dmg):
+# the website links a version-less URL under releases/latest/download/, which
+# only resolves if the asset name doesn't change every release.
+STABLE_OUTPUT="$OUT_DIR/WhisPaste-linux-x64.AppImage"
+cp "$OUTPUT" "$STABLE_OUTPUT"
+echo "Copied stable-name alias to $STABLE_OUTPUT"

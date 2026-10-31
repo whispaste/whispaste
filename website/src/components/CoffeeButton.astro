@@ -1,0 +1,23 @@
+---
+/**
+ * "Buy me a coffee" support button in coffee yellow (design-tokens/README.md).
+ * Ko-fi and Buy Me a Coffee use this same button at equal rank (maintainer
+ * decision 6c, 2026-10-25): never a primary/secondary split. Plain external
+ * link, opens in a new tab; the cup icon is decorative, the visible label is
+ * the accessible name.
+ */
+interface Props {
+  readonly label: string;
+  readonly href: string;
+  /** i18n key for the runtime language switch (data-i18n). */
+  readonly labelKey?: string;
+  readonly testid?: string;
+}
+
+const { label, href, labelKey, testid = 'coffee-button' } = Astro.props;
+---
+
+<a class="wp-coffee-button" href={href} target="_blank" rel="noopener" data-testid={testid}>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/></svg>
+  <span data-i18n={labelKey}>{label}</span>
+</a>

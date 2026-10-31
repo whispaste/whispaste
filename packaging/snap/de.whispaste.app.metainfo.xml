@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metainfo — required by Flathub. Validate with:
+     appstreamcli validate packaging/flatpak/de.whispaste.app.metainfo.xml -->
+<component type="desktop-application">
+  <id>de.whispaste.app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <name>WhisPaste</name>
+  <summary>Voice-input tool: hotkey, speak, paste anywhere</summary>
+
+  <description>
+    <p>
+      WhisPaste is a voice-input tool. Press a global hotkey, speak, and the
+      transcribed text is pasted at the cursor position of whatever application
+      you are currently typing in — system-wide, not bound to a single app.
+    </p>
+    <p>
+      Transcription runs locally on your device via whisper.cpp (no network
+      traffic) or, optionally, through a cloud provider you choose. The local
+      Sprachdienst is downloaded automatically on first use; audio never leaves
+      your device in local mode.
+    </p>
+    <p>WhisPaste is explicitly not an always-listening assistant, not a
+      recording or file-transcription tool, and not a voice-command system —
+      its output is text that flows into the active application.</p>
+  </description>
+
+  <launchable type="desktop-id">de.whispaste.app.desktop</launchable>
+
+  <url type="homepage">https://whispaste.de/</url>
+  <url type="bugtracker">https://github.com/whispaste/whispaste/issues</url>
+
+  <developer id="de.whispaste">
+    <name>Silvio Lindstedt</name>
+  </developer>
+
+  <provides>
+    <binary>whispaste</binary>
+  </provides>
+
+  <content_rating type="oars-1.1" />
+
+  <categories>
+    <category>Utility</category>
+    <category>Accessibility</category>
+  </categories>
+
+  <keywords>
+    <keyword>voice</keyword>
+    <keyword>speech</keyword>
+    <keyword>transcription</keyword>
+    <keyword>whisper</keyword>
+    <keyword>paste</keyword>
+    <keyword>hotkey</keyword>
+  </keywords>
+
+  <!-- Per-release: prepend a <release> entry with the tag version + date.
+       See packaging/flatpak/README.md (runbook). -->
+  <releases>
+    <release version="0.0.0" date="2026-06-12">
+      <description>
+        <p>Placeholder release entry — replaced with the real tag version and
+          date at Flathub submission time.</p>
+      </description>
+    </release>
+  </releases>
+</component>

@@ -1,0 +1,396 @@
+# WhisPaste — Full LLM Reference
+
+> Vollständige Self-Beschreibung von WhisPaste für KI-Suchmaschinen und LLM-Crawler. Quelle: `CONTEXT.md` §1–§4 + `docs/zielgruppe.md`.
+
+<!-- seo-audit:contrastive -->
+
+---
+
+## Part 1 — Domain Glossary (CONTEXT.md §1–§4)
+
+## 1. Produktkern
+
+**WhisPaste**: Sprach-Eingabe-Tool — nimmt auf Anforderung eine Sprachaufnahme entgegen, fügt transkribierten Text an der Cursor-Position der aktiven Anwendung ein (Auto-Paste auf macOS, Windows und Linux — Linux per virtuellem `/dev/uinput`-Keyboard, braucht udev-Schreibzugriff, §2.7).
+
+- **App:** macOS, Windows, Ubuntu Linux — drei gleichrangige Desktop-Plattformen (Linux-Ziel: Binär-Parität via AppImage). Kein iOS/Android.
+- **Website** (`website/`) ≠ App: muss voll mobil-responsive sein (ab 390px) — „Mobile nicht geplant" gilt nur für die App.
+- **Nordstern:** OSS-Marktführer für systemweites Desktop-Diktat (macOS/Windows/Linux). Jede Produkt-/Design-/Copy-Entscheidung zahlt darauf ein.
+- **Aufnahmen-Kern (Entscheidung 2026-10-20, Punkte 1–3, 8):** Diktat ist der Hauptpfad (Aufnahme max. 120 s, AR-17). Gespräche mit Sprechertrennung (lokal, ohne Stimmprofile, ADR 0021) und der Import von Audio-Dateien gehören ebenfalls zum Kern; lange Gespräche und Dateien laufen per Chunking ohne feste Minutenzahl. Decoder für Windows und Linux sind Release-Bedingung (Parität). Übersetzen ist ein optionaler Smart-Mode-Schritt, keine Kernfunktion.
+- **Formsprache spiegelt Philosophie:** Die ruhige, flache Formsprache des Aufnahme-Overlays und Docks (kontinuierliche Bewegung, keine harten Zustandswechsel; flache, einfarbige Flächen, Entscheidung 2026-10-20, Punkt 12: kein Glas, kein Glow) ist die bewusste visuelle Übersetzung des Kernprinzips „Schreibfluss schlägt Funktion" (`docs/zielgruppe.md`): Der Gedanke fließt ohne Bruch in den Text, und die Oberfläche zeigt diesen Fluss. Design- und Copy-Entscheidungen halten diese Klammer aus Optik und Produktphilosophie zusammen, statt sie unabhängig voneinander zu treffen.
+- **Visuelles Kredo (seit 2026-08, app-weit und dauerhaft — gilt über den 2026-Visual-Refresh hinaus):** *ersetzt durch Entscheidung 2026-10-20, Punkt 12: kein Glas, kein Glow, flache Flächen; die Lesart „Glas als Sättigungs-Metapher“ entfällt. Historie unten.* „Das bestehende WhisPaste — aber durch hochwertiges farbiges Glas betrachtet." Lebendige Atmosphäre, luxuriöse UI/Komponenten, eine intelligent wirkende Arbeitsumgebung und klar erkennbare Markenidentität — bei unverändertem Produkt: kein neues Layout, keine neue Informationsarchitektur, ein radikaler visueller Skin-Wechsel innerhalb der bestehenden Struktur. „Glas" ist eine Sättigungs-/Tiefen-Metapher, kein Auftrag zu echtem Compositor-Blur — Näheres inkl. Spannung zum bisherigen „Quiet Signal"-Framing: `docs/adr/0011-visuelles-kredo-farbiges-glas.md`.
+
+### WhisPaste ist explizit nicht …
+
+| WhisPaste ist nicht … | verwechselbar mit | Unterschied |
+|---|---|---|
+| ein **Always-Listening-Sprachassistent** | Siri, Cortana, Alexa, Google Assistant | anforderungs-basiert statt dauerlauschend |
+| ~~ein **Transkriptions-/Aufnahme-Tool**~~ | ~~Meeting-Mitschnitt-Dienste, Whisper-Wrapper~~ | ~~Output fließt in die aktive App statt in eine Datei~~ (ersetzt durch die Zeile darunter, Punkt 1) |
+| ein **Meeting-Bot** oder Cloud-Mitschnitt-Dienst | Meeting-Mitschnitt-Dienste | kein Bot, keine Cloud-Aufnahme; Gespräche entstehen lokal auf dem Gerät (ADR 0021, Entscheidung 2026-10-20, Punkt 1) |
+| ein **Sprach-Frontend für eine KI** | ChatGPT-Voice, Claude-Voice | Sprache wird transkribiert, nicht interpretiert |
+| ein **Übersetzungs-Tool** | DeepL Voice, Apple Translate | Transkription statt Übersetzung; Übersetzen ist nur ein optionaler Smart-Mode-Schritt, keine Kernfunktion (Entscheidung 2026-10-20, Punkt 8) |
+| ein **app-internes Diktat** | Word-/Notion-/macOS-Diktat | systemweit statt an eine App gebunden |
+
+## 2. Kernbegriffe
+
+### 2.1 Aufnahme-Vorgang (Recording Cycle)
+
+Kompletter Akt von Hotkey bis zum Ergebnis am Aufnahme-Ziel (§2.6 — Standard oder Schnellnotiz). Phasen: `idle → recording → transcribing → done | error` (kein separater `processing`-State, §3.1). Code: `RecordingOrchestrator` (orchestriert), `RecordingState` (Zustand), `RecordingPhase` (Enum). Kein Synonym für „Aufnahme" (§2.2).
+
+### 2.2 Aufnahme (Recording)
+
+Einzelne Phase **innerhalb** eines Aufnahme-Vorgangs: Mikrofon offen, Audio → temporäre WAV. Endet bei Hotkey-Loslassen (Push-to-talk) oder erneutem Druck (Toggle). Code: `RecordingPhase.recording`.
+
+### 2.3 Transkription
+
+WAV → Text via STT-Engine — lokal whisper.cpp/Parakeet (§4.2), cloud OpenAI/Deepgram (Groq entfernt in v1.2.13). Code: `RecordingPhase.transcribing`, `lib/services/stt/`. Ergebnis heißt **transkribierter Text** (nicht „Text").
+
+### 2.4 Einfügen / Paste
+
+Finaler Schritt: transkribierter Text wird per Clipboard-Inject + synthetisiertem Paste-Event (`Ctrl+V`/`Cmd+V`) in die aktive App eingefügt. Namensgebend (Whis**Paste**). Code: `lib/services/desktop_paste/`.
+
+**Rückgängig nach Auswahl-Bearbeitung mit Namensänderung (DEV-165, DEV-185):** Die Namens-Toast-Meldung nennt nur die Anzahl, nie die Namen. „Rückgängig“ sendet Cmd+Z nur, wenn alle Bedingungen gelten: sauberer nativer Paste (kein getipptes Einfügen), kein weiterer Einfüge- oder Aufnahmestart seither, dieselbe Vordergrund-App, kein Hardware-Tastendruck seit dem Einfügen (macOS misst das über den HID-Zustand; eigene synthetische Tasten zählen nicht). Sonst wird der Originaltext über den vorübergehenden, vom Verlauf ausgeschlossenen Zwischenablage-Schreibweg kopiert, und der Toast sagt, dass der Benutzer selbst einfügen muss und der vorherige Inhalt ersetzt wurde. Der Toast mit Aktion bleibt mindestens 10 s, pausiert bei Zeiger oder Fokus und verwirft den Originaltext beim Ablauf. **Plattform-Stand:** Nur macOS hat den Cmd+Z-Pfad; Windows und Linux sind bewusst nur Zwischenablage (Fallback), bis dort ein Undo-Pfad existiert.
+
+### 2.5 Hotkey
+
+Systemweit registrierte Tastenkombination. Drei unabhängige Hotkeys, gemeinsame Registrierungs-Technik (`hotkey_service.dart`), aber unterschiedliche Wirkung, Default-Aktivierung und Aufnahme-Bezug:
+
+| Hotkey | Default-Kombination | Default aktiv | Löst aus |
+|---|---|---|---|
+| **Haupt-Hotkey** | `Ctrl+Shift+D` | ja | Aufnahme-Vorgang, Aufnahme-Ziel „Standard" (§2.6) |
+| **Schnellnotiz-Hotkey** | `Ctrl/⌘+Shift+N` | nein — muss in den Settings eingeschaltet werden | Aufnahme-Vorgang, Aufnahme-Ziel „Schnellnotiz" (§2.6) |
+| **Snippet-Hotkey** | `Ctrl/⌘+Shift+E` | nein — muss in den Settings eingeschaltet werden | **kein** Aufnahme-Vorgang — öffnet nur den Snippet-Picker (§5.8), identisch zum gesprochenen Snippet-Picker-Trigger |
+
+Nur der Haupt-Hotkey kennt beide Aufnahme-Modi (Tabelle unten); der Schnellnotiz-Hotkey unterstützt nur den Toggle-Modus (kein Push-to-talk — Schnellnotizen sind für kurze, frei unterbrechbare Eingaben gedacht, kein Gedrückthalten); der Snippet-Hotkey kennt keinen Aufnahme-Modus, da er nie eine Aufnahme startet. Formale DE-Variante „Tastenkombination" im Fließtext okay; in Code/UI-Strings immer „Hotkey".
+
+| Modus | Verhalten |
+|---|---|
+| **Push-to-talk** | Aufnahme läuft, solange der Hotkey gedrückt gehalten wird. |
+| **Toggle** | Erster Druck startet, zweiter Druck stoppt. |
+
+### 2.6 Aufnahme-Ziel
+
+`RecordingTarget` (`lib/core/recording/recording_state.dart`, `recordingTargetProvider`) legt fest, WELCHES Ergebnis ein Aufnahme-Vorgang überhaupt hat — unveränderlich gesetzt beim Start, abhängig davon, welcher Hotkey ihn ausgelöst hat (Haupt-Hotkey oder jeder andere Aufnahme-Start-Weg außer dem Schnellnotiz-Hotkey → „Standard"; Schnellnotiz-Hotkey → „Schnellnotiz"). Abgrenzung zu Auto-Paste (§2.7): Aufnahme-Ziel entscheidet, welches Ergebnis zutrifft; Auto-Paste entscheidet erst danach, *innerhalb* des Ziels „Standard", *wie* genau vorgegangen wird (automatisch einfügen vs. nur kopieren).
+
+| Wert | Ausgelöst durch | Ergebnis |
+|---|---|---|
+| `clipboard` (Standard) | Haupt-Hotkey und alle übrigen Aufnahme-Start-Wege außer dem Schnellnotiz-Hotkey | landet in Zwischenablage/aktiver App — genaues „Wie" regelt §2.7 Auto-Paste |
+| `quickNote` | Schnellnotiz-Hotkey | wird an die exklusiv markierte Schnellnotiz angehängt (§5.9) — kein Zwischenablage-Zugriff, kein Einfügen, kein Verlauf-Eintrag |
+
+Der Snippet-Hotkey hat **kein** Aufnahme-Ziel: er startet nie einen Aufnahme-Vorgang (§5.8), `RecordingTarget` wird für ihn nie gesetzt.
+
+_Avoid_: Aufnahme-Ziel als Synonym für „Ziel-App"/Paste-Ziel (die App, in die eingefügt wird, §6.5-Telemetrie-Negativliste) — zwei verschiedene Dinge: Aufnahme-Ziel ist die grobe Weiche Standard/Schnellnotiz, Ziel-App ist nur innerhalb von „Standard" relevant (welche App den Paste empfängt).
+
+### 2.7 Auto-Paste
+
+Kanonischer Feature-Begriff: „WhisPaste tippt nach der Transkription automatisch `⌘V`/`Ctrl+V`". Namensgebende Default-Erfahrung — Clipboard ist nur das Vehikel, nicht das Feature. Unterschied zu §2.4: §2.4 ist die Pipeline-**Phase**, Auto-Paste die User-sichtbare **Feature-Variante** davon (Gegenteil: „Nur Zwischenablage", `AfterTranscriptionAction.clipboard`). Gilt nur innerhalb des Aufnahme-Ziels `clipboard` (§2.6) — beim Ziel `quickNote` stellt sich die Frage nicht, da nie kopiert oder eingefügt wird.
+
+Code: `AfterTranscriptionAction` (`paste`/`clipboard`), `autoPasteAfterTranscription`, `lib/services/paste/` (`Paster`, `PasteCapability`, §3.6), `AutoPasteStep` (§5.6).
+Plattform: macOS (Accessibility-Permission nötig), Windows (meist keine, UIPI-Edge bei elevated Targets), Linux (uinput-basiertes virtuelles Keyboard, `linux/runner/desktop_paste_host.cc` — braucht `/dev/uinput`-Zugriff, siehe `packaging/linux/71-whispaste-uinput.rules`; Zustimmung statt Stillschweigen (R-02, Round 2): kein Paket aktiviert die Regel bei der Installation. Das `.deb` legt sie nur inaktiv ab und gewährt sie erst nach Zustimmung in der App und Administratorpasswort (polkit `de.whispaste.uinput.manage`); Entfernen über „Freigabe entfernen“ nur für diese eigene Regel. AppImage/Flatpak/Tarball: Befehl kopieren und selbst ausführen. Code+Build ab 2026-08-17 verifiziert, interaktive On-Device-Prüfung steht noch aus, Ticket 30).
+
+**Ergebnis ohne Read-Receipt-Bridge (WP-33a, RE2-01):** Plattformen ohne Receipt-Bridge (Linux) liefern `PasteOutcome.unconfirmedNoBridge`. Das Ergebnis ist wie `unconfirmed` kein Erfolg und hat keinen „eingefügt“-Anspruch. Anders als `unconfirmed` (Bridge vorhanden, aber Timeout oder Übernahme auf macOS/Windows) zeigt die App dafür **keine Warnung**. Die Zwischenablage folgt der Einstellung „Zwischenablage nach dem Einfügen“ (siehe unten): Bei „Vorherigen Inhalt zurück“ (Standard) wird der vorherige Inhalt nach dem Einfügen zurückgeschrieben, aber nur solange die Zwischenablage noch das Diktat enthält; bei „Diktat behalten“ bleibt das Diktat liegen. Die Unterscheidung trifft der Paster am Grund, nicht die UI. Folgeticket für einen Linux-Lesenachweis über die GTK-Zwischenablage: `internal-notes`.
+
+**Zwischenablage nach dem Einfügen (`BehaviorSettings.restoreClipboardAfterPaste`, Standard `true`):** Einstellung unter Einstellungen > Text & Einfügen (`settings-paste-clipboard-after`). „Vorherigen Inhalt zurück“ stellt den Inhalt vor dem Diktat wieder her (nur über eine unveränderte Zwischenablage, Besitz-Prüfung). „Diktat behalten“ stellt nie wieder her: Das Diktat bleibt nach bestätigtem oder nicht bestätigtem Einfügen in der Zwischenablage. Ausnahme, unabhängig von der Einstellung: Ein Receipt-Timeout auf macOS/Windows (`unconfirmed`) lässt das Diktat immer in der Zwischenablage. Bestehende Nutzer ohne gespeicherten Schlüssel erhalten „Vorherigen Inhalt zurück“.
+
+**Sperrliste für Auto-Paste (Einstellungen > Text & Einfügen, `text-auto-paste-blocklist`):** Die Liste der Apps, in die nicht automatisch eingefügt wird, ist eine App-Liste statt eines Textfelds. „Hinzufügen“ öffnet eine Auswahl mit den zuletzt diktierten Ziel-Apps (aus dem Verlauf, `targetApp`, neueste zuerst, je App einmal). Eine Kennung kann Fortgeschrittene manuell eintragen. Die Einstellung bleibt ein Komma-Text (`behavior.autoPasteBlocklist`), alte Werte werden unverändert gelesen. Im Verlauf bietet das Detail-Menü „Auto-Paste in dieser App aus“ an, wenn die Ziel-App bekannt und noch nicht gesperrt ist. Ohne Ziel-Erkennung (Wayland, §3.6) bleibt die Sperrliste sichtbar, mit dem Hinweis, dass dann nur kopiert wird. Die Karte „Alles bereit“ (`WpPasteCapabilityIndicator`) erscheint nur, wenn der Nutzer etwas tun muss (Berechtigung fehlt, Neustart nötig, nicht unterstützt); im Zustand bereit ist sie unsichtbar. Icons der Apps sind nur als Platz im Zeilen-Widget (`WpAppRow`) vorgesehen, noch nicht umgesetzt.
+
+Done-Zustand (Dock, Overlay-Ansage): Der Chip nennt das **reale** Ergebnis, nicht die Einstellung. Ziel `quickNote` → „Zur Notiz hinzugefügt“, Ziel Auswahl-Bearbeitung → entsprechender Edit-Text; fehlgeschlagenes Einfügen → „Einfügen nicht möglich – Text kopieren“ (nie „Eingefügt“); sonst je nach Aktion „Kopiert“, „Eingefügt“, „Kopiert & eingefügt“ oder „Fertig“. Ableitung: `doneMessageFor` (`lib/core/recording/recording_helpers.dart`), die Dock-Zeile bekommt den fertigen Text von `app.dart`. Die Ansage des Floating-Buttons nutzt nur „Fertig“, weil dieser Render-Kanal nur den Zustand, nicht das Ergebnis kennt.
+
+### 2.8 Hotkey-Registrations-Status
+
+Lifecycle-Status der OS-Hotkey-Registrierung — existiert **pro Hotkey** (§2.5), mit unterschiedlichen Konsequenzen bei Konflikt. Code: `HotkeyRegistrationStatus` enum (`lib/services/hotkey_service.dart`), je ein eigener Provider pro Hotkey (`hotkeyRegistrationStatusProvider`, `quickNoteHotkeyRegistrationStatusProvider`, `snippetPickerHotkeyRegistrationStatusProvider`) — ein Konflikt bei einem Hotkey wirkt sich nie auf den Status der anderen aus.
+
+| Wert | Bedeutung |
+|---|---|
+| `unknown` | noch kein abgeschlossener Versuch (App-Start) |
+| `success` | Hotkey ist beim OS registriert |
+| `conflict` | Registrierung fehlgeschlagen (Kollision) |
+
+Bei `conflict` reagieren die drei Hotkeys unterschiedlich: nur der **Haupt-Hotkey** fällt automatisch auf eine Safe-Default-Kombination zurück (`Cmd/Ctrl+Shift+Space`), UI soll Re-Binding anbieten. **Schnellnotiz-Hotkey** und **Snippet-Hotkey** bekommen bewusst **keinen** Fallback — sie bleiben unregistriert, statt eine unerwartet belegte Kombination zu kapern, die sonst in ein Textfeld tippen oder eine andere Aktion auslösen könnte; beide haben einen vollwertigen Alternativweg (Notizen-Bereich bzw. gesprochener Snippet-Picker-Trigger, §5.8).
+
+Nicht zu verwechseln mit §3.4 `RecordingReadiness` (Lauf-Bereitschaft, nicht OS-Bindung).
+
+## 3. Pipeline-Vokabular
+
+### 3.1 Phasen
+
+`RecordingPhase` enum (`lib/core/recording/recording_state.dart`):
+
+| Phase | Bedeutung |
+|---|---|
+| `idle` | inaktiv |
+| `recording` | Mikrofon offen, Audio → temporäre WAV |
+| `transcribing` | STT-Verarbeitung + Replacements + Einfügen (kein eigener `processing`-State) |
+| `done` | erfolgreich, `transcript`-Feld gesetzt |
+| `error` | abgebrochen, `errorMessage`-Feld gesetzt |
+
+Übergang zentral über `RecordingStateMachine.transition()`.
+
+### 3.2 sessionId
+
+Korrelations-ID (`<base36-timestamp>-<hex-rand>`) pro Aufnahme-Vorgang, in allen Logs/Sentry-Breadcrumbs. Trotz Namens **keine** Session im Container-Sinn (§7) — nur eine ID pro Vorgang.
+
+### 3.3 Resilience-Mechanismen
+
+| Mechanismus | Auslöser | Verhalten |
+|---|---|---|
+| **Stuck-Guard** | `transcribing` > 5 min | Auto-Fail `pipeline_timeout` |
+| **Retry** | STT-Fehler (Crash/Timeout/Netzwerk) | bis zu 3 Wiederholungen |
+| **OOM-Recovery** | GPU Out-of-Memory | `OomRecoveryHandler` → kleineres Modell / Cloud-Fallback (nur nach aktiver Wahl im Dialog, gilt dauerhaft, §6.5) / permanent fail |
+| **CPU-Fallback** | GPU-Backend-Crash während Transkription | Re-Run auf CPU, `SttStatus.cpuFallbackActive` |
+| **SafetyGuard** | Stream-Anomalien (z. B. Hotkey-Doppelfeuer) | `StreamTransformer` fängt invalide Events vor der State Machine ab |
+
+### 3.4 Readiness
+
+Start nur wenn `RecordingReadiness == ready`:
+
+| Wert | Bedeutung |
+|---|---|
+| `ready` | alles bereit |
+| `serverMissing` | whisper.cpp-Binary nicht installiert |
+| `serverDownloading` | Binary wird geladen |
+| `modelMissing` | Modell nicht im lokalen Cache |
+
+### 3.5 TCC-Repair
+
+macOS-Selbstheilung für stale **Accessibility-**/**AppleEvents-**Einträge in der TCC-DB. Adressiert Sequoia-Bug: Permission-Toggle steht auf ON, `AXIsProcessTrusted()` liefert trotzdem `false` (Binary-Hash-Wechsel zwischen Builds).
+
+Löscht stale Einträge (`kTCCServiceAccessibility`, `kTCCServiceAppleEvents`) → nächster Paste-Versuch erzwingt frische OS-Prompts.
+
+Code: `DesktopPasteController.repairTccEntries()`, Ergebnis-Typ `TccRepairResult` (`accessibilityCleared`/`appleEventsCleared`: `-1` Fehler, `0` nichts zu tun, `1+` entfernt). UI: Repair-Button in `AutoPasteStep` (§5.6), erscheint erst nach fehlgeschlagenem Grant-Versuch. Windows/Linux: `TccRepairResult.unsupported()` (No-op).
+
+### 3.6 Paste-Capability-Surface
+
+Trennung „kann Auto-Paste gerade ausführen?" (Probe, ohne Side-Effekt) vs. „führe Paste aus" (`Paster.paste`):
+
+- **PasteCapability** — Probe-Ergebnis: `status`, `canPrompt` (nur bei `permissionMissing`, macOS one-shot/Prozess), `detail`. Code: `lib/services/paste/paster.dart`.
+- **PasteCapabilityStatus** — `ready` (Paste würde gelingen) / `permissionMissing` (macOS Accessibility, Windows UIPI-Edge, Linux ohne Schreibzugriff auf `/dev/uinput`) / `unsupported` (kein Paste-Controller registriert, z. B. Test-Env).
+- **PasteCapabilityNotifier** — Riverpod-Notifier (`pasteCapabilityNotifierProvider`): Probe-Timer, geteilter `PasteCapability`-State, sticky `hadFailedGrantAttempt` (steuert Lazy-Reveal des TCC-Repair-Buttons), `repair()`-Wrapper → `DesktopPasteController` (§3.5). Settings-Indikator und `AutoPasteStep` (§5.6) teilen sich diesen Notifier statt eigener Timer.
+
+`Paster` = tiefe Abstraktion (`prime`/`paste`/`checkCapability`); `PasteCapabilityNotifier` = Riverpod-Schicht darüber (Polling, Coalescing, Breadcrumbs, `hadFailedGrantAttempt`).
+
+### 3.7 Mikrofon-Berechtigungs-Surface
+
+Mirror von §3.6, für die Systemberechtigung statt für die Paste-Fähigkeit: Trennung „hat die App die
+Mikrofon-**Berechtigung**?" von „funktioniert die Aufnahme **tatsächlich**?" (Letzteres bleibt
+Readiness/§3.4 — Hardware, Modell-Ladezustand, Geräteverfügbarkeit sind eigene Fragen, die
+Berechtigung erteilt sein kann und die Aufnahme trotzdem scheitert).
+
+- **MicPermissionNotifier** — Riverpod-Notifier (`micPermissionNotifierProvider`,
+  `lib/services/permissions/mic_permission_notifier.dart`): eine Zustandsquelle für Onboarding-Schritt
+  1 (Welcome, stellt die Anfrage beim Verlassen), Try&Go/Schritt 5 (`MicPermissionChip`, §5.6.2) und
+  den Startup-Permission-Gate — statt dass jede Stelle einen eigenen Ad-hoc-Bool hält.
+- **MicPermissionStatus** — `unknown` (noch keine Anfrage in diesem Prozess aufgelöst) /
+  `requesting` (Anfrage läuft) / `granted` / `denied`. `denied` ist nur über
+  `MicPermissionNotifier.request()` erreichbar — ein passiver `check()` kann „nie gefragt" nicht von
+  „abgelehnt" unterscheiden (die Plattform-API liefert für beides stumm `false`) und darf `denied`
+  deshalb nie behaupten.
+- Deep-Link in die System-Einstellungen (macOS Privacy-Pane, Windows `ms-settings:privacy-microphone`)
+  liegt ebenfalls im Notifier, kein zweiter Deep-Link-Code an einer Aufrufstelle.
+
+## 4. STT-Vokabular
+
+Vier Ebenen, bewusst getrennt (im Alltag oft synonym verwendet):
+
+### 4.1 Provider
+
+`SttProviderType` enum (`lib/core/config/settings_enums.dart`):
+
+| Provider | UI-Label | Beschreibung |
+|---|---|---|
+| `onDevice` | „On Device" | lokal, kein Netzverkehr — zwei Engines, §4.2 |
+| `openAI` | „OpenAI" | Cloud (BYOK) — OpenAI Audio API, eigener Key |
+| `deepgram` | „Deepgram" | Cloud (BYOK) — Deepgram API, eigener Key |
+
+`managed` (§8, „WhisPaste Cloud") ist **geplant, nicht ausgeliefert** — `SttProviderType` (`lib/core/config/settings_enums.dart`) hat aktuell exakt drei Werte: `onDevice`, `openAI`, `deepgram`.
+
+Code nutzt **`onDevice`**, nie „local".
+
+### 4.2 Engine
+
+`onDevice` bietet zwei Engines (`OnDeviceEngine` enum), beide **in-process** via `dart:ffi` (kein Subprozess/HTTP — abgelöst durch die whisper-ffi-engine-Migration 2026, siehe `internal-notes`):
+
+| Provider | Engine |
+|---|---|
+| onDevice → Whisper | whisper.cpp (`dart:ffi`/`libwhisper`), 99 Sprachen, GPU-beschleunigt |
+| onDevice → Parakeet | NVIDIA Parakeet-TDT, ~25 europ. Sprachen. Ab 1.4.0 auf der GPU über libparakeet (whisper.cpp v1.9.5, ggml: Metal/Vulkan/CUDA), automatischer Fallback auf `sherpa-onnx` (in-process ONNX, CPU), wenn keine GPU da ist oder ein GPU-Lauf scheitert. Schon auf der CPU mehrfach schneller als whisper.cpp auf der CPU — reale, reproduzierbare Messwerte in `website/src/data/engine-benchmarks.json` / `/engine-benchmarks/` (2026-08-17, Apple Silicon: Parakeet RTF 0,0288x vs. whisper.cpp Compact-Tier CPU 0,3068x, ≈10,6x) statt hier hartkodierter Zahlen |
+| openAI | OpenAI Audio API |
+| deepgram | Deepgram Streaming/Batch API |
+
+**Modell-Benchmark & Tier-Empfehlung (2026-10-19, fix/benchmark-feedback):** „Benchmark erneut ausführen“ zeigt das Ergebnis inline in der Modellzeile (Speech-Bereich), nicht nur als Toast. Die Empfehlung ist messwert-first (`recommendTierFromBenchmark`), sonst VRAM-Heuristik; Chips heißen „gemessen“ bzw. „geschätzt“, keine hartkodierten Faktoren. Ergebnisse gelten pro Maschine (GPU-Hersteller + VRAM) + App-Version + Backend; veraltete werden ignoriert, als veraltet markiert und im Leerlauf neu gemessen. Parakeet wird nicht gemessen (Hinweis in der Zeile). Messung nutzt bis auf Weiteres ein stilles 3-s-WAV → misst Pipeline-Tempo, nicht Erkennungsqualität. Abbrechen greift erst nach dem laufenden Tier.
+
+### 4.3 Modell
+Modell-Downloads (Settings, Smart Mode, Parakeet) prüfen vorab den freien Platz auf dem Modell-Volume: mindestens 1,2 × Downloadgröße, sonst startet kein Download und die Meldung „benötigt X / frei Y“ erscheint (alle App-Sprachen, `lib/services/download_disk_space.dart`, unbekannter Platz = kein Block). Modelldateien werden nach dem Download einmal per SHA-256 geprüft; spätere Ladungen prüfen Stempel und exakte Größe.
+Modell-URLs zeigen auf einen festen Hugging-Face-Commit (`/resolve/<40-hex>/`, Guard `test/services/model_url_pinning_test.dart`), damit ein Re-Upload auf `main` die SHA-256-Prüfung nicht bricht.
+
+
+| onDevice (Whisper) | tiny/base/small/medium/large-v3 (`ggml-*.bin`, lokaler Cache) |
+|---|---|
+| onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — encoder/decoder/joiner-ONNX + tokens.txt (CPU-Fallback, 639 MB) plus GGUF q8_0 für die GPU (638 MB, SHA-256-geprüft; der Hash läuft nur einmal je Dateiversion und wird als Stempel `<datei>.verified.json` gespeichert, jede weitere Ladung prüft Stempel und exakte Größe, ab dem 2. Laden ≤ 5 ms); zusammen ~1,2 GB |
+| openAI | `whisper-1` (fest im Code, `openai_transcriber.dart`; ADR-0005 plant `gpt-transcribe`, nicht umgesetzt) |
+| deepgram | `nova-3` (fest im Code, `deepgram_transcriber.dart` — nicht wählbar) |
+
+**Modell ≠ Engine ≠ Provider** (Bsp.: Provider `openAI`, Engine „OpenAI Audio API", Modell `whisper-1`).
+
+**UI-Begriff „Sprachmodell“ (Maintainer-Entscheidung 2026-10-19):** Das STT-Modell heißt in allen sichtbaren Texten **Sprachmodell** / **Sprachmodelle** (Dock-Overline, Einstellungszeile, Status, Fehler, Toasts, Onboarding, Handbuch). Übersetzungen: en „Speech model“, es/pt „modelo de voz“, ru „модель распознавания речи“, he „מודל זיהוי דיבור“. „Spracherkennung“ bleibt der Name der **Funktion** und des Einstellungsbereichs (§5.3a), nie der des Modells. Nicht als Nutzertext verwenden (de): „Sprachdienst“, „Spracherkennungs-Modell(e)“, „Engine“ — Guard `test/core/l10n/fixed_ui_terms_test.dart`. Smart-Mode-Modelle heißen **Textmodell** / **Textmodelle** (Maintainer-Entscheidung 2026-10-19, 12a; en „text model“): sie bearbeiten Text und hören keine Sprache; der Funktionsname „Smart Mode“ bleibt.
+
+**Profil:** benannte Regelgruppe für Ziel-Apps (Sprache, Sprachmodell, Smart-Mode-Preset, Kontextquellen). Wird manuell gewählt (Tray, Menüleiste/Fenstermenü, Hotkey) oder automatisch über die Regeln aktiv; eine manuelle Änderung beendet die Profil-Markierung. Das Overlay zeigt das wirksame Profil neben Timer und Sprache.
+Profile werden in Einstellungen › Profile angelegt, bearbeitet, sortiert und gelöscht (Liste mit Detail-Editor, Entscheidung 2026-10-20, Punkt 26); die Ziel-App lässt sich aus der App im Vordergrund übernehmen.
+
+**Wörterbuch-Import (Entscheidung 2026-10-20, Punkt 27):** Ein CSV-Import der Ersetzungen wird zuerst als Importplan in einer Vorschau gezeigt (neu, Duplikat wird übersprungen; jede Zeile einzeln abwählbar) und dann in einem Schritt angewendet. Lässt sich die bestehende Liste nicht lesen, bricht der Import vor dem Dateidialog ab; ein fehlgeschlagenes Schreiben meldet sich per Toast. Beim Export lässt sich wählen, welche Einträge mitgehen.
+
+### 4.4 Backend (nur lokal)
+
+Whisper-Compute-Backends, tatsächlich kompiliert/ausgeliefert (Build-Skripte, `.github/workflows/release.yml`): Vulkan (Windows/Linux, herstellerübergreifend inkl. NVIDIA/AMD/Intel), Metal (macOS), CPU (Fallback). CUDA kommt seit 1.4.0 als optionaler, prüfsummen-verifizierter CUDA-Pack (Windows/Linux, NVIDIA RTX/GTX 16) per separatem Download, nicht im Installer. Vor dem Download muss der Nutzer der NVIDIA-CUDA-EULA zustimmen (Dialog `cuda-eula-dialog`). Die Zustimmung gilt je Pack, Lizenz-Label und Lizenztext (`kCudaEulaVersion` = 2026-01-26, SHA-256-Präfix 95815d3a862c; Wert `<pack>+eula-<label>+<sha12>@<UTC>` in `cuda_eula_accepted`), wird nicht exportiert und auch beim Laden geprüft: ohne gültige Zustimmung kein CUDA, Fallback Vulkan/CPU, Settings zeigen „Zustimmung erforderlich“. Ändert sich Label oder Text, wird erneut gefragt (Maintainer-Entscheidung 3a, 2026-10-18). Der Volltext liegt als App-Asset bei, ist vor der Zustimmung einsehbar und ist der vereinbarte Text (BIZ-116); der NVIDIA-Link heißt „Weitere Fassung bei NVIDIA“ und kann abweichen. `LICENSE-NVIDIA.txt` wird ab Pack-Revision r2 mitgeprüft; r1 bleibt gültig. Headless: `--download-cuda-pack --accept-nvidia-eula`, ohne das Flag Abbruch mit Exit-Code 64; in Store-Builds abgelehnt (Exit 1). Ein erfolgreicher Headless-Lauf speichert die Zustimmung für diese Installation im selben Format, ein fehlgeschlagener speichert nichts. `SttStatus.cpuFallbackActive` markiert Degradation nach GPU-Crash. Parakeet: ab 1.4.0 GPU über libparakeet (dieselben ggml-Backends), CPU-Fallback sherpa-onnx. Gemessen 2026-10-14: M5 Metal 7,0 s statt 38,3 s (18 DE-Diktate, 456 s Audio); i5-1145G7/Iris Xe Vulkan 14,1 s statt 27,1 s (18 MLS-DE, 276 s), DE-WER 7,1 % statt 8,5 %.
+
+### 4.5 Engine-Lebenszyklus (`SttServerState`)
+
+Namensrelikt aus der Subprozess-Ära (vor FFI-Migration) — heute Lebenszyklus der in-process Whisper-Engine: `stopped, starting, ready, error`. On-demand initialisiert. Standard ist „Immer“: nach dem Laden bleibt das Modell geladen; freigegeben wird es nur bei gewähltem Leerlauf-Timer oder bei Speicherdruck. Parakeet: eigener Lebenszyklus (`ParakeetEngineNotifier`/`ParakeetEngineState`), gleiches Zustandsmodell, kein Idle-Timer (bleibt session-warm). Whisper-Modell-Ladeverhalten ist der Setting „Modell geladen halten“ (Speech-Bereich, nur Whisper) mit drei Modi: „Immer“ (Standard, 0 = kein Idle-Entladen), „Automatisch“ (`stt.idleTimeoutMinutes = -1` = `kSttIdleAutomatic`) oder „nach Leerlaufzeit“ (1–120 min, Schwelle `stt.idleTimeoutMinutes`). Einmalige Migration (`SettingsNotifier.build`, Marker `stt_idle_default_migrated` in `app_settings`): ein gespeichertes 5 (alter Standard 5 min) und -1 (unveröffentlichte Automatik) wird einmal zu 0; jeder andere gespeicherte Wert bleibt, auch ein später gewähltes 5. Frische Installationen und das Zurücksetzen auf Werkseinstellungen setzen den Marker sofort. Automatisch = immer geladen, wenn Gesamt-RAM ≥ Modell-RAM + 4096 MB UND verfügbarer RAM ≥ Modell-RAM + 2048 MB (letzte Messung; ohne Messung 5 min), sonst 5 min Leerlauf (`resolveIdleUnloadMinutes`, `lib/services/stt/idle_unload_policy.dart`). Smart Mode nutzt bei „Automatisch“ 5 min. Speicherdruck (`lib/services/stt/memory_pressure_monitor.dart`, alle 30 s): bei verfügbarem RAM unter 10 % wird ein leerlaufendes Modell entladen und nach Entspannung wieder geladen; nie während eines Diktats. Messung: macOS `sysctl` + `memory_pressure -Q`, Linux `/proc/meminfo`; Windows: `GlobalMemoryStatusEx` (kernel32, FFI); ohne Messung → Automatisch fällt auf 5 min zurück, Hinweis im Log. Modell-RAM-Angaben über `sttModelVramMB`. Nach dem Aufwachen wird das lokale Modell 3 s später neu vorgeladen (`power_event_service.dart`). Energiesparmodus (macOS Low Power Mode, Windows Energiesparmodus, Linux power-saver-Profil über power-profiles-daemon; unbekannt = aus) blockiert Neu-Vorladen nach dem Aufwachen und Neuladen nach Speicherdruck (`lib/services/low_power_state.dart`). **Laufende Erkennung schützt das Modell (2026-10-20, round2-core):** Ein Modellwechsel, Leerlauf-Entladen oder Speicherdruck gibt die Engine nie frei, während ein nativer Aufruf (Diktat-Decode, Live-Vorschau, Modellladen) läuft. Ein Wechsel wartet bis zum Ende des Aufrufs (Obergrenze `nativeIdleCap`, 30 s); danach wird der Wechsel als ausstehend angezeigt und nach dem Leerlauf ausgeführt. Bleibt der Aufruf über die Obergrenze hängen, wird die Engine abgekoppelt, nach der Rückkehr freigegeben und ein Hinweis „Starte WhisPaste neu“ gezeigt. Beenden wartet nie: eine belegte Whisper-Engine wird sofort abgekoppelt, der Parakeet-Worker sofort beendet; läuft dabei noch ein nativer Aufruf, endet der Prozess ohne C++-Destruktoren (`_exit`/`ExitProcess`). Code: `SttServerStateNotifier.stopForQuit`, `ParakeetEngineNotifier.stopForQuit`, `lib/services/graceful_shutdown.dart`.
+
+Nicht zu verwechseln mit: Supabase-Server (PostgREST, Feedback-Backend), WebSocket/API-Server der Cloud-Provider (nicht von WhisPaste betrieben).
+
+---
+
+## Part 2 — Target Audience (docs/zielgruppe.md)
+
+# Zielgruppe — WhisPaste
+
+> Wer wir sind und für wen wir bauen. Bei jeder Design-, UI- und Feature-Entscheidung
+> ist diese Datei der erste Bezugspunkt. Im Konflikt zwischen „mehr Funktion" und
+> „weniger Reibung im Schreibfluss" gewinnt immer der Schreibfluss.
+> Die flache, ruhige Oberfläche des Aufnahme-Overlays und Docks ist die sichtbare Form dieses
+> Prinzips: kontinuierliche Bewegung statt harter Zustandswechsel — der Gedanke fließt ohne Bruch
+> in den Text, und die Oberfläche zeigt genau das. Kein Glas, kein Glow (Entscheidung 2026-10-20,
+> Punkt 12; ersetzt die frühere „Liquid-Glass-Optik“, siehe ADR 0011).
+
+## Zielgruppe
+
+Vielschreibende Desktop-Nutzer, die auf ihrem eigenen Rechner arbeiten — Wissens­
+arbeiter, Entwickler, Texter, Support-Mitarbeiter, Forschende, Studierende,
+Selbständige, Personen mit RSI oder Schreibermüdung. Sie wollen Texte **sprechen
+statt tippen**: kurze Antworten, E-Mails, Chat-Nachrichten, Code-Kommentare,
+Notizen, Ticket-Antworten. Ausdrücklich eingeschlossen sind Power-User, die WhisPaste
+über die Automation-API in eigene Abläufe einbinden (Entscheidung 2026-10-20, Punkt 9).
+Ohne Cloud-Pflicht, ohne Abo-Pflicht (ein Managed-Tarif ist optional, Entscheidung
+2026-10-20, Punkt 4), ohne ihr aktives Fenster zu verlassen.
+
+## Kontext
+
+- **Sessions sind sehr kurz** (3–60 Sekunden je Aufnahme), 5–100× am Tag,
+  beiläufig zwischen Tastaturarbeit.
+- **Häufige Trigger:** E-Mail-Antwort, Slack-/Teams-Reply, GitHub-Kommentar,
+  Notiz im Editor, Suchfeld, Bug-Report, Antwort an Kunden, schnelle Idee.
+- **Voll offline nutzbar** (Flugzeug, Bahn, schlechtes Netz, Datenschutz-Kontext).
+  Lokale STT ist Default; Cloud-Anbieter sind optional und opt-in pro Nutzer.
+- **Eigener Desktop** (macOS, Windows und Ubuntu Linux — drei gleichrangige Hauptplattformen), nicht: geteilte
+  Familien-PCs, öffentliche Geräte, Firmen-Pool-Rechner mit gelocktem Mikrofon.
+- **Mobile ist nicht geplant — für die App.** WhisPaste ist eine reine
+  Desktop-App (macOS/Windows/Ubuntu Linux); der Hauptpfad ist Desktop-Dictation
+  in fremde Anwendungen. **Die Website hingegen muss auf Mobilgeräten (iPhone,
+  Pixel & Co.) voll funktionieren und gut aussehen** — sie bewirbt die App,
+  läuft aber selbst überall.
+- **Leitfrage** im Kopf: „Wie bekomme ich diesen Satz in das Feld, ohne aus
+  meinem aktuellen Fenster zu wechseln?"
+
+## Problem
+
+Tippen ist langsam, anstrengend und unterbricht den Denkfluss — besonders bei
+längeren Antworten oder beim Brainstorming. Die existierenden Lösungen sind
+unbequem: Diktatfunktionen der Betriebssysteme sind versteckt, schalten den Fokus
+weg, schicken Audio in die Cloud, und arbeiten nur in vorgesehenen Textfeldern.
+Etablierte Cloud-Diktierdienste sind teuer, abomodellig und datenschutzrechtlich heikel.
+Es fehlt eine **leise, lokale, global verfügbare** Diktatfunktion, die genau
+dort einfügt, wo der Cursor steht — egal in welcher App.
+
+## Erwartung
+
+- **Hotkey → Sprechen → Text steht im Feld.** Drei Schritte, kein App-Wechsel.
+- **Lokale Transkription als Default** über whisper.cpp; Cloud-Anbieter (OpenAI,
+  Deepgram) optional und opt-in.
+- **Verlässlicher globaler Hotkey**, frei konfigurierbar, mit Konflikt­erkennung
+  gegen System-Shortcuts — Push-to-talk oder Toggle.
+- **Sichtbares, unaufdringliches Feedback**: schlanker Aufnahme-Overlay mit
+  Live-Wellenform, Aufnahme-Dock unten im Hauptfenster (ersetzt die Statusleiste,
+  ADR 0020), optionaler Floating-Button. Die flache, ruhige Oberfläche ist kein
+  Schmuck, sondern spiegelt den Schreibfluss selbst: keine harten Zustandswechsel,
+  keine abrupten Sprünge.
+- **Hohe Treffsicherheit auch bei Eigennamen, Akronymen und Fach­begriffen** —
+  konfigurierbares Modell, Text-Replacements für wiederkehrende Korrekturen.
+- **Verlauf mit Suche** — was wurde wann gesagt, neu kopieren oder als TXT/MD/
+  CSV/JSON/DOCX exportieren.
+- **Gespräche und Dateien**: Gespräche mit mehreren Sprechern werden lokal in
+  „Sprecher 1“, „Sprecher 2“ usw. getrennt (nur innerhalb einer Aufnahme, keine
+  sitzungsübergreifenden Stimmprofile, ADR 0021). Audiodateien lassen sich importieren
+  und per Chunking verarbeiten (Abnahmefall: 60-Minuten-MP3). Das Diktat bleibt kurz
+  (max. 120 s, AR-17). Entscheidung 2026-10-20, Punkte 1–3.
+- **Notizen als Nebenbereich**: Notizen (Versionsverlauf, Bilder, PIN-Schutz, ADR 0029)
+  liegen außerhalb des Hotkey→Text-Pfads und dürfen ihn nie verlangsamen
+  (Entscheidung 2026-10-20, Punkt 23).
+- **Datenhoheit**: Audio & transkribierter Text verlassen das Gerät niemals ohne
+  aktive Cloud-Auswahl; für die lokale Nutzung kein Account (ob der optionale
+  Managed-Tarif ein Konto braucht, ist offen). Anonyme, self-hosted Nutzungsstatistik und
+  Absturzberichte sind opt-out (in Settings → Datenschutz abschaltbar) und
+  enthalten **niemals** Audio, Text, Verlauf, Tags oder Notizen.
+- **Sicheres Pasten auch in geschützte Felder** (Banken, Passwortfelder werden
+  bewusst geblockt; alles andere paste-kompatibel).
+- **Geräusch-arme, aber warme UI** — kein Glow, kein Glas, flache Flächen. Akzente:
+  Cyan = Aktion und Aufnahme; Bernstein = warmer Akzent für Markierung/Hinweis und
+  gezielte Akzentflächen (Dock-CTA „Diktieren“, Welle, Overlay-/Button-Farboption;
+  WCAG AA; Entscheidung 2026-10-20, Punkt 11, ersetzt die frühere Ein-Akzent-Regel).
+  Ruhige Animationen; tonale Wärme und weiche Materialität sind
+  erwünscht, nicht bloße Kargheit. Kategoriefarben (`WpCategorySlot`) sind
+  ausdrücklich kein zweiter Akzent: sie sagen, *was* etwas ist, nie, dass es
+  wichtig ist — leiser als der Akzent, und nie alleiniger Bedeutungsträger.
+  Ausnahme in die andere Richtung: der Verlaufs-Eintrag-Avatar trägt einen
+  Slot aus derselben Palette, der *gar nichts* sagt — reine dekorative
+  Rotation, damit eine lange Liste scannbar bleibt. Die App klassifiziert
+  Diktate nicht, also darf aus dieser Farbe auch nichts abgeleitet werden.
+  Standard-Darstellung ist das Theme „Marine“ (Navy-Rahmen um helle Gletscher-Inhalte);
+  Hell, Dunkel und System sind wählbar (ADR 0023). Entscheidung 2026-10-20, Punkt 10
+  (ersetzt „Dark-only“). Sprachen laut `lib/core/l10n/app_*.arb` (Stand 2026-10-20: EN/DE/ES/PT/HE/RU).
+- **Cross-Platform-Parität** für Windows, macOS und Linux; Mobile ist nicht
+  geplant.
+
+## Nicht optimieren für
+
+- Meeting-Bots und Cloud-Mitschnitte, Echtzeit-Untertitel, Konferenz-Bots (kein Bot,
+  keine Cloud-Aufnahme; Gespräche entstehen lokal auf dem Gerät).
+> **Entschieden (Maintainer, 2026-10-20, Punkt 1):** Gespräche mit Sprechertrennung
+> gehören zur Zielgruppe (ADR 0021). Die frühere Zeile „Sprecher-Erkennung, Diarisation
+> oder Mehrsprecher-Szenarien“ entfällt.
+- Auto-Tagging und ungefragtes Grammatik-Polishing — WhisPaste **schreibt**
+  nicht ungefragt für den Nutzer.
+  > **Entschieden (Maintainer, 2026-10-18, „1c“):** Smart Mode wird ausgebaut —
+  > eigene Prompts, Aktionen und Profile, lokal (Gemma/llama.cpp, eigener
+  > lokaler OpenAI-kompatibler Endpunkt) oder optional Cloud. Bleibt opt-in
+  > (Default aus) und läuft immer hinter Fakten- und Ausgabe-Wächtern; der
+  > Rohtext bleibt per Rückgängig erreichbar. Löst die offene Frage vom
+  > 2026-10-07 auf.
+- Voice-Commands oder Sprachsteuerung („öffne Datei", „klicke auf …").
+> **Entschieden (Maintainer, 2026-10-20, Punkt 2):** Die Zeile „Sehr lange Diktate
+> (>30 Minuten Endlos-Aufnahme)“ entfällt. Diktat-Aufnahmen bleiben bei 120 s; Gespräche
+> und Dateien werden per Chunking verarbeitet, ohne feste Minutenzahl (AR-17, ADR 0021).
+- Geteilte Familien- oder Firmenrechner mit Audio-Restriktionen.
+- Eigene STT-Backends als Code-Plugins (kein Fremdcode, auch später nicht).
+  > **Entschieden (Maintainer, 2026-10-18, „2a+b“, „5a“):** Eigene
+  > Modelldateien (GGUF/ONNX) dürfen importiert werden — Offline-Import gegen
+  > die Katalog-Prüfsumme und freier Import; freie Dateien werden in einem
+  > separaten Prozess geprüft/geparst. Katalog und Presets sind signiert (3a).
+- Mobile-First-Workflows mit Touch-Tastatur als Primärinput.
+
+## Produktregel
+
+Jede Funktion muss die Frage **„Wie bekomme ich diesen Satz in das Feld, ohne
+mein Fenster zu verlassen?"** einfacher beantworten. Geschwindigkeit, lokale
+Privatsphäre, verlässliche Hotkeys und ruhige UI sind wichtiger als Cloud-
+Features oder LLM-Veredelung.
+
+**Lackmustest** vor jeder Feature- oder Design-Entscheidung:
+
+> *„Hilft das einem Entwickler, der mitten im Code-Review eine fünfsätzige
+> Antwort diktieren will, ohne die Maus zu berühren und ohne aus dem Browser
+> zu wechseln?"*
+
+Wenn die Antwort nicht klar „ja" ist, gehört die Funktion nicht in den
+Hauptpfad.
+
+<!-- /seo-audit:contrastive -->

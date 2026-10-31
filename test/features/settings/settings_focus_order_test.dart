@@ -1,0 +1,106 @@
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/features/settings/settings_page.dart';
+
+import '../../fixtures/test_helpers.dart';
+
+void main() {
+  group('SettingsPage focus traversal', () {
+    testWidgets('Tab traversal moves focus in reading order (never jumps upward)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(const SettingsPage(), locale: const Locale('en')),
+      );
+      await tester.pumpAndSettle();
+
+      // Locate the content Column inside the SingleChildScrollView as a
+      // scroll-invariant reference ancestor.
+      final columnFinder = find.descendant(
+        of: find.byType(SingleChildScrollView),
+        matching: find.byType(Column),
+      );
+      // There may be nested Columns — use the first one (the outermost child
+      // of the scroll view, which is the section layout column).
+      final columnElement = columnFinder.evaluate().first;
+      final columnRO = columnElement.renderObject as RenderBox;
+
+      // Seed focus into the widget tree so primaryFocus is non-null.
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+
+      final List<double> dyValues = [];
+      final Set<int> seenFocusIds = {};
+
+      const maxTabs =
+          30; // safety ceiling — stops the loop from running forever
+
+      for (int i = 0; i < maxTabs; i++) {
+        final focus = tester.binding.focusManager.primaryFocus;
+        if (focus == null) break;
+
+        final id = focus.hashCode;
+        if (seenFocusIds.contains(id)) {
+          // Focus wrapped around — we've completed the traversal cycle.
+          break;
+        }
+        seenFocusIds.add(id);
+
+        final context = focus.context;
+        if (context != null) {
+          final ro = context.findRenderObject();
+          if (ro is RenderBox && ro.hasSize && columnRO.hasSize) {
+            // Vertical centre, not top edge: the search field and the section
+            // picker share one header row, but a text field's focus box sits
+            // inside its frame, so their top edges differ while both controls
+            // are on the same line. Comparing centres keeps a sideways step
+            // from counting as an upward jump.
+            final dy =
+                (ro.localToGlobal(Offset.zero) -
+                        columnRO.localToGlobal(Offset.zero))
+                    .dy +
+                ro.size.height / 2;
+            dyValues.add(dy);
+          }
+        }
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+      }
+
+      // We need at least a few focusable controls to make the test meaningful.
+      expect(
+        dyValues.length,
+        greaterThanOrEqualTo(4),
+        reason:
+            'Expected at least 4 focusable controls in SettingsPage, got ${dyValues.length}.',
+      );
+
+      // Assert monotonically non-decreasing. Centres of controls on one row
+      // differ by half their height difference: a 48 px button followed by a
+      // 40 px dropdown moves the centre up by (48 - 40) / 2 = 4 px without any
+      // upward focus step, so the tolerance is that bound.
+      const epsilon = 4.0;
+      for (int i = 1; i < dyValues.length; i++) {
+        expect(
+          dyValues[i],
+          greaterThanOrEqualTo(dyValues[i - 1] - epsilon),
+          reason:
+              'Tab focus jumped upward at step $i: dy went from '
+              '${dyValues[i - 1].toStringAsFixed(1)} → ${dyValues[i].toStringAsFixed(1)}.',
+        );
+      }
+
+      // Also confirm no FocusTraversalOrder widgets exist (would indicate
+      // manual ordering that could hide bugs).
+      expect(
+        find.byType(FocusTraversalOrder),
+        findsNothing,
+        reason:
+            'Found FocusTraversalOrder widget(s) — manual ordering present, '
+            'test assumptions may not hold.',
+      );
+    });
+  });
+}

@@ -1,0 +1,15 @@
+<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Line-art in the site's instrument vocabulary (strokes in
+       currentColor, one .uc-amber highlight) — inlined by UseCaseCards so both
+       colours come from the design tokens and follow light/dark mode. Speech bubble carrying a waveform, a reply
+       window, amber send-arrow accent. -->
+  <g fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M300 240h420a70 70 0 0 1 70 70v210a70 70 0 0 1-70 70H420l-96 96v-96h-24a70 70 0 0 1-70-70V310a70 70 0 0 1 70-70Z"/>
+    <rect x="600" y="660" width="260" height="180" rx="32"/>
+    <path d="M650 722h160M650 782h100"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round">
+    <path d="M390 400v66M446 378v110M502 356v154M558 378v110M614 400v66"/>
+  </g>
+  <path d="M212 700l236-96-64 200-52-72-120-32Z" class="uc-amber" stroke-width="16" stroke-linejoin="round"/>
+</svg>

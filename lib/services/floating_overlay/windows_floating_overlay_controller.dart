@@ -1,0 +1,45 @@
+import '../method_channel_platform_host.dart';
+import 'floating_overlay_controller_interface.dart';
+import 'floating_overlay_controller_mixin.dart';
+import 'floating_overlay_events.dart';
+
+/// Windows implementation of [FloatingOverlayController].
+///
+/// Communicates with the C++ FloatingOverlayHost via a single MethodChannel.
+/// Events are received through the same channel (C++ calls InvokeMethod).
+///
+/// Platform plumbing (disposed guard, stream controller, channel lifecycle)
+/// is inherited from [MethodChannelPlatformHost].
+class WindowsFloatingOverlayController
+    extends MethodChannelPlatformHost<FloatingOverlayEvent>
+    with FloatingOverlayControllerMixin
+    implements FloatingOverlayController, RenderEngineRecovery {
+  static const _channelName = 'com.whispaste.floating_overlay';
+
+  WindowsFloatingOverlayController() : super(_channelName);
+
+  @override
+  Future<void> updateSnapshot(FloatingOverlaySnapshot snapshot) =>
+      invokeMethod('updateSnapshot', snapshot.toMap());
+
+  @override
+  Future<void> setWaveformBars(List<double> bars) =>
+      invokeMethod('setWaveformBars', {'bars': bars});
+
+  @override
+  Future<void> setPosition(double x, double y, OverlayAnchorMode anchor) =>
+      invokeMethod('setPosition', {'x': x, 'y': y, 'anchorMode': anchor.name});
+
+  @override
+  Future<void> setContextMenuItems(List<({String id, String label})> items) =>
+      invokeMethod('setContextMenuItems', {
+        'items': items
+            .map((item) => {'id': item.id, 'label': item.label})
+            .toList(),
+      });
+
+  /// Asks the native shell to re-boot the render engine (frame heartbeat,
+  /// see [FloatingOverlayService]).
+  @override
+  Future<void> rebootRenderEngine() => invokeMethod('rebootRenderEngine');
+}

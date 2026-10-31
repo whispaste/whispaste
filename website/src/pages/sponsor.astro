@@ -1,0 +1,8 @@
+---
+import SponsorPage from "../components/pages/SponsorPage.astro";
+import { currentLocale } from "../scripts/i18n.ts";
+
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<SponsorPage lang={lang} />

@@ -1,0 +1,380 @@
+---
+import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+
+const impressumHref = pathForSlug(lang, 'impressum');
+const privacyHref = pathForSlug(lang, 'privacy');
+const changelogHref = pathForSlug(lang, 'changelog');
+const downloadHref = pathForSlug(lang, 'download');
+const sponsorHref = pathForSlug(lang, 'sponsor');
+const screenshotsHref = pathForSlug(lang, 'screenshots');
+const year = new Date().getFullYear();
+
+// Ressourcen-Spalte: verlinkt die Long-Tail-Erklär-/Vergleichsseiten von der
+// Startseite aus. Ohne diese Links waren die Seiten reine Sitemap-Einträge
+// ohne ein einziges internes <a href> — siehe seo-audit vom 2026-07-02.
+const whisperDesktopHref = pathForSlug(lang, 'whisper-desktop');
+const enginesHref = pathForSlug(lang, 'engines');
+const engineBenchmarksHref = pathForSlug(lang, 'engine-benchmarks');
+const offlineSttHref = pathForSlug(lang, 'offline-speech-to-text');
+const privacyExplainerHref = pathForSlug(lang, 'privacy-speech-recognition');
+const dictationAlternativesHref = pathForSlug(lang, 'comparison/voice-input-tool-alternatives');
+const osDictationHref = pathForSlug(lang, 'comparison/whispaste-vs-system-speech-to-text');
+const blogHref = pathForSlug(lang, 'blog');
+const gpuCheckHref = pathForSlug(lang, 'gpu-compatibility');
+const modelSizeHref = pathForSlug(lang, 'whisper-model-size');
+const linuxSttHref = pathForSlug(lang, 'linux-speech-to-text');
+
+const productLinks = [
+  { id: 'download', href: downloadHref, key: 'footer.download' },
+  { id: 'screenshots', href: screenshotsHref, key: 'footer.screenshots' },
+  { id: 'changelog', href: changelogHref, key: 'footer.changelog' },
+];
+// First three stay visible, the rest sits in the "more resources" disclosure.
+const resourceLinks = [
+  { id: 'blog', href: blogHref, key: 'nav.blog' },
+  { id: 'engines', href: enginesHref, key: 'explainer.engines.breadcrumb' },
+  { id: 'offline-stt', href: offlineSttHref, key: 'explainer.offlineStt.breadcrumb' },
+  { id: 'privacy-explainer', href: privacyExplainerHref, key: 'explainer.privacy.breadcrumb' },
+  { id: 'engine-benchmarks', href: engineBenchmarksHref, key: 'explainer.engineBenchmarks.breadcrumb' },
+  { id: 'whisper-desktop', href: whisperDesktopHref, key: 'explainer.whisperDesktop.breadcrumb' },
+  { id: 'gpu-check', href: gpuCheckHref, key: 'gpuCheck.breadcrumb' },
+  { id: 'model-size', href: modelSizeHref, key: 'modelSize.breadcrumb' },
+  { id: 'linux-stt', href: linuxSttHref, key: 'linuxStt.breadcrumb' },
+  { id: 'dictation-alternatives', href: dictationAlternativesHref, key: 'comparison.dictationAlternatives.breadcrumb' },
+  { id: 'os-dictation', href: osDictationHref, key: 'comparison.osDictation.breadcrumb' },
+];
+---
+
+{/* pb-28 unter 640px: die fixe MobileCta-Leiste (~75px hoch) verdeckte sonst
+    am Seitenende dauerhaft die letzte Footer-Zeile. */}
+<footer class="pt-14 pb-28 md:pb-8" data-testid="footer">
+    <div class="wp-container">
+     <!-- One panel a frost step above the stage holds columns and legal
+          line (Pangram principle: the footer as its own rounded panel);
+          the AI note sits quietly below it. -->
+     <div class="footer-panel" data-testid="footer-panel">
+      <div class="footer-grid">
+        <!-- Brand + tagline -->
+        <div class="footer-brand">
+          <img src="/wordmark-dark.png" alt="WhisPaste" width="199" height="64" loading="lazy" decoding="async" class="h-6 w-auto mb-3" />
+          <p class="footer-tagline" data-i18n="footer.tagline">{t(lang, "footer.tagline")}</p>
+        </div>
+
+        <!-- Product -->
+        <nav class="footer-col" aria-labelledby="footer-h-product" data-testid="footer-product">
+          <p class="footer-col__title" id="footer-h-product" data-i18n="footer.col.product">{t(lang, "footer.col.product")}</p>
+          {productLinks.map((l) => (
+            <a href={l.href} class="footer-link" data-testid={`footer-link-${l.id}`}><span data-i18n={l.key}>{t(lang, l.key)}</span></a>
+          ))}
+        </nav>
+
+        <!-- Resources: three central explainers open, the rest in a native
+             disclosure. Collapsed links stay in the DOM, so every long-tail
+             page keeps an internal link from the homepage (seo-audit
+             2026-07-02). -->
+        <nav class="footer-col" aria-labelledby="footer-h-resources" data-testid="footer-resources">
+          <p class="footer-col__title" id="footer-h-resources" data-i18n="footer.col.resources">{t(lang, "footer.col.resources")}</p>
+          {resourceLinks.slice(0, 3).map((l) => (
+            <a href={l.href} class="footer-link" data-testid={`footer-link-${l.id}`}><span data-i18n={l.key}>{t(lang, l.key)}</span></a>
+          ))}
+          <details class="footer-more" data-testid="footer-resources-more">
+            <summary class="footer-link footer-more__summary"><span data-i18n="footer.resourcesMore">{t(lang, "footer.resourcesMore")}</span></summary>
+            <div class="footer-more__list">
+              {resourceLinks.slice(3).map((l) => (
+                <a href={l.href} class="footer-link" data-testid={`footer-link-${l.id}`}><span data-i18n={l.key}>{t(lang, l.key)}</span></a>
+              ))}
+            </div>
+          </details>
+        </nav>
+
+        <!-- Project -->
+        <nav class="footer-col" aria-labelledby="footer-h-project" data-testid="footer-project">
+          <p class="footer-col__title" id="footer-h-project" data-i18n="footer.col.project">{t(lang, "footer.col.project")}</p>
+          <a href="https://app.votepit.com/silvio-und-maik/whispaste" target="_blank" rel="noopener" class="footer-link" data-testid="footer-link-ideas"><span data-i18n="footer.ideas">{t(lang, "footer.ideas")}</span></a>
+          {/* Self-hosted copy of the official AlternativeTo badge: no third-party request on page load. */}
+          <a href="https://alternativeto.net/software/whispaste/about/?utm_source=badge&utm_medium=referral" target="_blank" rel="noopener" aria-label={t(lang, "footer.alternativeto")} data-i18n-aria="footer.alternativeto" class="mt-2 inline-block w-fit opacity-70 hover:opacity-100 transition-opacity" data-testid="footer-link-alternativeto">
+            <img src="/badges/alternativeto.svg" alt="" width="140" height="48" loading="lazy" decoding="async" class="h-auto w-[120px]" />
+          </a>
+        </nav>
+      </div>
+
+      <!-- Community line: channels and support in one row. Below it the
+           developer's own profiles, kept apart from the project channels.
+           Plain links only: no counts and no request to a third party on page load. -->
+      <nav class="footer-social" aria-labelledby="footer-h-social" data-testid="footer-social">
+        <div class="footer-social__group">
+          <p class="footer-social__title" id="footer-h-social" data-i18n="footer.social.title">{t(lang, "footer.social.title")}</p>
+          <ul class="footer-social__list">
+            <li>
+            <a href="https://www.youtube.com/@whispaste" target="_blank" rel="noopener" aria-label={t(lang, "nav.youtubeAria")} data-i18n-aria="nav.youtubeAria" class="footer-social__link" data-testid="footer-link-youtube">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              <span>YouTube</span>
+            </a>
+            </li>
+            <li>
+            <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" aria-label={t(lang, "nav.githubAria")} data-i18n-aria="nav.githubAria" class="footer-social__link" data-testid="footer-link-github">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+              <span>GitHub</span>
+            </a>
+            </li>
+            <li>
+              <a href={sponsorHref} class="footer-social__link" data-testid="footer-link-sponsor">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                <span data-i18n="footer.sponsor">{t(lang, "footer.sponsor")}</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+        <div class="footer-social__group" data-testid="footer-social-dev">
+          <p class="footer-social__subtitle" id="footer-h-dev" data-i18n="footer.social.dev">{t(lang, "footer.social.dev")}</p>
+          <ul class="footer-social__list">
+            <li>
+            <a href="https://x.com/silviolindstedt" target="_blank" rel="noopener" aria-label={t(lang, "nav.xDevAria")} data-i18n-aria="nav.xDevAria" class="footer-social__link" data-testid="footer-link-x">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+              <span>X <span class="footer-social__handle">@silviolindstedt</span></span>
+            </a>
+            </li>
+            <li>
+            <a href="https://github.com/silvio-l" target="_blank" rel="noopener" aria-label={t(lang, "nav.githubDevAria")} data-i18n-aria="nav.githubDevAria" class="footer-social__link" data-testid="footer-link-github-dev">
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+              <span>GitHub <span class="footer-social__handle">@silvio-l</span></span>
+            </a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+
+      <!-- Legal line: always visible, full width. -->
+      <div class="footer-legal" data-testid="footer-legal">
+        <nav class="footer-legal__links" aria-labelledby="footer-h-legal">
+          <span class="sr-only" id="footer-h-legal" data-i18n="footer.col.legal">{t(lang, "footer.col.legal")}</span>
+          <a href={impressumHref} class="footer-legal__link" data-testid="footer-link-impressum"><span data-i18n="footer.impressum">{t(lang, "footer.impressum")}</span></a>
+          <a href={privacyHref} class="footer-legal__link" data-testid="footer-link-privacy" data-i18n-href="footer.privacy.href"><span data-i18n="footer.privacy">{t(lang, "footer.privacy")}</span></a>
+          <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener" class="footer-legal__link" data-testid="footer-link-license"><span data-i18n="footer.license">{t(lang, "footer.license")}</span></a>
+        </nav>
+        <p>© {year} WhisPaste · <span data-i18n="footer.rights">{t(lang, "footer.rights")}</span></p>
+      </div>
+     </div>
+      <!-- EU AI Act Art. 50(4): explains the "AI-generated" label on photos. -->
+      <p class="footer-ai-note" data-testid="footer-ai-note" data-i18n="footer.aiNote">{t(lang, "footer.aiNote")}</p>
+    </div>
+  </footer>
+
+<style>
+  .footer-grid {
+    display: grid;
+    gap: var(--wp-space-10) var(--wp-space-8);
+  }
+  @media (min-width: 640px) {
+    .footer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .footer-brand { grid-column: 1 / -1; max-width: 22rem; }
+  }
+  @media (min-width: 1024px) {
+    .footer-grid { grid-template-columns: minmax(0, 4fr) repeat(3, minmax(0, 2.67fr)); }
+    .footer-brand { grid-column: auto; }
+  }
+  .footer-tagline {
+    font-size: var(--wp-font-size-sm);
+    line-height: 1.6;
+    color: var(--wp-footer-text);
+  }
+  /* Each link column hangs off a hairline on its left edge (Ditto
+     principle), so the columns read as rails instead of loose lists. */
+  .footer-col {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-inline-start: var(--wp-space-5);
+    border-inline-start: 1px solid var(--wp-footer-column-rule);
+  }
+  .footer-col__title {
+    margin-bottom: var(--wp-space-2);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--wp-text-link);
+  }
+  .footer-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    font-size: var(--wp-font-size-md);
+    color: var(--wp-footer-heading);
+    text-decoration: none;
+    transition: color var(--dur-fast) ease;
+  }
+  .footer-link:hover { color: var(--wp-footer-link-hover); }
+  .footer-more__summary {
+    cursor: pointer;
+    list-style: none;
+    gap: var(--wp-space-2);
+    color: var(--wp-text-link);
+  }
+  .footer-panel {
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-panel-radius);
+    border: 1px solid var(--wp-footer-panel-border);
+    background: var(--wp-footer-panel-fill);
+  }
+  @media (min-width: 1024px) {
+    .footer-panel { padding: var(--wp-space-12) var(--wp-space-12) var(--wp-space-6); }
+  }
+  .footer-more__summary::-webkit-details-marker { display: none; }
+  .footer-more__summary::after {
+    content: '+';
+    font-weight: 600;
+  }
+  .footer-more[open] .footer-more__summary::after { content: '−'; }
+  .footer-more__list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .footer-legal {
+    margin-top: var(--wp-space-10);
+    padding-top: var(--wp-space-6);
+    border-top: 1px solid var(--wp-footer-divider);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--wp-space-2) var(--wp-space-6);
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-footer-text);
+  }
+  .footer-ai-note {
+    margin-top: var(--wp-space-4);
+    max-width: 70ch;
+    font-size: var(--wp-font-size-xs);
+    line-height: 1.55;
+    color: var(--wp-footer-text);
+  }
+  .footer-legal__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--wp-space-5);
+  }
+  .footer-legal__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    color: var(--wp-footer-heading);
+    text-decoration: none;
+  }
+  .footer-legal__link:hover { color: var(--wp-footer-link-hover); }
+  /* Community line: channels first, then the developer's own profiles in a
+     second group with its own label. Stacked on phones, one row from 640px.
+     Targets are 44px tall. */
+  .footer-social {
+    min-width: 0;
+    max-width: 100%;
+    margin-top: var(--wp-space-10);
+    padding-top: var(--wp-space-6);
+    border-top: 1px solid var(--wp-footer-divider);
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-6);
+  }
+  .footer-social__group {
+    min-width: 0;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--wp-space-2);
+  }
+  @media (min-width: 640px) {
+    .footer-social__group { flex-direction: row; align-items: center; gap: var(--wp-space-6); }
+  }
+  .footer-social__title,
+  .footer-social__subtitle {
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .footer-social__title { color: var(--wp-text-link); }
+  .footer-social__subtitle { color: var(--wp-footer-text); }
+  .footer-social__list {
+    min-width: 0;
+    max-width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-1) var(--wp-space-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .footer-social__link {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    min-height: 44px;
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-footer-heading);
+    text-decoration: none;
+    transition: color var(--dur-fast) ease;
+  }
+  .footer-social__handle { color: var(--wp-footer-text); }
+  .footer-social__link svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+  .footer-social__link:hover { color: var(--wp-footer-link-hover); }
+  .footer-social__link:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-chip);
+  }
+  .footer-link:focus-visible,
+  .footer-legal__link:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-chip);
+  }
+
+  /* Flow glint: a quiet cyan shimmer drifts along the panel's top edge, so
+     the flow motif fades out at the page end. Only background-position,
+     clipped by the panel's rounded corners. */
+  .footer-panel {
+    position: relative;
+    overflow: hidden;
+  }
+  .footer-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-brand-cyan) 45%, transparent),
+      transparent
+    );
+    background-size: 34% 100%;
+    background-repeat: no-repeat;
+    background-position: 0% 0;
+    animation: footer-glint 16s ease-in-out infinite;
+  }
+  @keyframes footer-glint {
+    0%, 100% { background-position: 0% 0; }
+    50% { background-position: 100% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .footer-panel::before {
+      animation: none;
+      opacity: 0;
+    }
+  }
+</style>

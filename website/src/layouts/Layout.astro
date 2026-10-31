@@ -1,0 +1,222 @@
+---
+import "../styles/global.css";
+import {
+  t,
+  alternatePaths,
+  currentLocale,
+  localesForSlug,
+  parsePath,
+  pathForSlug,
+  LOCALE_META,
+  type Locale,
+} from "../scripts/i18n.ts";
+import OrganizationSchema from "../components/schema/OrganizationSchema.astro";
+import WebVitals from "../components/WebVitals.astro";
+import ContactWidget from "../components/ContactWidget.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  /**
+   * Optional explicit locale override. Falls back to `Astro.currentLocale`
+   * (which reflects the URL prefix once Astro's i18n routing is configured)
+   * and, as a last resort, to the project's default locale `de`.
+   */
+  lang?: Locale;
+}
+
+const SITE_ORIGIN = "https://whispaste.de";
+
+const lang: Locale = Astro.props.lang ?? currentLocale(Astro.currentLocale);
+
+const {
+  title = t(lang, "meta.title.default"),
+  description = t(lang, "meta.description.default"),
+  ogImage = lang === "de" ? "/og-image-de.png" : "/og-image.png",
+} = Astro.props;
+
+// Every locale's URL of this page; the page's English slug decides which
+// locales it is published in (legal pages exist only in German and English).
+const { slug } = parsePath(Astro.url.pathname);
+const pageLocales = localesForSlug(slug);
+const absolute = (path: string) => new URL(path, SITE_ORIGIN).href;
+const alternates = alternatePaths(Astro.url.pathname);
+
+const canonicalURL = new URL(pathForSlug(lang, slug), SITE_ORIGIN);
+const ogImageURL = new URL(ogImage, SITE_ORIGIN);
+const ogLocale = LOCALE_META[lang].ogLocale;
+const ogLocaleAlternates = pageLocales.filter((l) => l !== lang).map((l) => LOCALE_META[l].ogLocale);
+---
+
+<!doctype html>
+<html lang={LOCALE_META[lang].tag} class="bg-brand-darker text-ink">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="theme-color" content="#0B122A" />
+    <meta name="author" content="WhisPaste" />
+    {/* Preload the primary self-hosted variable fonts (latin subset) to
+        avoid a flash of fallback text for the above-the-fold copy. */}
+    <link rel="preload" href="/fonts/hanken-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/bricolage-grotesque-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
+    {/* Page-specific head additions, e.g. the landing page preloads the hero
+        film poster (its LCP element). */}
+    <slot name="head" />
+    {/* Kein Fraunces-Preload mehr: die Serif wurde mit dem Redesign entfernt
+        (Design-Contract "No serif"); der Link lud auf jeder Seite einen 404. */}
+    {/* Kleine, dedizierte Varianten statt des vollen 1024px-App-Icons (das nur
+        noch als Organization-Schema-`logo`-Referenz dient) — Browser laden
+        rel=icon/apple-touch-icon bei jedem Erstbesuch. */}
+    <link rel="icon" type="image/png" href="/app-icon-32.png" />
+    <link rel="apple-touch-icon" href="/app-icon-180.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="canonical" href={canonicalURL.href} />
+    {/*
+      hreflang-Annotationen: ein Eintrag pro veröffentlichter Locale +
+      `x-default` auf die englische Variante (Besucher ohne passende
+      Sprachversion). Pflicht für saubere SEO-Indexierung
+      (AC3 / PRD §B). Astro Sitemap ergänzt dieselben Alternates im
+      `sitemap-0.xml` automatisch via `i18n`-Konfiguration.
+    */}
+    {pageLocales.map((l) => (
+      <link rel="alternate" hreflang={LOCALE_META[l].tag} href={absolute(alternates[l])} />
+    ))}
+    <link rel="alternate" hreflang="x-default" href={absolute(alternates.en)} />
+    {/* Browser-language redirect (static hosting, no Accept-Language on the
+        server). Runs before anything renders. Only on an entry from outside
+        the site, once per session, never for crawlers or automation (Googlebot
+        reports en-US and must still see every locale), and a language picked
+        in the switcher (localStorage "wp-lang") wins over the browser setting.
+        The target comes from this page's own hreflang alternates, so this
+        must stay below them. */}
+    <script is:inline>
+      (function () {
+        try {
+          if (navigator.webdriver || /bot|crawl|spider|slurp|lighthouse|headless|preview|facebookexternalhit/i.test(navigator.userAgent)) return;
+          if (document.referrer && new URL(document.referrer).host === location.host) return;
+          if (sessionStorage.getItem('wp-lang-auto')) return;
+          sessionStorage.setItem('wp-lang-auto', '1');
+          var map = { de: 'de', en: 'en', es: 'es', pt: 'pt-BR', it: 'it', ru: 'ru', zh: 'zh-Hans', fr: 'fr' };
+          var want = null;
+          try { want = localStorage.getItem('wp-lang'); } catch (e) {}
+          if (!map[want]) {
+            want = 'en';
+            var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
+            for (var i = 0; i < langs.length; i++) {
+              var base = String(langs[i]).toLowerCase().split('-')[0];
+              if (map[base]) { want = base; break; }
+            }
+          }
+          var tag = map[want];
+          if (document.documentElement.lang === tag) return;
+          var link = document.querySelector('link[rel="alternate"][hreflang="' + tag + '"]');
+          if (!link) return;
+          var target = new URL(link.href, location.href);
+          if (target.pathname === location.pathname) return;
+          location.replace(target.pathname + location.search + location.hash);
+        } catch (e) {}
+      })();
+    </script>
+    <title>{title}</title>
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL.href} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImageURL.href} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:locale" content={ogLocale} />
+    {ogLocaleAlternates.map((l) => <meta property="og:locale:alternate" content={l} />)}
+    <meta property="og:site_name" content="WhisPaste" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageURL.href} />
+
+    {/*
+      Site-weite Organization-Identität. Jede Page emittiert denselben
+      `@id` (siehe `ORGANIZATION_ID` in `schema/builders.ts`), damit
+      Knowledge-Graph-Crawler die WhisPaste-Entität konsolidieren können.
+      Bewusst im `<head>`, damit das Schema vor jedem Page-spezifischen
+      Schema (SoftwareApplication, FAQPage, HowTo, BreadcrumbList) steht.
+    */}
+    <OrganizationSchema locale={lang} />
+    <script is:inline>
+      (function(){
+        var ua = navigator.userAgent;
+        var uad = navigator.userAgentData;
+        var os = '';
+        // Mobile guard: phones/tablets never get a desktop OS tag.
+        if (/iPhone|iPad|iPod|Android/.test(ua)) { return; }
+        if (uad && uad.platform) {
+          var p = uad.platform.toLowerCase();
+          if (p === 'macos') os = 'macos';
+          else if (p === 'windows') os = 'windows';
+          else if (p === 'linux') os = 'linux';
+        } else if (/Macintosh|MacIntel|Mac OS X/.test(ua)) {
+          os = 'macos';
+        } else if (/Windows/.test(ua)) {
+          os = 'windows';
+        } else if (/Linux/.test(ua)) {
+          os = 'linux';
+        }
+        if (os) document.documentElement.dataset.os = os;
+      })();
+    </script>
+    {/* Matomo Analytics — prod-only, cookiefrei, DSGVO-konfiguriert. Site 4 = WhisPaste. */}
+    {/* WARNUNG: NIEMALS _paq.push(["setAnonymizeIp", ...]) ergänzen — keine gültige Matomo-5-
+        JS-Methode, wirft TypeError und bricht die _paq-Queue ab (trackPageView läuft nie ->
+        Tracking-Totalausfall, Juni 2026). IP-Anonymisierung passiert serverseitig in Matomo. */}
+    {/* Runtime-Hostname-Guard zusätzlich zum `import.meta.env.PROD`-Build-Flag: ein lokal
+        ausgeführter Production-Build (`astro build && astro preview`) setzt PROD ebenfalls,
+        feuerte damit bislang echte Hits gegen die Live-Instanz (Matomo-Analyse 2026-09-04 fand
+        hunderte Visits mit Entry/Exit-Page `http://127.0.0.1:4321/…` in den echten Site-4-Daten). */}
+    {import.meta.env.PROD && (
+      <script is:inline set:html={`if (!/^(localhost|127\\.0\\.0\\.1|\\[::1\\])$/.test(location.hostname)) {
+  var _paq = (window._paq = window._paq || []);
+  _paq.push(["disableCookies"]);
+  _paq.push(["enableHeartBeatTimer"]);
+  _paq.push(["trackPageView"]);
+  _paq.push(["enableLinkTracking"]);
+  (function () {
+    _paq.push(["setTrackerUrl", "https://matomo.silvio-und-maik.de/matomo.php"]);
+    _paq.push(["setSiteId", "4"]);
+    var d = document, g = d.createElement("script");
+    g.src = "https://matomo.silvio-und-maik.de/matomo.js";
+    g.async = true;
+    d.head.appendChild(g);
+  })();
+}`} />
+    )}
+    {/* Engagement-Event „Download gestartet" → Matomo. Hört auf das bestehende
+        download:triggered-CustomEvent (Store-/Apple-Button); Name = erkanntes OS
+        (data-os aus dem OS-Detektor oben). Cookieless, prod-only, _paq-Muster. */}
+    {import.meta.env.PROD && (
+      <script is:inline set:html={`document.addEventListener("download:triggered", function () {
+  var os = document.documentElement.dataset.os || "unbekannt";
+  if (window._paq) window._paq.push(["trackEvent", "Engagement", "Download gestartet", os]);
+});`} />
+    )}
+    {/* Core Web Vitals (RUM) → Matomo custom events. First-party bundled, prod-only. */}
+    {import.meta.env.PROD && <WebVitals enabled={true} />}
+  </head>
+  <body class="antialiased">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-(--wp-accent-fill) focus:text-(--wp-accent-on-fill) focus:rounded-lg focus:font-semibold focus:shadow-lg" data-i18n="nav.skip">
+      {t(lang, "nav.skip")}
+    </a>
+    <slot />
+    <ContactWidget />
+      <script>
+      import { startMotionBudget } from '../scripts/motion-budget.ts';
+      startMotionBudget();
+    </script>
+  </body>
+</html>

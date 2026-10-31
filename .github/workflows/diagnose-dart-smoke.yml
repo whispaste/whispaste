@@ -1,0 +1,112 @@
+name: WhisPaste-Diagnose Dart Smoke
+
+# Builds and smoke-tests the pure-Dart WhisPaste-Diagnose CLI on both
+# native runners. Each runner compiles its own binary (no cross-compile),
+# runs it against a temp output directory (no WhisPaste installed on the
+# runner), asserts exit 0, and asserts a report file was written.
+#
+# Per push to dev that touches the diagnostics package or this workflow, only
+# the Linux format check runs. The native Windows smoke test runs on manual
+# dispatch (no schedules, rule 2026-10-25) (decision 3a, Actions minutes). The
+# macOS smoke test has no GitHub job (macOS bills at 10x): run
+# scripts/diagnose-smoke-macos-local.sh on the Mac instead.
+# Scheduled runs only start from the default branch (main), so the cron
+# activates after the next dev -> main merge.
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'packages/whispaste_diagnostics/**'
+      - '.github/workflows/diagnose-dart-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: diagnose-dart-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: Format check (dart format)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+
+      - name: Get dependencies
+        working-directory: packages/whispaste_diagnostics
+        run: dart pub get
+
+      - name: dart format --set-exit-if-changed
+        working-directory: packages/whispaste_diagnostics
+        run: dart format --output=none --set-exit-if-changed .
+
+  smoke-windows:
+    name: Smoke — Windows (dart compile exe)
+    # Not on dev pushes (decision 3a): workflow_dispatch only (no schedules, rule 2026-10-25).
+    if: github.event_name != 'push'
+    runs-on: windows-latest
+    # GitHub-hosted Windows bills at 2x; see the macOS job below for why an
+    # explicit limit matters. Normal runtime is ~3min.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: stable
+
+      - name: Get dependencies
+        working-directory: packages/whispaste_diagnostics
+        run: dart pub get
+
+      - name: Compile WhisPaste-Diagnose.exe
+        working-directory: packages/whispaste_diagnostics
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          dart compile exe bin/whispaste_diagnose.dart -o dist/WhisPaste-Diagnose.exe
+          if (-not (Test-Path dist/WhisPaste-Diagnose.exe)) {
+            throw 'dart compile exe did not produce WhisPaste-Diagnose.exe'
+          }
+          Write-Output "Binary size: $((Get-Item dist/WhisPaste-Diagnose.exe).Length) bytes"
+
+      - name: Smoke test — run binary, assert exit 0, assert report written
+        working-directory: packages/whispaste_diagnostics
+        shell: pwsh
+        run: |
+          $outDir = Join-Path $env:RUNNER_TEMP 'diagnose-smoke'
+          New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+          & dist/WhisPaste-Diagnose.exe --output-dir $outDir
+          if ($LASTEXITCODE -ne 0) {
+            throw "Binary exited with code $LASTEXITCODE (expected 0)"
+          }
+          $txt = Get-ChildItem $outDir -Filter '*.txt'
+          $zip = Get-ChildItem $outDir -Filter '*.zip'
+          if ($txt.Count -eq 0) { throw 'No .txt report file written' }
+          if ($zip.Count -eq 0) { throw 'No .zip bundle written' }
+          Write-Output "==> Smoke OK — report written:"
+          Write-Output "    $($txt[0].FullName) ($($txt[0].Length) bytes)"
+          Write-Output "    $($zip[0].FullName) ($($zip[0].Length) bytes)"
+          Write-Output "--- Report head ---"
+          Get-Content $txt[0].FullName -TotalCount 12
+
+      - name: Upload smoke artifact (diagnose .exe)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: whispaste-diagnose-dart-exe
+          path: packages/whispaste_diagnostics/dist/WhisPaste-Diagnose.exe
+          if-no-files-found: error

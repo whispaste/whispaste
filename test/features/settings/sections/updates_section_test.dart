@@ -1,0 +1,410 @@
+/// Tests for [UpdatesSection] — release channel toggle + automatic update
+/// check, and the store-channel hide rule (AC „Store-Build blendet den Toggle
+/// sinnvoll aus").
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/features/settings/sections/updates_section.dart';
+import 'package:whispaste/features/settings/settings_widgets.dart';
+import 'package:whispaste/services/auto_updater_service.dart';
+import 'package:whispaste/services/deploy_channel_service.dart';
+import 'package:whispaste/services/stable_revert_hint_service.dart';
+import 'package:whispaste/services/update_channel_service.dart';
+
+import '../../../fixtures/test_helpers.dart';
+import 'package:whispaste/features/settings/widgets/wp_settings_group.dart';
+
+/// Fake for [StableRevertHintNotifier] — [checkAfterSwitchToStable] normally
+/// fetches+parses+compares against the real network; the pure logic is
+/// covered independently in `stable_revert_hint_service_test.dart`. Here we
+/// only need to verify the *wiring* (Issue 06): does the toggle's
+/// `onChanged` trigger the check exactly once per switch-to-stable, and does
+/// the section render/hide the hint based on the resulting state.
+class FakeStableRevertHintNotifier extends StableRevertHintNotifier {
+  FakeStableRevertHintNotifier({
+    this.shouldShow = true,
+    this.version = '1.2.43',
+  });
+
+  final bool shouldShow;
+  final String version;
+  int checkCallCount = 0;
+
+  @override
+  Future<void> checkAfterSwitchToStable({
+    String? installedVersionOverride,
+  }) async {
+    checkCallCount++;
+    state = shouldShow
+        ? StableRevertHintState(visible: true, stableVersion: version)
+        : const StableRevertHintState();
+  }
+}
+
+class FakeSettingsNotifier extends SettingsNotifier {
+  FakeSettingsNotifier([AppSettings? settings])
+    : _settings = settings ?? AppSettings.defaults;
+
+  AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    _settings = updater(state.value ?? _settings);
+    state = AsyncData(_settings);
+  }
+}
+
+/// Taps the [Switch] inside the [SettingRow] that shows [label].
+Future<void> _tapRowSwitch(WidgetTester tester, String label) async {
+  final row = find.ancestor(
+    of: find.text(label),
+    matching: find.byType(WpSettingsRow),
+  );
+  await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));
+  await tester.pump();
+}
+
+late L10n l10n;
+
+void main() {
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    // Tests that don't override [stableRevertHintProvider] still exercise
+    // the real notifier via the toggle's onChanged wiring (Issue 06). Stub
+    // the network seam so those runs resolve synchronously instead of
+    // leaving a real Dio connect-timeout timer pending past test teardown.
+    fetchAppcastFn = (url) async => throw Exception('test: no network');
+  });
+
+  tearDown(() {
+    fetchAppcastFn = (url) async => '';
+    platformSupportsSparkle = () => false;
+  });
+
+  group('UpdatesSection', () {
+    testWidgets('AC-1: toggling Beta-Updates switches the channel to beta', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
+          overrides: [
+            settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+            deployChannelProvider.overrideWith((ref) => DeployChannel.portable),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _tapRowSwitch(tester, l10n.settingsBetaUpdates);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(UpdatesSection)),
+      );
+      expect(container.read(updateChannelProvider).value, UpdateChannel.beta);
+    });
+
+    testWidgets('toggling Beta-Updates off returns to stable', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
+          overrides: [
+            settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+            deployChannelProvider.overrideWith((ref) => DeployChannel.portable),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → beta
+      await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → stable
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(UpdatesSection)),
+      );
+      expect(container.read(updateChannelProvider).value, UpdateChannel.stable);
+    });
+
+    testWidgets('toggling "check for updates" writes through to settings', (
+      tester,
+    ) async {
+      final notifier = FakeSettingsNotifier(); // checkUpdates defaults true
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
+          overrides: [
+            settingsProvider.overrideWith(() => notifier),
+            deployChannelProvider.overrideWith((ref) => DeployChannel.portable),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await _tapRowSwitch(tester, l10n.settingsCheckUpdates);
+
+      expect(notifier.state.value!.updates.checkUpdates, isFalse);
+    });
+
+    testWidgets('AC-4: store channel keeps the rows, disabled with the reason '
+        '(WP-23g)', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
+          overrides: [
+            deployChannelProvider.overrideWith((ref) => DeployChannel.store),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.settingsBetaUpdates), findsOneWidget);
+      expect(find.text(l10n.settingsCheckUpdates), findsOneWidget);
+      expect(find.text(l10n.settingsStoreUpdatesUnavailable), findsWidgets);
+      expect(find.text(l10n.settingsStoreBetaUnavailable), findsOneWidget);
+
+      final checkToggle = tester.widget<Switch>(
+        find.byKey(const ValueKey('settings-updates-check-toggle')),
+      );
+      final betaToggle = tester.widget<Switch>(
+        find.byKey(const ValueKey('settings-updates-beta-toggle')),
+      );
+      expect(checkToggle.onChanged, isNull);
+      expect(betaToggle.onChanged, isNull);
+      expect(
+        find.byKey(const ValueKey('settings-updates-check-now')),
+        findsNothing,
+      );
+    });
+
+    testWidgets(
+      'AC-4b: section is hidden on the packageManaged deploy channel',
+      (tester) async {
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
+            overrides: [
+              deployChannelProvider.overrideWith(
+                (ref) => DeployChannel.packageManaged,
+              ),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.settingsBetaUpdates), findsNothing);
+        expect(find.text(l10n.settingsCheckUpdates), findsNothing);
+      },
+    );
+
+    testWidgets('renders both controls on a non-store channel', (tester) async {
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [UpdatesSection(), BetaChannelSection()],
+            ),
+          ),
+          overrides: [
+            settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+            deployChannelProvider.overrideWith((ref) => DeployChannel.portable),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.settingsCheckUpdates), findsOneWidget);
+      expect(find.text(l10n.settingsBetaUpdates), findsOneWidget);
+      expect(find.text(l10n.settingsCheckForUpdatesNow), findsNothing);
+      expect(find.byType(Switch), findsNWidgets(2));
+    });
+  });
+
+  group('UpdatesSection — stable-revert hint (Issue 06, AC-7/AC-3)', () {
+    testWidgets(
+      'AC-7: switching Beta → Stable triggers the check once and shows the '
+      'hint with the stable-download link when it resolves visible',
+      (tester) async {
+        final fake = FakeStableRevertHintNotifier();
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
+            overrides: [
+              settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+              deployChannelProvider.overrideWith(
+                (ref) => DeployChannel.portable,
+              ),
+              stableRevertHintProvider.overrideWith(() => fake),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → beta
+        await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → stable
+        await tester.pumpAndSettle();
+
+        expect(fake.checkCallCount, 1);
+        expect(find.text(l10n.settingsStableRevertHintMessage), findsOneWidget);
+        expect(
+          find.text(l10n.settingsStableRevertHintLink('1.2.43')),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'AC-3: no false hint — when the check resolves not-visible (e.g. '
+      'post-promotion), nothing is rendered',
+      (tester) async {
+        final fake = FakeStableRevertHintNotifier(shouldShow: false);
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
+            overrides: [
+              settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+              deployChannelProvider.overrideWith(
+                (ref) => DeployChannel.portable,
+              ),
+              stableRevertHintProvider.overrideWith(() => fake),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → beta
+        await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → stable
+        await tester.pumpAndSettle();
+
+        expect(fake.checkCallCount, 1);
+        expect(find.text(l10n.settingsStableRevertHintMessage), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'switching to Beta dismisses an already-visible hint (no stale hint '
+      'once the user opts back into Beta)',
+      (tester) async {
+        final fake = FakeStableRevertHintNotifier();
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
+            overrides: [
+              settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+              deployChannelProvider.overrideWith(
+                (ref) => DeployChannel.portable,
+              ),
+              stableRevertHintProvider.overrideWith(() => fake),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → beta
+        await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → stable
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.settingsStableRevertHintMessage), findsOneWidget);
+
+        await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → beta again
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.settingsStableRevertHintMessage), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'dismiss button hides the hint, and it stays hidden across rebuilds '
+      '(shown once per switch — not spammy)',
+      (tester) async {
+        final fake = FakeStableRevertHintNotifier();
+        await tester.pumpWidget(
+          makeTestable(
+            const SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [UpdatesSection(), BetaChannelSection()],
+              ),
+            ),
+            overrides: [
+              settingsProvider.overrideWith(() => FakeSettingsNotifier()),
+              deployChannelProvider.overrideWith(
+                (ref) => DeployChannel.portable,
+              ),
+              stableRevertHintProvider.overrideWith(() => fake),
+            ],
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → beta
+        await _tapRowSwitch(tester, l10n.settingsBetaUpdates); // → stable
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.settingsStableRevertHintMessage), findsOneWidget);
+
+        await tester.tap(find.byTooltip(l10n.actionDismiss));
+        await tester.pumpAndSettle();
+        expect(find.text(l10n.settingsStableRevertHintMessage), findsNothing);
+
+        // Further rebuilds (simulated navigation) must not re-trigger the
+        // check or resurrect the dismissed hint.
+        await tester.pumpAndSettle();
+        await tester.pumpAndSettle();
+        expect(fake.checkCallCount, 1);
+        expect(find.text(l10n.settingsStableRevertHintMessage), findsNothing);
+      },
+    );
+  });
+}

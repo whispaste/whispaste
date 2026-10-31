@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- HyperFrames composition M4: auto-paste. The voice pill hands the text
+         over to the clipboard, and the text lands in the field, where a caret
+         follows it and an amber outline marks it as pasted. Pill, clipboard and
+         field form one centred group joined contour to contour. No text in the
+         picture. Colours come from the theme roles (themes/*.css) injected by
+         scripts/stage.sh. Geometry rules are declared with data-* attributes and
+         checked by scripts/geometry-check.js. -->
+    <script src="../node_modules/gsap/dist/gsap.min.js"></script>
+    <style>
+      /*WP_THEME*/
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--stage);
+      }
+      #root {
+        position: relative;
+        width: 920px;
+        height: 576px;
+        overflow: hidden;
+        background: var(--stage);
+      }
+      .abs {
+        position: absolute;
+      }
+      .bar {
+        position: absolute;
+        width: 12px;
+        height: 64px;
+        top: 256px;
+        border-radius: 6px;
+        background: var(--action-bright);
+      }
+      .line {
+        position: absolute;
+        height: 20px;
+        border-radius: 10px;
+        background: var(--ink);
+        transform-origin: 0% 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="m4-autopaste"
+      data-width="920"
+      data-height="576"
+      data-duration="5"
+    >
+      <!-- Voice pill: x 90 to 310, centre y 288. -->
+      <div
+        class="abs"
+        data-box="pill"
+        data-group="m4-all"
+        data-within="stage"
+        style="left: 90px; top: 226px; width: 220px; height: 124px; border-radius: 62px; background: var(--pill); box-shadow: var(--shadow-lift), inset 0 0 0 2px var(--line-strong)"
+      ></div>
+      <div id="bars"></div>
+
+      <!-- Connector 1: pill right contour (x 310) to clipboard left contour (x 380). -->
+      <div
+        id="connector-1"
+        class="abs"
+        data-link-x="pill,board"
+        style="left: 310px; top: 286px; width: 70px; height: 4px; border-radius: 2px; background: var(--action-on-stage)"
+      ></div>
+
+      <!-- Clipboard: x 380 to 500, centre y 288. The clip sits on its top edge. -->
+      <div
+        id="board"
+        class="abs"
+        data-box="board"
+        data-group="m4-all"
+        data-within="stage"
+        style="left: 380px; top: 203px; width: 120px; height: 170px; border-radius: 18px; background: var(--chip); box-shadow: var(--shadow-lift), inset 0 0 0 2px var(--line-strong)"
+      ></div>
+      <div
+        id="clip"
+        class="abs"
+        data-overlap-ok="board"
+        style="left: 416px; top: 192px; width: 48px; height: 22px; border-radius: 6px; background: var(--line-strong)"
+      ></div>
+
+      <!-- Connector 2: clipboard right contour (x 500) to field left contour (x 570). -->
+      <div
+        id="connector-2"
+        class="abs"
+        data-link-x="board,field"
+        style="left: 500px; top: 286px; width: 70px; height: 4px; border-radius: 2px; background: var(--action-on-stage)"
+      ></div>
+
+      <!-- Text field: x 570 to 830, centre (700, 288). -->
+      <div
+        class="abs"
+        data-box="field"
+        data-group="m4-all"
+        data-within="stage"
+        style="left: 570px; top: 160px; width: 260px; height: 256px; border-radius: 26px; background: var(--panel); box-shadow: var(--shadow-lift)"
+      ></div>
+      <!-- Amber outline marks the pasted block. Outline only: no fill, so the
+           text keeps the panel's contrast in every theme. -->
+      <div
+        id="marker"
+        class="abs"
+        data-in="field"
+        data-pad="16"
+        data-overlap-ok="m4-text"
+        style="left: 586px; top: 230px; width: 228px; height: 124px; border-radius: 14px; border: 3px solid var(--accent-on-light); box-sizing: border-box; opacity: 0"
+      ></div>
+      <div id="lines"></div>
+      <div
+        id="caret"
+        class="abs"
+        data-in="field"
+        data-pad="24"
+        data-overlap-ok="m4-text"
+        style="left: 605px; top: 238px; width: 4px; height: 28px; border-radius: 2px; background: var(--action-on-light); opacity: 0"
+      ></div>
+    </div>
+
+    <script>
+      // Deterministic pseudo-random numbers: the same loop on every render.
+      function rng(seed) {
+        let a = seed >>> 0;
+        return function () {
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      const rand = rng(11);
+
+      // Nine wave bars at a 22 px pitch, centred in the pill (centre x 200).
+      const barHost = document.getElementById("bars");
+      for (let i = 0; i < 9; i++) {
+        const el = document.createElement("div");
+        el.className = "bar";
+        el.style.left = 106 + i * 22 + "px";
+        el.dataset.in = "pill";
+        el.dataset.pad = "12";
+        el.dataset.group = "m4-pill";
+        el.dataset.within = "pill";
+        barHost.appendChild(el);
+      }
+      const barEls = Array.from(barHost.children);
+
+      // Field lines: block 605 to 795 (widest line 190), centred on the field axis
+      // (x 700); rows 242 to 334, centred on y 288. Lines are the text: ink colour.
+      const lineSpec = [
+        { top: 242, width: 190 },
+        { top: 278, width: 150 },
+        { top: 314, width: 100 },
+      ];
+      const lineHost = document.getElementById("lines");
+      const lineEls = lineSpec.map((spec) => {
+        const el = document.createElement("div");
+        el.className = "line";
+        el.style.left = "605px";
+        el.style.top = spec.top + "px";
+        el.style.width = spec.width + "px";
+        el.dataset.in = "field";
+        el.dataset.pad = "24";
+        el.dataset.group = "m4-text";
+        el.dataset.within = "field";
+        lineHost.appendChild(el);
+        return el;
+      });
+
+      const tl = gsap.timeline({ paused: true });
+
+      // Idle start state (identical at t = 0 and t = 5 for a seamless loop).
+      gsap.set(barEls, { scaleY: 0.3, transformOrigin: "50% 50%" });
+      gsap.set(lineEls, { scaleX: 0.55, opacity: 0.35 });
+      gsap.set("#connector-1", { scaleX: 0, transformOrigin: "0% 50%" });
+      gsap.set("#connector-2", { scaleX: 0, transformOrigin: "0% 50%" });
+      gsap.set("#board", { scale: 1, transformOrigin: "50% 50%" });
+      gsap.set("#clip", { scale: 1, transformOrigin: "50% 50%" });
+      gsap.set("#caret", { x: 0, y: 0, opacity: 0 });
+      gsap.set("#marker", { opacity: 0 });
+
+      // 0.2 - 1.6 s: the voice. Four random segments per bar.
+      const seg = 0.35;
+      barEls.forEach((bar) => {
+        for (let k = 0; k < 4; k++) {
+          tl.to(bar, { scaleY: 0.4 + rand() * 0.6, duration: seg, ease: "sine.inOut" }, 0.2 + k * seg);
+        }
+      });
+      tl.to(barEls, { scaleY: 0.3, duration: 0.3, ease: "power2.inOut", stagger: 0.02 }, 1.6);
+
+      // 1.6 - 2.2 s: the text is handed to the clipboard, contour to contour.
+      tl.to("#connector-1", { scaleX: 1, duration: 0.6, ease: "power1.inOut" }, 1.6);
+      tl.to("#connector-2", { scaleX: 1, duration: 0.4, ease: "power1.inOut" }, 2.2);
+      tl.to("#clip", { scale: 1.12, duration: 0.2, ease: "power1.out" }, 2.4);
+      tl.to("#clip", { scale: 1, duration: 0.3, ease: "back.out(1.6)" }, 2.6);
+
+      // 2.6 - 3.2 s: the paste. Each line lands in the field; the caret follows.
+      lineEls.forEach((line, i) => {
+        const t0 = 2.7 + i * 0.22;
+        const w = lineSpec[i].width;
+        tl.set("#caret", { opacity: 1, y: lineSpec[i].top - 242, x: 0 }, t0);
+        tl.to(line, { scaleX: 1, opacity: 1, duration: 0.3, ease: "power3.out" }, t0);
+        tl.to("#caret", { x: w + 6, duration: 0.3, ease: "power2.out" }, t0);
+      });
+
+      // 3.2 - 3.6 s: the pasted block gets its outline, which fades again later.
+      tl.to("#marker", { opacity: 1, duration: 0.4, ease: "power1.out" }, 3.2);
+      tl.to("#marker", { opacity: 0, duration: 0.4, ease: "power1.in" }, 4.1);
+
+      // 4.3 - 4.9 s: back to idle; the loop closes invisibly.
+      tl.to("#caret", { opacity: 0, duration: 0.2 }, 4.3);
+      tl.to(lineEls, { scaleX: 0.55, opacity: 0.35, duration: 0.4, ease: "power1.in" }, 4.3);
+      tl.to(["#connector-1", "#connector-2"], { scaleX: 0, duration: 0.3, ease: "power1.in" }, 4.4);
+      tl.set("#caret", { x: 0, y: 0 }, 4.6);
+
+      window.__timelines["m4-autopaste"] = tl;
+    </script>
+  </body>
+</html>

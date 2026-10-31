@@ -1,0 +1,535 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/theme/overlay_design_spec.dart';
+import 'package:whispaste/services/floating_overlay/floating_overlay_controller.dart';
+import 'package:whispaste/services/floating_overlay/floating_overlay_events.dart';
+import 'package:whispaste/services/floating_overlay/macos_floating_overlay_controller.dart';
+import 'package:whispaste/services/floating_overlay/overlay_waveform_payload.dart';
+import 'package:whispaste/services/floating_overlay/windows_floating_overlay_controller.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  const channel = MethodChannel('com.whispaste.floating_overlay');
+
+  void setHandler(
+    Future<Object?>? Function(MethodCall call) handler, {
+    List<MethodCall>? recordedCalls,
+  }) {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          recordedCalls?.add(call);
+          return handler(call);
+        });
+  }
+
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null);
+  });
+
+  group('OverlayVisualState', () {
+    test('has all expected values', () {
+      expect(OverlayVisualState.values, hasLength(4));
+      expect(
+        OverlayVisualState.values.map((e) => e.name),
+        containsAll(['recording', 'transcribing', 'done', 'error']),
+      );
+    });
+
+    test('does not contain removed processing state', () {
+      expect(
+        OverlayVisualState.values.map((e) => e.name),
+        isNot(contains('processing')),
+      );
+    });
+
+    test('state names match C++ OverlayVisualState enum', () {
+      // C++ ParseState expects lowercase names via MethodChannel.
+      // 'processing' was removed — native renderers tolerate missing fields.
+      const expected = ['recording', 'transcribing', 'done', 'error'];
+      expect(OverlayVisualState.values.map((e) => e.name).toList(), expected);
+    });
+  });
+
+  group('OverlayAnchorMode', () {
+    test('has all expected values', () {
+      expect(OverlayAnchorMode.values, hasLength(3));
+      expect(
+        OverlayAnchorMode.values.map((e) => e.name),
+        containsAll(['topCenter', 'bottomCenter', 'topLeft']),
+      );
+    });
+  });
+
+  group('FloatingOverlaySnapshot', () {
+    test('toMap() serializes all fields', () {
+      const snap = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.recording,
+        label: 'Recording',
+        elapsed: '0:05',
+        hint: 'Press Ctrl+D to stop',
+        transcript: 'Hello world',
+        errorMessage: null,
+        privacyMode: 'local',
+        doneMessage: null,
+      );
+
+      final map = snap.toMap();
+      expect(map['visible'], true);
+      expect(map['state'], 'recording');
+      expect(map['compact'], false);
+      expect(map['label'], 'Recording');
+      expect(map['elapsed'], '0:05');
+      expect(map['hint'], 'Press Ctrl+D to stop');
+      expect(map['transcript'], 'Hello world');
+      expect(map['errorMessage'], isNull);
+      expect(map['privacyMode'], 'local');
+      expect(map['doneMessage'], isNull);
+      expect(map['progress'], 0.0);
+    });
+
+    test('toMap() serializes nullable fields when present', () {
+      const snap = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.error,
+        size: OverlaySizeVariant.compact,
+        label: 'Error',
+        errorMessage: 'Connection failed',
+      );
+
+      final map = snap.toMap();
+      expect(map['state'], 'error');
+      expect(map['compact'], true);
+      expect(map['errorMessage'], 'Connection failed');
+    });
+
+    test('toMap() serializes done state correctly', () {
+      const snap = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.done,
+        label: 'Done',
+        doneMessage: 'Pasted!',
+      );
+
+      final map = snap.toMap();
+      expect(map['state'], 'done');
+      expect(map['doneMessage'], 'Pasted!');
+    });
+
+    test(
+      'toMap() contains no dead fields (processingLabel and showRetry absent)',
+      () {
+        // AC: the serialised contract must not carry processingLabel or showRetry.
+        const snap = FloatingOverlaySnapshot(
+          visible: false,
+          state: OverlayVisualState.recording,
+          label: '',
+        );
+        final map = snap.toMap();
+        expect(
+          map.containsKey('processingLabel'),
+          isFalse,
+          reason:
+              'processingLabel is a dead field and must not appear in toMap()',
+        );
+        expect(
+          map.containsKey('showRetry'),
+          isFalse,
+          reason: 'showRetry is a dead field and must not appear in toMap()',
+        );
+      },
+    );
+
+    test(
+      'toMap() includes all 19 base keys and the 6 WP-95 appearance keys',
+      () {
+        const snap = FloatingOverlaySnapshot(
+          visible: false,
+          state: OverlayVisualState.recording,
+          label: '',
+        );
+
+        final map = snap.toMap();
+        expect(map.keys, hasLength(25));
+        expect(map.keys.toSet(), {
+          'visible',
+          'state',
+          'size',
+          'background',
+          'wave',
+          'compact',
+          'label',
+          'languageChip',
+          'profileChip',
+          'secondaryLabel',
+          'elapsed',
+          'hint',
+          'transcript',
+          'errorMessage',
+          'privacyMode',
+          'doneMessage',
+          'donePasteFailed',
+          'progress',
+          'liveTranscript',
+          'form',
+          'waveStyle',
+          'waveFluid',
+          'showTimer',
+          'showCancel',
+          'opacity',
+        });
+      },
+    );
+
+    test('defaults are applied correctly', () {
+      const snap = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.recording,
+        label: 'Recording',
+      );
+
+      expect(snap.elapsed, '');
+      expect(snap.hint, '');
+      expect(snap.transcript, isNull);
+      expect(snap.errorMessage, isNull);
+      expect(snap.privacyMode, 'local');
+      expect(snap.doneMessage, isNull);
+      expect(snap.donePasteFailed, isFalse);
+      expect(snap.progress, 0.0);
+    });
+
+    test('fromMap(toMap()) round-trips every field', () {
+      const original = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.done,
+        size: OverlaySizeVariant.compact,
+        background: OverlayBackground.gletscher,
+        wave: OverlayWave.violett,
+        label: 'Done',
+        elapsed: '0:07',
+        hint: 'Press ⌘ to stop',
+        transcript: 'hello world',
+        errorMessage: 'boom',
+        privacyMode: 'cloud',
+        doneMessage: 'Copied',
+        donePasteFailed: true,
+        progress: 0.42,
+      );
+
+      final restored = FloatingOverlaySnapshot.fromMap(original.toMap());
+
+      expect(restored.visible, original.visible);
+      expect(restored.state, original.state);
+      expect(restored.size, original.size);
+      expect(restored.background, original.background);
+      expect(restored.wave, original.wave);
+      expect(restored.label, original.label);
+      expect(restored.elapsed, original.elapsed);
+      expect(restored.hint, original.hint);
+      expect(restored.transcript, original.transcript);
+      expect(restored.errorMessage, original.errorMessage);
+      expect(restored.privacyMode, original.privacyMode);
+      expect(restored.doneMessage, original.doneMessage);
+      expect(restored.donePasteFailed, isTrue);
+      expect(restored.progress, original.progress);
+    });
+
+    test('toMap() serialises the size variant + legacy compact mirror', () {
+      const mini = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.recording,
+        size: OverlaySizeVariant.mini,
+        label: 'Recording',
+      );
+      final map = mini.toMap();
+      expect(map['size'], 'mini');
+      // Legacy mirror: only the compact variant reports compact=true.
+      expect(map['compact'], false);
+    });
+
+    test('fromMap() falls back to the legacy compact bool without size', () {
+      final compact = FloatingOverlaySnapshot.fromMap({
+        'visible': true,
+        'state': 'recording',
+        'compact': true,
+        'label': '',
+      });
+      expect(compact.size, OverlaySizeVariant.compact);
+
+      final normal = FloatingOverlaySnapshot.fromMap({
+        'visible': true,
+        'state': 'recording',
+        'compact': false,
+        'label': '',
+      });
+      expect(normal.size, OverlaySizeVariant.normal);
+    });
+
+    test('fromMap() falls back to marine and cyan without theme keys', () {
+      final snap = FloatingOverlaySnapshot.fromMap({
+        'visible': true,
+        'state': 'recording',
+        'label': '',
+      });
+      expect(snap.background, OverlayBackground.marine);
+      expect(snap.wave, OverlayWave.cyan);
+    });
+
+    test('fromMap() resolves unknown theme names to the defaults', () {
+      final snap = FloatingOverlaySnapshot.fromMap({
+        'visible': true,
+        'state': 'recording',
+        'background': 'not-a-real-background',
+        'wave': 'not-a-real-wave',
+        'label': '',
+      });
+      expect(snap.background, OverlayBackground.marine);
+      expect(snap.wave, OverlayWave.cyan);
+    });
+
+    test('fromMap() falls back to safe defaults on a malformed payload', () {
+      final snap = FloatingOverlaySnapshot.fromMap({'state': 'bogus-state'});
+
+      expect(snap.visible, isFalse);
+      expect(snap.state, OverlayVisualState.recording);
+      expect(snap.size, OverlaySizeVariant.normal);
+      expect(snap.label, '');
+      expect(snap.progress, 0.0);
+    });
+  });
+
+  group('FloatingOverlayController factory', () {
+    test('create() does not throw', () {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      // On Windows: creates WindowsFloatingOverlayController.
+      // On CI (Linux): returns null since Platform.isWindows is false.
+      final controller = createFloatingOverlayController();
+      if (controller != null) {
+        expect(controller, isA<FloatingOverlayController>());
+      }
+      // Don't call dispose() — it invokes the MethodChannel which has
+      // no native handler in test.
+    });
+  });
+
+  group('FloatingOverlayEvent', () {
+    test('OverlayCloseClicked is sealed', () {
+      const event = OverlayCloseClicked();
+      expect(event, isA<FloatingOverlayEvent>());
+    });
+
+    test('OverlayBodyClicked is sealed', () {
+      const event = OverlayBodyClicked();
+      expect(event, isA<FloatingOverlayEvent>());
+    });
+
+    test('OverlayRetryClicked is sealed', () {
+      const event = OverlayRetryClicked();
+      expect(event, isA<FloatingOverlayEvent>());
+    });
+
+    test('OverlayDragEnded carries coordinates and anchor', () {
+      const event = OverlayDragEnded(150.5, 300.7, 'topLeft');
+      expect(event.x, 150.5);
+      expect(event.y, 300.7);
+      expect(event.anchorMode, 'topLeft');
+      expect(event, isA<FloatingOverlayEvent>());
+    });
+
+    test('OverlayContextMenuAction carries action string', () {
+      const event = OverlayContextMenuAction('switch_compact');
+      expect(event.action, 'switch_compact');
+      expect(event, isA<FloatingOverlayEvent>());
+    });
+  });
+
+  group('MockFloatingOverlayController', () {
+    late MockFloatingOverlayController controller;
+
+    setUp(() {
+      controller = MockFloatingOverlayController();
+    });
+
+    tearDown(() async {
+      await controller.dispose();
+    });
+
+    test('updateSnapshot() records call with serialized map', () async {
+      const snap = FloatingOverlaySnapshot(
+        visible: true,
+        state: OverlayVisualState.recording,
+        label: 'Recording',
+        elapsed: '0:12',
+      );
+      await controller.updateSnapshot(snap);
+      expect(controller.calls, hasLength(1));
+      expect(controller.calls.first, startsWith('updateSnapshot('));
+      expect(controller.lastSnapshot?.visible, true);
+      expect(controller.lastSnapshot?.state, OverlayVisualState.recording);
+      expect(controller.lastSnapshot?.elapsed, '0:12');
+    });
+
+    test('setPosition() records coordinates and anchor', () async {
+      await controller.setPosition(100, 200, OverlayAnchorMode.bottomCenter);
+      expect(controller.calls, ['setPosition(100.0, 200.0, bottomCenter)']);
+    });
+
+    test('setContextMenuItems() records items', () async {
+      await controller.setContextMenuItems([
+        (id: 'cancel', label: 'Cancel recording'),
+        (id: 'hide', label: 'Hide overlay'),
+      ]);
+      expect(controller.calls, hasLength(1));
+      expect(controller.calls.first, startsWith('setContextMenuItems('));
+    });
+
+    test('events stream emits events', () async {
+      final events = <FloatingOverlayEvent>[];
+      controller.events.listen(events.add);
+
+      controller.emitEvent(const OverlayCloseClicked());
+      controller.emitEvent(const OverlayDragEnded(10, 20, 'topLeft'));
+      controller.emitEvent(const OverlayRetryClicked());
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, hasLength(3));
+      expect(events[0], isA<OverlayCloseClicked>());
+      expect(events[1], isA<OverlayDragEnded>());
+      expect(events[2], isA<OverlayRetryClicked>());
+    });
+
+    test('dispose() records call and closes stream', () async {
+      await controller.dispose();
+      expect(controller.calls, contains('dispose'));
+      expect(controller.isDisposed, true);
+    });
+
+    test('calls after dispose() are no-ops', () async {
+      await controller.dispose();
+      // These should not throw.
+      await controller.updateSnapshot(
+        const FloatingOverlaySnapshot(
+          visible: true,
+          state: OverlayVisualState.done,
+          label: 'Done',
+        ),
+      );
+      await controller.setWaveformBars(List<double>.filled(30, 0.0));
+      // Only 'dispose' should be in calls.
+      expect(controller.calls, ['dispose']);
+    });
+
+    test('setWaveformBars() records bar count', () async {
+      await controller.setWaveformBars(List<double>.filled(30, 0.42));
+      expect(controller.calls, ['setWaveformBars(30 bars)']);
+    });
+  });
+
+  group('MacOSFloatingOverlayController.setWaveformBars', () {
+    test('invokes setWaveformBars on channel with bars argument', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async => null, recordedCalls: calls);
+
+      final controller = MacOSFloatingOverlayController();
+      final bars = List<double>.generate(30, (i) => i / 30.0);
+      await controller.setWaveformBars(bars);
+
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'setWaveformBars');
+      expect(calls.single.arguments, isA<Map>());
+      final args = calls.single.arguments as Map;
+      // WP-84 phase 2: macOS sends one byte per bar (see encodeWaveformBars).
+      expect(args['bars'], isA<Uint8List>());
+      expect(args['bars'], encodeWaveformBars(bars));
+    });
+
+    test('skips a payload identical to the last one sent', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async => null, recordedCalls: calls);
+
+      final controller = MacOSFloatingOverlayController();
+      final silence = List<double>.filled(30, 0.0);
+      await controller.setWaveformBars(silence);
+      await controller.setWaveformBars(silence);
+
+      expect(calls, hasLength(1));
+    });
+  });
+
+  group('WindowsFloatingOverlayController.setWaveformBars', () {
+    test('invokes setWaveformBars on channel with bars argument', () async {
+      final calls = <MethodCall>[];
+      setHandler((call) async => null, recordedCalls: calls);
+
+      final controller = WindowsFloatingOverlayController();
+      final bars = List<double>.generate(30, (i) => (29 - i) / 30.0);
+      await controller.setWaveformBars(bars);
+
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'setWaveformBars');
+      expect(calls.single.arguments, isA<Map>());
+      final args = calls.single.arguments as Map;
+      expect(args['bars'], isA<List>());
+      expect((args['bars'] as List).cast<double>(), bars);
+    });
+  });
+}
+
+/// A mock [FloatingOverlayController] for testing service logic.
+///
+/// Records all calls, stores the last snapshot, and provides a way to emit
+/// events for testing event handling.
+class MockFloatingOverlayController extends FloatingOverlayController {
+  final List<String> calls = [];
+  final _eventController = StreamController<FloatingOverlayEvent>.broadcast();
+  FloatingOverlaySnapshot? lastSnapshot;
+  bool isDisposed = false;
+
+  @override
+  Stream<FloatingOverlayEvent> get events => _eventController.stream;
+
+  void emitEvent(FloatingOverlayEvent event) {
+    if (!isDisposed) _eventController.add(event);
+  }
+
+  @override
+  Future<void> updateSnapshot(FloatingOverlaySnapshot snapshot) async {
+    if (isDisposed) return;
+    lastSnapshot = snapshot;
+    calls.add(
+      'updateSnapshot(${snapshot.state.name}, visible=${snapshot.visible})',
+    );
+  }
+
+  @override
+  Future<void> setWaveformBars(List<double> bars) async {
+    if (isDisposed) return;
+    calls.add('setWaveformBars(${bars.length} bars)');
+  }
+
+  @override
+  Future<void> setPosition(double x, double y, OverlayAnchorMode anchor) async {
+    if (isDisposed) return;
+    calls.add('setPosition($x, $y, ${anchor.name})');
+  }
+
+  @override
+  Future<void> setContextMenuItems(
+    List<({String id, String label})> items,
+  ) async {
+    if (isDisposed) return;
+    calls.add('setContextMenuItems(${items.length} items)');
+  }
+
+  @override
+  Future<void> dispose() async {
+    if (isDisposed) return;
+    isDisposed = true;
+    calls.add('dispose');
+    await _eventController.close();
+  }
+}

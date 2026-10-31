@@ -1,0 +1,547 @@
+name: Build Whisper Server
+
+# Builds whisper-server from whisper.cpp for Windows (Vulkan) and Linux x64
+# (CPU, static). Upstream only provides CUDA and CPU binaries — this workflow
+# fills the gaps. The macOS (Metal) binary has no GitHub job (macOS bills at 10x):
+# scripts/build-whisper-server-metal-local.sh builds it on the Mac and attaches it
+# to the draft release this workflow creates.
+#
+# The resulting binaries are uploaded to a dedicated GitHub release tagged
+# "whisper-server-<version>". The WhisPaste download service queries this
+# release tag to find the correct server binary for the detected GPU.
+#
+# TODO (optional): Add a linux/arm64/cpu job once a GitHub-hosted arm64-linux
+# runner is available (ubuntu-latest is x64 only). The build flags are identical;
+# only the runner label and artifact name change.
+# See: https://github.com/actions/runner-images/issues/...
+
+on:
+  workflow_dispatch:
+    inputs:
+      whisper_tag:
+        description: 'whisper.cpp release tag (e.g., v1.8.4)'
+        required: true
+        default: 'v1.8.4'
+      build_suffix:
+        description: 'Optional suffix for re-releases (e.g., .1 or -2). Leave empty for first build.'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: whisper-server-release
+  cancel-in-progress: false
+
+jobs:
+  validate-input:
+    name: Validate tag format
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check whisper_tag format
+        run: |
+          TAG="${{ inputs.whisper_tag }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.\-][0-9a-zA-Z]+)*$ ]]; then
+            echo "::error::Invalid whisper_tag '$TAG'. Must match vX.Y.Z (e.g. v1.8.4)"
+            exit 1
+          fi
+          echo "Tag '$TAG' is valid"
+
+      - name: Check build_suffix format
+        run: |
+          SUFFIX="${{ inputs.build_suffix }}"
+          if [[ -n "$SUFFIX" && ! "$SUFFIX" =~ ^([.\-][0-9A-Za-z]+)+$ ]]; then
+            echo "::error::Invalid build_suffix '$SUFFIX'. Use e.g. '.1' or '-2'."
+            exit 1
+          fi
+          echo "Suffix '$SUFFIX' is valid"
+
+      # Pre-flight the UPSTREAM preconditions here, in a 5-minute ubuntu job,
+      # rather than discovering them 45 minutes deep in a 4-platform matrix.
+      # build-cpu-windows downloads exactly this asset with Invoke-WebRequest
+      # and dies on a 404 — after the other three jobs have already run.
+      - name: Verify upstream whisper.cpp tag and BLAS asset exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ inputs.whisper_tag }}"
+          if ! gh api "repos/ggml-org/whisper.cpp/releases/tags/$TAG" \
+                 --jq '.assets[].name' > /tmp/upstream-assets.txt 2>/dev/null; then
+            echo "::error::Upstream release ggml-org/whisper.cpp@$TAG does not exist."
+            exit 1
+          fi
+          if ! grep -qx 'whisper-blas-bin-x64.zip' /tmp/upstream-assets.txt; then
+            echo "::error::Upstream release $TAG has no whisper-blas-bin-x64.zip asset (the CPU-floor build needs it). Assets present:"
+            cat /tmp/upstream-assets.txt
+            exit 1
+          fi
+          echo "Upstream $TAG present, with whisper-blas-bin-x64.zip."
+
+  build-vulkan-windows:
+    name: Vulkan – Windows x64
+    needs: validate-input
+    permissions:
+      contents: write
+    # Pinned (not `windows-latest`): GitHub redirects `windows-latest` to the
+    # VS2026 image by 2026-06-15. Pinning to windows-2025 keeps the known-good
+    # toolchain stable across that migration.
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          Write-Host "Downloading Vulkan SDK..."
+          Invoke-WebRequest `
+            -Uri "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe" `
+            -OutFile vulkan-sdk.exe
+
+          Write-Host "Installing Vulkan SDK (silent)..."
+          Start-Process -FilePath .\vulkan-sdk.exe `
+            -ArgumentList "--accept-licenses --default-answer --confirm-command install" `
+            -Wait -NoNewWindow
+
+          # Locate the installed SDK (latest version directory).
+          $sdkRoot = Get-ChildItem "C:\VulkanSDK" -Directory |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+
+          if (-not $sdkRoot) {
+            Write-Error "Vulkan SDK installation failed — no directory found"
+            exit 1
+          }
+
+          Write-Host "Vulkan SDK installed at: $($sdkRoot.FullName)"
+          echo "VULKAN_SDK=$($sdkRoot.FullName)" >> $env:GITHUB_ENV
+
+      - name: Clone whisper.cpp
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch ${{ inputs.whisper_tag }} `
+            https://github.com/ggml-org/whisper.cpp.git
+          Write-Host "Cloned whisper.cpp at ${{ inputs.whisper_tag }}"
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cd whisper.cpp
+          cmake -B build `
+            -DGGML_VULKAN=ON `
+            -DBUILD_SHARED_LIBS=OFF `
+            -DWHISPER_BUILD_TESTS=OFF `
+            -DWHISPER_BUILD_EXAMPLES=ON `
+            -DCMAKE_BUILD_TYPE=Release
+          Write-Host "CMake configured with Vulkan support"
+
+      - name: Build
+        shell: pwsh
+        run: |
+          cd whisper.cpp
+          cmake --build build --config Release -j $env:NUMBER_OF_PROCESSORS
+          Write-Host "Build complete"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $stagingDir = "whisper-server-vulkan-x64"
+          New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+          # Find the server binary (name varies by whisper.cpp version).
+          $serverExe = Get-ChildItem -Path "whisper.cpp\build" -Recurse -Filter "*.exe" |
+            Where-Object { $_.Name -match "^(whisper-server|server)\.exe$" } |
+            Select-Object -First 1
+
+          if (-not $serverExe) {
+            Write-Error "whisper-server.exe not found in build output"
+            Get-ChildItem -Path "whisper.cpp\build" -Recurse -Filter "*.exe" |
+              ForEach-Object { Write-Host "  Found: $($_.FullName)" }
+            exit 1
+          }
+
+          # Always name it whisper-server.exe for consistency.
+          Copy-Item $serverExe.FullName "$stagingDir\whisper-server.exe"
+
+          # Copy co-located DLLs (ggml, Vulkan shaders, etc.).
+          $binDir = $serverExe.DirectoryName
+          Get-ChildItem "$binDir\*.dll" -ErrorAction SilentlyContinue |
+            ForEach-Object { Copy-Item $_.FullName "$stagingDir\" }
+
+          # List contents for verification.
+          Write-Host "Package contents:"
+          Get-ChildItem $stagingDir | ForEach-Object {
+            Write-Host "  $($_.Name) ($([math]::Round($_.Length/1KB))KB)"
+          }
+
+          Compress-Archive -Path "$stagingDir\*" -DestinationPath "whisper-server-vulkan-x64.zip"
+          Write-Host "Created whisper-server-vulkan-x64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: whisper-server-vulkan-x64
+          path: whisper-server-vulkan-x64.zip
+          retention-days: 1
+
+  build-cpu-windows:
+    name: CPU – Windows x64 (self-contained)
+    needs: validate-input
+    permissions:
+      contents: write
+    # Pinned to windows-2025 for the same reason as the Vulkan job, and with
+    # extra weight here: this job harvests the VC++ redistributable DLLs from
+    # the runner's Visual Studio install via vswhere, so an unannounced VS2026
+    # image swap could move/rename those DLLs and silently break the CPU floor.
+    runs-on: windows-2025
+    timeout-minutes: 30
+    # Why this job exists (FLUTTER_WHISPASTE-A0):
+    # The upstream `whisper-blas-bin-x64.zip` is the CPU floor every GPU
+    # fallback ultimately drops to — but its binaries dynamically link the
+    # MSVC runtime (MSVCP140 / VCRUNTIME140 / VCRUNTIME140_1) *and* the
+    # OpenMP runtime (VCOMP140.DLL, pulled in by ggml-cpu.dll). Those ship
+    # with the Visual C++ Redistributable, which is NOT guaranteed on a
+    # user's machine — notably VCOMP140 is absent on many older/clean
+    # Windows installs (e.g. the GeForce GTX 650 box that surfaced this).
+    # The result is STATUS_DLL_NOT_FOUND (0xC0000135) and an exhausted
+    # recovery with no further fallback. Repackaging the upstream zip with
+    # those four redistributable DLLs bundled app-local makes the CPU floor
+    # genuinely universal (app-local redistribution is permitted by MS's
+    # redistributable license terms).
+    steps:
+      - name: Download upstream BLAS CPU build
+        shell: pwsh
+        run: |
+          $url = "https://github.com/ggml-org/whisper.cpp/releases/download/${{ inputs.whisper_tag }}/whisper-blas-bin-x64.zip"
+          Write-Host "Downloading $url"
+          Invoke-WebRequest -Uri $url -OutFile blas.zip
+          Expand-Archive -Path blas.zip -DestinationPath blas-extracted -Force
+
+      - name: Stage binaries + bundle VC++ runtime DLLs
+        shell: pwsh
+        run: |
+          $stagingDir = "whisper-server-cpu-x64"
+          New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+          # Upstream lays everything under a Release/ subfolder.
+          $srcDir = Get-ChildItem -Path blas-extracted -Recurse -Filter "whisper-server.exe" |
+            Select-Object -First 1 | ForEach-Object { $_.DirectoryName }
+          if (-not $srcDir) {
+            Write-Error "whisper-server.exe not found in upstream BLAS zip"
+            exit 1
+          }
+
+          # Copy the server binary + all co-located DLLs (ggml*, whisper,
+          # libopenblas, SDL2). The app's extractor flattens by basename,
+          # so a flat staging dir matches what ships today.
+          Copy-Item "$srcDir\whisper-server.exe" "$stagingDir\"
+          Get-ChildItem "$srcDir\*.dll" | ForEach-Object {
+            Copy-Item $_.FullName "$stagingDir\"
+          }
+
+          # Locate the VC++ redistributable DLLs on the runner via vswhere.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsRoot = & $vswhere -latest -property installationPath
+          Write-Host "VS install: $vsRoot"
+
+          # CRT runtime (msvcp140, vcruntime140, vcruntime140_1) + OpenMP
+          # (vcomp140). Pick the highest toolset version directory present.
+          $crtDir = Get-ChildItem "$vsRoot\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" -Directory |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          $ompDir = Get-ChildItem "$vsRoot\VC\Redist\MSVC\*\x64\Microsoft.VC*.OpenMP" -Directory |
+            Sort-Object FullName -Descending | Select-Object -First 1
+
+          $needed = @{
+            "msvcp140.dll"       = "$($crtDir.FullName)\msvcp140.dll"
+            "vcruntime140.dll"   = "$($crtDir.FullName)\vcruntime140.dll"
+            "vcruntime140_1.dll" = "$($crtDir.FullName)\vcruntime140_1.dll"
+            "vcomp140.dll"       = "$($ompDir.FullName)\vcomp140.dll"
+          }
+          foreach ($name in $needed.Keys) {
+            $path = $needed[$name]
+            if (-not (Test-Path $path)) {
+              Write-Error "Required redist DLL not found: $name ($path)"
+              exit 1
+            }
+            Copy-Item $path "$stagingDir\"
+            Write-Host "Bundled $name"
+          }
+
+          Write-Host "Package contents:"
+          Get-ChildItem $stagingDir | ForEach-Object {
+            Write-Host "  $($_.Name) ($([math]::Round($_.Length/1KB))KB)"
+          }
+
+          Compress-Archive -Path "$stagingDir\*" -DestinationPath "whisper-server-cpu-x64.zip"
+          Write-Host "Created whisper-server-cpu-x64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: whisper-server-cpu-x64
+          path: whisper-server-cpu-x64.zip
+          retention-days: 1
+
+  build-cpu-linux:
+    name: CPU – Linux x64 (static)
+    needs: validate-input
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Builds a fully static whisper-server for Linux x64.
+    # Static flags ensure the binary runs on any glibc-based distro without
+    # requiring the user to install libstdc++/libgcc or any shared whisper libs.
+    # GGML_NATIVE=OFF enables runtime CPU-dispatch so the binary works on
+    # all x86_64 microarchitectures (no AVX2/AVX512 assumption).
+    # Note: `-static-libgcc -static-libstdc++` bakes in the GCC CRT; the
+    # resulting binary still dynamically links libgomp, libm, and libc (glibc),
+    # which are present on every modern Linux system.
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake git libgomp1
+          echo "Build dependencies installed"
+
+      - name: Clone whisper.cpp
+        run: |
+          git clone --depth 1 --branch ${{ inputs.whisper_tag }} \
+            https://github.com/ggml-org/whisper.cpp.git
+          echo "Cloned whisper.cpp at ${{ inputs.whisper_tag }}"
+
+      - name: Configure CMake
+        run: |
+          cd whisper.cpp
+          cmake -B build \
+            -DGGML_NATIVE=OFF \
+            -DWHISPER_BUILD_SERVER=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DWHISPER_BUILD_TESTS=OFF \
+            -DWHISPER_BUILD_EXAMPLES=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXE_LINKER_FLAGS="-static-libgcc -static-libstdc++"
+          echo "CMake configured for static Linux x64 CPU build"
+
+      - name: Build
+        run: |
+          cd whisper.cpp
+          cmake --build build --config Release -j "$(nproc)"
+          echo "Build complete"
+
+      - name: Smoke test – --help
+        run: |
+          # Find the server binary (name varies by whisper.cpp version).
+          SERVER_BIN=$(find whisper.cpp/build -type f \( -name "whisper-server" -o -name "server" \) ! -name "*.o" | head -1)
+          if [ -z "$SERVER_BIN" ]; then
+            echo "::error::whisper-server not found in build output"
+            find whisper.cpp/build -type f -executable | head -20
+            exit 1
+          fi
+          echo "Found binary: $SERVER_BIN"
+
+          # Verify no bundled .so files (static build must not pull in whisper/ggml shared libs).
+          BUNDLED_SO=$(find "$(dirname "$SERVER_BIN")" -maxdepth 1 -name "*.so*" | head -5)
+          if [ -n "$BUNDLED_SO" ]; then
+            echo "::warning::Unexpected .so files found next to binary — static build may have failed:"
+            echo "$BUNDLED_SO"
+          fi
+
+          # --help should exit 0 (whisper-server prints usage and exits cleanly).
+          "$SERVER_BIN" --help && echo "Smoke test passed" || true
+
+      - name: Package
+        run: |
+          STAGING_DIR="whisper-server-cpu-linux-x64"
+          mkdir -p "$STAGING_DIR"
+
+          # Find the server binary (name varies by whisper.cpp version).
+          SERVER_BIN=$(find whisper.cpp/build -type f \( -name "whisper-server" -o -name "server" \) ! -name "*.o" | head -1)
+          if [ -z "$SERVER_BIN" ]; then
+            echo "::error::whisper-server not found in build output"
+            find whisper.cpp/build -type f -executable | head -20
+            exit 1
+          fi
+
+          # Always name it whisper-server (extensionless) for consistency.
+          # WhisPaste's extractor already handles extensionless top-level binaries
+          # and renames "server" → "whisper-server" (issue 01 — already merged).
+          cp "$SERVER_BIN" "$STAGING_DIR/whisper-server"
+          chmod +x "$STAGING_DIR/whisper-server"
+
+          # Static build: no co-located .so files expected.
+          # Copy any Metal/Vulkan shader files if present (none expected for CPU).
+          find whisper.cpp/build -name "*.metallib" -exec cp {} "$STAGING_DIR/" \; 2>/dev/null || true
+
+          echo "Package contents:"
+          ls -lh "$STAGING_DIR"
+
+          cd "$STAGING_DIR"
+          zip -r "../whisper-server-cpu-linux-x64.zip" .
+          cd ..
+          echo "Created whisper-server-cpu-linux-x64.zip"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: whisper-server-cpu-linux-x64
+          path: whisper-server-cpu-linux-x64.zip
+          retention-days: 1
+
+  # TODO (optional – arm64): Add a build-cpu-linux-arm64 job here once
+  # GitHub-hosted arm64 Linux runners are generally available
+  # (runner label: ubuntu-24.04-arm or similar). The CMake flags are
+  # identical to the x64 job above; only the runner, artifact name, and
+  # ZIP filename change. Do NOT implement until arm64 runners are stable
+  # in the free tier or the project has a self-hosted arm64 runner.
+
+  publish-release:
+    name: Publish release
+    needs: [build-vulkan-windows, build-cpu-windows, build-cpu-linux]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: List artifacts
+        run: ls -lhR assets/
+
+      # ---------------------------------------------------------------------
+      # Immutable releases are enabled on this repo, which makes the old
+      # "delete the release, delete the tag, recreate both" dance impossible:
+      # a tag once used by an immutable release is burned FOREVER, even after
+      # `gh release delete --cleanup-tag`. That single property caused 7 of
+      # this workflow's 10 historical failures (runs 24149578036, 24151923923,
+      # 24152238110, 24659176797, 24659603799, 24659942005, 24660521948,
+      # 26973643028) and the publish step was rewritten five times chasing it.
+      #
+      # So: never reuse a tag, and never push a ref. Pick the first free name
+      # instead, and let softprops/action-gh-release create the tag from
+      # `tag_name` as part of the (single, atomic) release creation. Dropping
+      # the `git push` also removes the dependency on repository tag rulesets,
+      # which separately killed run 27404728869 with
+      # "GH013: Cannot create ref due to creations being restricted".
+      # ---------------------------------------------------------------------
+      - name: Compute a collision-free release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BASE="whisper-server-${{ inputs.whisper_tag }}${{ inputs.build_suffix }}"
+          TAG="$BASE"
+          n=1
+          while gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; do
+            if [ "$n" -gt 50 ]; then
+              echo "::error::No free tag after 50 attempts starting at $BASE."
+              exit 1
+            fi
+            TAG="$BASE-r$n"
+            n=$((n + 1))
+          done
+          echo "Publishing as tag: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # ---------------------------------------------------------------------
+      # Generate the manifest BEFORE creating the release. GitHub immutable
+      # releases reject any post-creation asset upload (HTTP 422), so the
+      # manifest must be part of the single release-creation upload below.
+      # The generator derives the WhisPaste asset entries from the locally
+      # staged ZIPs in assets/ (deterministic URLs from tag + filename) —
+      # no dependency on the not-yet-existing release, and no CDN retry.
+      # ---------------------------------------------------------------------
+      - name: Generate whisper-server-manifest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          bash scripts/generate-whisper-server-manifest.sh \
+            "$TAG" "${{ inputs.whisper_tag }}" assets > /tmp/manifest.json
+          if [[ "$(jq '.binaries | length' /tmp/manifest.json)" -lt 1 ]]; then
+            echo "::error::Manifest contains no binaries"
+            cat /tmp/manifest.json
+            exit 1
+          fi
+          cp /tmp/manifest.json assets/whisper-server-manifest.json
+          cat assets/whisper-server-manifest.json
+
+      - name: Create release with assets
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "Whisper Server (${{ inputs.whisper_tag }}) – Vulkan + CPU + Metal + Linux"
+          body: |
+            Pre-built whisper-server binaries.
+
+            **Source**: [whisper.cpp ${{ inputs.whisper_tag }}](https://github.com/ggml-org/whisper.cpp/releases/tag/${{ inputs.whisper_tag }})
+            **Variants**: Vulkan (Windows x64) + CPU (Windows x64, self-contained) + Metal (macOS ARM64, attached locally) + CPU static (Linux x64)
+
+            > CUDA is provided by the upstream whisper.cpp project. The CPU
+            > floor is the upstream BLAS build repackaged with the VC++
+            > runtime DLLs bundled app-local, so it runs without a separate
+            > Visual C++ Redistributable install (FLUTTER_WHISPASTE-A0).
+            > The Linux x64 binary is statically linked against libstdc++/libgcc
+            > and runs on any glibc-based distro without extra dependencies.
+          # Draft: the Metal zip is attached locally afterwards
+          # (scripts/build-whisper-server-metal-local.sh), and GitHub immutable
+          # releases reject uploads once a release is published.
+          draft: true
+          files: |
+            assets/*.zip
+            assets/whisper-server-manifest.json
+          make_latest: false
+
+      - name: Commit manifest to main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # The publish job checked out the *triggering* SHA (detached HEAD),
+          # which can be behind main after a 5–7 min build — a plain
+          # `git push HEAD:main` then dies with a non-fast-forward reject.
+          # The generated manifest lives in /tmp from the generate step, so we
+          # rebuild the commit directly on top of the current tip of main each
+          # attempt (always a single-commit fast-forward) and retry if main
+          # advances again between fetch and push. Discard the in-tree copy the
+          # generate step left modified so the first branch switch is clean.
+          git checkout -- assets/whisper-server-manifest.json 2>/dev/null || true
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git checkout -B main origin/main
+            cp /tmp/manifest.json assets/whisper-server-manifest.json
+
+            # If nothing changed (regenerated manifest is identical), skip.
+            if git diff --quiet -- assets/whisper-server-manifest.json; then
+              echo "Manifest already matches main — nothing to commit"
+              exit 0
+            fi
+
+            git add assets/whisper-server-manifest.json
+            git commit -m "chore(whisper-server): update manifest for ${{ inputs.whisper_tag }}${{ inputs.build_suffix }}"
+
+            # Push to main. Protected branches still require a
+            # github-actions[bot] exemption (or a deploy key) + contents: write.
+            if git push origin HEAD:main; then
+              echo "Manifest pushed to main (attempt $attempt)"
+              exit 0
+            fi
+            echo "Push rejected (attempt $attempt) — main advanced; retrying"
+          done
+
+          echo "::error::Could not push manifest to main after 3 attempts"
+          exit 1

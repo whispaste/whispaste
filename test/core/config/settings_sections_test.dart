@@ -1,0 +1,269 @@
+/// Unit tests for individual [AppSettings] section classes — see
+/// `settings_round_trip_test.dart` for the flat `AppSettings` roundtrip.
+library;
+
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:whispaste/core/config/settings_sections.dart';
+
+void main() {
+  group('SttSettings.idleTimeoutMinutes', () {
+    test('defaults to 0 (keep the speech model loaded)', () {
+      expect(SttSettings.defaults.idleTimeoutMinutes, 0);
+    });
+
+    test('an explicitly stored value wins over the default', () {
+      final settings = SttSettings.fromMap({
+        ...SttSettings.defaults.toMap(),
+        'stt_idle_timeout_minutes': '5',
+      });
+      expect(settings.idleTimeoutMinutes, 5);
+    });
+  });
+
+  group('SttSettings.numericOnlyMode', () {
+    test('defaults to false', () {
+      expect(SttSettings.defaults.numericOnlyMode, isFalse);
+    });
+
+    test('toMap -> fromMap round-trip preserves true', () {
+      const settings = SttSettings(numericOnlyMode: true);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.numericOnlyMode, isTrue);
+    });
+
+    test('toMap -> fromMap round-trip preserves false', () {
+      const settings = SttSettings(numericOnlyMode: false);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.numericOnlyMode, isFalse);
+    });
+
+    test('missing key in map falls back to the default (false)', () {
+      final map = Map<String, String>.from(SttSettings.defaults.toMap())
+        ..remove('stt_numeric_only_mode');
+      final restored = SttSettings.fromMap(map);
+      expect(restored.numericOnlyMode, isFalse);
+    });
+
+    test('copyWith(numericOnlyMode: true) changes no other field', () {
+      const original = SttSettings();
+      final updated = original.copyWith(numericOnlyMode: true);
+
+      expect(updated.numericOnlyMode, isTrue);
+      expect(updated.provider, original.provider);
+      expect(updated.model, original.model);
+      expect(updated.language, original.language);
+      expect(updated.idleTimeoutMinutes, original.idleTimeoutMinutes);
+      expect(updated.customVocabulary, original.customVocabulary);
+      expect(updated.engine, original.engine);
+      expect(updated.punctuationPriming, original.punctuationPriming);
+      expect(updated.stripPunctuation, original.stripPunctuation);
+      expect(updated.vadEnabled, original.vadEnabled);
+    });
+
+    test('copyWith() without arguments keeps the previous value', () {
+      const original = SttSettings(numericOnlyMode: true);
+      final updated = original.copyWith();
+      expect(updated.numericOnlyMode, isTrue);
+    });
+
+    test('two instances differing only in numericOnlyMode are unequal', () {
+      const a = SttSettings(numericOnlyMode: true);
+      const b = SttSettings(numericOnlyMode: false);
+      expect(a == b, isFalse);
+    });
+  });
+
+  group('SttSettings.voiceLineBreaks', () {
+    test('defaults to true', () {
+      expect(SttSettings.defaults.voiceLineBreaks, isTrue);
+    });
+
+    test('toMap -> fromMap round-trip preserves false', () {
+      const settings = SttSettings(voiceLineBreaks: false);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.voiceLineBreaks, isFalse);
+    });
+
+    test('is persisted under stt_voice_line_breaks', () {
+      const settings = SttSettings(voiceLineBreaks: false);
+      expect(settings.toMap()['stt_voice_line_breaks'], 'false');
+    });
+
+    test('missing key in map falls back to the default (true)', () {
+      final map = Map<String, String>.from(SttSettings.defaults.toMap())
+        ..remove('stt_voice_line_breaks');
+      expect(SttSettings.fromMap(map).voiceLineBreaks, isTrue);
+    });
+
+    test('two instances differing only in voiceLineBreaks are unequal', () {
+      const a = SttSettings(voiceLineBreaks: false);
+      const b = SttSettings();
+      expect(a == b, isFalse);
+    });
+  });
+
+  group('SttSettings.removeFillerWords', () {
+    test('defaults to false', () {
+      expect(SttSettings.defaults.removeFillerWords, isFalse);
+    });
+
+    test('toMap -> fromMap round-trip preserves true', () {
+      const settings = SttSettings(removeFillerWords: true);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.removeFillerWords, isTrue);
+    });
+
+    test('is persisted under stt_remove_filler_words', () {
+      const settings = SttSettings(removeFillerWords: true);
+      expect(settings.toMap()['stt_remove_filler_words'], 'true');
+    });
+
+    test('missing key in map falls back to the default (false)', () {
+      final map = Map<String, String>.from(SttSettings.defaults.toMap())
+        ..remove('stt_remove_filler_words');
+      expect(SttSettings.fromMap(map).removeFillerWords, isFalse);
+    });
+
+    test('copyWith(removeFillerWords: true) changes no other field', () {
+      const original = SttSettings();
+      final updated = original.copyWith(removeFillerWords: true);
+      expect(updated.removeFillerWords, isTrue);
+      expect(updated.copyWith(removeFillerWords: false), original);
+    });
+
+    test('two instances differing only in removeFillerWords are unequal', () {
+      const a = SttSettings(removeFillerWords: true);
+      const b = SttSettings();
+      expect(a == b, isFalse);
+      expect(a.hashCode == b.hashCode, isFalse);
+    });
+  });
+
+  group('SttSettings.spokenPunctuation', () {
+    test('defaults to off', () {
+      expect(SttSettings.defaults.spokenPunctuation, isFalse);
+    });
+
+    test('round-trips through toMap/fromMap', () {
+      const settings = SttSettings(spokenPunctuation: true);
+      final restored = SttSettings.fromMap(settings.toMap());
+      expect(restored.spokenPunctuation, isTrue);
+    });
+
+    test('is persisted under stt_spoken_punctuation', () {
+      const settings = SttSettings(spokenPunctuation: true);
+      expect(settings.toMap()['stt_spoken_punctuation'], 'true');
+    });
+
+    test('a missing key reads as off', () {
+      final map = const SttSettings().toMap()..remove('stt_spoken_punctuation');
+      expect(SttSettings.fromMap(map).spokenPunctuation, isFalse);
+    });
+
+    test('copyWith changes no other field', () {
+      const original = SttSettings();
+      final updated = original.copyWith(spokenPunctuation: true);
+      expect(updated.spokenPunctuation, isTrue);
+      expect(updated.copyWith(spokenPunctuation: false), original);
+    });
+
+    test('two instances differing only in spokenPunctuation are unequal', () {
+      const a = SttSettings(spokenPunctuation: true);
+      const b = SttSettings();
+      expect(a == b, isFalse);
+      expect(a.hashCode == b.hashCode, isFalse);
+    });
+  });
+
+  group('AutomationApiSettings.enabled', () {
+    test('defaults to false — the API never starts unless opted in', () {
+      expect(AutomationApiSettings.defaults.enabled, isFalse);
+    });
+
+    test('toMap -> fromMap round-trip preserves true', () {
+      const settings = AutomationApiSettings(enabled: true);
+      final restored = AutomationApiSettings.fromMap(settings.toMap());
+      expect(restored.enabled, isTrue);
+    });
+
+    test('toMap -> fromMap round-trip preserves false', () {
+      const settings = AutomationApiSettings(enabled: false);
+      final restored = AutomationApiSettings.fromMap(settings.toMap());
+      expect(restored.enabled, isFalse);
+    });
+
+    test('missing key in map falls back to the default (false)', () {
+      final map = Map<String, String>.from(
+        AutomationApiSettings.defaults.toMap(),
+      )..remove('automation_api_enabled');
+      final restored = AutomationApiSettings.fromMap(map);
+      expect(restored.enabled, isFalse);
+    });
+
+    test('copyWith() without arguments keeps the previous value', () {
+      const original = AutomationApiSettings(enabled: true);
+      final updated = original.copyWith();
+      expect(updated.enabled, isTrue);
+    });
+
+    test('two instances differing only in enabled are unequal', () {
+      const a = AutomationApiSettings(enabled: true);
+      const b = AutomationApiSettings(enabled: false);
+      expect(a == b, isFalse);
+    });
+  });
+
+  group('AutomationApiSettings.customPort', () {
+    test('defaults to null — "automatic"', () {
+      expect(AutomationApiSettings.defaults.customPort, isNull);
+    });
+
+    test('toMap -> fromMap round-trip preserves a custom value', () {
+      const settings = AutomationApiSettings(customPort: 9000);
+      final restored = AutomationApiSettings.fromMap(settings.toMap());
+      expect(restored.customPort, 9000);
+    });
+
+    test('toMap -> fromMap round-trip preserves null', () {
+      const settings = AutomationApiSettings();
+      final restored = AutomationApiSettings.fromMap(settings.toMap());
+      expect(restored.customPort, isNull);
+    });
+
+    test('missing key in map falls back to null', () {
+      final map = Map<String, String>.from(
+        AutomationApiSettings.defaults.toMap(),
+      )..remove('automation_api_custom_port');
+      final restored = AutomationApiSettings.fromMap(map);
+      expect(restored.customPort, isNull);
+    });
+
+    test('copyWith() without arguments keeps the previous value', () {
+      const original = AutomationApiSettings(customPort: 9000);
+      final updated = original.copyWith();
+      expect(updated.customPort, 9000);
+    });
+
+    test('copyWith(customPort: value) sets it', () {
+      const original = AutomationApiSettings();
+      final updated = original.copyWith(customPort: 9000);
+      expect(updated.customPort, 9000);
+    });
+
+    test(
+      'copyWith(customPort: null) explicitly clears it back to automatic',
+      () {
+        const original = AutomationApiSettings(customPort: 9000);
+        final updated = original.copyWith(customPort: null);
+        expect(updated.customPort, isNull);
+      },
+    );
+
+    test('two instances differing only in customPort are unequal', () {
+      const a = AutomationApiSettings(customPort: 9000);
+      const b = AutomationApiSettings(customPort: 9001);
+      expect(a == b, isFalse);
+    });
+  });
+}

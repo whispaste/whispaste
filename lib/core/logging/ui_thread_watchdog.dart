@@ -1,0 +1,131 @@
+/// UI thread responsiveness watchdog.
+///
+/// Periodically schedules a timer callback on the main isolate. If the
+/// callback fires significantly later than expected, the UI thread was
+/// blocked by synchronous work. Logs a warning so we can diagnose jank
+/// without the user having to reproduce it with DevTools attached.
+///
+/// ## Coverage (wired in WpServiceBootstrap.initState / dispose)
+///
+/// The watchdog is process-wide, so it covers ALL paths that run on the
+/// main isolate. This includes, but is not limited to:
+///   - Navigation transitions (AnimatedSwitcher in _AppShell)
+///   - History-list scroll (ListView in HistoryPage)
+///   - Overlay show/hide (FloatingOverlayService phase changes)
+///   - Any other work dispatched to the UI thread
+///
+/// ## What this watchdog does NOT do
+///
+/// It detects STALLS (timer jitter ≥ [_threshold] = 500 ms) — NOT dropped
+/// frames (single frames taking ≥ 16.7 ms @ 60 Hz). A dropped frame
+/// that does not block the thread long enough to miss a watchdog tick is
+/// invisible to this implementation.
+///
+/// For per-frame drop profiling, use Flutter DevTools → Performance tab
+/// during dogfooding (issue 16). The watchdog is a first-line alert
+/// for regressions that cause noticeable freezes.
+///
+/// ## Budget reference
+///
+/// See [PerfBudgets.watchdogThresholdMs] (= 500) — mirrors [_threshold]
+/// so the budget is visible without navigating to the private constant.
+library;
+
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import 'app_logger.dart';
+
+/// A stall at least this long is severe enough to heal the global hotkey
+/// (see HotkeyService.requestHotkeyHeal). Below it, only the warning is logged.
+const Duration kSevereStallThreshold = Duration(seconds: 1);
+
+/// True when [jank] is a severe stall ([kSevereStallThreshold] exceeded).
+bool isSevereStall(Duration jank) => jank > kSevereStallThreshold;
+
+/// Detects UI thread stalls by measuring timer callback jitter.
+///
+/// Call [start] once after the app is initialized and [dispose] on shutdown.
+/// In test environments ([kIsWeb] or when [Platform.environment] contains
+/// `FLUTTER_TEST`) the watchdog is a no-op.
+class UiThreadWatchdog {
+  UiThreadWatchdog._();
+
+  static final _log = AppLogger('UiThreadWatchdog');
+
+  static UiThreadWatchdog? _instance;
+
+  /// Singleton accessor. The watchdog is process-global because there is
+  /// exactly one UI thread per Flutter engine.
+  static UiThreadWatchdog get instance => _instance ??= UiThreadWatchdog._();
+
+  /// How often we probe the event loop.
+  static const _interval = Duration(seconds: 2);
+
+  /// Stall threshold — timer jitter above this is logged as a warning.
+  static const _threshold = Duration(milliseconds: 500);
+
+  Timer? _timer;
+  final _stopwatch = Stopwatch();
+
+  /// Called on a severe stall ([isSevereStall]). Wired by the app shell to a
+  /// hotkey self-heal; null in tests and before the shell is built.
+  void Function(Duration jank)? onSevereStall;
+
+  /// Whether the watchdog is currently active.
+  bool get isRunning => _timer != null;
+
+  /// Starts the watchdog. Safe to call multiple times — restarts if already
+  /// running.
+  void start() {
+    // Skip in tests — Timer.periodic interferes with fake async.
+    if (_isTestEnvironment) return;
+
+    stop();
+    _stopwatch
+      ..reset()
+      ..start();
+    _timer = Timer.periodic(_interval, _onTick);
+    _log.debug(
+      'UI thread watchdog started (interval=${_interval.inSeconds}s, '
+      'threshold=${_threshold.inMilliseconds}ms)',
+    );
+  }
+
+  /// Stops the watchdog and releases the timer.
+  void stop() {
+    _timer?.cancel();
+    _timer = null;
+    _stopwatch.stop();
+  }
+
+  /// Alias for [stop] to match widget lifecycle naming.
+  void dispose() => stop();
+
+  // ---------------------------------------------------------------------------
+
+  void _onTick(Timer t) {
+    final elapsed = _stopwatch.elapsed;
+    // Expected elapsed = interval × tick count.
+    final expected = _interval * t.tick;
+    final jank = elapsed - expected;
+
+    if (jank > _threshold) {
+      _log.warning(
+        'UI thread stall detected: ${jank.inMilliseconds}ms jank '
+        '(tick #${t.tick}, monotonic elapsed=${elapsed.inMilliseconds}ms)',
+      );
+    }
+    if (isSevereStall(jank)) onSevereStall?.call(jank);
+  }
+
+  /// Returns `true` when running inside `flutter test` or on the web.
+  static bool get _isTestEnvironment {
+    // kIsWeb is a const — tree-shaken in native builds.
+    if (kIsWeb) return true;
+    // flutter_test sets this zone value.
+    if (Zone.current[#test.declarer] != null) return true;
+    return false;
+  }
+}

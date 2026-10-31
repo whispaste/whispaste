@@ -1,0 +1,1 @@
+Speak instead of typing: your words appear as text at the cursor, in any app. Transcription runs on your PC with Whisper or Parakeet, works offline after a one-time model download, and needs no account. Cloud is optional. One-time purchase, open source (MIT).

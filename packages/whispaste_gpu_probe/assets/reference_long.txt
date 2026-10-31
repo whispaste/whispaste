@@ -1,0 +1,11 @@
+PLACEHOLDER — ersetze diesen Text durch das echte Soll-Transkript des langen Referenz-Clips.
+
+Die schnelle braune Forelle springt über den faulen Hund. Das Wetter in Berlin ist heute besonders schön und sonnig. Whisper erkennt deutsche Sprache zuverlässig, wenn die Audioquelle klar und rauschfrei ist.
+
+In der Bundesrepublik Deutschland leben rund vierundachtzig Millionen Menschen. Die Hauptstadt Berlin ist gleichzeitig das politische und kulturelle Zentrum des Landes. Der Rhein, die Elbe und die Donau sind die bekanntesten Flüsse Deutschlands.
+
+Die deutsche Sprache gehört zur germanischen Sprachfamilie und wird von etwa hundert Millionen Menschen als Muttersprache gesprochen. Sie ist eine der meistgesprochenen Sprachen Europas und offizielle Sprache in Deutschland, Österreich und der Schweiz.
+
+Moderne Spracherkennungssysteme wie Whisper nutzen tiefe neuronale Netze, um gesprochene Sprache in Text umzuwandeln. Die Genauigkeit hängt von der Audioqualität, dem Akzent und dem Vokabular des Sprechers ab. Mit ausreichend Rechenkapazität lassen sich auch lange Audiodateien in kurzer Zeit verarbeiten.
+
+Das GPU-Probe-Tool von WhisPaste testet verschiedene Whisper-Kandidaten auf einer gegebenen Hardware-Konfiguration. Ziel ist es, den schnellsten und zuverlässigsten Kandidaten für die jeweilige Maschine zu ermitteln. Die Ergebnisse werden in einem strukturierten JSON-Bericht gespeichert und können maschinell ausgewertet werden.

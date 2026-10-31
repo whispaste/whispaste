@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- HyperFrames composition M2: speech recognition on this computer.
+         The wave comes in from the left and enters the laptop at the lid edge,
+         the on-device chip works on the screen, and the text lines come out.
+         Colours come from the theme roles (themes/*.css) injected by
+         scripts/stage.sh. No text, no cloud. Geometry rules are declared with
+         data-* attributes and checked by scripts/geometry-check.js. -->
+    <script src="../node_modules/gsap/dist/gsap.min.js"></script>
+    <style>
+      /*WP_THEME*/
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--stage);
+      }
+      #root {
+        position: relative;
+        width: 920px;
+        height: 576px;
+        overflow: hidden;
+        background: var(--stage);
+      }
+      .abs {
+        position: absolute;
+      }
+      .wave {
+        position: absolute;
+        width: 10px;
+        height: 64px;
+        top: 244px;
+        border-radius: 5px;
+        background: var(--action-on-stage);
+        transform-origin: 50% 50%;
+      }
+      .pin {
+        position: absolute;
+        width: 14px;
+        height: 8px;
+        border-radius: 2px;
+        background: var(--line-strong);
+      }
+      .out {
+        position: absolute;
+        height: 14px;
+        border-radius: 7px;
+        background: var(--line-strong);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="m2-recognition"
+      data-width="920"
+      data-height="576"
+      data-duration="5"
+    >
+      <!-- Laptop lid, screen and base. Lid and base carry a 2 px edge so the
+           silhouette reads on every ground. -->
+      <div
+        class="abs"
+        data-box="lid"
+        data-group="m2-all"
+        data-within="stage"
+        style="left: 315px; top: 120px; width: 492px; height: 312px; border-radius: 28px; background: var(--chip); box-shadow: var(--shadow-lift), inset 0 0 0 2px var(--line-strong)"
+      ></div>
+      <div
+        class="abs"
+        data-box="screen"
+        data-in="lid"
+        data-pad="22"
+        style="left: 337px; top: 142px; width: 448px; height: 268px; border-radius: 12px; background: var(--screen)"
+      ></div>
+      <div
+        class="abs"
+        data-group="m2-all"
+        data-within="stage"
+        style="left: 267px; top: 432px; width: 588px; height: 24px; border-radius: 0 0 16px 16px; background: var(--chip); box-shadow: var(--shadow-lift), inset 0 0 0 2px var(--line-strong)"
+      ></div>
+
+      <!-- Wave bars left of the laptop, centred on the screen axis (y 276). -->
+      <div id="waves"></div>
+
+      <!-- Connectors: the wave enters at the lid edge and runs into the screen.
+           Each connector touches its frame edge; none floats. -->
+      <div
+        id="connector-in"
+        class="abs"
+        style="left: 207px; top: 274px; width: 108px; height: 4px; border-radius: 2px; background: var(--action-on-stage);"
+      ></div>
+      <div
+        id="connector-screen"
+        class="abs"
+        data-overlap-ok="screen"
+        style="left: 337px; top: 274px; width: 54px; height: 4px; border-radius: 2px; background: var(--action-on-stage);"
+      ></div>
+      <div
+        id="connector-out"
+        class="abs"
+        data-overlap-ok="screen"
+        style="left: 527px; top: 274px; width: 44px; height: 4px; border-radius: 2px; background: var(--action-on-stage);"
+      ></div>
+
+      <!-- Chip and result lines: one group, centred on the screen (561, 276). -->
+      <div
+        id="chip"
+        class="abs"
+        data-in="screen"
+        data-pad="22"
+        data-group="m2-content"
+        data-within="screen"
+        style="left: 391px; top: 208px; width: 136px; height: 136px; border-radius: 18px; background: var(--chip); box-shadow: inset 0 0 0 3px var(--line-strong)"
+      ></div>
+      <div
+        id="core"
+        class="abs"
+        data-overlap-ok="chip"
+        style="left: 431px; top: 248px; width: 56px; height: 56px; border-radius: 10px; background: var(--line-strong); opacity: 0.6"
+      ></div>
+      <div id="pins"></div>
+      <div id="outs"></div>
+    </div>
+
+    <script>
+      const T = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+      // Pins on the chip: four per side, centred on the chip (centre x 459).
+      const pinHost = document.getElementById("pins");
+      const pinEls = [];
+      for (let i = 0; i < 4; i++) {
+        const x = 413 + i * 26;
+        [198, 346].forEach((y) => {
+          const el = document.createElement("div");
+          el.className = "pin";
+          el.style.left = x + "px";
+          el.style.top = y + "px";
+          el.dataset.in = "screen";
+          el.dataset.overlapOk = "chip";
+          el.dataset.pad = "22";
+          el.dataset.group = "m2-content";
+          el.dataset.within = "screen";
+          pinHost.appendChild(el);
+          pinEls.push(el);
+        });
+      }
+
+      // Wave bars: seven, 22 px pitch, from x 65 to x 207 (outside the laptop).
+      const waveHost = document.getElementById("waves");
+      const waveEls = [];
+      for (let i = 0; i < 7; i++) {
+        const el = document.createElement("div");
+        el.className = "wave";
+        el.style.left = 65 + i * 22 + "px";
+        el.dataset.group = "m2-all";
+        el.dataset.within = "stage";
+        waveHost.appendChild(el);
+        waveEls.push(el);
+      }
+
+      // Result lines: block centred vertically on the chip; left edge x 571.
+      const outSpec = [
+        { top: 215, width: 160 },
+        { top: 251, width: 120 },
+        { top: 287, width: 150 },
+        { top: 323, width: 90 },
+      ];
+      const outHost = document.getElementById("outs");
+      const outEls = outSpec.map((spec) => {
+        const el = document.createElement("div");
+        el.className = "out";
+        el.style.left = "571px";
+        el.style.top = spec.top + "px";
+        el.style.width = spec.width + "px";
+        el.dataset.in = "screen";
+        el.dataset.pad = "22";
+        el.dataset.group = "m2-content";
+        el.dataset.within = "screen";
+        outHost.appendChild(el);
+        return el;
+      });
+
+      const tl = gsap.timeline({ paused: true });
+
+      // Idle start state (identical at t = 0 and t = 5 for a seamless loop).
+      gsap.set(waveEls, { scaleY: 0.3, opacity: 0.4 });
+      gsap.set(["#connector-in", "#connector-screen", "#connector-out"], { scaleX: 0, transformOrigin: "0% 50%" });
+      gsap.set(outEls, { scaleX: 0, transformOrigin: "0% 50%" });
+      gsap.set("#chip", { boxShadow: "inset 0 0 0 3px " + T("--line-strong") });
+      gsap.set(pinEls, { backgroundColor: T("--line-strong") });
+
+      // 0.2 - 1.2 s: the wave rises outside the laptop.
+      waveEls.forEach((el, i) => {
+        tl.to(el, { scaleY: 1, opacity: 1, duration: 0.25, ease: "sine.inOut", yoyo: true, repeat: 3 }, 0.2 + i * 0.05);
+      });
+      // 0.9 - 1.5 s: the wave runs in through the lid edge and into the screen.
+      tl.to("#connector-in", { scaleX: 1, duration: 0.4, ease: "power1.inOut" }, 0.9);
+      tl.to("#connector-screen", { scaleX: 1, duration: 0.3, ease: "power1.inOut" }, 1.3);
+
+      // 1.5 - 2.1 s: the chip wakes up, the outline turns cyan, pins light up.
+      tl.to("#chip", { boxShadow: "inset 0 0 0 3px " + T("--action-on-light"), duration: 0.3 }, 1.5);
+      tl.to(pinEls, { backgroundColor: T("--action-bright"), duration: 0.2, stagger: 0.02 }, 1.6);
+      tl.to("#core", { backgroundColor: T("--action-on-light"), duration: 0.3 }, 1.6);
+
+      // 2.2 - 4.0 s: result lines come out of the chip, one after another.
+      tl.to("#connector-out", { scaleX: 1, duration: 0.3, ease: "power1.out" }, 2.2);
+      outEls.forEach((line, i) => {
+        tl.to(line, { scaleX: 1, duration: 0.4, ease: "power2.out" }, 2.4 + i * 0.4);
+      });
+
+      // 4.2 - 4.8 s: back to idle; lines and connectors retract, the chip goes quiet.
+      tl.to(outEls, { scaleX: 0, duration: 0.4, ease: "power1.in" }, 4.2);
+      tl.to("#connector-out", { scaleX: 0, duration: 0.2 }, 4.4);
+      tl.to("#connector-screen", { scaleX: 0, duration: 0.2 }, 4.4);
+      tl.to("#connector-in", { scaleX: 0, duration: 0.2 }, 4.45);
+      tl.to("#chip", { boxShadow: "inset 0 0 0 3px " + T("--line-strong"), duration: 0.3 }, 4.3);
+      tl.to(pinEls, { backgroundColor: T("--line-strong"), duration: 0.2 }, 4.4);
+      tl.to("#core", { backgroundColor: T("--line-strong"), duration: 0.3 }, 4.4);
+
+      window.__timelines["m2-recognition"] = tl;
+    </script>
+  </body>
+</html>

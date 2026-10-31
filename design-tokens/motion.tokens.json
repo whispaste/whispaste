@@ -1,0 +1,12 @@
+{
+  "motion": {
+    "accent-on-light": {
+      "$value": "#A65A00",
+      "$description": "Motion beats only: darker amber for marker and frame outlines on light surfaces (hell stage, white and glacier cards). Amber 800 is too dark for a filled marker; this value keeps 3:1 against white and against the ink lines. Not used for text or on dark surfaces."
+    },
+    "action-on-light": {
+      "$value": "#00788E",
+      "$description": "Motion beats only: darker cyan for action and recording graphics on light surfaces (hell stage, white and glacier cards). Cyan 600; cyan 500 is 2.4 to 2.8:1 on these surfaces."
+    }
+  }
+}

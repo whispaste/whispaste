@@ -1,0 +1,142 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:whispaste/widgets/sidebar.dart';
+
+import '../fixtures/test_helpers.dart';
+
+void main() {
+  final testItems = [
+    const WpNavItem(id: 'home', icon: LucideIcons.house, label: 'Home'),
+    const WpNavItem(
+      id: 'settings',
+      icon: LucideIcons.settings,
+      label: 'Settings',
+    ),
+    const WpNavItem(id: 'help', icon: LucideIcons.circleHelp, label: 'Help'),
+  ];
+
+  group('WpSidebar', () {
+    testWidgets('tapping a nav item calls the selection callback', (
+      tester,
+    ) async {
+      String? tappedId;
+
+      await tester.pumpWidget(
+        makeTestable(
+          WpSidebar(
+            items: testItems,
+            activeId: 'home',
+            onItemTap: (id) => tappedId = id,
+          ),
+        ),
+      );
+
+      // Tap the settings icon via its Tooltip
+      await tester.tap(find.byTooltip('Settings'));
+      expect(tappedId, 'settings');
+    });
+
+    testWidgets('tapping a different nav item reports correct id', (
+      tester,
+    ) async {
+      String? tappedId;
+
+      await tester.pumpWidget(
+        makeTestable(
+          WpSidebar(
+            items: testItems,
+            activeId: 'home',
+            onItemTap: (id) => tappedId = id,
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Help'));
+      expect(tappedId, 'help');
+    });
+
+    testWidgets('WpNavItem data class stores id, icon, and label', (_) async {
+      const item = WpNavItem(id: 'test', icon: LucideIcons.star, label: 'Test');
+      expect(item.id, 'test');
+      expect(item.icon, LucideIcons.star);
+      expect(item.label, 'Test');
+      expect(item.badgeHint, isNull);
+    });
+
+    testWidgets('bottom-pinned items report taps through onItemTap', (
+      tester,
+    ) async {
+      String? tappedId;
+
+      await tester.pumpWidget(
+        makeTestable(
+          WpSidebar(
+            items: testItems,
+            activeId: 'home',
+            onItemTap: (id) => tappedId = id,
+            bottomItems: const [
+              WpNavItem(
+                id: 'preferences',
+                icon: LucideIcons.settings,
+                label: 'Preferences',
+              ),
+            ],
+          ),
+        ),
+      );
+
+      await tester.tap(find.byTooltip('Preferences'));
+      expect(tappedId, 'preferences');
+    });
+  });
+
+  group('WpSidebar attention badge', () {
+    // The dot is only ever legitimate together with the sentence that
+    // explains it, so the tests assert the two as one unit.
+    const badged = WpNavItem(
+      id: 'preferences',
+      icon: LucideIcons.settings,
+      label: 'Preferences',
+      badgeHint: 'Update available: v9.9.9',
+    );
+
+    Widget shellWith(List<WpNavItem> bottomItems) => makeTestable(
+      WpSidebar(
+        items: testItems,
+        activeId: 'home',
+        onItemTap: (_) {},
+        bottomItems: bottomItems,
+      ),
+    );
+
+    testWidgets('a hint puts its reason into tooltip and semantics', (
+      tester,
+    ) async {
+      await tester.pumpWidget(shellWith(const [badged]));
+
+      const expected = 'Preferences, Update available: v9.9.9';
+      expect(find.byTooltip(expected), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(expected),
+        findsOneWidget,
+        reason: 'A dot a screen reader cannot explain is not an announcement',
+      );
+    });
+
+    testWidgets('without a hint the label stays untouched', (tester) async {
+      await tester.pumpWidget(
+        shellWith(const [
+          WpNavItem(
+            id: 'preferences',
+            icon: LucideIcons.settings,
+            label: 'Preferences',
+          ),
+        ]),
+      );
+
+      expect(find.byTooltip('Preferences'), findsOneWidget);
+      expect(find.bySemanticsLabel('Preferences'), findsOneWidget);
+    });
+  });
+}

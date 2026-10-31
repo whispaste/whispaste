@@ -1,0 +1,1 @@
+transcrição,ditado,reconhecimento de fala,whisper,notas de áudio,atalho,offline,local,digitar

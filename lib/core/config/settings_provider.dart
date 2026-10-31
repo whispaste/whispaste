@@ -1,0 +1,2018 @@
+/// App settings provider — persisted via SQLite.
+///
+/// **Architecture note**: This file lives in `core/config/` because every
+/// layer depends on it (theme, l10n, services, features). It imports from
+/// `core/data/` (database provider for persistence) and `services/path_service`
+/// (cross-platform path helpers). The Go config dependency has been removed;
+/// a one-time migration reads the legacy file directly if no Flutter settings
+/// exist yet.
+///
+/// **Section architecture (issue 12)**: [AppSettings] is an aggregate of 16
+/// immutable section classes defined in [settings_sections.dart].  Every
+/// previous top-level field is preserved as a `@Deprecated` getter that
+/// delegates to the appropriate section, so existing call-sites continue to
+/// compile without modification.  New code should use the section fields
+/// directly (e.g. `settings.stt.model`) and mutate via [copyWithSections].
+library;
+
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../data/database.dart';
+import '../l10n/initial_locale.dart';
+import '../logging/app_logger.dart';
+import '../onboarding/onboarding_revision.dart';
+import '../theme/overlay_customization.dart'
+    show FloatingButtonLook, OverlayAppearance;
+import '../theme/overlay_design_spec.dart' show OverlayBackground, OverlayWave;
+import '../../services/factory_reset/reset_preferences.dart';
+import '../../services/hotkey_trigger.dart' show doubleTapSupportedHere;
+import '../../services/path_service.dart';
+import '../../services/stt_parakeet/parakeet_model_registry.dart'
+    show parakeetModelId;
+import 'quality_tier.dart' show QualityTier;
+import 'secure_key_store.dart';
+import 'settings_enums.dart';
+import 'whisper_languages.dart';
+import 'settings_sections.dart';
+
+/// All persisted app settings in one immutable aggregate.
+///
+/// Fields are grouped into 16 immutable section objects.  Every legacy
+/// top-level field is available as a `@Deprecated` getter for backward
+/// compatibility until all call-sites are migrated to the section API.
+/// Moves a stored wave that is invalid on its background to the replacement
+/// (WP-75b), once, on load, so the render path only sees valid pairings.
+OverlaySettings _withValidWave(OverlaySettings overlay) {
+  final background = OverlayBackground.fromValue(overlay.overlayBackground);
+  final wave = OverlayWave.fromValue(overlay.overlayWave).validOn(background);
+  return overlay.copyWith(overlayWave: wave.value);
+}
+
+class AppSettings {
+  const AppSettings({
+    this.interface_ = const InterfaceSettings(),
+    this.audioInput = const AudioInputSettings(),
+    this.recordingSafety = const RecordingSafetySettings(),
+    this.stt = const SttSettings(),
+    this.sound = const SoundSettings(),
+    this.afterTranscriptionSection = const AfterTranscriptionSettings(),
+    this.overlay = const OverlaySettings(),
+    this.cloudProvider = const CloudProviderSettings(),
+    this.behavior = const BehaviorSettings(),
+    this.audioProcessing = const AudioProcessingSettings(),
+    this.updates = const UpdateSettings(),
+    this.history = const HistorySettings(),
+    this.hotkey = const HotkeySettings(),
+    this.quickNoteHotkey = const QuickNoteHotkeySettings(),
+    this.snippetPickerHotkey = const SnippetPickerHotkeySettings(),
+    this.windowPosition = const WindowPositionSettings(),
+    this.onboarding = const OnboardingSettings(),
+    this.benchmark = const BenchmarkSettings(),
+    this.privacy = const PrivacySettings(),
+    this.portabilityPaths = const SettingsPortabilityPathSettings(),
+    this.autosave = const SettingsAutosaveSettings(),
+    this.smartMode = const SmartModeSettings(),
+    this.smartModeHotkey = const SmartModeHotkeySettings(),
+    this.selectionEditHotkey = const SelectionEditHotkeySettings(),
+    this.automationApi = const AutomationApiSettings(),
+  });
+
+  // ---------------------------------------------------------------------------
+  // Section fields
+  // ---------------------------------------------------------------------------
+
+  /// Interface settings (theme, locale, startup).
+  final InterfaceSettings interface_;
+
+  /// Audio input settings (microphone, gain, push-to-talk).
+  final AudioInputSettings audioInput;
+
+  /// Recording safety settings (dead-mic timeout, auto-stop silence).
+  final RecordingSafetySettings recordingSafety;
+
+  /// Speech-to-text settings (provider, model, language, idle timeout).
+  final SttSettings stt;
+
+  /// Sound feedback settings (start/stop sounds, volume).
+  final SoundSettings sound;
+
+  /// After-transcription action settings.
+  final AfterTranscriptionSettings afterTranscriptionSection;
+
+  /// Overlay & floating button settings.
+  final OverlaySettings overlay;
+
+  /// Cloud provider & API key settings.
+  final CloudProviderSettings cloudProvider;
+
+  /// General behavior settings (tray, error reporting, GPU, paste).
+  final BehaviorSettings behavior;
+
+  /// Audio processing settings.
+  final AudioProcessingSettings audioProcessing;
+
+  /// Update check settings.
+  final UpdateSettings updates;
+
+  /// History retention settings.
+  final HistorySettings history;
+
+  /// Hotkey settings.
+  final HotkeySettings hotkey;
+
+  /// Quick-note hotkey settings (second, independently configurable hotkey).
+  final QuickNoteHotkeySettings quickNoteHotkey;
+
+  /// Snippet-Picker hotkey settings (third, independently configurable
+  /// hotkey — opens the Snippet-Picker panel directly, ticket 26).
+  final SnippetPickerHotkeySettings snippetPickerHotkey;
+
+  /// Window & overlay position settings.
+  final WindowPositionSettings windowPosition;
+
+  /// Onboarding completion state.
+  final OnboardingSettings onboarding;
+
+  /// Benchmark data for tier performance recommendations.
+  final BenchmarkSettings benchmark;
+
+  /// Privacy settings (analytics consent, crash reporting consent is in behavior).
+  final PrivacySettings privacy;
+
+  /// Remembered file-dialog target for settings export/import (Ticket 03 of
+  /// `settings-portability-vollumfang`).
+  final SettingsPortabilityPathSettings portabilityPaths;
+
+  /// Autosicherung — event-driven automatic backup of the portable bundle
+  /// (Ticket 26). Off by default.
+  final SettingsAutosaveSettings autosave;
+
+  /// Smart Mode v2 settings (`internal-notes`) — standard preset,
+  /// off by default.
+  final SmartModeSettings smartMode;
+
+  /// Smart-Mode hotkey settings (fourth, independently configurable hotkey —
+  /// bound to one of the three presets, ticket 04).
+  final SmartModeHotkeySettings smartModeHotkey;
+
+  /// "Edit selection by voice" hotkey settings
+  /// (`internal-notes`) — off by default.
+  final SelectionEditHotkeySettings selectionEditHotkey;
+
+  /// Local automation API settings (ticket 03,
+  /// `internal-notes`) — off by default.
+  final AutomationApiSettings automationApi;
+
+  // ---------------------------------------------------------------------------
+  // @Deprecated shims — delegate to sections.
+  // Remove once all call-sites migrate to the section API.
+  // ---------------------------------------------------------------------------
+
+  @Deprecated('Use interface_.locale instead')
+  String get locale => interface_.locale;
+
+  @Deprecated('Use interface_.launchAtStartup instead')
+  bool get launchAtStartup => interface_.launchAtStartup;
+
+  @Deprecated('Use interface_.startMinimized instead')
+  bool get startMinimized => interface_.startMinimized;
+
+  @Deprecated('Use interface_.showNotifications instead')
+  bool get showNotifications => interface_.showNotifications;
+
+  @Deprecated('Use audioInput.microphone instead')
+  String get microphone => audioInput.microphone;
+
+  @Deprecated('Use audioInput.pushToTalk instead')
+  bool get pushToTalk => audioInput.pushToTalk;
+
+  @Deprecated('Use audioInput.inputGain instead')
+  double get inputGain => audioInput.inputGain;
+
+  @Deprecated('Use recordingSafety.deadMicTimeout instead')
+  double get deadMicTimeout => recordingSafety.deadMicTimeout;
+
+  @Deprecated('Use recordingSafety.autoStopSilence instead')
+  double get autoStopSilence => recordingSafety.autoStopSilence;
+
+  @Deprecated('Use stt.provider instead')
+  String get sttProvider => stt.provider;
+
+  @Deprecated('Use stt.model instead')
+  String get sttModel => stt.model;
+
+  @Deprecated('Use stt.language instead')
+  String get sttLanguage => stt.language;
+
+  @Deprecated('Use stt.idleTimeoutMinutes instead')
+  int get sttIdleTimeoutMinutes => stt.idleTimeoutMinutes;
+
+  @Deprecated('Use stt.customVocabulary instead')
+  String get customVocabulary => stt.customVocabulary;
+
+  @Deprecated('Use sound.recordStartSound instead')
+  bool get recordStartSound => sound.recordStartSound;
+
+  @Deprecated('Use sound.recordStopSound instead')
+  bool get recordStopSound => sound.recordStopSound;
+
+  @Deprecated('Use sound.transcriptionCompleteSound instead')
+  bool get transcriptionCompleteSound => sound.transcriptionCompleteSound;
+
+  @Deprecated('Use sound.durationWarningSound instead')
+  bool get durationWarningSound => sound.durationWarningSound;
+
+  @Deprecated('Use sound.soundVolume instead')
+  double get soundVolume => sound.soundVolume;
+
+  @Deprecated('Use afterTranscriptionSection.afterTranscription instead')
+  String get afterTranscription => afterTranscriptionSection.afterTranscription;
+
+  @Deprecated('Use overlay.showOverlay instead')
+  bool get showOverlay => overlay.showOverlay;
+
+  @Deprecated('Use overlay.overlayMode instead')
+  String get overlayMode => overlay.overlayMode;
+
+  @Deprecated('Use overlay.overlayStartPosition instead')
+  String get overlayStartPosition => overlay.overlayStartPosition;
+
+  @Deprecated('Use overlay.overlaySize instead')
+  String get overlaySize => overlay.overlaySize;
+
+  @Deprecated('Use overlay.showFloatingButton instead')
+  bool get showFloatingButton => overlay.showFloatingButton;
+
+  @Deprecated('Use cloudProvider.openAiApiKey instead')
+  String get openAiApiKey => cloudProvider.openAiApiKey;
+
+  @Deprecated('Use cloudProvider.deepgramApiKey instead')
+  String get deepgramApiKey => cloudProvider.deepgramApiKey;
+
+  @Deprecated('Use cloudProvider.cloudSttProvider instead')
+  String get cloudSttProvider => cloudProvider.cloudSttProvider;
+
+  @Deprecated('Use behavior.maxRecordDuration instead')
+  int get maxRecordDuration => behavior.maxRecordDuration;
+
+  @Deprecated('Use behavior.closeToTray instead')
+  bool get closeToTray => behavior.closeToTray;
+
+  @Deprecated('Use behavior.errorReporting instead')
+  bool get errorReporting => behavior.errorReporting;
+
+  @Deprecated('Use behavior.gpuAcceleration instead')
+  String get gpuAcceleration => behavior.gpuAcceleration;
+
+  @Deprecated('Use behavior.autoPasteDelay instead')
+  int get autoPasteDelay => behavior.autoPasteDelay;
+
+  @Deprecated('Use behavior.autoPasteBlocklist instead')
+  String get autoPasteBlocklist => behavior.autoPasteBlocklist;
+
+  @Deprecated('Use behavior.textReplacementsEnabled instead')
+  bool get textReplacementsEnabled => behavior.textReplacementsEnabled;
+
+  @Deprecated('Use updates.checkUpdates instead')
+  bool get checkUpdates => updates.checkUpdates;
+
+  @Deprecated('Use history.historyMaxEntries instead')
+  int get historyMaxEntries => history.historyMaxEntries;
+
+  @Deprecated('Use history.historyAutoTrashDays instead')
+  int get historyAutoTrashDays => history.historyAutoTrashDays;
+
+  @Deprecated('Use hotkey.hotkeyEnabled instead')
+  bool get hotkeyEnabled => hotkey.hotkeyEnabled;
+
+  @Deprecated('Use hotkey.hotkeyKey instead')
+  String get hotkeyKey => hotkey.hotkeyKey;
+
+  @Deprecated('Use hotkey.hotkeyModifiers instead')
+  String get hotkeyModifiers => hotkey.hotkeyModifiers;
+
+  @Deprecated('Use windowPosition.floatingButtonX instead')
+  double get floatingButtonX => windowPosition.floatingButtonX;
+
+  @Deprecated('Use windowPosition.floatingButtonY instead')
+  double get floatingButtonY => windowPosition.floatingButtonY;
+
+  @Deprecated('Use windowPosition.floatingOverlayX instead')
+  double get floatingOverlayX => windowPosition.floatingOverlayX;
+
+  @Deprecated('Use windowPosition.floatingOverlayY instead')
+  double get floatingOverlayY => windowPosition.floatingOverlayY;
+
+  @Deprecated('Use windowPosition.windowX instead')
+  double get windowX => windowPosition.windowX;
+
+  @Deprecated('Use windowPosition.windowY instead')
+  double get windowY => windowPosition.windowY;
+
+  @Deprecated('Use windowPosition.windowWidth instead')
+  double get windowWidth => windowPosition.windowWidth;
+
+  @Deprecated('Use windowPosition.windowHeight instead')
+  double get windowHeight => windowPosition.windowHeight;
+
+  @Deprecated('Use windowPosition.windowMaximized instead')
+  bool get windowMaximized => windowPosition.windowMaximized;
+
+  @Deprecated('Use onboarding.onboardingCompleted instead')
+  bool get onboardingCompleted => onboarding.onboardingCompleted;
+
+  @Deprecated('Use benchmark.tierBenchmarkRtf instead')
+  Map<QualityTier, double>? get tierBenchmarkRtf => benchmark.tierBenchmarkRtf;
+
+  @Deprecated('Use benchmark.benchmarkHardwareId instead')
+  String? get benchmarkHardwareId => benchmark.benchmarkHardwareId;
+
+  @Deprecated('Use benchmark.benchmarkTimestamp instead')
+  DateTime? get benchmarkTimestamp => benchmark.benchmarkTimestamp;
+
+  // ---------------------------------------------------------------------------
+  // Typed accessors — prefer these over raw string comparisons.
+  // ---------------------------------------------------------------------------
+
+  SttProviderType get sttProviderType =>
+      SttProviderType.fromValue(stt.provider);
+  OnDeviceEngine get onDeviceEngine => OnDeviceEngine.fromValue(stt.engine);
+  CloudSttProvider get cloudSttProviderType =>
+      CloudSttProvider.fromValue(cloudProvider.cloudSttProvider);
+  AfterTranscriptionAction get afterTranscriptionAction =>
+      AfterTranscriptionAction.fromValue(
+        afterTranscriptionSection.afterTranscription,
+      );
+  OverlayMode get overlayModeType => OverlayMode.fromValue(overlay.overlayMode);
+
+  /// Returns the effective overlay mode. Now that the native floating overlay
+  /// is implemented, `floating` is passed through directly.
+  OverlayMode get effectiveOverlayMode => overlayModeType;
+
+  OverlayStartPosition get overlayStartPositionType =>
+      OverlayStartPosition.fromValue(overlay.overlayStartPosition);
+  FloatingOverlaySize get overlaySizeType =>
+      FloatingOverlaySize.fromValue(overlay.overlaySize);
+  OverlayBackground get overlayBackgroundType =>
+      OverlayBackground.fromValue(overlay.overlayBackground);
+  OverlayWave get overlayWaveType => OverlayWave.fromValue(overlay.overlayWave);
+
+  /// The WP-95 appearance options as one value for the overlay snapshot.
+  OverlayAppearance get overlayAppearance => OverlayAppearance.fromValues(
+    form: overlay.overlayForm,
+    waveStyle: overlay.overlayWaveStyle,
+    waveFluid: overlay.overlayWaveFluid,
+    showTimer: overlay.overlayShowTimer,
+    showCancel: overlay.overlayShowCancel,
+    opacity: overlay.overlayOpacity,
+  );
+
+  /// The WP-95 floating-button look (size, shape, ring, resting opacity).
+  FloatingButtonLook get floatingButtonLook => FloatingButtonLook.fromValues(
+    size: overlay.floatingButtonSize,
+    shape: overlay.floatingButtonShape,
+    ring: overlay.floatingButtonRing,
+    idleOpacity: overlay.floatingButtonIdleOpacity,
+  );
+
+  /// Whether the overlay shows the live/partial recognized text (ticket 11).
+  bool get overlayShowLiveTranscript => overlay.overlayShowLiveTranscript;
+
+  /// Resolved model ID — falls back to `whisper-medium` if empty.
+  ///
+  /// **Whisper-only.** This also resolves Whisper model *paths* (preflight,
+  /// reload-on-change, benchmark warmup) — it is NOT repurposed for Parakeet.
+  /// Use [transcriptionModelId] to get the identity that should be persisted
+  /// for a completed transcription (history/analytics), which differs when
+  /// the active on-device engine is Parakeet.
+  String get effectiveModelId =>
+      stt.model.isEmpty ? 'whisper-medium' : stt.model;
+
+  /// The model identity to persist for a completed transcription
+  /// (`RecordingInput.modelId` → `history_entries`/`daily_stats.model`).
+  ///
+  /// Parakeet has no Whisper model ID of its own — without this, Parakeet
+  /// transcriptions would be recorded under whatever Whisper model ID
+  /// happens to be selected (or the `whisper-medium` fallback), silently
+  /// misattributing them in the analytics dashboard's model-usage panel.
+  String get transcriptionModelId =>
+      sttProviderType == SttProviderType.onDevice &&
+          onDeviceEngine == OnDeviceEngine.parakeet
+      ? parakeetModelId
+      : effectiveModelId;
+
+  /// STT language code for the whisper server (e.g. `en`, `ru`, `auto`).
+  ///
+  /// Normalizes the persisted [stt.language] value to the short code
+  /// expected by whisper-server's `language` parameter. Accepts both the
+  /// legacy display values written by ≤1.2.x ('Auto-detect', 'English', …)
+  /// and the short codes written since the 99-language settings dropdown.
+  /// Anything outside the [whisperLanguages] catalog degrades to `'auto'`.
+  String get sttLanguageCode {
+    final value = stt.language;
+    if (whisperLanguages.containsKey(value)) return value;
+    return switch (value) {
+      'English' => 'en',
+      'German' => 'de',
+      'French' => 'fr',
+      'Spanish' => 'es',
+      _ => 'auto',
+    };
+  }
+
+  /// Platform-aware factory-reset defaults.
+  ///
+  /// On macOS the default hotkey uses ⌘+Shift (meta) instead of Ctrl+Shift.
+  static final AppSettings defaults = AppSettings(
+    hotkey: buildDefaultHotkeySettings(),
+    quickNoteHotkey: buildDefaultQuickNoteHotkeySettings(),
+    snippetPickerHotkey: buildDefaultSnippetPickerHotkeySettings(),
+    smartModeHotkey: buildDefaultSmartModeHotkeySettings(),
+    selectionEditHotkey: buildDefaultSelectionEditHotkeySettings(),
+    behavior: BehaviorSettings(
+      repasteHotkeyModifiers: defaultRepasteHotkeyModifiers(),
+    ),
+  );
+
+  /// Existing installs (onboarding finished before the threshold setting
+  /// existed) keep the former fixed 1000 ms; new installs take the 250 ms
+  /// default. A stored value always wins.
+  static AudioInputSettings _withLegacyHoldOrTapThreshold(
+    AudioInputSettings audio,
+    Map<String, String> values,
+  ) {
+    if (values.containsKey('hold_or_tap_threshold_ms')) return audio;
+    if (values['onboarding_completed'] != 'true') return audio;
+    return audio.copyWith(holdOrTapThresholdMs: 1000);
+  }
+
+  /// Creates settings from persisted key-value storage.
+  factory AppSettings.fromStorageMap(Map<String, String> values) {
+    return AppSettings(
+      interface_: InterfaceSettings.fromMap(values),
+      audioInput: _withLegacyHoldOrTapThreshold(
+        AudioInputSettings.fromMap(values),
+        values,
+      ),
+      recordingSafety: RecordingSafetySettings.fromMap(values),
+      stt: SttSettings.fromMap(values),
+      sound: SoundSettings.fromMap(values),
+      afterTranscriptionSection: AfterTranscriptionSettings.fromMap(values),
+      overlay: _withValidWave(OverlaySettings.fromMap(values)),
+      cloudProvider: CloudProviderSettings.fromMap(values),
+      behavior: BehaviorSettings.fromMap(values),
+      audioProcessing: AudioProcessingSettings.fromMap(values),
+      updates: UpdateSettings.fromMap(values),
+      history: HistorySettings.fromMap(values),
+      hotkey: HotkeySettings.fromMap(values),
+      quickNoteHotkey: QuickNoteHotkeySettings.fromMap(values),
+      snippetPickerHotkey: SnippetPickerHotkeySettings.fromMap(values),
+      windowPosition: WindowPositionSettings.fromMap(values),
+      onboarding: OnboardingSettings.fromMap(values),
+      benchmark: BenchmarkSettings.fromMap(values),
+      privacy: PrivacySettings.fromMap(values),
+      portabilityPaths: SettingsPortabilityPathSettings.fromMap(values),
+      autosave: SettingsAutosaveSettings.fromMap(values),
+      smartMode: SmartModeSettings.fromMap(values),
+      smartModeHotkey: SmartModeHotkeySettings.fromMap(values),
+      selectionEditHotkey: SelectionEditHotkeySettings.fromMap(values),
+      automationApi: AutomationApiSettings.fromMap(values),
+    );
+  }
+
+  /// One-time migration: seeds Flutter settings from the legacy Go
+  /// `config.json`.  Accepts the raw JSON map so we don't depend on a
+  /// Go config class.
+  factory AppSettings.fromGoConfig(Map<String, dynamic> json) {
+    final useLocal = json['use_local_stt'] as bool? ?? false;
+    final modelId = json['local_model_id'] as String? ?? 'whisper-small';
+    final lang = json['transcription_language'] as String? ?? 'auto';
+    final gpu = json['gpu_acceleration'] as String? ?? 'auto';
+    final autoPaste = json['auto_paste'] as bool? ?? true;
+    final sounds = json['play_sounds'] as bool? ?? true;
+    final maxSec = json['max_record_sec'] as int? ?? 120;
+
+    return AppSettings(
+      stt: SttSettings(
+        provider: useLocal
+            ? SttProviderType.onDevice.value
+            : defaults.stt.provider,
+        model: _settingModelFromConfig(modelId),
+        language: _settingLanguageFromConfig(lang),
+      ),
+      sound: SoundSettings(
+        recordStartSound: sounds,
+        recordStopSound: sounds,
+        transcriptionCompleteSound: sounds,
+        durationWarningSound: sounds,
+      ),
+      afterTranscriptionSection: AfterTranscriptionSettings(
+        afterTranscription: autoPaste ? 'clipboard' : 'nothing',
+      ),
+      behavior: BehaviorSettings(
+        maxRecordDuration: maxSec,
+        gpuAcceleration: gpu,
+      ),
+    );
+  }
+
+  /// Serializes settings into a string map for SQLite persistence.
+  Map<String, String> toStorageMap() => {
+    'schema_version': '2',
+    ...interface_.toMap(),
+    ...audioInput.toMap(),
+    ...recordingSafety.toMap(),
+    ...stt.toMap(),
+    ...sound.toMap(),
+    ...afterTranscriptionSection.toMap(),
+    ...overlay.toMap(),
+    ...cloudProvider.toMap(),
+    ...behavior.toMap(),
+    ...audioProcessing.toMap(),
+    ...updates.toMap(),
+    ...history.toMap(),
+    ...hotkey.toMap(),
+    ...quickNoteHotkey.toMap(),
+    ...snippetPickerHotkey.toMap(),
+    ...windowPosition.toMap(),
+    ...onboarding.toMap(),
+    ...benchmark.toMap(),
+    ...privacy.toMap(),
+    ...portabilityPaths.toMap(),
+    ...autosave.toMap(),
+    ...smartMode.toMap(),
+    ...smartModeHotkey.toMap(),
+    ...selectionEditHotkey.toMap(),
+    ...automationApi.toMap(),
+  };
+
+  // ---------------------------------------------------------------------------
+  // copyWithSections — the new 16-param section-based API.
+  // ---------------------------------------------------------------------------
+
+  /// Returns a copy of this [AppSettings] with one or more sections replaced.
+  ///
+  /// This is the preferred mutation API for new code:
+  /// ```dart
+  /// final updated = settings.copyWithSections(
+  ///   stt: settings.stt.copyWith(model: 'whisper-large-v3-turbo'),
+  /// );
+  /// ```
+  AppSettings copyWithSections({
+    InterfaceSettings? interface_,
+    AudioInputSettings? audioInput,
+    RecordingSafetySettings? recordingSafety,
+    SttSettings? stt,
+    SoundSettings? sound,
+    AfterTranscriptionSettings? afterTranscriptionSection,
+    OverlaySettings? overlay,
+    CloudProviderSettings? cloudProvider,
+    BehaviorSettings? behavior,
+    AudioProcessingSettings? audioProcessing,
+    UpdateSettings? updates,
+    HistorySettings? history,
+    HotkeySettings? hotkey,
+    QuickNoteHotkeySettings? quickNoteHotkey,
+    SnippetPickerHotkeySettings? snippetPickerHotkey,
+    WindowPositionSettings? windowPosition,
+    OnboardingSettings? onboarding,
+    BenchmarkSettings? benchmark,
+    PrivacySettings? privacy,
+    SettingsPortabilityPathSettings? portabilityPaths,
+    SettingsAutosaveSettings? autosave,
+    SmartModeSettings? smartMode,
+    SmartModeHotkeySettings? smartModeHotkey,
+    SelectionEditHotkeySettings? selectionEditHotkey,
+    AutomationApiSettings? automationApi,
+  }) {
+    return _copyWithSectionsGroupA(
+      interface_: interface_,
+      audioInput: audioInput,
+      recordingSafety: recordingSafety,
+      stt: stt,
+      sound: sound,
+      afterTranscriptionSection: afterTranscriptionSection,
+      overlay: overlay,
+      cloudProvider: cloudProvider,
+      behavior: behavior,
+      audioProcessing: audioProcessing,
+      updates: updates,
+      history: history,
+    )._copyWithSectionsGroupB(
+      hotkey: hotkey,
+      quickNoteHotkey: quickNoteHotkey,
+      snippetPickerHotkey: snippetPickerHotkey,
+      windowPosition: windowPosition,
+      onboarding: onboarding,
+      benchmark: benchmark,
+      privacy: privacy,
+      portabilityPaths: portabilityPaths,
+      autosave: autosave,
+      smartMode: smartMode,
+      smartModeHotkey: smartModeHotkey,
+      selectionEditHotkey: selectionEditHotkey,
+      automationApi: automationApi,
+    );
+  }
+
+  /// First half of [copyWithSections] (split purely to keep each function's
+  /// cyclomatic complexity under the project's static-analysis threshold —
+  /// each `??` fallback is an independent branch, and one function covering
+  /// all sections would exceed it).
+  AppSettings _copyWithSectionsGroupA({
+    InterfaceSettings? interface_,
+    AudioInputSettings? audioInput,
+    RecordingSafetySettings? recordingSafety,
+    SttSettings? stt,
+    SoundSettings? sound,
+    AfterTranscriptionSettings? afterTranscriptionSection,
+    OverlaySettings? overlay,
+    CloudProviderSettings? cloudProvider,
+    BehaviorSettings? behavior,
+    AudioProcessingSettings? audioProcessing,
+    UpdateSettings? updates,
+    HistorySettings? history,
+  }) {
+    return AppSettings(
+      interface_: interface_ ?? this.interface_,
+      audioInput: audioInput ?? this.audioInput,
+      recordingSafety: recordingSafety ?? this.recordingSafety,
+      stt: stt ?? this.stt,
+      sound: sound ?? this.sound,
+      afterTranscriptionSection:
+          afterTranscriptionSection ?? this.afterTranscriptionSection,
+      overlay: overlay ?? this.overlay,
+      cloudProvider: cloudProvider ?? this.cloudProvider,
+      behavior: behavior ?? this.behavior,
+      audioProcessing: audioProcessing ?? this.audioProcessing,
+      updates: updates ?? this.updates,
+      history: history ?? this.history,
+      hotkey: hotkey,
+      quickNoteHotkey: quickNoteHotkey,
+      snippetPickerHotkey: snippetPickerHotkey,
+      windowPosition: windowPosition,
+      onboarding: onboarding,
+      benchmark: benchmark,
+      privacy: privacy,
+      portabilityPaths: portabilityPaths,
+      autosave: autosave,
+      smartMode: smartMode,
+      smartModeHotkey: smartModeHotkey,
+      selectionEditHotkey: selectionEditHotkey,
+      automationApi: automationApi,
+    );
+  }
+
+  /// Second half of [copyWithSections] — see [_copyWithSectionsGroupA].
+  AppSettings _copyWithSectionsGroupB({
+    HotkeySettings? hotkey,
+    QuickNoteHotkeySettings? quickNoteHotkey,
+    SnippetPickerHotkeySettings? snippetPickerHotkey,
+    WindowPositionSettings? windowPosition,
+    OnboardingSettings? onboarding,
+    BenchmarkSettings? benchmark,
+    PrivacySettings? privacy,
+    SettingsPortabilityPathSettings? portabilityPaths,
+    SettingsAutosaveSettings? autosave,
+    SmartModeSettings? smartMode,
+    SmartModeHotkeySettings? smartModeHotkey,
+    SelectionEditHotkeySettings? selectionEditHotkey,
+    AutomationApiSettings? automationApi,
+  }) {
+    return AppSettings(
+      interface_: interface_,
+      audioInput: audioInput,
+      recordingSafety: recordingSafety,
+      stt: stt,
+      sound: sound,
+      afterTranscriptionSection: afterTranscriptionSection,
+      overlay: overlay,
+      cloudProvider: cloudProvider,
+      behavior: behavior,
+      audioProcessing: audioProcessing,
+      updates: updates,
+      history: history,
+      hotkey: hotkey ?? this.hotkey,
+      quickNoteHotkey: quickNoteHotkey ?? this.quickNoteHotkey,
+      snippetPickerHotkey: snippetPickerHotkey ?? this.snippetPickerHotkey,
+      windowPosition: windowPosition ?? this.windowPosition,
+      onboarding: onboarding ?? this.onboarding,
+      benchmark: benchmark ?? this.benchmark,
+      privacy: privacy ?? this.privacy,
+      portabilityPaths: portabilityPaths ?? this.portabilityPaths,
+      autosave: autosave ?? this.autosave,
+      smartMode: smartMode ?? this.smartMode,
+      smartModeHotkey: smartModeHotkey ?? this.smartModeHotkey,
+      selectionEditHotkey: selectionEditHotkey ?? this.selectionEditHotkey,
+      automationApi: automationApi ?? this.automationApi,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // copyWith — backward-compatible 49-param API.
+  // Preserved so existing callers continue to compile without modification.
+  // New code should use [copyWithSections] instead.
+  // ---------------------------------------------------------------------------
+
+  @Deprecated(
+    'Use copyWithSections() for new callers. '
+    'Existing call sites (including snapshot tests) will migrate gradually.',
+  )
+  AppSettings copyWith({
+    String? locale,
+    bool? launchAtStartup,
+    bool? startMinimized,
+    bool? showNotifications,
+    String? microphone,
+    bool? pushToTalk,
+    double? inputGain,
+    double? deadMicTimeout,
+    double? autoStopSilence,
+    String? sttProvider,
+    String? sttModel,
+    String? sttLanguage,
+    int? sttIdleTimeoutMinutes,
+    String? customVocabulary,
+    String? sttEngine,
+    bool? recordStartSound,
+    bool? recordStopSound,
+    bool? transcriptionCompleteSound,
+    bool? durationWarningSound,
+    double? soundVolume,
+    String? afterTranscription,
+    bool? showOverlay,
+    String? overlayMode,
+    String? overlayStartPosition,
+    String? overlaySize,
+    String? overlayBackground,
+    String? overlayWave,
+    String? overlayForm,
+    String? overlayWaveStyle,
+    bool? overlayWaveFluid,
+    bool? overlayShowTimer,
+    bool? overlayShowCancel,
+    String? overlayOpacity,
+    String? floatingButtonSize,
+    String? floatingButtonShape,
+    bool? floatingButtonRing,
+    String? floatingButtonIdleOpacity,
+    bool? showFloatingButton,
+    bool? overlayShowLiveTranscript,
+    String? openAiApiKey,
+    String? deepgramApiKey,
+    String? cloudSttProvider,
+    int? maxRecordDuration,
+    bool? closeToTray,
+    bool? errorReporting,
+    String? gpuAcceleration,
+    int? autoPasteDelay,
+    String? autoPasteBlocklist,
+    bool? textReplacementsEnabled,
+    bool? checkUpdates,
+    int? historyMaxEntries,
+    int? historyAutoTrashDays,
+    bool? hotkeyEnabled,
+    String? hotkeyKey,
+    String? hotkeyKeyDisplay,
+    String? hotkeyModifiers,
+    double? floatingButtonX,
+    double? floatingButtonY,
+    double? floatingOverlayX,
+    double? floatingOverlayY,
+    double? windowX,
+    double? windowY,
+    double? windowWidth,
+    double? windowHeight,
+    bool? windowMaximized,
+    String? overlayPositionsByMonitor,
+    bool? onboardingCompleted,
+    bool? autoPasteOffHintDismissed,
+    Map<QualityTier, double>? tierBenchmarkRtf,
+    String? benchmarkHardwareId,
+    DateTime? benchmarkTimestamp,
+    String? benchmarkBackend,
+    bool? shareUsageStats,
+    bool? retainRecentAudio,
+    String? cohortPseudonymSalt,
+  }) {
+    return AppSettings(
+      interface_: interface_.copyWith(
+        locale: locale,
+        launchAtStartup: launchAtStartup,
+        startMinimized: startMinimized,
+        showNotifications: showNotifications,
+      ),
+      audioInput: audioInput.copyWith(
+        microphone: microphone,
+        pushToTalk: pushToTalk,
+        inputGain: inputGain,
+      ),
+      recordingSafety: recordingSafety.copyWith(
+        deadMicTimeout: deadMicTimeout,
+        autoStopSilence: autoStopSilence,
+      ),
+      stt: stt.copyWith(
+        provider: sttProvider,
+        model: sttModel,
+        language: sttLanguage,
+        idleTimeoutMinutes: sttIdleTimeoutMinutes,
+        customVocabulary: customVocabulary,
+        engine: sttEngine,
+      ),
+      sound: sound.copyWith(
+        recordStartSound: recordStartSound,
+        recordStopSound: recordStopSound,
+        transcriptionCompleteSound: transcriptionCompleteSound,
+        durationWarningSound: durationWarningSound,
+        soundVolume: soundVolume,
+      ),
+      afterTranscriptionSection: afterTranscriptionSection.copyWith(
+        afterTranscription: afterTranscription,
+      ),
+      overlay: overlay.copyWith(
+        showOverlay: showOverlay,
+        overlayMode: overlayMode,
+        overlayStartPosition: overlayStartPosition,
+        overlaySize: overlaySize,
+        overlayBackground: overlayBackground,
+        overlayWave: overlayWave,
+        overlayForm: overlayForm,
+        overlayWaveStyle: overlayWaveStyle,
+        overlayWaveFluid: overlayWaveFluid,
+        overlayShowTimer: overlayShowTimer,
+        overlayShowCancel: overlayShowCancel,
+        overlayOpacity: overlayOpacity,
+        floatingButtonSize: floatingButtonSize,
+        floatingButtonShape: floatingButtonShape,
+        floatingButtonRing: floatingButtonRing,
+        floatingButtonIdleOpacity: floatingButtonIdleOpacity,
+        showFloatingButton: showFloatingButton,
+        overlayShowLiveTranscript: overlayShowLiveTranscript,
+      ),
+      cloudProvider: cloudProvider.copyWith(
+        openAiApiKey: openAiApiKey,
+        deepgramApiKey: deepgramApiKey,
+        cloudSttProvider: cloudSttProvider,
+      ),
+      behavior: behavior.copyWith(
+        maxRecordDuration: maxRecordDuration,
+        closeToTray: closeToTray,
+        errorReporting: errorReporting,
+        gpuAcceleration: gpuAcceleration,
+        autoPasteDelay: autoPasteDelay,
+        autoPasteBlocklist: autoPasteBlocklist,
+        textReplacementsEnabled: textReplacementsEnabled,
+      ),
+      audioProcessing: audioProcessing.copyWith(),
+      updates: updates.copyWith(checkUpdates: checkUpdates),
+      history: history.copyWith(
+        historyMaxEntries: historyMaxEntries,
+        historyAutoTrashDays: historyAutoTrashDays,
+      ),
+      hotkey: hotkey.copyWith(
+        hotkeyEnabled: hotkeyEnabled,
+        hotkeyKey: hotkeyKey,
+        hotkeyKeyDisplay: hotkeyKeyDisplay,
+        hotkeyModifiers: hotkeyModifiers,
+      ),
+      windowPosition: windowPosition.copyWith(
+        floatingButtonX: floatingButtonX,
+        floatingButtonY: floatingButtonY,
+        floatingOverlayX: floatingOverlayX,
+        floatingOverlayY: floatingOverlayY,
+        windowX: windowX,
+        windowY: windowY,
+        windowWidth: windowWidth,
+        windowHeight: windowHeight,
+        windowMaximized: windowMaximized,
+        overlayPositionsByMonitor: overlayPositionsByMonitor,
+      ),
+      onboarding: onboarding.copyWith(
+        onboardingCompleted: onboardingCompleted,
+        autoPasteOffHintDismissed: autoPasteOffHintDismissed,
+      ),
+      benchmark: benchmark.copyWith(
+        tierBenchmarkRtf: tierBenchmarkRtf,
+        benchmarkHardwareId: benchmarkHardwareId,
+        benchmarkTimestamp: benchmarkTimestamp,
+        benchmarkBackend: benchmarkBackend,
+      ),
+      privacy: privacy.copyWith(
+        shareUsageStats: shareUsageStats,
+        retainRecentAudio: retainRecentAudio,
+        cohortPseudonymSalt: cohortPseudonymSalt,
+      ),
+      // Neither section has a legacy top-level parameter in this API, so
+      // both are pure pass-throughs — but they have to be *written*: this
+      // return builds a fresh `AppSettings(...)`, and an omitted section
+      // silently falls back to its constructor default. Without these two
+      // lines the one production call site left on the deprecated API
+      // (`app.dart`'s `copyWith(windowMaximized: true)`, fired on every
+      // maximize) resets the remembered export/import location and would
+      // reset the autosave configuration with it.
+      portabilityPaths: portabilityPaths,
+      autosave: autosave,
+      // Same pass-through requirement as above — quickNoteHotkey/
+      // snippetPickerHotkey/smartMode/smartModeHotkey have no legacy
+      // top-level parameter either. `smartMode` was missing here before this
+      // fix, meaning every deprecated-copyWith call (e.g. app.dart's
+      // window-maximize toggle) silently reset the Smart Mode standard
+      // preset + target language back to their constructor defaults.
+      quickNoteHotkey: quickNoteHotkey,
+      snippetPickerHotkey: snippetPickerHotkey,
+      smartMode: smartMode,
+      smartModeHotkey: smartModeHotkey,
+      selectionEditHotkey: selectionEditHotkey,
+      // automationApi has no legacy top-level parameter either — same
+      // pass-through requirement as above.
+      automationApi: automationApi,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AppSettings &&
+          runtimeType == other.runtimeType &&
+          interface_ == other.interface_ &&
+          audioInput == other.audioInput &&
+          recordingSafety == other.recordingSafety &&
+          stt == other.stt &&
+          sound == other.sound &&
+          afterTranscriptionSection == other.afterTranscriptionSection &&
+          overlay == other.overlay &&
+          cloudProvider == other.cloudProvider &&
+          behavior == other.behavior &&
+          audioProcessing == other.audioProcessing &&
+          updates == other.updates &&
+          history == other.history &&
+          hotkey == other.hotkey &&
+          quickNoteHotkey == other.quickNoteHotkey &&
+          snippetPickerHotkey == other.snippetPickerHotkey &&
+          windowPosition == other.windowPosition &&
+          onboarding == other.onboarding &&
+          benchmark == other.benchmark &&
+          privacy == other.privacy &&
+          portabilityPaths == other.portabilityPaths &&
+          autosave == other.autosave &&
+          smartMode == other.smartMode &&
+          smartModeHotkey == other.smartModeHotkey &&
+          selectionEditHotkey == other.selectionEditHotkey &&
+          automationApi == other.automationApi;
+
+  // Object.hash() caps at 20 positional arguments; this aggregate now has
+  // 22 sections, so hashAll's list form (no arg-count limit) is required —
+  // switching it here rather than only at the moment of overflow keeps this
+  // list's order trivially diffable against the field list above.
+  @override
+  int get hashCode => Object.hashAll([
+    interface_,
+    audioInput,
+    recordingSafety,
+    stt,
+    sound,
+    afterTranscriptionSection,
+    overlay,
+    cloudProvider,
+    behavior,
+    audioProcessing,
+    updates,
+    history,
+    hotkey,
+    quickNoteHotkey,
+    snippetPickerHotkey,
+    windowPosition,
+    onboarding,
+    benchmark,
+    privacy,
+    portabilityPaths,
+    autosave,
+    smartMode,
+    smartModeHotkey,
+    selectionEditHotkey,
+    automationApi,
+  ]);
+}
+
+String _settingModelFromConfig(String modelId) {
+  // Now settings store actual model IDs directly.
+  return modelId.isEmpty ? 'whisper-medium' : modelId;
+}
+
+String _settingLanguageFromConfig(String languageCode) {
+  return whisperLanguages.containsKey(languageCode) ? languageCode : 'auto';
+}
+
+/// How long the factory reset waits for the keyring before it moves on.
+const kDefaultSecureStoreEraseTimeout = Duration(seconds: 5);
+
+/// The limit in effect; tests shorten it.
+@visibleForTesting
+Duration secureStoreEraseTimeout = kDefaultSecureStoreEraseTimeout;
+
+/// Counts settings saves that did not reach storage. The app shell listens and
+/// tells the user about each failure (UIA-SET-01).
+class SettingsSaveFailures extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void record() => state = state + 1;
+}
+
+final settingsSaveFailuresProvider =
+    NotifierProvider<SettingsSaveFailures, int>(SettingsSaveFailures.new);
+
+/// One-shot marker in `app_settings` for the idle-timeout default move
+/// (maintainer decision 1a, 2026-10-19). Once present, the stored
+/// `stt_idle_timeout_minutes` is never rewritten by the migration again, so
+/// a value the user picks later (including 5) is kept.
+const kSttIdleDefaultMigrationKey = 'stt_idle_default_migrated';
+
+/// One-shot marker for the legacy clipboard restore default (W-E1). Written
+/// on the first load of this version, so the value is decided once: an install
+/// that had finished onboarding before keeps the previous release's restore
+/// after a receipt timeout (`restore_clipboard_without_receipt` = true), a
+/// fresh install gets receipt-only (false). Writing the marker on the fresh
+/// path too keeps an install that completes onboarding later from being
+/// mistaken for an existing one.
+const kPasteRestoreLegacyMigrationKey = 'paste_restore_legacy_migrated';
+
+/// One-shot marker for the push-to-talk default (V05, maintainer decision
+/// R-V05-1 = a). A fresh install starts in hold mode; an install that finished
+/// onboarding before never stored `push_to_talk` and keeps toggle mode. The
+/// marker is written on the first load of this version, so the default never
+/// flips an existing install later, and a stored value is never overwritten.
+const kPushToTalkDefaultMigrationKey = 'push_to_talk_default_migrated';
+
+/// One-shot marker for the overlay defaults of 2026-10-29 (amber background,
+/// ink wave, compact size, static outline for new installs). Once present, the
+/// stored overlay values are never pinned again (see
+/// [_migrateOverlayDefaults]).
+const kOverlayDefaultsMigrationKey = 'overlay_defaults_migrated';
+
+/// The overlay defaults before 2026-10-29, for the keys an existing install
+/// does not store yet. Those installs keep the look they had.
+const _kOverlayDefaultsBefore20261029 = OverlaySettings(
+  overlaySize: 'normal',
+  overlayBackground: 'marine',
+  overlayWave: 'cyan',
+  overlayWaveFluid: true,
+);
+
+/// One-shot marker for the side panel default of 2026-10-30 (off for new
+/// installs). An existing install without a stored `side_panel_enabled`
+/// keeps the panel it had (see [_migrateSidePanelDefault]).
+const kSidePanelDefaultMigrationKey = 'side_panel_default_migrated';
+
+/// One-shot marker for the double-tap default of 2026-10-30 (on for new
+/// installs). An existing install without a stored `hotkey_double_tap` keeps
+/// how its trigger behaved: a single-key trigger was double-tap only and keeps
+/// it (and gains hold), a combination keeps working without it (see
+/// [_migrateHotkeyDoubleTapDefault]).
+const kHotkeyDoubleTapDefaultMigrationKey =
+    'hotkey_double_tap_default_migrated';
+
+/// One-shot marker for the text replacements default of 2026-10-30 (on for
+/// new installs). An existing install without a stored
+/// `text_replacements_enabled` keeps them off (see
+/// [_migrateTextReplacementsDefault]).
+const kTextReplacementsDefaultMigrationKey =
+    'text_replacements_default_migrated';
+
+/// One-shot marker for the written-forms default of 2026-10-30 (on for new
+/// installs). An existing install without a stored `stt_written_forms` keeps
+/// the stage off, as it had no such stage (see [_migrateWrittenFormsDefault]).
+const kWrittenFormsDefaultMigrationKey = 'written_forms_default_migrated';
+
+/// Stored `stt_idle_timeout_minutes` values the one-time migration maps to
+/// the new default 0 (keep loaded): 5 was the old default, -1 the unreleased
+/// "auto" default. Every other value is kept.
+const _kLegacyIdleTimeoutMinutes = {5, -1};
+
+/// A change requested before the load, with an optional coalescing key.
+class _QueuedChange {
+  const _QueuedChange(this.key, this.updater);
+
+  final String? key;
+  final AppSettings Function(AppSettings) updater;
+}
+
+/// Central settings notifier — loads from and persists to Drift/SQLite.
+///
+/// API keys are stored in platform-native secure storage and merged into
+/// the in-memory [AppSettings] on load. A one-time migration moves any
+/// plaintext keys from SQLite into secure storage and clears the SQLite rows.
+class SettingsNotifier extends AsyncNotifier<AppSettings> {
+  static final _log = AppLogger('SettingsNotifier');
+
+  /// Completes when deferred secure-key migration/merge finishes.
+  @visibleForTesting
+  Future<void>? secureKeysFuture;
+
+  /// Upper bound for changes queued before the load. The oldest is dropped
+  /// beyond it, with a warning, so a stuck load cannot grow memory forever.
+  static const int _maxQueuedChanges = 100;
+
+  /// Changes requested before the stored settings were loaded. Applied in
+  /// order by [build], so the latest value wins. A change with a [key]
+  /// replaces an earlier queued change with the same key.
+  final List<_QueuedChange> _queuedUpdates = [];
+
+  /// Queued changes dropped by the cap. Visible for tests.
+  @visibleForTesting
+  int droppedQueuedChanges = 0;
+
+  /// Persist attempts of queued changes that failed. Visible for tests.
+  @visibleForTesting
+  int queuedPersistFailures = 0;
+
+  /// Number of changes waiting for the load. Visible for tests.
+  @visibleForTesting
+  int get queuedUpdateCount => _queuedUpdates.length;
+
+  @override
+  Future<AppSettings> build() async {
+    final db = ref.watch(historyDatabaseProvider);
+    final secureStore = ref.watch(secureKeyStoreProvider);
+    Map<String, String> values;
+    try {
+      values = await db.readAppSettings();
+    } catch (e) {
+      // The queue survives a failed load and is applied by the next one.
+      if (_queuedUpdates.isNotEmpty) {
+        _log.warning(
+          'Settings load failed; keeping ${_queuedUpdates.length} queued '
+          'change(s) for the next load: $e',
+        );
+      }
+      rethrow;
+    }
+
+    values = await _migrateLegacyHotkeyTriggers(db, values);
+    // An install with stored settings, or one migrated from the Go config,
+    // already has the look of the previous overlay defaults.
+    var existingInstall = values.isNotEmpty;
+    AppSettings settings;
+    if (values.isNotEmpty) {
+      settings = AppSettings.fromStorageMap(values);
+      settings = await _migrateSttIdleDefault(db, settings, values);
+      // One-time migration (issue 12): users who muted sounds via the old
+      // master toggle had all four sound bools set to false but soundVolume
+      // still at the default (80). Under the new scheme soundVolume==0 is
+      // the off-state, so we set it to 0 and persist once.
+      final soundSection = settings.sound;
+      if (!soundSection.recordStartSound &&
+          !soundSection.recordStopSound &&
+          !soundSection.transcriptionCompleteSound &&
+          !soundSection.durationWarningSound &&
+          soundSection.soundVolume > 0) {
+        // Also re-enable the four bools so this migration never re-fires.
+        // Under the new scheme they are always true and soundVolume==0 is the
+        // off-state; leaving them false would keep the condition true and reset
+        // the volume to 0 on every future build() if the user raised it again.
+        settings = settings.copyWithSections(
+          sound: soundSection.copyWith(
+            recordStartSound: true,
+            recordStopSound: true,
+            transcriptionCompleteSound: true,
+            durationWarningSound: true,
+            soundVolume: 0,
+          ),
+        );
+        await db.writeAppSettings(settings.toStorageMap());
+        _log.info('Sound mute migration: soundVolume set to 0');
+      }
+
+      // One-time migration (onboarding-revisions ticket 01): grandfathering.
+      // A user who already finished onboarding before the content-revision
+      // registry existed carries onboardingContentVersion == 0 — the exact
+      // same value a genuinely fresh install has before its first revision.
+      // Stamp them to the target that applies right now and persist
+      // immediately, so the first update after this feature ships does not
+      // send the entire existing user base back into onboarding. This must
+      // be a write, not a value computed on every read: only a persisted
+      // stamp survives the registry later growing a new, higher entry
+      // without silently re-grandfathering past it. An interrupted first
+      // run (onboardingCompleted == false) is not a revision candidate and
+      // is left at 0 until it completes normally.
+      final onboardingSection = settings.onboarding;
+      if (onboardingSection.onboardingCompleted &&
+          onboardingSection.onboardingContentVersion == 0) {
+        final registry = ref.read(onboardingRevisionRegistryProvider);
+        final target = targetOnboardingContentVersion(
+          registry,
+          currentOnboardingPlatform(),
+        );
+        // target == 0 (registry empty or nothing applicable yet) means
+        // "grandfathered to 0", indistinguishable from "never stamped" —
+        // skip the write so a completed install does not re-run this same
+        // no-op migration on every single launch while the registry is
+        // still empty (today's shipped state).
+        if (target > 0) {
+          final stamped = settings.copyWithSections(
+            onboarding: onboardingSection.copyWith(
+              onboardingContentVersion: target,
+            ),
+          );
+          try {
+            await db.writeAppSettings(stamped.toStorageMap());
+            settings = stamped;
+            _log.info('Onboarding content version grandfathered to $target');
+          } catch (e) {
+            // Persist failed — stay at 0 in memory too, so this session and
+            // disk agree. The condition above only matches while the stamp
+            // is 0, so the next start retries against whatever target
+            // applies then: idempotent, no crash, no loop.
+            _log.warning(
+              'Onboarding content version grandfathering failed: $e',
+            );
+          }
+        }
+      }
+    } else {
+      // One-time migration: read the legacy Go config.json if it exists.
+      final migrated = _tryMigrateGoConfig();
+      if (migrated != null) {
+        existingInstall = true;
+        settings = migrated;
+        // Persist immediately so migration never re-runs.
+        await db.writeAppSettings({
+          ...settings.toStorageMap(),
+          kSttIdleDefaultMigrationKey: '1',
+        });
+        _log.info('Migrated Go config persisted to SQLite');
+      } else {
+        settings = AppSettings.defaults;
+        // Fresh install: stamp the marker now, so a 5 the user chooses later
+        // is not mistaken for the legacy default on the next start.
+        try {
+          await db.writeAppSettings({kSttIdleDefaultMigrationKey: '1'});
+        } catch (e) {
+          _log.warning('Idle default marker not persisted: $e');
+        }
+      }
+    }
+
+    settings = await _migrateOverlayDefaults(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migrateSidePanelDefault(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migrateHotkeyDoubleTapDefault(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migrateTextReplacementsDefault(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migrateWrittenFormsDefault(
+      db,
+      settings,
+      values,
+      existingInstall: existingInstall,
+    );
+    settings = await _migratePasteRestoreLegacy(db, settings, values);
+    settings = await _migratePushToTalkDefault(db, settings, values);
+
+    // First start: no `locale` row was ever written, so the language was
+    // never chosen. Take the system language once and persist it, so a
+    // later system change does not move the app and an explicit choice
+    // (even English) is always kept. Existing rows are never touched.
+    if (!values.containsKey('locale')) {
+      final locale = initialLocaleCode(ref.read(systemLocalesProvider));
+      settings = settings.copyWithSections(
+        interface_: settings.interface_.copyWith(locale: locale),
+      );
+      await db.writeAppSettings(settings.toStorageMap());
+      _log.info('Initial app language set from the system: $locale');
+    }
+
+    settings = await _initialDictationLanguage(db, settings, values);
+
+    // Changes made before this load (see _applyOrQueue) are applied now, in
+    // order, and persisted once. Nothing awaits between this point and the
+    // return, so no new change can slip in between.
+    settings = _applyQueuedChanges(settings);
+
+    // Defer slow secure store operations to after initial load.
+    // This lets the app show its window and become interactive immediately.
+    // API keys will be available within ~200ms after startup.
+    secureKeysFuture = Future.microtask(() async {
+      try {
+        await _migrateApiKeys(values, secureStore, db);
+        // Groq removal (v1.2.13): delete any residual wp_groq_api_key from
+        // secure storage so no stale credentials remain on device.
+        try {
+          await secureStore.deleteKey('wp_groq_api_key');
+        } catch (e) {
+          _log.debug(
+            'Groq key cleanup failed (non-fatal, keychain may be locked): $e',
+          );
+        }
+        final merged = await _mergeSecureKeys(
+          state.value ?? settings,
+          secureStore,
+        );
+        if (state.value != merged) {
+          state = AsyncData(merged);
+        }
+      } catch (e) {
+        _log.warning(
+          'Secure key migration/merge failed (non-fatal, keys missing until restart): $e',
+        );
+      }
+    });
+
+    return settings;
+  }
+
+  /// One-time move of the speech-model idle default (maintainer decision 1a,
+  /// 2026-10-19): a stored 5 (old default) or -1 (unreleased auto) becomes 0
+  /// (keep loaded). Runs once per install, guarded by
+  /// [kSttIdleDefaultMigrationKey]; the marker is written in the same call
+  /// as the value, so an interrupted start retries instead of skipping.
+  Future<AppSettings> _migrateSttIdleDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values,
+  ) async {
+    if (values.containsKey(kSttIdleDefaultMigrationKey)) return settings;
+    final stored = settings.stt.idleTimeoutMinutes;
+    final migrate = _kLegacyIdleTimeoutMinutes.contains(stored);
+    final result = migrate
+        ? settings.copyWithSections(
+            stt: settings.stt.copyWith(idleTimeoutMinutes: 0),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (migrate) 'stt_idle_timeout_minutes': '0',
+        kSttIdleDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the stored value in memory too, so this session and the disk
+      // agree; the next start retries the whole step. Never blocks startup.
+      _log.warning('Speech model idle default migration not persisted: $e');
+      return settings;
+    }
+    if (migrate) {
+      _log.info('Speech model idle default moved from $stored to 0 (once)');
+    }
+    return result;
+  }
+
+  /// Keeps the overlay look of installs that existed before the 2026-10-29
+  /// defaults. A pinned key is one the stored settings do not have yet: it gets
+  /// its previous default, written once with the marker. A fresh install (no
+  /// stored settings) only stamps the marker and takes the new defaults.
+  Future<AppSettings> _migrateOverlayDefaults(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kOverlayDefaultsMigrationKey)) return settings;
+    const before = _kOverlayDefaultsBefore20261029;
+    final pinSize = existingInstall && !values.containsKey('overlay_size');
+    final pinBackground =
+        existingInstall && !values.containsKey('overlay_background');
+    final pinWave = existingInstall && !values.containsKey('overlay_wave');
+    final pinFluid =
+        existingInstall && !values.containsKey('overlay_wave_fluid');
+    final pinned = pinSize || pinBackground || pinWave || pinFluid;
+    final result = pinned
+        ? settings.copyWithSections(
+            overlay: settings.overlay.copyWith(
+              overlaySize: pinSize ? before.overlaySize : null,
+              overlayBackground: pinBackground
+                  ? before.overlayBackground
+                  : null,
+              overlayWave: pinWave ? before.overlayWave : null,
+              overlayWaveFluid: pinFluid ? before.overlayWaveFluid : null,
+            ),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pinSize) 'overlay_size': before.overlaySize,
+        if (pinBackground) 'overlay_background': before.overlayBackground,
+        if (pinWave) 'overlay_wave': before.overlayWave,
+        if (pinFluid) 'overlay_wave_fluid': '${before.overlayWaveFluid}',
+        kOverlayDefaultsMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the pinned look in memory too; the next start retries the step.
+      _log.warning('Overlay defaults migration not persisted: $e');
+      return result;
+    }
+    if (pinned) {
+      _log.info(
+        'Overlay defaults pinned to the previous look (existing install)',
+      );
+    }
+    return result;
+  }
+
+  /// Keeps the edge side panel on for installs that existed before the
+  /// 2026-10-30 default (off): when they do not store the key yet, `true` is
+  /// written once with the marker. A fresh install only stamps the marker.
+  Future<AppSettings> _migrateSidePanelDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kSidePanelDefaultMigrationKey)) return settings;
+    final pin = existingInstall && !values.containsKey('side_panel_enabled');
+    final result = pin
+        ? settings.copyWithSections(
+            interface_: settings.interface_.copyWith(sidePanelEnabled: true),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pin) 'side_panel_enabled': 'true',
+        kSidePanelDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the panel in memory too; the next start retries the step.
+      _log.warning('Side panel default migration not persisted: $e');
+      return result;
+    }
+    if (pin) _log.info('Side panel kept on (existing install)');
+    return result;
+  }
+
+  /// Sets the double-tap default once (see
+  /// [kHotkeyDoubleTapDefaultMigrationKey]). The marker and the value are
+  /// written in one call, so an interrupted start retries instead of skipping.
+  Future<AppSettings> _migrateHotkeyDoubleTapDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kHotkeyDoubleTapDefaultMigrationKey)) {
+      return settings;
+    }
+    final pin = existingInstall && !values.containsKey('hotkey_double_tap');
+    final doubleTap = settings.hotkey.hotkeyDoubleTapKey.isNotEmpty;
+    final result = pin
+        ? settings.copyWithSections(
+            hotkey: settings.hotkey.copyWith(hotkeyDoubleTap: doubleTap),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pin) 'hotkey_double_tap': '$doubleTap',
+        kHotkeyDoubleTapDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the value in memory too; the next start retries the step.
+      _log.warning('Double-tap default migration not persisted: $e');
+      return result;
+    }
+    if (pin) _log.info('Double tap kept as before (existing install)');
+    return result;
+  }
+
+  /// Keeps text replacements off for installs that existed before the
+  /// 2026-10-30 default (on): when they do not store the key yet, `false` is
+  /// written once with the marker. A fresh install only stamps the marker and
+  /// gets the new default. A stored choice is never touched.
+  Future<AppSettings> _migrateTextReplacementsDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kTextReplacementsDefaultMigrationKey)) {
+      return settings;
+    }
+    final pin =
+        existingInstall && !values.containsKey('text_replacements_enabled');
+    final result = pin
+        ? settings.copyWithSections(
+            behavior: settings.behavior.copyWith(
+              textReplacementsEnabled: false,
+            ),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pin) 'text_replacements_enabled': 'false',
+        kTextReplacementsDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the old value in memory too; the next start retries the step.
+      _log.warning('Text replacements default migration not persisted: $e');
+      return result;
+    }
+    if (pin) _log.info('Text replacements kept off (existing install)');
+    return result;
+  }
+
+  /// Keeps the written-form stage off for installs that existed before the
+  /// 2026-10-30 default (on): when they do not store `stt_written_forms` yet,
+  /// `false` is written once with the marker. A fresh install only stamps the
+  /// marker. A stored choice is never touched.
+  Future<AppSettings> _migrateWrittenFormsDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values, {
+    required bool existingInstall,
+  }) async {
+    if (values.containsKey(kWrittenFormsDefaultMigrationKey)) return settings;
+    final pin = existingInstall && !values.containsKey('stt_written_forms');
+    final result = pin
+        ? settings.copyWithSections(
+            stt: settings.stt.copyWith(
+              writtenForms: settings.stt.writtenForms.copyWith(enabled: false),
+            ),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (pin) 'stt_written_forms': 'false',
+        kWrittenFormsDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the stage off in memory too; the next start retries the step.
+      _log.warning('Written forms default migration not persisted: $e');
+      return result;
+    }
+    if (pin) _log.info('Written forms kept off (existing install)');
+    return result;
+  }
+
+  /// Sets the legacy clipboard restore default once (W-E1, see
+  /// [kPasteRestoreLegacyMigrationKey]). The marker and the value are written
+  /// in one call, so an interrupted start retries instead of skipping.
+  Future<AppSettings> _migratePasteRestoreLegacy(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values,
+  ) async {
+    if (values.containsKey(kPasteRestoreLegacyMigrationKey)) return settings;
+    final existingInstall = settings.onboarding.onboardingCompleted;
+    final result = existingInstall
+        ? settings.copyWithSections(
+            behavior: settings.behavior.copyWith(
+              restoreClipboardWithoutReceipt: true,
+            ),
+          )
+        : settings;
+    try {
+      await db.writeAppSettings({
+        if (existingInstall) 'restore_clipboard_without_receipt': 'true',
+        kPasteRestoreLegacyMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the default in memory too; the next start retries the step.
+      _log.warning('Clipboard restore default migration not persisted: $e');
+      return result;
+    }
+    if (existingInstall) {
+      _log.info('Clipboard restore after timeout kept for an existing install');
+    }
+    return result;
+  }
+
+  /// First start, same rule as the app language: the dictation language is
+  /// the first system language Whisper writes, never automatic detection by
+  /// default (a given language is recognised better). A stored choice is
+  /// never touched.
+  Future<AppSettings> _initialDictationLanguage(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values,
+  ) async {
+    if (values.containsKey('locale') || values.containsKey('stt_language')) {
+      return settings;
+    }
+    final language = suggestedDictationLanguage(
+      ref.read(systemLocalesProvider).map((l) => l.languageCode),
+    );
+    if (language == null) return settings;
+    final updated = settings.copyWith(sttLanguage: language);
+    await db.writeAppSettings(updated.toStorageMap());
+    _log.info('Initial dictation language set from the system: $language');
+    return updated;
+  }
+
+  /// Sets the push-to-talk default once (see [kPushToTalkDefaultMigrationKey]).
+  /// An install with a stored `push_to_talk` keeps it; one without it gets
+  /// toggle mode when it had finished onboarding and hold mode otherwise. The
+  /// value and the marker are written in one call, so an interrupted start
+  /// retries instead of skipping.
+  Future<AppSettings> _migratePushToTalkDefault(
+    HistoryDatabase db,
+    AppSettings settings,
+    Map<String, String> values,
+  ) async {
+    if (values.containsKey(kPushToTalkDefaultMigrationKey)) return settings;
+    if (values.containsKey('push_to_talk')) {
+      try {
+        await db.writeAppSettings({kPushToTalkDefaultMigrationKey: '1'});
+      } catch (e) {
+        _log.warning('Push-to-talk default marker not persisted: $e');
+      }
+      return settings;
+    }
+    final existingInstall = settings.onboarding.onboardingCompleted;
+    final pushToTalk = !existingInstall;
+    final result = settings.copyWithSections(
+      audioInput: settings.audioInput.copyWith(pushToTalk: pushToTalk),
+    );
+    try {
+      await db.writeAppSettings({
+        'push_to_talk': '$pushToTalk',
+        kPushToTalkDefaultMigrationKey: '1',
+      });
+    } catch (e) {
+      // Keep the default in memory too; the next start retries the step.
+      _log.warning('Push-to-talk default migration not persisted: $e');
+      return result;
+    }
+    if (existingInstall) {
+      _log.info('Push-to-talk kept off for an existing install (toggle mode)');
+    }
+    return result;
+  }
+
+  /// Moves the retired hotkey trigger values to the one-trigger model (see
+  /// [migrateLegacyHotkeyTriggers]). The cleared and moved values are written
+  /// back, so a later load has nothing left to move. A failed write keeps the
+  /// migrated values in memory and retries on the next start.
+  Future<Map<String, String>> _migrateLegacyHotkeyTriggers(
+    HistoryDatabase db,
+    Map<String, String> values,
+  ) async {
+    final migrated = migrateLegacyHotkeyTriggers(
+      values,
+      doubleTapObservable: doubleTapSupportedHere,
+    );
+    final writes = {
+      for (final entry in migrated.entries)
+        if (values[entry.key] != entry.value) entry.key: entry.value,
+    };
+    if (writes.isEmpty) return values;
+    try {
+      await db.writeAppSettings(writes);
+    } catch (e) {
+      _log.warning('Hotkey trigger migration not persisted: $e');
+    }
+    return migrated;
+  }
+
+  /// Applies the changes queued before this load, in order, and persists the
+  /// result once. Called without an await in between, so no new change can
+  /// slip in between.
+  AppSettings _applyQueuedChanges(AppSettings loaded) {
+    if (_queuedUpdates.isEmpty) return loaded;
+    final queued = List.of(_queuedUpdates);
+    _queuedUpdates.clear();
+    var settings = loaded;
+    for (final change in queued) {
+      settings = change.updater(settings);
+    }
+    _log.info('Applied ${queued.length} settings change(s) made before load');
+    unawaited(
+      _persistChange(loaded, settings).catchError((Object e) {
+        queuedPersistFailures++;
+        _log.error('Persisting queued settings failed: $e');
+      }),
+    );
+    return settings;
+  }
+
+  /// Update one or more settings and persist the change.
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) =>
+      _applyOrQueue(updater, key: null);
+
+  /// Like [updateSettings], but a change queued before the load replaces an
+  /// earlier queued change with the same [key].
+  Future<void> updateSettingsKeyed(
+    String key,
+    AppSettings Function(AppSettings) updater,
+  ) => _applyOrQueue(updater, key: key);
+
+  Future<void> _applyOrQueue(
+    AppSettings Function(AppSettings) updater, {
+    required String? key,
+  }) async {
+    // Without a loaded snapshot there is nothing to merge into. Writing
+    // defaults over stored values would be wrong, so the change is queued
+    // and applied by build() once the load finishes.
+    if (!state.hasValue) {
+      if (key != null) {
+        _queuedUpdates.removeWhere((q) => q.key == key);
+      }
+      _queuedUpdates.add(_QueuedChange(key, updater));
+      if (_queuedUpdates.length > _maxQueuedChanges) {
+        _queuedUpdates.removeAt(0);
+        droppedQueuedChanges++;
+        _log.warning('Settings queue full; dropped the oldest queued change');
+      }
+      _log.info('Settings change queued until settings are loaded');
+      return;
+    }
+    final current = state.requireValue;
+    final updated = updater(current);
+    state = AsyncData(updated);
+
+    try {
+      await _persistChange(current, updated);
+    } catch (e, st) {
+      _log.error('Could not save settings', e, st);
+      // Show what is stored, not the value that failed to save: the next
+      // launch loads the stored one (UIA-SET-01).
+      if (identical(state.value, updated)) state = AsyncData(current);
+      ref.read(settingsSaveFailuresProvider.notifier).record();
+    }
+  }
+
+  /// Persists API key changes to secure storage and all non-key settings to
+  /// SQLite (toStorageMap writes '' for keys).
+  Future<void> _persistChange(AppSettings before, AppSettings after) async {
+    final secureStore = ref.read(secureKeyStoreProvider);
+    await _syncApiKeysToSecureStorage(before, after, secureStore);
+    await ref
+        .read(historyDatabaseProvider)
+        .writeAppSettings(after.toStorageMap());
+  }
+
+  /// Restore all settings to factory defaults.
+  ///
+  /// Clears secure-storage API keys, persisted settings (including window
+  /// position/size and floating-button position), and daily analytics stats.
+  /// Throws [SecureKeysNotRemovedException] after the rest of the reset has
+  /// run, when at least one API key could not be removed.
+  Future<void> resetToDefaults() async {
+    final failedKeys = await _eraseApiKeys();
+    await _resetSettingsAndData();
+    if (failedKeys.isNotEmpty) {
+      throw SecureKeysNotRemovedException(failedKeys);
+    }
+  }
+
+  Future<void> _resetSettingsAndData() async {
+    final db = ref.read(historyDatabaseProvider);
+    final previous = (state.value ?? AppSettings.defaults).history;
+    await db.resetAppSettings();
+    // The wipe removed the idle-migration marker. Re-stamp it, or a 5 chosen
+    // after the reset would be moved to 0 by the next start.
+    await db.writeAppSettings({kSttIdleDefaultMigrationKey: '1'});
+    await db.resetDailyStats();
+    // A History PIN survives the reset, together with its gate and throttle
+    // state — otherwise "Reset to defaults" would be a one-click way around
+    // it (`internal-notes`).
+    if (previous.historyPin.isEmpty) {
+      state = AsyncData(AppSettings.defaults);
+      return;
+    }
+    final kept = AppSettings.defaults.copyWithSections(
+      history: AppSettings.defaults.history.copyWith(
+        historyHideOnOpen: true,
+        historyPin: previous.historyPin,
+        historyPinFailedAttempts: previous.historyPinFailedAttempts,
+        historyPinLockedUntil: previous.historyPinLockedUntil,
+      ),
+    );
+    state = AsyncData(kept);
+    await db.writeAppSettings(kept.toStorageMap());
+  }
+
+  /// Secure-store cleanup for the [FactoryResetCoordinator]'s
+  /// `eraseSecureStore` hook.
+  /// Throws [SecureKeysNotRemovedException] when any key stays behind.
+  Future<void> eraseSecureStore() async {
+    // A locked keyring can leave the delete waiting on an unlock prompt that
+    // never appears; the reset goes on after a few seconds (XP-6-11).
+    final failedKeys = await _eraseApiKeys().timeout(
+      secureStoreEraseTimeout,
+      onTimeout: () {
+        _log.error('Secure storage did not answer during factory reset');
+        return apiKeyMapping.values.toList();
+      },
+    );
+    if (failedKeys.isNotEmpty) {
+      throw SecureKeysNotRemovedException(failedKeys);
+    }
+  }
+
+  /// Deletes all API keys and logs the storage names of any that stayed
+  /// behind. Values and exception texts are never logged.
+  Future<List<String>> _eraseApiKeys() async {
+    final failedKeys = await deleteAllApiKeys(ref.read(secureKeyStoreProvider));
+    if (failedKeys.isNotEmpty) {
+      _log.error(
+        'API keys not removed from secure storage: ${failedKeys.join(', ')}',
+      );
+    }
+    return failedKeys;
+  }
+
+  /// Tail of the factory-reset sequence: deletes PID/crash-queue/legacy
+  /// files, cleans up temp WAVs, and resets the in-memory settings state
+  /// so the next render shows the onboarding overlay.
+  ///
+  /// Intended to be invoked as the `resetSettings` hook of
+  /// [FactoryResetCoordinator] after the large-IO phases (model dir,
+  /// logs dir, DB, secure store) have already run.
+  Future<void> factoryResetFinalize() async {
+    // Reset in-memory state FIRST so onboarding re-entry (onboardingCompleted=
+    // false) is guaranteed even if a file cleanup below throws — that is the
+    // user-visible outcome of a factory reset and must never be skipped.
+    state = AsyncData(AppSettings.defaults);
+
+    // PID files from subprocess_guard.
+    _tryDeleteFile(p.join(appDataDir(), '.whisper-server.pid'));
+    _tryDeleteFile(p.join(appDataDir(), '.llama-server.pid'));
+
+    // Crash queue database.
+    _tryDeleteFile(p.join(appDataDir(), 'crash_queue.db'));
+    _tryDeleteFile(p.join(appDataDir(), 'crash_queue.db-wal'));
+    _tryDeleteFile(p.join(appDataDir(), 'crash_queue.db-shm'));
+
+    // Legacy Go config.
+    _tryDeleteFile(p.join(appDataDir(), 'config.json'));
+
+    // Temp WAV files.
+    _cleanupTempWavFiles();
+
+    // App preferences: prompt counters, recent searches, seen hints (XP-6-12).
+    try {
+      await clearPreferencesForReset(await SharedPreferences.getInstance());
+    } catch (e) {
+      _log.warning('Factory reset: failed to clear preferences: $e', e);
+    }
+
+    _log.info('Factory reset complete');
+  }
+
+  static void _tryDeleteFile(String path) {
+    try {
+      final file = File(path);
+      if (file.existsSync()) file.deleteSync();
+    } catch (e) {
+      _log.warning('Factory reset: failed to delete file $path: $e', e);
+    }
+  }
+
+  static void _cleanupTempWavFiles() {
+    try {
+      final tempDir = Directory.systemTemp;
+      for (final entity in tempDir.listSync()) {
+        if (entity is File) {
+          final name = p.basename(entity.path);
+          if (name.startsWith('whispaste_') && name.endsWith('.wav')) {
+            entity.deleteSync();
+          }
+        }
+      }
+    } catch (e) {
+      _log.warning('Factory reset: failed to clean temp WAVs: $e', e);
+    }
+  }
+
+  /// Reads the legacy Go `config.json` once and converts it to [AppSettings].
+  ///
+  /// Returns `null` if the file doesn't exist or can't be parsed — callers
+  /// fall back to [AppSettings.defaults].
+  static AppSettings? _tryMigrateGoConfig() {
+    try {
+      final configPath = p.join(appDataDir(), 'config.json');
+      final file = File(configPath);
+      if (!file.existsSync()) return null;
+      final contents = file.readAsStringSync();
+      final raw = jsonDecode(contents);
+      if (raw is! Map<String, dynamic>) {
+        _log.warning('Go config JSON is not an object, skipping migration');
+        return null;
+      }
+      _log.info('Migrating Go config.json → Flutter settings');
+      return AppSettings.fromGoConfig(raw);
+    } catch (e) {
+      // Catches StateError (missing APPDATA), FormatException (bad JSON),
+      // FileSystemException (I/O failure), TypeError (unexpected JSON shape),
+      // and anything else.  Migration is best-effort — never crash the app.
+      _log.warning('Go config migration failed, using defaults: $e', e);
+      return null;
+    }
+  }
+}
+
+/// Migrate plaintext API keys from SQLite → secure storage, then clear SQLite.
+Future<void> _migrateApiKeys(
+  Map<String, String> sqliteValues,
+  SecureKeyStore secureStore,
+  HistoryDatabase db,
+) async {
+  // SQLite key → secure-storage key mapping.
+  const sqliteToSecure = {
+    'openai_api_key': 'wp_openai_api_key',
+    'deepgram_api_key': 'wp_deepgram_api_key',
+  };
+
+  var migrated = false;
+  for (final entry in sqliteToSecure.entries) {
+    final plaintext = sqliteValues[entry.key];
+    if (plaintext == null || plaintext.isEmpty) continue;
+
+    // Only migrate if secure storage doesn't already have a value.
+    final existing = await secureStore.readKey(entry.value);
+    if (existing == null || existing.isEmpty) {
+      await secureStore.writeKey(entry.value, plaintext);
+    }
+    migrated = true;
+  }
+
+  // Re-write settings with empty API key fields to clear SQLite.
+  if (migrated) {
+    final cleaned = Map<String, String>.from(sqliteValues);
+    for (final key in sqliteToSecure.keys) {
+      cleaned[key] = '';
+    }
+    await db.writeAppSettings(cleaned);
+  }
+}
+
+/// Merge API keys from secure storage into [settings].
+Future<AppSettings> _mergeSecureKeys(
+  AppSettings settings,
+  SecureKeyStore secureStore,
+) async {
+  final keys = await secureStore.readAllApiKeys();
+  if (keys.isEmpty) return settings;
+
+  return settings
+      .copyWith(
+        openAiApiKey: keys['wp_openai_api_key'] ?? settings.openAiApiKey,
+        deepgramApiKey: keys['wp_deepgram_api_key'] ?? settings.deepgramApiKey,
+      )
+      .copyWithSections(
+        cloudProvider: settings.cloudProvider.copyWith(
+          customEndpointApiKey:
+              keys['wp_custom_endpoint_api_key'] ??
+              settings.cloudProvider.customEndpointApiKey,
+        ),
+      );
+}
+
+/// Write changed API keys to secure storage.
+Future<void> _syncApiKeysToSecureStorage(
+  AppSettings oldSettings,
+  AppSettings newSettings,
+  SecureKeyStore secureStore,
+) async {
+  final pairs = <String, _KeyPair>{
+    'wp_openai_api_key': (
+      old: oldSettings.openAiApiKey,
+      cur: newSettings.openAiApiKey,
+    ),
+    'wp_deepgram_api_key': (
+      old: oldSettings.deepgramApiKey,
+      cur: newSettings.deepgramApiKey,
+    ),
+    'wp_custom_endpoint_api_key': (
+      old: oldSettings.cloudProvider.customEndpointApiKey,
+      cur: newSettings.cloudProvider.customEndpointApiKey,
+    ),
+  };
+
+  for (final entry in pairs.entries) {
+    if (entry.value.old == entry.value.cur) continue;
+    if (entry.value.cur.isEmpty) {
+      await secureStore.deleteKey(entry.key);
+    } else {
+      await secureStore.writeKey(entry.key, entry.value.cur);
+    }
+  }
+}
+
+typedef _KeyPair = ({String old, String cur});
+
+/// Central settings provider — single source of truth for all app settings.
+final settingsProvider = AsyncNotifierProvider<SettingsNotifier, AppSettings>(
+  SettingsNotifier.new,
+);

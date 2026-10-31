@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "rulesetVersion": "ruleset@382b63c5",
+  "findings": [
+    {
+      "fingerprint": "9adb0d776b998cb2",
+      "ruleId": "circular-dependencies",
+      "filePath": "lib/src/candidate_manifest.dart",
+      "line": 1,
+      "message": "circular dependency [kind=bidirectional-cycle] between: lib/src/candidate_manifest.dart, lib/src/wav2vec2_direct_ml_candidate.dart"
+    },
+    {
+      "fingerprint": "97c0dd4e287448be",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/src/const_me_candidate.dart",
+      "line": 90,
+      "message": "2 occurrences of duplicated block (82 tokens): lib/src/const_me_candidate.dart:90, lib/src/whisper_cpp_candidate.dart:29"
+    },
+    {
+      "fingerprint": "74327187378fff1c",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/src/const_me_candidate.dart",
+      "line": 290,
+      "message": "3 occurrences of duplicated block (97 tokens): lib/src/const_me_candidate.dart:290, lib/src/onnx_direct_ml_candidate.dart:209, lib/src/whisper_cpp_candidate.dart:173"
+    },
+    {
+      "fingerprint": "7c1852a6b398c05c",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/src/onnx_direct_ml_candidate.dart",
+      "line": 47,
+      "message": "2 occurrences of duplicated block (68 tokens): lib/src/onnx_direct_ml_candidate.dart:47, lib/src/wav2vec2_direct_ml_candidate.dart:93"
+    },
+    {
+      "fingerprint": "6858df1bc31cf19c",
+      "ruleId": "code-duplicates",
+      "filePath": "lib/src/onnx_direct_ml_candidate.dart",
+      "line": 123,
+      "message": "2 occurrences of duplicated block (324 tokens): lib/src/onnx_direct_ml_candidate.dart:123, lib/src/whisper_cpp_candidate.dart:84"
+    },
+    {
+      "fingerprint": "3af932e7f0e124d5",
+      "ruleId": "circular-dependencies",
+      "filePath": "lib/src/probe_types.dart",
+      "line": 1,
+      "message": "circular dependency [kind=bidirectional-cycle] between: lib/src/probe_types.dart, lib/src/ranking.dart"
+    }
+  ]
+}

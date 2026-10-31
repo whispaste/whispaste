@@ -1,0 +1,12 @@
+# Pinned whisper.cpp source (ggml-org/whisper.cpp) for libwhisper on every
+# platform. Read by scripts/build-libwhisper-{linux,macos}.sh,
+# scripts/build-libwhisper-windows.ps1, scripts/release-macos-local.sh and the
+# release workflow. Raising it: BUILD.md "Raising native dependencies".
+WHISPER_TAG=v1.9.5
+WHISPER_COMMIT=d1be6fde11ac6e0407606b4e42fe72d34add8037
+# Documented hold on an older release (scripts/check-upstream-pins.sh): the
+# reason and the check that lifts it, each in single quotes (the build
+# scripts source this file). Empty = no hold; then a newer stable
+# upstream release fails the pre-release check.
+UPSTREAM_HOLD_REASON=
+UPSTREAM_HOLD_CHECK=

@@ -1,0 +1,6 @@
+include: package:lints/recommended.yaml
+
+analyzer:
+  errors:
+    # Enforce fatals for infos and warnings to match root app gate.
+    todo: ignore

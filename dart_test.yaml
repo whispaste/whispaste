@@ -1,0 +1,28 @@
+# Registered test tags (unregistered tags only warn). CI selects on them in
+# .github/workflows/ci.yml.
+tags:
+  canary:
+    # Live provider-drift checks; run by provider-drift-canary.yml only.
+  live:
+    # Live provider checks against the network (deepgram and openai transcriber
+    # tests); run with --tags=live by provider-drift-canary.yml only.
+  l10n:
+  perf:
+    # Wall-clock budgets moved to benchmarks/ (outside test/, see benchmarks/README.md).
+    # Registered until the bench folder has its own runner; CI and the dispatcher still exclude it.
+  process:
+    # Tests that start real processes (single-instance IPC); no CI filter excludes them.
+  compositor-e2e:
+    # Asks a real, nested compositor for the focused window
+    # (test/scripts/focus_sources_e2e.sh sets it up); skipped otherwise.
+  bench:
+    # Profile-mode acceptance benchmarks (benchmarks/integration_test/notes_open_bench_test.dart).
+    # Run manually with --profile on macOS, never in the normal suite.
+  # Generators live in generators/, outside test/, so no test run ever picks
+  # them up. Start one deliberately by its path (see generators/README.md).
+  store:
+    # Store screenshot generator (generators/store/store_screenshots_test.dart).
+  capture:
+    # Overlay store-asset capture (generators/store/overlay_pill_asset_capture_test.dart).
+  ux-screens:
+    # UX screenshot harness (generators/ux/): renders PNGs for the UX reviewer.

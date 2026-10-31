@@ -1,0 +1,12 @@
+---
+import HomePage from "../../components/HomePage.astro";
+import { currentLocale, prefixedLocalePaths } from "../../scripts/i18n.ts";
+
+export function getStaticPaths() {
+  return prefixedLocalePaths();
+}
+
+const lang = currentLocale(Astro.params.lang);
+---
+
+<HomePage lang={lang} />

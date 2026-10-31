@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=WhisPaste
+GenericName=Voice Input Tool
+Comment=Hotkey, speak, paste anywhere — local or cloud transcription
+Exec=whispaste
+Icon=de.whispaste.app
+Terminal=false
+Categories=Utility;Accessibility;
+Keywords=voice;speech;transcription;whisper;paste;hotkey;
+StartupWMClass=de.whispaste.app

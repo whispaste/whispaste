@@ -1,0 +1,178 @@
+---
+// LinuxButton.astro — Brand-consistent Linux AppImage download button.
+// Mirrors StoreButton/AppleButton layout/sizing for visual parity in the Hero
+// row, so all three desktop platforms get an equal-rank primary CTA
+// (PRODUCT.md: "Plattform-Parität zuerst").
+// URL sourced exclusively from the central platform config.
+import { t, currentLocale } from '../scripts/i18n.ts';
+import { LINUX_APPIMAGE_URL } from '../data/platforms.ts';
+// Raw-imported so `fill="currentColor"` inherits the button's text color — an
+// <img>-embedded SVG cannot do this. Same source/provenance as the hero badges
+// (see website/public/os-icons/ATTRIBUTION.txt).
+import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
+
+interface Props {
+  size?: 'default' | 'lg';
+  class?: string;
+}
+
+const APPIMAGE_URL = LINUX_APPIMAGE_URL;
+
+const { size = 'default', class: className = '' } = Astro.props;
+const isLarge = size === 'lg';
+
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<a
+  href={APPIMAGE_URL}
+  onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
+  class:list={[
+    'wp-linux-btn',
+    { 'wp-linux-btn--lg': isLarge },
+    className,
+  ]}
+  data-testid="linux-button"
+>
+  <!-- Ubuntu logo (tintable, currentColor) -->
+  <span class="wp-linux-btn__icon" aria-hidden="true" set:html={ubuntuIconRaw} />
+
+  {isLarge ? (
+    <span class="wp-linux-btn__text">
+      <span class="wp-linux-btn__label" data-i18n="hero.download.linux.hint">{t(lang, "hero.download.linux.hint")}</span>
+      <span class="wp-linux-btn__platform-row">
+        <span class="wp-linux-btn__platform" data-i18n="hero.download.linux.platform">{t(lang, "hero.download.linux.platform")}</span>
+        <span class="wp-linux-btn__format" data-i18n="platform.linux.formatLabel">{t(lang, "platform.linux.formatLabel")}</span>
+      </span>
+    </span>
+  ) : (
+    <span class="wp-linux-btn__text">
+      <span data-i18n="hero.download.linux">{t(lang, "hero.download.linux")}</span>
+      <span class="wp-linux-btn__format" data-i18n="platform.linux.formatLabel">{t(lang, "platform.linux.formatLabel")}</span>
+    </span>
+  )}
+</a>
+
+<style>
+  .wp-linux-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-3);
+    padding: var(--wp-space-3) var(--wp-space-6);
+    min-height: 44px;
+    border-radius: var(--radius-pill);
+    background: var(--gradient-accent-cta);
+    /* Dark, not white: white text measures ~1.6:1 against the gradient's
+       light-cyan stop (#6FDDF0) — well under WCAG AA's 4.5:1. Dark navy
+       clears >6:1 across the whole gradient, matching the __label span
+       below which already uses dark text for the same reason. */
+    color: var(--color-brand-darker);
+    text-decoration: none;
+    transition: transform var(--dur-base) var(--ease-flow),
+      box-shadow var(--dur-base) var(--ease-flow);
+    cursor: pointer;
+  }
+
+  .wp-linux-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-pill);
+  }
+
+  .wp-linux-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-pill-active);
+  }
+
+  .wp-linux-btn:focus-visible {
+    outline: var(--wp-focus-ring-width) solid var(--wp-focus-ring-color);
+    outline-offset: 2px;
+  }
+
+  /* Large variant — same accent-gradient CTA as StoreButton's and
+     AppleButton's `--lg`, so the three primary Hero CTAs read as one family. */
+  .wp-linux-btn--lg {
+    padding: var(--wp-space-3) var(--wp-space-8);
+    min-height: 52px;
+    gap: var(--wp-space-4);
+  }
+
+  .wp-linux-btn--lg:hover {
+    transform: translateY(-2px);
+  }
+
+  .wp-linux-btn__icon {
+    display: inline-flex;
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    color: var(--color-brand-darker);
+  }
+  .wp-linux-btn__icon :global(svg) {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .wp-linux-btn--lg .wp-linux-btn__icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .wp-linux-btn__text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  /* Default: single line */
+  .wp-linux-btn:not(.wp-linux-btn--lg) .wp-linux-btn__text {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--wp-space-2);
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+  }
+
+  /* Large: two lines */
+  .wp-linux-btn--lg .wp-linux-btn__label {
+    font-size: var(--wp-font-size-xs);
+    font-weight: 400;
+    color: color-mix(in srgb, var(--color-brand-darker) 68%, transparent);
+    letter-spacing: 0.01em;
+  }
+
+  .wp-linux-btn__platform-row {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--wp-space-2);
+  }
+
+  .wp-linux-btn--lg .wp-linux-btn__platform {
+    font-size: var(--wp-font-size-lg);
+    font-weight: 700;
+    color: var(--color-brand-darker);
+  }
+
+  /* Format badge (AppImage) — subtle, clearly separate from the platform name;
+     mirrors AppleButton's arch badge. */
+  .wp-linux-btn__format {
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    padding: var(--wp-space-1) var(--wp-space-2);
+    border-radius: var(--radius-chip);
+    color: color-mix(in srgb, var(--color-brand-darker) 85%, transparent);
+    background: color-mix(in srgb, var(--color-brand-darker) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-brand-darker) 18%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wp-linux-btn {
+      transition: none;
+    }
+    .wp-linux-btn:hover {
+      transform: none;
+    }
+  }
+</style>

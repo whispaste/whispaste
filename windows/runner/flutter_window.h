@@ -1,0 +1,95 @@
+#ifndef RUNNER_FLUTTER_WINDOW_H_
+#define RUNNER_FLUTTER_WINDOW_H_
+
+#include <flutter/dart_project.h>
+#include <flutter/flutter_view_controller.h>
+
+#include <memory>
+
+#include "app_identity_host.h"
+#include "attention_host.h"
+#include "audio_file_decode_host.h"
+#include "clipboard_monitor_host.h"
+#include "desktop_paste_host.h"
+#include "floating_button_host.h"
+#include "floating_overlay_host.h"
+#include "keyboard_monitor_host.h"
+#include "power_event_host.h"
+#include "side_panel_host.h"
+#include "snippet_picker_host.h"
+#include "support_store_channel.h"
+#include "win32_window.h"
+
+// A window that does nothing but host a Flutter view.
+class FlutterWindow : public Win32Window {
+ public:
+  // Creates a new FlutterWindow hosting a Flutter view running |project|.
+  explicit FlutterWindow(const flutter::DartProject& project);
+  virtual ~FlutterWindow();
+
+ protected:
+  // Win32Window:
+  bool OnCreate() override;
+  void OnDestroy() override;
+  LRESULT MessageHandler(HWND window, UINT const message, WPARAM const wparam,
+                         LPARAM const lparam) noexcept override;
+
+ private:
+  // The project to run.
+  flutter::DartProject project_;
+
+  // The Flutter instance hosted by this window.
+  std::unique_ptr<flutter::FlutterViewController> flutter_controller_;
+
+  // Set at the start of OnDestroy(), before flutter_controller_ is torn
+  // down. DestroyWindow() on the embedded Flutter child (inside the
+  // FlutterViewController destructor) can synchronously re-enter this
+  // window's WndProc (e.g. via WM_PARENTNOTIFY) while flutter_controller_
+  // is still non-null but its destructor is mid-execution. This guard
+  // stops MessageHandler from forwarding into it during that window.
+  bool is_destroying_ = false;
+
+  // Native floating button (runner-owned, destroyed before engine teardown).
+  std::unique_ptr<FloatingButtonHost> floating_button_host_;
+
+  // Native floating overlay (runner-owned, destroyed before engine teardown).
+  std::unique_ptr<FloatingOverlayHost> floating_overlay_host_;
+
+  // Native desktop paste bridge (runner-owned, destroyed before engine teardown).
+  std::unique_ptr<DesktopPasteHost> desktop_paste_host_;
+
+  // Native Snippet-Picker panel (runner-owned, destroyed before engine
+  // teardown — visual-refresh-2026 ticket 29).
+  std::unique_ptr<SnippetPickerHost> snippet_picker_host_;
+
+  // Native clipboard quick-paste side panel (runner-owned, destroyed before
+  // engine teardown — issue 04/09 Windows port).
+  std::unique_ptr<SidePanelHost> side_panel_host_;
+
+  // Native clipboard-history monitor (runner-owned, destroyed before engine
+  // teardown — issue 05 Windows port).
+  std::unique_ptr<ClipboardMonitorHost> clipboard_monitor_host_;
+
+  // Taskbar-flash attention bridge for cross-platform parity with the
+  // macOS Dock-bounce request — used to surface action items when the
+  // main window is hidden.
+  std::unique_ptr<AttentionHost> attention_host_;
+
+  // Name and icon of target apps for the recording rows.
+  std::unique_ptr<AppIdentityHost> app_identity_host_;
+
+  // System sleep/resume source for the recording safety net (WP-39, 9.5).
+  std::unique_ptr<PowerEventHost> power_event_host_;
+
+  // RawInput key-up source for global hotkeys, enabling push-to-talk on
+  // Windows (RegisterHotKey is key-down only). See keyboard_monitor_host.h.
+  std::unique_ptr<KeyboardMonitorHost> keyboard_monitor_host_;
+
+  // Microsoft Store sponsoring channel (runner-owned, destroyed before engine
+  // teardown). Replies are posted back to this window's message loop.
+  std::unique_ptr<SupportStoreChannel> support_store_channel_;
+  // Decodes imported MP3, FLAC and M4A files for WP-35b.
+  std::unique_ptr<AudioFileDecodeHost> audio_file_decode_host_;
+};
+
+#endif  // RUNNER_FLUTTER_WINDOW_H_

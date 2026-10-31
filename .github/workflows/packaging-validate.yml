@@ -1,0 +1,102 @@
+name: packaging-validate
+
+# Validates the distribution manifests under packaging/ before they are ever
+# published. The Linux checks live in scripts/ci/packaging-validate.sh, which
+# the pre-push hook runs on the lab's Ubuntu guest for every push that touches
+# one of its inputs, so a finding stops the push instead of turning this
+# workflow red. The push filter below lists exactly those inputs
+# (`packaging-validate.sh --inputs`, kept equal by check-workflow-hygiene.sh
+# rule 6). Also called from release.yml after the manifest bump. The Windows
+# winget job skips dev pushes (decision 3a) and runs on dispatch and release
+# (no schedules, rule 2026-10-25).
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'packaging/**'
+      - 'assets/icons/app_icon_512.png'
+      - 'test/scripts/gnome_extension_test.sh'
+      - 'test/scripts/deb_uinput_consent_test.sh'
+      - '.github/workflows/release.yml'
+      - '.github/workflows/packaging-validate.yml'
+      - 'scripts/ci/packaging-validate.sh'
+  # Called from release.yml after manifest-bump commits updated manifests to dev.
+  # The `ref` input lets the caller pin validation to the bumped commit/branch.
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to check out and validate (empty = workflow default)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Linux-side manifests (Scoop, Homebrew, Flatpak, AppImage/.deb, Snap,
+  #    GNOME Shell extension), one job: every check takes seconds, so one
+  #    runner instead of six. The script runs all checks and names each
+  #    failure. Full builds (flatpak-builder, snapcraft pack, the .deb from the
+  #    real bundle) run in release.yml, which has the release bundle.
+  linux:
+    name: Linux-side manifests (packaging-validate.sh)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Validate manifests
+        run: bash scripts/ci/packaging-validate.sh --install-deps
+
+  # ── winget (Windows, winget is pre-installed on windows-latest) ────────────
+  winget:
+    name: winget manifest (winget validate)
+    # Skip only dev pushes (decision 3a). A plain event_name check would also
+    # skip the release.yml call: a called workflow inherits the caller's event
+    # (a tag push), so the ref is what tells the two apart.
+    if: ${{ !(github.event_name == 'push' && github.ref == 'refs/heads/dev') }}
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Check winget availability
+        id: check_winget
+        shell: pwsh
+        run: |
+          if (Get-Command winget -ErrorAction SilentlyContinue) {
+            echo "available=true" >> $env:GITHUB_OUTPUT
+            Write-Host "winget found: $(winget --version)"
+          } else {
+            echo "available=false" >> $env:GITHUB_OUTPUT
+            Write-Host "::notice::winget not available on this runner — skipping winget validate"
+          }
+
+      - name: Validate winget manifests
+        if: steps.check_winget.outputs.available == 'true'
+        shell: pwsh
+        run: |
+          # A split winget manifest (version + installer + locale) is one
+          # logical package and must be validated as a SET — pointing
+          # `winget validate` at a single fragment fails because each file is
+          # incomplete on its own. Validate the directory once instead.
+          $dir = "packaging/winget"
+          Write-Host "Validating winget manifest directory $dir …"
+          winget validate --manifest $dir
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::winget validate failed for $dir"
+            exit 1
+          }
+          Write-Host "  OK: $dir"
+
+      - name: Skip notice (winget unavailable)
+        if: steps.check_winget.outputs.available != 'true'
+        shell: pwsh
+        run: |
+          Write-Host "::notice::winget validate skipped — tool not found on runner. Validate locally with: winget validate --manifest packaging/winget/"

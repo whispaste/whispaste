@@ -1,0 +1,585 @@
+name: CI
+
+on:
+  push:
+    branches: [dev]
+  # Full run (every job, every test on every OS, incl. perf-tagged tests):
+  # on demand only (no schedules, rule 2026-10-25). A dev push runs the slim variant below — see
+  # "What a dev push runs" — so whatever a push skips still runs here
+  # (shift-left/no silent drop, infrastructure/github-actions-minutes.md).
+  workflow_dispatch:
+
+# Solo-Dev: keine PRs (CLAUDE.md), der pull_request-Trigger lief seit je her
+# ins Leere. Ein rascher Folge-Push nach dev storniert den älteren, noch
+# laufenden Lauf statt ihn auslaufen zu lassen.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Runners: GitHub-hosted only. The repo is public, so hosted minutes are
+# free on every OS; the former self-hosted runners (SilviosPC, the Mac mini
+# dev machine) were retired 2026-09-30 — they tied up the maintainer's own
+# machines, and on a public repo a fork PR can bring its own workflow onto
+# any registered self-hosted runner.
+#
+# What a dev push runs (2026-10-25, maintainer decision 3a):
+# - Linux only. The complete unit/widget suite runs ONCE, split by test file
+#   across two parallel runners (flutter-tests-linux), plus the Linux build
+#   and integration tests (flutter-app-linux).
+# - Windows (flutter-app) runs on a dev push only when it changes the native
+#   code (windows/, native/, packages/, pubspec; decision 14a), plus on
+#   workflow_dispatch. It covers the native build and the native integration
+#   tests, the parts only that OS can check. Windows bills at 2x, so it stays
+#   off the per-push path otherwise.
+# - macOS has no GitHub job (macOS bills at 10x, see
+#   ~/.claude/infrastructure/github-actions-minutes.md). Its native build and
+#   integration tests (`flutter test integration_test/... -d macos`) run on the
+#   Mac before a merge that touches macos/, native/ or packages/.
+# - No schedules (maintainer rule 2026-10-25): the full run is started by hand
+#   (workflow_dispatch on dev) before a release.
+# - Jobs skip when the push cannot affect them (detect-changes.sh): no
+#   Flutter jobs for website/docs-only pushes, no website job for app-only
+#   pushes.
+# - Analyze and loam run once (Linux): they do not depend on the host OS.
+# - `perf`-tagged micro-benchmarks run in the full run only: a shared,
+#   loaded runner turns wall-clock budgets into noise (run 36697607161).
+# - Retries only for the known native-asset download flake
+#   (scripts/ci/flutter-test.sh), never for real test failures.
+env:
+  FULL_RUN: ${{ github.event_name != 'push' }}
+  RUN_REF: ${{ github.ref }}
+
+jobs:
+  # Single repo-wide secret scan. Plattformunabhängig, daher genau einmal
+  # auf einem schnellen Ubuntu-Runner statt dupliziert auf Win + macOS.
+  secret-scan:
+    name: Secret scan & change detection
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      app: ${{ steps.changes.outputs.app }}
+      platform_full: ${{ steps.changes.outputs.platform_full }}
+      native_windows: ${{ steps.changes.outputs.native_windows }}
+      native_macos: ${{ steps.changes.outputs.native_macos }}
+      website: ${{ steps.changes.outputs.website }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.RUN_REF }}
+          # Enough history for gitleaks' push-range scan and detect-changes.sh
+          # (a full clone costs minutes per dev push; the full scan runs weekly).
+          fetch-depth: 100
+
+      - name: Detect changed areas
+        id: changes
+        run: bash scripts/ci/detect-changes.sh "${{ github.event.before }}" "${{ github.sha }}" "$FULL_RUN"
+
+      # Deterministic public-docs QS (0 tokens): keeps README, CHANGELOG,
+      # website (DE+EN) and the platform/store SSoT consistent. Runs on every
+      # push (it also checks app-side version sync), which is why it lives
+      # here and not in the path-filtered website job. bash + perl only.
+      - name: Public-Docs-QS (docs-attest check)
+        run: bash scripts/docs-attest.sh check
+      # Server-side backstop for the local hooks (which `--no-verify` skips):
+      # no other dictation product may be named anywhere in the tree.
+      - name: Third-party product name guard
+        run: bash .githooks/name-guard.sh tree HEAD
+      # Built-in secret patterns; the same gate runs in the pre-commit and
+      # pre-push hooks (scripts/ci-gates.sh).
+      - name: Scan for potential secrets
+        run: bash scripts/ci-gates.sh secrets
+
+      # gitleaks as a binary, not the gitleaks-action (that needs a paid
+      # licence for organisation-owned repos). Version and SHA-256 are pinned
+      # and verified before extraction. Same ruleset and .gitleaks.toml as the
+      # local hooks, so `--no-verify` cannot skip it. Push runs scan only the
+      # pushed range; manual runs scan the full history.
+      - name: Install gitleaks (pinned, checksum-verified)
+        env:
+          GITLEAKS_VERSION: '8.30.1'
+          GITLEAKS_SHA256: '551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum --check --strict
+          mkdir -p "$RUNNER_TEMP/gitleaks-bin"
+          tar -xzf gitleaks.tar.gz -C "$RUNNER_TEMP/gitleaks-bin" gitleaks
+          echo "$RUNNER_TEMP/gitleaks-bin" >> "$GITHUB_PATH"
+
+      - name: gitleaks secret scan
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          gitleaks version
+          ZERO=0000000000000000000000000000000000000000
+          if [ "$FULL_RUN" = "true" ] || [ -z "$BEFORE" ] || [ "$BEFORE" = "$ZERO" ] \
+             || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # Full-history run: the checkout is shallow, so fetch the rest first.
+            if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+              git fetch --quiet --unshallow
+            fi
+            gitleaks git --no-banner --redact .
+          else
+            gitleaks git --no-banner --redact --log-opts="$BEFORE..$AFTER" .
+          fi
+
+      # Workflow policy gate: timeouts, SDK pins and SHA-pinned uses:
+      # (rule 3). Same script as the pre-push hook; backstop for --no-verify.
+      - name: Workflow hygiene (timeouts, SDK pins, action SHA pins)
+        run: bash scripts/check-workflow-hygiene.sh
+
+      # Logging concept (LOGGING.md): app-level logging goes through AppLogger
+      # so it gets file persistence, redaction and Sentry breadcrumbs. The gate
+      # and its allowlist live in scripts/ci-gates.sh, which the pre-commit and
+      # pre-push hooks run too, so a violation fails locally before it is pushed.
+      - name: Logging gate — no dev.log/debugPrint outside AppLogger
+        run: bash scripts/ci-gates.sh logging
+
+  flutter-app:
+    name: Flutter App (Windows)
+    needs: secret-scan
+    # always(): a failing gate above must not silently skip the test jobs
+    # (2026-10-20 to 2026-10-22: a logging-gate red masked every test job).
+    # The gate still turns the run red; the tests then report on their own.
+    # Per push only with Windows native changes (decision 14a), always on the
+    # workflow_dispatch (no schedules, rule 2026-10-25) (decision 3a).
+    if: always() && needs.secret-scan.outputs.app == 'true' && (github.event_name != 'push' || needs.secret-scan.outputs.native_windows == 'true')
+    runs-on: windows-2025
+    # Without an explicit limit a hung step only gets killed by the 360min
+    # GitHub default — run 33364827323 saw a Windows job still going at 81min.
+    # Leaves room for the weekly full run's complete suite.
+    timeout-minutes: 40
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.RUN_REF }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: Verify Flutter installation
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Push: only the test files with real platform branches — the full
+      # suite already runs on Linux. Everything when the push touches
+      # platform-branching app code or plugins (detect-changes.sh), and on
+      # the full run.
+      - name: Run tests (platform-specific subset)
+        env:
+          PLATFORM_FULL: ${{ needs.secret-scan.outputs.platform_full }}
+        shell: bash
+        run: |
+          if [ "$FULL_RUN" = "true" ] || [ "$PLATFORM_FULL" = "true" ]; then
+            bash scripts/ci/flutter-test.sh --exclude-tags=canary,perf,ux-screens,store,capture
+          else
+            # No mapfile: macOS runners may resolve `bash` to 3.2. Test paths
+            # contain no whitespace, so plain word splitting is safe here.
+            files=$(grep -rlE 'Platform\.is(Windows|MacOS|Linux)' test | grep '_test\.dart$' | sort)
+            echo "Running $(echo "$files" | wc -l | tr -d ' ') platform-specific test files"
+            # shellcheck disable=SC2086
+            bash scripts/ci/flutter-test.sh --exclude-tags=canary,perf,ux-screens,store,capture $files
+          fi
+
+      - name: Install cppcheck
+        shell: pwsh
+        run: |
+          # Chocolatey's community feed is flaky (503s, and a pinned version
+          # can vanish from it without notice — see runs 31869585919 and
+          # 31870566510) and unrelated to the code under test, so install
+          # straight from the GitHub release instead and only retry that
+          # transient step. The version comes from scripts/cppcheck.pin, the
+          # one the hooks check against.
+          $version = (Select-String -Path scripts/cppcheck.pin -Pattern '^CPPCHECK_VERSION=(.+)$').Matches[0].Groups[1].Value.Trim()
+          $msiUrl = "https://github.com/cppcheck-opensource/cppcheck/releases/download/$version/cppcheck-$version-x64-Setup.msi"
+          $msiPath = "$env:RUNNER_TEMP\cppcheck-setup.msi"
+          $cppcheckExe = 'C:\Program Files\Cppcheck\cppcheck.exe'
+          $installed = Test-Path $cppcheckExe
+          for ($attempt = 1; $attempt -le 3 -and -not $installed; $attempt++) {
+            try {
+              Invoke-WebRequest -Uri $msiUrl -OutFile $msiPath -UseBasicParsing
+              Start-Process -FilePath msiexec.exe -ArgumentList "/i `"$msiPath`" /qn /norestart" -Wait -NoNewWindow
+              if (Test-Path $cppcheckExe) { $installed = $true; break }
+            } catch {
+              Write-Host "cppcheck install attempt $attempt/3 failed: $_"
+            }
+            if ($attempt -lt 3) {
+              Write-Host "Retrying cppcheck install in 15s..."
+              Start-Sleep -Seconds 15
+            }
+          }
+          if (-not $installed) {
+            throw "cppcheck installation failed after 3 attempts (expected at $cppcheckExe)."
+          }
+
+      - name: C++ static analysis (cppcheck)
+        shell: bash
+        # Same script, flags and suppressions as the pre-commit hook.
+        run: bash scripts/cppcheck-runner.sh "/c/Program Files/Cppcheck/cppcheck.exe"
+
+      # `flutter build windows` calls `cmake --build` without --parallel, so
+      # MSBuild builds the plugin projects (soloud, sqlite3, ...) one after
+      # another — ~7min on the 4-core hosted runner. cmake passes this on as
+      # /m:<n>; the integration tests below rebuild incrementally with it too.
+      - name: Build Windows (debug)
+        run: flutter build windows --debug
+
+      - name: Verify build output
+        run: |
+          $exe = "build\windows\x64\runner\Debug\whispaste.exe"
+          if (!(Test-Path $exe)) { throw "Flutter build failed: $exe not found" }
+          $size = (Get-Item $exe).Length / 1MB
+          Write-Host "Flutter app size: $([math]::Round($size, 2)) MB"
+
+      # Verifies flutter_secure_storage against the real Windows
+      # Credential Manager. Runs against a per-run unique key
+      # namespace so it cannot collide with existing wp_* items.
+      - name: Secure storage integration test
+        run: flutter test integration_test/secure_storage_test.dart -d windows
+
+      # Full Hotkey → Recording → Transcription → Paste happy path (Ticket
+      # 07). Cleanly skips here: the plain debug build above never stages a
+      # real libwhisper (only scripts/bundle-libwhisper-windows.ps1 via
+      # release.yml does) — see the test file's own skip message. Still
+      # wired in so the gap is visible/documented rather than silent.
+      - name: Hotkey-to-text happy-path integration test
+        run: flutter test integration_test/hotkey_to_text_happy_path_test.dart -d windows
+
+      # Recording Orchestrator fault-recovery paths (Ticket 08): retry after
+      # a transient error, GPU→CPU fallback, and CUDA-OOM recovery. Faults
+      # are injected one seam below the FFI boundary (a fake WhisperEngine),
+      # so — unlike the happy path above — this runs for real here too, no
+      # staged libwhisper needed.
+      - name: Hotkey-to-text fallback-paths integration test
+        run: flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d windows
+
+  flutter-app-linux:
+    name: Flutter App (Linux)
+    needs: secret-scan
+    if: always() && needs.secret-scan.outputs.app == 'true'
+    # Bleibt ubuntu-latest (1x, günstigster Multiplikator) — Verlagerung auf
+    # die NAS (nas) scheiterte am fehlenden passwortlosen sudo für die
+    # nötigen apt-Pakete (unzip/clang/cmake/ninja/pkg-config/libgtk-3-dev für
+    # den Flutter-Linux-Desktop-Build). Einmaliger manueller apt-get-Lauf mit
+    # sudo-Passwort würde die Migration freischalten, siehe Chat.
+    runs-on: ubuntu-24.04
+    # See the Windows job's timeout-minutes comment. Build and integration
+    # tests (~10min); the complete suite runs in flutter-tests-linux.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.RUN_REF }}
+
+      # Linux-Desktop-Toolchain fuer `flutter build linux`. Die reinen Unit-/
+      # Widget-Tests (`flutter test`) brauchen das nicht, der Build aber schon.
+      - name: Install Linux build dependencies
+        run: |
+          # Retried + hard-bounded: a stalled Ubuntu mirror answered every
+          # line with `Ign:` and never returned in packaging-validate run
+          # 32296050925, burning 6h of runner time. Transient and unrelated
+          # to the code under test, so retry — but cap each attempt at 2min.
+          for attempt in 1 2 3; do
+            timeout 120 sudo apt-get update && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::apt-get update failed after 3 attempts."
+              exit 1
+            fi
+            echo "apt-get update failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev \
+            libkeybinder-3.0-dev libnotify-dev libcurl4-openssl-dev \
+            libayatana-appindicator3-dev libasound2-dev libxss-dev xvfb \
+            libxtst-dev x11-xkb-utils libopusfile-dev libflac-dev
+          pkg-config --exists xscrnsaver || { echo "::error::xscrnsaver (libxss-dev) missing"; exit 1; }
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: Verify Flutter installation
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Host-independent, so it runs here only (not on Windows/macOS).
+      - name: Analyze (lint + static analysis)
+        # Scope to the app's own sources. A bare `flutter analyze` descends
+        # into the standalone packages/ tools (own pubspec/lints, not pulled
+        # via pub get in CI), which fails on unresolved package: self-imports.
+        # Those packages are covered by the loam gate below.
+        run: flutter analyze --fatal-infos lib test integration_test tool
+
+      # Every app_<locale>.arb must carry exactly the keys of app_en.arb;
+      # known gaps are frozen in lib/core/l10n/arb_parity_baseline.json
+      # (ratchet, can only shrink). Same command as .githooks/pre-commit.
+      - name: ARB key parity gate
+        run: dart tool/check_arb_parity.dart
+
+      # Pure C++ unit test of the Linux `--diagnose` launch decision
+      # (linux/runner/diagnose_launch.h: private Xvfb or failure report).
+      - name: Linux diagnose launch unit test
+        run: bash test/scripts/diagnose_launch_test.sh
+
+      # Pure C++ unit test of the Linux push-to-talk autorepeat filter
+      # (linux/runner/autorepeat_filter.h); no X11 needed.
+      - name: Linux autorepeat filter unit test
+        run: bash test/scripts/autorepeat_filter_test.sh
+
+      # Pure C++ unit test of the wait for the hotkey's modifiers before the
+      # synthetic Ctrl+V on Linux (linux/runner/modifier_release.h).
+      - name: Linux modifier release unit test
+        run: bash test/scripts/modifier_release_test.sh
+      # Pure C++ unit test of the GNOME desktop entry for unpackaged Linux
+      # builds (linux/runner/desktop_entry.h): Exec quoting, ownership marker.
+      - name: Linux desktop entry unit test
+        run: bash test/scripts/desktop_entry_test.sh
+      # Pure C++ unit test of the tiling-WM detection that keeps helper
+      # windows from being tiled (linux/runner/window_manager_kind.h).
+      - name: Linux window manager kind unit test
+        run: bash test/scripts/window_manager_kind_test.sh
+
+      # Which files build-sherpa-onnx.sh stages per platform (fake build trees).
+      - name: sherpa-onnx staging list test
+        run: bash scripts/sherpa-stage-libs.test.sh
+
+      # loam ratchet gate — fails when any new a11y, anti-AI-slop,
+      # code-duplicate, unused-public-export, complexity-hotspot or
+      # circular-dependency finding is introduced relative to baseline.json.
+      # Full ruleset: a11y-*, slop-*, code-duplicates, unused-public-exports,
+      # complexity-hotspots, circular-dependencies. Pinned for reproducibility.
+      # 0.1.14 fixes an a11y-interactive-semantics false positive on
+      # call-sites that pass label/semanticLabel/tooltip through to an
+      # already-excluded Flutter class (e.g. WpButton → ElevatedButton).
+      # Advisory-only on pull_request: baseline.json matches findings by
+      # file+line, so a PR that inserts/removes lines anywhere above an
+      # already-frozen finding in the same file (e.g. one half of a
+      # code-duplicates pair) shifts that finding to a new line number —
+      # loam then counts it as "neu" (and the old line as "gefixt"), even
+      # though nothing actually regressed. Investigated 2026-08-14: this was
+      # the reason near-daily bot/contributor PRs failed CI on unrelated
+      # files. `push` stays hard-blocking because every dev/main commit
+      # already ran this same gate locally via `scripts/docs-attest.sh
+      # attest` before being pushed (baseline.json is always in sync there);
+      # PRs have no equivalent local step to fix a false positive before CI
+      # runs.
+      - name: Loam ratchet gate (a11y + slop + duplicates + exports + complexity + cycles)
+        continue-on-error: ${{ github.event_name == 'pull_request' }}
+        run: |
+          dart pub global activate loam 0.1.15
+          export PATH="$PATH:$HOME/.pub-cache/bin"
+          flutter_bin="$(command -v flutter)"
+          dart_sdk="$(dirname "$flutter_bin")/cache/dart-sdk"
+          export DART_SDK="$dart_sdk"
+          loam gate --no-update-check
+
+      - name: Build Linux (debug)
+        run: flutter build linux --debug
+
+      - name: Verify build output
+        run: |
+          BIN="build/linux/x64/debug/bundle/whispaste"
+          if [ ! -f "$BIN" ]; then
+            echo "::error::Flutter build failed: $BIN not found"
+            exit 1
+          fi
+          SIZE=$(du -sh "build/linux/x64/debug/bundle" | cut -f1)
+          echo "Flutter Linux bundle size: $SIZE"
+
+      # Runtime test of the Linux clipboard hint (linux/runner/clipboard_hint.cc,
+      # PAR-012): a second process on a private Xvfb checks the Klipper hint
+      # and every text target, the way Klipper and a paste target read them.
+      - name: Linux clipboard hint runtime test
+        run: bash test/scripts/clipboard_hint_test.sh
+
+      # Runtime test of the X error trap (linux/runner/x11_window.cc,
+      # XP-7-18): reading the class of a closed paste target on a private
+      # Xvfb must not end the process.
+      - name: Linux X error trap runtime test
+        run: bash test/scripts/x11_window_test.sh
+
+      # Runtime test of the Linux read receipt (linux/runner/clipboard_receipt.cc,
+      # GR-015): only a text read after the paste shortcut counts, monitors and
+      # Klipper do not, and another app's copy reports the clipboard as lost.
+      - name: Linux clipboard read receipt runtime test
+        run: bash test/scripts/clipboard_receipt_test.sh
+
+      # Runtime test of the Linux full clipboard snapshot
+      # (linux/runner/clipboard_snapshot.cc, P1.1): image, HTML and text come
+      # back unchanged after the paste, and never over a newer copy.
+      - name: Linux clipboard snapshot runtime test
+        run: bash test/scripts/clipboard_snapshot_test.sh
+
+      # Unit test of the Linux start-menu mask (linux/runner/menu_mask.h,
+      # PAR-036): the right Super key alone is masked, other keys are not.
+      - name: Linux menu mask unit test
+        run: bash test/scripts/menu_mask_test.sh
+
+      # The vendored hotkey_manager_linux binds with keybinder's raw matching
+      # (XP-5-04): Ctrl+Shift+D must fire plainly, with NumLock, with CapsLock
+      # and after a layout switch, and must fail under the cooked default.
+      - name: Linux hotkey runtime test
+        run: bash test/scripts/keybinder_raw_test.sh
+
+      # Full Hotkey → Recording → Transcription → Paste happy path (Ticket
+      # 07). Cleanly skips here: the plain debug build above never stages a
+      # real libwhisper (only scripts/build-libwhisper-linux.sh via
+      # release.yml does) — see the test file's own skip message. Still
+      # wired in so the gap is visible/documented rather than silent.
+      # xvfb-run: the GTK app needs a display to even launch (and thus reach
+      # its own skip logic) — ubuntu-latest has no X server otherwise.
+      # dbus-run-session: the app links libnotify/keybinder/appindicator,
+      # which all talk to a D-Bus session bus — without one running, those
+      # calls hang indefinitely instead of failing fast. `timeout` is a
+      # last-resort net: if a real per-test hang still slips through, fail in
+      # 3min with a clear signal instead of burning the whole 35min job
+      # budget waiting for the outer job timeout to notice.
+      - name: Hotkey-to-text happy-path integration test
+        run: timeout 180 xvfb-run -a dbus-run-session -- flutter test integration_test/hotkey_to_text_happy_path_test.dart -d linux
+
+      # Recording Orchestrator fault-recovery paths (Ticket 08): retry after
+      # a transient error, GPU→CPU fallback, and CUDA-OOM recovery. Faults
+      # are injected one seam below the FFI boundary (a fake WhisperEngine),
+      # so — unlike the happy path above — this runs for real here too, no
+      # staged libwhisper needed. Needs a longer net than the happy path:
+      # confirmed on CI that the GPU→CPU fallback test alone legitimately
+      # takes ~140s here (no such delay on macOS/Windows), so 180s cut the
+      # suite off before its third (OOM-recovery) test ever ran.
+      - name: Hotkey-to-text fallback-paths integration test
+        run: timeout 420 xvfb-run -a dbus-run-session -- flutter test integration_test/hotkey_to_text_fallback_paths_test.dart -d linux
+
+  # The one place the COMPLETE unit/widget/app-flow suite runs on a push
+  # (headless, no display, no GTK toolchain needed). Split by test file into
+  # two shards on parallel runners: compiling each test file dominates, so a
+  # file split halves the wall clock where `--total-shards` (which splits
+  # the tests *inside* every file) would still compile all of them twice.
+  # perf-tagged benchmarks run on the full run only, alone afterwards.
+  flutter-tests-linux:
+    name: Flutter Tests (Linux, shard ${{ matrix.shard }}/2)
+    needs: secret-scan
+    if: always() && needs.secret-scan.outputs.app == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.RUN_REF }}
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Run tests (complete suite, shard ${{ matrix.shard }}/2)
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          # Round-robin over the sorted file list: every file lands in
+          # exactly one shard, and neighbouring (similarly heavy) files of a
+          # feature folder spread across both.
+          files=$(find test -name '*_test.dart' | sort | awk -v s="$SHARD" 'NR % 2 == s % 2')
+          echo "Running $(echo "$files" | wc -l | tr -d ' ') test files"
+          # shellcheck disable=SC2086
+          bash scripts/ci/flutter-test.sh --exclude-tags=canary,perf,ux-screens,store,capture $files
+
+      # Wall-clock benchmarks measure nothing useful next to three other
+      # test processes on 4 vCPUs (run 36741988731: samples 1.99 ms, then
+      # 5.1-5.4 ms against a 5 ms budget), so they get the runner to
+      # themselves, one process, after the parallel run.
+      - name: Run perf benchmarks (full run, isolated)
+        if: env.FULL_RUN == 'true' && matrix.shard == 1
+        run: |
+          # shellcheck disable=SC2046
+          bash scripts/ci/flutter-test.sh --concurrency=1 --tags=perf \
+            $(grep -rlE "@Tags\\(.*'perf'" test | sort)
+
+  website:
+    name: Website
+    needs: secret-scan
+    if: always() && needs.secret-scan.outputs.website == 'true'
+    # Bleibt ubuntu-latest — Playwrights System-Abhängigkeiten
+    # (`playwright install --with-deps`) brauchen ebenfalls apt/sudo, siehe
+    # flutter-app-linux oben.
+    runs-on: ubuntu-24.04
+    # See the Windows job's timeout-minutes comment. This job additionally
+    # bounds its own slowest step (npm audit) per-attempt below, so this is
+    # a backstop for a genuine hang elsewhere, not the audit retry itself.
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.RUN_REF }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Retried: like the sqlite3/cppcheck flakes above, npm's registry
+      # occasionally returns a transient 503 for the audit endpoint —
+      # observed hanging ~7min before failing in runs 33844870433 and
+      # 33843372608, unrelated to the code under test. Each attempt is itself
+      # bounded (`timeout 120`) rather than trusting npm to eventually give
+      # up on its own — live run 33849170730 showed a single attempt still
+      # hanging past 15min with zero output, which would otherwise let 3
+      # retries exceed the job timeout instead of failing fast and clearly.
+      - name: Audit dependencies
+        run: |
+          for attempt in 1 2 3; do
+            timeout 120 npm audit --audit-level=high && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::npm audit failed after 3 attempts."
+              exit 1
+            fi
+            echo "npm audit failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
+
+      # Unit tests (vitest, website/src/**/__tests__). CLAUDE.md lists them as a
+      # gate; before this step neither CI nor the pre-push hook ran them.
+      - name: Unit tests (vitest)
+        run: npm run test:unit
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium webkit
+
+      - name: Run tests
+        run: npm run test:ci

@@ -1,0 +1,708 @@
+/// Unit tests for the core diagnostics report formatter.
+///
+/// Mirrors the app-side `test/features/help/diagnostics_report_test.dart`
+/// tests, verifying the formatter works identically from the pure-Dart core.
+library;
+
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
+import 'package:whispaste_diagnostics/src/analysis/dll_analysis.dart';
+import 'package:whispaste_diagnostics/src/analysis/verdict.dart';
+import 'package:whispaste_diagnostics/src/probes/av_quarantine_probe.dart';
+import 'package:whispaste_diagnostics/src/probes/hardware_probe.dart';
+import 'package:whispaste_diagnostics/src/probes/path_service.dart';
+import 'package:whispaste_diagnostics/src/probes/permissions_probe.dart';
+import 'package:whispaste_diagnostics/src/probes/settings_probe.dart';
+import 'package:whispaste_diagnostics/src/report/diagnostics_report.dart';
+
+void main() {
+  group('formatDiagnosticsReport', () {
+    test('includes core environment + Sprachdienst state', () {
+      final report = formatDiagnosticsReport(
+        version: '1.2.35',
+        variant: 'Microsoft Store / MSIX',
+        osVersion: 'windows 10.0 (Build 26200)',
+        dartVersion: 'Dart 3.11.0',
+        locale: 'de-DE',
+        executablePath: r'C:\Program Files\WindowsApps\...\whispaste.exe',
+        serverPath: r'C:\...\models\stt\whisper-server.exe',
+        serverExists: true,
+        backend: 'cpu',
+        sttServerState: 'error',
+        sttErrorMessage: 'Sprachdienst kann das Sprachmodell nicht öffnen.',
+        sttFiles: const ['whisper-server.exe', 'ggml.dll'],
+        vcRuntimePresent: true,
+        modelLoadProbe: const ModelLoadProbeResult(
+          ran: true,
+          loaded: false,
+          exitCode: 3221225781,
+          stderrTail: ["whisper_init_from_file: failed to open 'model'"],
+        ),
+        gpu: const GpuInfo(
+          vendor: GpuVendor.nvidia,
+          name: 'NVIDIA GeForce GTX 650',
+          cudaAvailable: false,
+          vulkanAvailable: true,
+        ),
+        logTail: const ['line A', 'line B'],
+      );
+
+      expect(report, contains('WhisPaste v1.2.35 (Microsoft Store / MSIX)'));
+      expect(report, contains('Locale: de-DE'));
+      expect(report, contains('NVIDIA GeForce GTX 650'));
+      expect(report, contains('Backend'));
+      expect(report, contains('vorhanden: ja'));
+      expect(report, contains('backend: cpu'));
+      expect(report, contains('Status: error'));
+      expect(
+        report,
+        contains('letzter Fehler: Sprachdienst kann das Sprachmodell'),
+      );
+      expect(report, contains('VC++-Runtime vorhanden: ja'));
+      expect(report, contains('Modell-Ladetest: FEHLER'));
+      expect(report, contains('0xC0000135'));
+      expect(report, contains('failed to open'));
+      expect(report, contains('whisper-server.exe, ggml.dll'));
+      expect(report, contains('--- letzte 2 Logzeilen ---'));
+      expect(report, contains('line A'));
+      expect(report, contains('line B'));
+    });
+
+    test(
+      'degrades gracefully when GPU is null and VC runtime not applicable',
+      () {
+        final report = formatDiagnosticsReport(
+          version: '1.2.35',
+          variant: 'macos',
+          osVersion: 'macos 14',
+          dartVersion: 'Dart 3.11.0',
+          locale: 'en-US',
+          executablePath: '/Applications/WhisPaste.app/...',
+          serverPath: '/Users/x/Library/.../whisper-server',
+          serverExists: false,
+          backend: null,
+          sttFiles: const <String>[],
+          vcRuntimePresent: null,
+          gpu: null,
+          logTail: const <String>[],
+        );
+
+        expect(report, contains('GPU: (nicht ermittelt)'));
+        expect(report, contains('vorhanden: nein'));
+        expect(report, isNot(contains('backend:')));
+        expect(report, isNot(contains('letzter Fehler:')));
+        expect(report, isNot(contains('Modell-Ladetest')));
+        expect(report, isNot(contains('VC++-Runtime')));
+        expect(report, contains('Sprachdienst-Dateien: (keine)'));
+        expect(report, isNot(contains('Logzeilen')));
+      },
+    );
+  });
+
+  group('formatDiagnosticsReport — engine state (Issue 09)', () {
+    test('renders loadedModel and cpuFallbackActive when supplied', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        backend: 'metal',
+        sttServerState: 'ready',
+        loadedModel: 'ggml-medium.bin',
+        cpuFallbackActive: true,
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, contains('backend: metal'));
+      expect(report, contains('Modell: ggml-medium.bin'));
+      expect(report, contains('CPU-Fallback aktiv: ja'));
+    });
+
+    test('renders the loaded CPU backend variant when supplied', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'windows',
+        osVersion: 'windows 11',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: r'C:\Program Files\WhisPaste\whispaste.exe',
+        serverPath: r'C:\x\whisper-server.exe',
+        serverExists: false,
+        backend: 'cpu',
+        cpuFeatures: 'AVX AVX2 F16C FMA BMI2',
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, contains('CPU-Backend: AVX AVX2 F16C FMA BMI2'));
+    });
+
+    test('omits loadedModel/cpuFallbackActive lines when null', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, isNot(contains('Modell:')));
+      expect(report, isNot(contains('CPU-Fallback aktiv:')));
+    });
+
+    test('standalone case (sttServerState == null) still renders backend '
+        'from GPU-detection input, no Status/Modell/CPU-Fallback lines', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        backend: 'cpu',
+        sttFiles: const <String>[],
+        settingsUnavailable: true,
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, contains('backend: cpu'));
+      expect(report, isNot(contains('Status:')));
+      expect(report, isNot(contains('Modell:')));
+      expect(report, isNot(contains('CPU-Fallback aktiv:')));
+      expect(report, contains('Standalone'));
+    });
+  });
+
+  group('formatDiagnosticsReport — engine field', () {
+    test('renders the Engine line when supplied', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        engine: 'parakeet',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, contains('Engine: parakeet'));
+    });
+
+    test('omits the Engine line when null', () {
+      final report = formatDiagnosticsReport(
+        version: '1.3.0',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: '/Applications/WhisPaste.app/...',
+        serverPath: '/Users/x/Library/.../whisper-server',
+        serverExists: false,
+        sttFiles: const <String>[],
+        gpu: null,
+        logTail: const <String>[],
+      );
+
+      expect(report, isNot(contains('Engine:')));
+    });
+  });
+
+  group('ModelLoadProbeResult.exitCodeHex', () {
+    test('STATUS_DLL_NOT_FOUND maps to 0xC0000135', () {
+      // 3221225781 is the signed int representation of 0xC0000135
+      const probe = ModelLoadProbeResult(ran: true, exitCode: 3221225781);
+      expect(probe.exitCodeHex, '0xC0000135');
+    });
+
+    test('null exitCode returns null hex', () {
+      const probe = ModelLoadProbeResult(ran: true, loaded: true);
+      expect(probe.exitCodeHex, isNull);
+    });
+  });
+
+  group('installVariantLabel', () {
+    test('returns a non-empty string', () {
+      expect(installVariantLabel(), isNotEmpty);
+    });
+  });
+
+  group('formatDiagnosticsReport — extended sections (slices 2+3)', () {
+    String baseReport({
+      String? deviceId,
+      HardwareProbeResult? hardware,
+      PermissionsProbeResult? permissions,
+      AvQuarantineResult? avQuarantine,
+      SettingsSnapshotResult? settings,
+      bool settingsUnavailable = false,
+      VerdictResult? verdict,
+      List<String> logTail = const <String>[],
+      bool fullLogs = false,
+      String executablePath = '/opt/whispaste',
+    }) {
+      return formatDiagnosticsReport(
+        version: '1.2.36',
+        variant: 'macos',
+        osVersion: 'macos 26.5',
+        dartVersion: 'Dart 3.12.1',
+        locale: 'de-DE',
+        executablePath: executablePath,
+        serverPath: '/srv/whisper-server',
+        serverExists: true,
+        sttFiles: const ['whisper-server'],
+        logTail: logTail,
+        fullLogs: fullLogs,
+        deviceId: deviceId,
+        hardware: hardware,
+        permissions: permissions,
+        avQuarantine: avQuarantine,
+        settings: settings,
+        settingsUnavailable: settingsUnavailable,
+        verdict: verdict,
+      );
+    }
+
+    test('renders the Sentry device_id', () {
+      final report = baseReport(deviceId: 'abc123def456');
+      expect(report, contains('Geräte-ID (Sentry): abc123def456'));
+    });
+
+    test('renders full hardware with RAM-scarcity marker', () {
+      final report = baseReport(
+        hardware: const HardwareProbeResult(
+          ramTotalMb: 4096,
+          ramFreeMb: 1024,
+          ramScarce: true,
+          cpuModel: 'Apple M5',
+          cpuCores: 10,
+          gpuName: 'Apple M5',
+          gpuVramMb: 16384,
+          diskFreeMb: 250000,
+        ),
+      );
+      expect(report, contains('RAM: 4096 MB gesamt'));
+      expect(report, contains('1024 MB frei'));
+      expect(report, contains('knapp')); // §6.6 scarcity marker
+      expect(report, contains('CPU: Apple M5 (10 Kerne)'));
+      expect(report, contains('Freier Speicher: 250000 MB'));
+    });
+
+    test('renders permissions incl. stale-TCC', () {
+      final report = baseReport(
+        permissions: const PermissionsProbeResult(
+          macosAccessibilityGranted: false,
+          macosAccessibilityStale: true,
+          macosAppleEventsGranted: true,
+          macosAppleEventsStale: false,
+          macosMicGranted: true,
+          windowsMicAllowed: null,
+        ),
+      );
+      expect(report, contains('Berechtigungen:'));
+      expect(report, contains('Accessibility'));
+      expect(report, contains('stale')); // stale-TCC surfaced
+    });
+
+    test('permissions section notes when nothing could be determined', () {
+      final report = baseReport(
+        permissions: const PermissionsProbeResult(
+          macosAccessibilityGranted: null,
+          macosAccessibilityStale: null,
+          macosAppleEventsGranted: null,
+          macosAppleEventsStale: null,
+          macosMicGranted: null,
+          windowsMicAllowed: null,
+        ),
+      );
+      expect(report, contains('Berechtigungen:'));
+      expect(report, contains('nicht ermittelbar'));
+    });
+
+    test('renders AV-quarantine status', () {
+      final report = baseReport(
+        avQuarantine: const AvQuarantineResult(
+          binaryPath: '/srv/whisper-server',
+          binaryExists: true,
+          quarantined: true,
+          detail: 'com.apple.quarantine present',
+        ),
+      );
+      expect(report, contains('AV/Quarantäne:'));
+      expect(report, contains('Quarantäne'));
+    });
+
+    test('renders verdict with primary fingerprint when unhealthy', () {
+      final verdict = buildVerdict(
+        dllAnalysis: const DllAnalysisResult(
+          missingDlls: <String>[],
+          vcRuntimeMissing: false,
+        ),
+        ramScarce: true,
+        avQuarantined: false,
+        staleTcc: false,
+        modelAbiMismatch: false,
+        serverExitCode: null,
+      );
+      final report = baseReport(verdict: verdict);
+      expect(report, contains('Bewertung:'));
+      expect(report, contains('stt-exit-other')); // RAM-scarce fingerprint
+    });
+
+    test('renders healthy verdict when no suspicions', () {
+      final verdict = buildVerdict(
+        dllAnalysis: const DllAnalysisResult(
+          missingDlls: <String>[],
+          vcRuntimeMissing: false,
+        ),
+        ramScarce: false,
+        avQuarantined: false,
+        staleTcc: false,
+        modelAbiMismatch: false,
+        serverExitCode: null,
+      );
+      final report = baseReport(verdict: verdict);
+      expect(report, contains('Bewertung:'));
+      expect(report, contains('keine Auffälligkeiten'));
+    });
+
+    test('notes settings unavailable in standalone mode', () {
+      final report = baseReport(settingsUnavailable: true);
+      expect(report, contains('Einstellungen:'));
+      expect(report, contains('Standalone'));
+    });
+
+    test('uses a full-log header when fullLogs is set', () {
+      final report = baseReport(
+        logTail: const ['line A', 'line B'],
+        fullLogs: true,
+      );
+      expect(report, isNot(contains('letzte 2 Logzeilen')));
+      expect(report, contains('Logzeilen'));
+    });
+
+    test('sanitizes the whole report (§6.5) — no raw home path leaks', () {
+      final home =
+          Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+      // Skip on the rare CI runner with no HOME/USERPROFILE set.
+      if (home == null || home.isEmpty) return;
+      final report = baseReport(executablePath: '$home/tools/whispaste');
+      expect(report, isNot(contains(home)));
+      expect(report, contains('<home>/tools/whispaste'));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // gatherDiagnosticsReport — MSIX standalone-fallback wiring (Slice 1)
+  //
+  // Drives the Windows-only MSIX-fallback branch cross-platform via the
+  // gatherer test seams (gatherIsWindowsOverride, gatherMsixDataRootResolver-
+  // Override) plus sttDirOverride. Asserts observable behaviour through the
+  // public gatherDiagnosticsReport interface:
+  //   - the effective STT directory's files are listed in the report (AC1)
+  //   - the variant label is 'Microsoft Store / MSIX' on fallback (AC4)
+  //   - no fallback when the regular STT dir exists, or when the resolver
+  //     returns null (AC2)
+  // -------------------------------------------------------------------------
+  group('gatherDiagnosticsReport — MSIX standalone-fallback wiring', () {
+    late Directory tmp;
+
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('wd_msix_gather_');
+    });
+
+    tearDown(() {
+      // Reset all seams so no state leaks between tests (S2).
+      gatherIsWindowsOverride = null;
+      gatherMsixDataRootResolverOverride = null;
+      gatherAllDataRootsResolverOverride = null;
+      sttDirOverride = null;
+      localAppDataOverride = null;
+      if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+    });
+
+    /// Builds a fake MSIX data root with `models/stt` containing a distinctive
+    /// marker file, and returns the root path.
+    String buildMsixRootWithStt() {
+      final root = p.join(tmp.path, 'LocalCache', 'Roaming', 'WhisPaste');
+      final stt = Directory(p.join(root, 'models', 'stt'))
+        ..createSync(recursive: true);
+      File(p.join(stt.path, 'ggml-msix-marker.bin')).writeAsStringSync('x');
+      return root;
+    }
+
+    test('AC1+AC4: regular STT dir absent + resolver yields a root → effective '
+        'STT dir is used AND variant is Microsoft Store / MSIX', () async {
+      // regularSttDir points at a non-existent path → fallback path taken.
+      sttDirOverride = p.join(tmp.path, 'does-not-exist', 'models', 'stt');
+      gatherIsWindowsOverride = true;
+      final msixRoot = buildMsixRootWithStt();
+      gatherMsixDataRootResolverOverride = () => msixRoot;
+
+      final report = await gatherDiagnosticsReport();
+
+      // AC1: the marker file living under the MSIX models/stt is reported.
+      expect(report, contains('ggml-msix-marker.bin'));
+      // AC4: the detected variant is the Store / MSIX build.
+      expect(report, contains('(Microsoft Store / MSIX)'));
+    });
+
+    test('AC2: regular STT dir present → fallback skipped, resolver not used, '
+        'variant stays the host installVariantLabel()', () async {
+      // A real, existing STT dir → regularExists == true → no fallback.
+      final realStt = Directory(p.join(tmp.path, 'real', 'models', 'stt'))
+        ..createSync(recursive: true);
+      File(
+        p.join(realStt.path, 'ggml-real-install.bin'),
+      ).writeAsStringSync('y');
+      sttDirOverride = realStt.path;
+      gatherIsWindowsOverride = true;
+
+      // Resolver would point at the MSIX marker root — but must NOT be called.
+      var resolverCalled = false;
+      gatherMsixDataRootResolverOverride = () {
+        resolverCalled = true;
+        return buildMsixRootWithStt();
+      };
+
+      final report = await gatherDiagnosticsReport();
+
+      expect(resolverCalled, isFalse);
+      // The real install's files are reported, not the MSIX marker.
+      expect(report, contains('ggml-real-install.bin'));
+      expect(report, isNot(contains('ggml-msix-marker.bin')));
+      // No MSIX override → variant is the host label (e.g. 'macos' off-Windows).
+      expect(report, isNot(contains('(Microsoft Store / MSIX)')));
+      expect(report, contains('(${installVariantLabel()})'));
+    });
+
+    test(
+      'AC2-edge: regular STT dir absent + resolver yields null → no fallback, '
+      'nominal path retained, variant stays installVariantLabel()',
+      () async {
+        sttDirOverride = p.join(tmp.path, 'empty', 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        var resolverCalled = false;
+        gatherMsixDataRootResolverOverride = () {
+          resolverCalled = true;
+          return null; // no MSIX install discovered
+        };
+
+        final report = await gatherDiagnosticsReport();
+
+        expect(resolverCalled, isTrue);
+        expect(report, isNot(contains('ggml-msix-marker.bin')));
+        expect(report, isNot(contains('(Microsoft Store / MSIX)')));
+        expect(report, contains('(${installVariantLabel()})'));
+      },
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // gatherDiagnosticsReport — DLL presence must be checked next to the
+  // running executable, not in sttDir (2026-09-05 field report).
+  //
+  // Since the whisper-server subprocess was retired for the in-process FFI
+  // engine, whisper.dll/ggml*.dll/the VC++ runtime live next to the app's
+  // executable — sttDir only ever holds the downloaded .bin model file.
+  // A DLL-presence check against sttDir would therefore report every
+  // healthy, current install as "missing DLL" unconditionally.
+  // -------------------------------------------------------------------------
+  group(
+    'gatherDiagnosticsReport — engine DLL directory (2026-09-05 field report)',
+    () {
+      late Directory tmp;
+
+      setUp(() {
+        tmp = Directory.systemTemp.createTempSync('wd_engine_dll_gather_');
+      });
+
+      tearDown(() {
+        gatherIsWindowsOverride = null;
+        sttDirOverride = null;
+        resolvedExecutableOverride = null;
+        if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+      });
+
+      test('a healthy install (engine DLLs next to the exe, only the model in '
+          'sttDir) is not flagged as missing DLLs', () async {
+        gatherIsWindowsOverride = true;
+
+        // sttDir: only the downloaded model, as the FFI-era app actually
+        // leaves it — no whisper.dll/ggml*.dll/VC++ runtime here anymore.
+        final sttDirPath = Directory(p.join(tmp.path, 'models', 'stt'))
+          ..createSync(recursive: true);
+        File(
+          p.join(sttDirPath.path, 'ggml-small-q5_1.bin'),
+        ).writeAsStringSync('model bytes');
+        sttDirOverride = sttDirPath.path;
+
+        // Engine dir: everything analyzeDllDeps expects, next to the exe.
+        final engineDir = Directory(p.join(tmp.path, 'engine'))
+          ..createSync(recursive: true);
+        for (final dll in kExpectedWhisperServerDlls) {
+          File(p.join(engineDir.path, dll)).writeAsStringSync('dll bytes');
+        }
+        resolvedExecutableOverride = p.join(engineDir.path, 'whispaste.exe');
+
+        final report = await gatherDiagnosticsReport();
+
+        expect(report, isNot(contains('Missing bundled DLL')));
+        expect(report, isNot(contains('VC++ runtime DLL(s) missing')));
+      });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // gatherDiagnosticsReport — Slice 2: multi-root listing
+  //
+  // Drives the multi-root (EXE + MSIX) report path via gatherAllDataRootsResolver-
+  // Override. Asserts observable behaviour through gatherDiagnosticsReport:
+  //   - AC1: both EXE and MSIX roots appear in the report with their labels.
+  //   - AC2: multiple MSIX roots all listed.
+  //   - AC4: no roots → no Installations-Roots section (no hit → clear absence).
+  // -------------------------------------------------------------------------
+  group('gatherDiagnosticsReport — multi-root listing (Slice 2)', () {
+    late Directory tmp;
+
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('wd_multiroot_');
+    });
+
+    tearDown(() {
+      gatherIsWindowsOverride = null;
+      gatherAllDataRootsResolverOverride = null;
+      gatherMsixDataRootResolverOverride = null;
+      sttDirOverride = null;
+      localAppDataOverride = null;
+      if (tmp.existsSync()) tmp.deleteSync(recursive: true);
+    });
+
+    /// Builds a fake STT dir under [base] with a marker [filename].
+    String buildSttDir(String base, String filename) {
+      final stt = Directory(p.join(base, 'models', 'stt'))
+        ..createSync(recursive: true);
+      File(p.join(stt.path, filename)).writeAsStringSync('x');
+      return base;
+    }
+
+    test(
+      'AC1: EXE root + MSIX root → both appear in report with their labels',
+      () async {
+        final exeRoot = buildSttDir(
+          p.join(tmp.path, 'exe-root'),
+          'ggml-exe-marker.bin',
+        );
+        final msixRoot = buildSttDir(
+          p.join(tmp.path, 'msix-root'),
+          'ggml-msix-marker.bin',
+        );
+
+        // Use the EXE root as the "primary" STT dir so file listing works.
+        sttDirOverride = p.join(exeRoot, 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        gatherAllDataRootsResolverOverride = () => [
+          DataRootEntry(root: exeRoot, label: 'EXE-Installer'),
+          DataRootEntry(root: msixRoot, label: 'Microsoft Store / MSIX'),
+        ];
+
+        final report = await gatherDiagnosticsReport();
+
+        // Both roots must appear with their labels in the report.
+        expect(report, contains('[EXE-Installer]'));
+        expect(report, contains('[Microsoft Store / MSIX]'));
+        expect(report, contains(exeRoot));
+        expect(report, contains(msixRoot));
+        // Multi-root section header.
+        expect(report, contains('Installations-Roots (2)'));
+      },
+    );
+
+    test(
+      'AC2: two MSIX roots → both listed with Microsoft Store / MSIX label',
+      () async {
+        final msixRoot1 = buildSttDir(
+          p.join(tmp.path, 'msix-v1'),
+          'ggml-msix-v1.bin',
+        );
+        final msixRoot2 = buildSttDir(
+          p.join(tmp.path, 'msix-v2'),
+          'ggml-msix-v2.bin',
+        );
+
+        sttDirOverride = p.join(msixRoot1, 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        gatherAllDataRootsResolverOverride = () => [
+          DataRootEntry(root: msixRoot1, label: 'Microsoft Store / MSIX'),
+          DataRootEntry(root: msixRoot2, label: 'Microsoft Store / MSIX'),
+        ];
+
+        final report = await gatherDiagnosticsReport();
+
+        expect(report, contains('Installations-Roots (2)'));
+        expect(report, contains(msixRoot1));
+        expect(report, contains(msixRoot2));
+        // Both entries carry the MSIX label.
+        expect(
+          '[Microsoft Store / MSIX]'.allMatches(report).length,
+          greaterThanOrEqualTo(2),
+        );
+      },
+    );
+
+    test(
+      'AC4: no roots found → no Installations-Roots section in report',
+      () async {
+        sttDirOverride = p.join(tmp.path, 'absent', 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        gatherAllDataRootsResolverOverride = () => const [];
+
+        final report = await gatherDiagnosticsReport();
+
+        expect(report, isNot(contains('Installations-Roots')));
+      },
+    );
+
+    test(
+      'AC1-variant label: only EXE root → variant header is EXE-Installer',
+      () async {
+        final exeRoot = buildSttDir(
+          p.join(tmp.path, 'exe-only'),
+          'ggml-exe-only.bin',
+        );
+        sttDirOverride = p.join(exeRoot, 'models', 'stt');
+        gatherIsWindowsOverride = true;
+        gatherAllDataRootsResolverOverride = () => [
+          DataRootEntry(root: exeRoot, label: 'EXE-Installer'),
+        ];
+
+        final report = await gatherDiagnosticsReport();
+
+        // Single root → no multi-root section, but header variant is EXE.
+        expect(report, contains('(EXE-Installer)'));
+        expect(report, isNot(contains('Installations-Roots')));
+      },
+    );
+  });
+}

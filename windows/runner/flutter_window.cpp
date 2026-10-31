@@ -1,0 +1,268 @@
+#include "flutter_window.h"
+
+#include <cwchar>
+#include <optional>
+
+#include "flutter/generated_plugin_registrant.h"
+
+FlutterWindow::FlutterWindow(const flutter::DartProject& project)
+    : project_(project) {}
+
+FlutterWindow::~FlutterWindow() {
+  // Quitting via PostQuitMessage (window_manager's destroy()) ends the message
+  // loop while the main HWND is still alive, so WM_DESTROY never reaches
+  // OnDestroy() and ~Win32Window()'s Destroy() only dispatches to the no-op
+  // base OnDestroy(). Without this call the members would be torn down
+  // implicitly: ~unique_ptr does not null flutter_controller_ before deleting
+  // it and is_destroying_ is still false, so WM_PARENTNOTIFY from the Flutter
+  // child's DestroyWindow() is forwarded into the half-destroyed controller
+  // (Sentry 121115654/127954786, misattributed to sh::TFunctionLookup).
+  OnDestroy();
+}
+
+bool FlutterWindow::OnCreate() {
+  if (!Win32Window::OnCreate()) {
+    return false;
+  }
+
+  // Win32Window::Create() unconditionally calls Destroy() (-> OnDestroy())
+  // before the window even exists, which latches is_destroying_ = true on
+  // every single launch. Reset it here so HandleTopLevelWindowProc below
+  // actually runs for the live window (window_manager's hidden-title-bar
+  // suppression depends on it); real teardown still re-latches it in
+  // OnDestroy() before this instance is ever recreated.
+  is_destroying_ = false;
+
+  RECT frame = GetClientArea();
+
+  // The size here must match the window dimensions to avoid unnecessary surface
+  // creation / destruction in the startup path.
+  flutter_controller_ = std::make_unique<flutter::FlutterViewController>(
+      frame.right - frame.left, frame.bottom - frame.top, project_);
+  // Ensure that basic setup of the controller was successful.
+  if (!flutter_controller_->engine() || !flutter_controller_->view()) {
+    return false;
+  }
+  RegisterPlugins(flutter_controller_->engine());
+
+  // Create the native floating button host AFTER plugins are registered.
+  floating_button_host_ = std::make_unique<FloatingButtonHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Create the native floating overlay host AFTER plugins are registered.
+  floating_overlay_host_ = std::make_unique<FloatingOverlayHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Create the native desktop paste host AFTER plugins are registered.
+  desktop_paste_host_ = std::make_unique<DesktopPasteHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Create the audio-import decoder host AFTER plugins are registered (WP-35b).
+  audio_file_decode_host_ = std::make_unique<AudioFileDecodeHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Create the taskbar-flash attention host AFTER plugins are registered.
+  attention_host_ = std::make_unique<AttentionHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Target-app name and icon host, lazily asked by the recording rows.
+  app_identity_host_ =
+      std::make_unique<AppIdentityHost>(flutter_controller_->engine());
+
+  // Create the RawInput key-up monitor (push-to-talk on Windows, #39).
+  keyboard_monitor_host_ = std::make_unique<KeyboardMonitorHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Create the power-event host (sleep/resume, WP-39 9.5) AFTER plugins are
+  // registered.
+  power_event_host_ =
+      std::make_unique<PowerEventHost>(flutter_controller_->engine());
+
+  // Create the native Snippet-Picker host AFTER plugins are registered
+  // (visual-refresh-2026 ticket 29).
+  snippet_picker_host_ = std::make_unique<SnippetPickerHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Create the native side panel host AFTER plugins are registered (issue
+  // 04/09 Windows port).
+  side_panel_host_ = std::make_unique<SidePanelHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  // Create the native clipboard-history monitor AFTER plugins are
+  // registered (issue 05 Windows port).
+  clipboard_monitor_host_ = std::make_unique<ClipboardMonitorHost>(
+      flutter_controller_->engine(), GetHandle());
+
+  support_store_channel_ = std::make_unique<SupportStoreChannel>(
+      flutter_controller_->engine()->messenger(), GetHandle());
+
+  SetChildContent(flutter_controller_->view()->GetNativeWindow());
+
+  // An autostart launch leaves showing to Dart (`_initDesktopWindow` in
+  // lib/main.dart), which keeps the window hidden when "start minimized" is
+  // on. Showing it here on the first frame would override that decision.
+  const bool is_autostart =
+      std::wcsstr(::GetCommandLineW(), L"--autostart") != nullptr;
+  flutter_controller_->engine()->SetNextFrameCallback([this, is_autostart]() {
+    if (!is_autostart) {
+      this->Show();
+    }
+  });
+
+  // Flutter can complete the first frame before the "show window" callback is
+  // registered. The following call ensures a frame is pending to ensure the
+  // window is shown. It is a no-op if the first frame hasn't completed yet.
+  flutter_controller_->ForceRedraw();
+
+  return true;
+}
+
+void FlutterWindow::OnDestroy() {
+  // Block reentrant forwarding into flutter_controller_ for the whole
+  // teardown, not just the engine-destruction step below: DestroyWindow()
+  // calls from the host teardowns below can also re-enter MessageHandler.
+  is_destroying_ = true;
+
+  // Destroy overlay and button BEFORE engine teardown (Invariant #4).
+  if (floating_overlay_host_) {
+    floating_overlay_host_->Destroy();
+    floating_overlay_host_.reset();
+  }
+  if (floating_button_host_) {
+    floating_button_host_->Destroy();
+    floating_button_host_.reset();
+  }
+  if (desktop_paste_host_) {
+    desktop_paste_host_->Destroy();
+    desktop_paste_host_.reset();
+  }
+  if (audio_file_decode_host_) {
+    audio_file_decode_host_->Destroy();
+    audio_file_decode_host_.reset();
+  }
+  if (app_identity_host_) {
+    app_identity_host_->Destroy();
+    app_identity_host_.reset();
+  }
+  if (attention_host_) {
+    attention_host_->Destroy();
+    attention_host_.reset();
+  }
+  if (keyboard_monitor_host_) {
+    keyboard_monitor_host_->Destroy();
+    keyboard_monitor_host_.reset();
+  }
+  if (power_event_host_) {
+    power_event_host_->Destroy();
+    power_event_host_.reset();
+  }
+  if (snippet_picker_host_) {
+    snippet_picker_host_->Destroy();
+    snippet_picker_host_.reset();
+  }
+  if (side_panel_host_) {
+    side_panel_host_->Destroy();
+    side_panel_host_.reset();
+  }
+  if (clipboard_monitor_host_) {
+    clipboard_monitor_host_->Destroy();
+    clipboard_monitor_host_.reset();
+  }
+
+  support_store_channel_.reset();
+
+  if (flutter_controller_) {
+    flutter_controller_ = nullptr;
+  }
+
+  Win32Window::OnDestroy();
+}
+
+LRESULT
+FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
+                              WPARAM const wparam,
+                              LPARAM const lparam) noexcept {
+  // Re-assert TOPMOST on floating windows whenever the main window is
+  // minimized or the application regains foreground. This must happen BEFORE
+  // HandleTopLevelWindowProc because window_manager may consume WM_SIZE.
+  if ((message == WM_SIZE && wparam == SIZE_MINIMIZED) ||
+      (message == WM_ACTIVATEAPP && wparam)) {
+    if (floating_button_host_) floating_button_host_->RefreshTopmost();
+    if (floating_overlay_host_) floating_overlay_host_->RefreshTopmost();
+  }
+
+  // Observe RawInput for the global hotkey's key-up (push-to-talk, #39). This
+  // never consumes the message — it falls through to DefWindowProc so RawInput
+  // is cleaned up and normal key delivery is unaffected.
+  // Sleep and resume (WP-39, 9.5). Never consumed: DefWindowProc still
+  // grants the suspend request.
+  if (message == WM_POWERBROADCAST && power_event_host_) {
+    power_event_host_->HandlePowerBroadcast(wparam);
+  }
+
+  if (message == WM_INPUT && keyboard_monitor_host_) {
+    keyboard_monitor_host_->HandleRawInput(
+        reinterpret_cast<HRAWINPUT>(lparam));
+  }
+
+  // Observed only: RegisterHotKey still delivers the hotkey, this just records
+  // when its key went down so the release can be timed.
+  if (message == WM_HOTKEY && keyboard_monitor_host_) {
+    keyboard_monitor_host_->HandleHotkeyDown(lparam);
+  }
+
+  // Monitor/DPI topology changed — rebuild the side panel's per-monitor
+  // sensor strips (mirrors SidePanelHost.rebuildSensors's
+  // didChangeScreenParameters observer on macOS). WM_DISPLAYCHANGE is
+  // broadcast to every top-level window, so this main window's own
+  // WndProc is a valid place to observe it — never consumes the message.
+  if (message == WM_DISPLAYCHANGE && side_panel_host_) {
+    side_panel_host_->RebuildSensors();
+  }
+
+  // Clipboard content changed — forward to the native clipboard-history
+  // monitor (issue 05 Windows port). WM_CLIPBOARDUPDATE is delivered to
+  // every window registered via AddClipboardFormatListener, so this main
+  // window's own WndProc is a valid place to observe it — never consumes
+  // the message.
+  if (message == WM_CLIPBOARDUPDATE && clipboard_monitor_host_) {
+    clipboard_monitor_host_->HandleClipboardUpdate();
+  }
+
+  // Clipboard-owner messages for the receipt-based paste (delayed
+  // rendering). WM_RENDERFORMAT must be answered by the owner window itself.
+  if ((message == WM_RENDERFORMAT || message == WM_RENDERALLFORMATS ||
+       message == WM_DESTROYCLIPBOARD) &&
+      desktop_paste_host_ &&
+      desktop_paste_host_->HandleClipboardOwnerMessage(message, wparam)) {
+    return 0;
+  }
+
+  if (audio_file_decode_host_ &&
+      audio_file_decode_host_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
+  // Store purchase replies are posted here (see SupportStoreChannel).
+  if (support_store_channel_ &&
+      support_store_channel_->HandleWindowMessage(message, wparam, lparam)) {
+    return 0;
+  }
+
+  // Give Flutter, including plugins, an opportunity to handle window messages.
+  // Skipped while tearing down: flutter_controller_ can be non-null but
+  // mid-destruction here (see is_destroying_ above).
+  if (flutter_controller_ && !is_destroying_) {
+    std::optional<LRESULT> result =
+        flutter_controller_->HandleTopLevelWindowProc(hwnd, message, wparam,
+                                                      lparam);
+    if (result) {
+      return *result;
+    }
+  }
+
+  if (message == WM_FONTCHANGE && flutter_controller_ && !is_destroying_) {
+    flutter_controller_->engine()->ReloadSystemFonts();
+  }
+
+  return Win32Window::MessageHandler(hwnd, message, wparam, lparam);
+}

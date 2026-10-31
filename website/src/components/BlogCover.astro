@@ -1,0 +1,125 @@
+---
+/**
+ * BlogCover — a code-generated cover for a blog post: a waveform of rounded
+ * bars (the overlay pill's level meter, WhisPaste's own visual signature)
+ * seeded from the post slug, so every post gets a stable, distinct shape
+ * without any image asset. Decorative only (aria-hidden).
+ *
+ * A post can bring its own artwork (`cover` in its frontmatter): the image then
+ * replaces the waveform inside the same frame and carries its alt text.
+ */
+interface Props {
+  seed: string;
+  /** `card` for list tiles, `hero` for the wide band above a post. */
+  variant?: 'card' | 'hero';
+  /** The post's own cover image; replaces the generated waveform. */
+  image?: { src: string; alt: string };
+}
+
+const { seed, variant = 'card', image } = Astro.props;
+
+// FNV-1a hash -> mulberry32 PRNG: deterministic per slug, no dependencies.
+let h = 2166136261;
+for (const ch of seed) {
+  h ^= ch.codePointAt(0) ?? 0;
+  h = Math.imul(h, 16777619);
+}
+let state = h >>> 0;
+const rand = () => {
+  state = (state + 0x6d2b79f5) >>> 0;
+  let x = state;
+  x = Math.imul(x ^ (x >>> 15), x | 1);
+  x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+  return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+};
+
+const W = variant === 'hero' ? 1200 : 600;
+const H = variant === 'hero' ? 150 : 220;
+const count = variant === 'hero' ? 84 : 40;
+const gap = W / count;
+const barW = gap * 0.42;
+// Two overlaid sine envelopes plus noise read like speech, not like a chart.
+const p1 = rand() * Math.PI * 2;
+const p2 = rand() * Math.PI * 2;
+const f1 = 0.6 + rand() * 2.6;
+const f2 = 2 + rand() * 6;
+const bars = Array.from({ length: count }, (_, i) => {
+  const t = i / (count - 1);
+  const env = 0.55 * Math.abs(Math.sin(t * Math.PI * f1 + p1)) + 0.3 * Math.abs(Math.sin(t * Math.PI * f2 + p2));
+  const amp = Math.min(1, 0.12 + env * (0.65 + rand() * 0.45));
+  const bh = Math.max(barW, amp * H * 0.82);
+  return { x: i * gap + (gap - barW) / 2, y: (H - bh) / 2, h: bh };
+});
+const gid = `bc-${(h >>> 0).toString(36)}-${variant}`;
+const hue = Math.round(rand() * 40); // small, seeded drift towards indigo
+---
+
+{image ? (
+  <div class:list={['blog-cover', 'blog-cover--image', `blog-cover--${variant}`]} data-surface="dark">
+    <img src={image.src} alt={image.alt} width="2400" height="1000" loading={variant === 'hero' ? 'eager' : 'lazy'} decoding="async" />
+  </div>
+) : (
+<div class:list={['blog-cover', `blog-cover--${variant}`]} data-surface="dark" aria-hidden="true" style={`--bc-shift:${hue}%`}>
+  <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" focusable="false">
+    <defs>
+      <linearGradient id={gid} x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" style="stop-color: var(--color-brand-cyan)" />
+        <stop offset="1" style="stop-color: var(--wp-accent-fill)" />
+      </linearGradient>
+    </defs>
+    {bars.map((b) => (
+      <rect x={b.x.toFixed(1)} y={b.y.toFixed(1)} width={barW.toFixed(1)} height={b.h.toFixed(1)} rx={(barW / 2).toFixed(1)} fill={`url(#${gid})`} />
+    ))}
+  </svg>
+</div>
+)}
+
+<style>
+  .blog-cover {
+    position: relative;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: var(--radius-surface);
+    border: 1px solid var(--wp-border-default);
+    /* Opaque navy only: the cover also sits on the light page sheet, where
+       a translucent tint would turn grey. */
+    background:
+      radial-gradient(70% 90% at 50% 100%, color-mix(in srgb, var(--wp-accent-default) 12%, transparent), transparent 70%),
+      linear-gradient(135deg, var(--wp-surface-sunken), color-mix(in srgb, var(--wp-surface-band) calc(70% + var(--bc-shift)), var(--wp-surface-sunken)));
+  }
+  .blog-cover svg {
+    width: 88%;
+    height: auto;
+    opacity: 0.9;
+    transition: transform var(--dur-slow) var(--ease-flow), opacity var(--dur-slow) var(--ease-flow);
+  }
+  .blog-cover--card {
+    aspect-ratio: 16 / 7;
+  }
+  /* A slim band, not a poster: the title above carries the page. */
+  .blog-cover--hero {
+    height: clamp(7rem, 4rem + 9vw, 14rem);
+  }
+  /* Own artwork: fills the frame; the hero keeps the artwork's 2.4:1 shape. */
+  .blog-cover--image {
+    display: block;
+    aspect-ratio: 2.4 / 1;
+  }
+  .blog-cover--image.blog-cover--card {
+    aspect-ratio: 16 / 7;
+  }
+  .blog-cover--image.blog-cover--hero {
+    height: auto;
+  }
+  .blog-cover--image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .blog-cover--hero svg {
+    width: 92%;
+    height: 72%;
+  }
+</style>

@@ -1,0 +1,1593 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../core/accessibility/announce.dart';
+import '../../core/config/language_cycle.dart' show languageChipLabelFor;
+import '../../core/config/settings_enums.dart';
+import '../../core/config/settings_labels.dart';
+import '../../core/config/settings_sections.dart' show cancelDictationKeyEscape;
+import '../../core/config/settings_provider.dart';
+import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/logging/app_logger.dart';
+import '../../core/logging/perf_instrumentation.dart';
+import '../../core/platform/display_bounds.dart';
+import '../../core/platform/monitor_relative_position.dart';
+import '../../core/platform/window_position_clamp.dart';
+import '../../core/recording/discard_confirmation.dart';
+import '../../core/recording/recording_state.dart';
+import '../../core/recording/recording_helpers.dart';
+import '../../core/theme/overlay_customization.dart';
+import '../../core/theme/overlay_design_spec.dart'
+    show
+        OverlayArcMotion,
+        OverlayDesignSpec,
+        OverlaySizeVariant,
+        OverlayBackground,
+        OverlayWave;
+import '../audio/signal_loss_detector.dart' show micSignalLostProvider;
+import '../app_profiles/app_profile_choice.dart';
+import '../audio_service.dart' show AudioStatus, audioServiceProvider;
+import '../floating_platform_service_base.dart';
+import '../hotkey_service.dart'
+    show activeGlobalHotkey, globalHotkeyFallbackActiveProvider;
+import '../paste/repaste_service.dart' show repasteEmptyNoticeProvider;
+import '../recording_orchestrator.dart';
+import '../snippets/interactive_snippet_controller.dart';
+import '../stt/stt_bundle.dart' show localSttBundleProvider;
+import '../transcription/slice_progress.dart';
+import 'floating_overlay_controller.dart';
+import 'floating_overlay_events.dart';
+import 'overlay_positioning.dart';
+import 'overlay_render_recovery.dart';
+import 'overlay_shell_gate.dart';
+import 'overlay_start_feedback.dart';
+import 'waveform_pipeline.dart';
+import '../../core/onboarding/onboarding_surface.dart';
+import '../../widgets/recording_behavior.dart'
+    show isSilentOnboardingRefusal, localizeRecordingError;
+
+final _log = AppLogger('FloatingOverlayService');
+
+// ── Waveform animation-timer constants ───────────────────────────────────────
+//
+// The waveform's SHAPE (bar count, min height, attack/release smoothing) lives
+// entirely in the SSOT [OverlayDesignSpec.waveform] and is owned by the
+// [WaveformPipeline]; the service holds no waveform-shape constants. What
+// remains here is only the animation-timer cadence that drives the pipeline.
+
+/// Animation tick period (~33 ms ≈ 30 fps). One bar of waveform history scrolls
+/// per tick.
+const Duration _kTickPeriod = Duration(milliseconds: 33);
+
+/// Duration (ms) of the trailing release-out animation that follows the
+/// `recording → transcribing` phase transition. During this window the
+/// pipeline keeps ticking with `pushSample(0.0, …)` so the waveform decays
+/// gracefully toward the rest floor instead of freezing at the snapshot
+/// moment. After the window elapses the animation timer stops and the last
+/// snapshot remains frozen on screen.
+///
+/// Read from the spec, not spelled out again here: the overlay view's content
+/// crossfade ([OverlayArcMotion.releaseOutDuration]) has to cover exactly this
+/// window — it is what actually paints the decaying bars — and a private copy
+/// of the number is how the two drifted apart in the first place.
+const int releaseOutDurationMs = OverlayDesignSpec.waveformReleaseOutMs;
+
+/// Fixed auto-hide delay after the overlay enters the done state.
+const Duration kOverlayAutoHideDelay = Duration(seconds: 2);
+
+// ── FloatingPlatformHost note ─────────────────────────────────────────────────
+//
+// Initialization ordering of the two floating-window services:
+//
+//   floatingButtonServiceProvider  (FAB)
+//   floatingOverlayServiceProvider (Overlay)
+//
+// Both are keepAlive Notifier providers that are read once during app startup
+// in main.dart / app.dart.  The Riverpod dependency graph does NOT impose an
+// ordering between them — they are independent.
+//
+// Race conditions are not possible in practice because each service owns a
+// separate native window and communicates with it via its own platform channel.
+// The only shared resource is the Riverpod container, which is thread-safe.
+//
+// If a strict ordering ever becomes necessary (e.g. a shared native host
+// process), introduce a `FloatingPlatformHostProvider` that both services
+// `ref.watch`, making it a hard dependency node in the graph.  For now the
+// comment above is the explicit documentation of the deliberate choice.
+//
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Manages the native floating overlay window lifecycle.
+///
+/// Layer 3 — business logic. Watches recording state, settings, and theme,
+/// builds fully-localized [FloatingOverlaySnapshot]s, and sends them to the
+/// native overlay window via the platform controller (Layer 2).
+///
+/// Extends [FloatingPlatformServiceBase] which handles controller creation,
+/// event-stream subscription, and cleanup in [ref.onDispose].
+class FloatingOverlayService
+    extends
+        FloatingPlatformServiceBase<
+          FloatingOverlayController,
+          FloatingOverlayEvent
+        > {
+  /// Constructs the service.
+  ///
+  /// [now] is the wall-clock source consumed by the [WaveformPipeline] and
+  /// the animation timer. Tests inject a deterministic clock (e.g. via
+  /// `package:fake_async`); production code keeps the default
+  /// [DateTime.now].
+  FloatingOverlayService({DateTime Function()? now})
+    : _now = now ?? DateTime.now;
+
+  final DateTime Function() _now;
+
+  Timer? _autoHideTimer;
+
+  /// Animation timer that ticks the [WaveformPipeline] at ~30 Hz and pushes
+  /// each snapshot to the native renderer via [FloatingOverlayController.
+  /// setWaveformBars]. Active during [RecordingPhase.recording] and during
+  /// the trailing release-out window after `recording → transcribing`.
+  Timer? _waveformTimer;
+
+  /// True while the service is in the release-out tail that follows the
+  /// `recording → transcribing` transition. While set, `audioLevelProvider`
+  /// updates are ignored and the timer tick pushes `pushSample(0.0, _now())`
+  /// instead, so the waveform decays gracefully via the pipeline's release
+  /// smoothing.
+  bool _isInReleaseOut = false;
+
+  /// Wall-clock instant at which the current release-out window started.
+  /// `null` outside of release-out.
+  DateTime? _releaseOutStart;
+
+  /// Single owner of the waveform smoothing + history state. Created lazily
+  /// in [onControllerReady] so subclasses can override `createController`
+  /// without paying the allocation cost when the platform has no overlay.
+  late final WaveformPipeline _pipeline;
+
+  int _generation = 0;
+  RecordingPhase _lastPhase = RecordingPhase.idle;
+
+  /// Frame-heartbeat recovery for the render engine (macOS, Windows and
+  /// Linux; see [RenderEngineRecovery]). Pure policy, driven by the timer below.
+  final RenderRecoveryMachine _renderRecovery = RenderRecoveryMachine(
+    frameDeadline: kRenderFrameDeadline,
+    sessionBudget: kRenderRebootBudget,
+    firstEpisodeGrace: kRenderFirstBootGrace,
+  );
+  Timer? _renderFrameTimer;
+
+  /// Whether the native shell is currently shown, so the heartbeat arms only
+  /// on a hidden→visible transition.
+  bool _shellShown = false;
+
+  /// Drops redundant hides before they reach the native shell.
+  final OverlayShellGate _shellGate = OverlayShellGate();
+  L10n? _l10n;
+
+  /// True from the first guided-sequence frame (briefing/announce) until the
+  /// overlay next hides. While set, every snapshot forces the NORMAL size
+  /// variant regardless of the configured overlay size: the guided flow is
+  /// text (field names, positions, key mechanics), and the mini pill paints
+  /// no text at all during recording while compact/mini ellipsise the
+  /// announce into noise — field-tested root cause of "I see no guidance
+  /// whatsoever" (2026-09-01, user ran `overlay_size: mini`). Sticky until
+  /// hide on purpose: the sequence's final done frame arrives after the
+  /// session state is already null, and flipping back to mini exactly on
+  /// the paste-confirmation frame would resize the native shell on the one
+  /// frame the user is meant to read.
+  bool _interactiveGuidanceActive = false;
+
+  // ── Live/partial transcript (ticket 11 + live-transcript-streaming) ─────
+
+  /// Subscription to the active STT engine's live-transcript stream — either
+  /// [SttServerStateNotifier.livePreviewStream] (during
+  /// [RecordingPhase.recording]) or [PartialTranscriptSource]'s
+  /// `partialTranscript` (during [RecordingPhase.transcribing]), whichever
+  /// matches [_lastPhase] — active only while the user opted into
+  /// `AppSettings.overlayShowLiveTranscript`. Started/stopped in
+  /// [_updateLiveTranscriptLifecycle] rather than once for the service's
+  /// whole lifetime: re-reading the stream fresh on every episode picks up
+  /// an engine swap (e.g. the GPU→CPU fallback) instead of listening to a
+  /// stream a since-replaced engine no longer feeds.
+  StreamSubscription<String>? _partialSub;
+
+  /// Text emitted so far by [_partialSub] for the current recording/
+  /// transcribing episode. Empty when no live text has arrived yet, the
+  /// setting is off, or the active engine has no live-preview/partial
+  /// support — [_sendSnapshot] then falls back to the classic timer/
+  /// "Transcribing…" text.
+  String _liveTranscript = '';
+
+  // ── FloatingPlatformServiceBase contract ──────────────────────────────────
+
+  @override
+  FloatingOverlayController? createController() =>
+      createFloatingOverlayController();
+
+  @override
+  Stream<FloatingOverlayEvent> eventsFrom(FloatingOverlayController c) =>
+      c.events;
+
+  @override
+  Future<void> disposeController(FloatingOverlayController c) => c.dispose();
+
+  @override
+  void onEvent(FloatingOverlayEvent event) => _onEvent(event);
+
+  @override
+  void onControllerReady(FloatingOverlayController controller) {
+    _pipeline = WaveformPipeline();
+
+    ref.onDispose(() {
+      _autoHideTimer?.cancel();
+      _waveformTimer?.cancel();
+      _renderFrameTimer?.cancel();
+      _partialSub?.cancel();
+    });
+
+    ref.listen(settingsProvider, (_, next) {
+      next.whenData((s) => _syncSettings(s));
+    });
+    ref.listen(recordingPhaseProvider, (prev, next) {
+      _onPhaseChanged(prev ?? RecordingPhase.idle, next);
+    });
+    ref.listen(audioLevelProvider, (_, next) {
+      _onAudioLevel(next);
+    });
+    ref.listen(recordingElapsedProvider, (_, next) {
+      _onElapsedChanged(next);
+    });
+    ref.listen(audioServiceProvider, (prev, next) {
+      _onMicStateChanged(prev, next);
+    });
+    ref.listen(micSignalLostProvider, (_, _) {
+      _onElapsedChanged(ref.read(recordingElapsedProvider));
+    });
+    ref.listen(discardConfirmProvider, (_, _) {
+      _onElapsedChanged(ref.read(recordingElapsedProvider));
+    });
+    ref.listen(interactiveSnippetControllerProvider, (prev, next) {
+      _onInteractiveSessionChanged(prev, next);
+    });
+    ref.listen(repasteEmptyNoticeProvider, (_, _) => _showRepasteEmpty());
+    ref.listen(recordingLanguageProvider, (_, _) {
+      _onRecordingLanguageChanged();
+    });
+    ref.listen(recordingProfileProvider, (_, _) {
+      _onRecordingLanguageChanged();
+    });
+    ref.listen(transcriptionSliceProgressProvider, (_, _) {
+      _onSliceProgressChanged();
+    });
+
+    final settings = ref.read(settingsProvider);
+    settings.whenData((s) => _syncSettings(s));
+  }
+
+  /// The run's language changed (start, or the one-time profile resolution):
+  /// refresh the chip on the frame that is already showing.
+  void _onRecordingLanguageChanged() {
+    final settings = ref.read(settingsProvider).value;
+    final phase = ref.read(recordingPhaseProvider);
+    if (settings == null || phase == RecordingPhase.idle) return;
+    _sendSnapshot(settings, phase);
+  }
+
+  /// A slice of the running transcription finished: refresh the label on the
+  /// frame that is already showing.
+  void _onSliceProgressChanged() {
+    final settings = ref.read(settingsProvider).value;
+    final phase = ref.read(recordingPhaseProvider);
+    if (settings == null || phase != RecordingPhase.transcribing) return;
+    _sendSnapshot(settings, phase);
+  }
+
+  // ── Settings sync ─────────────────────────────────────────────────────────
+
+  void _syncSettings(AppSettings s) {
+    final c = controller;
+    if (c == null) return;
+
+    final active = s.effectiveOverlayMode == OverlayMode.floating;
+    if (!active) {
+      _hideOverlay();
+      return;
+    }
+
+    _l10n = _resolveL10n(s.locale);
+    _sendContextMenuItems();
+
+    final phase = ref.read(recordingPhaseProvider);
+    if (phase != RecordingPhase.idle) {
+      _sendSnapshot(s, phase);
+      return;
+    }
+
+    // A guided sequence's briefing/announce frames run with the pipeline
+    // still idle — a settings sync must not hide them (the idle pre-sync
+    // below exists only for truly idle, off-screen moments).
+    if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+      return;
+    }
+
+    // Idle size pre-sync (log-evidenced fix, 2026-08-17): a size switched in
+    // Settings while idle used to reach the native shell only inside the FIRST
+    // visible snapshot of the next recording — the shell then ran its
+    // synchronous `resizePanelToContent` right on the hotkey→overlay hot path,
+    // where the known ~1 s Flutter resize-synchronizer stall (see
+    // FloatingOverlayHost.swift, `panelOperationStallThreshold`) blanked the
+    // overlay for the first ~1.3 s of the recording and triggered a full shell
+    // rebuild (whispaste.log 2026-08-17T03:25:57 ff., three consecutive
+    // `resizePanelToContent took ~1s` rebuilds, each at a recording start
+    // right after a size switch). Pushing a hidden snapshot now lets the
+    // shell resize while hidden, during settings interaction — off the hot
+    // path. Skipped while the done-state overlay is still lingering
+    // (auto-hide pending): hiding it early would cut the paste confirmation
+    // short.
+    if (!(_autoHideTimer?.isActive ?? false)) {
+      _hideOverlay();
+    }
+  }
+
+  // ── Phase transitions ─────────────────────────────────────────────────────
+
+  Future<void> _onPhaseChanged(RecordingPhase prev, RecordingPhase next) async {
+    if (controller == null) return;
+
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return;
+    if (settings.effectiveOverlayMode != OverlayMode.floating) {
+      // The overlay may have been switched off mid-recording. The waveform
+      // timer and the live-transcript subscription belong to the recording
+      // that started them, so tear them down here; otherwise the 33 ms timer
+      // keeps waking the engine for the rest of the session (CORE-IDLE-CPU).
+      _stopWaveformLoop();
+      _partialSub?.cancel();
+      _partialSub = null;
+      _liveTranscript = '';
+      return;
+    }
+
+    // A hotkey press refused during onboarding is no recording error: the
+    // overlay stays out of the onboarding surface (V11-10, MP-3, also on macOS).
+    if (next == RecordingPhase.error &&
+        isSilentOnboardingRefusal(
+          ref.read(recordingProvider).errorMessage ?? '',
+          onboardingActive: ref.read(onboardingSurfaceActiveProvider),
+        )) {
+      return;
+    }
+
+    _lastPhase = next;
+
+    _updateWaveformLifecycle(prev, next);
+    _updateLiveTranscriptLifecycle(prev, next, settings);
+    await _handlePhaseUi(prev, next, settings);
+  }
+
+  /// Updates the waveform-pipeline and animation-timer lifecycle based on the
+  /// phase transition.
+  ///
+  //   idle → recording: start the animation timer with a fresh pipeline.
+  //   recording → transcribing: enter release-out — keep the timer alive
+  //       for ~releaseOutDurationMs, but feed it `pushSample(0.0, …)` so
+  //       the waveform decays gracefully via the pipeline's release-tau.
+  //   recording → done / error: skip release-out, stop hard.
+  //   anything → done / error during release-out: stop hard immediately.
+  void _updateWaveformLifecycle(RecordingPhase prev, RecordingPhase next) {
+    if (next == RecordingPhase.recording) {
+      _startWaveformLoop();
+    } else if (prev == RecordingPhase.recording &&
+        next == RecordingPhase.transcribing) {
+      _startReleaseOut();
+    } else if (prev == RecordingPhase.recording) {
+      // recording → done / error / idle: no release-out, stop hard.
+      _stopWaveformLoop();
+    } else if (_isInReleaseOut &&
+        (next == RecordingPhase.done ||
+            next == RecordingPhase.error ||
+            next == RecordingPhase.idle)) {
+      // transcribing → done / error / idle mid-release-out: stop hard.
+      _stopWaveformLoop();
+    }
+  }
+
+  /// Sends overlay UI updates and schedules timers for the given phase.
+  Future<void> _handlePhaseUi(
+    RecordingPhase prev,
+    RecordingPhase next,
+    AppSettings settings,
+  ) async {
+    switch (next) {
+      case RecordingPhase.idle:
+        if (prev == RecordingPhase.done &&
+            (_autoHideTimer?.isActive ?? false)) {
+          return;
+        }
+        _hideOverlay();
+
+      case RecordingPhase.recording:
+        _generation++;
+        _autoHideTimer?.cancel();
+        // Position first, content second. Both go through the same
+        // MethodChannel (com.whispaste.floating_overlay), which delivers in
+        // FIFO order, so this ordering decides which side the native host
+        // sees first — not which Dart call blocks the other, since neither
+        // is awaited here. Sending setPosition first lets
+        // EnsureOverlayWindow() (linux/runner/floating_overlay_host.cc)
+        // apply the pending anchor before the window's first Show(),
+        // avoiding a (0,0) flash on cold creation. This is still safe for
+        // the "fast second recording preempts a lingering done overlay"
+        // case the old ordering guarded against: that hazard was about
+        // _setStartPosition's *internal* currentDisplayBounds() await
+        // delaying _sendSnapshot if it were awaited at the call site — it
+        // still isn't (unawaited), so _sendSnapshot still fires in the same
+        // synchronous turn regardless of source order.
+        if (prev == RecordingPhase.idle) {
+          unawaited(_setStartPosition(settings));
+        }
+        _sendSnapshot(settings, next);
+        // t₁ for hotkey→overlay latency: snapshot sent, native side can now
+        // show the overlay. Counterpart: PerfMarkers.markHotkeyPressed() in
+        // HotkeyService. HUMAN GATE (issue 16): read the log during dogfooding.
+        PerfMarkers.instance.markOverlayShown();
+
+      case RecordingPhase.transcribing:
+        _sendSnapshot(settings, next);
+
+      case RecordingPhase.refining:
+        // Smart Mode v2 (ticket 02): same "keep showing the busy pill,
+        // update the label" treatment as the transcribing → transcribing
+        // case above — no auto-hide/error-timeout scheduling here either,
+        // this phase always resolves to done (never error, ADR 0009).
+        _sendSnapshot(settings, next);
+
+      case RecordingPhase.done:
+        _sendSnapshot(settings, next);
+        // During an interactive sequence the done frame is only a beat
+        // between fields — the next announce replaces it and cancels the
+        // timer anyway. But if the sequence stalls there (a field's
+        // recording auto-stopped on max-duration/silence, no advance yet),
+        // auto-hiding would remove the user's only visible anchor while
+        // Enter still works — keep the pill up until the sequence moves on
+        // or ends (the session-end listener schedules the hide then).
+        if (!ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+          _scheduleAutoHide();
+        }
+
+      case RecordingPhase.error:
+        _sendSnapshot(settings, next);
+        _scheduleErrorTimeout();
+    }
+  }
+
+  // ── Audio level → waveform pipeline ──────────────────────────────────────
+
+  void _onAudioLevel(double level) {
+    if (controller == null) return;
+    if (_lastPhase != RecordingPhase.recording) return;
+    // While the release-out tail is running we deliberately ignore live audio
+    // levels — the timer feeds the pipeline `pushSample(0.0, …)` instead.
+    if (_isInReleaseOut) return;
+    _pipeline.pushSample(level, _now());
+  }
+
+  // ── Waveform animation loop ──────────────────────────────────────────────
+
+  void _startWaveformLoop() {
+    _pipeline.reset();
+    _isInReleaseOut = false;
+    _releaseOutStart = null;
+    _waveformTimer?.cancel();
+    _waveformTimer = Timer.periodic(_kTickPeriod, _onWaveformTick);
+  }
+
+  /// Enters the trailing release-out window: the timer keeps ticking but the
+  /// pipeline is fed silence (`pushSample(0.0, …)`) so the waveform decays
+  /// via the configured release time constant. After `releaseOutDurationMs`
+  /// elapses, the tick callback stops the timer itself.
+  void _startReleaseOut() {
+    _isInReleaseOut = true;
+    _releaseOutStart = _now();
+    // If the timer was somehow cancelled (e.g. controller went away), arm a
+    // fresh one — otherwise we just keep the recording-phase timer alive.
+    if (_waveformTimer == null || !_waveformTimer!.isActive) {
+      _waveformTimer = Timer.periodic(_kTickPeriod, _onWaveformTick);
+    }
+  }
+
+  void _onWaveformTick(Timer _) {
+    final c = controller;
+    if (c == null) return;
+    final now = _now();
+    if (_isInReleaseOut) {
+      final start = _releaseOutStart;
+      if (start != null &&
+          now.difference(start).inMilliseconds >= releaseOutDurationMs) {
+        // Release-out window over — last snapshot stays frozen.
+        _stopWaveformLoop();
+        return;
+      }
+      _pipeline.pushSample(0.0, now);
+    }
+    _pipeline.tick(now);
+    c.setWaveformBars(_pipeline.snapshot()).catchError((e, st) {
+      _log.error('Failed to push waveform bars', e, st);
+    });
+  }
+
+  void _stopWaveformLoop() {
+    _waveformTimer?.cancel();
+    _waveformTimer = null;
+    _isInReleaseOut = false;
+    _releaseOutStart = null;
+  }
+
+  // ── Live/partial transcript lifecycle ─────────────────────────────────────
+
+  /// Starts/stops [_partialSub] around the two windows in which the STT
+  /// side can actually produce live text:
+  ///
+  /// - [RecordingPhase.recording] — the DURING-recording preview
+  ///   ([SttServerStateNotifier.livePreviewStream], live-transcript-
+  ///   streaming ticket): a sliding-window decode of the audio captured so
+  ///   far, updated on a timer while the user is still speaking.
+  /// - [RecordingPhase.transcribing] — the existing POST-recording partial
+  ///   transcript (`WhisperFfiEngine.partialTranscript`, wired via
+  ///   [PartialTranscriptSource]): whisper.cpp's per-segment callback
+  ///   firing during the one batch decode after capture stops.
+  ///
+  /// The transition between the two (recording → transcribing) tears down
+  /// the first subscription and starts the second fresh — [_liveTranscript]
+  /// resets so the transcribing phase never briefly shows a stale
+  /// during-recording preview.
+  void _updateLiveTranscriptLifecycle(
+    RecordingPhase prev,
+    RecordingPhase next,
+    AppSettings settings,
+  ) {
+    final enteringRecording =
+        next == RecordingPhase.recording && prev != RecordingPhase.recording;
+    final enteringTranscribing =
+        next == RecordingPhase.transcribing &&
+        prev != RecordingPhase.transcribing;
+
+    if (enteringRecording || enteringTranscribing) {
+      _partialSub?.cancel();
+      _liveTranscript = '';
+      if (!settings.overlayShowLiveTranscript) return;
+      final notifier = ref.read(localSttBundleProvider.notifier);
+      final stream = enteringRecording
+          ? notifier.livePreviewStream
+          : notifier.partialTranscriptStream;
+      if (stream == null) return;
+      _partialSub = stream.listen(_onLiveTranscriptUpdate);
+      return;
+    }
+
+    final leavingLiveWindow =
+        (prev == RecordingPhase.recording ||
+            prev == RecordingPhase.transcribing) &&
+        next != RecordingPhase.recording &&
+        next != RecordingPhase.transcribing;
+    if (leavingLiveWindow) {
+      _partialSub?.cancel();
+      _partialSub = null;
+      _liveTranscript = '';
+    }
+  }
+
+  void _onLiveTranscriptUpdate(String text) {
+    _liveTranscript = text;
+    if (controller == null) return;
+    if (_lastPhase != RecordingPhase.recording &&
+        _lastPhase != RecordingPhase.transcribing) {
+      return;
+    }
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return;
+    _sendSnapshot(settings, _lastPhase);
+  }
+
+  // ── Elapsed timer updates ─────────────────────────────────────────────────
+
+  void _onElapsedChanged(Duration elapsed) {
+    if (controller == null) return;
+    if (_lastPhase != RecordingPhase.recording) return;
+
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return;
+    if (settings.effectiveOverlayMode != OverlayMode.floating) return;
+
+    _sendSnapshot(settings, RecordingPhase.recording);
+  }
+
+  // ── Interactive-snippet announce pre-roll ─────────────────────────────────
+
+  /// Reacts to interactive-snippet session changes (guided-sequence UX
+  /// pass). Three cases matter here; everything else is already driven by
+  /// the recording phase:
+  ///
+  /// - A session starts its BRIEFING (Enter-gated orientation before
+  ///   field 1): the pipeline is idle, no phase change will paint anything —
+  ///   this listener shows the orientation frame and it stays up until the
+  ///   user's Enter.
+  /// - A session enters a field's ANNOUNCE pre-roll: the recording pipeline
+  ///   is idle/done in that window — this listener shows the announce frame.
+  /// - The session ends: while the pipeline is idle (cancel during
+  ///   briefing/announce) the pill is hidden here; while it is `done` (the
+  ///   sequence just finished its last field) the normal done auto-hide is
+  ///   armed here, because [_handlePhaseUi] deliberately skipped it while
+  ///   the session was still active.
+  void _onInteractiveSessionChanged(
+    InteractiveSnippetSessionState? prev,
+    InteractiveSnippetSessionState? next,
+  ) {
+    if (controller == null) return;
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return;
+    if (settings.effectiveOverlayMode != OverlayMode.floating) return;
+
+    if (next != null && (next.briefing || next.announcing || next.assigning)) {
+      _generation++;
+      _interactiveGuidanceActive = true;
+      // A between-fields announce arrives right after the previous field's
+      // `done` armed the auto-hide — the pill must stay up for the pre-roll.
+      _autoHideTimer?.cancel();
+      if (ref.read(recordingPhaseProvider) == RecordingPhase.idle &&
+          (prev == null || next.briefing)) {
+        // Sequence start: the overlay comes up cold here (mirrors the
+        // idle → recording branch of _handlePhaseUi, same ordering rules).
+        unawaited(_setStartPosition(settings));
+      }
+      if (next.briefing) {
+        _sendBriefingSnapshot(settings, next);
+      } else {
+        _sendFieldAnnounceSnapshot(settings, next);
+      }
+      return;
+    }
+
+    if (next == null && prev != null) {
+      final phase = ref.read(recordingPhaseProvider);
+      if (phase == RecordingPhase.idle) {
+        _hideOverlay();
+      } else if (phase == RecordingPhase.done) {
+        // Sequence finished: give the paste-confirmation frame its normal
+        // linger, then hide (skipped in _handlePhaseUi while active).
+        _scheduleAutoHide();
+      }
+    }
+  }
+
+  /// Shows the Enter-gated orientation frame at sequence start: the field
+  /// count plus the first field's name and the Enter/Escape mechanics on
+  /// the secondary line. Stays up until the user presses Enter — no timer.
+  ///
+  /// Reuses [OverlayVisualState.transcribing] as the vehicle (same
+  /// reasoning as [_sendFieldAnnounceSnapshot]).
+  void _sendBriefingSnapshot(
+    AppSettings s,
+    InteractiveSnippetSessionState session,
+  ) {
+    final c = controller;
+    if (c == null) return;
+
+    final l10n = _l10n ?? _resolveL10n();
+    final label =
+        l10n?.interactiveSnippetBriefingLabel(session.fieldCount) ??
+        '${session.fieldCount} fields · Enter to start';
+    final hint =
+        l10n?.interactiveSnippetBriefingHint(session.fieldName) ??
+        'Field 1: ${session.fieldName} · Esc: cancel';
+
+    final snapshot = FloatingOverlaySnapshot(
+      visible: true,
+      state: OverlayVisualState.transcribing,
+      size: _guidanceSize(),
+      background: s.overlayBackgroundType,
+      wave: s.overlayWaveType,
+      appearance: s.overlayAppearance,
+      label: label,
+      secondaryLabel: hint,
+      privacyMode: s.sttProviderType.isLocal ? 'local' : 'cloud',
+    );
+
+    _log.debug(
+      'Overlay show: interactive-snippet briefing '
+      'fields=${session.fieldCount}',
+    );
+    _pushToShell(c, snapshot, 'Failed to send overlay briefing snapshot');
+  }
+
+  /// Shows the announce pre-roll frame: "Field i/N: name" with a quieter
+  /// "get ready" secondary line.
+  ///
+  /// Reuses [OverlayVisualState.transcribing] as the vehicle on purpose —
+  /// it is the ONE composition that paints a prominent text label in all
+  /// three size variants (normal, compact AND mini share
+  /// `WpOverlayPainter._drawTranscribing`), which is exactly what a guiding
+  /// instruction needs; the recording composition paints no text at all in
+  /// mini. The spinner reads as "preparing", and no new visual state has to
+  /// travel through the snapshot serialisation and every platform shell.
+  void _sendFieldAnnounceSnapshot(
+    AppSettings s,
+    InteractiveSnippetSessionState session,
+  ) {
+    final c = controller;
+    if (c == null) return;
+
+    final l10n = _l10n ?? _resolveL10n();
+    // "In einem Satz" has one take for all fields: name them all instead of
+    // counting fields, and say so while the fields are being filled in.
+    final String text;
+    final String hint;
+    if (session.assigning) {
+      text = l10n?.interactiveSnippetAssigningLabel ?? 'Filling in the fields…';
+      hint = l10n?.interactiveSnippetAssigningHint ?? 'Esc: cancel';
+    } else {
+      text = session.sentence
+          ? l10n?.interactiveSnippetSentenceLabel(session.fieldName) ??
+                'In one sentence: ${session.fieldName}'
+          : l10n?.interactiveSnippetAnnounceLabel(
+                  session.fieldIndex + 1,
+                  session.fieldCount,
+                  session.fieldName,
+                ) ??
+                'Field ${session.fieldIndex + 1}/${session.fieldCount}: '
+                    '${session.fieldName}';
+      hint = l10n?.interactiveSnippetAnnounceHint ?? 'Get ready to speak…';
+    }
+
+    final snapshot = FloatingOverlaySnapshot(
+      visible: true,
+      state: OverlayVisualState.transcribing,
+      size: _guidanceSize(),
+      background: s.overlayBackgroundType,
+      wave: s.overlayWaveType,
+      appearance: s.overlayAppearance,
+      label: text,
+      secondaryLabel: hint,
+      privacyMode: s.sttProviderType.isLocal ? 'local' : 'cloud',
+    );
+
+    _log.debug(
+      'Overlay show: interactive-snippet announce '
+      'field=${session.fieldIndex + 1}/${session.fieldCount}',
+    );
+    _pushToShell(c, snapshot, 'Failed to send overlay announce snapshot');
+  }
+
+  /// "Nothing to paste yet" after the repaste hotkey: a short neutral pill
+  /// that hides by itself, plus a screen-reader announcement. Only while
+  /// idle, so it never covers a recording or a guided sequence.
+  void _showRepasteEmpty() {
+    final s = ref.read(settingsProvider).value;
+    if (s == null) return;
+    final l10n = _l10n ?? _resolveL10n(s.locale);
+    final text = l10n?.repasteNothingYet ?? 'No dictation to paste yet';
+    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+    if (view != null) {
+      announce(
+        view,
+        text,
+        s.locale == 'he' ? TextDirection.rtl : TextDirection.ltr,
+      );
+    }
+    final c = controller;
+    if (c == null ||
+        s.effectiveOverlayMode != OverlayMode.floating ||
+        ref.read(recordingPhaseProvider) != RecordingPhase.idle ||
+        ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+      return;
+    }
+    _generation++;
+    final snapshot = FloatingOverlaySnapshot(
+      visible: true,
+      state: OverlayVisualState.done,
+      size: s.overlaySizeType.variant,
+      background: s.overlayBackgroundType,
+      wave: s.overlayWaveType,
+      appearance: s.overlayAppearance,
+      label: text,
+      doneMessage: text,
+      donePasteFailed: true,
+      privacyMode: s.sttProviderType.isLocal ? 'local' : 'cloud',
+    );
+    _log.debug('Overlay show: repaste found nothing');
+    _pushToShell(c, snapshot, 'Failed to send overlay repaste notice');
+    _scheduleAutoHide();
+  }
+
+  /// The size variant for guided-sequence frames — always normal (see
+  /// [_interactiveGuidanceActive]).
+  OverlaySizeVariant _guidanceSize() => OverlaySizeVariant.normal;
+
+  // ── Snapshot building ─────────────────────────────────────────────────────
+
+  /// Fraction of the maximum recording length elapsed, clamped to `[0, 1]`.
+  /// Zero outside the recording phase or when no maximum is configured.
+  double _progressFor(RecordingPhase phase, AppSettings s, Duration elapsed) {
+    if (phase != RecordingPhase.recording || s.maxRecordDuration <= 0) {
+      return 0.0;
+    }
+    final fraction = elapsed.inSeconds / s.maxRecordDuration;
+    return fraction > 1.0 ? 1.0 : fraction;
+  }
+
+  /// Chip label for the run in [phase]: the language this recording actually
+  /// runs with ([recordingLanguageProvider], SW-03/SW-07), never the live
+  /// setting. Nothing is shown while idle or for `auto`.
+  String? _languageChipFor(RecordingPhase phase) {
+    if (phase == RecordingPhase.idle) return null;
+    final language = ref.read(recordingLanguageProvider);
+    return language == null ? null : languageChipLabelFor(language);
+  }
+
+  /// Chip label for the profile this run actually uses: the manual choice or
+  /// the one the per-app rules matched at start ([recordingProfileProvider],
+  /// ticket 13 part 3). Nothing while idle or when no profile applies.
+  String? _profileChipFor(RecordingPhase phase) {
+    if (phase == RecordingPhase.idle) return null;
+    final name = ref.read(recordingProfileProvider);
+    return name == null ? null : profileChipLabelFor(name);
+  }
+
+  void _sendSnapshot(AppSettings s, RecordingPhase phase) {
+    final c = controller;
+    if (c == null) return;
+
+    final l10n = _l10n ?? _resolveL10n();
+    // Guided sequences force the normal size for the whole episode (see
+    // _interactiveGuidanceActive): the field-position/name text is the
+    // guidance, and mini/compact cannot carry it.
+    if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+      _interactiveGuidanceActive = true;
+    }
+    final sizeVariant = _interactiveGuidanceActive
+        ? _guidanceSize()
+        : s.overlaySizeType.variant;
+    final elapsed = ref.read(recordingElapsedProvider);
+    final recording = ref.read(recordingProvider);
+    final isLocal = s.sttProviderType.isLocal;
+    // Ziel des LAUFENDEN Vorgangs (Ticket 25). Wird zu jedem Aufnahmestart
+    // gesetzt und nie zurückgesetzt — deshalb hier bei jedem Schnappschuss neu
+    // lesen statt zu merken, damit der nächste Vorgang nie das Ziel des
+    // vorigen erbt.
+    final target = ref.read(recordingTargetProvider);
+
+    final progress = _progressFor(phase, s, elapsed);
+
+    // Briefing criterion 4: until the first sample arrives the recording phase
+    // shows the preparing state, not the live recording (see
+    // [showsStartingFeedback]).
+    final starting = showsStartingFeedback(
+      phase: phase,
+      firstSampleSeen: ref.read(audioServiceProvider).hasLiveSamples,
+    );
+    final live = phase == RecordingPhase.recording && !starting;
+
+    final snapshot = FloatingOverlaySnapshot(
+      visible: true,
+      state: starting ? OverlayVisualState.transcribing : _mapPhase(phase),
+      size: sizeVariant,
+      background: s.overlayBackgroundType,
+      wave: s.overlayWaveType,
+      appearance: s.overlayAppearance,
+      label: starting
+          ? (l10n?.overlayStarting ?? 'Starting…')
+          : _labelFor(phase, l10n, target),
+      elapsed: live
+          ? _recordingElapsedTextFor(elapsed, sizeVariant, target, l10n, s)
+          : '',
+      hint: starting ? '' : _hintFor(phase, s, l10n, target),
+      transcript: recording.transcript,
+      errorMessage: recording.errorMessage != null && l10n != null
+          ? localizeRecordingError(l10n, recording.errorMessage!)
+          : recording.errorMessage,
+      privacyMode: isLocal ? 'local' : 'cloud',
+      doneMessage: phase == RecordingPhase.done && l10n != null
+          ? doneMessageFor(
+              s.afterTranscription,
+              l10n,
+              target: target,
+              pasteFailed: recording.pasteFailed,
+              copiedOnly: recording.copiedOnly,
+              historyOnly: recording.historyOnly,
+              pasteUnconfirmed: recording.pasteUnconfirmed,
+            )
+          : null,
+      donePasteFailed: phase == RecordingPhase.done && recording.pasteFailed,
+      progress: progress,
+      languageChip: _languageChipFor(phase),
+      profileChip: _profileChipFor(phase),
+      liveTranscript:
+          (phase == RecordingPhase.recording ||
+                  phase == RecordingPhase.transcribing) &&
+              s.overlayShowLiveTranscript
+          ? _liveTranscript
+          : null,
+    );
+
+    _log.debug(
+      'Overlay show: phase=${phase.name} size=${sizeVariant.name} '
+      'visible=true',
+    );
+    _pushToShell(c, snapshot, 'Failed to send overlay snapshot');
+  }
+
+  /// Single exit to the native shell for every overlay snapshot. Routes the
+  /// snapshot through [_shellGate] (redundant hides are dropped) and keeps the
+  /// show/hide bookkeeping of the render-engine heartbeat in one place.
+  void _pushToShell(
+    FloatingOverlayController c,
+    FloatingOverlaySnapshot snapshot,
+    String failure,
+  ) {
+    final send = _shellGate.shouldSend(snapshot);
+    if (snapshot.visible) {
+      _markShellShown(c);
+    } else {
+      _markShellHidden();
+    }
+    if (!send) return;
+    c.updateSnapshot(snapshot).catchError((e, st) {
+      _log.error(failure, e, st);
+    });
+  }
+
+  // ── Render-engine frame heartbeat (WP-84 phase 2, plan item 1) ───────────
+
+  void _markShellShown(FloatingOverlayController c) {
+    if (_shellShown) return;
+    _shellShown = true;
+    if (c is! RenderEngineRecovery) return;
+    _renderRecovery.onShown(_now());
+    _armRenderFrameTimer();
+  }
+
+  void _markShellHidden() {
+    _shellShown = false;
+    _renderRecovery.onHidden();
+    _renderFrameTimer?.cancel();
+    _renderFrameTimer = null;
+  }
+
+  void _armRenderFrameTimer() {
+    _renderFrameTimer?.cancel();
+    _renderFrameTimer = null;
+    final due = _renderRecovery.deadline;
+    if (due == null) return;
+    final wait = due.difference(_now());
+    _renderFrameTimer = Timer(
+      wait.isNegative ? Duration.zero : wait,
+      _onRenderFrameDeadline,
+    );
+  }
+
+  void _onRenderFrameDeadline() {
+    _renderFrameTimer = null;
+    final now = _now();
+    final due = _renderRecovery.deadline;
+    final lag = due == null ? Duration.zero : now.difference(due);
+    switch (_renderRecovery.onDeadline(now, lag: lag)) {
+      case RenderRecoveryAction.none:
+        break;
+      case RenderRecoveryAction.repush:
+        // The overlay's machine never asks for a re-push (no
+        // repushBeforeReboot), so this is unreachable here.
+        break;
+      case RenderRecoveryAction.reboot:
+        _log.warning(
+          'Overlay render engine painted no frame within '
+          '${kRenderFrameDeadline.inMilliseconds} ms of show — re-booting it '
+          '(${_renderRecovery.reboots}/$kRenderRebootBudget)',
+        );
+        if (controller case final RenderEngineRecovery recovery) {
+          recovery.rebootRenderEngine().catchError((e, st) {
+            _log.error('Overlay render engine re-boot request failed', e, st);
+          });
+        }
+      case RenderRecoveryAction.budgetExhausted:
+        _log.error(
+          'Overlay render engine stalled again; the session re-boot budget '
+          '($kRenderRebootBudget) is spent — the overlay stays as is until the '
+          'app restarts',
+        );
+    }
+    if (_renderRecovery.armed) _armRenderFrameTimer();
+  }
+
+  void _onRenderFrame() {
+    _renderRecovery.onFrame();
+    _renderFrameTimer?.cancel();
+    _renderFrameTimer = null;
+    PerfMarkers.instance.markOverlayFirstFrame();
+  }
+
+  /// The first live sample completes the start feedback: while the recording
+  /// phase shows the preparing state, switch to the live recording state.
+  void _onMicStateChanged(AudioStatus? prev, AudioStatus next) {
+    if (controller == null) return;
+    if (_lastPhase != RecordingPhase.recording) return;
+    if (!next.hasLiveSamples) return;
+    if (prev?.hasLiveSamples == true) return;
+    final settings = ref.read(settingsProvider).value;
+    if (settings == null) return;
+    if (settings.effectiveOverlayMode != OverlayMode.floating) return;
+    _sendSnapshot(settings, RecordingPhase.recording);
+  }
+
+  void _hideOverlay() {
+    final c = controller;
+    if (c == null) return;
+    _autoHideTimer?.cancel();
+    // The guided episode is over once the pill leaves the screen — the next
+    // regular recording gets the user's configured size again.
+    _interactiveGuidanceActive = false;
+
+    // Preserve the configured size on hide. Forcing the normal size here made
+    // the native shell needlessly resize on every hide (and could flash the
+    // wrong size on the next show); keep the real setting so the panel size
+    // never flips. Falls back to normal only if settings are unavailable.
+    final s = ref.read(settingsProvider).value;
+    final sizeVariant = s?.overlaySizeType.variant ?? OverlaySizeVariant.normal;
+    final hidden = FloatingOverlaySnapshot(
+      visible: false,
+      state: OverlayVisualState.recording,
+      size: sizeVariant,
+      background: s?.overlayBackgroundType ?? OverlayBackground.marine,
+      wave: s?.overlayWaveType ?? OverlayWave.cyan,
+      appearance: s?.overlayAppearance ?? OverlayAppearance.defaults,
+      label: '',
+    );
+
+    _log.debug('Overlay hide (size=${sizeVariant.name})');
+    // A `visible:false` snapshot orders the native shell off-screen
+    // (macOS `orderOut`, Windows `SW_HIDE`, Linux `gtk_widget_hide`), so the
+    // hidden window no longer intercepts mouse events.
+    _pushToShell(c, hidden, 'Failed to hide overlay');
+  }
+
+  // ── Auto-hide ─────────────────────────────────────────────────────────────
+
+  void _scheduleAutoHide() {
+    _autoHideTimer?.cancel();
+
+    final gen = _generation;
+    _autoHideTimer = Timer(kOverlayAutoHideDelay, () {
+      if (_generation == gen) {
+        _hideOverlay();
+      }
+    });
+  }
+
+  void _scheduleErrorTimeout() {
+    _autoHideTimer?.cancel();
+
+    final gen = _generation;
+    _autoHideTimer = Timer(const Duration(seconds: 30), () {
+      if (_generation == gen && _lastPhase == RecordingPhase.error) {
+        _hideOverlay();
+      }
+    });
+  }
+
+  // ── Start position ────────────────────────────────────────────────────────
+
+  Future<void> _setStartPosition(AppSettings s) async {
+    final c = controller;
+    if (c == null) return;
+
+    try {
+      final pos = s.overlayStartPositionType;
+
+      if (pos == OverlayStartPosition.lastPosition &&
+          s.floatingOverlayX >= 0 &&
+          s.floatingOverlayY >= 0) {
+        // Dispatch the saved position immediately, unclamped: this is the
+        // first `await` in this branch, so the setPosition platform-channel
+        // message still goes out synchronously at call time (Dart dispatches
+        // a MethodChannel call's message before suspending on its reply) —
+        // ahead of _sendSnapshot's updateSnapshot on the recording-phase
+        // caller's next line. currentDisplayBounds() below is itself an
+        // async plugin round trip; awaiting it before sending anything would
+        // let updateSnapshot win that race instead, recreating the
+        // (0,0)-flash-on-cold-creation bug this call ordering exists to
+        // avoid. A monitor unplugged since the position was saved is
+        // corrected a moment later by the clamped follow-up call below —
+        // preferable to reintroducing the flash for every recording.
+        await c.setPosition(
+          s.floatingOverlayX,
+          s.floatingOverlayY,
+          OverlayAnchorMode.topLeft,
+        );
+        final displays = await currentDisplayBounds();
+        final size = OverlayPositioning.overlaySize(compact: false);
+        final clamped = WindowPositionClamp.clamp(
+          position: Offset(s.floatingOverlayX, s.floatingOverlayY),
+          size: size,
+          displays: displays,
+        );
+        // A monitor the overlay was dragged to before keeps its own spot
+        // (WP-39, 9.4); otherwise the clamped position stands.
+        final target =
+            MonitorRelativePosition.restoreAt(
+              topLeft: clamped,
+              size: size,
+              remembered: MonitorRelativePosition.decode(
+                s.windowPosition.overlayPositionsByMonitor,
+              ),
+              displays: displays,
+            ) ??
+            clamped;
+        if (target.dx != s.floatingOverlayX ||
+            target.dy != s.floatingOverlayY) {
+          await c.setPosition(target.dx, target.dy, OverlayAnchorMode.topLeft);
+        }
+      } else {
+        final anchor = pos == OverlayStartPosition.bottomCenter
+            ? OverlayAnchorMode.bottomCenter
+            : OverlayAnchorMode.topCenter;
+        await c.setPosition(-1, -1, anchor);
+      }
+    } catch (e, st) {
+      _log.error('Failed to set overlay start position', e, st);
+    }
+  }
+
+  // ── Context menu ──────────────────────────────────────────────────────────
+
+  void _sendContextMenuItems() {
+    final c = controller;
+    if (c == null) return;
+    final l10n = _l10n;
+    if (l10n == null) return;
+
+    c
+        .setContextMenuItems([
+          (id: 'cancel', label: l10n.overlayContextCancel),
+          (id: 'switch_normal', label: l10n.overlayContextSwitchNormal),
+          (id: 'switch_compact', label: l10n.overlayContextSwitchCompact),
+          (id: 'switch_mini', label: l10n.overlayContextSwitchMini),
+          (id: 'hide', label: l10n.overlayContextHide),
+        ])
+        .catchError((e, st) {
+          _log.error('Failed to send context menu items', e, st);
+        });
+  }
+
+  // ── Event handling ────────────────────────────────────────────────────────
+
+  void _onEvent(FloatingOverlayEvent event) {
+    switch (event) {
+      case OverlayCloseClicked():
+        _onCloseClicked();
+
+      case OverlayBodyClicked():
+        if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+          _log.debug('Overlay body clicked → advanceField');
+          ref
+              .read(interactiveSnippetControllerProvider.notifier)
+              .advanceField();
+        } else {
+          _log.debug('Overlay body clicked → toggleRecording');
+          ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        }
+
+      case OverlayRetryClicked():
+        _log.debug('Overlay retry clicked → orchestrator reset');
+        ref.read(recordingOrchestratorProvider.notifier).reset();
+        _hideOverlay();
+
+      case OverlayDragEnded(x: final x, y: final y):
+        _log.debug('Overlay dragged to ($x, $y)');
+        _savePosition(x, y);
+
+      case OverlayRenderFrame():
+        _onRenderFrame();
+
+      case OverlayContextMenuAction(action: final action):
+        _onContextMenuAction(action);
+
+      case OverlayRenderEngineDiagnostic(
+        message: final message,
+        isError: final isError,
+      ):
+        if (isError) {
+          _log.error('Render engine: $message');
+        } else {
+          _log.warning('Render engine: $message');
+        }
+    }
+  }
+
+  void _onCloseClicked() {
+    if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+      _log.debug('Overlay close during interactive snippet → cancel sequence');
+      ref.read(interactiveSnippetControllerProvider.notifier).cancel();
+      return;
+    }
+    final phase = ref.read(recordingPhaseProvider);
+    if (phase == RecordingPhase.recording ||
+        phase == RecordingPhase.transcribing ||
+        phase == RecordingPhase.refining) {
+      // Issue #145: the overlay X discards the active dictation — it must
+      // not transcribe, save, copy, or paste anything, unlike the recording
+      // hotkey / overlay-body click (toggleRecording → "stop and
+      // transcribe").
+      _log.debug('Overlay close during $phase → cancelRecording');
+      ref.read(recordingOrchestratorProvider.notifier).cancelRecording();
+    } else {
+      _log.debug('Overlay close → dismiss');
+      _hideOverlay();
+    }
+  }
+
+  void _onContextMenuAction(String action) {
+    switch (action) {
+      case 'cancel':
+        _log.debug('Context menu: cancel recording');
+        if (ref.read(interactiveSnippetControllerProvider.notifier).isActive) {
+          ref.read(interactiveSnippetControllerProvider.notifier).cancel();
+          _hideOverlay();
+          return;
+        }
+        // Issue #145: "Cancel recording" must actually discard the
+        // dictation (no transcribe/save/copy/paste), not stop-and-
+        // transcribe. cancelRecording() no-ops outside
+        // recording/transcribing/refining, so no phase check is needed here.
+        ref.read(recordingOrchestratorProvider.notifier).cancelRecording();
+        _hideOverlay();
+
+      case 'switch_normal':
+        _log.debug('Context menu: switch to normal');
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWith(overlaySize: FloatingOverlaySize.normal.value),
+            );
+
+      case 'switch_compact':
+        _log.debug('Context menu: switch to compact');
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWith(overlaySize: FloatingOverlaySize.compact.value),
+            );
+
+      case 'switch_mini':
+        _log.debug('Context menu: switch to mini');
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWith(overlaySize: FloatingOverlaySize.mini.value),
+            );
+
+      case 'hide':
+        _log.debug('Context menu: hide overlay');
+        _hideOverlay();
+        ref
+            .read(settingsProvider.notifier)
+            .updateSettings(
+              (s) => s.copyWith(overlayMode: OverlayMode.off.value),
+            );
+
+      default:
+        _log.warning('Unknown context menu action: $action');
+    }
+  }
+
+  Future<void> _savePosition(double x, double y) async {
+    // The plain position is written first, so it survives even when the
+    // display query never answers; the per-monitor memory follows as a
+    // second, enrichment-only write.
+    await _savePositionOnly(x, y);
+    final List<Rect> displays;
+    try {
+      displays = await currentDisplayBounds();
+    } on Exception catch (e) {
+      _log.warning('Overlay position not remembered per monitor: $e');
+      return;
+    }
+    await saveSettingsSafely(
+      _log,
+      'Failed to save overlay position',
+      () => ref.read(settingsProvider.notifier).updateSettings((s) {
+        final memory = MonitorRelativePosition.remember(
+          MonitorRelativePosition.decode(
+            s.windowPosition.overlayPositionsByMonitor,
+          ),
+          Offset(x, y),
+          OverlayPositioning.overlaySize(compact: false),
+          displays,
+        );
+        return s.copyWith(
+          overlayPositionsByMonitor: MonitorRelativePosition.encode(memory),
+        );
+      }),
+    );
+  }
+
+  Future<void> _savePositionOnly(double x, double y) => saveSettingsSafely(
+    _log,
+    'Failed to save overlay position',
+    () => ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWith(floatingOverlayX: x, floatingOverlayY: y),
+        ),
+  );
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  static OverlayVisualState _mapPhase(RecordingPhase phase) => switch (phase) {
+    RecordingPhase.idle => OverlayVisualState.recording,
+    RecordingPhase.recording => OverlayVisualState.recording,
+    RecordingPhase.transcribing => OverlayVisualState.transcribing,
+    // Smart Mode v2's refining phase (ticket 02) reuses the "transcribing"
+    // pill animation on the native side — only the label text below
+    // distinguishes it. Adding a fifth native visual state is out of scope
+    // for this ticket (would touch macOS/Windows/Linux overlay hosts).
+    RecordingPhase.refining => OverlayVisualState.transcribing,
+    RecordingPhase.done => OverlayVisualState.done,
+    RecordingPhase.error => OverlayVisualState.error,
+  };
+
+  /// Haupttext je Phase. Bei laufender Aufnahme in die Schnellnotiz benennt er
+  /// das Ziel: gemalt wird er in dieser Phase zwar nicht (dort zeigt die Pille
+  /// den Zeitzähler), aber die Bildschirmleseansage der Overlay-Schale spricht
+  /// genau dieses Feld beim Zustandswechsel aus.
+  String _labelFor(RecordingPhase phase, L10n? l10n, RecordingTarget target) =>
+      switch (phase) {
+        RecordingPhase.recording => switch (target) {
+          RecordingTarget.templateField => _interactiveSnippetSpeakNowLabel(
+            l10n,
+          ),
+          RecordingTarget.quickNote =>
+            l10n?.overlayRecordingQuickNote ?? 'Recording to note',
+          RecordingTarget.selectionEdit =>
+            l10n?.overlayRecordingSelectionEdit ?? 'Say what to change',
+          RecordingTarget.clipboard => l10n?.overlayRecording ?? 'Recording',
+        },
+        // Edit selection stays in `transcribing` while the engine runs (a
+        // failure must be able to reach `error`, which `refining` never
+        // does — ADR 0009), so the label names the actual work.
+        RecordingPhase.transcribing =>
+          target == RecordingTarget.selectionEdit
+              ? (l10n?.overlayEditingSelection ?? 'Editing selection…')
+              : _transcribingLabel(l10n),
+        RecordingPhase.refining => l10n?.overlayRefining ?? 'Refining…',
+        RecordingPhase.done => l10n?.overlayDoneReady ?? 'Done',
+        RecordingPhase.error => l10n?.overlayError ?? 'Error',
+        RecordingPhase.idle => '',
+      };
+
+  /// "Processing part k of n…" while a long recording is transcribed in
+  /// slices, so the pill and the screen reader name the progress. Otherwise
+  /// the plain processing word.
+  String _transcribingLabel(L10n? l10n) {
+    final slice = ref.read(transcriptionSliceProgressProvider);
+    if (slice == null || !slice.isSliced) {
+      return l10n?.overlayTranscribing ?? 'Transcribing…';
+    }
+    return l10n?.transcribingSliceProgress(slice.current, slice.total) ??
+        'Processing part ${slice.current} of ${slice.total}…';
+  }
+
+  /// Sichtbarer Text der Pille während der Aufnahme.
+  ///
+  /// Bei Ziel Zwischenablage ist das unverändert der reine Zeitzähler. Bei
+  /// Ziel Schnellnotiz oder Vorlagenfeld tritt der Zielname hinzu — das ist
+  /// die einzige Stelle, an der die Zielangabe während der Aufnahme
+  /// tatsächlich auf dem Schirm landet. Größenabhängig, weil der Text der
+  /// Wellenform ihren Platz nimmt:
+  ///
+  /// - normal: Zeitzähler + Ziel („0:05 · Notiz") — dort ist Platz für beides.
+  /// - kompakt: nur das Ziel; Zeitzähler + Ziel würde die Wellenform auf ein
+  ///   Drittel ihrer Breite drücken, und die Zielangabe ist in diesem Moment
+  ///   die wichtigere Auskunft (der laufende Vorgang ist über Punkt,
+  ///   Wellenform und Zeitleiste weiterhin erkennbar).
+  /// - mini: ebenfalls nur das Ziel. Die mini-Pille malt überhaupt keinen
+  ///   Text (sie ist wellenform-only), die Zielangabe erreicht dort also
+  ///   niemanden — dieselbe dokumentierte Grenze wie heute schon bei
+  ///   „Kopiert"/„Eingefügt". Irreführend wird sie dadurch nie.
+  ///
+  /// Für ein Vorlagenfeld (interaktives Snippet) war das vor diesem Fix ein
+  /// blinder Fleck: `_labelFor` berechnete zwar "Feld i/N: Name", aber
+  /// [WpOverlayPainter] malt während `recording` ausschließlich `timerText`
+  /// (`overlay_painter.dart`, `_isRecording ? timerText : statusText`) — das
+  /// Label erreichte den Bildschirm nie, nur den Screenreader. Der Nutzer sah
+  /// beim Aufnehmen eines Feldes also nur eine Wellenform plus Zeitzähler,
+  /// ohne zu wissen, welches Feld gerade läuft.
+  /// Wraps [_recordingTextFor] with the during-recording live-preview
+  /// override (live-transcript-streaming ticket): while a non-empty
+  /// [_liveTranscript] is available and the setting is on, it replaces the
+  /// normal timer/target text in the same slot [_isRecording ? timerText :
+  /// statusText] paints for the recording composition — reusing the
+  /// existing rendering path (arbitrary text, ellipsis on overflow) rather
+  /// than adding a second one.
+  String _recordingElapsedTextFor(
+    Duration elapsed,
+    OverlaySizeVariant size,
+    RecordingTarget target,
+    L10n? l10n,
+    AppSettings s,
+  ) {
+    // XP-5-08: a lost microphone outranks the timer, the live text and the
+    // target name. Alone, because the line does not grow and a truncated
+    // notice is no notice; the pulsing dot still shows the recording runs.
+    if (ref.read(micSignalLostProvider)) {
+      return l10n?.overlayMicSignalLost ?? 'No microphone signal';
+    }
+    if (s.overlayShowLiveTranscript && _liveTranscript.trim().isNotEmpty) {
+      return _liveTranscript;
+    }
+    return _recordingTextFor(elapsed, size, target, l10n);
+  }
+
+  String _recordingTextFor(
+    Duration elapsed,
+    OverlaySizeVariant size,
+    RecordingTarget target,
+    L10n? l10n,
+  ) {
+    final timer = formatOverlayElapsed(elapsed);
+    final targetName = switch (target) {
+      RecordingTarget.quickNote => l10n?.overlayTargetQuickNote ?? 'Note',
+      RecordingTarget.templateField => _interactiveSnippetSpeakNowLabel(l10n),
+      RecordingTarget.selectionEdit =>
+        l10n?.overlayTargetSelectionEdit ?? 'Edit selection',
+      RecordingTarget.clipboard => null,
+    };
+    if (targetName == null) return timer;
+    return switch (size) {
+      OverlaySizeVariant.normal =>
+        l10n?.overlayRecordingTargetTimer(timer, targetName) ??
+            '$timer · $targetName',
+      OverlaySizeVariant.compact || OverlaySizeVariant.mini => targetName,
+    };
+  }
+
+  /// Label of the cancel key shown in the recording hint (Escape or F12).
+  static String _cancelKeyLabel(AppSettings s) =>
+      s.audioInput.cancelDictationKey == cancelDictationKeyEscape
+      ? 'Esc'
+      : 'F12';
+
+  /// The main hotkey as it currently listens (safe default while it stands
+  /// in for a taken combination, XP-5-09).
+  ({String key, String modifiers, String display}) _activeGlobalHotkey(
+    AppSettings s,
+  ) => activeGlobalHotkey(
+    s,
+    fallback: ref.read(globalHotkeyFallbackActiveProvider),
+  );
+
+  String _hintFor(
+    RecordingPhase phase,
+    AppSettings s,
+    L10n? l10n,
+    RecordingTarget target,
+  ) {
+    if (phase == RecordingPhase.recording) {
+      // Der Hinweis muss die Kombination nennen, mit der der Nutzer DIESEN
+      // Vorgang gestartet hat — bei einer Schnellnotiz-Aufnahme ist das der
+      // Schnellnotiz-Hotkey, nicht der Haupt-Hotkey.
+      final quickNote = target == RecordingTarget.quickNote;
+      final enabled = quickNote
+          ? s.quickNoteHotkey.quickNoteHotkeyEnabled
+          : s.hotkeyEnabled;
+      if (target == RecordingTarget.selectionEdit) {
+        // Quick actions are spoken keywords (the overlay has no per-element
+        // hit regions) — the hint is where the user learns them.
+        return l10n?.overlaySelectionEditHint ??
+            'Say what to change — or: shorter · improve · translate';
+      }
+      if (target == RecordingTarget.templateField) {
+        // Enter/Escape sind sequenz-gebunden immer registriert (siehe
+        // InteractiveSnippetController) — der Hinweis nennt sie daher auch
+        // dann, wenn der Haupt-Hotkey abgeschaltet ist.
+        if (!enabled) {
+          return l10n?.overlayKeyboardHintNextFieldEnterOnly ??
+              'Enter: next field · Esc: cancel';
+        }
+        final active = _activeGlobalHotkey(s);
+        final hotkey = formatHotkeyShortcut(
+          active.modifiers,
+          active.key,
+          l10n: l10n,
+          displayOverride: active.display,
+        );
+        return l10n?.overlayKeyboardHintNextFieldEnter(hotkey) ??
+            'Enter or $hotkey: next field · Esc: cancel';
+      }
+      final cancelKey = _cancelKeyLabel(s);
+      if (ref.read(discardConfirmProvider)) {
+        return l10n?.overlayDiscardConfirm(cancelKey) ??
+            'Discard recording? Press $cancelKey again';
+      }
+      if (enabled) {
+        final hotkey = quickNote
+            ? formatHotkeyShortcut(
+                s.quickNoteHotkey.quickNoteHotkeyModifiers,
+                s.quickNoteHotkey.quickNoteHotkeyKey,
+                l10n: l10n,
+                displayOverride: s.quickNoteHotkey.quickNoteHotkeyKeyDisplay,
+              )
+            : formatHotkeyShortcut(
+                _activeGlobalHotkey(s).modifiers,
+                _activeGlobalHotkey(s).key,
+                l10n: l10n,
+                displayOverride: _activeGlobalHotkey(s).display,
+              );
+        return l10n?.overlayStopAndCancelHint(hotkey, cancelKey) ??
+            'Press $hotkey to stop · $cancelKey to cancel';
+      }
+      return '';
+    }
+    if (phase == RecordingPhase.transcribing) {
+      final isLocal = s.sttProviderType.isLocal;
+      return isLocal
+          ? (l10n?.overlayProcessingLocal ?? 'Local')
+          : (l10n?.overlayProcessingCloud ?? 'Cloud');
+    }
+    // Smart Mode v2 (ticket 02): the Cleanup pass is always local-model
+    // inference (this ticket's whole scope), regardless of which STT
+    // provider produced the transcript.
+    if (phase == RecordingPhase.refining) {
+      return l10n?.overlayProcessingLocal ?? 'Local';
+    }
+    return '';
+  }
+
+  /// "Speak now: `<name>` (i/N)" instruction for the field currently being
+  /// recorded in an interactive-snippet sequence (guided-sequence UX pass —
+  /// the earlier "Field i/N: name" label named the field but did not TELL
+  /// the user what to do, which is what the maintainer flagged). Falls back
+  /// to the plain recording label if, unexpectedly, no sequence is active
+  /// (e.g. a stray `templateField` snapshot).
+  String _interactiveSnippetSpeakNowLabel(L10n? l10n) {
+    final session = ref.read(interactiveSnippetControllerProvider);
+    if (session == null) return l10n?.overlayRecording ?? 'Recording';
+    if (session.sentence) {
+      return l10n?.interactiveSnippetSentenceLabel(session.fieldName) ??
+          'In one sentence: ${session.fieldName}';
+    }
+    return l10n?.interactiveSnippetSpeakNowLabel(
+          session.fieldName,
+          session.fieldIndex + 1,
+          session.fieldCount,
+        ) ??
+        'Speak now: ${session.fieldName} '
+            '(${session.fieldIndex + 1}/${session.fieldCount})';
+  }
+
+  L10n? _resolveL10n([String? localeCode]) {
+    // Must follow the app's own language setting, not the OS locale — the
+    // overlay used to read platformDispatcher.locale directly, so it stayed
+    // in the system UI language even after switching WhisPaste's own
+    // Settings → Language to something else.
+    final locale = localeCode != null
+        ? Locale(localeCode)
+        : WidgetsBinding.instance.platformDispatcher.locale;
+    try {
+      return lookupL10n(locale);
+    } catch (_) {
+      try {
+        return lookupL10n(const Locale('en'));
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+}
+
+/// Provider for the floating overlay service (keepAlive — lives for app
+/// lifetime).
+final floatingOverlayServiceProvider =
+    NotifierProvider<FloatingOverlayService, void>(FloatingOverlayService.new);

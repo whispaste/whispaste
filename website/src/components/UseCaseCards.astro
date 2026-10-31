@@ -1,0 +1,280 @@
+---
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+
+// Each audience: a cinematic photo (AI-generated, labelled) with the text
+// field it typically writes in laid on top — the product in the scene.
+const workflows = [
+  {
+    key: 'developer',
+    href: pathForSlug(lang, 'use-cases/programmer'),
+    icon: 'M8 9l-3 3 3 3M16 9l3 3-3 3M4 4h16v12H8l-4 4z',
+  },
+  {
+    key: 'students',
+    href: pathForSlug(lang, 'use-cases/students'),
+    icon: 'M5 3h10l4 4v14H5zM15 3v4h4M8 12h8M8 16h5',
+  },
+  {
+    key: 'everyday',
+    href: pathForSlug(lang, 'use-cases/everyday'),
+    icon: 'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z',
+  },
+] as const;
+---
+
+<!-- Use cases: three entries into the use-case pages. Each card is a scene
+     (photo) with the field the person writes in, then title, text and link.
+     Stacked on phones/tablets, three columns from lg. -->
+<section id="use-cases" class="wp-band relative wp-section scroll-mt-20" data-surface="light">
+  <div class="relative wp-container">
+    <div class="wp-section-head">
+      <SectionEyebrow key="useCaseCards.label" />
+      <h2 class="section-title">
+        <span data-i18n="useCaseCards.titleLead">{t(lang, 'useCaseCards.titleLead')}</span><!--
+        --><span class="wp-marker" data-i18n="useCaseCards.titleAccent">{t(lang, 'useCaseCards.titleAccent')}</span><!--
+        --><span data-i18n="useCaseCards.titleTail">{t(lang, 'useCaseCards.titleTail')}</span>
+      </h2>
+    </div>
+
+    <div class="use-case-grid">
+      {workflows.map(({ key, href, icon }, i) => (
+        <a
+          href={href}
+          class="use-case-card"
+          aria-label={t(lang, `useCaseCards.${key}.ariaLabel`)}
+          data-i18n-aria={`useCaseCards.${key}.ariaLabel`}
+          data-testid={`use-cases-${key}`}
+        >
+          <div class="use-case-card__scene">
+            <picture aria-hidden="true">
+              <source type="image/avif" srcset={`/images/use-cases/${key}-640.avif 640w, /images/use-cases/${key}-1200.avif 1200w`} sizes="(min-width: 1024px) 30vw, 100vw" />
+              <img
+                src={`/images/use-cases/${key}-1200.webp`}
+                srcset={`/images/use-cases/${key}-640.webp 640w, /images/use-cases/${key}-1200.webp 1200w`}
+                sizes="(min-width: 1024px) 30vw, 100vw"
+                alt=""
+                width="1200"
+                height="750"
+                loading="lazy"
+                decoding="async"
+              />
+            </picture>
+            <!-- EU AI Act Art. 50(4): AI-generated, realistic — labelled. -->
+            <span class="use-case-card__ai" data-i18n="ai.badge">{t(lang, 'ai.badge')}</span>
+            <div class="use-case-card__field" aria-hidden="true" style={`--uc-tilt: ${i % 2 === 0 ? -2 : 2}deg`}>
+              <span class="use-case-card__tab">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d={icon} /></svg>
+                <span data-i18n={`useCaseCards.${key}.field`}>{t(lang, `useCaseCards.${key}.field`)}</span>
+              </span>
+              <p class="use-case-card__sample"><span data-i18n={`useCaseCards.${key}.sample`}>{t(lang, `useCaseCards.${key}.sample`)}</span><span class="use-case-card__caret"></span></p>
+            </div>
+          </div>
+          <div class="use-case-card__body">
+            <span class="use-case-card__num" aria-hidden="true">{`0${i + 1}`}</span>
+            <h3 class="use-case-card__title"
+                data-i18n={`useCaseCards.${key}.title`}>{t(lang, `useCaseCards.${key}.title`)}</h3>
+            <p class="use-case-card__desc"
+               data-i18n={`useCaseCards.${key}.desc`}>{t(lang, `useCaseCards.${key}.desc`)}</p>
+            <span class="use-case-card__cta">
+              <span data-i18n="useCaseCards.more">{t(lang, 'useCaseCards.more')}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </span>
+          </div>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .use-case-grid {
+    display: grid;
+    gap: var(--wp-space-6);
+  }
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .use-case-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (min-width: 1024px) {
+    .use-case-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .use-case-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
+    text-decoration: none;
+    color: inherit;
+    transition:
+      border-color var(--dur-base) ease,
+      box-shadow var(--dur-base) ease;
+  }
+  .use-case-card:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 3px;
+  }
+
+  /* ---- Scene: photo with the text field on top ---- */
+  .use-case-card__scene {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--wp-photo-fill, var(--wp-color-navy-900));
+  }
+  .use-case-card__scene img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 30% 40%;
+    transition: scale var(--dur-slow) var(--ease-flow);
+  }
+  .use-case-card__ai {
+    position: absolute;
+    top: var(--wp-space-3);
+    left: var(--wp-space-3);
+    padding: 2px var(--wp-space-2);
+    border-radius: var(--wp-radius-chip);
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 500;
+    color: var(--wp-photo-label-text);
+    /* Opaque: the band is light, so the label must not rely on the photo. */
+    background: var(--wp-photo-label-fill);
+  }
+  /* The field the person is writing in, laid onto the scene like a sticker:
+     an amber tab names it (the one accent), the dictated text sits inside. */
+  .use-case-card__field {
+    position: absolute;
+    right: var(--wp-space-4);
+    bottom: var(--wp-space-4);
+    width: min(78%, 20rem);
+    rotate: var(--uc-tilt);
+    transition: rotate var(--dur-base) var(--ease-flow), translate var(--dur-base) var(--ease-flow);
+  }
+  .use-case-card__tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    margin-left: var(--wp-space-3);
+    padding: var(--wp-space-1) var(--wp-space-2);
+    border-radius: var(--wp-radius-chip) var(--wp-radius-chip) 0 0;
+    background: var(--wp-marker-stroke);
+    color: var(--wp-marker-text);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+  }
+  .use-case-card__tab svg {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+  .use-case-card__sample {
+    margin: 0;
+    padding: var(--wp-space-3) var(--wp-space-4);
+    border-radius: var(--wp-radius-control);
+    background: var(--wp-card-fill);
+    box-shadow: var(--shadow-overlay);
+    color: var(--wp-text-primary);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 500;
+    line-height: 1.45;
+  }
+  .use-case-card__caret {
+    display: inline-block;
+    width: 2px;
+    height: 1.05em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: var(--wp-accent-default);
+    animation: uc-blink 1.1s steps(1) infinite;
+  }
+  @keyframes uc-blink {
+    50% { opacity: 0; }
+  }
+
+  /* ---- Body ---- */
+  .use-case-card__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    padding: var(--wp-card-pad);
+  }
+  .use-case-card__num {
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    color: var(--wp-text-muted);
+    margin-bottom: var(--wp-space-2);
+  }
+  .use-case-card__title {
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--wp-card-title);
+    margin-bottom: var(--wp-space-2);
+    line-height: 1.2;
+  }
+  .use-case-card__desc {
+    font-size: var(--wp-font-size-md);
+    line-height: 1.6;
+    color: var(--wp-text-secondary);
+    flex: 1;
+  }
+  .use-case-card__cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    margin-top: var(--wp-space-4);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    color: var(--wp-text-link);
+  }
+  .use-case-card__cta svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    transition: transform var(--dur-base) ease;
+  }
+
+  /* Hover only for real pointers: the scene leans in, the field straightens. */
+  @media (hover: hover) {
+    .use-case-card:hover {
+      border-color: var(--wp-card-border-hover);
+      box-shadow: var(--wp-card-shadow-hover);
+    }
+    .use-case-card:hover .use-case-card__scene img {
+      scale: 1.04;
+    }
+    .use-case-card:hover .use-case-card__field {
+      rotate: 0deg;
+      translate: 0 calc(-1 * var(--wp-space-1));
+    }
+    .use-case-card:hover .use-case-card__cta svg {
+      transform: translateX(3px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .use-case-card,
+    .use-case-card__scene img,
+    .use-case-card__field,
+    .use-case-card__cta svg {
+      transition: none;
+    }
+    .use-case-card__caret {
+      animation: none;
+    }
+  }
+</style>

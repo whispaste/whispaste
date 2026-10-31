@@ -1,0 +1,209 @@
+---
+import SectionEyebrow from './SectionEyebrow.astro';
+import CoffeeButton from './CoffeeButton.astro';
+import { t, currentLocale } from '../scripts/i18n.ts';
+import { STORES } from '../data/platforms.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+
+// Two groups of numbered rows; the store review rows only show on their OS
+// (`data-platform-btn`), and hidden rows skip the CSS counter.
+const groups = [
+  {
+    key: 'money',
+    rows: [
+      { key: 'paypal', href: 'https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY', testid: 'support-paypal' },
+    ],
+  },
+  {
+    key: 'free',
+    rows: [
+      { key: 'star', href: 'https://github.com/whispaste/whispaste', testid: 'support-star' },
+      { key: 'ideas', href: 'https://app.votepit.com/silvio-und-maik/whispaste', testid: 'support-roadmap' },
+      { key: 'rateMsStore', href: STORES.windows.reviewUrl, testid: 'support-rate-ms-store', platform: 'windows' },
+      { key: 'rateAppStore', href: STORES.macos.reviewUrl, testid: 'support-rate-app-store', platform: 'macos' },
+    ],
+  },
+] as const;
+import { BUY_ME_A_COFFEE_URL } from '../data/support-links';
+---
+<!-- Support: the closing beat above the footer (Pangram principle: big
+     title with a small label on the left, numbered rows on the right).
+     Two primary actions under the copy: the coffee button (Ko-fi) first,
+     then GitHub Sponsors. Every other way is a numbered row, split into
+     paying and non-paying help. No payment UI of our own; all targets are
+     external and open in a new tab. -->
+<section id="support" class="wp-band relative wp-section scroll-mt-20" data-surface="light" data-testid="support">
+  <div class="relative wp-container support-layout">
+    <div class="support-copy">
+      <SectionEyebrow key="support.label" />
+      <h2 class="section-title"><span data-i18n="support.titleLead">{t(lang, "support.titleLead")}</span><span class="wp-marker" data-i18n="support.titleAccent">{t(lang, "support.titleAccent")}</span><span data-i18n="support.titleTail">{t(lang, "support.titleTail")}</span></h2>
+      <p class="wp-lead mt-4" data-i18n="support.desc">{t(lang, "support.desc")}</p>
+      <div class="support-actions">
+        <div class="support-coffee" data-testid="support-coffee-group">
+          <p class="support-coffee__label" data-i18n="coffee.label">{t(lang, "coffee.label")}</p>
+          <div class="support-coffee__buttons">
+            <CoffeeButton label="Ko-fi" href="https://ko-fi.com/silviol" testid="support-coffee" />
+            <CoffeeButton label="Buy Me a Coffee" href={BUY_ME_A_COFFEE_URL} testid="support-buy-me-a-coffee" />
+          </div>
+        </div>
+        <a href="https://github.com/sponsors/silvio-l" target="_blank" rel="noopener" class="support-sponsor" data-testid="support-sponsor">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <span data-i18n="support.sponsor">{t(lang, "support.sponsor")}</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="support-ways" data-testid="support-ways">
+      {groups.map((group) => (
+        <div class="support-group" data-testid={`support-group-${group.key}`}>
+          <h3 class="support-group__title" data-i18n={`support.group${group.key === 'money' ? 'Money' : 'Free'}`}>{t(lang, `support.group${group.key === 'money' ? 'Money' : 'Free'}`)}</h3>
+          <ul class="support-rows">
+            {group.rows.map((row) => (
+              <li class="support-row" data-platform-btn={'platform' in row ? row.platform : undefined}>
+                <a href={row.href} target="_blank" rel="noopener" data-testid={row.testid}>
+                  <span class="support-row__label" data-i18n={`support.${row.key}`}>{t(lang, `support.${row.key}`)}</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<style>
+  .support-layout {
+    display: grid;
+    gap: var(--wp-space-12);
+  }
+  @media (min-width: 1024px) {
+    .support-layout {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+      column-gap: clamp(var(--wp-space-12), 6vw, var(--wp-space-24));
+      align-items: start;
+    }
+  }
+  .support-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wp-space-3) var(--wp-space-4);
+    margin-top: var(--wp-space-8);
+  }
+  .support-coffee__label {
+    margin: 0 0 var(--wp-space-3);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+  }
+  .support-coffee__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-3) var(--wp-space-4);
+  }
+  .support-sponsor {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-3);
+    min-height: 52px;
+    padding: var(--wp-space-3) var(--wp-space-8);
+    border-radius: var(--radius-pill);
+    background: var(--wp-button-primary-fill);
+    color: var(--wp-button-primary-text);
+    font-size: var(--wp-font-size-md);
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: var(--wp-button-primary-shadow-hover);
+    transition: transform var(--dur-base) var(--ease-flow);
+  }
+  .support-sponsor svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+  .support-sponsor:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Numbering runs across both groups; rows hidden by the platform gate
+     (display: none) do not count, so the visible rows stay 01, 02, … */
+  .support-ways {
+    display: grid;
+    gap: var(--wp-space-8);
+    counter-reset: support-way;
+  }
+  .support-group__title {
+    margin-bottom: var(--wp-space-3);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--wp-text-link);
+  }
+  .support-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--wp-space-2);
+  }
+  .support-row {
+    counter-increment: support-way;
+  }
+  .support-row a {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-4);
+    min-height: 56px;
+    padding: var(--wp-space-3) var(--wp-space-5);
+    border-radius: var(--wp-card-radius);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    color: var(--wp-card-title);
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+    text-decoration: none;
+    transition: border-color var(--dur-fast) var(--ease-flow), background-color var(--dur-fast) var(--ease-flow), box-shadow var(--dur-fast) var(--ease-flow);
+  }
+  .support-row a::before {
+    content: counter(support-way, decimal-leading-zero);
+    min-width: 2ch;
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 700;
+    color: var(--wp-highlight-text);
+  }
+  .support-row__label {
+    flex: 1;
+  }
+  .support-row svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    flex-shrink: 0;
+    color: var(--wp-card-meta);
+    transition: translate var(--dur-fast) var(--ease-flow), color var(--dur-fast) var(--ease-flow);
+  }
+  .support-row a:hover {
+    border-color: var(--wp-card-border-hover);
+    background: var(--wp-card-fill-hover);
+    box-shadow: var(--wp-card-shadow);
+  }
+  .support-row a:hover svg {
+    color: var(--wp-accent-default);
+    translate: 2px -2px;
+  }
+  .support-sponsor:focus-visible,
+  .support-row a:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .support-sponsor,
+    .support-row a,
+    .support-row svg { transition: none; }
+    .support-sponsor:hover { transform: none; }
+    .support-row a:hover svg { translate: none; }
+  }
+</style>

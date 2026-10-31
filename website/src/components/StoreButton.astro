@@ -1,0 +1,145 @@
+---
+// StoreButton.astro — Brand-consistent Microsoft Store download button.
+// URL and product ID sourced exclusively from the central platform config.
+import { t, currentLocale } from '../scripts/i18n.ts';
+import { MS_STORE_URL } from '../data/platforms.ts';
+
+interface Props {
+  size?: 'default' | 'lg';
+  class?: string;
+}
+
+const STORE_URL = MS_STORE_URL;
+
+const { size = 'default', class: className = '' } = Astro.props;
+const isLarge = size === 'lg';
+
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<a
+  href={STORE_URL}
+  target="_blank"
+  rel="noopener"
+  onclick="document.dispatchEvent(new CustomEvent('download:triggered', { bubbles: true }));"
+  class:list={[
+    'wp-store-btn',
+    { 'wp-store-btn--lg': isLarge },
+    className,
+  ]}
+  data-testid="store-button"
+>
+  <!-- Windows logo -->
+  <svg class="wp-store-btn__icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M0 3.5L9.9 2.2v9.4H0zm11.1-1.5L24 0v11.5H11.1zM0 12.6h9.9v9.4L0 20.7zm11.1-.1H24V24l-12.9-1.8z"/>
+  </svg>
+
+  {isLarge ? (
+    <span class="wp-store-btn__text">
+      <span class="wp-store-btn__label" data-i18n="store.btn.getfrom">{t(lang, "store.btn.getfrom")}</span>
+      <span class="wp-store-btn__store" data-i18n="store.btn.msstore">{t(lang, "store.btn.msstore")}</span>
+    </span>
+  ) : (
+    <span class="wp-store-btn__text">
+      <span data-i18n="store.btn.single">{t(lang, "store.btn.single")}</span>
+    </span>
+  )}
+  <span class="sr-only" data-i18n="common.opensNewTab">{t(lang, "common.opensNewTab")}</span>
+</a>
+
+<style>
+  .wp-store-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-3);
+    padding: var(--wp-space-3) var(--wp-space-6);
+    min-height: 44px;
+    border-radius: var(--radius-pill);
+    background: var(--gradient-accent-cta);
+    /* Dark, not white: white text measures ~1.6:1 against the gradient's
+       light-cyan stop (#6FDDF0) — well under WCAG AA's 4.5:1. Dark navy
+       clears >6:1 across the whole gradient, matching the __label span
+       below which already uses dark text for the same reason. */
+    color: var(--color-brand-darker);
+    text-decoration: none;
+    transition: transform var(--dur-base) var(--ease-flow),
+      box-shadow var(--dur-base) var(--ease-flow);
+    cursor: pointer;
+  }
+
+  .wp-store-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-pill);
+  }
+
+  .wp-store-btn:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-pill-active);
+  }
+
+  .wp-store-btn:focus-visible {
+    outline: var(--wp-focus-ring-width) solid var(--wp-focus-ring-color);
+    outline-offset: 2px;
+  }
+
+  /* Large variant (Hero, Download page) — same accent-gradient CTA, just
+     bigger; the size difference alone carries the extra visual weight. */
+  .wp-store-btn--lg {
+    padding: var(--wp-space-3) var(--wp-space-8);
+    min-height: 52px;
+    gap: var(--wp-space-4);
+  }
+
+  .wp-store-btn--lg:hover {
+    transform: translateY(-2px);
+  }
+
+  .wp-store-btn__icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    color: var(--color-brand-darker);
+  }
+
+  .wp-store-btn--lg .wp-store-btn__icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .wp-store-btn__text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+  }
+
+  /* Default: single line */
+  .wp-store-btn:not(.wp-store-btn--lg) .wp-store-btn__text {
+    flex-direction: row;
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+  }
+
+  /* Large: two lines */
+  .wp-store-btn--lg .wp-store-btn__label {
+    font-size: var(--wp-font-size-xs);
+    font-weight: 400;
+    color: color-mix(in srgb, var(--color-brand-darker) 68%, transparent);
+    letter-spacing: 0.01em;
+  }
+
+  .wp-store-btn--lg .wp-store-btn__store {
+    font-size: var(--wp-font-size-lg);
+    font-weight: 700;
+    color: var(--color-brand-darker);
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .wp-store-btn {
+      transition: none;
+    }
+    .wp-store-btn:hover {
+      transform: none;
+    }
+  }
+</style>

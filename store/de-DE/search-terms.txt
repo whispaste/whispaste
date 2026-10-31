@@ -1,0 +1,7 @@
+Spracherkennung
+Spracheingabe
+Sprache zu Text
+Diktieren
+Transkription
+Whisper Desktop
+Offline-Spracherkennung

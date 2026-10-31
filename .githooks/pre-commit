@@ -1,0 +1,529 @@
+#!/usr/bin/env bash
+# ai-attribution-guard (mirror ~/.git-hooks/pre-commit) — KI-Autor/Committer blocken
+ident="$(git var GIT_AUTHOR_IDENT 2>/dev/null) $(git var GIT_COMMITTER_IDENT 2>/dev/null)"
+if printf '%s' "$ident" | grep -qiE 'anthropic|claude|copilot|cursor\.so|codeium|\[bot\]@'; then
+  echo "╳ Commit blockiert — KI-Agent als Autor/Committer: $ident" >&2
+  exit 1
+fi
+#
+# WhisPaste — pre-commit Hook (OSS-Allowlist-Guard + Quality Gates)
+#
+# Zwei Schichten:
+#   1. Allowlist-Schranke — nur Pfade aus .ossallowlist dürfen committet
+#      werden. Fängt `git add -f` und versehentliches Stagen ab.
+#      Default-deny: neue interne Pfade sind standardmäßig blockiert.
+#   2. Quality-Gates — Flutter analyze, Loam ratchet, ESLint, cppcheck,
+#      Website CI. Erzwingen Code-Qualität vor dem Commit.
+#
+# Aktivierung: `git config core.hooksPath .githooks` (einmalig pro Clone).
+# Umgehen mit `git commit --no-verify` → dann greift pre-push als dritte Schicht.
+#
+# Bash-3.2-kompatibel (macOS /bin/bash) — kein mapfile/readarray.
+#
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+ALLOWLIST="$ROOT/.ossallowlist"
+
+# ── 0. Third-party product name guard (staged paths + added lines) ──────
+"$ROOT/.githooks/name-guard.sh" staged
+
+# ── 0b. Agent instruction guard (CLAUDE.md & co. never leave this machine) ─
+# Taken from the hook directory, not $ROOT: worktrees on an older base
+# do not carry the script yet.
+"$(dirname "$0")/instruction-guard.sh" staged
+
+# ── -1. Self-install: git clean filters (idempotent) ───────────────────
+# .gitattributes assigns the generated macOS files to the `mas-guard` and
+# `podlock` filters, but git filter *commands* live in local config, not
+# .gitattributes — every clone/worktree needs them set once. Doing it here
+# (cheapest, runs on every commit) means it self-installs without a separate
+# setup step. The filters normalize the files for every `git status`/
+# `git diff` between commits: a routine `flutter analyze`/`flutter test`
+# drops the MAS guard from the registrant, an implicit `pod install` writes
+# the local CocoaPods version into Podfile.lock — neither is a change.
+# Worktrees on an older base do not carry the script yet: keep the old line.
+if [ -f "$ROOT/scripts/install-git-filters.sh" ]; then
+  bash "$ROOT/scripts/install-git-filters.sh"
+elif [ "$(git config --local --get filter.mas-guard.clean 2>/dev/null || true)" != "python3 macos/patch_plugin_registrant_guard.py --stdin" ]; then
+  git config --local filter.mas-guard.clean "python3 macos/patch_plugin_registrant_guard.py --stdin"
+  git config --local filter.mas-guard.smudge cat
+  git config --local filter.mas-guard.required false
+fi
+
+# ── 0. Branch-Schutz (kein Commit auf main/master) ─────────────────────
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ "$CURRENT_BRANCH" = "main" ] || [ "$CURRENT_BRANCH" = "master" ]; then
+  if [ "${WP_ALLOW_COMMIT_ON_MAIN:-0}" != "1" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Commit auf '$CURRENT_BRANCH'
+╠══════════════════════════════════════════════════════════════╣
+║  Entwicklung läuft auf 'dev'. '$CURRENT_BRANCH' ist nur für
+║  Release-Merges (dev → main) reserviert.
+║
+║  Wechsle: git switch dev
+║  Bypass (NUR für Release-Merge):
+║    WP_ALLOW_COMMIT_ON_MAIN=1 git commit ...
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  else
+    echo "WP_ALLOW_COMMIT_ON_MAIN=1 — Commit auf '$CURRENT_BRANCH' erlaubt (Release-Modus)."
+  fi
+fi
+
+# ── 1. Allowlist-Schranke ───────────────────────────────────────────────
+if [ ! -f "$ALLOWLIST" ]; then
+  echo "pre-commit: WARN — .ossallowlist nicht gefunden, Guard inaktiv." >&2
+else
+  ALLOWED=()
+  while IFS= read -r line; do
+    case "$line" in
+      ''|\#*) continue ;;
+    esac
+    ALLOWED+=("$line")
+  done < "$ALLOWLIST"
+
+  is_allowed() {
+    local p="$1" a
+    for a in "${ALLOWED[@]}"; do
+      [ "$p" = "$a" ] && return 0
+      case "$a" in
+        */) [[ "$p" == "$a"* ]] && return 0 ;;
+      esac
+    done
+    return 1
+  }
+
+  violations=()
+  while IFS= read -r p; do
+    [ -z "$p" ] && continue
+    if ! is_allowed "$p"; then
+      violations+=("$p")
+    fi
+  done < <(git diff --cached --name-only --diff-filter=ACM)
+
+  if [ ${#violations[@]} -gt 0 ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT durch .ossallowlist — nicht-öffentliche Pfade   ║
+╠══════════════════════════════════════════════════════════════╣
+║  Die folgenden Dateien sind nicht in der Allowlist und     ║
+║  dürfen nicht ins öffentliche Repo committet werden:       ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    printf '  - %s\n' "${violations[@]}" >&2
+    cat >&2 <<EOF
+
+Interne Doku/Planung gehört nach internal-notes (gitignored).
+Öffentlich erlaubte Pfade stehen in .ossallowlist.
+Bei bewusster Ausnahme: .ossallowlist erweitern (nach Review).
+EOF
+    exit 1
+  fi
+fi
+
+# ── 0b. AI-Identity-Guard ───────────────────────────────────────────────
+# Blockt Commits, deren Author oder Committer ein KI-Agent ist (Identität,
+# nicht nur Trailer). Spiegelt den globalen ~/.git-hooks/pre-commit Guard,
+# der von unserem lokalen core.hooksPath geshadowt wird.
+IDENT="$(git var GIT_AUTHOR_IDENT 2>/dev/null) $(git var GIT_COMMITTER_IDENT 2>/dev/null)"
+if printf '%s' "$IDENT" | grep -qiE 'anthropic|claude|copilot|cursor\.so|codeium|opencode|\[bot\]@'; then
+  cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: KI-Agent als Author/Committer
+╚══════════════════════════════════════════════════════════════╝
+
+$IDENT
+
+Kein KI-Agent darf als Author/Committer/Contributor erscheinen.
+  git config user.name "Your Name"
+  git config user.email "your@email.com"
+EOF
+  exit 1
+fi
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
+[ -z "$STAGED_FILES" ] && exit 0
+
+# ── 2. .gitignore PROTECTED section nicht geschwächt? ──────────────────
+if echo "$STAGED_FILES" | grep -q "^\.gitignore$"; then
+  STAGED_PROTECTED=$(git show :0:.gitignore 2>/dev/null | tr -d '\r' \
+    | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+  COMMITTED_PROTECTED=$(git show HEAD:.gitignore 2>/dev/null | tr -d '\r' \
+    | sed -n '/PROTECTED-START/,/PROTECTED-END/p' || true)
+
+  if [ -n "$COMMITTED_PROTECTED" ] && [ "$STAGED_PROTECTED" != "$COMMITTED_PROTECTED" ]; then
+    COMMITTED_ENTRIES=$(echo "$COMMITTED_PROTECTED" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort)
+    STAGED_ENTRIES=$(echo "$STAGED_PROTECTED" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort)
+    REMOVED=$(comm -23 <(echo "$COMMITTED_ENTRIES") <(echo "$STAGED_ENTRIES") 2>/dev/null || true)
+
+    if [ -n "$REMOVED" ]; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: .gitignore PROTECTED section geschwächt        ║
+╠══════════════════════════════════════════════════════════════╣
+║  Entfernte PROTECTED-Einträge:                              ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      echo "$REMOVED" >&2
+      echo "" >&2
+      echo "Neue Einträge sind erlaubt. Bestehende zu entfernen nicht." >&2
+      exit 1
+    fi
+  fi
+fi
+
+# ── 3. Secrets-Muster ──────────────────────────────────────────────────
+B1="SUPA"; B2="BASE_SERVICE_ROLE_KEY"; B3="ADMIN_API"; B4="_KEY"
+SECRET_PATTERNS="${B1}${B2}=.{20,}|${B3}${B4}=.{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}"
+
+for file in $STAGED_FILES; do
+  case "$file" in
+    *.png|*.jpg|*.ico|*.svg|*.exe|*.dll|*.bin|.env.example) continue ;;
+  esac
+  CONTENT=$(git show ":0:$file" 2>/dev/null || true)
+  [ -z "$CONTENT" ] && continue
+  SECRET_MATCH=$(echo "$CONTENT" | grep -oE "$SECRET_PATTERNS" 2>/dev/null | head -3 || true)
+  if [ -n "$SECRET_MATCH" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Potentielles Secret in $file
+╚══════════════════════════════════════════════════════════════╝
+
+$(echo "$SECRET_MATCH" | head -1 | cut -c1-60)
+
+Secrets NIE committen. Weg damit, dann erneut versuchen.
+EOF
+    exit 1
+  fi
+done
+
+# ── 3b. gitleaks (breiteres, community-gepflegtes Regelwerk — ergänzt die
+#        obige Handvoll fest verdrahteter Muster; deckt u. a. generische API-
+#        Key-Formen, private Keys, Cloud-Provider-Tokens ab, die #3 nicht
+#        kennt). Nur gestagte Änderungen (schnell). Fehlt gitleaks lokal, nur
+#        warnen — nie deswegen den Commit verweigern (siehe CLAUDE.md
+#        Code-Qualität-Policy: "warnen, nicht blockieren, Nachinstallation
+#        vorschlagen"). ─────────────────────────────────────────────────
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks git --staged --no-banner --redact "$ROOT" >/tmp/gitleaks-precommit-$$.log 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: gitleaks fand ein mögliches Secret (gestaged)   ║
+╚══════════════════════════════════════════════════════════════╝
+
+$(cat /tmp/gitleaks-precommit-$$.log)
+
+Secrets NIE committen. Weg damit, dann erneut versuchen.
+Falscher Alarm? .gitleaks.toml (bereits im Repo) um eine gezielte Ausnahme ergänzen.
+EOF
+    rm -f /tmp/gitleaks-precommit-$$.log
+    exit 1
+  fi
+  rm -f /tmp/gitleaks-precommit-$$.log
+else
+  echo "⚠ gitleaks nicht installiert — Secret-Scan übersprungen. Empfohlen: brew install gitleaks" >&2
+fi
+
+# ── 3c. macOS MAS-Plugin-Registrant-Guard (Self-Heal) ──────────────────
+# GeneratedPluginRegistrant.swift wird von `flutter pub get`/`flutter build`
+# bei jedem Lauf neu generiert und verliert dabei stillschweigend den
+# #if !MAS_BUILD-Guard um AutoUpdaterMacosPlugin.register(...) (siehe
+# macos/guard_mas_plugin_registrant.sh — der Guard ist load-bearing, kein
+# kosmetisches Detail; ein MAS-Build ohne ihn crasht beim Start). Hier vor
+# dem Commit erneut anwenden, damit nie versehentlich eine ungeguardete
+# Version committet wird, nur weil zwischen Edit und `git add` ein
+# Flutter-Kommando lief.
+REGISTRANT_STAGED=$(echo "$STAGED_FILES" | grep -F "macos/Flutter/GeneratedPluginRegistrant.swift" || true)
+if [ -n "$REGISTRANT_STAGED" ] && command -v python3 >/dev/null 2>&1; then
+  python3 "$ROOT/macos/patch_plugin_registrant_guard.py" "$ROOT/macos/Flutter/GeneratedPluginRegistrant.swift"
+  git add "$ROOT/macos/Flutter/GeneratedPluginRegistrant.swift"
+fi
+
+# ── 3d. macOS plugin files follow pubspec.lock ───────────────────────
+# GeneratedPluginRegistrant.swift and Podfile.lock are generated from
+# pubspec.lock, macos/Podfile and the Flutter SDK. When one of those is in
+# the commit, scripts/sync-macos-plugins.sh rewrites both files on the Mac
+# and stages them (only them) into this commit. It never blocks: offline,
+# no CocoaPods, a held lock or more than 120 s give a warning, and the
+# pre-push plugin check catches what stays out of sync. Commits without these
+# inputs skip it entirely.
+PLUGIN_INPUTS=$(echo "$STAGED_FILES" | grep -xE "pubspec\.yaml|pubspec\.lock|\.flutter-version|macos/Podfile|macos/\.cocoapods-version" || true)
+if [ -n "$PLUGIN_INPUTS" ] && [ "$(uname -s)" = "Darwin" ] && [ -f "$ROOT/scripts/sync-macos-plugins.sh" ]; then
+  echo "🍎 macOS-Plugin-Dateien aus pubspec.lock erzeugen..."
+  # Own process group, so the cap also ends the flutter and pod it started.
+  set -m
+  bash "$ROOT/scripts/sync-macos-plugins.sh" --stage &
+  _sync_pid=$!
+  set +m
+  # The watchdog holds no output pipe and ends its sleep when stopped:
+  # otherwise a caller reading the commit output waits for the sleep.
+  (
+    sleep 120 & _s=$!
+    trap 'kill "$_s"; exit 0' TERM
+    wait "$_s"
+    kill -TERM -- "-$_sync_pid"
+  ) >/dev/null 2>&1 &
+  _sync_dog=$!
+  _sync_rc=0
+  wait "$_sync_pid" || _sync_rc=$?
+  kill "$_sync_dog" 2>/dev/null || true
+  if [ "$_sync_rc" -ne 0 ]; then
+    echo "⚠ macOS-Plugin-Dateien nicht erzeugt — Commit geht weiter." >&2
+    echo "  Nachholen: bash scripts/sync-macos-plugins.sh && git add macos/Flutter/GeneratedPluginRegistrant.swift macos/Podfile.lock" >&2
+  fi
+fi
+
+# ── 3b. Executable-Bit auf Shell-Skripten ────────────────────────────
+# Dieses Repo hat `core.fileMode=false`. Konsequenz: ein `chmod +x` ist für
+# Git UNSICHTBAR — der Index behält 100644, `git status` zeigt nichts, und der
+# Fehler fällt erst auf einem Linux-/macOS-Runner auf, der das Skript direkt
+# ausführt. Genau so sind Release-Run 30342725883 (strip_mas_incompatible_
+# frameworks.sh: Permission denied) und 30490423191 (embed_libllama.sh) rot
+# geworden — und schlimmer: derselbe Fehlermodus hat einmal einen
+# Mac-App-Store-Build ausgeliefert, in dem die Whisper-Engine schlicht fehlte,
+# während jeder Schritt "success" meldete.
+#
+# Der einzige verlässliche Weg, das Bit zu setzen, ist
+# `git update-index --chmod=+x <datei>` (chmod allein reicht NICHT).
+SH_STAGED=$(echo "$STAGED_FILES" | grep -E '\.sh$' || true)
+if [ -n "$SH_STAGED" ]; then
+  NONEXEC=""
+  for f in $SH_STAGED; do
+    # Nur Skripte mit Shebang: die sind zum Ausführen gedacht. Reine
+    # Fragmente/Sourced-Libraries ohne Shebang bleiben unangetastet.
+    git show ":0:$f" 2>/dev/null | head -1 | grep -q '^#!' || continue
+    MODE=$(git ls-files -s -- "$f" | awk '{print $1}')
+    [ "$MODE" = "100644" ] && NONEXEC="$NONEXEC $f"
+  done
+  if [ -n "$NONEXEC" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  COMMIT BLOCKIERT: Shell-Skript ohne Executable-Bit          ║
+╚══════════════════════════════════════════════════════════════╝
+
+Diese gestageten Skripte haben eine Shebang, stehen im Index aber auf
+100644 (nicht ausführbar):
+EOF
+    for f in $NONEXEC; do echo "  - $f" >&2; done
+    cat >&2 <<EOF
+
+Wegen core.fileMode=false sieht Git ein blosses \`chmod +x\` NICHT.
+Korrektur:
+
+  git update-index --chmod=+x$NONEXEC
+
+EOF
+    exit 1
+  fi
+fi
+
+# ── 3c. dart format ───────────────────────────────────────────────────
+# `dart format` war in KEINEM Hook verdrahtet, obwohl CLAUDE.md es als
+# Gate-Command führt und diagnose-dart-smoke.yml es hart erzwingt. Run
+# 31591152047 ist genau daran rot geworden (gpu_info.dart in
+# packages/whispaste_diagnostics) — eine Fehlerklasse, die lokal in
+# Millisekunden auffällt, aber remote einen ganzen Runner-Lauf kostet.
+#
+# Bewusst exakt dieselben Befehle wie die CI (Local/CI-Drift vermeiden):
+# das Paket-Gate spiegelt diagnose-dart-smoke.yml, das Root-Gate die
+# CLAUDE.md-Zeile.
+if command -v dart >/dev/null 2>&1; then
+  DIAG_STAGED=$(echo "$STAGED_FILES" | grep -E '^packages/whispaste_diagnostics/.*\.dart$' || true)
+  ROOT_DART_STAGED=$(echo "$STAGED_FILES" | grep -E '^(lib|test)/.*\.dart$' || true)
+  fmt_bad=""
+  if [ -n "$DIAG_STAGED" ]; then
+    (cd "$ROOT/packages/whispaste_diagnostics" \
+      && dart format --output=none --set-exit-if-changed . >/dev/null 2>&1) \
+      || fmt_bad="$fmt_bad packages/whispaste_diagnostics"
+  fi
+  if [ -n "$ROOT_DART_STAGED" ]; then
+    # shellcheck disable=SC2086
+    (cd "$ROOT" && dart format --output=none --set-exit-if-changed $ROOT_DART_STAGED >/dev/null 2>&1) \
+      || fmt_bad="$fmt_bad <root lib/test>"
+  fi
+  if [ -n "$fmt_bad" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  COMMIT BLOCKIERT: dart format                               ║
+╚══════════════════════════════════════════════════════════════╝
+
+Nicht formatierter Dart-Code in:$fmt_bad
+
+Korrektur:
+  dart format packages/whispaste_diagnostics lib test
+  git add -u   # nur die betroffenen Dateien!
+
+EOF
+    exit 1
+  fi
+fi
+
+# ── 4. Flutter analyze (nur wenn Dart/Flutter-Dateien gestaged sind) ──
+DART_STAGED=$(echo "$STAGED_FILES" | grep -E '\.dart$|^pubspec\.yaml$' || true)
+if [ -n "$DART_STAGED" ]; then
+  echo ""
+  echo "Flutter analyze..."
+
+  # --fatal-infos --fatal-warnings erzwingt clean exit
+  #
+  # GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE explizit entfernen: git setzt diese
+  # für Hooks (v.a. in Worktrees), und Flutters interne Versionsermittlung
+  # ruft `git -C "$FLUTTER_ROOT" rev-parse HEAD` auf — bei gesetztem
+  # absolutem GIT_DIR gewinnt das geerbte GIT_DIR gegen `-C`, wodurch
+  # `flutter.version.json` mit WhisPastes statt Flutters eigenem
+  # Commit-Hash überschrieben wird ("0.0.0-unknown" → pub-Resolution
+  # schlägt fehl). Reproduzierbar aus jedem Worktree heraus.
+  flutter_ok=true
+  # Same scope as ci.yml's Analyze step: a bare `flutter analyze` descends into
+  # packages/ (own lints, not resolved by the root pub get) and fails there.
+  env -u GIT_DIR -u GIT_WORK_TREE -u GIT_INDEX_FILE -u GIT_COMMON_DIR -u GIT_PREFIX \
+    flutter analyze --fatal-infos --fatal-warnings lib test integration_test tool 2>&1 || flutter_ok=false
+
+  # flutter analyze regeneriert GeneratedPluginRegistrant.swift als
+  # Nebeneffekt und entfernt dabei den MAS-Guard erneut -- unabhängig davon,
+  # ob die Datei überhaupt Teil dieses Commits ist. Nur den Working Tree
+  # heilen (kein `git add` -- die Datei ist hier i. d. R. nicht gestaged;
+  # der bereits committete/gestagte Stand aus 3c bleibt unberührt), sonst
+  # bleibt sie nach praktisch jedem Dart-Commit erneut dirty.
+  if command -v python3 >/dev/null 2>&1; then
+    python3 "$ROOT/macos/patch_plugin_registrant_guard.py" "$ROOT/macos/Flutter/GeneratedPluginRegistrant.swift" >/dev/null
+  fi
+
+  if [ "$flutter_ok" = "true" ] && [ -f "$ROOT/loam.yaml" ] && command -v dart >/dev/null 2>&1; then
+    echo ""
+    echo "Loam ratchet gate..."
+    dart pub global activate loam 0.1.15 >/dev/null
+    export PATH="$HOME/.pub-cache/bin:$PATH"
+    if [ -z "${DART_SDK:-}" ]; then
+      if command -v flutter >/dev/null 2>&1; then
+        _f=$(command -v flutter)
+        while [ -L "$_f" ]; do
+          _t=$(readlink "$_f"); case "$_t" in /*) _f="$_t" ;; *) _f="$(dirname "$_f")/$_t" ;; esac
+        done
+        export DART_SDK="$(dirname "$_f")/cache/dart-sdk"
+      fi
+    fi
+    if ! loam gate --no-update-check 2>&1; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Loam ratchet gate fand Findings                 ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+    echo "  Loam: clean"
+  elif [ "$flutter_ok" != "true" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: flutter analyze fand Issues                     ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  Flutter analyze + Loam: clean"
+fi
+
+# ── 4b. ARB key parity (nur wenn ARB-Dateien/Baseline/Checker gestaged) ──
+# Every app_<locale>.arb must carry exactly the keys of app_en.arb; known
+# gaps live in the ratchet baseline lib/core/l10n/arb_parity_baseline.json.
+# Same command as the CI analyze job (flutter-app, Linux).
+ARB_STAGED=$(echo "$STAGED_FILES" | grep -E '^lib/core/l10n/.*\.(arb|json)$|^tool/check_arb_parity\.dart$' || true)
+if [ -n "$ARB_STAGED" ] && command -v dart >/dev/null 2>&1; then
+  echo ""
+  echo "ARB key parity..."
+  if ! (cd "$ROOT" && dart tool/check_arb_parity.dart); then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: ARB key parity                                  ║
+╚══════════════════════════════════════════════════════════════╝
+Siehe CONTRIBUTING_TRANSLATIONS.md.
+EOF
+    exit 1
+  fi
+fi
+
+# ── 5. ESLint (nur wenn JS/TS-Dateien in website/src/ gestaged sind) ─
+JS_TS_STAGED=$(echo "$STAGED_FILES" | grep -E '^website/src/.*\.(js|mjs|ts|mts)$' || true)
+if [ -n "$JS_TS_STAGED" ]; then
+  if command -v node >/dev/null 2>&1 && [ -f "$ROOT/website/node_modules/.bin/eslint" ]; then
+    echo ""
+    echo "ESLint (website)..."
+    if ! (cd "$ROOT/website" && node_modules/.bin/eslint src/ --max-warnings=0 2>&1); then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: ESLint fand Issues in website/src/              ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+    echo "  ESLint: clean"
+  else
+    echo "  ESLint nicht verfügbar — skipping (cd website && npm install)"
+  fi
+fi
+
+# ── 6. cppcheck (nur wenn C++ in windows/runner/ gestaged) ─────────────
+# Same script, version check, flags and suppressions as CI's Windows job.
+# Findings block; a missing or broken cppcheck only warns (CI still runs it).
+CPP_STAGED=$(echo "$STAGED_FILES" | grep -E '^windows/runner/.*\.(cpp|h)$|^windows/runner/\.cppcheck-suppress$|^scripts/cppcheck' || true)
+if [ -n "$CPP_STAGED" ] && [ -f "$ROOT/scripts/cppcheck-runner.sh" ]; then
+  echo ""
+  echo "cppcheck (windows/runner)..."
+  _cpp_rc=0
+  bash "$ROOT/scripts/cppcheck-runner.sh" || _cpp_rc=$?
+  if [ "$_cpp_rc" -eq 1 ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: cppcheck fand Issues in windows/runner/         ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  elif [ "$_cpp_rc" -ne 0 ]; then
+    echo "⚠ cppcheck ohne Ergebnis (rc $_cpp_rc) — CI prüft (brew install cppcheck)." >&2
+  fi
+fi
+
+# ── 7. Website CI: not per commit. The pre-push hook runs the full website gate
+# on the test-lab Ubuntu guest (lab-pre-push whispaste-website), never on the Mac
+# (global rule 2026-10-27 "Mac-Last nur für Mac-Arbeit").
+
+# ── 7b. Repo-Gates aus CI (scripts/ci-gates.sh, ~2 s) ─────────────────
+# Dieselben Gates wie der CI-Job "Secret scan": dev.log/debugPrint-Gate und
+# Secret-Muster. Ein Verstoß, der hier fehlt, wird erst als roter CI-Lauf
+# sichtbar (2026-10-20: das Logging-Gate hat jeden dev-Push rot gemacht).
+if [ -f "$ROOT/scripts/ci-gates.sh" ]; then
+  echo ""
+  echo "Repo-Gates (wie CI)..."
+  if ! bash "$ROOT/scripts/ci-gates.sh"; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Repo-Gate fehlgeschlagen (scripts/ci-gates.sh)  ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+fi
+
+# ── 8. Doc-Gate (Content-Level: Infra-Leaks, Sprache, Security-Werbung) ─
+if [ -f "$ROOT/.githooks/check-docs.sh" ]; then
+  bash "$ROOT/.githooks/check-docs.sh" staged || exit 1
+fi
+
+exit 0

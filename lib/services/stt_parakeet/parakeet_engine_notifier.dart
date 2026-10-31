@@ -1,0 +1,793 @@
+/// In-process Parakeet (sherpa_onnx) engine — runs entirely inside a
+/// long-lived background [Isolate] so ONNX Runtime inference (which is
+/// synchronous/blocking) never stalls the UI isolate.
+///
+/// Unlike whisper.cpp's HTTP-subprocess architecture (a separate OS process
+/// speaking `POST /inference`), sherpa_onnx runs in-process via FFI — there is
+/// no server binary, no port, no health-poll. The worker [Isolate] is spawned
+/// once (on [ensureRunning]/[prewarm]) and kept warm for the app session; the
+/// ~650 MB encoder is loaded exactly once, not per transcription.
+library;
+
+import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ffi' as ffi;
+import 'dart:io' show File, Platform;
+import 'dart:isolate';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
+
+import '../../core/config/settings_provider.dart';
+import '../../core/logging/app_logger.dart';
+import '../audio/pcm_wav_codec.dart';
+import '../stt/isolate_shutdown_helper.dart';
+import '../stt/native_call_guard.dart';
+import '../stt/stt_benchmark.dart';
+import '../stt/whisper/whisper_ffi_engine.dart' show defaultWhisperLibraryPath;
+import '../transcription/transcript_seam.dart';
+import 'parakeet_audio_chunker.dart';
+import 'parakeet_gguf_model.dart';
+import 'parakeet_gpu_engine.dart';
+import 'parakeet_gpu_policy.dart';
+import 'parakeet_model_registry.dart';
+import 'parakeet_speech_gate.dart';
+
+final _log = AppLogger('ParakeetEngine');
+
+// ---------------------------------------------------------------------------
+// Isolate protocol — plain data classes only (no closures) so they survive
+// the isolate message-passing boundary.
+// ---------------------------------------------------------------------------
+
+class _InitRequest {
+  const _InitRequest({
+    required this.encoderPath,
+    required this.decoderPath,
+    required this.joinerPath,
+    required this.tokensPath,
+    required this.numThreads,
+  });
+  final String encoderPath;
+  final String decoderPath;
+  final String joinerPath;
+  final String tokensPath;
+  final int numThreads;
+}
+
+class _InitResult {
+  const _InitResult({required this.ok, this.error});
+  final bool ok;
+  final String? error;
+}
+
+class _TranscribeRequest {
+  const _TranscribeRequest({
+    required this.requestId,
+    required this.samples,
+    required this.sampleRate,
+  });
+  final int requestId;
+  final Float32List samples;
+  final int sampleRate;
+}
+
+class _TranscribeResult {
+  const _TranscribeResult({required this.requestId, this.text, this.error});
+  final int requestId;
+  final String? text;
+  final String? error;
+}
+
+class _ShutdownRequest {
+  const _ShutdownRequest();
+}
+
+/// Acknowledges an [_ShutdownRequest] once the native recognizer is actually
+/// freed — see [ParakeetEngineNotifier.stop] for why this matters
+/// (FLUTTER_WHISPASTE-BC-class native-teardown-vs-process-exit race).
+class _ShutdownAck {
+  const _ShutdownAck();
+}
+
+/// Isolate entry point. Must be a top-level/static function (Dart isolate
+/// requirement) — receives the main isolate's [SendPort] and spawns its own
+/// [ReceivePort], sending its own [SendPort] back as the first message so the
+/// main isolate can address it.
+void _parakeetIsolateMain(SendPort mainSendPort) {
+  final workerPort = ReceivePort();
+  mainSendPort.send(workerPort.sendPort);
+
+  sherpa_onnx.OfflineRecognizer? recognizer;
+  _GuardedDecode? guardedDecode;
+
+  workerPort.listen((dynamic message) {
+    switch (message) {
+      case final _InitRequest req:
+        try {
+          sherpa_onnx.initBindings();
+          guardedDecode = _resolveGuardedDecode();
+          final config = sherpa_onnx.OfflineRecognizerConfig(
+            model: sherpa_onnx.OfflineModelConfig(
+              transducer: sherpa_onnx.OfflineTransducerModelConfig(
+                encoder: req.encoderPath,
+                decoder: req.decoderPath,
+                joiner: req.joinerPath,
+              ),
+              tokens: req.tokensPath,
+              numThreads: req.numThreads,
+              provider: 'cpu',
+              // Per sherpa_onnx's own doc comment on OfflineModelConfig:
+              // "For NeMo Parakeet-style transducer models, set modelType to
+              // nemo_transducer, matching the repository examples."
+              modelType: 'nemo_transducer',
+              debug: false,
+            ),
+          );
+          recognizer = sherpa_onnx.OfflineRecognizer(config);
+          mainSendPort.send(const _InitResult(ok: true));
+        } catch (e) {
+          mainSendPort.send(_InitResult(ok: false, error: '$e'));
+        }
+
+      case final _TranscribeRequest req:
+        final r = recognizer;
+        if (r == null) {
+          mainSendPort.send(
+            _TranscribeResult(
+              requestId: req.requestId,
+              error: 'not_initialized',
+            ),
+          );
+          break;
+        }
+        try {
+          // One encoder pass per chunk — see parakeet_audio_chunker.dart.
+          final texts = <String>[];
+          final overlaps = <bool>[];
+          for (final chunk in splitForParakeet(
+            req.samples,
+            sampleRate: req.sampleRate,
+          )) {
+            texts.add(
+              _decodeChunk(
+                r,
+                chunk.samples,
+                req.sampleRate,
+                guardedDecode,
+              ).trim(),
+            );
+            overlaps.add(chunk.overlapsPrevious);
+          }
+          mainSendPort.send(
+            _TranscribeResult(
+              requestId: req.requestId,
+              text: joinSeamTexts(texts, overlaps),
+            ),
+          );
+        } catch (e) {
+          mainSendPort.send(
+            _TranscribeResult(requestId: req.requestId, error: '$e'),
+          );
+        }
+
+      case _ShutdownRequest():
+        recognizer?.free();
+        workerPort.close();
+        // Isolate.exit's finalMessage is delivered atomically as the
+        // isolate terminates — the only way to guarantee the main isolate
+        // learns the native recognizer is freed before this isolate (and
+        // the thread the ONNX Runtime calls ran on) disappears. A plain
+        // mainSendPort.send() here would race the exit with no such
+        // guarantee.
+        Isolate.exit(mainSendPort, const _ShutdownAck());
+    }
+  });
+}
+
+/// `SherpaOnnxDecodeOfflineStream` routed through `wp_ffi_guard`, so an
+/// ONNX Runtime exception thrown during decode (Sentry 140866975: 6 of 8
+/// sampled events in `sherpa-onnx-c-api.dll`/`onnxruntime.dll`) arrives as a
+/// [NativeCallException] — reported back as a normal transcription error —
+/// instead of aborting the app.
+typedef _GuardedDecode =
+    void Function(sherpa_onnx.OfflineRecognizer, sherpa_onnx.OfflineStream);
+
+/// The file name `sherpa_onnx.initBindings()` opens without a path (see
+/// `package:sherpa_onnx/sherpa_onnx.dart`), so this resolves the very same
+/// already-loaded library.
+String get _sherpaLibraryName => Platform.isWindows
+    ? 'sherpa-onnx-c-api.dll'
+    : Platform.isMacOS
+    ? 'libsherpa-onnx-c-api.dylib'
+    : 'libsherpa-onnx-c-api.so';
+
+/// `null` (decode unguarded, as before) when the guard is not bundled.
+///
+/// Only decode is guarded: recognizer creation (`OfflineRecognizer(config)`)
+/// marshals sherpa-onnx's large config struct privately inside the package,
+/// so guarding it would mean duplicating that marshalling per sherpa-onnx
+/// release — and every sampled Sentry event threw during decode, not load.
+_GuardedDecode? _resolveGuardedDecode() {
+  final guard = NativeCallGuard.nextTo(defaultWhisperLibraryPath());
+  if (guard == null) return null;
+  try {
+    final decode = ffi.DynamicLibrary.open(
+      _sherpaLibraryName,
+    ).lookup<ffi.Void>('SherpaOnnxDecodeOfflineStream');
+    return (recognizer, stream) {
+      // Same null check as OfflineRecognizer.decode.
+      if (recognizer.ptr == ffi.nullptr || stream.ptr == ffi.nullptr) return;
+      guard.callVoidPP(decode, recognizer.ptr.cast(), stream.ptr.cast());
+    };
+  } on Object catch (e) {
+    _log.warning('sherpa-onnx decode not guarded: $e');
+    return null;
+  }
+}
+
+String _decodeChunk(
+  sherpa_onnx.OfflineRecognizer r,
+  Float32List samples,
+  int sampleRate,
+  _GuardedDecode? guardedDecode,
+) {
+  final stream = r.createStream();
+  try {
+    stream.acceptWaveform(samples: samples, sampleRate: sampleRate);
+    if (guardedDecode != null) {
+      guardedDecode(r, stream);
+    } else {
+      r.decode(stream);
+    }
+    return r.getResult(stream).text;
+  } finally {
+    // Must run even on error — otherwise the native stream object
+    // leaks for the isolate's lifetime (found by cross-review).
+    stream.free();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Main-isolate side — the Riverpod-visible engine state.
+// ---------------------------------------------------------------------------
+
+enum ParakeetEngineState { stopped, starting, ready, error }
+
+class ParakeetStatus {
+  const ParakeetStatus({
+    this.state = ParakeetEngineState.stopped,
+    this.errorMessage,
+    this.benchmarkRtf,
+    this.backend = ParakeetBackend.sherpaCpu,
+  });
+  final ParakeetEngineState state;
+  final String? errorMessage;
+
+  /// Real-time factor from the last [ParakeetEngineNotifier.runBenchmark]
+  /// call (processing_time_ms / audio_duration_ms) — directly comparable to
+  /// whisper's `tierBenchmarkRtf`. `null` until a benchmark has run.
+  final double? benchmarkRtf;
+
+  /// Which engine serves requests while [state] is ready: GPU libparakeet or
+  /// the sherpa-onnx CPU fallback.
+  final ParakeetBackend backend;
+
+  bool get isReady => state == ParakeetEngineState.ready;
+
+  ParakeetStatus copyWith({
+    ParakeetEngineState? state,
+    String? errorMessage,
+    double? benchmarkRtf,
+    ParakeetBackend? backend,
+  }) => ParakeetStatus(
+    state: state ?? this.state,
+    errorMessage: errorMessage,
+    benchmarkRtf: benchmarkRtf ?? this.benchmarkRtf,
+    backend: backend ?? this.backend,
+  );
+}
+
+/// Manages the worker isolate lifecycle and exposes a simple
+/// request/response [transcribe] call to the rest of the app.
+class ParakeetEngineNotifier extends Notifier<ParakeetStatus> {
+  Isolate? _isolate;
+  SendPort? _workerPort;
+  StreamSubscription<dynamic>? _sub;
+  Completer<_InitResult>? _initCompleter;
+  Completer<void>? _shutdownCompleter;
+  Completer<void>? _startCompleter;
+  final Map<int, Completer<_TranscribeResult>> _pending = {};
+  int _nextRequestId = 0;
+
+  /// Bumped by [stop]; a request that started before a stop must not bring
+  /// the engine back up behind the caller's back.
+  int _stopGeneration = 0;
+
+  /// GPU libparakeet engine, when the GPU backend was chosen and healthy.
+  ParakeetGpuEngine? _gpu;
+
+  /// Speech check in front of both backends; fail-open (see parakeet_speech_gate.dart).
+  ParakeetSpeechGate _speechGate = ParakeetSpeechGate.bundled();
+
+  /// Crash marker for GPU loads; checked once per app session.
+  ParakeetGpuCrashMarker? _marker;
+  bool _crashChecked = false;
+  bool _crashedLastLaunch = false;
+
+  /// Set after a GPU runtime failure: the rest of the session stays on
+  /// sherpa-onnx instead of retrying a GPU path that just failed.
+  bool _gpuDisabledForSession = false;
+
+  @override
+  ParakeetStatus build() {
+    ref.onDispose(_shutdown);
+    return const ParakeetStatus();
+  }
+
+  /// Starts the worker isolate and loads the model, if not already running.
+  /// Throws a [StateError] on failure (mirrors [SttServerStateNotifier]'s
+  /// contract so [LocalSttTranscriber]-style adapters can catch uniformly).
+  ///
+  /// Coalesces concurrent callers onto the same in-flight start — mirrors
+  /// [SttServerStateNotifier.ensureRunning]'s `_startCompleter` guard, added
+  /// after root-causing three live Sentry issues (FLUTTER_WHISPASTE-B7/BH/B8,
+  /// 17 combined users) to a single bug: [prewarm] at app startup racing a
+  /// hotkey-triggered [ensureRunning] (via `parakeet_transcriber.dart`) both
+  /// used to fall through to [_startOnce] concurrently. Both sent their own
+  /// `_InitRequest` to the same worker, but shared the single mutable
+  /// [_initCompleter] field for the reply: the first request's `_InitResult`
+  /// ack completed whichever completer the field pointed to *at that later
+  /// moment* — i.e. the second call's completer, since it had overwritten
+  /// the field — so the first call's own `await` hung until its 60 s timeout
+  /// (`parakeet_start_timeout`, BH/B8), and the second `_InitResult` (the
+  /// true reply to the second call) then called `.complete()` on a completer
+  /// already completed by the first, throwing "Future already completed" in
+  /// [_handleWorkerMessage] (B7). A single in-flight start removes the
+  /// second send entirely.
+  Future<void> ensureRunning() {
+    final inFlight = _startCompleter;
+    if (inFlight != null) return inFlight.future;
+    if (state.isReady) return Future<void>.value();
+
+    final completer = Completer<void>();
+    _startCompleter = completer;
+    unawaited(
+      _startOnce()
+          .then(completer.complete, onError: completer.completeError)
+          .whenComplete(() => _startCompleter = null),
+    );
+    return completer.future;
+  }
+
+  Future<void> _startOnce() async {
+    if (await _tryStartGpuSafely()) return;
+
+    if (!parakeetModelFilesExistSync()) {
+      state = state.copyWith(
+        state: ParakeetEngineState.error,
+        errorMessage: 'parakeet_model_not_found',
+      );
+      throw StateError('parakeet_model_not_found');
+    }
+
+    state = state.copyWith(
+      state: ParakeetEngineState.starting,
+      errorMessage: null,
+    );
+
+    try {
+      if (_isolate == null) {
+        final mainReceivePort = ReceivePort();
+        final isolate = await Isolate.spawn(
+          _parakeetIsolateMain,
+          mainReceivePort.sendPort,
+        );
+
+        final workerPortCompleter = Completer<SendPort>();
+        _sub = mainReceivePort.listen((dynamic message) {
+          if (message is SendPort && !workerPortCompleter.isCompleted) {
+            workerPortCompleter.complete(message);
+            return;
+          }
+          _handleWorkerMessage(message);
+        });
+        try {
+          _workerPort = await workerPortCompleter.future.timeout(
+            const Duration(seconds: 10),
+          );
+          // Only commit `_isolate` once the worker has actually answered —
+          // otherwise a subsequent `ensureRunning()` call would see a
+          // non-null `_isolate` with a still-null `_workerPort` and crash on
+          // the null-check below instead of retrying the spawn cleanly.
+          _isolate = isolate;
+        } catch (e) {
+          _sub?.cancel();
+          _sub = null;
+          isolate.kill(priority: Isolate.immediate);
+          rethrow;
+        }
+      }
+
+      _initCompleter = Completer<_InitResult>();
+      _workerPort!.send(
+        _InitRequest(
+          encoderPath: parakeetModelFilePath('encoder.int8.onnx'),
+          decoderPath: parakeetModelFilePath('decoder.int8.onnx'),
+          joinerPath: parakeetModelFilePath('joiner.int8.onnx'),
+          tokensPath: parakeetModelFilePath('tokens.txt'),
+          numThreads: _threadCount(),
+        ),
+      );
+      final initResult = await _initCompleter!.future.timeout(
+        const Duration(seconds: 60),
+      );
+      if (!initResult.ok) {
+        state = state.copyWith(
+          state: ParakeetEngineState.error,
+          errorMessage: initResult.error ?? 'parakeet_init_failed',
+        );
+        throw StateError(initResult.error ?? 'parakeet_init_failed');
+      }
+
+      state = state.copyWith(
+        state: ParakeetEngineState.ready,
+        errorMessage: null,
+      );
+    } on TimeoutException {
+      state = state.copyWith(
+        state: ParakeetEngineState.error,
+        errorMessage: 'parakeet_start_timeout',
+      );
+      throw StateError('parakeet_start_timeout');
+    }
+  }
+
+  /// Best-effort warm-up — same contract as
+  /// [SttServerStateNotifier.prewarm]: failures are swallowed by the caller.
+  Future<void> prewarm() async {
+    if (state.isReady || state.state == ParakeetEngineState.starting) return;
+    await ensureRunning();
+  }
+
+  /// Measures the real-time factor (RTF = processing_time_ms /
+  /// audio_duration_ms) against the spoken reference clip — the same input
+  /// whisper's benchmark uses, so the two engines' RTF numbers are directly
+  /// comparable. Non-fatal: logs and leaves [ParakeetStatus.benchmarkRtf]
+  /// unchanged on failure.
+  Future<void> runBenchmark() async {
+    try {
+      await ensureRunning();
+      final benchmarkWav = await SttBenchmark.referenceWav();
+      final sw = Stopwatch()..start();
+      await transcribeWavBytes(benchmarkWav);
+      sw.stop();
+      final rtf =
+          sw.elapsedMilliseconds / SttBenchmark.durationMs(benchmarkWav);
+      state = state.copyWith(benchmarkRtf: rtf);
+      _log.info('Parakeet benchmark: RTF=${rtf.toStringAsFixed(2)}x');
+    } on Exception catch (e) {
+      _log.debug('Parakeet benchmark failed: $e');
+    }
+  }
+
+  /// Transcribes raw WAV bytes (WhisPaste's own 16 kHz mono 16-bit PCM
+  /// format — see `wav_file_writer.dart`) to text.
+  Future<String> transcribeWavBytes(List<int> wavBytes) async {
+    if (!state.isReady) {
+      throw StateError(state.errorMessage ?? 'parakeet_not_ready');
+    }
+    final generation = _stopGeneration;
+    final samples = _pcm16WavBytesToFloat32(wavBytes);
+    if (samples.isEmpty) return '';
+    // No speech found: the same empty transcript as for empty audio.
+    if (!await _speechGate.hasSpeech(samples)) {
+      _log.info('no speech detected, skipping Parakeet transcription');
+      return '';
+    }
+    if (generation != _stopGeneration) throw StateError('parakeet_not_ready');
+
+    final gpu = _gpu;
+    if (gpu != null) {
+      try {
+        return await gpu.transcribe(
+          samples,
+          timeout: parakeetTranscribeTimeout(
+            Duration(
+              microseconds:
+                  samples.length * Duration.microsecondsPerSecond ~/ 16000,
+            ),
+          ),
+        );
+      } on ParakeetGpuException catch (e) {
+        // Runtime failure on the GPU: this request is retried on sherpa-onnx,
+        // and the GPU engine stays off for the rest of the session.
+        _log.warning('GPU Parakeet failed, using sherpa-onnx: $e');
+        await _dropGpu();
+        if (generation != _stopGeneration) {
+          throw StateError('parakeet_not_ready');
+        }
+        await ensureRunning();
+      }
+    }
+
+    final port = _workerPort;
+    if (port == null) throw StateError('parakeet_not_ready');
+    final requestId = _nextRequestId++;
+    final completer = Completer<_TranscribeResult>();
+    _pending[requestId] = completer;
+    port.send(
+      _TranscribeRequest(
+        requestId: requestId,
+        samples: samples,
+        sampleRate: 16000,
+      ),
+    );
+
+    final audio = Duration(
+      microseconds: samples.length * Duration.microsecondsPerSecond ~/ 16000,
+    );
+    // A Dart-side timeout fails only this caller. The worker keeps running
+    // the native decode, so the entry stays until its reply arrives (see
+    // [_handleWorkerMessage]); [hasNativeCallRunning] depends on it.
+    final result = await completer.future.timeout(
+      parakeetTranscribeTimeout(audio),
+      onTimeout: () => throw StateError('parakeet_transcribe_timeout'),
+    );
+    if (result.error != null) {
+      throw StateError(result.error!);
+    }
+    return result.text ?? '';
+  }
+
+  /// Stops the worker isolate. Waits (bounded) for the worker to free its
+  /// native recognizer and exit gracefully before falling back to a hard
+  /// kill — an unconditional `Isolate.kill(priority: immediate)` right after
+  /// signalling shutdown (the previous behaviour) could preempt the worker
+  /// before its native ONNX Runtime resources were ever freed, since killing
+  /// a Dart isolate does not free native memory that isolate's FFI calls
+  /// allocated (same class of bug as FLUTTER_WHISPASTE-BC on the whisper
+  /// engine — reproduced there via ggml_metal_rsets_free's teardown assert).
+  Future<void> stop() async {
+    _stopGeneration++;
+    await _shutdown();
+    state = const ParakeetStatus();
+  }
+
+  /// App quit: never waits. The worker is killed at once instead of the
+  /// bounded graceful handshake in [stop], because a decode can hang (the
+  /// Dart-side transcribe timeout fails only the caller, not the native call),
+  /// and a quit must not sit behind it. [hasNativeCallRunning] tells the quit
+  /// path to end the process without static destructors (GS-117).
+  Future<void> stopForQuit() async {
+    _stopGeneration++;
+    final gpu = _takeGpu();
+    gpu?.abandon();
+    final isolate = _isolate;
+    _sub?.cancel();
+    _sub = null;
+    _isolate = null;
+    _workerPort = null;
+    isolate?.kill(priority: Isolate.immediate);
+    state = const ParakeetStatus();
+  }
+
+  /// True while a native decode is still in flight in the worker, on either
+  /// engine, including a GPU engine that was already taken out of service.
+  bool get hasNativeCallRunning =>
+      _pending.isNotEmpty ||
+      (_gpu?.hasNativeCallRunning ?? false) ||
+      _retiredGpus.any((gpu) => gpu.hasNativeCallRunning);
+
+  /// GPU engines taken out of service while a decode may still run in them.
+  /// They stay listed until their worker answers, so the quit guard does not
+  /// lose a native call that outlived its Dart-side timeout.
+  final List<ParakeetGpuEngine> _retiredGpus = [];
+
+  /// Detaches the GPU engine (if any) and remembers it while it is busy.
+  ParakeetGpuEngine? _takeGpu() {
+    final gpu = _gpu;
+    _gpu = null;
+    _retiredGpus.removeWhere((retired) => !retired.hasNativeCallRunning);
+    if (gpu != null && gpu.hasNativeCallRunning) _retiredGpus.add(gpu);
+    return gpu;
+  }
+
+  /// Test seam: marks the engine ready on a stand-in worker [port]. Nothing
+  /// is spawned, so [transcribeWavBytes] can be driven under fake time.
+  @visibleForTesting
+  void debugAttachWorkerForTest(SendPort port) {
+    _workerPort = port;
+    state = state.copyWith(
+      state: ParakeetEngineState.ready,
+      errorMessage: null,
+    );
+  }
+
+  /// Test seam: replaces the speech gate, so a test does not depend on the
+  /// bundled VAD library.
+  @visibleForTesting
+  set debugSpeechGate(ParakeetSpeechGate gate) => _speechGate = gate;
+
+  /// Chooses the GPU backend and starts it. Returns `true` when the GPU engine
+  /// is ready; `false` leaves the sherpa-onnx path to run.
+  ///
+  /// The GPU path is attempted only when [parakeetBackendReason] allows it and
+  /// the GGUF passes SHA-256 verification (a truncated file aborts Metal, so
+  /// the hash check is not optional). A warm-up pass on silence confirms the
+  /// encoder runs before the crash marker is cleared.
+  /// [_tryStartGpu] with every failure mapped to the sherpa-onnx path: the
+  /// crash-marker I/O and the GGUF hash run before its own `try`, and an
+  /// unreadable model file must not keep Parakeet from starting at all.
+  Future<bool> _tryStartGpuSafely() async {
+    try {
+      return await _tryStartGpu();
+    } on Object catch (e) {
+      _gpuDisabledForSession = true;
+      _log.warning('GPU Parakeet start failed, using sherpa-onnx: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _tryStartGpu() async {
+    if (_gpuDisabledForSession) return false;
+    final marker = _marker ??= ParakeetGpuCrashMarker(dir: parakeetModelDir());
+    if (!_crashChecked) {
+      _crashChecked = true;
+      _crashedLastLaunch = marker.recoverFromPreviousLaunch();
+      if (_crashedLastLaunch) {
+        _log.warning('Previous launch died during a GPU Parakeet load');
+      }
+    }
+    final reason = parakeetBackendReason(
+      platformEnabled: parakeetGpuPlatformEnabled(),
+      gpuAccelerationAllowed: _gpuAccelerationAllowed(),
+      libraryPresent: File(parakeetGpuLibraryPath()).existsSync(),
+      crashedLastLaunch: _crashedLastLaunch,
+      crashStrikes: marker.readStrikes(),
+    );
+    if (parakeetBackendFor(reason) != ParakeetBackend.gpu) {
+      _log.info('Parakeet GPU backend off: ${reason.name}');
+      return false;
+    }
+
+    final file = parakeetGgufActive;
+    final check = await verifyParakeetGguf(parakeetGgufPath(file), file);
+    if (check != ParakeetGgufCheck.ok) {
+      _log.warning('Parakeet GGUF unusable (${check.name}); using sherpa-onnx');
+      return false;
+    }
+
+    state = state.copyWith(
+      state: ParakeetEngineState.starting,
+      errorMessage: null,
+    );
+    ParakeetGpuEngine? engine;
+    try {
+      marker.markAttempt();
+      engine = await ParakeetGpuEngine.open(
+        libraryPath: parakeetGpuLibraryPath(),
+        modelPath: parakeetGgufPath(file),
+        threads: _threadCount(),
+      );
+      // Warm-up on one second of quiet noise (not digital silence, which the
+      // encoder rejects). Output is discarded; it proves the encoder and
+      // decoder run on this device before the attempt is confirmed.
+      final rng = math.Random(1);
+      final warmup = Float32List.fromList([
+        for (var i = 0; i < 16000; i++) (rng.nextDouble() - 0.5) * 0.02,
+      ]);
+      await engine.transcribe(warmup, timeout: const Duration(seconds: 60));
+      marker.confirmHealthy();
+      _gpu = engine;
+      state = state.copyWith(
+        state: ParakeetEngineState.ready,
+        errorMessage: null,
+        backend: ParakeetBackend.gpu,
+      );
+      _log.info('Parakeet GPU engine ready on ${engine.device}');
+      return true;
+    } on Object catch (e) {
+      // A failed warm-up leaves an open engine: free its native context
+      // instead of keeping it next to the sherpa-onnx engine.
+      if (engine != null) unawaited(engine.close());
+      marker.abandonAttempt();
+      _gpuDisabledForSession = true;
+      _log.warning('GPU Parakeet unavailable, using sherpa-onnx: $e');
+      state = state.copyWith(state: ParakeetEngineState.stopped);
+      return false;
+    }
+  }
+
+  bool _gpuAccelerationAllowed() =>
+      (ref.read(settingsProvider).value?.behavior.gpuAcceleration ?? 'auto') !=
+      'disabled';
+
+  Future<void> _dropGpu() async {
+    _gpuDisabledForSession = true;
+    final gpu = _takeGpu();
+    state = state.copyWith(
+      state: ParakeetEngineState.stopped,
+      backend: ParakeetBackend.sherpaCpu,
+    );
+    await gpu?.close();
+  }
+
+  // Structurally similar to WhisperIsolateEngine._handleWorkerMessage, but
+  // switches over a distinct sealed message hierarchy for an independent
+  // isolate worker; a shared dispatcher would couple the two STT engines.
+  // loam-ignore: code-duplicates – see comment above
+  void _handleWorkerMessage(dynamic message) {
+    switch (message) {
+      // isCompleted guards: a reply that arrives after its waiter already
+      // timed out must be dropped, never throw "Future already completed".
+      case final _InitResult r:
+        final c = _initCompleter;
+        if (c != null && !c.isCompleted) c.complete(r);
+      case final _TranscribeResult r:
+        final c = _pending.remove(r.requestId);
+        if (c != null && !c.isCompleted) c.complete(r);
+      case _ShutdownAck():
+        // The worker handles messages in order, so its ack comes after every
+        // earlier decode reply: any entry still pending is orphaned now.
+        _pending.clear();
+        final c = _shutdownCompleter;
+        if (c != null && !c.isCompleted) c.complete();
+    }
+  }
+
+  Future<void> _shutdown() async {
+    final gpu = _takeGpu();
+    await gpu?.close();
+
+    final isolate = _isolate;
+    if (isolate == null) return;
+
+    final completer = Completer<void>();
+    _shutdownCompleter = completer;
+    try {
+      _workerPort?.send(const _ShutdownRequest());
+    } catch (e) {
+      _log.warning('Failed to signal worker shutdown: $e');
+    }
+    await awaitGracefulShutdown(
+      completer: completer,
+      timeout: const Duration(seconds: 10),
+      log: _log,
+      timeoutMessage:
+          'Worker shutdown did not complete within 10s — force-killing '
+          '(native resources may leak)',
+      onTimeout: () => isolate.kill(priority: Isolate.immediate),
+    );
+    _sub?.cancel();
+    _sub = null;
+    _isolate = null;
+    _workerPort = null;
+  }
+
+  /// CPU thread count — no GPU backend for Parakeet yet (see plan risk #1),
+  /// so this is a simpler heuristic than whisper's GPU/CPU split.
+  int _threadCount() {
+    final cores = Platform.numberOfProcessors;
+    return (cores - 1).clamp(2, 8);
+  }
+}
+
+final parakeetEngineProvider =
+    NotifierProvider<ParakeetEngineNotifier, ParakeetStatus>(
+      ParakeetEngineNotifier.new,
+    );
+
+// ---------------------------------------------------------------------------
+// WAV → Float32 PCM decoding
+// ---------------------------------------------------------------------------
+
+/// Decodes WhisPaste's canonical 44-byte-header, 16 kHz mono, 16-bit PCM WAV
+/// bytes (see `wav_file_writer.dart`) into normalized `[-1, 1]` float samples
+/// for `sherpa_onnx`'s `OfflineStream.acceptWaveform`. Delegates to the shared
+/// codec so there is a single WAV-decode implementation across on-device
+/// engines (whisper + Parakeet).
+Float32List _pcm16WavBytesToFloat32(List<int> wavBytes) =>
+    pcm16WavBytesToFloat32(wavBytes);

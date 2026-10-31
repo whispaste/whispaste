@@ -1,0 +1,356 @@
+---
+/**
+ * `Engines.astro` — "which local engine fits you?": the two on-device STT
+ * engines (Whisper via whisper.cpp, Parakeet via sherpa-onnx — see
+ * `CONTEXT.md` §4.2) as two cards with identical rows, followed directly by
+ * the language grid (`#languages`, formerly its own section): one tile per
+ * Whisper language, the Parakeet ones in colour — data from the app's own
+ * lists via `src/data/stt-languages.ts`.
+ */
+import MotionHardware from './motion/MotionHardware.astro';
+import SectionEyebrow from './SectionEyebrow.astro';
+import { PARAKEET_LANGUAGES, WHISPER_LANGUAGES, languageName } from '../data/stt-languages';
+import { t, localePath, currentLocale, pathForSlug } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+
+// Identical rows on both cards so they compare line by line.
+const engines = [
+  {
+    key: 'whisper',
+    rows: [
+      ['engines.whisper.stat.languages.label', 'engines.whisper.stat.languages.value'],
+      ['engines.whisper.stat.hardware.label', 'engines.whisper.stat.hardware.value'],
+      ['engines.whisper.stat.bestfor.label', 'engines.whisper.stat.bestfor.value'],
+    ],
+  },
+  {
+    key: 'parakeet',
+    rows: [
+      ['engines.whisper.stat.languages.label', 'engines.parakeet.stat.languages.value'],
+      ['engines.whisper.stat.hardware.label', 'engines.parakeet.stat.hardware.value'],
+      ['engines.whisper.stat.bestfor.label', 'engines.parakeet.stat.bestfor.value'],
+    ],
+  },
+] as const;
+
+// One tile per Whisper language, named in the page's language (Intl), never
+// with flags: a language is not a country.
+const tiles = WHISPER_LANGUAGES.map((code) => ({
+  code,
+  name: languageName(code, lang),
+  parakeet: PARAKEET_LANGUAGES.has(code),
+}));
+---
+
+<section id="engines" class="wp-band wp-band--alt relative wp-section scroll-mt-20" data-surface="light" data-testid="engines">
+  <div class="relative wp-container">
+    <div class="wp-section-head">
+      <SectionEyebrow key="engines.label" />
+      <h2 class="section-title" data-i18n="engines.title">{t(lang, "engines.title")}</h2>
+      <p class="wp-lead mt-4" data-i18n="engines.desc">{t(lang, "engines.desc")}</p>
+      <div class="wp-head-art" aria-hidden="true"><MotionHardware /></div>
+    </div>
+
+    <div class="engine-grid">
+      {engines.map((e) => (
+        <article class="engine-card" data-testid={`engines-${e.key}`}>
+          <header class="engine-card__head">
+            <h3 class="engine-card__name" data-i18n={`engines.${e.key}.name`}>{t(lang, `engines.${e.key}.name`)}</h3>
+            <span class="engine-card__tagline" data-i18n={`engines.${e.key}.tagline`}>{t(lang, `engines.${e.key}.tagline`)}</span>
+          </header>
+          <p class="engine-card__tech" data-i18n={`engines.${e.key}.tech`}>{t(lang, `engines.${e.key}.tech`)}</p>
+          <dl class="engine-stats">
+            {e.rows.map(([label, value], i) => (
+              <div class={i === 0 ? 'engine-stat engine-stat--big' : 'engine-stat'}>
+                <dt data-i18n={label}>{t(lang, label)}</dt>
+                <dd class="wp-nums" data-i18n={value}>{t(lang, value)}</dd>
+              </div>
+            ))}
+          </dl>
+          <p class="engine-card__desc" data-i18n={`engines.${e.key}.desc`}>{t(lang, `engines.${e.key}.desc`)}</p>
+        </article>
+      ))}
+    </div>
+
+    <p class="engine-footnote" data-i18n="engines.footnote">{t(lang, "engines.footnote")}</p>
+
+    <div class="engine-links">
+      <a href={localePath(lang, "engines")} class="engine-link" data-testid="engines-compare">
+        <span data-i18n="engines.cta">{t(lang, "engines.cta")}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+      </a>
+      <a href={pathForSlug(lang, "engine-benchmarks")} class="engine-link" data-testid="engines-benchmarks">
+        <span data-i18n="engines.benchmarks">{t(lang, "engines.benchmarks")}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+      </a>
+    </div>
+
+    <!-- Languages: the grid right under the engine choice (old #languages
+         anchor kept for nav links and external deep links). -->
+    <div id="languages" class="engine-languages scroll-mt-24" data-testid="languages">
+      <div class="engine-languages__head">
+        <h3 class="engine-languages__title" data-i18n="languages.title">{t(lang, "languages.title")}</h3>
+        <p class="engine-languages__desc" data-i18n="languages.desc">{t(lang, "languages.desc")}</p>
+        <ul class="lang-legend" data-testid="languages-legend">
+          <li><span class="lang-swatch" aria-hidden="true"></span><b class="wp-nums">{tiles.length}</b> <span data-i18n="screenshots.facts.whisper">{t(lang, "screenshots.facts.whisper")}</span></li>
+          <li class="lang-legend--parakeet"><span class="lang-swatch" aria-hidden="true"></span><b class="wp-nums">{PARAKEET_LANGUAGES.size}</b> <span data-i18n="languages.legendParakeet">{t(lang, "languages.legendParakeet")}</span></li>
+        </ul>
+      </div>
+      <ul class="lang-grid" aria-label={t(lang, "languages.gridAria")} data-i18n-aria="languages.gridAria" data-testid="languages-grid">
+        {tiles.map((l) => (
+          <li class={l.parakeet ? 'lang-tile lang-tile--parakeet' : 'lang-tile'} title={l.name} data-code={l.code}>
+            <span aria-hidden="true">{l.code}</span>
+            <span class="sr-only">{l.parakeet ? `${l.name} · Parakeet` : l.name}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .engine-grid {
+    display: grid;
+    gap: var(--wp-space-4);
+  }
+  @media (min-width: 768px) {
+    .engine-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--wp-space-6);
+    }
+  }
+  .engine-card {
+    display: flex;
+    flex-direction: column;
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
+  }
+  .engine-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--wp-space-2) var(--wp-space-3);
+  }
+  .engine-card__name {
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--wp-card-title);
+  }
+  .engine-card__tagline {
+    padding: var(--wp-chip-pad-y) var(--wp-chip-pad-x);
+    border-radius: var(--wp-chip-radius);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wp-chip-accent-text);
+    background: var(--wp-chip-accent-fill);
+  }
+  .engine-card__tech {
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-card-meta);
+  }
+  .engine-card__desc {
+    margin-top: auto;
+    font-size: var(--wp-font-size-md);
+    line-height: 1.6;
+    color: var(--wp-card-text);
+  }
+
+  /* Label/value rows: stacked on phones, side by side from sm. The language
+     count leads as a big number, the line both cards are compared on. */
+  .engine-stats {
+    display: grid;
+    gap: var(--wp-space-3);
+    margin: var(--wp-space-5) 0;
+    padding-top: var(--wp-space-5);
+    border-top: 1px solid var(--wp-border-subtle);
+  }
+  .engine-stat {
+    display: grid;
+    gap: var(--wp-space-1);
+  }
+  @media (min-width: 640px) {
+    .engine-stat {
+      grid-template-columns: 7.5rem minmax(0, 1fr);
+      align-items: baseline;
+      gap: var(--wp-space-4);
+    }
+  }
+  .engine-stat dt {
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-card-meta);
+  }
+  .engine-stat dd {
+    margin: 0;
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+    color: var(--wp-card-title);
+  }
+  .engine-stat--big dd {
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-title);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .engine-footnote {
+    margin-top: var(--wp-space-6);
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-text-muted);
+    max-width: var(--measure-lead);
+  }
+  .engine-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-1) var(--wp-space-6);
+    margin-top: var(--wp-space-2);
+  }
+  .engine-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    min-height: 44px;
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+    color: var(--wp-text-link);
+    text-decoration: none;
+  }
+  .engine-link svg { width: 1rem; height: 1rem; }
+  .engine-link:hover span { text-decoration: underline; }
+
+  /* ---- Languages: copy + legend beside a 99-tile grid (Ditto principle:
+     the pixel raster carries the data, not decoration) ---- */
+  .engine-languages {
+    display: grid;
+    gap: var(--wp-space-8);
+    margin-top: var(--wp-space-12);
+    padding-top: var(--wp-space-10);
+    border-top: 1px solid var(--wp-border-subtle);
+  }
+  @media (min-width: 1024px) {
+    .engine-languages {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      align-items: start;
+      gap: var(--wp-space-12);
+    }
+  }
+  .engine-languages__title {
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--wp-text-primary);
+    text-wrap: balance;
+  }
+  .engine-languages__desc {
+    margin-top: var(--wp-space-3);
+    font-size: var(--wp-font-size-md);
+    line-height: 1.6;
+    color: var(--wp-text-secondary);
+  }
+  .lang-legend {
+    list-style: none;
+    margin: var(--wp-space-6) 0 0;
+    padding: 0;
+    display: grid;
+    gap: var(--wp-space-3);
+    font-size: var(--wp-font-size-md);
+    color: var(--wp-text-secondary);
+  }
+  .lang-legend li {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+  }
+  .lang-legend b {
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-xl);
+    font-weight: 800;
+    color: var(--wp-text-primary);
+  }
+  .lang-swatch {
+    flex: none;
+    width: var(--wp-space-4);
+    height: var(--wp-space-4);
+    border-radius: var(--wp-radius-chip);
+    border: 1px solid var(--wp-border-strong);
+    background: var(--wp-surface-control);
+  }
+  .lang-legend--parakeet .lang-swatch {
+    border-color: var(--wp-accent-fill);
+    background: var(--wp-accent-fill);
+  }
+
+  /* 99 = 9 × 11 on phones, 11 × 9 from tablets. */
+  .lang-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(9, minmax(0, 1fr));
+    gap: var(--wp-space-1);
+  }
+  @media (min-width: 640px) {
+    .lang-grid {
+      grid-template-columns: repeat(11, minmax(0, 1fr));
+      gap: var(--wp-space-2);
+    }
+  }
+  .lang-tile {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    border-radius: var(--wp-radius-chip);
+    border: 1px solid var(--wp-border-default);
+    background: var(--wp-surface-control);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--wp-text-secondary);
+    cursor: default;
+    transition: transform var(--dur-base) var(--ease-flow);
+  }
+  @media (min-width: 640px) {
+    .lang-tile { font-size: var(--wp-font-size-xs); }
+  }
+  .lang-tile--parakeet {
+    border-color: var(--wp-accent-fill);
+    background: var(--wp-accent-fill);
+    color: var(--wp-accent-on-fill);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .lang-tile:hover { transform: scale(1.15); }
+  }
+  /* Scroll-driven: the coloured tiles light up as the grid scrolls in.
+     Without support (or with reduced motion) they are simply coloured. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .lang-tile--parakeet {
+        animation: lang-light linear both;
+        animation-timeline: view();
+        animation-range: entry 40% cover 35%;
+      }
+    }
+  }
+  @keyframes lang-light {
+    from {
+      border-color: var(--wp-border-default);
+      background: var(--wp-surface-control);
+      color: var(--wp-text-secondary);
+    }
+  }
+</style>

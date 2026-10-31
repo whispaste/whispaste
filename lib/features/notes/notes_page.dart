@@ -1,0 +1,1136 @@
+import 'dart:async';
+import 'dart:io' show Platform;
+
+import 'package:desktop_drop/desktop_drop.dart';
+import 'package:file_selector/file_selector.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../core/data/database.dart';
+import '../../core/data/note_asset_storage.dart';
+import '../../core/logging/app_logger.dart';
+import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/navigation/page_state.dart' show notesEditorTargetProvider;
+import '../../core/utils/focus_helpers.dart';
+import '../../services/notes/notes_exporter.dart' as notes_exporter;
+import '../../services/recording_orchestrator.dart';
+import '../../widgets/dialog.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/find_replace.dart';
+import '../../widgets/page_shell.dart';
+import '../../widgets/toast.dart';
+import '../../widgets/wp_list_skeleton.dart';
+import '../../widgets/wp_text_field.dart';
+import 'data/note_asset_store.dart';
+import 'data/note_autosave.dart';
+import 'data/note_clipboard_image.dart';
+import 'data/note_title.dart';
+import 'data/note_version_scheduler.dart';
+import 'data/notes_actions.dart';
+import 'data/providers.dart';
+import 'voice_insert.dart';
+import '../history/data/history_lock.dart';
+import 'widgets/notes_pin_gate.dart';
+import 'widgets/note_editor_panel.dart' show NoteEditorExtras;
+import 'widgets/note_markup_controller.dart';
+import 'widgets/note_versions_dialog.dart';
+import 'widgets/notes_search_bar.dart';
+import 'widgets/notes_split_view.dart';
+
+final _log = AppLogger('NotesPage');
+
+/// Signature of the export-note seam used by [NotesPage].
+///
+/// Defaults to the top-level [notes_exporter.exportNote]. Widget tests
+/// substitute a fake to assert that the editor-toolbar export button invokes
+/// the exporter with the selected note and its tags, without touching the
+/// filesystem or platform channels.
+typedef NotesPageExportFn =
+    Future<void> Function(BuildContext context, Note note, List<Tag> tags);
+
+/// Placeholder-bar height of the loading skeleton, matched to the real
+/// [NotesListTile]. Measured at a 340 dp list column with the populated
+/// fixture: two-line title, two-line preview and the update time on its own
+/// metadata line. That is taller than the earlier single-line-title layout,
+/// so the value moved from 104 to 139 when the tile was aligned with history.
+/// The residual step when switching areas mid-load is the step the loaded
+/// lists have too.
+const _notesSkeletonRowHeight = 139.0;
+
+/// Notes page — standalone sidebar area for free-form notes.
+///
+/// Master-detail layout mirroring [HistoryPage]'s split view, but deliberately
+/// minimal: flat note list on the left, always-editable plain-text editor on
+/// the right, plus an active/trash filter with favourite, trash, restore and
+/// delete-forever actions (Ticket 04), tag editing/display (Ticket 05),
+/// content/tag search with Ctrl/Cmd+F focus (Ticket 06), txt/md export
+/// (Ticket 07) and voice input at the cursor position (Ticket 08).
+class NotesPage extends ConsumerStatefulWidget {
+  const NotesPage({super.key, this.exportFn = notes_exporter.exportNote});
+
+  /// Injection seam for the export flow.
+  ///
+  /// Defaults to the production [notes_exporter.exportNote]. Widget tests
+  /// substitute a fake to assert that the editor-toolbar export button
+  /// invokes the exporter with the open note and its tags without touching
+  /// the filesystem or platform channels.
+  final NotesPageExportFn exportFn;
+
+  @override
+  ConsumerState<NotesPage> createState() => _NotesPageState();
+}
+
+class _NotesPageState extends ConsumerState<NotesPage> {
+  /// Editor controller + focus node live HERE, not in [NoteEditorPanel] —
+  /// the panel rebuilds on every stream emit, and panel-owned controllers
+  /// would lose cursor position and IME state on each rebuild.
+  ///
+  /// A [WpFindHighlightController] so the editor toolbar's find bar can tint
+  /// its hits — a [TextField] only paints a *selection* while focused, and
+  /// while a query is being typed the focus is in the find field.
+  final NoteMarkupController _editorController = NoteMarkupController();
+  final FocusNode _editorFocusNode = FocusNode();
+
+  /// Asks the editor's body field to jump to the end of the note. A signal
+  /// rather than a [ScrollController] owned here: the split view mounts and
+  /// unmounts the editor panel around this page (closing the detail column,
+  /// the compact layout), and a controller attached to two fields at once —
+  /// or to none — is an error a signal cannot have. See
+  /// [WpTextField.scrollToEnd].
+  final WpScrollToEndSignal _scrollEditorToEndSignal = WpScrollToEndSignal();
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  final FocusNode _listFocusNode = FocusNode();
+
+  /// Captured once in [initState] so the autosave/dispose chain never touches
+  /// `ref` after the widget is unmounted.
+  late final NotesActions _actions;
+  late final NoteAutosave _autosave;
+
+  /// Decides when an edit becomes a version: after an idle pause here, and
+  /// at once on Ctrl/Cmd+S (WP-31a).
+  late final NoteVersionScheduler _versionScheduler;
+
+  /// Bumped after a version restore so the title field reloads its text.
+  int _titleRevision = 0;
+
+  static const _imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+
+  /// Same reason, for the two quick-note hooks this page registers on the
+  /// orchestrator — [dispose] must be able to unregister them without `ref`.
+  RecordingOrchestrator? _orchestrator;
+
+  String? _selectedNoteId;
+
+  /// The note [_createNote] has just written, held only until the notes
+  /// stream re-emits with it.
+  ///
+  /// Without it, [build] resolves `currentNote` to `null` for the length of
+  /// that async gap and the split view runs a full close animation, which
+  /// unmounts the editor panel while its field holds the focus — and
+  /// detaching a focused [FocusNode] silently drops the focus notification
+  /// (`FocusManager._markDetached` removes the node from the pending set) and
+  /// unparents the node. The field is then left painting a focus ring it
+  /// cannot type into, which is what "a new note starts out locked" was.
+  Note? _pendingCreatedNote;
+
+  /// Keyboard-focused note ID (distinct from the selected/editor note).
+  String? _focusedNoteId;
+
+  /// Guards the controller listener while the editor text is swapped
+  /// programmatically on note switch — without it, the swap itself would
+  /// schedule a bogus autosave for the newly selected note.
+  bool _syncingEditor = false;
+
+  /// Last body text handed to [_autosave] — see [_onEditorChanged] for why a
+  /// notification is not by itself proof that anything was typed.
+  String? _lastScheduledContent;
+
+  @override
+  void initState() {
+    super.initState();
+    _actions = ref.read(notesActionsProvider);
+    _autosave = NoteAutosave(onSave: _actions.save);
+    _versionScheduler = NoteVersionScheduler(onSnapshot: _takeIdleSnapshot);
+    _editorController.addListener(_onEditorChanged);
+    _editorFocusNode.addListener(_onEditorFocusChanged);
+    HardwareKeyboard.instance.addHandler(_onHardwareKey);
+    // Quick-note takeover, registered for exactly as long as this area is on
+    // screen (see the two handlers). Leaving the area, switching notes and
+    // closing the editor all resolve through the note-id check inside
+    // [_quickNoteLiveOverride] and this pair of initState/dispose lines.
+    _orchestrator = ref.read(recordingOrchestratorProvider.notifier);
+    _orchestrator!
+      ..quickNoteLiveEditorOverride = _quickNoteLiveOverride
+      ..quickNoteEditorFlush = _autosave.flush;
+    // One-time safety-net sweep: drop stale empty notes left behind by a
+    // previous session (fire-and-forget; the stream provider picks it up).
+    unawaited(_actions.purgeEmpty());
+    // Image folders of notes that no longer exist (crash, factory reset).
+    unawaited(_actions.sweepAssetFolders());
+    // Deep link from a quick-note append that navigated here — the target is
+    // already set when this page mounts, so `ref.listen` in build() would
+    // never see it change. Post-frame so the editor exists to scroll.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumeEditorTarget();
+    });
+  }
+
+  @override
+  void dispose() {
+    // Unregister first: an append arriving mid-teardown must fall through to
+    // the direct database write, not into a controller that is about to go.
+    _orchestrator
+      ?..quickNoteLiveEditorOverride = null
+      ..quickNoteEditorFlush = null;
+    final lastId = _selectedNoteId;
+    final lastContent = _editorController.text;
+    final hadPendingSnapshot = _versionScheduler.hasPending;
+    _versionScheduler.dispose();
+    // Empty-discard on page teardown: flush the pending autosave, then
+    // permanently delete the last selected note if it is blank (unless it is
+    // the marked quick note — discardIfBlank exempts it), then cancel the
+    // autosave timer. Fire-and-forget — dispose is synchronous and the chain
+    // only uses values captured above.
+    unawaited(() async {
+      try {
+        await _autosave.flush();
+        if (lastId != null &&
+            hadPendingSnapshot &&
+            lastContent.trim().isNotEmpty) {
+          await _takeVersionSnapshot(lastId);
+        }
+        if (lastId != null && lastContent.trim().isEmpty) {
+          await _actions.discardIfBlank(lastId);
+        }
+      } catch (e, st) {
+        // Best effort: the page is gone, so nothing can show this error. The
+        // database may already be closed when the app shuts down.
+        _log.warning('Could not finish saving the note on teardown', e, st);
+      } finally {
+        _autosave.dispose();
+      }
+    }());
+    _editorController.dispose();
+    // Removed before dispose(): FocusNode.dispose() synchronously unfocuses
+    // (and thus notifies listeners) as part of teardown — without this, the
+    // blur listener would fire mid-teardown and flush against an _autosave
+    // that the chain above is concurrently disposing.
+    HardwareKeyboard.instance.removeHandler(_onHardwareKey);
+    _editorFocusNode.removeListener(_onEditorFocusChanged);
+    _editorFocusNode.dispose();
+    _scrollEditorToEndSignal.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _listFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _onEditorChanged() {
+    if (_syncingEditor) return;
+    final id = _selectedNoteId;
+    if (id == null) return;
+    final text = _editorController.text;
+    // A controller notifies for more than typed characters: a caret move, and
+    // — since the find bar arrived — a change of which matches are
+    // highlighted. Scheduling those would write the note back unchanged and
+    // bump its `updatedAt`, reordering the list under a user who only opened
+    // find-and-replace and looked at it.
+    if (text == _lastScheduledContent) return;
+    _lastScheduledContent = text;
+    _autosave.schedule(id, text);
+    _versionScheduler.touch(id);
+  }
+
+  /// Flushes on blur (window loses focus, user clicks elsewhere without
+  /// switching notes) — one of the four flush triggers documented on
+  /// [NoteAutosave.schedule].
+  void _onEditorFocusChanged() {
+    if (!_editorFocusNode.hasFocus) {
+      unawaited(_autosave.flush());
+    }
+  }
+
+  /// Replaces the editor text without triggering an autosave schedule.
+  ///
+  /// Normalizes Windows line endings (`\r\n` → `\n`) before writing — the
+  /// plain-text-paste guarantee (US18). TextField already strips rich text,
+  /// so CRLF normalization is the only active measure needed.
+  void _setEditorText(String text) {
+    _syncingEditor = true;
+    final normalized = text.replaceAll('\r\n', '\n');
+    _editorController.text = normalized;
+    _editorController.selection = TextSelection.collapsed(
+      offset: normalized.length,
+    );
+    // The swap is the new baseline for [_onEditorChanged]: without this, the
+    // first real keystroke after switching *back* to a note whose text the
+    // user had already scheduled would compare against the wrong note's text.
+    _lastScheduledContent = normalized;
+    // A find bar left open on the previous note has no business tinting this
+    // one's text at the old offsets.
+    _editorController.clearFindHighlight();
+    _syncingEditor = false;
+  }
+
+  /// Flushes the pending autosave for the currently selected note and
+  /// permanently discards it when its content is blank (empty-discard rule:
+  /// leaving an empty note deletes it outright — never to trash). The marked
+  /// quick note is exempt even while blank (`discardIfBlank`) — it must
+  /// survive until unmarked, not just until the next dictation lands.
+  Future<void> _leaveCurrentNote() async {
+    // Every selection change funnels through here, which makes it the one
+    // place the create-time fallback below has to be dropped again.
+    _pendingCreatedNote = null;
+    final previousId = _selectedNoteId;
+    final previousContent = _editorController.text;
+    await _autosave.flush();
+    // A blank note is deleted together with its versions, so a snapshot taken
+    // just before that would be written only to be removed again.
+    if (previousId != null && previousContent.trim().isEmpty) {
+      if (await _actions.discardIfBlank(previousId)) return;
+    }
+    if (previousId != null && _versionScheduler.hasPending) {
+      await _versionScheduler.snapshotNow(previousId);
+    }
+  }
+
+  // ── Versions, images, marks and Textbausteine (WP-31a) ───────────────────
+
+  /// Stores a version of [noteId] as it is in the database. The body is
+  /// flushed first, so the snapshot is the text on screen. Returns `false`
+  /// when the state repeats the newest version.
+  Future<bool> _takeVersionSnapshot(String noteId) async {
+    await _autosave.flush();
+    final note = await _actions.getNote(noteId);
+    if (note == null) return false;
+    return _actions.snapshot(noteId, title: note.title, content: note.content);
+  }
+
+  Future<void> _takeIdleSnapshot(String noteId) async {
+    await _takeVersionSnapshot(noteId);
+  }
+
+  /// Ctrl/Cmd+S. Cancels the pending idle snapshot, since this one replaces it.
+  Future<void> _saveVersionNow() async {
+    final id = _selectedNoteId;
+    if (id == null || !mounted) return;
+    final l10n = L10n.of(context);
+    _versionScheduler.dispose();
+    final stored = await _takeVersionSnapshot(id);
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: stored ? l10n.notesVersionSaved : l10n.notesVersionUnchanged,
+      type: stored ? WpToastType.success : WpToastType.info,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  void _saveTitle(String noteId, String title) {
+    final trimmed = title.trim();
+    unawaited(_actions.saveTitle(noteId, trimmed.isEmpty ? null : trimmed));
+  }
+
+  /// Opens the version dialog. After a restore the editor shows the restored
+  /// text: the controller is not bound to the database row.
+  Future<void> _showVersions() async {
+    final id = _selectedNoteId;
+    if (id == null) return;
+    await _autosave.flush();
+    if (!mounted) return;
+    final restored = await showNoteVersionsDialog(context: context, noteId: id);
+    if (restored != true || !mounted) return;
+    final fresh = await _actions.getNote(id);
+    if (!mounted || fresh == null) return;
+    if (_selectedNoteId == id) _setEditorText(fresh.content);
+    setState(() => _titleRevision++);
+    WpToast.show(
+      context,
+      message: L10n.of(context).notesVersionRestored,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  void _markSelection() {
+    if (wrapSelectionInHighlight(_editorController)) return;
+    WpToast.show(
+      context,
+      message: L10n.of(context).notesMarkNeedsSelection,
+      type: WpToastType.info,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  Future<void> _addImage() async {
+    final id = _selectedNoteId;
+    if (id == null) return;
+    final file = await openFile(
+      acceptedTypeGroups: [
+        XTypeGroup(
+          label: L10n.of(context).notesImageFilesLabel,
+          extensions: _imageExtensions,
+        ),
+      ],
+    );
+    if (file == null || !mounted) return;
+    await _addImageBytes(id, await file.readAsBytes());
+  }
+
+  /// The one way an image reaches a note (file picker, paste, drop): the
+  /// store checks, cleans and limits it, and a refusal is shown as a toast.
+  Future<void> _addImageBytes(String noteId, Uint8List bytes) async {
+    final l10n = L10n.of(context);
+    // Trashed notes show no images, so they take none either.
+    final note = await ref.read(historyDatabaseProvider).getNote(noteId);
+    if (note == null || note.deletedAt != null || !mounted) return;
+    try {
+      await _actions.addImage(noteId, bytes);
+    } on NoteAssetLimitException catch (error) {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: switch (error.reason) {
+          NoteAssetLimit.perNoteCount => l10n.notesImageLimitCount,
+          NoteAssetLimit.perNoteBytes => l10n.notesImageLimitBytes,
+          NoteAssetLimit.globalBytes => l10n.notesImageLimitTotal,
+        },
+        type: WpToastType.error,
+        duration: const Duration(seconds: 4),
+      );
+    } on NoteImageRejectedException {
+      if (!mounted) return;
+      WpToast.show(
+        context,
+        message: l10n.notesImageRejected,
+        type: WpToastType.error,
+        duration: const Duration(seconds: 4),
+      );
+    }
+  }
+
+  /// Ctrl/Cmd+V with the editor focused: an image on the clipboard becomes an
+  /// attachment. The key is not consumed; the text paste still runs and only
+  /// finds text when the clipboard has some, so the two never both apply.
+  bool _onHardwareKey(KeyEvent event) {
+    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.keyV) {
+      return false;
+    }
+    final keys = HardwareKeyboard.instance;
+    final modifier = Platform.isMacOS
+        ? keys.isMetaPressed
+        : keys.isControlPressed;
+    if (modifier && _editorFocusNode.hasPrimaryFocus) {
+      unawaited(_pasteImageFromClipboard());
+    }
+    return false;
+  }
+
+  Future<void> _pasteImageFromClipboard() async {
+    final id = _selectedNoteId;
+    if (id == null) return;
+    final bytes = await ref.read(noteClipboardImageReaderProvider)();
+    if (bytes == null || !mounted) return;
+    await _addImageBytes(id, bytes);
+  }
+
+  /// Image files dropped on the notes area go to the open note, in order.
+  Future<void> _onDropDone(DropDoneDetails details) async {
+    final id = _selectedNoteId;
+    if (id == null || ref.read(historyContentHiddenProvider)) return;
+    for (final item in details.files) {
+      final name = item.name.toLowerCase();
+      if (!_imageExtensions.any((ext) => name.endsWith('.$ext'))) continue;
+      final bytes = await item.readAsBytes();
+      if (!mounted) return;
+      await _addImageBytes(id, bytes);
+    }
+  }
+
+  /// Textbaustein from the selection, or the whole body when nothing is
+  /// selected. The snippet keeps a link back to this note.
+  Future<void> _createSnippet() async {
+    final id = _selectedNoteId;
+    if (id == null) return;
+    final l10n = L10n.of(context);
+    final selection = _editorController.selection;
+    final text = selection.isValid && !selection.isCollapsed
+        ? selection.textInside(_editorController.text)
+        : _editorController.text;
+    final body = text.trim();
+    if (body.isEmpty) {
+      WpToast.show(
+        context,
+        message: l10n.notesSnippetNothing,
+        type: WpToastType.info,
+        duration: const Duration(seconds: 3),
+      );
+      return;
+    }
+    await _actions.createSnippetFromNote(
+      noteId: id,
+      title: deriveNoteTitle(body, maxLength: 60) ?? l10n.notesUntitled,
+      body: body,
+    );
+    if (!mounted) return;
+    WpToast.show(
+      context,
+      message: l10n.notesSnippetCreated,
+      type: WpToastType.success,
+      duration: const Duration(seconds: 2),
+    );
+  }
+
+  // ── Quick-note takeover (Ticket 21) ──────────────────────────────────────
+
+  /// Applies a quick-note append to the *live* editor instead of letting the
+  /// orchestrator write it to the database.
+  ///
+  /// Claims the append only when the target note is the one currently open —
+  /// no separate "is this the quick note?" question is needed, because the
+  /// orchestrator only ever calls this with the actual target id. With a
+  /// different note open (or none), returning `false` sends the append down
+  /// the direct-write path, which is right: the editor is showing something
+  /// else and nothing on screen would be overwritten.
+  ///
+  /// Re-schedules the merged content on the autosave afterwards. Skipping the
+  /// database write means the row is now behind the controller; the next
+  /// [NoteAutosave.flush] — including the one the *next* quick-note run
+  /// triggers through `quickNoteEditorFlush` — is what closes that gap. Drop
+  /// the re-schedule and a second append reads the pre-append row and loses
+  /// the first one.
+  bool _quickNoteLiveOverride(String noteId, String newContent) {
+    if (!mounted || _selectedNoteId != noteId) return false;
+    _setEditorText(newContent);
+    _autosave.schedule(noteId, newContent);
+    _scrollEditorToEnd();
+    return true;
+  }
+
+  /// Reads and immediately clears the deep-link target, then opens it.
+  ///
+  /// Clearing synchronously (before the `await` chain in
+  /// [_openQuickNoteTarget]) is what lets a second append to the *same* note
+  /// register at all — a `Notifier` set to its current value notifies nobody
+  /// — and it is what keeps a later manual visit to this area from jumping to
+  /// the note again.
+  void _consumeEditorTarget() {
+    if (!mounted) return;
+    final targetId = ref.read(notesEditorTargetProvider);
+    if (targetId == null) return;
+    ref.read(notesEditorTargetProvider.notifier).set(null);
+    unawaited(_openQuickNoteTarget(targetId));
+  }
+
+  /// Opens [targetId] in the editor, scrolled to the end.
+  ///
+  /// The already-open case only scrolls: [_quickNoteLiveOverride] has already
+  /// put the appended text in the controller and deliberately left the
+  /// database row behind, so re-reading the note here would overwrite the
+  /// fresh text with the stale row.
+  Future<void> _openQuickNoteTarget(String targetId) async {
+    if (_selectedNoteId == targetId) {
+      _scrollEditorToEnd();
+      return;
+    }
+    await _leaveCurrentNote();
+    if (!mounted) return;
+    // Coming from the trash view, land in the normal notes view. Drops the
+    // selection with it, exactly like _setFilter: carrying a trashed note
+    // across the filter boundary would show a note that isn't in the list.
+    if (ref.read(notesFilterProvider) == NotesFilter.trash) {
+      setState(() => _selectedNoteId = null);
+      _setEditorText('');
+      ref.read(notesFilterProvider.notifier).set(NotesFilter.active);
+    }
+    // Read straight from the database, not from the streamed list: the note
+    // may have been created by this very append and not have reached the
+    // stream yet.
+    final note = await _actions.getNote(targetId);
+    if (!mounted || note == null) return;
+    setState(() {
+      _selectedNoteId = note.id;
+      _focusedNoteId = note.id;
+    });
+    _setEditorText(note.content);
+    _scrollEditorToEnd();
+  }
+
+  /// Asks the editor to reveal the end of the note, so the just-appended text
+  /// is the part on screen. The field does the actual jump after the next
+  /// layout — see [WpTextField.scrollToEnd].
+  ///
+  /// Fired twice on purpose: the editor may legitimately not be in the tree
+  /// yet on the first attempt (the notes stream has not emitted the —
+  /// possibly brand-new — note, so the split view renders no panel), and a
+  /// field that mounts in between catches the second one. Jumping twice is a
+  /// no-op; beyond that the request is dropped rather than retried forever.
+  void _scrollEditorToEnd() {
+    _scrollEditorToEndSignal.fire();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _scrollEditorToEndSignal.fire();
+    });
+  }
+
+  Future<void> _selectNote(Note note) async {
+    if (note.id == _selectedNoteId) return;
+    await _leaveCurrentNote();
+    if (!mounted) return;
+    setState(() {
+      _selectedNoteId = note.id;
+      // Align the keyboard cursor with the click so arrow-key navigation
+      // continues seamlessly from the opened note.
+      _focusedNoteId = note.id;
+    });
+    _setEditorText(note.content);
+    // The body field keeps its own scroll offset across a switch now that the
+    // panel is updated in place rather than rebuilt (see NotesSplitView's
+    // crossFadeDetail), so the new note would otherwise open at whatever
+    // offset the previous one was left at. Reveal the end, which is where
+    // [_setEditorText] has just put the caret.
+    _scrollEditorToEnd();
+  }
+
+  /// Moves the list's virtual keyboard cursor by [delta] within [notes].
+  void _moveFocus(int delta, List<Note> notes) {
+    if (notes.isEmpty) return;
+    final currentIdx = notes.indexWhere((n) => n.id == _focusedNoteId);
+    final nextIdx = nextFocusIndex(currentIdx, delta, notes.length);
+    setState(() => _focusedNoteId = notes[nextIdx].id);
+  }
+
+  Note? _focusedNote(List<Note> notes) {
+    if (_focusedNoteId == null) return null;
+    final idx = notes.indexWhere((n) => n.id == _focusedNoteId);
+    return idx >= 0 ? notes[idx] : null;
+  }
+
+  /// Handles bare-key events on the list focus node (arrows, enter, delete,
+  /// backspace, F, escape). Returns [KeyEventResult.ignored] when a text
+  /// field has focus so [DefaultTextEditingShortcuts] can process the keys
+  /// normally — critical here because the note editor is a permanently
+  /// focused text field; without this guard Delete/Backspace/arrow keys
+  /// would eat text input instead of editing it.
+  KeyEventResult _handleListKeyEvent(
+    FocusNode node,
+    KeyEvent event,
+    List<Note> notes,
+    bool isTrash,
+  ) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    if (isTextFieldFocused()) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      _moveFocus(1, notes);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.arrowUp) {
+      _moveFocus(-1, notes);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.enter) {
+      final note = _focusedNote(notes);
+      if (note != null) _selectNote(note);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.delete ||
+        key == LogicalKeyboardKey.backspace) {
+      final note = _focusedNote(notes);
+      if (note != null) {
+        if (isTrash) {
+          _deleteForever(note);
+        } else {
+          _moveToTrash(note);
+        }
+      }
+      return KeyEventResult.handled;
+    }
+    // F: toggle favourite on the focused note (active view only — trash
+    // view has no favourite star). Excludes Ctrl/Cmd+F: without this guard,
+    // the bare-key check below fires before the modifier combo can bubble up
+    // to the page-level CallbackShortcuts that focuses the search field.
+    final hasModifier =
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+    if (key == LogicalKeyboardKey.keyF && !isTrash && !hasModifier) {
+      final note = _focusedNote(notes);
+      if (note != null) _toggleFavorite(note);
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape) {
+      if (_selectedNoteId != null) {
+        _closeEditor();
+      } else if (_focusedNoteId != null) {
+        setState(() => _focusedNoteId = null);
+      }
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  Future<void> _duplicateNote(Note note) async {
+    await _leaveCurrentNote();
+    final newNote = await _actions.duplicate(note.id);
+    if (!mounted || newNote == null) return;
+    setState(() {
+      _selectedNoteId = newNote.id;
+      _pendingCreatedNote = newNote;
+    });
+    _setEditorText(newNote.content);
+  }
+
+  Future<void> _createNote() async {
+    // Creating from the trash view: switch back to the active filter first,
+    // otherwise the freshly created (active) note would be invisible.
+    if (ref.read(notesFilterProvider) == NotesFilter.trash) {
+      ref.read(notesFilterProvider.notifier).set(NotesFilter.active);
+    }
+    // Creating a note is a selection change too — apply the same
+    // empty-discard rule to the note being left behind.
+    await _leaveCurrentNote();
+    final note = await _actions.create();
+    if (!mounted) return;
+    setState(() {
+      _selectedNoteId = note.id;
+      _pendingCreatedNote = note;
+    });
+    _setEditorText(note.content);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _editorFocusNode.requestFocus();
+    });
+  }
+
+  Future<void> _closeEditor() async {
+    await _leaveCurrentNote();
+    if (!mounted) return;
+    setState(() => _selectedNoteId = null);
+    _setEditorText('');
+  }
+
+  /// Switching between active and trash always closes the editor — carrying a
+  /// selection across the filter boundary would show a note that isn't in the
+  /// visible list (and would dodge the empty-discard rule on the way out).
+  Future<void> _setFilter(NotesFilter filter) async {
+    if (ref.read(notesFilterProvider) == filter) return;
+    await _leaveCurrentNote();
+    if (!mounted) return;
+    setState(() => _selectedNoteId = null);
+    _setEditorText('');
+    ref.read(notesFilterProvider.notifier).set(filter);
+  }
+
+  /// Flushes first so a just-typed, not-yet-saved draft can't be overwritten
+  /// by the stream re-emitting the stale pre-flush content after the toggle.
+  Future<void> _toggleFavorite(Note note) async {
+    await _autosave.flush();
+    await _actions.togglePin(note.id, pinned: !note.pinned);
+  }
+
+  /// Makes [note] the quick note — the note the quick-note hotkey appends to.
+  /// Exclusive: the write path drops whichever note held the mark before, so
+  /// this never has to unmark anything first.
+  ///
+  /// Deliberately *not* a toggle, and deliberately not named like one: calling
+  /// it on the note that already holds the mark would re-set the same value,
+  /// which is why the UI does not offer the control there at all.
+  ///
+  /// Flushes first, same as the favourite action — the mark is a write on the
+  /// same row, and the stream re-emitting pre-flush content afterwards would
+  /// overwrite a just-typed draft.
+  Future<void> _setQuickNote(Note note) async {
+    await _autosave.flush();
+    await _actions.markAsQuickNote(note.id);
+  }
+
+  /// Drops the quick-note mark without marking another note. Same flush rule:
+  /// the marked note may well be the one open in the editor.
+  Future<void> _clearQuickNote() async {
+    await _autosave.flush();
+    await _actions.clearQuickNoteMark();
+  }
+
+  Future<void> _moveToTrash(Note note) async {
+    // Flush before mutating so a pending draft is persisted — restoring from
+    // the trash must bring back exactly what the user last saw.
+    await _autosave.flush();
+    await _actions.moveToTrash(note.id);
+    if (!mounted) return;
+    if (note.id == _selectedNoteId) {
+      // Like _closeEditor, but without _leaveCurrentNote — the pending
+      // autosave was already flushed above.
+      setState(() => _selectedNoteId = null);
+      _setEditorText('');
+    }
+    final l10n = L10n.of(context);
+    WpToast.show(
+      context,
+      message: l10n.notesMovedToTrash,
+      type: WpToastType.info,
+      duration: const Duration(seconds: 4),
+      actionLabel: l10n.notesUndo,
+      onAction: () => _actions.restore(note.id),
+    );
+  }
+
+  /// No flush needed — restore only clears `deletedAt`, never touches content.
+  Future<void> _restoreNote(Note note) async {
+    await _actions.restore(note.id);
+  }
+
+  Future<void> _addTag(Note note, String tagName) =>
+      _actions.addTag(note.id, tagName);
+
+  Future<void> _removeTag(Note note, String tagId) =>
+      _actions.removeTag(note.id, tagId);
+
+  /// Inserts [transcript] at the editor's current selection (replacing any
+  /// selected range, with the word gap from [insertDictation]) — a genuine
+  /// content edit, so it goes through the normal `_onEditorChanged`
+  /// listener → autosave debounce, unlike `_setEditorText` (which suppresses
+  /// autosave via `_syncingEditor` for programmatic note switches).
+  void _insertVoiceTranscript(String transcript) {
+    _editorController.value = insertDictation(
+      _editorController.value,
+      transcript,
+    );
+  }
+
+  /// Exports the live editor text, not the (possibly stale, pre-debounce)
+  /// DB-streamed [note] — same "controller, not DB" rule as copy (Ticket 03).
+  void _exportNote(Note note, List<Tag> tags) {
+    // Fire-and-forget: the exporter surfaces success/error via WpToast.
+    widget.exportFn(
+      context,
+      note.copyWith(content: _editorController.text),
+      tags,
+    );
+  }
+
+  /// Only reachable from the trash view (list tile / editor toolbar there).
+  Future<void> _deleteForever(Note note) async {
+    // Flush first, same as favourite/trash: any pending autosave write
+    // completes (or its timer is cancelled) before the row disappears,
+    // instead of racing the delete.
+    await _autosave.flush();
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.notesDeleteForeverConfirm,
+      // The dialog requires a message; the derived note title tells the user
+      // exactly which note is about to go — no extra ARB key needed.
+      message: deriveNoteTitle(note.content) ?? l10n.notesUntitled,
+      confirmLabel: l10n.notesDeleteForever,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (!confirmed) return;
+    await _actions.deleteForever(note.id);
+    if (!mounted) return;
+    if (note.id == _selectedNoteId) {
+      setState(() => _selectedNoteId = null);
+      _setEditorText('');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DropTarget(onDragDone: _onDropDone, child: _buildPage(context));
+  }
+
+  Widget _buildPage(BuildContext context) {
+    final l10n = L10n.of(context);
+    // Deep link arriving while this area is already on screen (the normal
+    // case from the second quick-note run on). The initState post-frame above
+    // covers the other half: a target set before this page mounted.
+    ref.listen<String?>(notesEditorTargetProvider, (_, target) {
+      if (target == null) return;
+      _consumeEditorTarget();
+    });
+    final filter = ref.watch(notesFilterProvider);
+    final isTrash = filter == NotesFilter.trash;
+    // Kept solely for the error-retry invalidate below — the list itself
+    // reads from filteredNotesProvider (filter + search combined).
+    final activeStreamProvider = isTrash ? trashNotesProvider : notesProvider;
+    final notesAsync = ref.watch(filteredNotesProvider);
+    final query = ref.watch(notesSearchProvider).trim();
+    final hasQuery = query.isNotEmpty;
+    final tagsByNoteId =
+        ref.watch(allNoteTagsProvider).value ?? const <String, List<Tag>>{};
+    // Watched unconditionally in build (empty fallback when nothing is
+    // selected) so Riverpod manages the family subscription correctly.
+    final selectedNoteTags = _selectedNoteId != null
+        ? (ref.watch(noteTagsProvider(_selectedNoteId!)).value ?? const <Tag>[])
+        : const <Tag>[];
+    // Fallback list used by the shortcut/focus layer below, which now wraps
+    // ALL notesAsync states (not just the populated data branch) — empty
+    // during loading/error, harmless since _moveFocus/_focusedNote no-op on
+    // an empty list.
+    final notes = notesAsync.value ?? const <Note>[];
+    Note? currentNote;
+    if (_selectedNoteId != null) {
+      final idx = notes.indexWhere((n) => n.id == _selectedNoteId);
+      // The streamed row wins as soon as it exists; the just-created note
+      // stands in only for the gap before the stream has it (see
+      // [_pendingCreatedNote]).
+      currentNote = idx >= 0
+          ? notes[idx]
+          : (_pendingCreatedNote?.id == _selectedNoteId
+                ? _pendingCreatedNote
+                : null);
+    }
+
+    if (ref.watch(historyContentHiddenProvider)) {
+      return const NotesPinGate();
+    }
+
+    return WpPageShell(
+      scrollable: false,
+      padding: EdgeInsets.zero,
+      child: CallbackShortcuts(
+        bindings: <ShortcutActivator, VoidCallback>{
+          SingleActivator(
+            LogicalKeyboardKey.keyF,
+            control: !Platform.isMacOS,
+            meta: Platform.isMacOS,
+          ): () {
+            _searchFocusNode.requestFocus();
+          },
+        },
+        // Focus wrapper: the list focus node further down is the real initial
+        // focus target now (autofocus there); Ctrl/Cmd+F still bubbles up from
+        // it to this outer handler (same pattern as history_page.dart, whose
+        // outer wrapper is also autofocus: false and only binds Ctrl/Cmd+F).
+        child: Focus(
+          autofocus: false,
+          skipTraversal: true,
+          child: Column(
+            children: [
+              NotesSearchBar(
+                onCreate: _createNote,
+                currentFilter: filter,
+                onFilterChanged: _setFilter,
+                searchController: _searchController,
+                searchFocusNode: _searchFocusNode,
+                onSearchChanged: () {
+                  ref
+                      .read(notesSearchProvider.notifier)
+                      .set(_searchController.text);
+                  // Explicit rebuild so the clear button and result count react
+                  // to every keystroke, independent of provider plumbing.
+                  setState(() {});
+                },
+                resultCount: notesAsync.value?.length ?? 0,
+                showResultCount: hasQuery,
+              ),
+              Expanded(
+                child: CallbackShortcuts(
+                  // Wraps ALL notesAsync states (data-with-notes, both empty
+                  // states, loading, error) — not just the populated data
+                  // branch. Ctrl/Cmd+N/+C used to live only inside the
+                  // non-empty data branch, which left them (and Ctrl/Cmd+F,
+                  // which depends on this Focus node holding focus for its
+                  // key event to bubble to the page-level handler above)
+                  // dead exactly when a first-time user or an empty search
+                  // result needed "create a note" most. Only modifier-combo
+                  // shortcuts live here; bare keys (arrows, enter, delete,
+                  // backspace, escape, F) are handled in Focus.onKeyEvent
+                  // below so they can return KeyEventResult.ignored when a
+                  // text field has focus.
+                  bindings: _buildListShortcuts(
+                    context,
+                    l10n,
+                    notes,
+                    currentNote,
+                  ),
+                  child: Focus(
+                    focusNode: _listFocusNode,
+                    autofocus: true,
+                    // Bare-key shortcuts are handled here via onKeyEvent
+                    // so that KeyEventResult.ignored can be returned when
+                    // a text field has focus. CallbackShortcuts always
+                    // consumes matched events, which would prevent
+                    // DefaultTextEditingShortcuts from processing
+                    // Backspace/Enter/etc. in the always-editable note
+                    // editor.
+                    onKeyEvent: (node, event) =>
+                        _handleListKeyEvent(node, event, notes, isTrash),
+                    child: _buildNotesContent(
+                      notesAsync: notesAsync,
+                      isTrash: isTrash,
+                      hasQuery: hasQuery,
+                      query: query,
+                      l10n: l10n,
+                      tagsByNoteId: tagsByNoteId,
+                      currentNote: currentNote,
+                      selectedNoteTags: selectedNoteTags,
+                      activeStreamProvider: activeStreamProvider,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Modifier-combo bindings for the list-level shortcut layer (Ctrl/Cmd+N,
+  /// Ctrl/Cmd+C). Split out of [build] to keep its cyclomatic complexity in
+  /// check — bare-key shortcuts live in [_handleListKeyEvent] instead.
+  Map<ShortcutActivator, VoidCallback> _buildListShortcuts(
+    BuildContext context,
+    L10n l10n,
+    List<Note> notes,
+    Note? currentNote,
+  ) {
+    return <ShortcutActivator, VoidCallback>{
+      // Ctrl+N / Cmd+N: create a new note.
+      //
+      // No isTextFieldFocused() guard, unlike Ctrl/Cmd+C below. The guard was
+      // here and it made the shortcut dead exactly when it is needed most:
+      // this page's editor is an always-focused text field that takes focus
+      // automatically after every create, so from the second note onwards
+      // Ctrl+N did nothing at all. It also bought nothing — Ctrl/Cmd+N is not
+      // a text-editing binding on any of the three platforms (Flutter binds
+      // Ctrl+N to "line down" only in its macOS Emacs set, and on macOS we
+      // send Cmd+N). Copy still needs its guard, because Ctrl/Cmd+C inside a
+      // text field must copy the selection. Snippets and Ersetzungen bind the
+      // same key through WpSearchableListPage, equally unguarded.
+      SingleActivator(
+        LogicalKeyboardKey.keyN,
+        control: !Platform.isMacOS,
+        meta: Platform.isMacOS,
+      ): _createNote,
+      // Ctrl+C / Cmd+C: copy the open/focused note's content.
+      SingleActivator(
+        LogicalKeyboardKey.keyC,
+        control: !Platform.isMacOS,
+        meta: Platform.isMacOS,
+      ): () {
+        if (isTextFieldFocused()) return;
+        final note = currentNote ?? _focusedNote(notes);
+        if (note == null) return;
+        Clipboard.setData(ClipboardData(text: note.content));
+        WpToast.show(
+          context,
+          message: l10n.notesCopied,
+          type: WpToastType.success,
+          duration: const Duration(seconds: 2),
+        );
+      },
+    };
+  }
+
+  /// Renders the notesAsync states (populated list, both empty states,
+  /// loading skeleton, error) — the [Focus]/[CallbackShortcuts] layer in
+  /// [build] wraps this unconditionally so shortcuts stay reachable in
+  /// every state, not just the populated one. Split out of [build] to keep
+  /// its cyclomatic complexity in check.
+  Widget _buildNotesContent({
+    required AsyncValue<List<Note>> notesAsync,
+    required bool isTrash,
+    required bool hasQuery,
+    required String query,
+    required L10n l10n,
+    required Map<String, List<Tag>> tagsByNoteId,
+    required Note? currentNote,
+    required List<Tag> selectedNoteTags,
+    required StreamProvider<List<Note>> activeStreamProvider,
+  }) {
+    return notesAsync.when(
+      data: (notes) {
+        if (notes.isEmpty) {
+          if (hasQuery) {
+            return WpEmptyState(
+              key: const ValueKey('notes-search-empty'),
+              icon: LucideIcons.searchX,
+              title: l10n.notesNoResults,
+              hint: l10n.notesNoResultsHint(query),
+              actionLabel: l10n.actionClearSearch,
+              onAction: () {
+                _searchController.clear();
+                ref.read(notesSearchProvider.notifier).set('');
+                setState(() {});
+              },
+            );
+          }
+          // Per the WpEmptyState rule: the base state offers the area's
+          // main action even though the header's "New note" button stays
+          // visible — an empty list is where the user looks for it first,
+          // and both carry the same label. The trash has no main action
+          // of its own, so it stays without one.
+          return WpEmptyState(
+            icon: isTrash ? LucideIcons.trash2 : LucideIcons.stickyNote,
+            title: isTrash ? l10n.notesTrashEmpty : l10n.notesEmptyTitle,
+            hint: isTrash ? l10n.notesTrashEmptyHint : l10n.notesEmptyHint,
+            actionLabel: isTrash ? null : l10n.notesNewNote,
+            onAction: isTrash ? null : _createNote,
+          );
+        }
+        return NotesSplitView(
+          notes: notes,
+          tagsByNoteId: tagsByNoteId,
+          isTrashView: isTrash,
+          selectedNote: currentNote,
+          focusedNoteId: _focusedNoteId,
+          selectedNoteTags: selectedNoteTags,
+          editorController: _editorController,
+          editorFocusNode: _editorFocusNode,
+          scrollEditorToEnd: _scrollEditorToEndSignal,
+          onNoteTap: _selectNote,
+          onCopy: (note) {
+            Clipboard.setData(ClipboardData(text: note.content));
+            WpToast.show(
+              context,
+              message: l10n.notesCopied,
+              type: WpToastType.success,
+              duration: const Duration(seconds: 2),
+            );
+          },
+          onCloseEditor: _closeEditor,
+          onDuplicate: _duplicateNote,
+          onFavoriteToggle: _toggleFavorite,
+          onQuickNoteSet: _setQuickNote,
+          onQuickNoteClear: _clearQuickNote,
+          onMoveToTrash: _moveToTrash,
+          onRestore: _restoreNote,
+          onDeleteForever: _deleteForever,
+          onAddTag: (name) {
+            if (currentNote != null) _addTag(currentNote, name);
+          },
+          onRemoveTag: (id) {
+            if (currentNote != null) _removeTag(currentNote, id);
+          },
+          onExport: () {
+            if (currentNote != null) {
+              _exportNote(currentNote, selectedNoteTags);
+            }
+          },
+          onVoiceTranscript: _insertVoiceTranscript,
+          editorExtras: NoteEditorExtras(
+            onSaveTitle: _saveTitle,
+            onSaveVersionNow: () => unawaited(_saveVersionNow()),
+            onMarkSelection: _markSelection,
+            onAddImage: () => unawaited(_addImage()),
+            onShowVersions: () => unawaited(_showVersions()),
+            onCreateSnippet: () => unawaited(_createSnippet()),
+            titleRevision: _titleRevision,
+          ),
+        );
+      },
+      loading: () => const WpListSkeleton(rowHeight: _notesSkeletonRowHeight),
+      error: (e, _) => WpEmptyState(
+        icon: LucideIcons.triangleAlert,
+        title: l10n.errorGeneric,
+        actionLabel: l10n.actionRetry,
+        onAction: () => ref.invalidate(activeStreamProvider),
+      ),
+    );
+  }
+}

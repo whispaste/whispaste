@@ -1,0 +1,7 @@
+# Benchmarks are test code that lives outside test/ only so that no test run
+# picks them up; they use @visibleForTesting members like the tests do.
+include: ../analysis_options.yaml
+
+analyzer:
+  errors:
+    invalid_use_of_visible_for_testing_member: ignore

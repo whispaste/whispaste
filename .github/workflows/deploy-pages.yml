@@ -1,0 +1,92 @@
+name: Deploy Landing Page
+# Prerequisite: Enable GitHub Pages in repo settings
+# Settings → Pages → Source: "GitHub Actions"
+
+on:
+  # Deploys only on purpose (maintainer 2026-10-25): a merge to main must never
+  # publish the website by itself. No push trigger and no schedule; the site goes
+  # live after a tag release (release.yml dispatches this workflow) or by a
+  # manual dispatch. Changelog drift from hand-edited release notes is fixed by
+  # dispatching this workflow by hand.
+  # (release: published cannot be used — Pages env protection only allows main ref)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: 22
+      - name: Install website dependencies
+        run: npm ci
+        working-directory: website
+      - name: Build releases.json from GitHub API
+        run: node --experimental-strip-types --no-warnings scripts/build-releases.ts
+        working-directory: website
+        env:
+          # German bodies now come from each release's release-notes-de.md
+          # asset (see build-releases.ts) — no OpenAI translation in the
+          # website build, so no OPENAI_API_KEY needed here.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build with Astro
+        uses: withastro/action@3eafd002e65cc31b4f0eae0bb05450d521562247 # v6.1.3
+        with:
+          path: website
+        env:
+          # Aktiviert den Source-Maps-Upload des @sentry/astro-Plugins.
+          # Ohne diese Variable überspringt der Plugin den Upload mit Warnung,
+          # der Build selbst läuft trotzdem durch (siehe sentry-vite-plugin).
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          # The nav's star count (src/scripts/github-stars.ts) is fetched at
+          # build time; anonymous calls from shared runner IPs hit the
+          # 60/hour limit, the workflow token lifts it to 5,000/hour.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Submit sitemap to IndexNow (Bing, Yandex, Naver, Seznam, Yep)
+        run: node scripts/push-indexnow.mjs
+        working-directory: website
+        env:
+          # Skript ist opt-in (Exit 0 ohne Key) — Secret muss einmalig gesetzt
+          # werden, siehe website/scripts/push-indexnow.mjs Kopfkommentar.
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+      - name: Submit sitemap to Google Search Console
+        run: node scripts/gsc-sitemap-ping.mjs
+        working-directory: website
+        # Schlägt mit 403 fehl, bis der Service Account einmalig manuell als
+        # "Uneingeschränkt"-Nutzer auf sc-domain:whispaste.de eingetragen ist
+        # (Search Console → Einstellungen → Nutzer und Berechtigungen — nicht
+        # per API möglich). Darf den Deploy nie blockieren, deshalb
+        # continue-on-error; sobald der manuelle Schritt erledigt ist, läuft
+        # er grün mit.
+        continue-on-error: true
+        env:
+          # Dedizierter Service Account whispaste-gsc-sitemap-ping@hellerio-ai
+          # mit "Uneingeschränkt"-Zugriff NUR auf sc-domain:whispaste.de (kein
+          # anderer IAM-Zugriff) — siehe website/scripts/gsc-sitemap-ping.mjs
+          # Kopfkommentar.
+          GSC_SA_KEY: ${{ secrets.GSC_SA_KEY }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

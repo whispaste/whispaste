@@ -1,0 +1,12 @@
+---
+import ScreenshotsPage from "../../components/pages/ScreenshotsPage.astro";
+import { currentLocale, prefixedLocalePaths } from "../../scripts/i18n.ts";
+
+export function getStaticPaths() {
+  return prefixedLocalePaths();
+}
+
+const lang = currentLocale(Astro.params.lang);
+---
+
+<ScreenshotsPage lang={lang} />

@@ -1,0 +1,57 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildLlmsFullTxt > concatenates the context sections and the audience document with a separator 1`] = `
+"# WhisPaste — Full LLM Reference
+
+> Vollständige Self-Beschreibung von WhisPaste für KI-Suchmaschinen und LLM-Crawler. Quelle: \`CONTEXT.md\` §1–§4 + \`docs/zielgruppe.md\`.
+
+<!-- seo-audit:contrastive -->
+
+---
+
+## Part 1 — Domain Glossary (CONTEXT.md §1–§4)
+
+## 1. Produktkern
+
+WhisPaste ist ein voice-input tool.
+
+## 2. Kernbegriffe
+
+### 2.1 Aufnahme-Vorgang
+
+Der Aufnahme-Vorgang läuft.
+
+## 3. Pipeline-Vokabular
+
+Phasen: idle → recording → transcribing.
+
+## 4. STT-Vokabular
+
+Provider, Engine, Modell, Backend.
+
+---
+
+## Part 2 — Target Audience (docs/zielgruppe.md)
+
+# Zielgruppe — Mock
+
+Vielschreibende Desktop-Nutzer.
+
+<!-- /seo-audit:contrastive -->
+"
+`;
+
+exports[`buildLlmsTxt > matches the expected llmstxt.org format (H1 + blockquote + section linklists) 1`] = `
+"# WhisPaste
+
+> WhisPaste is an MIT-licensed voice-input tool.
+
+## Download
+
+- [Download](https://whispaste.de/download/): Microsoft Store
+
+## FAQ
+
+- [FAQ](https://whispaste.de/#faq)
+"
+`;

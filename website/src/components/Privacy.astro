@@ -1,0 +1,260 @@
+---
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+const detailsHref = pathForSlug(lang, 'privacy-speech-recognition');
+
+// Two honest audio paths: local is the default, cloud only when the user picks
+// a provider. Each path shows a text-free motion loop (rendered from
+// website/motion/, one file for all languages) and, below it, the same route
+// as a numbered list — that list is what screen readers get.
+const paths = [
+  {
+    key: 'local',
+    titleKey: 'privacy.offline.title',
+    descKey: 'privacy.offline.desc',
+    badgeKey: 'privacy.badge.default',
+    steps: ['privacy.flow.mic', 'privacy.flow.localEngine', 'privacy.flow.localResult'],
+    video: 'privacy-local',
+  },
+  {
+    key: 'cloud',
+    titleKey: 'privacy.directapi.title',
+    descKey: 'privacy.directapi.desc',
+    badgeKey: 'privacy.badge.optional',
+    steps: ['privacy.flow.mic', 'privacy.flow.cloudProvider', 'privacy.flow.cloudResult'],
+    video: 'privacy-cloud',
+  },
+] as const;
+---
+
+<!-- Privacy: where the audio goes (local default vs. optional cloud), plus
+     one line on telemetry. No blanket "no network" claim: model downloads,
+     updates and opt-out telemetry exist. -->
+<section id="privacy" class="band band-spotlight relative wp-section scroll-mt-20" data-testid="privacy">
+  <div class="relative wp-container privacy-layout">
+    <div class="wp-section-head privacy-head">
+      <SectionEyebrow key="privacy.label" />
+      <h2 class="section-title"><span data-i18n="privacy.titleLead">{t(lang, "privacy.titleLead")}</span><span class="wp-marker" data-i18n="privacy.titleAccent">{t(lang, "privacy.titleAccent")}</span><span data-i18n="privacy.titleTail">{t(lang, "privacy.titleTail")}</span></h2>
+      <p class="wp-lead mt-4" data-i18n="privacy.desc">{t(lang, "privacy.desc")}</p>
+    </div>
+
+    <div class="privacy-paths">
+      {paths.map((p) => (
+        <article class={`privacy-path privacy-path--${p.key}`} data-testid={`privacy-path-${p.key}`}>
+          <span class="privacy-badge" data-i18n={p.badgeKey}>{t(lang, p.badgeKey)}</span>
+          <h3 class="privacy-path__title" data-i18n={p.titleKey}>{t(lang, p.titleKey)}</h3>
+          <figure class="privacy-motion" aria-hidden="true">
+            <video muted loop playsinline preload="none" poster={`/motion/${p.video}.webp`} width="720" height="426" data-motion-loop={`/motion/${p.video}`} data-testid={`privacy-video-${p.key}`}></video>
+          </figure>
+          <ol class="privacy-flow">
+            {p.steps.map((s, i) => (
+              <li class={i === 1 ? 'privacy-step privacy-step--engine' : 'privacy-step'}><span data-i18n={s}>{t(lang, s)}</span></li>
+            ))}
+          </ol>
+          <p class="privacy-path__desc" data-i18n={p.descKey}>{t(lang, p.descKey)}</p>
+        </article>
+      ))}
+    </div>
+
+    <div class="privacy-telemetry">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/></svg>
+      <div>
+        <h3 class="privacy-telemetry__title" data-i18n="privacy.telemetry.title">{t(lang, "privacy.telemetry.title")}</h3>
+        <p class="privacy-telemetry__desc" data-i18n="privacy.telemetry.desc">{t(lang, "privacy.telemetry.desc")}</p>
+        <a href={detailsHref} class="privacy-details" data-testid="privacy-details">
+          <span data-i18n="privacy.details">{t(lang, "privacy.details")}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { initMotionLoops } from '../scripts/motion-loops';
+
+  initMotionLoops();
+</script>
+
+<style>
+  .privacy-layout {
+    display: grid;
+    gap: var(--wp-space-8);
+  }
+  .privacy-head {
+    margin-bottom: 0;
+  }
+
+  .privacy-paths {
+    display: grid;
+    gap: var(--wp-space-5);
+  }
+  @media (min-width: 768px) {
+    .privacy-paths {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .privacy-path {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-4);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
+  }
+  /* Evidence-card kicker: mono, small; the default route is the amber one. */
+  .privacy-badge {
+    align-self: flex-start;
+    padding: var(--wp-space-1) var(--wp-space-3);
+    border-radius: var(--wp-radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wp-card-meta);
+    border: 1px solid var(--wp-border-strong);
+  }
+  .privacy-path--local .privacy-badge {
+    color: var(--wp-marker-text);
+    background: var(--wp-marker-stroke);
+    border-color: var(--wp-marker-stroke);
+  }
+  .privacy-path__title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--wp-card-title);
+    text-wrap: balance;
+  }
+  .privacy-path__desc {
+    margin: 0;
+    font-size: var(--wp-font-size-md);
+    line-height: 1.6;
+    color: var(--wp-card-text);
+  }
+
+  /* ---- Motion stage: a pre-rendered, transparent loop (website/motion/) ---- */
+  .privacy-motion {
+    margin: 0;
+    /* No own backdrop: the loop is transparent and lies on the card. */
+    aspect-ratio: 720 / 426;
+  }
+  .privacy-motion video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* ---- Legend: the same route in words, numbered like the loop's order ---- */
+  .privacy-flow {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wp-space-2);
+    counter-reset: step;
+  }
+  .privacy-step {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    padding: var(--wp-space-1) var(--wp-space-3) var(--wp-space-1) var(--wp-space-1);
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-surface-control);
+    border: 1px solid var(--wp-border-default);
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-card-title);
+    counter-increment: step;
+  }
+  .privacy-step::before {
+    content: counter(step);
+    display: inline-grid;
+    place-items: center;
+    width: var(--wp-space-6);
+    height: var(--wp-space-6);
+    border-radius: var(--wp-radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    color: var(--wp-color-navy-950);
+    background: var(--wp-accent-default);
+  }
+  /* Cloud: the provider is the one step outside the computer — dashed and
+     amber, like the crossing point in the loop. */
+  .privacy-path--cloud .privacy-step--engine {
+    border-style: dashed;
+    border-color: var(--wp-border-strong);
+    background: transparent;
+  }
+  .privacy-path--cloud .privacy-step--engine::before {
+    background: var(--wp-marker-stroke);
+  }
+
+  /* ---- Telemetry row ---- */
+  .privacy-telemetry {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr);
+    gap: var(--wp-space-4);
+    padding-top: var(--wp-space-6);
+    border-top: 1px solid var(--wp-border-default);
+  }
+  .privacy-telemetry > svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--wp-text-link);
+    margin-top: var(--wp-space-1);
+  }
+  /* Wide screens: copy left, details link anchored right, so the row spans
+     the frame like the two path cards above it. */
+  @media (min-width: 1280px) {
+    .privacy-telemetry > div {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: var(--wp-space-12);
+      align-items: center;
+    }
+    .privacy-telemetry > div > .privacy-details {
+      grid-column: 2;
+      grid-row: 1 / span 2;
+    }
+  }
+  .privacy-telemetry__title {
+    font-weight: 600;
+    color: var(--wp-text-primary);
+    margin-bottom: var(--wp-space-1);
+  }
+  .privacy-telemetry__desc {
+    font-size: var(--wp-font-size-md);
+    line-height: 1.6;
+    color: var(--wp-text-secondary);
+    max-width: var(--measure-lead);
+  }
+  .privacy-details {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    min-height: 44px;
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+    color: var(--wp-text-link);
+    text-decoration: none;
+  }
+  .privacy-details svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  .privacy-details:hover span {
+    text-decoration: underline;
+  }
+</style>

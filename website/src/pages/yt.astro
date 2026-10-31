@@ -1,0 +1,44 @@
+---
+// Typeable short link for YouTube Shorts (whispaste.de/yt). Links in Shorts are not
+// clickable, so viewers type the domain and would land in Matomo as "Direct". This page
+// forwards them to their language's home page with a Matomo campaign, so the visit is
+// attributed to YouTube (campaign scheme: matomo repo, docs/campaign-taxonomy.md).
+//
+// Deliberately outside Layout.astro: no Matomo snippet here (the target page tracks the
+// visit once), noindex, and excluded from the sitemap in astro.config.mjs.
+const CAMPAIGN = 'youtube-short';
+const fallback = `/?mtm_campaign=${CAMPAIGN}&mtm_kwd=de`;
+---
+
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>WhisPaste</title>
+    <script is:inline define:vars={{ campaign: CAMPAIGN }}>
+      // Same language choice as the browser-language redirect in Layout.astro: saved
+      // switcher choice first, then the browser languages, English as fallback.
+      (function () {
+        var supported = ['de', 'en', 'es', 'pt', 'it', 'ru', 'zh', 'fr'];
+        var want = null;
+        try { want = localStorage.getItem('wp-lang'); } catch (e) {}
+        if (supported.indexOf(want) < 0) {
+          want = 'en';
+          var langs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
+          for (var i = 0; i < langs.length; i++) {
+            var base = String(langs[i]).toLowerCase().split('-')[0];
+            if (supported.indexOf(base) >= 0) { want = base; break; }
+          }
+        }
+        var path = want === 'de' ? '/' : '/' + want + '/';
+        location.replace(path + '?mtm_campaign=' + campaign + '&mtm_kwd=' + want);
+      })();
+    </script>
+    <noscript><meta http-equiv="refresh" content={`0; url=${fallback}`} /></noscript>
+  </head>
+  <body>
+    <p><a href={fallback}>WhisPaste</a></p>
+  </body>
+</html>

@@ -1,0 +1,492 @@
+---
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t, currentLocale } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+
+// Three everyday features as smaller bento tiles, each with one abstract
+// product fragment (no text, so nothing to translate twice).
+const rowCards = ['editSelection', 'history', 'notes'] as const;
+
+// Everything else stays on the page (crawlable, searchable) in one native
+// disclosure instead of a wall of equal-rank cards.
+const moreKeys = [
+  'hotkey',
+  'sidepanel',
+  'vocabulary',
+  'overlay',
+  'hardware',
+  'privacy',
+  'cloud',
+  'access',
+  'remote',
+  'backup',
+] as const;
+
+const snippetExamples = ['highlights.snippets.example1', 'highlights.snippets.example2', 'highlights.snippets.example3'] as const;
+---
+
+<!-- FeatureHighlights — what WhisPaste does beyond plain voice input, as one
+     bento grid: Smart Mode is the large tile, Snippets and three everyday
+     features follow as smaller tiles, each with one product fragment. The
+     rest sits in one "more" disclosure. Details live in the FAQ and gallery. -->
+<section id="features" class="band band-spotlight wp-section relative scroll-mt-20">
+  <div class="relative wp-container">
+    <div class="wp-section-head">
+      <SectionEyebrow key="highlights.label" class="reveal-up" />
+      <h2 class="section-title wp-kinetic-line">
+        <span data-i18n="highlights.titleLead">{t(lang, 'highlights.titleLead')}</span><!--
+        --><span class="wp-marker" data-i18n="highlights.titleAccent">{t(lang, 'highlights.titleAccent')}</span><!--
+        --><span data-i18n="highlights.titleTail">{t(lang, 'highlights.titleTail')}</span>
+      </h2>
+    </div>
+
+    <div class="fh-bento">
+      <!-- Smart Mode: spoken vs. cleaned-up text -->
+      <article class="fh-card fh-card--smart" data-testid="features-smartmode">
+        <div class="fh-card-head">
+          <h3 class="fh-title" data-i18n="highlights.smartmode.title">{t(lang, 'highlights.smartmode.title')}</h3>
+          <span class="fh-badge" data-i18n="highlights.optional">{t(lang, 'highlights.optional')}</span>
+        </div>
+        <p class="fh-desc" data-i18n="highlights.smartmode.desc">{t(lang, 'highlights.smartmode.desc')}</p>
+        <div class="fh-compare" aria-hidden="true">
+          <div class="fh-compare-row">
+            <span class="fh-compare-label" data-i18n="highlights.smartmode.spokenLabel">{t(lang, 'highlights.smartmode.spokenLabel')}</span>
+            <p class="fh-compare-text fh-compare-text--raw" data-i18n="highlights.smartmode.spokenText">{t(lang, 'highlights.smartmode.spokenText')}</p>
+          </div>
+          <div class="fh-compare-row">
+            <span class="fh-compare-label" data-i18n="highlights.smartmode.cleanLabel">{t(lang, 'highlights.smartmode.cleanLabel')}</span>
+            <p class="fh-compare-text fh-compare-text--clean" data-i18n="highlights.smartmode.cleanText">{t(lang, 'highlights.smartmode.cleanText')}</p>
+          </div>
+        </div>
+      </article>
+
+      <!-- Snippets: the picker that opens at the cursor -->
+      <article class="fh-card" data-testid="features-snippets">
+        <h3 class="fh-title" data-i18n="highlights.snippets.title">{t(lang, 'highlights.snippets.title')}</h3>
+        <p class="fh-desc" data-i18n="highlights.snippets.desc">{t(lang, 'highlights.snippets.desc')}</p>
+        <ul class="fh-picker" aria-hidden="true">
+          {snippetExamples.map((key, i) => (
+            <li class:list={['fh-picker-item', { 'is-active': i === 0 }]}>
+              <span data-i18n={key}>{t(lang, key)}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg>
+            </li>
+          ))}
+        </ul>
+      </article>
+
+      {rowCards.map((key) => (
+        <article class="fh-card fh-card--small" data-testid={`features-${key}`}>
+          <div class="fh-frag" aria-hidden="true">
+            {key === 'editSelection' && (
+              <div class="fh-frag-edit">
+                <span class="fh-line"></span>
+                <span class="fh-line"><i class="fh-sel"></i></span>
+                <span class="fh-line fh-line--short"></span>
+                <span class="fh-mini-pill"><b></b><i></i><i></i><i></i><i></i><i></i></span>
+              </div>
+            )}
+            {key === 'history' && (
+              <div class="fh-frag-history">
+                <span class="fh-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6" /><path d="m20 20-4.5-4.5" /></svg><span class="fh-line fh-line--tiny"></span></span>
+                <span class="fh-hit is-found"><i></i><span class="fh-line"></span></span>
+                <span class="fh-hit"><i></i><span class="fh-line fh-line--short"></span></span>
+              </div>
+            )}
+            {key === 'notes' && (
+              <div class="fh-frag-note">
+                <span class="fh-pin"></span>
+                <span class="fh-line"></span>
+                <span class="fh-line fh-line--short"></span>
+                <span class="fh-line fh-line--new"></span>
+              </div>
+            )}
+          </div>
+          <h3 class="fh-title fh-title--small" data-i18n={`highlights.${key}.title`}>{t(lang, `highlights.${key}.title`)}</h3>
+          <p class="fh-desc" data-i18n={`highlights.${key}.desc`}>{t(lang, `highlights.${key}.desc`)}</p>
+        </article>
+      ))}
+    </div>
+
+    <details class="fh-more" data-testid="features-more">
+      <summary class="fh-more-summary" data-testid="features-more-toggle">
+        <span data-i18n="highlights.more">{t(lang, 'highlights.more')}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </summary>
+      <dl class="fh-more-list">
+        {moreKeys.map((key) => (
+          <div class="fh-more-item">
+            <dt data-i18n={`highlights.${key}.title`}>{t(lang, `highlights.${key}.title`)}</dt>
+            <dd data-i18n={`highlights.${key}.desc`}>{t(lang, `highlights.${key}.desc`)}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
+
+    <p class="fh-gallery">
+      <a href="#app-screenshots" class="fh-gallery-link" data-testid="features-gallery-link">
+        <span data-i18n="highlights.galleryLink">{t(lang, 'highlights.galleryLink')}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+      </a>
+    </p>
+  </div>
+</section>
+
+<style>
+  /* ---- Bento: Smart Mode 4/6 + Snippets 2/6, then three 2/6 tiles ---- */
+  .fh-bento {
+    display: grid;
+    gap: var(--wp-space-5);
+  }
+  @media (min-width: 768px) {
+    .fh-bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .fh-card--smart { grid-column: 1 / -1; }
+  }
+  @media (min-width: 1024px) {
+    .fh-bento { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    .fh-card--smart { grid-column: span 4; }
+    .fh-bento > .fh-card:not(.fh-card--smart) { grid-column: span 2; }
+  }
+
+  /* ---- Tiles ---- */
+  .fh-card {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-3);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
+    min-width: 0;
+  }
+  /* Halftone grain in one corner: printed texture, fading into the tile. */
+  .fh-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto auto;
+    width: 60%;
+    height: 70%;
+    z-index: -1;
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--wp-text-primary) 14%, transparent) 1.2px, transparent 1.6px);
+    background-size: var(--wp-space-2) var(--wp-space-2);
+    mask-image: radial-gradient(ellipse at 100% 0%, currentColor, transparent 70%);
+    pointer-events: none;
+  }
+  .fh-card--smart::before {
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--wp-highlight-marker) 30%, transparent) 1.4px, transparent 1.8px);
+  }
+  .fh-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wp-space-2) var(--wp-space-3);
+  }
+  .fh-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    color: var(--wp-card-title);
+    text-wrap: balance;
+  }
+  .fh-badge {
+    padding: var(--wp-space-1) var(--wp-space-3);
+    border-radius: var(--wp-radius-pill);
+    border: 1px solid var(--wp-border-strong);
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-card-meta);
+  }
+  .fh-desc {
+    margin: 0;
+    font-size: var(--wp-font-size-md);
+    line-height: 1.65;
+    color: var(--wp-card-text);
+  }
+  .fh-card--small .fh-desc {
+    font-size: var(--wp-font-size-sm);
+  }
+
+  /* ---- Smart Mode before/after ---- */
+  .fh-compare {
+    margin-top: auto;
+    padding-top: var(--wp-space-3);
+    display: grid;
+    gap: var(--wp-space-4);
+  }
+  @media (min-width: 768px) {
+    .fh-compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .fh-compare-row {
+    display: grid;
+    align-content: start;
+    gap: var(--wp-space-2);
+  }
+  .fh-compare-label {
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    color: var(--wp-card-meta);
+  }
+  .fh-compare-text {
+    margin: 0;
+    padding: var(--wp-space-4);
+    border-radius: var(--wp-radius-control);
+    border: 1px solid var(--wp-border-default);
+    background: var(--wp-surface-inset);
+    font-size: var(--wp-font-size-lead);
+    line-height: 1.5;
+  }
+  .fh-compare-text--raw {
+    color: var(--wp-card-meta);
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, var(--wp-card-meta) 45%, transparent);
+  }
+  .fh-compare-text--clean {
+    color: var(--wp-card-title);
+    border-color: var(--wp-highlight-marker);
+    box-shadow: inset 4px 0 0 var(--wp-highlight-marker);
+  }
+
+  /* ---- Snippet picker ---- */
+  .fh-picker {
+    margin: auto 0 0;
+    padding: var(--wp-space-3) 0 0;
+    list-style: none;
+    display: grid;
+    gap: var(--wp-space-2);
+  }
+  .fh-picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--wp-space-3);
+    padding: var(--wp-space-3) var(--wp-space-4);
+    border-radius: var(--wp-radius-control);
+    border: 1px solid var(--wp-border-default);
+    font-size: var(--wp-font-size-md);
+    color: var(--wp-card-text);
+  }
+  .fh-picker-item.is-active {
+    color: var(--wp-card-title);
+    border-color: color-mix(in srgb, var(--wp-accent-default) 55%, transparent);
+    background: color-mix(in srgb, var(--wp-accent-default) 10%, transparent);
+  }
+  .fh-picker-item svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  /* ---- Fragments of the three small tiles (abstract app UI) ---- */
+  .fh-frag {
+    display: grid;
+    place-items: center;
+    height: 7rem;
+    margin-bottom: var(--wp-space-2);
+    border-radius: var(--wp-radius-control);
+    border: 1px solid var(--wp-border-default);
+    background: var(--wp-surface-inset);
+  }
+  .fh-frag > div {
+    display: grid;
+    gap: var(--wp-space-2);
+    width: min(80%, 14rem);
+    transition: translate var(--dur-base) var(--ease-flow);
+  }
+  .fh-line {
+    position: relative;
+    display: block;
+    height: var(--wp-space-2);
+    border-radius: var(--wp-radius-pill);
+    background: color-mix(in srgb, var(--wp-text-primary) 18%, transparent);
+  }
+  .fh-line--short { width: 60%; }
+  .fh-line--tiny { width: 45%; }
+  /* Edit: a marked phrase, the mini pill listening for the command. */
+  .fh-frag-edit { position: relative; }
+  .fh-sel {
+    position: absolute;
+    inset: calc(-1 * var(--wp-space-1)) 18% calc(-1 * var(--wp-space-1)) 30%;
+    border-radius: var(--wp-radius-chip);
+    background: color-mix(in srgb, var(--wp-accent-default) 40%, transparent);
+  }
+  .fh-mini-pill {
+    position: absolute;
+    right: calc(-1 * var(--wp-space-3));
+    bottom: calc(-1 * var(--wp-space-5));
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    height: var(--wp-space-8);
+    padding: 0 var(--wp-space-3);
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-fill);
+    box-shadow: var(--shadow-overlay);
+    rotate: -4deg;
+  }
+  .fh-mini-pill b {
+    width: 6px;
+    height: 6px;
+    margin-right: var(--wp-space-1);
+    border-radius: 50%;
+    background: var(--wp-overlay-accent);
+  }
+  .fh-mini-pill i {
+    width: 3px;
+    height: 14px;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-wave);
+  }
+  .fh-mini-pill i:nth-child(odd) { height: 9px; }
+  /* History: search field and the entry it found. */
+  .fh-search {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    padding: var(--wp-space-1) var(--wp-space-2);
+    border-radius: var(--wp-radius-pill);
+    border: 1px solid var(--wp-border-strong);
+    color: var(--wp-card-meta);
+  }
+  .fh-search svg {
+    width: 0.875rem;
+    height: 0.875rem;
+    flex-shrink: 0;
+  }
+  .fh-hit {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    padding: var(--wp-space-1) var(--wp-space-2);
+    border-radius: var(--wp-radius-chip);
+  }
+  .fh-hit i {
+    width: var(--wp-space-2);
+    height: var(--wp-space-2);
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--wp-text-primary) 30%, transparent);
+  }
+  .fh-hit .fh-line { flex: 1; }
+  .fh-hit.is-found {
+    background: color-mix(in srgb, var(--wp-accent-default) 12%, transparent);
+    box-shadow: inset 3px 0 0 var(--wp-accent-default);
+  }
+  .fh-hit.is-found i { background: var(--wp-accent-default); }
+  /* Note: a pinned sheet, the newest line just appended. */
+  .fh-frag-note {
+    position: relative;
+    padding: var(--wp-space-4) var(--wp-space-3) var(--wp-space-3);
+    border-radius: var(--wp-radius-chip);
+    background: color-mix(in srgb, var(--wp-text-primary) 8%, transparent);
+    rotate: 2deg;
+  }
+  .fh-pin {
+    position: absolute;
+    top: calc(-1 * var(--wp-space-1));
+    left: 50%;
+    width: var(--wp-space-3);
+    height: var(--wp-space-3);
+    translate: -50% 0;
+    border-radius: 50%;
+    background: var(--wp-highlight-marker);
+  }
+  .fh-line--new {
+    width: 75%;
+    background: var(--wp-highlight-marker);
+  }
+
+  @media (hover: hover) {
+    .fh-card--small:hover .fh-frag > div {
+      translate: 0 calc(-1 * var(--wp-space-1));
+    }
+  }
+
+  /* ---- More features (native disclosure) ---- */
+  .fh-more {
+    margin-top: var(--wp-space-5);
+    border-radius: var(--wp-card-radius);
+    border: 1px solid var(--wp-card-border);
+  }
+  .fh-more-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--wp-space-4);
+    min-height: 44px;
+    padding: var(--wp-space-4) var(--wp-space-5);
+    font-weight: 600;
+    color: var(--wp-card-title);
+    cursor: pointer;
+    list-style: none;
+    border-radius: var(--wp-card-radius);
+  }
+  .fh-more-summary::-webkit-details-marker { display: none; }
+  .fh-more-summary:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
+  }
+  .fh-more-summary svg {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--wp-text-link);
+    transition: transform var(--dur-base) var(--ease-flow);
+  }
+  .fh-more[open] .fh-more-summary svg {
+    transform: rotate(180deg);
+  }
+  .fh-more-list {
+    margin: 0;
+    padding: 0 var(--wp-space-5) var(--wp-space-5);
+    display: grid;
+    gap: var(--wp-space-5) var(--wp-space-10);
+  }
+  @media (min-width: 768px) {
+    .fh-more-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .fh-more-item dt {
+    font-weight: 700;
+    color: var(--wp-card-title);
+    margin-bottom: var(--wp-space-1);
+  }
+  .fh-more-item dd {
+    margin: 0;
+    font-size: var(--wp-font-size-md);
+    line-height: 1.65;
+    color: var(--wp-card-text);
+  }
+
+  .fh-gallery {
+    margin-top: var(--wp-space-8);
+  }
+  .fh-gallery-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    min-height: 44px;
+    font-weight: 600;
+    color: var(--wp-text-link);
+    text-decoration: none;
+  }
+  .fh-gallery-link svg {
+    width: 1rem;
+    height: 1rem;
+    transition: transform var(--dur-base) var(--ease-flow);
+  }
+  .fh-gallery-link:hover svg {
+    transform: translateX(4px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fh-frag > div,
+    .fh-more-summary svg,
+    .fh-gallery-link svg {
+      transition: none;
+    }
+  }
+</style>

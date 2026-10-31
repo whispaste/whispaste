@@ -1,0 +1,21 @@
+name: Refresh Changelog
+# Safety-Net-Refresh der Release-Notes auf der Landing-Page.
+# release.yml dispatched deploy-pages bereits nach jedem Tag-Release;
+# manuell gestartet fängt er nur von Hand editierte Release-Notes ab.
+# Manual only (maintainer 2026-10-25): the dispatched deploy publishes the
+# current main, so a schedule would put an unreleased website live.
+on:
+  workflow_dispatch: {}
+
+permissions:
+  actions: write
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Dispatch deploy-pages
+        run: gh workflow run deploy-pages.yml --ref main --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,15 @@
+m1-welcome      marine  seam  0.020  median-adjacent  0.091  limit  1.000  PASS
+m1-welcome      hell    seam  0.021  median-adjacent  0.100  limit  1.000  PASS
+m1-welcome      dunkel  seam  0.027  median-adjacent  0.126  limit  1.000  PASS
+m2-recognition  marine  seam  0.000  median-adjacent  0.027  limit  1.000  PASS
+m2-recognition  hell    seam  0.000  median-adjacent  0.028  limit  1.000  PASS
+m2-recognition  dunkel  seam  0.000  median-adjacent  0.032  limit  1.000  PASS
+m3-access       marine  seam  0.002  median-adjacent  0.002  limit  1.000  PASS
+m3-access       hell    seam  0.001  median-adjacent  0.002  limit  1.000  PASS
+m3-access       dunkel  seam  0.001  median-adjacent  0.001  limit  1.000  PASS
+m4-autopaste    marine  seam  0.000  median-adjacent  0.016  limit  1.000  PASS
+m4-autopaste    hell    seam  0.000  median-adjacent  0.018  limit  1.000  PASS
+m4-autopaste    dunkel  seam  0.000  median-adjacent  0.023  limit  1.000  PASS
+m5-hotkey       marine  seam  0.000  median-adjacent  0.048  limit  1.000  PASS
+m5-hotkey       hell    seam  0.000  median-adjacent  0.055  limit  1.000  PASS
+m5-hotkey       dunkel  seam  0.000  median-adjacent  0.073  limit  1.000  PASS

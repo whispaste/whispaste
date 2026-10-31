@@ -1,0 +1,317 @@
+---
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t, currentLocale } from '../scripts/i18n.ts';
+import { FAQ_GROUPS } from './schema/builders.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+// FAQ_GROUPS flattened is DEFAULT_FAQ_KEYS, the FAQPage schema order, so
+// rich results match the visible text.
+---
+
+<!-- FAQ: one panel, the three topic groups as tabs (principle: one
+     focused list instead of a wall of rows). Without JS every group shows
+     with its heading; the tabs only enhance. Each question has an id so
+     #faq-<key> deep links select its tab and open it. -->
+<section id="faq" class="band band-raised relative wp-section scroll-mt-20" data-testid="faq">
+  <div class="relative wp-container faq-layout">
+    <div class="wp-section-head faq-head">
+      <SectionEyebrow key="faq.label" />
+      <h2 class="section-title"><span data-i18n="faq.titleLead">{t(lang, "faq.titleLead")}</span><span class="wp-marker" data-i18n="faq.titleAccent">{t(lang, "faq.titleAccent")}</span><span data-i18n="faq.titleTail">{t(lang, "faq.titleTail")}</span></h2>
+      <div class="faq-ask" data-testid="faq-ask">
+        <p class="faq-ask__title" data-i18n="faq.ask.title">{t(lang, "faq.ask.title")}</p>
+        <p class="faq-ask__desc" data-i18n="faq.ask.desc">{t(lang, "faq.ask.desc")}</p>
+        <button type="button" class="wp-cta-ghost faq-ask__cta" data-contact-open data-testid="faq-ask-open">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span data-i18n="faq.ask.cta">{t(lang, "faq.ask.cta")}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="faq-panel" id="faq-accordion" data-faq-tabs data-testid="faq-panel">
+      <div class="faq-tabs" role="tablist" aria-label={t(lang, "faq.label")} data-i18n-aria="faq.label" hidden data-testid="faq-tabs">
+        {FAQ_GROUPS.map((group, i) => (
+          <button
+            type="button"
+            role="tab"
+            class="faq-tab"
+            id={`faq-tab-${group.key}`}
+            aria-controls={`faq-group-${group.key}`}
+            aria-selected={i === 0 ? 'true' : 'false'}
+            tabindex={i === 0 ? 0 : -1}
+            data-testid={`faq-tab-${group.key}`}
+          >
+            <span data-i18n={`faq.group.${group.key}`}>{t(lang, `faq.group.${group.key}`)}</span>
+            <span class="faq-tab__count wp-nums" aria-hidden="true">{group.keys.length}</span>
+          </button>
+        ))}
+      </div>
+
+      {FAQ_GROUPS.map((group) => (
+        <div class="faq-group" id={`faq-group-${group.key}`} data-testid={`faq-group-${group.key}`}>
+          <h3 class="faq-group__title" data-i18n={`faq.group.${group.key}`}>{t(lang, `faq.group.${group.key}`)}</h3>
+          {group.keys.map((key) => (
+            <details class="faq-row scroll-mt-24" id={`faq-${key}`} data-testid={`faq-${key}`}>
+              <summary class="faq-row__q">
+                <span data-i18n={`faq.${key}.q`}>{t(lang, `faq.${key}.q`)}</span>
+                <span class="faq-row__icon" aria-hidden="true"></span>
+              </summary>
+              <div class="faq-row__a" data-i18n={`faq.${key}.a`}>{t(lang, `faq.${key}.a`)}</div>
+            </details>
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<script>
+  // Tabs: progressive enhancement over the plain grouped list. Hidden groups
+  // use hidden="until-found", so the browser's find-in-page still reaches
+  // them (Chromium) and selects their tab via `beforematch`.
+  const root = document.querySelector<HTMLElement>('[data-faq-tabs]');
+  const tabs = root ? [...root.querySelectorAll<HTMLButtonElement>('[role="tab"]')] : [];
+  const panels = tabs.map((tab) => document.getElementById(tab.getAttribute('aria-controls') ?? ''));
+
+  const select = (index: number, focus = false) => {
+    tabs.forEach((tab, i) => {
+      const on = i === index;
+      tab.setAttribute('aria-selected', String(on));
+      tab.tabIndex = on ? 0 : -1;
+      const panel = panels[i];
+      if (!panel) return;
+      if (on) panel.removeAttribute('hidden');
+      else panel.setAttribute('hidden', 'until-found');
+    });
+    if (focus) tabs[index]?.focus();
+  };
+
+  if (root && tabs.length && panels.every(Boolean)) {
+    root.querySelector<HTMLElement>('[role="tablist"]')?.removeAttribute('hidden');
+    root.classList.add('is-tabbed');
+    panels.forEach((panel, i) => {
+      panel?.setAttribute('role', 'tabpanel');
+      panel?.setAttribute('aria-labelledby', tabs[i]?.id ?? '');
+      panel?.addEventListener('beforematch', () => select(i));
+    });
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => select(i));
+      tab.addEventListener('keydown', (e) => {
+        const last = tabs.length - 1;
+        const next = { ArrowRight: i === last ? 0 : i + 1, ArrowLeft: i === 0 ? last : i - 1, Home: 0, End: last }[e.key];
+        if (next === undefined) return;
+        e.preventDefault();
+        select(next, true);
+      });
+    });
+    select(0);
+  }
+
+  // Deep link (#faq-free etc.) selects the question's tab and opens it.
+  const openFromHash = () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (!id.startsWith('faq-')) return;
+    const el = document.getElementById(id);
+    if (!(el instanceof HTMLDetailsElement)) return;
+    const owner = panels.findIndex((panel) => panel?.contains(el));
+    if (owner >= 0) select(owner);
+    el.open = true;
+    el.scrollIntoView({ block: 'start' });
+  };
+  openFromHash();
+  window.addEventListener('hashchange', openFromHash);
+</script>
+
+<style>
+  .faq-layout {
+    display: grid;
+    gap: var(--wp-space-8);
+  }
+  @media (min-width: 1280px) {
+    .faq-layout {
+      grid-template-columns: minmax(0, 4fr) minmax(0, 8fr);
+      column-gap: var(--wp-space-12);
+      align-items: start;
+    }
+    .faq-head {
+      position: sticky;
+      top: 6rem;
+    }
+  }
+  .faq-head {
+    margin-bottom: 0;
+  }
+  /* Escape hatch from the FAQ into the contact widget (data-contact-open). */
+  .faq-ask {
+    margin-top: var(--wp-space-8);
+    padding-top: var(--wp-space-6);
+    border-top: 1px solid var(--wp-border-default);
+    max-width: 24rem;
+  }
+  .faq-ask__title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--wp-font-size-xl);
+    color: var(--wp-text-primary);
+  }
+  .faq-ask__desc {
+    margin-top: var(--wp-space-1);
+    color: var(--wp-text-secondary);
+    line-height: 1.6;
+  }
+  .faq-ask__cta {
+    margin-top: var(--wp-space-5);
+    cursor: pointer;
+  }
+  .faq-ask__cta svg {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  /* ---- The panel: one step lighter than the band, never a darker hole ---- */
+  .faq-panel {
+    display: grid;
+    gap: var(--wp-space-8);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
+  }
+  .faq-panel.is-tabbed {
+    gap: var(--wp-space-4);
+  }
+  .faq-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-2);
+  }
+  .faq-tabs[hidden] {
+    display: none;
+  }
+  .faq-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    min-height: 44px;
+    padding: var(--wp-space-2) var(--wp-space-2) var(--wp-space-2) var(--wp-space-4);
+    border-radius: var(--wp-chip-radius);
+    border: 1px solid var(--wp-chip-border);
+    background: var(--wp-chip-fill);
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+    color: var(--wp-chip-text);
+    cursor: pointer;
+    transition: background-color var(--dur-fast) var(--ease-flow), color var(--dur-fast) var(--ease-flow);
+  }
+  .faq-tab:hover {
+    background: var(--wp-surface-control-hover);
+    color: var(--wp-text-primary);
+  }
+  .faq-tab[aria-selected="true"] {
+    border-color: var(--wp-accent-fill);
+    background: var(--wp-accent-fill);
+    color: var(--wp-accent-on-fill);
+  }
+  .faq-tab:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
+  }
+  .faq-tab__count {
+    display: inline-grid;
+    place-items: center;
+    min-width: var(--wp-space-6);
+    height: var(--wp-space-6);
+    padding: 0 var(--wp-space-1);
+    border-radius: var(--wp-radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    background: var(--wp-surface-control);
+  }
+  .faq-tab[aria-selected="true"] .faq-tab__count {
+    background: var(--wp-surface-scrim);
+    color: var(--wp-text-primary);
+  }
+
+  .faq-group__title {
+    margin-bottom: var(--wp-space-2);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--wp-text-link);
+  }
+  /* With tabs the tab names the group; the heading stays for assistive tech. */
+  .is-tabbed .faq-group__title {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .faq-row {
+    border-bottom: 1px solid var(--wp-faq-divider);
+  }
+  .faq-row:last-child {
+    border-bottom: 0;
+  }
+  .faq-row__q {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--wp-space-4);
+    padding: var(--wp-space-5) var(--wp-space-3);
+    margin-inline: calc(var(--wp-space-3) * -1);
+    border-radius: var(--wp-radius-control);
+    cursor: pointer;
+    list-style: none;
+    font-size: var(--wp-font-size-lg);
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--wp-text-primary);
+    transition: background-color var(--dur-fast) var(--ease-flow);
+  }
+  .faq-row__q::-webkit-details-marker { display: none; }
+  .faq-row__q::marker { content: ''; }
+  .faq-row__q:hover { background: var(--wp-faq-hover-fill); }
+  .faq-row__q:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
+  }
+  /* Plus/minus with reserved space so long questions never squeeze it. */
+  .faq-row__icon {
+    position: relative;
+    flex: 0 0 1.25rem;
+    height: 1.25rem;
+    margin-top: var(--wp-space-1);
+  }
+  .faq-row__icon::before,
+  .faq-row__icon::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0.875rem;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--wp-faq-icon);
+    translate: -50% -50%;
+    transition: rotate var(--dur-base) var(--ease-flow);
+  }
+  .faq-row__icon::after { rotate: 90deg; }
+  .faq-row[open] .faq-row__icon::after { rotate: 0deg; }
+  .faq-row__a {
+    padding: 0 0 var(--wp-space-5);
+    font-size: var(--wp-font-size-md);
+    line-height: 1.65;
+    color: var(--wp-text-secondary);
+    max-width: var(--measure-lead);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .faq-tab,
+    .faq-row__q,
+    .faq-row__icon::after { transition: none; }
+  }
+</style>

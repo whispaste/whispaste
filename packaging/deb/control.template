@@ -1,0 +1,25 @@
+Package: whispaste
+Version: __VERSION__
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Silvio Lindstedt <silvio-lindstedt@outlook.com>
+Homepage: https://whispaste.de/
+Depends: libgtk-3-0, libsecret-1-0, libnotify4, libayatana-appindicator3-1, libasound2, libcurl4, libkeybinder-3.0-0, liblzma5, libc6, zlib1g, libxss1,
+ libopusfile0, libogg0, libflac14 | libflac12t64 | libflac12 | libflac8
+Recommends: pkexec | policykit-1, acl, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, gstreamer1.0-libav
+Description: Voice-input tool — hotkey, speak, paste anywhere
+ WhisPaste is a voice-input tool. Press a global hotkey, speak, and the
+ transcribed text is pasted at the cursor position of whatever application
+ you are currently typing in — system-wide, not bound to a single app.
+ .
+ Transcription runs locally on your device via whisper.cpp or Parakeet, or,
+ optionally, through a cloud provider you choose. The speech engines run
+ inside the app process. The speech model is downloaded once, when you start
+ the model download during setup, into the user's writable config dir
+ ($XDG_CONFIG_HOME/whispaste, default ~/.config/whispaste); audio never
+ leaves your device in local mode.
+ .
+ Automatic pasting needs access to /dev/uinput. The package does not grant
+ it on install: WhisPaste asks for consent and administrator rights first,
+ and the access can be removed again in the settings.

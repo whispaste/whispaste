@@ -1,0 +1,8 @@
+---
+import DownloadPage from "../components/pages/DownloadPage.astro";
+import { currentLocale } from "../scripts/i18n.ts";
+
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<DownloadPage lang={lang} />

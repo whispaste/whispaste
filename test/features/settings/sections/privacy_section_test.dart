@@ -1,0 +1,136 @@
+/// Tests confirming the `retainRecentAudio` toggle in [PrivacySection]
+/// writes through to `privacy.retainRecentAudio` — the setting that gates
+/// the rotating WAV-retention feature in `RecordingOrchestrator`.
+library;
+
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show AsyncData;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/config/settings_sections.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/logging/crash_reporter.dart';
+import 'package:whispaste/core/logging/crash_reporting_consent.dart';
+import 'package:whispaste/features/settings/sections/privacy_section.dart';
+
+import '../../../fixtures/test_helpers.dart';
+
+class FakeSettingsNotifier extends SettingsNotifier {
+  FakeSettingsNotifier([AppSettings? settings])
+    : _settings = settings ?? AppSettings.defaults;
+
+  AppSettings _settings;
+
+  @override
+  Future<AppSettings> build() async => _settings;
+
+  @override
+  Future<void> updateSettings(AppSettings Function(AppSettings) updater) async {
+    _settings = updater(state.value ?? _settings);
+    state = AsyncData(_settings);
+  }
+}
+
+void main() {
+  late L10n l10n;
+
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    l10n = await L10n.delegate.load(const Locale('en'));
+  });
+
+  group('PrivacySection retain-recent-audio toggle', () {
+    testWidgets('defaults to off', (tester) async {
+      final notifier = FakeSettingsNotifier();
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: PrivacySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(
+        const ValueKey('settings-row-privacy-retain-audio'),
+      );
+      expect(row, findsOneWidget);
+      final toggle = tester.widget<Switch>(
+        find.descendant(of: row, matching: find.byType(Switch)),
+      );
+      expect(toggle.value, isFalse);
+    });
+
+    testWidgets('toggling it writes privacy.retainRecentAudio', (tester) async {
+      final notifier = FakeSettingsNotifier(
+        const AppSettings(privacy: PrivacySettings(retainRecentAudio: false)),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: PrivacySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final row = find.byKey(
+        const ValueKey('settings-row-privacy-retain-audio'),
+      );
+      await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));
+      await tester.pumpAndSettle();
+
+      expect(notifier.state.value!.privacy.retainRecentAudio, isTrue);
+    });
+  });
+
+  group('PrivacySection error-reporting toggle', () {
+    late Directory dir;
+
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('wp_privacy_');
+    });
+
+    tearDown(() async {
+      await CrashReporter.instance?.dispose();
+      dir.deleteSync(recursive: true);
+    });
+
+    testWidgets('opting back in says it takes effect after a restart', (
+      tester,
+    ) async {
+      final marker = CrashReportingConsentMarker(directory: dir.path)
+        ..record(granted: false);
+      // Launched after an opt-out: Sentry was never started.
+      CrashReporter.init(consentGranted: false, consentMarker: marker);
+      final notifier = FakeSettingsNotifier(
+        const AppSettings(behavior: BehaviorSettings(errorReporting: false)),
+      );
+      await tester.pumpWidget(
+        makeTestable(
+          const SingleChildScrollView(child: PrivacySection()),
+          overrides: [settingsProvider.overrideWith(() => notifier)],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining(l10n.settingsErrorReportingRestartHint),
+        findsNothing,
+      );
+
+      final row = find.byKey(
+        const ValueKey('settings-row-privacy-error-reporting'),
+      );
+      await tester.tap(find.descendant(of: row, matching: find.byType(Switch)));
+      await tester.pumpAndSettle();
+
+      expect(notifier.state.value!.behavior.errorReporting, isTrue);
+      expect(CrashReporter.instance!.consentGranted, isTrue);
+      expect(marker.optedOut, isFalse);
+      expect(
+        find.textContaining(l10n.settingsErrorReportingRestartHint),
+        findsOneWidget,
+      );
+    });
+  });
+}

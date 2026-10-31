@@ -1,0 +1,285 @@
+/// App-wide monitoring bootstrap — Sentry-powered crash reporting.
+///
+/// [SentryFlutter.init] provides three-tier error capture:
+/// 1. Flutter framework errors (FlutterError.onError)
+/// 2. Platform dispatcher errors (PlatformDispatcher.onError)
+/// 3. Zone errors (runZonedGuarded wrapper)
+///
+/// PII sanitization, consent gate, and breadcrumb context via [CrashReporter].
+library;
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+import '../../services/deploy_channel_service.dart';
+import '../app_info.dart';
+import 'app_logger.dart';
+import 'crash_fingerprints.dart';
+import 'crash_reporter.dart';
+import 'crash_reporting_consent.dart';
+
+/// Sentry DSN — public identifier, safe to embed in client code.
+/// See: https://docs.sentry.io/concepts/key-terms/dsn-explainer/
+const _sentryDsn =
+    'https://1dc761fb2739811a24425fd32518f611@o4511065943441408.ingest.de.sentry.io/4511185948180560';
+
+/// Bootstraps the entire app inside Sentry's guarded error zone.
+///
+/// Call this instead of `main()` → `runApp()`. Example:
+/// ```dart
+/// Future<void> main() async {
+///   await AppMonitoring.bootstrap(appRunner: () async {
+///     runApp(const MyApp());
+///   });
+/// }
+/// ```
+/// Signature of [SentryFlutter.init], injectable for tests.
+typedef SentryInitializer =
+    Future<void> Function(
+      FlutterOptionsConfiguration optionsConfiguration, {
+      AppRunner? appRunner,
+    });
+
+class AppMonitoring {
+  AppMonitoring._();
+
+  static final _log = AppLogger('AppMonitoring');
+
+  /// Full-app bootstrap: logging → Sentry → crash reporter → app.
+  static Future<void> bootstrap({
+    required Future<void> Function() appRunner,
+  }) async {
+    // 1. Configure logging (breadcrumbs, dev-tools output, file sink).
+    await configureLogging();
+
+    await startMonitoring(appRunner: appRunner);
+  }
+
+  /// Starts Sentry around [appRunner] — unless the user opted out of error
+  /// reporting, in which case Sentry is never initialised: native crash,
+  /// app-hang and session reporting cannot be gated from Dart afterwards.
+  @visibleForTesting
+  static Future<void> startMonitoring({
+    required Future<void> Function() appRunner,
+    CrashReportingConsentMarker? consentMarker,
+    SentryInitializer sentryInit = SentryFlutter.init,
+  }) async {
+    final marker = consentMarker ?? CrashReportingConsentMarker();
+    final deployChannel = detectDeployChannel().name;
+
+    if (marker.resolveOptedOut()) {
+      CrashReporter.init(
+        deployChannel: deployChannel,
+        consentGranted: false,
+        consentMarker: marker,
+      );
+      _log.info('Error reporting opted out — Sentry not started');
+      await appRunner();
+      return;
+    }
+
+    // 2. Initialize Sentry — wraps appRunner with error zone + handlers.
+    //
+    // Free-Tier budget (per organization, shared across all projects):
+    //   ~5k errors/month. Only crashes and serious errors are sent, with a
+    //   per-session ceiling in CrashReporter.beforeSend; no transactions.
+    await sentryInit(
+      configureSentryOptions,
+      appRunner: () async {
+        // 3. Initialize crash reporter (configures Sentry scope context).
+        CrashReporter.init(deployChannel: deployChannel, consentMarker: marker);
+        _log.info('Sentry crash reporting initialized');
+
+        // 4. Install cascade guard around Sentry's FlutterError.onError.
+        _installCascadeGuard();
+
+        // 5. Run the actual app.
+        await appRunner();
+      },
+    );
+  }
+
+  /// Applies WhisPaste's Sentry options. Extracted from [bootstrap] so the
+  /// privacy-relevant switches can be pinned by tests.
+  @visibleForTesting
+  static void configureSentryOptions(SentryFlutterOptions options) {
+    options.dsn = _sentryDsn;
+    options.environment = kReleaseMode ? 'production' : 'development';
+    // A debug hot restart runs main() again, and re-initialising the native
+    // Cocoa SDK inside the live process segfaults in its binary-image cache
+    // (crash 2026-10-18). Debug builds keep the Dart-side capture only.
+    options.autoInitializeNativeSdk = !kDebugMode;
+    options.release = sentryRelease;
+    options.dist = currentArchTag();
+    options.sendDefaultPii = false;
+    options.attachScreenshot = false;
+    // No view hierarchy: crash reports are opt-out and must never carry
+    // on-screen content. The widget tree includes widget-key identifiers,
+    // which can be derived from user data, so it stays off entirely.
+    // ignore: experimental_member_use
+    options.attachViewHierarchy = false;
+    // Shrink per-event payload to stay well under the 1 GB attachment
+    // bucket and reduce noise in issue grouping.
+    options.maxBreadcrumbs = 30;
+    // Native app-hang reports start at 5 s instead of the SDK's 2 s: in
+    // October 2026 short stalls on one to three Macs repeated into about a
+    // fifth of the shared error quota, and native events bypass beforeSend,
+    // so the per-session ceiling cannot catch them.
+    options.appHangTimeoutInterval = const Duration(seconds: 5);
+    options.beforeSend = CrashReporter.beforeSend;
+    options.beforeBreadcrumb = CrashReporter.beforeBreadcrumb;
+    options.beforeSendTransaction = CrashReporter.beforeSendTransaction;
+    // tracesSampler takes precedence over tracesSampleRate when both are
+    // set — see sentry_traces_sampler.dart. Our sampler returns 0.0 on
+    // consent=false (blocks the trace entirely so no spans can leak) and
+    // null otherwise (falls through to tracesSampleRate below).
+    options.tracesSampler = CrashReporter.tracesSampler;
+    // Crashes and serious errors only (maintainer 2026-10-27): the switch is
+    // "Send crash reports", so no performance traces and no release-health
+    // sessions ride along with it. Usage data belongs to Matomo and its own
+    // switch. The sampler stays as the consent gate should tracing return.
+    options.tracesSampleRate = 0.0;
+    options.enableAutoPerformanceTracing = false;
+    options.enableAutoSessionTracking = false;
+    options.enableAutoNativeBreadcrumbs = true;
+    // Distributed Tracing bewusst NICHT aktiviert: WhisPaste hat keinen
+    // eigenen Backend-Service mit Sentry. Supabase wird nur für Feedback-
+    // Submits (PostgREST) und Testimonials (Build-Zeit der Astro-Site)
+    // genutzt — beide ohne serverseitige Sentry-Instrumentierung.
+    // `tracePropagationTargets` bleibt leer (Default) → keine
+    // `sentry-trace`/`baggage`-Header an irgendeinen Host.
+    options.tracePropagationTargets.clear();
+  }
+
+  // ── Cascade guard ────────────────────────────────────────────────────────
+  // Sentry's FlutterErrorIntegration walks the widget tree for every error
+  // BEFORE beforeSend runs. During this walk, deactivated/disposed widgets
+  // trigger secondary FlutterErrors → exponential cascade → UI thread freeze.
+  //
+  // The guard wraps FlutterError.onError AFTER SentryFlutter.init and drops
+  // errors when re-entrancy is detected or the rate exceeds the threshold.
+  // Also guards PlatformDispatcher.onError (Sentry uses both mechanisms).
+  // ────────────────────────────────────────────────────────────────────────
+
+  static const _cascadeMax = 3;
+  static const _cascadeWindow = Duration(milliseconds: 500);
+
+  static void _installCascadeGuard() {
+    _guardFlutterErrorHandler();
+    _guardPlatformDispatcherHandler();
+  }
+
+  static void _guardFlutterErrorHandler() {
+    final sentryHandler = FlutterError.onError;
+    if (sentryHandler == null) return;
+
+    bool inHandler = false;
+    int count = 0;
+    DateTime windowStart = DateTime.now();
+
+    FlutterError.onError = (FlutterErrorDetails details) {
+      // Re-entrancy guard: a secondary error triggered by the handler
+      // itself (e.g., Sentry tree walk hitting a deactivated widget).
+      if (inHandler) {
+        debugPrint(
+          '[CascadeGuard] Re-entrant error suppressed: '
+          '${details.exceptionAsString().split('\n').first}',
+        );
+        return;
+      }
+
+      // Volume guard: drop excess errors in rapid succession.
+      final now = DateTime.now();
+      if (now.difference(windowStart) > _cascadeWindow) {
+        windowStart = now;
+        count = 0;
+      }
+      count++;
+      if (count > _cascadeMax) {
+        debugPrint(
+          '[CascadeGuard] Suppressed (${count}x): '
+          '${details.exceptionAsString().split('\n').first}',
+        );
+        return;
+      }
+
+      inHandler = true;
+      try {
+        sentryHandler(details);
+      } finally {
+        inHandler = false;
+      }
+    };
+  }
+
+  static void _guardPlatformDispatcherHandler() {
+    final platformDispatcher = WidgetsBinding.instance.platformDispatcher;
+    final sentryHandler = platformDispatcher.onError;
+    if (sentryHandler == null) return;
+
+    bool inHandler = false;
+    int count = 0;
+    DateTime windowStart = DateTime.now();
+
+    platformDispatcher.onError = (Object error, StackTrace stack) {
+      if (inHandler) {
+        debugPrint(
+          '[CascadeGuard] Re-entrant platform error suppressed: '
+          '${error.toString().split('\n').first}',
+        );
+        return true; // handled — prevent process termination
+      }
+
+      final now = DateTime.now();
+      if (now.difference(windowStart) > _cascadeWindow) {
+        windowStart = now;
+        count = 0;
+      }
+      count++;
+      if (count > _cascadeMax) {
+        debugPrint(
+          '[CascadeGuard] Platform error suppressed (${count}x): '
+          '${error.toString().split('\n').first}',
+        );
+        return true;
+      }
+
+      inHandler = true;
+      try {
+        return sentryHandler(error, stack);
+      } finally {
+        inHandler = false;
+      }
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Riverpod provider observer — catches provider failures
+// ---------------------------------------------------------------------------
+
+/// Catches Riverpod provider errors and routes them to crash reporting.
+///
+/// Add to `ProviderScope(observers: [CrashProviderObserver()])`.
+final class CrashProviderObserver extends ProviderObserver {
+  const CrashProviderObserver();
+
+  @override
+  void providerDidFail(
+    ProviderObserverContext context,
+    Object error,
+    StackTrace stackTrace,
+  ) {
+    final name = context.provider.name ?? '${context.provider.runtimeType}';
+    CrashReporter.instance?.captureError(
+      message: 'Provider failed: $name: $error',
+      error: error,
+      stackTrace: stackTrace,
+      severity: 'error',
+      type: 'riverpod_error',
+      fingerprint: const [riverpodProviderFailed],
+    );
+  }
+}

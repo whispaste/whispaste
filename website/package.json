@@ -1,0 +1,58 @@
+{
+  "name": "website",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "tokens": "node scripts/build-tokens.mjs",
+    "tokens:check": "node scripts/build-tokens.mjs --check",
+    "build": "node scripts/generate-llms-txt.mjs && astro build",
+    "build:check": "node scripts/generate-llms-txt.mjs && astro build && node scripts/check-brand-vocabulary.mjs",
+    "build:deploy": "npm run build:check && node scripts/push-indexnow.mjs",
+    "check:brand": "node scripts/check-brand-vocabulary.mjs",
+    "gen:llms": "node scripts/generate-llms-txt.mjs",
+    "preview": "bash scripts/preview.sh",
+    "test": "playwright test",
+    "test:ci": "playwright test --reporter=github",
+    "test:ui": "playwright test --ui",
+    "test:unit": "vitest run",
+    "check:viewport": "node scripts/viewport-check.mjs"
+  },
+  "type": "module",
+  "dependencies": {
+    "@astrojs/rss": "^4.0.19",
+    "@astrojs/sitemap": "^3.7.3",
+    "@sentry/astro": "^10.54.0",
+    "@tailwindcss/vite": "^4.2.1",
+    "astro": "^7.3.5",
+    "dompurify": "^3.4.17",
+    "tailwindcss": "^4.2.1",
+    "web-vitals": "^5.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/jsdom": "^28.0.3",
+    "@typescript-eslint/eslint-plugin": "^8.60.0",
+    "@typescript-eslint/parser": "^8.60.0",
+    "eslint": "^10.3.0",
+    "eslint-plugin-security": "^4.0.0",
+    "globals": "^17.6.0",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.12"
+  },
+  "overrides": {
+    "glob": "^14.0.3",
+    "minimatch": "^11.0.3",
+    "devalue": "^5.9.2",
+    "vite": "8.1.6",
+    "esbuild": "^0.28.1",
+    "@opentelemetry/core": "^2.8.0",
+    "svgo": "^4.1.0",
+    "sharp": "^0.35.4",
+    "js-yaml": "^4.3.2",
+    "postcss": "^8.5.18",
+    "brace-expansion": "^5.0.8",
+    "nanoid": "^3.3.17"
+  }
+}

@@ -1,0 +1,12 @@
+---
+import DownloadPage from "../../components/pages/DownloadPage.astro";
+import { currentLocale, prefixedLocalePaths } from "../../scripts/i18n.ts";
+
+export function getStaticPaths() {
+  return prefixedLocalePaths();
+}
+
+const lang = currentLocale(Astro.params.lang);
+---
+
+<DownloadPage lang={lang} />

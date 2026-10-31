@@ -1,0 +1,14 @@
+# CodeQL configuration for WhisPaste (JavaScript/TypeScript analysis).
+# Covers the Astro website source. No Supabase Edge Functions exist anymore.
+# Note: Dart analysis is handled by flutter analyze in ci.yml.
+
+queries:
+  - uses: security-and-quality
+
+paths:
+  - website/src
+
+paths-ignore:
+  - node_modules
+  - website/node_modules
+  - "**/*.test.*"

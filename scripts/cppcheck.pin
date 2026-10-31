@@ -1,0 +1,5 @@
+# cppcheck version for windows/runner/, used by CI (ci.yml installs this
+# release) and checked by scripts/cppcheck-runner.sh against the local one.
+# Different versions report different findings (2.14.0 flagged code that
+# 2.22.0 reads correctly, 2026-10-31), so CI and the hooks must agree.
+CPPCHECK_VERSION=2.22.0

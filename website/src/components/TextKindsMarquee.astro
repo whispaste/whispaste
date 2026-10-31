@@ -1,0 +1,343 @@
+---
+/**
+ * TextKindsMarquee — "wherever you type", as a moving band under the hero:
+ * a row of empty text fields from everyday apps glides past the recording
+ * pill. Each field arrives with a blinking caret; once it has passed under
+ * the pill, its text has landed (auto-paste, with the same short paste
+ * highlight as the hero). The fields name the kinds of text the audience
+ * writes every day, which bridges "how my sentence gets into the field"
+ * (hero) and "which of my texts it helps with" (use cases).
+ *
+ * The band is decoration (aria-hidden); assistive tech gets the text kinds
+ * once as a plain list. Without JS and under prefers-reduced-motion every
+ * field shows its text and nothing moves. The rAF clock only runs while the
+ * band is on screen.
+ */
+import { t, currentLocale } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+
+// One app glyph per kind (24-unit line icons), in i18n order 1–10.
+const ICONS = [
+  'M8 9l-3 3 3 3M16 9l3 3-3 3M4 4h16v12H8l-4 4z', // review comment
+  'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM2 12h6M16 12h6', // commit
+  'M3 6h18v12H3zM3 7l9 6 9-6', // e-mail
+  'M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z', // chat
+  'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4z', // issue
+  'M5 3h10l4 4v14H5zM15 3v4h4M8 12h8M8 16h5', // notes
+  'M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4', // first draft
+  'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM5.6 5.6l3.6 3.6M14.8 14.8l3.6 3.6M18.4 5.6l-3.6 3.6M9.2 14.8l-3.6 3.6', // support
+  'M3 5h6a3 3 0 0 1 3 3v12a2 2 0 0 0-2-2H3zM21 5h-6a3 3 0 0 0-3 3v12a2 2 0 0 1 2-2h7z', // docs
+  'M9 6h12M9 12h12M9 18h12M3.5 6l1 1 2-2M3.5 12l1 1 2-2M3.5 18l1 1 2-2', // minutes
+] as const;
+const kinds = ICONS.map((icon, i) => ({ key: `useCaseCards.marquee.${i + 1}`, icon }));
+---
+
+<div class="tk" data-surface="dark" data-motion-scope role="region" aria-label={t(lang, 'useCaseCards.marquee.aria')} data-testid="text-kinds-marquee">
+  <ul class="sr-only">
+    {kinds.map(({ key }) => <li data-i18n={key}>{t(lang, key)}</li>)}
+  </ul>
+
+  <div class="tk-stage" aria-hidden="true">
+    <!-- The pill stands still; the fields move under it. -->
+    <span class="tk-pill" data-testid="text-kinds-pill">
+      <i class="tk-pill__dot"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+    </span>
+    <div class="tk-track" data-tk-track>
+      {[0, 1].map(() =>
+        kinds.map(({ key, icon }) => (
+          <div class="tk-field" data-tk-field>
+            <div class="tk-field__bar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d={icon} /></svg>
+              <i></i><i></i>
+            </div>
+            <p class="tk-field__text">
+              <span class="tk-field__value" data-i18n={key}>{t(lang, key)}</span><span class="tk-field__caret"></span>
+            </p>
+          </div>
+        )),
+      )}
+    </div>
+  </div>
+</div>
+
+<style>
+  .tk {
+    position: relative;
+    overflow: hidden;
+    /* The hero above ends with its own bottom padding (pb-16 / sm:pb-24);
+       the band adds none on top and the same amount below, so the row sits
+       with equal air above the pill and below the fields. */
+    padding-block: 0 var(--wp-space-16);
+  }
+  @media (min-width: 640px) {
+    .tk {
+      padding-bottom: var(--wp-space-24);
+    }
+  }
+  .tk-stage {
+    position: relative;
+    padding-top: var(--wp-space-12);
+    mask-image: linear-gradient(90deg, transparent, currentColor 10%, currentColor 90%, transparent);
+  }
+
+  /* ---- The recording pill, standing over the middle of the row ---- */
+  .tk-pill {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    top: 0;
+    translate: -50% 0;
+    rotate: -4deg;
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    height: 56px;
+    padding: 0 var(--wp-space-5) 0 var(--wp-space-4);
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-fill);
+    /* drop-shadow (not box-shadow) so bubble and tail cast one shadow. */
+    filter: drop-shadow(0 10px 18px color-mix(in srgb, var(--wp-color-navy-950) 45%, transparent));
+  }
+  .tk-pill i {
+    display: block;
+    width: 5px;
+    height: 26px;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-wave);
+    animation: tk-bar 1.1s ease-in-out infinite alternate;
+  }
+  .tk-pill i:nth-child(3) { animation-delay: -0.4s; height: 34px; }
+  .tk-pill i:nth-child(4) { animation-delay: -0.75s; height: 18px; }
+  .tk-pill i:nth-child(5) { animation-delay: -0.2s; height: 38px; }
+  .tk-pill i:nth-child(6) { animation-delay: -0.6s; height: 24px; }
+  .tk-pill i:nth-child(7) { animation-delay: -0.95s; height: 32px; }
+  .tk-pill i:nth-child(8) { animation-delay: -0.3s; height: 16px; }
+  /* The pill speaks into the row: a speech-bubble tail grown out of the
+     same navy shape (no seam, no border), its tip right above the field. */
+  .tk-pill::after {
+    content: "";
+    position: absolute;
+    left: calc(50% - 10px);
+    top: calc(100% - 1px);
+    width: 30px;
+    height: 20px;
+    background: var(--wp-overlay-fill);
+    clip-path: polygon(0 0, 100% 0, 34% 100%);
+  }
+  /* A drop of text (a small amber text line) falls from the pill into the
+     field each time one fills. */
+  .tk-pill::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 20px);
+    width: 30px;
+    height: 8px;
+    translate: -50% 0;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-wave);
+    opacity: 0;
+  }
+  .tk-pill.is-dropping::before {
+    animation: tk-drop 380ms cubic-bezier(0.55, 0, 1, 0.45) both;
+  }
+  @keyframes tk-drop {
+    0% { opacity: 1; transform: translateY(0) scaleX(0.5); }
+    75% { opacity: 1; transform: translateY(var(--wp-space-12)) scaleX(1); }
+    100% { opacity: 0; transform: translateY(var(--wp-space-12)) scaleX(2.2) scaleY(0.4); }
+  }
+  .tk-pill .tk-pill__dot {
+    width: 10px;
+    height: 10px;
+    margin-right: var(--wp-space-1);
+    border-radius: 50%;
+    background: var(--wp-overlay-accent);
+    animation: tk-dot 1.6s ease-in-out infinite;
+  }
+  @keyframes tk-bar {
+    from { transform: scaleY(0.3); }
+    to { transform: scaleY(1); }
+  }
+  @keyframes tk-dot {
+    50% { opacity: 0.35; }
+  }
+
+  /* ---- The row of fields ---- */
+  .tk-track {
+    display: flex;
+    gap: var(--wp-space-4);
+    width: max-content;
+    will-change: transform;
+  }
+  .tk-field {
+    flex: none;
+    width: clamp(14rem, 11rem + 8vw, 21rem);
+    box-shadow: var(--wp-card-shadow);
+    border-radius: var(--wp-card-radius);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+  }
+  .tk-field__bar {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    padding: var(--wp-space-2) var(--wp-space-3);
+    border-bottom: 1px solid var(--wp-card-border);
+    color: var(--wp-text-muted);
+  }
+  .tk-field__bar svg {
+    width: 16px;
+    height: 16px;
+    margin-right: auto;
+    color: var(--wp-accent-default);
+  }
+  .tk-field__bar i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--wp-border-default);
+  }
+  .tk-field__text {
+    margin: 0;
+    padding: var(--wp-space-4) var(--wp-space-4) var(--wp-space-5);
+    min-height: 1.3em;
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    color: var(--wp-text-primary);
+    white-space: nowrap;
+  }
+  .tk-field__value {
+    border-radius: var(--wp-radius-chip);
+  }
+  .tk-field__caret {
+    display: inline-block;
+    width: 2px;
+    height: 1.1em;
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    background: var(--wp-accent-default);
+    animation: tk-blink 1.1s steps(1) infinite;
+  }
+  @keyframes tk-blink {
+    50% { opacity: 0; }
+  }
+  /* With JS: fields ahead of the pill wait empty; the pasted ones show
+     their text with the short paste highlight (as in the hero). */
+  .tk[data-js] .tk-field:not([data-filled]) .tk-field__value {
+    display: none;
+  }
+  .tk[data-js] .tk-field[data-filled] .tk-field__value {
+    display: inline-block;
+    animation:
+      tk-plop 460ms cubic-bezier(0.3, 1.5, 0.5, 1) 280ms both,
+      tk-paste 1200ms var(--ease-flow) 280ms both;
+  }
+  @keyframes tk-plop {
+    from { opacity: 0; transform: translateY(-0.7em) scale(0.96); }
+  }
+  .tk-field[data-filled] .tk-field__caret,
+  .tk:not([data-js]) .tk-field__caret {
+    visibility: hidden;
+  }
+  @keyframes tk-paste {
+    from { background-color: color-mix(in srgb, var(--wp-accent-default) 32%, transparent); }
+    to { background-color: transparent; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tk-pill i,
+    .tk-pill .tk-pill__dot,
+    .tk-field__caret,
+    .tk-field__value,
+    .tk-pill::before,
+    .tk-pill::after {
+      animation: none !important;
+    }
+    .tk-track {
+      flex-wrap: wrap;
+      justify-content: center;
+      width: auto;
+    }
+    .tk-field:nth-child(n + 11) {
+      display: none;
+    }
+  }
+</style>
+
+<script>
+  // Conveyor: the track moves left at a steady pace and wraps by one set of
+  // fields (it holds two). A field counts as pasted once its centre has
+  // passed the pill; fields re-entering on the right are empty again.
+  const SPEED = 96; // px per second
+  const band = document.querySelector<HTMLElement>('[data-testid="text-kinds-marquee"]');
+  const track = band?.querySelector<HTMLElement>('[data-tk-track]');
+  const pill = band?.querySelector<HTMLElement>('.tk-pill');
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (band && track && pill && !reducedMotion) {
+    const fields = [...track.querySelectorAll<HTMLElement>('[data-tk-field]')];
+    band.dataset.js = '';
+    let setWidth = 0;
+    let fronts: number[] = [];
+    const measure = (): void => {
+      // Second set starts exactly one set width after the first.
+      const half = fields.length / 2;
+      setWidth = fields[half].offsetLeft - fields[0].offsetLeft;
+      // The front (left) edge: a field fills the moment it touches the pill.
+      fronts = fields.map((f) => f.offsetLeft + f.offsetWidth * 0.04);
+    };
+    let x = 0;
+    const paint = (): void => {
+      track.style.transform = `translateX(${x}px)`;
+      const pillX = pill.offsetLeft - track.offsetLeft;
+      fields.forEach((f, i) => {
+        const filled = fronts[i] + x < pillX;
+        if (filled === (f.dataset.filled !== undefined)) return;
+        if (!filled) {
+          delete f.dataset.filled;
+          return;
+        }
+        f.dataset.filled = '';
+        // The pill lets a drop of text fall into the field (restart the
+        // one-shot drop animation).
+        pill.classList.remove('is-dropping');
+        void pill.offsetWidth;
+        pill.classList.add('is-dropping');
+      });
+    };
+    let raf = 0;
+    let last = 0;
+    const frame = (now: number): void => {
+      if (last) x -= ((now - last) / 1000) * SPEED;
+      last = now;
+      if (setWidth > 0 && x <= -setWidth) x += setWidth;
+      paint();
+      raf = requestAnimationFrame(frame);
+    };
+    const run = (on: boolean): void => {
+      cancelAnimationFrame(raf);
+      last = 0;
+      if (on) raf = requestAnimationFrame(frame);
+    };
+    measure();
+    paint();
+    void document.fonts.ready.then(() => {
+      measure();
+      paint();
+    });
+    window.addEventListener('resize', () => {
+      measure();
+      paint();
+    });
+    let inView = false;
+    new IntersectionObserver((entries) => {
+      for (const e of entries) inView = e.isIntersecting;
+      run(inView);
+    }).observe(band);
+    document.addEventListener('visibilitychange', () => run(inView && !document.hidden));
+  }
+</script>

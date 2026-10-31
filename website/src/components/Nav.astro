@@ -1,0 +1,353 @@
+---
+import { t, localePath, pathForSlug, isLocale, DEFAULT_LOCALE } from '../scripts/i18n.ts';
+import LanguageSwitcher from './LanguageSwitcher.astro';
+// Inline-tintable OS glyphs for the platform-adaptive Download CTA. Raw-imported
+// so `fill="currentColor"` inherits the button's text color — an <img>-embedded
+// SVG cannot do this. Same source/provenance as the hero badges
+// (see website/public/os-icons/ATTRIBUTION.txt).
+import appleIconRaw from '../../public/os-icons/apple.svg?raw';
+import windowsIconRaw from '../../public/os-icons/windows.svg?raw';
+import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
+import { githubStars, formatStars } from '../scripts/github-stars.ts';
+
+interface Props {
+  variant?: "landing" | "subpage";
+}
+const { variant = "landing" } = Astro.props;
+
+const lang = isLocale(Astro.currentLocale) ? Astro.currentLocale : DEFAULT_LOCALE;
+
+// Top-nav anchors point at the canonical (in-page) IDs which exist on both
+// the DE landing page (`/`) and the EN landing page (`/en/`). They're
+// rendered identically server-side; no locale prefix needed here.
+
+// Download link must match the active locale so the user stays
+// on the same language without a stale-locale flip.
+// The sponsor link was intentionally removed from the top nav (Issue #09 of
+// the seo-overhaul sprint): Google was promoting `/sponsor/` as the most
+// prominent brand sitelink even though only a tiny fraction of brand
+// searchers actually intend to sponsor. The link is kept in the footer.
+const downloadHref = localePath(lang, 'download');
+const backHref = localePath(lang, '');
+const blogHref = pathForSlug(lang, 'blog');
+
+// Subpages don't own the landing page's in-page anchors, so the same nav
+// row links back to the homepage section instead of scrolling nowhere —
+// keeps the primary nav (and its Download CTA) visible and consistent on
+// every page instead of the old bare "Zurück" link, which read as a
+// leftover utility row rather than real navigation.
+// Star count is fetched at build time (see github-stars.ts): no request from
+// the visitor's browser to GitHub. Without a count the pill shows the mark only.
+const stars = await githubStars();
+const starsLabel = stars ? t(lang, "nav.githubStars").replace("{count}", String(stars)) : null;
+const githubLabel = starsLabel ? `${t(lang, "nav.githubAria")} · ${starsLabel}` : t(lang, "nav.githubAria");
+// The build-time count renders immediately; the client then asks our own API
+// (cached server-side, never GitHub directly) for the live value.
+const starsEndpoint = import.meta.env.PUBLIC_STARS_ENDPOINT ?? "https://api.whispaste.de/v1/github/stars";
+
+const anchor = (id: string) => (variant === "subpage" ? `${backHref}#${id}` : `#${id}`);
+---
+
+<nav
+  id="site-nav"
+  data-surface="dark"
+  aria-label={t(lang, "nav.mainAria")}
+  data-i18n-aria="nav.mainAria"
+  class="fixed top-0 inset-x-0 z-50 pt-3 sm:pt-4 pointer-events-none"
+>
+  <div
+    class={`nav-pill wp-frame pointer-events-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4 border border-[color:var(--wp-nav-border)]`}
+  >
+    <a
+      href={variant === "subpage" ? backHref : "#"}
+      class="flex shrink-0 items-center gap-2 text-ink font-semibold tracking-tight"
+    >
+      <img
+        src="/wordmark-dark.png"
+        alt="WhisPaste"
+        width="199"
+        height="64"
+        class="h-7 w-auto"
+        fetchpriority="high"
+      />
+    </a>
+    {/* Desktop-Link-Zeile erst ab lg (1024px): die volle Zeile braucht mit den
+        Labels plus GitHub-Zähler und Blog ~960px Pill-Breite (ru/fr am engsten);
+        im Bereich 1024–1279px sind die Lücken daher knapp (gap-4/gap-3), ab xl
+        wieder weit. Ab sm (640px) eingeblendet quetschte
+        sie sich zwischen 640–879px kaputt (zweizeiliges "Wie funktioniert's",
+        kollabierte Lücken, CTA-Überlauf aus der Pill). 640–1023px nutzt jetzt
+        das Kompakt-Muster: Hamburger + sichtbarer Download-CTA. */}
+    {/* Link-Zeile und Aktionsgruppe (Sprache/GitHub/Download) werden auf
+        Unterseiten identisch gerendert wie auf der Landingpage, nur mit
+        Ankern zurück zur Homepage-Sektion (anchor()) statt reiner In-Page-
+        Anker — vorher hatten Unterseiten nur "Zurück" + Sprache, was dünn
+        und wenig konversionsstark wirkte. */}
+    <div class="hidden lg:flex flex-1 items-center justify-center gap-4 xl:gap-8 whitespace-nowrap text-sm text-ink-muted">
+      <a href={anchor("how-it-works")} class="hover:text-ink transition-colors" data-testid="nav-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+      <a href={anchor("open-source")} class="hover:text-ink transition-colors" data-testid="nav-link-community" data-i18n="nav.community">{t(lang, "nav.community")}</a>
+      <a href={anchor("features")} class="hover:text-ink transition-colors" data-testid="nav-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
+      <a href={anchor("privacy")} class="hover:text-ink transition-colors" data-testid="nav-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
+      <a href={anchor("faq")} class="hover:text-ink transition-colors" data-testid="nav-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
+      <a href={blogHref} class="hover:text-ink transition-colors" data-testid="nav-link-blog" data-i18n="nav.blog">{t(lang, "nav.blog")}</a>
+    </div>
+    {/* Rechte Aktionsgruppe: Utilities (Sprache/Theme/GitHub) nur ab lg,
+        der Download-CTA schon ab sm (640–1023px behält so die eine primäre
+        Aktion sichtbar in der Pill), Hamburger bis unter lg. */}
+    <div class="flex shrink-0 items-center gap-3 lg:gap-5 text-sm text-ink-muted">
+      <div class="hidden lg:flex shrink-0 items-center gap-3 xl:gap-5 text-sm text-ink-muted">
+        <LanguageSwitcher lang={lang} />
+        <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="nav-gh" aria-label={githubLabel} title={githubLabel} data-github-stars data-stars-endpoint={starsEndpoint} data-lang={lang} data-label-aria={t(lang, "nav.githubAria")} data-label-stars={t(lang, "nav.githubStars")} data-testid="nav-github">
+          <svg class="nav-gh__mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3"/></svg>
+          {stars && (
+            <span class="nav-gh__count" data-github-stars-count data-testid="nav-github-count">
+              <svg class="nav-gh__star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              <span data-github-stars-value>{formatStars(stars, lang)}</span>
+            </span>
+          )}
+        </a>
+        <span class="nav-divider" aria-hidden="true"></span>
+      </div>
+        <a href={downloadHref} class="nav-download-btn hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold hover:scale-[1.02] active:scale-[0.98] transition-all">
+          {/* Platform-adaptive label + icon. The detected OS (data-os on <html>,
+              set before first paint in Layout.astro) picks the visible variant via
+              CSS attribute selectors — no JS DOM manipulation, no flicker. Unknown
+              OS falls back to the generic "Download" variant. Each variant's TEXT
+              lives in its own <span data-i18n>, kept separate from the icon so
+              applyLang()'s textContent writes never wipe the icon. */}
+          <span class="nav-dl-variant items-center gap-1.5" data-dl-variant="generic">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span data-i18n="nav.download">{t(lang, "nav.download")}</span>
+          </span>
+          <span class="nav-dl-variant items-center gap-1.5" data-dl-variant="macos">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={appleIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.macos">{t(lang, "nav.download.macos")}</span>
+          </span>
+          <span class="nav-dl-variant items-center gap-1.5" data-dl-variant="windows">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={windowsIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.windows">{t(lang, "nav.download.windows")}</span>
+          </span>
+          <span class="nav-dl-variant items-center gap-1.5" data-dl-variant="linux">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={ubuntuIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.linux">{t(lang, "nav.download.linux")}</span>
+          </span>
+        </a>
+      {/* Statischer, lokalisierter Accessible Name ("Menü") + aria-expanded
+          als Zustandsträger — vorher hartkodiert englisches "Open menu"/
+          "Close menu" per JS-Swap, das auf der DE-Seite englisch blieb. */}
+      <button
+        id="mobileMenuBtn"
+        class="lg:hidden text-ink-muted hover:text-ink transition-colors p-1"
+        aria-label={t(lang, "nav.menuAria")}
+        data-i18n-aria="nav.menuAria"
+        aria-expanded="false"
+        aria-controls="mobileMenu"
+      >
+        <svg id="menuBtnIcon" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+      </button>
+      </div>
+  </div>
+  <div id="mobileMenu" class="wp-frame lg:hidden hidden pointer-events-auto mt-2 border border-[color:var(--wp-nav-border)] overflow-hidden">
+      <div class="px-5 py-3 flex flex-col">
+        <a href={anchor("how-it-works")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)]" data-testid="nav-menu-link-howitworks" data-i18n="nav.howitworks">{t(lang, "nav.howitworks")}</a>
+        <a href={anchor("open-source")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)] border-t border-[color:var(--wp-nav-divider)]" data-testid="nav-menu-link-community" data-i18n="nav.community">{t(lang, "nav.community")}</a>
+        <a href={anchor("features")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)] border-t border-[color:var(--wp-nav-divider)]" data-testid="nav-menu-link-features" data-i18n="nav.features">{t(lang, "nav.features")}</a>
+        <a href={anchor("privacy")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)] border-t border-[color:var(--wp-nav-divider)]" data-testid="nav-menu-link-privacy" data-i18n="nav.privacy">{t(lang, "nav.privacy")}</a>
+        <a href={anchor("faq")} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)] border-t border-[color:var(--wp-nav-divider)]" data-testid="nav-menu-link-faq" data-i18n="nav.faq">{t(lang, "nav.faq")}</a>
+        <a href={blogHref} class="mobile-nav-link block py-3 text-ink-muted hover:text-ink transition-colors text-[length:var(--wp-font-size-md)] border-t border-[color:var(--wp-nav-divider)]" data-testid="nav-menu-link-blog" data-i18n="nav.blog">{t(lang, "nav.blog")}</a>
+        <div class="flex items-center gap-5 py-3 border-t border-[color:var(--wp-nav-divider)]">
+          <LanguageSwitcher lang={lang} variant="inline" />
+          <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="nav-gh" aria-label={githubLabel} title={githubLabel} data-github-stars data-lang={lang} data-label-aria={t(lang, "nav.githubAria")} data-label-stars={t(lang, "nav.githubStars")} data-testid="nav-menu-github">
+            <svg class="nav-gh__mark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.08-.73.08-.73 1.2.09 1.84 1.24 1.84 1.24 1.07 1.83 2.8 1.3 3.49 1 .1-.78.42-1.3.76-1.6-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6.02 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3"/></svg>
+            {stars && (
+              <span class="nav-gh__count" data-github-stars-count data-testid="nav-menu-github-count">
+                <svg class="nav-gh__star" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <span data-github-stars-value>{formatStars(stars, lang)}</span>
+              </span>
+            )}
+          </a>
+        </div>
+        <a href={downloadHref} class="nav-download-btn mobile-nav-link flex items-center justify-center gap-2 mt-1 mb-1 px-6 py-3 font-semibold transition-all active:scale-[0.98]">
+          {/* Platform-adaptive label + icon — mirrors the desktop CTA above. */}
+          <span class="nav-dl-variant items-center justify-center gap-2" data-dl-variant="generic">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+            <span data-i18n="nav.download">{t(lang, "nav.download")}</span>
+          </span>
+          <span class="nav-dl-variant items-center justify-center gap-2" data-dl-variant="macos">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={appleIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.macos">{t(lang, "nav.download.macos")}</span>
+          </span>
+          <span class="nav-dl-variant items-center justify-center gap-2" data-dl-variant="windows">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={windowsIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.windows">{t(lang, "nav.download.windows")}</span>
+          </span>
+          <span class="nav-dl-variant items-center justify-center gap-2" data-dl-variant="linux">
+            <span class="nav-dl-icon inline-flex w-4 h-4 shrink-0" aria-hidden="true" set:html={ubuntuIconRaw} />
+            <span class="sr-only" data-i18n="nav.download">{t(lang, "nav.download")}</span>
+            <span data-i18n="nav.download.linux">{t(lang, "nav.download.linux")}</span>
+          </span>
+        </a>
+      </div>
+  </div>
+</nav>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', function () {
+    var siteNav = document.getElementById('site-nav');
+    if (siteNav) {
+      var onNavScroll = function () {
+        siteNav.setAttribute('data-scrolled', window.scrollY > 8 ? 'true' : 'false');
+      };
+      onNavScroll();
+      window.addEventListener('scroll', function () {
+        requestAnimationFrame(onNavScroll);
+      }, { passive: true });
+    }
+    var menuBtn = document.getElementById('mobileMenuBtn');
+    var mobileMenu = document.getElementById('mobileMenu');
+    var menuIcon = document.getElementById('menuBtnIcon');
+    var hamburgerSVG = '<line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/>';
+    var closeSVG = '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>';
+    if (menuBtn && mobileMenu) {
+      menuBtn.addEventListener('click', function () {
+        var isOpen = !mobileMenu.classList.contains('hidden');
+        mobileMenu.classList.toggle('hidden');
+        menuBtn.setAttribute('aria-expanded', String(!isOpen));
+        if (menuIcon) menuIcon.innerHTML = isOpen ? hamburgerSVG : closeSVG;
+      });
+      mobileMenu.querySelectorAll('.mobile-nav-link').forEach(function (link) {
+        link.addEventListener('click', function () {
+          mobileMenu.classList.add('hidden');
+          menuBtn.setAttribute('aria-expanded', 'false');
+          if (menuIcon) menuIcon.innerHTML = hamburgerSVG;
+        });
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && !mobileMenu.classList.contains('hidden')) {
+          mobileMenu.classList.add('hidden');
+          menuBtn.setAttribute('aria-expanded', 'false');
+          if (menuIcon) menuIcon.innerHTML = hamburgerSVG;
+          menuBtn.focus();
+        }
+      });
+    }
+  });
+</script>
+
+<script>
+  import { refreshStars } from '../scripts/github-stars-live.ts';
+  refreshStars();
+</script>
+
+<style>
+  /* Flat opaque pill: the app's own floating-chrome material
+     (WpColorsDark.floatingSurface — dialogs/toasts/popups, not the page's
+     own card fill), no glass. On scroll the pill condenses + darkens
+     slightly (same shrink-on-scroll behaviour as before, without relying on
+     blur for legibility). */
+  #site-nav .nav-pill {
+    position: relative;
+    border-radius: var(--wp-radius-surface);
+    background-color: var(--wp-nav-fill);
+    box-shadow: var(--shadow-overlay);
+    transition: background-color var(--wp-duration-slow) ease, box-shadow var(--wp-duration-slow) ease, border-color var(--wp-duration-slow) ease,
+      height var(--wp-duration-slow) var(--ease-flow);
+  }
+  #site-nav[data-scrolled="true"] .nav-pill {
+    background-color: color-mix(in srgb, var(--wp-nav-fill) 80%, var(--wp-surface-page));
+    border-color: var(--wp-border-default);
+    height: 3rem;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #site-nav .nav-pill {
+      transition: none;
+    }
+  }
+
+  /* Thin vertical divider that separates the utility icons from the primary
+     Download CTA — mirrors the competitor's nav grouping. */
+  #site-nav .nav-divider {
+    width: 1px;
+    height: 1.25rem;
+    background-color: var(--wp-surface-control-hover);
+    flex: 0 0 auto;
+  }
+
+  /* Primary Download CTA — same opaque accent gradient as AppleButton/
+     StoreButton/LinuxButton/MobileCta, not a separate dark "glass"
+     treatment. Nav's CTA is the same download action as those. Pill radius
+     and dark text: see StoreButton.astro — a fixed 14px corner reads as a
+     rectangle at this compact height while looking pill-like on the taller
+     --lg hero buttons, and white text measures under WCAG AA against the
+     gradient's light-cyan stop. */
+  .nav-download-btn {
+    border-radius: var(--radius-pill);
+    background: var(--gradient-accent-cta);
+    color: var(--color-brand-darker);
+  }
+  .nav-download-btn:hover {
+    box-shadow: var(--shadow-pill);
+  }
+
+  /* GitHub pill: mark | star + count, the familiar "Star 59" button shape. */
+  .nav-gh {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    height: 2rem;
+    padding-inline: var(--wp-space-3);
+    border: 1px solid var(--wp-border-default);
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-surface-control);
+    color: var(--wp-text-secondary);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    transition: background-color var(--wp-duration-fast) var(--ease-flow), border-color var(--wp-duration-fast) var(--ease-flow), color var(--wp-duration-fast) var(--ease-flow);
+  }
+  .nav-gh:hover {
+    background: var(--wp-surface-control-hover);
+    border-color: var(--wp-border-strong);
+    color: var(--wp-text-primary);
+  }
+  .nav-gh:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
+  }
+  .nav-gh__mark {
+    width: 1rem;
+    height: 1rem;
+  }
+  .nav-gh__count {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    padding-left: var(--wp-space-2);
+    border-left: 1px solid var(--wp-border-default);
+    color: var(--wp-text-primary);
+  }
+  .nav-gh__star {
+    width: 0.875rem;
+    height: 0.875rem;
+    color: var(--wp-highlight-default);
+    transition: transform var(--wp-duration-base) var(--ease-flow);
+  }
+  .nav-gh:hover .nav-gh__star {
+    transform: rotate(-12deg) scale(1.15);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .nav-gh__star { transition: none; }
+  }
+
+  #mobileMenu {
+    position: relative;
+    border-radius: var(--wp-radius-surface);
+    background: var(--wp-nav-fill);
+    box-shadow: var(--shadow-overlay);
+  }
+</style>

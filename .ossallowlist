@@ -1,0 +1,294 @@
+# WhisPaste — OSS-Allowlist (öffentliche Pfade)
+#
+# Was hier NICHT steht, wird vom pre-commit- und pre-push-Hook blockiert
+# (.githooks/). Interne Doku/Planung gehört nach internal-notes (gitignored).
+#
+# Erlaubt sind: exakte Dateipfade ODER Verzeichnis-Präfixe (mit "/").
+# Kommentare (#) und Leerzeilen sind erlaubt.
+
+# Root-Markdown + Lizenz + Disclosure
+README.md
+SECURITY.md
+NETWORK.md
+AUTOMATION_API.md
+LICENSE
+CHANGELOG.md
+SPONSORS.md
+LOGGING.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+CONTRIBUTING_TRANSLATIONS.md
+BUILD.md
+THIRD_PARTY_NOTICES.md
+ARCHITECTURE.md
+
+# Build-/Paket-Metadaten
+pubspec.yaml
+pubspec.lock
+analysis_options.yaml
+l10n.yaml
+baseline.json
+loam.yaml
+dart_test.yaml
+Gemfile
+Gemfile.lock
+.metadata
+.flutter-version
+
+# Config-Vorlagen (keine Secrets)
+.env.example
+
+# Konfig-/Guard-Dateien (öffentlich, kein Infra-Leak)
+.gitignore
+.gitattributes
+.gitleaks.toml
+.ossallowlist
+.clang-tidy
+
+# CI / GitHub Actions (Workflows, CodeQL, Funding)
+.github/
+
+# Versionierte Hooks (muss committet sein, um für Klonende zu gelten)
+.githooks/
+
+# Öffentliche Quell-Code-/Plattform-Verzeichnisse (Flutter + Native)
+lib/
+test/
+integration_test/
+generators/
+benchmarks/
+packages/
+assets/
+resources/
+
+# Plattform-Projekte
+macos/
+linux/CMakeLists.txt
+linux/.gitignore
+linux/flutter/
+# linux/runner: listed file by file so third_party/ stays a separate, explicit entry
+linux/runner/third_party/
+linux/runner/CMakeLists.txt
+linux/runner/app_identity_host.cc
+linux/runner/app_identity_host.h
+linux/runner/attention_host.cc
+linux/runner/attention_host.h
+linux/runner/audio_file_decode_core.cc
+linux/runner/audio_file_decode_core.h
+linux/runner/audio_file_decode_gst.cc
+linux/runner/audio_file_decode_gst.h
+linux/runner/audio_file_decode_host.cc
+linux/runner/audio_file_decode_host.h
+linux/runner/audio_file_decode_test.cc
+linux/runner/autorepeat_filter.h
+linux/runner/autorepeat_filter_test.cc
+linux/runner/clipboard_hint.cc
+linux/runner/clipboard_hint.h
+linux/runner/clipboard_receipt.cc
+linux/runner/clipboard_receipt.h
+linux/runner/clipboard_receipt_test.cc
+linux/runner/clipboard_snapshot.cc
+linux/runner/clipboard_snapshot.h
+linux/runner/clipboard_snapshot_test.cc
+linux/runner/desktop_entry.h
+linux/runner/desktop_entry_installer.cc
+linux/runner/desktop_entry_installer.h
+linux/runner/desktop_entry_test.cc
+linux/runner/desktop_paste_host.cc
+linux/runner/desktop_paste_host.h
+linux/runner/floating_button_host.cc
+linux/runner/floating_button_host.h
+linux/runner/floating_button_window.cc
+linux/runner/floating_button_window.h
+linux/runner/floating_overlay_host.cc
+linux/runner/floating_overlay_host.h
+linux/runner/floating_overlay_window.cc
+linux/runner/floating_overlay_window.h
+linux/runner/keyboard_monitor_host.cc
+linux/runner/keyboard_monitor_host.h
+linux/runner/main.cc
+linux/runner/mp4_gapless.cc
+linux/runner/mp4_gapless.h
+linux/runner/mp4_gapless_test.cc
+linux/runner/my_application.cc
+linux/runner/my_application.h
+linux/runner/power_event_host.cc
+linux/runner/power_event_host.h
+linux/runner/secondary_engine.cc
+linux/runner/secondary_engine.h
+linux/runner/secondary_plugin_registrant.cc
+linux/runner/secondary_plugin_registrant.h
+linux/runner/side_panel_host.cc
+linux/runner/side_panel_host.h
+linux/runner/side_panel_window.cc
+linux/runner/side_panel_window.h
+linux/runner/snippet_picker_host.cc
+linux/runner/snippet_picker_host.h
+linux/runner/snippet_picker_window.cc
+linux/runner/snippet_picker_window.h
+linux/runner/x11_window.cc
+linux/runner/x11_window.h
+linux/runner/x11_window_test.cc
+linux/runner/clipboard_hint_hold.cc
+linux/runner/clipboard_hint_test.cc
+linux/runner/diagnose_launch.h
+linux/runner/diagnose_launch_test.cc
+linux/runner/eis_keyboard_sender.cc
+linux/runner/eis_keyboard_sender.h
+linux/runner/file_dialog_host.cc
+linux/runner/file_dialog_host.h
+linux/runner/modifier_release.h
+linux/runner/modifier_release_test.cc
+linux/runner/menu_mask.h
+linux/runner/menu_mask_test.cc
+linux/runner/portal_remote_desktop.cc
+linux/runner/portal_remote_desktop.h
+linux/runner/positioned_window_type.h
+linux/runner/window_drag_mover.cc
+linux/runner/window_drag_mover.h
+linux/runner/window_manager_kind.h
+linux/runner/window_manager_kind_test.cc
+linux/runner/xvfb_launcher.cc
+linux/runner/xvfb_launcher.h
+windows/
+
+# Design tokens (platform-neutral source for website and app theme)
+design-tokens/
+
+# Installer + Packaging
+installer/
+packaging/
+
+# Website (öffentlicher Astro-Quellcode; dist/node_modules/design-system/test-results
+# sind über website/.gitignore ausgeschlossen)
+website/.fallowrc.json
+website/.gitignore
+website/astro.config.mjs
+website/eslint.config.mjs
+website/package.json
+website/package-lock.json
+website/playwright.config.ts
+website/tsconfig.json
+website/vitest.config.ts
+website/vitest.setup.ts
+website/sentry.client.config.js
+website/sentry.server.config.js
+website/src/
+website/public/
+website/tests/
+website/scripts/
+# Remotion sources for the pre-rendered website motion loops
+website/motion/
+
+# Store-Listings (öffentliche Marketing-Texte, MS-Store-Partner-Center)
+store/
+
+# Supabase-Migrationen (öffentliche Infra-as-Code; Secrets via CI)
+supabase/
+
+# Public-Release-Skripte (einzeln aufgelistet — scripts/* ist gitignored
+# und nur diese Ausnahmen sind öffentlich erlaubt)
+scripts/GITHUB-SECRETS-SETUP.md
+scripts/docs-attest.sh
+scripts/approve-release.sh
+scripts/docs-drift.sh
+scripts/check-workflow-hygiene.sh
+scripts/cppcheck-runner.sh
+scripts/cppcheck.pin
+scripts/install-git-filters.sh
+scripts/sync-macos-plugins.sh
+scripts/check-libwhisper-guard.sh
+scripts/check-libwhisper-guard.test.sh
+scripts/check.sh
+scripts/ci-gates.sh
+scripts/ci/detect-changes.sh
+scripts/ci/flutter-test.sh
+scripts/ci/packaging-validate.sh
+scripts/smoke/
+scripts/extract-cumulative-changelog.mjs
+scripts/generate-release-notes.mjs
+scripts/generate-screenshots.py
+scripts/generate-store-icons.py
+scripts/generate-store-listing.mjs
+scripts/apply-store-metadata.mjs
+scripts/apply-store-metadata.test.mjs
+scripts/build-store-trailer.sh
+scripts/update-mozilla-cacert.sh
+scripts/generate-whisper-server-manifest.sh
+scripts/build-libwhisper-macos.sh
+scripts/build-opus-macos.sh
+scripts/build-libwhisper-linux.sh
+scripts/split-debug-linux.sh
+scripts/bundle-libwhisper-windows.ps1
+scripts/build-libwhisper-windows.ps1
+scripts/build-libllama-macos.sh
+scripts/build-libllama-linux.sh
+scripts/build-smartmode-shim-macos.sh
+scripts/ensure-libllama-macos.sh
+scripts/build-libllama-windows.ps1
+scripts/build-smartmode-shim-windows.ps1
+scripts/bundle-libllama-windows.ps1
+scripts/collect-pdbs-windows.ps1
+scripts/fetch-cuda-redist.py
+scripts/build-cuda-pack-linux.sh
+scripts/build-cuda-pack-windows.ps1
+scripts/cuda-pack-NOTICE.template.txt
+# sherpa-onnx ohne TTS (espeak-ng-Guard) und generierte Drittlizenz-Hinweise
+scripts/build-sherpa-onnx.sh
+scripts/build-sherpa-onnx.ps1
+scripts/check-no-espeak.sh
+scripts/check-no-espeak.test.sh
+scripts/generate-third-party-notices.py
+scripts/sherpa-onnx.pin
+scripts/whisper-cpp.pin
+scripts/llama-cpp.pin
+scripts/check-upstream-pins.sh
+scripts/check-upstream-pins.test.sh
+scripts/check-sherpa-stage.cmake
+scripts/check-sherpa-stage.test.sh
+scripts/fetch-onnxruntime.sh
+scripts/sherpa-stage-libs.sh
+scripts/sherpa-stage-libs.test.sh
+scripts/LICENSE-NVIDIA.txt
+
+# Smart-Mode-v2 native shim (llama.cpp FFI wrapper, mirrors the libwhisper pattern)
+native/
+scripts/generate_appcast.sh
+scripts/publish_beta_fallback.sh
+# Local macOS release (replaces the GitHub macOS runner jobs, XPLAT-MAC-LOCAL)
+scripts/release-macos-local.sh
+scripts/build-whisper-server-metal-local.sh
+scripts/diagnose-smoke-macos-local.sh
+# Generated Sparkle Beta feed — sole content of the orphan branch
+# beta-appcast-pointer (release.yml + publish_beta_fallback.sh), served live
+# to Beta-channel clients via raw.githubusercontent.com. Deliberately public.
+appcast-beta.xml
+scripts/install-hooks.sh
+scripts/macos-selfsign.sh
+scripts/macos-selfsign-export-secret.sh
+scripts/setup-gh-secrets.sh
+scripts/setup-gh-secrets.ps1
+scripts/setup-gh-secrets.py
+scripts/submit-ms-store.ps1
+scripts/verify-ms-store-listing.ps1
+scripts/mac-build-smoke.sh
+scripts/lsregister-cleanup.sh
+scripts/worktree-prepare.sh
+scripts/worktree-prepare.test.sh
+
+# Tooling (Build-/Store-Helfer; deploy-spezifische Skripte wie win-smoke/
+# sind über .gitignore ausgeschlossen und dürfen NIE in die Allowlist)
+tools/appstore/
+tools/appstore-screens/
+tools/store-icons/
+tools/testimonials/
+
+# iOS-Build-Automation
+fastlane/
+
+# Diagnose-Tool-CLI (öffentlich gebaut und als Release-Artefakt ausgeliefert)
+tool/
+
+
+# Replay benchmarks (outside test/, started on purpose; corpus is gitignored)
+benchmarks/

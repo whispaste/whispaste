@@ -1,0 +1,130 @@
+---
+/**
+ * The landing page, shared by `pages/index.astro` (default locale) and
+ * `pages/[lang]/index.astro` (prefixed locales) so both stay in lockstep.
+ */
+import Layout from "../layouts/Layout.astro";
+import Nav from "./Nav.astro";
+import Hero from "./Hero.astro";
+import FeatureHighlights from "./FeatureHighlights.astro";
+import AppScreenshots from "./AppScreenshots.astro";
+import UseCaseCards from "./UseCaseCards.astro";
+import OpenSource from "./OpenSource.astro";
+import TextKindsMarquee from "./TextKindsMarquee.astro";
+import Privacy from "./Privacy.astro";
+import Engines from "./Engines.astro";
+import Pricing from "./Pricing.astro";
+import FAQ from "./FAQ.astro";
+import Testimonials from "./Testimonials.astro";
+import Support from "./Support.astro";
+import Footer from "./Footer.astro";
+import MobileCta from "./MobileCta.astro";
+import SoftwareApplicationSchema from "./schema/SoftwareApplicationSchema.astro";
+import FAQPageSchema from "./schema/FAQPageSchema.astro";
+import HowToSchema from "./schema/HowToSchema.astro";
+import { t } from "../scripts/i18n.ts";
+import type { Locale } from "../scripts/locales.ts";
+
+interface Props {
+  lang: Locale;
+}
+
+const { lang } = Astro.props;
+---
+
+<Layout
+  title={t(lang, "meta.title.home")}
+  description={t(lang, "meta.description.home")}
+>
+  <Nav variant="landing" />
+  <main id="main-content">
+    {/*
+      Story order (docs/landingpage-story.md): what it is (Hero) → how it
+      gets my sentence into the field (the hero's step player) → which of my texts it
+      helps with (TextKindsMarquee band, UseCaseCards) → join in, it is open
+      source (OpenSource) → what helps me keep working (FeatureHighlights,
+      AppScreenshots) → trust (Privacy, Engines incl. languages) → open
+      questions (FAQ) → social proof (Testimonials) → the one next step
+      (Pricing) → project support (Support).
+      Each section sets its own band class; none is duplicated here.
+    */}
+    <Hero />
+    <TextKindsMarquee />
+    <UseCaseCards />
+    <OpenSource />
+    <FeatureHighlights />
+    <AppScreenshots />
+    <Privacy />
+    <Engines />
+    <FAQ />
+    <Testimonials />
+    <Pricing />
+    <Support />
+  </main>
+  <Footer />
+  <MobileCta />
+
+  {/* Schema builders are covered by `src/components/schema/__tests__/`. */}
+  <SoftwareApplicationSchema locale={lang} />
+  <FAQPageSchema locale={lang} />
+  <HowToSchema locale={lang} />
+
+  <style is:global>
+    /* Content is visible by default; the hidden start state only applies once
+       the reveal script has run, so no-JS visitors and crawlers see everything. */
+    .wp-reveal-ready .scroll-reveal:not(.visible) {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    .scroll-reveal {
+      transition: opacity var(--wp-duration-cinematic) var(--ease-flow), transform var(--wp-duration-cinematic) var(--ease-flow);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .wp-reveal-ready .scroll-reveal:not(.visible) {
+        opacity: 1;
+        transform: none;
+      }
+      .scroll-reveal { transition: none; }
+    }
+  </style>
+
+  <script>
+    import { applyLang } from '../scripts/lang-switch';
+    import { closestFromTarget } from '../scripts/event-target';
+
+    const reveal = (el: Element) => el.classList.add('visible');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            reveal(entry.target);
+            observer.unobserve(entry.target);
+          }
+        }
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -40px 0px' }
+    );
+    document.querySelectorAll('.scroll-reveal').forEach((el) => {
+      if (el.getBoundingClientRect().top < window.innerHeight + 40) reveal(el);
+      else observer.observe(el);
+    });
+    document.documentElement.classList.add('wp-reveal-ready');
+
+    // Card spotlight (global.css `.wp-spot`): tag the landing cards and feed
+    // the pointer position in as --mx/--my. One delegated listener, rAF-free
+    // because it only writes two custom properties on the hovered card.
+    const SPOT_CARDS = '.use-case-card, .fh-card, .engine-card, .privacy-path, .price-core, .price-get';
+    if (matchMedia('(hover: hover)').matches) {
+      document.querySelectorAll<HTMLElement>(SPOT_CARDS).forEach((el) => el.classList.add('wp-spot'));
+      document.addEventListener('pointermove', (e) => {
+        const card = closestFromTarget<HTMLElement>(e.target, '.wp-spot');
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        card.style.setProperty('--my', `${e.clientY - r.top}px`);
+      }, { passive: true });
+    }
+
+    applyLang();
+  </script>
+</Layout>

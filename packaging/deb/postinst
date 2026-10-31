@@ -1,0 +1,39 @@
+#!/bin/sh
+# Grants nothing (R-02): the uinput udev rule is installed only after the
+# user agrees in the app (/usr/libexec/whispaste/uinput-access). Reloading the
+# rules here drops the rule that versions without the consent step installed
+# under /usr/lib/udev/rules.d/, which dpkg removed during this upgrade.
+set -e
+
+DEVICE=/dev/uinput
+
+# Same check as the helper's still_uaccess: CURRENT_TAGS, since TAGS is
+# sticky from systemd 247 on.
+still_uaccess() {
+  props="$(udevadm info --query=property --name="$DEVICE" 2>/dev/null)" ||
+    return 1
+  if printf '%s\n' "$props" | grep -q '^CURRENT_TAGS='; then
+    printf '%s\n' "$props" | grep -q '^CURRENT_TAGS=.*:uaccess:'
+  else
+    printf '%s\n' "$props" | grep -q '^TAGS=.*:uaccess:'
+  fi
+}
+
+if [ "$1" = "configure" ] && command -v udevadm >/dev/null 2>&1; then
+  udevadm control --reload-rules 2>/dev/null || true
+  udevadm trigger --subsystem-match=misc --sysname-match=uinput 2>/dev/null || true
+  # Upgrade from a version that granted on install: the session ACL logind
+  # set would outlive the removed rule until the next login. Drop it unless
+  # the user already agreed (our rule in /etc) or another rule tags the
+  # device uaccess. No session user is known here, so all ACL entries go.
+  if [ -n "${2:-}" ] && [ -e "$DEVICE" ] &&
+    [ ! -f /etc/udev/rules.d/71-whispaste-uinput.rules ] &&
+    command -v setfacl >/dev/null 2>&1; then
+    udevadm settle --timeout=5 2>/dev/null || true
+    if ! still_uaccess; then
+      setfacl -b "$DEVICE" 2>/dev/null || true
+    fi
+  fi
+fi
+
+exit 0

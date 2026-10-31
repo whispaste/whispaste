@@ -1,0 +1,74 @@
+name: provider-drift-canary
+
+# Catches a silent breaking change in the OpenAI/Deepgram STT REST APIs
+# (status codes, response JSON shape) before a user's cloud transcription
+# quietly starts failing — a canary against the real provider
+# endpoints instead of only the mocked tests.
+#
+# Two independent checks, both living next to the existing mocked tests in
+# test/services/transcription/{openai,deepgram}_transcriber_test.dart:
+#
+# - `canary` tag: rejects-invalid-credentials checks. Need no secret, always
+#   run here (every Monday + on manual dispatch).
+# - `live` tag: full happy-path transcription against a real audio fixture.
+#   Needs a real key — passed as a dart-define, never as a plain env var, so
+#   it never lands in process argv/environment inspectable outside this
+#   step. Runs only when WP_CANARY_OPENAI_API_KEY / WP_CANARY_DEEPGRAM_API_KEY
+#   are configured as repository secrets; skipped (not failed) otherwise.
+#
+# Manual only (maintainer rule 2026-10-25: no schedules in GitHub workflows);
+# start it with workflow_dispatch when needed.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stt-canary:
+    name: STT provider canary
+    runs-on: ubuntu-latest
+    # The live checks talk to third-party STT APIs; a provider hanging the
+    # connection must not sit until GitHub's 360min default.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          # Pinned to the same SDK as ci.yml/release.yml. Without this the
+          # canary silently drifts onto whatever `stable` currently is, so a
+          # red run would no longer distinguish "provider API changed" (what
+          # this canary exists to detect) from "Flutter moved on".
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Auth-rejection canary (no secrets needed)
+        run: >
+          flutter test --tags=canary
+          test/services/transcription/openai_transcriber_test.dart
+          test/services/transcription/deepgram_transcriber_test.dart
+
+      - name: Check live-happy-path secrets are set
+        id: live_secret_check
+        run: |
+          if [ -n "${{ secrets.WP_CANARY_OPENAI_API_KEY }}" ] && [ -n "${{ secrets.WP_CANARY_DEEPGRAM_API_KEY }}" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::WP_CANARY_OPENAI_API_KEY / WP_CANARY_DEEPGRAM_API_KEY not both set — skipping the live happy-path canary, running the no-secret auth-rejection check above only."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Live happy-path canary
+        if: steps.live_secret_check.outputs.run == 'true'
+        run: >
+          flutter test --tags=live
+          --dart-define=OPENAI_API_KEY=${{ secrets.WP_CANARY_OPENAI_API_KEY }}
+          --dart-define=DEEPGRAM_API_KEY=${{ secrets.WP_CANARY_DEEPGRAM_API_KEY }}
+          test/services/transcription/openai_transcriber_test.dart
+          test/services/transcription/deepgram_transcriber_test.dart

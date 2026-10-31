@@ -1,0 +1,69 @@
+---
+/**
+ * Editorial hero for every page outside the landing: breadcrumbs, eyebrow,
+ * display headline, lead and actions on the left, an optional motion
+ * illustration (slot "art") in an instrument panel on the right. Same type
+ * scale and full-width frame as the landing hero, so subpages read as one
+ * site. Breadcrumbs here are visual only; pages emit BreadcrumbList JSON-LD
+ * with the same items.
+ */
+interface Crumb {
+  readonly name: string;
+  readonly item: string;
+}
+
+interface Props {
+  readonly title: string;
+  /** Optional trailing part of the title in the brand gradient. */
+  readonly titleAccent?: string;
+  readonly lead?: string;
+  /** Optional one-sentence line directly under the H1, above the lead. */
+  readonly note?: string;
+  readonly eyebrow?: string;
+  readonly crumbs?: readonly Crumb[];
+  readonly artLabel?: string;
+  /** i18n keys for the runtime language switch (data-i18n). */
+  readonly titleKey?: string;
+  readonly leadKey?: string;
+  readonly testid?: string;
+  /** Optional id on the h1 (legal pages keep their historic #pageTitle). */
+  readonly titleId?: string;
+}
+
+const { title, titleAccent, lead, note, eyebrow, crumbs, artLabel, titleKey, leadKey, testid = 'page-hero', titleId } = Astro.props;
+const hasArt = Astro.slots.has('art');
+---
+
+<header class="page-hero band band-spotlight" data-testid={testid}>
+  <div class="wp-container">
+    <div class:list={['page-hero__grid', { 'has-art': hasArt }]}>
+      <div>
+        {crumbs && crumbs.length > 0 && (
+          <nav aria-label="Breadcrumb" class="page-crumbs" data-testid="page-crumbs">
+            <ol>
+              {crumbs.map((crumb, index) => (
+                <li>
+                  {index === crumbs.length - 1
+                    ? <span aria-current="page" class="text-ink-muted">{crumb.name}</span>
+                    : <a href={crumb.item}>{crumb.name}</a>}
+                </li>
+              ))}
+            </ol>
+          </nav>
+        )}
+        {eyebrow && <p class="wp-eyebrow">{eyebrow}</p>}
+        <h1 class="page-title" id={titleId}>
+          <span data-i18n={titleKey}>{title}</span>{titleAccent && <> <span class="text-gradient-brand">{titleAccent}</span></>}
+        </h1>
+        {note && <p class="page-hero__note" data-testid="page-hero-note">{note}</p>}
+        {lead && <p class="wp-lead" data-i18n={leadKey}>{lead}</p>}
+        <div class="page-hero__actions"><slot name="actions" /></div>
+      </div>
+      {hasArt && (
+        <div class="wp-panel" data-label={artLabel} aria-hidden="true">
+          <slot name="art" />
+        </div>
+      )}
+    </div>
+  </div>
+</header>

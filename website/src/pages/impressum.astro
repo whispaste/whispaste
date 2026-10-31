@@ -1,0 +1,66 @@
+---
+import LegalPage from "../components/pages/LegalPage.astro";
+import { t, localePath } from "../scripts/i18n.ts";
+
+const lang = 'de' as const;
+const breadcrumbItems = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.impressum"), item: localePath(lang, "impressum") },
+];
+---
+
+<LegalPage
+  lang={lang}
+  metaTitle={t(lang, "meta.title.impressum")}
+  metaDescription={t(lang, "meta.description.impressum")}
+  title="Impressum"
+  crumbs={breadcrumbItems}
+  tocLabel="Inhalt"
+  testid="legal-imprint"
+>
+    <div id="content-de">
+      <section>
+        <h2>Angaben gemäß § 5 DDG</h2>
+        <p>
+          <strong>Silvio Lindstedt und Maik Gräfendorf, GbR</strong><br>
+          Pappelweg 27<br>
+          39576 Stendal<br>
+          Deutschland
+        </p>
+      </section>
+
+      <section>
+        <h2>Kontakt</h2>
+        <p>
+          E-Mail: kontakt@whispaste.de
+        </p>
+      </section>
+
+      <section>
+        <h2>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV</h2>
+        <p>
+          Silvio Lindstedt<br>
+          Anschrift wie oben
+        </p>
+      </section>
+
+      <section>
+        <h2>Haftungsausschluss</h2>
+        <h3>Haftung für Inhalte</h3>
+        <p>
+          Die Inhalte dieser Seite wurden mit größter Sorgfalt erstellt. Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte kann jedoch keine Gewähr übernommen werden. Als Diensteanbieter bin ich gemäß § 7 Abs. 1 DDG für eigene Inhalte auf diesen Seiten nach den allgemeinen Gesetzen verantwortlich. Nach §§ 8 bis 10 DDG bin ich jedoch nicht verpflichtet, übermittelte oder gespeicherte fremde Informationen zu überwachen.
+        </p>
+        <h3>Haftung für Links</h3>
+        <p>
+          Diese Seite enthält Links zu externen Websites Dritter, auf deren Inhalte ich keinen Einfluss habe. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber verantwortlich. Bei Bekanntwerden von Rechtsverletzungen werde ich derartige Links umgehend entfernen.
+        </p>
+      </section>
+
+      <section>
+        <h2>Urheberrecht</h2>
+        <p>
+          WhisPaste ist Open-Source-Software, lizenziert unter der <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener">MIT-Lizenz</a>. Der Quellcode ist öffentlich auf <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener">GitHub</a> verfügbar.
+        </p>
+      </section>
+    </div>
+</LegalPage>

@@ -1,0 +1,104 @@
+---
+/**
+ * Motion illustration: community support. Small contributions drift in
+ * from the edges toward a central glowing core, which pulses as it grows;
+ * a ring of orbiting members surrounds it. Inline SVG + CSS,
+ * transform/opacity only; static under prefers-reduced-motion. Decorative.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+const orbit = [0, 1, 2, 3, 4, 5, 6, 7];
+const drift = [
+  { x: 60, y: 60 },
+  { x: 420, y: 70 },
+  { x: 440, y: 250 },
+  { x: 50, y: 260 },
+  { x: 240, y: 20 },
+];
+// Unique gradient ids per instance, so the graphic can render twice on a page.
+const uid = Math.random().toString(36).slice(2, 8);
+const glowId = `sp-glow-${uid}`;
+const accentId = `sp-accent-${uid}`;
+---
+
+<svg
+  class:list={['motion-sp', className]}
+  viewBox="0 0 480 320"
+  fill="none"
+  aria-hidden="true"
+  focusable="false"
+  data-testid="motion-support"
+>
+  <defs>
+    <radialGradient id={glowId} cx=".5" cy=".5" r=".5">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-fill)" stop-opacity=".55" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-fill)" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id={accentId} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-fill)" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-strong)" />
+    </linearGradient>
+  </defs>
+
+  <circle class="glow" cx="240" cy="160" r="110" fill={`url(#${glowId})`} />
+  <circle class="sp-track" cx="240" cy="160" r="96" stroke-dasharray="2 8" />
+
+  <g class="orbit">
+    {orbit.map((i) => (
+      <circle
+        class={i % 3 ? 'sp-member' : 'sp-member sp-member-accent'}
+        cx={240 + 96 * Math.cos((i / orbit.length) * Math.PI * 2)}
+        cy={160 + 96 * Math.sin((i / orbit.length) * Math.PI * 2)}
+        r={i % 2 ? 6 : 9}
+      />
+    ))}
+  </g>
+
+  <!-- heart core -->
+  <path
+    class="core"
+    d="M240 196 C 200 168, 196 138, 214 128 C 228 120, 238 130, 240 138 C 242 130, 252 120, 266 128 C 284 138, 280 168, 240 196 Z"
+    fill={`url(#${accentId})`}
+  />
+
+  {drift.map((d, i) => (
+    <circle
+      class="drop sp-drop"
+      cx={d.x}
+      cy={d.y}
+      r="5"
+      style={`--i:${i};--dx:${240 - d.x}px;--dy:${160 - d.y}px`}
+    />
+  ))}
+</svg>
+
+<style>
+  .motion-sp { display: block; width: 100%; height: auto; }
+  .motion-sp .glow,
+  .motion-sp .core { transform-box: fill-box; transform-origin: center; }
+  .motion-sp .orbit { transform-origin: 240px 160px; }
+
+  /* Solid token colours: the graphic must read on dark and light bands. */
+  .motion-sp .sp-track { stroke: var(--wp-illustration-line); }
+  .motion-sp .sp-member { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-accent); }
+  .motion-sp .sp-member-accent { fill: var(--wp-illustration-accent-fill); }
+  .motion-sp .sp-drop { fill: var(--wp-illustration-accent-fill); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-sp .orbit { animation: sp-orbit 36s linear infinite; }
+    .motion-sp .core { animation: sp-beat 5s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+    .motion-sp .glow { animation: sp-glow 5s ease-in-out infinite; }
+    .motion-sp .drop { animation: sp-drift 5s cubic-bezier(0.55, 0, 0.45, 1) infinite; animation-delay: calc(var(--i) * 1s); }
+  }
+  @keyframes sp-orbit { to { transform: rotate(360deg); } }
+  @keyframes sp-beat { 0%, 100% { transform: scale(1); } 8% { transform: scale(1.12); } 16% { transform: scale(1); } }
+  @keyframes sp-glow { 0%, 100% { opacity: 0.6; } 10% { opacity: 1; } }
+  @keyframes sp-drift {
+    0% { transform: translate(0, 0); opacity: 0; }
+    15% { opacity: 1; }
+    80% { transform: translate(var(--dx), var(--dy)); opacity: 0.9; }
+    90%, 100% { transform: translate(var(--dx), var(--dy)) scale(0.2); opacity: 0; }
+  }
+</style>

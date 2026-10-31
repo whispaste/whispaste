@@ -1,0 +1,14 @@
+{
+  "name": "whispaste-onboarding-motion",
+  "private": true,
+  "description": "HyperFrames source for the onboarding welcome loops M1-M3 (see README.md)",
+  "scripts": {
+    "check": "node scripts/check-tokens.mjs",
+    "render": "bash scripts/render-all.sh",
+    "webp": "bash scripts/export-webp.sh"
+  },
+  "devDependencies": {
+    "gsap": "3.14.2",
+    "hyperframes": "0.8.177"
+  }
+}

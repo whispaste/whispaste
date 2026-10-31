@@ -1,0 +1,19 @@
+# Grants the user at the active desktop session write access to /dev/uinput,
+# which WhisPaste's Auto-Paste needs to synthesize Ctrl+V on Linux (uinput
+# virtual keyboard, linux/runner/desktop_paste_host.cc).
+#
+# While this rule is installed, every program in that session can create
+# virtual keyboard and mouse input, not only WhisPaste. That is why no package
+# installs it on its own (security review R-02): WhisPaste asks first.
+#   - .deb: the rule ships as an inactive template under
+#     /usr/share/whispaste/udev/. After consent in the app, the polkit action
+#     de.whispaste.uinput.manage runs /usr/libexec/whispaste/uinput-access,
+#     which copies it to /etc/udev/rules.d/ and removes it on revocation.
+#   - Tarball: install-uinput-rule.sh / uninstall-uinput-rule.sh (sudo).
+#   - AppImage, Flatpak: the app shows the commands to copy.
+#   - Snap: `sudo snap connect whispaste:uinput` instead of this rule.
+#
+# TAG+="uaccess" lets systemd-logind grant the active session's user an ACL
+# on the device. There is deliberately no GROUP= fallback: members of such a
+# group could write to /dev/uinput regardless of consent (decision 4a).
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess"

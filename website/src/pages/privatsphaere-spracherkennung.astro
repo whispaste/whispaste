@@ -1,0 +1,148 @@
+---
+/**
+ * `/privatsphaere-spracherkennung/` — Erklär-Page für Datenschutz-bewusste
+ * Spracherkennung (Issue 12, PRD §E).
+ *
+ * Beantwortet den `docs/zielgruppe.md`-Lackmustest („Hilft das jemandem, der
+ * Spracherkennung nur einsetzen will, wenn Daten den Rechner nicht
+ * verlassen?") direkt im Hero-Lead. Drei Sections decken die häufigsten
+ * Friction-Punkte ab: Offline-Default, Direct-to-Provider-Architektur,
+ * kein Account / anonyme, abschaltbare Statistik / lokaler Verlauf.
+ *
+ * Schema-Wahl: FAQPage, weil Datenschutz-bewusste Suchen typischerweise mit
+ * Ja/Nein-Fragen ankommen („Verlässt mein Audio das Gerät? Brauche ich einen
+ * Account? Wo liegt der Verlauf?"). Die Q&A-Paare spiegeln 1:1 die sichtbare
+ * `<dl>`-Liste — Google Rich-Results-Anforderung.
+ *
+ * Slug-Divergenz DE/EN: DE `privatsphaere-spracherkennung`, EN
+ * `privacy-speech-recognition`. Über `DE_SLUGS` (scripts/locales.ts) an `LandingPageLayout`
+ * → `Layout` durchgereicht, damit hreflang-Alternates korrekt zwischen den
+ * beiden Routen pendeln.
+ *
+ * Datenschutz-Link: die `section.noTelemetry.body` enthält bewusst einen
+ * Inline-Link auf `/datenschutz/` (DE) bzw. `/en/privacy/` (EN) — die volle
+ * Datenschutzerklärung bleibt die rechtsverbindliche Quelle, diese Page ist
+ * die SEO-/Erklär-Ebene davor.
+ */
+import LandingPageLayout from "../layouts/LandingPageLayout.astro";
+import FAQPageSchema from "../components/schema/FAQPageSchema.astro";
+import { t, localePath } from "../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "explainer.privacy.breadcrumb"), item: localePath(lang, "privatsphaere-spracherkennung") },
+];
+
+const seo = {
+  title: t(lang, "explainer.privacy.seoTitle"),
+  description: t(lang, "explainer.privacy.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "explainer.privacy.heroHeading"),
+  lead: t(lang, "explainer.privacy.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "explainer.privacy.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const faqQuestions = [
+  {
+    question: t(lang, "explainer.privacy.faq.dataLeaves.q"),
+    answer: t(lang, "explainer.privacy.faq.dataLeaves.a"),
+  },
+  {
+    question: t(lang, "explainer.privacy.faq.account.q"),
+    answer: t(lang, "explainer.privacy.faq.account.a"),
+  },
+  {
+    question: t(lang, "explainer.privacy.faq.historyStorage.q"),
+    answer: t(lang, "explainer.privacy.faq.historyStorage.a"),
+  },
+  {
+    question: t(lang, "explainer.privacy.faq.mostPrivate.q"),
+    answer: t(lang, "explainer.privacy.faq.mostPrivate.a"),
+  },
+  {
+    question: t(lang, "explainer.privacy.faq.dictationFeature.q"),
+    answer: t(lang, "explainer.privacy.faq.dictationFeature.a"),
+  },
+];
+
+
+const relatedPages = [
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+  { label: t(lang, "explainer.offlineStt.breadcrumb"), href: localePath(lang, "offline-speech-to-text") },
+  { label: t(lang, "comparison.dictationAlternatives.breadcrumb"), href: localePath(lang, "vergleich/diktiersoftware-alternativen") },
+  { label: t(lang, "comparison.osDictation.breadcrumb"), href: localePath(lang, "vergleich/whispaste-vs-system-spracheingabe") },
+];
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  relatedPages={relatedPages}
+>
+  <p class="tldr">{t(lang, "explainer.privacy.tldr")}</p>
+
+  <section>
+    <h2>{t(lang, "explainer.privacy.section.offlineDefault.heading")}</h2>
+    <p>{t(lang, "explainer.privacy.section.offlineDefault.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.privacy.section.directProvider.heading")}</h2>
+    <p>{t(lang, "explainer.privacy.section.directProvider.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.privacy.section.noTelemetry.heading")}</h2>
+    {/*
+      Inline-HTML im Body, damit der Link auf `/datenschutz/` als echter
+      `<a>`-Tag gerendert wird statt als sichtbarer HTML-String. Der String
+      ist eine i18n-Konstante, kein User-Input — `set:html` ist hier sicher.
+    */}
+    <p set:html={t(lang, "explainer.privacy.section.noTelemetry.body")}></p>
+    <dl class="faq-list">
+      {faqQuestions.map((entry) => (
+        <div class="faq-item">
+          <dt>{entry.question}</dt>
+          <dd>{entry.answer}</dd>
+        </div>
+      ))}
+    </dl>
+  </section>
+
+  <FAQPageSchema locale={lang} questions={faqQuestions} />
+</LandingPageLayout>
+
+<style>
+  .tldr {
+    color: var(--color-ink);
+    font-size: var(--wp-font-size-lg);
+    line-height: 1.65;
+  }
+  .faq-list {
+    margin-top: var(--wp-space-4);
+  }
+  .faq-item + .faq-item {
+    margin-top: var(--wp-space-4);
+  }
+  .faq-list dt {
+    color: var(--color-ink);
+    font-weight: 600;
+    margin-bottom: var(--wp-space-1);
+  }
+  .faq-list dd {
+    color: var(--color-ink-muted);
+    line-height: 1.6;
+    margin: 0;
+  }
+</style>

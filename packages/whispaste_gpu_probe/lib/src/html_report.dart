@@ -1,0 +1,1816 @@
+/// HTML report renderer for WhisPaste GPU-Probe results.
+///
+/// Produces a self-contained `<!DOCTYPE html>` document with all CSS (and, in
+/// live mode, all JS) inlined. No external resources, no CDN references, no JS
+/// frameworks — the report opens straight from `file://` or the local server.
+///
+/// Aesthetic: a dark "instrument / telemetry readout" — monospace-forward,
+/// signal-lime accent for speed, tabular numerics, a relative-speed bar viz,
+/// and a staggered load reveal.
+library;
+
+import 'bench_history.dart';
+import 'brand_assets.dart';
+import 'probe_types.dart';
+import 'ranking.dart';
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/// Renders [report] as a self-contained HTML document (German UI, UTF-8).
+///
+/// When [live] is true the ranking rows gain a "Live testen" action and the
+/// document embeds the microphone-test JavaScript that talks to the local
+/// probe server; [token] is the per-session token appended to every API call.
+/// In static mode (the on-disk / ZIP artifact) no JS and no buttons are
+/// emitted so the saved file stays a clean record.
+String formatProbeReportHtml(
+  ProbeReport report, {
+  bool live = false,
+  String? token,
+  List<Map<String, Object?>>? models,
+  List<Map<String, Object?>>? engines,
+  List<BenchRun>? history,
+}) {
+  // Bench mode: the engine × model test bench (model download + selectors).
+  final bench = live && engines != null;
+  final ranking = computeRanking(report);
+  final b = StringBuffer();
+
+  // Find the best non-baseline ok candidate (winner).
+  RankedCandidate? winner;
+  for (final rc in ranking.ranked) {
+    if (!rc.isCpuBaseline) {
+      winner = rc;
+      break;
+    }
+  }
+
+  // Highest speedup among ranked rows — used to scale the relative-speed bars.
+  var maxSpeedup = 1.0;
+  for (final rc in ranking.ranked) {
+    if (rc.speedupFactor > maxSpeedup) maxSpeedup = rc.speedupFactor;
+  }
+
+  b.writeln('<!DOCTYPE html>');
+  b.writeln('<html lang="de">');
+  b.writeln('<head>');
+  b.writeln('<meta charset="utf-8">');
+  b.writeln(
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+  );
+  b.writeln('<title>WhisPaste GPU-Probe Report</title>');
+  b.writeln(_css);
+  b.writeln('</head>');
+  b.writeln('<body>');
+  _writeHeader(b, report, live: live);
+  b.writeln('<main class="container">');
+  // The baseline warning + winner banner describe the auto-probe ranking; in
+  // bench mode that ranking is empty (the matrix runs on demand), so skip them.
+  if (!bench) {
+    _writeBaselineMissingWarning(b, ranking);
+    _writeWinnerBanner(b, ranking, winner);
+  }
+  if (bench) {
+    _writeLivePanel(b, bench: true, engines: engines, models: models);
+    _writeHistorySection(b, history ?? const []);
+    _writeModelsSection(b, models ?? const []);
+    _writeEnginesSection(b, engines);
+  } else if (live) {
+    _writeLivePanel(b, bench: false);
+  }
+  _writeRankingTable(b, ranking, winner, maxSpeedup, live: live && !bench);
+  _writeFailedSection(b, ranking);
+  _writeHardwareSection(b, report);
+  b.writeln('</main>');
+  _writeFooter(b, report, live: live);
+  if (live) {
+    b.writeln(_liveScript.replaceAll('__TOKEN__', token ?? ''));
+  }
+  b.writeln('</body>');
+  b.write('</html>');
+
+  return b.toString();
+}
+
+/// A single candidate row for the progress shell, before results exist.
+typedef ProgressCandidate = ({String id, String label});
+
+/// Renders the "Analyse läuft…" progress shell served while the probe runs.
+///
+/// The page lists every [candidates] entry with a live status dot, an elapsed
+/// timer, and subscribes to the server's `/events` SSE stream. On the `done`
+/// event it reloads, at which point the server serves the finished report.
+/// [token] is appended to the SSE/API calls.
+String formatProgressShellHtml({
+  required List<ProgressCandidate> candidates,
+  required String version,
+  required DateTime timestamp,
+  String? token,
+}) {
+  final b = StringBuffer();
+  b.writeln('<!DOCTYPE html>');
+  b.writeln('<html lang="de">');
+  b.writeln('<head>');
+  b.writeln('<meta charset="utf-8">');
+  b.writeln(
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+  );
+  b.writeln('<title>WhisPaste GPU-Probe Report — Analyse läuft</title>');
+  b.writeln(_css);
+  b.writeln('</head>');
+  b.writeln('<body>');
+
+  b.writeln('<header class="site-header">');
+  b.writeln(
+    '  <span class="brand">'
+    '<img class="brand-logo" alt="WhisPaste" src="$whispasteLogoDataUri">'
+    ' WhisPaste GPU-Probe Report</span>',
+  );
+  b.writeln(
+    '  <span class="header-meta">v${_esc(version)}'
+    ' &nbsp;·&nbsp; ${_esc(timestamp.toIso8601String())}</span>',
+  );
+  b.writeln('</header>');
+
+  b.writeln('<main class="container">');
+  b.writeln('<section class="run-hero reveal">');
+  b.writeln(
+    '  <div class="run-pulse" aria-hidden="true">'
+    '<span></span><span></span><span></span></div>',
+  );
+  b.writeln('  <h1 class="run-title">Analyse läuft</h1>');
+  b.writeln(
+    '  <p class="run-sub">Die Engines werden nacheinander auf deiner '
+    'Hardware getestet. Das kann ein paar Minuten dauern — du musst nichts '
+    'tun, der Report öffnet sich danach automatisch hier.</p>',
+  );
+  b.writeln(
+    '  <div class="run-elapsed">Laufzeit '
+    '<span id="elapsed" class="mono">0:00</span></div>',
+  );
+  b.writeln('</section>');
+
+  b.writeln('<section class="reveal" style="animation-delay:.08s">');
+  b.writeln('<h2>Kandidaten</h2>');
+  b.writeln('<ul class="run-list" id="run-list">');
+  for (final c in candidates) {
+    b.writeln(
+      '  <li class="run-item" data-cand="${_esc(c.id)}" '
+      'data-state="pending">',
+    );
+    b.writeln('    <span class="run-dot" aria-hidden="true"></span>');
+    b.writeln('    <span class="run-name">${_esc(c.label)}</span>');
+    b.writeln('    <span class="run-status mono">wartet</span>');
+    b.writeln('  </li>');
+  }
+  b.writeln('</ul>');
+  b.writeln('</section>');
+  b.writeln('</main>');
+
+  b.writeln(
+    '<footer class="site-footer">'
+    'WhisPaste GPU-Probe v${_esc(version)} &nbsp;·&nbsp; '
+    'Analyse läuft…</footer>',
+  );
+
+  b.writeln(_progressScript.replaceAll('__TOKEN__', token ?? ''));
+  b.writeln('</body>');
+  b.write('</html>');
+  return b.toString();
+}
+
+// ---------------------------------------------------------------------------
+// Section helpers
+// ---------------------------------------------------------------------------
+
+void _writeHeader(StringBuffer b, ProbeReport report, {required bool live}) {
+  b.writeln('<header class="site-header reveal">');
+  b.writeln(
+    '  <span class="brand">'
+    '<img class="brand-logo" alt="WhisPaste" src="$whispasteLogoDataUri">'
+    ' WhisPaste GPU-Probe Report</span>',
+  );
+  b.writeln(
+    '  <span class="header-meta">v${_esc(report.version)}'
+    ' &nbsp;·&nbsp; ${_esc(report.timestamp.toIso8601String())}'
+    '${live ? ' &nbsp;·&nbsp; <span class="live-tag">LIVE</span>' : ''}'
+    '</span>',
+  );
+  b.writeln('</header>');
+}
+
+void _writeBaselineMissingWarning(StringBuffer b, RankingResult ranking) {
+  if (!ranking.cpuBaselineMissing) return;
+  b.writeln('<div class="banner banner-warn reveal">');
+  b.writeln(
+    '  <strong>⚠ Warnung:</strong> Kein CPU-Baseline-Kandidat gefunden '
+    '(ID-Präfix <code>whisper-cpp-cpu</code> oder Backend <code>cpu</code>). '
+    'Speedup-Faktoren können nicht berechnet werden.',
+  );
+  b.writeln('</div>');
+}
+
+void _writeWinnerBanner(
+  StringBuffer b,
+  RankingResult ranking,
+  RankedCandidate? winner,
+) {
+  if (winner != null) {
+    _writeWinnerFound(b, winner);
+  } else if (!ranking.cpuBaselineMissing) {
+    b.writeln('<div class="banner banner-info reveal">');
+    b.writeln(
+      '  Keine lauffähige GPU-Lösung gefunden — '
+      'die CPU-Baseline bleibt die beste Option.',
+    );
+    b.writeln('</div>');
+  }
+}
+
+void _writeWinnerFound(StringBuffer b, RankedCandidate winner) {
+  final speedupStr = _formatSpeedupDe(winner.speedupFactor);
+  final werStr = _formatWerDe(winner.result.wer);
+  final latMs = winner.result.durationMs;
+  final latStr = latMs != null ? _formatMs(latMs) : '—';
+  final label = _candidateLabel(winner.result);
+
+  b.writeln('<section class="winner reveal">');
+  b.writeln('  <div class="winner-flag">★ Beste lauffähige GPU-Option</div>');
+  b.writeln('  <div class="winner-grid">');
+  b.writeln('    <div class="winner-id">${_esc(label)}</div>');
+  b.writeln('    <div class="winner-big">');
+  b.writeln('      <span class="winner-big-num">${_esc(speedupStr)}</span>');
+  b.writeln('      <span class="winner-big-cap">schneller als CPU</span>');
+  b.writeln('    </div>');
+  b.writeln('  </div>');
+  b.writeln('  <div class="winner-stats">');
+  _writeStat(b, 'Latenz', latStr);
+  _writeStat(b, 'Wortfehlerrate', werStr);
+  _writeStat(
+    b,
+    'Realtime-Faktor',
+    winner.result.realtimeFactor != null
+        ? winner.result.realtimeFactor!.toStringAsFixed(2)
+        : '—',
+  );
+  b.writeln('  </div>');
+  b.writeln('</section>');
+}
+
+void _writeStat(StringBuffer b, String label, String value) {
+  b.writeln(
+    '    <span class="stat"><span class="stat-label">${_esc(label)}'
+    '</span><span class="stat-value mono">${_esc(value)}</span></span>',
+  );
+}
+
+void _writeRankingTable(
+  StringBuffer b,
+  RankingResult ranking,
+  RankedCandidate? winner,
+  double maxSpeedup, {
+  required bool live,
+}) {
+  if (ranking.ranked.isEmpty) return;
+  b.writeln('<section class="reveal" style="animation-delay:.06s">');
+  b.writeln('<h2>Geschwindigkeits-Ranking</h2>');
+  b.writeln('<div class="table-wrap">');
+  b.writeln('<table>');
+  b.writeln('<thead><tr>');
+  b.writeln('  <th class="col-rank">#</th>');
+  b.writeln('  <th>Kandidat</th>');
+  b.writeln('  <th>Ergebnis</th>');
+  b.writeln('  <th class="num">Latenz</th>');
+  b.writeln('  <th class="num">RT-Faktor</th>');
+  b.writeln('  <th>Tempo vs. CPU</th>');
+  b.writeln('  <th class="num">WER</th>');
+  if (live) b.writeln('  <th class="col-live">Live-Test</th>');
+  b.writeln('</tr></thead>');
+  b.writeln('<tbody>');
+  for (var i = 0; i < ranking.ranked.length; i++) {
+    _writeRankingRow(
+      b,
+      ranking.ranked[i],
+      i + 1,
+      winner,
+      maxSpeedup,
+      live: live,
+    );
+  }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</div>');
+  b.writeln('</section>');
+}
+
+void _writeRankingRow(
+  StringBuffer b,
+  RankedCandidate rc,
+  int rank,
+  RankedCandidate? winner,
+  double maxSpeedup, {
+  required bool live,
+}) {
+  final isWinner =
+      winner != null && rc.result.candidateId == winner.result.candidateId;
+  final rowClass = StringBuffer('');
+  if (rc.isCpuBaseline) rowClass.write(' row-baseline');
+  if (isWinner) rowClass.write(' row-winner');
+
+  final durStr = rc.result.durationMs != null
+      ? _formatMs(rc.result.durationMs!)
+      : '—';
+  final rtfStr = rc.result.realtimeFactor != null
+      ? rc.result.realtimeFactor!.toStringAsFixed(2)
+      : '—';
+  final speedStr = _formatSpeedupDe(rc.speedupFactor);
+  final werStr = _formatWerDe(rc.result.wer);
+  final label = rc.isCpuBaseline
+      ? '${_esc(_candidateLabel(rc.result))} '
+            '<span class="badge-baseline">Baseline</span>'
+      : _esc(_candidateLabel(rc.result));
+
+  // Relative-speed bar width (0–100 %), scaled to the fastest candidate.
+  final pct = maxSpeedup > 0 && rc.speedupFactor > 0
+      ? (rc.speedupFactor / maxSpeedup * 100).clamp(2.0, 100.0)
+      : 0.0;
+  final barClass = isWinner ? 'bar bar-winner' : 'bar';
+
+  b.writeln('<tr class="${rowClass.toString().trim()}">');
+  b.writeln('  <td class="col-rank rank">$rank</td>');
+  b.writeln('  <td class="candidate-name">$label</td>');
+  b.writeln('  <td><span class="badge outcome-ok">ok</span></td>');
+  b.writeln('  <td class="num mono">${_esc(durStr)}</td>');
+  b.writeln('  <td class="num mono">${_esc(rtfStr)}</td>');
+  b.writeln('  <td class="speed-cell">');
+  b.writeln(
+    '    <span class="bar-track"><span class="$barClass" '
+    'style="width:${pct.toStringAsFixed(1)}%"></span></span>',
+  );
+  b.writeln('    <span class="speedup mono">${_esc(speedStr)}</span>');
+  b.writeln('  </td>');
+  b.writeln('  <td class="num mono">${_esc(werStr)}</td>');
+  if (live) {
+    b.writeln(
+      '  <td class="col-live"><button type="button" class="live-btn" '
+      'data-cand="${_esc(rc.result.candidateId)}" '
+      'data-label="${_esc(_candidateLabel(rc.result))}">'
+      '● Live testen</button></td>',
+    );
+  }
+  b.writeln('</tr>');
+}
+
+void _writeLivePanel(
+  StringBuffer b, {
+  required bool bench,
+  List<Map<String, Object?>>? engines,
+  List<Map<String, Object?>>? models,
+}) {
+  final hidden = bench ? '' : ' hidden';
+  b.writeln('<section class="live-panel reveal" id="live-panel"$hidden>');
+  b.writeln('  <div class="live-head">');
+  b.writeln('    <h2>Live-Mikrofon-Test</h2>');
+  if (!bench) {
+    b.writeln('    <span class="live-cand mono" id="live-cand">—</span>');
+  }
+  b.writeln('  </div>');
+  b.writeln(
+    bench
+        ? '  <p class="live-hint">Wähle eine Engine + ein Modell und füge die '
+              'Kombination der Vergleichsliste hinzu — beliebig viele. Dann '
+              '<strong>einmal</strong> sprechen: das Tool jagt dieselbe '
+              'Aufnahme durch alle Kombinationen und rankt sie nach Tempo. '
+              'Jeder Lauf landet in der Benchmark-Historie.</p>'
+        : '  <p class="live-hint">Sprich einen Satz ein. Das Tool jagt deine '
+              'Aufnahme durch die gewählte Engine + Modell und misst, wie lange '
+              'es vom Ende des Sprechens bis zum fertigen Text dauert.</p>',
+  );
+  if (bench) {
+    b.writeln('  <div class="live-selects">');
+    b.writeln(
+      '    <label class="sel"><span>Engine</span>'
+      '<select id="bench-engine">',
+    );
+    for (final e in engines ?? const []) {
+      final avail = e['available'] == true;
+      b.writeln(
+        '      <option value="${_esc('${e['id']}')}" '
+        'data-family="${_esc('${e['family']}')}"${avail ? '' : ' disabled'}>'
+        '${_esc('${e['label']}')}${avail ? '' : ' — nicht verfügbar'}</option>',
+      );
+    }
+    b.writeln('    </select></label>');
+    b.writeln(
+      '    <label class="sel"><span>Modell</span>'
+      '<select id="bench-model">',
+    );
+    for (final m in models ?? const []) {
+      final present = m['state'] == 'present';
+      b.writeln(
+        '      <option value="${_esc('${m['id']}')}" '
+        'data-model-opt="${_esc('${m['id']}')}" '
+        'data-family="${_esc('${m['family']}')}"${present ? '' : ' disabled'}>'
+        '${_esc('${m['label']}')}${present ? '' : ' — nicht geladen'}</option>',
+      );
+    }
+    b.writeln('    </select></label>');
+    b.writeln(
+      '    <button type="button" class="add-btn" id="bench-add">'
+      '+ Zur Vergleichsliste</button>',
+    );
+    b.writeln('  </div>');
+    b.writeln(
+      '  <div class="bench-chips" id="bench-list" '
+      'data-empty="Noch keine Kombination gewählt.">'
+      '<span class="chips-empty">Noch keine Kombination gewählt.</span></div>',
+    );
+  }
+  b.writeln('  <div class="live-controls">');
+  b.writeln(
+    '    <button type="button" class="rec-btn" id="rec-btn"'
+    '${bench ? ' disabled' : ' disabled'}>'
+    '${bench ? '● Aufnehmen &amp; vergleichen' : '● Aufnahme starten'}'
+    '</button>',
+  );
+  b.writeln(
+    '    <span class="rec-state mono" id="rec-state">'
+    '${bench ? 'Kombinationen zur Liste hinzufügen' : 'Kandidat oben wählen'}'
+    '</span>',
+  );
+  b.writeln('  </div>');
+  b.writeln('  <div class="live-result" id="live-result" hidden>');
+  b.writeln('    <div class="live-metrics">');
+  b.writeln(
+    '      <span class="stat"><span class="stat-label">'
+    'Sprech-Ende → Text</span>'
+    '<span class="stat-value mono" id="m-total">—</span></span>',
+  );
+  b.writeln(
+    '      <span class="stat"><span class="stat-label">'
+    'Engine-Verarbeitung</span>'
+    '<span class="stat-value mono" id="m-engine">—</span></span>',
+  );
+  b.writeln(
+    '      <span class="stat"><span class="stat-label">'
+    'Aufnahme-Länge</span>'
+    '<span class="stat-value mono" id="m-audio">—</span></span>',
+  );
+  b.writeln(
+    '      <span class="stat"><span class="stat-label">'
+    'Realtime-Faktor</span>'
+    '<span class="stat-value mono" id="m-rtf">—</span></span>',
+  );
+  b.writeln('    </div>');
+  b.writeln('    <div class="live-transcript-label">Transkript</div>');
+  b.writeln(
+    '    <blockquote class="live-transcript" id="m-text">—'
+    '</blockquote>',
+  );
+  b.writeln('  </div>');
+  if (bench) {
+    // Multi-model ranked results land here (filled by the live script).
+    b.writeln('  <div class="batch-results" id="batch-results" hidden>');
+    b.writeln(
+      '    <div class="live-transcript-label">Vergleich (schnellste zuerst)</div>',
+    );
+    b.writeln('    <div class="table-wrap"><table id="batch-table">');
+    b.writeln(
+      '      <thead><tr><th class="col-rank">#</th><th>Engine</th>'
+      '<th>Backend</th><th>Modell</th><th>Ergebnis</th>'
+      '<th class="num">Latenz</th><th class="num">RT-Faktor</th>'
+      '<th>Transkript</th></tr></thead>',
+    );
+    b.writeln('      <tbody></tbody>');
+    b.writeln('    </table></div>');
+    b.writeln('  </div>');
+  }
+  b.writeln('</section>');
+}
+
+void _writeModelsSection(StringBuffer b, List<Map<String, Object?>> models) {
+  b.writeln(
+    '<section class="reveal" id="models-section" '
+    'style="animation-delay:.04s">',
+  );
+  b.writeln('<h2>Modelle</h2>');
+  b.writeln(
+    '<p class="live-hint">Lade die Modelle, die du testen willst — auch '
+    'größere. Geladene Modelle stehen im Live-Test als Auswahl bereit.</p>',
+  );
+  b.writeln('<div class="table-wrap">');
+  b.writeln('<table>');
+  b.writeln(
+    '<thead><tr><th>Modell</th><th>Familie</th><th class="num">Größe</th>'
+    '<th>Status</th><th class="col-live">Aktion</th></tr></thead>',
+  );
+  b.writeln('<tbody>');
+  for (final m in models) {
+    final id = _esc('${m['id']}');
+    final label = _esc('${m['label']}');
+    final family = _esc('${m['family']}');
+    final sizeBytes = (m['sizeBytes'] as num?)?.toInt() ?? 0;
+    final state = '${m['state']}';
+    final present = state == 'present';
+    final downloading = state == 'downloading';
+    b.writeln('<tr class="model-row" data-model="$id" data-family="$family">');
+    b.writeln('  <td class="candidate-name">$label</td>');
+    b.writeln('  <td class="mono">$family</td>');
+    b.writeln('  <td class="num mono">${_esc(_formatBytes(sizeBytes))}</td>');
+    b.writeln('  <td class="model-status">');
+    b.writeln(
+      '    <span class="model-state mono">${_modelStateLabel(state)}</span>',
+    );
+    b.writeln(
+      '    <span class="dl-track"><span class="dl-bar" '
+      'style="width:${present ? 100 : 0}%"></span></span>',
+    );
+    b.writeln('  </td>');
+    b.writeln(
+      '  <td class="col-live"><button type="button" class="model-dl-btn" '
+      'data-model="$id"${present || downloading ? ' disabled' : ''}>'
+      '${present ? 'geladen ✓' : 'Laden'}</button></td>',
+    );
+    b.writeln('</tr>');
+  }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</div>');
+  b.writeln('</section>');
+}
+
+void _writeEnginesSection(StringBuffer b, List<Map<String, Object?>> engines) {
+  b.writeln('<section class="reveal" style="animation-delay:.08s">');
+  b.writeln('<h2>Engines</h2>');
+  b.writeln(
+    '<p class="live-hint">Die Kandidaten-Matrix des Shootouts — '
+    'Whisper-Alternativen gegen den whisper.cpp-CPU-Baseline. Eine Engine ist '
+    '„verfügbar", sobald ihre Binary neben dem Tool liegt; sonst zeigt der '
+    'Shootout sie als (noch) nicht beschaffbar.</p>',
+  );
+  b.writeln('<div class="table-wrap">');
+  b.writeln('<table>');
+  b.writeln(
+    '<thead><tr><th>Engine</th><th>Backend</th><th>Modell-Familie</th>'
+    '<th>Status</th><th>Hinweis</th></tr></thead>',
+  );
+  b.writeln('<tbody>');
+  for (final e in engines) {
+    final avail = e['available'] == true;
+    b.writeln('<tr>');
+    b.writeln('  <td class="candidate-name">${_esc('${e['label']}')}</td>');
+    b.writeln('  <td class="mono">${_esc('${e['backend']}')}</td>');
+    b.writeln('  <td class="mono">${_esc('${e['family']}')}</td>');
+    b.writeln(
+      '  <td><span class="badge ${avail ? 'outcome-ok' : 'outcome-skipped'}">'
+      '${avail ? 'verfügbar' : 'nicht verfügbar'}</span></td>',
+    );
+    b.writeln(
+      '  <td class="error-detail">${e['note'] != null ? _esc('${e['note']}') : '—'}</td>',
+    );
+    b.writeln('</tr>');
+  }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</div>');
+  b.writeln('</section>');
+}
+
+void _writeHistorySection(StringBuffer b, List<BenchRun> history) {
+  // Fastest successful GPU and CPU run — highlighted as the head-to-head answer.
+  BenchRun? fastestGpu;
+  BenchRun? fastestCpu;
+  for (final r in history) {
+    if (r.outcome != 'ok' || r.durationMs == null) continue;
+    if (r.isGpu) {
+      if (fastestGpu == null || r.durationMs! < fastestGpu.durationMs!) {
+        fastestGpu = r;
+      }
+    } else {
+      if (fastestCpu == null || r.durationMs! < fastestCpu.durationMs!) {
+        fastestCpu = r;
+      }
+    }
+  }
+
+  b.writeln(
+    '<section class="reveal" id="history-section" '
+    'style="animation-delay:.05s">',
+  );
+  b.writeln('<h2>Benchmark-Historie</h2>');
+  b.writeln(
+    '<p class="live-hint">Alle bisherigen Läufe auf dieser Hardware — neueste '
+    'zuerst. Spalten lassen sich per Klick auf die Überschrift sortieren. Die '
+    'schnellste GPU- und die schnellste CPU-Lösung sind markiert.</p>',
+  );
+  b.writeln('<div class="table-wrap">');
+  b.writeln('<table class="sortable" id="history-table">');
+  b.writeln('<thead><tr>');
+  b.writeln('  <th data-sort="text">Zeit</th>');
+  b.writeln('  <th data-sort="text">Engine</th>');
+  b.writeln('  <th data-sort="text">Backend</th>');
+  b.writeln('  <th data-sort="text">Modell</th>');
+  b.writeln('  <th data-sort="text">Ergebnis</th>');
+  b.writeln('  <th class="num" data-sort="num">Latenz</th>');
+  b.writeln('  <th class="num" data-sort="num">RT-Faktor</th>');
+  b.writeln('  <th>Transkript</th>');
+  b.writeln('</tr></thead>');
+  b.writeln('<tbody>');
+  if (history.isEmpty) {
+    b.writeln(
+      '  <tr class="history-empty"><td colspan="8" class="error-detail">'
+      'Noch keine Läufe — nimm oben eine Vergleichsliste auf.</td></tr>',
+    );
+  } else {
+    for (final r in history.reversed) {
+      _writeHistoryRow(
+        b,
+        r,
+        isFastestGpu: r == fastestGpu,
+        isFastestCpu: r == fastestCpu,
+      );
+    }
+  }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</div>');
+  b.writeln('</section>');
+}
+
+void _writeHistoryRow(
+  StringBuffer b,
+  BenchRun r, {
+  required bool isFastestGpu,
+  required bool isFastestCpu,
+}) {
+  final dur = r.durationMs;
+  final durStr = dur != null ? _formatMs(dur) : '—';
+  final rtfStr = r.realtimeFactor != null
+      ? r.realtimeFactor!.toStringAsFixed(2)
+      : '—';
+  final modelStr = r.modelLabel ?? r.modelId ?? '—';
+  final backendTag = r.isGpu
+      ? '<span class="hw-tag hw-gpu">GPU</span>'
+      : '<span class="hw-tag hw-cpu">CPU</span>';
+  final marks = StringBuffer();
+  if (isFastestGpu) {
+    marks.write(
+      ' <span class="badge-best badge-best-gpu">schnellste GPU</span>',
+    );
+  }
+  if (isFastestCpu) {
+    marks.write(
+      ' <span class="badge-best badge-best-cpu">schnellste CPU</span>',
+    );
+  }
+  final rowClass = isFastestGpu
+      ? ' class="row-best-gpu"'
+      : isFastestCpu
+      ? ' class="row-best-cpu"'
+      : '';
+  final transcript = r.transcribedText != null && r.transcribedText!.isNotEmpty
+      ? r.transcribedText!
+      : '—';
+
+  b.writeln('<tr$rowClass>');
+  b.writeln(
+    '  <td class="mono" data-v="${_esc(r.timestamp.toIso8601String())}">'
+    '${_esc(_formatTimestamp(r.timestamp))}</td>',
+  );
+  b.writeln('  <td class="candidate-name">${_esc(r.engineLabel)}$marks</td>');
+  b.writeln('  <td class="mono">${_esc(r.backend)} $backendTag</td>');
+  b.writeln('  <td class="mono">${_esc(modelStr)}</td>');
+  b.writeln(
+    '  <td><span class="badge ${_outcomeClassName(r.outcome)}">'
+    '${_esc(_outcomeLabelName(r.outcome))}</span></td>',
+  );
+  b.writeln(
+    '  <td class="num mono" data-v="${dur ?? ''}">${_esc(durStr)}</td>',
+  );
+  b.writeln(
+    '  <td class="num mono" data-v="${r.realtimeFactor ?? ''}">'
+    '${_esc(rtfStr)}</td>',
+  );
+  b.writeln('  <td class="error-detail">${_esc(transcript)}</td>');
+  b.writeln('</tr>');
+}
+
+void _writeFailedSection(StringBuffer b, RankingResult ranking) {
+  if (ranking.failed.isEmpty) return;
+  b.writeln('<section class="reveal" style="animation-delay:.1s">');
+  b.writeln('<h2>Nicht lauffähige Kandidaten</h2>');
+  b.writeln('<div class="table-wrap">');
+  b.writeln('<table>');
+  b.writeln('<thead><tr>');
+  b.writeln('  <th>Kandidat</th>');
+  b.writeln('  <th>Ergebnis</th>');
+  b.writeln('  <th>Detail</th>');
+  b.writeln('</tr></thead>');
+  b.writeln('<tbody>');
+  for (final r in ranking.failed) {
+    _writeFailedRow(b, r);
+  }
+  b.writeln('</tbody>');
+  b.writeln('</table>');
+  b.writeln('</div>');
+  b.writeln('</section>');
+}
+
+void _writeFailedRow(StringBuffer b, CandidateResult r) {
+  final outcomeClass = _outcomeClass(r.outcome);
+  final outcomeLabel = _outcomeLabel(r.outcome);
+  final detail = r.errorDetail ?? r.stderrTail ?? '—';
+
+  b.writeln('<tr>');
+  b.writeln('  <td class="candidate-name">${_esc(r.candidateId)}</td>');
+  b.writeln(
+    '  <td><span class="badge $outcomeClass">'
+    '${_esc(outcomeLabel)}</span></td>',
+  );
+  b.writeln('  <td class="error-detail mono">${_esc(detail)}</td>');
+  b.writeln('</tr>');
+}
+
+void _writeHardwareSection(StringBuffer b, ProbeReport report) {
+  if (report.hardwareContext == null) return;
+  final hw = report.hardwareContext!;
+  b.writeln('<section class="reveal" style="animation-delay:.14s">');
+  b.writeln('<h2>Hardware-Kontext</h2>');
+  b.writeln('<dl class="hw-grid">');
+  if (hw.gpuModel != null) {
+    b.writeln('  <dt>GPU</dt><dd>${_esc(hw.gpuModel!)}</dd>');
+  }
+  if (hw.vramGb != null) {
+    b.writeln('  <dt>VRAM</dt><dd>${_esc('${hw.vramGb} GB')}</dd>');
+  }
+  if (hw.cpuModel != null) {
+    b.writeln('  <dt>CPU</dt><dd>${_esc(hw.cpuModel!)}</dd>');
+  }
+  if (hw.ramGb != null) {
+    b.writeln('  <dt>RAM</dt><dd>${_esc('${hw.ramGb} GB')}</dd>');
+  }
+  if (hw.os != null) {
+    b.writeln('  <dt>OS</dt><dd>${_esc(hw.os!)}</dd>');
+  }
+  if (hw.driverVersion != null) {
+    b.writeln('  <dt>Treiber</dt><dd>${_esc(hw.driverVersion!)}</dd>');
+  }
+  b.writeln('</dl>');
+  b.writeln('</section>');
+}
+
+void _writeFooter(StringBuffer b, ProbeReport report, {required bool live}) {
+  b.writeln('<footer class="site-footer">');
+  if (live) {
+    b.writeln(
+      '  <button type="button" class="quit-btn" id="quit-btn">'
+      'Tool beenden</button>',
+    );
+  }
+  b.writeln(
+    '  <span class="footer-meta">WhisPaste GPU-Probe v${_esc(report.version)}'
+    ' &nbsp;·&nbsp; ${_esc(report.timestamp.toIso8601String())}</span>',
+  );
+  b.writeln('</footer>');
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// HTML-escapes [text] to prevent injection.
+String _esc(String text) => text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+
+/// Builds a display label for a candidate using engine/backend/model fields.
+String _candidateLabel(CandidateResult r) {
+  final parts = <String>[r.candidateId];
+  if (r.backend != null && r.backend != r.candidateId) {
+    parts.add('(${r.backend}');
+    if (r.modelId != null) {
+      parts.last += ', ${r.modelId}';
+    }
+    parts.last += ')';
+  } else if (r.modelId != null) {
+    parts.add('(${r.modelId})');
+  }
+  return parts.join(' ');
+}
+
+/// Formats a millisecond duration as a compact human string: `8000` → `8,0 s`,
+/// `420` → `420 ms`.
+String _formatMs(int ms) {
+  if (ms < 1000) return '$ms ms';
+  return '${(ms / 1000).toStringAsFixed(1).replaceAll('.', ',')} s';
+}
+
+/// Formats a byte count as a compact German size, e.g. `466 MB`, `2,9 GB`.
+String _formatBytes(int bytes) {
+  if (bytes <= 0) return '—';
+  const mb = 1000 * 1000;
+  const gb = 1000 * 1000 * 1000;
+  if (bytes >= gb) {
+    return '${(bytes / gb).toStringAsFixed(1).replaceAll('.', ',')} GB';
+  }
+  return '${(bytes / mb).round()} MB';
+}
+
+/// German label for a model download state.
+String _modelStateLabel(String state) => switch (state) {
+  'present' => 'geladen',
+  'downloading' => 'lädt …',
+  'error' => 'Fehler',
+  _ => 'nicht geladen',
+};
+
+/// Formats speedup factor in German locale notation, e.g. `6,0×`.
+String _formatSpeedupDe(double factor) {
+  if (factor == 0.0) return 'n/a';
+  return '${factor.toStringAsFixed(1).replaceAll('.', ',')}×';
+}
+
+/// Formats WER as a German percentage string, e.g. `8,0 %`.
+String _formatWerDe(double? wer) {
+  if (wer == null) return '—';
+  return '${(wer * 100).toStringAsFixed(1).replaceAll('.', ',')} %';
+}
+
+/// Returns the CSS class name for an outcome badge.
+String _outcomeClass(Outcome outcome) {
+  return switch (outcome) {
+    Outcome.ok => 'outcome-ok',
+    Outcome.crashed => 'outcome-crashed',
+    Outcome.failedToStart => 'outcome-crashed',
+    Outcome.outOfMemory => 'outcome-crashed',
+    Outcome.hung => 'outcome-hung',
+    Outcome.wrongOutput => 'outcome-hung',
+    Outcome.skipped => 'outcome-skipped',
+  };
+}
+
+/// Resolves an outcome [name] to its [Outcome], falling back to skipped.
+Outcome _outcomeByName(String name) => Outcome.values.firstWhere(
+  (o) => o.name == name,
+  orElse: () => Outcome.skipped,
+);
+
+/// CSS class for an outcome given by its string name (history rows).
+String _outcomeClassName(String name) => _outcomeClass(_outcomeByName(name));
+
+/// German label for an outcome given by its string name (history rows).
+String _outcomeLabelName(String name) => _outcomeLabel(_outcomeByName(name));
+
+/// Formats a timestamp as `YYYY-MM-DD HH:MM` (local), for the history table.
+String _formatTimestamp(DateTime ts) {
+  final d = ts.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${d.year}-${two(d.month)}-${two(d.day)} '
+      '${two(d.hour)}:${two(d.minute)}';
+}
+
+/// Returns a short German display label for an outcome.
+String _outcomeLabel(Outcome outcome) {
+  return switch (outcome) {
+    Outcome.ok => 'ok',
+    Outcome.crashed => 'abgestürzt',
+    Outcome.failedToStart => 'Startfehler',
+    Outcome.outOfMemory => 'OOM',
+    Outcome.hung => 'hängt',
+    Outcome.wrongOutput => 'falsches Ergebnis',
+    Outcome.skipped => 'übersprungen',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Inline CSS — dark "telemetry / instrument" theme
+// ---------------------------------------------------------------------------
+
+const String _css = '''
+<style>
+  :root {
+    /* WhisPaste brand palette — mirrors lib/core/theme/colors.dart (dark). */
+    --bg: #131826;          /* background */
+    --bg-2: #171d2c;        /* surface */
+    --panel: #1d2538;       /* surfaceElevated */
+    --panel-2: #232c40;     /* surfaceVariant */
+    --line: rgba(255,255,255,.19);      /* borderDefault */
+    --line-soft: rgba(255,255,255,.12); /* borderSubtle */
+    --txt: #f0f4fa;         /* textPrimary */
+    --muted: #8a99b2;       /* textMuted */
+    --faint: #5b6b85;
+    --signal: #38d9f0;      /* accent — vibrant cyan */
+    --signal-dim: #14b8d4;  /* teal (accentWarmGradient mid) */
+    --green: #36d98b;       /* success */
+    --cyan: #38d9f0;
+    --amber: #f5c842;       /* warning */
+    --red: #ff7b7b;         /* error */
+    --mono: "Cascadia Code", "JetBrains Mono", "SF Mono", "Fira Code",
+            ui-monospace, Menlo, Consolas, monospace;
+    --sans: "Segoe UI Variable Display", "Segoe UI", system-ui,
+            -apple-system, "Helvetica Neue", sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    font-size: 14px;
+    color: var(--txt);
+    line-height: 1.6;
+    background-color: var(--bg);
+    background-image:
+      radial-gradient(1100px 520px at 78% -8%, rgba(56,217,240,.10), transparent 60%),
+      radial-gradient(900px 480px at 8% 0%, rgba(56,217,240,.07), transparent 55%),
+      linear-gradient(transparent 0 31px, rgba(255,255,255,.018) 31px 32px),
+      linear-gradient(90deg, transparent 0 31px, rgba(255,255,255,.018) 31px 32px);
+    background-size: auto, auto, 32px 32px, 32px 32px;
+    background-attachment: fixed;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ── Header / footer ─────────────────────────────────────────────────── */
+  .site-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(19,26,40,.9), rgba(10,14,22,.6));
+    backdrop-filter: blur(6px);
+    position: sticky; top: 0; z-index: 20;
+  }
+  .brand {
+    display: inline-flex; align-items: center;
+    font-size: 15px; font-weight: 700; letter-spacing: .04em;
+  }
+  .brand-logo {
+    height: 26px; width: 26px; margin-right: 10px;
+    filter: drop-shadow(0 0 10px rgba(56,217,240,.28));
+  }
+  .header-meta {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+  }
+  .live-tag {
+    color: var(--bg); background: var(--signal); font-weight: 800;
+    padding: 1px 7px; border-radius: 4px; letter-spacing: .12em; font-size: 10px;
+  }
+  .site-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+    max-width: 1080px; margin: 40px auto 0; padding: 22px 24px;
+    border-top: 1px solid var(--line);
+    font-size: 11px; color: var(--muted); font-family: var(--mono);
+  }
+  .footer-meta { margin-left: auto; }
+
+  /* ── Layout ──────────────────────────────────────────────────────────── */
+  .container {
+    max-width: 1080px; margin: 34px auto; padding: 0 24px;
+    display: flex; flex-direction: column; gap: 30px;
+  }
+  section h2 {
+    font-family: var(--mono);
+    font-size: 12px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .18em;
+    margin-bottom: 16px; padding-bottom: 10px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  section h2::before { content: "// "; color: var(--signal-dim); }
+
+  /* ── Banners ─────────────────────────────────────────────────────────── */
+  .banner {
+    border-radius: 12px; padding: 16px 20px; border: 1px solid var(--line);
+    border-left-width: 4px; background: var(--panel);
+  }
+  .banner code {
+    background: rgba(255,255,255,.06); padding: 1px 6px; border-radius: 4px;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .banner-warn { border-left-color: var(--amber); color: #fde9bf; }
+  .banner-warn strong { color: var(--amber); }
+  .banner-info { border-left-color: var(--cyan); color: #cfeafe; }
+
+  /* ── Winner readout ──────────────────────────────────────────────────── */
+  .winner {
+    position: relative; overflow: hidden;
+    border: 1px solid var(--signal-dim); border-radius: 16px;
+    padding: 26px 28px;
+    background:
+      radial-gradient(640px 240px at 88% -40%, rgba(56,217,240,.18), transparent 70%),
+      linear-gradient(180deg, var(--panel-2), var(--panel));
+    box-shadow: 0 0 0 1px rgba(56,217,240,.08), 0 24px 60px -30px rgba(56,217,240,.25);
+  }
+  .winner-flag {
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .2em; color: var(--signal);
+    margin-bottom: 14px;
+  }
+  .winner-grid {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: 20px; flex-wrap: wrap;
+  }
+  .winner-id {
+    font-family: var(--mono); font-size: 22px; font-weight: 700;
+    color: var(--txt); word-break: break-word;
+  }
+  .winner-big { display: flex; flex-direction: column; align-items: flex-end; }
+  .winner-big-num {
+    font-family: var(--mono); font-weight: 800; line-height: .9;
+    font-size: clamp(44px, 9vw, 76px); color: var(--signal);
+    text-shadow: 0 0 40px rgba(56,217,240,.35);
+    font-variant-numeric: tabular-nums;
+  }
+  .winner-big-cap {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .16em;
+    color: var(--muted); margin-top: 2px;
+  }
+  .winner-stats, .live-metrics {
+    display: flex; flex-wrap: wrap; gap: 14px; margin-top: 22px;
+  }
+  .stat {
+    display: flex; flex-direction: column; gap: 3px;
+    background: rgba(255,255,255,.025); border: 1px solid var(--line-soft);
+    border-radius: 10px; padding: 10px 14px; min-width: 130px; flex: 1;
+  }
+  .stat-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--muted); font-weight: 600;
+  }
+  .stat-value { font-size: 17px; font-weight: 700; color: var(--txt); }
+
+  /* ── Tables ──────────────────────────────────────────────────────────── */
+  .table-wrap {
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    background: var(--panel);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead tr { background: var(--bg-2); }
+  th {
+    text-align: left; padding: 11px 16px; font-family: var(--mono);
+    font-size: 10px; text-transform: uppercase; letter-spacing: .1em;
+    color: var(--muted); font-weight: 700; white-space: nowrap;
+    border-bottom: 1px solid var(--line);
+  }
+  th.num, td.num { text-align: right; }
+  td {
+    padding: 12px 16px; border-top: 1px solid var(--line-soft);
+    vertical-align: middle;
+  }
+  tbody tr { transition: background .12s ease; }
+  tbody tr:hover td { background: rgba(255,255,255,.022); }
+  .row-baseline td { background: rgba(56,217,240,.05); }
+  .row-winner td { background: rgba(56,217,240,.06); }
+  .row-winner:hover td { background: rgba(56,217,240,.1); }
+  .col-rank { width: 42px; text-align: center; }
+  .rank {
+    font-family: var(--mono); font-weight: 700; color: var(--muted);
+    text-align: center;
+  }
+  .row-winner .rank { color: var(--signal); }
+  .candidate-name { font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .error-detail {
+    font-size: 11px; color: var(--muted); max-width: 520px; word-break: break-word;
+  }
+
+  /* relative-speed bar */
+  .speed-cell { min-width: 168px; }
+  .bar-track {
+    display: inline-block; vertical-align: middle; width: 96px; height: 7px;
+    background: rgba(255,255,255,.07); border-radius: 99px; overflow: hidden;
+    margin-right: 10px;
+  }
+  .bar {
+    display: block; height: 100%; border-radius: 99px;
+    background: linear-gradient(90deg, #3a4a66, #5b6b85);
+    animation: grow .8s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .bar-winner { background: linear-gradient(90deg, var(--signal-dim), var(--signal)); }
+  .speedup { font-weight: 700; color: var(--txt); }
+  .row-winner .speedup { color: var(--signal); }
+
+  /* ── Badges ──────────────────────────────────────────────────────────── */
+  .badge {
+    display: inline-block; padding: 3px 9px; border-radius: 99px;
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em; border: 1px solid transparent;
+  }
+  .outcome-ok { background: rgba(54,217,139,.16); color: var(--green); border-color: rgba(54,217,139,.35); }
+  .outcome-crashed { background: rgba(248,113,113,.14); color: var(--red); border-color: rgba(248,113,113,.3); }
+  .outcome-hung { background: rgba(251,191,36,.14); color: var(--amber); border-color: rgba(251,191,36,.3); }
+  .outcome-skipped { background: rgba(128,144,168,.14); color: var(--muted); border-color: rgba(128,144,168,.3); }
+  .badge-baseline {
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 4px;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    background: rgba(56,217,240,.15); color: var(--cyan);
+    text-transform: uppercase; letter-spacing: .08em; vertical-align: middle;
+  }
+
+  /* ── Hardware grid ───────────────────────────────────────────────────── */
+  .hw-grid {
+    display: grid; grid-template-columns: max-content 1fr; gap: 1px;
+    background: var(--line-soft); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden;
+  }
+  .hw-grid dt {
+    font-family: var(--mono); font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .1em; color: var(--muted);
+    padding: 11px 16px; background: var(--bg-2);
+  }
+  .hw-grid dd {
+    font-family: var(--mono); font-size: 12px; color: var(--txt);
+    padding: 11px 16px; background: var(--panel);
+  }
+
+  /* ── Live test ───────────────────────────────────────────────────────── */
+  .live-panel {
+    border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    scroll-margin-top: 80px;
+  }
+  .live-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .live-head h2 { border: 0; margin: 0; padding: 0; }
+  .live-cand { color: var(--signal); font-size: 13px; }
+  .live-hint { color: var(--muted); font-size: 13px; margin: 10px 0 18px; max-width: 70ch; }
+  .live-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .live-selects { display: flex; gap: 16px; flex-wrap: wrap; margin: 4px 0 18px; }
+  .sel { display: flex; flex-direction: column; gap: 5px; min-width: 220px; }
+  .sel > span {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--muted); font-weight: 700;
+  }
+  .sel select {
+    font-family: var(--mono); font-size: 13px; color: var(--txt);
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 12px; appearance: none; cursor: pointer;
+  }
+  .sel select:focus { outline: 2px solid var(--signal); outline-offset: 1px; }
+  .dl-track {
+    display: block; height: 5px; margin-top: 6px; width: 160px;
+    background: rgba(255,255,255,.08); border-radius: 99px; overflow: hidden;
+  }
+  .dl-bar {
+    display: block; height: 100%; width: 0; border-radius: 99px;
+    background: linear-gradient(90deg, var(--signal-dim), var(--signal));
+    transition: width .25s ease;
+  }
+  .model-state { font-size: 11px; color: var(--muted); }
+  .model-dl-btn {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer;
+    color: var(--signal); background: rgba(56,217,240,.08);
+    border: 1px solid rgba(56,217,240,.3); border-radius: 8px; padding: 6px 14px;
+    white-space: nowrap; transition: background .12s;
+  }
+  .model-dl-btn:hover:not(:disabled) { background: rgba(56,217,240,.16); }
+  .model-dl-btn:disabled { opacity: .55; cursor: default; }
+  .rec-btn {
+    font-family: var(--mono); font-size: 14px; font-weight: 700; cursor: pointer;
+    color: var(--bg); background: var(--signal); border: 0; border-radius: 10px;
+    padding: 12px 20px; transition: transform .08s ease, filter .15s ease, background .15s;
+  }
+  .rec-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  .rec-btn:active:not(:disabled) { transform: translateY(1px); }
+  .rec-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .rec-btn.recording { background: var(--red); color: #fff; animation: pulse 1.1s ease-in-out infinite; }
+  .rec-btn.busy { background: var(--amber); }
+  .rec-state { color: var(--muted); font-size: 13px; }
+  .live-result { margin-top: 20px; border-top: 1px solid var(--line-soft); padding-top: 18px; }
+  .live-transcript-label {
+    font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+    letter-spacing: .12em; color: var(--muted); margin: 16px 0 6px;
+  }
+  .live-transcript {
+    font-size: 16px; line-height: 1.55; color: var(--txt);
+    border-left: 3px solid var(--signal); padding: 4px 0 4px 16px;
+  }
+  .live-btn {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; cursor: pointer;
+    color: var(--signal); background: rgba(56,217,240,.08);
+    border: 1px solid rgba(56,217,240,.3); border-radius: 8px; padding: 6px 12px;
+    white-space: nowrap; transition: background .12s, transform .08s;
+  }
+  .live-btn:hover { background: rgba(56,217,240,.16); }
+  .live-btn:active { transform: translateY(1px); }
+  .col-live { text-align: right; }
+  .quit-btn {
+    font-family: var(--mono); font-size: 12px; cursor: pointer; color: var(--muted);
+    background: transparent; border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 16px; transition: color .15s, border-color .15s;
+  }
+  .quit-btn:hover { color: var(--red); border-color: rgba(248,113,113,.4); }
+
+  /* ── Bench compare list (chips) + batch results ──────────────────────── */
+  .add-btn {
+    font-family: var(--mono); font-size: 12px; font-weight: 700; cursor: pointer;
+    color: var(--signal); background: rgba(56,217,240,.08);
+    border: 1px solid rgba(56,217,240,.3); border-radius: 8px; padding: 9px 14px;
+    white-space: nowrap; align-self: flex-end; transition: background .12s;
+  }
+  .add-btn:hover { background: rgba(56,217,240,.16); }
+  .bench-chips {
+    display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px;
+    min-height: 20px;
+  }
+  .chips-empty { color: var(--faint); font-size: 12px; font-style: italic; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--txt);
+    background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 99px; padding: 5px 6px 5px 12px;
+  }
+  .chip .chip-x {
+    cursor: pointer; border: 0; background: rgba(255,255,255,.06);
+    color: var(--muted); border-radius: 99px; width: 18px; height: 18px;
+    line-height: 1; font-size: 12px; display: inline-flex;
+    align-items: center; justify-content: center; padding: 0;
+  }
+  .chip .chip-x:hover { background: rgba(248,113,113,.2); color: var(--red); }
+  .batch-results { margin-top: 20px; }
+  .hw-tag {
+    display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em; vertical-align: middle;
+  }
+  .hw-gpu { background: rgba(56,217,240,.15); color: var(--cyan); }
+  .hw-cpu { background: rgba(128,144,168,.16); color: var(--muted); }
+  .badge-best {
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 4px;
+    font-family: var(--mono); font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em; vertical-align: middle;
+  }
+  .badge-best-gpu { background: rgba(54,217,139,.18); color: var(--green); }
+  .badge-best-cpu { background: rgba(245,200,66,.16); color: var(--amber); }
+  .row-best-gpu td { background: rgba(54,217,139,.06); }
+  .row-best-cpu td { background: rgba(245,200,66,.05); }
+  table.sortable th { cursor: pointer; user-select: none; }
+  table.sortable th:hover { color: var(--signal); }
+  .batch-rank-1 td { background: rgba(56,217,240,.07); }
+
+  /* ── Progress shell ──────────────────────────────────────────────────── */
+  .run-hero { text-align: center; padding: 30px 20px 6px; }
+  .run-pulse { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; }
+  .run-pulse span {
+    width: 10px; height: 36px; border-radius: 4px; background: var(--signal);
+    animation: bounce 1s ease-in-out infinite; opacity: .85;
+  }
+  .run-pulse span:nth-child(2) { animation-delay: .15s; }
+  .run-pulse span:nth-child(3) { animation-delay: .3s; }
+  .run-title { font-size: 30px; font-weight: 800; letter-spacing: -.01em; }
+  .run-sub { color: var(--muted); max-width: 60ch; margin: 10px auto 0; }
+  .run-elapsed {
+    margin-top: 20px; font-family: var(--mono); font-size: 13px; color: var(--muted);
+  }
+  .run-elapsed .mono { color: var(--signal); font-size: 17px; font-weight: 700; }
+  .run-list { list-style: none; display: flex; flex-direction: column; gap: 1px;
+    background: var(--line-soft); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden; }
+  .run-item { display: flex; align-items: center; gap: 14px; padding: 13px 18px;
+    background: var(--panel); }
+  .run-dot { width: 11px; height: 11px; border-radius: 99px; flex-shrink: 0;
+    background: var(--faint); box-shadow: 0 0 0 4px rgba(255,255,255,.03); }
+  .run-item[data-state="running"] .run-dot { background: var(--amber);
+    animation: pulse 1.1s ease-in-out infinite; }
+  .run-item[data-state="ok"] .run-dot { background: var(--green); }
+  .run-item[data-state="fail"] .run-dot { background: var(--red); }
+  .run-item[data-state="skip"] .run-dot { background: var(--muted); }
+  .run-name { font-family: var(--mono); font-size: 13px; flex: 1; }
+  .run-item[data-state="pending"] .run-name { color: var(--muted); }
+  .run-status { font-size: 11px; color: var(--muted); text-transform: uppercase;
+    letter-spacing: .08em; }
+
+  /* ── Motion ──────────────────────────────────────────────────────────── */
+  @keyframes grow { from { width: 0 !important; } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+  @keyframes bounce { 0%,100% { transform: scaleY(.4); opacity: .5; }
+    50% { transform: scaleY(1); opacity: 1; } }
+  .reveal { animation: rise .5s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal, .bar, .run-pulse span, .rec-btn.recording,
+    .run-item[data-state="running"] .run-dot { animation: none; }
+  }
+  @media (max-width: 680px) {
+    .winner-grid { flex-direction: column; align-items: flex-start; }
+    .winner-big { align-items: flex-start; }
+    th, td { padding: 9px 11px; }
+    .bar-track { width: 60px; }
+  }
+</style>''';
+
+// ---------------------------------------------------------------------------
+// Inline JS — progress shell (SSE → live status + reload on done)
+// ---------------------------------------------------------------------------
+
+const String _progressScript = r'''<script>
+(function () {
+  var TOKEN = "__TOKEN__";
+  function u(path) { return path + (path.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(TOKEN); }
+
+  // Elapsed timer.
+  var start = Date.now();
+  var el = document.getElementById('elapsed');
+  setInterval(function () {
+    var s = Math.floor((Date.now() - start) / 1000);
+    var m = Math.floor(s / 60);
+    el.textContent = m + ':' + String(s % 60).padStart(2, '0');
+  }, 1000);
+
+  function applyState(id, state, status) {
+    var li = document.querySelector('.run-item[data-cand="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
+    if (!li) return;
+    li.setAttribute('data-state', state);
+    var st = li.querySelector('.run-status');
+    if (st) st.textContent = status;
+  }
+  function outcomeState(o) {
+    if (o === 'ok') return ['ok', 'ok'];
+    if (o === 'skipped') return ['skip', 'übersprungen'];
+    return ['fail', o];
+  }
+
+  var es = new EventSource(u('/events'));
+  es.onmessage = function (ev) {
+    var msg;
+    try { msg = JSON.parse(ev.data); } catch (e) { return; }
+    if (msg.type === 'snapshot') {
+      (msg.states || []).forEach(function (s) {
+        if (s.state === 'running') applyState(s.id, 'running', 'läuft…');
+        else if (s.state === 'pending') applyState(s.id, 'pending', 'wartet');
+        else { var os = outcomeState(s.outcome); applyState(s.id, os[0], os[1]); }
+      });
+      if (msg.finished) location.reload();
+    } else if (msg.type === 'start') {
+      applyState(msg.id, 'running', 'läuft…');
+    } else if (msg.type === 'finish') {
+      var os = outcomeState(msg.outcome);
+      applyState(msg.id, os[0], os[1]);
+    } else if (msg.type === 'done') {
+      es.close();
+      setTimeout(function () { location.reload(); }, 350);
+    }
+  };
+  es.onerror = function () { /* keep retrying; server may still be starting */ };
+})();
+</script>''';
+
+// ---------------------------------------------------------------------------
+// Inline JS — live microphone test (record → WAV 16 kHz mono → /api/transcribe)
+// ---------------------------------------------------------------------------
+
+const String _liveScript = r'''<script>
+(function () {
+  var TOKEN = "__TOKEN__";
+  function u(path) { return path + (path.indexOf('?') >= 0 ? '&' : '?') + 't=' + encodeURIComponent(TOKEN); }
+  function $(id) { return document.getElementById(id); }
+
+  var panel = $('live-panel'), candEl = $('live-cand'), recBtn = $('rec-btn'),
+      stateEl = $('rec-state'), result = $('live-result');
+  var benchEngine = $('bench-engine'), benchModel = $('bench-model');
+  var benchAdd = $('bench-add'), benchList = $('bench-list'),
+      batchResults = $('batch-results'), historyTable = $('history-table');
+  var currentCand = null, recorder = null, stream = null, chunks = [],
+      recording = false, stopAt = 0, combos = [];
+
+  function cssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : s; }
+  function stateLabel(s) {
+    return s === 'present' ? 'geladen' : s === 'downloading' ? 'lädt …'
+      : s === 'error' ? 'Fehler' : 'nicht geladen';
+  }
+
+  // Per-candidate buttons (demo mode only).
+  document.querySelectorAll('.live-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      currentCand = b.dataset.cand;
+      if (candEl) candEl.textContent = b.dataset.label || b.dataset.cand;
+      panel.hidden = false;
+      result.hidden = true;
+      recBtn.disabled = false;
+      stateEl.textContent = 'bereit — Aufnahme starten';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  });
+
+  // Model download buttons (bench mode).
+  document.querySelectorAll('.model-dl-btn').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = btn.dataset.model;
+      btn.disabled = true; btn.textContent = 'lädt …';
+      try {
+        await fetch(u('/api/model/download?id=' + encodeURIComponent(id)), { method: 'POST' });
+      } catch (e) { btn.disabled = false; btn.textContent = 'Laden'; }
+    });
+  });
+
+  // Show only models whose family matches the selected engine.
+  function selectedEngineFamily() {
+    if (!benchEngine) return null;
+    var o = benchEngine.options[benchEngine.selectedIndex];
+    return o ? o.getAttribute('data-family') : null;
+  }
+  function filterModelsToEngine() {
+    if (!benchEngine || !benchModel) return;
+    var fam = selectedEngineFamily(), firstMatch = -1;
+    for (var i = 0; i < benchModel.options.length; i++) {
+      var opt = benchModel.options[i], match = (opt.getAttribute('data-family') === fam);
+      opt.hidden = !match;
+      if (match && !opt.disabled && firstMatch < 0) firstMatch = i;
+    }
+    var cur = benchModel.options[benchModel.selectedIndex];
+    if (!cur || cur.hidden || cur.disabled) {
+      if (firstMatch >= 0) benchModel.selectedIndex = firstMatch;
+    }
+  }
+  if (benchEngine) {
+    benchEngine.addEventListener('change', filterModelsToEngine);
+    filterModelsToEngine();
+  }
+
+  // ── Compare list (chips): pick engine + model, add, repeat, then record once.
+  function selOptText(sel) {
+    var o = sel && sel.options[sel.selectedIndex];
+    return o ? o.textContent.replace(' — nicht geladen', '').replace(' — nicht verfügbar', '') : '';
+  }
+  function comboKey(engine, model) { return engine + '~' + model; }
+  function renderChips() {
+    if (!benchList) return;
+    if (!combos.length) {
+      benchList.innerHTML = '<span class="chips-empty">' +
+        (benchList.dataset.empty || 'Noch keine Kombination gewählt.') + '</span>';
+    } else {
+      benchList.innerHTML = combos.map(function (c, i) {
+        return '<span class="chip">' + esc(c.engineLabel) + ' · ' + esc(c.modelLabel) +
+          '<button type="button" class="chip-x" data-i="' + i + '" ' +
+          'aria-label="Entfernen">×</button></span>';
+      }).join('');
+    }
+    if (recBtn) {
+      recBtn.disabled = combos.length === 0;
+      stateEl.textContent = combos.length
+        ? 'bereit — Aufnahme starten'
+        : 'Kombinationen zur Liste hinzufügen';
+    }
+  }
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  if (benchAdd) {
+    benchAdd.addEventListener('click', function () {
+      var eOpt = benchEngine.options[benchEngine.selectedIndex];
+      var mOpt = benchModel.options[benchModel.selectedIndex];
+      if (!eOpt || eOpt.disabled || !mOpt || mOpt.disabled) {
+        stateEl.textContent = 'Engine + geladenes Modell wählen.';
+        return;
+      }
+      var key = comboKey(benchEngine.value, benchModel.value);
+      if (combos.some(function (c) { return comboKey(c.engine, c.model) === key; })) return;
+      combos.push({
+        engine: benchEngine.value, model: benchModel.value,
+        engineLabel: selOptText(benchEngine), modelLabel: selOptText(benchModel)
+      });
+      renderChips();
+    });
+  }
+  if (benchList) {
+    benchList.addEventListener('click', function (ev) {
+      var btn = ev.target.closest && ev.target.closest('.chip-x');
+      if (!btn) return;
+      combos.splice(parseInt(btn.dataset.i, 10), 1);
+      renderChips();
+    });
+    renderChips();
+  }
+
+  // Click-to-sort on any table.sortable header.
+  document.querySelectorAll('table.sortable').forEach(function (tbl) {
+    var ths = tbl.tHead ? tbl.tHead.rows[0].cells : [];
+    for (var ci = 0; ci < ths.length; ci++) {
+      (function (idx, th) {
+        th.addEventListener('click', function () {
+          var asc = th.getAttribute('data-asc') !== 'true';
+          for (var k = 0; k < ths.length; k++) ths[k].removeAttribute('data-asc');
+          th.setAttribute('data-asc', asc ? 'true' : 'false');
+          var numeric = th.getAttribute('data-sort') === 'num';
+          var body = tbl.tBodies[0];
+          var rows = Array.prototype.slice.call(body.rows).filter(function (r) {
+            return !r.classList.contains('history-empty');
+          });
+          rows.sort(function (a, b) {
+            var av = cellVal(a.cells[idx], numeric), bv = cellVal(b.cells[idx], numeric);
+            if (av < bv) return asc ? -1 : 1;
+            if (av > bv) return asc ? 1 : -1;
+            return 0;
+          });
+          rows.forEach(function (r) { body.appendChild(r); });
+        });
+      })(ci, ths[ci]);
+    }
+  });
+  function cellVal(cell, numeric) {
+    if (!cell) return numeric ? -Infinity : '';
+    var v = cell.getAttribute('data-v');
+    if (v == null) v = cell.textContent;
+    if (numeric) { var n = parseFloat(v); return isNaN(n) ? -Infinity : n; }
+    return v.toLowerCase();
+  }
+
+  // Live model-download progress over SSE.
+  if (benchModel) {
+    try {
+      var es = new EventSource(u('/events'));
+      es.onmessage = function (ev) {
+        var msg; try { msg = JSON.parse(ev.data); } catch (e) { return; }
+        if (msg.type === 'model') applyModel(msg);
+      };
+    } catch (e) { /* no SSE — manual reload still works */ }
+  }
+  function applyModel(m) {
+    var row = document.querySelector('.model-row[data-model="' + cssEsc(m.id) + '"]');
+    var pct = (m.total > 0) ? Math.min(100, Math.round(m.received / m.total * 100)) : 0;
+    if (m.state === 'present') pct = 100;
+    if (row) {
+      var bar = row.querySelector('.dl-bar'), st = row.querySelector('.model-state'),
+          btn = row.querySelector('.model-dl-btn');
+      if (bar) bar.style.width = pct + '%';
+      if (st) st.textContent = stateLabel(m.state) + (m.state === 'downloading' ? ' ' + pct + '%' : '');
+      if (btn) {
+        if (m.state === 'present') { btn.disabled = true; btn.textContent = 'geladen ✓'; }
+        else if (m.state === 'downloading') { btn.disabled = true; btn.textContent = 'lädt …'; }
+        else if (m.state === 'error') { btn.disabled = false; btn.textContent = 'Erneut laden'; }
+      }
+    }
+    if (m.state === 'present') {
+      var opt = document.querySelector('#bench-model option[data-model-opt="' + cssEsc(m.id) + '"]');
+      if (opt) {
+        opt.disabled = false;
+        opt.textContent = opt.textContent.replace(' — nicht geladen', '');
+        filterModelsToEngine();
+      }
+    }
+  }
+
+  recBtn.addEventListener('click', function () {
+    if (!recording) startRec(); else stopRec();
+  });
+
+  var busyTimer = null;
+  function setBusy(txt) {
+    recBtn.classList.remove('recording'); recBtn.classList.add('busy');
+    recBtn.disabled = true;
+    var t0 = performance.now();
+    stateEl.textContent = txt;
+    clearBusy();
+    // Live elapsed counter — GPU engines (Const-me) can take 30–60 s per run
+    // (model load + DirectCompute shader compile each time); without this the
+    // wait looks like a hang.
+    busyTimer = setInterval(function () {
+      var s = Math.round((performance.now() - t0) / 1000);
+      stateEl.textContent = txt + ' — läuft seit ' + s + ' s …';
+    }, 1000);
+  }
+  function clearBusy() {
+    if (busyTimer) { clearInterval(busyTimer); busyTimer = null; }
+  }
+
+  async function startRec() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      stateEl.textContent = 'Mikrofon wird von diesem Browser nicht unterstützt.';
+      return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 } });
+    } catch (e) {
+      stateEl.textContent = 'Kein Mikrofon-Zugriff: ' + (e && e.message ? e.message : e);
+      return;
+    }
+    chunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = function (e) { if (e.data.size) chunks.push(e.data); };
+    recorder.onstop = onStop;
+    recorder.start();
+    recording = true;
+    recBtn.classList.add('recording');
+    recBtn.textContent = '■ Aufnahme stoppen';
+    stateEl.textContent = 'Aufnahme läuft — sprich jetzt …';
+  }
+
+  function stopRec() {
+    if (!recorder) return;
+    stopAt = performance.now();
+    recording = false;
+    recBtn.textContent = '● Aufnahme starten';
+    setBusy('verarbeite Aufnahme …');
+    recorder.stop();
+    if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+  }
+
+  async function onStop() {
+    try {
+      var blob = new Blob(chunks, { type: chunks[0] ? chunks[0].type : 'audio/webm' });
+      var buf = await blob.arrayBuffer();
+      var AC = window.AudioContext || window.webkitAudioContext;
+      var ac = new AC();
+      var decoded = await ac.decodeAudioData(buf);
+      ac.close();
+      var wav = encodeWav16k(decoded);
+      var audioMs = Math.round(decoded.duration * 1000);
+      if (benchEngine && combos.length) { await runBatch(wav, audioMs); return; }
+      setBusy('transkribiere …');
+      var resp = await fetch(u(transcribeUrl()), {
+        method: 'POST',
+        headers: { 'Content-Type': 'audio/wav' },
+        body: wav
+      });
+      var totalMs = Math.round(performance.now() - stopAt);
+      var data = {};
+      try { data = await resp.json(); } catch (e) { data = {}; }
+      if (!resp.ok) {
+        clearBusy();
+        stateEl.textContent = 'Fehler: ' + (data.error || ('Server ' + resp.status));
+        recBtn.classList.remove('busy'); recBtn.disabled = false;
+        return;
+      }
+      showResult(data, audioMs, totalMs);
+    } catch (e) {
+      clearBusy();
+      stateEl.textContent = 'Fehler: ' + (e && e.message ? e.message : e);
+      recBtn.classList.remove('busy'); recBtn.disabled = false;
+    }
+  }
+
+  function transcribeUrl() {
+    if (benchEngine) {
+      return '/api/transcribe?engine=' + encodeURIComponent(benchEngine.value) +
+        '&model=' + encodeURIComponent(benchModel ? benchModel.value : '');
+    }
+    return '/api/transcribe?candidate=' + encodeURIComponent(currentCand);
+  }
+
+  function fmtMs(ms) {
+    if (ms == null) return '—';
+    return ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1).replace('.', ',') + ' s';
+  }
+  function showResult(data, audioMs, totalMs) {
+    clearBusy();
+    recBtn.classList.remove('busy'); recBtn.disabled = false;
+    stateEl.textContent = data.outcome === 'ok' ? 'fertig' : ('Ergebnis: ' + data.outcome);
+    result.hidden = false;
+    $('m-total').textContent = fmtMs(totalMs);
+    $('m-engine').textContent = fmtMs(data.durationMs);
+    $('m-audio').textContent = fmtMs(audioMs);
+    var rtf = (data.durationMs && audioMs) ? (data.durationMs / audioMs) : null;
+    $('m-rtf').textContent = rtf != null ? rtf.toFixed(2) : '—';
+    $('m-text').textContent = data.transcribedText || data.errorDetail || '(kein Text)';
+  }
+
+  // ── Multi-model batch (record once → run all combos → ranked list). ──────
+  function outLabel(o) {
+    return o === 'ok' ? 'ok' : o === 'crashed' ? 'abgestürzt'
+      : o === 'hung' ? 'hängt' : o === 'failedToStart' ? 'Startfehler'
+      : o === 'outOfMemory' ? 'OOM' : o === 'wrongOutput' ? 'falsches Ergebnis'
+      : 'übersprungen';
+  }
+  function outClass(o) {
+    return o === 'ok' ? 'outcome-ok'
+      : (o === 'hung' || o === 'wrongOutput') ? 'outcome-hung'
+      : o === 'skipped' ? 'outcome-skipped' : 'outcome-crashed';
+  }
+  function hwTag(isGpu) {
+    return isGpu ? '<span class="hw-tag hw-gpu">GPU</span>'
+      : '<span class="hw-tag hw-cpu">CPU</span>';
+  }
+  function rtfOf(run, audioMs) {
+    if (run.realtimeFactor != null) return run.realtimeFactor;
+    if (run.durationMs != null && audioMs) return run.durationMs / audioMs;
+    return null;
+  }
+
+  async function runBatch(wav, audioMs) {
+    setBusy('vergleiche ' + combos.length + ' Kombination' +
+      (combos.length > 1 ? 'en' : '') + ' …');
+    var q = combos.map(function (c) { return c.engine + '~' + c.model; }).join(',');
+    var url = '/api/transcribe-batch?combos=' + encodeURIComponent(q) + '&audioMs=' + audioMs;
+    var resp, data = {};
+    try {
+      resp = await fetch(u(url), {
+        method: 'POST', headers: { 'Content-Type': 'audio/wav' }, body: wav
+      });
+      try { data = await resp.json(); } catch (e) { data = {}; }
+    } catch (e) {
+      clearBusy(); recBtn.classList.remove('busy'); recBtn.disabled = false;
+      stateEl.textContent = 'Fehler: ' + (e && e.message ? e.message : e);
+      return;
+    }
+    clearBusy(); recBtn.classList.remove('busy'); recBtn.disabled = false;
+    if (!resp.ok) {
+      stateEl.textContent = 'Fehler: ' + (data.error || ('Server ' + resp.status));
+      return;
+    }
+    var runs = data.runs || [];
+    stateEl.textContent = 'fertig — ' + runs.length + ' Lauf' +
+      (runs.length === 1 ? '' : 'e') + ' verglichen';
+    result.hidden = true; // single-result block is unused in bench mode
+    renderBatch(runs, audioMs);
+    appendHistory(runs, audioMs);
+  }
+
+  function renderBatch(runs, audioMs) {
+    if (!batchResults) return;
+    var tb = document.querySelector('#batch-table tbody');
+    var okSeen = 0;
+    tb.innerHTML = runs.map(function (run) {
+      var rtf = rtfOf(run, audioMs);
+      var ok = run.outcome === 'ok';
+      var rank = ok ? (++okSeen) : '—';
+      return '<tr' + (ok && okSeen === 1 ? ' class="batch-rank-1"' : '') + '>' +
+        '<td class="col-rank rank">' + rank + '</td>' +
+        '<td class="candidate-name">' + esc(run.engineLabel || run.engineId) + '</td>' +
+        '<td class="mono">' + esc(run.backend || '') + ' ' + hwTag(run.isGpu) + '</td>' +
+        '<td class="mono">' + esc(run.modelLabel || run.modelId || '—') + '</td>' +
+        '<td><span class="badge ' + outClass(run.outcome) + '">' +
+          esc(outLabel(run.outcome)) + '</span></td>' +
+        '<td class="num mono">' + fmtMs(run.durationMs) + '</td>' +
+        '<td class="num mono">' + (rtf != null ? rtf.toFixed(2) : '—') + '</td>' +
+        '<td class="error-detail">' +
+          esc(run.transcribedText || run.errorDetail || run.error || '—') + '</td>' +
+        '</tr>';
+    }).join('');
+    batchResults.hidden = false;
+  }
+
+  function appendHistory(runs, audioMs) {
+    if (!historyTable || !historyTable.tBodies.length) return;
+    var body = historyTable.tBodies[0];
+    var empty = body.querySelector('.history-empty');
+    if (empty) empty.parentNode.removeChild(empty);
+    var now = new Date();
+    function two(n) { return String(n).padStart(2, '0'); }
+    var tstr = now.getFullYear() + '-' + two(now.getMonth() + 1) + '-' + two(now.getDate()) +
+      ' ' + two(now.getHours()) + ':' + two(now.getMinutes());
+    var iso = now.toISOString();
+    // Prepend in reverse so the fastest of this batch ends up topmost.
+    runs.slice().reverse().forEach(function (run) {
+      var rtf = rtfOf(run, audioMs);
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td class="mono" data-v="' + esc(iso) + '">' + esc(tstr) + '</td>' +
+        '<td class="candidate-name">' + esc(run.engineLabel || run.engineId) + '</td>' +
+        '<td class="mono">' + esc(run.backend || '') + ' ' + hwTag(run.isGpu) + '</td>' +
+        '<td class="mono">' + esc(run.modelLabel || run.modelId || '—') + '</td>' +
+        '<td><span class="badge ' + outClass(run.outcome) + '">' +
+          esc(outLabel(run.outcome)) + '</span></td>' +
+        '<td class="num mono" data-v="' + (run.durationMs != null ? run.durationMs : '') +
+          '">' + fmtMs(run.durationMs) + '</td>' +
+        '<td class="num mono" data-v="' + (rtf != null ? rtf : '') + '">' +
+          (rtf != null ? rtf.toFixed(2) : '—') + '</td>' +
+        '<td class="error-detail">' +
+          esc(run.transcribedText || run.errorDetail || run.error || '—') + '</td>';
+      body.insertBefore(tr, body.firstChild);
+    });
+  }
+
+  // Downmix to mono, resample to 16 kHz, encode 16-bit PCM WAV.
+  function encodeWav16k(buffer) {
+    var outRate = 16000, inRate = buffer.sampleRate, ch = buffer.numberOfChannels;
+    var inLen = buffer.length;
+    var mono = new Float32Array(inLen);
+    for (var c = 0; c < ch; c++) {
+      var d = buffer.getChannelData(c);
+      for (var i = 0; i < inLen; i++) mono[i] += d[i] / ch;
+    }
+    var ratio = inRate / outRate;
+    var outLen = Math.floor(inLen / ratio);
+    var out = new Int16Array(outLen);
+    for (var j = 0; j < outLen; j++) {
+      var pos = j * ratio, i0 = Math.floor(pos), i1 = Math.min(i0 + 1, inLen - 1);
+      var s = mono[i0] + (mono[i1] - mono[i0]) * (pos - i0);
+      s = Math.max(-1, Math.min(1, s));
+      out[j] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+    var bytes = outLen * 2, ab = new ArrayBuffer(44 + bytes), dv = new DataView(ab);
+    function ws(off, str) { for (var k = 0; k < str.length; k++) dv.setUint8(off + k, str.charCodeAt(k)); }
+    ws(0, 'RIFF'); dv.setUint32(4, 36 + bytes, true); ws(8, 'WAVE');
+    ws(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+    dv.setUint16(22, 1, true); dv.setUint32(24, outRate, true);
+    dv.setUint32(28, outRate * 2, true); dv.setUint16(32, 2, true);
+    dv.setUint16(34, 16, true); ws(36, 'data'); dv.setUint32(40, bytes, true);
+    var off = 44;
+    for (var n = 0; n < outLen; n++) { dv.setInt16(off, out[n], true); off += 2; }
+    return ab;
+  }
+
+  // Quit button → shut the local server down.
+  var quit = $('quit-btn');
+  if (quit) quit.addEventListener('click', async function () {
+    quit.textContent = 'beende …'; quit.disabled = true;
+    try { await fetch(u('/api/shutdown'), { method: 'POST' }); } catch (e) {}
+    document.body.innerHTML = '<main class="container"><section class="run-hero">' +
+      '<h1 class="run-title">Tool beendet</h1>' +
+      '<p class="run-sub">Du kannst dieses Fenster jetzt schließen.</p></section></main>';
+  });
+})();
+</script>''';

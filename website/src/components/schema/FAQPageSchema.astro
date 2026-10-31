@@ -1,0 +1,14 @@
+---
+/**
+ * `<FAQPageSchema />` — emits the `FAQPage` JSON-LD block for the landing
+ * page FAQ. Defaults pull `faq.<key>.q` / `faq.<key>.a` from the i18n table
+ * (see `DEFAULT_FAQ_KEYS` in `./builders.ts`). Callers may override the full
+ * question list via `questions` or pick a subset via `questionKeys`.
+ */
+import { buildFAQPageSchema, type FAQPageOptions } from "./builders.ts";
+
+type Props = FAQPageOptions;
+
+const schema = buildFAQPageSchema(Astro.props);
+---
+<script type="application/ld+json" set:html={JSON.stringify(schema)} />

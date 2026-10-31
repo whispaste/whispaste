@@ -1,0 +1,561 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+import 'package:whispaste/core/config/secure_key_store.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/services/transcription/deepgram_transcriber.dart';
+import 'package:whispaste/services/transcription/transcriber.dart';
+
+/// Helper provider that exposes a test-configured [DeepgramTranscriber].
+final _testTranscriberProvider =
+    Provider.family<DeepgramTranscriber, http.Client>(
+      (ref, client) =>
+          DeepgramTranscriber(ref: ref, httpClient: client, wait: _noWait),
+    );
+
+Future<void> _noWait(Duration _) async {}
+
+class _FakeSecureKeyStore implements SecureKeyStore {
+  final Map<String, String> _store;
+  _FakeSecureKeyStore(this._store);
+
+  @override
+  Future<String?> readKey(String key) async => _store[key];
+
+  @override
+  Future<void> writeKey(String key, String value) async => _store[key] = value;
+
+  @override
+  Future<void> deleteKey(String key) async => _store.remove(key);
+
+  @override
+  Future<Map<String, String>> readAllApiKeys() async => Map.of(_store);
+}
+
+ProviderContainer _makeContainer(
+  Map<String, String> keys, {
+  String vocabulary = '',
+}) {
+  return ProviderContainer(
+    overrides: [
+      secureKeyStoreProvider.overrideWithValue(_FakeSecureKeyStore(keys)),
+      settingsProvider.overrideWith(() => _VocabularySettings(vocabulary)),
+    ],
+  );
+}
+
+class _VocabularySettings extends SettingsNotifier {
+  _VocabularySettings(this._vocabulary);
+
+  final String _vocabulary;
+
+  @override
+  Future<AppSettings> build() async => AppSettings.defaults.copyWithSections(
+    stt: AppSettings.defaults.stt.copyWith(customVocabulary: _vocabulary),
+  );
+}
+
+List<int> _silentWav() => List.filled(44, 0); // minimal WAV bytes
+
+/// Captures the finalized [http.BaseRequest] before responding, so a test can
+/// assert on the exact object identity of `bodyBytes` — unlike [MockClient],
+/// which reconstructs a fresh [http.Request] from the collected bytes and so
+/// cannot observe whether the original buffer was aliased or copied.
+class _CapturingClient extends http.BaseClient {
+  http.BaseRequest? lastRequest;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    lastRequest = request;
+    final bodyBytes = utf8.encode(_deepgramResponse('captured'));
+    return http.StreamedResponse(Stream.value(bodyBytes), 200);
+  }
+}
+
+/// Builds a valid Deepgram JSON response body.
+String _deepgramResponse(String transcript) => jsonEncode({
+  'results': {
+    'channels': [
+      {
+        'alternatives': [
+          {'transcript': transcript},
+        ],
+      },
+    ],
+  },
+});
+
+void main() {
+  // Deliberately no TestWidgetsFlutterBinding.ensureInitialized() here: it
+  // installs a fake HttpOverrides that makes every dart:io-backed HTTP
+  // request return a synthetic 400 without touching the network (see
+  // flutter_test's own warning), which silently broke the (live-smoke)
+  // group below and would break the (canary) group added alongside it
+  // whenever they were actually exercised with a real client. Nothing in
+  // (mocked) uses MockClient, which bypasses dart:io/HttpOverrides entirely
+  // and is unaffected either way.
+
+  group('DeepgramTranscriber (mocked)', () {
+    test('returns transcript on HTTP 200', () async {
+      final client = MockClient(
+        (_) async => http.Response(_deepgramResponse('hello deepgram'), 200),
+      );
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+      final result = await transcriber.transcribe(_silentWav());
+
+      expect(result, 'hello deepgram');
+    });
+
+    for (final (reply, expected) in [
+      ('Thank you for watching.', ''),
+      ('(Applaus)', ''),
+      ('Ich sage (Musik) laut.', 'Ich sage (Musik) laut.'),
+    ]) {
+      test('drops silence artefacts: "$reply" → "$expected"', () async {
+        final client = MockClient(
+          (_) async => http.Response(_deepgramResponse(reply), 200),
+        );
+        final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+        addTearDown(container.dispose);
+
+        final transcriber = container.read(_testTranscriberProvider(client));
+        await transcriber.prepare();
+
+        expect(await transcriber.transcribe(_silentWav()), expected);
+      });
+    }
+
+    test('returns empty string on HTTP 200 with empty transcript', () async {
+      final client = MockClient(
+        (_) async => http.Response(_deepgramResponse(''), 200),
+      );
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+      final result = await transcriber.transcribe(_silentWav());
+
+      expect(result, '');
+    });
+
+    test('throws authError on HTTP 401', () async {
+      final client = MockClient(
+        (_) async => http.Response('Unauthorized', 401),
+      );
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-bad'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+
+      await expectLater(
+        () => transcriber.transcribe(_silentWav()),
+        throwsA(
+          isA<TranscriberException>().having(
+            (e) => e.reason,
+            'reason',
+            TranscriberFailureReason.authError,
+          ),
+        ),
+      );
+    });
+
+    test('throws rateLimited on HTTP 429', () async {
+      final client = MockClient(
+        (_) async => http.Response('Rate limited', 429),
+      );
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+
+      await expectLater(
+        () => transcriber.transcribe(_silentWav()),
+        throwsA(
+          isA<TranscriberException>().having(
+            (e) => e.reason,
+            'reason',
+            TranscriberFailureReason.rateLimited,
+          ),
+        ),
+      );
+    });
+
+    test('throws networkError on connection failure', () async {
+      final client = MockClient(
+        (_) async => throw const SocketException('Connection refused'),
+      );
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+
+      await expectLater(
+        () => transcriber.transcribe(_silentWav()),
+        throwsA(
+          isA<TranscriberException>().having(
+            (e) => e.reason,
+            'reason',
+            TranscriberFailureReason.networkError,
+          ),
+        ),
+      );
+    });
+
+    test('throws timeout on request timeout', () async {
+      final client = MockClient((_) async {
+        await Future<void>.delayed(const Duration(minutes: 2));
+        return http.Response('', 200);
+      });
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      // Use a very short timeout to trigger the timeout exception.
+      final transcriber = DeepgramTranscriber(
+        ref: container.read(Provider((ref) => ref)),
+        httpClient: client,
+        timeout: const Duration(milliseconds: 100),
+      );
+      await transcriber.prepare();
+
+      await expectLater(
+        () => transcriber.transcribe(_silentWav()),
+        throwsA(
+          isA<TranscriberException>().having(
+            (e) => e.reason,
+            'reason',
+            TranscriberFailureReason.timeout,
+          ),
+        ),
+      );
+    });
+
+    test('prepare throws authError when API key is missing', () async {
+      final container = _makeContainer({});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(
+        _testTranscriberProvider(
+          MockClient((_) async => http.Response('', 200)),
+        ),
+      );
+
+      await expectLater(
+        () => transcriber.prepare(),
+        throwsA(
+          isA<TranscriberException>()
+              .having(
+                (e) => e.reason,
+                'reason',
+                TranscriberFailureReason.authError,
+              )
+              .having(
+                (e) => e.message,
+                'message',
+                contains('Settings → Speech recognition'),
+              ),
+        ),
+      );
+    });
+
+    test('passes language as query parameter', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(_deepgramResponse('bonjour'), 200);
+      });
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+      await transcriber.transcribe(_silentWav(), language: 'fr');
+
+      expect(capturedUri?.queryParameters['language'], 'fr');
+    });
+
+    test('auto language requests detect_language instead of Deepgram\'s '
+        'en default (store-review regression, June 2026)', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(_deepgramResponse('privet'), 200);
+      });
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+      await transcriber.transcribe(_silentWav(), language: 'auto');
+
+      expect(capturedUri?.queryParameters.containsKey('language'), isFalse);
+      expect(capturedUri?.queryParameters['detect_language'], 'true');
+    });
+
+    test('uses model=nova-3 and smart_format=true query parameters', () async {
+      Uri? capturedUri;
+      final client = MockClient((request) async {
+        capturedUri = request.url;
+        return http.Response(_deepgramResponse('test'), 200);
+      });
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+      await transcriber.transcribe(_silentWav());
+
+      expect(capturedUri?.queryParameters['model'], 'nova-3');
+      expect(capturedUri?.queryParameters['smart_format'], 'true');
+    });
+
+    group('keyterms from the custom vocabulary', () {
+      Future<Uri?> requestUri(String vocabulary) async {
+        Uri? capturedUri;
+        final client = MockClient((request) async {
+          capturedUri = request.url;
+          return http.Response(_deepgramResponse('test'), 200);
+        });
+        final container = _makeContainer({
+          'wp_deepgram_api_key': 'dg-test',
+        }, vocabulary: vocabulary);
+        addTearDown(container.dispose);
+        await container.read(settingsProvider.future);
+
+        final transcriber = container.read(_testTranscriberProvider(client));
+        await transcriber.prepare();
+        await transcriber.transcribe(_silentWav());
+        return capturedUri;
+      }
+
+      test('each term goes out as its own keyterm parameter', () async {
+        final uri = await requestUri('Silvio, Kubernetes\nWhisPaste');
+
+        expect(uri?.queryParametersAll['keyterm'], [
+          'Silvio',
+          'Kubernetes',
+          'WhisPaste',
+        ]);
+        expect(uri?.queryParameters['model'], 'nova-3');
+      });
+
+      test('no keyterm parameter when the vocabulary is empty', () async {
+        final uri = await requestUri('  , \n ');
+
+        expect(uri?.queryParametersAll.containsKey('keyterm'), isFalse);
+      });
+
+      test('the language handling stays next to the keyterms', () async {
+        final uri = await requestUri('Silvio');
+
+        expect(uri?.queryParameters['detect_language'], 'true');
+        expect(uri?.queryParametersAll['keyterm'], ['Silvio']);
+      });
+    });
+
+    test('deepgramKeyterms: trims, drops empty and repeated terms', () {
+      expect(
+        deepgramKeyterms(' Silvio, Kubernetes \n\n  silvio ,, WhisPaste '),
+        ['Silvio', 'Kubernetes', 'WhisPaste'],
+      );
+      expect(deepgramKeyterms('  , \n'), isEmpty);
+    });
+
+    test('deepgramKeyterms: at most 50 terms', () {
+      final vocabulary = List.generate(80, (i) => 'term$i').join(',');
+
+      expect(deepgramKeyterms(vocabulary), hasLength(50));
+    });
+
+    test('deepgramKeyterms: a term over the 500-byte budget is skipped, a '
+        'later one that fits is kept', () {
+      final long = 'a' * 300;
+      final tooLong = 'b' * 250;
+
+      expect(deepgramKeyterms('$long, $tooLong, c'), [long, 'c']);
+    });
+
+    test('deepgramKeyterms: the budget counts UTF-8 bytes, not characters', () {
+      // 249 umlauts are 249 characters but 498 bytes: 'x' still fits (499).
+      expect(deepgramKeyterms('${'ü' * 249}, x'), ['ü' * 249, 'x']);
+      // 250 umlauts are 500 bytes, so the budget is full and 'x' is skipped.
+      expect(deepgramKeyterms('${'ü' * 250}, x'), ['ü' * 250]);
+      // 251 umlauts are 502 bytes and do not fit.
+      expect(deepgramKeyterms('${'ü' * 251}, x'), ['x']);
+    });
+
+    test('sends Authorization: Token header', () async {
+      String? capturedAuth;
+      final client = MockClient((request) async {
+        capturedAuth = request.headers['Authorization'];
+        return http.Response(_deepgramResponse('ok'), 200);
+      });
+      final container = _makeContainer({'wp_deepgram_api_key': 'my-dg-key'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+      await transcriber.transcribe(_silentWav());
+
+      expect(capturedAuth, 'Token my-dg-key');
+    });
+
+    test(
+      'sends the WAV Uint8List straight through without copying it '
+      '(regression: avoid the List<int>.from() + http-internal double copy)',
+      () async {
+        final wavBytes = Uint8List.fromList(List.filled(44, 7));
+        final client = _CapturingClient();
+        final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+        addTearDown(container.dispose);
+
+        final transcriber = container.read(_testTranscriberProvider(client));
+        await transcriber.prepare();
+        await transcriber.transcribe(wavBytes);
+
+        final sent = client.lastRequest;
+        expect(sent, isA<http.Request>());
+        final sentBytes = (sent! as http.Request).bodyBytes;
+        // Zero-copy: the exact same buffer instance reaches the request.
+        expect(identical(sentBytes, wavBytes), isTrue);
+        // Content stays correct regardless of the identity check above.
+        expect(sentBytes, wavBytes);
+      },
+    );
+
+    test('throws serverError on HTTP 500 with body in message', () async {
+      final client = MockClient(
+        (_) async => http.Response('Internal Server Error', 500),
+      );
+      final container = _makeContainer({'wp_deepgram_api_key': 'dg-test'});
+      addTearDown(container.dispose);
+
+      final transcriber = container.read(_testTranscriberProvider(client));
+      await transcriber.prepare();
+
+      await expectLater(
+        () => transcriber.transcribe(_silentWav()),
+        throwsA(
+          isA<TranscriberException>()
+              .having(
+                (e) => e.reason,
+                'reason',
+                TranscriberFailureReason.serverError,
+              )
+              .having(
+                (e) => e.message,
+                'message contains body',
+                contains('Internal Server Error'),
+              ),
+        ),
+      );
+    });
+  });
+
+  group('DeepgramTranscriber (live-smoke)', () {
+    // Auto-skipped when DEEPGRAM_API_KEY dart-define is absent.
+    const apiKey = String.fromEnvironment('DEEPGRAM_API_KEY');
+
+    test(
+      'live: transcribes 2-second WAV fixture and returns non-empty string',
+      () async {
+        if (apiKey.isEmpty) {
+          // Skip gracefully without dart-define.
+          return;
+        }
+
+        final wavFile = File(
+          '${Directory.current.path}/test/fixtures/hello_world.wav',
+        );
+        expect(
+          wavFile.existsSync(),
+          isTrue,
+          reason:
+              'test/fixtures/hello_world.wav must exist for live-smoke test',
+        );
+        final wavBytes = await wavFile.readAsBytes();
+
+        // Use a real http.Client (no mock).
+        final container = ProviderContainer(
+          overrides: [
+            secureKeyStoreProvider.overrideWithValue(
+              _FakeSecureKeyStore({'wp_deepgram_api_key': apiKey}),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final realClient = http.Client();
+        final transcriber = container.read(
+          _testTranscriberProvider(realClient),
+        );
+        addTearDown(realClient.close);
+
+        await transcriber.prepare();
+        final result = await transcriber.transcribe(
+          wavBytes.toList(),
+          language: 'en',
+        );
+
+        expect(
+          result.isNotEmpty,
+          isTrue,
+          reason: 'Live Deepgram response should have non-empty transcript',
+        );
+      },
+      tags: ['live'],
+    );
+  });
+
+  group('DeepgramTranscriber (canary)', () {
+    // Provider-drift canary: no API key needed. Asserts Deepgram still
+    // rejects bad credentials with the HTTP 401 + body shape
+    // DeepgramTranscriber.transcribe() parses as authError — catches a
+    // silent upstream API change before a user's cloud transcription does.
+    // Makes a real network call unconditionally, so it's excluded from the
+    // default gate via the `canary` tag (see .github/workflows/ci.yml's
+    // `--exclude-tags=golden,canary`) and instead run weekly by
+    // .github/workflows/provider-drift-canary.yml.
+    test('rejects an invalid API key against the real endpoint', () async {
+      final wavFile = File(
+        '${Directory.current.path}/test/fixtures/hello_world.wav',
+      );
+      final wavBytes = await wavFile.readAsBytes();
+
+      final container = _makeContainer({
+        'wp_deepgram_api_key': 'canary-invalid',
+      });
+      addTearDown(container.dispose);
+
+      final realClient = http.Client();
+      final transcriber = container.read(_testTranscriberProvider(realClient));
+      addTearDown(realClient.close);
+
+      await transcriber.prepare();
+
+      await expectLater(
+        transcriber.transcribe(wavBytes.toList()),
+        throwsA(
+          isA<TranscriberException>().having(
+            (e) => e.reason,
+            'reason',
+            TranscriberFailureReason.authError,
+          ),
+        ),
+      );
+    }, tags: ['canary']);
+  });
+}

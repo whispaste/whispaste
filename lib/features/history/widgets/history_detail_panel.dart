@@ -1,0 +1,2413 @@
+import 'dart:async' show unawaited;
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:intl/intl.dart' show DateFormat;
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/navigation/page_state.dart'
+    show activePageProvider, notesEditorTargetProvider;
+import '../../../core/recording/recording_helpers.dart'
+    show displayNameForModel;
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
+
+import 'package:whispaste/core/data/database.dart';
+
+import '../../../core/config/settings_labels.dart';
+import '../../../core/config/settings_provider.dart';
+import '../../../services/history/history_exporter.dart' as history_exporter;
+import '../../../services/paste/auto_paste_blocklist.dart';
+import '../../../services/pending_audio/kept_until_format.dart';
+import '../../../services/pending_audio/pending_audio_providers.dart';
+import '../../../services/pending_audio/pending_audio_queue.dart'
+    show PendingRetryOutcome;
+import '../../../services/recording_orchestrator.dart'
+    show recordingOrchestratorProvider;
+import '../../../services/replacements/correction_learning_service.dart';
+import '../../../services/replacements/correction_signal.dart';
+import '../../notes/data/notes_actions.dart';
+import '../data/history_detail_provider.dart';
+import '../data/history_title.dart';
+import 'smart_mode_undo_actions.dart';
+import 'highlighted_text.dart';
+import 'history_helpers.dart';
+import 'history_notes_section.dart';
+import '../../../widgets/dialog.dart';
+import '../../../widgets/find_replace.dart';
+import '../../../widgets/tag_input.dart';
+import '../../../widgets/wp_toast_dock.dart';
+import '../../../widgets/markdown_toolbar.dart';
+import '../../../widgets/toast.dart';
+import '../../../widgets/wp_app_icon.dart';
+import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_focus_ring.dart';
+import '../../../widgets/wp_text_field.dart';
+import 'tag_management_dialog.dart';
+import '../../../core/utils/focus_helpers.dart';
+import '../../../core/utils/word_count.dart';
+import '../../../services/smart_mode/smart_mode_presets.dart'
+    show
+        SmartModePreset,
+        SmartModeTargetLanguage,
+        smartModeValidatedTargetLanguages;
+import '../../../services/smart_mode/smart_mode_retroactive_service.dart'
+    show SmartModeRetroactiveFailureReason;
+
+/// Signature of the export-entries seam used by [HistoryDetailPanel].
+///
+/// Defaults to the top-level [history_exporter.exportEntries]. Tests inject a
+/// fake to assert that the overflow "Export…" menu item invokes the exporter
+/// with the expected entry list, without spinning up real platform channels.
+typedef HistoryDetailPanelExportFn =
+    Future<void> Function(BuildContext context, List<HistoryEntry> entries);
+
+/// Wraps [child] in the panel's standard [Tooltip] — but only when [message]
+/// is non-null.
+///
+/// A tooltip that names an action is a promise. In the trash view neither the
+/// title nor the transcript can be edited, so the promise has to disappear
+/// rather than be blanked: `Tooltip(message: '')` still builds a tooltip, pops
+/// an empty card on hover and leaves an empty `tooltip` on the semantics node.
+/// One helper for both call sites so the two read-only affordances behave
+/// identically.
+Widget _tooltipIf(String? message, {required Widget child}) => message == null
+    ? child
+    : Tooltip(
+        message: message,
+        waitDuration: WpMotion.tooltipWait,
+        child: child,
+      );
+
+// ---------------------------------------------------------------------------
+// Detail panel — opens on entry selection (ChatGPT/Notion detail view)
+// ---------------------------------------------------------------------------
+
+class HistoryDetailPanel extends ConsumerStatefulWidget {
+  const HistoryDetailPanel({
+    super.key,
+    required this.entry,
+    required this.onClose,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+    required this.onArchive,
+    required this.onRestore,
+    this.onDuplicate,
+    this.onCopyMarkdown,
+    this.isTrashView = false,
+    this.isArchiveView = false,
+    this.exportFn = history_exporter.exportEntries,
+  });
+
+  final HistoryEntry entry;
+  final VoidCallback onClose;
+  final VoidCallback onCopy;
+  final VoidCallback onPin;
+  final VoidCallback onDelete;
+  final VoidCallback onArchive;
+  final VoidCallback onRestore;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onCopyMarkdown;
+  final bool isTrashView;
+  final bool isArchiveView;
+
+  /// Injection seam for the export flow.
+  ///
+  /// Defaults to the production [history_exporter.exportEntries]. Widget tests
+  /// substitute a fake to assert the overflow "Export…" item invokes the
+  /// exporter with `[entry]` without touching the filesystem or platform
+  /// channels.
+  final HistoryDetailPanelExportFn exportFn;
+
+  @override
+  ConsumerState<HistoryDetailPanel> createState() => _HistoryDetailPanelState();
+}
+
+class _HistoryDetailPanelState extends ConsumerState<HistoryDetailPanel> {
+  String _tagSearchQuery = '';
+  bool _isEditingTranscript = false;
+  bool _showOriginal = false;
+  late TextEditingController _transcriptController;
+  bool _isEditingTitle = false;
+  late TextEditingController _titleController;
+  final FocusNode _panelFocusNode = FocusNode();
+  final FocusNode _editorFocusNode = FocusNode();
+  final FocusNode _titleFocusNode = FocusNode();
+  final GlobalKey<_TagSectionState> _tagSectionKey =
+      GlobalKey<_TagSectionState>();
+  final GlobalKey<HistoryNotesSectionState> _notesSectionKey =
+      GlobalKey<HistoryNotesSectionState>();
+
+  @override
+  void initState() {
+    super.initState();
+    // Highlight-capable so the toolbar's find bar can tint its hits: a
+    // TextField only paints a *selection* while focused, and while the user is
+    // typing a query the focus is in the find field, not here.
+    _transcriptController = WpFindHighlightController(
+      text: widget.entry.content,
+    );
+    _titleController = TextEditingController(text: widget.entry.title);
+    // Auto-focus panel so its shortcuts AND ancestor list shortcuts both work.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _panelFocusNode.requestFocus();
+    });
+  }
+
+  /// Saves the transcript edit that is open when the panel moves to another
+  /// entry or goes away, so typed text is not lost (UIA-HIS-02). Deferred:
+  /// both callers run during a rebuild or dispose, where a provider write is
+  /// rejected.
+  Future<void> Function(String)? _saveOpenEdit;
+  String _savedBeforeEdit = '';
+
+  void _flushOpenEdit() {
+    final save = _saveOpenEdit;
+    _saveOpenEdit = null;
+    final text = _transcriptController.text.trim();
+    if (!_isEditingTranscript || save == null || text == _savedBeforeEdit) {
+      return;
+    }
+    Future.microtask(() => save(text));
+  }
+
+  @override
+  void didUpdateWidget(covariant HistoryDetailPanel old) {
+    super.didUpdateWidget(old);
+    if (old.entry.id != widget.entry.id) {
+      _flushOpenEdit();
+      _transcriptController.text = widget.entry.content;
+      _isEditingTranscript = false;
+      _titleController.text = widget.entry.title;
+      _isEditingTitle = false;
+      // Collapsed by default for every entry (ticket 12) — a reader who
+      // expanded it for one entry should not have it silently stay open
+      // when the selection moves to the next one.
+      _showOriginal = false;
+    } else {
+      // Sync fields that changed externally (Finding #3 — dual mutation path)
+      if (!_isEditingTitle) {
+        _titleController.text = widget.entry.title;
+      }
+      if (!_isEditingTranscript) {
+        _transcriptController.text = widget.entry.content;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _flushOpenEdit();
+    _transcriptController.dispose();
+    _titleController.dispose();
+    _panelFocusNode.dispose();
+    _editorFocusNode.dispose();
+    _titleFocusNode.dispose();
+    super.dispose();
+  }
+
+  HistoryEntry get entry => widget.entry;
+  VoidCallback get onClose => widget.onClose;
+  VoidCallback get onCopy => widget.onCopy;
+  VoidCallback get onPin => widget.onPin;
+  VoidCallback get onDelete => widget.onDelete;
+  VoidCallback get onArchive => widget.onArchive;
+  VoidCallback get onRestore => widget.onRestore;
+  VoidCallback? get onDuplicate => widget.onDuplicate;
+  VoidCallback? get onCopyMarkdown => widget.onCopyMarkdown;
+  bool get isTrashView => widget.isTrashView;
+  bool get isArchiveView => widget.isArchiveView;
+
+  void _exportEntry() {
+    // Fire-and-forget: the exporter manages its own progress + toast feedback.
+    widget.exportFn(context, [entry]);
+  }
+
+  /// Copies this entry's text into a new Notiz and offers to open it. The
+  /// toast's action captures the notifiers, not [ref], so it still works
+  /// after the detail panel has been closed.
+  Future<void> _takeAsNote() async {
+    final notes = ref.read(notesActionsProvider);
+    final note = await notes.create();
+    await notes.save(note.id, entry.content);
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    final editorTarget = ref.read(notesEditorTargetProvider.notifier);
+    final activePage = ref.read(activePageProvider.notifier);
+    WpToast.show(
+      context,
+      message: l10n.historyTakenAsNote,
+      type: WpToastType.success,
+      action: WpToastAction(
+        label: l10n.historyOpenNote,
+        onPressed: () {
+          editorTarget.set(note.id);
+          activePage.setPage('notes');
+        },
+      ),
+    );
+  }
+
+  Future<void> _saveTranscript() async {
+    final newContent = _transcriptController.text.trim();
+    if (newContent != entry.content) {
+      // Capture the pre-edit content before `updateContent` overwrites it --
+      // same "Ausgangstext" capture voice corrections do in
+      // `voice_note_button.dart` (ticket 01), so a manual edit here feeds
+      // the identical correction-signal shape (ticket 02
+      // `internal-notes`).
+      final contentBeforeEdit = entry.content;
+      try {
+        await ref
+            .read(historyDetailProvider(entry.id).notifier)
+            .updateContent(newContent);
+      } catch (_) {
+        // Keep the editor open with the typed text (UIA-HIS-05).
+        if (mounted) {
+          WpToast.show(
+            context,
+            message: L10n.of(context).historyWriteFailedToast,
+            type: WpToastType.error,
+          );
+        }
+        return;
+      }
+      _recordManualEditCorrectionSignal(contentBeforeEdit, newContent);
+    }
+    if (mounted) setState(() => _isEditingTranscript = false);
+  }
+
+  /// Feeds a manual transcript edit into the same correction-learning
+  /// pipeline voice `correct:`/`korrektur:` commands use (ticket 01) --
+  /// gated by the same settings toggle, and fire-and-forget like the other
+  /// telemetry/persistence side effects in this panel: the edit itself is
+  /// already saved by the time this runs, so nothing here should block or
+  /// fail the save.
+  void _recordManualEditCorrectionSignal(String before, String after) {
+    final correctionLearningEnabled =
+        ref.read(
+          settingsProvider.select(
+            (s) => s.value?.behavior.correctionLearningEnabled,
+          ),
+        ) ??
+        true;
+    if (!correctionLearningEnabled) return;
+
+    final service = ref.read(correctionLearningServiceProvider);
+    final db = ref.read(historyDatabaseProvider);
+    unawaited(
+      service.recordSignal(
+        CorrectionSignal(
+          sourceText: before,
+          targetText: after,
+          timestamp: DateTime.now(),
+          source: CorrectionSignalSource.manualEdit,
+        ),
+        db,
+      ),
+    );
+  }
+
+  void _toggleEdit() {
+    if (isTrashView) return;
+    if (_isEditingTranscript) {
+      _saveTranscript();
+    } else {
+      _transcriptController.text = entry.content;
+      // Captured now: a panel that is switching or going away has no usable
+      // `ref` any more, and the detail notifier may already be disposed by
+      // then. The database outlives both (UIA-HIS-02).
+      final db = ref.read(historyDatabaseProvider);
+      final entryId = entry.id;
+      final titleEdited = entry.titleEdited;
+      _saveOpenEdit = (text) {
+        final derived = deriveHistoryTitle(text);
+        return db.updateEntry(
+          entryId,
+          HistoryEntriesCompanion(
+            content: Value(text),
+            // Same title rule as `HistoryDetailNotifier.updateContent`.
+            title: titleEdited || derived.isEmpty
+                ? const Value.absent()
+                : Value(derived),
+          ),
+        );
+      };
+      _savedBeforeEdit = entry.content;
+      setState(() => _isEditingTranscript = true);
+    }
+  }
+
+  /// Esc in the transcript editor throws the edit away (UIA-HIS-31). Changed
+  /// text asks first, using the shared unsaved-input dialog; unchanged text
+  /// closes at once.
+  Future<void> _discardTranscriptEdit() async {
+    if (_transcriptController.text.trim() != _savedBeforeEdit) {
+      final l10n = L10n.of(context);
+      final discard = await showWpConfirmDialog(
+        context: context,
+        title: l10n.unsavedInputTitle,
+        message: l10n.unsavedInputMessage,
+        confirmLabel: l10n.unsavedInputDiscard,
+        cancelLabel: l10n.actionCancel,
+        destructive: true,
+      );
+      if (!discard || !mounted) return;
+    }
+    _saveOpenEdit = null;
+    _transcriptController.text = _savedBeforeEdit;
+    setState(() => _isEditingTranscript = false);
+  }
+
+  void _startTitleEdit() {
+    if (isTrashView) return;
+    _titleController.text = entry.title;
+    setState(() => _isEditingTitle = true);
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _titleFocusNode.requestFocus(),
+    );
+  }
+
+  void _saveTitle() {
+    final newTitle = _titleController.text.trim();
+    if (newTitle != entry.title) {
+      ref.read(historyDetailProvider(entry.id).notifier).updateTitle(newTitle);
+      final l10n = L10n.of(context);
+      WpToast.show(context, message: l10n.historyTitleSaved);
+    }
+    setState(() => _isEditingTitle = false);
+    _panelFocusNode.requestFocus();
+  }
+
+  /// Whether the original (pre-Smart-Mode/pre-Replacements) transcript
+  /// (ticket 12) should be offered as a disclosure at all — only when one
+  /// was captured *and* it actually differs from the final [content]. An
+  /// entry where Smart Mode/Replacements made no change, or a pre-ticket-12
+  /// entry with no captured original, shows nothing extra.
+  bool get _hasOriginalDiff {
+    final original = entry.originalTranscript;
+    return original != null && original != entry.content;
+  }
+
+  void _toggleShowOriginal() => setState(() => _showOriginal = !_showOriginal);
+
+  /// Bold/italic/bullet come from [WpMarkdownFormatting] — the same object the
+  /// toolbar's buttons call, so the key and the button it advertises can no
+  /// longer drift apart. This panel used to keep its own second copy.
+  WpMarkdownFormatting get _markdownFormatting => WpMarkdownFormatting(
+    controller: _transcriptController,
+    focusNode: _editorFocusNode,
+  );
+
+  String _fullTimestamp(BuildContext context) {
+    final locale = Localizations.localeOf(context).toString();
+    final fmt = DateFormat.yMMMd(locale).add_Hm();
+    return fmt.format(entry.timestamp);
+  }
+
+  String get _durationLabel {
+    final secs = entry.durationSec.round();
+    if (secs < 60) return '${secs}s';
+    final mins = secs ~/ 60;
+    final rem = secs % 60;
+    return rem > 0 ? '${mins}m ${rem}s' : '${mins}m';
+  }
+
+  String _wordCountLabel(L10n l10n, {required String displayedContent}) {
+    final source = _isEditingTranscript
+        ? _transcriptController.text
+        : displayedContent;
+    final words = computeWordCountFast(source);
+    final readMinutes = (words / 200).ceil(); // ~200 wpm average
+    // Non-breaking spaces inside each group: the only break opportunities left
+    // are the separators, so "67 Wörter · 1 Min. Lesezeit" wraps as two whole
+    // groups and never splits a group across two lines.
+    String group(String text) => text.replaceAll(' ', '\u00A0');
+    final wordStr = group(l10n.historyWordCount(words));
+    final timeStr = group(
+      readMinutes < 1
+          ? l10n.historyReadingTimeUnder1
+          : l10n.historyReadingTime(readMinutes),
+    );
+    return '$wordStr · $timeStr';
+  }
+
+  /// Copies whichever version (raw or edited) is currently displayed —
+  /// additive to the header's Copy button, which always copies raw content
+  /// (ticket 05: that existing, tested behavior is deliberately left alone).
+  void _copyDisplayedVersion(String displayedContent) {
+    copyToClipboardWithToast(
+      context: context,
+      ref: ref,
+      text: displayedContent,
+      category: 'history',
+    );
+  }
+
+  /// Shows a language-picker dialog for a retroactive Translate application.
+  /// Only [smartModeValidatedTargetLanguages] are offered (currently German
+  /// only — ticket 09 validates the rest). Returns `null` if the user
+  /// cancels.
+  Future<SmartModeTargetLanguage?> _pickSmartModeTargetLanguage() {
+    final l10n = L10n.of(context);
+    return showWpDialog<SmartModeTargetLanguage>(
+      context: context,
+      title: l10n.historySmartModeSelectTargetLanguage,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final lang in smartModeValidatedTargetLanguages)
+            // loam-ignore: a11y-interactive-semantics – semantics provided by ListTile
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                lang == SmartModeTargetLanguage.german
+                    ? l10n.smartModeTargetLanguageGerman
+                    : lang.languageName,
+              ),
+              onTap: () => Navigator.of(context).pop(lang),
+            ),
+        ],
+      ),
+      // The rows are the answer; the footer only leaves without one.
+      actions: [
+        WpDialogAction(
+          label: l10n.actionCancel,
+          testId: 'smart-mode-language-cancel',
+          role: WpDialogActionRole.cancel,
+        ),
+      ],
+    );
+  }
+
+  Future<void> _applySmartModePreset(SmartModePreset preset) async {
+    SmartModeTargetLanguage? targetLanguage;
+    if (preset == SmartModePreset.translate) {
+      targetLanguage = await _pickSmartModeTargetLanguage();
+      if (targetLanguage == null) return;
+    }
+    if (!mounted) return;
+    final l10n = L10n.of(context);
+    final result = await ref
+        .read(historyDetailProvider(entry.id).notifier)
+        .applyPreset(preset, targetLanguage: targetLanguage);
+    if (!mounted) return;
+    switch (result) {
+      case HistoryPresetApplicationSuccess():
+        WpToast.show(
+          context,
+          message: l10n.historySmartModeApplied,
+          type: WpToastType.success,
+        );
+      case HistoryPresetApplicationBusy():
+        WpToast.show(
+          context,
+          message: l10n.smartModeBusy,
+          type: WpToastType.info,
+        );
+      case HistoryPresetApplicationFailure(:final reason):
+        final message = switch (reason) {
+          SmartModeRetroactiveFailureReason.modelMissing =>
+            l10n.historySmartModeFailedModelMissing,
+          SmartModeRetroactiveFailureReason.timeout =>
+            l10n.historySmartModeFailedTimeout,
+          SmartModeRetroactiveFailureReason.checkTimedOut =>
+            l10n.smartModeCheckTimedOut,
+          SmartModeRetroactiveFailureReason.engineError ||
+          SmartModeRetroactiveFailureReason.blankResult ||
+          SmartModeRetroactiveFailureReason.factsChanged =>
+            l10n.historySmartModeFailedGeneric,
+        };
+        WpToast.show(context, message: message, type: WpToastType.error);
+    }
+  }
+
+  void _showShortcutHelp() {
+    final l10n = L10n.of(context);
+    showWpDialog<void>(
+      context: context,
+      title: l10n.historyShortcutHelp,
+      content: const _ShortcutHelpContent(),
+      actions: [
+        WpDialogAction(
+          label: l10n.historyClose,
+          testId: 'shortcut-help-close',
+          role: WpDialogActionRole.primary,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final detailAsync = ref.watch(historyDetailProvider(entry.id));
+    final detailState = detailAsync.asData?.value;
+    final tags = detailState?.tags ?? [];
+    final hasEditedVersion = detailState?.hasEditedVersion ?? false;
+    final viewingEditedVersion = detailState?.viewingEditedVersion ?? false;
+    final applyingPreset = detailState?.applyingPreset ?? false;
+    final displayedContent = detailState?.displayedContent ?? entry.content;
+
+    return CallbackShortcuts(
+      bindings: <ShortcutActivator, VoidCallback>{
+        const SingleActivator(LogicalKeyboardKey.escape): () {
+          if (_isEditingTitle) {
+            setState(() => _isEditingTitle = false);
+            _panelFocusNode.requestFocus();
+          } else if (_isEditingTranscript) {
+            unawaited(_discardTranscriptEdit());
+          } else {
+            onClose();
+          }
+        },
+        const SingleActivator(LogicalKeyboardKey.f2): () {
+          if (!isTextFieldFocused()) _startTitleEdit();
+        },
+        SingleActivator(
+          LogicalKeyboardKey.keyE,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
+          if (isTextFieldFocused()) return;
+          _toggleEdit();
+        },
+        SingleActivator(
+          LogicalKeyboardKey.keyS,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
+          if (_isEditingTitle) {
+            _saveTitle();
+          } else if (_isEditingTranscript) {
+            _saveTranscript();
+          }
+        },
+        SingleActivator(
+          LogicalKeyboardKey.enter,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
+          if (_isEditingTitle) {
+            _saveTitle();
+          } else if (_isEditingTranscript) {
+            _saveTranscript();
+          }
+        },
+        // Suppress full-entry copy when a text field is focused so native
+        // text selection copy (Ctrl+C / Cmd+C) works normally inside the editor.
+        SingleActivator(
+          LogicalKeyboardKey.keyC,
+          control: !Platform.isMacOS,
+          meta: Platform.isMacOS,
+        ): () {
+          if (_isEditingTranscript || _isEditingTitle) return;
+          onCopy();
+        },
+        // Markdown formatting shortcuts (active only in edit mode). Owned by
+        // WpMarkdownFormatting, shared with the Notes editor — the activators
+        // and the operations behind them are defined once, next to the toolbar
+        // buttons whose tooltips advertise them.
+        ..._markdownFormatting.shortcutBindings(
+          when: () => _isEditingTranscript,
+        ),
+        // Shortcut help overlay
+        const SingleActivator(LogicalKeyboardKey.slash, shift: true): () {
+          if (!isTextFieldFocused()) _showShortcutHelp();
+        },
+      },
+      child: Focus(
+        focusNode: _panelFocusNode,
+        child: Column(
+          children: [
+            // Header bar
+            _DetailPanelHeader(
+              entry: entry,
+              isTrashView: isTrashView,
+              isEditingTitle: _isEditingTitle,
+              titleController: _titleController,
+              titleFocusNode: _titleFocusNode,
+              timestamp: _fullTimestamp(context),
+              onStartTitleEdit: _startTitleEdit,
+              onSaveTitle: _saveTitle,
+              onCopy: onCopy,
+              onPin: onPin,
+              onDelete: onDelete,
+              onArchive: onArchive,
+              onRestore: onRestore,
+              onDuplicate: onDuplicate,
+              onCopyMarkdown: onCopyMarkdown,
+              onExport: _exportEntry,
+              onTakeAsNote: _takeAsNote,
+              onClose: onClose,
+              applyingPreset: applyingPreset,
+              onApplyPreset: isTrashView ? null : _applySmartModePreset,
+            ),
+            // No rule between header and content. The header's own bottom
+            // inset and the content's top padding already leave 32 dp here,
+            // and a line drawn across a gap that wide separates nothing that
+            // the gap has not separated already — it only adds one more
+            // horizontal to count on a screen meant to read as one task.
+            SmartModeUndoRow(entryId: entry.id, fallback: entry),
+            // Content
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact =
+                      constraints.maxWidth < WpLayout.breakpointMobile;
+                  final contentPad = isCompact ? WpSpacing.md : WpSpacing.xl;
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.all(contentPad),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ── Context zone: metadata + tags ──
+                        _DetailMetaChips(
+                          entry: entry,
+                          durationLabel: _durationLabel,
+                        ),
+                        _KeptUntilNotice(entryId: entry.id),
+                        const SizedBox(height: WpSpacing.sm),
+                        // Tags — label + chips in a single inline flow
+                        _TagSection(
+                          key: _tagSectionKey,
+                          entryId: entry.id,
+                          tags: tags,
+                          isTrashView: isTrashView,
+                          content: entry.content,
+                          searchQuery: _tagSearchQuery,
+                          onSearchChanged: (q) =>
+                              setState(() => _tagSearchQuery = q),
+                        ),
+                        // ── Context zone ends, content zone begins ──
+                        // Whitespace, not a rule: one `xl` gap says the same
+                        // thing the `md`/line/`md` sandwich said, in the same
+                        // vertical space, without a second horizontal
+                        // competing with the transcript's own head.
+                        const SizedBox(height: WpSpacing.xl),
+                        // ── Content zone: transcript + edit controls ──
+                        _DetailTranscriptZone(
+                          entry: entry,
+                          isTrashView: isTrashView,
+                          isEditing: _isEditingTranscript,
+                          transcriptController: _transcriptController,
+                          editorFocusNode: _editorFocusNode,
+                          wordCountLabel: _wordCountLabel(
+                            l10n,
+                            displayedContent: displayedContent,
+                          ),
+                          onToggleEdit: _toggleEdit,
+                          onSaveTranscript: _saveTranscript,
+                          displayedContent: displayedContent,
+                          hasEditedVersion: hasEditedVersion,
+                          viewingEditedVersion: viewingEditedVersion,
+                          onToggleViewingEdited: hasEditedVersion
+                              ? () => ref
+                                    .read(
+                                      historyDetailProvider(entry.id).notifier,
+                                    )
+                                    .setViewingEditedVersion(
+                                      !viewingEditedVersion,
+                                    )
+                              : null,
+                          onCopyDisplayed: () =>
+                              _copyDisplayedVersion(displayedContent),
+                        ),
+                        // ── Original transcript disclosure (ticket 12) ──
+                        // Final text stays the primary view; the original
+                        // is secondary/collapsed by default rather than
+                        // shown in side-by-side raw/final panes — this is
+                        // WhisPaste's own "final text first" stance.
+                        if (_hasOriginalDiff) ...[
+                          const SizedBox(height: WpSpacing.sm),
+                          _OriginalTranscriptDisclosure(
+                            originalText: entry.originalTranscript!,
+                            expanded: _showOriginal,
+                            onToggle: _toggleShowOriginal,
+                          ),
+                        ],
+                        // ── Notes section ──
+                        const SizedBox(height: WpSpacing.lg),
+                        HistoryNotesSection(
+                          key: _notesSectionKey,
+                          entryId: entry.id,
+                        ),
+                        const SizedBox(height: WpSpacing.xl),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shortcut help — body of the keyboard cheat sheet dialog
+// ---------------------------------------------------------------------------
+
+/// Content of the shortcut help [showWpDialog]: two labelled groups of
+/// key-cap rows. Colors come from the theme (surface, border, radius and
+/// title typography are the dialog's) — this body only owns the key caps.
+class _ShortcutHelpContent extends StatelessWidget {
+  const _ShortcutHelpContent();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final theme = Theme.of(context);
+    final groupStyle = theme.textTheme.labelSmall?.copyWith(
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.5,
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(l10n.historyShortcutGeneral, style: groupStyle),
+        const SizedBox(height: WpSpacing.xs),
+        _ShortcutRow(keyLabel: 'Esc', description: l10n.historyShortcutClose),
+        const SizedBox(height: WpSpacing.sm),
+        Text(l10n.historyShortcutListGroup, style: groupStyle),
+        const SizedBox(height: WpSpacing.xs),
+        _ShortcutRow(
+          keyLabel: '↑ ↓',
+          description: l10n.historyShortcutMoveFocus,
+        ),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+↵',
+          description: l10n.historyShortcutOpenEntry,
+        ),
+        _ShortcutRow(
+          keyLabel: l10n.shortcutKeyEnter,
+          description: l10n.historyShortcutCopyEntry,
+        ),
+        _ShortcutRow(
+          keyLabel: l10n.shortcutKeyDelete,
+          description: l10n.historyShortcutDeleteEntry,
+        ),
+        _ShortcutRow(keyLabel: 'F', description: l10n.historyShortcutPin),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+A',
+          description: l10n.historyShortcutSelectAll,
+        ),
+        _ShortcutRow(
+          keyLabel: l10n.shortcutKeyEscape,
+          description: l10n.historyShortcutClearSelection,
+        ),
+        const SizedBox(height: WpSpacing.sm),
+        Text(l10n.historyShortcutEditing, style: groupStyle),
+        const SizedBox(height: WpSpacing.xs),
+        _ShortcutRow(
+          keyLabel: 'F2',
+          description: l10n.historyShortcutEditTitle,
+        ),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+E',
+          description: l10n.historyShortcutToggleEdit,
+        ),
+        _ShortcutRow(keyLabel: 'Ctrl+S', description: l10n.historyShortcutSave),
+        _ShortcutRow(keyLabel: 'Ctrl+↵', description: l10n.historyShortcutSave),
+        _ShortcutRow(keyLabel: 'Ctrl+B', description: l10n.historyShortcutBold),
+        _ShortcutRow(
+          keyLabel: 'Ctrl+I',
+          description: l10n.historyShortcutItalic,
+        ),
+        _ShortcutRow(keyLabel: 'Ctrl+C', description: l10n.historyShortcutCopy),
+        _ShortcutRow(
+          keyLabel: l10n.shortcutKeyEscape,
+          description: l10n.historyShortcutDiscardEdit,
+        ),
+      ],
+    );
+  }
+}
+
+class _ShortcutRow extends StatelessWidget {
+  const _ShortcutRow({required this.keyLabel, required this.description});
+
+  final String keyLabel;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            // Off-scale on purpose: key-cap chip hugs its caption text;
+            // xxs would double the height of this deliberately tight cap.
+            padding: const EdgeInsets.symmetric(
+              horizontal: WpSpacing.xs,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: WpRadius.borderSm,
+            ),
+            child: Text(
+              keyLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                fontFamily: 'monospace',
+                letterSpacing: 0,
+                color: accent,
+              ),
+            ),
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(child: Text(description, style: theme.textTheme.bodyLarge)),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detail panel header (avatar + title/edit + timestamp + action buttons)
+// ---------------------------------------------------------------------------
+
+/// Square extent of one [HistoryDetailAction]: its icon plus padding on each
+/// side. The header measures against it to decide whether its actions still
+class _DetailPanelHeader extends StatelessWidget {
+  const _DetailPanelHeader({
+    required this.entry,
+    required this.isTrashView,
+    required this.isEditingTitle,
+    required this.titleController,
+    required this.titleFocusNode,
+    required this.timestamp,
+    required this.onStartTitleEdit,
+    required this.onSaveTitle,
+    required this.onCopy,
+    required this.onPin,
+    required this.onDelete,
+    required this.onArchive,
+    required this.onRestore,
+    required this.onDuplicate,
+    required this.onCopyMarkdown,
+    required this.onExport,
+    required this.onTakeAsNote,
+    required this.onClose,
+    required this.applyingPreset,
+    required this.onApplyPreset,
+  });
+
+  final HistoryEntry entry;
+  final bool isTrashView;
+  final bool isEditingTitle;
+  final TextEditingController titleController;
+  final FocusNode titleFocusNode;
+  final String timestamp;
+  final VoidCallback onStartTitleEdit;
+  final VoidCallback onSaveTitle;
+  final VoidCallback onCopy;
+  final VoidCallback onPin;
+  final VoidCallback onDelete;
+  final VoidCallback onArchive;
+  final VoidCallback onRestore;
+  final VoidCallback? onDuplicate;
+  final VoidCallback? onCopyMarkdown;
+  final VoidCallback onExport;
+  final VoidCallback onTakeAsNote;
+  final VoidCallback onClose;
+
+  /// Whether a retroactive Smart Mode preset application is in flight for
+  /// this entry (ticket 05) — disables the overflow menu's preset items.
+  final bool applyingPreset;
+
+  /// Applies a Smart Mode preset retroactively to this entry, or `null` in
+  /// the trash view where the action is not offered.
+  final void Function(SmartModePreset preset)? onApplyPreset;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textPrimary = WpColors.textPrimary;
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
+    final avatarCol = historyAvatarSlot(entry).color();
+
+    final avatar = HistoryEntryAvatar(
+      color: avatarCol,
+      icon: historyAvatarIcon,
+      isPinned: entry
+          .pinned, // Off-scale on purpose (explicit default): mid-sized between
+      // the card (32) and the list row (42) — the header shares the
+      // row with title/metadata/actions, unlike the list row.
+      size: 36,
+    );
+
+    // The title column: heading (edit field or read row) and the timestamp.
+    final titleColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (isEditingTitle)
+          WpTextField(
+            controller: titleController,
+            focusNode: titleFocusNode,
+            variant: WpTextFieldVariant.heading,
+            hintText: l10n.historyTitlePlaceholder,
+            onSubmitted: (_) => onSaveTitle(),
+            onEditingComplete: onSaveTitle,
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: Semantics(
+                  button: !isTrashView,
+                  onTapHint: isTrashView ? null : l10n.historyEditTitle,
+                  onTap: isTrashView ? null : onStartTitleEdit,
+                  child: _tooltipIf(
+                    isTrashView ? null : l10n.historyEditTitle,
+                    child: WpFocusRing(
+                      focusNode: titleFocusNode,
+                      radius: WpRadius.sm,
+                      child: InkWell(
+                        onDoubleTap: isTrashView ? null : onStartTitleEdit,
+                        focusNode: titleFocusNode,
+                        borderRadius: WpRadius.borderSm,
+                        focusColor: Colors.transparent,
+                        hoverColor: Colors.transparent,
+                        splashColor: Colors.transparent,
+                        highlightColor: Colors.transparent,
+                        mouseCursor: isTrashView
+                            ? SystemMouseCursors.basic
+                            : SystemMouseCursors.click,
+                        child: HighlightedText(
+                          text: entry.title.isNotEmpty
+                              ? entry.title
+                              : l10n.historyUntitled,
+                          // Read view and edit view of the same
+                          // title: one style, so opening edit mode
+                          // never resizes the text.
+                          style: WpTextField.styleFor(
+                            WpTextFieldVariant.heading,
+                            color: textPrimary,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        const SizedBox(height: 2),
+        Text(
+          timestamp,
+          // One line: the date is the header's second fact and must not wrap
+          // into the title's line count.
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: WpTypography.small, color: textMuted),
+        ),
+      ],
+    );
+
+    // Actions stay on the title's row, as before.
+    final actions = <Widget>[
+      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+      HistoryDetailAction(
+        icon: LucideIcons.copy,
+        tooltip:
+            '${l10n.historyCopyText} '
+            '(${formatHotkeyShortcut('ctrl', 'c', l10n: l10n)})',
+        onTap: onCopy,
+      ),
+      if (isTrashView) ...[
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+        HistoryDetailAction(
+          icon: LucideIcons.undo2,
+          tooltip: l10n.historyRestore,
+          onTap: onRestore,
+        ),
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+        HistoryDetailAction(
+          icon: LucideIcons.trash2,
+          tooltip: l10n.historyDeleteForever,
+          onTap: onDelete,
+          isDestructive: true,
+        ),
+      ] else
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+        HistoryDetailAction(
+          faIcon: entry.pinned ? FontAwesomeIcons.solidStar : null,
+          icon: entry.pinned ? null : LucideIcons.star,
+          activeColor: entry.pinned ? WpSharedColors.pinnedAccent : null,
+          tooltip:
+              '${entry.pinned ? l10n.historyUnpin : l10n.historyPinToTop} (F)',
+          onTap: onPin,
+        ),
+      if (!isTrashView)
+        // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+        HistoryDetailAction(
+          key: const ValueKey('history-detail-take-as-note'),
+          icon: LucideIcons.stickyNote,
+          tooltip: l10n.historyTakeAsNote,
+          onTap: onTakeAsNote,
+        ),
+      // Overflow menu for secondary actions
+      _DetailOverflowMenu(
+        entry: entry,
+        textSecondary: textSecondary,
+        onCopyMarkdown: onCopyMarkdown,
+        onDuplicate: onDuplicate,
+        onExport: onExport,
+        onArchive: onArchive,
+        onDelete: onDelete,
+        applyingPreset: applyingPreset,
+        onApplyPreset: onApplyPreset,
+        isTrashView: isTrashView,
+      ),
+      const SizedBox(width: WpSpacing.xxs),
+      // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+      HistoryDetailAction(
+        icon: LucideIcons.x,
+        tooltip: '${l10n.historyClose} (Esc)',
+        onTap: onClose,
+      ),
+    ];
+    final actionsRow = Row(mainAxisSize: MainAxisSize.min, children: actions);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.md,
+        WpSpacing.md,
+        WpSpacing.sm,
+      ),
+      child: ClipRect(
+        child: Row(
+          children: [
+            avatar,
+            const SizedBox(width: WpSpacing.sm),
+            Expanded(child: titleColumn),
+            actionsRow,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Overflow popup menu (secondary header actions)
+// ---------------------------------------------------------------------------
+
+class _DetailOverflowMenu extends ConsumerWidget {
+  const _DetailOverflowMenu({
+    required this.entry,
+    required this.textSecondary,
+    required this.onCopyMarkdown,
+    required this.onDuplicate,
+    required this.onExport,
+    required this.onArchive,
+    required this.onDelete,
+    required this.applyingPreset,
+    required this.onApplyPreset,
+    required this.isTrashView,
+  });
+
+  final HistoryEntry entry;
+  final Color textSecondary;
+  final VoidCallback? onCopyMarkdown;
+  final VoidCallback? onDuplicate;
+  final VoidCallback onExport;
+  final VoidCallback onArchive;
+  final VoidCallback onDelete;
+  final bool applyingPreset;
+  final void Function(SmartModePreset preset)? onApplyPreset;
+  final bool isTrashView;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    // "Turn off auto-paste in this app": offered when the recording's target
+    // app is known and not on the block list yet (see CONTEXT.md §2.7).
+    final target = entry.targetApp?.trim();
+    final blocklist =
+        ref.watch(settingsProvider).value?.behavior.autoPasteBlocklist ?? '';
+    final offerAutoPasteOff =
+        target != null &&
+        target.isNotEmpty &&
+        !autoPasteBlocklistContains(blocklist, target);
+    return PopupMenuButton<String>(
+      key: const ValueKey('history-detail-menu'),
+      icon: Icon(
+        LucideIcons.ellipsisVertical,
+        size: WpIconSize.md,
+        color: textSecondary,
+      ),
+      tooltip: L10n.of(context).historyMoreActions,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      // A popup menu floats over arbitrary content — pre-composited card
+      // material, see `WpColors.floatingSurface`.
+      color: WpColors.floatingSurface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(WpRadius.md),
+      ),
+      onSelected: (value) {
+        switch (value) {
+          case 'markdown':
+            onCopyMarkdown?.call();
+          case 'duplicate':
+            onDuplicate?.call();
+          case 'preset_cleanup':
+            onApplyPreset?.call(SmartModePreset.cleanup);
+          case 'preset_concise':
+            onApplyPreset?.call(SmartModePreset.concise);
+          case 'preset_translate':
+            onApplyPreset?.call(SmartModePreset.translate);
+          case 'export':
+            onExport();
+          case 'auto_paste_off':
+            if (target == null) break;
+            ref
+                .read(settingsProvider.notifier)
+                .updateSettings(
+                  (s) => s.copyWith(
+                    autoPasteBlocklist: autoPasteBlocklistWith(
+                      s.behavior.autoPasteBlocklist,
+                      target,
+                    ),
+                  ),
+                );
+          case 'archive':
+            onArchive();
+          case 'delete':
+            onDelete();
+        }
+      },
+      itemBuilder: (context) => [
+        if (onCopyMarkdown != null)
+          PopupMenuItem(
+            value: 'markdown',
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.fileText,
+              label: l10n.historyCopyAsMarkdown,
+            ),
+          ),
+        if (onDuplicate != null)
+          PopupMenuItem(
+            value: 'duplicate',
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.files,
+              label: l10n.historyDuplicate,
+            ),
+          ),
+        if (onApplyPreset != null) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            enabled: false,
+            height: 28,
+            child: Text(
+              l10n.historyApplySmartModePreset,
+              style: TextStyle(
+                fontSize: WpTypography.caption,
+                fontWeight: FontWeight.w600,
+                color: textSecondary,
+              ),
+            ),
+          ),
+          PopupMenuItem(
+            value: 'preset_cleanup',
+            enabled: !applyingPreset,
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.sparkles,
+              label: l10n.smartModePresetCleanup,
+            ),
+          ),
+          PopupMenuItem(
+            value: 'preset_concise',
+            enabled: !applyingPreset,
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.minimize2,
+              label: l10n.smartModePresetConcise,
+            ),
+          ),
+          PopupMenuItem(
+            value: 'preset_translate',
+            enabled: !applyingPreset,
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.languages,
+              label: l10n.smartModePresetTranslate,
+            ),
+          ),
+        ],
+        PopupMenuItem(
+          key: const ValueKey('history-detail-menu-export'),
+          value: 'export',
+          child: HistoryPopupMenuRow(
+            icon: LucideIcons.download,
+            label: l10n.historyExportAction,
+          ),
+        ),
+        if (offerAutoPasteOff)
+          PopupMenuItem(
+            key: const ValueKey('history-detail-menu-auto-paste-off'),
+            value: 'auto_paste_off',
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.ban,
+              label: l10n.historyAutoPasteOffForApp,
+            ),
+          ),
+        if (!isTrashView)
+          PopupMenuItem(
+            value: 'archive',
+            child: HistoryPopupMenuRow(
+              icon: entry.archived
+                  ? LucideIcons.archiveRestore
+                  : LucideIcons.archive,
+              label: entry.archived
+                  ? l10n.historyUnarchive
+                  : l10n.historyArchive,
+            ),
+          ),
+        // Destructive entry is set apart by a divider so it is never read as
+        // one more equal-weight sibling of Archivieren (UX-012). Deleting is
+        // a soft delete with an undo toast outside the trash view.
+        if (!isTrashView) ...[
+          const PopupMenuDivider(),
+          PopupMenuItem(
+            key: const ValueKey('history-detail-menu-delete'),
+            value: 'delete',
+            child: HistoryPopupMenuRow(
+              icon: LucideIcons.trash2,
+              label: l10n.actionDelete,
+              isDestructive: true,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Meta chips row (duration, language, storage, model)
+// ---------------------------------------------------------------------------
+
+class _DetailMetaChips extends StatelessWidget {
+  const _DetailMetaChips({required this.entry, required this.durationLabel});
+
+  final HistoryEntry entry;
+  final String durationLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Wrap(
+      spacing: WpSpacing.sm,
+      runSpacing: WpSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _MetaChip(icon: LucideIcons.clock, label: durationLabel),
+        if (entry.language.isNotEmpty)
+          _MetaChip(
+            icon: LucideIcons.globe,
+            label: entry.language.toUpperCase(),
+          ),
+        _MetaChip(
+          icon: entry.isLocal ? LucideIcons.hardDrive : LucideIcons.cloud,
+          label: entry.isLocal ? l10n.historyOnDevice : l10n.statusCloud,
+        ),
+        if (entry.model.isNotEmpty) ...[
+          () {
+            final modelName = displayNameForModel(entry.model, l10n);
+            return Tooltip(
+              message: '${l10n.historyModel}: $modelName',
+              child: _MetaChip(
+                icon: LucideIcons.cpu,
+                label: modelName.length > 25
+                    ? '${modelName.substring(0, 25)}…'
+                    : modelName,
+              ),
+            );
+          }(),
+        ],
+        // Character count (ticket 12) — "at a glance" length, so a reader
+        // does not have to open/scroll the transcript just to gauge it.
+        // Counts the final [HistoryEntry.content], the same source of
+        // truth the raw/edited toggle above treats as "raw".
+        _MetaChip(
+          icon: LucideIcons.textCursorInput,
+          label: l10n.historyCharacterCount(entry.content.length),
+        ),
+        // Target app (ticket 12) — which app/window this dictation was
+        // pasted into. `null` for quick notes, template fields, Linux, or
+        // any entry where no target was captured (including every
+        // pre-ticket-12 entry) — the chip simply does not render then.
+        if (entry.targetApp != null && entry.targetApp!.isNotEmpty)
+          Tooltip(
+            message: l10n.historyPastedInto(entry.targetApp!),
+            child: _TargetAppChip(identifier: entry.targetApp!),
+          ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Transcript zone (view/edit mode + edit status bar)
+// ---------------------------------------------------------------------------
+
+class _DetailTranscriptZone extends StatelessWidget {
+  const _DetailTranscriptZone({
+    required this.entry,
+    required this.isTrashView,
+    required this.isEditing,
+    required this.transcriptController,
+    required this.editorFocusNode,
+    required this.wordCountLabel,
+    required this.onToggleEdit,
+    required this.onSaveTranscript,
+    required this.displayedContent,
+    required this.hasEditedVersion,
+    required this.viewingEditedVersion,
+    required this.onToggleViewingEdited,
+    required this.onCopyDisplayed,
+  });
+
+  final HistoryEntry entry;
+  final bool isTrashView;
+  final bool isEditing;
+  final TextEditingController transcriptController;
+  final FocusNode editorFocusNode;
+  final String wordCountLabel;
+  final VoidCallback onToggleEdit;
+  final VoidCallback onSaveTranscript;
+
+  /// The text to show in read mode — raw or edited, per
+  /// [viewingEditedVersion] (ticket 05). Edit mode always edits the raw
+  /// [HistoryEntry.content], never this.
+  final String displayedContent;
+
+  /// Whether this entry has a Smart-Mode-edited version to toggle to.
+  final bool hasEditedVersion;
+
+  /// Whether [displayedContent] is currently the edited version.
+  final bool viewingEditedVersion;
+
+  /// Flips [viewingEditedVersion]. `null` when [hasEditedVersion] is `false`
+  /// — there is nothing to toggle to.
+  final VoidCallback? onToggleViewingEdited;
+
+  /// Copies [displayedContent] — the version currently on screen, which may
+  /// differ from the header's Copy button (always raw).
+  final VoidCallback onCopyDisplayed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textPrimary = WpColors.textPrimary;
+
+    // Cap prose measure at ~85 chars/line for the 16px body (Fill-By-Default
+    // Rule: only the transcript degrades on ultrawide, so only it gets capped).
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 720),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isEditing) ...[
+            WpMarkdownToolbar(
+              controller: transcriptController,
+              focusNode: editorFocusNode,
+            ),
+            const SizedBox(height: WpSpacing.xs),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: isEditing
+                    ? WpTextField(
+                        controller: transcriptController,
+                        focusNode: editorFocusNode,
+                        variant: WpTextFieldVariant.passage,
+                        semanticsLabel: l10n.historyEditTranscript,
+                        autofocus: true,
+                        onSubmitted: (_) => onSaveTranscript(),
+                      )
+                    : Semantics(
+                        button: !isTrashView,
+                        // Same trash-view rule as the title above: the
+                        // transcript is read-only here, so it must not offer
+                        // "Edit transcript" on hover next to a tap that does
+                        // nothing.
+                        child: _tooltipIf(
+                          isTrashView ? null : l10n.historyEditTranscript,
+                          child: WpFocusRing(
+                            focusNode: editorFocusNode,
+                            radius: WpRadius.sm,
+                            child: InkWell(
+                              onTap: isTrashView ? null : onToggleEdit,
+                              focusNode: editorFocusNode,
+                              borderRadius: WpRadius.borderSm,
+                              focusColor: Colors.transparent,
+                              hoverColor: Colors.transparent,
+                              splashColor: Colors.transparent,
+                              highlightColor: Colors.transparent,
+                              mouseCursor: isTrashView
+                                  ? SystemMouseCursors.basic
+                                  : SystemMouseCursors.click,
+                              // Same *material* as the edit view above, not
+                              // just the same metrics (Ticket 16). Matching
+                              // the metrics alone was enough while `passage`
+                              // was a hairline box the read view simply did
+                              // without; once the variant took the card fill
+                              // (Ticket 09) the two views became two
+                              // materials, and the paragraph a reader is
+                              // reading changed substance on a toggle that
+                              // changes nothing about the text. The surface
+                              // is the field's own resting box, taken from
+                              // the same spec, so it also carries the field's
+                              // 12 dp inset — which is what stops the
+                              // paragraph from shifting sideways when edit
+                              // mode opens. The 720 dp measure above is
+                              // unchanged and still caps both views.
+                              //
+                              // No lift in the trash view: the lift is the
+                              // "you can write here" affordance, and there
+                              // the tap that would open edit mode is gone.
+                              child: WpTextFieldSurface(
+                                variant: WpTextFieldVariant.passage,
+                                liftsOnHover: !isTrashView,
+                                child: HighlightedText(
+                                  // An empty transcript renders a
+                                  // zero-width space, so this now shows an
+                                  // empty card rather than nothing at all.
+                                  // Deliberate: the edit view of the same
+                                  // empty entry draws exactly that card, and
+                                  // the point of this ticket is that the two
+                                  // are one surface.
+                                  text: displayedContent.isEmpty
+                                      ? '\u200B'
+                                      : displayedContent,
+                                  style: WpTextField.styleFor(
+                                    WpTextFieldVariant.passage,
+                                    color: textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+            ],
+          ),
+          if (!isTrashView) ...[
+            const SizedBox(height: WpSpacing.xs),
+            WpToastDockReserve(
+              child: _TranscriptEditBar(
+                entry: entry,
+                isEditing: isEditing,
+                wordCountLabel: wordCountLabel,
+                onToggleEdit: onToggleEdit,
+                hasEditedVersion: hasEditedVersion,
+                viewingEditedVersion: viewingEditedVersion,
+                onToggleViewingEdited: onToggleViewingEdited,
+                onCopyDisplayed: onCopyDisplayed,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Original transcript disclosure (ticket 12) — collapsed by default, shown
+// only when the entry has a captured original that differs from the final
+// text. Deliberately a secondary, collapsible affordance rather than a
+// side-by-side pane: the final text is always the primary view here.
+// ---------------------------------------------------------------------------
+
+class _OriginalTranscriptDisclosure extends StatelessWidget {
+  const _OriginalTranscriptDisclosure({
+    required this.originalText,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final String originalText;
+  final bool expanded;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textMuted = WpColors.textMuted;
+    final textPrimary = WpColors.textPrimary;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // loam-ignore: a11y-interactive-semantics – semantics provided by Semantics wrapper below
+        Semantics(
+          button: true,
+          label: expanded
+              ? l10n.historyHideOriginalTranscript
+              : l10n.historyShowOriginalTranscript,
+          child: InkWell(
+            onTap: onToggle,
+            borderRadius: WpRadius.borderSm,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    expanded
+                        ? LucideIcons.chevronDown
+                        : LucideIcons.chevronRight,
+                    size: WpIconSize.xs,
+                    color: textMuted,
+                  ),
+                  const SizedBox(width: WpSpacing.xxs),
+                  Text(
+                    expanded
+                        ? l10n.historyHideOriginalTranscript
+                        : l10n.historyShowOriginalTranscript,
+                    style: TextStyle(
+                      fontSize: WpTypography.small,
+                      fontWeight: FontWeight.w500,
+                      color: textMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (expanded)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(top: WpSpacing.xxs),
+            padding: const EdgeInsets.all(WpSpacing.sm),
+            decoration: BoxDecoration(
+              color: WpColors.surfaceMutedFill,
+              borderRadius: WpRadius.borderMd,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.historyOriginalTranscriptLabel,
+                  style: TextStyle(
+                    fontSize: WpTypography.caption,
+                    fontWeight: FontWeight.w600,
+                    color: textMuted,
+                  ),
+                ),
+                const SizedBox(height: WpSpacing.xxs),
+                SelectableText(
+                  originalText,
+                  style: TextStyle(
+                    fontSize: WpTypography.body,
+                    color: textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Edit status bar below transcript (status badge + word count + edit button)
+// ---------------------------------------------------------------------------
+
+class _TranscriptEditBar extends StatelessWidget {
+  const _TranscriptEditBar({
+    required this.entry,
+    required this.isEditing,
+    required this.wordCountLabel,
+    required this.onToggleEdit,
+    required this.hasEditedVersion,
+    required this.viewingEditedVersion,
+    required this.onToggleViewingEdited,
+    required this.onCopyDisplayed,
+  });
+
+  final HistoryEntry entry;
+  final bool isEditing;
+  final String wordCountLabel;
+  final VoidCallback onToggleEdit;
+  final bool hasEditedVersion;
+  final bool viewingEditedVersion;
+  final VoidCallback? onToggleViewingEdited;
+  final VoidCallback onCopyDisplayed;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final textMuted = WpColors.textMuted;
+    final accent = WpColors.accent;
+    final showBadge = entry.titleEdited || isEditing;
+    final showWordCount = entry.content.isNotEmpty || isEditing;
+
+    // One wrapping line of whole groups: metadata, the raw/edited controls and
+    // the edit button. A Row with an Expanded metadata group gave that group
+    // zero width once the right-hand controls took the row, which wrapped the
+    // word count one character per line.
+    return Wrap(
+      spacing: WpSpacing.xs,
+      runSpacing: WpSpacing.xxs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Wrap(
+          spacing: WpSpacing.xs,
+          runSpacing: WpSpacing.xxs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            if (showBadge)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.sm,
+                  vertical: WpSpacing.xxs,
+                ),
+                decoration: BoxDecoration(
+                  color: isEditing
+                      ? accent.withValues(alpha: 0.15)
+                      : textMuted.withValues(alpha: 0.1),
+                  borderRadius: WpRadius.borderFull,
+                ),
+                // Resting state is a *status*, not an offer: the badge
+                // marks a transcript that was hand-corrected. It used to
+                // read "Edit transcript" — an action verb, word for word
+                // the same as the button 8 px to its right, so the row
+                // showed the same command twice and said nothing about the
+                // entry. `historyNoteEdited` is the generic past
+                // participle ("edited"/"bearbeitet"); its key name is the
+                // only thing note-specific about it. A dedicated
+                // transcript key would mean touching the ARB files, which
+                // are outside this change — bewusst nicht umgesetzt,
+                // künftiges Ticket.
+                child: Text(
+                  isEditing ? l10n.historyEditing : l10n.historyNoteEdited,
+                  style: TextStyle(
+                    fontSize: WpTypography.micro,
+                    fontWeight: isEditing ? FontWeight.w600 : FontWeight.normal,
+                    color: isEditing ? accent : textMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            // No width cap: the count and reading time are one fact pair and
+            // must never be truncated (FLUTTER_WHISPASTE-64 capped it at 120).
+            // The Wrap moves the whole label to a new line when it does not
+            // fit beside the badge, and the group-wise break keeps it intact.
+            if (showWordCount)
+              Text(
+                wordCountLabel,
+                style: TextStyle(
+                  fontSize: WpTypography.caption,
+                  color: textMuted,
+                ),
+              ),
+          ],
+        ),
+        if (!isEditing && hasEditedVersion) ...[
+          _RawEditedToggle(
+            viewingEditedVersion: viewingEditedVersion,
+            onToggle: onToggleViewingEdited,
+          ),
+          const SizedBox(width: WpSpacing.xs),
+          // loam-ignore: a11y-interactive-semantics – semantics provided in _HistoryDetailActionState.build
+          HistoryDetailAction(
+            icon: LucideIcons.copy,
+            tooltip: L10n.of(context).historyCopyText,
+            onTap: onCopyDisplayed,
+          ),
+        ],
+        const SizedBox(width: WpSpacing.xs),
+        // Right: edit/save button — always right-aligned
+        Tooltip(
+          message: isEditing
+              ? '${l10n.historySaveTranscript} (Ctrl+S / Ctrl+↵)'
+              : '${l10n.historyEditTranscript} (Ctrl+E)',
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: WpRadius.borderFull,
+            child: InkWell(
+              borderRadius: const BorderRadius.all(Radius.circular(999)),
+              onTap: onToggleEdit,
+              child: AnimatedContainer(
+                duration: WpMotion.durationFor(context, WpMotion.fast),
+                // Off-scale on purpose: 12x6 pill proportion shared with the
+                // history filter chips; xs would visibly inflate the control.
+                padding: const EdgeInsets.symmetric(
+                  horizontal: WpSpacing.sm,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: isEditing
+                      ? accent.withValues(alpha: 0.15)
+                      : (WpColors.surfaceMutedFill),
+                  borderRadius: WpRadius.borderFull,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isEditing ? LucideIcons.check : LucideIcons.pencil,
+                      size: WpIconSize.xs,
+                      color: isEditing ? accent : textMuted,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        isEditing
+                            ? l10n.historySaveTranscript
+                            : l10n.historyEditTranscript,
+                        style: TextStyle(
+                          fontSize: WpTypography.small,
+                          fontWeight: FontWeight.w500,
+                          color: isEditing ? accent : textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Raw/edited view toggle (ticket 05) — a two-segment pill, same visual
+// family as the edit/save pill it sits next to.
+// ---------------------------------------------------------------------------
+
+class _RawEditedToggle extends StatelessWidget {
+  const _RawEditedToggle({
+    required this.viewingEditedVersion,
+    required this.onToggle,
+  });
+
+  final bool viewingEditedVersion;
+  final VoidCallback? onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final accent = WpColors.accent;
+    final textMuted = WpColors.textMuted;
+
+    Widget segment(String label, bool selected) => Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: WpSpacing.sm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: selected ? accent.withValues(alpha: 0.15) : Colors.transparent,
+        borderRadius: WpRadius.borderFull,
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: WpTypography.small,
+          fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+          color: selected ? accent : textMuted,
+        ),
+      ),
+    );
+
+    return Material(
+      color: WpColors.surfaceMutedFill,
+      borderRadius: WpRadius.borderFull,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // loam-ignore: a11y-interactive-semantics – semantics provided by Semantics wrapper below
+          Semantics(
+            button: true,
+            selected: !viewingEditedVersion,
+            label: l10n.historyViewRaw,
+            child: InkWell(
+              borderRadius: const BorderRadius.all(Radius.circular(999)),
+              onTap: viewingEditedVersion ? onToggle : null,
+              child: segment(l10n.historyViewRaw, !viewingEditedVersion),
+            ),
+          ),
+          // loam-ignore: a11y-interactive-semantics – semantics provided by Semantics wrapper below
+          Semantics(
+            button: true,
+            selected: viewingEditedVersion,
+            label: l10n.historyViewEdited,
+            child: InkWell(
+              borderRadius: const BorderRadius.all(Radius.circular(999)),
+              onTap: viewingEditedVersion ? null : onToggle,
+              child: segment(l10n.historyViewEdited, viewingEditedVersion),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Popup menu row (icon + label)
+// ---------------------------------------------------------------------------
+
+class HistoryPopupMenuRow extends StatelessWidget {
+  const HistoryPopupMenuRow({
+    super.key,
+    required this.icon,
+    required this.label,
+    this.isDestructive = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool isDestructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isDestructive ? (WpColors.error) : (WpColors.textPrimary);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: WpIconSize.sm, color: color),
+        const SizedBox(width: WpSpacing.sm),
+        Text(
+          label,
+          style: TextStyle(fontSize: WpTypography.body, color: color),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detail panel action button
+// ---------------------------------------------------------------------------
+
+class HistoryDetailAction extends StatefulWidget {
+  const HistoryDetailAction({
+    super.key,
+    this.icon,
+    this.faIcon,
+    required this.tooltip,
+    required this.onTap,
+    this.isDestructive = false,
+    this.activeColor,
+  }) : assert(icon != null || faIcon != null, 'Provide icon or faIcon');
+
+  final IconData? icon;
+  final FaIconData? faIcon;
+  final String tooltip;
+  final VoidCallback onTap;
+  final bool isDestructive;
+
+  /// When set, overrides the icon color regardless of hover/active state.
+  final Color? activeColor;
+
+  @override
+  State<HistoryDetailAction> createState() => _HistoryDetailActionState();
+}
+
+class _HistoryDetailActionState extends State<HistoryDetailAction> {
+  bool _isHovered = false;
+  final FocusNode _focusNode = FocusNode(debugLabel: 'HistoryDetailAction');
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color iconColor;
+    if (widget.activeColor != null) {
+      iconColor = widget.activeColor!;
+    } else if (widget.isDestructive && _isHovered) {
+      iconColor = WpColors.error;
+    } else if (_isHovered) {
+      iconColor = WpColors.textPrimary;
+    } else {
+      iconColor = WpColors.textMuted;
+    }
+
+    return Semantics(
+      label: widget.tooltip,
+      button: true,
+      child: Tooltip(
+        message: widget.tooltip,
+        preferBelow: false,
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          // InkWell + WpFocusRing instead of a bare GestureDetector: this is the
+          // house shape for an icon-only action (WpRowAction:151-200), and the
+          // detail panel's own actions were the one set of them Tab could not
+          // reach. Copy/Restore/Delete of the open entry were mouse-only, which
+          // is precisely the round trip this audience cannot make.
+          child: WpFocusRing(
+            focusNode: _focusNode,
+            radius: WpRadius.sm,
+            child: InkWell(
+              onTap: widget.onTap,
+              focusNode: _focusNode,
+              borderRadius: WpRadius.borderSm,
+              // WpFocusRing owns all focus visuals — suppress InkWell's own.
+              focusColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              child: AnimatedContainer(
+                duration: WpMotion.durationFor(
+                  context,
+                  _isHovered ? Duration.zero : WpMotion.hoverOut,
+                ),
+                padding: const EdgeInsets.all(WpSpacing.sm),
+                decoration: BoxDecoration(
+                  color: _isHovered
+                      ? (WpColors.hover)
+                      : (WpColors.hoverTransparent),
+                  borderRadius: WpRadius.borderSm,
+                ),
+                child: widget.faIcon != null
+                    ? FaIcon(
+                        widget.faIcon!,
+                        size: WpIconSize.md,
+                        color: iconColor,
+                      )
+                    : Icon(widget.icon!, size: WpIconSize.md, color: iconColor),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Detail metadata row
+// ---------------------------------------------------------------------------
+
+class HistoryDetailMetaRow extends StatelessWidget {
+  const HistoryDetailMetaRow({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textSecondary = WpColors.textSecondary;
+    final textPrimary = WpColors.textPrimary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: WpSpacing.xxs),
+      child: Row(
+        children: [
+          Icon(icon, size: WpIconSize.xs, color: textSecondary),
+          const SizedBox(width: WpSpacing.sm),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              color: textSecondary,
+            ),
+          ),
+          const SizedBox(width: WpSpacing.sm),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: WpTypography.small,
+                color: textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact inline metadata chip for the detail panel.
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = WpColors.textMuted;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: WpIconSize.xxs, color: fg),
+        const SizedBox(width: WpSpacing.xxs),
+        Text(
+          label,
+          style: TextStyle(fontSize: WpTypography.caption, color: fg),
+        ),
+      ],
+    );
+  }
+}
+
+/// The target app as a meta chip: its icon (system icon or category tile)
+/// and readable name, resolved when the chip is shown.
+class _TargetAppChip extends ConsumerWidget {
+  const _TargetAppChip({required this.identifier});
+
+  final String identifier;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        WpAppIcon(identifier: identifier, size: WpIconSize.sm),
+        const SizedBox(width: WpSpacing.xxs),
+        Text(
+          watchAppName(ref, identifier),
+          style: TextStyle(
+            fontSize: WpTypography.caption,
+            color: WpColors.textMuted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Tag section — connects WpTagInput to HistoryDetailNotifier
+// ---------------------------------------------------------------------------
+
+class _TagSection extends ConsumerStatefulWidget {
+  const _TagSection({
+    super.key,
+    required this.entryId,
+    required this.tags,
+    required this.content,
+    required this.searchQuery,
+    required this.onSearchChanged,
+    this.isTrashView = false,
+  });
+
+  /// Trashed entries keep their tags visible but cannot change them.
+  final bool isTrashView;
+
+  final String entryId;
+  final List<Tag> tags;
+  final String content;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
+
+  @override
+  ConsumerState<_TagSection> createState() => _TagSectionState();
+}
+
+class _TagSectionState extends ConsumerState<_TagSection> {
+  List<Tag> _suggestions = [];
+  Map<String, int> _suggestionCounts = {};
+  final GlobalKey<WpTagInputState> _tagInputKey = GlobalKey<WpTagInputState>();
+
+  /// Called by keyboard shortcut (T) to enter tag add mode.
+  void focusTagInput() {
+    _tagInputKey.currentState?.enterAddMode();
+  }
+
+  @override
+  void didUpdateWidget(covariant _TagSection old) {
+    super.didUpdateWidget(old);
+    if (old.searchQuery != widget.searchQuery) {
+      _loadSuggestions();
+    }
+  }
+
+  Future<void> _loadSuggestions() async {
+    final db = ref.read(historyDatabaseProvider);
+    if (widget.searchQuery.isEmpty) {
+      final results = await db.frequentTagsWithCount(limit: 8);
+      if (mounted) {
+        setState(() {
+          _suggestions = results.map((r) => r.$1).toList();
+          _suggestionCounts = {for (final r in results) r.$1.id: r.$2};
+        });
+      }
+    } else {
+      final results = await db.searchTags(widget.searchQuery);
+      if (mounted) {
+        setState(() {
+          _suggestions = results;
+          _suggestionCounts = {};
+        });
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSuggestions();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final notifier = ref.read(historyDetailProvider(widget.entryId).notifier);
+    final l10n = L10n.of(context);
+    final textSecondary = WpColors.textSecondary;
+    final textMuted = WpColors.textMuted;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        WpTagInput(
+          key: _tagInputKey,
+          readOnly: widget.isTrashView,
+          tags: widget.tags,
+          hintText: l10n.historyAddTag,
+          searchHintText: l10n.historySearchTags,
+          suggestions: _suggestions,
+          suggestionCounts: _suggestionCounts,
+          inlineLabel: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // `textSecondary`, not the accent: this glyph labels a section,
+              // it does not trigger anything — the two controls that do (the
+              // "+" trigger and the chips' remove buttons) sit two pixels to
+              // its right and are the accent's job here. Same correction
+              // Ticket 08 made to the settings section heads (Ticket 32, B3):
+              // an interaction accent on an inert element is what turns the
+              // detail screen's accent into wallpaper.
+              Icon(LucideIcons.tags, size: WpIconSize.sm, color: textSecondary),
+              const SizedBox(width: WpSpacing.xxs),
+              Text(
+                l10n.historyTags,
+                style: TextStyle(
+                  fontSize: WpTypography.body,
+                  fontWeight: FontWeight.w600,
+                  color: textSecondary,
+                  letterSpacing: 0.3,
+                ),
+              ),
+              const SizedBox(width: WpSpacing.xxs),
+              IconButton(
+                icon: Icon(
+                  LucideIcons.settings,
+                  size: WpIconSize.xxs,
+                  color: textMuted,
+                ),
+                onPressed: widget.isTrashView
+                    ? null
+                    : () async {
+                        final db = ref.read(historyDatabaseProvider);
+                        final modified = await showTagManagementDialog(
+                          context: context,
+                          db: db,
+                        );
+                        if (modified) _loadSuggestions();
+                      },
+                tooltip: l10n.historyManageTags,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: WpLayout.minTouchTarget,
+                  minHeight: WpLayout.minTouchTarget,
+                ),
+              ),
+            ],
+          ),
+          onSearchChanged: (q) {
+            widget.onSearchChanged(q);
+            _loadSuggestions();
+          },
+          onAdd: (name) => notifier.addTag(name),
+          onRemove: (tagId) {
+            final tag = widget.tags.where((t) => t.id == tagId).firstOrNull;
+            final tagName = tag?.name ?? '';
+            notifier.removeTag(tagId);
+            if (tag != null) {
+              WpToast.show(
+                context,
+                message: l10n.historyTagRemoved,
+                type: WpToastType.info,
+                duration: const Duration(seconds: 4),
+                actionLabel: l10n.undo,
+                onAction: () => notifier.addTag(tagName),
+              );
+            }
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Kept-until notice (failed recording whose audio is still parked)
+// ---------------------------------------------------------------------------
+
+/// Shows until when the audio of a failed, parked recording is kept, and the
+/// two next steps beside it: retry it, or discard its audio. Reads the same
+/// record and the same date text as Settings → Privacy, and uses the same
+/// queue actions there.
+class _KeptUntilNotice extends ConsumerStatefulWidget {
+  const _KeptUntilNotice({required this.entryId});
+
+  final String entryId;
+
+  @override
+  ConsumerState<_KeptUntilNotice> createState() => _KeptUntilNoticeState();
+}
+
+class _KeptUntilNoticeState extends ConsumerState<_KeptUntilNotice> {
+  /// Set while a retry or a discard runs, so a second tap cannot start the
+  /// same work twice on one kept recording.
+  bool _busy = false;
+
+  Future<void> _retry(L10n l10n) async {
+    setState(() => _busy = true);
+    PendingRetryOutcome? outcome;
+    try {
+      outcome = await ref
+          .read(recordingOrchestratorProvider.notifier)
+          .retryKeptDictation(entryId: widget.entryId);
+    } finally {
+      if (mounted) {
+        ref.invalidate(pendingRetryListProvider);
+        setState(() => _busy = false);
+      }
+    }
+    final message = switch (outcome) {
+      PendingRetryOutcome.failed => l10n.pendingRetryFailed,
+      PendingRetryOutcome.expired => l10n.pendingRetryExpired,
+      _ => null,
+    };
+    if (mounted && message != null) {
+      WpToast.show(
+        context,
+        message: message,
+        type: WpToastType.error,
+        duration: const Duration(seconds: 5),
+      );
+    }
+  }
+
+  /// Asks first: the parked audio is deleted from the device and cannot be
+  /// transcribed again afterwards (UX-099). Same confirmation as the recovery
+  /// banner.
+  Future<void> _discard(L10n l10n) async {
+    final confirmed = await showWpConfirmDialog(
+      context: context,
+      title: l10n.recoveryDiscardConfirm,
+      message: l10n.pendingAudioDiscardConfirmMessage,
+      confirmLabel: l10n.recoveryDiscard,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(pendingAudioQueueProvider).discard(widget.entryId);
+    } finally {
+      if (mounted) {
+        ref.invalidate(pendingRetryListProvider);
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final parked = (ref.watch(pendingRetryListProvider).value ?? const [])
+        .where((e) => e.entryId == widget.entryId);
+    if (parked.isEmpty) return const SizedBox.shrink();
+    final l10n = L10n.of(context);
+    final locale = Localizations.localeOf(context).toString();
+    return Padding(
+      padding: const EdgeInsets.only(top: WpSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.pendingAudioKeptUntil(
+              formatKeptUntil(locale, parked.first.expiresAt),
+            ),
+            key: const ValueKey('history-detail-kept-until'),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: WpSpacing.sm),
+          Wrap(
+            spacing: WpSpacing.sm,
+            runSpacing: WpSpacing.sm,
+            children: [
+              WpButton(
+                testId: 'history-detail-kept-retry',
+                label: l10n.actionRetry,
+                variant: WpButtonVariant.secondary,
+                onPressed: _busy ? null : () => _retry(l10n),
+              ),
+              WpButton(
+                testId: 'history-detail-kept-discard',
+                label: l10n.recoveryDiscard,
+                variant: WpButtonVariant.ghost,
+                tone: WpButtonTone.danger,
+                onPressed: _busy ? null : () => _discard(l10n),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

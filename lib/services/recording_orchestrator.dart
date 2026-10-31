@@ -1,0 +1,4275 @@
+/// Recording pipeline orchestrator — wires audio capture, STT, history,
+/// and the [RecordingNotifier] state machine into a single high-level API.
+///
+/// External code calls [toggleRecording] — everything else is handled
+/// internally, including error recovery and temp-file cleanup.
+library;
+
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
+
+import '../core/config/build_config.dart';
+import '../core/config/custom_endpoint_rules.dart';
+import '../core/config/cloud_stt_keys.dart';
+import '../core/config/settings_enums.dart';
+import '../core/config/settings_provider.dart';
+import '../core/l10n/generated/app_localizations.dart';
+import '../core/logging/app_logger.dart';
+import '../core/logging/mic_start_trace.dart';
+import '../core/logging/perf_instrumentation.dart';
+import '../core/recording/recording_state.dart';
+import '../core/data/analytics_provider.dart';
+import '../core/data/database.dart';
+import '../core/overview/last_dictation.dart';
+import '../core/overview/last_dictation_notifier.dart';
+import '../features/recording/clipping_state.dart';
+import 'audio_service.dart';
+import 'app_profiles/app_profile_choice.dart';
+import 'app_profiles/app_profile_resolver.dart';
+import 'app_profiles/app_profile_storage.dart';
+import 'audio/signal_loss_detector.dart';
+import 'audio/user_audio_dirs.dart';
+import 'clipboard_history/app_clipboard.dart';
+import 'model_download_service.dart';
+import 'path_service.dart';
+import 'recording/oom_recovery_handler.dart';
+import 'recording/pipeline_step_runner.dart';
+import 'recording/recording_state_machine.dart';
+import 'recording/safety_guard.dart';
+import 'review_prompt_service.dart';
+import 'snippet_picker/snippet_picker_controller.dart'
+    show snippetPickerAvailableOnPlatform;
+import 'snippet_picker/snippet_picker_dispatch.dart';
+import 'snippet_picker/snippet_picker_service.dart';
+import 'smart_mode/smart_mode_ffi_engine.dart'
+    show smartModeEngineProvider, smartModeLocalEngineAvailableProvider;
+import 'smart_mode/smart_mode_model_download_service.dart'
+    show smartModeDownloadProvider;
+import 'smart_mode/smart_mode_fact_guard.dart';
+import 'smart_mode/smart_mode_name_change_notice.dart';
+import 'smart_mode/smart_mode_undo_notice.dart';
+import 'smart_mode/smart_mode_output_guard.dart';
+import 'smart_mode/smart_mode_presets.dart';
+import 'smart_mode/smart_mode_text_model.dart';
+import 'sound_feedback_service.dart';
+import 'support_prompt_service.dart';
+import 'telemetry_model_buckets.dart';
+import 'telemetry_service.dart';
+import 'hardware_info_service.dart' as hw;
+import 'paste/paste_policy.dart';
+import 'paste/paste_result_notice.dart';
+import 'paste/paster.dart';
+import 'paste/repaste_service.dart';
+import 'selection_edit/selection_edit_service.dart'
+    show SelectionEditOutcome, selectionEditServiceProvider;
+import 'system_attention_service.dart';
+import 'number_transforms.dart';
+import 'dictation_text_steps.dart';
+import 'text_transforms.dart';
+import 'pending_audio/pending_audio_notice.dart';
+import 'pending_audio/pending_audio_providers.dart';
+import 'audio/recovery/recording_journal_provider.dart';
+import 'pending_audio/pending_audio_queue.dart';
+import 'recording_store.dart';
+import 'stt/inference_client_rejected.dart';
+import 'stt/native_call_guard.dart';
+import 'stt/on_device_engine_lifecycle.dart';
+import 'stt/stt_bundle.dart' show localSttBundleProvider;
+import 'stt/transcript_hygiene.dart';
+import 'stt/whisper/whisper_engine.dart';
+import 'stt/whisper/whisper_language_probe.dart';
+import 'stt_parakeet/parakeet_download_service.dart'
+    show parakeetGpuWantedForSetting;
+import 'stt_parakeet/parakeet_engine_notifier.dart' show parakeetEngineProvider;
+import 'stt_parakeet/parakeet_gpu_engine.dart';
+import 'stt_parakeet/parakeet_gpu_policy.dart' show ParakeetBackend;
+import 'stt_parakeet/parakeet_language_support.dart';
+import 'stt_engine_lifecycle_provider.dart';
+import 'stt_parakeet/parakeet_model_registry.dart' as parakeet;
+import 'automation_api/automation_hook_dispatcher_provider.dart';
+import 'transcription/language_mismatch_hint.dart';
+import 'transcription/slice_manifest.dart';
+import 'transcription/slice_progress.dart';
+import 'transcription/transcriber.dart';
+import '../core/utils/word_count.dart';
+
+// ---------------------------------------------------------------------------
+// Orchestrator
+// ---------------------------------------------------------------------------
+
+/// The log line for a paste the OS refused, naming the fix of [platform]:
+/// a Linux log must not send the reader to macOS settings (UIA-XP-7-12).
+@visibleForTesting
+String pasteInjectionDeniedLogMessage(TargetPlatform platform) =>
+    switch (platform) {
+      TargetPlatform.macOS =>
+        'Paste failed: OS denied event injection. Grant Accessibility '
+            'permission in System Settings → Privacy & Security → '
+            'Accessibility.',
+      TargetPlatform.linux =>
+        'Paste failed: OS denied event injection. /dev/uinput is not '
+            'usable; set up the uinput access the paste notice links to.',
+      TargetPlatform.windows =>
+        'Paste failed: OS denied event injection. The target app likely '
+            'runs with higher rights than WhisPaste (UIPI).',
+      _ => 'Paste failed: OS denied event injection.',
+    };
+
+/// Orchestrates the full dictation pipeline:
+///
+/// 1. Start audio capture → state = recording
+/// 2. Stream amplitude → level metering
+/// 3. Stop audio capture → get WAV path
+/// 4. Ensure STT server running
+/// 5. Transcribe WAV → text
+/// 6. Save to history DB
+/// 7. State = done
+/// 8. Cleanup temp WAV
+///
+/// All transitions go through the existing [RecordingNotifier] so the UI
+/// reacts automatically. Errors are caught and surfaced via the error phase.
+class RecordingOrchestrator extends Notifier<void> {
+  static final _log = AppLogger('RecordingOrchestrator');
+
+  StreamSubscription<double>? _amplitudeSub;
+
+  /// Subscription to [SafetyGuard] events for the active recording session.
+  StreamSubscription<SafetyEvent>? _guardSub;
+
+  /// Subscription forwarding raw PCM chunks to the live-transcript-during-
+  /// recording preview (live-transcript-streaming ticket) — only opened
+  /// while the feature is actually wanted for this recording (see
+  /// [startRecording]'s `livePreviewWanted`). `null` otherwise.
+  StreamSubscription<Uint8List>? _livePreviewPcmSub;
+
+  /// State machine that enforces the recording phase transition table.
+  /// Initialized lazily in [build] after the notifier is available.
+  late RecordingStateMachine _stateMachine;
+
+  /// Prevents concurrent `startRecording()` calls from racing through
+  /// the async preflight.
+  bool _startInFlight = false;
+
+  /// Completed when the start that holds [_startInFlight] unwinds. A press
+  /// that finds the lock taken by a start the user has already released
+  /// waits on it instead of being dropped (see [startRecording]).
+  Completer<void>? _startDone;
+
+  /// Set when a stop arrives while [_startInFlight] is held: the start's
+  /// capture is aborted, so a following press must not be treated as busy.
+  bool _releasedDuringStart = false;
+
+  /// Whether the paste target was captured for the paste still to come, at
+  /// hotkey time ([startRecording]) or when an interactive snippet started.
+  /// [_pasteTranscript] then keeps that target instead of capturing whatever
+  /// is in front by now (PAR-032, briefing B3), and consumes the flag.
+  bool _pasteTargetPrimed = false;
+
+  /// The hotkey-time prime while it still runs ([_primeInParallel]); the
+  /// paste waits for it instead of capturing the target again.
+  Future<void>? _pendingPastePrime;
+
+  /// Bumped by [_clearPasteTarget], so a late prime of a cancelled
+  /// dictation does not mark the target as captured.
+  int _pasteTargetGeneration = 0;
+
+  /// Prevents concurrent `stopRecording()` calls from launching multiple
+  /// transcription pipelines (e.g. hotkey-stop + auto-stop firing together).
+  bool _stopInFlight = false;
+
+  /// Set when a cancel arrives while [stopRecording] is still in its capture
+  /// step (the stop tail). The stop then drops the captured audio instead of
+  /// transcribing it.
+  bool _captureAbortRequested = false;
+
+  /// The WAV that the save step moved into the retained folder during the
+  /// current stop. The stop's cleanup must not delete it.
+  String? _retainedWavPath;
+
+  /// The session of the most recent [startRecording] call. A pipeline keeps
+  /// the session it was started with (see [_RecordingSession]), so a newer
+  /// start can never change how an older, still-running pipeline is cancelled
+  /// or finalized.
+  _RecordingSession _session = _RecordingSession();
+
+  /// Set by [PasteResultReporter] when it plays the paste-failure error
+  /// tone for the current pipeline run, then read (and reset) right before
+  /// the `RecordingIntent.complete` transition — so the resulting
+  /// `RecordingState.pasteFailed` lets the UI skip the separate
+  /// "transcription complete" success tone instead of playing it right
+  /// after the failure tone.
+  bool _pasteFailureSoundPlayedThisPipeline = false;
+
+  /// Set when the current pipeline run tried to paste and the text did not
+  /// reach the field (no paster, blocked app, or any non-success outcome).
+  /// Such a dictation triggers no review or support prompt and is not counted
+  /// toward the review threshold (growth review GR-012). Unlike
+  /// [_pasteFailureSoundPlayedThisPipeline] it also covers quiet outcomes such
+  /// as a blocklisted target, which play no failure tone.
+  bool _pasteNotConfirmedThisPipeline = false;
+
+  /// The block list stopped this pipeline's paste; the transcript is only on
+  /// the clipboard (GS-075). Reset with [_pasteFailureSoundPlayedThisPipeline].
+  bool _copiedOnlyThisPipeline = false;
+
+  /// Blocked paste with the clipboard copy switched off (maintainer 4a+c).
+  bool _historyOnlyThisPipeline = false;
+
+  /// Set when the quick-note append of this pipeline failed (UIA-FLW-02). The
+  /// run then ends in error with the transcript kept, never in done.
+  bool _quickNoteAppendFailedThisPipeline = false;
+
+  /// Why Smart Mode left this run's text unedited, or null. The OS notice is
+  /// sent after the paste step (see [_flushSmartModeFallbackNotice]), so it can
+  /// say what actually happened to the text.
+  SmartModeFallbackReason? _smartModeFallbackThisPipeline;
+  // Error code of the own endpoint when that is the fallback reason (W-M3).
+  String? _smartModeFallbackCodeThisPipeline;
+
+  /// Result of this run's paste, or null when no paste was attempted.
+  PasteOutcome? _pasteOutcomeThisPipeline;
+
+  /// Set when this run copied the transcript to the clipboard.
+  bool _clipboardCopiedThisPipeline = false;
+
+  /// Throttle for the "pipeline busy" hint — a held or mashed hotkey hits the
+  /// abort branches several times per second, and a toast per press would be
+  /// worse than the silence it replaces.
+  static const _busyHintThrottle = Duration(seconds: 3);
+  DateTime? _lastBusyHintAt;
+
+  /// Pending hotkey-press t₀ for the hotkey→text end-to-end latency KPI
+  /// (issue 07-latenz-kpi-erfassung — local-only, never sent as telemetry).
+  ///
+  /// Captured (peeked, not consumed) in [startRecording] from
+  /// [PerfMarkers.pendingHotkeyPressedAt] and persisted once transcription
+  /// finishes successfully in [_finalizeTranscription]. A stale value left
+  /// over from an aborted start attempt is harmless: the next
+  /// [startRecording] call always overwrites it before any session that
+  /// could read it exists.
+  DateTime? _hotkeyPressedAtForLatencyKpi;
+
+  /// When [stopRecording] began for the hotkey session in flight; the
+  /// stop-to-text time excludes the speaking time (XP-6-09).
+  DateTime? _recordingStoppedAtForLatencyKpi;
+
+  /// Mic-start trace of the most recent start (handy-catchup ticket 19):
+  /// hotkey → phase change → paster primed → capture started → first real
+  /// sample, logged at debug level once the first sample arrives.
+  MicStartTrace? _micStartTrace;
+
+  @visibleForTesting
+  MicStartTrace? get debugLastMicStartTrace => _micStartTrace;
+
+  /// Budget of the capture step (stop + WAV flush). Tests shorten it, so a
+  /// hung stop is reached without waiting the real ten seconds.
+  @visibleForTesting
+  Duration captureStepBudget = const Duration(seconds: 10);
+
+  /// The park of a stop that outlived [captureStepBudget]; runs on after the
+  /// pipeline returned. Tests await it instead of a fixed delay.
+  Future<void>? _lateCapturePark;
+
+  @visibleForTesting
+  Future<void>? get debugLateCapturePark => _lateCapturePark;
+
+  /// Handles OOM retry policy and model-fallback decisions.
+  ///
+  /// Initialized lazily in [build] so that [ref] is available for the
+  /// callbacks that read settings and downloaded-model state.
+  late OomRecoveryHandler _oomHandler;
+
+  /// Exposed for diagnostics/logging only.
+  int get oomAttemptCount => _oomHandler.attemptCount;
+
+  /// Practice sink for onboarding's first-dictation step
+  /// (`TestRecordingStep`). When set, the pipeline keeps the dictation out of
+  /// the history, snippets, Smart Mode and the system clipboard, and hands the
+  /// result to this callback. [sandboxPaster] then delivers the text into the
+  /// practice field (see [_deliverToSandbox]). The callback gets the paste
+  /// outcome, or `null` when nothing was pasted (silence, no paster).
+  /// `null` (the default) for every other caller, so production behaviour
+  /// outside onboarding is unaffected.
+  void Function(String text, PasteOutcome? outcome)? sandboxTranscriptSink;
+
+  /// The paster the practice step uses for [sandboxTranscriptSink]. The
+  /// native paste cannot target WhisPaste's own window (macOS and Windows
+  /// refuse their own frontmost window as a target), so the practice field
+  /// gets the text through an in-window [Paster] that runs the same
+  /// [_pasteTranscript] outcome handling. `null` outside onboarding.
+  Paster? sandboxPaster;
+
+  /// Lock of onboarding's practice step (only read while [sandboxTranscriptSink]
+  /// is set). While it returns `true` (the speech model is not ready), a press
+  /// records nothing: no error state, so neither the overlay nor a toast
+  /// shows, and [sandboxPressRefused] tells the step, which draws its lock card
+  /// with a calm emphasis instead. `null` (the default) means never locked.
+  bool Function()? sandboxLocked;
+
+  /// Called when a press is refused by [sandboxLocked]. The practice step
+  /// answers it on screen (emphasis and a screen reader announcement).
+  void Function()? sandboxPressRefused;
+
+  /// Registrable override for delivering an appended quick-note text to a
+  /// live note editor instead of the direct database write (Ticket 21
+  /// registers this once the target note is open in the editor — the editor
+  /// owns persistence via its own debounced autosave, and a direct write
+  /// here would be clobbered by the next autosave tick). Called with the
+  /// note id and the *full new content* (already appended). Return `true` to
+  /// mean "handled, skip the database write"; `false` (or leave `null`) to
+  /// fall through to it. `null` — the default — means every quick-note
+  /// append goes straight to the database, which is the only behaviour this
+  /// ticket (19) implements; Ticket 21 adds the registration.
+  bool Function(String noteId, String newContent)? quickNoteLiveEditorOverride;
+
+  /// Registrable pre-hook, awaited at the very start of a quick-note append —
+  /// **before** the note is read back from the database.
+  ///
+  /// The note editor persists through a 400 ms debounced autosave, so the
+  /// row this method reads is stale for as long as the user's last keystrokes
+  /// are still pending. Appending onto that stale content and handing the
+  /// result to [quickNoteLiveEditorOverride] would silently discard those
+  /// keystrokes. `NotesPage` therefore registers its autosave flush here:
+  /// once it has run, the database row is current, and the appended content
+  /// contains the typed text as well as the transcript.
+  ///
+  /// `null` (the default) means "nothing to flush" — every non-editor caller
+  /// is unaffected.
+  Future<void> Function()? quickNoteEditorFlush;
+
+  /// Fires after a quick-note append completes, naming the target note —
+  /// the externally-observable completion hook Ticket 21 hangs its window/
+  /// editor-focus reaction on, instead of guessing from the
+  /// [RecordingPhase] transition.
+  void Function(String noteId)? onQuickNoteAppended;
+
+  @override
+  void build() {
+    ref.onDispose(_cancelAmplitude);
+    ref.listen(micSignalLostProvider, (_, lost) => _onMicSignalLost(lost));
+
+    // Wire the state machine to the shared RecordingNotifier.
+    // phaseReader reads the current phase without accessing protected state.
+    _stateMachine = RecordingStateMachine(
+      phaseReader: () => ref.read(recordingProvider).phase,
+      notifier: ref.read(recordingProvider.notifier),
+    );
+
+    // Initialise OOM recovery handler with injectable callbacks so the policy
+    // is fully testable without a live Riverpod container.
+    _oomHandler = OomRecoveryHandler(
+      maxRetries: 3,
+      nextModelIdForCurrent: _nextAvailableFallbackModelId,
+      hasCloudConfigured: () {
+        final settings =
+            ref.read(settingsProvider).value ?? AppSettings.defaults;
+        return _preferredCloudProvider(settings) != null;
+      },
+    );
+
+    // Pre-warm the STT server in the background so the first recording
+    // doesn't pay the ~10 s cold-start penalty.
+    Future.microtask(() => _prewarmStt());
+  }
+
+  // -------------------------------------------------------------------------
+  // Public API
+  // -------------------------------------------------------------------------
+
+  /// Acquires the shared `_startInFlight` lock for a voice-note recording
+  /// session that runs outside the main dictation pipeline.
+  ///
+  /// Returns `true` if the lock was acquired (caller may proceed to start
+  /// audio capture). Returns `false` if the lock was already held or the
+  /// orchestrator phase is not [RecordingPhase.idle] — the caller must treat
+  /// this as a no-op and not start any recording.
+  ///
+  /// The caller **must** call [releaseStartLock] when the voice-note session
+  /// ends (success or failure), ideally in a `finally` block.
+  bool tryAcquireStartLock() {
+    if (_startInFlight) {
+      _log.debug('tryAcquireStartLock denied — already in flight');
+      return false;
+    }
+    if (ref.read(recordingProvider).phase != RecordingPhase.idle) {
+      _log.debug(
+        'tryAcquireStartLock denied — orchestrator not idle '
+        '(${ref.read(recordingProvider).phase})',
+      );
+      return false;
+    }
+    _startInFlight = true;
+    _log.debug('tryAcquireStartLock acquired (voice note)');
+    return true;
+  }
+
+  /// Releases the `_startInFlight` lock previously acquired via
+  /// [tryAcquireStartLock]. Must be called exactly once per successful
+  /// acquisition.
+  void releaseStartLock() {
+    _releaseStartLock();
+    _log.debug('releaseStartLock released (voice note)');
+  }
+
+  /// Starts or stops recording based on the current phase.
+  ///
+  /// Recording → stops and transcribes. Idle / done / error → starts a new
+  /// recording (a lingering "done"/"error" status is preempted by
+  /// [startRecording] — see there). Transcribing is in-flight → ignored.
+  ///
+  /// [target] selects what a successful transcription does with the
+  /// finished text — see [RecordingTarget]. Defaults to today's clipboard/
+  /// paste behaviour, so every existing caller (tray, shelf button, floating
+  /// button, main hotkey) is unaffected.
+  /// Cancels the active dictation and discards it — the "stop and throw
+  /// away" counterpart to [toggleRecording]'s "stop and transcribe".
+  ///
+  /// From [RecordingPhase.recording]: stops audio capture immediately and
+  /// deletes the captured WAV without ever entering the transcription
+  /// pipeline, so a cloud provider never receives audio that was cancelled
+  /// before transcription began. Returns straight to idle.
+  ///
+  /// From [RecordingPhase.transcribing]/[RecordingPhase.refining]: the
+  /// pipeline [stopRecording] already launched keeps running in the
+  /// background (there is no cancellation token for the underlying
+  /// transcriber call), but the cancelled session's `cancelRequested` flag
+  /// makes [_runTranscriptionPipeline]/[_finalizeTranscription] discard the
+  /// result at their next checkpoint instead of saving it to history,
+  /// copying it, or pasting it. The UI itself returns to idle immediately.
+  ///
+  /// Ignored (no-op) from `idle`, `done`, or `error` — there is nothing
+  /// in flight to discard.
+  Future<void> cancelRecording() async {
+    final phase = ref.read(recordingProvider).phase;
+    // Nothing of this dictation is pasted any more.
+    _clearPasteTarget();
+    switch (phase) {
+      case RecordingPhase.recording:
+        await _cancelDuringRecording();
+      case RecordingPhase.transcribing:
+      case RecordingPhase.refining:
+        _discardInFlightTranscription(phase);
+        _stateMachine.transition(RecordingIntent.reset);
+      case RecordingPhase.idle:
+      case RecordingPhase.done:
+      case RecordingPhase.error:
+        _log.debug('cancelRecording ignored — phase=$phase');
+    }
+  }
+
+  /// Stops audio capture and discards the WAV without transcribing it.
+  /// Reuses `_stopInFlight` so it cannot race a concurrent
+  /// [toggleRecording]/[stopRecording] call.
+  Future<void> _cancelDuringRecording() async {
+    if (_stopInFlight) {
+      // A stop is still in its capture step (stop tail): end the tail now and
+      // let that stop discard the audio. Once it has left the capture step the
+      // phase has moved on and this method is not reached.
+      if (ref.read(recordingProvider).phase == RecordingPhase.recording) {
+        _captureAbortRequested = true;
+        ref.read(audioServiceProvider.notifier).abortStopTail();
+        _log.info('cancelRecording during stop tail — audio will be discarded');
+        return;
+      }
+      _log.debug('cancelRecording ignored — stop already in flight');
+      return;
+    }
+    _stopInFlight = true;
+    final sid = ref.read(recordingProvider).sessionId ?? '?';
+    try {
+      _cancelAmplitude();
+      final audioNotifier = ref.read(audioServiceProvider.notifier);
+      // No tail on cancel: the audio is discarded, so stop at once.
+      final path = await audioNotifier.stopRecording(keepTail: false);
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+      _stateMachine.transition(RecordingIntent.reset);
+      _log.info('[$sid] Recording cancelled by user — audio discarded');
+      if (path != null) {
+        await ref.read(audioServiceProvider.notifier).cleanupFile(path);
+      }
+    } finally {
+      _stopInFlight = false;
+    }
+  }
+
+  Future<void> toggleRecording({
+    RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
+    String? languageOverride,
+    double? silenceTimeoutOverride,
+  }) async {
+    final recording = ref.read(recordingProvider);
+    if (recording.isRecording) {
+      await stopRecording();
+      return;
+    }
+    if (recording.phase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): the Cleanup pass keeps the pipeline
+        // busy here too — without this, a second hotkey press mid-refining
+        // would fall through to `startRecording()`, which the state machine
+        // then rejects as an invariant violation (no `start` transition is
+        // defined from `refining`) after already mutating unrelated
+        // orchestrator state (recordingTargetProvider, `_startInFlight`).
+        recording.phase == RecordingPhase.refining) {
+      return;
+    }
+    // idle, done, or error → start. No prewarm here: loading the model in
+    // parallel with the microphone setup stalled the setup on a busy thread
+    // (cold-hotkey trace), and the post-capture load already has the whole
+    // recording as lead time.
+    await startRecording(
+      target: target,
+      forcedSmartModePreset: forcedSmartModePreset,
+      languageOverride: languageOverride,
+      silenceTimeoutOverride: silenceTimeoutOverride,
+    );
+  }
+
+  /// Starts the recording pipeline.
+  ///
+  /// [forcedSmartModePreset] (ticket 04 of `internal-notes`)
+  /// overrides `settings.smartMode.standardPreset` for this recording only —
+  /// used by the Smart-Mode hotkey, which applies its own bound preset
+  /// independently of the main hotkey's standard-preset setting. `null` (the
+  /// default) means "use the standard preset as usual".
+  ///
+  /// [languageOverride] overrides `settings.sttLanguageCode` for this
+  /// recording only — used by the Automation API's `dictation/trigger`
+  /// `language` field. `null` (the default) means "use the configured
+  /// language as usual".
+  ///
+  /// [silenceTimeoutOverride] overrides
+  /// `settings.recordingSafety.autoStopSilence` for this recording only —
+  /// used by the Automation API's `dictation/trigger` `silence_timeout`
+  /// field. `null` (the default) means "use the configured timeout as
+  /// usual".
+  Future<void> startRecording({
+    RecordingTarget target = RecordingTarget.clipboard,
+    SmartModePreset? forcedSmartModePreset,
+    String? languageOverride,
+    double? silenceTimeoutOverride,
+  }) async {
+    // Capture the pending hotkey-press t₀ (if any) for the hotkey→text
+    // latency KPI. Peeked (not consumed) synchronously, before any `await`
+    // below, so it reflects the key-down that triggered THIS call — the
+    // existing hotkey→overlay latency pairing (PerfMarkers.markOverlayShown,
+    // reset separately) is unaffected.
+    _hotkeyPressedAtForLatencyKpi = PerfMarkers.instance.pendingHotkeyPressedAt;
+    _recordingStoppedAtForLatencyKpi = null;
+    final hotkeyMicros =
+        PerfMarkers.instance.pendingHotkeyPressedMonotonicMicros;
+    final triggerMicros = PerfMarkers.instance.monotonicMicros();
+    // Concurrency guard: prevent double-start from hotkey spam or rapid taps.
+    if (_startInFlight) {
+      return _pressWhileStarting(
+        target: target,
+        forcedSmartModePreset: forcedSmartModePreset,
+        languageOverride: languageOverride,
+        silenceTimeoutOverride: silenceTimeoutOverride,
+      );
+    }
+    // A pipeline still holds the stop lock (for example after the stuck guard
+    // failed its state while the transcription runs on). A recording started
+    // now would have its stop dropped by that lock, so it must not start.
+    // Cancelling a transcription frees the lock first, so that path is not
+    // affected.
+    if (_stopInFlight) {
+      _log.debug(
+        'startRecording rejected — a previous pipeline holds the stop lock',
+      );
+      _hintPipelineBusy();
+      return;
+    }
+    _startInFlight = true;
+    _startDone = Completer<void>();
+    _releasedDuringStart = false;
+
+    // Flow-first: a fresh start while a terminal "done"/"error" status is still
+    // lingering preempts it immediately. By the time the phase is `done` the
+    // transcript is already pasted (see _finalizeTranscription), and `error` is
+    // merely a dismissable status — so there is nothing to lose, and the user
+    // can fire the next dictation without waiting out the linger timer (matters
+    // most for push-to-hold). This resets to idle so the start can proceed; the
+    // now-stale linger timers in recording_behavior.dart no-op on a non-terminal
+    // phase.
+    final entryPhase = ref.read(recordingProvider).phase;
+    if (entryPhase == RecordingPhase.done ||
+        entryPhase == RecordingPhase.error) {
+      _log.debug('startRecording preempting lingering $entryPhase → idle');
+      _stateMachine.transition(RecordingIntent.reset);
+    }
+
+    // Re-check phase immediately after acquiring the in-flight lock.
+    // A concurrent caller may have already advanced the state machine while
+    // this call was entering (e.g. two simultaneous hotkey presses).
+    if (ref.read(recordingProvider).phase != RecordingPhase.idle) {
+      _log.debug('startRecording aborted — phase not idle after lock acquired');
+      _releaseStartLock();
+      _hintPipelineBusy();
+      return;
+    }
+
+    // Written only after this call has won both guards, into a fresh session
+    // that the pipeline keeps. A rejected start (e.g. one made while the
+    // previous pipeline is still transcribing) must not overwrite the target
+    // or overrides that pipeline will finalize with.
+    // SW-03: the transcription language is frozen here, at start. A language
+    // change in Settings or on the Dock while this recording runs applies to
+    // the next recording only, as the Dock promises.
+    final session = _session = _RecordingSession(
+      target: target,
+      smartModeHotkeyPreset: forcedSmartModePreset,
+      languageOverride: languageOverride,
+      silenceTimeoutOverride: silenceTimeoutOverride,
+      languageCode: _languageCodeFor(languageOverride),
+    );
+    // Providers stay in sync for readers outside the pipeline.
+    ref.read(recordingTargetProvider.notifier).set(target);
+    ref
+        .read(smartModeHotkeyOverridePresetProvider.notifier)
+        .set(forcedSmartModePreset);
+    ref.read(sttLanguageOverrideProvider.notifier).set(languageOverride);
+    ref.read(recordingLanguageProvider.notifier).set(session.languageCode);
+    ref.read(recordingProfileProvider.notifier).set(null);
+    ref
+        .read(autoStopSilenceOverrideProvider.notifier)
+        .set(silenceTimeoutOverride);
+
+    try {
+      // ── Edit selection by voice: engine/paste gate ────────────────────
+      // Checked before the regular preflight so a missing Smart Mode
+      // engine surfaces as a setup hint without recording anything — the
+      // instruction would have nowhere to go.
+      if (target == RecordingTarget.selectionEdit) {
+        final selectionEditError = await _selectionEditPreflight();
+        if (selectionEditError != null) {
+          _log.info('Edit selection unavailable: $selectionEditError');
+          _stateMachine.transition(
+            RecordingIntent.fail,
+            errorMessage: selectionEditError,
+          );
+          return;
+        }
+      }
+
+      // ── Preflight checks ──────────────────────────────────────────────
+      final preflightError = await _runPreflight();
+
+      // Re-check phase after async gap — another caller may have started.
+      if (ref.read(recordingProvider).phase != RecordingPhase.idle) {
+        _log.debug('startRecording aborted — phase changed during preflight');
+        return;
+      }
+
+      if (preflightError != null) {
+        // Try soft handling first (auto-download, info toast).
+        if (_handleSoftPreflight(preflightError)) return;
+        // Onboarding open: the press is not a recording at all. Entering the
+        // error state would show the overlay and the error toast; the hotkey
+        // step itself reacts to the press (key caps), so stay idle.
+        if (preflightError == 'onboarding_not_completed') {
+          _log.info(
+            'Hotkey press ignored while onboarding is open (idle, no overlay)',
+          );
+          return;
+        }
+        // Hard failure — transition to error state.
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: preflightError,
+        );
+        return;
+      }
+
+      // Transition state: idle → recording (generates sessionId).
+      _stateMachine.transition(RecordingIntent.start);
+      // A new dictation ends any pending name-change undo (DEV-165).
+      ref.read(smartModeNameChangeNoticeProvider.notifier).clear();
+      final sid = ref.read(recordingProvider).sessionId ?? '?';
+      _log.info('[$sid] Recording started');
+      final micTrace = _micStartTrace = MicStartTrace(
+        sessionId: sid,
+        clock: PerfMarkers.instance.monotonicMicros,
+        hotkeyMicros: hotkeyMicros,
+        triggerMicros: triggerMicros,
+      )..mark(MicStartStage.phaseRecording);
+      _watchOverlayFrame(micTrace);
+
+      // No per-start telemetry: a recording's outcome is captured once at the
+      // end via the aggregated pipeline-outcome counter (see
+      // _trackPipelineOutcome), keeping Matomo volume off the hot path.
+
+      // Notify the active on-device engine that a recording is active
+      // (pauses its idle timer, if any).
+      final engineLifecycle = ref.read(onDeviceEngineLifecycleProvider);
+      engineLifecycle.notifyRecordingStarted();
+
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+
+      _captureTargetAtStart(session, target, languageOverride, micTrace);
+
+      // Start audio capture. `streamRawPcm` opens the live-transcript-
+      // during-recording preview's raw-PCM feed (live-transcript-streaming
+      // ticket) — only when whisper is the actual active on-device engine
+      // AND the user opted in, mirroring `SttServerStateNotifier.
+      // notifyRecordingStarted`'s own gate so both sides agree on when the
+      // feature is active.
+      final audioNotifier = ref.read(audioServiceProvider.notifier);
+      final livePreviewWanted =
+          settings.overlayShowLiveTranscript &&
+          settings.sttProviderType.isLocal &&
+          settings.onDeviceEngine == OnDeviceEngine.whisper;
+      await audioNotifier.startRecording(streamRawPcm: livePreviewWanted);
+
+      // Verify recording actually started.
+      final audioStatus = ref.read(audioServiceProvider);
+      if (audioStatus.captureState == AudioCaptureState.error) {
+        engineLifecycle.notifyRecordingStopped();
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: audioStatus.errorMessage ?? 'recording_failed',
+        );
+        return;
+      }
+      micTrace.mark(MicStartStage.captureStarted);
+
+      // The engine load starts only once the microphone is open: loading the
+      // model in parallel competed with the capture start for CPU and disk.
+      // The transcription runs after the recording, so the load still has the
+      // whole recording as lead time. Cloud providers need no local engine.
+      if (settings.sttProviderType.isLocal) {
+        unawaited(_loadEngineAfterCapture(engineLifecycle, micTrace));
+      }
+      unawaited(
+        audioNotifier.firstSampleArrived?.then((_) {
+          micTrace.mark(MicStartStage.firstSample);
+          _log.info(micTrace.summary());
+        }),
+      );
+
+      // Subscribe to amplitude for level metering + safety guard (also
+      // cancels any stale live-preview PCM subscription from a previous
+      // session before the fresh one below is created).
+      _cancelAmplitude();
+      _subscribeToAmplitudeAndGuards(
+        audioNotifier: audioNotifier,
+        settings: settings,
+        livePreviewWanted: livePreviewWanted,
+        sid: sid,
+        session: session,
+      );
+    } on Exception catch (e) {
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+      _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
+    } finally {
+      _releaseStartLock();
+    }
+  }
+
+  /// A press that finds the start lock taken. When the user already released
+  /// the press that holds it, that capture setup is only unwinding and this
+  /// press must still record: it waits for the setup, then starts normally.
+  /// Otherwise it is a real duplicate and only hints busy.
+  Future<void> _pressWhileStarting({
+    required RecordingTarget target,
+    SmartModePreset? forcedSmartModePreset,
+    String? languageOverride,
+    double? silenceTimeoutOverride,
+  }) async {
+    final previousDone = _startDone;
+    if (!_releasedDuringStart || previousDone == null) {
+      _log.debug('startRecording ignored — already in flight');
+      _hintPipelineBusy();
+      return;
+    }
+    _log.debug('startRecording waits for the released start to unwind');
+    await previousDone.future;
+    return startRecording(
+      target: target,
+      forcedSmartModePreset: forcedSmartModePreset,
+      languageOverride: languageOverride,
+      silenceTimeoutOverride: silenceTimeoutOverride,
+    );
+  }
+
+  /// Releases the start lock taken by [startRecording] and wakes a press that
+  /// waits for it.
+  void _releaseStartLock() {
+    _startInFlight = false;
+    _releasedDuringStart = false;
+    final done = _startDone;
+    _startDone = null;
+    if (done != null && !done.isCompleted) done.complete();
+  }
+
+  /// Captures the paste target alongside the mic start instead of in front of
+  /// it. [_pasteTranscript] primes again before it pastes, and platform
+  /// channels answer in call order, so a paste never reads an older target.
+  Future<void> _primeInParallel(Paster? paster, MicStartTrace trace) {
+    _clearPasteTarget();
+    if (paster == null) return Future<void>.value();
+    final generation = _pasteTargetGeneration;
+    final prime = paster.prime().then(
+      (_) {
+        // A cancel or a newer start in the meantime owns the flag now.
+        if (generation == _pasteTargetGeneration) _pasteTargetPrimed = true;
+        trace.mark(MicStartStage.pasterPrimed);
+      },
+      onError: (Object e, StackTrace _) =>
+          _log.warning('Paster prime failed, paste will prime again: $e'),
+    );
+    _pendingPastePrime = prime;
+    return prime;
+  }
+
+  /// Forgets the captured paste target (see [_pasteTargetPrimed]); a prime
+  /// still in flight no longer sets it.
+  void _clearPasteTarget() {
+    _pasteTargetPrimed = false;
+    _pendingPastePrime = null;
+    _pasteTargetGeneration++;
+  }
+
+  /// Loads the local engine in the background and stamps the load's end onto
+  /// [trace]. When the load finishes after the first sample, the span is logged
+  /// again, so a slow load after an idle unload shows up in the log.
+  Future<void> _loadEngineAfterCapture(
+    OnDeviceEngineLifecycle engineLifecycle,
+    MicStartTrace trace,
+  ) async {
+    try {
+      // No warm-up inference: the transcription that follows runs the same
+      // first inference, so a silent warm-up only delays the result.
+      await engineLifecycle.ensureRunning(warmup: false);
+    } on Exception catch (e) {
+      _log.warning('Engine load after capture start failed: $e');
+    }
+    trace.mark(MicStartStage.engineLoaded);
+    if (trace.elapsedMs(MicStartStage.firstSample) != null) {
+      _log.info(trace.summary());
+    }
+  }
+
+  /// Stamps the overlay's first painted frame onto [trace]. A frame that comes
+  /// after the first sample completes the span, so the span is logged again.
+  void _watchOverlayFrame(MicStartTrace trace) {
+    PerfMarkers.instance.setOverlayFirstFrameListener((micros) {
+      if (trace.elapsedMs(MicStartStage.overlayVisible) != null) return;
+      trace.markAt(MicStartStage.overlayVisible, micros);
+      if (trace.isComplete) _log.info(trace.summary());
+    });
+  }
+
+  /// Wires up the level-metering and safety-guard amplitude subscriptions
+  /// for a just-started recording, plus the live-preview PCM subscription
+  /// when [livePreviewWanted]. Split out of [startRecording] purely to keep
+  /// that method's branching within the complexity ratchet — no behaviour
+  /// change from when this was inline there.
+  void _subscribeToAmplitudeAndGuards({
+    required AudioServiceNotifier audioNotifier,
+    required AppSettings settings,
+    required bool livePreviewWanted,
+    required String sid,
+    required _RecordingSession session,
+  }) {
+    if (livePreviewWanted) {
+      final pcmStream = audioNotifier.pcmChunkStream;
+      if (pcmStream != null) {
+        final sttNotifier = ref.read(localSttBundleProvider.notifier);
+        _livePreviewPcmSub = pcmStream.listen(
+          sttNotifier.feedLivePreviewPcm,
+          onError: (Object e) {
+            _log.warning('[$sid] Live-preview PCM stream error: $e');
+          },
+        );
+      }
+    }
+
+    final rawStream = audioNotifier.amplitudeStream;
+    if (rawStream == null) return;
+
+    // Level-metering subscription (always active).
+    // updateAudioLevel is NOT a phase transition, so it calls the notifier
+    // directly (it only mutates audioLevel, not RecordingPhase).
+    final notifier = ref.read(recordingProvider.notifier);
+    _amplitudeSub = rawStream.listen(
+      (level) => notifier.updateAudioLevel(level),
+      onError: (Object e) {
+        _log.warning('[$sid] Amplitude stream error: $e');
+      },
+      onDone: () => _onCaptureStreamClosed(sid),
+    );
+
+    // Safety guard subscription — routes SafetyEvents to handlers.
+    final guardConfig = SafetyGuardConfig(
+      deadMicTimeout: settings.recordingSafety.deadMicTimeout,
+      autoStopSilence:
+          session.silenceTimeoutOverride ??
+          settings.recordingSafety.autoStopSilence,
+      maxDurationSeconds: settings.behavior.maxRecordDuration,
+      samplesPerSecond: amplitudeSamplesPerSecond,
+    );
+    _guardSub = rawStream
+        .transform(SafetyGuard(config: guardConfig))
+        .listen(
+          _routeGuardEvent,
+          onError: (Object e) {
+            _log.warning('[$sid] Safety guard stream error: $e');
+          },
+        );
+  }
+
+  /// The level stream closed while recording. A closed stream during a
+  /// recording means the microphone failed: the audio service has then kept
+  /// the captured WAV in its error state. Stop now, so that audio goes through
+  /// transcription instead of waiting for a stop press that may never come.
+  void _onCaptureStreamClosed(String sid) {
+    if (_stopInFlight) return;
+    final audioFailed =
+        ref.read(audioServiceProvider).captureState == AudioCaptureState.error;
+    if (!audioFailed) return;
+    if (ref.read(recordingProvider).phase != RecordingPhase.recording) return;
+    _log.warning(
+      '[$sid] Microphone stream failed mid-recording — stopping to keep the audio',
+    );
+    unawaited(stopRecording());
+  }
+
+  /// Stops recording and runs the transcription pipeline.
+  ///
+  /// Each step runs through [PipelineStepRunner.run] with its own budget:
+  ///   - Capture/WAV flush: 10 s
+  ///   - STT prepare (cold-start): 120 s (large models can need 60–90 s on
+  ///     integrated GPUs — a tighter budget would cause spurious timeouts)
+  ///   - Transcription: 60 s base + 0.8 × audio duration (scales with clip)
+  ///   - Save to history: 5 s
+  ///   - After-transcription action (clipboard / paste): 10 s
+  ///
+  /// A hung step times out independently, preventing it from consuming the
+  /// budget meant for later steps.  There is no separate 90-second watchdog;
+  /// the per-step timeouts act as the total safety net.
+  ///
+  /// Pipeline timing is logged at completion (or failure) for diagnostics.
+  Future<void> stopRecording() async {
+    // Concurrency guard: prevent double-stop from hotkey spam, auto-stop, or
+    // simultaneous toggleRecording() calls racing through the pipeline.
+    if (_stopInFlight) {
+      _log.debug('stopRecording ignored — already in flight');
+      return;
+    }
+    _stopInFlight = true;
+    _captureAbortRequested = false;
+    if (_startInFlight) _releasedDuringStart = true;
+    _recordingStoppedAtForLatencyKpi = DateTime.now();
+
+    final sid = ref.read(recordingProvider).sessionId ?? '?';
+    final session = _session;
+    String? wavPath;
+
+    // ── Pipeline timing ──────────────────────────────────────────────────
+    final pipelineSw = Stopwatch()..start();
+    final timing = _PipelineTiming();
+    final inFlight = _InFlightDictation();
+
+    // One runner instance; per-call timeout overrides are used where the
+    // step budget differs from the default.  The default is intentionally
+    // generous because it is always overridden below — it only serves as a
+    // last-resort safety net if a call site omits the explicit timeout.
+    const runner = PipelineStepRunner(timeout: Duration(seconds: 120));
+    // Set once the engine has been told that capture ended, so the catch-all
+    // below does not signal a second time.
+    var engineStopSignalled = false;
+
+    try {
+      // Cancel amplitude subscription.
+      _cancelAmplitude();
+
+      // ── Step 1: Capture — stop audio and flush WAV (10 s budget) ─────────
+      final captureResult = await _runCaptureStep(runner, sid);
+      // Capture is over on every path from here, whatever its outcome. Signal
+      // it once, before the decode starts: the live preview stops and the
+      // final decode runs at full threads, not reduced ones (f049e67cd).
+      engineStopSignalled = true;
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+      if (_captureAbortRequested) {
+        // Cancelled during the stop tail: nothing is transcribed or pasted.
+        if (captureResult case _CaptureOk(:final path)) {
+          await ref.read(audioServiceProvider.notifier).cleanupFile(path);
+        }
+        timing.outcome = 'cancelled';
+        _stateMachine.transition(RecordingIntent.reset);
+        _log.info(
+          '[$sid] Recording cancelled during stop tail — audio discarded',
+        );
+        return;
+      }
+      switch (captureResult) {
+        case _CaptureAbort(:final outcome):
+          timing.outcome = outcome;
+          return;
+        case _CaptureOk(:final path, :final bytes):
+          wavPath = path;
+          // Journal the WAV before the engine starts: a crash from here on
+          // leaves the entry behind, and the startup recovery transcribes it.
+          final entryId = newRecordingEntryId(DateTime.now());
+          inFlight
+            ..entryId = entryId
+            ..journalId = await ref
+                .read(transcriptionJournalProvider)
+                .begin(wavPath: path, entryId: entryId, now: DateTime.now());
+          timing.wavReadyMs = pipelineSw.elapsedMilliseconds;
+          _log.debug(
+            '[$sid] WAV ready: ${bytes.length} bytes (${timing.wavReadyMs}ms)',
+          );
+          final shouldContinue = await _runTranscriptionPipeline(
+            runner: runner,
+            sid: sid,
+            wavPath: path,
+            wavBytes: bytes,
+            timing: timing,
+            session: session,
+            inFlight: inFlight,
+          );
+          if (!shouldContinue) return;
+      }
+    } on Object catch (e) {
+      // An Error (such as a RangeError) must not skip the error state, and it
+      // must not let the cleanup below delete a dictation that has a
+      // transcript: that audio is parked for a later history save.
+      timing.outcome = 'exception';
+      if ('$e'.contains('stt_cuda_oom')) {
+        timing.outcome = 'stt_cuda_oom';
+        _handleOomRecovery();
+        return;
+      }
+      // A disposed provider (teardown mid-transcription) has no state to move.
+      if (ref.mounted) {
+        _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
+        if (!engineStopSignalled) {
+          ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+        }
+      }
+      _log.error('[$sid] Pipeline error: ${e.runtimeType}');
+      await _keepInFlightAudio(sid, session, inFlight, timing);
+    } finally {
+      pipelineSw.stop();
+      _logPipelineSummary(sid, pipelineSw, timing);
+      _trackPipelineOutcome(timing, pipelineSw.elapsedMilliseconds);
+      _recordLastDictation(timing);
+
+      // Always clean up the temp WAV file — unless a diagnosis session has
+      // opted into keeping it (see [kRetainDebugAudio]'s doc comment for
+      // why: an intermittent transcription drop can only be replayed
+      // through the offline harness if the exact audio Whisper received
+      // survives past this cleanup step).
+      // The result is final here, so the stop lock is released now: a hotkey
+      // press during the cleanup below starts a new session. Everything this
+      // run still needs is either a local (wavPath, inFlight, session) or is
+      // read before the lock goes, so the tail never touches state a newer
+      // session may own. The paste target and the retained-WAV marker belong
+      // to this run only; they are cleared synchronously, before any await.
+      // A WAV that the save step retained (audio retention) now belongs to its
+      // history entry, so it must survive this cleanup.
+      final keptForRetention = wavPath != null && wavPath == _retainedWavPath;
+      _retainedWavPath = null;
+      if (!session.cancelRequested) {
+        // A cancelled session already handed the lock back in cancelRecording,
+        // and a newer recording may own it by now.
+        _stopInFlight = false;
+        _clearPasteTarget();
+      }
+      final keptForRetry =
+          wavPath != null &&
+          ref.mounted &&
+          await _keepAudioForRetry(
+            sid,
+            wavPath,
+            keptForRetention,
+            inFlight.completedSliceParts,
+          );
+      // The awaits above can outlast the provider (app shutdown or teardown
+      // while a transcription is in flight). A disposed Ref must not be read,
+      // so the tail below is skipped then: the WAV and the journal entry stay
+      // behind exactly as after a crash, and the startup recovery takes them.
+      if (ref.mounted) {
+        await _endDictationRun(
+          sid,
+          wavPath,
+          keptForRetention: keptForRetention,
+          keptForRetry: keptForRetry,
+          inFlight: inFlight,
+        );
+      }
+    }
+  }
+
+  /// Deletes this run's WAV (unless it was kept for retention or retry) and
+  /// ends its journal entry. Runs after the stop lock is released.
+  Future<void> _endDictationRun(
+    String sid,
+    String? wavPath, {
+    required bool keptForRetention,
+    required bool keptForRetry,
+    required _InFlightDictation inFlight,
+  }) async {
+    // Read the journal before the cleanup await: after it the provider
+    // may be gone.
+    final journal = ref.read(transcriptionJournalProvider);
+    // The slice manifest goes with the WAV it belongs to. After a park it has
+    // already moved, so this removes nothing then.
+    if (wavPath != null) await SliceManifest.beside(wavPath).delete();
+    if (wavPath != null && !keptForRetention && !keptForRetry) {
+      if (kRetainDebugAudio) {
+        _log.info('[$sid] kRetainDebugAudio active — kept WAV at $wavPath');
+      } else {
+        await ref.read(audioServiceProvider.notifier).cleanupFile(wavPath);
+      }
+    }
+    // The audio is now saved, parked or deleted, so the transcription
+    // entry is no longer needed. The journal id is this run's own.
+    await journal.end(inFlight.journalId);
+  }
+
+  /// Runs Step 1: stop audio capture and flush the WAV file to disk.
+  ///
+  /// Returns a [_CaptureAbort] with the error outcome when the step failed,
+  /// or a [_CaptureOk] with the path and bytes when capture succeeded (path
+  /// and bytes are guaranteed non-empty).
+  Future<_CaptureStepResult> _runCaptureStep(
+    PipelineStepRunner runner,
+    String sid,
+  ) async {
+    // The stop may outlive the step budget. Its WAV path is published here so
+    // a late stop can still be parked (see the timeout case below).
+    final stoppedPath = Completer<String?>();
+    final captureResult = await runner.run<(String?, List<int>)>(
+      'capture',
+      () async {
+        final audioNotifier = ref.read(audioServiceProvider.notifier);
+        String? path;
+        try {
+          path = await audioNotifier.stopRecording();
+        } finally {
+          // A stop that threw has no WAV to park; the late park must not wait
+          // for a path that never comes.
+          if (!stoppedPath.isCompleted) stoppedPath.complete(path);
+        }
+        if (path == null) return (null, <int>[]);
+
+        // On Windows the `record` package can return before the WAV is
+        // fully flushed to disk.  Wait up to 2 s for the file to appear.
+        final wavFile = File(path);
+        if (!await wavFile.exists()) {
+          _log.debug('[$sid] WAV not yet on disk, waiting for flush…');
+          for (var i = 0; i < 8; i++) {
+            await Future<void>.delayed(const Duration(milliseconds: 250));
+            if (await wavFile.exists()) break;
+          }
+        }
+        if (!await wavFile.exists()) return (path, <int>[]);
+
+        final bytes = await wavFile.readAsBytes();
+        return (path, bytes);
+      },
+      timeout: captureStepBudget,
+    );
+
+    switch (captureResult) {
+      case StepTimeout():
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'pipeline_timeout',
+        );
+        _log.error(
+          '[$sid] Capture step timed out after '
+          '${captureStepBudget.inMilliseconds} ms',
+        );
+        // The WAV is still being finalised; keep it for a retry once it exists
+        // instead of leaving it behind without a record.
+        unawaited(_lateCapturePark = _parkLateCapture(sid, stoppedPath.future));
+        return const _CaptureAbort('capture_timeout');
+      case FailedWith(:final error):
+        _stateMachine.transition(RecordingIntent.fail, errorMessage: '$error');
+        _log.error('[$sid] Capture step failed: $error');
+        return const _CaptureAbort('capture_error');
+      case Ok(:final value):
+        final path = value.$1;
+        final bytes = value.$2;
+
+        if (path == null) {
+          _stateMachine.transition(
+            RecordingIntent.fail,
+            errorMessage: 'no_audio_recorded',
+          );
+          return const _CaptureAbort('no_audio');
+        }
+
+        // Transition state: recording → transcribing.
+        _stateMachine.transition(RecordingIntent.stop);
+
+        // Push the final user-gain clipping counter into the settings UI's
+        // ClippingState. We only reach this point on a successful capture
+        // step — error/abort paths above return early and intentionally
+        // leave the previous ClippingState untouched. A fresh `0` from a
+        // clean recording overrides any prior non-zero count, which is the
+        // desired auto-hide behaviour for the banner.
+        ref
+            .read(clippingStateProvider.notifier)
+            .reportRecordingFinished(
+              ref
+                  .read(audioServiceProvider.notifier)
+                  .lastRecordingClippedSamples,
+            );
+
+        if (bytes.isEmpty) {
+          // Distinguish between file-never-appeared and empty-file.
+          // STT prepare has not run yet, so we do not read the engine
+          // lifecycle status here — wav_file_not_created is the correct
+          // error in both sub-cases.
+          if (!await File(path).exists()) {
+            _stateMachine.transition(
+              RecordingIntent.fail,
+              errorMessage: 'wav_file_not_created',
+            );
+            _log.error('[$sid] WAV file never appeared: $path');
+            return const _CaptureAbort('wav_not_created');
+          }
+          _stateMachine.transition(
+            RecordingIntent.fail,
+            errorMessage: 'wav_file_empty',
+          );
+          _log.error('[$sid] WAV file is empty: $path');
+          return const _CaptureAbort('wav_empty');
+        }
+
+        return _CaptureOk(path: path, bytes: bytes);
+    }
+  }
+
+  /// Runs Steps 2–5: STT prepare, transcription, save, and after-transcription
+  /// action. Called only after a successful capture step.
+  ///
+  /// Returns `true` when the pipeline completed (outcome set to `ok`), or
+  /// `false` when a step failed and [timing.outcome] has already been set.
+  /// All error-phase transitions are performed internally.
+  Future<bool> _runTranscriptionPipeline({
+    required PipelineStepRunner runner,
+    required String sid,
+    required String wavPath,
+    required List<int> wavBytes,
+    required _PipelineTiming timing,
+    required _RecordingSession session,
+    required _InFlightDictation inFlight,
+  }) async {
+    _pasteFailureSoundPlayedThisPipeline = false;
+    _pasteNotConfirmedThisPipeline = false;
+    _copiedOnlyThisPipeline = false;
+    _historyOnlyThisPipeline = false;
+    _quickNoteAppendFailedThisPipeline = false;
+    _smartModeFallbackThisPipeline = null;
+    _smartModeFallbackCodeThisPipeline = null;
+    _pasteOutcomeThisPipeline = null;
+    _clipboardCopiedThisPipeline = false;
+    await session.languageResolution;
+
+    // Read settings for language hint and model info.
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final effectiveLang = _resolveEffectiveLang(settings, session);
+
+    // ── Step 2: STT prepare — ensure backend ready (120 s budget) ──────
+    // Large models on integrated GPUs can take 60–90 s to load into
+    // VRAM; a tighter budget causes spurious timeouts on first use.
+    final transcriber = ref.read(transcriberProvider);
+    final sttBundle = await _runSttPrepareStep(
+      runner,
+      sid,
+      transcriber,
+      timing,
+      session,
+    );
+    if (sttBundle == null) return false;
+
+    // ── Step 3: Transcription (60 s base + 0.8× audio duration) ────────
+    // Calculate audio duration for RTF logging
+    // (16 kHz, mono, 16-bit + 44-byte header).
+    final audioDurMs = ((wavBytes.length - 44) / 32000 * 1000).round();
+    timing.audioMs = audioDurMs;
+    inFlight
+      ..wavPath = wavPath
+      ..audioDuration = Duration(milliseconds: audioDurMs);
+    _log.info(
+      '[$sid] Transcribing (${wavBytes.length} bytes, '
+      '~${audioDurMs}ms audio, lang=$effectiveLang)',
+    );
+
+    // Timeout scales with audio length: 60s base + 0.8× audio duration.
+    // A 10s clip gets 68s, a 120s clip gets 156s — enough headroom for
+    // large-v3-turbo even on slower hardware.
+    final timeoutSec = 60 + (audioDurMs / 1000 * 0.8).round();
+    final inferSw = Stopwatch()..start();
+    // Each finished slice of a long upload is saved beside the WAV, so a crash
+    // or quit mid-transcription keeps it (see SliceManifest).
+    final checkpoint = SliceCheckpointWriter(
+      manifest: SliceManifest.beside(wavPath),
+      wavLength: wavBytes.length,
+      persisted: 0,
+    );
+    Future<String> transcribeStep() => _transcribeOnce(
+      transcriber,
+      wavBytes,
+      language: effectiveLang,
+      isCancelled: () => session.cancelRequested,
+      onSliceDone: (parts, total) async {
+        await checkpoint(parts, total);
+        if (ref.mounted) {
+          ref
+              .read(transcriptionSliceProgressProvider.notifier)
+              .report(done: parts.length, total: total);
+        }
+      },
+    );
+    final StepResult<String> transcribeResult;
+    try {
+      transcribeResult = await runner.run<String>(
+        'transcribe',
+        transcribeStep,
+        timeout: Duration(seconds: timeoutSec),
+      );
+    } finally {
+      if (ref.mounted) {
+        ref.read(transcriptionSliceProgressProvider.notifier).clear();
+      }
+    }
+    inferSw.stop();
+    timing.transcribeMs = inferSw.elapsedMilliseconds;
+    if (transcribeResult is Ok<String>) {
+      session.detectedLanguage = _detectedLanguageOf(transcriber);
+    }
+    _reportDetectedLanguage(transcriber, transcribeResult, effectiveLang);
+
+    return _handleTranscribeResult(
+      result: transcribeResult,
+      sid: sid,
+      wavPath: wavPath,
+      sttBundle: sttBundle,
+      audioDurMs: audioDurMs,
+      timeoutSec: timeoutSec,
+      settings: settings,
+      runner: runner,
+      timing: timing,
+      session: session,
+      inFlight: inFlight,
+    );
+  }
+
+  /// Runs Step 2: STT prepare and verifies the local engine is ready.
+  ///
+  /// Returns the [EngineLifecycleStatus] snapshot when prepare succeeded and
+  /// the engine is ready to accept requests. Returns `null` (with
+  /// [timing.outcome] set and error-phase transition performed) when the
+  /// step should abort.
+  Future<EngineLifecycleStatus?> _runSttPrepareStep(
+    PipelineStepRunner runner,
+    String sid,
+    Transcriber transcriber,
+    _PipelineTiming timing,
+    _RecordingSession session,
+  ) async {
+    final ensureSw = Stopwatch()..start();
+    final prepareResult = await runner.run<void>(
+      'stt_prepare',
+      () async => transcriber.prepare(),
+      timeout: const Duration(seconds: 120),
+    );
+    ensureSw.stop();
+    timing.sttEnsureMs = ensureSw.elapsedMilliseconds;
+
+    // Cancelled during prepare: whatever prepare returned belongs to a
+    // recording the user discarded, so it must not move the phase.
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return null;
+
+    switch (prepareResult) {
+      case StepTimeout():
+        timing.outcome = 'stt_timeout';
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'stt_start_timeout',
+        );
+        _log.warning('[$sid] STT server start timed out after 120s');
+        return null;
+      case FailedWith(:final error) when error is TranscriberException:
+        timing.outcome = 'stt_start_error';
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: transcriberErrorCode(error),
+        );
+        _log.warning('[$sid] STT prepare failed: ${error.message}');
+        return null;
+      case FailedWith(:final error):
+        timing.outcome = 'stt_start_error';
+        _stateMachine.transition(RecordingIntent.fail, errorMessage: '$error');
+        _log.warning('[$sid] STT prepare failed: $error');
+        return null;
+      case Ok():
+        // prepare succeeded — fall through.
+        break;
+    }
+
+    // Read the engine lifecycle status exactly once — after prepare() ran so
+    // ensureRunning() has had a chance to set the error state (e.g. OOM).
+    // All downstream branches (after-prepare check, SocketException path)
+    // use this single local variable.
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final sttBundle = ref.read(onDeviceEngineLifecycleProvider).status;
+
+    // Verify the local engine is ready before transcribing (on-device only).
+    // stt_cuda_oom is whisper/CUDA-specific — Parakeet's CPU ONNX Runtime
+    // never emits it, so this branch simply never fires for that engine.
+    if (!sttBundle.isReady && settings.sttProviderType.isLocal) {
+      if (sttBundle.errorMessage == 'stt_cuda_oom') {
+        timing.outcome = 'stt_cuda_oom';
+        _handleOomRecovery();
+        return null;
+      }
+      timing.outcome = 'stt_failed';
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: sttBundle.errorMessage ?? 'stt_server_failed',
+      );
+      return null;
+    }
+
+    return sttBundle;
+  }
+
+  /// Dispatches the transcription step result and runs Steps 4–5 on success.
+  ///
+  /// Returns `true` when the pipeline completed with outcome `ok`, or `false`
+  /// when a step failed (with [timing.outcome] and error transitions set).
+  Future<bool> _handleTranscribeResult({
+    required StepResult<String> result,
+    required String sid,
+    required String wavPath,
+    required EngineLifecycleStatus sttBundle,
+    required int audioDurMs,
+    required int timeoutSec,
+    required AppSettings settings,
+    required PipelineStepRunner runner,
+    required _PipelineTiming timing,
+    required _RecordingSession session,
+    required _InFlightDictation inFlight,
+  }) async {
+    // Checked before any branch: a failure of a cancelled transcription must
+    // not move the phase of whatever recording was started since.
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
+    switch (result) {
+      case StepTimeout():
+        timing.outcome = 'transcribe_timeout';
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'transcription_timeout',
+        );
+        _log.error('[$sid] Transcription timed out after ${timeoutSec}s');
+        return false;
+      case FailedWith(:final error)
+          when error is SocketException || error is http.ClientException:
+        // Uses the sttBundle read at the start of the pipeline
+        // (single read — covers both SocketException and ClientException).
+        if (sttBundle.errorMessage == 'stt_cuda_oom') {
+          timing.outcome = 'stt_cuda_oom';
+          _handleOomRecovery();
+          return false;
+        }
+        timing.outcome = 'stt_connection_lost';
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: 'stt_server_connection_lost',
+        );
+        _log.error(
+          '[$sid] STT server connection lost during inference'
+          '${error is http.ClientException ? " (ClientException)" : ""}',
+        );
+        return false;
+      case FailedWith(:final error) when error is InferenceClientRejected:
+        // Pre-flight reject — validator already emitted a Sentry
+        // breadcrumb in category `stt` and explicitly NOT a capture.
+        // Surface the user-message-key as the orchestrator's error
+        // code so `recording_behavior.dart` can localize the toast.
+        timing.outcome = 'transcribe_reject';
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: error.userMessageKey,
+        );
+        _log.warning(
+          '[$sid] Inference rejected pre-flight: ${error.userMessageKey}',
+        );
+        return false;
+      case FailedWith(:final error) when error is TranscriberException:
+        timing.outcome = 'transcribe_error';
+        // Slices that finished before the failure stay out of the next upload.
+        inFlight.completedSliceParts = error.completedParts;
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: transcriberErrorCode(error),
+        );
+        // Downgraded from `_log.error` to `_log.warning` so the
+        // AppLogger auto-escalation does NOT capture a second Sentry
+        // event under the catch-all `appLoggerAutoEscalated` finger-
+        // print. The explicit capture (with a real fingerprint +
+        // extras) already happens inside `SttServerStateNotifier.
+        // transcribeBytes` for non-200 responses. See CHANGELOG.md
+        // — Unreleased.
+        _log.warning(
+          '[$sid] Transcription failed: ${error.reason.name} '
+          '(${errorKind(error)})',
+        );
+        return false;
+      case FailedWith(:final error):
+        timing.outcome = 'transcribe_error';
+        if ('$error'.contains('stt_cuda_oom')) {
+          timing.outcome = 'stt_cuda_oom';
+          _handleOomRecovery();
+          return false;
+        }
+        _stateMachine.transition(
+          RecordingIntent.fail,
+          errorMessage: unclassifiedTranscribeErrorCode(error),
+        );
+        // Downgraded to `_log.warning` — see the parallel comment a
+        // few lines up. The notifier-side `captureError` is the
+        // single source of truth for inference Sentry events.
+        _log.warning('[$sid] Transcription failed: ${errorKind(error)}');
+        return false;
+      case Ok(:final value):
+        return _finalizeTranscription(
+          sid: sid,
+          transcript: value,
+          wavPath: wavPath,
+          audioDurMs: audioDurMs,
+          settings: settings,
+          runner: runner,
+          timing: timing,
+          inFlight: inFlight,
+          session: session,
+        );
+    }
+  }
+
+  /// Cancelled while the transcribe call was in flight — the state machine
+  /// already returned to idle in [cancelRecording]. Discard the result:
+  /// never even enter [_finalizeTranscription], so it never saves to
+  /// history or copies/pastes it. Each call site passes its own session, so
+  /// cancelling one recording never discards a later one.
+  bool _bailIfTranscriptionCancelled(
+    String sid,
+    _RecordingSession session,
+    _PipelineTiming timing,
+  ) {
+    if (!session.cancelRequested) return false;
+    _log.info('[$sid] Cancelled after transcribe — discarding result');
+    ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
+    timing.outcome = 'cancelled';
+    return true;
+  }
+
+  /// Runs Steps 4–5 after a successful transcription: whitespace cleanup,
+  /// save to history, and after-transcription action.
+  ///
+  /// Returns `true` when the pipeline completed successfully (outcome `ok`),
+  /// or `false` when the transcript was empty (outcome `empty_transcript`).
+  /// The history entry id that the review count may look up, or null when
+  /// the dictation writes no entry (saving off, quick note, template field).
+  static String? _historyEntryIdOf(RecordingInput input) =>
+      input.insertHistoryEntry ? input.entryId : null;
+
+  /// A dictation that is pasted or copied with saving off: it counts on the
+  /// content-free review counter only, and only for clipboard targets.
+  static bool _isHistoryFreeDictation(
+    RecordingInput input,
+    _RecordingSession session,
+  ) => !input.insertHistoryEntry && session.target == RecordingTarget.clipboard;
+
+  Future<bool> _finalizeTranscription({
+    required String sid,
+    required String transcript,
+    required String wavPath,
+    required int audioDurMs,
+    required AppSettings settings,
+    required PipelineStepRunner runner,
+    required _PipelineTiming timing,
+    required _RecordingSession session,
+    required _InFlightDictation inFlight,
+  }) async {
+    _logRealTimeFactor(sid, timing, audioDurMs);
+
+    // Whitespace-only output counts as empty: the cleanup below would
+    // collapse it to "" and save a blank history card with nothing to paste.
+    if (transcript.trim().isEmpty) {
+      timing.outcome = 'empty_transcript';
+      // The practice step needs to hear about silence too: it never reaches
+      // [_handleAfterTranscription].
+      sandboxTranscriptSink?.call(transcript, null);
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'transcription_empty',
+      );
+      return false;
+    }
+
+    // ── Transcription cleanup (always applied) ────────────────────
+    // Whisper models often insert extraneous newlines. Collapse them
+    // into single spaces for clean copy/paste results.
+    final replaceSw = Stopwatch()..start();
+    inFlight.transcript = transcript;
+    var finalText = _cleanupTranscriptWhitespace(sid, transcript);
+    replaceSw.stop();
+    timing.replaceMs = replaceSw.elapsedMilliseconds;
+
+    // ── Edit selection by voice ─────────────────────────────────────────
+    // The transcript is an instruction, not text to insert: no Smart Mode
+    // preset, snippet picker, history entry (triage decision 3 in
+    // `internal-notes`) or text transforms.
+    if (session.target == RecordingTarget.selectionEdit) {
+      return _finalizeSelectionEdit(
+        sid: sid,
+        instruction: finalText,
+        settings: settings,
+        timing: timing,
+        factLanguageCode: _factGuardLanguage(settings, session),
+      );
+    }
+
+    // Snapshot before Smart Mode / text replacements touch `finalText`
+    // (ticket 12) — persisted alongside the final text so the History
+    // detail panel can show what was originally dictated. Whitespace
+    // cleanup above is not a "transform" in the product sense (it is
+    // engine noise removal, always applied, never toggled), so it happens
+    // before this snapshot rather than counting as part of the diff.
+    final preTransformText = finalText;
+
+    // ── Text steps (filler words, spoken punctuation and line breaks,
+    // dictionary) ──────────────────────────────────────────────────────
+    // After the snapshot (product-level transforms the History detail panel
+    // shows as a diff) and before Smart Mode, so a trigger phrase
+    // interrupted by an "äh" still fires and the LLM sees the corrected
+    // terms. The recovery of a parked raw transcript runs the same steps.
+    // The dictionary is skipped for the onboarding sandbox, as Smart Mode
+    // and history are.
+    finalText = await _textSteps(settings).apply(
+      finalText,
+      languageCode: _resolveEffectiveLang(settings, session),
+      applyReplacements: ref.read(recordingStoreProvider).applyReplacements,
+    );
+
+    // ── Smart Mode: local Cleanup preset (ticket 02) ──────────────────
+    // Runs before history-save/snippet-picker/paste so every downstream
+    // consumer of `finalText` sees the same (possibly refined) value — this
+    // ticket replaces the transcript in place, it does not keep a separate
+    // raw+edited pair (that's the History data model, PRODUCT-SPEC §7, a
+    // later ticket's scope). Skipped for the onboarding sandbox recording,
+    // same as history-save below — a Smart Mode failure notification during
+    // the guided test-recording step would be a confusing false alarm, and
+    // "off" (the factory default, ticket 01) is a pure no-op path so this
+    // whole block never runs for a recording with no active preset.
+    // Ticket 04: the Smart-Mode hotkey's bound preset overrides the standard
+    // preset for this recording only — see startRecording's doc comment.
+    final hotkeyPreset = session.smartModeHotkeyPreset;
+    final activePreset =
+        hotkeyPreset ??
+        smartModePresetFromSettingsValue(settings.smartMode.standardPreset);
+    // Undo data (v27): the exact Smart-Mode input and its result, stored only
+    // when the run actually changed the text (a fallback keeps no undo).
+    final smartSave = await _smartModeForSave(
+      sid,
+      finalText,
+      preTransformText,
+      runner,
+      activePreset,
+      _activeSmartModeTargetLanguage(settings, hotkeyPreset != null),
+      settings,
+      languageCode: _factGuardLanguage(settings, session),
+      enabled: sandboxTranscriptSink == null,
+    );
+    finalText = smartSave.text;
+    final smartModeInput = smartSave.input;
+    final smartModeApplied = smartSave.applied;
+
+    // Cancelled while Smart Mode ran: discard before anything is saved,
+    // dispatched or pasted.
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
+
+    // ── Snippet-Picker dispatch (exact-match short-circuit, ticket 06) ────
+    // A transcript that matches the picker's trigger word exactly (after
+    // normalization) never reaches history/replacements or paste. An empty
+    // snippet list makes SnippetPickerService.show return false, and the
+    // transcript falls through to the normal pipeline below instead of
+    // vanishing — same "never silently discard the dictation" contract.
+    // Skipped in the same onboarding-sandbox case as history/paste below, and
+    // for a quick-note target — the picker inserts by pasting into the
+    // focused application, which makes no sense for a note target.
+    final snippetPickerDispatched =
+        sandboxTranscriptSink == null &&
+        session.target == RecordingTarget.clipboard &&
+        await _tryDispatchSnippetPicker(sid, finalText, settings);
+
+    // Id of the history entry this dictation wrote, if any: a failed paste
+    // marks exactly this entry as not counting toward the review threshold.
+    String? historyEntryId;
+    // A confirmed dictation written to no entry because saving is off; it
+    // counts on the content-free counter instead (see the count below).
+    var historyFreeDictation = false;
+    if (!snippetPickerDispatched) {
+      // The punctuation strip runs before the history save, so the history
+      // entry reads like the pasted text. The numeric transform below keeps
+      // its own, documented divergence; the raw STT text stays visible in the
+      // entry's original-transcript diff.
+      if (settings.stt.stripPunctuation) {
+        finalText = stripPunctuation(finalText);
+      }
+
+      // ── Step 4: Save to history (5 s budget) ─────────────────────
+      // Onboarding's test-recording step redirects the transcript to a local
+      // sandbox field only (see sandboxTranscriptSink docs on
+      // _handleAfterTranscription below) — it must never be written to the
+      // user's real History, so the whole save step is skipped while the sink
+      // is set.
+      if (sandboxTranscriptSink == null) {
+        // The entry input is built before the save runs, so it is still at
+        // hand when the save fails or times out and the audio must be kept.
+        final historyInput = await _buildHistoryInput(
+          finalText,
+          Duration(milliseconds: audioDurMs),
+          settings,
+          (timing.transcribeMs ?? 0) ~/ 1000,
+          originalTranscript: preTransformText,
+          entryId: inFlight.entryId,
+          smartModeInput: smartModeInput,
+          smartModeApplied: smartModeApplied,
+          session: session,
+        );
+        // A quick note, template field or dictation with saving off writes no
+        // history row under this id, so the review count never finds it and
+        // ignores it.
+        historyEntryId = _historyEntryIdOf(historyInput);
+        historyFreeDictation = _isHistoryFreeDictation(historyInput, session);
+        final saveSw = Stopwatch()..start();
+        final saveResult = await runner.run<String?>(
+          'save_history',
+          () => _saveToHistory(historyInput, wavPath, session: session),
+          timeout: const Duration(seconds: 5),
+        );
+        saveSw.stop();
+        timing.saveMs = saveSw.elapsedMilliseconds;
+
+        await _keepAudioIfUnsaved(sid, wavPath, historyInput, saveResult);
+        // From here the entry is written or parked; a later stray error must
+        // not park the same dictation again.
+        inFlight.transcript = null;
+        finalText = _historySaveOutcome(sid, saveResult, finalText);
+      }
+
+      // ── Zahlen-Modus (itn-cad-zahlen, digits-only transform) ────────
+      // Runs after the dictionary replacements (so a trigger phrase that
+      // happens to contain a number word still fires). Precedent-conform
+      // with stripPunctuation (§6.2 Option D1, itn-cad-zahlen PRD): the
+      // history entry keeps the pre-transform text — no second DB write in
+      // this latency-critical path.
+      if (settings.stt.numericOnlyMode) {
+        finalText = toNumericOnly(finalText) ?? finalText;
+      }
+
+      // ── Punctuation strip (always applied after text replacements) ──
+      // Deterministic, engine-independent — runs regardless of which STT
+      // engine/provider produced finalText. Placed after the dictionary
+      // replacements so a user's own explicit voice shortcut for punctuation
+      // (e.g. a "period" → "." trigger) survives; only the STT engine's own
+      // auto-inserted punctuation is removed. It runs again after the
+      // numeric transform below, because that transform can produce a
+      // sentence mark that must not reach the paste.
+      if (settings.stt.stripPunctuation) {
+        finalText = stripPunctuation(finalText);
+      }
+
+      // Cancelled while the history save ran: skip the paste.
+      if (_bailIfTranscriptionCancelled(sid, session, timing)) return false;
+
+      // ── Step 5: After-transcription action (10 s budget) ──────────
+      // Timeout prevents a locked clipboard or slow paste from
+      // hanging the pipeline.
+      final clipSw = Stopwatch()..start();
+      final clipResult = await runner.run<void>(
+        'after_transcription',
+        () async =>
+            _handleAfterTranscription(finalText, settings, session.target),
+        timeout: const Duration(seconds: 10),
+      );
+      clipSw.stop();
+      timing.clipboardMs = clipSw.elapsedMilliseconds;
+
+      _logAfterTranscriptionResult(sid, clipResult);
+    }
+    _flushSmartModeFallbackNotice();
+
+    // Text is now in the field (clipboard/paste action above has completed)
+    // — this is the "fertig eingefügter Text" moment for the hotkey→text
+    // end-to-end latency KPI. Local-only persistence; never touches the
+    // outgoing (bucketed) telemetry aggregator.
+    await _persistHotkeyLatencyIfPending(sid);
+
+    // Cancelled during the paste step: the phase now belongs to whatever
+    // recording was started next, so never transition it from here. A failed
+    // quick-note append ends in error instead of done (UIA-FLW-02).
+    if (_endWithoutCompletion(sid, session, timing, finalText)) return false;
+
+    // Transition state: transcribing/processing → done.
+    // Uses RecordingIntent.complete (transcribing→done) which the
+    // state machine maps to completeTranscription on the notifier.
+    _stateMachine.transition(
+      RecordingIntent.complete,
+      transcript: finalText,
+      pasteFailed: _pasteFailureSoundPlayedThisPipeline,
+      copiedOnly: _copiedOnlyThisPipeline,
+      historyOnly: _historyOnlyThisPipeline,
+      // Attempted and not a confirmed paste: the label says "in der
+      // Zwischenablage" instead of "Eingefügt". Paste is not changed here.
+      pasteUnconfirmed:
+          _pasteOutcomeThisPipeline != null &&
+          _pasteOutcomeThisPipeline != PasteOutcome.success,
+      // The same outcome as a flag for subscribers (the "Erste Schritte" card).
+      pasted: _pasteOutcomeThisPipeline == PasteOutcome.success,
+    );
+    // Automation hooks (WP-38 / 8.3): fire-and-forget, never awaited, so a
+    // slow or failing hook cannot delay the pipeline's own completion.
+    unawaited(
+      ref
+          .read(automationHookDispatcherProvider)
+          .dispatch(
+            event: 'transcript.finished',
+            data: {'transcript': finalText, 'origin': 'dictation'},
+          ),
+    );
+    ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
+    // A dictation whose text did not reach the field is no prompt moment and
+    // does not count toward the review threshold (growth review GR-012).
+    if (_pasteFailureSoundPlayedThisPipeline ||
+        _pasteNotConfirmedThisPipeline) {
+      unawaited(
+        ref
+            .read(reviewPromptProvider.notifier)
+            .countUnpastedDictation(entryId: historyEntryId),
+      );
+    } else {
+      if (historyFreeDictation) {
+        unawaited(
+          ref.read(reviewPromptProvider.notifier).countHistoryFreeDictation(),
+        );
+      }
+      // Two independent fire-and-forget checks. Each one only sets its own
+      // due flag; the shared display arbiter decides when a dialog opens.
+      unawaited(ref.read(reviewPromptProvider.notifier).checkAndMaybePrompt());
+      unawaited(ref.read(supportPromptProvider.notifier).checkAndMaybePrompt());
+    }
+    _oomHandler.reset();
+    timing.outcome = 'ok';
+
+    // No separate 'complete' event — the aggregated pipeline outcome (emitted
+    // once per run in _trackPipelineOutcome) already records the success path.
+
+    return true;
+  }
+
+  /// Ends a pipeline that must not reach done: a cancelled session, or a
+  /// quick-note append that failed (UIA-FLW-02). The failed append keeps the
+  /// [finalText] on the error state, so the toast can offer to copy it.
+  /// Returns `true` when the pipeline was ended here.
+  bool _endWithoutCompletion(
+    String sid,
+    _RecordingSession session,
+    _PipelineTiming timing,
+    String finalText,
+  ) {
+    if (_bailIfTranscriptionCancelled(sid, session, timing)) return true;
+    if (!_quickNoteAppendFailedThisPipeline) return false;
+    _quickNoteAppendFailedThisPipeline = false;
+    timing.outcome = 'quick_note_append_failed';
+    // The paste step runs while a Smart Mode pass still holds the phase in
+    // `refining`, and refining leaves only via complete or reset (ADR 0009:
+    // Smart Mode never routes through fail). Close that pass with the allowed
+    // reset first, then record the failure from idle. Without this the phase
+    // stays in refining and every hotkey press is ignored until a cancel.
+    if (ref.read(recordingProvider).phase == RecordingPhase.refining) {
+      _stateMachine.transition(RecordingIntent.reset);
+    }
+    _stateMachine.transition(
+      RecordingIntent.fail,
+      errorMessage: 'quick_note_append_failed',
+      transcript: finalText,
+    );
+    return true;
+  }
+
+  /// Text to continue with after the history save. Save failures are
+  /// non-fatal (best-effort): they are logged, and [current] is kept.
+  String _historySaveOutcome(
+    String sid,
+    StepResult<String?> saveResult,
+    String current,
+  ) {
+    if (saveResult case Ok(:final value)) return value ?? current;
+    if (saveResult case StepTimeout()) {
+      _log.warning('[$sid] Save to history timed out after 5s');
+    } else if (saveResult case FailedWith(:final error)) {
+      _log.error('[$sid] Save to history failed: $error');
+    }
+    return current;
+  }
+
+  /// Upper bound for waiting on the Smart Mode startup disk scan before the
+  /// edit-selection gate gives up and reports a missing engine.
+  static const _selectionEditScanTimeout = Duration(seconds: 10);
+
+  /// Gate for [RecordingTarget.selectionEdit]: returns an error code when
+  /// the feature cannot run, `null` when it can. Needs the paste path
+  /// (`selectionEditServiceProvider` is null without one) and a usable
+  /// Smart Mode engine — the downloaded local model, or an OpenAI key for
+  /// the cloud provider (strict either-or, ADR 0010).
+  ///
+  /// `modelDownloaded` is only known once the startup disk scan has run, so
+  /// a hotkey pressed right after launch waits for that scan instead of
+  /// misreporting an installed model as "not set up".
+  Future<String?> _selectionEditPreflight() async {
+    if (ref.read(selectionEditServiceProvider) == null) {
+      return 'selection_edit_unsupported';
+    }
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final provider = SmartModeProviderType.fromValue(
+      settings.smartMode.provider,
+    );
+    // A build without the bundled local engine library (see the Smart Mode
+    // settings, which disable the on-device option then) can never run it,
+    // whatever the model download state says.
+    if (provider.isLocal && !ref.read(smartModeLocalEngineAvailableProvider)) {
+      return 'selection_edit_local_unavailable';
+    }
+    final bool engineReady;
+    if (provider.isLocal) {
+      final download = ref.read(smartModeDownloadProvider.notifier);
+      await download.awaitInitialScan().timeout(
+        _selectionEditScanTimeout,
+        onTimeout: () => _log.warning(
+          'Smart Mode startup scan still pending after '
+          '${_selectionEditScanTimeout.inSeconds}s — treating model as missing',
+        ),
+      );
+      engineReady = ref.read(smartModeDownloadProvider).modelDownloaded;
+    } else {
+      engineReady = settings.cloudProvider.openAiApiKey.trim().isNotEmpty;
+    }
+    return engineReady ? null : 'selection_edit_no_engine';
+  }
+
+  /// Runs the edit-selection pipeline for [instruction] and finishes the
+  /// recording: `done` after the selection was replaced, `error` (with a
+  /// localized overlay hint) otherwise — in which case the original
+  /// selection is untouched and the clipboard restored. Stays in
+  /// `transcribing` while the engine runs: `refining` can never reach
+  /// `error` (ADR 0009), but a failed edit must say so.
+  void _logRealTimeFactor(String sid, _PipelineTiming timing, int audioDurMs) {
+    final transcribeMs = timing.transcribeMs!;
+    if (audioDurMs <= 0 || transcribeMs <= 0) return;
+    final rtf = transcribeMs / audioDurMs;
+    _log.info(
+      '[$sid] STT: inference=${transcribeMs}ms '
+      'audio=${audioDurMs}ms RTF=${rtf.toStringAsFixed(2)}x',
+    );
+  }
+
+  Future<bool> _finalizeSelectionEdit({
+    required String sid,
+    required String instruction,
+    required AppSettings settings,
+    required _PipelineTiming timing,
+    required String factLanguageCode,
+  }) async {
+    final service = ref.read(selectionEditServiceProvider);
+    if (service == null) {
+      timing.outcome = 'selection_edit_unsupported';
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'selection_edit_unsupported',
+      );
+      return false;
+    }
+
+    final sw = Stopwatch()..start();
+    final outcome = await service.run(
+      instruction: instruction,
+      pasteOptions: PasteOptions(
+        autoPasteDelayMs: settings.autoPasteDelay,
+        blocklist: settings.autoPasteBlocklist,
+        // With saving off a blocked paste must still leave the text on the
+        // clipboard: there is no history entry to fall back on.
+        copyBlockedToClipboard:
+            settings.behavior.copyBlockedToClipboard ||
+            !settings.history.saveHistory,
+        restoreClipboardAfterPaste:
+            settings.behavior.restoreClipboardAfterPaste,
+        restoreClipboardWithoutReceipt:
+            settings.behavior.restoreClipboardWithoutReceipt,
+      ),
+      translateTarget: smartModeTargetLanguageFromSettingsValue(
+        settings.smartMode.targetLanguage,
+      ),
+      factLanguageCode: factLanguageCode,
+    );
+    sw.stop();
+    timing.clipboardMs = sw.elapsedMilliseconds;
+    // Edit-step latency (selection read + engine + paste); the full hotkey
+    // release → replacement time lands in the pipeline timing log.
+    _log.info(
+      '[$sid] Edit selection finished in ${sw.elapsedMilliseconds}ms '
+      '(failure=${outcome.failure?.name ?? "none"})',
+    );
+
+    final failure = outcome.failure;
+    if (failure != null) {
+      timing.outcome = failure.errorCode;
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: outcome.failureCode,
+      );
+      return false;
+    }
+
+    await _persistHotkeyLatencyIfPending(sid);
+    _stateMachine.transition(
+      RecordingIntent.complete,
+      transcript: outcome.result,
+    );
+    _announceNameChanges(outcome);
+    ref.read(onDeviceEngineLifecycleProvider).notifyTranscriptionCompleted();
+    _oomHandler.reset();
+    timing.outcome = 'ok';
+    return true;
+  }
+
+  /// Offers the name-change toast with its undo (2c, DEV-165). Only when the
+  /// edit changed a name; the toast is non-blocking.
+  void _announceNameChanges(SelectionEditOutcome outcome) {
+    final undo = outcome.undo;
+    if (undo == null || outcome.nameChanges.isEmpty) return;
+    ref
+        .read(smartModeNameChangeNoticeProvider.notifier)
+        .announce(count: outcome.nameChanges.length, ticket: undo);
+  }
+
+  /// Timeout for the Smart Mode Cleanup engine call itself — the primary
+  /// timeout, expected to fire (if anything does) well before
+  /// [RecordingNotifier]'s own `refining`-phase safety-net guard (30s). Local
+  /// inference is measured at 0.3–2.5s for a typical dictation (ADR 0009);
+  /// this budget is generous headroom for slower hardware, not the expected
+  /// case.
+  static const _smartModeCleanupTimeout = Duration(seconds: 15);
+
+  /// Test-only override for [_smartModeCleanupTimeout] — lets tests exercise
+  /// the timeout branch in well under a second instead of waiting 15 real
+  /// seconds. Mirrors [sttDirOverride]'s "test-only, must stay null in
+  /// production" convention. Must stay `null` in production code.
+  @visibleForTesting
+  static Duration? smartModeCleanupTimeoutOverride;
+
+  /// The hotkey's own target language is independent of the standard
+  /// preset's (settings_sections.dart, SmartModeHotkeySettings doc comment)
+  /// — a recording refined under the hotkey override must use *its*
+  /// language, never fall through to the standard preset's.
+  SmartModeTargetLanguage _activeSmartModeTargetLanguage(
+    AppSettings settings,
+    bool useHotkeyOverride,
+  ) {
+    return smartModeTargetLanguageFromSettingsValue(
+      useHotkeyOverride
+          ? settings.smartModeHotkey.smartModeHotkeyTargetLanguage
+          : settings.smartMode.targetLanguage,
+    );
+  }
+
+  /// Runs [_runSmartModeRefine] and keeps the undo pair (v27): the exact input
+  /// and the result, only when the run changed the text. A fallback keeps
+  /// neither, so there is nothing to undo.
+  /// Smart Mode for the save step: the text to use plus the undo data. The
+  /// raw text is stored once as [originalTranscript], so the Smart-Mode input
+  /// is kept only when it differs from that (BIZ-25). Nothing runs when
+  /// [enabled] is false or [preset] is off.
+  Future<({String text, String? input, bool applied})> _smartModeForSave(
+    String sid,
+    String rawText,
+    String originalTranscript,
+    PipelineStepRunner runner,
+    SmartModePreset preset,
+    SmartModeTargetLanguage targetLanguage,
+    AppSettings settings, {
+    required String languageCode,
+    required bool enabled,
+  }) async {
+    if (!enabled || preset == SmartModePreset.off) {
+      return (text: rawText, input: null, applied: false);
+    }
+    final run = await _runSmartModeWithUndo(
+      sid,
+      rawText,
+      runner,
+      preset,
+      targetLanguage,
+      settings,
+      languageCode,
+    );
+    return (
+      text: run.text,
+      input: run.input == originalTranscript ? null : run.input,
+      applied: run.applied,
+    );
+  }
+
+  Future<({String text, String? input, bool applied})> _runSmartModeWithUndo(
+    String sid,
+    String rawText,
+    PipelineStepRunner runner,
+    SmartModePreset preset,
+    SmartModeTargetLanguage targetLanguage,
+    AppSettings settings,
+    String languageCode,
+  ) async {
+    final result = await _runSmartModeRefine(
+      sid,
+      rawText,
+      runner,
+      preset,
+      targetLanguage,
+      settings,
+      languageCode,
+    );
+    if (result == rawText) return (text: rawText, input: null, applied: false);
+    return (text: result, input: rawText, applied: true);
+  }
+
+  /// Runs the active Smart Mode preset ([SmartModePreset.cleanup],
+  /// [SmartModePreset.concise], or [SmartModePreset.translate]) over
+  /// [rawText] and returns the result — or [rawText] unchanged on any
+  /// failure (model missing, load error, decode error, timeout, blank
+  /// result), firing a clearly-visible OS notification in that case. Smart
+  /// Mode never blocks the paste (ADR 0009): the caller always gets a usable
+  /// string back, never a thrown exception. [preset] is never
+  /// [SmartModePreset.off] — the caller already filters that out.
+  Future<String> _runSmartModeRefine(
+    String sid,
+    String rawText,
+    PipelineStepRunner runner,
+    SmartModePreset preset,
+    SmartModeTargetLanguage targetLanguage,
+    AppSettings settings,
+    String languageCode,
+  ) async {
+    final provider = SmartModeProviderType.fromValue(
+      settings.smartMode.provider,
+    );
+    // Strict either-or (ADR 0010): the local-model-downloaded gate only
+    // applies to the local provider. Cloud never falls back to a locally
+    // installed model even if one exists — a missing/invalid API key or a
+    // network failure surfaces as the same silent-fallback path below, via
+    // the engine itself throwing.
+    if (provider.isLocal &&
+        !ref.read(smartModeDownloadProvider).modelDownloaded) {
+      _log.info(
+        '[$sid] Smart Mode $preset selected but model not downloaded — '
+        'falling back to raw transcript',
+      );
+      _recordSmartModeFallback(SmartModeFallbackReason.noTextModel);
+      return rawText;
+    }
+
+    final systemPrompt = smartModeSystemPromptFor(
+      preset,
+      targetLanguage: targetLanguage,
+    );
+
+    _stateMachine.transition(
+      RecordingIntent.startRefining,
+      transcript: rawText,
+    );
+
+    final engine = ref.read(smartModeEngineProvider);
+    final result = await runner.run<String>(
+      'smart_mode_refine',
+      () => engine.run(systemPrompt: systemPrompt, userText: rawText),
+      timeout: smartModeCleanupTimeoutOverride ?? _smartModeCleanupTimeout,
+    );
+
+    switch (result) {
+      case Ok(:final value):
+        if (value.trim().isEmpty) {
+          // A blank/whitespace-only response is treated as a failure — never
+          // silently paste an empty string where the user dictated real
+          // content.
+          _log.warning('[$sid] Smart Mode $preset returned empty result');
+          _recordSmartModeFallback(SmartModeFallbackReason.failed);
+          return rawText;
+        }
+        // Translations may legitimately be much longer than the source, so
+        // only the cleanup and concise presets get the loop check.
+        if (preset != SmartModePreset.translate &&
+            smartModeOutputLooksLooped(input: rawText, output: value)) {
+          _log.warning(
+            '[$sid] Smart Mode $preset output looks looped '
+            '(${value.length} chars for ${rawText.length}), '
+            'falling back to raw transcript',
+          );
+          _recordSmartModeFallback(SmartModeFallbackReason.failed);
+          return rawText;
+        }
+        // Fact guard (matrix 2.5, deterministic and offline): a changed
+        // number, date, URL, e-mail or name keeps the raw transcript on the
+        // automatic path. Names are not checked for translations, whose
+        // target language legitimately changes capitalisation.
+        // DEV-146: the dictionary read belongs to the guard. A throw there
+        // keeps the raw transcript instead of escaping the paste path.
+        final SmartModeFactCheck factCheck;
+        try {
+          factCheck = await checkSmartModeFacts(
+            input: rawText,
+            output: value,
+            checkNames: preset != SmartModePreset.translate,
+            knownTerms: await ref
+                .read(recordingStoreProvider)
+                .dictionaryTerms(),
+            singleCapitalisedWordsAreNames: !_isGermanLanguage(languageCode),
+          );
+        } on Object catch (e) {
+          _log.warning(
+            '[$sid] Smart Mode $preset fact check could not run ($e), '
+            'falling back to raw transcript',
+          );
+          _recordSmartModeFallback(SmartModeFallbackReason.failed);
+          return rawText;
+        }
+        final factViolations = factCheck.violations;
+        if (factViolations == null || factViolations.isNotEmpty) {
+          _log.warning(
+            '[$sid] Smart Mode $preset changed protected facts '
+            '(${factViolations?.length ?? factCheck.failure?.name}), falling back to raw transcript',
+          );
+          _recordSmartModeFallback(
+            factCheck.failure == SmartModeGuardFailure.timedOut
+                ? SmartModeFallbackReason.timedOut
+                : SmartModeFallbackReason.failed,
+          );
+          return rawText;
+        }
+        _log.debug('[$sid] Smart Mode $preset succeeded');
+        return value;
+      case StepTimeout():
+        _log.warning(
+          '[$sid] Smart Mode $preset timed out after '
+          '${_smartModeCleanupTimeout.inSeconds}s',
+        );
+        // Really stop the generation the pipeline just gave up on, instead
+        // of letting it burn CPU/GPU in the background.
+        unawaited(engine.cancel());
+        _recordSmartModeFallback(SmartModeFallbackReason.timedOut);
+        return rawText;
+      case FailedWith(:final error):
+        _log.warning('[$sid] Smart Mode $preset failed: $error');
+        // The own endpoint names its error class in the engine's error code
+        // (W-M3); each class keeps its own message and next step.
+        final errorCode = error is StateError ? error.message.toString() : '';
+        if (errorCode.startsWith('smart_mode_custom_')) {
+          _recordSmartModeFallback(
+            SmartModeFallbackReason.customEndpoint,
+            customEndpointCode: errorCode,
+          );
+          return rawText;
+        }
+        // An engine that throws because no text model is set up (for example
+        // the cloud provider without a key) is a missing model, not a failure.
+        final modelMissing =
+            smartModeTextModelStatus(
+              provider: provider,
+              localEngineAvailable: ref.read(
+                smartModeLocalEngineAvailableProvider,
+              ),
+              modelDownloaded: ref
+                  .read(smartModeDownloadProvider)
+                  .modelDownloaded,
+              openAiApiKey: settings.cloudProvider.openAiApiKey,
+              // Without this an own endpoint that is set up is reported as
+              // a missing text model after an unexpected failure (W-M3).
+              customEndpointConfigured: customEndpointReady(
+                url: settings.cloudProvider.customEndpointUrl,
+                model: settings.cloudProvider.customEndpointSmartModel,
+              ),
+            ) !=
+            SmartModeTextModelStatus.ready;
+        _recordSmartModeFallback(
+          modelMissing
+              ? SmartModeFallbackReason.noTextModel
+              : SmartModeFallbackReason.failed,
+        );
+        return rawText;
+    }
+  }
+
+  /// Remembers why Smart Mode left this run's text unedited. The notice is
+  /// sent after the paste step by [_flushSmartModeFallbackNotice].
+  void _recordSmartModeFallback(
+    SmartModeFallbackReason reason, {
+    String? customEndpointCode,
+  }) {
+    _smartModeFallbackThisPipeline = reason;
+    _smartModeFallbackCodeThisPipeline = customEndpointCode;
+  }
+
+  /// Fires the OS notification for a Smart Mode fallback (ticket 02) once the
+  /// paste step is over, so it can say what happened to the unedited text
+  /// (UIA-XP-7-05): pasted, only on the clipboard, not confirmed, or not
+  /// inserted. Purely informational: no tray "action needed" badge and no error
+  /// sound, since the dictation itself completed.
+  void _flushSmartModeFallbackNotice() {
+    final reason = _smartModeFallbackThisPipeline;
+    if (reason == null) return;
+    final customCode = _smartModeFallbackCodeThisPipeline;
+    _smartModeFallbackThisPipeline = null;
+    _smartModeFallbackCodeThisPipeline = null;
+    final l10n = _resolveL10n();
+    final delivery = smartModeDeliveryOf(
+      paste: _pasteOutcomeThisPipeline,
+      clipboardHeld: _clipboardCopiedThisPipeline || _copiedOnlyThisPipeline,
+    );
+    unawaited(
+      ref
+          .read(systemAttentionServiceProvider)
+          .requestAttention(
+            kind: AttentionKind.smartModeFallback,
+            title: l10n.notificationSmartModeSkippedTitle,
+            body: smartModeFallbackNoticeBody(
+              l10n,
+              reason: reason,
+              delivery: delivery,
+              customEndpointCode: customCode,
+            ),
+          ),
+    );
+  }
+
+  /// Logs the outcome of the after-transcription action step (Step 5).
+  /// Non-fatal failures are logged as warnings.
+  void _logAfterTranscriptionResult(String sid, StepResult<void> clipResult) {
+    switch (clipResult) {
+      case StepTimeout():
+        _log.warning('[$sid] After-transcription action timed out (10s)');
+      case FailedWith(:final error):
+        _log.warning(
+          '[$sid] After-transcription action failed (non-fatal): $error',
+        );
+      case Ok():
+        break;
+    }
+  }
+
+  /// Language the transcriber reported for its last transcription, if any.
+  String? _detectedLanguageOf(Transcriber transcriber) => switch (transcriber) {
+    LanguageReportingTranscriber(:final lastDetectedLanguage) =>
+      lastDetectedLanguage,
+    _ => null,
+  };
+
+  /// Language for the fact guard's name rule (DEV-83). The configured language
+  /// wins; with automatic detection, the language the engine reported. Without
+  /// one, German rules apply: single capitalised words are ordinary nouns.
+  String _factGuardLanguage(AppSettings settings, _RecordingSession session) =>
+      factGuardLanguage(
+        configured: _resolveEffectiveLang(settings, session),
+        detected: session.detectedLanguage,
+      );
+
+  /// Maps a [TranscriberException] to a stable error code for the UI layer.
+  ///
+  /// Cloud adapters (OpenAI, Deepgram) carry English prose in
+  /// [TranscriberException.message]; the toast layer can only localize
+  /// stable codes, so auth/quota failures are mapped via the reason enum.
+  /// All other reasons pass the message through — the local adapter already
+  /// uses code-shaped messages (e.g. `stt_cuda_oom`).
+  /// Publishes the wrong-language hint when the engine heard a clearly
+  /// different language than the fixed setting (9.10). Silent for automatic
+  /// detection, short text, and adapters that cannot report a language.
+  void _reportDetectedLanguage(
+    Transcriber transcriber,
+    StepResult<String> result,
+    String configured,
+  ) {
+    final detected = _detectedLanguageOf(transcriber);
+    if (detected == null || result is! Ok<String>) return;
+    if (!isLanguageMismatch(
+      configured: configured,
+      detected: detected,
+      wordCount: computeWordCountFast(result.value),
+    )) {
+      return;
+    }
+    ref
+        .read(languageMismatchHintProvider.notifier)
+        .show(LanguageMismatchHint(detected: detected, configured: configured));
+  }
+
+  @visibleForTesting
+  String transcriberErrorCode(TranscriberException e) =>
+      transcriptionErrorCode(e);
+
+  /// Resolves the effective transcription language from [settings].
+  ///
+  /// `"auto"` is passed through as-is so the whisper model performs real
+  /// language detection. The previous behavior (falling back to the app UI
+  /// locale, inherited from Go's `GetEffectiveLocalTranscriptionLanguage`)
+  /// silently forced every auto-detect user onto their UI language — a
+  /// Russian speaker on an English UI got English output (store review,
+  /// June 2026).
+  String _resolveEffectiveLang(
+    AppSettings settings,
+    _RecordingSession session,
+  ) => session.languageCode;
+
+  /// Publishes the Parakeet language notice when the language this recording
+  /// runs with is one Parakeet cannot transcribe (SW-05).
+  void _noticeParakeetLanguageGap(String languageCode) {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final gap = parakeetUnsupportedLanguage(
+      settings,
+      languageOverride: languageCode,
+    );
+    if (gap == null) return;
+    ref
+        .read(parakeetLanguageNoticeProvider.notifier)
+        .show(ParakeetLanguageNotice(gap));
+  }
+
+  /// Captures the paste target alongside the mic start (never awaited here).
+  /// Without an override, the profile language is then resolved from that same
+  /// capture in the background (SW-07). Quick-note targets never paste, so they
+  /// skip the capture.
+  void _captureTargetAtStart(
+    _RecordingSession session,
+    RecordingTarget target,
+    String? languageOverride,
+    MicStartTrace micTrace,
+  ) {
+    // Edit selection captures too: the copy and the replacing paste both go to
+    // the app that was frontmost at hotkey time.
+    final capturesTarget =
+        target == RecordingTarget.clipboard ||
+        target == RecordingTarget.selectionEdit;
+    // A manual profile needs no target, so it names the run on every target
+    // (quick notes included) and only skips the language when one is forced.
+    final manualProfile =
+        ref.read(profileChoiceProvider) is ProfileChoiceProfile;
+    if (!capturesTarget || languageOverride != null) {
+      if (capturesTarget) {
+        _primeInParallel(ref.read(pasterProvider), micTrace);
+      }
+      if (manualProfile) {
+        session.languageResolution = _resolveProfileLanguage(
+          session,
+          null,
+          applyLanguage: languageOverride == null,
+        );
+      } else {
+        _noticeParakeetLanguageGap(session.languageCode);
+      }
+      return;
+    }
+    final captured = _primeInParallel(ref.read(pasterProvider), micTrace);
+    session.languageResolution = _resolveProfileLanguage(
+      session,
+      captured,
+      applyLanguage: true,
+    );
+  }
+
+  /// SW-07 and ticket 13 part 3: the profile this recording runs with and its
+  /// language. The manual choice needs no target; the per-app rules are matched
+  /// against the target captured at start ([targetCaptured], null for manual
+  /// only). Runs in the background, so the mic start never waits for it.
+  /// Transcription awaits it through [_RecordingSession.languageResolution].
+  /// [applyLanguage] is false when a language is forced for this recording.
+  Future<void> _resolveProfileLanguage(
+    _RecordingSession session,
+    Future<void>? targetCaptured, {
+    required bool applyLanguage,
+  }) async {
+    String? resolvedLanguage;
+    String? resolvedName;
+    try {
+      final db = ref.read(historyDatabaseProvider);
+      final profiles = appProfilesFromRows(
+        await db.readAppProfiles(),
+        await db.readAppProfileRules(),
+      );
+      final choice = ref.read(profileChoiceProvider);
+      final manual = choice is ProfileChoiceProfile;
+      final ruleBased =
+          targetCaptured != null && profiles.any((p) => p.rules.isNotEmpty);
+      if (manual || ruleBased) {
+        String? targetId;
+        if (!manual) {
+          await targetCaptured;
+          targetId = await _targetAppForSave();
+        }
+        final profile = resolveAppProfile(
+          choice: choice,
+          profiles: profiles,
+          target: targetEvidenceFromNativeId(targetId),
+        ).profile;
+        resolvedName = profile?.name;
+        final language = profile?.asrLanguage;
+        if (applyLanguage && language != null && language.isNotEmpty) {
+          session.languageCode = language;
+          resolvedLanguage = language;
+        }
+      }
+    } on Object catch (e) {
+      // Background lookup: any failure keeps the global language, and it
+      // must never surface as an unhandled error from the recording start.
+      _log.warning('Profile lookup skipped, global language kept: $e');
+    }
+    // The recording may have ended and disposed this notifier meanwhile.
+    if (!ref.mounted) return;
+    // The chip follows the profile once, and only for this session.
+    if (identical(_session, session)) {
+      if (resolvedName != null) {
+        ref.read(recordingProfileProvider.notifier).set(resolvedName);
+      }
+      if (resolvedLanguage != null) {
+        ref.read(recordingLanguageProvider.notifier).set(resolvedLanguage);
+      }
+    }
+    _noticeParakeetLanguageGap(session.languageCode);
+  }
+
+  /// Language code for one recording (SW-03). [languageOverride] wins over the
+  /// configured language; a null override falls back to the setting.
+  String _languageCodeFor(String? languageOverride) {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final language = languageOverride ?? settings.sttLanguageCode;
+    return language.isEmpty ? 'auto' : language;
+  }
+
+  /// The text steps [settings] enable for a dictation. Also stored with a
+  /// parked raw transcript, so its recovery runs the same steps.
+  /// Text steps of a raw in-flight transcript. Falls back to the defaults
+  /// when [settings] cannot be read, so the parked audio is still kept.
+  DictationTextSteps _rawTextSteps(AppSettings settings) {
+    try {
+      return _textSteps(settings);
+    } on Object {
+      return _textSteps(AppSettings.defaults);
+    }
+  }
+
+  DictationTextSteps _textSteps(AppSettings settings) =>
+      DictationTextSteps.fromSettings(
+        settings,
+        textReplacements: sandboxTranscriptSink == null,
+      );
+
+  /// Collapses extraneous whitespace from a raw whisper transcript.
+  ///
+  /// Whisper models often insert extraneous newlines. Collapses them into
+  /// single spaces for clean copy/paste results. Logs a summary when the
+  /// character count changes.
+  String _cleanupTranscriptWhitespace(String sid, String transcript) {
+    final rawLen = transcript.length;
+    final cleaned = collapseTranscriptWhitespace(transcript);
+    if (cleaned.length != rawLen) {
+      _log.info('[$sid] Whitespace cleanup: $rawLen→${cleaned.length} chars');
+    }
+    return cleaned;
+  }
+
+  /// Remembers how a successful dictation was processed for the overview's
+  /// "Letztes Diktat" block: CPU or GPU, a GPU that was wanted but not used
+  /// (fallback), and the transcription time. Runs after the text is out.
+  void _recordLastDictation(_PipelineTiming timing) {
+    final transcribeMs = timing.transcribeMs;
+    if (timing.outcome != 'ok' || transcribeMs == null || !ref.mounted) return;
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final DictationProcessing processing;
+    final bool fellBack;
+    if (settings.sttProviderType != SttProviderType.onDevice) {
+      processing = DictationProcessing.cloud;
+      fellBack = false;
+    } else if (settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+      final resolved = resolveLocalProcessing(
+        gpuWanted: parakeetGpuWantedForSetting(
+          settings.behavior.gpuAcceleration,
+        ),
+        gpuActive:
+            ref.read(parakeetEngineProvider).backend == ParakeetBackend.gpu,
+      );
+      processing = resolved.processing;
+      fellBack = resolved.fellBack;
+    } else {
+      final backend = ref.read(localSttBundleProvider).backend;
+      final resolved = resolveLocalProcessing(
+        gpuWanted: whisperGpuWanted(
+          optimalBackend: ref.read(hw.gpuInfoProvider).value?.optimalBackend,
+          gpuAcceleration: settings.behavior.gpuAcceleration,
+        ),
+        gpuActive: backend != null && backend != WhisperBackend.cpu,
+      );
+      processing = resolved.processing;
+      fellBack = resolved.fellBack;
+    }
+    unawaited(
+      ref
+          .read(lastDictationProvider.notifier)
+          .record(
+            LastDictation(
+              processing: processing,
+              fellBack: fellBack,
+              processingMs: transcribeMs,
+            ),
+          ),
+    );
+  }
+
+  /// Aggregated categorical telemetry for a finished pipeline run — the single
+  /// per-recording signal. [_PipelineTiming.outcome] is an internal enum string
+  /// (no PII); latency is bucketed into its own low-cardinality counter. Both
+  /// are tallied in-memory and flushed once at shutdown, never per recording.
+  void _trackPipelineOutcome(_PipelineTiming timing, int elapsedMs) {
+    // A run that ends after its provider was disposed (teardown while a
+    // transcription is in flight) has no aggregator to count into.
+    if (!ref.mounted) return;
+    final agg = ref.read(telemetrySessionAggregatorProvider);
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final model = telemetryModelId(settings);
+    agg.count(
+      category: 'pipeline',
+      action: timing.outcome == 'ok' ? 'success' : 'fail',
+      name: '$model|${timing.outcome}',
+    );
+    agg.count(
+      category: 'pipeline',
+      action: 'latency',
+      name: 'b${_latencyBucketSeconds(elapsedMs)}',
+    );
+    // Real-time factor per model and backend, only for finished dictations:
+    // a failed run has no meaningful inference time.
+    final rtf = rtfBucket(
+      transcribeMs: timing.transcribeMs,
+      audioMs: timing.audioMs ?? 0,
+    );
+    if (timing.outcome == 'ok' && rtf != null) {
+      final backend = telemetryBackend(
+        settings: settings,
+        optimalBackend: ref.read(hw.gpuInfoProvider).value?.optimalBackend,
+      );
+      agg.count(
+        category: 'pipeline',
+        action: 'rtf',
+        name: '$model|$backend|$rtf',
+      );
+    }
+  }
+
+  /// Coarse latency bucket (whole seconds, capped) so no precise timing leaks.
+  static int _latencyBucketSeconds(int ms) {
+    final s = ms ~/ 1000;
+    if (s <= 1) return 1;
+    if (s <= 3) return 3;
+    if (s <= 5) return 5;
+    if (s <= 10) return 10;
+    if (s <= 30) return 30;
+    return 60;
+  }
+
+  /// Logs a structured pipeline summary to the app log.
+  void _logPipelineSummary(
+    String sid,
+    Stopwatch pipelineSw,
+    _PipelineTiming t,
+  ) {
+    _log.info(
+      '[$sid] Pipeline[${t.outcome}]: '
+      'total=${pipelineSw.elapsedMilliseconds}ms '
+      'wav=${t.wavReadyMs ?? "-"}ms '
+      'stt_ensure=${t.sttEnsureMs ?? "-"}ms '
+      'transcribe=${t.transcribeMs ?? "-"}ms '
+      'replace=${t.replaceMs ?? "-"}ms '
+      'save=${t.saveMs ?? "-"}ms '
+      'clipboard=${t.clipboardMs ?? "-"}ms',
+    );
+  }
+
+  /// Resets the recording state to idle.
+  ///
+  /// While a transcription is in flight this also discards it, exactly like
+  /// [cancelRecording]: callers such as the snippet controller's abort reset
+  /// the orchestrator while the pipeline keeps running. In `done`/`error` the
+  /// pipeline has already finished, so nothing is marked.
+  void reset() {
+    _cancelAmplitude();
+    final phase = ref.read(recordingProvider).phase;
+    if (phase == RecordingPhase.transcribing ||
+        phase == RecordingPhase.refining) {
+      _discardInFlightTranscription(phase);
+    }
+    _stateMachine.transition(RecordingIntent.reset);
+  }
+
+  /// Marks the active session's in-flight pipeline as cancelled, so its result
+  /// is discarded at the next checkpoint. Shared by [cancelRecording] and
+  /// [reset] so both discard the same way.
+  void _discardInFlightTranscription(RecordingPhase phase) {
+    _session.cancelRequested = true;
+    // The stop lock belongs to the cancelled pipeline, which may still be
+    // inside transcribe(). Hand it back now so the next recording can be
+    // stopped; that pipeline's finally no longer releases it (see
+    // stopRecording).
+    _stopInFlight = false;
+    _clearPasteTarget();
+    _log.info('Cancel requested during $phase — result will be discarded');
+  }
+
+  Future<bool> applyOomModelFallback(String modelId) async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    if (modelId.isEmpty || settings.effectiveModelId == modelId) {
+      return false;
+    }
+
+    await ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWith(
+            sttProvider: SttProviderType.onDevice.value,
+            sttModel: modelId,
+          ),
+        );
+    ref.read(oomRecoveryPendingProvider.notifier).clear();
+    ref.read(onDeviceEngineLifecycleProvider).stop();
+    return true;
+  }
+
+  Future<SttProviderType?> switchToConfiguredCloudStt() async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final provider = _preferredCloudProvider(settings);
+    if (provider == null) return null;
+
+    await ref.read(settingsProvider.notifier).updateSettings((s) {
+      return s.copyWith(
+        sttProvider: provider.value,
+        cloudSttProvider: _cloudProviderValue(provider),
+      );
+    });
+    try {
+      ref.read(telemetryProvider).trackSettingChange('cloud_stt_provider');
+    } catch (e) {
+      _log.debug('telemetry failed: $e');
+    }
+    _oomHandler.reset();
+    ref.read(oomRecoveryPendingProvider.notifier).clear();
+    ref.read(onDeviceEngineLifecycleProvider).stop();
+    return provider;
+  }
+
+  // -------------------------------------------------------------------------
+  // Private
+  // -------------------------------------------------------------------------
+
+  /// Validates STT prerequisites before starting a recording.
+  ///
+  /// Returns an error code string if something is missing,
+  /// or `null` when everything is ready. Error codes are mapped
+  /// to localized messages in the UI layer.
+  /// Handles recoverable preflight failures gracefully instead of entering
+  /// the error phase. Returns `true` if the failure was handled softly
+  /// (recording stays idle, info notification sent), `false` if it's a hard
+  /// error that should use the normal error flow.
+  /// Surfaces a swallowed hotkey press instead of dropping it silently.
+  ///
+  /// Both abort branches in [startRecording] used to return without any user
+  /// feedback whatsoever. During a slow first transcription that window can
+  /// last tens of seconds (a captured session: presses at 14:19:05, :19, :52
+  /// and :53 all aborted, none of them visible anywhere), and an app that
+  /// answers a hotkey with nothing at all is indistinguishable from a broken
+  /// one. Throttled via [_busyHintThrottle] so mashing doesn't become spam.
+  void _hintPipelineBusy() {
+    final now = DateTime.now();
+    final last = _lastBusyHintAt;
+    if (last != null && now.difference(last) < _busyHintThrottle) return;
+    _lastBusyHintAt = now;
+    ref.read(recordingInfoProvider.notifier).show('info_pipeline_busy');
+  }
+
+  bool _handleSoftPreflight(String errorCode) {
+    switch (errorCode) {
+      // The practice step is locked (model not ready): the press is not a
+      // recording, and the step answers it on screen. No error state, so no
+      // overlay error and no toast.
+      case 'practice_locked':
+        _log.info('Hotkey press refused while the practice step is locked');
+        sandboxPressRefused?.call();
+        return true;
+      case 'stt_model_not_found':
+      case 'stt_model_unknown':
+        ref.read(recordingInfoProvider.notifier).show('info_model_missing');
+        _log.info('Soft preflight: $errorCode handled gracefully');
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  void _handleOomRecovery() {
+    final sid = ref.read(recordingProvider).sessionId ?? '?';
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final currentModelId = settings.effectiveModelId;
+
+    final decision = _oomHandler.attemptRecovery(
+      currentModelId: currentModelId,
+    );
+
+    final (
+      nextModelId,
+      hasCloudConfigured,
+      isPermanentFail,
+    ) = switch (decision) {
+      TryNextModel(:final nextModelId) => (nextModelId, false, false),
+      SwitchToConfiguredCloud() => (null, true, true),
+      GiveUp() => (null, false, true),
+    };
+
+    ref
+        .read(oomRecoveryPendingProvider.notifier)
+        .showPending(
+          nextModelId: nextModelId,
+          hasCloudConfigured: hasCloudConfigured,
+          isPermanentFail: isPermanentFail,
+          // The name of the provider that receives the audio if the user
+          // picks the cloud action (BYOK: the configured one, not a fixed label).
+          cloudProviderName: hasCloudConfigured
+              ? _preferredCloudProvider(settings)?.value
+              : null,
+        );
+    // OOM recovery resets to idle regardless of current phase.
+    // The oomRetry intent (error→recording) is intentionally NOT used here
+    // because the user must explicitly choose a fallback model first.
+    _stateMachine.transition(RecordingIntent.reset);
+
+    _log.warning(
+      '[$sid] CUDA OOM detected for model=$currentModelId '
+      'attempts=${_oomHandler.attemptCount} decision=$decision',
+    );
+  }
+
+  String? _nextAvailableFallbackModelId(String currentModelId) {
+    final currentTier = tierForModel(currentModelId);
+    if (currentTier == null) return null;
+
+    final downloadedModels = ref.read(modelDownloadProvider).downloadedModels;
+    final tierModels = modelsForTier(currentTier);
+    final currentIndex = tierModels.indexWhere(
+      (model) => model.id == currentModelId,
+    );
+    if (currentIndex == -1) return null;
+
+    for (var index = currentIndex + 1; index < tierModels.length; index++) {
+      final candidateId = tierModels[index].id;
+      if (downloadedModels.contains(candidateId)) {
+        return candidateId;
+      }
+    }
+
+    for (var tierIndex = currentTier.index - 1; tierIndex >= 0; tierIndex--) {
+      for (final candidate in modelsForTier(QualityTier.values[tierIndex])) {
+        if (downloadedModels.contains(candidate.id)) {
+          return candidate.id;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  SttProviderType? _preferredCloudProvider(AppSettings settings) {
+    final preferredOrder = <SttProviderType>[
+      switch (settings.cloudSttProviderType) {
+        CloudSttProvider.openAI => SttProviderType.openAI,
+        CloudSttProvider.deepgram => SttProviderType.deepgram,
+      },
+      SttProviderType.openAI,
+      SttProviderType.deepgram,
+    ];
+
+    for (final provider in preferredOrder) {
+      if (_hasApiKeyForProvider(settings, provider)) {
+        return provider;
+      }
+    }
+
+    return null;
+  }
+
+  bool _hasApiKeyForProvider(AppSettings settings, SttProviderType provider) =>
+      hasSttApiKey(settings.cloudProvider, provider);
+
+  String _cloudProviderValue(SttProviderType provider) {
+    return switch (provider) {
+      SttProviderType.openAI => CloudSttProvider.openAI.value,
+      SttProviderType.deepgram => CloudSttProvider.deepgram.value,
+      SttProviderType.onDevice => CloudSttProvider.openAI.value,
+      SttProviderType.customEndpoint => CloudSttProvider.openAI.value,
+    };
+  }
+
+  /// Same readiness check dictation runs before it records — onboarding,
+  /// cloud key, and the model file of the active engine. Returns the error
+  /// code ([localizeRecordingError] vocabulary) or `null` when ready, so
+  /// other recording surfaces (the voice-note button) fail with the same,
+  /// specific message instead of after the clip.
+  Future<String?> checkTranscriptionReady() => _runPreflight();
+
+  Future<String?> _runPreflight() async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+
+    // Block recording while onboarding is active — except for onboarding's
+    // own test-recording step, which sets [sandboxTranscriptSink] and relies
+    // on this exact preflight/start path to let the user try the hotkey
+    // before onboardingCompleted is set.
+    if (!settings.onboardingCompleted && sandboxTranscriptSink == null) {
+      _log.warning('Preflight FAIL: onboarding not completed');
+      return 'onboarding_not_completed';
+    }
+    if (sandboxTranscriptSink != null && (sandboxLocked?.call() ?? false)) {
+      return 'practice_locked';
+    }
+
+    // Cloud providers transcribe over HTTP — they need an API key, not the
+    // local whisper runtime. Requiring server/model files here would block
+    // cloud-only users who never downloaded a local model.
+    final providerType = settings.sttProviderType;
+    if (!providerType.isLocal) {
+      if (!_hasApiKeyForProvider(settings, providerType)) {
+        _log.warning(
+          'Preflight FAIL: no API key for cloud provider '
+          '${providerType.value}',
+        );
+        return 'cloud_auth_error';
+      }
+      _log.info('Preflight OK: cloud provider ${providerType.value}');
+      return null;
+    }
+
+    // Ensure STT directory exists.
+    final dir = Directory(sttDir());
+    if (!await dir.exists()) {
+      try {
+        await dir.create(recursive: true);
+      } on FileSystemException catch (e) {
+        _log.warning('Failed to create STT dir: $e');
+      }
+    }
+
+    if (settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+      if (!parakeet.parakeetModelFilesExistSync()) {
+        _log.warning('Preflight FAIL: parakeet model bundle not found');
+        return 'stt_model_not_found';
+      }
+      _log.info('Preflight OK: parakeet model bundle present');
+      return null;
+    }
+
+    // Check model file.
+    final modelId = settings.effectiveModelId;
+    final modelPath = sttModelPath(modelId);
+    if (modelPath == null) {
+      return 'stt_model_unknown';
+    }
+    if (!await File(modelPath).exists()) {
+      _log.warning('Preflight FAIL: model "$modelId" not found at $modelPath');
+      return 'stt_model_not_found';
+    }
+
+    _log.info('Preflight OK: model=$modelPath');
+    return null;
+  }
+
+  /// Routes [transcript] against the single global Snippet-Picker trigger
+  /// word (see [dispatchSnippetTrigger]): the trigger word alone opens the
+  /// picker, "`<trigger> <name>`" inserts a uniquely matching snippet directly
+  /// or opens the picker filtered by the name. Returns `true` as soon as the
+  /// dictation is consumed (picker shown or snippet inserted), without waiting
+  /// for the user's pick — the dispatch must return promptly so the pipeline
+  /// reaches its `done` state. Any later insert happens asynchronously, in
+  /// [SnippetPickerService], without ever calling `paster.prime()` again (that
+  /// keeps the paste target captured at recording start intact).
+  Future<bool> _tryDispatchSnippetPicker(
+    String sid,
+    String transcript,
+    AppSettings settings,
+  ) => dispatchSnippetTrigger(
+    ref,
+    sid,
+    settings.behavior.snippetPickerTrigger,
+    transcript,
+  );
+
+  /// In-flight guard for [openSnippetPickerViaHotkey] — set synchronously
+  /// before the first `await`, so a second hotkey press landing in the gap
+  /// between the busy/already-open checks and [SnippetPickerService.show]
+  /// actually flipping `isOpen` (paste-target priming is async and sits in
+  /// between) can never open a second panel. Mirrors [_startInFlight]'s
+  /// reentrancy-lock idiom.
+  bool _snippetPickerHotkeyInFlight = false;
+
+  /// Opens the Snippet-Picker panel from the systemwide Snippet-Picker
+  /// hotkey (ticket 26) — functionally identical to what the spoken trigger
+  /// word does via [_tryDispatchSnippetPicker]/[openSnippetPicker], except
+  /// **without starting any recording, STT run, or history entry**: this is
+  /// a one-shot UI action, not a dictation, so it never touches
+  /// [RecordingPhase], the microphone, or the overlay.
+  ///
+  /// Captures the paste target exactly once, right here, before the panel
+  /// opens — mirroring [startRecording]'s `paster.prime()` call — because
+  /// [SnippetPickerService] itself never primes (see its class doc, updated
+  /// for this caller). At key-down the foreign app is still frontmost, so
+  /// this is the only correct moment to capture; capturing again on
+  /// selection would hit WhisPaste's own window instead.
+  ///
+  /// Ignored (logged, not silently swallowed) while a recording is in
+  /// progress — the two paths would otherwise race for focus and the paste
+  /// target — and while the panel is already open.
+  Future<void> openSnippetPickerViaHotkey() async {
+    if (_snippetPickerHotkeyInFlight) {
+      _log.debug('Snippet-Picker hotkey ignored (already opening)');
+      return;
+    }
+    if (!snippetPickerAvailableOnPlatform) {
+      _log.info('Snippet-Picker hotkey ignored: unavailable on this platform');
+      return;
+    }
+    final phase = ref.read(recordingProvider).phase;
+    if (phase == RecordingPhase.recording ||
+        phase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): a Cleanup pass still owns the pending
+        // paste target here — opening the picker now would race it exactly
+        // like the transcribing case above.
+        phase == RecordingPhase.refining) {
+      _log.info('Snippet-Picker hotkey ignored: recording in progress');
+      return;
+    }
+    if (ref.read(snippetPickerServiceProvider.notifier).isOpen) {
+      _log.debug('Snippet-Picker hotkey ignored: panel already open');
+      return;
+    }
+    _snippetPickerHotkeyInFlight = true;
+    try {
+      await ref.read(pasterProvider)?.prime();
+      await openSnippetPicker(ref, 'snippet-hotkey');
+    } finally {
+      _snippetPickerHotkeyInFlight = false;
+    }
+  }
+
+  /// Captures the paste target once, before the first field of an
+  /// interactive snippet starts recording. Individual `templateField`
+  /// recordings deliberately skip [pasterProvider]'s `prime()` (see
+  /// [startRecording] — "a quick-note target never pastes anywhere"), so
+  /// without this call the originally-focused app would never be captured
+  /// and [completeInteractiveSnippet] would have nothing to paste into.
+  Future<void> primeForInteractiveSnippet() async {
+    _clearPasteTarget();
+    final generation = _pasteTargetGeneration;
+    await ref.read(pasterProvider)?.prime();
+    if (generation == _pasteTargetGeneration) _pasteTargetPrimed = true;
+  }
+
+  /// Called by `InteractiveSnippetController` once every field of an
+  /// interactive snippet has been recorded and composed into [composedText].
+  /// Runs the same history-save (exactly one entry for the whole snippet,
+  /// never one per field) and clipboard/paste step a regular `clipboard`
+  /// recording runs after transcription — without going through the
+  /// audio/transcription pipeline itself, since the text is already final.
+  Future<void> completeInteractiveSnippet({
+    required String composedText,
+    required Duration audioDuration,
+  }) async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final saved = await ref
+        .read(recordingStoreProvider)
+        .save(
+          RecordingInput(
+            transcript: composedText,
+            audioDuration: audioDuration,
+            modelId: settings.transcriptionModelId,
+            isLocal: settings.sttProviderType.isLocal,
+            languageCode: settings.sttLanguageCode,
+            // Each field already had replacements applied to it individually
+            // (via its own templateField recording's history-save step) —
+            // running them again over the composed text (headings included)
+            // would risk a heading incidentally matching a trigger phrase.
+            applyTextReplacements: false,
+            insertHistoryEntry: settings.history.saveHistory,
+            historyMaxEntries: settings.historyMaxEntries,
+            wordCount: computeWordCountFast(composedText),
+            processingDurationSec: 0,
+            recordDailyStat: false,
+          ),
+        );
+
+    final action = resolveAfterTranscriptionAction(
+      settings.afterTranscriptionAction,
+    );
+    switch (action) {
+      case AfterTranscriptionAction.nothing:
+        return;
+      case AfterTranscriptionAction.clipboard:
+        await _copyTranscriptToClipboard(saved.processedTranscript);
+      case AfterTranscriptionAction.paste:
+        await _pasteTranscript(saved.processedTranscript, settings);
+      case AfterTranscriptionAction.clipboardAndPaste:
+        await _copyTranscriptToClipboard(saved.processedTranscript);
+        await _pasteTranscript(saved.processedTranscript, settings);
+    }
+  }
+
+  /// Builds the history entry input for a dictation. The entry ID and capture
+  /// time are fixed here, so a later retry writes the same entry (see
+  /// `PendingAudioQueue`).
+  Future<RecordingInput> _buildHistoryInput(
+    String transcript,
+    Duration audioDuration,
+    AppSettings settings,
+    int processingDurationSec, {
+    String? originalTranscript,
+    String? smartModeInput,
+    bool smartModeApplied = false,
+    required _RecordingSession session,
+    String? entryId,
+  }) async {
+    final createdAt = DateTime.now();
+    final target = session.target;
+    final isQuickNote = target == RecordingTarget.quickNote;
+    final isTemplateField = target == RecordingTarget.templateField;
+    // Target app (ticket 12) — only meaningful for the `clipboard` target,
+    // the only one that ever pastes into an external app. Bounded: the native
+    // lookup has no timeout of its own, and a hang here must not stall the
+    // save or the paste.
+    final targetApp = target == RecordingTarget.clipboard
+        ? await _targetAppForSave()
+        : null;
+    return RecordingInput(
+      transcript: transcript,
+      audioDuration: audioDuration,
+      modelId: settings.transcriptionModelId,
+      isLocal: settings.sttProviderType.isLocal,
+      languageCode: _resolveEffectiveLang(settings, session),
+      // Replacements already ran before Smart Mode (see the pipeline
+      // step above), so the transcript arrives replaced. A parked raw
+      // transcript gets them through its stored text steps instead.
+      applyTextReplacements: false,
+      historyMaxEntries: settings.historyMaxEntries,
+      wordCount: computeWordCountFast(transcript),
+      processingDurationSec: processingDurationSec,
+      // A quick note already lives in Notes — it must not also land in
+      // Verlauf. A template field is one piece of a still-in-progress
+      // interactive snippet — only the composed result gets its own entry.
+      // With "Aufnahmen speichern" off no dictation gets an entry at all.
+      insertHistoryEntry:
+          !isQuickNote && !isTemplateField && settings.history.saveHistory,
+      originalTranscript: originalTranscript,
+      smartModeInput: smartModeInput,
+      smartModeApplied: smartModeApplied,
+      detectedLanguage: session.detectedLanguage,
+      targetApp: targetApp,
+      entryId: entryId ?? newRecordingEntryId(createdAt),
+      createdAt: createdAt,
+    );
+  }
+
+  Future<String?> _targetAppForSave() async {
+    try {
+      return await ref
+          .read(pasterProvider)
+          ?.getTargetBundleId()
+          .timeout(const Duration(seconds: 1));
+    } on Object catch (e) {
+      _log.warning('Target app lookup skipped: ${e.runtimeType}');
+      return null;
+    }
+  }
+
+  Future<String?> _saveToHistory(
+    RecordingInput input,
+    String wavPath, {
+    required _RecordingSession session,
+  }) async {
+    final target = session.target;
+    final isQuickNote = target == RecordingTarget.quickNote;
+    final isTemplateField = target == RecordingTarget.templateField;
+
+    final SavedRecording saved;
+    try {
+      saved = await ref.read(recordingStoreProvider).save(input);
+    } on Exception catch (e) {
+      _log.error('Failed to save to history: $e');
+      return null;
+    }
+
+    // The entry is written from here on. A failure in the steps below must
+    // not report the save as failed: the caller would keep the audio for a
+    // second write, and the next start would add the same entry again.
+    try {
+      // No entry written (quick note, template field, or saving off): there
+      // is nothing to undo or to keep audio for.
+      if (input.smartModeApplied && input.insertHistoryEntry) {
+        ref.read(smartModeUndoNoticeProvider.notifier).announce(saved.entryId);
+      }
+
+      if (!input.insertHistoryEntry && !isQuickNote && !isTemplateField) {
+        _log.info('Recordings saving is off: no entry written');
+      } else if (isQuickNote) {
+        _log.info(
+          'Applied text replacements for quick note (not saved to '
+          'history)',
+        );
+      } else if (isTemplateField) {
+        _log.info(
+          'Applied text replacements for template field (not saved to '
+          'history)',
+        );
+      } else {
+        _log.info('Saved entry ${saved.entryId} to history');
+      }
+
+      if (saved.trimmedCount > 0) {
+        _log.info(
+          'Auto-trimmed ${saved.trimmedCount} old entries to stay within '
+          '${input.historyMaxEntries} limit',
+        );
+      }
+
+      // Debug-only: link the retained WAV to this entry so a diagnosis
+      // session can pull the exact audio Whisper received for this
+      // transcript. Best-effort — a failure here must not fail the save
+      // that already succeeded above. No-op for a quick note: there is no
+      // history entry to link the audio to. Takes priority over the
+      // user-facing retention setting below — a live diagnosis session
+      // wants every WAV kept in place, uncapped, not rotated away.
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+      if (kRetainDebugAudio && input.insertHistoryEntry) {
+        await _linkDebugAudioAttachment(saved.entryId, wavPath);
+      } else if (settings.privacy.retainRecentAudio &&
+          input.insertHistoryEntry) {
+        await _retainRecentAudio(saved.entryId, wavPath);
+      }
+    } on Exception catch (e) {
+      _log.error('Post-save step failed after the entry was written: $e');
+    }
+
+    // Refresh analytics dashboard so counters update immediately.
+    ref.invalidate(analyticsProvider);
+
+    return saved.processedTranscript;
+  }
+
+  /// Keeps the audio of a dictation whose transcription failed with a
+  /// repeatable error, so the user can retry it (UIA-FLW-01). Returns true when
+  /// the WAV was moved into the queue and must not be cleaned up. Without
+  /// "Audio aufbewahren" the audio expires after the failed-audio keep period (Settings → Privacy); with it,
+  /// the normal retention applies.
+  Future<bool> _keepAudioForRetry(
+    String sid,
+    String wavPath,
+    bool keptForRetention,
+    List<String> completedSliceParts,
+  ) async {
+    if (keptForRetention) return false;
+    final state = ref.read(recordingProvider);
+    final code = state.errorMessage;
+    if (!state.isError ||
+        code == null ||
+        !isRepeatableTranscriptionError(code)) {
+      return false;
+    }
+    return _parkAudioForRetry(
+      sid,
+      wavPath,
+      code,
+      completedParts: completedSliceParts,
+    );
+  }
+
+  /// Moves [wavPath] into the retry queue under [errorCode]. Returns false
+  /// when the file could not be parked; the caller then cleans it up.
+  /// [completedParts] are the finished upload slices (see
+  /// [PendingAudioQueue.parkForRetry]).
+  Future<bool> _parkAudioForRetry(
+    String sid,
+    String wavPath,
+    String errorCode, {
+    List<String> completedParts = const [],
+  }) async {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final now = DateTime.now();
+    final maxAge = pendingAudioMaxAge(
+      retainAudio: settings.privacy.retainRecentAudio,
+      parkWindow: settings.privacy.failedAudioKeepDuration,
+    );
+    try {
+      final size = await File(wavPath).length();
+      await ref
+          .read(pendingAudioQueueProvider)
+          .parkForRetry(
+            wavPath,
+            entryId: newRecordingEntryId(now),
+            capturedAt: now,
+            audioDuration: Duration(milliseconds: ((size - 44) / 32).round()),
+            errorCode: errorCode,
+            expiresAt: now.add(maxAge),
+            completedParts: completedParts,
+          );
+      return true;
+    } on Object catch (e) {
+      _log.error('[$sid] Could not keep audio for a retry: $e');
+      return false;
+    }
+  }
+
+  /// Parks the WAV of a stop that finished after its capture step had timed
+  /// out. Waits for the stop without a limit, because the WAV may still be
+  /// written until then.
+  Future<void> _parkLateCapture(String sid, Future<String?> stopped) async {
+    final path = await stopped;
+    if (path == null) return;
+    final kept = await _parkAudioForRetry(sid, path, 'pipeline_timeout');
+    if (!kept) {
+      await ref.read(audioServiceProvider.notifier).cleanupFile(path);
+    }
+  }
+
+  /// Transcribes the kept dictation again (UIA-FLW-01) and saves the text to
+  /// history. Returns null when no kept dictation exists. Without [entryId]
+  /// the most recent kept dictation is retried; with it, that one, or
+  /// [PendingRetryOutcome.missing] when it is no longer kept.
+  Future<PendingRetryOutcome?> retryKeptDictation({String? entryId}) async {
+    final queue = ref.read(pendingAudioQueueProvider);
+    final keepSettings =
+        ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final keepRetained = keepSettings.privacy.retainRecentAudio;
+    final keepWindow = keepSettings.privacy.failedAudioKeepDuration;
+    final entries = await queue.retryEntries(
+      retainAudio: keepRetained,
+      parkWindow: keepWindow,
+    );
+    if (entries.isEmpty) return null;
+    final String targetId;
+    if (entryId == null) {
+      targetId = entries.last.entryId;
+    } else {
+      if (!entries.any((e) => e.entryId == entryId)) {
+        return PendingRetryOutcome.missing;
+      }
+      targetId = entryId;
+    }
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final transcriber = ref.read(transcriberProvider);
+    final lang = settings.sttLanguageCode.isEmpty
+        ? 'auto'
+        : settings.sttLanguageCode;
+    return queue.retry(
+      targetId,
+      transcribe: (wav, completed) => _transcribeOnce(
+        transcriber,
+        wav,
+        language: lang,
+        completedParts: completed,
+        onSliceDone: SliceCheckpointWriter(
+          manifest: queue.sliceManifestFor(targetId),
+          wavLength: wav.length,
+          persisted: completed.length,
+        ).call,
+      ),
+      buildInput: (text, audio) => RecordingInput(
+        transcript: text,
+        audioDuration: audio,
+        modelId: settings.transcriptionModelId,
+        isLocal: settings.sttProviderType.isLocal,
+        languageCode: lang,
+        applyTextReplacements: false,
+        historyMaxEntries: settings.historyMaxEntries,
+        wordCount: computeWordCountFast(text),
+        processingDurationSec: 0,
+        entryId: newRecordingEntryId(DateTime.now()),
+        createdAt: DateTime.now(),
+      ),
+      retainAudio: settings.privacy.retainRecentAudio,
+      parkWindow: settings.privacy.failedAudioKeepDuration,
+    );
+  }
+
+  /// Parks the audio unless the history save reported success.
+  Future<void> _keepAudioIfUnsaved(
+    String sid,
+    String wavPath,
+    RecordingInput input,
+    StepResult<String?> saveResult,
+  ) async {
+    final saved = switch (saveResult) {
+      Ok(:final value) => value != null,
+      _ => false,
+    };
+    if (!saved) await _keepUnsavedAudio(sid, wavPath, input);
+  }
+
+  /// Parks the audio of a dictation that a stray error stopped before its
+  /// history save ran. Without a transcript there is no entry to write, so
+  /// nothing is parked.
+  Future<void> _keepInFlightAudio(
+    String sid,
+    _RecordingSession? session,
+    _InFlightDictation inFlight,
+    _PipelineTiming timing,
+  ) async {
+    final wavPath = inFlight.wavPath;
+    final transcript = inFlight.transcript;
+    inFlight.transcript = null;
+    if (session == null || wavPath == null || transcript == null) return;
+    try {
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+      final input = await _buildHistoryInput(
+        transcript,
+        inFlight.audioDuration,
+        settings,
+        (timing.transcribeMs ?? 0) ~/ 1000,
+        session: session,
+        entryId: inFlight.entryId,
+      );
+      // The in-flight transcript is raw: its recovery runs the text steps.
+      await _keepUnsavedAudio(
+        sid,
+        wavPath,
+        input,
+        rawTextSteps: _rawTextSteps(settings),
+      );
+    } on Object catch (e) {
+      _log.error(
+        '[$sid] Could not keep audio after a stray error: ${e.runtimeType}',
+      );
+    }
+  }
+
+  /// Keeps the audio of a dictation whose history save failed or timed out,
+  /// so [PendingAudioQueue.recoverAll] can write the entry on a later start.
+  /// Without this, the `finally` cleanup of the pipeline deletes the WAV and
+  /// the dictation is lost. Entries that never reach history (quick note,
+  /// template field) have nothing to retry and are not kept. With "do not
+  /// keep audio" only the text is parked and the WAV is deleted.
+  Future<void> _keepUnsavedAudio(
+    String sid,
+    String wavPath,
+    RecordingInput input, {
+    DictationTextSteps? rawTextSteps,
+  }) async {
+    if (!input.insertHistoryEntry) return;
+    final keepAudio = (ref.read(settingsProvider).value ?? AppSettings.defaults)
+        .privacy
+        .retainRecentAudio;
+    try {
+      await ref
+          .read(pendingAudioQueueProvider)
+          .park(
+            wavPath,
+            input,
+            rawTextSteps: rawTextSteps,
+            keepAudio: keepAudio,
+          );
+      if (keepAudio) _retainedWavPath = wavPath;
+      ref
+          .read(pendingAudioNoticeProvider.notifier)
+          .report(PendingAudioNotice.saveLater);
+    } on Object catch (e) {
+      // The WAV is still at wavPath, so the pipeline's cleanup removes it.
+      _log.error('[$sid] Could not keep audio for a later history save: $e');
+    }
+  }
+
+  /// Debug-only helper for [_saveToHistory]: records [wavPath]'s size and
+  /// links it to [entryId] via [HistoryDatabase.insertAudioAttachment].
+  /// Swallows its own errors — a missing/unreadable WAV must not fail the
+  /// already-successful history save.
+  Future<void> _linkDebugAudioAttachment(String entryId, String wavPath) async {
+    try {
+      final file = File(wavPath);
+      if (!await file.exists()) return;
+      final sizeBytes = await file.length();
+      await ref
+          .read(historyDatabaseProvider)
+          .insertAudioAttachment(
+            entryId: entryId,
+            filePath: wavPath,
+            sizeBytes: sizeBytes,
+          );
+      _log.info('kRetainDebugAudio: linked $wavPath to entry $entryId');
+    } on Exception catch (e) {
+      _log.warning('kRetainDebugAudio: failed to link WAV attachment: $e');
+    }
+  }
+
+  /// User-facing counterpart to [_linkDebugAudioAttachment]: moves the WAV
+  /// out of the volatile capture directory into [retainedAudioDir] (so
+  /// `AudioService.cleanupStaleFiles`'s startup sweep can't delete it),
+  /// links it to [entryId], then enforces the rotating cap so at most the
+  /// 20 most recent retained WAVs survive. Best-effort — a failure here
+  /// must not fail the save that already succeeded above. No-op for a
+  /// quick note: there is no history entry to link the audio to.
+  Future<void> _retainRecentAudio(String entryId, String wavPath) async {
+    try {
+      final source = File(wavPath);
+      if (!await source.exists()) return;
+
+      final dir = Directory(retainedAudioDir());
+      await userAudioDirs.ensure(dir.path);
+      final destPath = p.join(dir.path, p.basename(wavPath));
+
+      File dest;
+      try {
+        dest = await source.rename(destPath);
+      } on FileSystemException {
+        // Capture dir and app-data dir can be on different filesystems
+        // (e.g. temp on a RAM disk) — rename() can't cross that boundary.
+        dest = await source.copy(destPath);
+        await source.delete();
+      }
+
+      try {
+        final sizeBytes = await dest.length();
+        final db = ref.read(historyDatabaseProvider);
+        await db.insertAudioAttachment(
+          entryId: entryId,
+          filePath: dest.path,
+          sizeBytes: sizeBytes,
+        );
+        _retainedWavPath = wavPath;
+
+        final evicted = await db.enforceAudioAttachmentCap();
+        for (final path in evicted) {
+          await ref.read(audioServiceProvider.notifier).cleanupFile(path);
+        }
+
+        _log.info('Retained WAV for entry $entryId at ${dest.path}');
+      } on Exception {
+        // The row insert (source of truth for rotation) failed — without
+        // it enforceAudioAttachmentCap can never see or evict this file,
+        // so it would otherwise leak in retainedAudioDir forever.
+        try {
+          await dest.delete();
+        } on Exception catch (cleanupError) {
+          _log.warning('Failed to clean up orphaned WAV: $cleanupError');
+        }
+        rethrow;
+      }
+    } on Exception catch (e) {
+      _log.warning('Failed to retain recent audio: $e');
+    }
+  }
+
+  void _cancelAmplitude() {
+    _guardSub?.cancel();
+    _guardSub = null;
+    _amplitudeSub?.cancel();
+    _amplitudeSub = null;
+    _livePreviewPcmSub?.cancel();
+    _livePreviewPcmSub = null;
+  }
+
+  /// Persists the hotkey→text end-to-end latency for this session, if a
+  /// hotkey press t₀ was captured at [startRecording].
+  ///
+  /// Consumes [_hotkeyPressedAtForLatencyKpi] (resets to null) so a stray
+  /// re-entry cannot double-record the same sample. No-op when no press was
+  /// captured (e.g. recording was started from the UI, not the hotkey).
+  /// Best-effort — a DB failure here must not fail the pipeline, which has
+  /// already delivered the text to the user.
+  Future<void> _persistHotkeyLatencyIfPending(String sid) async {
+    final hotkeyAt = _hotkeyPressedAtForLatencyKpi;
+    final stoppedAt = _recordingStoppedAtForLatencyKpi;
+    _hotkeyPressedAtForLatencyKpi = null;
+    _recordingStoppedAtForLatencyKpi = null;
+    if (hotkeyAt == null) return;
+
+    final now = DateTime.now();
+    final latencyMs = now.difference(hotkeyAt).inMilliseconds;
+    if (latencyMs < 0) return; // clock-skew guard
+    final stopToTextMs = stoppedAt == null
+        ? null
+        : now.difference(stoppedAt).inMilliseconds;
+
+    try {
+      await ref
+          .read(historyDatabaseProvider)
+          .recordHotkeyLatency(
+            recordedAt: now,
+            latencyMs: latencyMs,
+            stopToTextMs: stopToTextMs != null && stopToTextMs >= 0
+                ? stopToTextMs
+                : null,
+          );
+    } on Exception catch (e) {
+      _log.warning('[$sid] Failed to persist hotkey→text latency: $e');
+    }
+  }
+
+  // ── Safety guard event routing ────────────────────────────────────────────
+
+  /// Routes a [SafetyEvent] emitted by [SafetyGuard] to the appropriate handler.
+  void _routeGuardEvent(SafetyEvent event) {
+    switch (event) {
+      case DeadMicTimeoutReached():
+        _log.warning('Dead-mic guard triggered');
+        _handleDeadMic();
+      case SilenceAutoStop():
+        _log.info('Auto-stop triggered by silence');
+        _handleAutoStop();
+      case DurationWarningAt90():
+        _log.info('90% duration warning');
+        _playDurationWarning();
+      case DurationLimitReached():
+        _log.info('Max recording duration reached');
+        _handleAutoStop();
+      case NoSignalWarning():
+        _log.info('No microphone signal 1 s after start');
+        _notifyNoMicrophoneSignal();
+    }
+  }
+
+  /// Non-terminal hint: the microphone delivered nothing for a second after
+  /// the start. Recording keeps running; the dead-mic guard still decides at
+  /// its own timeout. Goes out through the attention service so the user's
+  /// notification switches apply; no error sound (nothing has failed yet).
+  void _notifyNoMicrophoneSignal() {
+    final l10n = _resolveL10n();
+    unawaited(
+      ref
+          .read(systemAttentionServiceProvider)
+          .requestAttention(
+            kind: AttentionKind.silentMicrophone,
+            title: l10n.silentMicrophoneNotificationTitle,
+            body: l10n.silentMicrophoneNotificationBody,
+          ),
+    );
+  }
+
+  /// XP-5-08: the microphone stopped delivering mid-recording (unplugged,
+  /// muted, or the platform switched sources). The overlay shows it while it
+  /// lasts; the notification reaches users who hide the overlay. Recording
+  /// keeps running, so what was said before still gets transcribed.
+  void _onMicSignalLost(bool lost) {
+    final recording =
+        ref.read(recordingProvider).phase == RecordingPhase.recording;
+    if (lost && recording) {
+      _micSignalLostReported = true;
+      _log.warning('Microphone signal lost during recording');
+      _notifyNoMicrophoneSignal();
+    } else if (!lost && _micSignalLostReported) {
+      // Also the reset at the next start; only a real return is logged.
+      _micSignalLostReported = false;
+      if (recording) _log.info('Microphone signal is back');
+    }
+  }
+
+  bool _micSignalLostReported = false;
+
+  /// Dead-mic triggered: stop recording and surface error.
+  Future<void> _handleDeadMic() async {
+    // Phase guard: only act while actually recording.
+    // A dead-mic event can arrive in a race window after transcription has
+    // already started (the guard stream can queue a sample before
+    // _cancelAmplitude() tears it down). Acting here would abort a legitimate
+    // transcription in flight — silent data loss.
+    final phase = ref.read(recordingProvider).phase;
+    if (phase != RecordingPhase.recording) {
+      _log.debug('Dead-mic guard skipped — phase is $phase (not recording)');
+      return;
+    }
+
+    // Re-entry guard: a concurrent stop (regular or auto-stop) may already be
+    // driving the pipeline. Don't race against it.
+    if (_stopInFlight) {
+      _log.debug('Dead-mic guard skipped — stop already in flight');
+      return;
+    }
+    _stopInFlight = true;
+
+    // Guard-fire is expected user behaviour (no microphone input), not a crash.
+    // Goes in at info level so the AppLogger pipeline turns it into a Sentry
+    // breadcrumb — context for any later real error, but not a standalone issue.
+    _log.info('guard-fire: dead-mic (no audio detected before timeout)');
+    try {
+      _cancelAmplitude();
+      final audioNotifier = ref.read(audioServiceProvider.notifier);
+      await audioNotifier.stopRecording();
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'recording_guard_failed',
+      );
+    } on Exception catch (e) {
+      _log.warning('Error during dead-mic cleanup: $e');
+      ref.read(onDeviceEngineLifecycleProvider).notifyRecordingStopped();
+      _stateMachine.transition(
+        RecordingIntent.fail,
+        errorMessage: 'recording_guard_failed',
+      );
+    } finally {
+      _stopInFlight = false;
+    }
+  }
+
+  /// Auto-stop triggered: stop recording and run transcription pipeline.
+  Future<void> _handleAutoStop() async {
+    // Phase guard: only auto-stop while actually recording. A stale
+    // SilenceAutoStop / DurationLimitReached event can arrive after the
+    // pipeline already moved on (e.g. to done); acting on it would drive a
+    // no_audio capture and a fail transition the state machine rejects.
+    // Mirrors the dead-mic guard.
+    final phase = ref.read(recordingProvider).phase;
+    if (phase != RecordingPhase.recording) {
+      _log.debug('Auto-stop guard skipped — phase is $phase (not recording)');
+      return;
+    }
+
+    // Guard-fire is expected user behaviour (silence after speech), not a crash.
+    // Goes in at info level so the AppLogger pipeline turns it into a Sentry
+    // breadcrumb — context for any later real error, but not a standalone issue.
+    _log.info('guard-fire: auto-stop (silence detected after speech)');
+    try {
+      await stopRecording();
+    } on Exception catch (e) {
+      _log.warning('Error during auto-stop: $e');
+      // A teardown during the stop (window close, app quit) makes the stop
+      // throw; the disposed orchestrator has no state left to fail.
+      if (!ref.mounted) return;
+      _stateMachine.transition(RecordingIntent.fail, errorMessage: '$e');
+    }
+  }
+
+  /// Play duration warning sound (90% of max duration reached).
+  void _playDurationWarning() {
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    if (settings.sound.soundVolume <= 0) return;
+    try {
+      ref.read(soundFeedbackProvider.notifier).playDurationWarning();
+    } catch (e) {
+      _log.warning('Duration warning sound failed: $e');
+    }
+  }
+
+  /// Best-effort pre-warm: starts the STT server so the first dictation is
+  /// instant. Runs in the background — failures are silently logged.
+  Future<void> _prewarmStt() async {
+    try {
+      final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+      if (!settings.sttProviderType.isLocal) return;
+
+      if (settings.onDeviceEngine == OnDeviceEngine.parakeet) {
+        if (!parakeet.parakeetModelFilesExistSync()) return;
+        await ref.read(onDeviceEngineLifecycleProvider).prewarm();
+        return;
+      }
+
+      // Only pre-warm when the model is already downloaded.
+      final modelPath = sttModelPath(settings.effectiveModelId);
+      if (modelPath == null || !await File(modelPath).exists()) return;
+
+      await ref.read(onDeviceEngineLifecycleProvider).prewarm();
+    } on Exception catch (e) {
+      _log.warning('STT pre-warm failed (non-fatal): $e');
+    }
+  }
+
+  Future<bool> _copyTranscriptToClipboard(String transcript) async {
+    try {
+      await AppClipboard.setText(transcript).timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          _log.warning('Clipboard.setData timed out after 5s');
+        },
+      );
+      _log.info('Transcript copied to clipboard (${transcript.length} chars)');
+      _clipboardCopiedThisPipeline = true;
+      return true;
+    } on Exception catch (e) {
+      _log.warning('Clipboard copy failed: $e');
+      return false;
+    }
+  }
+
+  /// Copies transcript to clipboard and/or simulates paste depending on the
+  /// user's "after transcription" setting.
+  Future<void> _handleAfterTranscription(
+    String transcript,
+    AppSettings settings,
+    RecordingTarget target,
+  ) async {
+    // Onboarding's test-recording step redirects the transcript to a local
+    // sandbox field instead of the real clipboard/paste path. See
+    // [sandboxTranscriptSink].
+    final sink = sandboxTranscriptSink;
+    if (sink != null) {
+      await _deliverToSandbox(sink, transcript, settings);
+      return;
+    }
+
+    if (target == RecordingTarget.quickNote) {
+      try {
+        await _appendToQuickNote(transcript);
+      } on Object catch (e) {
+        _log.error('Quick-note append failed: $e');
+        _quickNoteAppendFailedThisPipeline = true;
+      }
+      return;
+    }
+
+    // A template field's transcript is picked up by
+    // `InteractiveSnippetController` from `RecordingState.transcript` once
+    // this recording completes — it is neither copied to the clipboard nor
+    // pasted anywhere on its own (only the composed, whole-snippet result
+    // is, once every field is done).
+    if (target == RecordingTarget.templateField) {
+      return;
+    }
+
+    // resolveAfterTranscriptionAction downgrades paste/type actions to
+    // clipboard-only ONLY if kAutoPasteSupported is false — currently true
+    // unconditionally, MAS included (see build_config.dart): the sandboxed
+    // Mac App Store build types via the sandbox-compatible PostEvent TCC
+    // service instead of the Accessibility API, so simulated text-insertion
+    // works there too, not just on the Developer-ID build.
+    final action = resolveAfterTranscriptionAction(
+      settings.afterTranscriptionAction,
+    );
+
+    switch (action) {
+      case AfterTranscriptionAction.nothing:
+        return;
+      case AfterTranscriptionAction.clipboard:
+        await _copyTranscriptToClipboard(transcript);
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'insertion', action: 'clipboard');
+        return;
+      case AfterTranscriptionAction.paste:
+        await _pasteTranscript(transcript, settings);
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'insertion', action: 'auto_paste');
+        return;
+      case AfterTranscriptionAction.clipboardAndPaste:
+        await _copyTranscriptToClipboard(transcript);
+        await _pasteTranscript(transcript, settings);
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'insertion', action: 'auto_paste');
+        return;
+    }
+  }
+
+  /// Practice delivery for onboarding's first dictation: the text goes through
+  /// [sandboxPaster] with the same outcome handling as a real paste. No
+  /// reporter toast or sound, because the practice chat states the result
+  /// itself; the sink then receives the outcome.
+  Future<void> _deliverToSandbox(
+    void Function(String text, PasteOutcome? outcome) sink,
+    String transcript,
+    AppSettings settings,
+  ) async {
+    final paster = sandboxPaster;
+    if (paster == null) {
+      sink(transcript, PasteOutcome.platformUnavailable);
+      return;
+    }
+    await _pasteTranscript(
+      transcript,
+      settings,
+      pasterOverride: paster,
+      alert: false,
+    );
+    sink(transcript, _pasteOutcomeThisPipeline);
+  }
+
+  /// Appends [transcript] to the quick note, bypassing clipboard/paste
+  /// entirely. Zero-config: if no note is marked — or the marked note is
+  /// trashed or no longer exists (both surface as `null` from
+  /// [HistoryDatabase.getQuickNote]) — creates a fresh note and marks it
+  /// first. Prefers [quickNoteLiveEditorOverride] over the direct database
+  /// write when one is registered and handles the append (see its doc
+  /// comment); always fires [onQuickNoteAppended] on success.
+  ///
+  /// Awaits [quickNoteEditorFlush] first so the note is read back *after* a
+  /// live editor has persisted its pending keystrokes — see that field.
+  @visibleForTesting
+  Future<void> appendToQuickNote(String transcript) =>
+      _appendToQuickNote(transcript);
+
+  Future<void> _appendToQuickNote(String transcript) async {
+    // Must stay ahead of the read below: it is what makes the row current.
+    await quickNoteEditorFlush?.call();
+
+    final db = ref.read(historyDatabaseProvider);
+    var note = await db.getQuickNote();
+    if (note == null) {
+      note = await db.createNote();
+      await db.setQuickNote(note.id);
+    }
+
+    final newContent = appendToQuickNoteContent(note.content, transcript);
+
+    final override = quickNoteLiveEditorOverride;
+    final handled = override != null && override(note.id, newContent);
+    if (!handled) {
+      await db.updateNoteContent(note.id, newContent);
+    }
+
+    onQuickNoteAppended?.call(note.id);
+  }
+
+  /// Logs an unconfirmed paste. [PasteOutcome.unconfirmedNoBridge] (no receipt
+  /// could be armed) says nothing about this paste and gets no warning. The
+  /// user-facing notice comes from [PasteResultReporter].
+  void _logUnconfirmedPaste(PasteOutcome outcome) {
+    if (outcome == PasteOutcome.unconfirmedReceiptRefused) {
+      _log.info(
+        'Paste unconfirmed: receipt write refused; transcript kept on the '
+        'clipboard, info notice only',
+      );
+      return;
+    }
+    if (outcome == PasteOutcome.unconfirmedNoBridge) {
+      _log.info(
+        'Paste unconfirmed: no read receipt armed; transcript kept on the '
+        'clipboard, no warning',
+      );
+      return;
+    }
+    // Briefing N12: the shortcut was sent, but nothing proves the text reached
+    // the field. Never reported as a paste.
+    _log.warning(
+      'Paste unconfirmed: no proof the text reached the field; transcript kept '
+      'on the clipboard',
+    );
+  }
+
+  /// [pasterOverride] replaces the native paster for the practice delivery
+  /// ([sandboxPaster]); [alert] `false` skips the toast/sound reporter there.
+  Future<bool> _pasteTranscript(
+    String transcript,
+    AppSettings settings, {
+    Paster? pasterOverride,
+    bool alert = true,
+  }) async {
+    // Keep the target captured at hotkey time: capturing again here would
+    // follow the user into the app they switched to meanwhile, and the
+    // native target check could never refuse the paste. Only a paste
+    // without a captured target (no recording start) captures it now.
+    // The "paste the last dictation again" hotkey reads this, also with
+    // saving off. The practice paste is not a dictation of the user's.
+    if (pasterOverride == null) {
+      ref.read(lastDictationTextProvider.notifier).set(transcript);
+    }
+    final pending = _pendingPastePrime;
+    if (pending != null) await pending;
+    final primed = _pasteTargetPrimed;
+    _clearPasteTarget();
+    final paster = pasterOverride ?? ref.read(pasterProvider);
+    if (paster == null) {
+      // No paste path at all: the transcript is only on the clipboard, so the
+      // done state must not read "Eingefügt" (PAR-062).
+      _pasteOutcomeThisPipeline = PasteOutcome.platformUnavailable;
+      _pasteNotConfirmedThisPipeline = true;
+      return false;
+    }
+    if (!primed) await paster.prime();
+
+    final outcome = await paster.paste(
+      transcript,
+      PasteOptions(
+        autoPasteDelayMs: settings.autoPasteDelay,
+        blocklist: settings.autoPasteBlocklist,
+        // With saving off a blocked paste must still leave the text on the
+        // clipboard: there is no history entry to fall back on.
+        copyBlockedToClipboard:
+            settings.behavior.copyBlockedToClipboard ||
+            !settings.history.saveHistory,
+        restoreClipboardAfterPaste:
+            settings.behavior.restoreClipboardAfterPaste,
+        restoreClipboardWithoutReceipt:
+            settings.behavior.restoreClipboardWithoutReceipt,
+      ),
+    );
+    _pasteOutcomeThisPipeline = outcome;
+
+    if (outcome != PasteOutcome.success) {
+      _pasteNotConfirmedThisPipeline = true;
+    }
+
+    // The reporter alerts the user (in-app toast, OS notice, tray, sound) for
+    // every paste path. The pipeline only logs and decides what it returns.
+    if (alert) {
+      final alerted = await ref
+          .read(pasteResultReporterProvider)
+          .report(outcome);
+      if (alerted) _pasteFailureSoundPlayedThisPipeline = true;
+    }
+
+    return _logPasteOutcome(outcome, transcript, settings);
+  }
+
+  /// Logs what a paste outcome means for the pipeline and returns whether the
+  /// transcript landed. Pure logging and flags, split out of
+  /// [_pasteTranscript] to keep that function small.
+  bool _logPasteOutcome(
+    PasteOutcome outcome,
+    String transcript,
+    AppSettings settings,
+  ) {
+    switch (outcome) {
+      case PasteOutcome.success:
+        _log.info('Pasted transcript (${transcript.length} chars)');
+        return true;
+      case PasteOutcome.blocked:
+        _log.info('Auto-paste blocked for current app (in blocklist)');
+        if (settings.behavior.copyBlockedToClipboard ||
+            !settings.history.saveHistory) {
+          _copiedOnlyThisPipeline = true;
+        } else {
+          _historyOnlyThisPipeline = true;
+        }
+        return false;
+      case PasteOutcome.noTarget:
+        _log.warning(
+          'Paste failed: no target window — WhisPaste was likely '
+          'frontmost when recording started. Focus the destination app '
+          'first, then trigger recording.',
+        );
+        return false;
+      case PasteOutcome.permissionMissing:
+        _log.warning(pasteInjectionDeniedLogMessage(defaultTargetPlatform));
+        return false;
+      case PasteOutcome.elevationBlocked:
+        _log.warning(
+          'Paste failed: target window runs elevated, WhisPaste does not '
+          '(Windows UIPI). Restart WhisPaste as an administrator to paste '
+          'into that window.',
+        );
+        return false;
+      case PasteOutcome.targetChanged:
+        // Briefing B3 criterion 1: nothing was pasted, the transcript stays on
+        // the clipboard and the toast names the state.
+        _log.warning(
+          'Paste refused: target app changed during processing; transcript '
+          'kept on the clipboard',
+        );
+        return false;
+      case PasteOutcome.unconfirmed:
+      case PasteOutcome.unconfirmedNoBridge:
+      case PasteOutcome.unconfirmedReceiptRefused:
+        _logUnconfirmedPaste(outcome);
+        return false;
+      case PasteOutcome.secureInput:
+        // Logged by the paster; the reporter names the holder (F35-8).
+        return false;
+      // platformUnavailable: the native paste channel is missing, so nothing
+      // was pasted. It reports like an unknown failure. Otherwise the run
+      // completes as a success (chime, toast) over text that never landed.
+      case PasteOutcome.failed || PasteOutcome.platformUnavailable:
+        _log.warning('Paste failed: native paste bridge reported $outcome');
+        return false;
+    }
+  }
+
+  /// Resolves the app's own persisted language setting (`AppSettings.locale`,
+  /// Settings → Language) for the native OS notification / tray text
+  /// [PasteResultReporter] builds — not the raw OS locale, mirroring the fix
+  /// for `FloatingOverlayService._resolveL10n()` (issue
+  /// `overlay-status-l10n/01`, root cause 1). Falls back to English if the
+  /// setting is missing or names an unsupported locale — English is always
+  /// resolvable ([lookupL10n]'s template locale), so this never throws.
+  L10n _resolveL10n() =>
+      appNoticeL10n(ref.read(settingsProvider).value?.locale);
+}
+
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
+
+/// Global recording orchestrator provider.
+///
+/// The orchestrator is a `void` notifier — it has no state of its own.
+/// All observable state lives in [recordingProvider], [audioServiceProvider],
+/// and the active [OnDeviceEngineLifecycle] adapter.
+final recordingOrchestratorProvider =
+    NotifierProvider<RecordingOrchestrator, void>(RecordingOrchestrator.new);
+
+// ---------------------------------------------------------------------------
+// Pipeline step helpers
+// ---------------------------------------------------------------------------
+
+/// What the pipeline has of the current dictation when a stray error stops it.
+/// Filled in step by step, so the audio can be parked when a transcript exists
+/// but the history save has not run yet.
+class _InFlightDictation {
+  String? wavPath;
+  Duration audioDuration = Duration.zero;
+  String? transcript;
+
+  /// History entry id of this dictation, fixed before the engine starts, so
+  /// that a recovery after a crash can tell whether it was saved already.
+  String? entryId;
+
+  /// Journal entry covering the transcription (see TranscriptionJournal).
+  String? journalId;
+
+  /// Texts of the upload slices a failed transcription finished (see
+  /// [TranscriberException.completedParts]); kept with the audio for a retry.
+  List<String> completedSliceParts = const [];
+}
+
+/// What one recording was started with, plus its cancel flag.
+///
+/// Created by [RecordingOrchestrator.startRecording] after its guards and
+/// handed to the pipeline that finalizes that recording. Finalization reads
+/// the target and overrides from here, never from the shared providers, which
+/// the next start overwrites.
+class _RecordingSession {
+  _RecordingSession({
+    this.target = RecordingTarget.clipboard,
+    this.smartModeHotkeyPreset,
+    this.languageOverride,
+    this.silenceTimeoutOverride,
+    this.languageCode = 'auto',
+  });
+
+  /// Effective transcription language, frozen when the recording started
+  /// (SW-03). Settings changes during the recording do not reach it.
+  /// Frozen at start (override, else global setting). Replaced once, by the
+  /// target app's profile language, when [languageResolution] finishes.
+  String languageCode;
+
+  /// Pending profile-language resolution, awaited before transcription. Null
+  /// when the start already settled the language.
+  Future<void>? languageResolution;
+
+  /// Language the engine reported for this recording's transcription (only
+  /// with automatic detection). Feeds the fact guard's name rule (DEV-83).
+  String? detectedLanguage;
+
+  final RecordingTarget target;
+  final SmartModePreset? smartModeHotkeyPreset;
+  final String? languageOverride;
+  final double? silenceTimeoutOverride;
+
+  /// Set by [RecordingOrchestrator.cancelRecording] while this recording's
+  /// transcription is in flight. The pipeline checks it at each checkpoint.
+  bool cancelRequested = false;
+}
+
+class _PipelineTiming {
+  String outcome = 'unknown';
+  int? wavReadyMs;
+  int? sttEnsureMs;
+  int? transcribeMs;
+
+  /// Audio length in ms, for the real-time factor ([rtfBucket]).
+  int? audioMs;
+  int? replaceMs;
+  int? saveMs;
+  int? clipboardMs;
+}
+
+/// Sealed result of [RecordingOrchestrator._runCaptureStep].
+sealed class _CaptureStepResult {
+  const _CaptureStepResult();
+}
+
+/// Capture step failed — pipeline should abort with [outcome].
+final class _CaptureAbort extends _CaptureStepResult {
+  const _CaptureAbort(this.outcome);
+  final String outcome;
+}
+
+/// Capture step succeeded — [path] and [bytes] are ready for transcription.
+final class _CaptureOk extends _CaptureStepResult {
+  const _CaptureOk({required this.path, required this.bytes});
+  final String path;
+  final List<int> bytes;
+}
+
+/// German dictations keep single capitalised words as ordinary words (nouns);
+/// every other language, and "auto", checks them as possible names.
+bool _isGermanLanguage(String languageCode) =>
+    languageCode.toLowerCase().startsWith('de');
+
+/// Transcribes [wavBytes] once. An adapter that can resume (see
+/// [ResumableTranscriber]) gets the finished slices and the cancel check; any
+/// other adapter gets a plain call. The result passes through
+/// [applyTranscriptHygiene] for every engine, so the same rules apply to
+/// whisper, Parakeet and the cloud adapters.
+Future<String> _transcribeOnce(
+  Transcriber transcriber,
+  List<int> wavBytes, {
+  required String language,
+  List<String> completedParts = const [],
+  bool Function()? isCancelled,
+  SliceCheckpoint? onSliceDone,
+}) async {
+  final String raw;
+  if (transcriber case final ResumableTranscriber resumable) {
+    raw = await resumable.transcribeResumable(
+      wavBytes,
+      language: language,
+      completedParts: completedParts,
+      isCancelled: isCancelled,
+      onSliceDone: onSliceDone,
+    );
+  } else {
+    raw = await transcriber.transcribe(wavBytes, language: language);
+  }
+  return applyTranscriptHygiene(raw);
+}
+
+/// Error code for a local engine failure that reached the orchestrator without
+/// a typed [TranscriberException]. A timeout or an engine failure that survived
+/// the engine's own retries maps to a repeatable code, so the audio is kept for
+/// a retry. Whisper, Parakeet GPU and native-guard failures all follow this
+/// rule. Any other error keeps its text, as before.
+@visibleForTesting
+String unclassifiedTranscribeErrorCode(Object error) {
+  final text = '$error';
+  if (text.contains('stt_cuda_oom')) return 'stt_cuda_oom';
+  if (error is WhisperEngineException) {
+    return error.kind == WhisperFailureKind.timeout
+        ? 'transcription_timeout'
+        : 'stt_server_failed';
+  }
+  if (error is ParakeetGpuException) {
+    return error.message == 'transcribe_timeout'
+        ? 'transcription_timeout'
+        : 'stt_server_failed';
+  }
+  if (error is NativeCallException) return 'stt_server_failed';
+  return text;
+}

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --screen-w: 1920px;
+    --screen-h: 1080px;
+    --accent: #38D9F0;
+    --text-primary: #f0f4f8;
+    --text-muted: rgba(240, 244, 248, 0.62);
+  }
+
+  body {
+    width: var(--screen-w);
+    height: var(--screen-h);
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #0d1017;
+  }
+
+  .stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Photo background + composited screen share one cover transform (JS). */
+  .photo-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+  }
+
+  .photo-layer > img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: block;
+  }
+
+  .laptop-screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+  }
+
+  /* Lit desktop filling the whole glass so the display reads as "on" and
+     the app window sits anchored on it instead of floating on dead glass. */
+  .laptop-screen .screen-desktop {
+    position: absolute;
+    inset: 1px;
+    border-radius: 10px;
+    background:
+      radial-gradient(ellipse 96% 58% at 50% 36%, rgba(56, 217, 240, 0.11) 0%, transparent 66%),
+      linear-gradient(160deg, #0d1522 0%, #111c2e 48%, #0b111c 100%);
+  }
+
+  .laptop-screen .app-shot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 98%;
+    border-radius: 3px;
+    overflow: hidden;
+    line-height: 0;
+  }
+
+  .laptop-screen .app-shot img {
+    width: 100%;
+    height: auto;
+    display: block;
+    /* Exposure lift: the dark-theme golden reads too dark inside the photo. */
+    filter: brightness(1.42) saturate(1.05);
+  }
+
+  /* Recording-overlay pill: the REAL captured OverlayPainter output (see
+     assets/overlay-recording-dark-compact.png), not a hand-rebuilt
+     approximation. Two prior CSS recreations (this file's previous
+     backdrop-filter version, and template.html's .float-pill) both drifted
+     from the actual app rendering — colors, proportions, glass behavior.
+     The golden test captures the painter on a transparent canvas, so the
+     PNG already carries the real per-pixel alpha for the translucent glass
+     fill (~0.66 opacity core, verified: sampled alpha ~195-210/255 in the
+     fill, not 255) — a plain <img> with normal alpha compositing reproduces
+     the exact real translucency, which no hand-tuned backdrop-filter value
+     can guarantee. Compact size (236×60), matching the real app's
+     OverlayLayoutSpec.compact. */
+  /* Integration model (2026-07-29 rework): the pill is no longer composited
+     INTO the photo layer at photo scale — that made it a tiny sticker lying
+     on the chassis, a foreign object pretending to be part of the scene.
+     Professional product-hero grammar (Apple's floating product imagery with
+     one soft signature shadow, SaaS "chromeless" floating UI callouts)
+     instead treats the UI element as part of the graphic-design layer, like
+     the headline: deliberately sized relative to the composition, clearly
+     hovering ABOVE the photograph. Concretely:
+       - stage-space element (viewport px, width as a fraction of W) so the
+         size hierarchy headline > pill > badges holds in every format;
+       - anchored over the laptop's lit screen bottom edge, so its baked
+         per-pixel glass alpha shows real app UI through it and it reads as
+         "the recording overlay floating in front of the display" — which is
+         exactly what it does in the real app;
+       - a large, soft, downward float shadow (high blur, no tight contact
+         shadow) that separates it from the scene while anchoring its light
+         direction to the photo's top key light;
+       - a faint cyan halo behind it, echoing the bezel rim light, so the
+         scene's lighting appears to respond to the pill;
+       - a slight tilt so it reads as gliding, not pinned. */
+  /* Liquid-motion hint: the pill asset is captured at a liquid PEAK moment
+     (glassPhase 0.3, motion 1.0, level 0.8 — same params as
+     overlay_liquid_glass_golden_test.dart), so the silhouette is visibly
+     warped — that alone carries the motion story. The former blurred
+     "echo" copies were removed in the 2026-07-29 rework: at hero scale
+     they read as double-vision artifacts (detached record-dot ghost,
+     offset rim ring), not as captured motion. */
+  .overlay-pill-group {
+    position: absolute;
+    z-index: 4; /* stage space, above scrim + text layer */
+    transform: translate(-50%, -50%) rotate(-2.4deg);
+  }
+
+  /* Scene-light halo: soft cyan ambience behind the glass, matching the
+     photo's bezel rim light — ties the pill's lighting into the scene. */
+  .overlay-pill-group .pill-halo {
+    position: absolute;
+    inset: -34% -14%;
+    z-index: 0;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(56, 217, 240, 0.17) 0%, rgba(56, 217, 240, 0.07) 55%, transparent 78%);
+    filter: blur(10px);
+  }
+
+  .overlay-pill-group img {
+    display: block;
+    width: 100%;
+  }
+
+  .overlay-pill-group .pill-main {
+    position: relative;
+    z-index: 2;
+    /* Float shadow: one big, soft, downward ambient occlusion (no tight
+       contact shadow) — the element hovers clearly ABOVE the scene instead
+       of resting on it. Key light from above, like the photo. */
+    filter: drop-shadow(0 30px 46px rgba(4, 10, 18, 0.55)) drop-shadow(0 10px 20px rgba(4, 10, 18, 0.32));
+  }
+
+  .text-layer {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 7%;
+    z-index: 3;
+  }
+
+  .device-headline {
+    font-size: 78px;
+    font-weight: 900;
+    line-height: 1.04;
+    letter-spacing: -0.04em;
+    color: var(--text-primary);
+    white-space: pre-line;
+    max-width: 62%;
+    margin-bottom: 26px;
+    text-shadow: 0 4px 28px rgba(13, 16, 23, 0.85);
+  }
+
+  .device-headline em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .device-subtitle {
+    font-size: 22px;
+    line-height: 1.55;
+    color: var(--text-muted);
+    max-width: 480px;
+    margin-bottom: 40px;
+    text-shadow: 0 2px 18px rgba(13, 16, 23, 0.85);
+  }
+
+  .device-badges {
+    display: flex;
+    gap: 14px;
+  }
+
+  .device-badge {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(240, 244, 248, 0.72);
+    padding: 11px 22px;
+    border: 1px solid rgba(56, 217, 240, 0.26);
+    border-radius: 999px;
+    background: rgba(13, 16, 23, 0.35);
+  }
+
+  /* Soft darkening behind the text so type stays crisp over the photo. */
+  .contrast-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(90deg, rgba(13, 16, 23, 0.62) 0%, rgba(13, 16, 23, 0.30) 38%, transparent 58%);
+  }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="photo-layer" id="photo-layer">
+    <img id="bg-photo" src="" alt="">
+    <div class="laptop-screen" id="laptop-screen">
+      <div class="screen-desktop"></div>
+      <div class="app-shot">
+        <img id="app-shot-img" src="" alt="">
+      </div>
+    </div>
+  </div>
+  <div class="contrast-scrim"></div>
+  <div id="overlay-pill" class="overlay-pill-group">
+    <div class="pill-halo"></div>
+    <img class="pill-main" src="" alt="">
+  </div>
+  <div class="text-layer">
+    <div id="device-hl" class="device-headline"></div>
+    <div id="device-sub" class="device-subtitle"></div>
+    <div id="device-badges" class="device-badges"></div>
+  </div>
+</div>
+
+<script>
+  // Solves the homography mapping the virtual screen rect onto the photo's
+  // laptop-screen quad and returns it as a CSS matrix3d.
+  function matrix3dForQuad(w, h, quad) {
+    const src = [[0, 0], [w, 0], [w, h], [0, h]];
+    const A = [];
+    const b = [];
+    for (let i = 0; i < 4; i += 1) {
+      const [x, y] = src[i];
+      const [X, Y] = quad[i];
+      A.push([x, y, 1, 0, 0, 0, -X * x, -X * y]);
+      b.push(X);
+      A.push([0, 0, 0, x, y, 1, -Y * x, -Y * y]);
+      b.push(Y);
+    }
+    // Gaussian elimination with partial pivoting.
+    for (let col = 0; col < 8; col += 1) {
+      let pivot = col;
+      for (let row = col + 1; row < 8; row += 1) {
+        if (Math.abs(A[row][col]) > Math.abs(A[pivot][col])) pivot = row;
+      }
+      [A[col], A[pivot]] = [A[pivot], A[col]];
+      [b[col], b[pivot]] = [b[pivot], b[col]];
+      for (let row = col + 1; row < 8; row += 1) {
+        const f = A[row][col] / A[col][col];
+        for (let k = col; k < 8; k += 1) A[row][k] -= f * A[col][k];
+        b[row] -= f * b[col];
+      }
+    }
+    const s = new Array(8);
+    for (let row = 7; row >= 0; row -= 1) {
+      let sum = b[row];
+      for (let k = row + 1; k < 8; k += 1) sum -= A[row][k] * s[k];
+      s[row] = sum / A[row][row];
+    }
+    const [a, bb, c, d, e, f, g, hh] = s;
+    return `matrix3d(${a},${d},0,${g},${bb},${e},0,${hh},0,0,1,0,${c},${f},0,1)`;
+  }
+
+  // Called by the renderer with all per-locale/per-store data.
+  window.setupHero = function setupHero(params) {
+    const { W, H, imgW, imgH, quad, focusX, bgData, shotData, pillAnchor, pillStage, pillFrac, pillData, copy, locale } = params;
+
+    document.documentElement.style.setProperty('--screen-w', `${W}px`);
+    document.documentElement.style.setProperty('--screen-h', `${H}px`);
+
+    // Cover-fit the photo, keeping `focusX` (0..1 in source space) favored
+    // when the viewport is narrower than the scaled photo.
+    const scale = Math.max(W / imgW, H / imgH);
+    const scaledW = imgW * scale;
+    const scaledH = imgH * scale;
+    let offX = -(focusX * scaledW - W * focusX);
+    offX = Math.min(0, Math.max(W - scaledW, offX));
+    const offY = Math.min(0, (H - scaledH) / 2);
+
+    const layer = document.getElementById('photo-layer');
+    layer.style.transform = `translate(${offX}px, ${offY}px) scale(${scale})`;
+
+    const photo = document.getElementById('bg-photo');
+    photo.width = imgW;
+    photo.height = imgH;
+    photo.src = bgData;
+
+    // 16:10 virtual screen matching the golden's aspect, so the homography
+    // fills the whole glass with correct perspective and zero distortion.
+    const screenW = 320;
+    const screenH = 200;
+    const screen = document.getElementById('laptop-screen');
+    screen.style.width = `${screenW}px`;
+    screen.style.height = `${screenH}px`;
+    screen.style.transform = matrix3dForQuad(screenW, screenH, quad);
+
+    document.getElementById('app-shot-img').src = shotData;
+
+    // Pill: stage-space element. Its SIZE is a fraction of the viewport
+    // width — design-scale, not photo-scale, so the headline > pill > badges
+    // hierarchy holds across formats. Its CENTER comes from one of two
+    // anchor modes:
+    //   - pillStage [fx, fy]: fractions of the viewport — free composition
+    //     placement, independent of the photo (preferred);
+    //   - pillAnchor [x, y]: photo-source point mapped through the same
+    //     cover transform as the background, gluing it to a scene spot.
+    const pill = document.getElementById('overlay-pill');
+    if ((pillStage || pillAnchor) && pillData) {
+      pill.querySelectorAll('img').forEach((img) => {
+        img.src = pillData;
+      });
+      pill.style.width = `${Math.round(W * pillFrac)}px`;
+      if (pillStage) {
+        pill.style.left = `${Math.round(W * pillStage[0])}px`;
+        pill.style.top = `${Math.round(H * pillStage[1])}px`;
+      } else {
+        pill.style.left = `${pillAnchor[0] * scale + offX}px`;
+        pill.style.top = `${pillAnchor[1] * scale + offY}px`;
+      }
+    } else {
+      pill.remove();
+    }
+
+    // Copy layer is optional: the clean website-background variant
+    // (render-hero-device-clean.cjs) passes copy=null and gets only the
+    // photo + composited screen — no text, and no contrast scrim either,
+    // since the scrim exists solely to keep type legible.
+    if (copy) {
+      document.getElementById('device-hl').innerHTML = copy.headline[locale].replace(/\n/g, '<br>');
+      document.getElementById('device-sub').textContent = copy.subtitle[locale];
+
+      const badges = document.getElementById('device-badges');
+      badges.innerHTML = '';
+      copy.badges[locale].forEach((text) => {
+        const el = document.createElement('div');
+        el.className = 'device-badge';
+        el.textContent = text;
+        badges.appendChild(el);
+      });
+    } else {
+      document.querySelector('.text-layer').remove();
+      document.querySelector('.contrast-scrim').remove();
+    }
+  };
+</script>
+</body>
+</html>

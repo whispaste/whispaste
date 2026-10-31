@@ -1,0 +1,1 @@
+Parlez au lieu de taper : vos mots s'écrivent au curseur, dans n'importe quelle application. Transcription sur votre PC avec Whisper ou Parakeet, hors ligne après le téléchargement du modèle, sans compte. Cloud facultatif. Achat unique, sans abonnement. Open source.

@@ -1,0 +1,246 @@
+#include "my_application.h"
+
+#include <flutter_linux/flutter_linux.h>
+#ifdef GDK_WINDOWING_X11
+#include <gdk/gdkx.h>
+#endif
+
+#include "flutter/generated_plugin_registrant.h"
+#include "app_identity_host.h"
+#include "attention_host.h"
+#include "audio_file_decode_host.h"
+#include "desktop_paste_host.h"
+#include "file_dialog_host.h"
+#include "floating_button_host.h"
+#include "floating_overlay_host.h"
+#include "keyboard_monitor_host.h"
+#include "power_event_host.h"
+#include "side_panel_host.h"
+#include "snippet_picker_host.h"
+
+struct _MyApplication {
+  GtkApplication parent_instance;
+  char** dart_entrypoint_arguments;
+  // Owns the public overlay MethodChannel and lazily manages the 2nd engine
+  // window. Created once the main FlView/engine is live (in activate); deleted
+  // in dispose. Raw pointer is intentional — GObject lifecycle does not manage
+  // C++ objects.
+  FloatingOverlayHost* floating_overlay_host;
+  // Owns the public button MethodChannel and lazily manages the button engine
+  // window. Same lifecycle as floating_overlay_host above.
+  FloatingButtonHost* floating_button_host;
+  // Owns the public desktop-paste MethodChannel and the uinput virtual
+  // keyboard (visual-refresh-2026 ticket 30). Same lifecycle as the hosts
+  // above — no 2nd engine involved, so no window to create.
+  DesktopPasteHost* desktop_paste_host;
+  // Decodes imported Ogg/Opus, FLAC and MP3 files (WP-35b). No engine or
+  // window involved, same lifecycle as the hosts above.
+  AudioFileDecodeHost* audio_file_decode_host;
+  // Owns the public Snippet-Picker MethodChannel and lazily manages the
+  // picker's 2nd-engine window (visual-refresh-2026 ticket 30). Same
+  // lifecycle as floating_overlay_host/floating_button_host above.
+  SnippetPickerHost* snippet_picker_host;
+  // Owns the public Side-Panel MethodChannel, the clipboard-history
+  // snapshot-on-open channel, and lazily manages the panel's 2nd-engine
+  // window (issue 06). Same lifecycle as the hosts above.
+  SidePanelHost* side_panel_host;
+  // Owns com.whispaste.keyboard_monitor — push-to-talk key-up via XInput2 or
+  // the GlobalShortcuts portal (handy-catchup/09). Same lifecycle as above.
+  KeyboardMonitorHost* keyboard_monitor_host;
+  // Owns com.whispaste.power — system sleep/resume for the recording safety
+  // net (WP-39, 9.5). Same lifecycle as the hosts above.
+  PowerEventHost* power_event_host;
+  // Owns com.whispaste.file_dialog — open/save/folder dialogs in the app
+  // language (XP-5-13). Same lifecycle as the hosts above.
+  FileDialogHost* file_dialog_host;
+  // Owns com.whispaste.attention — urgency hint on the main window for X11
+  // (PAR-046). Same lifecycle as the hosts above.
+  AttentionHost* attention_host;
+  // Owns com.whispaste.app_identity — name and icon of target apps for the
+  // recording rows. Same lifecycle as the hosts above.
+  AppIdentityHost* app_identity_host;
+};
+
+G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
+
+// Called when first Flutter frame received.
+//
+// An autostart launch leaves showing to Dart (`_initDesktopWindow` in
+// lib/main.dart), which keeps the window hidden when "start minimized" is on.
+// Showing it here would override that decision.
+static void first_frame_cb(MyApplication* self, FlView* view) {
+  if (self->dart_entrypoint_arguments != nullptr &&
+      g_strv_contains(self->dart_entrypoint_arguments, "--autostart")) {
+    return;
+  }
+  gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+}
+
+// Implements GApplication::activate.
+static void my_application_activate(GApplication* application) {
+  MyApplication* self = MY_APPLICATION(application);
+  GtkWindow* window =
+      GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
+
+  // Use a header bar when running in GNOME as this is the common style used
+  // by applications and is the setup most users will be using (e.g. Ubuntu
+  // desktop).
+  // If running on X and not using GNOME then just use a traditional title bar
+  // in case the window manager does more exotic layout, e.g. tiling.
+  // If running on Wayland assume the header bar will work (may need changing
+  // if future cases occur).
+  gboolean use_header_bar = TRUE;
+#ifdef GDK_WINDOWING_X11
+  GdkScreen* screen = gtk_window_get_screen(window);
+  if (GDK_IS_X11_SCREEN(screen)) {
+    const gchar* wm_name = gdk_x11_screen_get_window_manager_name(screen);
+    if (g_strcmp0(wm_name, "GNOME Shell") != 0) {
+      use_header_bar = FALSE;
+    }
+  }
+#endif
+  if (use_header_bar) {
+    GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
+    gtk_widget_show(GTK_WIDGET(header_bar));
+    gtk_header_bar_set_title(header_bar, "whispaste");
+    gtk_header_bar_set_show_close_button(header_bar, TRUE);
+    gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
+  } else {
+    gtk_window_set_title(window, "whispaste");
+  }
+
+  gtk_window_set_default_size(window, 1280, 720);
+
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  fl_dart_project_set_dart_entrypoint_arguments(
+      project, self->dart_entrypoint_arguments);
+
+  FlView* view = fl_view_new(project);
+  GdkRGBA background_color;
+  // Background defaults to black, override it here if necessary, e.g. #00000000
+  // for transparent.
+  gdk_rgba_parse(&background_color, "#000000");
+  fl_view_set_background_color(view, &background_color);
+  gtk_widget_show(GTK_WIDGET(view));
+  gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
+
+  // Show the window when Flutter renders.
+  // Requires the view to be realized so we can start rendering.
+  g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb),
+                           self);
+  gtk_widget_realize(GTK_WIDGET(view));
+
+  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+
+  // Wire the floating overlay host to the main engine's binary messenger.
+  // The host opens the public MethodChannel (com.whispaste.floating_overlay)
+  // and lazily creates the 2nd-engine overlay shell when Dart sends the first
+  // updateSnapshot(visible: true).
+  FlEngine* main_engine = fl_view_get_engine(view);
+  FlBinaryMessenger* main_messenger =
+      fl_engine_get_binary_messenger(main_engine);
+  self->floating_overlay_host = new FloatingOverlayHost(main_messenger);
+  self->floating_button_host = new FloatingButtonHost(main_messenger);
+  self->desktop_paste_host = new DesktopPasteHost(main_messenger);
+  self->audio_file_decode_host = new AudioFileDecodeHost(main_messenger);
+  self->snippet_picker_host = new SnippetPickerHost(main_messenger);
+  self->side_panel_host = new SidePanelHost(main_messenger);
+  self->keyboard_monitor_host = new KeyboardMonitorHost(main_messenger);
+  self->power_event_host = new PowerEventHost(main_messenger);
+  self->file_dialog_host = new FileDialogHost(main_messenger, view);
+  self->attention_host = new AttentionHost(main_messenger, window);
+  self->app_identity_host = new AppIdentityHost(main_messenger);
+
+  gtk_widget_grab_focus(GTK_WIDGET(view));
+}
+
+// Implements GApplication::local_command_line.
+static gboolean my_application_local_command_line(GApplication* application,
+                                                  gchar*** arguments,
+                                                  int* exit_status) {
+  MyApplication* self = MY_APPLICATION(application);
+  // Strip out the first argument as it is the binary name.
+  self->dart_entrypoint_arguments = g_strdupv(*arguments + 1);
+
+  g_autoptr(GError) error = nullptr;
+  if (!g_application_register(application, nullptr, &error)) {
+    g_warning("Failed to register: %s", error->message);
+    *exit_status = 1;
+    return TRUE;
+  }
+
+  g_application_activate(application);
+  *exit_status = 0;
+
+  return TRUE;
+}
+
+// Implements GApplication::startup.
+static void my_application_startup(GApplication* application) {
+  // MyApplication* self = MY_APPLICATION(object);
+
+  // Perform any actions required at application startup.
+
+  G_APPLICATION_CLASS(my_application_parent_class)->startup(application);
+}
+
+// Implements GApplication::shutdown.
+static void my_application_shutdown(GApplication* application) {
+  // MyApplication* self = MY_APPLICATION(object);
+
+  // Perform any actions required at application shutdown.
+
+  G_APPLICATION_CLASS(my_application_parent_class)->shutdown(application);
+}
+
+// Implements GObject::dispose.
+static void my_application_dispose(GObject* object) {
+  MyApplication* self = MY_APPLICATION(object);
+  g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  delete self->floating_overlay_host;
+  self->floating_overlay_host = nullptr;
+  delete self->floating_button_host;
+  self->floating_button_host = nullptr;
+  delete self->desktop_paste_host;
+  self->desktop_paste_host = nullptr;
+  delete self->audio_file_decode_host;
+  self->audio_file_decode_host = nullptr;
+  delete self->snippet_picker_host;
+  self->snippet_picker_host = nullptr;
+  delete self->side_panel_host;
+  self->side_panel_host = nullptr;
+  delete self->keyboard_monitor_host;
+  self->keyboard_monitor_host = nullptr;
+  delete self->power_event_host;
+  self->power_event_host = nullptr;
+  delete self->file_dialog_host;
+  self->file_dialog_host = nullptr;
+  delete self->attention_host;
+  self->attention_host = nullptr;
+  delete self->app_identity_host;
+  self->app_identity_host = nullptr;
+  G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
+}
+
+static void my_application_class_init(MyApplicationClass* klass) {
+  G_APPLICATION_CLASS(klass)->activate = my_application_activate;
+  G_APPLICATION_CLASS(klass)->local_command_line =
+      my_application_local_command_line;
+  G_APPLICATION_CLASS(klass)->startup = my_application_startup;
+  G_APPLICATION_CLASS(klass)->shutdown = my_application_shutdown;
+  G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
+}
+
+static void my_application_init(MyApplication* self) {}
+
+MyApplication* my_application_new() {
+  // Set the program name to the application ID, which helps various systems
+  // like GTK and desktop environments map this running application to its
+  // corresponding .desktop file. This ensures better integration by allowing
+  // the application to be recognized beyond its binary name.
+  g_set_prgname(APPLICATION_ID);
+
+  return MY_APPLICATION(g_object_new(my_application_get_type(),
+                                     "application-id", APPLICATION_ID, "flags",
+                                     G_APPLICATION_NON_UNIQUE, nullptr));
+}

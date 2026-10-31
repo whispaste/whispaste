@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.productivity</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>$(PRODUCT_COPYRIGHT)</string>
+	<key>NSMainNibFile</key>
+	<string>MainMenu</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>WhisPaste needs microphone access for speech-to-text dictation.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>WhisPaste may use this to paste your dictated text into other apps when the primary method is unavailable.</string>
+	<!-- Sparkle self-update (PRD Säule E). EdDSA public key matches the private
+	     key that signs appcast.xml in CI (secret SPARKLE_SIGNING_KEY). The feed
+	     URL below is the stable default for the first launch check; the Dart
+	     side overrides it at runtime via setFeedURL(appcastFeedUrl(channel))
+	     from lib/services/auto_updater_service.dart (beta → beta-latest tag). -->
+	<key>SUPublicEDKey</key>
+	<string>Ek8FS/co3CPMeZt7ss9XMDkga7jIG6RWNWbefZhtRck=</string>
+	<key>SUFeedURL</key>
+	<string>https://github.com/whispaste/whispaste/releases/latest/download/appcast.xml</string>
+	<!-- Sparkle never schedules checks or asks for permission on its own: the
+	     Dart side runs the automatic checks (start + every 24 h) only while
+	     Settings → Updates → "Check for Updates" is on
+	     (lib/services/auto_updater_service.dart). -->
+	<key>SUEnableAutomaticChecks</key>
+	<false/>
+	<!-- Export compliance: WhisPaste only ever talks HTTPS/TLS via the OS-provided
+	     networking stack (Sentry, Supabase, OpenAI, Deepgram, Sparkle appcast,
+	     GitHub) — no proprietary or custom cryptography. That's exempt encryption,
+	     so this is `false` ("does NOT use non-exempt encryption"). Without this
+	     key, every single upload shows as "Missing Compliance" in App Store
+	     Connect and needs a manual per-build answer; with it, Xcode/ASC can
+	     auto-determine compliance from the binary. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+</dict>
+</plist>

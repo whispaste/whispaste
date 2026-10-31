@@ -1,0 +1,793 @@
+import 'dart:async';
+
+import 'package:drift/native.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:whispaste/core/config/settings_enums.dart';
+import 'package:whispaste/core/config/settings_provider.dart';
+import 'package:whispaste/core/data/database.dart';
+import 'package:whispaste/core/data/history_providers.dart';
+import 'package:whispaste/features/history/data/history_lock.dart';
+import 'package:whispaste/features/history/data/history_pin.dart';
+import 'package:whispaste/features/snippets/snippets_page.dart';
+import 'package:whispaste/services/clipboard_history/app_clipboard.dart';
+import 'package:whispaste/services/clipboard_history/clipboard_fingerprint.dart';
+import 'package:whispaste/services/clipboard_history/clipboard_history_entry.dart';
+import 'package:whispaste/services/clipboard_history/clipboard_history_provider.dart';
+import 'package:whispaste/services/clipboard_history/self_write_suppression_registry.dart';
+import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
+import 'package:whispaste/services/side_panel/side_panel_controller_interface.dart';
+import 'package:whispaste/services/side_panel/side_panel_controller_provider.dart';
+import 'package:whispaste/services/side_panel/side_panel_events.dart';
+import 'package:whispaste/services/side_panel/side_panel_service.dart';
+import 'package:whispaste/services/side_panel/side_panel_snapshot.dart';
+import 'package:whispaste/services/paste/paste_failure_notifier.dart';
+import 'package:whispaste/services/paste/paster.dart';
+import 'package:whispaste/services/sound_feedback_service.dart';
+import 'package:whispaste/services/system_attention_service.dart';
+import 'package:whispaste/services/tray_service.dart';
+
+import '../../test_helpers/paste_notice_fakes.dart';
+
+class _FakeDesktopPasteController
+    implements DesktopPasteController, ClipboardReceiptBridge {
+  int captureCalls = 0;
+  int pasteCalls = 0;
+  bool pasteSucceeds = true;
+  final List<String> receiptWrites = <String>[];
+
+  /// The target reads the clipboard after a successful paste; that read is
+  /// the only proof the paster accepts (briefing N12).
+  Completer<ClipboardReadReceipt> _read = Completer<ClipboardReadReceipt>();
+
+  @override
+  Future<bool> writeClipboardTextWithReceipt(String text) async {
+    _read = Completer<ClipboardReadReceipt>();
+    receiptWrites.add(text);
+    return true;
+  }
+
+  @override
+  Future<ClipboardReadReceipt> waitForClipboardRead() => _read.future;
+
+  @override
+  Future<ClipboardRestoreOutcome> restoreClipboardTextIfOwner(
+    String text,
+  ) async => ClipboardRestoreOutcome.restored;
+
+  @override
+  Future<bool> capturePasteTarget() async {
+    captureCalls += 1;
+    return true;
+  }
+
+  @override
+  Future<String?> getTargetBundleId() async => null;
+
+  @override
+  Future<NativePasteResult> pasteClipboard({required Duration delay}) async {
+    pasteCalls += 1;
+    if (!pasteSucceeds) {
+      return const NativePasteResult(status: NativePasteStatus.postFailed);
+    }
+    if (!_read.isCompleted) _read.complete(ClipboardReadReceipt.read);
+    return const NativePasteResult(status: NativePasteStatus.success);
+  }
+
+  @override
+  Future<NativePasteResult> copySelection({required Duration delay}) async =>
+      const NativePasteResult(status: NativePasteStatus.unknown);
+
+  @override
+  Future<NativePasteResult> typeText(
+    String text, {
+    required Duration delay,
+  }) async => const NativePasteResult(status: NativePasteStatus.postFailed);
+
+  @override
+  Future<bool> writeClipboardTextExcludingHistory(String text) async => false;
+
+  @override
+  Future<NativeCapabilityResult> checkCapability({
+    bool promptIfMissing = false,
+  }) async =>
+      const NativeCapabilityResult(status: NativeCapabilityStatus.ready);
+
+  @override
+  Future<TestPasteOutcome> diagnosticPaste(String demoText) async =>
+      const TestPasteOutcomeUnsupported();
+
+  @override
+  Future<TccRepairResult> repairTccEntries() async =>
+      TccRepairResult.unsupported();
+
+  @override
+  Future<void> dispose() async {}
+}
+
+class _FakeSidePanelController implements SidePanelController {
+  final snapshots = <SidePanelSnapshot>[];
+  bool disposed = false;
+  final _eventsController = StreamController<SidePanelEvent>.broadcast();
+
+  @override
+  Future<void> updateSnapshot(SidePanelSnapshot snapshot) async {
+    snapshots.add(snapshot);
+  }
+
+  @override
+  Stream<SidePanelEvent> get events => _eventsController.stream;
+
+  void fireEvent(SidePanelEvent event) => _eventsController.add(event);
+
+  @override
+  Future<void> dispose() async {
+    disposed = true;
+    await _eventsController.close();
+  }
+}
+
+/// Reads the notifier while retaining a live listener on the provider.
+///
+/// [sidePanelServiceProvider] is `NotifierProvider.autoDispose`; in
+/// production it stays alive because `WpServiceBootstrap` watches it for
+/// the app's lifetime. A bare `container.read(...)` here has no such
+/// watcher, so under Riverpod 3's auto-dispose-by-default the element (and
+/// the `ref.listen` subscriptions its `onControllerReady` sets up on
+/// `historyEntriesProvider`/`snippetsProvider`) would be torn down again
+/// right after this synchronous read returns -- before `open()`'s awaited
+/// `.future` reads ever resolve.
+SidePanelService _readService(ProviderContainer c) {
+  c.listen(sidePanelServiceProvider, (_, _) {});
+  return c.read(sidePanelServiceProvider.notifier);
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  late HistoryDatabase db;
+  late _FakeDesktopPasteController fakeDesktopPaste;
+  late _FakeSidePanelController fakePanel;
+  late ProviderContainer container;
+  late String? clipboardText;
+  late List<String?> clipboardWrites;
+
+  ProviderContainer buildContainer() => ProviderContainer(
+    overrides: [
+      trayServiceProvider.overrideWith(() => FakeNoticeTray()),
+      systemAttentionServiceProvider.overrideWith(
+        (ref) => RecordingSystemAttention(ref),
+      ),
+      historyDatabaseProvider.overrideWith((ref) => db),
+      desktopPasteControllerProvider.overrideWith((ref) => fakeDesktopPaste),
+      sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+    ],
+  );
+
+  setUp(() {
+    db = HistoryDatabase.forTesting(NativeDatabase.memory());
+    fakeDesktopPaste = _FakeDesktopPasteController();
+    fakePanel = _FakeSidePanelController();
+    clipboardText = null;
+    clipboardWrites = [];
+    AppClipboard.registry = SelfWriteSuppressionRegistry();
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          switch (call.method) {
+            case 'Clipboard.setData':
+              final args = Map<String, dynamic>.from(call.arguments as Map);
+              clipboardText = args['text'] as String?;
+              clipboardWrites.add(clipboardText);
+              return null;
+            case 'Clipboard.getData':
+              if (clipboardText == null) return null;
+              return <String, dynamic>{'text': clipboardText};
+            default:
+              return null;
+          }
+        });
+  });
+
+  tearDown(() async {
+    container.dispose();
+    await db.close();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null);
+  });
+
+  group('SidePanelService.open/close', () {
+    test(
+      'open() captures the paste target and shows a visible snapshot',
+      () async {
+        container = buildContainer();
+        await _readService(container).open();
+
+        expect(fakeDesktopPaste.captureCalls, 1);
+        expect(fakePanel.snapshots.last.visible, isTrue);
+      },
+    );
+
+    test('close() hides the panel without re-priming', () async {
+      container = buildContainer();
+      final service = _readService(container);
+      await service.open();
+      await service.close();
+
+      expect(fakeDesktopPaste.captureCalls, 1);
+      expect(fakePanel.snapshots.last.visible, isFalse);
+    });
+
+    test(
+      'the native sensor strip firing hoverEntered opens the panel',
+      () async {
+        container = buildContainer();
+        _readService(container);
+        fakePanel.fireEvent(const SidePanelHoverEntered());
+        await Future<void>.delayed(Duration.zero);
+
+        expect(fakeDesktopPaste.captureCalls, 1);
+        expect(fakePanel.snapshots.last.visible, isTrue);
+      },
+    );
+
+    test('hoverLeft from the panel itself closes it', () async {
+      container = buildContainer();
+      final service = _readService(container);
+      await service.open();
+      fakePanel.fireEvent(const SidePanelHoverLeft());
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakePanel.snapshots.last.visible, isFalse);
+    });
+
+    // Regression test for the "disabled panel still appears" bug:
+    // `sidePanelServiceProvider` must be `.autoDispose` because
+    // `WpServiceBootstrap` only watches it while
+    // `settings.interface_.sidePanelEnabled` is true (see
+    // `service_bootstrap.dart`). If the provider were a plain (keepAlive)
+    // `NotifierProvider`, dropping that one watch when the user flips the
+    // toggle off would not tear the notifier -- and therefore its native
+    // controller and hover sensors -- down at all, since Riverpod only
+    // disposes autoDispose providers once their last listener goes away.
+    test('losing the last listener (mirrors the setting being toggled off) '
+        'disposes the native controller', () async {
+      container = buildContainer();
+      final sub = container.listen(sidePanelServiceProvider, (_, _) {});
+      // Force creation, mirroring `ref.watch` triggering `build()`.
+      container.read(sidePanelServiceProvider.notifier);
+      expect(fakePanel.disposed, isFalse);
+
+      sub.close();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(
+        fakePanel.disposed,
+        isTrue,
+        reason:
+            'sidePanelServiceProvider must be NotifierProvider.autoDispose '
+            'so it (and its native controller) actually tears down once '
+            'nothing watches it anymore',
+      );
+    });
+
+    // Regression test for the "panel stays dead after toggling the setting
+    // back on" bug: `MethodChannelPlatformHost.dispose()` latches its
+    // `isDisposed` flag permanently and closes its event stream for good, so
+    // re-reading the *same* controller instance after a toggle-off would
+    // silently no-op every future `updateSnapshot()` call and never emit
+    // another event. `sidePanelControllerProvider` must therefore be
+    // `.autoDispose` (and `createController()` must `ref.watch`, not
+    // `ref.read`, it) so a toggle-on after a toggle-off gets a *fresh*,
+    // un-disposed controller instead of the dead one from before.
+    test('toggling the setting off then back on gets a fresh, un-disposed '
+        'controller instead of reusing the disposed one', () async {
+      final created = <_FakeSidePanelController>[];
+      final freshContainer = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) {
+            final c = _FakeSidePanelController();
+            created.add(c);
+            return c;
+          }),
+        ],
+      );
+      addTearDown(freshContainer.dispose);
+
+      // Toggle on.
+      final sub1 = freshContainer.listen(sidePanelServiceProvider, (_, _) {});
+      freshContainer.read(sidePanelServiceProvider.notifier);
+      expect(created, hasLength(1));
+      final first = created.single;
+
+      // Toggle off.
+      sub1.close();
+      await Future<void>.delayed(Duration.zero);
+      expect(first.disposed, isTrue);
+
+      // Toggle back on.
+      final sub2 = freshContainer.listen(sidePanelServiceProvider, (_, _) {});
+      final service = freshContainer.read(sidePanelServiceProvider.notifier);
+      addTearDown(sub2.close);
+
+      expect(
+        created,
+        hasLength(2),
+        reason:
+            'a fresh MethodChannelSidePanelController must be created on '
+            're-enable -- reusing the disposed instance from before the '
+            'toggle-off would mean every call silently no-ops',
+      );
+      final second = created.last;
+      expect(second.disposed, isFalse);
+
+      await service.open();
+      expect(
+        second.snapshots.any((s) => s.visible),
+        isTrue,
+        reason:
+            'open() must reach the new controller, proving the panel '
+            'actually works again after the toggle-on',
+      );
+      expect(
+        first.snapshots.any((s) => s.visible),
+        isFalse,
+        reason:
+            'the disposed pre-toggle controller must never be shown -- '
+            'onControllerReady sends it one invisible re-arm ping on '
+            'creation, but open() must never reach it',
+      );
+    });
+  });
+
+  group('SidePanelService side panel edge (issue #150)', () {
+    test('defaults to the left edge on the initial re-arm snapshot', () async {
+      container = buildContainer();
+      _readService(container);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakePanel.snapshots.single.edge, 'left');
+    });
+
+    test('open()/close() carry the configured right edge', () async {
+      container = buildContainer();
+      // Must await the notifier's initial build (reads the empty test DB)
+      // before mutating it -- otherwise that build's own `state = AsyncData
+      // (...)` assignment can land after updateSettings()'s and silently
+      // overwrite the edge change back to the default.
+      await container.read(settingsProvider.future);
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              interface_: s.interface_.copyWith(
+                sidePanelEdge: SidePanelEdge.right,
+              ),
+            ),
+          );
+
+      final service = _readService(container);
+      await service.open();
+      expect(fakePanel.snapshots.last.edge, 'right');
+
+      await service.close();
+      expect(fakePanel.snapshots.last.edge, 'right');
+    });
+
+    test('changing the setting while the panel is closed relocates the sensor '
+        'immediately, without opening the panel', () async {
+      container = buildContainer();
+      _readService(container);
+      await container.read(settingsProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      final before = fakePanel.snapshots.length;
+
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              interface_: s.interface_.copyWith(
+                sidePanelEdge: SidePanelEdge.right,
+              ),
+            ),
+          );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakePanel.snapshots.length, greaterThan(before));
+      expect(fakePanel.snapshots.last.edge, 'right');
+      expect(fakePanel.snapshots.last.visible, isFalse);
+    });
+  });
+
+  group('SidePanelService row activation', () {
+    test(
+      'clicking a transcription row pastes its content and closes',
+      () async {
+        container = ProviderContainer(
+          overrides: [
+            trayServiceProvider.overrideWith(() => FakeNoticeTray()),
+            systemAttentionServiceProvider.overrideWith(
+              (ref) => RecordingSystemAttention(ref),
+            ),
+            historyDatabaseProvider.overrideWith((ref) => db),
+            desktopPasteControllerProvider.overrideWith(
+              (ref) => fakeDesktopPaste,
+            ),
+            sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+            historyEntriesProvider.overrideWith(
+              (ref) => Stream.value([_historyEntry()]),
+            ),
+          ],
+        );
+        // No manual pre-warm here on purpose: open() itself now awaits the
+        // history stream's first value (see the cold-start test below), so
+        // this test also doubles as end-to-end proof that guard works.
+        final service = _readService(container);
+        await service.open();
+
+        fakePanel.fireEvent(
+          const SidePanelRowClicked(SidePanelSection.transcriptions, 'entry-1'),
+        );
+        // DesktopPaster.paste() enforces a real >=500ms floor before
+        // restoring the clipboard and resolving (see desktop_paster.dart
+        // step 5) -- wait past it with margin instead of Duration.zero.
+        await Future<void>.delayed(const Duration(milliseconds: 800));
+
+        expect(fakeDesktopPaste.pasteCalls, 1);
+        // The clipboard is restored to its previous (empty) content once
+        // the paste lands, so check the write happened rather than the
+        // final resting value.
+        expect(fakeDesktopPaste.receiptWrites, contains('Hello from history'));
+        expect(fakePanel.snapshots.last.visible, isFalse);
+      },
+    );
+
+    test('clicking a snippet row pastes its body', () async {
+      container = buildContainer();
+      await container.read(snippetsProvider.notifier).add('Sig', 'Best, Me');
+      final snippetId = container.read(snippetsProvider).value!.single.id;
+
+      final service = _readService(container);
+      await service.open();
+
+      fakePanel.fireEvent(
+        SidePanelRowClicked(SidePanelSection.snippets, snippetId),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakeDesktopPaste.pasteCalls, 1);
+      expect(fakeDesktopPaste.receiptWrites, contains('Best, Me'));
+    });
+
+    test('a row whose paste fails sends the failure notice and keeps the '
+        'panel open', () async {
+      fakeDesktopPaste.pasteSucceeds = false;
+      late RecordingSystemAttention attention;
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.value([_historyEntry()]),
+          ),
+          systemAttentionServiceProvider.overrideWith(
+            (ref) => attention = RecordingSystemAttention(ref),
+          ),
+          trayServiceProvider.overrideWith(() => FakeNoticeTray()),
+          soundFeedbackProvider.overrideWith(() => FakeNoticeSound()),
+        ],
+      );
+      final service = _readService(container);
+      await service.open();
+
+      fakePanel.fireEvent(
+        const SidePanelRowClicked(SidePanelSection.transcriptions, 'entry-1'),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 800));
+
+      expect(attention.requests, hasLength(1));
+      expect(attention.requests.single.kind, AttentionKind.pasteFailedUnknown);
+      expect(
+        container.read(pasteFailureNotifierProvider)?.outcome,
+        isNot(PasteOutcome.success),
+      );
+      expect(
+        fakePanel.snapshots.last.visible,
+        isTrue,
+        reason: 'a failed insert must not close the panel silently',
+      );
+    });
+
+    test(
+      'clicking a clipboard-history row pastes its text and marks self-write suppression',
+      () async {
+        container = buildContainer();
+        container
+            .read(clipboardHistoryProvider.notifier)
+            .add(
+              ClipboardHistoryEntry.text(
+                'copied earlier',
+                capturedAt: DateTime(2026),
+              ),
+            );
+
+        final service = _readService(container);
+        await service.open();
+
+        fakePanel.fireEvent(
+          const SidePanelRowClicked(
+            SidePanelSection.clipboardHistory,
+            'clip-0',
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+
+        expect(fakeDesktopPaste.pasteCalls, 1);
+        expect(fakeDesktopPaste.receiptWrites, contains('copied earlier'));
+        // End-to-end proof the suppression design holds at the panel layer:
+        // AppClipboard.setText (called inside DesktopPaster.paste) marked
+        // the registry for exactly the content that was just pasted.
+        expect(
+          AppClipboard.registry.shouldSuppress(
+            ClipboardFingerprint.ofText('copied earlier'),
+          ),
+          isTrue,
+        );
+      },
+    );
+
+    test('open() waits for a slow-to-resolve history stream instead of '
+        'showing an empty panel that pops in a moment later', () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.fromFuture(
+              Future.delayed(
+                const Duration(milliseconds: 50),
+                () => [_historyEntry()],
+              ),
+            ),
+          ),
+        ],
+      );
+      final service = _readService(container);
+      await service.open();
+
+      expect(
+        fakePanel.snapshots.last.transcriptions,
+        isNotEmpty,
+        reason:
+            'open() must resolve the history stream before showing the '
+            'panel, not read its still-loading value',
+      );
+    });
+
+    test("transcription rows carry the entry's persisted color slot", () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.value([_historyEntry()]),
+          ),
+        ],
+      );
+      final service = _readService(container);
+      await service.open();
+
+      expect(
+        fakePanel.snapshots.last.transcriptions.single.colorSlot,
+        _historyEntry().colorSlot,
+        reason:
+            "the row's avatar disc must match the same entry's avatar in "
+            'the main window, which reads this persisted slot',
+      );
+    });
+
+    test('a PIN-locked history shows no transcriptions until unlocked '
+        '(internal-notes)', () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.value([_historyEntry()]),
+          ),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              history: s.history.copyWith(
+                historyHideOnOpen: true,
+                historyPin: hashHistoryPin('4711', iterations: 10),
+              ),
+            ),
+          );
+      final service = _readService(container);
+      await service.open();
+      expect(fakePanel.snapshots.last.transcriptions, isEmpty);
+
+      await container
+          .read(historyRevealedProvider.notifier)
+          .unlockWithPin('4711');
+      await Future<void>.delayed(Duration.zero);
+      expect(fakePanel.snapshots.last.transcriptions, isNotEmpty);
+
+      container.read(historyRevealedProvider.notifier).conceal();
+      await Future<void>.delayed(Duration.zero);
+      expect(fakePanel.snapshots.last.transcriptions, isEmpty);
+    });
+
+    test('a PIN-locked clipboard tab lists no copied text and pastes nothing '
+        '(GS-125)', () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.value(const <HistoryEntry>[]),
+          ),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      container
+          .read(clipboardHistoryProvider.notifier)
+          .add(
+            ClipboardHistoryEntry.text(
+              'secret copy',
+              capturedAt: DateTime(2026),
+            ),
+          );
+      await container
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWithSections(
+              history: s.history.copyWith(
+                historyPin: hashHistoryPin('4711', iterations: 10),
+              ),
+            ),
+          );
+      final service = _readService(container);
+      await service.open();
+
+      expect(fakePanel.snapshots.last.clipboardLocked, isTrue);
+      expect(fakePanel.snapshots.last.clipboardHistory, isEmpty);
+
+      fakePanel.fireEvent(
+        const SidePanelRowClicked(SidePanelSection.clipboardHistory, 'clip-0'),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(fakeDesktopPaste.pasteCalls, 0);
+
+      await container
+          .read(historyRevealedProvider.notifier)
+          .unlockWithPin('4711');
+      await Future<void>.delayed(Duration.zero);
+      expect(fakePanel.snapshots.last.clipboardLocked, isFalse);
+      expect(
+        fakePanel.snapshots.last.clipboardHistory.single.title,
+        'secret copy',
+      );
+    });
+
+    test('a failing history load is reported as a failed section, not as an '
+        'empty list', () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.error(StateError('history unreadable')),
+          ),
+        ],
+      );
+      await container.read(settingsProvider.future);
+      final service = _readService(container);
+      await service.open();
+
+      expect(fakePanel.snapshots.last.transcriptions, isEmpty);
+      expect(fakePanel.snapshots.last.failedSections, {
+        SidePanelSection.transcriptions,
+      });
+    });
+
+    test('transcription and snippet rows carry the full insertable content, '
+        'not just the (possibly shorter) display title', () async {
+      container = ProviderContainer(
+        overrides: [
+          historyDatabaseProvider.overrideWith((ref) => db),
+          desktopPasteControllerProvider.overrideWith(
+            (ref) => fakeDesktopPaste,
+          ),
+          sidePanelControllerProvider.overrideWith((ref) => fakePanel),
+          historyEntriesProvider.overrideWith(
+            (ref) => Stream.value([
+              _historyEntry().copyWith(
+                title: 'Short label',
+                content: 'The full, unabridged transcript body.',
+              ),
+            ]),
+          ),
+        ],
+      );
+      await container.read(snippetsProvider.future);
+      await container
+          .read(snippetsProvider.notifier)
+          .add('Greeting', 'Hello, full snippet body here.');
+      final service = _readService(container);
+      await service.open();
+
+      final snapshot = fakePanel.snapshots.last;
+      expect(
+        snapshot.transcriptions.single.content,
+        'The full, unabridged transcript body.',
+      );
+      expect(
+        snapshot.snippets.single.content,
+        'Hello, full snippet body here.',
+      );
+    });
+
+    test('an unresolved row id does not paste anything', () async {
+      container = buildContainer();
+      final service = _readService(container);
+      await service.open();
+
+      fakePanel.fireEvent(
+        const SidePanelRowClicked(SidePanelSection.transcriptions, 'nope'),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(fakeDesktopPaste.pasteCalls, 0);
+    });
+  });
+}
+
+HistoryEntry _historyEntry() => HistoryEntry(
+  id: 'entry-1',
+  content: 'Hello from history',
+  title: '',
+  timestamp: DateTime(2026, 1, 1, 12),
+  durationSec: 30.0,
+  processingDurationSec: 1.0,
+  language: 'en',
+  languageHint: '',
+  tags: '[]',
+  pinned: false,
+  source: 'microphone',
+  model: 'whisper-small',
+  isLocal: true,
+  costUsd: 0.0,
+  archived: false,
+  deletedAt: null,
+  titleEdited: false,
+  colorSlot: 0,
+);

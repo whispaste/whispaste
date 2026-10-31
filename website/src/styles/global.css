@@ -1,0 +1,1674 @@
+@import "tailwindcss";
+/* Design tokens (generated from /design-tokens, see design-tokens/README.md). */
+@import "./tokens.css";
+@import "./components.css";
+
+/* ---------------------------------------------------------------------------
+   Self-hosted variable fonts (no external CDN / Google Fonts request).
+   Body: Hanken Grotesk — neutral, highly legible grotesk.
+   Display: Bricolage Grotesque — characterful headline grotesk.
+   Latin subset covers full German (incl. ä ö ü ß); latin-ext as fallback.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Hanken Grotesk Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/hanken-grotesk-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Hanken Grotesk Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("/fonts/hanken-grotesk-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Bricolage Grotesque Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/fonts/bricolage-grotesque-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Bricolage Grotesque Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  src: url("/fonts/bricolage-grotesque-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Metric-matched fallbacks: until the webfonts arrive (font-display: swap)
+   the browser draws local Arial scaled and with overridden line metrics so
+   it takes the same room — no headline that jumps in size on reload.
+   Values measured from the font files (fontTools, Latin sample text). */
+@font-face {
+  font-family: "Bricolage Grotesque Fallback";
+  font-weight: 100 599;
+  src: local("Arial"), local("ArialMT");
+  size-adjust: 102.81%;
+  ascent-override: 90.46%;
+  descent-override: 26.26%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Bricolage Grotesque Fallback";
+  font-weight: 600 900;
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  size-adjust: 102.18%;
+  ascent-override: 91.02%;
+  descent-override: 26.43%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Hanken Grotesk Fallback";
+  font-weight: 100 599;
+  src: local("Arial"), local("ArialMT");
+  size-adjust: 99.24%;
+  ascent-override: 100.77%;
+  descent-override: 30.53%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Hanken Grotesk Fallback";
+  font-weight: 600 900;
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  size-adjust: 94.56%;
+  ascent-override: 105.75%;
+  descent-override: 32.04%;
+  line-gap-override: 0%;
+}
+@theme {
+  /* Re-synced to the app's current WpColorsDark accent/accentWarmGradient
+     (was #38D9F0/#14B8D4 — see .text-gradient-brand below for the fuller
+     drift note). Cascades through every consumer of these two tokens; the
+     handful of components that hardcoded the old hex instead of the token
+     were fixed alongside this. */
+  --color-brand-cyan: var(--wp-accent-default);
+  --color-brand-teal: var(--wp-color-cyan-500);
+  /* Re-synced to the app's current WpColorsDark.surface/.background
+     (lib/core/theme/colors.dart). Were #171D2C/#131826 — stale copies from
+     before that file's chroma-doubling pass (documented there as "58-61%
+     against the old 29-36%, which roughly doubles the byte spread of every
+     rung"); the website's values still had the old, flatter spread and read
+     grey next to the app's saturated navy. --surface-dark/-deep/-deep-start
+     below are color-mix()'d from these, so every section band inherited the
+     same grey-ish drift even though the stage-* stops they mix with were
+     already correct. */
+  --color-brand-dark: var(--wp-color-navy-850);
+  --color-brand-darker: var(--wp-color-navy-900);
+  /* Was #122247, the app's WpColorsDark.surfaceElevated verbatim — same
+     mistake as the old --color-brand-dark twice over: a value lifted from
+     the Dart constant instead of measured off real pixels. A first pixel-
+     sampled fix (rgb 28,29,66, matching the canvas mockup in
+     spatial-journey.ts) undercorrected the OTHER direction: B dropped from
+     71 to 66 against R/G's ~28, well below the wash's own saturation
+     (--stage-indigo runs B=83 against R/G in the low 20s) — flat and grey
+     next to the page, not "foreign" anymore but not "blue" either
+     (maintainer: "nimm doch mal eher so einen Blauton wieder", pointing at
+     the page wash visible past the nav pill's corner). Cards are not a
+     separate material from that wash at all — collapsed onto --stage-indigo
+     directly, the same stop --surface-dark below already uses for section
+     bands, rather than inventing a third bespoke navy. */
+  --color-brand-card: var(--wp-surface-card);
+  /* Same collapse, same token, for chrome that floats over arbitrary content
+     instead of sitting on the page wash (dialogs, toasts, dropdown popups,
+     the nav pill/flyout) -- was #18274D, then #222248, both undersaturated
+     for the same reason as the card fix above. This is also the nav's own
+     "Blauton, der in der App so nicht vorkommt" the maintainer flagged
+     separately, three rounds running before this one. */
+  --color-brand-floating: var(--wp-surface-floating);
+  --color-brand-border: var(--wp-border-default);
+
+  /* The app's actual primary-CTA treatment (`WpHeroButton`, `accentWarmGradient`
+     in lib/core/theme/colors.dart): an opaque three-stop cyan gradient, white
+     text, no border, no colored shadow. Depth there comes from the gradient
+     itself plus a hover scale, not a glow — "a colored shadow at offset 0 is
+     not a depth source and stays out" is a written rule in that file. The
+     website's download CTAs used to approximate this with a dark, near-opaque
+     "glass" fill and a cyan-tinted glow shadow instead, which reads as an
+     unrelated grey material rather than the app's own accent. */
+  --gradient-accent-cta: var(--wp-gradient-action);
+
+  /* Semantic text tokens — mirror the Flutter app's text hierarchy 1:1
+     (WpColorsDark.textPrimary/Secondary/Muted in lib/core/theme/colors.dart,
+     the same values the recording-overlay pill already uses). All three
+     clear WCAG AA on #0B122A (muted #ABB8CC ≈ 9.2:1, subtle #8A99B2 ≈
+     6.4:1). */
+  --color-ink: var(--wp-text-primary);
+  --color-ink-muted: var(--wp-text-secondary);
+  --color-ink-subtle: var(--wp-text-muted);
+  --color-highlight: var(--wp-highlight-text);
+
+  /* Typography: body grotesk + characterful display grotesk for headings.
+     Setting --font-sans makes it the document default (Tailwind v4 preflight). */
+  --font-sans: var(--wp-font-family-body);
+  --font-display: var(--wp-font-family-display);
+  /* Terminal/monospace voice — HUD labels, metrics, keycaps. Deliberately a
+     pure system stack: zero extra font requests (Performance-Nordstern), and
+     genuinely the typeface the target audience reads code in all day. */
+  --font-mono: var(--wp-font-family-mono);
+
+  /* ---- Radius-Leiter ----
+     Eigene Namen statt Tailwinds --radius-xl/2xl/3xl zu überschreiben: deren
+     Streuung ist zu breit, sie träfen auch Pills und Badges, wo ein
+     Karten-Radius falsch liest. Drei Rollen, drei Werte — mehr braucht die
+     Seite nicht.
+
+     chip     Mikro-Chips/-Badges: Arch-/Format-Tags in den Download-CTAs,
+              der pkg-copy-Button — Flächen unter ~24px Höhe, auf denen
+              selbst `control` schon halbrund läse
+     control  kleine Steuerelemente: Inputs, Chips, Thumbnails
+     card     die dominante Fläche der Seite — Karten UND die großen
+              CTA-Buttons. Letztere liegen faktisch alle schon auf 14px
+              (Store/Apple/Linux/.dl-btn, je ~52px hoch); sie auf `control`
+              zu ziehen wäre ein sichtbares Redesign jedes CTAs, nicht das
+              Aufräumen einer Drift. Sie bleiben deshalb bewusst hier.
+     surface  große Flächen: Modals, Bild-Tiles, Longform-Sektionen
+
+     Nicht in dieser Leiter: Pills (9999px), Kreise (50%) und die
+     App-/Device-Fidelity-Zonen (HeroExample, AppScreenshots,
+     overlay-mockup.ts) — dort spiegeln die Radien
+     echte Flutter-/Geräte-Geometrie und dürfen nicht konsolidiert werden.
+
+     Die Werte stehen weiter unten im regulären :root-Block, nicht hier: in
+     @theme würde Tailwind alles wegshaken, was es nicht selbst als Utility
+     ausgibt — und die Astro-scoped <style>-Blöcke, die diese Tokens
+     verbrauchen, sind für diese Analyse unsichtbar. */
+
+  /* ---- Motion vocabulary (see the note below on --ease-flow) ----
+     Tailwind's own `transition-*` utilities read these two keys. Setting them
+     here routes all ~200 bare `transition-*` call sites onto the brand curve
+     instead of Tailwind's generic cubic-bezier(0.4,0,0.2,1) — without touching
+     a single piece of markup. 150ms cut the quintic-out tail off mid-flight;
+     180ms lets it actually land. */
+  --ease-flow: var(--wp-easing-flow);
+  --default-transition-timing-function: var(--ease-flow);
+  --default-transition-duration: var(--wp-duration-base);
+}
+
+/* ---- Surface modes ----
+   Legacy aliases above resolve once on :root. Every element that switches
+   mode via data-surface="light|dark" re-declares them, so components that
+   still read the legacy names (and Tailwind's text-ink/bg-brand-card
+   utilities) follow the mode of their section. New code reads --wp-* tokens
+   directly; see design-tokens/README.md. */
+[data-surface] {
+  --color-brand-cyan: var(--wp-accent-default);
+  --color-brand-card: var(--wp-surface-card);
+  --color-brand-floating: var(--wp-surface-floating);
+  --color-brand-border: var(--wp-border-default);
+  --gradient-accent-cta: var(--wp-gradient-action);
+  --color-ink: var(--wp-text-primary);
+  --color-ink-muted: var(--wp-text-secondary);
+  --color-ink-subtle: var(--wp-text-muted);
+  --color-highlight: var(--wp-highlight-text);
+  --shadow-card: var(--wp-card-shadow);
+  --shadow-card-hover: var(--wp-card-shadow-hover);
+  --shadow-overlay: var(--wp-elevation-floating);
+  --wp-card-ring: var(--wp-border-strong);
+  --wp-bracket: color-mix(in srgb, var(--wp-accent-default) 55%, transparent);
+  color: var(--wp-text-primary);
+}
+
+/* ---- Site container ----
+   ONE outer width for the floating nav pill AND every section's content, so
+   their outer edges line up at every breakpoint: the nav is never narrower
+   than the content and the content never wider than the nav. Gutter 16px on
+   phones, 24px from sm, 32px from lg; capped at 1920px. Reading-width
+   sections may add a narrower max-width on top (they stay centred inside the
+   same frame), but nothing may exceed it. The cap (1920px) only bites on
+   ultrawide screens, where the gutter grows fluidly so the page never sits
+   in a narrow column with dead margins; above 1920px the frame grows with
+   the root font size (see the ultrawide rule below). Uses 100% of the containing block
+   (not 100vw) so a classic scrollbar never causes horizontal overflow. */
+:root {
+  --site-max: 120rem;
+  --site-gutter: 16px;
+}
+@media (min-width: 640px) {
+  :root { --site-gutter: 24px; }
+}
+@media (min-width: 1024px) {
+  :root { --site-gutter: 32px; }
+}
+@media (min-width: 1536px) {
+  :root { --site-gutter: clamp(3rem, 3vw, 5rem); }
+}
+/* Ultrawide: instead of stretching cards and lines across 2500px+, the whole
+   rem-based system (type, spacing, radii, the frame cap itself) scales up
+   proportionally from 1920px, so the composition keeps its proportions and
+   still fills the screen. Percent-based, so a user's own default font size
+   keeps acting as the base; capped at 131.25% (21px at the default 16px). */
+@media (min-width: 1921px) {
+  html { font-size: min(131.25%, calc(100% + (100vw - 1920px) * 0.004)); }
+}
+/* The floating nav pill is always the widest element: it uses the full
+   frame (.wp-frame), while section content (.wp-container) is inset on both
+   sides by --nav-overhang, about the pill's corner radius. The rounded nav
+   ends then overhang the content instead of ending flush with it, which
+   reads calmer than two edges of equal width with only one of them rounded. */
+:root {
+  --nav-overhang: clamp(0.5rem, 1vw, 1rem);
+}
+.wp-frame {
+  width: min(var(--site-max), calc(100% - 2 * var(--site-gutter)));
+  margin-inline: auto;
+}
+.wp-container {
+  width: calc(min(var(--site-max), calc(100% - 2 * var(--site-gutter))) - 2 * var(--nav-overhang));
+  margin-inline: auto;
+}
+
+/* ---- Section rhythm + type scale ----
+   One vertical rhythm for every landing section and one lead size under every
+   section title, so sections stop picking their own py-20/py-28/py-32 and
+   text-base/lg/xl. Plain :root for the same tree-shaking reason as --dur-*. */
+:root {
+  --section-pad-y: var(--wp-layout-section-pad-y);
+  --section-head-gap: var(--wp-layout-section-head-gap);
+  --type-lead: var(--wp-type-lead);
+  --type-card-title: var(--wp-type-card-title);
+  --measure-lead: 40rem;
+  --nav-clear: var(--wp-layout-nav-clear);
+}
+.wp-section {
+  padding-block: var(--section-pad-y);
+}
+.wp-section-head {
+  max-width: min(100%, 64rem);
+  margin-bottom: var(--section-head-gap);
+}
+/* Wide screens: heads that carry a lead paragraph split into an editorial
+   two-column row (title left, lead right, baseline-aligned) so the head uses
+   the same full width as the content below instead of leaving a dead right
+   half. Centered, privacy and FAQ heads keep their own layouts. */
+@media (min-width: 1280px) {
+  .wp-section-head:has(> .wp-lead):not(:has(> .wp-head-art)):not(.is-centered):not(.privacy-head):not(.faq-head) {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    column-gap: clamp(var(--wp-space-12), 6vw, var(--wp-space-32));
+    align-items: end;
+  }
+  .wp-section-head:has(> .wp-lead):not(:has(> .wp-head-art)):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-eyebrow {
+    grid-column: 1 / -1;
+  }
+  .wp-section-head:has(> .wp-lead):not(:has(> .wp-head-art)):not(.is-centered):not(.privacy-head):not(.faq-head) > .wp-lead {
+    margin-top: 0;
+    padding-bottom: var(--wp-space-2);
+  }
+}
+
+/* Heads with a motion illustration (.wp-head-art): title and lead on the
+   left, the illustration in the otherwise empty right column. Below 1024px
+   the illustration follows the copy at a capped width. */
+.wp-head-art {
+  display: block;
+  width: 100%;
+  max-width: 28rem;
+  margin-top: var(--wp-space-8);
+}
+.wp-head-art :where(svg) {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+@media (min-width: 1024px) {
+  .wp-section-head:has(> .wp-head-art) {
+    max-width: none;
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: clamp(var(--wp-space-8), 5vw, var(--wp-space-24));
+    align-items: center;
+  }
+  .wp-section-head:has(> .wp-head-art) > :not(.wp-head-art) {
+    grid-column: 1;
+  }
+  .wp-section-head:has(> .wp-head-art) > .wp-head-art {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    justify-self: end;
+    max-width: 34rem;
+    margin-top: 0;
+  }
+}
+
+.wp-section-head.is-centered {
+  margin-inline: auto;
+  text-align: center;
+}
+.wp-lead {
+  font-size: var(--type-lead);
+  line-height: 1.6;
+  color: var(--color-ink-muted);
+  max-width: var(--measure-lead);
+  text-wrap: pretty;
+}
+.wp-section-head.is-centered .wp-lead {
+  margin-inline: auto;
+}
+
+/* Named durations so hand-written CSS stops picking freely between 0.12s and
+   0.4s. fast = state flips on small controls, base = the default (matches
+   --default-transition-duration), slow = larger surfaces (cards, figures,
+   modals). Deliberately in a plain :root and NOT in @theme: they belong to no
+   Tailwind namespace, so @theme would tree-shake them away as "unused" — and
+   the Astro-scoped <style> blocks that consume them are invisible to that
+   analysis. */
+:root {
+  --dur-fast: var(--wp-duration-fast);
+  --dur-base: var(--wp-duration-base);
+  --dur-slow: var(--wp-duration-slow);
+
+  /* ---- Stage wash tokens ----
+     The three stops of the hero's ambient wash (WpColorsDark.warmSurfaceGradient
+     — navy → indigo → violet), promoted out of Hero.astro so the rest of the
+     page can derive from the same wash instead of cutting to flat
+     --color-brand-dark/-darker at the first section boundary. */
+  --stage-navy: var(--wp-color-navy-700);
+  --stage-indigo: var(--wp-color-navy-600);
+  --stage-violet: var(--wp-color-navy-500);
+
+  /* Section-band surfaces, the SAME three stage stops the hero wash uses --
+     specifically the indigo->violet half of it, not navy->indigo: navy and
+     indigo are close in R/G (only B moves much), so a navy->indigo band
+     gradient still read as flat. Almost all of the hero wash's perceived
+     richness comes from indigo->violet (R nearly doubles, 23->46), so that's
+     the half the bands reuse — a genuinely visible diagonal shift instead of
+     a near-flat tint.
+     Used to be diluted 85% toward --color-brand-dark/-darker ("a hair
+     darker/quieter than the hero's own wash, appropriate for a supporting
+     surface") -- removed 2026-08-26: the app's own ambient (WpColorsDark.
+     warmSurfaceGradient) is not diluted for "supporting" screens, it is the
+     one consistent content-plane wash everywhere (History, Notes, every
+     panel); measured pixels off a real app screenshot confirmed this
+     (content-plane readings clustered at ~(25,30,83), a near-exact match to
+     raw --stage-indigo #171D53=(23,29,83)). The dilution was pulling every
+     section band's blue channel down toward the darker anchor's ~54-71
+     instead of the app's ~79-83, which is what read as "grey-blue, not the
+     app's palette" -- maintainer feedback, three rounds running. Text
+     contrast still clears AA undiluted: worst case (--stage-violet)
+     --color-ink-muted 7.2:1, --color-ink-subtle 5.0:1, both above 4.5:1. */
+  --surface-deep-start: var(--stage-indigo);
+  --surface-deep: var(--stage-violet);
+  --surface-dark: var(--stage-indigo);
+
+  /* Radius-Leiter — Rollen und Begründung siehe @theme-Block oben. */
+  --radius-chip: var(--wp-radius-chip);
+  --radius-control: var(--wp-radius-control);
+  --radius-card: var(--wp-radius-card);
+  --radius-surface: var(--wp-radius-surface);
+  /* Full stadium shape for the accent-gradient CTA family (nav download,
+     StoreButton/AppleButton/LinuxButton/MobileCta) — a fixed 14px corner
+     read as a near-pill on the compact nav button but as a plain rounded
+     rectangle on the much taller --lg hero buttons, so the same token
+     produced two different-looking shape families. A true pill (radius >=
+     half the tallest button's height) reads identically at every size. */
+  --radius-pill: var(--wp-radius-pill);
+
+  /* ---- Schatten-Leiter ----
+     Vorher lagen 81 box-shadow-Deklarationen verstreut in den Komponenten,
+     davon allein 24 als drei byte-identische Kopien in StoreButton /
+     AppleButton / LinuxButton. Weil Astro-scoped <style>-Blöcke per
+     [data-astro-cid-*] jede globale Regel schlagen, lässt sich das nicht
+     zentral „überschreiben" — jede Deklaration muss einzeln auf das Token
+     zeigen.
+
+     card / card-hover   Kartenflächen und ihr Hover-Lift
+     overlay             schwebende Chrome über der Seite (Nav-Pille, Menü)
+     pill / pill-active  sekundäre Buttons
+
+     Die frühere cta/cta-hover-Stufe (ein farbiger Cyan-Glow für den primären
+     Button) ist ersatzlos gestrichen: die App kennt für ihren eigenen
+     Primary-CTA (`WpHeroButton`) gar keinen Schatten — Tiefe kommt dort
+     ausschließlich aus dem opaken Akzent-Gradient selbst, "a colored shadow
+     at offset 0 is not a depth source" (lib/core/theme/colors.dart). Die
+     primären Download-CTAs der Website (`--gradient-accent-cta`) übernehmen
+     jetzt exakt das: kein Border, kein Glow, nur der neutrale pill-Hover. */
+  --shadow-card: var(--wp-card-shadow);
+  --shadow-card-hover: var(--wp-card-shadow-hover);
+  --shadow-overlay: var(--wp-elevation-floating);
+  --shadow-pill: var(--wp-shadow-pill);
+  --shadow-pill-active: var(--wp-shadow-pill-active);
+}
+
+/* ---------------------------------------------------------------------------
+   Flow-Motion-Token — „Schreibfluss" als Bewegungsvokabular.
+   --ease-flow ist DIE Deceleration-Kurve der Site (früher mehrfach hartkodiert
+   als cubic-bezier(0.22, 1, 0.36, 1) — der Charakter der Overlay-Pille:
+   selbstbewusst ankommen, weich auslaufen). Das Token lebt jetzt oben im
+   `@theme`-Block: dadurch (a) erbt jede Tailwind-`transition-*`-Utility die
+   Kurve über --default-transition-timing-function, (b) entsteht zusätzlich
+   eine `ease-flow`-Utility für Ausnahmen, und (c) bleibt --ease-flow für die
+   Astro-scoped <style>-Blöcke unverändert per var() erreichbar.
+   --------------------------------------------------------------------------- */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* The one continuous wash the whole page sits on — same three stops and
+       diagonal as the hero's own .hero-ambient-wash, `fixed` so it never
+       moves as sections scroll past. This is what makes every section
+       provably the same material as the hero (not a "derived" approximation
+       that can drift) and gives the page a spatial, layered depth instead of
+       flat stacked rectangles. Sections (.band-*) no longer paint an opaque
+       fill; they lay a soft, edge-feathered tint over this wash so section
+       boundaries dissolve into it instead of cutting to a different colour.
+       bg-brand-darker (Layout.astro) stays as the background-color fallback
+       for the instant before this paints. */
+    background-image: linear-gradient(135deg, var(--stage-navy) 0%, var(--stage-indigo) 50%, var(--stage-violet) 100%);
+    background-attachment: fixed;
+    background-size: 100% 100vh;
+  }
+  /* Display grotesk for the big headlines (hero + section titles).
+     Card-level h3s deliberately stay on the body font for legibility. */
+  h1,
+  h2 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    /* Zweizeilige Section-Titel setzten regelmäßig ein Waisenwort auf die
+       zweite Zeile ab. balance verteilt die Zeilen gleichmäßig — die
+       sichtbarste Einzelverbesserung an der Titel-Hierarchie, ohne einen
+       einzigen Umbruch von Hand zu setzen (und damit i18n-fest). */
+    text-wrap: balance;
+  }
+  /* Fließtext: pretty verhindert Schusterjungen am Absatzende, ohne wie
+     balance die ganze Zeilenaufteilung umzurechnen (auf langen Absätzen
+     wäre balance teuer und wird von Browsern ohnehin gedeckelt). */
+  p {
+    text-wrap: pretty;
+  }
+  /* Cohesive keyboard-focus ring for all interactive elements (A11y).
+     Keyboard-only via :focus-visible — mouse clicks don't get a ring. */
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible,
+  [tabindex]:focus-visible,
+  input:focus-visible,
+  select:focus-visible {
+    outline: var(--wp-focus-ring-width) solid var(--wp-focus-ring-color);
+    outline-offset: var(--wp-focus-ring-offset);
+    /* Kein border-radius hier. Die Regel liegt in @layer base und verliert
+       ohnehin gegen jede rounded-*-Utility; wirksam wurde sie nur auf
+       ungestylten Elementen — und erzeugte dort einen fast eckigen Ring
+       neben runden Nachbarn. Ohne die Zeile folgt der outline automatisch
+       dem echten Radius des Elements. */
+  }
+  /* Subtle noise texture for atmospheric depth */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+  }
+}
+
+/* Brand gradient text — cyan → teal → cyan, mirrors the app accent gradient.
+   Global utility so any component (Hero, Pricing…) can apply it.
+   Stops re-synced to the app's current WpColorsDark.accentWarmGradient
+   (#6FDDF0 → #1ACBE9 → #0BAACC) — the app moved off #38D9F0/#14B8D4 a while
+   back and this utility hadn't followed, which is exactly the app/website
+   gradient drift the redesign brief flagged. Kept as a palindrome (A→B→A)
+   so the 200%-wide background-position shimmer still loops without a jump.
+   Stops reference the brand tokens directly so the next accent re-sync
+   cascades here instead of drifting again. */
+.text-gradient-brand {
+  background: var(--wp-gradient-brand-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* ===========================================================================
+   Section rhythm — tonal bands.
+   Sections no longer paint an opaque fill (that's what produced the hard,
+   straight seams between them — every .band met its neighbour at a discrete
+   colour step). Each band is now a soft, edge-feathered tint laid over the
+   ONE continuous fixed wash on <html> above: the tint's top/bottom ~12vh
+   fades to transparent via a mask, so at the actual boundary pixel both
+   neighbouring bands are showing the same underlying wash rather than two
+   different opaque colours. Bands still alternate deep/raised/spotlight for
+   rhythm — that's carried by how strongly each tints the wash, not by a
+   colour swap at a hard edge.
+   --------------------------------------------------------------------------- */
+.band {
+  position: relative;
+  isolation: isolate;
+}
+.band::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  --band-fade: clamp(80px, 12vh, 220px);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    black var(--band-fade),
+    black calc(100% - var(--band-fade)),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    black var(--band-fade),
+    black calc(100% - var(--band-fade)),
+    transparent 100%
+  );
+}
+/* deep = the base/darkest surface. Same 135deg diagonal as the hero's own
+   ambient wash (navy -> indigo), just the first two of its three stops and
+   at the muted --surface-deep-start/--surface-deep strength — a quieter
+   continuation of the hero's gradient, not a flat, unrelated navy. Hero,
+   FAQ. */
+.band-deep::after {
+  background: linear-gradient(135deg, var(--surface-deep-start) 0%, var(--surface-deep) 100%);
+}
+/* raised = a half-step-elevated surface with a faint cyan-tinted top lift, so
+   the band reads as elevated without a hard divider line. UseCaseCards,
+   SpeedComparison, Pricing, FAQ. */
+/* Der Auslauf des Lifts war fix 260px. Sektionen dieses Bandes sind aber
+   zwischen ~700px (Desktop) und weit über 1400px (390px, alles gestapelt)
+   hoch — derselbe Pixelwert nahm damit je nach Breite einen ganz anderen
+   Anteil der Sektion ein. Bezug ist jetzt der sichtbare Bildschirm statt
+   einer absoluten Zahl: bei 900px Viewport-Höhe landet clamp() praktisch auf
+   dem alten Wert (Desktop bleibt wie er war), auf kurzen und sehr hohen
+   Viewports skaliert die Kante mit. Bewusst vh und nicht % — die Bandhöhen
+   unterscheiden sich um das Fünffache, ein Prozentwert würde den Lift auf
+   dem FAQ-Band riesig und auf kurzen Bändern unsichtbar machen. */
+.band-raised {
+  --band-lift-end: clamp(200px, 28vh, 320px);
+  /* Kein 1px-Innen-Sheen mehr: auch der las im Viewport-Sweep 2026-08-26 als
+     harte, gerade Linie über die volle Breite — exakt die Naht-Klasse, die
+     dieser Umbau abgeschafft hat. Der maskierte Lift allein trägt die
+     Elevation. */
+}
+.band-raised::after {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-brand-cyan) 6%, var(--surface-dark)) 0%,
+    var(--surface-dark) var(--band-lift-end)
+  );
+}
+/* spotlight = the brand glow. A soft cyan aura from the top edge, reserved for
+   the emotional / core-message sections (Engines, Privacy,
+   Testimonials). This is where the cyan accent earns its keep. */
+.band-spotlight::after {
+  background: linear-gradient(135deg, var(--surface-deep-start) 0%, var(--surface-deep) 100%);
+}
+.band-spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 95% 60% at 50% 0%,
+    color-mix(in srgb, var(--color-brand-cyan) 16%, transparent) 0%,
+    transparent 70%
+  );
+  /* Dieselbe Kanten-Feder wie .band::after: ohne sie begann die Aura mit
+     voller Intensität exakt an der Sektionskante — eine harte, gerade Linie
+     über die volle Breite (Viewport-Sweep 2026-08-26, FAQ→Testimonials und
+     SpeedComparison→Engines), obwohl die Band-Tints selbst längst maskiert
+     ausblenden. */
+  --band-fade: clamp(80px, 12vh, 220px);
+  mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    black var(--band-fade),
+    black calc(100% - var(--band-fade)),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    black var(--band-fade),
+    black calc(100% - var(--band-fade)),
+    transparent 100%
+  );
+  /* Die Aura atmet auf der 8s-Periode der Overlay-Pille (gleicher Takt wie
+     illo-halo-breathe und wp-border-breathe) — die Seite trägt denselben
+     ruhigen Puls wie das Glas-Material der App. Nur Opacity, kein Wobble. */
+  animation: wp-aura-breathe 8s ease-in-out infinite;
+}
+@keyframes wp-aura-breathe {
+  0%, 100% { opacity: 0.72; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .band-spotlight::before {
+    animation: none;
+  }
+}
+
+/* ===========================================================================
+   Editorial section headline.
+   Confident display type with full contrast and a cyan accent word — mirrors
+   the hero's heavy Bricolage treatment so every section title carries the same
+   self-assured voice. Pair with `.text-gradient-brand` on the accent word.
+   --------------------------------------------------------------------------- */
+.section-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variation-settings: "wght" 800;
+  letter-spacing: -0.03em;
+  line-height: 1.03;
+  color: var(--color-ink);
+  font-size: var(--wp-font-size-h2);
+  text-wrap: balance;
+}
+
+/* ===========================================================================
+   Kennzahlen — tabellarische Ziffern.
+   Überall dort, wo eine Zahl eine Messgröße ist (WPM, Sprachanzahl, Preis,
+   Version), sollen die Ziffern gleich breit laufen: nebeneinanderstehende
+   Werte fluchten, und ein hochzählender Wert springt nicht in der Breite.
+   Eine Klasse statt einer Regel pro Fundstelle, damit dieselbe Geste über
+   Komponenten hinweg wiederverwendet wird.
+   --------------------------------------------------------------------------- */
+.wp-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* ===========================================================================
+   Scroll-Driven Motion Utilities
+
+   Baseline: .scroll-reveal + IntersectionObserver (src/components/HomePage.astro) —
+   universal fade-up fallback, no JS library, all browsers.
+
+   Enhancement: Native CSS Scroll-Driven Animations gated in @supports.
+   Chromium 115+, Firefox 110+, Safari 18+. Unsupported engines fall through
+   to the IO fallback unchanged — no regression, zero extra JS.
+
+   Standalone utilities for use alongside or instead of .scroll-reveal:
+   - .reveal-up            — single-element fade + rise reveal
+   - .stagger-children     — marks a grid/flex container whose children stagger
+   - .stagger-item         — applied to each child inside .stagger-children
+
+   prefers-reduced-motion: reduce — all new animations are stripped; elements
+   render at full opacity immediately. The IO guard in HomePage.astro also fires
+   independently for .scroll-reveal elements.
+   --------------------------------------------------------------------------- */
+
+@keyframes wp-reveal-up {
+  from {
+    opacity: 0;
+    translate: 0 20px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes wp-stagger-in {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  /* Upgrade .scroll-reveal to CSS scroll-driven animation in capable browsers.
+     The animation cascade level is above regular author styles, so the CSS
+     animation owns opacity + translate even where HomePage.astro sets them via
+     class toggle. The IO still runs and adds .visible — harmless. */
+  .scroll-reveal {
+    animation: wp-reveal-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+
+  /* Standalone reveal — for elements that opt into CSS-only animation without
+     an IO fallback. In unsupported browsers they are simply visible. */
+  .reveal-up {
+    animation: wp-reveal-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 40%;
+  }
+
+  /* Staggered children: parent marks the container (.stagger-children), each
+     direct child carries .stagger-item. Each child tracks its own view()
+     timeline; the animation-range offset per nth-child staggers the entrance.
+     Specificity (0,2,0) overrides .scroll-reveal (0,1,0) when both appear. */
+  .stagger-children > .stagger-item {
+    animation: wp-stagger-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 50%;
+  }
+  .stagger-children > .stagger-item:nth-child(2) {
+    animation-range: entry 8% entry 58%;
+  }
+  .stagger-children > .stagger-item:nth-child(3) {
+    animation-range: entry 16% entry 66%;
+  }
+  .stagger-children > .stagger-item:nth-child(4) {
+    animation-range: entry 24% entry 74%;
+  }
+  .stagger-children > .stagger-item:nth-child(5) {
+    animation-range: entry 32% entry 82%;
+  }
+  .stagger-children > .stagger-item:nth-child(6) {
+    animation-range: entry 40% entry 90%;
+  }
+}
+
+/* Reduced motion — all new animations resolve to immediate full opacity.
+   !important overrides the animation cascade so these rules win even in
+   @supports-capable browsers when the user prefers reduced motion.
+   The IO guard in HomePage.astro covers .scroll-reveal independently. */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal,
+  .reveal-up,
+  .stagger-children > .stagger-item {
+    animation: none !important;
+    opacity: 1 !important;
+    translate: none !important;
+  }
+}
+
+/* ===========================================================================
+   Floating cut-out illustration — a transparent (background-removed) illustration
+   that sits directly in the content with a soft brand halo instead of a boxed
+   tile, so it reads as integrated rather than pasted on. Gently bobs for life.
+   --------------------------------------------------------------------------- */
+.illo-float {
+  animation: illo-bob 6s ease-in-out infinite;
+}
+@keyframes illo-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .illo-float { animation: none; }
+}
+
+/* Platform-adaptive download buttons (FOUC-free: data-os set by inline script).
+ *
+ * Default (no data-os = unknown): ALL platform containers are visible — every
+ * OS is shown equally. Crawlers, bots, and privacy tools get a full view.
+ *
+ * When a specific OS is detected, only the non-matching containers are hidden.
+ * `visibility:hidden` alone would leave the element taking up space; we use
+ * `display:none` combined with `pointer-events:none` to also prevent tab focus
+ * on the hidden interactive children (A11y: no invisible tab stops).
+ *
+ * Symmetric rule set: windows / macos / linux — each hides the other two.
+ */
+[data-os="windows"] [data-platform-btn="macos"],
+[data-os="windows"] [data-platform-btn="linux"] {
+  display: none;
+  pointer-events: none;
+}
+[data-os="macos"] [data-platform-btn="windows"],
+[data-os="macos"] [data-platform-btn="linux"] {
+  display: none;
+  pointer-events: none;
+}
+[data-os="linux"] [data-platform-btn="windows"],
+[data-os="linux"] [data-platform-btn="macos"] {
+  display: none;
+  pointer-events: none;
+}
+
+/* Store-hint gate — stricter than the default-visible platform rule above.
+ * The hint copy refers ONLY to the paid-store flows (Microsoft Store / Mac
+ * App Store — Windows and macOS), so it may appear only when one of those is
+ * POSITIVELY detected. In the unknown-OS fallback (no data-os: all three
+ * platform CTAs visible) it stays hidden — under three equal-rank buttons a
+ * Store-only hint would read as applying to all of them, including Linux
+ * which has no store listing. `~=` matches a token in the space-separated
+ * `data-requires-os` list (e.g. "windows macos"). */
+[data-requires-os] {
+  display: none;
+}
+[data-os="windows"] [data-requires-os~="windows"],
+[data-os="macos"] [data-requires-os~="macos"] {
+  display: block;
+}
+
+/* Nav Download CTA — platform-adaptive label + icon (same FOUC-free data-os
+ * approach as the platform buttons above). The button holds four labelled
+ * variants; CSS reveals exactly one. Default (unknown/no data-os): the generic
+ * "Download" variant shows — crawlers/bots/privacy tools get the neutral label.
+ * A detected OS swaps to its "Für macOS/Windows/Ubuntu" variant instead. Only
+ * one variant is ever `display`ed, so the hidden ones are out of the a11y tree
+ * (no invisible tab stops, no duplicate accessible name). */
+.nav-dl-variant {
+  display: none;
+}
+[data-dl-variant="generic"] {
+  display: inline-flex;
+}
+[data-os="macos"] [data-dl-variant="generic"],
+[data-os="windows"] [data-dl-variant="generic"],
+[data-os="linux"] [data-dl-variant="generic"] {
+  display: none;
+}
+[data-os="macos"] [data-dl-variant="macos"],
+[data-os="windows"] [data-dl-variant="windows"],
+[data-os="linux"] [data-dl-variant="linux"] {
+  display: inline-flex;
+}
+/* Raw-embedded brand glyphs fill their sized wrapper and inherit currentColor. */
+.nav-dl-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Theme-aware wordmark */
+.nav-logo-light { display: none; }
+
+/* Caret blink — shared keyframes (whisper-desktop pages' typing demo). */
+@keyframes cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ---- Flutter design-token alignment ---- */
+/* Border strength: Flutter borderSubtle=12% white, borderDefault=19% white */
+/* Upgrade from 5-8% → 12-19% for structural borders */
+.feature-card,
+.faq-item,
+.download-card,
+.release-card,
+.sponsor-card {
+  border-color: var(--wp-border-default);
+}
+.feature-card:hover {
+  border-color: var(--wp-border-strong);
+}
+
+/* Card shadows matching Flutter WpShadows.card */
+.feature-card,
+.download-card,
+.release-card,
+.sponsor-card {
+  box-shadow: var(--shadow-card);
+}
+.feature-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Border radius: Flutter uses 14px (WpRadius.lg) for cards.
+   ACHTUNG — dieser Block steht bewusst AUSSERHALB jedes @layer. Unlayered CSS
+   schlägt in der Cascade jede @layer-Regel, also auch Tailwinds Utilities.
+   Nur deshalb gewinnt er gegen die rounded-2xl/rounded-3xl-Utilities, die auf
+   rund 20 dieser Karten im Markup stehen. Wandert der Block in ein @layer,
+   springen all diese Karten schlagartig auf ihren nominellen Utility-Wert.
+   Der Wert selbst kommt jetzt aus dem Token, die Layer-Position nicht. */
+.feature-card,
+.download-card,
+.release-card,
+.sponsor-card,
+.faq-item {
+  border-radius: var(--radius-card);
+}
+
+/* Living hairline — the overlay pill's material breathes; its neighbours carry
+   the same idea. Idle animation (nicht hover-gated: ein Besucher, der nur
+   schaut, soll es sehen) auf der 8s-Periode der Pille.
+
+   Umbau (vorher: @keyframes auf `border-color` direkt auf der Karte):
+   1. `border-color` zu animieren erzwingt auf JEDER Karte einen Dauer-Repaint.
+      Ein Overlay-Ring, dessen `opacity` animiert wird, läuft dagegen auf dem
+      Compositor — dieselbe Optik, ohne Repaint-Last im Leerlauf.
+   2. Der Animations-Cascade-Level schlägt normale Declarations. Solange die
+      Keyframes `border-color` besaßen, war der :hover-Border-Aufheller
+      (0.12 → 0.19) auf diesen Karten im Dark-Theme faktisch TOT. Jetzt liegt
+      der Hover wieder frei auf der echten Border, der Ring atmet darüber.
+   3. Light blieb bisher bewusst statisch, weil die !important-Border-Overrides
+      jede Animation überstimmten. Der Ring ist ein eigenes Element und davon
+      unberührt — Light atmet damit zum ersten Mal mit, in eigener Amplitude
+      (die Weiß-Werte der Dark-Variante sind auf hellem Grund unsichtbar).
+
+   Der Ring liegt bei inset:-1px exakt auf der eigenen Border der Karte
+   (Bezug ist die Padding-Box), deckt sie also, statt eine zweite Linie
+   danebenzusetzen. Amplitude so kalibriert, dass die Komposition aus
+   0.12er-Border + Ring das dokumentierte Band ~0.17–0.30 trifft. */
+:root {
+  --wp-card-ring: var(--wp-border-strong);
+}
+@keyframes wp-card-ring-breathe {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+.feature-card,
+.faq-item,
+.download-card,
+.release-card,
+.sponsor-card {
+  position: relative;
+}
+.feature-card::before,
+.faq-item::before,
+.download-card::before,
+.release-card::before,
+.sponsor-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: 1;
+  border: 1px solid var(--wp-card-ring);
+  border-radius: inherit;
+  pointer-events: none;
+  animation: wp-card-ring-breathe 8s ease-in-out infinite;
+}
+/* .faq-item trägt overflow:hidden (rundet den aufklappenden <details>-Inhalt).
+   Ein Ring bei -1px läge außerhalb der Clip-Kante und verschwände komplett —
+   hier sitzt er deshalb bündig innen. */
+.faq-item::before {
+  inset: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Verhalten wie vorher: Ring aus, es bleibt die statische 0.12er-Border. */
+  .feature-card::before,
+  .faq-item::before,
+  .download-card::before,
+  .release-card::before,
+  .sponsor-card::before {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* ===========================================================================
+   M9 — „Glamour Terminal": die Klammer-Sprache
+   ---------------------------------------------------------------------------
+   Ein einziges Motiv, nicht fünf: die eckige Klammer als TUI-Signatur. Seit
+   dem Eyebrow-Redesign 2026-08-26 (Maintainer: Klammern auf Labels lasen
+   sich als Clutter) erscheint sie nur noch auf AKTIONS-Flächen — Orte, an
+   denen etwas gedrückt/ausgelöst wird — nie mehr auf reinen Beschriftungen:
+
+     1. `.hud-frame`      — die Klammer als Eckwinkel um die primären
+                            Handlungsflächen (Pricing-Karte, OS-Download-Karten)
+     2. `.pkg-copy-btn`   — die Copy-Schaltfläche neben den Shell-Befehlen
+                            (Styling in download.astro, Utility von hier)
+     3. Hotkey-Chip       — `.wp-bracket-lock`: die Klammern
+                            rasten um den Shortcut ein (Tastendruck als Bild)
+
+   Sektions-Labels (`.wp-eyebrow`) tragen stattdessen den Status-Blip, siehe
+   unten.
+
+   Bewusst NICHT umgesetzt (Auftrag: „lieber wenige, präzise Details"):
+   - Kein zweiter Cursor. Der Tipp-Caret (früher HeroCarousel) blinkte im
+     ersten Viewport neben der H1; ein zweiter Caret dort wäre Eskalation
+     statt Motiv. Das Blinken bleibt exklusiv bei der Tipp-Demo.
+   - Keine Tick-/Lineal-Marken an den Bandkanten. Die träfen vier und mehr
+     Sektionen pro Seite und wären damit ein neues Rasterprinzip über die
+     ganze Seite — genau das, was der Auftrag ausschließt.
+   =========================================================================== */
+
+:root {
+  /* Kein neuer Akzent: derselbe Cyan-Marken-Token, nur heruntergemischt. */
+  --wp-bracket: color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
+}
+
+/* --- Utility: eckige Klammern um den Inhalt eines Elements ---------------- */
+.wp-bracketed::before,
+.wp-bracketed::after {
+  color: var(--wp-bracket);
+  font-weight: 500;
+}
+.wp-bracketed::before {
+  content: "[";
+  margin-right: var(--wp-bracket-gap, 0.5em);
+}
+.wp-bracketed::after {
+  content: "]";
+  margin-left: var(--wp-bracket-gap, 0.5em);
+}
+/* Rein dekorative Glyphen aus der Screenreader-Ausgabe nehmen, wo der Browser
+   die Alt-Text-Form von `content` kennt. Ohne `@supports` würde die ganze
+   Deklaration in älteren Engines ungültig und die Klammer verschwände; die
+   Klammer allein wird in der Standard-Interpunktionsstufe ohnehin nicht
+   vorgelesen, der Fallback ist also unkritisch. */
+@supports (content: "x" / "") {
+  .wp-bracketed::before {
+    content: "[" / "";
+  }
+  .wp-bracketed::after {
+    content: "]" / "";
+  }
+}
+
+/* --- Sektions-Eyebrow ----------------------------------------------------- */
+/* Vorher zehnmal identisch als Utility-Kette im Markup
+   (`text-brand-cyan text-sm font-semibold tracking-wider uppercase mb-3`),
+   jetzt eine Klasse hinter `SectionEyebrow.astro`. Mono + weiteres Tracking
+   ist der eigentliche Terminal-Zug: der Kicker liest sich als Tag, die
+   Serif-/Grotesk-Headline darunter behält ihre Stimme unverändert.
+
+   Redesign 2026-08-26 (Maintainer-Review der Live-Site): die eckigen
+   `[ LABEL ]`-Klammern lasen sich als verwirrende Auszeichnung, nicht als
+   Präzisions-Signal — ersetzt durch den Status-Blip: ein kleiner, im
+   8s-Takt der Seite (wp-aura-breathe / wp-card-ring-breathe) atmender
+   Cyan-Punkt vor dem Label. Das ist die Aufnahme-LED der App selbst — die
+   Overlay-Pille zeigt beim Diktieren genau dieses Signal — und bleibt damit
+   Instrument/HUD-Vokabular statt der Editorial-Konvention der Konkurrenz.
+   Die Klammern selbst bleiben exklusiv auf Tastendruck-/Aktionsflächen
+   (`.wp-bracket-lock`-Hotkey-Chip, `.pkg-copy-btn`), nicht mehr auf Labels.
+   Der Blip ist ein Pseudo-Element (kein Markup): der i18n-Runtime-Switch
+   ersetzt `el.textContent` und würde jedes Kind-Element wegwerfen. */
+.wp-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 0 0 var(--wp-space-3);
+  font-family: var(--font-mono);
+  font-size: var(--wp-font-size-sm);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-brand-cyan);
+  font-variant-numeric: tabular-nums;
+}
+.wp-eyebrow::before {
+  content: "";
+  flex: none;
+  width: 0.4em;
+  height: 0.4em;
+  border-radius: 50%; /* Kreis, bewusst außerhalb der Radius-Leiter (s. oben) */
+  background: var(--wp-eyebrow-dot);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-brand-cyan) 70%, transparent);
+  animation: wp-eyebrow-blip 8s ease-in-out infinite;
+}
+@keyframes wp-eyebrow-blip {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wp-eyebrow::before {
+    animation: none;
+  }
+}
+
+/* --- HUD-Eckwinkel -------------------------------------------------------- */
+/* Vier Winkel aus je zwei 1px-Segmenten, in der Polsterzone der Karte — kein
+   zweiter Rahmen, sondern ein Anschnitt, der die Ecken markiert. Liegt auf
+   `::after`; `::before` gehört dem atmenden Karten-Ring aus M2, beide stören
+   sich nicht (Ring auf der Kante, Winkel innen).
+   Feedback läuft nur über `opacity` — dieselbe Compositor-Disziplin wie beim
+   Ring, kein Layout-/Paint-Anfall beim Hover. */
+.hud-frame {
+  position: relative;
+}
+.hud-frame::after {
+  --hud-arm: 12px;
+  --hud-line: linear-gradient(var(--wp-bracket), var(--wp-bracket));
+  content: "";
+  position: absolute;
+  inset: 9px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.55;
+  transition: opacity var(--dur-base) var(--ease-flow);
+  background-image: var(--hud-line), var(--hud-line), var(--hud-line),
+    var(--hud-line), var(--hud-line), var(--hud-line), var(--hud-line),
+    var(--hud-line);
+  background-repeat: no-repeat;
+  background-size: var(--hud-arm) 1px, 1px var(--hud-arm), var(--hud-arm) 1px,
+    1px var(--hud-arm), var(--hud-arm) 1px, 1px var(--hud-arm),
+    var(--hud-arm) 1px, 1px var(--hud-arm);
+  background-position: left top, left top, right top, right top, left bottom,
+    left bottom, right bottom, right bottom;
+}
+/* `:focus-within` bewusst gleichrangig zum Hover: die Karten tragen die
+   Download-/Kauf-CTAs, per Tastatur soll dieselbe Fläche antworten. */
+.hud-frame:hover::after,
+.hud-frame:focus-within::after {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hud-frame::after {
+    transition: none;
+  }
+}
+
+/* ===========================================================================
+   M10 — Cinematic Motion System
+   ---------------------------------------------------------------------------
+   Vier benannte Reveal-/Motion-Primitive für die Set-Pieces des Cinematic-
+   Redesigns, als Leiter neben Radius/Schatten (siehe DESIGN-Doku §4): fester
+   Vokabular-Satz statt Ad-hoc-Keyframes pro Sektion.
+
+   Bewusster Unterschied zum bestehenden `.scroll-reveal`-System (Zeile ~452):
+   `.scroll-reveal` braucht eine sichtbare Default-Hidden-State + den
+   IntersectionObserver in index.astro als Fallback für Browser ohne
+   `animation-timeline: view()` (Safari < 18). Die vier Primitive hier sind
+   dagegen **komplett in `@supports` gekapselt** — ohne Support bleibt das
+   Element von Anfang an normal sichtbar, keine JS-Abhängigkeit, kein
+   "für immer unsichtbar"-Risiko. Kosten: auf nicht unterstützenden Browsern
+   (v.a. älteres Safari) gibt es dort keinen Reveal, nur die statische
+   Endposition — exakt das Prinzip aus der Pre-Delivery-Checkliste
+   ("Struktur bleibt, nur Bewegung fällt weg"), nur auf fehlenden
+   Browser-Support statt auf reduced-motion angewandt.
+
+   Motion-Vokabular:
+   - .wp-kinetic-line   Vorhang-Aufzug für Headlines — EIN Element, kein
+                        Wort-/Zeichen-Split. Sprachwechsel ist auf Seiten mit
+                        Locale-Pendant eine volle Navigation (toggleLang() →
+                        window.location.assign(), i18n.ts:1712); der
+                        textContent-Ersatz in applyLang() (i18n.ts:1737) ist
+                        nur der Fallback ohne Pendant-Seite — auf beiden Wegen
+                        würde ein Span-Split das Markup zerreißen. Läuft über
+                        `animation-timeline: view()` — für above-the-fold-
+                        Elemente (dauerhaft im Viewport, z. B. eine Hero-H1)
+                        deshalb ungeeignet: die Timeline steht dort beim ersten
+                        Frame bereits bei 100 %, der Reveal spielt nie. Für
+                        solche Fälle .wp-rise-in verwenden.
+   - .wp-rise-in        Dieselbe Vorhang-Aufzug-Optik wie .wp-kinetic-line,
+                        aber zeitbasiert (animation-delay) statt scroll-
+                        gekoppelt — deshalb ohne @supports lauffähig und die
+                        richtige Wahl für alles, was schon beim Laden sichtbar
+                        ist (Hero-Headline, Above-the-fold-Content). Delay pro
+                        Instanz über `--wp-rise-delay`. Bewusst ohne Blur
+                        (teuerste Paint-Operation, in Safari speicherintensiv).
+   - .wp-bracket-lock   Modifier auf `.wp-bracketed`: die Klammern rasten von
+                        außen kommend auf den Text ein, statt nur zu erscheinen
+                        — der "Tastendruck" als grafisches Ereignis. Teilt sich
+                        `--wp-rise-delay` mit .wp-rise-in für gemeinsame
+                        Choreografie-Steuerung.
+   - .wp-mask-reveal    Richtungs-Wipe für Panels/Karten (Modifier `--up` für
+                        vertikal statt horizontal).
+   - .wp-clip-reveal    Blende/Iris-Reveal für Bild-/Screenshot-Kacheln. Endradius
+                        (Default 75%) und Ursprung (Default 50% 50%) über
+                        `--wp-clip-end`/`--wp-clip-origin` pro Instanz überschreibbar
+                        — der Endradius bleibt durch `fill-mode: both` dauerhaft als
+                        clip-path stehen, bei Karten mit großem Weichschatten oder
+                        Fokusring reicht 75% nicht, um ihn frei zu lassen.
+   - .wp-parallax-*     Tiefen-Parallax für dekorative Hintergrund-Layer via
+                        named `view-timeline` — nur auf `pointer-events:none`-
+                        Dekor, nie auf interaktivem Inhalt.
+   - .wp-recede         Scroll-Abgang für Full-Viewport-Opener: der Inhalt löst
+                        sich beim Verlassen des Viewports (`exit`-Range) leicht
+                        nach oben auf, während dekorative Hintergrund-Layer
+                        (die volle `cover`-Range) länger stehen bleiben — ein
+                        Mehr-Geschwindigkeiten-Abgang statt eines Ein-Ebenen-
+                        Schnitts. Endet bei opacity 0.35, nicht 0, damit
+                        zurück-tabbende Tastatur-Nutzer den Inhalt weiter
+                        wahrnehmen.
+   --------------------------------------------------------------------------- */
+
+:root {
+  /* Über --dur-slow (320ms, Karten) hinaus: großformatige Set-Piece-Reveals
+     brauchen mehr Zeit, um als Inszenierung statt als Layout-Snap zu lesen. */
+  --dur-cinematic: var(--wp-duration-cinematic);
+  --dur-cinematic-slow: var(--wp-duration-cinematic-slow);
+  /* Deckt sich mit dem bestehenden nth-child-Rhythmus in index.astro
+     (0/80/160/240/320/400ms) — künftige Stagger-Stellen rechnen mit
+     calc(var(--stagger-step) * n) statt neue Werte zu erfinden. */
+  --stagger-step: var(--wp-duration-stagger);
+}
+
+/* --- Kinetic Line: Vorhang-Aufzug für Headlines ---------------------------- */
+/* No filter: a blur on a scroll-driven timeline is re-rasterised on every
+   scroll frame, which costs Safari memory and smoothness (2026-10-16). */
+@keyframes wp-kinetic-rise {
+  from {
+    clip-path: inset(0 0 100% 0);
+    translate: 0 14%;
+  }
+  to {
+    clip-path: inset(0 0 0% 0);
+    translate: 0 0;
+  }
+}
+@supports (animation-timeline: view()) {
+  .wp-kinetic-line {
+    animation: wp-kinetic-rise var(--dur-cinematic-slow) var(--ease-flow) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 55%;
+  }
+}
+
+/* --- Rise In: zeitbasierte Vorhang-Aufzug-Variante für Above-the-fold-Inhalt
+   Gleiche Optik wie wp-kinetic-rise, aber über animation-delay statt
+   view-timeline gesteuert — läuft überall, keine @supports-Gate nötig. Bewusst
+   kein `opacity: 0`-Start (nur clip-path/translate): auf einem
+   LCP-Kandidaten wie der Hero-H1 darf der Erstanstrich nicht auf einen späten
+   Animationsschritt warten. */
+@keyframes wp-rise {
+  from {
+    clip-path: inset(0 0 100% 0);
+    translate: 0 14%;
+  }
+  to {
+    clip-path: inset(0 0 0% 0);
+    translate: 0 0;
+  }
+}
+.wp-rise-in {
+  animation: wp-rise var(--dur-cinematic) var(--ease-flow) var(--wp-rise-delay, 0ms) both;
+}
+
+/* --- Bracket Lock: Klammern rasten von außen auf den Text ein --------------
+   Modifier auf `.wp-bracketed` (M9) — nur in Kombination sinnvoll, deshalb
+   zusammengesetzter Selektor statt eigenständiger Klasse. Nur transform/
+   opacity, kurze feste Dauer (--dur-slow, 320ms): soll wie ein Tastenanschlag
+   klicken, nicht schweben. */
+@keyframes wp-bracket-lock-l {
+  from { opacity: 0; translate: -0.4em 0; }
+}
+@keyframes wp-bracket-lock-r {
+  from { opacity: 0; translate: 0.4em 0; }
+}
+.wp-bracketed.wp-bracket-lock::before,
+.wp-bracketed.wp-bracket-lock::after {
+  display: inline-block;
+}
+.wp-bracketed.wp-bracket-lock::before {
+  animation: wp-bracket-lock-l var(--dur-slow) var(--ease-flow) var(--wp-rise-delay, 0ms) both;
+}
+.wp-bracketed.wp-bracket-lock::after {
+  animation: wp-bracket-lock-r var(--dur-slow) var(--ease-flow) var(--wp-rise-delay, 0ms) both;
+}
+
+/* --- Mask Reveal: Richtungs-Wipe für Panels/Karten -------------------------
+   Generalisiert das hero-ribbon-draw-Muster (Hero.astro) zu einer
+   wiederverwendbaren Utility. Default horizontal (links→rechts); Modifier
+   `.wp-mask-reveal--up` wipt von unten nach oben (für Karten in Grids, wo ein
+   vertikaler Aufzug besser zum Stagger passt). */
+@keyframes wp-mask-wipe-x {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@keyframes wp-mask-wipe-y {
+  from { clip-path: inset(100% 0 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+@supports (animation-timeline: view()) {
+  .wp-mask-reveal {
+    animation: wp-mask-wipe-x var(--dur-cinematic) var(--ease-flow) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 45%;
+  }
+  .wp-mask-reveal--up {
+    animation-name: wp-mask-wipe-y;
+  }
+}
+
+/* --- Clip Reveal: Blende/Iris für Bild-/Screenshot-Kacheln -----------------
+   Kreisförmige Apertur statt Rechteck-Wipe — bewusst anderes Motiv als
+   .wp-mask-reveal, damit Bild-Tiles sich von Text-/Panel-Reveals abheben. */
+@keyframes wp-clip-iris {
+  from { clip-path: circle(0% at var(--wp-clip-origin, 50% 50%)); }
+  to   { clip-path: circle(var(--wp-clip-end, 75%) at var(--wp-clip-origin, 50% 50%)); }
+}
+@supports (animation-timeline: view()) {
+  .wp-clip-reveal {
+    animation: wp-clip-iris var(--dur-cinematic) var(--ease-flow) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 50%;
+  }
+}
+
+/* --- Depth Parallax: Tiefen-Layer für dekorative Hintergründe --------------
+   Scope-Element (die Sektion) trägt `.wp-parallax-scope` und benennt seine
+   eigene view-timeline; Layer-Kinder tragen `.wp-parallax-layer` und lesen
+   diese Timeline über den ganzen sichtbaren Sektionsverlauf (`cover`), nicht
+   nur beim Eintritt — dadurch entsteht echte Parallaxe (der Layer bewegt sich
+   langsamer/schneller als der Rest), keine einmalige Reveal-Animation.
+   `--wp-parallax-depth` pro Instanz überschreiben (Default 32px). NUR auf
+   `pointer-events: none`-Dekor (Hero-Wave, Band-Auren) — nie auf Inhalt. */
+.wp-parallax-scope {
+  view-timeline-name: --wp-parallax-scope;
+  view-timeline-axis: block;
+}
+.wp-parallax-layer {
+  --wp-parallax-depth: 32px;
+  will-change: transform;
+}
+@keyframes wp-parallax-drift {
+  from { translate: 0 calc(var(--wp-parallax-depth) * -1); }
+  to   { translate: 0 var(--wp-parallax-depth); }
+}
+@supports (animation-timeline: view()) {
+  .wp-parallax-layer {
+    animation: wp-parallax-drift linear;
+    animation-timeline: --wp-parallax-scope;
+    animation-range: cover 0% cover 100%;
+  }
+}
+
+/* --- Recede: Scroll-Abgang für Full-Viewport-Opener ------------------------
+   `exit`-Range statt `entry` — inert beim Laden, aktiv erst wenn der Abschnitt
+   den Viewport verlässt. Auf den Inhalts-Container anwenden, NICHT auf die
+   Section (sonst nehmen auch die Parallax-Layer die falsche Timeline an).
+   Linear, weil scroll-gekoppelt: der Scrollfinger ist hier das Easing.
+
+   Bewusst KEINE anonyme `view()`-Timeline hier (anders als bei den anderen
+   fünf M10-Primitiven) — gemessen und verifiziert kaputt: `view()` bindet an
+   den "nächsten Scroll-Container" des Elements selbst, und ein Full-Viewport-
+   Opener sitzt fast immer in einer Section mit `overflow-hidden` (hier: das
+   Wasserzeichen-Clipping). `overflow: hidden` etabliert nach Spec einen
+   Scroll-Container, obwohl er nie einen echten Scroll-Event vom Nutzer sieht
+   — die anonyme Timeline bindet daran und bleibt für immer bei progress 0
+   hängen (reproduziert: über 3000px Scroll-Distanz konstant 0, mit `exit` UND
+   mit `cover`). Der schon vorhandene BENANNTE Scope `--wp-parallax-scope`
+   (auf der Section deklariert, deren eigener nächster Scroll-Container
+   korrekt der echte Seiten-Scroller ist) trägt hier stattdessen — dieselbe
+   Timeline, die auch die Parallax-Layer schon nutzen. */
+@keyframes wp-recede {
+  to { translate: 0 -40px; opacity: 0.35; }
+}
+@supports (animation-timeline: view()) {
+  .wp-recede {
+    animation: wp-recede linear both;
+    animation-timeline: --wp-parallax-scope;
+    animation-range: exit 0% exit 80%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-kinetic-line,
+  .wp-mask-reveal,
+  .wp-mask-reveal--up,
+  .wp-clip-reveal,
+  .wp-parallax-layer,
+  .wp-rise-in,
+  .wp-recede {
+    animation: none !important;
+    clip-path: none !important;
+    filter: none !important;
+    translate: none !important;
+  }
+  .wp-recede {
+    opacity: 1 !important;
+  }
+  .wp-bracketed.wp-bracket-lock::before,
+  .wp-bracketed.wp-bracket-lock::after {
+    animation: none !important;
+    opacity: 1 !important;
+    translate: none !important;
+  }
+}
+
+/* ---- Scroll progress hairline ----
+   A 2px brand-cyan line under the viewport top that fills with page scroll.
+   Pure CSS scroll-driven animation (progressive enhancement: browsers without
+   `animation-timeline` simply don't show it), no JS and no layout cost. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0 0 auto 0;
+      height: 2px;
+      z-index: 60;
+      pointer-events: none;
+      transform-origin: 0 50%;
+      background: linear-gradient(90deg, var(--wp-color-cyan-300), var(--wp-color-cyan-500));
+      animation: wp-scroll-progress linear both;
+      animation-timeline: scroll(root block);
+    }
+    @keyframes wp-scroll-progress {
+      from { transform: scaleX(0); }
+      to { transform: scaleX(1); }
+    }
+  }
+}
+
+/* ---- Press feedback on primary actions ---- */
+.nav-download-btn,
+.support-sponsor,
+[data-testid="hero-primary-cta"] {
+  transition: transform var(--dur-fast) var(--ease-flow);
+}
+.nav-download-btn:active,
+.support-sponsor:active,
+[data-testid="hero-primary-cta"]:active {
+  transform: scale(0.97);
+}
+
+/* ---- Card spotlight ----
+   A soft cyan light that follows the pointer across landing cards (the
+   "recording LED" glow of the app, used as a hover cue). Only the
+   background-image layer is set, so each card keeps its own background
+   colour; the tripled class wins over the cards' scoped `background`
+   shorthand without !important. Coordinates come from HomePage's pointer
+   script (--mx/--my); touch and reduced-motion users get no effect. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .wp-spot.wp-spot.wp-spot {
+    background-image: radial-gradient(
+      26rem circle at var(--mx, 50%) var(--my, -30%),
+      color-mix(in srgb, var(--color-brand-cyan) calc(var(--spot, 0) * 10%), transparent),
+      transparent 65%
+    );
+    transition: --spot var(--dur-slow) var(--ease-flow);
+  }
+  .wp-spot:hover {
+    --spot: 1;
+  }
+}
+@property --spot {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* ---- Reading measure inside wide cards ----
+   Cards grow with the fluid frame, their prose must not: long lines are the
+   real "stretched" look on wide screens. Cap card copy at a comfortable
+   measure; the card itself still fills its grid track. */
+:is(.use-case-card, .fh-card, .engine-card, .privacy-path, .price-core, .price-get, .testimonial-card) p {
+  max-width: 68ch;
+  text-wrap: pretty;
+}
+
+/* ===========================================================================
+   Subpage shell (PageHero, SubpageLayout).
+   Every page outside the landing uses the same full-width frame, an editorial
+   hero (copy left, motion illustration right) and the landing footer, so a
+   click from the landing never drops into a narrow "docs column".
+   --------------------------------------------------------------------------- */
+.page-hero {
+  padding-top: calc(var(--nav-clear, 6.5rem) + clamp(var(--wp-space-4), 3vw, var(--wp-space-12)));
+  padding-bottom: clamp(var(--wp-space-12), var(--wp-space-8) + 4vw, var(--wp-space-24));
+}
+.page-hero__grid {
+  display: grid;
+  gap: clamp(var(--wp-space-10), var(--wp-space-8) + 3vw, 5rem);
+  align-items: center;
+}
+@media (min-width: 1024px) {
+  .page-hero__grid.has-art {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+}
+.page-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-variation-settings: "wght" 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  color: var(--color-ink);
+  font-size: var(--wp-font-size-h1);
+  text-wrap: balance;
+  /* Long German compounds ("Datenschutzerklärung") would otherwise push a
+     390px viewport sideways. */
+  hyphens: auto;
+  overflow-wrap: break-word;
+}
+.page-hero__grid > * {
+  min-width: 0;
+}
+.page-hero .wp-lead {
+  margin-top: clamp(var(--wp-space-5), var(--wp-space-4) + 1vw, var(--wp-space-8));
+  font-size: var(--wp-font-size-card-title);
+  max-width: 44rem;
+}
+.page-hero__note {
+  margin-top: var(--wp-space-4);
+  max-width: 44rem;
+  font-size: var(--wp-font-size-md);
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+.page-hero__actions:not(:empty) {
+  margin-top: clamp(1.75rem, var(--wp-space-6) + 1vw, var(--wp-space-10));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--wp-space-3) var(--wp-space-5);
+}
+.page-crumbs {
+  margin-bottom: clamp(var(--wp-space-5), var(--wp-space-4) + 1vw, var(--wp-space-8));
+  font-family: var(--font-mono);
+  font-size: var(--wp-font-size-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-subtle);
+}
+.page-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--wp-space-1) var(--wp-space-2);
+}
+.page-crumbs li + li::before {
+  content: "/";
+  margin-right: var(--wp-space-2);
+  opacity: 0.5;
+}
+.page-crumbs a:hover {
+  color: var(--color-ink);
+}
+/* Instrument panel framing the hero illustration: hairline, faint grid and
+   corner ticks, the same HUD vocabulary as the landing cards. */
+.wp-panel {
+  position: relative;
+  border-radius: var(--wp-radius-panel);
+  border: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
+  background:
+    linear-gradient(color-mix(in srgb, var(--color-ink) 4%, transparent) 1px, transparent 1px) 0 0 / 2rem 2rem,
+    linear-gradient(90deg, color-mix(in srgb, var(--color-ink) 4%, transparent) 1px, transparent 1px) 0 0 / 2rem 2rem,
+    radial-gradient(120% 90% at 70% 10%, color-mix(in srgb, var(--color-brand-cyan) 10%, transparent), transparent 60%),
+    color-mix(in srgb, var(--surface-deep) 80%, transparent);
+  padding: clamp(var(--wp-space-5), var(--wp-space-4) + 1.5vw, 2.25rem);
+  box-shadow: var(--wp-shadow-panel);
+}
+.wp-panel::before {
+  content: attr(data-label);
+  position: absolute;
+  top: 0.85rem;
+  left: 1.1rem;
+  font-family: var(--font-mono);
+  font-size: var(--wp-font-size-2xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-subtle);
+}
+/* Long reading pages (legal, changelog): a readable column plus a sticky
+   side rail on wide screens instead of one narrow centred column. */
+.page-body {
+  padding-bottom: var(--section-pad-y);
+}
+.page-split {
+  display: grid;
+  gap: clamp(var(--wp-space-10), var(--wp-space-8) + 3vw, 5rem);
+}
+@media (min-width: 1280px) {
+  .page-split {
+    /* Reading column and rail stay one unit, flush with the hero title; a
+       1fr column would strand the rail far from the text on ultrawide. */
+    grid-template-columns: minmax(0, 56rem) minmax(16rem, 22rem);
+    justify-content: start;
+    align-items: start;
+  }
+  .page-split__rail {
+    position: sticky;
+    top: calc(var(--nav-clear, 6.5rem) + 1rem);
+  }
+}
+.page-prose {
+  max-width: 50rem;
+}
+/* Primary action outside the store buttons: same pill, gradient and lift as
+   .wp-store-btn, so "download" looks identical wherever it appears. */
+.wp-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wp-space-2);
+  min-height: 48px;
+  padding: var(--wp-space-3) var(--wp-space-6);
+  border-radius: var(--radius-pill);
+  background: var(--gradient-accent-cta);
+  color: var(--color-brand-darker);
+  font-weight: 700;
+  text-decoration: none;
+  transition: transform var(--dur-base) var(--ease-flow), box-shadow var(--dur-base) var(--ease-flow);
+}
+.wp-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-pill);
+}
+.wp-cta:active {
+  transform: translateY(0) scale(0.98);
+}
+.wp-cta svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  transition: transform var(--dur-base) var(--ease-flow);
+}
+.wp-cta:hover svg {
+  transform: translateX(3px);
+}
+.wp-cta-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--wp-space-2);
+  min-height: 48px;
+  padding: var(--wp-space-3) var(--wp-space-6);
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+  color: var(--color-ink);
+  font-weight: 600;
+  transition: border-color var(--dur-base) var(--ease-flow), background-color var(--dur-base) var(--ease-flow);
+}
+.wp-cta-ghost:hover {
+  border-color: color-mix(in srgb, var(--color-brand-cyan) 55%, transparent);
+  background: color-mix(in srgb, var(--color-brand-cyan) 7%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wp-cta,
+  .wp-cta svg {
+    transition: none;
+  }
+  .wp-cta:hover,
+  .wp-cta:hover svg {
+    transform: none;
+  }
+}
