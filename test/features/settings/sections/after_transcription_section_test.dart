@@ -366,7 +366,7 @@ void main() {
     // When auto-paste isn't supported (Mac App Store build), the paste-based
     // options don't exist as choices at all — greying them out with a
     // tooltip would look like a bug to users who don't know they're running
-    // a store build. See docs/store-release.md.
+    // a store build. See internal-notes.
 
     testWidgets(
       'paste/clipboardAndPaste options are absent when autoPasteSupported is false',

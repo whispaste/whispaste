@@ -76,7 +76,7 @@ jobs:
         # er grün mit.
         continue-on-error: true
         env:
-          # Dedizierter Service Account whispaste-gsc-sitemap-ping@hellerio-ai
+          # Dedizierter Service Account whispaste-gsc-sitemap-ping@gcp-project
           # mit "Uneingeschränkt"-Zugriff NUR auf sc-domain:whispaste.de (kein
           # anderer IAM-Zugriff) — siehe website/scripts/gsc-sitemap-ping.mjs
           # Kopfkommentar.

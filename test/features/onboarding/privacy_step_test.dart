@@ -7,7 +7,7 @@
 ///      recordings defaults to OFF.
 ///   2. Toggling any switch persists its own value independently of the
 ///      other two.
-///   3. The wording follows CONTEXT.md §6.5/§7 — never an absolute "no
+///   3. The wording follows internal-notes §6.5/§7 — never an absolute "no
 ///      tracking" claim; instead the correct promise: audio & text stay
 ///      local, the statistics are anonymous, self-hosted, and can be
 ///      switched off.
@@ -213,14 +213,14 @@ void main() {
     },
   );
 
-  // ── Wording — CONTEXT.md §6.5/§7 ──────────────────────────────────────────
+  // ── Wording — internal-notes §6.5/§7 ──────────────────────────────────────────
   //
   // Never an absolute "no tracking" claim; instead the correct promise:
   // audio & text stay local; anonymous, self-hosted statistics — can be
   // switched off. Substring checks against the l10n getters, not full-text
   // comparisons, so minor copy tweaks don't break the contract.
 
-  group('wording follows CONTEXT.md §6.5/§7', () {
+  group('wording follows internal-notes §6.5/§7', () {
     testWidgets('the rendered hint is the l10n privacy hint', (tester) async {
       await _pump(tester);
       expect(find.text(l10n.onboardingPrivacyHint), findsOneWidget);
@@ -234,7 +234,7 @@ void main() {
       expect(
         hint,
         isNot(contains('no tracking')),
-        reason: 'CONTEXT.md §7 forbids the absolute "no tracking" claim.',
+        reason: 'internal-notes §7 forbids the absolute "no tracking" claim.',
       );
     });
 
@@ -248,7 +248,7 @@ void main() {
       expect(
         hint,
         isNot(contains('kein tracking')),
-        reason: 'CONTEXT.md §7 forbids the absolute "no tracking" claim.',
+        reason: 'internal-notes §7 forbids the absolute "no tracking" claim.',
       );
     });
 

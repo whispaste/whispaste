@@ -11,7 +11,7 @@ WHY THIS EXISTS
   re-uploading — producing two live copies with an IDENTICAL
   sourceFileChecksum. `overwrite_screenshots: true` does not prevent this;
   it is the trigger. Confirmed live at least three times (2026-07-29,
-  2026-08-19/20, 2026-08-24 — see docs/store-release.md and the
+  2026-08-19/20, 2026-08-24 — see internal-notes and the
   release-mac-app-store skill's "Duplikate-Falle").
 
   This script closes the loop deterministically instead of relying on a

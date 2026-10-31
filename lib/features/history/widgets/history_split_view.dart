@@ -116,7 +116,7 @@ class HistorySplitView extends StatelessWidget {
         );
     }
     // Stays here, not in WpSplitView: this fade covers the *view-mode*
-    // switch, which only history has (CONTEXT.md §5.9).
+    // switch, which only history has (internal-notes §5.9).
     return AnimatedSwitcher(
       duration: WpMotion.durationFor(context, WpMotion.normal),
       switchInCurve: Curves.easeOut,

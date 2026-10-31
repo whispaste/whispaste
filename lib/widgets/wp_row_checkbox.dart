@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/colors.dart';
 
 // ---------------------------------------------------------------------------
-// WpRowCheckbox — the multi-select checkbox of a list row (CONTEXT.md
+// WpRowCheckbox — the multi-select checkbox of a list row (internal-notes
 // §5.5.13). Single source for a styling block that used to be copied into
 // the history list and compact views at two different sizes (24 vs 18).
 //

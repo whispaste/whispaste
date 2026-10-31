@@ -212,7 +212,7 @@ void main() {
           reason:
               'a brand-new note must land the caret in the body field '
               "immediately, same as the app's always-focused editor design "
-              '(CONTEXT.md §5.9) — without focus, keystrokes never reach the '
+              '(internal-notes §5.9) — without focus, keystrokes never reach the '
               'field at all, which is exactly the reported "field is locked" '
               'symptom.',
         );

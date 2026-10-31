@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Anchors that `WpRowCheckbox` stays the app's only multi-select checkbox
-/// (CONTEXT.md §5.5.13).
+/// (internal-notes §5.5.13).
 ///
 /// The family this closes had two members: the history list and compact
 /// views each built their own `Checkbox` at a different size (24 vs 18 px).

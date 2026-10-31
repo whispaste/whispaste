@@ -30,7 +30,7 @@ class EngineRecommendation {
 /// Recommends an engine for the given dictation language and hardware.
 ///
 /// The decision is language-first: Parakeet is faster than Whisper on every
-/// machine (see `CONTEXT.md` §4.2 — RTF 0.10–0.13 vs. 0.43–1.16), so hardware
+/// machine (see `internal-notes` §4.2 — RTF 0.10–0.13 vs. 0.43–1.16), so hardware
 /// never rules Parakeet *out*. It only decides which Whisper tier to
 /// recommend when Parakeet isn't eligible in the first place.
 ///

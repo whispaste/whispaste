@@ -9,7 +9,7 @@
   path_provider, package_info_plus, sentry, …) ship their own PrivacyInfo.xcprivacy.
 
   ⚠️ Must be added to the Runner target in Xcode (Build Phases → Copy Bundle
-  Resources) so it lands in the .app bundle — see docs/store-release.md.
+  Resources) so it lands in the .app bundle — see internal-notes.
 
   The reason codes below are the conservative defaults for a Flutter desktop app;
   verify against the plugins actually compiled in before the first submission.
@@ -83,7 +83,7 @@
            sends audio anywhere. Not linked to a WhisPaste user identity
            (no account system); not used for tracking. Matches the App Store
            Connect privacy nutrition label already published for this app
-           (see docs/store-release.md). -->
+           (see internal-notes). -->
       <key>NSPrivacyCollectedDataType</key>
       <string>NSPrivacyCollectedDataTypeAudioData</string>
       <key>NSPrivacyCollectedDataTypeLinked</key>

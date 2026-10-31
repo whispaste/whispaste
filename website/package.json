@@ -26,7 +26,7 @@
     "@sentry/astro": "^10.54.0",
     "@tailwindcss/vite": "^4.2.1",
     "astro": "^7.3.5",
-    "dompurify": "^3.4.13",
+    "dompurify": "^3.4.17",
     "tailwindcss": "^4.2.1",
     "web-vitals": "^5.3.0"
   },
@@ -39,11 +39,13 @@
     "eslint-plugin-security": "^4.0.0",
     "globals": "^17.6.0",
     "jsdom": "^29.1.1",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   },
   "overrides": {
+    "glob": "^14.0.3",
+    "minimatch": "^11.0.3",
     "devalue": "^5.9.2",
-    "vite": "8.1.5",
+    "vite": "8.1.6",
     "esbuild": "^0.28.1",
     "@opentelemetry/core": "^2.8.0",
     "svgo": "^4.1.0",

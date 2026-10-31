@@ -203,7 +203,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
 
   /// Stuck-Guard budget: a single in-flight [WhisperEngine.transcribe] that
   /// never returns is abandoned after this timeout with a clean error instead
-  /// of hanging the app (CONTEXT.md §3.3). Mutable + [visibleForTesting] so
+  /// of hanging the app (internal-notes §3.3). Mutable + [visibleForTesting] so
   /// resilience tests can shrink it to milliseconds; production keeps the 5 min
   /// budget the subprocess-era pipeline used.
   @visibleForTesting
@@ -229,7 +229,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   static Duration benchmarkIdleDelay = const Duration(seconds: 2);
 
   /// Upper bound on automatic retries of a transient transcription failure
-  /// before the error is surfaced (CONTEXT.md §3.3 — "bis zu 3 Wiederholungen").
+  /// before the error is surfaced (internal-notes §3.3 — "bis zu 3 Wiederholungen").
   static const int _maxTranscribeRetries = 3;
 
   /// Pure decision policy for FFI-era transcription failures (CPU-fallback).
@@ -883,7 +883,7 @@ class SttServerStateNotifier extends Notifier<SttStatus> {
   }
 
   /// Runs [WhisperEngine.transcribe] behind the FFI resilience chain
-  /// (CONTEXT.md §3.3), reacting to the engine's distinguishable
+  /// (internal-notes §3.3), reacting to the engine's distinguishable
   /// [WhisperFailureKind] signals:
   ///
   /// - **Stuck-Guard** — the call is raced against

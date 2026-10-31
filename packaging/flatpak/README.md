@@ -43,7 +43,7 @@ Flatpak-Sandbox braucht das zwei Dinge, die die `finish-args` setzen:
 
 ### finish-args ↔ App-Funktion (Audit-Tabelle)
 
-| App-Funktion (CONTEXT.md) | finish-arg |
+| App-Funktion (internal-notes) | finish-arg |
 |---|---|
 | Hotkey (§2.5) | `--socket=session-bus` (+ X11/Wayland-Sockets) |
 | Clipboard / Paste (§2.4) | über Wayland-/X11-Socket (kein Extra-Arg) |
@@ -53,7 +53,7 @@ Flatpak-Sandbox braucht das zwei Dinge, die die `finish-args` setzen:
 | Tray / Notifications | `--talk-name=org.kde.StatusNotifierWatcher`, `--talk-name=org.freedesktop.Notifications` |
 
 Auto-Paste (Keystroke-Synthese) ist auf Linux **nicht** unterstützt
-(`PasteCapabilityStatus.unsupported`, CONTEXT.md §2.7) — daher wird **bewusst
+(`PasteCapabilityStatus.unsupported`, internal-notes §2.7) — daher wird **bewusst
 kein** Input-Device-Injection-Arg angefordert.
 
 ---

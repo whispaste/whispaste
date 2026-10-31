@@ -25,7 +25,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/generated/app_localizations.dart';
 
 /// The desktop platforms WhisPaste ships on. Mirrors the app's own
-/// platform-inclusivity stance (`CONTEXT.md` §1) rather than reusing
+/// platform-inclusivity stance (`internal-notes` §1) rather than reusing
 /// Flutter's `TargetPlatform`, which also carries mobile values this app
 /// never runs on.
 enum OnboardingPlatform { macos, windows, linux }

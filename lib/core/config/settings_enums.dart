@@ -280,7 +280,7 @@ enum GpuAcceleration {
 /// Smart Mode's local-vs-cloud engine selection. Unlike STT (which allows
 /// local + a choice of cloud providers), Smart Mode is a strict either-or
 /// with exactly one cloud option in v1 (OpenAI) — see
-/// `docs/adr/0010-smart-mode-lokal-oder-cloud-nur-openai.md`. Modeled as its
+/// `internal-notes`. Modeled as its
 /// own enum (rather than reusing [SttProviderType]) so a future second cloud
 /// provider is additive here without touching STT.
 enum SmartModeProviderType {

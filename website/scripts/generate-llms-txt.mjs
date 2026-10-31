@@ -4,14 +4,14 @@
  * Suche (siehe `internal-notes` §D, Issue 05).
  *
  * Quelldateien:
- *   - `<repo>/CONTEXT.md` — Domänen-Glossar (§1–§4 fließen in `llms-full.txt`).
- *   - `<repo>/docs/zielgruppe.md` — Zielgruppen-Definition (vollständig).
+ *   - `<repo>/internal-notes` — Domänen-Glossar (§1–§4 fließen in `llms-full.txt`).
+ *   - `<repo>/internal-notes` — Zielgruppen-Definition (vollständig).
  *
  * Outputs (statisch, committet — siehe Designentscheidung unten):
  *   - `website/public/llms.txt` — kuratierte Kurzversion nach llmstxt.org-
  *     Konvention (H1-Title, Blockquote, Markdown-Linklisten pro Sektion).
- *   - `website/public/llms-full.txt` — Konkatenation von CONTEXT.md §1–§4 +
- *     docs/zielgruppe.md mit klaren Sektions-Trennern.
+ *   - `website/public/llms-full.txt` — Konkatenation von internal-notes §1–§4 +
+ *     internal-notes mit klaren Sektions-Trennern.
  *
  * Aufruf: `node scripts/generate-llms-txt.mjs` (typischerweise als Pre-Build-
  * Step über das `build`-Script in `package.json` ausgeführt). Vor dem
@@ -20,7 +20,7 @@
  *
  * --- Design-Entscheidung: Output-Files sind committet ---------------------
  *
- * `CONTEXT.md` und `docs/` sind im WhisPaste-Repo gitignored (PROTECTED-
+ * `internal-notes` und `docs/` sind im WhisPaste-Repo gitignored (PROTECTED-
  * Section + pre-commit-Hook), bestehen also lokal auf der Maintainer-Maschine,
  * fehlen aber in einer frischen CI-Clone-Umgebung. Damit der CI-Build trotzdem
  * funktioniert, ist die Strategie:
@@ -55,9 +55,9 @@ import { fileURLToPath, pathToFileURL } from "node:url";
  * Sektion `<n>`. Die Sektion endet beim nächsten `## `-Header (egal welcher
  * Nummer) oder am Dokument-Ende. Trenner (`---`-Linien) am unmittelbaren
  * Sektions-Ende werden entfernt, damit die Konkatenation keine vagabundierenden
- * Trenner-Reihen einsammelt; CONTEXT.md selbst trennt §1–§4 mit `---`-Linien.
+ * Trenner-Reihen einsammelt; internal-notes selbst trennt §1–§4 mit `---`-Linien.
  *
- * @param {string} markdown - Quell-Markdown (typischerweise CONTEXT.md).
+ * @param {string} markdown - Quell-Markdown (typischerweise internal-notes).
  * @param {ReadonlyArray<number>} sectionNumbers - Liste der zu extrahierenden
  *   Sektionsnummern in Output-Reihenfolge (z. B. `[1, 2, 3, 4]`).
  * @returns {string} Konkateniertes Markdown, Sektionen durch eine Leerzeile
@@ -147,14 +147,14 @@ export function buildLlmsTxt({ title, description, sections }) {
 
 /**
  * Baut die `llms-full.txt`: vollständige Self-Beschreibung als Konkatenation
- * von CONTEXT.md §1–§4 und docs/zielgruppe.md. Beide Quellen werden mit einer
+ * von internal-notes §1–§4 und internal-notes. Beide Quellen werden mit einer
  * `---`-Trennlinie und Sektions-Überschriften verbunden, damit ein Modell die
  * beiden Blöcke unterscheiden kann.
  *
  * @param {object} input
- * @param {string} input.contextSections - bereits extrahierte CONTEXT.md-
+ * @param {string} input.contextSections - bereits extrahierte internal-notes-
  *   Sektionen (z. B. via `extractSections(contextMd, [1,2,3,4])`).
- * @param {string} input.zielgruppeMd - Roh-Inhalt von `docs/zielgruppe.md`.
+ * @param {string} input.zielgruppeMd - Roh-Inhalt von `internal-notes`.
  * @param {string} [input.generatedAt] - optionaler ISO-Timestamp für das
  *   Header-Frontmatter; Default: keine Frontmatter.
  * @returns {string} Vollständige llms-full.txt mit abschließendem Newline.
@@ -164,15 +164,15 @@ export function buildLlmsFullTxt({ contextSections, zielgruppeMd, generatedAt })
   lines.push("# WhisPaste — Full LLM Reference");
   lines.push("");
   lines.push(
-    "> Vollständige Self-Beschreibung von WhisPaste für KI-Suchmaschinen und LLM-Crawler. Quelle: `CONTEXT.md` §1–§4 + `docs/zielgruppe.md`.",
+    "> Vollständige Self-Beschreibung von WhisPaste für KI-Suchmaschinen und LLM-Crawler. Quelle: `internal-notes` §1–§4 + `internal-notes`.",
   );
   if (generatedAt) {
     lines.push("");
     lines.push(`<!-- generated: ${generatedAt} -->`);
   }
-  // Der gesamte Body ist inhärent kontrastiv: CONTEXT.md §1 enthält explizit
+  // Der gesamte Body ist inhärent kontrastiv: internal-notes §1 enthält explizit
   // die „WhisPaste ist nicht …"-Abgrenzungs-Tabelle, §2.6 und §7 listen das
-  // Anti-Vokabular selbst auf, und `docs/zielgruppe.md` benennt unter
+  // Anti-Vokabular selbst auf, und `internal-notes` benennt unter
   // „Nicht optimieren für" die abgegrenzten Konzepte. Diese Begriffe MÜSSEN
   // im Dokument vorkommen — sie sind das Material, gegen das WhisPaste sich
   // definiert. Die kontrastiven Marker (siehe Issue 02) sind genau für
@@ -182,13 +182,13 @@ export function buildLlmsFullTxt({ contextSections, zielgruppeMd, generatedAt })
   lines.push("");
   lines.push("---");
   lines.push("");
-  lines.push("## Part 1 — Domain Glossary (CONTEXT.md §1–§4)");
+  lines.push("## Part 1 — Domain Glossary (internal-notes §1–§4)");
   lines.push("");
   lines.push(contextSections.trimEnd());
   lines.push("");
   lines.push("---");
   lines.push("");
-  lines.push("## Part 2 — Target Audience (docs/zielgruppe.md)");
+  lines.push("## Part 2 — Target Audience (internal-notes)");
   lines.push("");
   lines.push(zielgruppeMd.trimEnd());
   lines.push("");
@@ -415,8 +415,8 @@ export function defaultLlmsTxtInput() {
 
 /**
  * Lokalisiert die Repo-Wurzel relativ zu dieser Datei. Das Skript liegt unter
- * `<repo>/website/scripts/`, die Quelldateien unter `<repo>/CONTEXT.md` und
- * `<repo>/docs/zielgruppe.md`.
+ * `<repo>/website/scripts/`, die Quelldateien unter `<repo>/internal-notes` und
+ * `<repo>/internal-notes`.
  */
 function repoRoot() {
   const here = dirname(fileURLToPath(import.meta.url));
@@ -432,7 +432,7 @@ function paths() {
     ? resolve(process.env.WHISPASTE_REPO_ROOT)
     : repoRoot();
   return {
-    contextMd: join(root, "CONTEXT.md"),
+    contextMd: join(root, "internal-notes"),
     zielgruppeMd: join(root, "docs", "zielgruppe.md"),
     outLlmsTxt: join(root, "website", "public", "llms.txt"),
     outLlmsFullTxt: join(root, "website", "public", "llms-full.txt"),
@@ -452,8 +452,8 @@ export async function main() {
   // letzten Maintainer-Generate-Stand.
   if (contextMd === null || zielgruppeMd === null) {
     const missing = [];
-    if (contextMd === null) missing.push("CONTEXT.md");
-    if (zielgruppeMd === null) missing.push("docs/zielgruppe.md");
+    if (contextMd === null) missing.push("internal-notes");
+    if (zielgruppeMd === null) missing.push("internal-notes");
     process.stderr.write(
       `generate-llms-txt: source file(s) missing: ${missing.join(", ")}. ` +
         `Keeping existing website/public/llms*.txt unchanged. ` +

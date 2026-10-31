@@ -31,17 +31,17 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
   - --device=dri
-  # ── Global Hotkey (CONTEXT.md §2.5) ─────────────────────────────────────────
+  # ── Global Hotkey (internal-notes §2.5) ─────────────────────────────────────────
   # X11 grabs the global hotkey directly; under Wayland the GlobalShortcuts
   # portal + the keybinder path both need the session bus to talk to the WM/
   # portal frontend.
   - --socket=session-bus
-  # ── Clipboard / Paste (CONTEXT.md §2.4) ─────────────────────────────────────
+  # ── Clipboard / Paste (internal-notes §2.4) ─────────────────────────────────────
   # Clipboard inject runs over the Wayland/X11 sockets above; no extra arg is
   # needed for clipboard write. (Auto-Paste keystroke synthesis is unsupported
-  # on Linux — PasteCapabilityStatus.unsupported, CONTEXT.md §2.7 — so we do not
+  # on Linux — PasteCapabilityStatus.unsupported, internal-notes §2.7 — so we do not
   # request input-device injection here.)
-  # ── Audio (Aufnahme — CONTEXT.md §2.2) ──────────────────────────────────────
+  # ── Audio (Aufnahme — internal-notes §2.2) ──────────────────────────────────────
   - --socket=pulseaudio
   # ── Network: self-download of the Sprachdienst (whisper-server) + model ─────
   # The app fetches the whisper-server manifest from

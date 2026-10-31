@@ -751,7 +751,7 @@ const dict: Record<string, string> = {
   // that the brand-vocabulary gate strips. The copy frames WhisPaste in
   // the CONTRASTIVE role: WhisPaste is never described as a dictation
   // tool itself, only as the alternative to that category. See
-  // CONTEXT.md §1 (Abgrenzungs-Tabelle) and §7 (Anti-Vokabular).
+  // internal-notes §1 (Abgrenzungs-Tabelle) and §7 (Anti-Vokabular).
   'comparison.breadcrumb': 'Comparaison',
   'comparison.dictationAlternatives.breadcrumb': 'Alternatives aux outils de saisie vocale',
   'comparison.dictationAlternatives.seoTitle': 'Alternatives aux outils de saisie vocale : WhisPaste, hors ligne et sans cloud',

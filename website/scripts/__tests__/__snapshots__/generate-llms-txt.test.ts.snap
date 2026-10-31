@@ -3,13 +3,13 @@
 exports[`buildLlmsFullTxt > concatenates the context sections and the audience document with a separator 1`] = `
 "# WhisPaste — Full LLM Reference
 
-> Vollständige Self-Beschreibung von WhisPaste für KI-Suchmaschinen und LLM-Crawler. Quelle: \`CONTEXT.md\` §1–§4 + \`docs/zielgruppe.md\`.
+> Vollständige Self-Beschreibung von WhisPaste für KI-Suchmaschinen und LLM-Crawler. Quelle: \`internal-notes\` §1–§4 + \`internal-notes\`.
 
 <!-- seo-audit:contrastive -->
 
 ---
 
-## Part 1 — Domain Glossary (CONTEXT.md §1–§4)
+## Part 1 — Domain Glossary (internal-notes §1–§4)
 
 ## 1. Produktkern
 
@@ -31,7 +31,7 @@ Provider, Engine, Modell, Backend.
 
 ---
 
-## Part 2 — Target Audience (docs/zielgruppe.md)
+## Part 2 — Target Audience (internal-notes)
 
 # Zielgruppe — Mock
 

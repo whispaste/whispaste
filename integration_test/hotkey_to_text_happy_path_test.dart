@@ -30,7 +30,7 @@
 ///
 /// State assertions use [RecordingPhase] (`idle`/`recording`/
 /// `transcribing`/`done`) — the vocabulary `RecordingOrchestrator` and
-/// `RecordingStateMachine` already define (CONTEXT.md §2.1, §3.1) — never
+/// `RecordingStateMachine` already define (internal-notes §2.1, §3.1) — never
 /// any widget/UI detail.
 ///
 /// `AfterTranscriptionAction.clipboard` (not `paste`) is used as the
@@ -40,7 +40,7 @@
 /// CI runner/sandbox cannot grant — exactly the "genuinely platform-specific
 /// native call [that] isn't available" case the ticket calls out for a
 /// clean, reasoned skip. Copying the finished transcript to the real system
-/// clipboard is `AfterTranscriptionAction.clipboard` (CONTEXT.md §2.7,
+/// clipboard is `AfterTranscriptionAction.clipboard` (internal-notes §2.7,
 /// "Nur Zwischenablage") — a real, always-available OS interaction that
 /// still proves "Einfügen" (§2.4) happened for real, so the happy path never
 /// needs to skip for this reason.

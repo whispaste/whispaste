@@ -88,7 +88,7 @@ export interface SoftwareApplicationOptions {
    */
   readonly description?: string;
   /**
-   * Operating-System-Liste. Default deckt die in `CONTEXT.md` §1 als „aktiv
+   * Operating-System-Liste. Default deckt die in `internal-notes` §1 als „aktiv
    * unterstützt" gelisteten Plattformen ab (Windows, macOS, Linux).
    */
   readonly operatingSystems?: readonly string[];
@@ -106,7 +106,7 @@ export interface SoftwareApplicationOptions {
 }
 
 /**
- * Default-OS-Liste — `CONTEXT.md` §1 nennt Windows, macOS und Linux als aktiv
+ * Default-OS-Liste — `internal-notes` §1 nennt Windows, macOS und Linux als aktiv
  * unterstützte Plattformen. Die konkreten Versions-Hinweise spiegeln den
  * Stand der `download.astro`-Seite (Windows 10/11, macOS 12+) plus Linux als
  * Generic-Entry. PRD §C verlangt explizit Linux-Deklaration.

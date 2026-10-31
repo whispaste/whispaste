@@ -12,7 +12,7 @@
 # ~/.claude/infrastructure/microsoft-partner-center.md for the convention
 # this project follows for every external credential.
 #
-# ── PREREQUISITES (see docs/store-release.md) ─────────────────────────────────
+# ── PREREQUISITES (see internal-notes) ─────────────────────────────────
 #   1. Bundle-ID migrated to de.whispaste.app.
 #   2. Xcode build configurations wired:
 #        - MAS build: CODE_SIGN_ENTITLEMENTS = Runner/AppStore.entitlements
@@ -270,7 +270,7 @@ platform :mac do
       # RBENV_VERSION=system is set (not just RBENV_VERSION unset) belt-and-
       # braces: unsetting alone worked across several runs, then intermittently
       # stopped shielding a `pod install` triggered by an Xcode-project change.
-      # Root-caused (was "still unexplained" in docs/store-release.md): this
+      # Root-caused (was "still unexplained" in internal-notes): this
       # whole lane runs under `RBENV_VERSION=4.0.2 rbenv exec bundle exec
       # fastlane ...` — `rbenv exec` doesn't just export RBENV_VERSION, it
       # also PREPENDS that version's own bin dirs
@@ -406,7 +406,7 @@ platform :mac do
       # merge-from-nil-hash path already crashed once (see comment above).
       # fastlane/metadata/review_information/notes.txt explains the
       # PostEvent/Accessibility permission (Guideline 2.4.5) to the
-      # reviewer — see docs/store-release.md for the full rationale.
+      # reviewer — see internal-notes for the full rationale.
       app_review_information: {
         first_name:    ENV.fetch("FASTLANE_REVIEW_FIRST_NAME"),
         last_name:     ENV.fetch("FASTLANE_REVIEW_LAST_NAME"),
@@ -511,7 +511,7 @@ platform :mac do
   lane :devid_release do
     # Developer-ID auto-paste build — full feature set, distributed outside MAS.
     #
-    # Prerequisites (see docs/store-release.md):
+    # Prerequisites (see internal-notes):
     #   - Developer ID Application certificate in keychain
     #   - ASC API key at ASC_KEY_PATH (see load_credentials.rb / fastlane.env)
     #   - create-dmg installed: brew install create-dmg

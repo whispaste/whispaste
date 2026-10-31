@@ -5,7 +5,7 @@
 /// domain in particular. History, notes and the detail panel all have to ask
 /// it before letting a bare key (Delete, C, E, …) act, and routing that
 /// through `features/history/` would make notes depend on history for a fact
-/// that has nothing to do with either (`CONTEXT.md` §5.9: no feature-to-feature
+/// that has nothing to do with either (`internal-notes` §5.9: no feature-to-feature
 /// dependency between `lib/features/notes/` and `lib/features/history/`).
 library;
 

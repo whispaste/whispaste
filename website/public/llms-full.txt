@@ -1,12 +1,12 @@
 # WhisPaste — Full LLM Reference
 
-> Vollständige Self-Beschreibung von WhisPaste für KI-Suchmaschinen und LLM-Crawler. Quelle: `CONTEXT.md` §1–§4 + `docs/zielgruppe.md`.
+> Vollständige Self-Beschreibung von WhisPaste für KI-Suchmaschinen und LLM-Crawler. Quelle: `internal-notes` §1–§4 + `internal-notes`.
 
 <!-- seo-audit:contrastive -->
 
 ---
 
-## Part 1 — Domain Glossary (CONTEXT.md §1–§4)
+## Part 1 — Domain Glossary (internal-notes §1–§4)
 
 ## 1. Produktkern
 
@@ -15,8 +15,8 @@
 - **App:** macOS, Windows, Ubuntu Linux — drei gleichrangige Desktop-Plattformen (Linux-Ziel: Binär-Parität via AppImage). Kein iOS/Android.
 - **Website** (`website/`) ≠ App: muss voll mobil-responsive sein (ab 390px) — „Mobile nicht geplant" gilt nur für die App.
 - **Nordstern:** OSS-Marktführer für systemweites Desktop-Diktat (macOS/Windows/Linux). Jede Produkt-/Design-/Copy-Entscheidung zahlt darauf ein.
-- **Formsprache spiegelt Philosophie:** Die Liquid-Glass-Optik des Aufnahme-Overlays (weiche Silhouette, kontinuierliche Bewegung, keine harten Zustandswechsel) ist die bewusste visuelle Übersetzung des Kernprinzips „Schreibfluss schlägt Funktion" (`docs/zielgruppe.md`): Der Gedanke fließt ohne Bruch in den Text, und die Oberfläche zeigt diesen Fluss. Design- und Copy-Entscheidungen halten diese Klammer aus Optik und Produktphilosophie zusammen, statt sie unabhängig voneinander zu treffen.
-- **Visuelles Kredo (seit 2026-08, app-weit und dauerhaft — gilt über den 2026-Visual-Refresh hinaus):** „Das bestehende WhisPaste — aber durch hochwertiges farbiges Glas betrachtet." Lebendige Atmosphäre, luxuriöse UI/Komponenten, eine intelligent wirkende Arbeitsumgebung und klar erkennbare Markenidentität — bei unverändertem Produkt: kein neues Layout, keine neue Informationsarchitektur, ein radikaler visueller Skin-Wechsel innerhalb der bestehenden Struktur. „Glas" ist eine Sättigungs-/Tiefen-Metapher, kein Auftrag zu echtem Compositor-Blur — Näheres inkl. Spannung zum bisherigen „Quiet Signal"-Framing: `docs/adr/0011-visuelles-kredo-farbiges-glas.md`.
+- **Formsprache spiegelt Philosophie:** Die Liquid-Glass-Optik des Aufnahme-Overlays (weiche Silhouette, kontinuierliche Bewegung, keine harten Zustandswechsel) ist die bewusste visuelle Übersetzung des Kernprinzips „Schreibfluss schlägt Funktion" (`internal-notes`): Der Gedanke fließt ohne Bruch in den Text, und die Oberfläche zeigt diesen Fluss. Design- und Copy-Entscheidungen halten diese Klammer aus Optik und Produktphilosophie zusammen, statt sie unabhängig voneinander zu treffen.
+- **Visuelles Kredo (seit 2026-08, app-weit und dauerhaft — gilt über den 2026-Visual-Refresh hinaus):** „Das bestehende WhisPaste — aber durch hochwertiges farbiges Glas betrachtet." Lebendige Atmosphäre, luxuriöse UI/Komponenten, eine intelligent wirkende Arbeitsumgebung und klar erkennbare Markenidentität — bei unverändertem Produkt: kein neues Layout, keine neue Informationsarchitektur, ein radikaler visueller Skin-Wechsel innerhalb der bestehenden Struktur. „Glas" ist eine Sättigungs-/Tiefen-Metapher, kein Auftrag zu echtem Compositor-Blur — Näheres inkl. Spannung zum bisherigen „Quiet Signal"-Framing: `internal-notes`.
 
 ### WhisPaste ist explizit nicht …
 
@@ -226,7 +226,7 @@ Nicht zu verwechseln mit: Supabase-Server (PostgREST, Feedback-Backend), WebSock
 
 ---
 
-## Part 2 — Target Audience (docs/zielgruppe.md)
+## Part 2 — Target Audience (internal-notes)
 
 # Zielgruppe — WhisPaste
 
@@ -318,7 +318,7 @@ dort einfügt, wo der Cursor steht — egal in welcher App.
   > **Offene Frage (Maintainer-Entscheidung, 2026-10-07):** Diese Zeile
   > widerspricht dem ausgelieferten Stand — Smart Mode ist seit v2 wieder
   > aktiv (Settings → Smart Mode, Default aus, lokal per Gemma-Modell oder
-  > optional OpenAI; ADR-0007/ADR-0010, `CONTEXT.md` §7). Bewusst nicht
+  > optional OpenAI; ADR-0007/ADR-0010, `internal-notes` §7). Bewusst nicht
   > still aufgelöst: Entweder Smart Mode als schmalen, optionalen
   > Nachbearbeitungsschritt hier als Ausnahme aufnehmen, oder das Feature
   > neu bewerten. Quelle: `internal-notes`.

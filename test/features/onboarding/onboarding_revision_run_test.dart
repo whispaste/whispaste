@@ -459,7 +459,7 @@ void main() {
     testWidgets(
       'neither asks for nor implies telemetry consent: the notice says '
       'nothing about it, and step 2 shows the choice this user already made '
-      '(CONTEXT.md §6.5)',
+      '(internal-notes §6.5)',
       (tester) async {
         debugDefaultTargetPlatformOverride = TargetPlatform.linux;
         try {

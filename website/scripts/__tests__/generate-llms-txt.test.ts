@@ -7,7 +7,7 @@
  *   - `buildLlmsTxt({ title, description, sections })` — produziert die
  *     llmstxt.org-konforme Kurzversion.
  *   - `buildLlmsFullTxt({ contextSections, zielgruppeMd })` — konkateniert
- *     CONTEXT.md §1–§4 und docs/zielgruppe.md.
+ *     internal-notes §1–§4 und internal-notes.
  *
  * Tests verwenden Mock-Markdown statt der echten PROTECTED-Quelldateien,
  * damit die Specs auch in einer frischen CI-Clone-Umgebung laufen. Die
@@ -25,7 +25,7 @@ import {
 import { antiVocabulary } from "../../src/data/brand-glossary.ts";
 import { buildTermRegex, scanHtml } from "../check-brand-vocabulary.mjs";
 
-const MOCK_CONTEXT_MD = `# CONTEXT.md — Mock
+const MOCK_CONTEXT_MD = `# internal-notes — Mock
 
 > Pflege-Regel.
 

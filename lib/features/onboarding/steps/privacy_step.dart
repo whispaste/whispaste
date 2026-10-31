@@ -19,7 +19,7 @@ const kPrivacyStepCrashToggleKey = Key('privacyStepCrashReportingToggle');
 ///
 /// Tells the user, up front, that audio and text stay local and that
 /// WhisPaste sends anonymous, GDPR-compliant usage statistics to a
-/// self-hosted EU server (CONTEXT.md §6.5/§7: never an absolute "no
+/// self-hosted EU server (internal-notes §6.5/§7: never an absolute "no
 /// tracking" claim), and separately, that it can send anonymous crash
 /// reports — and gives them both toggles right here, plus a third toggle for
 /// keeping recent recordings on disk. The first two stay **on by default**

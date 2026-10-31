@@ -76,7 +76,7 @@ automatically** (no manual step, no Windows box) via the Partner Center
 submission API, including the bilingual "What's new" notes. When they are absent
 the job logs a warning and skips — so the rest of the release is never blocked.
 
-One-time prerequisites (see `docs/store-release.md` → *Microsoft-Store-Automatisierung*
+One-time prerequisites (see `internal-notes` → *Microsoft-Store-Automatisierung*
 for the full walkthrough):
 
 1. Register an app in **Microsoft Entra ID** and create a **client secret**.

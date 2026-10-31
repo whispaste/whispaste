@@ -105,7 +105,7 @@ foreach ($locale in $managedLocales) {
 
 # ── 3. Live price vs. Free/€0 ────────────────────────────────────────────────
 # RESOLVED 2026-09-04 (Microsoft support ticket API REDACTED
-# — see scripts/submit-ms-store.ps1's header and docs/store-release.md):
+# — see scripts/submit-ms-store.ps1's header and internal-notes):
 # pricing.priceId is now a STRONG signal, not a weak one — submit-ms-store.ps1
 # explicitly writes store/defaults.json's default.PriceId on every submission,
 # so the last published submission's priceId must equal that same value.

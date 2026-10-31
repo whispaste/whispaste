@@ -19,7 +19,7 @@ import '../../services/smart_mode/smart_mode_presets.dart' show SmartModePreset;
 /// [transcribing] and [done]: a local-model post-processing pass (e.g. the
 /// Cleanup preset) runs while the state machine sits here. It never leads to
 /// [error] — any refining failure or timeout falls back to [done] with the
-/// raw transcript unchanged (`docs/adr/0009-smart-mode-never-blocks-prinzip.md`).
+/// raw transcript unchanged (`internal-notes`).
 /// Recordings with no active Smart Mode preset skip this phase entirely and
 /// transition [transcribing] → [done] exactly as before this ticket.
 enum RecordingPhase { idle, recording, transcribing, refining, done, error }

@@ -17,7 +17,7 @@
 ///
 /// Updates must be EdDSA-signed; Sparkle/WinSparkle reject unsigned feeds. The
 /// public key is embedded in the platform runner (see
-/// `docs/signing-key-setup.md`); signing happens in CI, never in the repo.
+/// `internal-notes`); signing happens in CI, never in the repo.
 library;
 
 import 'dart:async';

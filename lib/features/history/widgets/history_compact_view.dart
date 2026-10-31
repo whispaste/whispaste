@@ -287,7 +287,7 @@ class _HistoryCompactRowState extends State<HistoryCompactRow> {
 // ---------------------------------------------------------------------------
 // Compact row actions — the same three the list and card views offer.
 // Switching the view changes the density, not the feature set
-// (CONTEXT.md §5.5.5); the compact row keeps the dense variant so it stays
+// (internal-notes §5.5.5); the compact row keeps the dense variant so it stays
 // several times denser than the list row. They sit ahead of the metadata so
 // duration/language/time stay anchored and only the flexible title gives way.
 //

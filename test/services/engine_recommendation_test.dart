@@ -1,7 +1,7 @@
 /// Unit tests for [recommendEngine] — pure function, no widget tree needed.
 ///
 /// The decision is language-first: Parakeet is faster than Whisper on every
-/// machine (CONTEXT.md §4.2), so hardware never rules it out — only the
+/// machine (internal-notes §4.2), so hardware never rules it out — only the
 /// dictation language can. Hardware only feeds the Whisper-tier
 /// recommendation once Parakeet is already ineligible.
 library;

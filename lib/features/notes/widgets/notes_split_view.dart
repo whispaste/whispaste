@@ -10,7 +10,7 @@ import 'notes_list_view.dart';
 // cross-fade come from WpSplitView; what stays here is the notes-specific
 // content of the two columns. Deliberately simpler than history's: a flat
 // note list left, the editor right, no view modes, no multi-select, no date
-// groups (CONTEXT.md §5.9).
+// groups (internal-notes §5.9).
 // ---------------------------------------------------------------------------
 
 class NotesSplitView extends StatelessWidget {

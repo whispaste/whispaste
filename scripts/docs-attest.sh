@@ -36,7 +36,7 @@ WEBSRC="$WEB/src"
 PLATFORMS="$WEBSRC/data/platforms.ts"
 GLOSSARY="$WEBSRC/data/brand-glossary.ts"
 APP_URLS="$ROOT/lib/core/app_urls.dart"
-SPEC="$ROOT/docs/public-docs-spec.md"   # interne QS-Spec, bewusst gitignored
+SPEC="$ROOT/internal-notes"   # interne QS-Spec, bewusst gitignored
 ATTEST="$ROOT/.docs-attest"
 # Host-wide list of attested tree hashes, shared by every checkout, worktree and
 # landing clone on this machine (a tree hash names exactly the attested content).

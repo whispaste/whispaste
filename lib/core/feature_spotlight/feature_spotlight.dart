@@ -65,7 +65,7 @@ typedef FeatureSpotlightRegistry = List<FeatureSpotlightEntry>;
 /// Either way, set this to the new version.
 ///
 /// Spotlight-worthy: a new user-facing capability that changes what the
-/// target audience (`docs/zielgruppe.md`) can do, and that they are unlikely
+/// target audience (`internal-notes`) can do, and that they are unlikely
 /// to discover on their own. Not spotlight-worthy: bug fixes, polish,
 /// behaviour tweaks or extra options on an existing feature, new languages,
 /// developer-facing features (automation API), internal work. Every entry

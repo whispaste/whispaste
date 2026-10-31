@@ -7,7 +7,7 @@
  * and reports RTF + WER for that run. Meant to be re-run on every hardware
  * class the maintainer has access to. Use the exact `hardwareClass` strings
  * from the `matrix` in `src/pages/engine-benchmarks.astro` (Vulkan covers
- * NVIDIA/AMD/Intel — there is no separate CUDA backend, CONTEXT.md §4.4) so
+ * NVIDIA/AMD/Intel — there is no separate CUDA backend, internal-notes §4.4) so
  * the row actually matches a page slot instead of showing as "pending" next
  * to an unmatched one — each run appends one row to
  * `src/data/engine-benchmarks.json`.

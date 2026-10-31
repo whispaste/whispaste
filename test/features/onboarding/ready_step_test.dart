@@ -88,7 +88,7 @@ void main() {
 
   // ── Wording-hygiene (issue 10) ───────────────────────────────────────────
   //
-  // CONTEXT.md §7 forbids "dictation" vocabulary — WhisPaste is explicitly
+  // internal-notes §7 forbids "dictation" vocabulary — WhisPaste is explicitly
   // not a dictation tool. No dictation vocabulary may appear anywhere on the
   // closing content.
 
@@ -108,7 +108,7 @@ void main() {
         findsNothing,
         reason:
             'No dictation vocabulary may appear on the closing page per '
-            'CONTEXT.md §7.',
+            'internal-notes §7.',
       );
     });
   });

@@ -7,7 +7,7 @@ notes: |
   Outcome-first marketing copy for the Microsoft Store Partner Center
   "Description" field. Keep in sync with `store/en-US/description.txt` and the
   hero/FAQ copy on whispaste.de, but written as a self-contained marketing
-  piece, not a copy of the website. Glossary-konform per CONTEXT.md §7 and
+  piece, not a copy of the website. Glossary-konform per internal-notes §7 and
   PRD §D; anti-vocabulary scan must stay green.
 ---
 

@@ -176,7 +176,7 @@ Future<void> main(List<String> args) async {
   // builds only, so that's not a production monitoring gap. Lets the
   // Dart/Flutter MCP server's flutter_driver_command tool
   // (screenshot/tap/diagnostics tree) drive the real running app — see
-  // docs/agents/ui-investigation.md.
+  // internal-notes.
   // enableTextEntryEmulation defaults to true, which intercepts the
   // TextInput platform channel app-wide and swallows all real keyboard
   // input (focus/caret stay visually active but no character ever lands,

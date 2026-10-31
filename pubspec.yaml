@@ -86,7 +86,7 @@ dependencies:
   # never reaches the Mac App Store / Microsoft Store build. Lets the
   # Dart/Flutter MCP server's flutter_driver_command tool (screenshot, tap,
   # diagnostics tree) drive the real running app for UI debugging — see
-  # docs/agents/ui-investigation.md.
+  # internal-notes.
   flutter_driver:
     sdk: flutter
 

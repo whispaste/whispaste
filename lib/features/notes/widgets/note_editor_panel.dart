@@ -223,7 +223,7 @@ class NoteEditorPanel extends StatelessWidget {
                           child: IconButton(
                             onPressed: () {
                               // Deliberately no telemetry here: note contents are on
-                              // the telemetry negative list (CONTEXT.md) — unlike the
+                              // the telemetry negative list (internal-notes) — unlike the
                               // history copy action, this stays event-free.
                               Clipboard.setData(
                                 ClipboardData(text: controller.text),

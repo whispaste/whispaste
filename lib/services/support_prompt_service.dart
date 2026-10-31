@@ -12,7 +12,7 @@
 /// opening a sponsoring link buys a 9-month quiet period, after which exactly
 /// one recurring-sponsoring follow-up is offered. Regardless of path, a hard
 /// cap of [_impressionCap] total impressions per install is enforced — see
-/// CONTEXT.md §6.8.
+/// internal-notes §6.8.
 ///
 /// Uses SharedPreferences to persist prompt history across sessions.
 library;
@@ -86,7 +86,7 @@ const _keyLinkClicked = 'support_prompt_link_clicked';
 const _keyFollowUpShown = 'support_prompt_followup_shown';
 
 /// Hard cap on total impressions (any variant) per install. Independent of
-/// resolution path — see CONTEXT.md §6.8.
+/// resolution path — see internal-notes §6.8.
 const _impressionCap = 3;
 
 /// Snooze length after an explicit dismiss.

@@ -697,7 +697,7 @@ jobs:
     # the classic API can "continue … to update modules other than Pricing and
     # availability" even for a Pricing V2 account (which is WhisPaste's real
     # constraint: Pricing itself can't be written for V2 through any API, see
-    # scripts/submit-ms-store.ps1's header and docs/store-release.md). This job
+    # scripts/submit-ms-store.ps1's header and internal-notes). This job
     # revives the ps1-based submission removed in commit 213c1d18 (v1.2.45 had
     # briefly switched to the msstore CLI instead of fixing that script).
     # Stable-only, same as manifest-bump: a beta build never has an MSIX
@@ -724,7 +724,7 @@ jobs:
           if (-not $env:MS_STORE_TENANT_ID -or -not $env:MS_STORE_CLIENT_ID -or
               -not $env:MS_STORE_CLIENT_SECRET -or -not $env:MS_STORE_SELLER_ID -or
               -not $env:MS_STORE_APP_ID) {
-            Write-Host "::warning::MS_STORE_* secrets not set — skipping Microsoft Store submission. Submit the msix-release artifact manually via Partner Center (see docs/store-release.md)."
+            Write-Host "::warning::MS_STORE_* secrets not set — skipping Microsoft Store submission. Submit the msix-release artifact manually via Partner Center (see internal-notes)."
             echo "skip=true" >> $env:GITHUB_OUTPUT
           } else {
             echo "skip=false" >> $env:GITHUB_OUTPUT
@@ -805,7 +805,7 @@ jobs:
       # the full trail). scripts/verify-ms-store-listing.ps1 checks the
       # written price against defaults.json after every submission; run it
       # manually after the first real run following any PriceId change (see
-      # docs/store-release.md).
+      # internal-notes).
       - name: Submit to Microsoft Store (classic DevCenter API, commits)
         id: submit
         if: steps.store_check.outputs.skip != 'true'
@@ -853,7 +853,7 @@ jobs:
             echo "published normally. **The Store submission did not.**"
             echo ""
             echo "Check the \`Submit to Microsoft Store\` job log above, then"
-            echo "re-submit (see docs/store-release.md). Do not assume the"
+            echo "re-submit (see internal-notes). Do not assume the"
             echo "green run means the Store got this build."
           } >> "$GITHUB_STEP_SUMMARY"
 

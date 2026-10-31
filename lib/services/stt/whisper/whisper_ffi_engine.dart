@@ -889,7 +889,7 @@ class WhisperFfiEngine
   ///
   /// Added to diagnose intermittent "transcription swallowed a sentence"
   /// reports: the app sends the *whole* recording to a single `whisper_full`
-  /// call (no app-level chunking, see `CONTEXT.md` §4.2) and simply
+  /// call (no app-level chunking, see `internal-notes` §4.2) and simply
   /// concatenates every segment's text — so a dropped sentence must show up
   /// here as either a missing segment (a timestamp gap vs. the next
   /// segment's t0) or as fewer segments than the audio's duration would

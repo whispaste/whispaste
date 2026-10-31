@@ -2,7 +2,7 @@
 ///
 /// Crash reports and performance traces are opt-out (`errorReporting`
 /// defaults to true), which is only acceptable because they never carry
-/// audio, text, history, tags or notes (`docs/zielgruppe.md`). These tests
+/// audio, text, history, tags or notes (`internal-notes`). These tests
 /// pin the options that would otherwise attach on-screen content.
 library;
 

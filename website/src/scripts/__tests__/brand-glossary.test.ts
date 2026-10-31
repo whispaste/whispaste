@@ -2,7 +2,7 @@
  * Tests for the brand-glossary single-source-of-truth.
  *
  * Source of truth: `internal-notes` §D (Brand-Sprach-Mapping) +
- * `CONTEXT.md` §7 (Anti-Vokabular).
+ * `internal-notes` §7 (Anti-Vokabular).
  *
  * The glossary is consumed by every marketing copy / i18n string / Schema
  * component on the site. The self-consistency check below locks in the one

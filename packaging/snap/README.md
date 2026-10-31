@@ -56,7 +56,7 @@ snapcraft pack            # erzeugt whispaste_<version>_amd64.snap
 `classic` wäre review-pflichtig und ist hier **nicht** nötig). Die Plugs decken
 alle App-Funktionen ab:
 
-| App-Funktion (CONTEXT.md) | Plug(s) |
+| App-Funktion (internal-notes) | Plug(s) |
 |---|---|
 | Display + Clipboard/Paste (§2.4) | `wayland`, `x11`, `desktop`, `desktop-legacy` |
 | Global Hotkey (§2.5) | `unity7` (Session-Bus → WM / GlobalShortcuts-Portal / keybinder) |

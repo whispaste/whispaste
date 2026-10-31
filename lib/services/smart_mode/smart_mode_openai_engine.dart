@@ -1,6 +1,6 @@
 /// Cloud [SmartModeEngine] backed by OpenAI's Chat Completions API — the
 /// only cloud provider for Smart Mode v1 (see
-/// `docs/adr/0010-smart-mode-lokal-oder-cloud-nur-openai.md`). Mirrors
+/// `internal-notes`). Mirrors
 /// [OpenAiTranscriber]'s HTTP/error-handling shape and reuses the same
 /// secure-storage API key (`wp_openai_api_key`, shared with Cloud STT — one
 /// OpenAI key for the whole app, not a separate Smart-Mode-specific one).

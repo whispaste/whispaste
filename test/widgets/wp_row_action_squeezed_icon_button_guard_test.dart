@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// Anchors that a raw `IconButton` never hand-sets a tap target smaller than
 /// `WpLayout.minTouchTarget` (48 px, `lib/DESIGN.md` line ~207: "All
 /// interactive elements meet the 48px minimum touch target") outside
-/// `WpRowAction` (CONTEXT.md's row-action family, Ticket 02).
+/// `WpRowAction` (internal-notes's row-action family, Ticket 02).
 ///
 /// The family this closes: history's list/card/compact views, notes and
 /// replacements/snippets each used to build their own row-action

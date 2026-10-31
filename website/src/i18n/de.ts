@@ -495,10 +495,10 @@ const dict: Record<string, string> = {
   // „Anwendungsfälle" und konsistent mit dem PRD-§E-Pfad `/use-cases/`.
   'breadcrumb.useCases': 'Use Cases',
   // Programmierer-Use-Case — Vokabular Glossar-konform: keine „Diktat/-
-  // Diktieren/Diktier-Tool"-Begriffe (Anti-Vokabular CONTEXT.md §7).
+  // Diktieren/Diktier-Tool"-Begriffe (Anti-Vokabular internal-notes §7).
   // Stattdessen `Spracheingabe`, `Sprach-Eingabe-Tool`, `Transkript`,
   // `transkribiert`. Der Hero-Lead beantwortet den
-  // `docs/zielgruppe.md`-Lackmustest („Entwickler mitten im Code-Review,
+  // `internal-notes`-Lackmustest („Entwickler mitten im Code-Review,
   // fünfsätzige Antwort, ohne Maus, ohne Browser-Wechsel") explizit.
   'useCaseHub.seoTitle': 'WhisPaste Anwendungsfälle: Spracheingabe im Alltag',
   'useCaseHub.seoDescription': 'So passt WhisPaste in echte Schreib-Workflows: Code-Reviews, Studiennotizen und Alltagstexte direkt am Cursor einsprechen, lokal, in jeder App.',
@@ -755,7 +755,7 @@ const dict: Record<string, string> = {
   // Marker, die der Brand-Vocabulary-Gate ausklammert. Die Copy hält
   // WhisPaste in der KONTRASTIVEN Rolle: WhisPaste wird nie selbst als
   // Diktiersoftware bezeichnet, sondern nur als Alternative zu dieser
-  // Kategorie. Siehe CONTEXT.md §1 (Abgrenzungs-Tabelle) und §7
+  // Kategorie. Siehe internal-notes §1 (Abgrenzungs-Tabelle) und §7
   // (Anti-Vokabular).
   'comparison.breadcrumb': 'Vergleich',
   'comparison.dictationAlternatives.breadcrumb': 'Sprach-Eingabe-Tool-Alternativen',

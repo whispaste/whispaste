@@ -10,7 +10,7 @@ import { getAccessToken, submitSitemap, SITE_URL, SITEMAP_URL } from '../gsc-sit
 // succeed structurally even though no real Google endpoint verifies it here.
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
 const fakeServiceAccountKey = {
-  client_email: 'whispaste-gsc-sitemap-ping@hellerio-ai.iam.gserviceaccount.com',
+  client_email: 'whispaste-gsc-sitemap-ping@gcp-project.iam.gserviceaccount.com',
   private_key: privateKey.export({ type: 'pkcs1', format: 'pem' }),
 };
 

@@ -3,7 +3,7 @@
   Submits a new WhisPaste version to the Microsoft Store via the classic
   Partner Center Submission API (manage.devcenter.microsoft.com), bypassing
   the `msstore` CLI's hard "paid products not supported" guard (see
-  docs/store-release.md and ~/.claude/infrastructure/microsoft-partner-center.md
+  internal-notes and ~/.claude/infrastructure/microsoft-partner-center.md
   for the full research trail on why that guard exists and why this API is
   NOT subject to the same restriction for anything except Pricing).
 
@@ -23,7 +23,7 @@
   ReleaseNotes under Listings.<locale>.BaseListing).
 
   RESOLVED 2026-09-04 (Microsoft support ticket API REDACTED
-  — see docs/store-release.md and ~/.claude/infrastructure/microsoft-
+  — see internal-notes and ~/.claude/infrastructure/microsoft-
   partner-center.md §12 for the full trail): pricing.priceId is NOT
   unwritable for this account, and it must NEVER be passed through
   untouched or omitted. Microsoft's own Engineering Team confirmed the root
@@ -58,7 +58,7 @@
   support ticket above proved that belief wrong: there was a third option
   (a concrete Tier10xx value) that nobody had tried yet.
 
-  IMAGES (added 2026-07-29): despite docs/store-release.md's older claim that
+  IMAGES (added 2026-07-29): despite internal-notes's older claim that
   listing images aren't API-controllable, Microsoft's docs
   (learn.microsoft.com/windows/uwp/monetize/create-and-manage-submissions-
   using-windows-store-services, confirmed against
@@ -267,7 +267,7 @@ up in Partner Center -> Pricing and availability -> the tier conversion
 table for WhisPaste's real price (isAdvancedPricingModel accounts use the
 Tier1001+ range; legacy Tier2-Tier96 are rejected for this pricing model
 per Microsoft support ticket API REDACTED -- see this
-script's header and docs/store-release.md). Never guess a tier number:
+script's header and internal-notes). Never guess a tier number:
 committing a wrong-but-valid-looking tier silently changes the live price.
 "@
 }
@@ -467,7 +467,7 @@ foreach ($locale in $LOCALE_MAP.Values) {
 # 2026-07-30 → 2026-09-04 incident history (three wrong beliefs in a row:
 # "priceId = null is safe", "pass pricing through untouched is safe", "no
 # safe payload exists at all") lives in the header comment and
-# docs/store-release.md — do not re-derive it here; read those before
+# internal-notes — do not re-derive it here; read those before
 # touching pricing logic again.
 
 # ── Replace application packages ──────────────────────────────────────────────

@@ -1,5 +1,5 @@
 /// Resilience tests for [SttServerStateNotifier] against distinguishable FFI
-/// failure signals (CONTEXT.md §3.3): CPU-fallback on GPU crash, OOM-recovery
+/// failure signals (internal-notes §3.3): CPU-fallback on GPU crash, OOM-recovery
 /// trigger, stuck-guard timeout, and transient retry.
 ///
 /// The subprocess-era chain keyed on process exit codes; the in-process engine

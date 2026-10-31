@@ -6,7 +6,7 @@ last-reviewed: 2026-05-21
 notes: |
   Texts that appear inside the macOS DMG volume (volume name, welcome card,
   install hint, privacy note) and in the README that ships next to the .app
-  bundle. Glossar-konform per CONTEXT.md §7. Keep in sync with the on-site
+  bundle. Glossar-konform per internal-notes §7. Keep in sync with the on-site
   tone and the Microsoft Store listing, but worded for first-launch context.
 ---
 

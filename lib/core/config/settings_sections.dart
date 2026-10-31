@@ -1837,7 +1837,7 @@ class PrivacySettings {
   // lets users opt out.
   //
   // retainRecentAudio defaults OFF, the opposite polarity — this is an
-  // opt-in exception to the app's "no durable audio" default (CONTEXT.md
+  // opt-in exception to the app's "no durable audio" default (internal-notes
   // §6.5), so the safe default keeps that principle intact until a user
   // deliberately turns it on.
   const PrivacySettings({

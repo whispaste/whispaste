@@ -7,8 +7,8 @@
  * which cannot reach Google.
  *
  * Auth: a dedicated, minimal-scope service account
- * (whispaste-gsc-sitemap-ping@hellerio-ai.iam.gserviceaccount.com, GCP
- * project hellerio-ai) added as a "Full" user on the sc-domain:whispaste.de
+ * (whispaste-gsc-sitemap-ping@gcp-project.iam.gserviceaccount.com, GCP
+ * project gcp-project) added as a "Full" user on the sc-domain:whispaste.de
  * Search Console property. It has no other IAM roles or product access. No
  * `googleapis` dependency — this signs its own JWT with Node's built-in
  * `crypto` and exchanges it for an access token, since the only call needed

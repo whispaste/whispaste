@@ -13,7 +13,7 @@ import 'wp_focus_ring.dart';
 // four hand-rolled variants that used to exist (focusable, hover tint, own
 // destructive-red state). Lives in `lib/widgets/` so notes/replacements/
 // snippets can use it without importing from `lib/features/history/`
-// (CONTEXT.md §5.9: no feature-to-feature dependency).
+// (internal-notes §5.9: no feature-to-feature dependency).
 //
 // ## Visibility: reveal on hover or focus — and why
 //

@@ -114,7 +114,7 @@ Stacktraces bleiben bewusst mehrzeilig (klar als solche erkennbar, kein
 freier Text).
 
 Inhalts-Ebene (Diktat-Text, Audio, Zwischenablage-Inhalt) wird nach dem
-Zwei-Schichten-Datenmodell des Projekts (`CONTEXT.md` §6.5) grundsätzlich
+Zwei-Schichten-Datenmodell des Projekts (`internal-notes` §6.5) grundsätzlich
 **nie** geloggt — weder Debug- noch Release-Build.
 
 ## Security-/Audit-relevante Pfade
@@ -133,7 +133,7 @@ Root-Cause-Analysen zuerst zu prüfen:
 | Crash-Reporting-Consent-Änderung | `AppLogger`/`dev.log` (Consent-Toggle selbst, bewusst nicht persistiert) | `lib/core/logging/crash_reporter.dart` |
 | Feedback-Rate-Limiting | serverseitig, kein Client-Log | `supabase/migrations/20260416_feedback_security_hardening.sql` u. Folge-Migrationen |
 
-Zero-Trust-Client-Prinzip (`CONTEXT.md` §6.1): Logs dienen hier ausschließlich
+Zero-Trust-Client-Prinzip (`internal-notes` §6.1): Logs dienen hier ausschließlich
 der Diagnose, nie der Durchsetzung von Limits/Berechtigungen — das bleibt
 Server-seitig (Supabase RLS + Trigger).
 

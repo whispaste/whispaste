@@ -175,7 +175,7 @@ const _searchableListBodyReserve = 130.0;
 // arrow cursor since they existed, so this was the one keyboard skill that
 // stopped working halfway across the app.
 //
-// The model is *rebuilt* from Verlauf/Notizen (`CONTEXT.md` §5.9), not
+// The model is *rebuilt* from Verlauf/Notizen (`internal-notes` §5.9), not
 // imported: one page-level index into the **filtered** list, rendered by the
 // rows and moved by the page. What differs, and why:
 //
