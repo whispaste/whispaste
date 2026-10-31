@@ -1,0 +1,163 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../../core/config/settings_provider.dart';
+import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
+import '../../../services/model_download_service.dart'
+    show formatModelSizeLabel;
+import '../../../services/stt/whisper/cuda_pack.dart';
+import '../../../widgets/wp_button.dart';
+import '../settings_widgets.dart';
+
+/// Settings row for the optional NVIDIA CUDA pack (see `cuda_pack.dart`):
+/// download with progress and cancel, then an on/off switch and a remove
+/// button. The caller decides visibility via [cudaPackOfferedProvider].
+class CudaPackRow extends ConsumerWidget {
+  const CudaPackRow({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final state = ref.watch(cudaPackProvider);
+    final pack = state.pack;
+    if (pack == null) return const SizedBox.shrink();
+    final notifier = ref.read(cudaPackProvider.notifier);
+
+    if (state.installed && !state.isBusy) {
+      final enabled = ref.watch(
+        settingsProvider.select(
+          (s) => s.value?.behavior.cudaAcceleration ?? true,
+        ),
+      );
+      return SettingRow(
+        key: const Key('settings-cuda-pack-row'),
+        icon: LucideIcons.gauge,
+        label: l10n.settingsCudaPackTitle,
+        subtitle: l10n.settingsCudaPackInstalledSubtitle,
+        semanticToggledValue: enabled,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Semantics(
+              label: l10n.settingsCudaPackToggle,
+              child: settingsToggle(
+                key: const Key('settings-cuda-pack-toggle'),
+                value: enabled,
+                onChanged: (v) => ref
+                    .read(settingsProvider.notifier)
+                    .updateSettings(
+                      (s) => s.copyWithSections(
+                        behavior: s.behavior.copyWith(cudaAcceleration: v),
+                      ),
+                    ),
+              ),
+            ),
+            Semantics(
+              label: l10n.settingsCudaPackRemove,
+              button: true,
+              child: IconButton(
+                key: const Key('settings-cuda-pack-remove'),
+                icon: const Icon(LucideIcons.trash2, size: WpIconSize.sm),
+                tooltip: l10n.settingsCudaPackRemove,
+                onPressed: notifier.remove,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final Widget trailing;
+    if (state.isBusy) {
+      final downloading = state.phase == CudaPackPhase.downloading;
+      trailing = SizedBox(
+        width: 180,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    downloading
+                        ? l10n.settingsCudaPackDownloading(
+                            (state.progress * 100).floor(),
+                          )
+                        : l10n.settingsCudaPackInstalling,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (downloading)
+                  Semantics(
+                    label: l10n.settingsCudaPackCancel,
+                    button: true,
+                    child: IconButton(
+                      key: const Key('settings-cuda-pack-cancel'),
+                      icon: const Icon(LucideIcons.x, size: WpIconSize.xs),
+                      tooltip: l10n.settingsCudaPackCancel,
+                      onPressed: notifier.cancel,
+                    ),
+                  ),
+              ],
+            ),
+            LinearProgressIndicator(
+              key: const Key('settings-cuda-pack-progress'),
+              value: downloading ? state.progress : null,
+            ),
+          ],
+        ),
+      );
+    } else {
+      final error = switch (state.error) {
+        CudaPackError.network => l10n.settingsCudaPackErrorNetwork,
+        CudaPackError.verification => l10n.settingsCudaPackErrorVerification,
+        CudaPackError.storage => l10n.settingsCudaPackErrorStorage,
+        null => null,
+      };
+      trailing = Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (error != null)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 240),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: WpSpacing.xxs),
+                child: Text(
+                  error,
+                  key: const Key('settings-cuda-pack-error'),
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    fontSize: WpTypography.caption,
+                    color: WpColors.error,
+                  ),
+                ),
+              ),
+            ),
+          WpButton(
+            key: const Key('settings-cuda-pack-download'),
+            label: l10n.settingsCudaPackDownload,
+            variant: WpButtonVariant.ghost,
+            icon: LucideIcons.download,
+            onPressed: notifier.install,
+          ),
+        ],
+      );
+    }
+
+    return SettingRow(
+      key: const Key('settings-cuda-pack-row'),
+      icon: LucideIcons.gauge,
+      label: l10n.settingsCudaPackTitle,
+      subtitle: l10n.settingsCudaPackSubtitle(
+        formatModelSizeLabel(pack.archiveSizeBytes),
+      ),
+      trailing: trailing,
+    );
+  }
+}

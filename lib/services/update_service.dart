@@ -1,0 +1,556 @@
+/// App update service — checks GitHub Releases for newer versions and handles
+/// the update flow based on deploy channel.
+///
+/// - **Installer channel**: Downloads `WhisPaste-Setup.exe`, launches it, exits app.
+/// - **Portable channel**: Shows download link to the user.
+/// - **Store channel**: No-op (Store handles updates).
+library;
+
+import 'dart:async';
+import 'dart:io';
+import 'dart:isolate';
+
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
+import '../core/app_info.dart';
+import '../core/logging/app_logger.dart';
+import '../core/recording/recording_state.dart';
+import '../core/semver.dart' as semver;
+import 'deploy_channel_service.dart';
+import 'http_model_fetcher.dart' show buildDioWithSentry;
+import 'telemetry_service.dart';
+import 'update/mac_update_installer.dart';
+import 'update_channel_service.dart';
+
+final _log = AppLogger('Update');
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const _githubOwner = 'whispaste';
+const _githubRepo = 'whispaste';
+const _releasesApiUrl =
+    'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases/latest';
+
+/// The list endpoint, newest-first — unlike `/releases/latest` (which is
+/// GitHub-defined as the newest *non-prerelease*), this includes betas. Used
+/// on [UpdateChannel.beta] so a beta-opted-in user's check can actually find
+/// a beta release (PRD Bug 4 — the channel used to be ignored entirely).
+const _releasesListApiUrl =
+    'https://api.github.com/repos/$_githubOwner/$_githubRepo/releases';
+
+/// Returns the platform-specific installer asset name to search for.
+String get _setupAssetName {
+  if (Platform.isMacOS) return 'WhisPaste-macos-arm64.dmg';
+  if (Platform.isLinux) return 'WhisPaste-linux-x64.tar.gz';
+  return 'WhisPaste-Setup.exe'; // Windows
+}
+
+// ---------------------------------------------------------------------------
+// Update state
+// ---------------------------------------------------------------------------
+
+/// Lifecycle phases for the update check + download flow.
+enum UpdatePhase {
+  /// No check performed yet.
+  idle,
+
+  /// Querying GitHub Releases API.
+  checking,
+
+  /// A newer version is available.
+  available,
+
+  /// Downloading the installer asset.
+  downloading,
+
+  /// Download complete, ready to install.
+  readyToInstall,
+
+  /// No update available — already on latest.
+  upToDate,
+
+  /// Something went wrong (see [UpdateState.errorMessage]).
+  error,
+}
+
+/// Immutable snapshot of the update lifecycle.
+class UpdateState {
+  const UpdateState({
+    this.phase = UpdatePhase.idle,
+    this.latestVersion,
+    this.downloadUrl,
+    this.releaseNotesUrl,
+    this.downloadedPath,
+    this.progressPercent = 0,
+    this.errorMessage,
+  });
+
+  final UpdatePhase phase;
+  final String? latestVersion;
+  final String? downloadUrl;
+  final String? releaseNotesUrl;
+  final String? downloadedPath;
+  final double progressPercent;
+  final String? errorMessage;
+
+  bool get isBusy =>
+      phase == UpdatePhase.checking || phase == UpdatePhase.downloading;
+
+  UpdateState copyWith({
+    UpdatePhase? phase,
+    String? latestVersion,
+    String? downloadUrl,
+    String? releaseNotesUrl,
+    String? downloadedPath,
+    double? progressPercent,
+    String? errorMessage,
+  }) {
+    return UpdateState(
+      phase: phase ?? this.phase,
+      latestVersion: latestVersion ?? this.latestVersion,
+      downloadUrl: downloadUrl ?? this.downloadUrl,
+      releaseNotesUrl: releaseNotesUrl ?? this.releaseNotesUrl,
+      downloadedPath: downloadedPath ?? this.downloadedPath,
+      progressPercent: progressPercent ?? this.progressPercent,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Notifier
+// ---------------------------------------------------------------------------
+
+class UpdateNotifier extends Notifier<UpdateState> {
+  CancelToken? _cancelToken;
+  late final Dio _dio;
+
+  /// Test-only override for the Dio client. When set BEFORE the notifier is
+  /// first observed, `build()` uses this instance instead of constructing a
+  /// real one. Lets tests inject a mock adapter (e.g. for the
+  /// "network-error must not capture to Sentry" contract from the reliability
+  /// sprint Modul 6).
+  @visibleForTesting
+  static Dio? dioOverrideForTesting;
+
+  /// Test-only seam for the macOS update swap. When set, [installUpdate] calls
+  /// this instead of spawning the real detached helper, so tests observe the
+  /// resolved (dmg, target) arguments without mounting or relaunching.
+  @visibleForTesting
+  static MacUpdateInstaller? macInstallerOverrideForTesting;
+
+  /// Test-only seam for resolving the running app bundle on macOS. Returning a
+  /// path drives the swap; returning `null` drives the manual-install fallback.
+  @visibleForTesting
+  static String? Function()? macBundlePathOverrideForTesting;
+
+  /// Test-only seam for process exit. When set, [installUpdate] calls this
+  /// instead of `exit(0)` so the test runner is not terminated.
+  @visibleForTesting
+  static void Function(int code)? exitOverrideForTesting;
+
+  /// Test-only seam for the macOS manual-install fallback (open the DMG). When
+  /// set, [installUpdate] calls this instead of spawning a real `open` process.
+  @visibleForTesting
+  static Future<void> Function(String dmgPath)? macOpenDmgOverrideForTesting;
+
+  /// Test-only state setter. The notifier's `state` is protected, so tests use
+  /// this to drive [installUpdate] into [UpdatePhase.readyToInstall] (with a
+  /// resolved [downloadedPath]) without running the full download flow.
+  @visibleForTesting
+  void debugSetStateForTesting(UpdateState newState) {
+    state = newState;
+  }
+
+  @override
+  UpdateState build() {
+    _dio = dioOverrideForTesting ?? buildUpdateDio();
+    ref.onDispose(() {
+      _cancelToken?.cancel('disposed');
+      _dio.close();
+    });
+    return const UpdateState();
+  }
+
+  /// Builds the Dio client used for update checks.
+  ///
+  /// Exposed for tests so the production Sentry-interceptor configuration is
+  /// exercised directly (the contract regression in
+  /// `update_service_no_sentry_test.dart`).
+  ///
+  /// Update-check failures — GitHub rate limits, captive portals, offline,
+  /// transient 5xx — are expected, fire on app start without user intent, and
+  /// run against a third-party API the user cannot influence.
+  /// [checkForUpdate] already surfaces them as a graceful error state, and
+  /// they must NOT become Sentry events (FLUTTER_WHISPASTE-72, reliability
+  /// sprint Modul 6). The catch-block fix only covered the explicit-capture
+  /// path; `addSentry()` would still auto-capture every 5xx through its
+  /// `captureFailedRequests` interceptor (default status range 500–599),
+  /// silently overriding that intent — so disable it for this client. Tracing
+  /// spans and request breadcrumbs are unaffected (they are installed by the
+  /// adapter/transformer that `addSentry` wraps regardless of this flag).
+  @visibleForTesting
+  static Dio buildUpdateDio() => buildDioWithSentry(
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(minutes: 5),
+  );
+
+  // -----------------------------------------------------------------------
+  // Public API
+  // -----------------------------------------------------------------------
+
+  /// Check GitHub Releases for a newer version.
+  ///
+  /// No-op if already busy, or if the deploy channel is externally managed
+  /// (store, Homebrew Cask, Scoop — see [isExternallyManaged]).
+  Future<void> checkForUpdate() async {
+    final channel = ref.read(deployChannelProvider);
+    if (isExternallyManaged(channel)) {
+      _log.info(
+        'Externally-managed channel ($channel) — skipping update check',
+      );
+      state = const UpdateState(phase: UpdatePhase.upToDate);
+      return;
+    }
+    if (state.isBusy) return;
+
+    state = const UpdateState(phase: UpdatePhase.checking);
+    _log.info('Checking for updates...');
+
+    final updateChannel =
+        ref.read(updateChannelProvider).value ?? UpdateChannel.stable;
+
+    try {
+      Map<String, dynamic>? data;
+      if (updateChannel == UpdateChannel.beta) {
+        // `/releases/latest` structurally excludes prereleases — the list
+        // endpoint is newest-first and includes them, so the newest app
+        // release is exactly what a beta-channel user opted into. Non-app
+        // releases (e.g. the `cuda-…` pack prereleases) are skipped: only
+        // `v`-prefixed tags are app versions.
+        final response = await _dio.get<List<dynamic>>(
+          _releasesListApiUrl,
+          options: Options(
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          ),
+        );
+        data = response.data
+            ?.cast<Map<String, dynamic>>()
+            .where((r) => (r['tag_name'] as String?)?.startsWith('v') ?? false)
+            .firstOrNull;
+      } else {
+        final response = await _dio.get<Map<String, dynamic>>(
+          _releasesApiUrl,
+          options: Options(
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          ),
+        );
+        data = response.data;
+      }
+
+      if (data == null) {
+        state = const UpdateState(
+          phase: UpdatePhase.error,
+          errorMessage: 'Empty response from GitHub',
+        );
+        return;
+      }
+
+      final tagName = (data['tag_name'] as String?) ?? '';
+      final latestVersion = tagName.startsWith('v')
+          ? tagName.substring(1)
+          : tagName;
+
+      if (latestVersion.isEmpty) {
+        state = const UpdateState(
+          phase: UpdatePhase.error,
+          errorMessage: 'Could not parse version from release',
+        );
+        return;
+      }
+
+      // Compare versions.
+      if (!isNewer(latestVersion, appVersion)) {
+        _log.info('Up to date (current=$appVersion, latest=$latestVersion)');
+        state = UpdateState(
+          phase: UpdatePhase.upToDate,
+          latestVersion: latestVersion,
+        );
+        return;
+      }
+
+      // Find the setup asset download URL.
+      final assets = (data['assets'] as List<dynamic>?) ?? [];
+      String? setupUrl;
+      for (final asset in assets) {
+        final assetMap = asset as Map<String, dynamic>;
+        final name = (assetMap['name'] as String?) ?? '';
+        if (name == _setupAssetName) {
+          setupUrl = assetMap['browser_download_url'] as String?;
+          break;
+        }
+      }
+
+      final htmlUrl = data['html_url'] as String?;
+
+      _log.info('Update available: $latestVersion (current=$appVersion)');
+      state = UpdateState(
+        phase: UpdatePhase.available,
+        latestVersion: latestVersion,
+        downloadUrl: setupUrl,
+        releaseNotesUrl: htmlUrl,
+      );
+    } on DioException catch (e) {
+      // Update-check network failures are deliberately NOT escalated to
+      // Sentry — they are expected (laptop on a plane, GitHub rate limit,
+      // captive WiFi) and were burning Free-Tier quota for zero diagnostic
+      // value. See `internal-notes` — Modul 6.
+      // `_log.warning` stays a Sentry breadcrumb but NOT a captured event.
+      final statusCode = e.response?.statusCode;
+      _log.warning('Update check failed (status=$statusCode): ${e.message}');
+      state = UpdateState(
+        phase: UpdatePhase.error,
+        errorMessage: statusCode == 403
+            ? 'GitHub rate limit exceeded. Try again later.'
+            : 'Could not reach GitHub (${e.message})',
+      );
+    } catch (e, st) {
+      // Non-Dio path (e.g. malformed JSON from a captive-portal HTML page).
+      // Same rationale as the DioException branch above: log-only, no
+      // Sentry capture.
+      _log.warning('Update check failed: $e\n$st');
+      state = UpdateState(phase: UpdatePhase.error, errorMessage: e.toString());
+    } finally {
+      _trackCheckOutcome();
+    }
+  }
+
+  /// Reports the terminal outcome of an update check — a single, sparse,
+  /// categorical event (no version strings, no error text) that lets Matomo
+  /// answer "does the update mechanism actually work in the wild" without
+  /// needing manual dogfooding every time. Covers both mechanisms: this
+  /// `finally` block runs after every [checkForUpdate] (GitHub-API path),
+  /// and each native mirror below calls it directly after a real state
+  /// transition (never from `markErrorNative`'s guarded/ignored branch).
+  void _trackCheckOutcome() {
+    final outcome = switch (state.phase) {
+      UpdatePhase.available => 'available',
+      UpdatePhase.upToDate => 'up_to_date',
+      UpdatePhase.error => 'error',
+      UpdatePhase.readyToInstall => 'ready_to_install',
+      _ => null,
+    };
+    if (outcome == null) return;
+    try {
+      ref
+          .read(telemetryProvider)
+          .trackEvent(category: 'update', action: 'check', name: outcome);
+    } catch (e) {
+      _log.debug('telemetry failed: $e');
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Native (Sparkle/WinSparkle) event mirrors
+  // -----------------------------------------------------------------------
+  //
+  // On macOS/Windows the self-updater (`auto_updater_service.dart`) runs its
+  // own native check against the correct stable/beta appcast — but until
+  // these mirrors existed, nothing fed its result back into [state], so
+  // every UI surface (status bar chip, About page, Settings) stayed blind to
+  // it (PRD Bug 1). `main.dart` registers a Sparkle `UpdaterListener` that
+  // calls these on every native event.
+
+  /// Mirrors a native "checking for update" event.
+  void markCheckingNative() {
+    if (state.isBusy) return;
+    state = const UpdateState(phase: UpdatePhase.checking);
+  }
+
+  /// Mirrors a native "update available" event.
+  void markAvailableNative({required String version, String? releaseNotesUrl}) {
+    _log.info('Native updater found: $version (current=$appVersion)');
+    state = UpdateState(
+      phase: UpdatePhase.available,
+      latestVersion: version,
+      releaseNotesUrl: releaseNotesUrl,
+    );
+    _trackCheckOutcome();
+  }
+
+  /// Mirrors a native "no update available" event.
+  void markUpToDateNative({String? latestVersion}) {
+    state = UpdateState(
+      phase: UpdatePhase.upToDate,
+      latestVersion: latestVersion ?? state.latestVersion,
+    );
+    _trackCheckOutcome();
+  }
+
+  /// Mirrors a native "update downloaded" / "will install on quit" event —
+  /// Sparkle/WinSparkle finished downloading and will install automatically
+  /// on the next app quit (or immediately, if the user reopens the native
+  /// dialog). There is no download-progress signal on the native path, so
+  /// this is the only intermediate state available between "available" and
+  /// the update actually landing on relaunch.
+  void markReadyToInstallNative() {
+    state = UpdateState(
+      phase: UpdatePhase.readyToInstall,
+      latestVersion: state.latestVersion,
+    );
+    _trackCheckOutcome();
+  }
+
+  /// Mirrors a native updater error event.
+  ///
+  /// Sparkle's `didAbortWithError` (surfaced here via the `onError`
+  /// callback) fires at the end of EVERY check cycle that doesn't install
+  /// an update — including the entirely normal "no update found" outcome,
+  /// which also fires the more specific `updaterDidNotFindUpdate` callback
+  /// (mirrored via [markUpToDateNative]) moments before it. Verified live:
+  /// a foreground check that correctly showed Sparkle's native "You're up
+  /// to date!" dialog still emitted this event right after, downgrading the
+  /// state back to `error`. A decisive positive result already recorded for
+  /// this cycle must not be overwritten by this generic trailing signal —
+  /// only a bare abort with no prior decisive event (state still
+  /// `checking`/`idle`) is a genuine failure.
+  void markErrorNative(String message) {
+    if (state.phase == UpdatePhase.available ||
+        state.phase == UpdatePhase.upToDate) {
+      _log.debug(
+        'Native updater abort ignored (cycle already resolved): $message',
+      );
+      return;
+    }
+    _log.warning('Native updater error: $message');
+    state = UpdateState(phase: UpdatePhase.error, errorMessage: message);
+    _trackCheckOutcome();
+  }
+
+  /// Launch the downloaded installer and exit the app.
+  ///
+  /// The NSIS installer will kill the running process, overwrite files,
+  /// and optionally restart the app from its Finish page.
+  Future<void> installUpdate() async {
+    if (state.phase != UpdatePhase.readyToInstall ||
+        state.downloadedPath == null) {
+      return;
+    }
+
+    // Recording guard: installing restarts the app, which would tear down an
+    // in-flight dictation and lose the transcript. Refuse while a recording or
+    // transcription is active (the user retries once it settles). Platform-
+    // neutral — also protects the Windows installer relaunch.
+    final recordingPhase = ref.read(recordingProvider).phase;
+    if (recordingPhase == RecordingPhase.recording ||
+        recordingPhase == RecordingPhase.transcribing ||
+        // Smart Mode v2 (ticket 02): the local Cleanup pass keeps a
+        // dictation in flight between transcribing and done — an install
+        // restart during that window would still lose the transcript.
+        recordingPhase == RecordingPhase.refining) {
+      _log.info(
+        'installUpdate deferred — recording in progress '
+        '($recordingPhase)',
+      );
+      return;
+    }
+
+    final installerPath = state.downloadedPath!;
+
+    // Verify the file still exists before trying to launch it.
+    final installerFile = File(installerPath);
+    if (!installerFile.existsSync()) {
+      _log.error('Installer file not found: $installerPath');
+      state = const UpdateState(
+        phase: UpdatePhase.error,
+        errorMessage: 'Installer file not found. Please download again.',
+      );
+      return;
+    }
+
+    _log.info('Launching installer: $installerPath');
+
+    try {
+      if (Platform.isMacOS) {
+        final bundle =
+            (macBundlePathOverrideForTesting ?? resolveMacAppBundlePath)();
+        if (bundle == null) {
+          // Dev / non-bundle context — no valid `.app` to swap. Fall back to
+          // opening the DMG so the user can install manually.
+          _log.info(
+            'No resolvable .app bundle — opening DMG for manual install',
+          );
+          // Isolate.run + timeout: Process.start's fork()+exec() can hang
+          // forever if the child deadlocks before exec (a known macOS hazard
+          // when forking from a heavily multi-threaded host like Flutter —
+          // observed live as orphaned WhisPaste processes stuck in
+          // dart::bin::FDUtils::ReadFromBlocking). Running it off the main
+          // isolate keeps the app responsive/quittable even if that happens;
+          // the timeout keeps this call itself from hanging the update flow.
+          final openDmg =
+              macOpenDmgOverrideForTesting ??
+              (path) => Isolate.run(() async {
+                await Process.start('open', [
+                  path,
+                ], mode: ProcessStartMode.detached);
+              }).timeout(const Duration(seconds: 15));
+          await openDmg(installerPath);
+          state = state.copyWith(phase: UpdatePhase.idle);
+          return;
+        }
+        // Spawn the detached helper that swaps the new bundle in once we exit,
+        // then exit — exactly like the Windows installer flow.
+        final installer =
+            macInstallerOverrideForTesting ?? const DefaultMacUpdateInstaller();
+        await installer.swap(dmgPath: installerPath, targetBundlePath: bundle);
+      } else {
+        // Windows: launch the NSIS installer which handles everything.
+        await Process.start(
+          installerPath,
+          [], // interactive mode — user sees the wizard
+          mode: ProcessStartMode.detached,
+        );
+      }
+
+      // Give the helper/installer a moment to start before we exit.
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      (exitOverrideForTesting ?? exit)(0);
+    } catch (e, st) {
+      _log.error('Failed to launch installer', e, st);
+      state = state.copyWith(
+        phase: UpdatePhase.error,
+        errorMessage: 'Could not launch installer: $e',
+      );
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Semver comparison
+  // -----------------------------------------------------------------------
+
+  /// Returns `true` if [candidate] has strictly higher SemVer precedence
+  /// than [current] — full precedence including pre-release tags (PRD Bug 3:
+  /// this used to compare only major.minor.patch, so `1.2.44-beta.6` never
+  /// counted as newer than `1.2.44-beta.5`). Delegates to `core/semver.dart`.
+  @visibleForTesting
+  static bool isNewer(String candidate, String current) =>
+      semver.isSemverNewer(candidate, current);
+
+  /// Parse "X.Y.Z" into [major, minor, patch], ignoring any pre-release/build
+  /// suffix. Returns null on failure.
+  @visibleForTesting
+  static List<int>? parseSemver(String version) =>
+      semver.parseSemver(version)?.core;
+}
+
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
+
+final updateProvider = NotifierProvider<UpdateNotifier, UpdateState>(
+  UpdateNotifier.new,
+);

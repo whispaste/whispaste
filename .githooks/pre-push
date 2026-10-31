@@ -1,0 +1,712 @@
+#!/usr/bin/env bash
+#
+# WhisPaste — pre-push Hook (OSS-Allowlist-Guard, dritte Schicht)
+#
+# Fängt Commits ab, die den pre-commit-Hook umgangen haben
+# (`git commit --no-verify`). Scannt den gesamten Push-Range + HEAD-Baum.
+#
+# Aktivierung: `git config core.hooksPath .githooks`.
+# Bash-3.2-kompatibel (macOS /bin/bash) — kein mapfile/readarray.
+#
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+ALLOWLIST="$ROOT/.ossallowlist"
+ATTESTSH="$ROOT/scripts/docs-attest.sh"
+DRIFTSH="$ROOT/scripts/docs-drift.sh"
+REMOTE="${1:-}"
+ZERO="0000000000000000000000000000000000000000"
+
+# Git liefert die Ref-Update-Zeilen (<local ref> <local sha1> <remote ref>
+# <remote sha1>) EINMALIG über stdin (nicht-seekbare Pipe). Alle Abschnitte
+# unten brauchen dieselben Zeilen -- EINMAL vollständig einlesen und danach
+# per Array wiederverwenden. Ein zweites `while read` direkt von stdin bekäme
+# sofort EOF (0 Zeilen), seine Prüfung liefe seither leise ins Leere, ohne
+# Fehlermeldung -- exakt der Bug, der hier bis 2026-08-14 unbemerkt Abschnitt
+# 2 (Force-push-auf-main-Schutz), 3 (Secret-/Bot-/AI-Trailer-Scan der
+# Push-Range) und 6 (docs-drift) wirkungslos gemacht hat.
+REF_LINES=()
+while IFS= read -r _refline; do
+  [ -z "$_refline" ] && continue
+  REF_LINES+=("$_refline")
+done
+
+# Git invokes this hook even when there is nothing to push (e.g. `git push`
+# on an already up-to-date branch) — stdin is then empty, so REF_LINES stays
+# a zero-element array. Nothing below has anything to check in that case, so
+# exit early. This also sidesteps a bash-3.2 quirk (fixed in bash 4.4+):
+# `"${REF_LINES[@]}"` on a genuinely empty array throws "unbound variable"
+# under `set -u`, even though the array itself is assigned — every `for
+# _refline in "${REF_LINES[@]}"` loop below would otherwise crash the push
+# instead of just doing nothing, on every no-op `git push`.
+if [ ${#REF_LINES[@]} -eq 0 ]; then
+  exit 0
+fi
+
+# Closed-source guard: the server API (services/api/) lives in its own private
+# repository and must never reach this public repo — not in the pushed tree
+# and not in any commit of the push range (history counts as published).
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr _lsha _rr _rsha <<<"$_refline" || true
+  [ "$_lsha" = "$ZERO" ] && continue
+  if [ "$_rsha" != "$ZERO" ]; then
+    _api_range="${_rsha}..${_lsha}"
+  else
+    _api_range="$_lsha --not --remotes"
+  fi
+  # shellcheck disable=SC2086
+  if [ -n "$(git log --format=%h $_api_range -- services/api 2>/dev/null | head -1)" ]; then
+    echo "pre-push: BLOCKED — push range touches services/api/ (closed-source API, private repo only)." >&2
+    exit 1
+  fi
+done
+
+# Two-Path-Sync Advisory (Lektion aus 1.2.43: Store submitted, Tag vergessen
+# → Website/Downloads/Sentry asynchron). Advisory-only, nie blockierend.
+# Der Hook sieht nur die git-Seite; die Store-Submission läuft außerhalb und
+# ist primär über wp-release-windows.sh (release/github-sync) abgesichert.
+advise_two_path_sync() {
+  case "$1" in
+    refs/tags/v*)
+      cat >&2 <<EOF
+  note: ${1#refs/tags/} gepusht → release.yml triggert (Website/Sentry/Scoop).
+        Two-Path-Sync sicherstellen: Store-Submission erfolgt?
+        (wp-release-windows.sh release | github-sync | submit <msix>)
+EOF
+      ;;
+  esac
+}
+
+# ── 0. macOS MAS-Plugin-Registrant-Guard (Self-Heal, working-tree only) ─
+# Belt-and-suspenders alongside the pre-commit self-heal (which only fixes
+# what's actually staged) and the mas-guard clean filter (which git only
+# consults for add/diff/commit, never for `git status`'s modified-list —
+# see macos/patch_plugin_registrant_guard.py for the full mechanism). This
+# guarantees the working-tree file is physically guarded right after every
+# push, not just logically clean in git's eyes, so `git status` reads
+# clean immediately afterward too, not just "impossible to commit unguarded".
+if command -v python3 >/dev/null 2>&1; then
+  _registrant="$ROOT/macos/Flutter/GeneratedPluginRegistrant.swift"
+  python3 "$ROOT/macos/patch_plugin_registrant_guard.py" "$_registrant" >/dev/null 2>&1 || true
+  # If the guarded file now matches HEAD byte-for-byte (the routine case --
+  # Flutter regenerated it, we just restored the guard), `git status`'s fast
+  # stat-based check can still flag it "modified" purely from the rewritten
+  # mtime (git does not consult the mas-guard clean filter for that check --
+  # see .gitattributes). `git add` here is safe ONLY because we just proved
+  # via `git diff --quiet` that staging it is a true no-op content-wise; it
+  # refreshes the index's cached stat so `git status` reads clean right after
+  # this push, instead of a phantom "M" lingering until the next `git add`.
+  # If real content differs (e.g. an actual new plugin was registered since
+  # the last commit), `git diff --quiet` fails and we deliberately leave it
+  # alone for a real, reviewed commit.
+  if [ -f "$_registrant" ] && git diff --quiet -- "$_registrant" 2>/dev/null; then
+    git add -- "$_registrant" 2>/dev/null || true
+  fi
+fi
+
+# ── 1. Allowlist-Schranke (Push-Range + HEAD-Baum) ──────────────────────
+if [ ! -f "$ALLOWLIST" ]; then
+  echo "pre-push: WARN — .ossallowlist nicht gefunden, Guard inaktiv." >&2
+else
+  ALLOWED=()
+  while IFS= read -r line; do
+    case "$line" in ''|\#*) continue ;; esac
+    ALLOWED+=("$line")
+  done < "$ALLOWLIST"
+
+  is_allowed() {
+    local p="$1" a
+    # Guarded expansion: an empty ALLOWED (e.g. an allowlist with only
+    # comments/blank lines) would otherwise throw "unbound variable" under
+    # `set -u` on bash 3.2 — see the REF_LINES comment above for why.
+    for a in "${ALLOWED[@]+"${ALLOWED[@]}"}"; do
+      [ "$p" = "$a" ] && return 0
+      case "$a" in */) [[ "$p" == "$a"* ]] && return 0 ;; esac
+    done
+    return 1
+  }
+
+  violations=()
+  block() { cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT durch .ossallowlist                         ║
+╠══════════════════════════════════════════════════════════════╣
+║  $1
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    printf '  - %s\n' "${violations[@]}" >&2
+    cat >&2 <<EOF
+
+Nicht-öffentliche Pfade würden auf origin landen.
+Datei mit `git rm --cached` aus dem Tracking nehmen oder nach
+internal-notes verschieben. Bei bewusster Ausnahme: .ossallowlist
+erweitern (nach Review).
+EOF
+    exit 1
+  }
+
+  for _refline in "${REF_LINES[@]}"; do
+    read -r local_ref local_sha remote_ref remote_sha <<<"$_refline" || true
+    [ "$local_sha" = "$ZERO" ] && continue
+
+    if [ "$remote_sha" != "$ZERO" ]; then
+      range="${remote_sha}..${local_sha}"
+    else
+      range="$(git rev-list "$local_sha" --not --branches --remotes 2>/dev/null \
+        || echo "$local_sha")"
+    fi
+
+    # (a) Im Range hinzugefügte Dateien
+    while IFS= read -r path; do
+      [ -z "$path" ] && continue
+      ! is_allowed "$path" && violations+=("$path")
+    done < <(git log --diff-filter=A --name-only --pretty=format: "$range" 2>/dev/null || true)
+
+    # (b) HEAD-Baum komplett (aktuell getrackte Dateien am Push-Stand)
+    while IFS= read -r path; do
+      [ -z "$path" ] && continue
+      ! is_allowed "$path" && violations+=("$path")
+    done < <(git ls-tree -r --name-only "$local_sha" 2>/dev/null || true)
+
+    advise_two_path_sync "$remote_ref"
+  done
+
+  if [ ${#violations[@]} -gt 0 ]; then
+    unique=()
+    while IFS= read -r line; do
+      [ -n "$line" ] && unique+=("$line")
+    done < <(printf '%s\n' "${violations[@]}" | sort -u)
+    violations=("${unique[@]}")
+    block "Nicht-öffentliche Pfade im Push:"
+  fi
+fi
+
+# ── 2. Force-push auf main blockiert ───────────────────────────────────
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr local_sha rref remote_sha <<<"$_refline" || true
+  [ "$local_sha" = "$ZERO" ] && continue
+  branch="${rref#refs/heads/}"
+  if [ "$branch" = "main" ] && [ "$remote_sha" != "$ZERO" ]; then
+    if ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+      if [ "${WP_ALLOW_FORCE_MAIN:-}" != "1" ]; then
+        cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Force-push auf main
+║  main ist ein Release-Branch — seine History muss linear
+║  bleiben. Remote-Tip $remote_sha ist kein Ancestor von $local_sha.
+║  Override (GEFÄHRLICH): WP_ALLOW_FORCE_MAIN=1 git push
+╚══════════════════════════════════════════════════════════════╝
+EOF
+        exit 1
+      fi
+      echo "WP_ALLOW_FORCE_MAIN=1 — Force-push auf main erlaubt"
+    fi
+  fi
+done
+
+# ── 2a. Production release approval (main + stable tags) ───────────────
+# Pushing main deploys the website (deploy-pages.yml) and a stable vX.Y.Z
+# tag ships to every store (release.yml). Both are production releases and
+# need the owner's explicit, per-release go: the approval file must contain
+# the full SHA of the commit being released. Only the owner writes it, via
+# `scripts/approve-release.sh` (agents never create or edit it). Beta tags
+# (vX.Y.Z-beta.N) are staging and stay ungated.
+APPROVAL_FILE="${WP_RELEASE_APPROVAL_FILE:-$HOME/.config/whispaste/release-approval}"
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr local_sha rref remote_sha <<<"$_refline" || true
+  [ "$local_sha" = "$ZERO" ] && continue
+  case "$rref" in
+    refs/heads/main) ;;
+    refs/tags/v*-beta.*) continue ;;
+    refs/tags/v*) ;;
+    *) continue ;;
+  esac
+  release_sha="$(git rev-parse "$local_sha^{commit}" 2>/dev/null || echo "$local_sha")"
+  if ! grep -qx "$release_sha" "$APPROVAL_FILE" 2>/dev/null; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  BLOCKIERT: Produktions-Release ohne Freigabe
+║  ${rref#refs/*/} → $release_sha
+║  Push auf main bzw. ein stabiler Tag ist ein Produktions-Release.
+║  Freigabe (nur der Owner): bash scripts/approve-release.sh <tag>
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+done
+
+# ── 2a'. Website needs its API live first ─────────────────────────────
+# The website calls api.whispaste.de (contact form, star count). The API is
+# released first by the private release script; a main push while the API
+# is down would ship a site with a broken contact form.
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr local_sha rref remote_sha <<<"$_refline" || true
+  [ "$local_sha" = "$ZERO" ] && continue
+  [ "$rref" = "refs/heads/main" ] || continue
+  _api_status="$(curl -s -o /dev/null -m 15 -w '%{http_code}' https://api.whispaste.de/v1/health || true)"
+  if [ "$_api_status" != "200" ]; then
+    echo "pre-push: BLOCKED — https://api.whispaste.de/v1/health answers '$_api_status'; release the API before the website." >&2
+    exit 1
+  fi
+done
+
+# ── 2b. Branch-/Worktree-Hygiene (nur dev/main dürfen existieren) ──────
+# Silvios feste Vorgabe (2026-09-07, nach einem Vorfall mit ~26 liegen
+# gebliebenen Bot-Suggestion-/PR-Inspection-Branches): sobald dev oder main
+# gepusht wird, müssen lokal UND im Remote ausschließlich dev/main
+# existieren, keine weiteren Branches, kein offener Worktree außer dem
+# Haupt-Tree. Technisch erzwungen statt nur einmalig manuell aufgeräumt —
+# ein Feature-Worktree/-Branch muss vor jedem dev/main-Push fertig
+# gemerged UND entfernt sein (Solo-Dev-Workflow, kein PR-Review nötig).
+push_touches_devmain=0
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr _ls rref _rs <<<"$_refline" || true
+  case "$rref" in refs/heads/dev|refs/heads/main) push_touches_devmain=1 ;; esac
+done
+
+if [ "$push_touches_devmain" = 1 ]; then
+  # beta-appcast-pointer ist eine dauerhafte, CI-verwaltete Orphan-Branch
+  # (force-gepusht von release.yml/publish_beta_fallback.sh, s. Abschnitt 3/4
+  # oben) — kein Wildwuchs, sondern Infrastruktur. Von der Hygiene-Prüfung
+  # ausgenommen; die Recovery-Variante (ein manueller, einmaliger Wiederher-
+  # stellungs-Branch) fällt NICHT unter diese Ausnahme.
+  stray_branches=$(git for-each-ref --format='%(refname:short)' refs/heads/ \
+    | grep -vE '^(dev|main|beta-appcast-pointer)$' || true)
+  if [ -n "$stray_branches" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: lokale Branches außer dev/main vorhanden    ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    echo "$stray_branches" | sed 's/^/  - /' >&2
+    cat >&2 <<EOF
+
+Nur dev und main dürfen dauerhaft existieren. Erst aufräumen:
+  git branch -D <branch>    (nach Verifikation: Inhalt bereits in dev?)
+oder den echten, fehlenden Inhalt vorher nach dev mergen.
+EOF
+    exit 1
+  fi
+
+  stray_worktrees=$(git worktree list --porcelain \
+    | awk -v root="$ROOT" '/^worktree /{ if ($2 != root) print $2 }')
+  if [ -n "$stray_worktrees" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: offene Worktrees außer dem Haupt-Tree       ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    echo "$stray_worktrees" | sed 's/^/  - /' >&2
+    echo "" >&2
+    echo "Aufräumen: git worktree remove <pfad> (ggf. --force)" >&2
+    exit 1
+  fi
+
+  if [ -n "${REMOTE:-}" ] && git ls-remote --exit-code "$REMOTE" >/dev/null 2>&1; then
+    stray_remote=$(git ls-remote --heads "$REMOTE" 2>/dev/null \
+      | awk '{print $2}' | sed 's#refs/heads/##' | grep -vE '^(dev|main|beta-appcast-pointer)$' || true)
+    if [ -n "$stray_remote" ]; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Remote-Branches außer dev/main vorhanden    ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      echo "$stray_remote" | sed 's/^/  - /' >&2
+      echo "" >&2
+      echo "Aufräumen: git push $REMOTE --delete <branch>" >&2
+      exit 1
+    fi
+  fi
+fi
+
+# ── 3. Full Push-Range Scan (PROTECTED, Secrets, AI-Trailer) ───────────
+B1="SUPA"; B2="BASE_SERVICE_ROLE_KEY"; B3="ADMIN_API"; B4="_KEY"
+SECRET_PATTERNS="${B1}${B2}=.{20,}|${B3}${B4}=.{20,}|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{20,}"
+AI_TRAILER_RE='^[Cc]o-[Aa]uthored-[Bb]y:.*(anthropic|copilot|claude|cursor|codeium|opencode)'
+# Kein bare `noreply@github\.com` hier: das ist die Committer-Identität, die
+# GitHubs eigener "Merge pull request"-Button JEDEM per Web-UI gemergten PR
+# gibt (Author bleibt der echte Mensch) -- kein Bot-Signal, sondern die
+# normale Signatur für jeden über GitHub gemergten Sprout/Bolt/Palette-PR
+# dieses Projekts. Echte Bot-Accounts (dependabot[bot], github-actions[bot])
+# nutzen `<id>+name[bot]@users.noreply.github.com`, weiterhin erfasst.
+BOT_RE='(co-?pilot|anthropic|claude|opencode|github-actions|dependabot|\[bot\]|users\.noreply\.github\.com)'
+
+# beta-appcast-pointer ist eine reine CI-verwaltete Orphan-Branch (appcast-beta.xml,
+# force-gepusht von release.yml/publish_beta_fallback.sh) -- deren Commits sind
+# IMMER github-actions[bot]-authored. Der Bot-Author-Check unten ist für
+# menschliche/Agent-Commits auf dev/main gedacht; ein manueller Recovery-Push dieser
+# Branch (z. B. nach versehentlichem Löschen) würde sonst am eigenen Zweck der
+# Branch scheitern. Secret-Scan/.gitignore-PROTECTED/AI-Trailer-Check bleiben aktiv.
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr local_sha rref remote_sha <<<"$_refline" || true
+  [ "$local_sha" = "$ZERO" ] && continue
+  is_appcast_pointer=0
+  [ "$rref" = "refs/heads/beta-appcast-pointer" ] && is_appcast_pointer=1
+
+  [ "$remote_sha" != "$ZERO" ] \
+    && range="${remote_sha}..${local_sha}" \
+    || range="$(git rev-list "$local_sha" --not --branches --remotes 2>/dev/null || echo "$local_sha")"
+
+  [ -z "$range" ] && continue
+
+  for commit in $(git rev-list "$range" 2>/dev/null); do
+    files=$(git diff-tree --no-commit-id --name-only --diff-filter=ACMR -r "$commit" 2>/dev/null || true)
+    [ -z "$files" ] && continue
+
+    # .gitignore PROTECTED weakening
+    if echo "$files" | grep -q "^\.gitignore$"; then
+      new_block=$(git show "$commit:.gitignore" 2>/dev/null \
+        | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p')
+      old_block=$(git show "${commit}^:.gitignore" 2>/dev/null \
+        | tr -d '\r' | sed -n '/PROTECTED-START/,/PROTECTED-END/p' || true)
+      if [ -n "$old_block" ]; then
+        old_ents=$(echo "$old_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
+        new_ents=$(echo "$new_block" | grep -v '^#' | grep -v '^$' | grep -v 'PROTECTED' | sort -u)
+        removed=$(comm -23 <(echo "$old_ents") <(echo "$new_ents") 2>/dev/null || true)
+        if [ -n "$removed" ]; then
+          cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: .gitignore PROTECTED entries entfernt      ║
+║  Commit: ${commit:0:12}
+╚══════════════════════════════════════════════════════════════╝
+EOF
+          echo "$removed" >&2
+          exit 1
+        fi
+      fi
+    fi
+
+    # Secret patterns
+    smatch=$(git show "$commit" 2>/dev/null \
+      | grep -oE "$SECRET_PATTERNS" 2>/dev/null | head -1 || true)
+    if [ -n "$smatch" ]; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: potentielles Secret in Commit ${commit:0:12}
+║  ${smatch:0:60}
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+
+    # AI/Co-Authored-By Trailer — HARD RULE (global CLAUDE.md)
+    trailer=$(git log -1 --format='%B' "$commit" 2>/dev/null \
+      | grep -iE "$AI_TRAILER_RE" | head -1 || true)
+    if [ -n "$trailer" ]; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: KI-Co-Authored-By-Trailer in Commit ${commit:0:12}
+║  $(echo "$trailer" | cut -c1-72)
+║  Trailer entfernen (rebase -i / commit --amend), dann pushen.
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+
+    # Bot author/committer -- skip commits already accepted onto some
+    # remote-tracking ref (e.g. a CI manifest-bump commit already live on
+    # origin/dev, or a github-actions[bot] commit from a past release
+    # cycle): those were never new content to review, they only surface
+    # here because this local push is the first one to carry that ref's
+    # history across into another branch (dev -> main fast-forward etc).
+    # Genuinely new bot-authored commits on THIS push are still caught,
+    # since they cannot yet be reachable from any remote-tracking ref.
+    [ "$is_appcast_pointer" = "1" ] && continue
+    if [ -n "$(git branch -r --contains "$commit" 2>/dev/null)" ]; then
+      continue
+    fi
+    ident=$(git log -1 --format='%an <%ae>%n%cn <%ce>' "$commit" 2>/dev/null || true)
+    if echo "$ident" | grep -qiE "$BOT_RE"; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Bot-Author/Committer in Commit ${commit:0:12}
+║  $(echo "$ident" | head -c80)
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+  done
+done
+
+# ── 4. Docs-Attest-Schranke (WhisPaste) ─────────────────────────────────
+if [ -f "$ATTESTSH" ]; then
+  if ! bash "$ATTESTSH" check >/dev/null 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Public-Docs-QS (scripts/docs-attest.sh     ║
+║  check) fehlgeschlagen.                                     ║
+║  Details: bash scripts/docs-attest.sh check                 ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+
+  attested="$(bash "$ATTESTSH" attested)"
+  pushed_any=0
+  saw_appcast_pointer=0
+  for _refline in "${REF_LINES[@]}"; do
+    read -r _lr local_sha _rr _rs <<<"$_refline" || true
+    [ -z "${local_sha:-}" ] && continue
+    [ "$local_sha" = "$ZERO" ] && continue
+    # beta-appcast-pointer trägt nur appcast-beta.xml (kein README/CHANGELOG/
+    # Website) -- ihre SHA kann nie mit dem attestierten dev-Stand übereinstimmen,
+    # das ist kein Docs-Drift-Signal für diese Branch (siehe Abschnitt 3 oben).
+    if [ "$_rr" = "refs/heads/beta-appcast-pointer" ]; then
+      saw_appcast_pointer=1
+      continue
+    fi
+    pushed_any=1
+    cs="$(git rev-parse --verify --quiet "${local_sha}^{commit}" 2>/dev/null || echo "$local_sha")"
+    # Same content attested elsewhere on this host (e.g. the RepoBridge landing
+    # squash of an attested feature branch) counts: the tree hash is the content.
+    [ "$cs" = "$attested" ] || bash "$ATTESTSH" attested-tree "$cs" || {
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: öffentliche Docs nicht für diesen Stand     ║
+║  attestiert. Zu pushen: ${cs:0:12} · attestiert: ${attested:0:12}
+║  → README/CHANGELOG/Website gegen den aktuellen Repo-Stand
+║    PRÜFEN, dann BEWUSST bestätigen:
+║    scripts/docs-attest.sh attest
+║  (kein --no-verify)
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    }
+  done
+  if [ "$pushed_any" -eq 0 ] && [ "$saw_appcast_pointer" -eq 1 ]; then
+    : # ausschließlich beta-appcast-pointer im Push -- HEAD-Fallback unten übersprungen
+  elif [ "$pushed_any" -eq 0 ]; then
+    head="$(git rev-parse HEAD)"
+    [ "$head" = "$attested" ] || bash "$ATTESTSH" attested-tree "$head" || {
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: HEAD ${head:0:12} ist nicht attestiert.
+║  → BEWUSST bestätigen: scripts/docs-attest.sh attest
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    }
+  fi
+fi
+
+# ── 4b. Doc-Gate (Content-Level: Infra-Leaks, Sprache, Security-Werbung) ─
+if [ -f "$ROOT/.githooks/check-docs.sh" ]; then
+  bash "$ROOT/.githooks/check-docs.sh" head || exit 1
+fi
+
+# ── 5. Quality/Security-Gates (sparsam, blockierend) ───────────────────
+
+# Loam ratchet gate (Dart-only)
+if command -v dart >/dev/null 2>&1; then
+  echo ""; echo "Loam ratchet gate..."
+  # Without a resolved package_config, loam cannot follow imports and reports
+  # every public symbol as an unused export (hundreds of bogus findings in a
+  # fresh worktree). Fail with the actual cause instead.
+  if [ ! -f "$ROOT/.dart_tool/package_config.json" ]; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: .dart_tool/package_config.json fehlt        ║
+╚══════════════════════════════════════════════════════════════╝
+Loam braucht aufgelöste Imports: erst \`flutter pub get\` im Repo-Root
+ausführen, dann erneut pushen.
+EOF
+    exit 1
+  fi
+  # Keep in sync with .githooks/pre-commit and .github/workflows/ci.yml.
+  dart pub global activate loam 0.1.15 >/dev/null
+  export PATH="$HOME/.pub-cache/bin:$PATH"
+  # Resolve Dart SDK path (must follow Homebrew symlinks on macOS)
+  if [ -z "${DART_SDK:-}" ]; then
+    if command -v flutter >/dev/null 2>&1; then
+      _f=$(command -v flutter)
+      while [ -L "$_f" ]; do
+        _t=$(readlink "$_f"); case "$_t" in /*) _f="$_t" ;; *) _f="$(dirname "$_f")/$_t" ;; esac
+      done
+      export DART_SDK="$(dirname "$_f")/cache/dart-sdk"
+    elif command -v dart >/dev/null 2>&1; then
+      _d=$(command -v dart)
+      while [ -L "$_d" ]; do
+        _t=$(readlink "$_d"); case "$_t" in /*) _d="$_t" ;; *) _d="$(dirname "$_d")/$_t" ;; esac
+      done
+      export DART_SDK="$(dirname "$(dirname "$_d")")"
+    fi
+  fi
+  if ! loam gate --no-update-check 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Loam ratchet gate fand Findings            ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  Loam: clean"
+fi
+
+# actionlint (GitHub-Actions-Workflow-Syntax/-Semantik, sparsam: nur wenn
+# installiert). Fängt genau die Fehlerklasse ab, die sonst erst als roter
+# CI-Run sichtbar wird: falsche runs-on/needs/if-Expressions, unbekannte
+# Contexts, kaputte Matrix-Syntax, sowie eingebettete run:-Shell-Skripte via
+# integriertem shellcheck. Läuft immer über den vollen Workflow-Ordner (nicht
+# nur die Push-Range) — dieselbe Prüfung, die `gh workflow` letztlich auch
+# über die YAML laufen lässt, nur lokal und ohne Runner-Zeit zu verbrauchen.
+if command -v actionlint >/dev/null 2>&1; then
+  echo ""; echo "actionlint (GitHub Actions workflow lint)..."
+  if ! actionlint "$ROOT"/.github/workflows/*.yml 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: actionlint fand Workflow-Probleme           ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  actionlint: clean"
+else
+  echo "⚠ actionlint nicht installiert — Workflow-Lint übersprungen. Empfohlen: brew install actionlint" >&2
+fi
+
+# Workflow-Hygiene (Policy-Regeln, die actionlint strukturell NICHT sieht:
+# fehlendes timeout-minutes, unpinned flutter-version). Reiner YAML-Parse,
+# kein Netz — Begründung je Regel steht im Skript.
+if [ -f "$ROOT/scripts/check-workflow-hygiene.sh" ]; then
+  echo ""; echo "Workflow-Hygiene (timeouts, SDK-Pins)..."
+  if ! bash "$ROOT/scripts/check-workflow-hygiene.sh"; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Workflow-Hygiene verletzt                   ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+fi
+
+# Semgrep SAST (sparsam: nur wenn installiert)
+if command -v semgrep >/dev/null 2>&1; then
+  echo ""; echo "Semgrep SAST scan..."
+  if ! semgrep --config p/ci --error --quiet \
+    --include="*.ts" --include="*.js" --include="*.mjs" \
+    --include="*.cpp" --include="*.h" \
+    --exclude="node_modules" --exclude="dist" --exclude="build" \
+    --exclude=".dart_tool" . 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: Semgrep fand Security-Issues               ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  Semgrep: clean"
+fi
+
+# gitleaks (voller Verlauf, nicht nur die Push-Range) — fängt auch
+# --no-verify-Commits ab, die den Commit-Gate umgangen haben. Community-
+# gepflegtes, breiteres Regelwerk als die Handvoll fest verdrahteter Muster
+# in Schritt 3 oben. Sparsam: nur wenn installiert, nie deswegen blockieren.
+if command -v gitleaks >/dev/null 2>&1; then
+  echo ""; echo "gitleaks full-history scan..."
+  if ! gitleaks git --no-banner --redact "$ROOT" 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: gitleaks fand ein mögliches Secret          ║
+║  (voller Verlauf — auch --no-verify-Commits werden erfasst) ║
+╚══════════════════════════════════════════════════════════════╝
+
+Falscher Alarm? .gitleaks.toml um eine gezielte Ausnahme ergänzen.
+EOF
+    exit 1
+  fi
+  echo "  gitleaks: clean"
+else
+  echo "⚠ gitleaks nicht installiert — Secret-Scan übersprungen. Empfohlen: brew install gitleaks" >&2
+fi
+
+# OSV-Scanner (vuln check; sparsam: nur wenn installiert)
+# Gemfile.lock ergänzt (2026-07-19): fehlte hier, sodass 3 high + 1 moderate
+# CVE (faraday/jwt/json) erst per GitHubs Remote-Dependabot-Scan NACH dem
+# Push auffielen statt lokal blockiert zu werden.
+if command -v osv-scanner >/dev/null 2>&1; then
+  echo ""; echo "OSV vulnerability scan..."
+  OSV_ARGS=""
+  [ -f "$ROOT/pubspec.lock" ]              && OSV_ARGS="$OSV_ARGS --lockfile=$ROOT/pubspec.lock"
+  [ -f "$ROOT/website/package-lock.json" ] && OSV_ARGS="$OSV_ARGS --lockfile=$ROOT/website/package-lock.json"
+  [ -f "$ROOT/Gemfile.lock" ]              && OSV_ARGS="$OSV_ARGS --lockfile=$ROOT/Gemfile.lock"
+  if [ -n "$OSV_ARGS" ]; then
+    if ! osv-scanner scan $OSV_ARGS 2>&1; then
+      cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: OSV fand vulnerable Dependencies           ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+      exit 1
+    fi
+    echo "  OSV: clean"
+  fi
+fi
+
+# Website CI (sparsam: nur wenn module installiert)
+if [ -f "$ROOT/website/package.json" ] && command -v npm >/dev/null 2>&1 \
+   && [ -d "$ROOT/website/node_modules" ]; then
+  echo ""; echo "Website CI check..."
+  # CI=true here (not just for the "official" GitHub Actions run) matters for
+  # two reasons: playwright.config.ts's webServer only serves the just-built
+  # dist/ via `npm run preview` when CI is set — without it, this hook
+  # silently reused whatever long-lived `astro dev` server happened to
+  # already be running on 4321 (reuseExistingServer: !process.env.CI),
+  # meaning it was NEVER actually exercising the same preview/PROD path real
+  # CI does. That gap let a real bug through undetected locally (the
+  # download-tracking spec's first describe block never blocked the real
+  # matomo.js load that only happens in PROD — see its own comment). CI=true
+  # also activates the config's one-retry safety net for genuine
+  # environment-load flakes, same as the real workflow gets.
+  #
+  # PLAYWRIGHT_PORT: always ask the OS for a free port instead of hardcoding
+  # 4321 — a developer very plausibly has `astro dev` (or a previous run of
+  # this exact gate) already sitting on 4321, and this gate must never fail
+  # a push just because of that. GitHub Actions runners are always fresh, so
+  # the workflow itself keeps relying on playwright.config.ts's 4321 default.
+  website_ci_port="$(node "$ROOT/website/scripts/find-free-port.mjs")"
+  if ! (cd "$ROOT/website" && npm run build && npx playwright install chromium webkit && CI=true PLAYWRIGHT_PORT="$website_ci_port" npm run test:ci) 2>&1; then
+    cat >&2 <<EOF
+
+╔══════════════════════════════════════════════════════════════╗
+║  PUSH BLOCKIERT: website CI gate fehlgeschlagen             ║
+╚══════════════════════════════════════════════════════════════╝
+EOF
+    exit 1
+  fi
+  echo "  Website CI: OK"
+fi
+
+# ── 6. Advisory: docs-drift (weich, NIE blockierend) ────────────────────
+run_drift=0
+for _refline in "${REF_LINES[@]}"; do
+  read -r _lr _ls rref _rs <<<"$_refline" || true
+  case "$rref" in refs/heads/main|refs/heads/master|refs/tags/v*) run_drift=1 ;; esac
+done
+if [ "$run_drift" = 1 ] && [ "${WHISPASTE_SKIP_DRIFT:-}" != 1 ] \
+   && [ -f "$DRIFTSH" ] && command -v claude >/dev/null 2>&1; then
+  echo "" >&2
+  echo "docs-drift (advisory, non-blocking — release push) …" >&2
+  bash "$DRIFTSH" --llm 2>&1 | sed 's/^/  /' >&2 || true
+fi
+
+exit 0

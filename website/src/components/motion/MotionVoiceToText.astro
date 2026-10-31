@@ -1,0 +1,108 @@
+---
+/**
+ * Motion illustration: speech becomes text. A live waveform (the app's
+ * recording pill) feeds a text block that types itself line by line, with
+ * the caret blinking at the end. Pure inline SVG + CSS, transform/opacity
+ * only; static final frame under prefers-reduced-motion. Decorative.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+const bars = [0.35, 0.7, 1, 0.55, 0.85, 0.4, 0.95, 0.6, 0.3];
+// Unique gradient id per instance, so the graphic can render twice on a page.
+const accentId = `vtt-accent-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<svg
+  class:list={['motion-vtt', className]}
+  viewBox="0 0 480 320"
+  fill="none"
+  aria-hidden="true"
+  focusable="false"
+  data-testid="motion-voice-to-text"
+>
+  <defs>
+    <linearGradient id={accentId} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-fill)" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-strong)" />
+    </linearGradient>
+  </defs>
+
+  <!-- recording pill -->
+  <g class="pill">
+    <rect class="vt-pill" x="24" y="118" width="176" height="84" rx="42" />
+    <circle class="rec vt-dot" cx="64" cy="160" r="9" />
+    {bars.map((h, i) => (
+      <rect
+        class="bar"
+        x={92 + i * 11}
+        y={160 - 26 * h}
+        width="6"
+        height={52 * h}
+        rx="3"
+        fill={`url(#${accentId})`}
+        style={`--i:${i}`}
+      />
+    ))}
+  </g>
+
+  <!-- flow -->
+  <g class="flow" stroke-linecap="round">
+    <circle class="dot vt-dot" cx="222" cy="160" r="3" stroke="none" style="--i:0" />
+    <circle class="dot vt-dot" cx="238" cy="160" r="3" stroke="none" style="--i:1" />
+    <circle class="dot vt-dot" cx="254" cy="160" r="3" stroke="none" style="--i:2" />
+  </g>
+
+  <!-- text window -->
+  <g>
+    <rect class="vt-window" x="276" y="64" width="184" height="192" rx="18" />
+    <circle class="vt-muted" cx="298" cy="86" r="4" />
+    <circle class="vt-muted" cx="312" cy="86" r="4" />
+    <circle class="vt-muted" cx="326" cy="86" r="4" />
+    <rect class="line vt-strong" x="298" y="114" width="140" height="10" rx="5" style="--i:0" />
+    <rect class="line vt-text" x="298" y="138" width="118" height="10" rx="5" style="--i:1" />
+    <rect class="line vt-text" x="298" y="162" width="132" height="10" rx="5" style="--i:2" />
+    <rect class="line" x="298" y="186" width="76" height="10" rx="5" fill={`url(#${accentId})`} style="--i:3" />
+    <rect class="caret vt-accent" x="380" y="182" width="3" height="18" rx="1.5" />
+  </g>
+</svg>
+
+<style>
+  .motion-vtt { display: block; width: 100%; height: auto; }
+  .motion-vtt .bar,
+  .motion-vtt .line,
+  .motion-vtt .dot,
+  .motion-vtt .rec { transform-box: fill-box; }
+  .motion-vtt .bar { transform-origin: center; }
+  .motion-vtt .line { transform-origin: left center; }
+  .motion-vtt .rec { transform-origin: center; }
+
+  /* Solid token colours: the graphic must read on dark and light bands. */
+  .motion-vtt .vt-pill { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-accent); }
+  .motion-vtt .vt-dot { fill: var(--wp-illustration-accent-fill); }
+  .motion-vtt .flow { stroke: var(--wp-illustration-accent); }
+  .motion-vtt .vt-window { fill: var(--wp-illustration-fill); stroke: var(--wp-illustration-node-border); }
+  .motion-vtt .vt-muted { fill: var(--wp-illustration-muted); }
+  .motion-vtt .vt-strong { fill: var(--wp-illustration-text-strong); }
+  .motion-vtt .vt-text { fill: var(--wp-illustration-text); }
+  .motion-vtt .vt-accent { fill: var(--wp-illustration-accent); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-vtt .bar { animation: vtt-bar 1.1s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -0.13s); }
+    .motion-vtt .rec { animation: vtt-rec 1.6s ease-in-out infinite; }
+    .motion-vtt .dot { animation: vtt-dot 1.2s ease-in-out infinite; animation-delay: calc(var(--i) * 0.15s); }
+    .motion-vtt .line { animation: vtt-line 8s cubic-bezier(0.22, 1, 0.36, 1) infinite; animation-delay: calc(var(--i) * 0.6s); }
+    .motion-vtt .caret { animation: vtt-caret 1s steps(1) infinite; }
+  }
+  @keyframes vtt-bar { from { transform: scaleY(0.35); } to { transform: scaleY(1); } }
+  @keyframes vtt-rec { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  @keyframes vtt-dot { 0%, 100% { opacity: 0.2; transform: translateX(-4px); } 50% { opacity: 1; transform: translateX(4px); } }
+  @keyframes vtt-line {
+    0% { transform: scaleX(0); opacity: 0; }
+    8% { opacity: 1; }
+    18%, 82% { transform: scaleX(1); opacity: 1; }
+    92%, 100% { transform: scaleX(1); opacity: 0; }
+  }
+  @keyframes vtt-caret { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+</style>

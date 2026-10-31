@@ -1,0 +1,58 @@
+import { defineConfig, devices } from '@playwright/test';
+
+// Defaults to 4321 (matches `astro dev`'s own default, and every developer's
+// muscle memory for this project). Override with PLAYWRIGHT_PORT when a
+// long-lived dev server might already own 4321 — the pre-push hook's website
+// CI gate does this so it always gets its own isolated preview server
+// instead of colliding with whatever a developer has running locally.
+const PORT = process.env.PLAYWRIGHT_PORT ?? '4321';
+const BASE_URL = `http://127.0.0.1:${PORT}`;
+
+export default defineConfig({
+  testDir: './tests',
+  fullyParallel: true,
+  // Standard Playwright practice: absorb rare, environment-caused flakes
+  // (real machine/CI load, not code) with one retry, without masking an
+  // actually-broken test — a genuine regression still fails every retry.
+  // Local used to get 0 retries so a flake would "surface immediately" —
+  // in practice that just meant the full-suite pre-commit/pre-push hook
+  // (81 tests, 5 workers) kept tripping on the same already-root-caused
+  // download-tracking timing race (see its spec file) under worker
+  // contention that a smaller, isolated run never hits. One retry locally
+  // matches CI's tolerance instead of fighting it on every commit; a real
+  // regression still fails both attempts.
+  retries: 1,
+  // Cross-engine parity (issue 10): the overlay-mockup snapshot baseline is
+  // shared between the chromium and webkit projects (no {projectName} in the
+  // path), so a passing run proves both engines render the same pixels.
+  snapshotPathTemplate: '{testDir}/__screenshots__/{testFilePath}/{arg}{ext}',
+  use: {
+    baseURL: BASE_URL,
+    locale: 'en-US',
+    trace: 'on-first-retry',
+  },
+  webServer: {
+    command: process.env.CI
+      ? `npm run preview -- --host 127.0.0.1 --port ${PORT}`
+      : `npm run dev -- --host 127.0.0.1 --port ${PORT}`,
+    url: BASE_URL,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120000,
+    // SIGTERM instead of the default SIGKILL so scripts/preview.sh can stop
+    // the self-daemonized astro preview server on teardown.
+    gracefulShutdown: { signal: 'SIGTERM', timeout: 10000 },
+  },
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    // WebKit (Safari engine) runs only the overlay-mockup parity spec; it
+    // compares against the same shared baseline as chromium to prove parity.
+    {
+      name: 'webkit',
+      testMatch: /overlay-parity\.spec\.ts/,
+      use: { ...devices['Desktop Safari'] },
+    },
+  ],
+});

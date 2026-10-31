@@ -1,0 +1,8 @@
+---
+import ChangelogPage from "../components/pages/ChangelogPage.astro";
+import { currentLocale } from "../scripts/i18n.ts";
+
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<ChangelogPage lang={lang} />

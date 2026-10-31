@@ -1,0 +1,135 @@
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../../core/l10n/generated/app_localizations.dart';
+import '../../../core/theme/colors.dart';
+import '../../../core/theme/tokens.dart';
+import '../../../widgets/wp_button.dart';
+import '../../../widgets/wp_filter_chip.dart';
+import '../../../widgets/wp_search_field.dart';
+import '../data/providers.dart';
+
+// ---------------------------------------------------------------------------
+// Notes search & filter bar — search field (Ticket 06) with the "new note"
+// button beside it (same row layout as the replacements toolbar), above the
+// active/trash toggle (Ticket 04).
+// ---------------------------------------------------------------------------
+
+class NotesSearchBar extends StatelessWidget {
+  const NotesSearchBar({
+    super.key,
+    required this.currentFilter,
+    required this.onFilterChanged,
+    required this.searchController,
+    required this.searchFocusNode,
+    required this.onSearchChanged,
+    required this.resultCount,
+    required this.showResultCount,
+    required this.onCreate,
+    this.createIsLoud = true,
+  });
+
+  final NotesFilter currentFilter;
+  final ValueChanged<NotesFilter> onFilterChanged;
+  final TextEditingController searchController;
+  final FocusNode searchFocusNode;
+
+  /// Reads [searchController]'s text itself — same contract as
+  /// HistorySearchFilterBar's onSearchChanged.
+  final VoidCallback onSearchChanged;
+  final int resultCount;
+  final bool showResultCount;
+
+  /// Creates a new note — rendered as the trailing "new note" button.
+  final VoidCallback onCreate;
+
+  /// Whether that button is this screen's one loud action.
+  ///
+  /// False while the content area below shows an empty state that carries a
+  /// CTA of its own — the base empty state offers "New note" with the very
+  /// same label, the search-found-nothing state offers "Clear search". *The
+  /// One-Loud-Action Rule* allows one `primary` per screen, and a centred CTA
+  /// on an otherwise blank page is the louder of the two; this button keeps
+  /// the action and gives up the volume.
+  final bool createIsLoud;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    const textMuted = WpColors.textMuted;
+
+    return Padding(
+      // Same side inset as every other list area's search bar (History,
+      // Replacements, Snippets): xl left/right, sm top/bottom — so switching
+      // areas via the sidebar never shifts the search field sideways.
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.sm,
+        WpSpacing.xl,
+        WpSpacing.sm,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Search field + "new note" button ─────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: WpSearchField(
+                  controller: searchController,
+                  focusNode: searchFocusNode,
+                  hintText: l10n.notesSearchPlaceholder,
+                  variant: WpSearchFieldVariant.outlined,
+                  onChanged: (_) => onSearchChanged(),
+                  semanticsLabel: l10n.notesSearchFieldLabel,
+                ),
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              WpButton(
+                label: l10n.notesNewNote,
+                variant: createIsLoud
+                    ? WpButtonVariant.primary
+                    : WpButtonVariant.secondary,
+                icon: LucideIcons.plus,
+                onPressed: onCreate,
+              ),
+            ],
+          ),
+          const SizedBox(height: WpSpacing.xs),
+          // ── Filter chips + result count ──────────────────────────────────
+          Row(
+            children: [
+              WpFilterChip(
+                label: l10n.navNotes,
+                icon: LucideIcons.stickyNote,
+                isActive: currentFilter == NotesFilter.active,
+                onTap: () => onFilterChanged(NotesFilter.active),
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              WpFilterChip(
+                label: l10n.notesTrash,
+                icon: LucideIcons.trash2,
+                isActive: currentFilter == NotesFilter.trash,
+                onTap: () => onFilterChanged(NotesFilter.trash),
+              ),
+              if (showResultCount) ...[
+                const Spacer(),
+                Padding(
+                  padding: const EdgeInsets.only(left: WpSpacing.sm),
+                  child: Text(
+                    l10n.notesResultCount(resultCount),
+                    style: const TextStyle(
+                      fontSize: WpTypography.small,
+                      color: textMuted,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

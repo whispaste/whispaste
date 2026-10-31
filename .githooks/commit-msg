@@ -1,0 +1,5 @@
+#!/bin/sh
+# ai-attribution-guard (mirror ~/.git-hooks/commit-msg) — KI-Trailer/Generated-Zeilen strippen
+tmp="$1.aiclean.$$"
+grep -viE '^co-authored-by:.*(anthropic|claude|copilot|cursor|codeium)|generated with \[claude|claude\.com/claude-code|🤖 generated with' "$1" > "$tmp" 2>/dev/null || true
+if [ -s "$tmp" ]; then mv "$tmp" "$1"; else rm -f "$tmp"; fi

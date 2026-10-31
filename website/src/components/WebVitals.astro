@@ -1,0 +1,22 @@
+---
+/**
+ * <WebVitals> — Core Web Vitals (RUM) reporter for Matomo (whispaste / whispaste.de).
+ *
+ * Renders a first-party, Astro-bundled module script (never a CDN) that loads the
+ * `web-vitals` library and reports LCP/INP/CLS/FCP/TTFB of real visitors as Matomo
+ * custom events. Logic lives in ./webvitals-client.ts; this component is the gated
+ * mount point — keeping the inline markup free of JS braces that would clash with
+ * Astro's JSX expression parser.
+ *
+ * Must be rendered AFTER the Matomo loader so `window._paq` exists. Renders nothing
+ * unless `enabled` (mirror the prod guard used for the Matomo snippet).
+ */
+interface Props {
+  /** When false (dev), nothing is rendered. */
+  enabled: boolean;
+}
+
+const { enabled } = Astro.props;
+---
+
+{enabled && <script>import "./webvitals-client.ts";</script>}

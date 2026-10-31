@@ -1,0 +1,125 @@
+---
+/**
+ * `/use-cases/` — Use-Case-Hub. Übersichtsseite, die die einzelnen
+ * Use-Case-Detailseiten (Entwickler, Studierende, Vielschreiber) bündelt. Schließt
+ * zugleich die Breadcrumb-Lücke: die Detailseiten verlinken ihren mittleren
+ * Krümel auf `/use-cases/` — ohne diese Index-Seite lief der Link ins 404.
+ *
+ * Card-Texte werden aus den vorhandenen `useCaseCards.*`-Keys
+ * wiederverwendet (Single Source — kein Copy-Duplikat zur Startseiten-Sektion).
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = "de" as const;
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.useCases"), item: localePath(lang, "use-cases") },
+];
+
+const seo = {
+  title: t(lang, "useCaseHub.seoTitle"),
+  description: t(lang, "useCaseHub.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "useCaseHub.heroHeading"),
+  lead: t(lang, "useCaseHub.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "useCase.students.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const cards = [
+  { key: "developer", href: localePath(lang, "use-cases/programmierer") },
+  { key: "students", href: localePath(lang, "use-cases/studierende") },
+  { key: "everyday", href: localePath(lang, "use-cases/vielschreiber") },
+] as const;
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+>
+  <section>
+    <h2>{t(lang, "useCaseHub.section.common.heading")}</h2>
+    <p>{t(lang, "useCaseHub.section.common.body")}</p>
+    <p>{t(lang, "useCaseHub.section.common.body2")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCaseHub.section.pick.heading")}</h2>
+    <p>{t(lang, "useCaseHub.section.pick.body")}</p>
+    <p>{t(lang, "useCaseHub.section.pick.body2")}</p>
+  </section>
+
+  <div class="uc-hub-grid">
+    {cards.map(({ key, href }) => (
+      <a href={href} class="uc-hub-card">
+        <h2>{t(lang, `useCaseCards.${key}.title`)}</h2>
+        <p>{t(lang, `useCaseCards.${key}.desc`)}</p>
+        <span class="uc-hub-arrow">{t(lang, "useCaseHub.cardCta")} →</span>
+      </a>
+    ))}
+  </div>
+</LandingPageLayout>
+
+<style>
+  .uc-hub-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--wp-space-4);
+  }
+  @media (min-width: 640px) {
+    .uc-hub-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .uc-hub-card {
+    display: flex;
+    flex-direction: column;
+    padding: var(--wp-space-6) 1.75rem;
+    border-radius: var(--radius-card);
+    border: 1px solid var(--wp-border-subtle);
+    background: var(--color-brand-card);
+    box-shadow: var(--shadow-card);
+    text-decoration: none;
+    transition: border-color var(--wp-duration-slow) ease, transform var(--wp-duration-slow) ease, box-shadow var(--wp-duration-slow) ease;
+  }
+  .uc-hub-card:hover {
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-4px);
+  }
+  .uc-hub-card h2 {
+    color: var(--color-ink);
+    font-weight: 600;
+    font-size: var(--wp-font-size-lg);
+    margin-bottom: var(--wp-space-2);
+  }
+  .uc-hub-card p {
+    color: var(--color-ink-muted);
+    font-size: var(--wp-font-size-md);
+    line-height: 1.6;
+    flex: 1;
+  }
+  .uc-hub-arrow {
+    margin-top: var(--wp-space-4);
+    color: var(--color-brand-cyan);
+    font-size: var(--wp-font-size-md);
+    font-weight: 500;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .uc-hub-card,
+    .uc-hub-card:hover {
+      transition: none;
+      transform: none;
+    }
+  }
+</style>

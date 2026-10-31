@@ -1,0 +1,552 @@
+---
+import ScreenshotLightbox from './ScreenshotLightbox.astro';
+import SectionEyebrow from './SectionEyebrow.astro';
+import appleIconRaw from '../../public/os-icons/apple.svg?raw';
+import windowsIconRaw from '../../public/os-icons/windows.svg?raw';
+import ubuntuIconRaw from '../../public/os-icons/ubuntu.svg?raw';
+import { t, localePath, currentLocale } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+const shotLang = lang === 'de' || lang === 'ru' ? lang : 'en';
+
+// Two real app views (dark, the app's only theme). Both stay in the DOM so the
+// lightbox can page through them; the switcher only changes which is shown.
+const views = [
+  { id: 'history', file: '01_workspace_overview', label: 'screenshots.view.history', caption: 'screenshots.workspace', aria: 'screenshots.teaser.overview.aria', alt: 'screenshots.teaser.overview.alt' },
+  { id: 'detail', file: '02_workspace_detail', label: 'screenshots.view.detail', caption: 'screenshots.detail', aria: 'screenshots.teaser.detail.aria', alt: 'screenshots.teaser.detail.alt' },
+] as const;
+
+// Facts next to the app: platforms and the app's own interface languages
+// (lib/core/l10n — L10n.supportedLocales), each written in itself. The
+// dictation languages are the engines' (Whisper 99, Parakeet v3 25) and link
+// to the language summary in the Engines section.
+// The icon files carry their own <title>; the chip already names the OS.
+const bareIcon = (svg: string) => svg.replace(/<title>[\s\S]*?<\/title>/g, '');
+const platforms = [
+  { name: 'macOS', icon: bareIcon(appleIconRaw) },
+  { name: 'Windows', icon: bareIcon(windowsIconRaw) },
+  { name: 'Linux', icon: bareIcon(ubuntuIconRaw) },
+] as const;
+const uiLanguages = [
+  { code: 'de', name: 'Deutsch' },
+  { code: 'en', name: 'English' },
+  { code: 'es', name: 'Español' },
+  { code: 'he', name: 'עברית', dir: 'rtl' },
+  { code: 'pt', name: 'Português' },
+  { code: 'ru', name: 'Русский' },
+] as const;
+---
+<!-- Screenshot teaser: a large dark panel rises out of the light band while
+     scrolling; the real app window sits in it and runs off its lower edge.
+     A switch flips between history and detail editor; full view opens the
+     shared lightbox; the full gallery lives on /screenshots/. No device
+     frame — the app looks the same on macOS, Windows and Linux. -->
+<section id="app-screenshots" class="wp-band relative wp-section scroll-mt-20" data-surface="light">
+  <div class="relative wp-container">
+    <div class="shots-head">
+      <div class="wp-section-head">
+        <SectionEyebrow key="screenshots.label" />
+        <h2 class="section-title"><span data-i18n="screenshots.titleLead">{t(lang, "screenshots.titleLead")}</span><span class="wp-marker" data-i18n="screenshots.titleAccent">{t(lang, "screenshots.titleAccent")}</span><span data-i18n="screenshots.titleTail">{t(lang, "screenshots.titleTail")}</span></h2>
+        <p class="wp-lead mt-4" data-i18n="screenshots.desc">{t(lang, "screenshots.desc")}</p>
+      </div>
+    </div>
+
+    <div class="shots-stage" data-view="history" data-testid="screenshots">
+      <div class="shots-panel" data-surface="dark">
+        <div class="shots-controls">
+          <div class="shots-switch" role="group" aria-label={t(lang, "screenshots.viewsAria")} data-i18n-aria="screenshots.viewsAria">
+            {views.map((v, i) => (
+              <button
+                type="button"
+                class="shots-switch-btn"
+                data-view-btn={v.id}
+                aria-pressed={i === 0 ? 'true' : 'false'}
+                data-testid={`screenshots-view-${v.id}`}
+              ><span data-i18n={v.label}>{t(lang, v.label)}</span></button>
+            ))}
+          </div>
+          <button type="button" class="shots-open" data-testid="screenshots-open">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" /></svg>
+            <span data-i18n="screenshots.openFull">{t(lang, "screenshots.openFull")}</span>
+          </button>
+        </div>
+
+        {views.map((v, i) => (
+          <div class="shots-window" data-view-only={v.id}>
+            <button
+              type="button"
+              class="teaser-thumb-btn"
+              data-teaser-idx={i}
+              aria-label={t(lang, v.aria)}
+              data-i18n-aria={v.aria}
+            >
+              <img
+                class="teaser-img"
+                src={`/screenshots/${shotLang}/dark/${v.file}.webp`}
+                data-screenshot-en={`/screenshots/en/dark/${v.file}.webp`}
+                data-screenshot-de={`/screenshots/de/dark/${v.file}.webp`}
+                data-screenshot-ru={`/screenshots/ru/dark/${v.file}.webp`}
+                data-screenshot-mac-en={`/screenshots/mac/en/dark/${v.file}.webp`}
+                data-screenshot-mac-de={`/screenshots/mac/de/dark/${v.file}.webp`}
+                data-screenshot-mac-ru={`/screenshots/mac/ru/dark/${v.file}.webp`}
+                alt={t(lang, v.alt)}
+                width="1920"
+                height="1080"
+                loading={i === 0 ? 'eager' : 'lazy'}
+                decoding="async"
+              />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <dl class="shots-facts" aria-label={t(lang, "screenshots.facts.aria")} data-i18n-aria="screenshots.facts.aria" data-testid="screenshots-facts">
+        <div class="shots-fact shots-fact--os" data-testid="screenshots-facts-os">
+          <dt data-i18n="screenshots.facts.os">{t(lang, "screenshots.facts.os")}</dt>
+          {platforms.map((os) => (
+            <dd class="shots-fact__os"><span class="shots-fact__icon" aria-hidden="true" set:html={os.icon} />{os.name}</dd>
+          ))}
+        </div>
+        <div class="shots-fact" data-testid="screenshots-facts-ui">
+          <dt data-i18n="screenshots.facts.ui">{t(lang, "screenshots.facts.ui")}</dt>
+          <dd class="shots-fact__big">{uiLanguages.length} <small data-i18n="screenshots.facts.uiCount">{t(lang, "screenshots.facts.uiCount")}</small></dd>
+          <dd class="shots-fact__langs">
+            {uiLanguages.map((l) => <span lang={l.code} dir={'dir' in l ? l.dir : undefined}>{l.name}</span>)}
+          </dd>
+        </div>
+        <div class="shots-fact shots-fact--accent" data-testid="screenshots-facts-dictation">
+          <dt data-i18n="screenshots.facts.dictation">{t(lang, "screenshots.facts.dictation")}</dt>
+          <dd class="shots-fact__big">99 <small data-i18n="screenshots.facts.whisper">{t(lang, "screenshots.facts.whisper")}</small></dd>
+          <dd class="shots-fact__more">
+            <a href="#languages" data-i18n="screenshots.facts.parakeet">{t(lang, "screenshots.facts.parakeet")}</a>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </dd>
+        </div>
+      </dl>
+
+      {views.map((v) => (
+        <p class="shots-caption" data-view-only={v.id} data-i18n={v.caption}>{t(lang, v.caption)}</p>
+      ))}
+
+    </div>
+
+    <p class="shots-more">
+      <a href={localePath(lang, "screenshots")} class="shots-more-link" data-testid="screenshots-gallery-link">
+        <span data-i18n="screenshots.seeAll">{t(lang, "screenshots.seeAll")}</span>
+      </a>
+    </p>
+  </div>
+</section>
+
+<ScreenshotLightbox />
+
+<style>
+  .shots-stage {
+    display: grid;
+    gap: var(--wp-space-4);
+    max-width: 70rem;
+    margin-inline: auto;
+  }
+  .shots-stage:not([data-view="history"]) [data-view-only="history"],
+  .shots-stage:not([data-view="detail"]) [data-view-only="detail"] {
+    display: none;
+  }
+  .shots-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wp-space-3);
+  }
+  .shots-switch {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-2);
+  }
+  .shots-switch-btn,
+  .shots-open {
+    min-height: 44px;
+    padding: var(--wp-space-2) var(--wp-space-5);
+    border-radius: var(--wp-radius-pill);
+    border: 1px solid var(--wp-border-control);
+    background: var(--wp-surface-control);
+    color: var(--wp-text-secondary);
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+    cursor: pointer;
+    transition: color var(--dur-fast) ease, background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .shots-switch-btn:hover,
+  .shots-open:hover { color: var(--wp-text-primary); }
+  .shots-switch-btn[aria-pressed="true"] {
+    color: var(--wp-accent-on-fill);
+    background: var(--wp-accent-fill);
+    border-color: var(--wp-accent-fill);
+  }
+  .shots-open {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+  }
+  .shots-open svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  .shots-switch-btn:focus-visible,
+  .shots-open:focus-visible,
+  .teaser-thumb-btn:focus-visible,
+  .shots-more-link:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 3px;
+  }
+  /* ---- The panel: dark, rounded, rising out of the light band ---- */
+  .shots-panel {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: grid;
+    gap: var(--wp-space-6);
+    padding: var(--wp-space-6) var(--wp-space-4) 0;
+    border-radius: var(--wp-panel-radius);
+    background:
+      radial-gradient(70% 60% at 50% 100%, color-mix(in srgb, var(--wp-accent-default) 22%, transparent), transparent 70%),
+      var(--wp-surface-band);
+    box-shadow: var(--wp-panel-shadow);
+    color: var(--wp-text-primary);
+  }
+  /* Amber halftone grain in the upper corner — the section's one accent. */
+  .shots-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto auto;
+    width: 45%;
+    height: 60%;
+    z-index: -1;
+    background-image: radial-gradient(circle, color-mix(in srgb, var(--wp-highlight-marker) 28%, transparent) 1.4px, transparent 1.8px);
+    background-size: var(--wp-space-2) var(--wp-space-2);
+    mask-image: radial-gradient(ellipse at 100% 0%, currentColor, transparent 70%);
+    pointer-events: none;
+  }
+  @media (max-width: 639px) {
+    .shots-panel {
+      gap: var(--wp-space-4);
+    }
+    .shots-controls {
+      gap: var(--wp-space-2);
+    }
+    .shots-switch-btn,
+    .shots-open {
+      padding-inline: var(--wp-space-4);
+      font-size: var(--wp-font-size-sm);
+    }
+    /* Icon-only on phones so the controls fit one row; the label stays
+       readable for assistive tech. */
+    .shots-open {
+      width: 44px;
+      justify-content: center;
+      padding-inline: 0;
+    }
+    .shots-open span {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+  }
+  @media (min-width: 768px) {
+    .shots-panel {
+      padding: var(--wp-space-10) var(--wp-space-12) 0;
+    }
+    .shots-window {
+      margin-bottom: calc(-1 * var(--wp-space-12));
+    }
+  }
+  /* Scroll-linked rise where supported (Chrome/Edge); elsewhere the panel
+     simply stands — no observer, nothing that can leave it hidden. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .shots-panel {
+        animation: shots-rise linear both;
+        animation-timeline: view();
+        animation-range: entry 0% cover 40%;
+      }
+    }
+  }
+  @keyframes shots-rise {
+    from {
+      transform: translateY(var(--wp-space-16)) scale(0.94);
+    }
+  }
+  /* The app window runs off the panel's lower edge. */
+  .shots-window {
+    width: min(100%, 60rem);
+    margin-inline: auto;
+    margin-bottom: calc(-1 * var(--wp-space-4));
+    border-radius: var(--wp-radius-card) var(--wp-radius-card) 0 0;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px var(--wp-border-strong),
+      var(--shadow-overlay);
+    transition: translate var(--dur-slow) var(--ease-flow);
+  }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .shots-panel:hover .shots-window {
+      translate: 0 calc(-1 * var(--wp-space-2));
+    }
+  }
+  .teaser-thumb-btn {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: var(--wp-surface-sunken);
+    cursor: zoom-in;
+  }
+  .teaser-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    object-position: top center;
+  }
+  .shots-caption {
+    margin-top: var(--wp-space-2);
+    text-align: center;
+    font-size: var(--wp-font-size-md);
+    color: var(--wp-text-secondary);
+  }
+  /* ---- Facts: three stickers overlapping the panel's lower edge, the same
+     language as the hero's stickers — tilted, lifted, one amber accent. ---- */
+  .shots-facts {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    gap: var(--wp-space-4);
+    margin: calc(-1 * var(--wp-space-8)) var(--wp-space-4) var(--wp-space-2);
+  }
+  @media (min-width: 768px) {
+    .shots-facts {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--wp-space-6);
+      margin: calc(-1 * var(--wp-space-12)) var(--wp-space-10) var(--wp-space-2);
+    }
+  }
+  .shots-fact {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    align-items: baseline;
+    gap: var(--wp-space-1) var(--wp-space-2);
+    margin: 0;
+    padding: var(--wp-space-5);
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-surface-floating);
+    box-shadow: var(--shadow-overlay);
+    rotate: -1.5deg;
+    transition: rotate var(--dur-base) var(--ease-flow), translate var(--dur-base) var(--ease-flow);
+  }
+  .shots-fact:nth-child(2) { rotate: 1deg; }
+  .shots-fact:nth-child(3) { rotate: -1deg; }
+  @media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .shots-fact:hover {
+      rotate: 0deg;
+      translate: 0 calc(-1 * var(--wp-space-1));
+    }
+  }
+  .shots-fact dt {
+    flex-basis: 100%;
+    margin-bottom: var(--wp-space-2);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--wp-card-meta);
+  }
+  .shots-fact dd {
+    margin: 0;
+  }
+  /* OS: three even columns, each mark above its name, centred in the card. */
+  .shots-fact--os {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto 1fr;
+    align-items: center;
+  }
+  .shots-fact--os dt {
+    grid-column: 1 / -1;
+  }
+  .shots-fact__os {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--wp-space-2);
+    padding-block: var(--wp-space-2);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    color: var(--wp-card-text);
+  }
+  .shots-fact__icon {
+    display: inline-flex;
+    width: 2.5rem;
+    height: 2.5rem;
+    color: var(--wp-card-title);
+  }
+  .shots-fact__icon :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+  /* Big number with its unit, display face. */
+  .shots-fact__big {
+    flex-basis: 100%;
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h2);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--wp-card-title);
+  }
+  .shots-fact__big small {
+    font-family: var(--font-sans);
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--wp-card-text);
+  }
+  .shots-fact__langs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-1) var(--wp-space-2);
+    margin-top: var(--wp-space-2);
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-card-text);
+  }
+  .shots-fact__langs span + span::before {
+    content: "·";
+    margin-right: var(--wp-space-2);
+    color: var(--wp-card-meta);
+  }
+  /* The amber sticker: dictation languages, links to the language summary. */
+  .shots-fact--accent {
+    border-color: var(--wp-marker-stroke);
+    background: var(--wp-marker-stroke);
+  }
+  .shots-fact--accent dt,
+  .shots-fact--accent .shots-fact__big,
+  .shots-fact--accent .shots-fact__big small,
+  .shots-fact--accent .shots-fact__more {
+    color: var(--wp-marker-text);
+  }
+  .shots-fact__more {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    margin-top: var(--wp-space-2);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 700;
+  }
+  .shots-fact__more a {
+    color: inherit;
+    text-decoration: none;
+  }
+  /* The whole sticker is the link's hit area. */
+  .shots-fact__more a::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+  .shots-fact__more svg {
+    width: 1rem;
+    height: 1rem;
+    transition: translate var(--dur-base) var(--ease-flow);
+  }
+  .shots-fact--accent:hover .shots-fact__more a { text-decoration: underline; }
+  .shots-fact--accent:hover .shots-fact__more svg { translate: var(--wp-space-1) 0; }
+  .shots-fact__more a:focus-visible {
+    outline: none;
+  }
+  .shots-fact--accent:has(a:focus-visible) {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 3px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .shots-fact,
+    .shots-fact__more svg {
+      transition: none;
+    }
+  }
+  .shots-more {
+    margin-top: var(--wp-space-6);
+    text-align: center;
+  }
+  .shots-more-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    font-weight: 600;
+    color: var(--wp-text-link);
+    text-decoration: none;
+    border-radius: var(--wp-radius-chip);
+  }
+  .shots-more-link:hover { text-decoration: underline; }
+  @media (prefers-reduced-motion: reduce) {
+    .shots-switch-btn,
+    .shots-open,
+    .shots-window { transition: none; }
+  }
+</style>
+
+<script>
+  function syncScreenshots() {
+    const docLang = document.documentElement.lang;
+    const os = document.documentElement.dataset.os ?? '';
+    document.querySelectorAll<HTMLImageElement>('img[data-screenshot-en]').forEach(img => {
+      const d = img.dataset;
+      let nextSrc: string | undefined;
+      if (os === 'macos') {
+        nextSrc = docLang === 'de' ? d.screenshotMacDe : docLang === 'ru' ? d.screenshotMacRu : d.screenshotMacEn;
+      }
+      nextSrc ??= docLang === 'de' ? d.screenshotDe : docLang === 'ru' ? d.screenshotRu : d.screenshotEn;
+      nextSrc ??= d.screenshotEn;
+      if (nextSrc && img.getAttribute('src') !== nextSrc) img.setAttribute('src', nextSrc);
+    });
+  }
+
+  syncScreenshots();
+  const observer = new MutationObserver(syncScreenshots);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['lang', 'data-os'] });
+  window.addEventListener('pageshow', syncScreenshots);
+
+  // Wire the screenshots to the shared lightbox (ScreenshotLightbox.astro).
+  const openLightbox = (idx: number) => {
+    const teaserImgs = Array.from(
+      document.querySelectorAll<HTMLImageElement>('.teaser-img')
+    ).map(i => ({ src: i.getAttribute('src') || '', alt: i.getAttribute('alt') || '' }));
+    if ((window as any).openScreenshotLightbox) {
+      (window as any).openScreenshotLightbox(teaserImgs, idx);
+    }
+  };
+  document.querySelectorAll<HTMLButtonElement>('.teaser-thumb-btn').forEach(btn => {
+    btn.addEventListener('click', () => openLightbox(parseInt(btn.dataset.teaserIdx || '0', 10)));
+  });
+
+  // View switcher: aria-pressed buttons swap the visible screenshot.
+  const stage = document.querySelector<HTMLElement>('.shots-stage');
+  const viewBtns = stage?.querySelectorAll<HTMLButtonElement>('[data-view-btn]') ?? [];
+  for (const btn of viewBtns) {
+    btn.addEventListener('click', () => {
+      if (!stage) return;
+      stage.dataset.view = btn.dataset.viewBtn;
+      for (const b of viewBtns) b.setAttribute('aria-pressed', String(b === btn));
+    });
+  }
+  stage?.querySelector('.shots-open')?.addEventListener('click', () => {
+    openLightbox(stage.dataset.view === 'detail' ? 1 : 0);
+  });
+</script>

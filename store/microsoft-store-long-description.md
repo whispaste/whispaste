@@ -1,0 +1,47 @@
+---
+title: WhisPaste: Microsoft Store long description
+version: 1
+locale: en-US
+last-reviewed: 2026-07-21
+notes: |
+  Outcome-first marketing copy for the Microsoft Store Partner Center
+  "Description" field. Keep in sync with `store/en-US/description.txt` and the
+  hero/FAQ copy on whispaste.de, but written as a self-contained marketing
+  piece, not a copy of the website. Glossary-konform per CONTEXT.md §7 and
+  PRD §D; anti-vocabulary scan must stay green.
+---
+
+## Tagline
+
+Press a hotkey, speak, and your words land at the cursor in any app: offline by default, open source, no subscription, no account.
+
+## Long description
+
+WhisPaste turns the moment you would normally start typing into the moment you start talking. You press a global hotkey, say what you would have written, and the transcript appears at the cursor of whatever app you happen to be in: your inbox, a code editor, a support ticket, a chat window, a browser form. There is no separate window to switch to, no copy step, no second clipboard to manage. The voice input flows directly into the place you already had your cursor.
+
+The default mode runs entirely on your computer. WhisPaste ships three on-device Whisper AI models (Small, Medium, and Large v3 Turbo, up to 99 languages) plus the extra-fast, CPU-only Parakeet engine, so your audio never leaves the machine you are working on. If you ever want cloud-grade accuracy, OpenAI and Deepgram are opt-in and the audio goes straight from your device to the provider you picked, never through a WhisPaste server. There is no account to create and no subscription to manage. Your transcripts stay in a local history on your device, which you can search, export or clear.
+
+Writers, developers, support staff, and anyone whose hands hurt at the end of the day all use WhisPaste for the same reason: the keyboard becomes optional. A five-sentence reply to a code review is spoken in a few breaths instead of typed out line by line. A first draft of a long email is a single hotkey press away. A clarification on a customer ticket goes out without leaving the ticket UI. On a day when typing is painful, voice input takes over for whichever sentences need to happen, and you keep working without switching tools.
+
+Every transcript is saved to a local history you control. Search across everything you have ever recorded, tag entries by project, pin the ones you reuse, archive what you do not need, and export to TXT, Markdown, JSON, CSV, or Word whenever you want a copy outside the app. Voice Snippets turn short spoken triggers into reusable phrases (signatures, greetings, project codes, anything you find yourself typing repeatedly), and they are expanded before the text is pasted.
+
+WhisPaste is open source under the MIT license. The full source is on GitHub, every release is built transparently through GitHub Actions, and the Microsoft Store version adds automatic updates plus a small one-time purchase that supports the project: no subscription, no recurring charge, and the app itself never changes.
+
+## What you can do with it
+
+- **Reply to email** in your own words without touching the keyboard, whether that's Outlook, Gmail, or anything else in the browser.
+- **Answer code reviews, write commit messages, and comment on issues** without leaving the GitHub or GitLab tab.
+- **Work through support tickets faster** by speaking the personal sentences on top of your macros, right inside Zendesk, Freshdesk, Intercom, or your own helpdesk app.
+- **Give your hands a rest on long writing days:** voice input replaces typing wherever your cursor is.
+- **Brainstorm and outline out loud**, then edit the transcript instead of staring at an empty document.
+- **Capture meeting notes and follow-ups** straight into Notion, Obsidian, OneNote, or whatever notes app you use.
+- **Talk to chatbots and AI tools** by speaking the prompt instead of typing it, then refine the result in place.
+
+## Platforms, license, and privacy
+
+- **Platforms:** Windows 10 (64-bit) and newer, macOS 12 Monterey and newer (Apple Silicon). WhisPaste can also be downloaded for Linux (AppImage, .deb and tar.gz) directly from GitHub.
+- **License:** MIT. Open source, source available on GitHub, audit every line.
+- **Privacy:** Offline by default. After a one-time model download, on-device transcription runs without any internet connection; the cloud path is opt-in and audio travels directly from your device to the provider you choose, never through a WhisPaste server. No account is required. Usage statistics and crash reports never contain audio or text and can be turned off at any time.
+- **System requirements:** 8 GB of RAM is required and enforced at startup. A graphics card speeds up Whisper (on Apple Silicon, Metal made Whisper about 2.6 times faster than the CPU alone in our benchmark with the compact model) — Vulkan on Windows and Linux covers NVIDIA, AMD, and Intel with a single build, and Metal accelerates Apple Silicon — but a GPU is not required. CPU fallback is always available, and the Parakeet engine is CPU-only by design.
+- **Languages:** Up to 99 spoken languages with the Whisper engine (about 25 with the faster Parakeet engine). The interface is available in English, German, Hebrew, Russian, Spanish, and Portuguese (Brazil).
+- **Pricing:** A small one-time purchase, no subscription, no recurring fees, no feature gating.

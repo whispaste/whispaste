@@ -1,0 +1,184 @@
+---
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t, currentLocale } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+
+// Testimonials.astro — Fetches approved testimonials at BUILD TIME (SSG).
+// Uses PostgREST directly (no Edge Function) — zero invocations against the
+// Supabase free-tier limit. Data is baked into static HTML at deploy time.
+
+// Supabase anon key: safe to embed in SSG source (public by design — security
+// enforced by the public_testimonials view + RLS, not by key secrecy).
+const SUPABASE_URL = 'https://cnyniyflnefxrwafuqig.supabase.co';
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNueW5peWZsbmVmeHJ3YWZ1cWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5Njc0OTIsImV4cCI6MjA5MDU0MzQ5Mn0.f3xBLIwq1a4LMwV9cmpebzLoYzNJfxxiOTWBl7Pxl3w';
+
+// PostgREST endpoint for the public_testimonials view (rating, text only — no PII).
+const API_URL =
+  `${SUPABASE_URL}/rest/v1/public_testimonials` +
+  `?select=rating,text&order=received_at.desc&limit=6`;
+
+interface Testimonial {
+  rating: number;
+  text: string;
+}
+
+let testimonials: Testimonial[] = [];
+
+try {
+  const res = await fetch(API_URL, {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+  });
+  if (res.ok) {
+    const data = await res.json();
+    // PostgREST returns an array directly (no wrapper object). The rating
+    // gate (uncurated text needs rating >= 4; curated text bypasses it) is
+    // already enforced server-side by the public_testimonials view — no
+    // need to re-check it here, and doing so would silently re-exclude
+    // curated low-rating testimonials the view now deliberately allows.
+    testimonials = (Array.isArray(data) ? data : []).filter(
+      (t: Testimonial) => !!t.text
+    );
+  }
+} catch {
+  // Build continues without testimonials — section stays hidden
+}
+
+// Pangram principle (tone, not motif): a few big quote tiles in different
+// tones instead of a uniform card wall. The longest quote leads as a dark
+// panel spanning two columns and rows; every third other tile is tinted.
+const featured = testimonials.reduce(
+  (best, item, i) => (item.text.length > testimonials[best].text.length ? i : best),
+  0,
+);
+const tone = (i: number) =>
+  i === featured ? 'feature' : (i - (i > featured ? 1 : 0)) % 3 === 1 ? 'tint' : 'plain';
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+---
+
+{testimonials.length > 0 && (
+  <section id="testimonials" class="wp-band relative wp-section scroll-mt-20" data-surface="light" data-testid="testimonials">
+    <div class="wp-container">
+      <div class="wp-section-head">
+        <SectionEyebrow key="testimonials.label" />
+        <h2 class="section-title"><span data-i18n="testimonials.titleLead">{t(lang, "testimonials.titleLead")}</span><span class="wp-marker" data-i18n="testimonials.titleAccent">{t(lang, "testimonials.titleAccent")}</span><span data-i18n="testimonials.titleTail">{t(lang, "testimonials.titleTail")}</span></h2>
+        <p class="wp-lead mt-4" data-i18n="testimonials.subtitle">{t(lang, "testimonials.subtitle")}</p>
+      </div>
+
+      <div class="testimonial-grid" data-testid="testimonials-grid">
+        {testimonials.map((item, i) => {
+          const r = Math.max(0, Math.min(5, Math.round(item.rating) || 0));
+          return (
+            <figure
+              class={`testimonial-card testimonial-card--${tone(i)}`}
+              data-surface={i === featured ? 'dark' : undefined}
+              data-testid={`testimonials-card-${i}`}
+            >
+              <div class="testimonial-head">
+                <svg class="testimonial-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21c3 0 7-1 7-8V5H3v8h4c0 3-1 5-4 5zm11 0c3 0 7-1 7-8V5h-7v8h4c0 3-1 5-4 5z" fill="currentColor" /></svg>
+                <div class="testimonial-stars" role="img" aria-label={`${r}/5`}>
+                  <span aria-hidden="true">{'★'.repeat(r)}<span class="testimonial-stars__off">{'★'.repeat(5 - r)}</span></span>
+                </div>
+              </div>
+              <blockquote class="testimonial-text" set:html={escapeHtml(item.text)} />
+            </figure>
+          );
+        })}
+      </div>
+    </div>
+  </section>
+)}
+
+<style>
+  /* Bento: the featured quote spans 2 × 2 cells, `dense` fills the rest, so
+     six quotes close a 3 × 3 grid with no gaps. */
+  .testimonial-grid {
+    display: grid;
+    gap: var(--wp-space-4);
+  }
+  @media (min-width: 640px) {
+    .testimonial-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-auto-flow: dense;
+      gap: var(--wp-space-5);
+    }
+    .testimonial-card--feature { grid-column: span 2; }
+  }
+  @media (min-width: 1024px) {
+    .testimonial-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .testimonial-card--feature { grid-row: span 2; }
+  }
+
+  .testimonial-card {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-4);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
+    color: var(--wp-card-title);
+  }
+  .testimonial-card--tint {
+    border-color: transparent;
+    background: var(--wp-accent-soft);
+    box-shadow: none;
+  }
+  /* The dark panel rises from the light band (data-surface="dark" swaps the
+     semantic tokens); one large corner marks it as the lead quote. */
+  .testimonial-card--feature {
+    justify-content: space-between;
+    border-radius: var(--wp-card-radius-lg);
+    border-top-right-radius: calc(var(--wp-card-radius-lg) * 3);
+    background: var(--wp-surface-band);
+  }
+
+  .testimonial-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .testimonial-glyph {
+    width: var(--wp-space-8);
+    height: var(--wp-space-8);
+    color: var(--wp-accent-default);
+  }
+  .testimonial-text {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-xl);
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    color: var(--wp-text-primary);
+    text-wrap: pretty;
+  }
+  .testimonial-card--feature .testimonial-text {
+    font-size: var(--wp-font-size-title);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+  .testimonial-stars {
+    color: var(--wp-highlight-text);
+    font-size: var(--wp-font-size-sm);
+    letter-spacing: 0.12em;
+    line-height: 1.2;
+  }
+  .testimonial-stars__off {
+    color: var(--wp-border-strong);
+  }
+</style>

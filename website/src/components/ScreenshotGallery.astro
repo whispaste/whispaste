@@ -1,0 +1,255 @@
+---
+/**
+ * Screenshot gallery — responsive grid with a language toggle (no platform
+ * toggle: the site no longer distinguishes macOS from Windows in the
+ * gallery, see below).
+ * Clicking a screenshot opens the shared lightbox (ScreenshotLightbox.astro).
+ *
+ * Theme per screenshot is fixed by the storyboard (see
+ * `test/screenshots/store_screenshots_test.dart`): goldens are only produced
+ * in one theme each, so there is nothing to toggle to at runtime. All of them are
+ * `dark` — the app's light theme was removed, so `store_screenshots_test.dart`
+ * no longer produces a `light` variant at all. `GalleryTheme` keeps the
+ * `'light'` member for now rather than collapsing the type, since the
+ * per-screen `theme` field is still what a reader checks to know what a given
+ * screenshot shows.
+ */
+import ScreenshotLightbox from './ScreenshotLightbox.astro';
+import { t, currentLocale } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+// Screenshots exist for the German, English and Russian app UI; every other
+// locale shows English.
+const screenshotLang = lang === 'de' || lang === 'ru' ? lang : 'en';
+
+type GalleryTheme = 'dark' | 'light';
+
+/**
+ * Screens 01–05 are Flutter goldens (1920×1080), captured on Windows.
+ * Screens 06–09 are real captures from the Windows test box (storyboard:
+ * `internal-notes`) — cropped to the app
+ * window (1920×1072; 09 keeps the full 1080 desktop because the edge-pulled
+ * side panel over the desktop *is* the motif). The gallery deliberately shows
+ * one consistent set rather than a per-platform toggle: 06–09 only exist as
+ * Windows captures (no real macOS captures — never faked), and mixing window
+ * chrome/aspect ratios within one grid would look inconsistent. The app looks
+ * and behaves the same on macOS/Windows/Linux, so a single representative set
+ * is the honest choice — see `docs/zielgruppe.md` on platform parity.
+ */
+const screens: Array<{
+  id: string;
+  theme: GalleryTheme;
+  i18nLabel: string;
+  height: number;
+}> = [
+  { id: '01_workspace_overview', theme: 'dark',  i18nLabel: 'gallery.workspace', height: 1080 },
+  { id: '02_workspace_detail',   theme: 'dark',  i18nLabel: 'gallery.detail',    defaultLabel: 'Edit and refine each entry', deLabel: 'Jeden Eintrag bearbeiten und verfeinern', height: 1080 },
+  { id: '03_voice_shortcuts',    theme: 'dark',  i18nLabel: 'gallery.shortcuts', height: 1080 },
+  { id: '04_settings',           theme: 'dark',  i18nLabel: 'gallery.settings',  defaultLabel: 'Customize to fit your workflow', deLabel: 'Anpassbar an deinen Workflow', height: 1080 },
+  { id: '05_analytics',          theme: 'dark',  i18nLabel: 'gallery.analytics', height: 1080 },
+  { id: '06_smart_mode',           theme: 'dark', i18nLabel: 'gallery.smartmode',   defaultLabel: 'Clean up, shorten or translate what you dictated', deLabel: 'Diktiertes bereinigen, kürzen oder übersetzen', height: 1072 },
+  { id: '07_snippet_picker',       theme: 'dark', i18nLabel: 'gallery.picker',      defaultLabel: 'Search and insert snippets right at your cursor', deLabel: 'Snippets direkt am Cursor suchen und einfügen', height: 1072 },
+  { id: '08_interactive_snippet',  theme: 'dark', i18nLabel: 'gallery.interactive', height: 1072 },
+  { id: '09_side_panel',           theme: 'dark', i18nLabel: 'gallery.sidepanel',   defaultLabel: 'Your clipboard and transcripts, one edge-pull away', deLabel: 'Zwischenablage und Transkripte, nur einen Handgriff entfernt', height: 1080 },
+  // 10 is a Flutter golden (windowsStore device, 1920×1080) like 01–05, not a capture.
+  { id: '10_notes',              theme: 'dark', i18nLabel: 'gallery.notes',       height: 1080 },
+];
+---
+
+<div class="gallery-root" id="screenshot-gallery">
+  <!-- Responsive grid -->
+  <div class="gallery-grid" id="gallery-grid" role="list">
+    {screens.map((screen, idx) => (
+      <figure class="gallery-item" role="listitem">
+        <button
+          class="gallery-thumb-btn"
+          data-gallery-id={screen.id}
+          aria-label={t(lang, 'gallery.enlargeAria').replace('{label}', t(lang, screen.i18nLabel))}
+        >
+          <img
+            class="gallery-image"
+            src={`/screenshots/${screenshotLang}/${screen.theme}/${screen.id}.webp`}
+            data-gallery-id={screen.id}
+            data-gallery-theme={screen.theme}
+            alt={t(lang, screen.i18nLabel)}
+            width="1920"
+            height={screen.height}
+            loading={idx === 0 ? 'eager' : 'lazy'}
+            decoding="async"
+          />
+          <span class="gallery-zoom-hint" data-surface="dark" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              <line x1="11" y1="8" x2="11" y2="14"></line>
+              <line x1="8" y1="11" x2="14" y2="11"></line>
+            </svg>
+          </span>
+        </button>
+        <figcaption class="gallery-caption" data-i18n={screen.i18nLabel}>
+          {t(lang, screen.i18nLabel)}
+        </figcaption>
+      </figure>
+    ))}
+  </div>
+</div>
+
+<ScreenshotLightbox />
+
+<style>
+  .gallery-root {
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+
+  /* Responsive grid: 1 → 2 → 3 columns */
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--wp-space-6);
+  }
+
+  @media (min-width: 640px) {
+    .gallery-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .gallery-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  .gallery-item {
+    margin: 0;
+  }
+
+  /* Thumbnail button wrapper */
+  .gallery-thumb-btn {
+    position: relative;
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-radius: var(--radius-control);
+    overflow: hidden;
+    outline-offset: 3px;
+  }
+
+  .gallery-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-control);
+    box-shadow: var(--wp-shadow-overlay);
+    transition: transform var(--wp-duration-slow) cubic-bezier(0.22, 1, 0.36, 1),
+                box-shadow var(--wp-duration-slow) ease;
+  }
+
+  .gallery-thumb-btn:hover .gallery-image,
+  .gallery-thumb-btn:focus-visible .gallery-image {
+    transform: translateY(-3px) scale(1.015);
+    box-shadow: var(--wp-shadow-panel);
+  }
+
+  /* Zoom hint icon */
+  .gallery-zoom-hint {
+    position: absolute;
+    bottom: 0.625rem;
+    right: 0.625rem;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--wp-surface-scrim);
+    color: var(--wp-text-primary);
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity var(--wp-duration-slow) ease, transform var(--wp-duration-slow) ease;
+    pointer-events: none;
+  }
+
+  .gallery-thumb-btn:hover .gallery-zoom-hint,
+  .gallery-thumb-btn:focus-visible .gallery-zoom-hint {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  /* Caption */
+  .gallery-caption {
+    text-align: center;
+    margin-top: var(--wp-space-3);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 500;
+    color: var(--wp-text-muted);
+  }
+</style>
+
+<script>
+  function initGallery() {
+    const root = document.getElementById('screenshot-gallery');
+    if (!root) return;
+
+    const thumbButtons = root.querySelectorAll<HTMLButtonElement>('.gallery-thumb-btn');
+
+    function getLang(): string {
+      const docLang = document.documentElement.lang;
+      return docLang === 'de' || docLang === 'ru' ? docLang : 'en';
+    }
+
+    function buildSrc(id: string, lang: string, theme: string): string {
+      return `/screenshots/${lang}/${theme}/${id}.webp`;
+    }
+
+    function updateImages() {
+      const lang = getLang();
+      root.querySelectorAll<HTMLImageElement>('img[data-gallery-id]').forEach(img => {
+        const id = img.dataset.galleryId!;
+        const theme = img.dataset.galleryTheme || 'dark';
+        const newSrc = buildSrc(id, lang, theme);
+        if (img.getAttribute('src') !== newSrc) img.src = newSrc;
+      });
+    }
+
+    function visibleImages(): HTMLImageElement[] {
+      return Array.from(root.querySelectorAll<HTMLImageElement>('.gallery-image'));
+    }
+
+    function buildLightboxImages(): Array<{ src: string; alt: string }> {
+      const lang = getLang();
+      return visibleImages().map(img => ({
+        src: buildSrc(img.dataset.galleryId!, lang, img.dataset.galleryTheme || 'dark'),
+        alt: img.alt,
+      }));
+    }
+
+    // Thumbnail click → open lightbox
+    thumbButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const ownImg = btn.querySelector<HTMLImageElement>('.gallery-image');
+        const idx = Math.max(0, visibleImages().indexOf(ownImg!));
+        // Engagement-Event „Screenshots angesehen" (cookieless).
+        if ((window as any)._paq) {
+          (window as any)._paq.push(['trackEvent', 'Engagement', 'Screenshots angesehen']);
+        }
+        const images = buildLightboxImages();
+        if ((window as any).openScreenshotLightbox) {
+          (window as any).openScreenshotLightbox(images, idx);
+        }
+      });
+    });
+
+    // Language observer
+    const langObs = new MutationObserver(() => updateImages());
+    langObs.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+
+    updateImages();
+  }
+
+  initGallery();
+</script>

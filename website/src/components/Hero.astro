@@ -1,0 +1,476 @@
+---
+import HeroExample from './HeroExample.astro';
+import SectionEyebrow from './SectionEyebrow.astro';
+import StoreButton from './StoreButton.astro';
+import MacStoreButton from './MacStoreButton.astro';
+import LinuxButton from './LinuxButton.astro';
+import { t, localePath, currentLocale } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<!-- Hero: an editorial headline over a photographic stage. The story reads top
+     to bottom in one glance: press the hotkey (keycap sticker), speak (the
+     recording pill), the text lands in the app you are in (the mail card),
+     and none of it leaves the machine (the local seal). Motion is one-shot
+     and transform/opacity only: no live blur, no loop, nothing that keeps a
+     compositor layer busy after the first second (Safari memory). -->
+<section
+  class="hero relative overflow-hidden pt-28 sm:pt-32 pb-16 sm:pb-24"
+  data-testid="hero"
+>
+  <div class="hero-ambient-wash absolute inset-0 pointer-events-none" aria-hidden="true"></div>
+
+  <div class="wp-container relative z-10">
+    <div class="hero-copy">
+      <SectionEyebrow
+        key="hero.eyebrow"
+        class="hero-fade-rise mb-5 sm:mb-6 justify-center"
+        style="--wp-rise-delay: 40ms"
+      />
+
+      <h1 class="hero-title text-ink">
+        <span
+          class="wp-rise-in hero-title-line"
+          style="--wp-rise-delay: 120ms"
+          ><span data-i18n="hero.title1">{t(lang, "hero.title1")}</span>{" "}<!-- A live voice "word": the app's recording pill in miniature (flat
+               navy, cyan dot, amber bars), listening to the headline. -->
+          <span class="hero-voice" aria-hidden="true" data-testid="hero-voice"
+            ><i class="hero-voice__dot"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span
+          ></span
+        >
+        <span
+          class="wp-rise-in hero-title-line"
+          style="--wp-rise-delay: 220ms"
+          ><span class="wp-marker hero-marker" data-i18n="hero.title2">{t(lang, "hero.title2")}</span></span
+        >
+      </h1>
+      <p
+        class="hero-fade-rise wp-lead hero-desc"
+        data-i18n="hero.desc"
+        style="--wp-rise-delay: 360ms"
+      >
+        {t(lang, "hero.desc")}
+      </p>
+
+      <!-- CTA block: the visitor's platform button (global.css reduces the
+           three to the detected OS; unknown OS sees all three). -->
+      <div class="hero-fade-rise hero-cta-row" style="--wp-rise-delay: 440ms">
+        <div class="flex flex-wrap items-stretch justify-center gap-3">
+          <div data-platform-btn="windows"><StoreButton size="lg" /></div>
+          <div data-platform-btn="macos"><MacStoreButton size="lg" /></div>
+          <div data-platform-btn="linux"><LinuxButton size="lg" /></div>
+        </div>
+      </div>
+
+      <p class="hero-fineprint hero-fade-rise" style="--wp-rise-delay: 520ms">
+        <svg class="hero-fineprint__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
+        <span data-i18n="hero.privacy.line">{t(lang, "hero.privacy.line")}</span>
+      </p>
+      <!-- The free route sits below the trust line: one main button above,
+           every other download route as a quiet link underneath. -->
+      <a
+        href={localePath(lang, "download")}
+        class="hero-secondary-cta hero-fade-rise inline-flex items-center gap-1.5 text-sm font-medium text-(--wp-text-link) hover:text-ink transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--wp-focus-ring) rounded"
+        data-testid="hero-secondary-cta"
+        style="--wp-rise-delay: 600ms"
+      >
+        <span data-i18n="hero.cta.secondary">{t(lang, "hero.cta.secondary")}</span>
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+      </a>
+    </div>
+
+    <!-- The stage: a cinematic evening desk photo. Someone leans back, hands
+         off the keyboard, and speaks a reply; the card beside them shows that
+         reply landing in the mail field. Scene left, product right (stacked on
+         phones: scene on top). The art is decoration; the card's caption
+         carries the meaning. -->
+    <div class="hero-stage" id="how-it-works" data-testid="hero-stage">
+      <picture class="hero-stage__art" aria-hidden="true">
+        <source type="image/avif" srcset="/images/hero/desk-960.avif 960w, /images/hero/desk-1600.avif 1600w" sizes="(min-width: 1280px) 90vw, 100vw" />
+        <img src="/images/hero/desk-1600.webp" srcset="/images/hero/desk-960.webp 960w, /images/hero/desk-1600.webp 1600w" sizes="(min-width: 1280px) 90vw, 100vw" alt="" width="1600" height="900" decoding="async" fetchpriority="low" />
+      </picture>
+      <!-- EU AI Act Art. 50(4): the photo is AI-generated and looks real, so
+           it carries a visible label (the footer explains it). -->
+      <span class="hero-ai-badge" data-testid="hero-ai-badge" data-i18n="ai.badge">{t(lang, "ai.badge")}</span>
+
+      <div class="hero-stage__card">
+        <HeroExample />
+
+        <div class="hero-sticker hero-sticker--keys" style="--r: -7deg; --wp-rise-delay: 700ms" aria-hidden="true" data-testid="hero-sticker-keys">
+          <kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd>
+        </div>
+        <div class="hero-sticker hero-sticker--local" style="--r: 6deg; --wp-rise-delay: 860ms" data-testid="hero-sticker-local">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"></path><path d="m9 12 2 2 4-4"></path></svg>
+          <span data-i18n="hero.sticker.local">{t(lang, "hero.sticker.local")}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* ---- Copy: centred editorial column ---- */
+  .hero-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    max-width: 64rem;
+    margin-inline: auto;
+  }
+  .hero-title {
+    font-family: var(--font-display);
+    font-variation-settings: "wght" 800;
+    font-weight: 800;
+    letter-spacing: -0.045em;
+    line-height: 1;
+    font-size: var(--wp-font-size-h1);
+    text-wrap: balance;
+  }
+  @media (min-width: 1024px) {
+    .hero-title { font-size: var(--wp-font-size-display); }
+  }
+  /* inline-block so .wp-rise-in's translate applies per line. */
+  .hero-title-line {
+    display: inline-block;
+  }
+  /* The one accent device: the second line on a solid amber block, nudged
+     off-axis like a hand-placed label. */
+  .hero-marker {
+    display: inline-block;
+    margin-top: 0.08em;
+    padding: 0 0.14em 0.06em;
+    rotate: -1.5deg;
+  }
+  /* The marker is drawn on once, left to right, after the line has risen:
+     a highlighter stroke rather than a block that is simply there. */
+  .hero-marker {
+    background: linear-gradient(var(--wp-marker-stroke), var(--wp-marker-stroke)) no-repeat 0 0 / 100% 100%;
+    animation: hero-marker-sweep var(--dur-cinematic) var(--ease-flow) 620ms both;
+  }
+  @keyframes hero-marker-sweep {
+    from {
+      background-size: 0% 100%;
+      color: var(--wp-text-primary);
+    }
+    45% { color: var(--wp-text-primary); }
+    60% { color: var(--wp-marker-text); }
+  }
+
+  /* Mini recording pill as a word of the headline. Bars move like a voice
+     (staggered, endless — the motion budget pauses them off screen). */
+  .hero-voice {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.055em;
+    height: 0.68em;
+    padding: 0 0.2em 0 0.16em;
+    margin-left: 0.12em;
+    vertical-align: 0.04em;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-fill);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wp-overlay-accent) 22%, transparent);
+    rotate: 3deg;
+  }
+  .hero-voice i {
+    display: block;
+    width: 0.06em;
+    height: 62%;
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-overlay-wave);
+    transform-origin: center;
+    animation: hero-voice-bar 1.1s ease-in-out infinite alternate;
+  }
+  .hero-voice i:nth-child(3) { animation-delay: -0.35s; height: 80%; }
+  .hero-voice i:nth-child(4) { animation-delay: -0.7s; height: 48%; }
+  .hero-voice i:nth-child(5) { animation-delay: -0.15s; height: 90%; }
+  .hero-voice i:nth-child(6) { animation-delay: -0.55s; height: 58%; }
+  .hero-voice i:nth-child(7) { animation-delay: -0.9s; height: 74%; }
+  .hero-voice i:nth-child(8) { animation-delay: -0.25s; height: 44%; }
+  .hero-voice .hero-voice__dot {
+    width: 0.12em;
+    height: 0.12em;
+    margin-right: 0.06em;
+    border-radius: 50%;
+    background: var(--wp-overlay-accent);
+    animation: hero-voice-dot 1.6s ease-in-out infinite;
+  }
+  @keyframes hero-voice-bar {
+    from { transform: scaleY(0.3); }
+    to { transform: scaleY(1); }
+  }
+  @keyframes hero-voice-dot {
+    50% { opacity: 0.35; }
+  }
+  .hero-desc {
+    margin-top: var(--wp-space-6);
+    max-width: 40rem;
+  }
+  .hero-cta-row {
+    margin-top: var(--wp-space-8);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wp-space-3) var(--wp-space-6);
+  }
+
+  /* ---- Fine print under the CTA: one muted line with one icon ---- */
+  .hero-fineprint {
+    margin-top: var(--wp-space-5);
+    max-width: 36rem;
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-text-muted);
+  }
+  .hero-secondary-cta {
+    margin-top: var(--wp-space-3);
+  }
+  /* Inline so it stays with the first word when the centred line wraps. */
+  .hero-fineprint__icon {
+    display: inline-block;
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-right: var(--wp-space-1);
+    vertical-align: -0.125em;
+    color: var(--wp-accent-default);
+  }
+
+  /* ---- Stage: photo, card on top, stickers on its corners ---- */
+  .hero-stage {
+    position: relative;
+    margin-top: var(--wp-space-16);
+    border-radius: var(--wp-radius-surface);
+    overflow: hidden;
+    isolation: isolate;
+    /* Shown until (or instead of) the photo: the same blue hour. */
+    background: linear-gradient(180deg, var(--wp-color-navy-800), var(--wp-color-navy-600));
+    /* Phones and tablets: the scene fills the top, the card follows. */
+    padding: var(--hero-scene-h) var(--wp-space-4) var(--wp-space-10);
+    --hero-scene-h: 16rem;
+  }
+  @media (min-width: 640px) {
+    .hero-stage {
+      --hero-scene-h: 24rem;
+      padding-inline: var(--wp-space-10);
+    }
+  }
+  .hero-stage__art {
+    position: absolute;
+    inset: 0 0 auto;
+    height: calc(var(--hero-scene-h) + var(--wp-space-24));
+    z-index: -1;
+  }
+  .hero-stage__art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 30% 40%;
+  }
+  /* Quiet label on the photo (top-left on phones where the photo is the top
+     strip, bottom-left on desktop): legible, not loud. */
+  .hero-ai-badge {
+    position: absolute;
+    top: var(--wp-space-4);
+    left: var(--wp-space-4);
+    padding: var(--wp-space-1) var(--wp-space-3);
+    border-radius: var(--wp-radius-pill);
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--wp-color-frost-200);
+    background: color-mix(in srgb, var(--wp-color-navy-950) 45%, transparent);
+    pointer-events: none;
+  }
+  .hero-stage__card {
+    position: relative;
+    max-width: 48rem;
+    margin-inline: auto;
+  }
+  /* Desktop: the scene is the whole stage, the card sits in its calm right
+     half, so the speaker and the result read side by side. */
+  @media (min-width: 1024px) {
+    .hero-stage {
+      display: flex;
+      align-items: center;
+      min-height: 36rem;
+      padding: var(--wp-space-16) var(--wp-space-12);
+    }
+    .hero-stage__art {
+      inset: 0;
+      height: auto;
+    }
+    .hero-ai-badge {
+      top: auto;
+      bottom: var(--wp-space-4);
+    }
+    .hero-stage__art img {
+      object-position: 0% 40%;
+    }
+    .hero-stage__card {
+      width: min(46%, 44rem);
+      margin-inline: auto 0;
+    }
+  }
+  /* On the photo the card must be opaque (the default card is a
+     translucent wash meant for the plain stage), and the caption gets a solid
+     plate so it reads on any part of the image. */
+  .hero-stage .hero-stage__card :global(.hx-window) {
+    background: var(--wp-color-navy-700);
+  }
+  .hero-stage .hero-stage__card :global(.hx-caption) {
+    margin-top: var(--wp-space-16);
+    padding: var(--wp-space-2) var(--wp-space-4);
+    border-radius: var(--wp-radius-control);
+    background: var(--wp-color-navy-800);
+  }
+
+  /* Stickers: physical labels stuck onto the card's corners. They drop in
+     once with a little over-rotation and settle at their own angle (--r). */
+  .hero-sticker {
+    position: absolute;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    rotate: var(--r);
+    box-shadow: var(--shadow-overlay);
+    animation: hero-sticker-drop 700ms var(--ease-flow) var(--wp-rise-delay, 0ms) both;
+    transition: rotate var(--wp-duration-base) var(--ease-flow);
+  }
+  .hero-stage:hover .hero-sticker {
+    rotate: calc(var(--r) * 0.4);
+  }
+  @keyframes hero-sticker-drop {
+    from {
+      opacity: 0;
+      transform: translateY(-28px) scale(1.15) rotate(12deg);
+    }
+    60% {
+      opacity: 1;
+      transform: translateY(2px) scale(0.98) rotate(-2deg);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .hero-sticker--keys {
+    top: calc(-1 * var(--wp-space-10));
+    left: calc(-1 * var(--wp-space-2));
+    padding: var(--wp-space-2);
+    border-radius: var(--wp-radius-control);
+    background: var(--wp-color-frost-50);
+  }
+  .hero-sticker--keys kbd {
+    min-width: 2.25rem;
+    padding: var(--wp-space-1) var(--wp-space-2);
+    border: 1px solid var(--wp-color-frost-200);
+    border-bottom-width: 3px;
+    border-radius: var(--wp-radius-chip);
+    background: var(--wp-color-white);
+    color: var(--wp-color-navy-900);
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 700;
+    text-align: center;
+    transition:
+      translate var(--dur-fast) var(--ease-flow),
+      border-bottom-width var(--dur-fast) var(--ease-flow),
+      background-color var(--dur-fast) ease;
+  }
+  /* Step 01 of the hero story (HeroExample sets data-step on the stage): the
+     three keys go down one after another and light up cyan — the hotkey. */
+  .hero-stage[data-step="1"] .hero-sticker--keys kbd {
+    animation: hero-key-press 1200ms var(--ease-flow) both;
+  }
+  .hero-stage[data-step="1"] .hero-sticker--keys kbd:nth-child(2) { animation-delay: 80ms; }
+  .hero-stage[data-step="1"] .hero-sticker--keys kbd:nth-child(3) { animation-delay: 160ms; }
+  @keyframes hero-key-press {
+    0%, 8% { translate: 0 0; border-bottom-width: 3px; background-color: var(--wp-color-white); }
+    16%, 70% {
+      translate: 0 2px;
+      border-bottom-width: 1px;
+      border-color: var(--wp-color-cyan-300);
+      background-color: var(--wp-color-cyan-200);
+    }
+    82%, 100% { translate: 0 0; border-bottom-width: 3px; background-color: var(--wp-color-white); }
+  }
+  .hero-sticker--local {
+    right: var(--wp-space-3);
+    bottom: calc(-1 * var(--wp-space-6));
+    padding: var(--wp-space-2) var(--wp-space-4);
+    border-radius: var(--wp-radius-pill);
+    background: var(--wp-highlight-marker);
+    color: var(--wp-text-on-highlight);
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 700;
+  }
+  .hero-sticker--local svg {
+    width: 1rem;
+    height: 1rem;
+  }
+  @media (min-width: 1024px) {
+    .hero-sticker--keys { left: calc(-1 * var(--wp-space-12)); }
+    .hero-sticker--local { right: calc(-1 * var(--wp-space-10)); }
+  }
+
+  /* Load partiture: eyebrow -> H1 lines (wp-rise-in, global.css) -> copy and
+     CTA (this fade-rise) -> stickers. Everything lands by ~1.5s, then the
+     hero is still. The example card (LCP) has no entrance animation. */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .hero-fade-rise {
+    animation: fade-in 0.6s var(--ease-flow) var(--wp-rise-delay, 0ms) both;
+  }
+
+  /* Real app ambient (WpColorsDark.warmSurfaceGradient) via the shared stage
+     tokens. Same fixed attachment and size as the <html> wash so the two are
+     one image and the fade at the bottom has no colour seam. */
+  .hero-ambient-wash {
+    background-image: linear-gradient(135deg, var(--stage-navy) 0%, var(--stage-indigo) 50%, var(--stage-violet) 100%);
+    background-attachment: fixed;
+    background-size: 100% 100vh;
+    --hero-wash-fade: clamp(80px, 12vh, 220px);
+    mask-image: linear-gradient(180deg, black 0, black calc(100% - var(--hero-wash-fade)), transparent 100%);
+    -webkit-mask-image: linear-gradient(180deg, black 0, black calc(100% - var(--hero-wash-fade)), transparent 100%);
+  }
+
+  /* CTA-Affirm: one soft glow on the button matching the detected OS. The
+     buttons are child components, hence :global(). */
+  @keyframes wp-cta-affirm {
+    50% {
+      box-shadow: 0 0 10px 4px color-mix(in srgb, var(--wp-accent-default) 22%, transparent);
+    }
+  }
+  :global([data-os="macos"] .wp-mac-store-btn),
+  :global([data-os="windows"] .wp-store-btn),
+  :global([data-os="linux"] .wp-linux-btn) {
+    animation: wp-cta-affirm 900ms var(--ease-flow) 1100ms 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-fade-rise,
+    .hero-marker,
+    .hero-voice i,
+    .hero-sticker,
+    .hero-sticker--keys kbd {
+      animation: none !important;
+    }
+    .hero-sticker { transition: none; }
+    :global([data-os="macos"] .wp-mac-store-btn),
+    :global([data-os="windows"] .wp-store-btn),
+    :global([data-os="linux"] .wp-linux-btn) {
+      animation: none !important;
+    }
+  }
+</style>

@@ -1,0 +1,166 @@
+<p align="center">
+  <img src="resources/app-icon%20mit%20bg.png" alt="WhisPaste" width="128">
+</p>
+
+<h1 align="center">WhisPaste</h1>
+
+<p align="center">
+  <strong>Press. Speak. Done.</strong><br>
+  Stop typing — speak, and your words land at the cursor in any app.<br>
+  A free, open-source <a href="https://github.com/ggml-org/whisper.cpp">Whisper</a> desktop voice-input tool — offline by default, cloud providers optional, no subscription.<br>
+  Windows · macOS · Linux · MIT-licensed.
+</p>
+
+<p align="center">
+  <a href="../../releases/latest"><img src="https://img.shields.io/github/v/release/whispaste/whispaste?style=flat-square&color=06b6d4&label=download" alt="Download"></a>&nbsp;
+  Also available on the <a href="https://apps.microsoft.com/detail/9p22jvkrq2v0">Microsoft Store</a> (Windows) and the <a href="https://apps.apple.com/app/id6795319409">Mac App Store</a> (macOS).<br>
+  <img src="https://img.shields.io/badge/Windows-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows">&nbsp;
+  <img src="https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS">&nbsp;
+  <img src="https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux">&nbsp;
+  <img src="https://img.shields.io/badge/Flutter-02569B?style=flat-square&logo=flutter&logoColor=white" alt="Flutter">&nbsp;
+  <img src="https://img.shields.io/badge/license-MIT-22c55e?style=flat-square" alt="MIT license">
+</p>
+
+<p align="center">
+  <a href="https://whispaste.de"><b>🌐 Website</b></a>&ensp;·&ensp;
+  <a href="../../releases/latest"><b>📦 Releases</b></a>&ensp;·&ensp;
+  <a href="#development"><b>🏗️ Build</b></a>&ensp;·&ensp;
+  <a href="https://app.votepit.com/silvio-und-maik/whispaste"><b>💡 Vote on Ideas</b></a>&ensp;·&ensp;
+  <a href="https://app.votepit.com/silvio-und-maik/whispaste"><b>🗺️ Roadmap</b></a>
+</p>
+<p align="center">
+  <sub>The roadmap reflects rough current direction, not a binding schedule for individual items.</sub>
+</p>
+
+<p align="center">
+  <img src="resources/screenshots/history-overview-dark.png" alt="WhisPaste — History view, dark theme" width="720">
+</p>
+<p align="center">
+  <img src="resources/screenshots/history-detail-dark.png" alt="WhisPaste — History detail view, dark theme" width="720">
+</p>
+
+---
+
+## How It Works
+
+```
+Hotkey → Speak → Text appears at your cursor
+```
+
+1. **Press your hotkey** — `Ctrl+Shift+D` by default, push-to-talk or toggle mode
+2. **Speak naturally** — a minimal overlay shows a live waveform while the mic is open
+3. **Done** — the transcript is pasted wherever your cursor sits
+
+Works in emails, chat apps, code editors, browsers, terminals — anywhere you would otherwise type.
+
+## Key Features
+
+**Core** — Global hotkey · Push-to-talk & toggle · Auto-paste into any app (macOS/Windows/Linux with one-time uinput setup; clipboard fallback without setup) · Recording overlay with waveform · Floating record button
+
+**Transcription** — Offline by default, two local engines to choose from: [Whisper](https://github.com/ggml-org/whisper.cpp) ([99 languages](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py), GPU-accelerated via Vulkan, with an optional CUDA pack for NVIDIA GPUs on Windows and Linux) or NVIDIA Parakeet (~25 languages, GPU-accelerated where available, CPU fallback, several times faster) — no API key required · Optional cloud providers (OpenAI, Deepgram) when you want them · Silence trimming at the end of a recording (Whisper engine)
+
+**Reliability** — Startup checks re-verify microphone and auto-paste permissions on every launch, not just during first-run setup
+
+**Productivity** — Smart Mode (optional on-device AI post-processing: cleanup, shorten, translate into 7 languages) · Edit selected text by voice (select text, press the selection hotkey, say what should change; off by default) · Voice Snippets, including interactive multi-field templates (spoken triggers → text expansion) · Quick-paste side panel (hover the left or right screen edge for transcriptions, snippets and clipboard history — macOS/Windows/Linux) · Audio feedback sounds · Local automation API for triggering dictation from your own scripts (opt-in, see [AUTOMATION_API.md](./AUTOMATION_API.md))
+
+**History** — Tags · Full-text search · Pin, archive, merge, edit · Analytics dashboard · Export (TXT, MD, CSV, JSON, DOCX) · Optional privacy gate and PIN lock (also withholds transcriptions from the side panel, floating-button menu and automation API; auto-lock after inactivity)
+
+**System** — Auto-update with Ed25519-signed releases (Sparkle/WinSparkle) · Dark theme · EN/DE/HE/RU/ES/PT interface · Autostart · System tray
+
+## Command-Line Remote Control
+
+Start, stop or cancel a dictation from a shortcut, launcher or script — handy on Wayland, where apps cannot grab global hotkeys themselves:
+
+```sh
+whispaste --toggle   # start a dictation, or stop the running one
+whispaste --cancel   # discard the running dictation
+```
+
+The call is forwarded to the running WhisPaste and the second process exits right away. If WhisPaste is not running, `--toggle` starts it and then begins a dictation; `--cancel` does nothing. On Linux and macOS, `pkill -USR2 -x whispaste` toggles too, without starting a second process (only send it to a running instance).
+
+| Platform | Command |
+|---|---|
+| Linux (`.deb`) | `whispaste --toggle` |
+| Linux (AppImage) | `/path/to/WhisPaste-linux-x64.AppImage --toggle` |
+| macOS | `open -n -a WhisPaste --args --toggle` |
+| Windows (installer) | `"%LOCALAPPDATA%\Programs\WhisPaste\whispaste.exe" --toggle` |
+
+**GNOME:** Settings → Keyboard → View and Customize Shortcuts → Custom Shortcuts → **+**. Name `WhisPaste`, command `whispaste --toggle`, then set the shortcut. Add a second one with `whispaste --cancel` if you like.
+
+**KDE Plasma 6:** System Settings → Keyboard → Shortcuts → **Add New** → **Command or Script…**, enter `whispaste --toggle` and assign the shortcut. (Plasma 5: System Settings → Shortcuts → Custom Shortcuts → Edit → New → Global Shortcut → Command/URL.)
+
+### Transcribe a file / benchmark
+
+```sh
+whispaste --transcribe-file clip.wav [--engine whisper|parakeet] [--model whisper-small] \
+  [--repeat 5] [--language en] [--gpu auto|enabled|disabled] [--replacements] [--json] [--out report.json]
+```
+
+Transcribes a 16 kHz mono 16-bit WAV with an already downloaded on-device model and exits — no hotkeys, tray or dictation UI are started. `--json` prints load time, per-run inference time and real-time factor instead of the text, plus the compute backend and GPU device the engine ran on. `--gpu disabled` forces the CPU, like "CPU only" in the settings. It runs separately from an open WhisPaste and does not change its settings. On Windows, use `--out` to get the report, as the console output of the app is not reliable there.
+
+`whispaste --diagnose [--out report.json]` checks that an installation starts and that its bundled on-device engine libraries load, prints a JSON report and exits with 0 (ok) or 1. The release pipeline runs it against every package before publishing.
+
+## Development
+
+**Prerequisites:** [Flutter](https://flutter.dev/docs/get-started/install) 3.x · Windows 10 (64-bit), macOS 12 Monterey or newer (Apple Silicon), or a recent Linux distro
+
+```bash
+git clone https://github.com/whispaste/whispaste.git
+cd whispaste
+flutter pub get
+flutter run -d windows   # or: flutter run -d macos / flutter run -d linux
+```
+
+To build the bundled on-device engines and for the full per-OS toolchain, see [BUILD.md](BUILD.md); [ARCHITECTURE.md](ARCHITECTURE.md) explains how the code is organized.
+
+### Project Structure
+
+```
+├── lib/                # Dart source code
+│   ├── core/           # Theme, config, l10n, platform
+│   ├── features/       # Feature modules (history, settings, recording, etc.)
+│   ├── services/       # App services (audio, hotkey, tray, clipboard, etc.)
+│   └── widgets/        # Shared widget library
+├── test/               # Widget & unit tests
+├── assets/             # Icons, fonts, sounds
+├── windows/            # Windows platform runner
+├── macos/              # macOS platform runner
+├── linux/              # Linux platform runner
+├── website/            # Astro-based project website
+└── supabase/           # Database migrations (PostgREST + RLS only, no Edge Functions)
+```
+
+### Commands
+
+```bash
+flutter analyze --fatal-infos          # Lint + static analysis
+flutter test                           # Run all tests (excludes goldens)
+flutter test --tags=golden             # Run widget/screenshot tests
+flutter build windows --release --no-tree-shake-icons
+flutter build macos   --release --no-tree-shake-icons \
+  --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_PUBLISHABLE_KEY=...
+```
+
+## Privacy
+
+- **Local mode** (offline speech recognition) — audio never leaves your device
+- **Cloud mode** — audio goes directly to your selected provider, not through WhisPaste servers
+- **No account required** — usage analytics are anonymous, self-hosted, and opt-out; optional crash reporting can be turned off
+- **Open source** — audit every line
+
+## Support
+
+<p align="center">
+  <a href="https://github.com/sponsors/silvio-l"><img src="https://img.shields.io/badge/Sponsor-❤-ea4aaa?style=for-the-badge&logo=github" alt="Sponsor"></a>&ensp;
+  <a href="https://ko-fi.com/silviol"><img src="https://img.shields.io/badge/Ko--fi-☕-ff5e5b?style=for-the-badge&logo=ko-fi&logoColor=white" alt="Ko-fi"></a>
+</p>
+
+In the app, About › Support WhisPaste lists every way to help, including PayPal. The Microsoft Store
+and Mac App Store versions offer optional one-time tips through the store. Tips unlock nothing.
+
+Contributions welcome — fork, branch, PR. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md). Licensed under [MIT](LICENSE).
+
+<p align="center">
+  <sub>Made by <a href="https://github.com/silvio-l">Silvio Lindstedt</a></sub>
+</p>

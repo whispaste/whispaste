@@ -1,0 +1,18 @@
+# cppcheck suppression list for the WhisPaste Windows runner.
+# These are false positives or platform-dependent issues that cannot be
+# resolved on macOS due to missing Windows SDK headers, or design choices
+# that differ from cppcheck's default style but are intentional.
+
+# Platform / toolchain
+missingIncludeSystem
+missingInclude
+unusedFunction
+checkersReport
+
+# Design choices — not flagged by CodeQL, intentionally kept as-is
+# Draw* methods could be static but are virtual-dispatch friendly as members
+functionStatic
+# Base class destructor call pattern is intentional for Win32Window
+virtualCallInConstructor
+# FlutterWindow destructor override is explicit by design
+missingOverride

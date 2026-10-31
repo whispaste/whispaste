@@ -1,0 +1,23 @@
+<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Line-art in the site's instrument vocabulary (strokes in
+       currentColor, one .uc-amber highlight) — inlined by UseCaseCards so both
+       colours come from the design tokens and follow light/dark mode. Terminal window with code + spoken waveform
+       feeding an amber microphone. -->
+  <g fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="200" y="240" width="624" height="420" rx="40"/>
+    <path d="M200 340h624"/>
+    <circle cx="268" cy="290" r="6"/>
+    <circle cx="326" cy="290" r="6"/>
+    <circle cx="384" cy="290" r="6"/>
+    <path d="M270 430h170M270 500h110M270 570h140"/>
+    <path d="M582 420l-70 90 70 90"/>
+    <path d="M700 420l70 90-70 90"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round">
+    <path d="M300 790v60M356 770v100M412 745v150M468 770v100M524 790v60M580 800v40"/>
+  </g>
+  <g>
+    <rect x="712" y="720" width="64" height="112" rx="32" class="uc-amber"/>
+    <path d="M676 796a68 68 0 0 0 136 0M744 872v44M704 916h80" fill="none" class="uc-amber-line" stroke-width="34" stroke-linecap="round"/>
+  </g>
+</svg>

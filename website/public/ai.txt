@@ -1,0 +1,31 @@
+# WhisPaste AI Training & Indexing Policy
+# Version: 1.0
+# Effective: 2026-05-21
+# Status: Allow
+
+Policy: allow
+License: MIT
+Source: https://whispaste.de/
+Contact: https://whispaste.de/impressum/
+
+# Allowed agents
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Cohere-AI
+Allow: /

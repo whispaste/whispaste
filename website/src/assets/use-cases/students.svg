@@ -1,0 +1,15 @@
+<svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Line-art in the site's instrument vocabulary (strokes in
+       currentColor, one .uc-amber highlight) — inlined by UseCaseCards so both
+       colours come from the design tokens and follow light/dark mode. Spoken waveform over an open book with notes,
+       amber pencil accent. -->
+  <g fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M512 560C430 505 300 505 236 538v246c64-33 194-33 276 22 82-55 212-55 276-22V538c-64-33-194-33-276 22Z"/>
+    <path d="M512 560v246"/>
+    <path d="M300 600c50-16 110-18 160 0M300 668c50-16 110-18 160 0M564 600c50-18 110-16 160 0M564 668c50-18 110-16 160 0"/>
+  </g>
+  <g fill="none" stroke="currentColor" stroke-width="36" stroke-linecap="round">
+    <path d="M344 330v70M400 305v120M456 280v170M512 260v210M568 280v170M624 305v120M680 330v70"/>
+  </g>
+  <path d="M741 229 L881 369 L900 410 L858 391 L719 251 Z" class="uc-amber" stroke-width="10" stroke-linejoin="round"/>
+</svg>

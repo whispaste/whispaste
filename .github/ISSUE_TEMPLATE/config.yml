@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & discussion
+    url: https://github.com/whispaste/whispaste/discussions
+    about: Ask a question or start an open-ended discussion instead of filing an issue.
+  - name: Vote on ideas
+    url: https://app.votepit.com/silvio-und-maik/whispaste
+    about: Browse or upvote existing feature ideas.
+  - name: Security vulnerability
+    url: https://github.com/whispaste/whispaste/security/advisories/new
+    about: Please report security vulnerabilities privately, not as a public issue — see SECURITY.md.

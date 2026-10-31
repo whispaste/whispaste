@@ -1,0 +1,242 @@
+# Secrets
+.env
+.env.local
+.mcp.json
+
+# Code-Signing-Geheimnisse — NIEMALS ins Repo (defense-in-depth, falls je
+# versehentlich hierher kopiert). Das stabile Selbst-Signatur-Zertifikat lebt
+# außerhalb des Repos unter ~/.config/whispaste-signing/ und als GitHub-Secret.
+*.p12
+*.keychain-db
+*.keychain
+identity.p12
+key.pem
+whispaste-signing/
+
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+build/
+.build/
+
+# DevTools extension state (machine-local, created by Dart/Flutter MCP + DevTools connections)
+devtools_options.yaml
+
+# Binaries
+*.exe
+*.exe~
+*.exe.old
+*.dll
+*.so
+*.dylib
+# Vendored WinSparkle 0.9.3 runtime DLLs (auto_updater_windows fork) —
+# intentional binary commit, provenance + SHA-256 in WinSparkle-0.9.3/PROVENANCE.md
+!packages/auto_updater_windows/windows/WinSparkle-0.9.3/**/*.dll
+
+# IDE
+.idea/
+.vscode/
+!.vscode/launch.json.example
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node
+node_modules/
+
+# Astro (website)
+website/dist/
+website/.astro/
+
+# Supabase
+supabase/.temp/
+
+# Fastlane (auto-generated on every run — Gemfile.lock itself IS tracked)
+fastlane/report.xml
+fastlane/README.md
+fastlane/Preview.html
+# cert/sigh artifacts: public certs + CSRs (not private keys, those stay in
+# the keychain) and provisioning profiles — regenerable via
+# `fastlane cert`/`fastlane sigh`, not repo content.
+fastlane/*.cer
+fastlane/*.certSigningRequest
+fastlane/*.provisionprofile
+
+# ┌─────────────────────────────────────────────────────────────────────┐
+# │  PROTECTED PATHS — DO NOT MODIFY THIS SECTION                      │
+# │  These entries protect internal files from being pushed to GitHub.  │
+# │  The pre-commit hook enforces this section cannot be weakened.      │
+# │  Any change to lines between PROTECTED-START and PROTECTED-END     │
+# │  will be rejected by the hook.                                     │
+# ├─────────────────────────────────────────────────────────────────────┤
+# │  PROTECTED-START                                                    │
+# ├─────────────────────────────────────────────────────────────────────┤
+
+# Internal files — blanket ignore (NEVER track contents)
+.internal/
+.impeccable/
+docs/
+
+# AI agent / skill config (local only)
+opencode.json
+rules/
+skills-lock.json
+skills.yaml
+.github/copilot-instructions.md
+.skills/
+.agent/
+.agents/
+.claude/
+.scratch/
+CLAUDE.md
+CONTEXT.md
+
+# ASO-Research-Runs (lokale Analyse-Outputs — nie öffentlich)
+.aso-research/
+
+# Lokale Leak-Blockliste (nie committen — enthält projektinterne Namen/Hosts)
+.githooks/leak-blocklist.local
+
+# Internal dev tools (local only)
+cmd/
+scripts/*
+!scripts/build-libwhisper-macos.sh
+!scripts/build-libwhisper-linux.sh
+!scripts/split-debug-linux.sh
+!scripts/bundle-libwhisper-windows.ps1
+!scripts/build-libllama-macos.sh
+!scripts/build-libllama-linux.sh
+!scripts/build-smartmode-shim-macos.sh
+!scripts/ensure-libllama-macos.sh
+!scripts/build-libllama-windows.ps1
+!scripts/build-smartmode-shim-windows.ps1
+!scripts/bundle-libllama-windows.ps1
+!scripts/collect-pdbs-windows.ps1
+!scripts/fetch-cuda-redist.py
+!scripts/build-cuda-pack-linux.sh
+!scripts/build-cuda-pack-windows.ps1
+!scripts/cuda-pack-NOTICE.template.txt
+!scripts/git-hooks/
+!scripts/smoke/
+!scripts/generate-release-notes.mjs
+!scripts/generate-release-notes.ps1
+!scripts/extract-cumulative-changelog.mjs
+!scripts/security-scan.ps1
+!scripts/setup-gh-secrets.sh
+!scripts/setup-gh-secrets.ps1
+!scripts/setup-gh-secrets.py
+!scripts/GITHUB-SECRETS-SETUP.md
+!scripts/generate-screenshots.py
+!scripts/generate-store-icons.py
+!scripts/generate-store-listing.mjs
+!scripts/apply-store-metadata.mjs
+!scripts/apply-store-metadata.test.mjs
+!scripts/build-store-trailer.sh
+!scripts/store-screenshots.py
+!scripts/capture-store-screenshots.py
+!scripts/premium-screenshots.py
+!scripts/cppcheck.ps1
+!scripts/install-hooks.sh
+!scripts/submit-ms-store.ps1
+!scripts/verify-ms-store-listing.ps1
+!scripts/generate-whisper-server-manifest.sh
+!scripts/docs-attest.sh
+!scripts/approve-release.sh
+!scripts/docs-drift.sh
+!scripts/probe-packaging-validate.sh
+!scripts/check-workflow-hygiene.sh
+!scripts/macos-selfsign.sh
+!scripts/macos-selfsign-export-secret.sh
+!scripts/generate_appcast.sh
+!scripts/publish_beta_fallback.sh
+!scripts/ci/
+
+# Internal website files
+website/design-system/
+website/SEARCH-CONSOLE-SETUP.md
+website/test-results/
+wack-report.xml
+
+# ├─────────────────────────────────────────────────────────────────────┤
+# │  PROTECTED-END                                                      │
+# └─────────────────────────────────────────────────────────────────────┘
+
+# Screenshots (local output only — golden test sources are tracked)
+# Leading slash anchors to repo root, so website/public/screenshots/ is NOT ignored
+/screenshots/
+!test/screenshots/
+test/screenshots/failures/
+
+# flutter_test golden-mismatch diff artifacts (isolatedDiff/maskedDiff/
+# masterImage/testImage quadruplets) — can land in a `failures/` dir under
+# ANY golden test's own directory, not just test/screenshots/ (see above).
+**/failures/
+
+# Store screenshot tool output (generated, not tracked)
+tools/appstore-screens/output/
+# Store icon generator output (generated, not tracked)
+tools/store-icons/output/
+# Store listing import CSV (generated by scripts/generate-store-listing.mjs)
+store/_build/
+website/public/screenshots/store/
+website/public/screenshots/ui/
+
+# Sentry native build artifacts
+.sentry-native/
+
+# Test coverage output
+coverage/
+
+# Flutter test runner artifacts (root-level)
+/test-results/
+
+# Temporary files
+tmp_funcs.sql
+
+# Design source files
+*.afdesign
+
+# Internal dev tools (local only — never public). The user-facing
+# whispaste-diagnose.* tools stay tracked: they are built and shipped as
+# release artifacts by .github/workflows/release.yml.
+tools/win-smoke/
+tools/check-outdated.sh
+tools/feature-audit.sh
+
+# Generated diagnose reports (contain machine-specific paths/hardware — never track)
+WhisPaste-Diagnose_*.txt
+tools/win-smoke/*.txt
+tools/**/report.txt
+
+# Lokaler Public-Docs-Attest-Stempel (scripts/docs-attest.sh) — maschinen-/clone-lokal
+.docs-attest
+
+# Python-Bytecode-Cache (tools/appstore/set-mac-price.py)
+__pycache__/
+
+# Web-Review-Screenshot-Cache eines lokalen Tools (nicht Produktcode)
+.asc/
+
+# Design-system docs for the Flutter app surface (internal design-process
+# artifacts, not application source — parallels the already-protected
+# website/design-system/ entry above).
+/lib/DESIGN.md
+/lib/PRODUCT.md
+*.pyc
+
+# Pi: loads AGENTS.override.md (-> CLAUDE.md) instead of AGENTS.md
+AGENTS.override.md
+
+# Codex CLI per-repo config (MCP server credentials, local hooks) — local-only.
+.codex/
+
+# Closed-source server API (PHP/Slim): lives in its own private git repository
+# at this path and must never be committed to or pushed with this public repo.
+/services/api/

@@ -1,0 +1,124 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parseReleaseBody — real GitHub release bodies > parses v1.2.10 body into stable block structure 1`] = `
+{
+  "sections": [
+    {
+      "heading": "Highlights",
+      "items": [
+        {
+          "body": "WhisPaste now operates as a native application, providing a smoother and more responsive experience across all platforms, including Windows and macOS.",
+        },
+        {
+          "body": "The user interface has been completely revamped with a modern design, featuring warm gradients, frosted glass effects, and improved accessibility.",
+        },
+        {
+          "body": "A new recording pill overlay displays an elegant status bar during dictation, while a floating button allows for easy recording access with a context menu for quick actions.",
+        },
+        {
+          "body": "The macOS app now includes a native ARM64 DMG for easier installation, and the menu bar icon functions correctly across all layouts.",
+        },
+        {
+          "body": "The history detail editor now supports standard editing operations without interference from keyboard shortcuts, enhancing usability.",
+        },
+      ],
+    },
+    {
+      "heading": "Improvements",
+      "items": [
+        {
+          "body": "The app's stability has been enhanced, eliminating crashes when quitting via the floating button or tray icon.",
+        },
+        {
+          "body": "All data is now securely stored in a local database, improving data management and privacy.",
+        },
+        {
+          "body": "The app includes over 469 automated tests, ensuring a reliable and consistent user experience.",
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`parseReleaseBody — real GitHub release bodies > parses v1.2.11 body into stable block structure 1`] = `
+{
+  "sections": [
+    {
+      "heading": "Highlights",
+      "items": [
+        {
+          "body": "WhisPaste underwent a complete rewrite and is now a native application, providing a smoother experience across all platforms, including Windows and macOS.",
+        },
+        {
+          "body": "The user interface was enhanced with a unified design system, featuring warm gradients, frosted glass effects, and improved accessibility.",
+        },
+        {
+          "body": "A new recording pill overlay was introduced, offering a slim status bar during dictation that includes a progress ring.",
+        },
+        {
+          "body": "The floating button now includes a context menu, allowing easy access to start recording, view history, open settings, or quit the app.",
+        },
+        {
+          "body": "The history detail editor was improved, ensuring that standard editing operations work correctly without interference from keyboard shortcuts.",
+        },
+      ],
+    },
+    {
+      "heading": "Improvements",
+      "items": [
+        {
+          "body": "The macOS app now ships as a native ARM64 DMG, simplifying the installation process with direct download and Gatekeeper instructions.",
+        },
+        {
+          "body": "Crashes during quitting were resolved, ensuring a stable exit when using the floating button context menu or tray icon.",
+        },
+        {
+          "body": "The app now features accurate screenshots for the Mac App Store, reflecting the authentic macOS window design.",
+        },
+      ],
+    },
+  ],
+}
+`;
+
+exports[`parseReleaseBody — real GitHub release bodies > parses v1.2.12 body into stable block structure 1`] = `
+{
+  "sections": [
+    {
+      "heading": "Highlights",
+      "items": [
+        {
+          "body": "WhisPaste underwent a complete rewrite, now functioning as a native application with a truly cross-platform experience across Windows, macOS, Linux, iOS, and Android.",
+        },
+        {
+          "body": "Users now enjoy a sleek and elegant recording pill overlay during dictation, featuring a progress ring for better visibility.",
+        },
+        {
+          "body": "The floating button has been enhanced with a context menu that allows quick access to start recording, view history, open settings, or quit the app.",
+        },
+        {
+          "body": "The macOS version now ships as a native ARM64 DMG, ensuring better compatibility and performance on Apple devices.",
+        },
+        {
+          "body": "Keyboard shortcuts in the history detail editor now work correctly, allowing for smooth text editing without interruptions.",
+        },
+      ],
+    },
+    {
+      "heading": "Improvements",
+      "items": [
+        {
+          "body": "The app's stability improved significantly with the removal of the previous Go backend, eliminating related dependencies.",
+        },
+        {
+          "body": "A crash that occurred when quitting via the floating button context menu or tray icon has been resolved, enhancing the overall user experience.",
+        },
+        {
+          "body": "Mac App Store screenshots now accurately reflect the app's design with the correct resolution and authentic macOS window features.",
+        },
+      ],
+    },
+  ],
+}
+`;

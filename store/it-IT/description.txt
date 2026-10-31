@@ -1,0 +1,21 @@
+WhisPaste trasforma la tua voce in testo proprio dove si trova il cursore, in qualsiasi app di Windows. Premi una scorciatoia, parla, fatto. Niente copia e incolla, niente cambi di finestra.
+
+Funziona ovunque scrivi: Outlook, Teams, Word, VS Code, Chrome, Slack e qualsiasi altra app.
+
+🔒 LA TUA VOCE RESTA SUL TUO PC
+Whisper (tre dimensioni di modello, 99 lingue) e il motore veloce Parakeet (circa 25 lingue europee, solo CPU) trascrivono interamente sul tuo computer. Per impostazione predefinita, le registrazioni non vengono conservate dopo la trascrizione. Una scheda grafica può accelerare Whisper, ma non è mai obbligatoria. Dopo il download del modello, che avviene una sola volta, la trascrizione funziona senza connessione internet. La trascrizione cloud con OpenAI o Deepgram è facoltativa e usa la tua chiave API; l'audio va direttamente al provider, senza mai passare da un server di WhisPaste. Non serve alcun account.
+
+✨ SMART MODE (FACOLTATIVO)
+Elimina le parole di riempimento e sistema la punteggiatura, accorcia un testo o traducilo in sette lingue prima che venga incollato. Funziona con un modello AI locale oppure tramite OpenAI con la tua chiave. Seleziona un testo in qualsiasi app, dì cosa deve cambiare e WhisPaste lo riscrive sul posto. Questa funzione è disattivata per impostazione predefinita.
+
+📋 CRONOLOGIA, NOTE ED ESPORTAZIONE
+Ogni trascrizione viene salvata in locale ed è ricercabile. Puoi taggare, fissare, archiviare, unire ed esportare in TXT, Markdown, JSON, CSV o Word. Un blocco PIN mantiene privata la cronologia. Note e appunti rapidi raccolgono i pensieri più lunghi in un unico posto.
+
+⌨️ VOICE SNIPPETS E LE TUE PAROLE
+Pronuncia una parola di attivazione e WhisPaste inserisce il testo completo: firme, saluti, frasi che scrivi ogni giorno. Gli snippet interattivi compilano i modelli campo per campo. Vocabolario personalizzato e sostituzioni fanno sì che nomi e gergo vengano scritti correttamente.
+
+🎛️ PENSATA PER IL LAVORO QUOTIDIANO
+Attiva/disattiva o push-to-talk · Overlay in tempo reale con anteprima facoltativa · Pulsante flottante · Pannello laterale degli appunti sul bordo dello schermo · Area di notifica e avvio automatico · Interfaccia in inglese, tedesco, ebraico, russo, spagnolo e portoghese brasiliano (non ancora in italiano)
+
+💶 ACQUISTO UNICO, NESSUN ABBONAMENTO
+WhisPaste è open source (licenza MIT) e gratuito su GitHub. La versione dello Store ha le stesse funzioni principali, si aggiorna automaticamente e il tuo acquisto finanzia direttamente lo sviluppo.

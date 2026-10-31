@@ -1,0 +1,2004 @@
+{
+  "@@locale": "en",
+  "appName": "WhisPaste",
+  "navHistory": "History",
+  "navNotes": "Notes",
+  "navSettings": "Settings",
+  "navReplacements": "Replacements",
+  "navSnippets": "Snippets",
+  "navAnalytics": "Analytics",
+  "navAbout": "About",
+  "navFeedback": "Feedback",
+  "pageHistoryTitle": "History",
+  "pageSettingsTitle": "Settings",
+  "pageReplacementsTitle": "Replacements",
+  "pageAnalyticsTitle": "Analytics",
+  "pageAboutTitle": "About",
+  "pageFeedbackTitle": "Feedback",
+
+  "historyEmpty": "No recordings yet",
+  "historyEmptyHint": "Press the record button or use the hotkey to start recording.",
+  "historyPrivacyGateTitle": "History hidden",
+  "historyPrivacyGateHint": "Your past transcriptions stay hidden until you choose to show them.",
+  "historyPrivacyGateShow": "Show history",
+  "historySearch": "Search…",
+  "historyPinned": "Favorites",
+  "historyToday": "Today",
+  "historyYesterday": "Yesterday",
+  "historyThisWeek": "This Week",
+  "historyOlder": "Older",
+  "historyAll": "All",
+  "historyTrash": "Trash",
+  "historyArchive": "Archive",
+  "historyArchived": "Archived",
+  "historyList": "List",
+  "historyCards": "Cards",
+  "historyCompact": "Compact",
+  "historyItemsSelected": "{count} selected",
+  "@historyItemsSelected": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "historyMerge": "Merge",
+  "historyRestore": "Restore",
+  "historyDeleteForever": "Delete forever",
+  "historyDeletePermanently": "Delete Permanently",
+  "historyUnarchive": "Unarchive",
+  "historyExport": "Export",
+  "historyExportAction": "Export…",
+  "historyCopyAsMarkdown": "Copy as Markdown",
+  "historyDetail": "Detail",
+  "historyTags": "Tags",
+  "historyDuration": "Duration",
+  "historyModel": "Model",
+  "historyWords": "Words",
+  "historyCharacters": "Characters",
+  "historyWordCount": "{count} words",
+  "@historyWordCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "historyReadingTime": "{minutes} min read",
+  "@historyReadingTime": {
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "historyReadingTimeUnder1": "< 1 min read",
+  "historyListWordCount": "{count, plural, =1{approx. 1 word} other{approx. {count} words}}",
+  "@historyListWordCount": {
+    "description": "Approximate word count shown in a history list row. Plural-aware: the count selects the form, so a translator can phrase '1 word' differently from 'N words'.",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "historyToolsMenu": "View and selection",
+  "@historyToolsMenu": {
+    "description": "Tooltip and label of the single overflow button that replaces the selection, sort and view controls when the History filter row is too narrow for them."
+  },
+  "historyEditing": "Editing",
+  "historySearchTranscriptions": "Search transcriptions…",
+  "historySearchFieldLabel": "Search transcriptions",
+  "historyNewRecording": "New recording",
+  "@historyNewRecording": {
+    "description": "Label of the primary button beside the History search field. Starts the same recording the systemwide hotkey starts; worded like the items the page calls recordings, not like the transcription the search field mentions."
+  },
+  "historyStopRecording": "Stop recording",
+  "@historyStopRecording": {
+    "description": "Label the same button takes on while a recording runs — it stops that recording. Wording follows the tray item trayStopRecording, which ends the same recording from the other end of the app."
+  },
+  "historyNoResults": "No results",
+  "historyNoResultsHint": "No transcriptions match \"{query}\".\nTry a different search term.",
+  "@historyNoResultsHint": {
+    "placeholders": {
+      "query": { "type": "String" }
+    }
+  },
+  "historyTrashEmpty": "Trash is empty",
+  "historyTrashEmptyHint": "Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.",
+  "historyEmptyTrash": "Empty Trash",
+  "historyEmptyTrashConfirm": "Empty trash?",
+  "historyEmptyTrashConfirmMessage": "This will permanently delete all items in the trash. This action cannot be undone.",
+  "historyTrashEmptied": "{count, plural, =1{Trash emptied — 1 entry deleted} other{Trash emptied — {count} entries deleted}}",
+  "@historyTrashEmptied": {
+    "description": "Success toast after emptying the trash. The count is a placeholder inside the message rather than a parenthesis appended in Dart: a translator has to be able to move it (Hebrew reads right-to-left, so a trailing '(3)' lands on the wrong side of the sentence) and to choose the plural form for it.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "historyNoArchivedItems": "No archived items",
+  "historyNoArchivedItemsHint": "Archive transcriptions you want to keep\nbut don't need in your main list.",
+  "historyNoRecordingsHint": "Press the record button or use the hotkey to start recording.\nYour transcriptions will appear here.",
+  "historyNoPinned": "No favorites yet",
+  "historyNoPinnedHint": "Mark a transcription as a favorite to find it here quickly.",
+  "historyNoToday": "Nothing recorded today",
+  "historyNoTodayHint": "Today's transcriptions will appear here.",
+  "historyNoThisWeek": "Nothing recorded this week",
+  "historyNoThisWeekHint": "This week's transcriptions will appear here.",
+  "historyCopiedToClipboard": "Copied to clipboard",
+  "historyMovedToTrash": "Moved to trash",
+  "historyUndo": "Undo",
+  "historyEntriesMerged": "Entries merged",
+  "historyMergeConfirm": "Merge {count} entries?",
+  "@historyMergeConfirm": { "placeholders": { "count": { "type": "int" } } },
+  "historyMergeConfirmMessage": "The selected entries will be combined into one. This cannot be undone.",
+  "historyExitSelection": "Exit selection",
+  "historySelectMultiple": "Select multiple",
+  "historyProcessed": "Processed",
+  "historyOnDevice": "On device",
+  "historyUntitledRecording": "Untitled recording",
+  "historyUntitled": "Untitled",
+  "historyPinToTop": "Add to Favorites",
+  "historyUnpin": "Remove from Favorites",
+  "historyCopyText": "Copy text",
+  "historyClose": "Close",
+  "historyLanguageLabel": "Language",
+  "historyResultCount": "{count, plural, =1{1 result} other{{count} results}}",
+  "@historyResultCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "historySelectAll": "Select All",
+  "historyDeselectAll": "Deselect All",
+
+  "settingsInterface": "Interface",
+  "settingsInterfaceSubtitle": "Appearance and behavior",
+  "settingsLaunchAtStartup": "Launch at Startup",
+  "settingsStartMinimized": "Start Minimized",
+  "settingsStartMinimizedSubtitle": "Start in the background when launched at system boot",
+  "settingsAutostartNever": "Never",
+  "settingsAutostartNormal": "Normal",
+  "settingsAutostartMinimized": "Minimized",
+  "settingsAutostartSyncFailed": "Autostart couldn't be registered with the operating system. This may be a permissions issue or your OS version isn't supported.",
+  "settingsShowNotifications": "Show Notifications",
+  "settingsShowBackendUtilization": "CPU/GPU indicator in status bar",
+  "settingsShowBackendUtilizationSubtitle": "Shows whether transcription is really running on CPU or GPU, plus utilization",
+  "settingsAudio": "Audio",
+  "settingsAudioSubtitle": "Microphone and recording",
+  "settingsMicrophone": "Microphone",
+  "settingsGain": "Microphone Volume",
+  "settingsClippingBanner": "Last recording had clipping. Reduce gain?",
+  "settingsClippingDismiss": "Dismiss",
+  "settingsHoldToRecord": "Hold to Record",
+  "pushToTalkUnavailableTooltip": "Not available on this platform",
+  "pushToTalkUnavailableLinuxTooltip": "Your desktop doesn't report key releases here. Bind “whispaste --toggle” to a shortcut in your system settings instead.",
+  "@pushToTalkUnavailableLinuxTooltip": {
+    "description": "Tooltip on the disabled push-to-talk switch on Linux when neither XInput2 nor the GlobalShortcuts portal reports key-up. Keep the CLI command whispaste --toggle untranslated."
+  },
+  "settingsExperimentalBadge": "Experimental",
+  "@settingsExperimentalBadge": {
+    "description": "Badge next to a settings option that works but is not yet verified on every desktop (e.g. Linux push-to-talk)."
+  },
+  "settingsHoldOrTap": "Tap or Hold",
+  "settingsHoldOrTapHint": "A short tap starts and stops recording; holding records until you let go.",
+  "settingsSpeechRecognition": "Speech Recognition",
+  "settingsSpeechRecognitionSubtitle": "Voice recognition quality and service",
+  "settingsService": "Service",
+  "settingsQuality": "Quality",
+  "settingsRecordingSafety": "Recording Safety",
+  "settingsRecordingSafetySubtitle": "Automatic checks and safeguards",
+  "settingsDeadMicTimeout": "Silent Mic Detection",
+  "settingsDeadMicTimeoutHint": "Stop recording if no audio detected within this time (seconds). 0 = disabled.",
+  "settingsAutoStopSilence": "Auto-Stop After Silence",
+  "settingsAutoStopSilenceHint": "Automatically stop after this many seconds of silence (after speech). 0 = disabled.",
+  "settingsEnabled": "Enabled",
+  "settingsStyle": "Style",
+  "settingsMicSystemDefault": "System Default",
+  "settingsMicSystemHint": "Audio input is managed by your system settings",
+  "settingsServiceOnDevicePrivate": "Locally on Device",
+  "settingsLanguageAutoDetect": "Auto-detect",
+  "settingsLanguageEnglish": "English",
+  "settingsLanguageGerman": "German",
+  "settingsLanguageFrench": "French",
+  "settingsLanguageSpanish": "Spanish",
+  "settingsLanguageHebrew": "Hebrew",
+  "settingsSoundFeedback": "Sound & Feedback",
+  "settingsSoundFeedbackSubtitle": "Audio cues for recording events",
+  "settingsSoundsEnabled": "Sounds",
+  "settingsRecordStartSound": "Record Start Sound",
+  "settingsRecordStopSound": "Record Stop Sound",
+  "settingsTranscriptionCompleteSound": "Transcription Complete Sound",
+  "settingsDurationWarningSound": "Duration Limit Warning",
+  "settingsSoundVolume": "Sound Volume",
+  "settingsAfterTranscription": "After Transcription",
+  "settingsAfterTranscriptionSubtitle": "What happens with the transcribed text",
+  "settingsAfterTranscriptionActionLabel": "Action",
+  "settingsAfterTranscriptionClipboard": "Copy to Clipboard",
+  "settingsAfterTranscriptionPaste": "Auto-Paste at Cursor",
+  "settingsAfterTranscriptionBoth": "Copy & Auto-Paste",
+  "settingsAfterTranscriptionNothing": "Do Nothing",
+  "pasteFailurePermissionMissing": "Auto-Paste was blocked by the OS. WhisPaste needs permission to insert text into other apps — macOS calls this permission 'Accessibility'.",
+  "pasteFailureNoTarget": "Auto-Paste skipped, no target window was captured. Focus the destination app before triggering a recording.",
+  "pasteFailureElevationBlocked": "Auto-Paste blocked: the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.",
+  "pasteFailureGeneric": "Auto-Paste failed. The transcript is on the clipboard, paste it manually with ⌘V / Ctrl+V.",
+  "pasteFailureOpenSettings": "Open Settings",
+  "pasteNotificationNoTargetTitle": "WhisPaste: Auto-Paste Skipped",
+  "pasteNotificationNoTargetBody": "No target app detected. Focus the destination app first, then start recording. The text is on the clipboard.",
+  "pasteNotificationNoTargetTray": "Auto-Paste: Target App Missing",
+  "pasteNotificationRestartNeededTitle": "WhisPaste: Restart Needed",
+  "pasteNotificationRestartNeededBody": "The permission was granted, but WhisPaste is still running the old state. Click here to restart WhisPaste.",
+  "pasteNotificationRestartNeededTray": "Auto-Paste Blocked — Restart Needed",
+  "pasteNotificationPermissionBlockedTitle": "WhisPaste: Auto-Paste Blocked",
+  "pasteNotificationPermissionResetEntryBody": "WhisPaste needs permission to insert text into other apps — macOS calls this permission 'Accessibility'. Click here: WhisPaste will clear a possibly stale entry and let macOS ask again.",
+  "pasteNotificationPermissionOpenSettingsBody": "WhisPaste needs permission to insert text into other apps — macOS calls this permission 'Accessibility'. Click here or the tray icon to open System Settings.",
+  "pasteNotificationPermissionBlockedTray": "Auto-Paste Blocked — Open System Settings",
+  "pasteNotificationElevationBlockedTitle": "WhisPaste: Auto-Paste Blocked",
+  "pasteNotificationElevationBlockedBody": "The target app is running with administrator rights. Restart WhisPaste as an administrator too, to paste into that app.",
+  "pasteNotificationElevationBlockedTray": "Auto-Paste Blocked — Administrator Needed",
+  "pasteNotificationFailedTitle": "WhisPaste: Auto-Paste Failed",
+  "pasteNotificationFailedBody": "The system rejected the paste. The text is on the clipboard — paste it manually with ⌘V / Ctrl+V.",
+  "pasteNotificationFailedTray": "Auto-Paste Failed",
+  "pasteCapabilityCheckTitle": "One moment…",
+  "pasteCapabilityReady": "All set",
+  "pasteCapabilityReadySubtitle": "Your dictation lands right at the cursor.",
+  "pasteCapabilityPermissionMissing": "Not yet allowed",
+  "pasteCapabilityUnsupported": "Auto-Paste is not available on this platform",
+  "pasteCapabilityTestButton": "Test now",
+  "pasteCapabilityGrantButton": "Continue",
+  "pasteCapabilityWhyMac": "WhisPaste needs permission to type text into the app you're working in — macOS calls this permission 'Accessibility'.",
+  "pasteCapabilityTroubleshoot": "Having trouble?",
+  "pasteCapabilityRepairHint": "Sometimes macOS remembers an old entry and forgets the new approval. Reset the entry. macOS will then ask you cleanly again.",
+  "pasteCapabilityRepairButton": "Reset entry",
+  "pasteCapabilityRestartButton": "Restart WhisPaste",
+  "pasteCapabilityRestartTitle": "Almost there — restart WhisPaste",
+  "pasteCapabilityRestartBody": "If you enabled the permission, macOS only applies it to a freshly started app. One click — WhisPaste quits and comes right back.",
+  "pasteRestartAlertTitle": "Restart WhisPaste now",
+  "pasteRestartAlertBody": "The Auto-Paste permission is set, but macOS only applies it after a restart. WhisPaste will quit and come right back.",
+  "pasteRestartAlertConfirm": "Restart now",
+  "pasteStaleEntryGuideTitle": "Remove the old WhisPaste entry",
+  "pasteStaleEntryGuideBody": "macOS is still holding on to the Auto-Paste permission of an earlier WhisPaste version. That entry can't be switched on — it has to be removed once:\n\n1. Select “WhisPaste” in the list.\n2. Click “−” below the list.\n3. Come back to WhisPaste.\n\nAfter a restart, macOS asks you again — just allow it.",
+  "pasteStaleEntryGuideConfirm": "Open System Settings",
+  "pasteStaleEntryRestartTitle": "Restart WhisPaste",
+  "pasteStaleEntryRestartBody": "Once the old entry is gone, restart WhisPaste. macOS then asks for the permission again — confirm it and switch WhisPaste on.",
+  "pasteStaleEntryRestartConfirm": "Restart WhisPaste",
+  "permissionAlertLaterButton": "Not now",
+  "micGateAlertTitle": "Microphone access is missing",
+  "micGateAlertBody": "WhisPaste can't record without microphone access. Confirm to open System Settings → Privacy & Security → Microphone — enable the switch for WhisPaste there. WhisPaste detects your approval automatically.",
+  "micGateAlertBodyGeneric": "WhisPaste can't record without microphone access. Please allow microphone access for WhisPaste in your system's privacy settings — WhisPaste detects your approval automatically.",
+  "micGateAlertConfirm": "Open Settings",
+  "micGateRestartAlertTitle": "Restart WhisPaste to finish",
+  "micGateRestartAlertBody": "Microphone access is granted, but this running WhisPaste instance can't pick it up yet. WhisPaste will quit and come right back — everything stays as it is.",
+  "micGateRestartAlertConfirm": "Restart now",
+  "autoPasteGateAlertTitle": "One switch is missing for auto-insert",
+  "autoPasteGateAlertBody": "WhisPaste inserts your dictation right at the cursor. macOS requires one switch for that which only you can flip: System Settings → Privacy & Security → Accessibility. Confirm to open exactly that page — WhisPaste detects your approval automatically and restarts itself afterwards if needed.",
+  "autoPasteGateAlertConfirm": "Open System Settings",
+  "pasteCapabilityRestartIneffectiveTitle": "The restart didn't apply the permission",
+  "pasteCapabilityRestartIneffectiveSubtitle": "Open the permission again and check under System Settings → Privacy & Security → Accessibility that WhisPaste is really switched on. Re-enable the toggle, then WhisPaste restarts once more.",
+  "pasteCapabilityRepairDone": "{count, plural, =0{No stale entries found. Try paste once.}=1{Cleared 1 stale entry. Try paste once to see a fresh prompt.}other{Cleared {count} stale entries. Try paste once to see fresh prompts.}}",
+  "@pasteCapabilityRepairDone": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "pasteCapabilityRepairNothingToClear": "No old entry found. A restart is likely to help now.",
+  "pasteCapabilityRepairFailed": "Could not run the macOS permission reset. Try removing WhisPaste from System Settings → Accessibility manually.",
+  "onboardingPasteTitle": "So your text lands where you're typing",
+  "onboardingPasteSubtitle": "macOS will ask you in a moment whether WhisPaste may do this. Say yes, done.",
+  "onboardingPasteSubtitleWin": "No permission needed on Windows — just choose whether WhisPaste should insert dictated text for you.",
+  "onboardingPasteChipReady": "Auto-Paste ready",
+  "onboardingPasteChipPending": "Auto-Paste access pending",
+  "onboardingPasteChipAction": "Auto-Paste: action needed",
+  "onboardingPasteGrantCta": "Allow auto-paste",
+  "onboardingPasteSkip": "Just copy for now, no auto-insert",
+  "onboardingPasteWhyMac": "Without permission, your text is copied to the clipboard. You'll then paste manually with ⌘V.",
+  "onboardingPasteWhyWin": "Auto-Paste presses Ctrl+V for you after each dictation, so the text lands right where you're typing. Verified working on this machine — turn it on below.",
+  "onboardingPasteWhyWinUipi": "In certain apps with UIPI/UAC protection, Auto-Paste won't work. The text will sit in the clipboard and you'll need to paste it with Ctrl+V yourself.",
+  "onboardingPasteWinOnTitle": "Auto-Paste is on",
+  "onboardingPasteWinOnDetail": "After each dictation, WhisPaste presses Ctrl+V for you — the text lands right at your cursor. A copy stays on the clipboard, too.",
+  "onboardingPasteWinEnableCta": "Turn on Auto-Paste",
+  "onboardingPasteWinAdminCaveat": "Apps running as administrator don't accept simulated keystrokes — there your text stays on the clipboard, ready to paste with Ctrl+V.",
+  "onboardingPasteWaitingForGrantTitle": "Tick the box next to WhisPaste",
+  "onboardingPasteWaitingForGrantHint": "System Settings is open. Find WhisPaste in the list and switch it on.\n\nNot in the list? Drag the app icon in or click „+\".",
+  "onboardingPasteTestTitle": "Try Auto-Paste",
+  "onboardingPasteTestSubtitle": "Click the button. The demo text should appear in the field below.",
+  "onboardingPasteDemoText": "WhisPaste types for you.",
+  "onboardingPasteTestSuccess": "Auto-Paste works! Click Next to continue.",
+  "onboardingPasteTestNoFrontmost": "No input field detected. Click the field below and try again.",
+  "onboardingPasteTestFailure": "Test failed. Try restarting the app, or continue without testing.",
+  "onboardingPasteTestSkip": "Continue without testing",
+  "settingsOverlayFloatingButton": "Recording Overlay",
+  "settingsOverlayFloatingButtonSubtitle": "Control how recording status appears while you record",
+  "settingsShowOverlay": "Recording status display",
+  "settingsShowOverlaySubtitle": "Choose where live recording feedback appears while you record",
+  "settingsOverlayModeFloating": "Floating window (always visible)",
+  "settingsOverlayModeOff": "Off",
+  "settingsOverlayStartPosition": "Overlay start position",
+  "settingsOverlayStartPositionSubtitle": "Where the floating overlay appears when recording starts",
+  "settingsOverlayStartTopCenter": "Top center",
+  "settingsOverlayStartBottomCenter": "Bottom center",
+  "settingsOverlayStartLastPosition": "Remember last position",
+  "settingsShowFloatingButton": "Floating recording button",
+  "settingsShowFloatingButtonSubtitle": "Small always-on-top button for starting or stopping recording from any app",
+  "settingsLanguage": "Language",
+  "settingsRecognitionLanguage": "Recognition Language",
+  "settingsCustomVocabulary": "Custom Vocabulary",
+  "settingsCustomVocabularyHint": "Names, technical terms: improves recognition accuracy",
+  "settingsCustomVocabularyPlaceholder": "e.g. WhisPaste, Kubernetes, Dr. Mueller",
+  "settingsCustomVocabularyBudgetCounter": "~{count} / {budget} tokens",
+  "@settingsCustomVocabularyBudgetCounter": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "budget": {"type": "int"}
+    }
+  },
+  "settingsCustomVocabularyBudgetWarning": "Long entries may be shortened automatically — only roughly the first {budget} tokens are used.",
+  "@settingsCustomVocabularyBudgetWarning": {
+    "placeholders": {
+      "budget": {"type": "int"}
+    }
+  },
+  "settingsPunctuationPriming": "Punctuation priming",
+  "settingsPunctuationPrimingSubtitle": "Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.",
+  "settingsVadEnabled": "Trim trailing silence",
+  "settingsVadEnabledSubtitle": "Removes long silence/noise at the end of a recording before Whisper decodes it, so it can't fabricate a closing sentence there (e.g. \"Thanks for watching\"-style hallucinations). Negligible cost, off if you'd rather keep Whisper's raw output.",
+  "settingsStripPunctuation": "Strip punctuation",
+  "settingsStripPunctuationSubtitle": "Removes periods, commas, and other sentence punctuation from every transcript before it's saved or pasted. Works the same way for every engine and provider, not just Whisper.",
+  "settingsNumericOnlyMode": "Numbers only",
+  "settingsNumericOnlyModeSubtitle": "Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn't fully convertible.",
+  "settingsRemoveFillerWords": "Remove filler words",
+  "settingsRemoveFillerWordsSubtitle": "Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.",
+  "settingsVoiceLineBreaks": "Spoken line breaks",
+  "settingsVoiceLineBreaksSubtitle": "Turns spoken commands such as \"new paragraph\" and \"new line\" into real line breaks. Uses the transcription language, or all supported languages with auto-detect.",
+  "settingsAppLanguage": "App Language",
+  "settingsSttModels": "Speech Recognition Models",
+  "settingsOpenAiApiKey": "OpenAI API Key",
+  "settingsDeepgramApiKey": "Deepgram API Key",
+  "settingsToggleApiKeyVisibility": "Toggle API key visibility",
+  "@settingsToggleApiKeyVisibility": {
+    "description": "Tooltip for the show/hide button on API key input fields."
+  },
+  "settingsAdvanced": "Advanced",
+  "settingsAdvancedSubtitle": "Reset, error reporting, updates, and system behavior",
+  "settingsResetToDefaults": "Reset to Defaults",
+  "settingsResetTitle": "Reset Settings",
+  "settingsResetMessage": "All settings will be restored to defaults. API keys will be removed. This cannot be undone.",
+  "settingsResetConfirm": "Reset",
+  "settingsResetSuccess": "Settings reset to defaults",
+  "settingsFactoryReset": "Factory Reset",
+  "settingsFactoryResetTitle": "Factory Reset",
+  "settingsFactoryResetMessage": "This will permanently delete ALL data: recording history, tags, replacements, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.",
+  "settingsFactoryResetConfirm": "Delete Everything",
+  "settingsFactoryResetSuccess": "App has been completely reset",
+  "settingsFactoryResetProgressTitle": "Resetting WhisPaste",
+  "settingsFactoryResetPhaseStoppingSubprocess": "Stopping voice service…",
+  "settingsFactoryResetPhaseDeletingModels": "Deleting voice models…",
+  "settingsFactoryResetPhaseDeletingDatabase": "Deleting database…",
+  "settingsFactoryResetPhaseResettingSecureStore": "Clearing credentials…",
+  "settingsFactoryResetPhaseResettingSettings": "Restoring default settings…",
+  "settingsFactoryResetFailedMessage": "Factory reset incomplete. Please restart the app.",
+  "settingsPortabilitySectionTitle": "Backup & Transfer",
+  "settingsPortabilitySectionSubtitle": "Keep a backup of your WhisPaste setup or take it to another computer",
+  "settingsPortabilityExportAction": "Export",
+  "settingsPortabilityImportAction": "Import",
+  "settingsPortabilityExportLocationLabel": "Export destination",
+  "settingsPortabilityImportLocationLabel": "Import source",
+  "settingsPortabilityExportLocationUnset": "You'll be asked on first export",
+  "settingsPortabilityImportLocationUnset": "You'll be asked on first import",
+  "settingsPortabilityChooseExportLocation": "Choose a different export destination (nothing is exported yet)",
+  "settingsPortabilityChooseImportLocation": "Choose a different import source (nothing is imported yet)",
+  "settingsPortabilityExportSuccess": "Settings exported to {path}",
+  "@settingsPortabilityExportSuccess": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "settingsPortabilityExportError": "Export failed: {reason}",
+  "@settingsPortabilityExportError": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
+  "settingsPortabilityImportConfirmTitle": "Import Settings?",
+  "settingsPortabilityImportConfirmMessage": "This replaces your current settings — including interface, speech-recognition configuration, behavior, text replacements, and snippets — with the contents of {path}. Your API keys are left untouched.",
+  "@settingsPortabilityImportConfirmMessage": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "settingsPortabilityImportSuccess": "Settings imported from {path}",
+  "@settingsPortabilityImportSuccess": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "settingsPortabilityImportNotFound": "No export file found at {path}. Export settings first, or copy an export file there.",
+  "@settingsPortabilityImportNotFound": {
+    "description": "Deliberate residual case (Ticket 03, settings-portability-vollumfang): since the import target now comes from a remembered path or a native open-file dialog, a missing file is caught internally and silently re-prompts the dialog instead of showing this message. It only surfaces if the freshly re-picked file also vanishes before it can be read (a narrow race), so it stays worded as generic guidance rather than describing that race.",
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "settingsPortabilityImportError": "Import failed: {reason}",
+  "@settingsPortabilityImportError": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
+  "settingsAutosaveLabel": "Automatic backup",
+  "settingsAutosaveHint": "Saves your setup to the chosen folder a few seconds after every change",
+  "settingsAutosaveChooseFolder": "Choose a different folder for automatic backups (nothing is backed up yet)",
+  "settingsAutosaveLastRun": "Last backup: {time}",
+  "@settingsAutosaveLastRun": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsAutosaveNeverRun": "No backup yet",
+  "settingsAutosaveLastRunFailed": "Backup failed",
+  "settingsAutosaveLastRunFailedSince": "Last attempt failed — last backup: {time}",
+  "@settingsAutosaveLastRunFailedSince": {
+    "placeholders": {
+      "time": { "type": "String" }
+    }
+  },
+  "settingsAutosaveErrorLocation": "Automatic backup failed: the chosen folder is unavailable.",
+  "settingsAutosaveErrorWrite": "Automatic backup failed: {reason}",
+  "@settingsAutosaveErrorWrite": {
+    "placeholders": {
+      "reason": { "type": "String" }
+    }
+  },
+  "groqRemovedToast": "Groq STT was removed. Provider reset to On-Device.",
+  "migrationComplete": "{count, plural, one{1 recording migrated from WhisPaste 1.x} other{{count} recordings migrated from WhisPaste 1.x}}",
+  "@migrationComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsOff": "Off",
+  "settingsOn": "On",
+
+  "statusReady": "Ready",
+  "statusRecording": "Recording…",
+  "statusTranscribing": "Transcribing…",
+  "statusProcessing": "Processing…",
+  "statusTranscriptionDone": "Transcription complete",
+  "statusSelectionEdited": "Selection edited",
+  "statusCopied": "Copied!",
+  "statusLocal": "Local",
+  "statusCloud": "Cloud",
+  "statusOnline": "Online",
+  "statusOffline": "Offline",
+  "recordingGuardFailed": "No audio detected. Please try again. Sometimes the microphone needs a moment to warm up.",
+  "recordingAutoStopped": "Recording stopped: silence detected.",
+  "actionCopy": "Copy",
+  "actionDuplicate": "Duplicate",
+  "actionDelete": "Delete",
+  "actionDismiss": "Dismiss",
+  "actionEdit": "Edit",
+  "actionExport": "Export",
+  "actionCancel": "Cancel",
+  "actionConfirm": "Confirm",
+  "actionSave": "Save",
+  "actionRetry": "Try again",
+  "actionClearSearch": "Clear search",
+  "@actionClearSearch": {
+    "description": "Tooltip and screen-reader label of WpSearchField's clear button. Used by every search field that has no feature-specific wording of its own."
+  },
+  "tooltipLanguage": "Language",
+  "aboutVersion": "Version {version}",
+  "@aboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWelcome": "Speak it once. Paste it anywhere.",
+  "feedbackTitle": "Send Feedback",
+  "feedbackHint": "Tell us what you think. We read every message.",
+
+  "analyticsPreviewBanner": "Preview: showing sample data. Real analytics will appear once you start recording.",
+  "analyticsEmptyTitle": "No recordings yet",
+  "analyticsEmptySubtitle": "Start recording to see your analytics here.",
+  "analyticsOverview": "Overview",
+  "analyticsOverviewSubtitle": "Your recording stats at a glance",
+  "analyticsActivity": "Activity",
+  "analyticsInsights": "Insights",
+  "analyticsTotalRecordings": "Total Recordings",
+  "analyticsTotalDuration": "Total Duration",
+  "analyticsWordsDictated": "Words Transcribed",
+  "analyticsTimeSaved": "Time Saved",
+  "analyticsAvgLatency": "Avg. Speed",
+  "analyticsRecordingActivity": "Recording Activity",
+  "analyticsLast7Days": "Last 7 days",
+  "analyticsModelUsage": "Model Usage",
+  "analyticsDurationDistribution": "Duration Distribution",
+  "analyticsCostSavings": "Cost & Savings",
+  "analyticsLocalSavings": "Local savings",
+  "analyticsCloudCost": "Cloud cost",
+  "analyticsPeriod7d": "7 days",
+  "analyticsPeriod30d": "30 days",
+  "analyticsPeriod90d": "90 days",
+  "analyticsPeriodAll": "All time",
+  "analyticsReset": "Reset",
+  "analyticsResetTitle": "Reset Statistics",
+  "analyticsResetMessage": "Are you sure you want to clear all analytics data? This action cannot be undone.",
+  "analyticsDayMon": "Mon",
+  "analyticsDayTue": "Tue",
+  "analyticsDayWed": "Wed",
+  "analyticsDayThu": "Thu",
+  "analyticsDayFri": "Fri",
+  "analyticsDaySat": "Sat",
+  "analyticsDaySun": "Sun",
+  "analyticsThisWeek": "{delta} this week",
+  "@analyticsThisWeek": {
+    "placeholders": {
+      "delta": { "type": "String" }
+    }
+  },
+  "analyticsVsLastMonth": "{delta} vs last month",
+  "@analyticsVsLastMonth": {
+    "placeholders": {
+      "delta": { "type": "String" }
+    }
+  },
+  "analyticsDurationHoursMinutes": "{hours}h {minutes}m",
+  "@analyticsDurationHoursMinutes": {
+    "placeholders": {
+      "hours": { "type": "int" },
+      "minutes": { "type": "int" }
+    }
+  },
+  "analyticsDurationLt15s": "< 15s",
+  "analyticsDuration15To30s": "15-30s",
+  "analyticsDuration30To60s": "30-60s",
+  "analyticsDuration1To3m": "1-3m",
+  "analyticsDurationGt3m": "> 3m",
+  "analyticsSavedAmount": "{amount} saved",
+  "@analyticsSavedAmount": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+  "analyticsSpentAmount": "{amount} spent",
+  "@analyticsSpentAmount": {
+    "placeholders": {
+      "amount": { "type": "String" }
+    }
+  },
+
+  "replacementsSearch": "Search replacements…",
+  "replacementsSearchFieldLabel": "Search replacements",
+  "replacementsAdd": "Add",
+  "replacementsEmpty": "No replacements yet",
+  "replacementsEmptyHint": "Add replacements to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"",
+  "replacementsNoMatches": "No matches",
+  "replacementsNoMatchesHint": "Try a different search term.",
+  "replacementsToggleLabel": "Enable replacements",
+  "replacementsToggleEnabled": "Replacements are active",
+  "replacementsToggleDisabled": "Replacements are disabled",
+  "replacementsEnableBannerTitle": "Replacements are turned off",
+  "replacementsEnableBannerHint": "Enable them so trigger phrases are replaced automatically while recording.",
+  "replacementsEnableAction": "Enable",
+  "replacementsDisableAction": "Disable",
+  "replacementsEditShortcut": "Edit Replacement",
+  "replacementsNewShortcut": "New Replacement",
+  "replacementsDialogHint": "Any of the trigger phrases will be replaced automatically while recording.",
+  "replacementsTriggerLabel": "Trigger phrases",
+  "replacementsTriggerHint": "e.g. btw",
+  "replacementsAddTrigger": "Add trigger phrase",
+  "replacementsRemoveTrigger": "Remove trigger phrase",
+  "replacementsReplacementLabel": "Replacement text",
+  "replacementsReplacementHint": "e.g. by the way",
+  "replacementsReplacementHelper": "Use \\n for a line break and \\n\\n for a blank line. To keep a literal backslash-n, write \\\\n.",
+  "replacementsDeleteTitle": "Delete Replacement",
+  "replacementsDeleteMessage": "Remove the replacement \"{trigger}\"? This cannot be undone.",
+  "@replacementsDeleteMessage": {
+    "placeholders": {
+      "trigger": { "type": "String" }
+    }
+  },
+  "replacementsImportFromFolder": "Import from folder",
+  "replacementsImportHint": "Scan a project folder for identifiers and add them as fuzzy replacements — nothing leaves your device.",
+  "replacementsImportSummary": "Found {found}, added {added}, skipped {skipped} duplicate(s)",
+  "@replacementsImportSummary": {
+    "placeholders": {
+      "found": { "type": "int" },
+      "added": { "type": "int" },
+      "skipped": { "type": "int" }
+    }
+  },
+  "replacementsImportScanning": "Scanning the folder — this can take a moment for large projects…",
+  "replacementsImportError": "Import failed — the folder could not be scanned.",
+  "replacementsImportedBadge": "Imported",
+  "replacementsLearnedBadge": "Learned",
+  "correctionLearningToggleLabel": "Learn from corrections",
+  "correctionLearningToggleEnabled": "Watching repeated corrections for suggestions",
+  "correctionLearningToggleDisabled": "Not watching corrections for suggestions",
+  "correctionLearningHowTo": "While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.",
+  "correctionCandidatesCardTitle": "Suggested from your corrections",
+  "correctionCandidatesCardHint": "{count} suggestion(s) from corrections you repeated — review before they become replacements.",
+  "@correctionCandidatesCardHint": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "correctionCandidatesReviewButton": "Review",
+  "correctionCandidatesReviewTitle": "Review learned corrections",
+  "correctionCandidatesReviewSubtitle": "{count} correction(s) you repeated — accept the ones WhisPaste should apply automatically from now on. Nothing changes until you confirm.",
+  "@correctionCandidatesReviewSubtitle": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "correctionCandidatesCommitSummary": "Added {added} learned replacement(s)",
+  "@correctionCandidatesCommitSummary": {
+    "placeholders": {
+      "added": { "type": "int" }
+    }
+  },
+  "replacementsImportNothingFound": "No new identifiers found in this folder.",
+  "replacementsImportReviewTitle": "Choose what to import",
+  "replacementsImportReviewSubtitle": "{count} candidates found — pick which ones become replacements. Nothing is added until you confirm.",
+  "@replacementsImportReviewSubtitle": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "replacementsImportReviewSearchHint": "Filter candidates",
+  "replacementsImportReviewSelectAllFiltered": "Select all shown",
+  "replacementsImportReviewDeselectAll": "Deselect all",
+  "replacementsImportReviewSelectedCount": "{selected} of {total} selected",
+  "@replacementsImportReviewSelectedCount": {
+    "placeholders": {
+      "selected": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "replacementsImportReviewNoMatches": "No candidates match your filter.",
+  "replacementsImportReviewImportButton": "Import selected ({count})",
+  "@replacementsImportReviewImportButton": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "replacementsMatchModeLabel": "Matching",
+  "replacementsMatchModeExact": "Exact",
+  "replacementsMatchModeFuzzy": "Similar",
+  "replacementsFuzzyToleranceLabel": "Tolerance",
+  "replacementsFuzzyToleranceStrict": "Strict",
+  "replacementsFuzzyToleranceStandard": "Standard",
+  "replacementsFuzzyToleranceTolerant": "Tolerant",
+  "replacementsFuzzyToleranceHint": "How close a dictated phrase must sound to a trigger to still count as a match. Strict only catches near-identical wording, so almost nothing gets replaced by accident, but a mumbled trigger may slip through unmatched. Standard is a balanced default for everyday dictation. Tolerant also catches noticeably different pronunciation or phrasing, at a higher risk of matching something you did not mean to replace.",
+  "replacementsFuzzyTooShortWarning": "Trigger phrases under {minLength} characters cannot use similar matching — too many false hits.",
+  "@replacementsFuzzyTooShortWarning": {
+    "placeholders": {
+      "minLength": { "type": "int" }
+    }
+  },
+
+  "snippetsSearch": "Search snippets…",
+  "snippetsSearchFieldLabel": "Search snippets",
+  "snippetsAdd": "Add",
+  "snippetsEmpty": "No snippets yet",
+  "snippetsEmptyHint": "Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.",
+  "snippetsNoMatches": "No matches",
+  "snippetsNoMatchesHint": "Try a different search term.",
+  "snippetsEditSnippet": "Edit Snippet",
+  "snippetsNewSnippet": "New Snippet",
+  "snippetsDialogHint": "Open the snippet picker while dictating to insert this text.",
+  "snippetsTitleLabel": "Title",
+  "snippetsTitleHint": "e.g. Email signature",
+  "snippetsBodyLabel": "Body",
+  "snippetsBodyHint": "The text this snippet inserts…",
+  "snippetsKindLabel": "Type",
+  "snippetsKindStatic": "Static",
+  "snippetsKindInteractive": "Interactive",
+  "snippetsFieldsLabel": "Fields",
+  "snippetsFieldsHint": "You'll be guided through each field with its own short recording, in this order.",
+  "snippetsFieldNameHint": "Field {number} name",
+  "@snippetsFieldNameHint": {
+    "placeholders": {
+      "number": { "type": "int" }
+    }
+  },
+  "snippetsFieldMoveUp": "Move field up",
+  "snippetsFieldMoveDown": "Move field down",
+  "snippetsFieldRemove": "Remove field",
+  "snippetsFieldAdd": "Add field",
+  "snippetsFieldInsertIntoTemplate": "Insert into template",
+  "snippetsFieldsMinWarning": "An interactive snippet needs at least {min, plural, one{1 named field} other{{min} named fields}}.",
+  "@snippetsFieldsMinWarning": {
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
+  "snippetsTemplateLabel": "Template",
+  "snippetsTemplateHint": "Write your snippet text, then use each field's insert button to place it wherever you want.",
+  "snippetsTemplateFieldHint": "Write your text here and insert fields using the buttons above.",
+  "snippetsTemplateMissingFieldsWarning": "Not all fields appear in the template yet — their dictated text would go unused.",
+  "snippetsInteractiveBadge": "Interactive",
+  "interactiveSnippetBriefingLabel": "{count, plural, =1{1 field} other{{count} fields}} · Enter to start",
+  "@interactiveSnippetBriefingLabel": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetBriefingHint": "Field 1: {name} · Esc: cancel",
+  "@interactiveSnippetBriefingHint": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceLabel": "Field {index}/{count}: {name}",
+  "@interactiveSnippetAnnounceLabel": {
+    "placeholders": {
+      "index": { "type": "int" },
+      "count": { "type": "int" },
+      "name": { "type": "String" }
+    }
+  },
+  "interactiveSnippetAnnounceHint": "Get ready to speak…",
+  "interactiveSnippetSpeakNowLabel": "{index}/{count}: {name}",
+  "@interactiveSnippetSpeakNowLabel": {
+    "placeholders": {
+      "name": { "type": "String" },
+      "index": { "type": "int" },
+      "count": { "type": "int" }
+    }
+  },
+  "interactiveSnippetAdvance": "Next",
+  "snippetsDeleteTitle": "Delete Snippet",
+  "snippetsDeleteMessage": "Remove the snippet \"{title}\"? This cannot be undone.",
+  "@snippetsDeleteMessage": {
+    "placeholders": {
+      "title": { "type": "String" }
+    }
+  },
+  "snippetsPickerTriggerLabel": "Picker trigger word",
+  "snippetsPickerTriggerSubtitle": "Speak only this word to open the snippet picker. Leave empty to turn the picker off.",
+  "snippetsPickerTriggerHint": "e.g. snippet",
+  "snippetsPickerTriggerEmptyListHint": "The trigger word is set, but there are no snippets yet — dictating it inserts the word as normal text until you add your first snippet.",
+  "snippetsPickerHotkeyLabel": "Picker hotkey",
+  "snippetsPickerHotkeySubtitle": "Opens the picker straight away — the second way to the same panel.",
+  "snippetsPickerHotkeyOff": "The picker hotkey is switched off.",
+  "snippetsPickerHotkeyEnable": "Turn hotkey on",
+  "snippetsPickerUnavailable": "The snippet picker is not available on this platform yet.",
+  "snippetsPickerSemanticsLabel": "Snippet picker",
+  "snippetsPickerInsertAction": "Insert",
+
+  "aboutTagline": "Voice to text, instantly.",
+  "aboutWhatsNew": "What's New",
+  "aboutGitHub": "GitHub",
+  "aboutReportIssue": "Report Issue",
+  "aboutSupportTitle": "Support this project",
+  "aboutSupportDescription": "WhisPaste is free and open source under the MIT license. Sponsoring covers real recurring fixed costs (the Apple Developer Program, Microsoft Partner Center, and hosting/domain) that keep it available on every platform.",
+  "aboutGitHubSponsors": "GitHub Sponsors",
+  "aboutKofi": "Ko-fi",
+  "aboutStarOnGitHub": "Star on GitHub",
+  "aboutSponsorsTitle": "Sponsors",
+  "supportPromptRecurringTitle": "Make it monthly?",
+  "supportPromptRecurringDescription": "Thank you for supporting WhisPaste before. If you'd like, you could turn that into a small monthly sponsoring that keeps covering our recurring fixed costs.",
+  "aboutBuiltWith": "Built with",
+  "aboutFlutterGo": "Flutter",
+  "aboutFlutterGoDesc": "Cross-platform UI with Flutter. Local speech recognition via whisper.cpp and Parakeet.",
+  "aboutWhisper": "whisper.cpp & OpenAI Whisper",
+  "aboutWhisperDesc": "Local and cloud speech recognition: fast, accurate, multilingual (99 languages).",
+  "aboutParakeet": "NVIDIA Parakeet & sherpa-onnx",
+  "aboutParakeetDesc": "Local speech recognition, GPU-accelerated where available (Metal, Vulkan, CUDA) and on the CPU otherwise (~25 languages).",
+  "aboutParakeetModelCredit": "Model: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0",
+  "aboutParakeetGgufCredit": "GGUF conversion: ggml-org, MIT",
+  "aboutPrivacyFirst": "Privacy-first",
+  "aboutPrivacyFirstDesc": "Local speech recognition by default: your voice never leaves your device unless you choose a cloud provider.",
+  "aboutPrivacy": "Privacy & Data",
+  "aboutPrivacyLocal": "All transcriptions and history are stored locally on your device, never on external servers.",
+  "aboutPrivacyCloud": "Cloud providers (OpenAI, Deepgram) only receive audio when you actively use them. Their privacy policies apply.",
+  "aboutPrivacyNoTracking": "Usage statistics are anonymous and GDPR-compliant (EU server), and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).",
+  "aboutKeyboardShortcuts": "Keyboard Shortcuts",
+  "aboutShortcutRecord": "Start / Stop recording",
+  "aboutLinks": "Links",
+  "aboutWebsite": "Website",
+  "aboutGitHubRepo": "GitHub Repository",
+  "aboutFollowOnX": "Follow on X",
+  "aboutMitLicense": "MIT License",
+  "aboutViewOnGitHub": "View on GitHub",
+  "aboutPrivacyPolicy": "Privacy Policy",
+  "aboutSystemInfo": "System Info",
+  "aboutSystemInfoDesc": "Copy a compact diagnostics snapshot for bug reports.",
+  "aboutCopyDebugInfo": "Copy Debug Info",
+  "aboutCopied": "Copied!",
+  "aboutMadeWith": "Made with ♥ by WhisPaste",
+  "aboutOpenSource": "Open source under the MIT License",
+
+  "feedbackSubtitle": "Help us improve WhisPaste. Every voice matters.",
+  "feedbackCategoryLabel": "What's this about?",
+  "feedbackCategoryBug": "Bug Report",
+  "feedbackCategoryFeature": "Feature Idea",
+  "feedbackCategoryGeneral": "General",
+  "feedbackCategoryAiQuality": "AI Quality",
+  "feedbackRatingLabel": "How are you feeling about WhisPaste?",
+  "feedbackCommentsLabel": "Tell us more",
+  "feedbackPlaceholderBug": "Describe what happened and what you expected…",
+  "feedbackPlaceholderFeature": "What would you like to see in WhisPaste?",
+  "feedbackPlaceholderAi": "How was the transcription quality?",
+  "feedbackPlaceholderGeneral": "Share your thoughts…",
+  "feedbackContactEmailLabel": "Email (optional)",
+  "feedbackContactEmailExplanation": "Only if you'd like a reply. We'll use it solely to follow up on this message, never for marketing, and it's deleted after 90 days.",
+  "feedbackContactEmailPlaceholder": "you@example.com",
+  "feedbackContactEmailInvalid": "Please enter a valid email address, or leave it empty.",
+  "feedbackContactLanguageLabel": "Reply in",
+  "feedbackContactLanguageHint": "Which language should we use if we get back to you?",
+  "feedbackSubmit": "Send Feedback",
+  "feedbackPrivacyNote": "Anonymous by default, only identifiable if you add your email above.",
+  "feedbackThankYou": "Thank you!",
+  "feedbackThankYouMessage": "Your feedback helps us make WhisPaste better\nfor everyone.",
+  "feedbackSendAnother": "Send another",
+  "feedbackRatingFrustrated": "Frustrated",
+  "feedbackRatingMeh": "Meh",
+  "feedbackRatingOkay": "Okay",
+  "feedbackRatingHappy": "Happy",
+  "feedbackRatingLoveIt": "Love it!",
+  "feedbackSubmitting": "Sending…",
+  "feedbackErrorRateLimited": "You already sent feedback recently. Please try again later.",
+  "feedbackErrorNetwork": "Could not connect to the server. Please check your internet connection.",
+  "feedbackErrorServer": "Something went wrong. Please try again later.",
+  "feedbackErrorNotConfigured": "Feedback is not available in this build.",
+
+  "statusBarOnDevice": "On device",
+  "statusBarOverlayFloating": "Overlay: Floating",
+  "statusBarOverlayOff": "Overlay: Off",
+  "statusBarAfterCopy": "After: Copy",
+  "statusBarAfterPaste": "After: Paste",
+  "statusBarAfterBoth": "After: Copy & Paste",
+  "statusBarAfterNothing": "After: Manual",
+  "sttStatusStandby": "Standby",
+  "sttStatusStarting": "Starting…",
+  "sttStatusReady": "Ready",
+  "sttStatusError": "Error",
+  "statusBarSttTooltip": "Speech service and current status",
+  "statusBarSttBackendTooltip": "Transcription backend: {backend}",
+  "@statusBarSttBackendTooltip": {
+    "placeholders": {
+      "backend": { "type": "String" }
+    }
+  },
+  "statusBarBackendGpuUtilizationUnavailable": "Real GPU utilization can't be measured across platforms without elevated privileges; the percentage shown reflects this process's CPU activity instead.",
+  "statusBarRecording": "Recording…",
+  "statusBarTranscribing": "Transcribing…",
+  "statusBarRefining": "Refining…",
+  "statusBarDone": "Done",
+  "statusBarHotkeyTooltip": "Global hotkey: click to configure",
+  "statusBarAutoPasteOffHint": "Auto-Paste off, enable in Settings",
+  "statusBarAutoPasteOffHintTooltip": "Auto-Paste is currently disabled. Click to open Settings.",
+  "statusBarAutoPasteOffHintDismiss": "Dismiss",
+  "statusBarAutomationApiChipLabel": "API: {port}",
+  "@statusBarAutomationApiChipLabel": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "statusBarAutomationApiChipLabelError": "API: error",
+  "statusBarAutomationApiTooltip": "Automation API active on port {port}",
+  "@statusBarAutomationApiTooltip": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "statusBarAutomationApiTooltipFallback": "Automation API active on port {port} (port {requestedPort} was in use)",
+  "@statusBarAutomationApiTooltipFallback": {
+    "placeholders": {
+      "port": { "type": "int" },
+      "requestedPort": { "type": "int" }
+    }
+  },
+  "statusBarAutomationApiTooltipError": "Automation API: no free port found",
+
+  "modifierCtrl": "Ctrl",
+  "modifierShift": "Shift",
+  "modifierAlt": "Alt",
+  "modifierWin": "Win",
+  "modifierCmd": "Cmd",
+  "modifierOption": "Option",
+  "modifierAltGr": "AltGr",
+  "shortcutKeySpace": "Space",
+  "shortcutKeyEnter": "Enter",
+  "shortcutKeyEscape": "Esc",
+  "shortcutKeyBackspace": "Backspace",
+  "shortcutKeyTab": "Tab",
+  "shortcutKeyDelete": "Del",
+  "shortcutKeyInsert": "Insert",
+  "shortcutKeyHome": "Home",
+  "shortcutKeyEnd": "End",
+  "shortcutKeyPageUp": "Page Up",
+  "shortcutKeyPageDown": "Page Down",
+
+
+  "modelServerReady": "Speech service ready",
+  "modelServerMissing": "Speech service not installed",
+  "modelServerWhisper": "Local speech service",
+  "modelReady": "Ready",
+  "modelDownloadComplete": "Model ready to use",
+  "modelUse": "Use",
+  "modelDownload": "Download",
+  "modelDownloading": "Downloading…",
+  "modelDownloadingEngine": "Preparing speech service…",
+  "modelVerifying": "Verifying…",
+  "modelExtracting": "Extracting…",
+  "modelDeleteConfirm": "Delete this model?",
+  "modelDeleteConfirmMessage": "The model file will be permanently removed. You can re-download it any time.",
+
+  "qualityTierCompactLabel": "Quick & Compact",
+  "qualityTierCompactDesc": "Fast results, small download. Great for short notes and quick messages.",
+  "qualityTierBalancedLabel": "Balanced",
+  "qualityTierBalancedDesc": "Accurate and reliable for everyday recording. Works on most devices.",
+  "qualityTierPremiumLabel": "Best Quality",
+  "qualityTierPremiumDesc": "Top accuracy for longer recordings and complex content. Needs a capable GPU.",
+  "qualityTierRecommended": "Recommended for your device",
+  "qualityTierDownloadSize": "{size} download",
+  "@qualityTierDownloadSize": { "placeholders": { "size": { "type": "String" } } },
+  "qualityTierDownloadAndContinue": "Download model",
+  "qualityTierChooseDifferent": "Choose a different quality level",
+  "qualityTierActive": "Active",
+  "qualityTierInfoSlow": "Best quality, takes ~{ratio}x longer to process",
+  "@qualityTierInfoSlow": { "placeholders": { "ratio": { "type": "String" } } },
+  "qualityTierInfoSlowerThanCompact": "Best quality, ~{ratio}x slower than Small",
+  "@qualityTierInfoSlowerThanCompact": { "placeholders": { "ratio": { "type": "String" } } },
+  "qualityTierInfoModerate": "Good balance of speed and quality",
+  "qualityTierBenchmarkReRun": "Re-run benchmark",
+  "qualityTierBenchmarkRun": "Run benchmark",
+  "qualityTierInfoBenchmarking": "Testing performance…",
+  "qualityTierActionOverride": "Use anyway",
+  "qualityTierActionOverrideHint": "Use this quality level despite the warning",
+  "qualityTierModelTooltip": "Whisper {modelName} · {size}",
+  "@qualityTierModelTooltip": { "placeholders": { "modelName": { "type": "String" }, "size": { "type": "String" } } },
+  "analyticsModelDisplayName": "{tierLabel} (Whisper {modelLabel})",
+  "@analyticsModelDisplayName": { "placeholders": { "tierLabel": { "type": "String" }, "modelLabel": { "type": "String" } } },
+
+
+  "settingsQualityBasic": "Basic",
+  "settingsQualityBalanced": "Balanced",
+  "settingsQualityHigh": "High Quality",
+  "settingsQualityBest": "Best Quality",
+  "settingsQualityMaximum": "Maximum Accuracy",
+  "settingsQualityRecommended": "★ Recommended",
+  "settingsModelStatusReady": "Speech model ready",
+  "settingsModelStatusNeeded": "Speech model will be downloaded when you start recording",
+  "settingsModelStatusDownloading": "Downloading speech model…",
+  "settingsAdvancedModelManagement": "Advanced model settings",
+
+  "infoEngineDownloading": "Speech service is being prepared. Please wait a moment.",
+  "infoModelMissing": "Please download a speech model in Settings first.",
+  "infoModelMissingSelected": "The selected speech model ({size}) isn't downloaded yet.",
+  "@infoModelMissingSelected": {
+    "placeholders": {
+      "size": { "type": "String" }
+    }
+  },
+  "infoModelMissingDownload": "Download now",
+  "statusBarModelMissing": "Model missing",
+  "statusBarModelDownloading": "Downloading model… {percent} %",
+  "@statusBarModelDownloading": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "modelDownloadAction": "Download",
+  "modelMissingDownloadAction": "Missing — download",
+  "infoPipelineBusy": "WhisPaste is still busy with the previous recording.",
+  "infoSnippetPickerEmpty": "Trigger word recognized, but you have no snippets yet — the text was inserted as usual.",
+  "infoSnippetPickerEmptyAction": "Open Snippets",
+  "oomRecoveryTitle": "Recording failed: GPU memory issue",
+  "oomRecoveryMessage": "Your GPU ran out of memory. Choose how to proceed:",
+  "oomRecoveryTrySmaller": "Try smaller model",
+  "oomRecoveryTrySmallerHint": "Switch to {model} and retry recording",
+  "@oomRecoveryTrySmallerHint": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
+  "oomRecoverySwitchCloud": "Switch to Cloud",
+  "oomRecoverySwitchCloudHint": "Use cloud speech recognition instead",
+  "oomRecoveryCancel": "Cancel",
+  "oomRecoveryPermanentTitle": "Local speech recognition unavailable",
+  "oomRecoveryPermanentMessage": "All local models failed due to GPU memory limits. Please switch to cloud speech recognition in settings.",
+  "oomRecoveryPermanentCloud": "Open Settings",
+  "oomRecoveryDowngrading": "Switching to {model}…",
+  "@oomRecoveryDowngrading": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
+  "oomRecoverySwitchingCloud": "Switching to cloud speech recognition…",
+  "oomRecoveryAttemptFailed": "Model {model} also failed. Trying next option…",
+  "@oomRecoveryAttemptFailed": {
+    "placeholders": {
+      "model": { "type": "String" }
+    }
+  },
+  "infoSttCudaOomFallbackModel": "Quality reduced: your GPU ran out of memory. Switched to a lighter model.",
+  "infoSttCudaOomFallbackCpu": "Your GPU ran out of memory. Switched to CPU mode for reliability.",
+
+  "errorSttServerConnectionLost": "Speech service stopped unexpectedly. Please try again.",
+  "errorSttCudaOom": "Your GPU ran out of memory. Quality was reduced so the next try should work.",
+  "errorCloudAuth": "Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.",
+  "errorCloudQuota": "Cloud provider rate limit reached. Please wait a moment and try again.",
+  "errorOnboardingNotCompleted": "Please complete the setup wizard first.",
+  "errorSttModelNotFound": "Speech model not found. Please download it in Settings.",
+  "errorSttModelUnknown": "Unknown speech model. Please select a valid model in Settings.",
+  "errorRecordingFailed": "Could not start recording, please try again",
+  "errorNoAudioRecorded": "No audio recorded, please try again",
+  "errorTranscriptionEmpty": "Transcription returned empty text, please try again",
+  "errorSttServerFailed": "Speech service failed to start",
+  "errorSttModelIncompatibleRuntime": "Speech model is incompatible with the installed runtime. Please re-download the speech model in Settings.",
+  "errorSttModelCorruptedRedownloading": "Speech model appears corrupted. Downloading a fresh copy automatically.",
+  "errorSttDllMissing": "A required system component is missing. Retrying with CPU mode.",
+  "errorSttGpuFatal": "GPU acceleration failed. Retrying with CPU mode.",
+  "errorSttHeapCorruption": "A memory error occurred. Retrying with CPU mode.",
+  "errorSttCpuFallbackFailed": "Speech service failed on both GPU and CPU. Please restart the app or re-download the model.",
+  "errorPipelineTimeout": "Recording took too long. Please try a shorter recording.",
+  "errorWavFileNotCreated": "Could not save the audio file. Please try again.",
+  "errorWavFileEmpty": "No audio was captured. Please check your microphone.",
+  "errorSttStartTimeout": "Speech service is still starting. Please try again in a moment.",
+  "errorTranscriptionTimeout": "Transcription took too long. Please try a shorter recording.",
+  "errorMicPermissionDenied": "Microphone access is needed. Please allow it in your system settings.",
+  "errorRecordingStartFailed": "Could not start recording. Please try again.",
+  "errorNoMicrophone": "No microphone found. Connect a microphone and try again.",
+  "errorGeneric": "Something went wrong. Please try again.",
+  "modelDownloadFailed": "Download failed. Please check your internet connection.",
+  "modelDeleteInUse": "The model file is in use by another program and could not be deleted. Close it and try again.",
+
+  "statusSttLoading": "Loading model…",
+  "statusSttReady": "Model ready",
+
+  "historyDuplicate": "Duplicate",
+  "historyDuplicated": "Entry duplicated",
+  "historyViewRaw": "Raw",
+  "historyViewEdited": "Edited",
+  "@historyViewEdited": {
+    "description": "Toggle label for the Smart Mode edited version of a history entry's transcript (ticket 05)."
+  },
+  "historyApplySmartModePreset": "Apply Smart Mode preset",
+  "historySmartModeApplied": "Smart Mode applied",
+  "historySmartModeFailedModelMissing": "Smart Mode model not downloaded",
+  "historySmartModeFailedTimeout": "Smart Mode timed out",
+  "historySmartModeFailedGeneric": "Smart Mode failed — please try again",
+  "historySmartModeSelectTargetLanguage": "Select target language",
+  "historyAddNote": "Add annotation",
+  "historyEditNote": "Edit annotation",
+  "@historyEditNote": {
+    "description": "Accessibility label for the annotation edit text field in the history detail panel."
+  },
+  "historyNotes": "Annotations",
+  "historyNotePlaceholder": "Write an annotation…",
+  "historyVoiceNoteHint": "Tip: say “tag: name” or “correct: text” while recording.",
+  "@historyVoiceNoteHint": {
+    "description": "One-time discoverability hint next to the annotation input, teaching the voice-note prefixes parsed by parseVoiceAction."
+  },
+  "historyNoteAdded": "Annotation added",
+  "historyNoteDeleted": "Annotation deleted",
+  "historyCopiedAsMarkdown": "Copied as Markdown",
+  "historyAddTag": "Add tag…",
+  "historySearchTags": "Search or create…",
+  "historyNoteEdited": "edited",
+  "historyTagAdded": "Tag added",
+  "historyTagRemoved": "Tag removed",
+  "historyCreateTag": "Create \"{tag}\"",
+  "historyManageTags": "Manage tags",
+
+  "tagManageTitle": "Manage Tags",
+  "tagManageEmpty": "No tags created yet.",
+  "tagUsageCount": "{count, plural, =0{unused} =1{1 entry} other{{count} entries}}",
+  "@tagUsageCount": { "placeholders": { "count": { "type": "int" } } },
+  "tagOverflowMore": "{count, plural, =1{1 more tag} other{{count} more tags}}",
+  "@tagOverflowMore": { "placeholders": { "count": { "type": "int" } } },
+  "tagDeleteConfirmTitle": "Delete tag?",
+  "tagDeleteConfirmMessage": "The tag \"{name}\" is used in {count, plural, =1{1 entry} other{{count} entries}}. It will be removed from all of them.",
+  "@tagDeleteConfirmMessage": { "placeholders": { "name": { "type": "String" }, "count": { "type": "int" } } },
+  "tagDeleted": "Tag \"{name}\" deleted",
+  "@tagDeleted": { "placeholders": { "name": { "type": "String" } } },
+  "tagDeleteUnusedTitle": "Delete unused tags?",
+  "tagDeleteUnusedMessage": "{count, plural, =1{1 unused tag} other{{count} unused tags}} will be permanently deleted.",
+  "@tagDeleteUnusedMessage": { "placeholders": { "count": { "type": "int" } } },
+  "tagDeleteUnusedAction": "Delete {count} unused",
+  "@tagDeleteUnusedAction": { "placeholders": { "count": { "type": "int" } } },
+  "tagDeletedUnused": "{count, plural, =1{1 unused tag} other{{count} unused tags}} deleted",
+  "@tagDeletedUnused": { "placeholders": { "count": { "type": "int" } } },
+
+  "historyEditTranscript": "Edit transcript",
+  "historyTranscriptSaved": "Transcript saved",
+  "historySaveTranscript": "Save",
+
+  "historyShortcutHelp": "Keyboard Shortcuts",
+  "historyShortcutGeneral": "GENERAL",
+  "historyShortcutTags": "Focus tag input",
+  "historyShortcutNotes": "Add an annotation",
+  "historyShortcutPin": "Favorite / unfavorite",
+  "historyShortcutClose": "Save & close",
+  "historyShortcutEditing": "EDITING",
+  "historyShortcutToggleEdit": "Toggle edit mode",
+  "historyShortcutSave": "Save transcript",
+  "historyShortcutBold": "Bold",
+  "historyShortcutItalic": "Italic",
+  "historyShortcutCopy": "Copy to clipboard",
+  "historyShortcutEditTitle": "Edit title",
+
+  "historyEditTitle": "Edit title",
+  "historyTitlePlaceholder": "Enter a title…",
+  "historyTitleSaved": "Title saved",
+
+  "historySearchHelpTitle": "Search Tips",
+  "historySearchHelpTags": "Type # to filter by tags",
+  "historySearchHelpLang": "Type lang: to filter by language",
+  "historySearchHelpFreeText": "Or just type any keyword",
+  "historySearchQuickTags": "Popular tags",
+  "historyRecentSearches": "Recent searches",
+  "historyRemoveRecentSearch": "Remove recent search",
+  "@historyRemoveRecentSearch": {
+    "description": "Accessibility label for the button that removes a single entry from the recent searches list."
+  },
+  "historyRemoveFilter": "Remove filter",
+  "@historyRemoveFilter": {
+    "description": "Accessibility label for the button that removes an active filter chip from the history search bar."
+  },
+  "historyQuickActions": "Quick filters",
+  "historyQuickActionAllLangs": "All languages",
+  "historyQuickActionFavorites": "Favorites only",
+  "historySortNewest": "Newest first",
+  "historySortOldest": "Oldest first",
+  "historySortLongest": "Longest first",
+  "historySearchActiveTag": "#{tag}",
+  "@historySearchActiveTag": { "placeholders": { "tag": { "type": "String" } } },
+  "historySearchActiveLang": "lang:{code}",
+  "@historySearchActiveLang": { "placeholders": { "code": { "type": "String" } } },
+  "historySearchSuggestTag": "Filter by tag",
+  "historySearchSuggestLang": "Filter by language",
+
+  "settingsKeyboardShortcut":"Keyboard Shortcut",
+  "settingsKeyboardShortcutSubtitle": "Global hotkey to start and stop recording",
+  "settingsHotkeyEnabled": "Enable Global Hotkey",
+  "settingsCurrentHotkey": "Current Hotkey",
+  "settingsChangeHotkey": "Change",
+  "settingsHotkeyRecorderTitle": "Record New Hotkey",
+  "settingsHotkeyRecorderHint": "Press the key combination you want to use…",
+  "settingsHotkeyRecorderModifierHint": "Any modifier combination works: e.g. Alt+Space, Ctrl+Alt+V, or Ctrl+Alt+Shift+R",
+  "settingsHotkeyRecorderCancel": "Cancel",
+  "settingsHotkeyRecorderSave": "Save",
+  "settingsHotkeyRecorderClear": "Clear",
+  "settingsHotkeyRecorderInvalidKey": "This key can't be used as a hotkey. Try a letter, digit, function key (F1-F12), or an arrow key.",
+
+  "settingsHotkeyActionRecording": "Start/stop recording",
+  "settingsHotkeyActionQuickNote": "Quick note",
+  "settingsQuickNoteHotkeyEnabled": "Quick-note hotkey",
+  "settingsQuickNoteHotkeyHint": "Dictated text is appended to the note marked as your quick note. You pick that note in the Notes area.",
+  "settingsQuickNoteCurrentHotkey": "Combination",
+  "settingsQuickNoteHotkeyCollision": "This combination is already used for \"{action}\". Pick a different one.",
+  "@settingsQuickNoteHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsQuickNoteHotkeyInactive": "This combination could not be registered — the quick-note hotkey is currently not active. Pick a different combination.",
+
+  "settingsHotkeyActionSnippetPicker": "Snippet picker",
+  "settingsSnippetPickerHotkeyEnabled": "Snippet-picker hotkey",
+  "settingsSnippetPickerHotkeyHint": "Opens the snippet picker straight away — no recording, and without the spoken trigger word.",
+  "settingsSnippetPickerCurrentHotkey": "Combination",
+  "settingsSnippetPickerHotkeyCollision": "This combination is already used for \"{action}\". Pick a different one.",
+  "@settingsSnippetPickerHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsSnippetPickerHotkeyInactive": "This combination could not be registered — the snippet-picker hotkey is currently not active. Pick a different combination.",
+
+  "settingsMaxRecordDuration": "Max Recording Duration",
+  "settingsMaxRecordDurationSubtitle": "Automatic safety stop after this time",
+  "settingsMaxRecordDurationUnlimited": "Unlimited",
+  "settingsCloseToTray": "Close to Tray",
+  "settingsCloseToTraySubtitle": "Keep running in the system tray when closing the window",
+  "settingsSidePanelEnabled": "Clipboard Quick-Paste Panel",
+  "settingsSidePanelEnabledSubtitle": "Slide-out panel on hover at the chosen screen edge for transcriptions, snippets and clipboard history",
+  "settingsSidePanelEdge": "Panel Position",
+  "settingsSidePanelEdgeSubtitle": "Which screen edge the panel docks to and slides out from",
+  "settingsSidePanelEdgeLeft": "Left edge",
+  "settingsSidePanelEdgeRight": "Right edge",
+  "settingsErrorReporting": "Error Reporting",
+  "settingsErrorReportingSubtitle": "Sends crash and error reports with a hashed device ID, never your audio or text",
+  "settingsErrorReportingRestartHint": "Takes effect after restarting WhisPaste.",
+  "settingsAutoPasteDelay": "Auto-Paste Delay",
+  "settingsAutoPasteDelaySubtitle": "Wait time before pasting into the active window",
+  "settingsAutoPasteBlocklist": "Auto-Paste Blocklist",
+  "settingsAutoPasteBlocklistSubtitle": "Comma-separated app identifiers where auto-paste is disabled",
+  "settingsAutoPasteBlocklistPlaceholder": "e.g. com.apple.Terminal, com.1password",
+  "settingsCheckUpdates": "Check for Updates",
+  "settingsCheckUpdatesSubtitle": "Check for new versions at startup and every 24 hours",
+  "settingsCheckForUpdatesNow": "Check for updates now",
+  "settingsUpdates": "Updates",
+  "settingsUpdatesSubtitle": "Release channel and update checks",
+  "settingsBetaUpdates": "Beta Updates",
+  "settingsBetaUpdatesSubtitle": "Get pre-release versions that are less tested.",
+  "settingsStableRevertHintMessage": "Switching back to Stable automatically isn't possible here. You already have a newer beta version installed.",
+  "settingsStableRevertHintLink": "Manually download stable {stableVersion}",
+  "@settingsStableRevertHintLink": {
+    "placeholders": {
+      "stableVersion": {
+        "type": "String"
+      }
+    }
+  },
+
+  "onboardingNext": "Next",
+  "onboardingBack": "Back",
+  "onboardingPrivacyTitle": "Help make WhisPaste better",
+  "onboardingPrivacyHint": "Audio and text stay local. Anonymous usage statistics go to a self-hosted server in the EU, crash reports to Sentry (EU region) — GDPR-compliant.",
+  "onboardingPrivacyToggle": "Share anonymous usage statistics",
+  "onboardingPrivacyToggleHint": "On by default, switch off anytime",
+  "onboardingPrivacyCrashToggle": "Send anonymous crash reports",
+  "onboardingPrivacyCrashToggleHint": "Helps fix bugs, on by default, switch off anytime",
+  "onboardingStepOf": "Step {current} of {total}",
+  "@onboardingStepOf": { "placeholders": { "current": { "type": "int" }, "total": { "type": "int" } } },
+  "onboardingAppearancePageTitle": "Appearance",
+  "onboardingAppearancePageSubtitle": "How the app starts, and how the recording overlay looks.",
+  "onboardingBeat1Title": "Press the hotkey, speak, done",
+  "onboardingBeat1Caption": "Recording starts instantly — your words land as text right at your cursor.",
+  "onboardingBeat2Title": "Runs locally, on your hardware",
+  "onboardingBeat2Caption": "Transcription happens on your device — no internet needed.",
+  "onboardingBeat3Title": "Everywhere you type",
+  "onboardingBeat3Caption": "Browser, mail, editor — WhisPaste works system-wide.",
+  "onboardingMicChipReady": "Microphone ready",
+  "onboardingMicChipPending": "Microphone access pending",
+  "onboardingMicChipAction": "Microphone: action needed",
+  "onboardingModelTitle": "Set up speech recognition",
+  "onboardingModelSubtitle": "Download the speech model to record offline. Your voice never leaves your device.",
+  "onboardingModelRecommended": "Recommended",
+  "onboardingModelChangeLater": "You can adjust quality later in Settings",
+  "onboardingModelDownloading": "Downloading…",
+  "onboardingModelReady": "Model ready",
+  "onboardingModelGpuCpuFallback": "Optimised GPU acceleration unavailable, app will use the CPU",
+  "onboardingModelEngineParakeetLabel": "Fast & European",
+  "onboardingModelEngineParakeetDesc": "The quickest way to text in about 25 European languages, including German. Runs well on any hardware, GPU or not.",
+  "onboardingModelEngineWhisperLabel": "All 99 Languages",
+  "onboardingModelEngineWhisperDesc": "Broadest language coverage, plus custom vocabulary and punctuation tuning for names, acronyms, and jargon.",
+  "onboardingModelEngineUnsupportedLanguage": "Doesn't support your selected language yet",
+  "onboardingTestRecordingTitle": "Give it a try",
+  "onboardingTestRecordingSubtitle": "Press the button below and say a sentence. The text lands in the test field. Your hotkey works too.",
+  "onboardingTestRecordingHotkeyLabel": "Your hotkey",
+  "onboardingTestRecordingStartCta": "Start recording",
+  "onboardingTestRecordingStopCta": "Stop recording",
+  "onboardingTestRecordingCompletionHint": "Try a recording first to continue.",
+  "onboardingTestRecordingMicBypassCta": "Continue without a microphone",
+  "onboardingTestRecordingMicBypassHint": "Without a working microphone, WhisPaste can't start a recording yet. You can catch up anytime via the microphone status on this page or in Settings.",
+  "onboardingTestRecordingPlaceholder": "Your spoken text will appear here …",
+  "onboardingTestRecordingInProgress": "Recording: just start talking. Press again to stop.",
+  "onboardingTestRecordingDoneMessage": "That's it! This is exactly how it works in every app.",
+  "onboardingTestRecordingReassurance": "Just a test, the text stays in this field.",
+  "onboardingTestRecordingReassuranceWithDuration": "Just a test, the text stays in this field — recordings stop automatically after {seconds} seconds, adjustable under Settings → {section}.",
+  "@onboardingTestRecordingReassuranceWithDuration": { "placeholders": { "seconds": { "type": "int" }, "section": { "type": "String" } } },
+  "onboardingReadyTitle": "You're All Set!",
+  "onboardingReadySubtitle": "Here's how to use WhisPaste",
+  "onboardingReadyStep1": "Press the hotkey to start recording",
+  "onboardingReadyStep2": "Press again to stop and transcribe",
+  "onboardingReadyStep3AutoPaste": "Text flows straight into the active app",
+  "onboardingReadyStep3CopyOnly": "Text is in your clipboard, press ⌘V / Ctrl+V to paste",
+  "onboardingReadyContextCarryoverHint": "WhisPaste carries context from your previous recording forward for up to ten minutes. Before a quick switch to an unrelated topic, a short pause keeps the next result on track.",
+  "onboardingReadyAutostartToggle": "Launch WhisPaste at login",
+  "onboardingReadyAutostartToggleHint": "Off by default, turn on anytime in Settings",
+  "onboardingTriggerTitle": "How do you want to start recording?",
+  "onboardingTriggerSubtitle": "Set your hotkey and choose how it starts a recording.",
+  "onboardingTriggerCurrentHotkey": "Current hotkey",
+  "onboardingTriggerHotkeyConflictTitle": "Hotkey already in use",
+  "onboardingTriggerHotkeyConflictBody": "Your hotkey seems to be in use by another app. Record a new combination below to continue.",
+  "onboardingReadyHotkeyConflictBody": "Go back to the hotkey page and record a new combination there.",
+  "onboardingTriggerModeHoldHint": "Hold the hotkey and speak, release to finish",
+  "onboardingTriggerModeToggleHint": "Press once to start, press again to finish",
+  "onboardingTriggerSystemWideHint": "Works system-wide — not just inside WhisPaste.",
+  "onboardingStartUsing": "Let's go",
+
+  "onboardingReviewExit": "Close introduction",
+  "onboardingReviewDone": "Done",
+  "onboardingReviewEntry": "Introduction",
+  "onboardingReviewSubtitle": "Go through the five setup steps again whenever you like — nothing changes unless you change it.",
+  "onboardingReviewLabel": "Review the introduction",
+  "onboardingReviewAction": "Open",
+
+  "onboardingRevisionNoticeTitle": "WhisPaste was updated — your settings are unchanged.",
+  "onboardingRevisionExit": "Leave introduction",
+  "onboardingRevisionExitConfirmTitle": "Leave the introduction?",
+  "onboardingRevisionExitConfirmBody": "This update walkthrough is shown only once, so the steps you skip now won't be set up for you. You can reopen the same steps any time under Settings → Introduction, and every setting they cover also has its own place in Settings. What you already configured stays untouched.",
+  "onboardingRevisionExitConfirmAction": "Leave",
+
+  "overlayRecording": "Recording",
+  "overlayTranscribing": "Transcribing…",
+  "overlayRefining": "Refining…",
+  "overlayDone": "Copied",
+  "overlayDonePasted": "Pasted",
+  "overlayDoneBoth": "Copied & Pasted",
+  "overlayDoneReady": "Done",
+  "overlayError": "Error",
+  "overlayCancel": "Cancel",
+  "overlayPause": "Pause",
+  "overlayResume": "Resume",
+  "overlayStop": "Stop",
+  "overlayKeyboardHint": "Press {hotkey} to stop",
+  "@overlayKeyboardHint": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayKeyboardHintNextFieldEnter": "Enter or {hotkey}: next field · Esc: cancel",
+  "@overlayKeyboardHintNextFieldEnter": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayKeyboardHintNextFieldEnterOnly": "Enter: next field · Esc: cancel",
+  "overlayProcessingLocal": "Local",
+  "overlayProcessingCloud": "Cloud",
+  "overlayRecordingQuickNote": "Recording to note",
+  "@overlayRecordingQuickNote": {
+    "description": "Overlay label while a recording whose text goes to the quick note runs (announced by screen readers)"
+  },
+  "overlayTargetQuickNote": "Note",
+  "@overlayTargetQuickNote": {
+    "description": "Very short target name shown in the recording overlay so the user sees the text is going to the quick note, not the clipboard"
+  },
+  "overlayRecordingTargetTimer": "{elapsed} · {target}",
+  "@overlayRecordingTargetTimer": {
+    "description": "Overlay recording line combining the elapsed time with the target name",
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayDoneQuickNote": "Added to note",
+  "@overlayDoneQuickNote": {
+    "description": "Overlay completion message when the text was appended to the quick note — nothing was copied or pasted"
+  },
+  "floatingButtonHide": "Hide",
+  "floatingButtonQuit": "Quit",
+  "a11yRecordingButton": "Recording button",
+  "@a11yRecordingButton": {
+    "description": "Accessibility label for the floating recording button (screen readers)"
+  },
+  "a11yRecordingOverlay": "Recording overlay",
+  "@a11yRecordingOverlay": {
+    "description": "Accessibility label for the floating recording overlay (screen readers)"
+  },
+  "a11ySidePanel": "Quick paste panel",
+  "@a11ySidePanel": {
+    "description": "Accessibility label for the clipboard quick-paste side panel (screen readers)"
+  },
+  "trayStatusRecording": "Recording…",
+  "trayStatusReady": "Ready",
+  "trayStartRecording": "Start Recording",
+  "trayStopRecording": "Stop Recording",
+  "trayOpenApp": "Open WhisPaste",
+  "traySettings": "Settings",
+  "trayQuit": "Quit",
+  "trayMicrophone": "Microphone",
+  "settingsComingSoon": "Coming Soon",
+  "undo": "Undo",
+  "hintDismiss": "Dismiss hint",
+
+  "voiceNoteButton": "Voice note",
+  "voiceNoteRecording": "Recording voice note…",
+  "voiceNoteTranscribing": "Transcribing…",
+  "voiceNoteAdded": "Voice note added",
+  "voiceTagAdded": "Tag \"{tag}\" added by voice",
+  "@voiceTagAdded": {
+    "placeholders": {
+      "tag": { "type": "String" }
+    }
+  },
+  "voiceCorrectionApplied": "Transcript corrected by voice",
+  "voiceCorrectionUndone": "Correction undone",
+  "voiceNoteEmpty": "No speech detected",
+  "voiceNoteError": "Voice note failed",
+  "historyVoiceNoteButtonTooltip": "Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript",
+
+  "updateAvailable": "Update available: v{version}",
+  "@updateAvailable": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+  "updateDownloading": "Downloading update… {percent}%",
+  "@updateDownloading": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "updateReadyToInstall": "Update ready, click to install",
+  "updateUpToDate": "You're on the latest version",
+  "updateCheckNow": "Check Now",
+  "updateInstall": "Install Update",
+  "updateDownload": "Download",
+  "updateViewRelease": "Release Notes",
+  "updateError": "Update check failed",
+  "updateRateLimited": "Too many requests, try again later",
+  "updateStatusBarChip": "v{version} available",
+  "@updateStatusBarChip": {
+    "placeholders": {
+      "version": { "type": "String" }
+    }
+  },
+
+  "settingsOverlaySize": "Overlay size",
+  "settingsOverlaySizeSubtitle": "Choose between detailed or minimal display",
+  "settingsOverlaySizeNormal": "Normal",
+  "settingsOverlaySizeCompact": "Compact",
+  "settingsOverlaySizeMini": "Mini",
+  "settingsOverlayStyle": "Overlay style",
+  "settingsOverlayStyleSubtitle": "Choose between glass or a solid opaque look",
+  "settingsOverlayStyleGlass": "Glass",
+  "settingsOverlayStyleSolid": "Solid",
+  "settingsOverlayLiveTranscript": "Live transcript",
+  "settingsOverlayLiveTranscriptSubtitle": "Show recognized text live while you're still speaking, instead of the waveform only. Uses extra CPU during recording",
+  "overlayRetry": "Retry",
+  "overlayDismiss": "Dismiss",
+  "overlayContextCancel": "Cancel recording",
+  "overlayContextSwitchNormal": "Switch to Normal",
+  "overlayContextSwitchCompact": "Switch to Compact",
+  "overlayContextSwitchMini": "Switch to Mini",
+  "overlayContextHide": "Hide overlay",
+  "buttonContextOpen": "Open WhisPaste",
+  "buttonContextStartRecording": "Start Recording",
+  "buttonContextShowHistory": "Show History",
+  "buttonContextSettings": "Settings",
+  "buttonContextQuit": "Quit WhisPaste",
+
+  "settingsHistory": "History",
+  "settingsHistorySubtitle": "Retention and automatic cleanup",
+  "settingsHistoryMaxEntries": "Maximum entries",
+  "settingsHistoryMaxEntriesUnlimited": "Unlimited",
+  "settingsHistoryAutoTrashDays": "Auto-delete trash after",
+  "settingsHistoryAutoTrashNever": "Never",
+  "settingsHistoryAutoTrashDaysLabel": "{count, plural, =1{1 day} other{{count} days}}",
+  "@settingsHistoryAutoTrashDaysLabel": { "placeholders": { "count": { "type": "int" } } },
+  "settingsHistoryRetentionPreset": "Retention",
+  "settingsHistoryPresetMinimal": "Minimal",
+  "settingsHistoryPresetStandard": "Standard",
+  "settingsHistoryPresetUnlimited": "Unlimited",
+  "settingsHistoryPresetCustom": "Custom",
+  "settingsHistoryHideOnOpen": "Hide history on open",
+  "settingsHistoryHideOnOpenSubtitle": "Shows a “Show history” button instead of your transcriptions whenever WhisPaste starts or its window reopens",
+  "historyPinGateTitle": "History is locked",
+  "historyPinGateHint": "Enter your PIN to show your transcriptions.",
+  "historyPinUnlock": "Unlock",
+  "historyPinDialogTitle": "Enter PIN",
+  "historyPinDialogSubtitle": "Your history is protected with a PIN.",
+  "historyPinFieldHint": "PIN",
+  "historyPinRepeatHint": "Repeat PIN",
+  "historyPinWrong": "Wrong PIN.",
+  "historyPinLockedOut": "Too many attempts. Try again in {seconds} s.",
+  "@historyPinLockedOut": {"placeholders": {"seconds": {"type": "int"}}},
+  "historyPinForgot": "Forgot PIN?",
+  "historyPinForgotConfirmTitle": "Delete history and remove PIN?",
+  "historyPinForgotConfirmMessage": "A forgotten PIN cannot be recovered. To reset it, your entire history — including archive, trash and kept recordings — is permanently deleted. Settings, notes, snippets and replacements are kept.",
+  "historyPinForgotConfirmAction": "Delete history",
+  "historyPinSetTitle": "Set PIN",
+  "historyPinSetSubtitle": "4–8 digits. Keeps others from casually viewing your history on this computer — it does not encrypt it.",
+  "historyPinInvalid": "Use 4 to 8 digits.",
+  "historyPinMismatch": "The PINs do not match.",
+  "settingsHistoryPin": "PIN protection",
+  "settingsHistoryPinSubtitle": "Require a PIN to show the history, including side panel, floating button menu and automation API.",
+  "settingsHistoryPinChange": "Change",
+  "settingsHistoryPinRemove": "Remove",
+  "settingsHistoryAutoLock": "Lock automatically",
+  "settingsHistoryAutoLockSubtitle": "Hide the history again after this much inactivity.",
+  "settingsHistoryAutoLockNever": "Never",
+  "settingsHistoryAutoLockMinutes": "After {minutes} min",
+  "@settingsHistoryAutoLockMinutes": {"placeholders": {"minutes": {"type": "int"}}},
+
+  "settingsFloatingButtonSection": "Floating Button",
+  "settingsFloatingButtonSectionSubtitle": "Always-on-top recording button for quick access",
+  "settingsSttIdleTimeout": "Engine idle timeout",
+  "settingsSttIdleTimeoutSubtitle": "How long the speech service stays loaded after use",
+  "settingsSttIdleTimeoutKeepAlive": "Keep alive",
+  "settingsSttIdleTimeoutMinutes": "{count, plural, =1{1 minute} other{{count} minutes}}",
+  "@settingsSttIdleTimeoutMinutes": { "placeholders": { "count": { "type": "int" } } },
+
+  "reviewPromptTitle": "Are you enjoying WhisPaste?",
+  "reviewPromptBody": "Your rating helps others discover it and keeps development going.",
+  "reviewPromptYes": "Loving it!",
+  "reviewPromptNotNow": "Not now",
+  "reviewPromptNever": "Never ask again",
+  "reviewPromptStarGitHub": "⭐ Star on GitHub",
+  "reviewPromptRateStore": "★ Rate on the Store",
+  "reviewPromptGateBody": "Just a quick question for us, this isn't a store rating.",
+  "reviewPromptGateYes": "Yes, I like it",
+  "reviewPromptGateNo": "Not really",
+
+  "reviewSupportEntry": "Rate & support WhisPaste",
+  "reviewSupportLabel": "Your rating",
+  "reviewSupportSubtitle": "Your rating helps others discover WhisPaste and supports the project.",
+  "reviewSupportAction": "Rate",
+
+  "ideasBoardLabel": "Ideas & feature requests",
+  "ideasBoardAction": "View board",
+  "feedbackIdeasLink": "Suggest & vote on ideas",
+
+  "insufficientRamTitle": "Not Enough Memory",
+  "insufficientRamBody": "WhisPaste requires at least {requiredGb}\u202fGB of RAM to run. Your system has {detectedGb}\u202fGB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.",
+  "@insufficientRamBody": {
+    "placeholders": {
+      "detectedGb": {
+        "type": "double",
+        "format": "decimalPattern",
+        "decimalDigits": 1
+      },
+      "requiredGb": {
+        "type": "int"
+      }
+    }
+  },
+  "insufficientRamQuit": "Quit WhisPaste",
+  "insufficientRamLearnMore": "System requirements",
+  "insufficientRamSystemCheck": "System Check",
+  "insufficientRamYourSystem": "Your system",
+  "insufficientRamRequired": "Required",
+
+  "hotkeyRegistrationFailed": "Hotkey registration failed, please re-bind your shortcut in Settings.",
+  "hotkeyRegistrationFailedDefaultActive": "Hotkey registration failed, using Ctrl+Shift+Space as fallback. Please re-bind in Settings.",
+
+  "hotkeyConflictWarning": "This shortcut is reserved by {platform} ({note}) and may not work.",
+  "@hotkeyConflictWarning": {
+    "placeholders": {
+      "platform": { "type": "String" },
+      "note": { "type": "String" }
+    }
+  },
+
+  "exportFormatPickerTitle": "Choose Export Format",
+  "exportFormatText": "Text",
+  "exportFormatMarkdown": "Markdown",
+  "exportFormatCsv": "CSV",
+  "exportFormatJson": "JSON",
+  "exportFormatWord": "Word",
+
+  "cpuFallbackToast": "Transcription is taking a little longer than usual right now, it's still working.",
+  "recoveryExhaustedToast": "Voice service cannot start. Please restart the app or reload the voice model.",
+  "recoveryExhaustedAction": "Open settings",
+  "recoveryVcRuntimeToast": "Voice service cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.",
+  "recoveryVcRuntimeAction": "Install",
+  "modelAbiInfoToast": "Reloading voice model, please wait.",
+  "recoveryGpuDisabledToast": "WhisPaste is now running without GPU acceleration due to a problem on the last launch. Dictation still works as usual.",
+  "serverDownloadFailedToast": "Voice service could not be downloaded. Check your internet connection?",
+  "serverDownloadFailedAction": "Try again",
+  "serverDownloadStalledToast": "Download stalled: reconnecting.",
+  "historyWriteFailedToast": "Entry could not be saved, please check available storage.",
+  "historyWriteFailedAction": "Copy diagnostics",
+  "factoryResetFailedToast": "Factory reset incomplete. Restart the app?",
+  "factoryResetFailedAction": "Quit app",
+
+  "errorSttRejectEmpty": "No audio to transcribe, please record again.",
+  "errorSttRejectInvalidWav": "Audio file is corrupted, please record again.",
+  "errorSttRejectUnsupportedLanguage": "This language is not supported by the local speech model, please review the language in Settings.",
+  "errorSttRejectPromptTooLong": "Custom vocabulary is too long, please shorten it in Settings.",
+
+  "settingsGpuAcceleration": "Graphics Acceleration",
+  "settingsGpuAccelerationSubtitle": "Controls whether the speech service uses GPU or CPU for local recognition",
+  "settingsGpuAccelerationAuto": "Automatic (recommended)",
+  "settingsGpuAccelerationEnabled": "GPU (force)",
+  "settingsGpuAccelerationDisabled": "CPU only",
+  "settingsSttEngine": "Engine",
+  "settingsSttEngineSubtitle": "Whisper covers 99 languages and every GPU backend; Parakeet is much faster and covers ~25 languages, on the GPU where available",
+  "settingsSttEngineWhisper": "Whisper",
+  "settingsSttEngineParakeet": "Parakeet (fastest, ~25 languages)",
+  "parakeetModelTitle": "Parakeet TDT model",
+  "parakeetModelSubtitle": "One-time download ({size}), then runs fully offline",
+  "@parakeetModelSubtitle": {
+    "placeholders": { "size": { "type": "String" } }
+  },
+  "parakeetModelDownload": "Download",
+  "parakeetModelDownloading": "Downloading…",
+  "parakeetModelInstalled": "Installed",
+  "parakeetModelDelete": "Delete",
+  "parakeetModelCancel": "Cancel",
+
+  "settingsSearchHint": "Search settings…",
+  "settingsSearchNoResults": "No Results",
+  "settingsSearchNoResultsHint": "Try a different search term.",
+  "settingsSearchFieldLabel": "Search settings",
+  "settingsSearchResultCount": "{count, plural, =0{No results} =1{1 result} other{{count} results}}",
+  "@settingsSearchResultCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+
+  "settingsPrivacy": "Privacy",
+  "settingsPrivacySubtitle": "Control what data WhisPaste shares",
+  "settingsShareUsageStats": "Share anonymous usage statistics",
+  "settingsShareUsageStatsSubtitle": "Cookieless, with a random per-session ID and a weekly changing pseudonym — helps us understand how WhisPaste is used",
+  "settingsRetainRecentAudio": "Keep recent recordings",
+  "settingsRetainRecentAudioSubtitle": "Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically",
+
+  "featureSpotlightHeading": "New in WhisPaste",
+  "featureSpotlightDismiss": "Got it",
+  "featureSpotlightSnippetPickerTitle": "Snippet Picker",
+  "featureSpotlightSnippetPickerDescription": "Save reusable text blocks and insert them anywhere with a hotkey or a spoken trigger — no retyping needed.",
+  "featureSpotlightSidePanelTitle": "Clipboard Side Panel",
+  "featureSpotlightSidePanelDescription": "Hover the screen edge to open your recent clipboard history and drag any item straight into your document.",
+  "featureSpotlightInteractiveSnippetsTitle": "Interactive Snippets",
+  "featureSpotlightInteractiveSnippetsDescription": "Snippets with blanks: WhisPaste walks you through each field — dictate, press Enter for the next one, and the finished text is pasted in one piece.",
+  "featureSpotlightSmartModeTitle": "Smart Mode",
+  "featureSpotlightSmartModeDescription": "Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.",
+  "featureSpotlightHistoryPinTitle": "Lock your history with a PIN",
+  "featureSpotlightHistoryPinDescription": "Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.",
+  "featureSpotlightEditSelectionTitle": "Edit selected text by voice",
+  "featureSpotlightEditSelectionDescription": "Select text in any app, press the edit-selection hotkey and say what should change — or just “shorter”, “improve” or “translate”. Uses your Smart Mode engine. Off by default: turn it on under Settings → Smart Mode.",
+  "featureSpotlightChangelogLink": "View full changelog",
+  "featureSpotlightReviewLabel": "Review the new features",
+  "featureSpotlightReviewAction": "Show",
+
+  "notesNewNote": "New note",
+  "notesEmptyTitle": "No notes yet",
+  "notesEmptyHint": "Create a note to start collecting text from anywhere.",
+  "notesUntitled": "Untitled note",
+  "notesEditorPlaceholder": "Start typing…",
+  "notesListSemantics": "Notes list",
+  "notesCopy": "Copy note",
+  "notesCopied": "Note copied",
+  "notesFavorite": "Mark as favorite",
+  "notesUnfavorite": "Remove from favorites",
+  "notesQuickNoteSet": "Make this the quick note the hotkey appends to",
+  "notesQuickNoteClear": "Quick note — remove the mark",
+  "notesQuickNoteHotkeyLabel": "Hotkey",
+  "notesQuickNoteHotkeyChange": "Change the quick-note hotkey — currently {combination}",
+  "@notesQuickNoteHotkeyChange": {
+    "placeholders": {
+      "combination": { "type": "String" }
+    }
+  },
+  "notesQuickNoteHotkeyOff": "The quick-note hotkey is switched off.",
+  "notesQuickNoteHotkeyEnable": "Turn hotkey on",
+  "notesMoveToTrash": "Move to Trash",
+  "notesMovedToTrash": "Moved to trash",
+  "notesRestore": "Restore",
+  "notesDeleteForever": "Delete forever",
+  "notesDeleteForeverConfirm": "Delete note forever?",
+  "notesTrash": "Trash",
+  "notesTrashEmpty": "Trash is empty",
+  "notesTrashEmptyHint": "Deleted notes land here and aren't removed automatically.",
+  "notesUndo": "Undo",
+  "notesAddTag": "Add tag",
+  "notesTagPlaceholder": "Tag name…",
+  "notesSearchPlaceholder": "Search notes…",
+  "notesSearchFieldLabel": "Search notes",
+  "notesNoResults": "No results",
+  "notesNoResultsHint": "No notes match \"{query}\".\nTry a different search term.",
+  "@notesNoResultsHint": {
+    "placeholders": {
+      "query": { "type": "String" }
+    }
+  },
+  "notesResultCount": "{count, plural, =1{1 result} other{{count} results}}",
+  "@notesResultCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "notesExport": "Export",
+
+  "markdownToolbarBold": "Bold ({shortcut})",
+  "@markdownToolbarBold": {
+    "description": "Markdown toolbar button — tooltip and screen-reader name.",
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Ctrl+B" }
+    }
+  },
+  "markdownToolbarItalic": "Italic ({shortcut})",
+  "@markdownToolbarItalic": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Ctrl+I" }
+    }
+  },
+  "markdownToolbarHeading": "Heading",
+  "markdownToolbarBulletList": "Bullet list ({shortcut})",
+  "@markdownToolbarBulletList": {
+    "placeholders": {
+      "shortcut": { "type": "String", "example": "Ctrl+Shift+L" }
+    }
+  },
+  "markdownToolbarNumberedList": "Numbered list",
+  "markdownToolbarQuote": "Quote",
+  "markdownToolbarCode": "Code",
+
+  "findReplaceToggle": "Find and replace in this text",
+  "findReplaceFindLabel": "Find in this text",
+  "findReplaceFindHint": "Find…",
+  "findReplaceReplaceLabel": "Replace matches with",
+  "findReplaceReplaceHint": "Replace with…",
+  "findReplaceNext": "Next match",
+  "findReplacePrevious": "Previous match",
+  "findReplaceReplaceAction": "Replace this match",
+  "findReplaceReplaceAllAction": "Replace all matches",
+  "findReplaceClose": "Close find and replace",
+  "findReplaceNoMatches": "No matches",
+  "findReplaceMatchCount": "{current} of {total}",
+  "@findReplaceMatchCount": {
+    "placeholders": {
+      "current": { "type": "int", "example": "3" },
+      "total": { "type": "int", "example": "12" }
+    }
+  },
+
+  "sidePanelTranscriptionsTitle": "Transcriptions",
+  "sidePanelSnippetsTitle": "Snippets",
+  "sidePanelClipboardHistoryTitle": "Clipboard History",
+  "sidePanelClipboardHistoryEmpty": "Nothing copied yet",
+  "sidePanelClipboardHistoryEmptyHint": "Anything you copy while WhisPaste is running shows up here — cleared when the app restarts.",
+  "sidePanelClose": "Close panel",
+  "@sidePanelClose": {
+    "description": "Accessibility label for the side panel's close button (screen readers)"
+  },
+  "sidePanelSearchHint": "Search",
+  "sidePanelSearchFieldLabel": "Search this list",
+  "@sidePanelSearchFieldLabel": {
+    "description": "Accessibility label for the side panel's search field (screen readers) -- the visible hint text (sidePanelSearchHint) is not section-specific, so this names what it searches instead"
+  },
+  "sidePanelNoMatches": "No matches",
+  "sidePanelNoMatchesHint": "Try a different search term.",
+
+  "settingsSmartMode": "Smart Mode",
+  "settingsSmartModeSubtitle": "Local text cleanup, shortening, and translation after dictation",
+  "smartModeStandardPreset": "Standard preset",
+  "smartModePresetOff": "Off",
+  "smartModePresetOffDescription": "No automatic post-processing — the dictated text is used exactly as transcribed.",
+  "smartModePresetCleanup": "Cleanup",
+  "smartModePresetCleanupDescription": "Removes filler words like \"um\" and fixes punctuation and capitalization, without changing the wording, meaning, or language.",
+  "smartModePresetConcise": "Concise",
+  "smartModePresetConciseDescription": "Shortens the text by removing redundancy and filler while keeping every important fact, in the same language.",
+  "smartModePresetTranslate": "Translate",
+  "smartModePresetTranslateDescription": "Translates the dictated text into the target language set below.",
+  "smartModeTargetLanguage": "Target language",
+  "smartModeTargetLanguageGerman": "German",
+  "smartModeTargetLanguageEnglish": "English",
+  "smartModeTargetLanguageSpanish": "Spanish",
+  "smartModeTargetLanguageFrench": "French",
+  "smartModeTargetLanguagePortuguese": "Portuguese",
+  "smartModeTargetLanguageMandarin": "Mandarin",
+  "smartModeTargetLanguageRussian": "Russian",
+  "smartModeDownload": "Download",
+  "smartModeDownloadComplete": "Smart Mode model ready to use",
+  "smartModeRamWarningTitle": "Limited memory detected",
+  "smartModeRamWarningBody": "Smart Mode's local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?",
+  "smartModeRamWarningContinue": "Download anyway",
+  "smartModeRamWarningCancel": "Cancel",
+  "smartModeMemoryFootprintInfo": "Runs fully on-device. While active, it uses about 4–5 GB of RAM in addition to disk space — shared with the transcription model, so total memory use depends on which STT model you also have loaded.",
+  "smartModeSpeedExampleInfo": "Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device's hardware.",
+  "smartModeLocalUnavailable": "On-device Smart Mode isn't included in this build. Switch to OpenAI, or install an official WhisPaste release.",
+  "@smartModeLocalUnavailable": {
+    "description": "Shown in Smart Mode settings when the on-device engine library is not bundled in this build (e.g. a Linux dev build); also the tooltip of the disabled on-device option."
+  },
+
+  "settingsHotkeyActionSmartMode": "Smart Mode",
+  "settingsSmartModeHotkeyEnabled": "Smart-Mode hotkey",
+  "settingsSmartModeHotkeyHint": "Starts a recording with a fixed preset, independent of your standard preset above. Supports push-to-talk just like the main hotkey.",
+  "settingsSmartModeHotkeyPreset": "Preset",
+  "settingsSmartModeCurrentHotkey": "Combination",
+  "settingsSmartModeHotkeyCollision": "This combination is already used for \"{action}\". Pick a different one.",
+  "@settingsSmartModeHotkeyCollision": {
+    "placeholders": {
+      "action": { "type": "String" }
+    }
+  },
+  "settingsSmartModeHotkeyInactive": "This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination.",
+
+  "smartModeOnboardingHintTitle": "Try Smart Mode",
+  "smartModeOnboardingHintBody": "Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.",
+  "smartModeOnboardingHintExampleBeforeLabel": "Raw dictation",
+  "smartModeOnboardingHintExampleBefore": "so um the client meeting got moved to thursday at three pm and uh we still need the updated slides from marketing",
+  "smartModeOnboardingHintExampleAfterLabel": "Smart Mode result",
+  "smartModeOnboardingHintExampleAfter": "So, the client meeting got moved to Thursday at three PM, and we still need the updated slides from Marketing.",
+  "smartModeOnboardingHintDownloadCta": "Download",
+  "smartModeOnboardingHintSkipCta": "Skip",
+  "smartModeUsageHintTitle": "Try Smart Mode on your next dictation",
+  "smartModeUsageHintBody": "Smart Mode can clean up, shorten, or translate text like this automatically, right on your device. Here's what you just dictated:",
+  "smartModeUsageHintCta": "Set up",
+  "smartModeUsageHintDismiss": "Not now",
+
+  "settingsAutomationApi": "Local Automation API",
+  "settingsAutomationApiSubtitle": "Trigger dictation from your own scripts over a loopback-only HTTP API",
+  "settingsAutomationApiEnable": "Enable local automation API",
+  "settingsAutomationApiEnableSubtitle": "Binds only to 127.0.0.1/::1 — never reachable from the network",
+  "settingsAutomationApiStatusRunning": "Running on port {port}",
+  "@settingsAutomationApiStatusRunning": {
+    "placeholders": {
+      "port": { "type": "int" }
+    }
+  },
+  "settingsAutomationApiStatusRunningFallback": "Running on port {port} (port {requestedPort} was in use)",
+  "@settingsAutomationApiStatusRunningFallback": {
+    "placeholders": {
+      "port": { "type": "int" },
+      "requestedPort": { "type": "int" }
+    }
+  },
+  "settingsAutomationApiStatusStopped": "Not running",
+  "settingsAutomationApiStatusError": "No free port found in range {start}–{end}",
+  "@settingsAutomationApiStatusError": {
+    "placeholders": {
+      "start": { "type": "int" },
+      "end": { "type": "int" }
+    }
+  },
+  "settingsAutomationApiCustomPortLabel": "Custom port",
+  "settingsAutomationApiCustomPortSubtitle": "Leave empty for automatic port selection — falls back automatically if it's taken",
+  "settingsAutomationApiCustomPortHint": "Automatic",
+  "settingsAutomationApiCustomPortInvalid": "Enter a port between 1024 and 65535",
+  "settingsAutomationApiToken": "Bearer token",
+  "settingsAutomationApiTokenSubtitle": "Send it as \"Authorization: Bearer <token>\" — every request without it is rejected",
+  "settingsAutomationApiRegenerate": "Regenerate",
+  "settingsAutomationApiRegenerateConfirmTitle": "Regenerate token?",
+  "settingsAutomationApiRegenerateConfirmMessage": "The current token stops working immediately. Any script using it will need the new one.",
+  "settingsAutomationApiCopyToken": "Copy token",
+  "settingsAutomationApiTokenCopied": "Token copied to clipboard",
+  "settingsAutomationApiDocumentation": "Documentation",
+  "settingsAutomationApiDocumentationSubtitle": "Endpoint reference and curl examples",
+  "settingsAutomationApiDocumentationAction": "Open",
+  "historyCharacterCount": "{count} characters",
+  "@historyCharacterCount": {
+    "description": "Character-count metadata chip in the History detail panel (ticket 12), analogous to historyWordCount.",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "historyPastedInto": "Pasted into {app}",
+  "@historyPastedInto": {
+    "description": "Tooltip for the target-app metadata chip in the History detail panel (ticket 12) — {app} is the captured bundle ID / process identifier.",
+    "placeholders": {
+      "app": {"type": "String"}
+    }
+  },
+  "historyShowOriginalTranscript": "Show original transcript",
+  "@historyShowOriginalTranscript": {
+    "description": "Disclosure toggle that reveals the pre-Smart-Mode/pre-Replacements transcript in the History detail panel (ticket 12) — only shown when it differs from the final text."
+  },
+  "historyHideOriginalTranscript": "Hide original transcript",
+  "historyOriginalTranscriptLabel": "Original transcript",
+  "settingsHotkeyActionSelectionEdit": "Edit selection",
+  "@settingsHotkeyActionSelectionEdit": {
+    "description": "Action name of the edit-selection hotkey, used in hotkey collision messages"
+  },
+  "settingsSelectionEditHotkeyEnabled": "Edit-selection hotkey",
+  "@settingsSelectionEditHotkeyEnabled": {
+    "description": "Settings row label: toggle for the edit-selection-by-voice hotkey"
+  },
+  "settingsSelectionEditHotkeyHint": "Select text in any app, press this hotkey and say what to change — or just \"shorter\", \"improve\" or \"translate\". The result replaces the selection; undo in the app brings the original back. Uses the Smart Mode engine configured above.",
+  "@settingsSelectionEditHotkeyHint": {
+    "description": "Settings hint below the edit-selection hotkey toggle; the quoted words are the spoken quick-action keywords"
+  },
+  "settingsSelectionEditHotkeyInactive": "This combination could not be registered — the edit-selection hotkey is currently not active. Pick a different combination.",
+  "@settingsSelectionEditHotkeyInactive": {
+    "description": "Shown when the edit-selection hotkey combination could not be registered with the OS"
+  },
+  "overlayTargetSelectionEdit": "Edit selection",
+  "@overlayTargetSelectionEdit": {
+    "description": "Very short target name shown in the recording overlay while recording an instruction for editing the selected text"
+  },
+  "overlayRecordingSelectionEdit": "Say what to change",
+  "@overlayRecordingSelectionEdit": {
+    "description": "Overlay label while recording an edit-selection instruction (announced by screen readers)"
+  },
+  "overlaySelectionEditHint": "Say what to change — or: shorter · improve · translate",
+  "@overlaySelectionEditHint": {
+    "description": "Overlay hint while recording an edit-selection instruction; the listed words are the spoken quick-action keywords and must stay recognizable"
+  },
+  "overlayEditingSelection": "Editing selection…",
+  "@overlayEditingSelection": {
+    "description": "Overlay label while the selected text is being edited"
+  },
+  "overlayDoneSelectionEdit": "Selection replaced",
+  "@overlayDoneSelectionEdit": {
+    "description": "Overlay completion message after the selected text was replaced"
+  },
+  "errorSelectionEditNoSelection": "No text selected — select text first, then press the hotkey",
+  "@errorSelectionEditNoSelection": {
+    "description": "Overlay error: the edit-selection hotkey was used without any selected text"
+  },
+  "errorSelectionEditNoEngine": "Set up Smart Mode first (download the local model or add an OpenAI key) to edit selections",
+  "@errorSelectionEditNoEngine": {
+    "description": "Overlay error: the edit-selection hotkey needs a configured Smart Mode engine"
+  },
+  "errorSelectionEditUnsupported": "Editing a selection needs auto-paste, which is not available in this build",
+  "@errorSelectionEditUnsupported": {
+    "description": "Overlay error: this build has no auto-paste, so selections cannot be edited"
+  },
+  "errorSelectionEditCopyFailed": "Could not read the selection — check the auto-paste permission",
+  "@errorSelectionEditCopyFailed": {
+    "description": "Overlay error: the copy shortcut could not be sent to the target app"
+  },
+  "errorSelectionEditFailed": "Editing failed — your text was left unchanged",
+  "@errorSelectionEditFailed": {
+    "description": "Overlay error: the Smart Mode engine failed or timed out; nothing was replaced"
+  },
+  "errorSelectionEditPasteFailed": "Could not replace the selection — your text was left unchanged",
+  "@errorSelectionEditPasteFailed": {
+    "description": "Overlay error: the edited text could not be pasted; nothing was replaced"
+  },
+  "settingsCudaPackTitle": "NVIDIA CUDA acceleration",
+  "settingsCudaPackSubtitle": "Faster dictation on GeForce RTX and GTX 16 cards. One-time download of {size}.",
+  "@settingsCudaPackSubtitle": {
+    "placeholders": {
+      "size": { "type": "String" }
+    }
+  },
+  "settingsCudaPackInstalledSubtitle": "Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.",
+  "settingsCudaPackDownload": "Download",
+  "settingsCudaPackDownloading": "Downloading {percent} %",
+  "@settingsCudaPackDownloading": {
+    "placeholders": {
+      "percent": { "type": "int" }
+    }
+  },
+  "settingsCudaPackInstalling": "Installing …",
+  "settingsCudaPackCancel": "Cancel download",
+  "settingsCudaPackRemove": "Remove CUDA pack",
+  "settingsCudaPackToggle": "Use CUDA",
+  "settingsCudaPackErrorNetwork": "Download failed. Check your connection and try again.",
+  "settingsCudaPackErrorVerification": "The download was damaged. Please try again.",
+  "settingsCudaPackErrorStorage": "The pack could not be saved. Check your free disk space.",
+  "recoveryCudaDisabledToast": "CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.",
+  "supportPromptSnooze": "Don't ask for 90 days",
+  "supportPayPalLabel": "PayPal",
+  "supportStoreThankYouLine": "Thank you for buying WhisPaste in the store. Any further support is optional.",
+  "supportShareText": "I use WhisPaste to speak text straight into my apps. Local on my computer and open source:",
+  "supportPageTitle": "Support WhisPaste",
+  "supportPageOpenAction": "All ways to help",
+  "supportIntroDirect": "WhisPaste is free and open source. A contribution or recommendation helps the project.",
+  "supportCostsNote": "Contributions help cover development and the ongoing costs of publishing, hosting and the domain.",
+  "supportSectionOnce": "One-time support",
+  "supportSectionOthers": "Other ways to support",
+  "supportSectionReach": "Recommend WhisPaste",
+  "supportStoreTitleWindows": "WhisPaste in the Microsoft Store",
+  "supportStoreTitleMac": "WhisPaste in the Mac App Store",
+  "supportStoreFactManaged": "Installation and updates are handled by the store.",
+  "supportStoreFactPurchase": "Your one-time purchase supports WhisPaste.",
+  "supportStoreFactSameFeatures": "Same features. The direct version stays free to use.",
+  "supportStoreCtaWindows": "View in Microsoft Store",
+  "supportStoreCtaMac": "View in Mac App Store",
+  "supportStorePriceNote": "Price in the store",
+  "supportStoreCoffeeNote": "A one-time purchase, roughly the price of a coffee. The store shows the current price.",
+  "supportStoreDismiss": "Hide store option",
+  "supportStoreShowAgain": "Show store option",
+  "supportSponsorsCta": "Open GitHub Sponsors",
+  "supportSponsorsNote": "Monthly or with an amount you choose. Pick the amount and rhythm there.",
+  "supportKofiCta": "Open Ko-fi",
+  "supportPayPalCta": "Support with PayPal",
+  "supportNativeTitle": "Support once in the store",
+  "supportNativeDescription": "A one-time amount, billed by the store. Same features, no subscription.",
+  "supportNativeCta": "Support once",
+  "supportSheetChoose": "Choose an amount",
+  "supportSheetLoading": "Loading amounts …",
+  "supportSheetBuy": "Support for {price}",
+  "@supportSheetBuy": {"placeholders": {"price": {"type": "String"}}},
+  "supportSheetPurchasing": "The store is confirming your purchase …",
+  "supportSheetThanks": "Thank you for your support!",
+  "supportSheetThanksDetail": "Your supporter badge is active now. All features stay available to everyone.",
+  "supportSheetPending": "Your purchase is awaiting confirmation.",
+  "supportSheetPurchaseError": "The purchase could not be completed. Please try again later.",
+  "supportSheetPricesError": "Prices couldn't be loaded. Please try again later.",
+  "supportSheetUnavailable": "No amounts are available in the store right now.",
+  "supportSheetRetry": "Try again",
+  "supportSheetClose": "Close",
+  "supportSelfDeclareCta": "I already support WhisPaste",
+  "supportSelfDeclareNote": "Just a note on this device, nothing is verified. The sponsor button in the status bar is hidden.",
+  "supportSelfDeclareHint": "Nothing is verified. Use this if you already contributed.",
+  "supportSupporterLine": "You support WhisPaste. Thank you!",
+  "supportSupporterBadge": "Supporter",
+  "supportRateCta": "Rate in the store",
+  "supportShareCopy": "Copy link",
+  "supportShareCopied": "Link copied",
+  "supportShareEmail": "Email",
+  "supportChipLabel": "Sponsor",
+  "supportChipTooltip": "Support WhisPaste",
+  "supportChipThanksLabel": "Thanks",
+  "supportChipThanksTooltip": "Thank you for your support",
+  "supportChipHide": "Hide",
+  "settingsSponsorChip": "Sponsor button in the status bar",
+  "settingsSponsorChipSubtitle": "Shows the way to the support page. You can hide it once you have supported the project in the store or confirmed it here."
+}

@@ -1,0 +1,1 @@
+dictado,transcripción,whisper,notas de voz,atajo,local,offline,dictar,reconocimiento de voz,IA

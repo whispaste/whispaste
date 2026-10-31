@@ -1,0 +1,597 @@
+# Fastlane lanes for WhisPaste macOS distribution.
+#
+# Two distribution tracks from ONE codebase (see lib/core/config/build_config.dart):
+#   - mas_release    → Mac App Store (sandboxed, NO auto-paste)
+#   - devid_release  → Developer-ID notarized .app/.dmg (full auto-paste)
+#
+# Authentication reuses an existing shared App Store Connect API key already
+# provisioned for another of the maintainer's projects — values loaded from
+# a local, never-committed credentials file (load_credentials.rb below), not
+# hardcoded here. This repo is public; account-identifying values (Apple ID,
+# Team ID, API key IDs) must never be committed — see
+# ~/.claude/infrastructure/microsoft-partner-center.md for the convention
+# this project follows for every external credential.
+#
+# ── PREREQUISITES (see docs/store-release.md) ─────────────────────────────────
+#   1. Bundle-ID migrated to de.whispaste.app.
+#   2. Xcode build configurations wired:
+#        - MAS build: CODE_SIGN_ENTITLEMENTS = Runner/AppStore.entitlements
+#          (sandbox=true) + OTHER_SWIFT_FLAGS includes "-D MAS_BUILD".
+#        - Developer-ID build: CODE_SIGN_ENTITLEMENTS = Runner/Release.entitlements
+#          (sandbox=false) + Hardened Runtime ON.
+#   3. Certificates present in keychain (Mac App Distribution + Mac Installer
+#      Distribution for MAS; Developer ID Application + Installer for direct).
+#   4. ~/.config/whispaste-ios-credentials/fastlane.env populated (see
+#      load_credentials.rb) — FASTLANE_APPLE_ID, FASTLANE_TEAM_ID, ASC_KEY_ID,
+#      ASC_ISSUER_ID.
+
+require 'tmpdir'
+require_relative 'load_credentials'
+
+ASC_KEY_ID    = ENV.fetch("ASC_KEY_ID")
+ASC_ISSUER_ID = ENV.fetch("ASC_ISSUER_ID")
+ASC_KEY_PATH  = File.expand_path(ENV.fetch("ASC_KEY_PATH", "~/.appstoreconnect/private_keys/AuthKey_#{ASC_KEY_ID}.p8"))
+FASTLANE_TEAM_ID = ENV.fetch("FASTLANE_TEAM_ID")
+
+# Absolute path to the repo root (the directory CONTAINING `fastlane/`).
+#
+# Two fastlane path conventions collide in this file and must not be mixed as
+# bare relative strings: `sh()` subprocesses run relative to `fastlane/`
+# itself, while native actions (`build_mac_app`/gym, etc.) resolve their own
+# relative path options against the directory the `fastlane` command was
+# invoked FROM — which is not necessarily `fastlane/`'s parent either (it can
+# differ depending on how the process was launched). A `"../macos/..."` value
+# written for one convention silently resolves one directory level too far
+# under the other, and the error only shows up as a missing-file failure deep
+# into the lane. Using this absolute constant everywhere removes the
+# ambiguity entirely — verified against `whispaste@cd8720d8`'s
+# `mac devid_release` run, which failed with exactly this symptom.
+PROJECT_ROOT = File.expand_path("..", __dir__)
+
+# Marketing version (X.Y.Z) from pubspec.yaml — baked in via
+# --dart-define=APP_VERSION like release.yml does. Without it the app tags
+# every Sentry event `whispaste@unknown` (the native SDK keeps the release it
+# was initialised with), so store-build hangs could not be tied to a release
+# or symbolicated.
+def pubspec_version
+  line = File.readlines(File.join(PROJECT_ROOT, "pubspec.yaml")).find { |l| l.start_with?("version:") }
+  UI.user_error!("version: missing in pubspec.yaml") unless line
+  line.split(":", 2).last.strip.split("+").first
+end
+
+# Uploads the MAS archive's dSYMs (App.framework.dSYM carries the Dart AOT
+# code) under the same release the app reports. sentry_dart_plugin only scans
+# build/macos/Build/Products/Release*, so the zip gym exported is unpacked
+# into Release-mas first. The token comes from the environment or the local
+# ~/.config/sentry/.env; without one the upload is skipped with a warning.
+def upload_mas_dsyms(dsym_zip)
+  token = ENV["SENTRY_AUTH_TOKEN"]
+  env_file = File.expand_path("~/.config/sentry/.env")
+  if (token.nil? || token.empty?) && File.exist?(env_file)
+    token = File.readlines(env_file).map(&:strip)
+                .find { |l| l.start_with?("SENTRY_AUTH_TOKEN=") }&.split("=", 2)&.last
+  end
+  if token.nil? || token.empty? || dsym_zip.nil? || !File.exist?(dsym_zip)
+    UI.important("Skipping Sentry dSYM upload (no SENTRY_AUTH_TOKEN or no dSYM zip) — hangs from this build stay unsymbolicated.")
+    return
+  end
+  target = File.join(PROJECT_ROOT, "build/macos/Build/Products/Release-mas")
+  FileUtils.rm_rf(target)
+  FileUtils.mkdir_p(target)
+  sh("unzip", "-q", "-o", dsym_zip, "-d", target)
+  Dir.chdir(PROJECT_ROOT) do
+    sh({ "SENTRY_AUTH_TOKEN" => token, "SENTRY_RELEASE" => "whispaste@#{pubspec_version}" },
+       "dart", "run", "sentry_dart_plugin")
+  end
+end
+
+# Build-time defines release.yml passes from GitHub secrets (feedback
+# endpoint, opt-in telemetry). Locally they come from the environment or
+# ~/.config/whispaste/release.env (KEY=value lines, never in the repo);
+# without them the store build silently ships without feedback/telemetry.
+RELEASE_DART_DEFINES = [
+  "SUPABASE_URL",
+  "SUPABASE_PUBLISHABLE_KEY",
+  "WHISPASTE_MATOMO_URL",
+  "WHISPASTE_MATOMO_SITE_ID"
+].freeze
+RELEASE_ENV_FILE = File.expand_path("~/.config/whispaste/release.env")
+
+# Writes the release defines to a private temp .env file for
+# --dart-define-from-file, so the values never appear in the logged build
+# command. Returns its path; the caller deletes it after the build.
+def release_defines_file
+  from_file = {}
+  if File.exist?(RELEASE_ENV_FILE)
+    File.readlines(RELEASE_ENV_FILE).map(&:strip).each do |line|
+      next if line.empty? || line.start_with?("#")
+      key, value = line.split("=", 2)
+      from_file[key.strip] = value.to_s.strip.delete_prefix('"').delete_suffix('"')
+    end
+  end
+  values = RELEASE_DART_DEFINES.to_h do |name|
+    env = ENV[name].to_s.strip
+    [name, env.empty? ? from_file[name].to_s : env]
+  end
+  missing = values.select { |_, v| v.empty? }.keys
+  unless missing.empty?
+    UI.user_error!("Missing release defines #{missing.join(', ')} — set them in the environment " \
+                   "or in #{RELEASE_ENV_FILE} (KEY=value).")
+  end
+  path = File.join(Dir.mktmpdir("whispaste-defines"), "release.env")
+  File.write(path, values.map { |k, v| "#{k}=#{v}\n" }.join)
+  File.chmod(0o600, path)
+  path
+end
+
+def load_asc_api_key
+  app_store_connect_api_key(
+    key_id:        ASC_KEY_ID,
+    issuer_id:     ASC_ISSUER_ID,
+    key_filepath:  ASC_KEY_PATH,
+    in_house:      false,
+    duration:      1200
+  )
+end
+
+# Waits for the most recently uploaded build for `platform` to finish Apple's
+# processing, then attaches it to the app's current editable App Store
+# version — WITHOUT submitting anything for review. Reuses the same fastlane
+# internals `deliver`'s own `submit_for_review` step uses for build
+# selection (FastlaneCore::BuildWatcher + AppStoreVersion#select_build), so
+# this stays in sync with fastlane's own semantics instead of reimplementing
+# them. Requires an ASC API key already loaded (`load_asc_api_key`) and an
+# app on Pricing/App-Version workflow that has an editable version — raises
+# via UI.user_error! if either the app or an editable version can't be found.
+def attach_latest_build_to_editable_version(bundle_id:, platform:)
+  app = Spaceship::ConnectAPI::App.find(bundle_id)
+  UI.user_error!("App Store Connect: no app found for bundle ID #{bundle_id}") unless app
+
+  version = app.get_edit_app_store_version(platform: platform)
+  UI.user_error!("App Store Connect: no editable App Store version found for #{bundle_id} (#{platform})") unless version
+
+  UI.message("Waiting for build #{version.version_string} (#{platform}) to finish Apple's processing (this can take several minutes)...")
+  # Deliberately NOT using FastlaneCore::BuildWatcher's select_latest:true —
+  # it queries Spaceship::ConnectAPI::Build.all(version:) and picks `.first`,
+  # trusting the API's default listing order to be newest-first. It isn't
+  # reliably that: confirmed live 2026-09-04 — after re-uploading a corrected
+  # build 42 to recover from a defective build 41 (see mas_release's
+  # MAS_BUILD_NUMBER comment), select_latest:true attached the STALE,
+  # defective build 41 back onto the editable 1.2.73 version, because it was
+  # older/first in the API's response while both shared the same app_version.
+  # Poll and pick explicitly by the highest numeric build (version.version)
+  # among builds that have finished processing, instead of trusting order.
+  loop do
+    builds = Spaceship::ConnectAPI::Build.all(app_id: app.id, version: version.version_string, platform: platform)
+    processed = builds.reject { |b| b.processing_state == "PROCESSING" }
+    unless processed.empty?
+      build = processed.max_by { |b| b.version.to_i }
+      UI.message("Attaching build #{build.app_version} (#{build.version}) to App Store Connect version #{version.version_string}...")
+      version.select_build(build_id: build.id)
+      UI.success("App Store Connect version #{version.version_string} now points at build #{build.app_version} (#{build.version}).")
+      return
+    end
+    sleep(15)
+  end
+end
+
+# Deterministically cleans up duplicate Mac App Store screenshots via
+# tools/appstore/dedupe-mas-screenshots.py — see that script's own docstring
+# for the root cause (an eventual-consistency race in `deliver`'s
+# delete-then-reupload dance, NOT prevented by `overwrite_screenshots: true`,
+# confirmed live at least three times: 2026-07-29, 2026-08-19/20, 2026-08-24).
+# `expect:` asserts the final per-locale count and raises via UI.user_error!
+# if it's ever wrong — this must fail loudly rather than silently ship a
+# broken screenshot set.
+def dedupe_mas_screenshots(expect: nil, allow_missing_version: false)
+  args = ["python3", File.join(PROJECT_ROOT, "tools/appstore/dedupe-mas-screenshots.py"), "--dedupe"]
+  args += ["--expect", expect.to_s] if expect
+  args += ["--allow-missing-version"] if allow_missing_version
+  Dir.chdir(PROJECT_ROOT) do
+    ok = system(*args)
+    UI.user_error!("dedupe-mas-screenshots.py failed — screenshot state on App Store Connect may still be wrong, check manually before proceeding") unless ok
+  end
+end
+
+default_platform(:mac)
+
+platform :mac do
+  desc "Verify App Store Connect API access"
+  lane :validate do
+    load_asc_api_key
+    UI.success("App Store Connect API key OK (Team #{FASTLANE_TEAM_ID})")
+  end
+
+  desc "Push fastlane/metadata (name/subtitle/keywords/description/…) without rebuilding or re-uploading the binary"
+  lane :mac_metadata_only do
+    load_asc_api_key
+    upload_to_app_store(
+      platform:                 "osx",
+      skip_binary_upload:       true,
+      skip_screenshots:         true,
+      skip_app_version_update:  true,
+      precheck_include_in_app_purchases: false,
+      force: true
+    )
+  end
+
+  desc "Push fastlane/screenshots/* (all 7 locales) only — no rebuild, no binary/metadata upload. Safety net for fixing a wrong/stale screenshot (e.g. hero) without a full mas_release"
+  lane :mac_screenshots_only do
+    load_asc_api_key
+    # Clean baseline first — see dedupe_mas_screenshots' own comment above.
+    dedupe_mas_screenshots
+    upload_to_app_store(
+      platform:                 "osx",
+      skip_binary_upload:       true,
+      skip_metadata:            true,
+      skip_screenshots:         false,
+      skip_app_version_update:  true,
+      overwrite_screenshots:    true, # replace, don't just append — see mas_release's own comment on this flag
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      force: true
+    )
+    # deliver's delete-then-reupload is not atomic on Apple's side — assert
+    # (and self-heal) the final state rather than trusting overwrite_screenshots
+    # alone. 6 = the fixed number of composites tools/appstore-screens produces.
+    dedupe_mas_screenshots(expect: 6)
+  end
+
+  # Builds the signed MAS .pkg into build/fastlane/ (shared by mas_release
+  # and mas_validate).
+  private_lane :mas_build do
+    # This first build only populates Flutter's ephemeral DART_DEFINES state
+    # (kIsMasBuild) for the "Flutter Assemble" step that build_mac_app's own
+    # xcodebuild invocation runs internally — its own .app output (built
+    # against the "Release" Xcode configuration) is NOT the MAS artifact and
+    # is discarded. The real MAS build happens below via `configuration:
+    # "MAS"`, the project's separate Xcode configuration carrying
+    # `-D MAS_BUILD` (the Swift compile-time guard) and AppStore.entitlements
+    # (the sandbox). Passing `--dart-define=WHISPASTE_MAS=true` alone, or
+    # building against the "Release" configuration, does NOT make the binary
+    # sandbox-clean — confirmed by a real symbol scan (CGEventPost/
+    # CGEventCreateKeyboardEvent/tccutil present) before this fix.
+    # RBENV_VERSION=system: this lane itself runs under a pinned rbenv Ruby
+    # (needed for the Gemfile.lock-pinned Bundler version 4.0.11). `bundle exec`
+    # sets RUBYOPT="-r bundler/setup", which restricts every Ruby script this
+    # subprocess tree spawns to EXACTLY the gems in fastlane's Gemfile.lock —
+    # including `pod` (a Ruby gem executable itself), which Flutter's internal
+    # `pod install` invokes. CocoaPods isn't in that Gemfile.lock, so bundler's
+    # isolation makes it invisible ("CocoaPods is installed but broken") even
+    # though it's genuinely installed for the system Ruby. Root-caused via
+    # RBENV_VERSION=4.0.2 rbenv exec bundle exec ruby -e 'p ENV["RUBYOPT"]' —
+    # unsetting only RBENV_VERSION (an earlier, incomplete fix) does not clear
+    # this Bundler-set isolation, so it's unset explicitly here too.
+    Dir.chdir(PROJECT_ROOT) do
+      # Smart Mode's libllama + shim must be staged before Xcode's embed
+      # phase runs; it refuses to build a non-Debug configuration without.
+      sh("bash", File.join(PROJECT_ROOT, "scripts/ensure-libllama-macos.sh"))
+      defines_file = release_defines_file
+      # RBENV_VERSION=system is set (not just RBENV_VERSION unset) belt-and-
+      # braces: unsetting alone worked across several runs, then intermittently
+      # stopped shielding a `pod install` triggered by an Xcode-project change.
+      # Root-caused (was "still unexplained" in docs/store-release.md): this
+      # whole lane runs under `RBENV_VERSION=4.0.2 rbenv exec bundle exec
+      # fastlane ...` — `rbenv exec` doesn't just export RBENV_VERSION, it
+      # also PREPENDS that version's own bin dirs
+      # (~/.rbenv/versions/4.0.2/{bin,lib/ruby/gems/4.0.0/bin}) directly onto
+      # PATH, ahead of ~/.rbenv/shims. Setting RBENV_VERSION=system for this
+      # child process doesn't undo that PATH damage — shims are never
+      # consulted at all, so `which pod` still resolves to
+      # ~/.rbenv/versions/4.0.2/bin/pod (a Bundler-wrapped stub requiring
+      # `cocoapods` in fastlane's Gemfile.lock, which it deliberately isn't)
+      # instead of falling through to the real Homebrew-installed pod.
+      # Root-caused via `RBENV_VERSION=4.0.2 rbenv exec bundle exec ruby -e
+      # 'puts ENV["PATH"]'`. Explicitly prepending the known-good locations
+      # fixes it deterministically, no more flakiness.
+      #
+      # BUNDLER_SETUP (distinct from RUBYOPT!) is a second, independent leak:
+      # RubyGems' own bootstrap (rubygems.rb) does
+      # `require ENV["BUNDLER_SETUP"] if ENV["BUNDLER_SETUP"] && !defined?(Bundler)`
+      # unconditionally, regardless of RUBYOPT — `bundle exec` sets this var
+      # too, and unsetting only RUBYOPT/GEM_HOME/etc. still leaves the real
+      # Homebrew `pod` binary auto-requiring the *outer* fastlane Gemfile's
+      # bundler/setup and failing with "Could not find fastlane-2.237.0 ...
+      # in locally installed gems". Must be unset explicitly alongside
+      # RUBYOPT, not implied by it.
+      # MAS_BUILD_NUMBER: optional escape hatch, ONLY for recovering from an
+      # ASC "bundle version already used" rejection (-19232) without bumping
+      # pubspec.yaml's global build number, which the Windows/Linux/macOS-
+      # DevID tracks already published against. Normal runs omit it and get
+      # pubspec.yaml's build number, same as every other platform.
+      build_number_override = ENV["MAS_BUILD_NUMBER"]
+      build_number_flag = build_number_override ? " --build-number=#{build_number_override}" : ""
+      sh("env -u BUNDLE_GEMFILE -u GEM_HOME -u GEM_PATH -u GEM_ROOT -u RUBYOPT -u RUBYLIB " \
+         "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u BUNDLER_SETUP -u RBENV_DIR " \
+         "RBENV_VERSION=system " \
+         "PATH=\"/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH\" " \
+         "flutter build macos --release --dart-define=WHISPASTE_MAS=true " \
+         "--dart-define-from-file=#{defines_file} " \
+         "--dart-define=APP_VERSION=#{pubspec_version}#{build_number_flag}")
+    ensure
+      FileUtils.rm_rf(File.dirname(defines_file)) if defines_file
+    end
+
+    build_mac_app(
+      workspace:        File.join(PROJECT_ROOT, "macos/Runner.xcworkspace"),
+      scheme:           "Runner",                # must be marked "Shared" in Xcode
+      configuration:    "MAS",
+      export_method:    "app-store",             # produces a signed .pkg
+      export_team_id:   FASTLANE_TEAM_ID,
+      output_directory: File.join(PROJECT_ROOT, "build/fastlane"),
+      output_name:      "WhisPaste",
+      # Without an explicit signingStyle, xcodebuild's -exportArchive step
+      # defaults to MANUAL signing during export (regardless of the Xcode
+      # project's own CODE_SIGN_STYLE = Automatic) and fails with "No
+      # profiles for 'de.whispaste.app' were found". signingStyle:
+      # "automatic" alone did NOT fix it either — headless xcodebuild (no
+      # Xcode GUI account session) can't dynamically resolve automatic
+      # signing during export the way Xcode's own UI can. Mapping the
+      # profile explicitly (created via `fastlane sigh --platform macos`,
+      # name below must match exactly) sidesteps automatic resolution
+      # entirely and is what actually works non-interactively.
+      export_options: {
+        signingStyle:        "manual",
+        provisioningProfiles: { "de.whispaste.app" => "de.whispaste.app AppStore" }
+      }
+    )
+  end
+
+  desc "Build the Mac App Store .pkg and run Apple's validation on it — no upload"
+  lane :mas_validate do
+    load_asc_api_key
+    mas_build
+    pkg = lane_context[SharedValues::PKG_OUTPUT_PATH]
+    sh("xcrun", "altool", "--validate-app", "-f", pkg, "-t", "macos",
+       "--apiKey", ASC_KEY_ID, "--apiIssuer", ASC_ISSUER_ID)
+  end
+
+  desc "Build + upload the Mac App Store build (sandboxed, no auto-paste), then submit it for review with automatic release"
+  lane :mas_release do
+    load_asc_api_key
+    # precheck (metadata hygiene against App Review Guidelines) is disabled
+    # below via run_precheck_before_submit: false: fastlane 2.237.0's precheck
+    # crashes with `undefined method 'copyright' for nil:NilClass`
+    # (Precheck::RuleProcessor.generate_version_items_to_check). deliver runs
+    # it by default on every upload_to_app_store call regardless of
+    # submit_for_review, so without the explicit flag it still fires (and
+    # fails, non-fatally) even though deliver itself never submits here.
+    # Re-add once confirmed fixed upstream.
+
+    mas_build
+
+    upload_mas_dsyms(lane_context[SharedValues::DSYM_OUTPUT_PATH])
+
+    # Clean baseline before touching screenshots at all — in case a prior
+    # run left duplicates behind (see dedupe_mas_screenshots' own comment).
+    # ASC API key already loaded at this lane's start. allow_missing_version:
+    # true because the previous version may be fully READY_FOR_SALE with no
+    # draft yet — upload_to_app_store below is what creates that draft (no
+    # skip_app_version_update flag is set), so "no editable version" here is
+    # a legitimate, benign timing state, not the not-editable case this
+    # preflight otherwise exists to catch.
+    dedupe_mas_screenshots(allow_missing_version: true)
+
+    upload_to_app_store(
+      platform:          "osx",
+      pkg:               lane_context[SharedValues::PKG_OUTPUT_PATH],
+      submit_for_review: false,     # submitted below via submit-mas-review.py instead
+      automatic_release: true,      # releaseType AFTER_APPROVAL on the version deliver creates
+      skip_screenshots:  false,     # fastlane/screenshots/{en-US,de-DE,es-ES,pt-BR,it,ru,zh-Hans,fr-FR} populated 2026-07-28 (1440x900, from tools/appstore-screens/output/*/mac)
+      skip_metadata:     false,     # fastlane/metadata/{en-US,de-DE} populated 2026-07-28
+      # Without this, deliver only ADDS local screenshots to whatever is
+      # already live on ASC instead of replacing them — root cause of the
+      # duplicate/stale screenshots found in App Store Connect on 2026-07-29.
+      # fastlane/screenshots/{en-US,de-DE,es-ES,pt-BR,it,ru,zh-Hans,fr-FR} is the full, current 6-shot set
+      # per locale, so a full clear-and-replace is always correct here.
+      overwrite_screenshots: true,
+      # deliver runs precheck before every upload_to_app_store call by
+      # default, REGARDLESS of submit_for_review — confirmed live 2026-07-29:
+      # it ran, crashed with the same "undefined method 'copyright'" issue
+      # documented below, and (non-fatally) logged the failure instead of
+      # aborting. The comment above this lane claiming precheck "is skipped
+      # here" was only true for the metadata-only lane; this flag is what
+      # actually skips it for mas_release.
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      # Required so deliver actually creates an app_store_review_detail
+      # object on ASC. Without it, review_information() (deliver's own
+      # code) no-ops on a nil/empty app_review_information hash, then the
+      # very next internal step, review_attachment_file(), unconditionally
+      # calls fetch_app_store_review_detail with no rescue (unlike its
+      # neighbor) and crashes with "No data" since nothing was ever created.
+      # `notes:` is read explicitly here (not left to deliver's own
+      # metadata-folder auto-merge) for the same reason the rest of this
+      # hash is explicit: this whole block exists because deliver's
+      # merge-from-nil-hash path already crashed once (see comment above).
+      # fastlane/metadata/review_information/notes.txt explains the
+      # PostEvent/Accessibility permission (Guideline 2.4.5) to the
+      # reviewer — see docs/store-release.md for the full rationale.
+      app_review_information: {
+        first_name:    ENV.fetch("FASTLANE_REVIEW_FIRST_NAME"),
+        last_name:     ENV.fetch("FASTLANE_REVIEW_LAST_NAME"),
+        phone_number:  ENV.fetch("FASTLANE_REVIEW_PHONE"),
+        email_address: ENV.fetch("FASTLANE_APPLE_ID"),
+        notes:         File.read(File.join(PROJECT_ROOT, "fastlane/metadata/review_information/notes.txt"))
+      },
+      # Without force: true, deliver generates fastlane/Preview.html and
+      # interactively asks "Does the Preview ... look okay for you?" — this
+      # lane runs non-interactively (CI or a backgrounded local run), which
+      # crashes with FastlaneCore::Interface::FastlaneCrash instead of
+      # hanging. It only skips the metadata/screenshot preview confirmation.
+      force: true
+    )
+
+    # deliver's delete-then-reupload above is not atomic on Apple's side —
+    # assert (and self-heal) the final screenshot state rather than trusting
+    # overwrite_screenshots alone (see dedupe_mas_screenshots' own comment).
+    # 6 = the fixed number of composites tools/appstore-screens produces.
+    dedupe_mas_screenshots(expect: 6)
+
+    # upload_to_app_store's own build-selection logic only runs when
+    # submit_for_review: true (verified against fastlane 2.237.0 source,
+    # deliver/lib/deliver/runner.rb: `submit_for_review if
+    # options[:submit_for_review] && precheck_success` — select_build lives
+    # INSIDE submit_for_review.rb, gated behind that same flag). Since this
+    # lane doesn't let deliver submit, the binary above uploads
+    # successfully but is never attached to the editable App Store version —
+    # confirmed live 2026-07-29 via the ConnectAPI: version 1.2.61 had the
+    # STALE 1.2.60 build attached even though 1.2.61 uploaded fine. Apple's
+    # own processing is async (minutes, not seconds) and outlives the
+    # upload_to_app_store call returning, so there's nothing to select yet
+    # at that point regardless. This step waits for processing to finish and
+    # explicitly attaches the build — same building blocks fastlane's own
+    # submit_for_review uses internally (FastlaneCore::BuildWatcher +
+    # AppStoreVersion#select_build), just without the submission side effects.
+    attach_latest_build_to_editable_version(
+      bundle_id: "de.whispaste.app",
+      platform:  "MAC_OS"
+    )
+
+    # Releases run fully unattended (maintainer decision 2026-10-14): submit
+    # the attached build for App Review with release type AFTER_APPROVAL, so
+    # Apple publishes it as soon as it is approved. MAS_SKIP_SUBMIT=1 keeps
+    # the old upload-only behavior for a dry run.
+    unless ENV["MAS_SKIP_SUBMIT"] == "1"
+      Dir.chdir(PROJECT_ROOT) do
+        ok = system("python3", File.join(PROJECT_ROOT, "tools/appstore/submit-mas-review.py"))
+        UI.user_error!("submit-mas-review.py failed — the build is uploaded and attached but not in review") unless ok
+      end
+    end
+  end
+
+  desc "Re-run just the build-attach step against the current editable MAS version — safety net if it needs re-running without a full mas_release (re-upload + re-screenshot)"
+  lane :mas_fix_build_attachment do
+    load_asc_api_key
+    attach_latest_build_to_editable_version(
+      bundle_id: "de.whispaste.app",
+      platform:  "MAC_OS"
+    )
+  end
+
+  desc "Actually submit the already-uploaded, already-attached MAS build for App Review"
+  lane :mas_submit_for_review do
+    load_asc_api_key
+    # `mas_release` submits on its own through submit-mas-review.py. This
+    # lane is the deliver-based fallback for re-submitting one specific,
+    # already-uploaded build by number (e.g. after a rejection fix).
+    #
+    # build_number/app_version are pinned explicitly rather than left to
+    # deliver's own "latest" build-selection — that same select_latest
+    # logic (FastlaneCore::BuildWatcher, no app_version scoping inside
+    # deliver's submit_for_review.rb) is what attached the wrong, already-
+    # rejected build to the editable version earlier the same day this lane
+    # was added. Pinning here sidesteps that class of bug entirely: it
+    # takes the explicit Build.all(build_number:) branch instead.
+    upload_to_app_store(
+      platform:            "osx",
+      app_version:         ENV.fetch("MAS_SUBMIT_APP_VERSION"),
+      build_number:        ENV.fetch("MAS_SUBMIT_BUILD_NUMBER"),
+      skip_binary_upload:  true,
+      skip_screenshots:    true,
+      skip_metadata:       true,
+      skip_app_version_update: true,
+      run_precheck_before_submit: false,
+      submit_for_review:   true,
+      app_review_information: {
+        first_name:    ENV.fetch("FASTLANE_REVIEW_FIRST_NAME"),
+        last_name:     ENV.fetch("FASTLANE_REVIEW_LAST_NAME"),
+        phone_number:  ENV.fetch("FASTLANE_REVIEW_PHONE"),
+        email_address: ENV.fetch("FASTLANE_APPLE_ID"),
+        notes:         File.read(File.join(PROJECT_ROOT, "fastlane/metadata/review_information/notes.txt"))
+      },
+      submission_information: {
+        export_compliance_uses_encryption: false
+      },
+      force: true
+    )
+  end
+
+  desc "Build + notarize the Developer-ID build (direct download / Homebrew)"
+  lane :devid_release do
+    # Developer-ID auto-paste build — full feature set, distributed outside MAS.
+    #
+    # Prerequisites (see docs/store-release.md):
+    #   - Developer ID Application certificate in keychain
+    #   - ASC API key at ASC_KEY_PATH (see load_credentials.rb / fastlane.env)
+    #   - create-dmg installed: brew install create-dmg
+    #
+    # Skip path: set SKIP_NOTARIZATION=1 to build+sign without notarizing/stapling
+    # (useful for quick local smoke tests without internet access).
+
+    api_key = load_asc_api_key
+
+    # See the detailed comment on the equivalent line in mas_release: bundle
+    # exec's RUBYOPT="-r bundler/setup" breaks Flutter's internal `pod install`
+    # by hiding CocoaPods from this subprocess tree unless explicitly cleared,
+    # and `rbenv exec`'s own PATH prepending (not just RBENV_VERSION) means
+    # unsetting/resetting RBENV_VERSION alone isn't enough either — the PATH
+    # override below is required too.
+    Dir.chdir(PROJECT_ROOT) do
+      # Smart Mode's libllama + shim must be staged before Xcode's embed
+      # phase runs; it refuses to build a non-Debug configuration without.
+      sh("bash", File.join(PROJECT_ROOT, "scripts/ensure-libllama-macos.sh"))
+      defines_file = release_defines_file
+      sh("env -u BUNDLE_GEMFILE -u GEM_HOME -u GEM_PATH -u GEM_ROOT -u RUBYOPT -u RUBYLIB " \
+         "-u BUNDLE_BIN_PATH -u BUNDLE_PATH -u BUNDLER_VERSION -u BUNDLER_SETUP -u RBENV_DIR " \
+         "RBENV_VERSION=system " \
+         "PATH=\"/opt/homebrew/bin:/opt/homebrew/sbin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH\" " \
+         "flutter build macos --release --dart-define-from-file=#{defines_file} " \
+         "--dart-define=APP_VERSION=#{pubspec_version}")
+    ensure
+      FileUtils.rm_rf(File.dirname(defines_file)) if defines_file
+    end
+
+    # build_mac_app (gym/build_app) only populates lane_context's shared
+    # values for a .ipa or .pkg output (see build_app.rb's extname check) —
+    # for a plain .app export (developer-id method), NEITHER branch matches,
+    # so no SharedValues key is ever set. `SharedValues::APP_PATH` referenced
+    # here previously doesn't exist at all in fastlane 2.237.0 (verified via
+    # `uninitialized constant` NameError on a real run) — the action's own
+    # return value is the only source of the exported .app path.
+    app_path = build_mac_app(
+      workspace:        File.join(PROJECT_ROOT, "macos/Runner.xcworkspace"),
+      scheme:           "Runner",
+      configuration:    "Release",
+      export_method:    "developer-id",
+      export_team_id:   FASTLANE_TEAM_ID,
+      output_directory: File.join(PROJECT_ROOT, "build/fastlane"),
+      output_name:      "WhisPaste"
+    )
+    app_path ||= File.join(PROJECT_ROOT, "build/fastlane/WhisPaste.app")
+
+    unless ENV["SKIP_NOTARIZATION"] == "1"
+      # notarize submits via notarytool, waits for Apple's response, and
+      # staples the ticket to the .app on success.
+      notarize(
+        package:      app_path,
+        bundle_id:    "de.whispaste.direct",
+        api_key:      api_key
+      )
+    end
+
+    # Wrap the notarized+stapled .app in a DMG for the website/Homebrew artifact.
+    dmg_path = File.join(PROJECT_ROOT, "build/fastlane/WhisPaste.dmg")
+    sh(
+      "create-dmg",
+      "--volname",       "WhisPaste",
+      "--window-size",   "500",
+      "320",
+      "--icon-size",     "80",
+      "--app-drop-link", "380",
+      "170",
+      "--icon",          "WhisPaste.app",
+      "120",
+      "170",
+      dmg_path,
+      app_path
+    )
+
+    # Post-build smoke: verify staple ticket and Gatekeeper acceptance.
+    sh("stapler validate #{app_path}")
+    sh("spctl --assess --type exec --verbose #{app_path}")
+
+    UI.success("Developer-ID build complete: #{dmg_path}")
+    UI.success("App path: #{app_path}")
+  end
+end

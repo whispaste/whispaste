@@ -1,0 +1,455 @@
+/// WhisPaste design tokens — Single Source of Truth for all visual styling.
+///
+/// Premium design: clean depth via layered surfaces, tinted material, tonal
+/// gradients. Restraint means no glow and exactly two accents with two jobs —
+/// violet-magenta for "you can act on this", cyan/teal for "a recording is in
+/// flight" — not bare/flat; soft, tinted depth is equally premium. The two
+/// accents are the *brand voice*: the pin marker and the category slots
+/// (`WpCategorySlot`) carry hues of their own, but they state what something
+/// *is*, never that it is important. See *The Categorical vs. Sequential Rule*
+/// in `lib/DESIGN.md` for that last distinction.
+///
+/// The two-accent split and the one-depth-source-per-theme split are both new
+/// with this token set and are stated here rather than cited: `lib/DESIGN.md`
+/// still documents the superseded single-accent doctrine and is rewritten in a
+/// follow-up ticket. Two accents, two exclusive jobs: violet-magenta means "you
+/// can act on this", cyan/teal means "a recording is in flight" — no element
+/// may reach for the other family to look important. One depth source: the
+/// brightness delta between the card fills, and no card shadow at all.
+///
+/// > **Retracted 2026-08-11 (dark-only build).** This paragraph used to close
+/// > with "one depth source per *theme*: light uses a soft, wide, tinted
+/// > shadow ([WpShadows.cardTintedLight]), dark uses the brightness delta
+/// > between its fills and gets no shadow at all." The per-theme half went
+/// > with the light theme; the surviving clause is the dark one, which was
+/// > always the app's real depth source. Recorded rather than reworded so the
+/// > tinted-shadow token's disappearance has a reason attached to it.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
+
+// ---------------------------------------------------------------------------
+// Spacing scale (px → logical pixels)
+// ---------------------------------------------------------------------------
+abstract final class WpSpacing {
+  static const double xxs = 4;
+  static const double xs = 8;
+  static const double sm = 12;
+  static const double md = 16;
+  static const double lg = 20;
+  static const double xl = 24;
+  static const double xxl = 32;
+  static const double xxxl = 48;
+}
+
+// ---------------------------------------------------------------------------
+// Border radius
+// ---------------------------------------------------------------------------
+abstract final class WpRadius {
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 22;
+  static const double full = 9999;
+
+  static final BorderRadius borderSm = BorderRadius.circular(sm);
+  static final BorderRadius borderMd = BorderRadius.circular(md);
+  static final BorderRadius borderLg = BorderRadius.circular(lg);
+  static final BorderRadius borderXl = BorderRadius.circular(xl);
+  static final BorderRadius borderFull = BorderRadius.circular(full);
+}
+
+// ---------------------------------------------------------------------------
+// Shadows — clean layered depth, NO colored/glow shadows
+// ---------------------------------------------------------------------------
+abstract final class WpShadows {
+  // Apple-grade ambient depth: soft, diffuse, low-opacity — larger blur,
+  // gentler alpha than crisp/tight shadows.
+  static const List<BoxShadow> subtle = [
+    BoxShadow(color: Color(0x1F000000), blurRadius: 8, offset: Offset(0, 2)),
+  ];
+
+  /// Same geometry as [subtle], alpha 0. Lets an AnimatedContainer fade the
+  /// *alpha* channel when a shadow toggles off, instead of retargeting
+  /// `subtle -> null`: `BoxShadow.lerpList` handles a null target by scaling
+  /// blur/offset toward zero at *fixed* alpha, which concentrates the ink
+  /// into a smaller, harder-edged patch for one frame before it's fully
+  /// gone — a visible flash rather than a fade (most noticeable in light
+  /// theme, where this shadow has real contrast against pearl surfaces).
+  static const List<BoxShadow> subtleTransparent = [
+    BoxShadow(color: Color(0x00000000), blurRadius: 8, offset: Offset(0, 2)),
+  ];
+
+  static const List<BoxShadow> card = [
+    BoxShadow(color: Color(0x33000000), blurRadius: 14, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x14000000), blurRadius: 2, offset: Offset(0, 1)),
+  ];
+
+  // -- Light-theme interaction shadows: removed 2026-08-11 (dark-only) -------
+  //
+  // `subtleLight` (6 % black) and `cardLight` (10 % / 4 %) halved the alpha of
+  // [subtle] and [card] because black-alpha shadows read much heavier over the
+  // pearl light surfaces than over the dark navy ones. With no light stack to
+  // composite against, both tokens lost their only ground and are deleted
+  // rather than left as unreachable constants.
+  //
+  // Their resolvers `subtleFor(isDark)` and `cardFor(isDark)` are gone too.
+  // Both were kept for one commit as named entry points, on the theory that a
+  // shadow which used to vary by theme should keep somewhere to vary again.
+  // Once the argument came off there was nothing left to keep: each was a
+  // second name for a constant declared a few lines above it, and a second
+  // name is not a seam. Call sites read [subtle] and [card] directly.
+
+  static const List<BoxShadow> elevated = [
+    BoxShadow(color: Color(0x40000000), blurRadius: 28, offset: Offset(0, 10)),
+    BoxShadow(color: Color(0x1A000000), blurRadius: 6, offset: Offset(0, 2)),
+  ];
+
+  // -- cardTintedLight: removed 2026-08-11 (dark-only) ----------------------
+  //
+  // The light theme's one card shadow — soft, wide, violet-tinted, offset
+  // (`0x14281446`, blur 35, offset (0, 10)) — mirroring the deleted
+  // `WpColorsLight.cardShadowLight`. It was **light-theme only by refusal**:
+  // on dark, depth comes from the brightness delta between the card fills and
+  // a shadow on near-black adds mud, not depth. With the light stack gone the
+  // refusal is the only case left, so the token has no theme to serve.
+  //
+  // The argument it carried is worth keeping even though the token is not: a
+  // *glow* is a colored shadow at offset 0 and stays forbidden; a *shadow* is
+  // offset + wide blur + low alpha, and a shadow may be tinted. That
+  // distinction survives this deletion and still governs any future tinted
+  // shadow.
+
+  /// Warm inner top-light illusion — the only `BlurStyle.inner` entry here.
+  ///
+  /// **No call sites.** It was cut for `WpGlassPanel`, which is deleted; it
+  /// survives as the shape an inner edge highlight takes, and as the one
+  /// worked example the offset audit in
+  /// `test/core/theme/wcag_contrast_test.dart` has to reason about — an inner
+  /// shadow is the only kind that may legitimately approach offset zero. Its
+  /// offset is `(0, 1)`, so it clears that audit on its own merits and needs
+  /// no allowlist entry. Delete it the moment a real inner highlight lands
+  /// with real values.
+  static const List<BoxShadow> glassInner = [
+    BoxShadow(
+      color: Color(0x0AFFFFFF),
+      blurRadius: 1,
+      offset: Offset(0, 1),
+      blurStyle: BlurStyle.inner,
+    ),
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Motion / Animation durations + easing
+//
+// ## Easing-Set Rules (Apple-grade premium motion — Phase A)
+//
+// | Slot             | Curve / Description              | Duration cap     | Use for                                      |
+// |------------------|----------------------------------|------------------|----------------------------------------------|
+// | defaultCurve     | Curves.easeOut                   | fast / normal    | All standard UI transitions                  |
+// | smooth_          | Curves.easeInOut                 | smooth / dramatic | Enter/exit cross-fades, page transitions    |
+// | spring           | easeOutCubic (no overshoot)      | smooth (300 ms)  | Signature recording-arc appear/dismiss ONLY  |
+// | springDescription | SpringDescription 170/26        | physics-based    | Physics-spring consumers (SpringSimulation)  |
+//
+// Caps (Phase 0 measurements, macOS 60 Hz):
+//   Signature transition  — Soft-Cap 300 ms / Hard-Cap 700 ms
+//   All other motion      — ≤ 200–300 ms (defaultCurve / easeOut)
+//   Hover in              — 0 ms (instant, prevents flicker between adjacent targets)
+//   Hover out             — 80 ms
+//
+// Always prefer [durationFor] over raw Duration constants to respect the
+// system "Reduce Motion" accessibility flag.
+//
+// ## Motion scale reference (doc-only)
+//   fast            → 120 ms
+//   normal          → 200 ms
+//   smooth          → 300 ms
+//   dramatic        → 500 ms
+//   hoverIn         → 0 ms (instant)
+//   hoverOut        → 80 ms
+//   spring curve    → easeOutCubic (cubic-bezier 0.215, 0.61, 0.355, 1.0)
+//   spring mass     → 1 | stiffness → 170 | damping → 26
+// ---------------------------------------------------------------------------
+abstract final class WpMotion {
+  static const Duration fast = Duration(milliseconds: 120);
+  static const Duration normal = Duration(milliseconds: 200);
+  static const Duration smooth = Duration(milliseconds: 300);
+  static const Duration dramatic = Duration(milliseconds: 500);
+
+  /// Instant hover transitions — no animation prevents flicker when moving
+  /// between adjacent items (Discord / Notion style).
+  static const Duration hoverIn = Duration.zero;
+  static const Duration hoverOut = Duration(milliseconds: 80);
+
+  static const Curve defaultCurve = Curves.easeOut;
+
+  /// Signature spring curve — critically-damped cubic-bezier approximation
+  /// (no overshoot / bouncing). Approximates [springDescription] (Gentle
+  /// 170/26, ratio ≈ 1.0). Replaces the former Curves.elasticOut.
+  ///
+  /// Use exclusively for the recording-arc (capsule appear / dismiss).
+  /// For physics-based simulation, use [springDescription] instead.
+  static const Curve spring = Curves.easeOutCubic;
+
+  /// Critically-damped spring parameters (Phase-0 Gentle preset, ratio ≈ 1.0,
+  /// no overshoot). For use with [SpringSimulation] in physics-based animations.
+  /// Curve-based callers use [spring].
+  static const SpringDescription springDescription = SpringDescription(
+    mass: 1,
+    stiffness: 170,
+    damping: 26,
+  );
+
+  static const Curve smooth_ = Curves.easeInOut;
+
+  /// Returns [duration] as-is, unless the system accessibility flag
+  /// "Reduce Motion" is active — in that case returns [Duration.zero]
+  /// (immediate state change, no movement). Prefer this over raw constants
+  /// in every animated widget.
+  static Duration durationFor(BuildContext context, Duration duration) {
+    if (MediaQuery.of(context).disableAnimations) return Duration.zero;
+    return duration;
+  }
+}
+
+/// Drop-in [AnimatedSize] that a zero [duration] passes straight through
+/// instead of animating.
+///
+/// [AnimatedSize] restarts its internal [AnimationController] from inside its
+/// own `performLayout` whenever the child's size changes while it is
+/// `stable`. With [duration] resolved to [Duration.zero] (as
+/// [WpMotion.durationFor] does under reduced motion) that restart completes
+/// synchronously and calls `markNeedsLayout` on itself while still being laid
+/// out — a hard Flutter assertion ("A RenderObject must not re-dirty itself
+/// while still being laid out"), reproduced in
+/// `test/core/theme/motion_test.dart`. A zero-duration transition is not an
+/// animation to begin with, so skipping [AnimatedSize] for that case is the
+/// correct behavior, not merely a workaround for the assertion.
+class WpAnimatedSize extends StatelessWidget {
+  const WpAnimatedSize({
+    super.key,
+    required this.duration,
+    this.curve = Curves.linear,
+    this.alignment = Alignment.center,
+    required this.child,
+  });
+
+  final Duration duration;
+  final Curve curve;
+  final Alignment alignment;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (duration == Duration.zero) return child;
+    return AnimatedSize(
+      duration: duration,
+      curve: curve,
+      alignment: alignment,
+      child: child,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Layout dimensions
+// ---------------------------------------------------------------------------
+abstract final class WpLayout {
+  static const double sidebarWidth = 72;
+  static const double statusBarHeight = 48;
+  static const double appBarHeight = 64;
+
+  /// Material 3 minimum touch target — all interactive elements must meet this.
+  static const double minTouchTarget = 48;
+
+  /// Height of a *dense* control — the trailing slot of a settings-style row.
+  ///
+  /// Three things share that slot and each had picked its own height: the
+  /// dense [WpButton] (32), the key caps of `HotkeyDisplay` (30, from padding
+  /// plus border) and the microphone-permission chip (30, likewise). Standing
+  /// next to each other in one visual line, a 2-px difference does not read as
+  /// two sizes — it reads as one size, misaligned. Naming the value is what
+  /// keeps the three from drifting apart again the next time one of them
+  /// changes its padding.
+  ///
+  /// Below [minTouchTarget] by design: these sit *inside* a row that already
+  /// meets the touch target, and a 48-px control in a trailing slot out-shouts
+  /// the row it answers to (see `WpButtonSize.dense`).
+  static const double denseControlHeight = 32;
+
+  /// Chrome stacked above and below the nav rail in the app shell: the title
+  /// bar and the status bar, both fixed-height in every state.
+  static const double frameChromeHeight = appBarHeight + statusBarHeight;
+
+  /// What `minimumSize` costs before any of it reaches Flutter.
+  ///
+  /// `window_manager` hands the value to the platform's *window* minimum, not
+  /// to the client area: `NSWindow.minSize` on macOS, `ptMinTrackSize` in
+  /// `WM_GETMINMAXINFO` on Windows, GDK geometry hints on Linux. With
+  /// `TitleBarStyle.hidden` the difference is small but not zero — the Windows
+  /// plugin's own `WM_NCCALCSIZE` handler shrinks the client rect by 8 px at
+  /// the bottom (plus 1 px at the top on Windows 10), so a bare 609 would
+  /// arrive in the engine as ~600 dp and put the rail 8 dp into its scroll
+  /// fallback at the very size the app enforces. 12 covers that worst case
+  /// (the 9 px are physical, so they shrink at every scale above 100 %) and
+  /// leaves a few dp for fractional-scale rounding on the other two
+  /// platforms.
+  static const double windowFrameAllowance = 12;
+
+  /// Smallest window the app lets itself be resized to (`window_manager`
+  /// `minimumSize`, applied in `main.dart`).
+  ///
+  /// The height is not a taste value: it is the point at which the nav rail
+  /// stops needing its scroll fallback, plus what the window frame eats —
+  /// [WpNavRail.productionContentHeight] (497) + [frameChromeHeight] (112) +
+  /// [windowFrameAllowance] (12) = 621. Deriving it means adding a nav item
+  /// raises the minimum with it instead of silently re-introducing the
+  /// overflow this constant exists to prevent;
+  /// `sidebar_height_budget_test.dart` measures the real rail against it.
+  ///
+  /// Kept as small as that derivation allows rather than rounded to a
+  /// comfortable number: on a 1366×768 panel every dp here is one the user
+  /// does not get back, and at that panel's 125 % scaling the work area is
+  /// already ~576 dp — below what the rail needs at all, so that combination
+  /// is the scroll fallback's territory by construction. Which is precisely
+  /// why both halves of the fix exist together.
+  static const double minWindowWidth = 800;
+  static const double minWindowHeight =
+      WpNavRail.productionContentHeight +
+      frameChromeHeight +
+      windowFrameAllowance;
+
+  /// Responsive breakpoints (mobile-first).
+  static const double breakpointMobile = 600;
+
+  /// Narrowest detail column that still reads as a document. Below it, a
+  /// master/detail split (list + divider + this detail) is abandoned for the
+  /// focused full-width detail — `WpSplitView` derives its collapse width from
+  /// the list minimum, the divider and this value.
+  static const double minReadableDetailWidth = 440;
+}
+
+// ---------------------------------------------------------------------------
+// Navigation rail geometry
+//
+// The icon-only sidebar's internal measurements. They used to sit inline in
+// `sidebar.dart` *and* a second time in the now-deleted
+// `sidebar_settings_button.dart`, where they had already drifted apart — the
+// rail is chrome visible on every page, so a 1 px divergence between the nav
+// items and the pinned settings entry shows up on every screen at once.
+// Named here so both the rail and its screenshot shells read the same numbers.
+// ---------------------------------------------------------------------------
+abstract final class WpNavRail {
+  /// Full width of one rail row — spans [WpLayout.sidebarWidth] so the whole
+  /// row is the tap target, not just the pill.
+  static const double itemWidth = WpLayout.sidebarWidth;
+
+  /// Height of one rail row (pill plus its breathing room).
+  static const double itemHeight = 42;
+
+  /// Vertical padding each rail row carries above and below itself.
+  static const double rowPadding = WpSpacing.xs;
+
+  /// Full vertical space one rail row occupies, padding included.
+  static const double rowHeight = itemHeight + 2 * rowPadding;
+
+  /// Vertical space one group break occupies.
+  ///
+  /// Ticket 08 removed the hairline that used to sit here; the break is now
+  /// pure spacing. It is deliberately *more* than the 17 dp the old
+  /// `dividerThickness + 2 * rowPadding` came to: a line can mark a break at
+  /// any distance, spacing cannot. At 24 dp the gap between two groups is
+  /// 8 + 24 + 8 = 40 dp against the 16 dp between siblings — a ratio the eye
+  /// reads as a break without a rule being drawn.
+  static const double groupBreakHeight = WpSpacing.xl;
+
+  /// Gap the rail keeps between its last (bottom-pinned) row and the status
+  /// bar underneath it.
+  static const double bottomInset = WpSpacing.md;
+
+  /// Height the production rail needs before it has to scroll: the seven nav
+  /// rows from `wpNavItems`, the one group break from `wpNavDividerAfterIds`,
+  /// the pinned settings row from `wpSettingsNavItem`, plus [bottomInset].
+  ///
+  /// 8 × 58 + 24 + 16 = 504. The rail itself never reads this number — it
+  /// lays out from the rows above — but [WpLayout.minWindowHeight] does, and
+  /// `sidebar_height_budget_test.dart` measures the real rail against it so
+  /// the two cannot drift apart unnoticed.
+  static const double productionContentHeight =
+      8 * rowHeight + groupBreakHeight + bottomInset;
+
+  /// The rounded square behind the icon. Every item wears one in every state —
+  /// it is the rail's material, not the selection mark (see *The One Highlight
+  /// Per State Rule*); the state lives in the tile's fill and hairline colour.
+  /// Elevation is light-theme only, per *The Depth-Source Rule*.
+  static const double pillSize = 38;
+
+  /// Active-item accent bar, flush with the reading-start window edge.
+  static const double indicatorWidth = 3;
+  static const double indicatorHeight = 22;
+
+  // Removed with Ticket 08: `dividerWidth` (36) and `dividerThickness` (1),
+  // the geometry of the rail's group-break hairline. The break is now carried
+  // by [groupBreakHeight] alone — a line that only says "these are two groups"
+  // is a line the spacing can say instead, and every line the chrome does not
+  // draw is one less edge competing with the frame's ambient.
+
+  /// Unread/attention dot rendered at the pill's reading-end top corner.
+  static const double badgeSize = 8;
+
+  /// Inset of the badge from the pill's own top/end edge. The badge lives in
+  /// the row-sized stack (like the indicator bar), so the offsets below add
+  /// the pill's centering margin — that keeps the dot on the pill's corner
+  /// instead of the rail's, and keeps it clear of the glyph.
+  static const double badgeInset = 2;
+
+  /// Badge offset from the row's top edge: pill centering margin + inset.
+  static const double badgeTop = (itemHeight - pillSize) / 2 + badgeInset;
+
+  /// Badge offset from the row's reading-end edge: same derivation.
+  static const double badgeEnd = (itemWidth - pillSize) / 2 + badgeInset;
+}
+
+// ---------------------------------------------------------------------------
+// Icon sizes
+//
+// Usage rules (mobile-first):
+//   xs (14), sm (16) → Decorative/metadata icons ONLY (status dots, timestamps)
+//   md (20)          → MINIMUM for interactive icons (buttons, chips, actions)
+//   lg (24)          → Standard interactive (toolbar buttons, nav icons)
+//   xl (32), xxl (48)→ Prominent / hero icons
+// ---------------------------------------------------------------------------
+abstract final class WpIconSize {
+  static const double xs = 14;
+  static const double sm = 16;
+  static const double md = 20;
+  static const double lg = 24;
+  static const double xl = 32;
+  static const double xxl = 48;
+}
+
+// ---------------------------------------------------------------------------
+// Typography scale (px) — mirrors the roles `theme.dart`'s TextTheme already
+// defines (headlineLarge 22, headlineMedium/labelLarge 16, titleLarge 17,
+// titleMedium 14, titleSmall/bodyLarge/bodyMedium/labelMedium 13, bodySmall
+// 12, labelSmall 11) plus `micro`, a smaller metadata/caption size already in
+// consistent use across history, settings and analytics UI.
+//
+// Prefer `Theme.of(context).textTheme.<role>` for themed text. Reach for
+// these named constants only where a bespoke `TextStyle` genuinely needs a
+// literal size (e.g. it overrides color/weight/height so heavily that a
+// `textTheme` base with `copyWith` isn't a faithful fit) — so the value stays
+// traceable to the scale instead of a bare magic number.
+// ---------------------------------------------------------------------------
+abstract final class WpTypography {
+  static const double micro = 10;
+  static const double caption = 11;
+  static const double small = 12;
+  static const double body = 13;
+  static const double subheading = 14;
+  static const double heading = 16;
+  static const double title = 17;
+  static const double headline = 22;
+}

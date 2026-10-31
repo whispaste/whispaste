@@ -1,0 +1,272 @@
+{
+  "$description": "Component tokens: the only layer component styles read. Values point at semantic tokens, so a component inside a [data-surface=light] band adapts on its own. Fixed-dark chrome (nav, modal, lightbox, toast) sets data-surface=dark on itself.",
+  "layout": {
+    "$type": "dimension",
+    "nav-clear": { "$value": "6.5rem", "$description": "Space the floating nav needs above page content." },
+    "nav-overhang": { "$value": "16px", "$extensions": { "fluid": { "min": "8px", "max": "16px" } } },
+    "section-pad-y": { "$value": "104px", "$extensions": { "fluid": { "min": "60px", "max": "104px", "maxVw": "1440px" } } },
+    "section-head-gap": { "$value": "64px", "$extensions": { "fluid": { "min": "40px", "max": "64px", "maxVw": "1600px" } } },
+    "grid-gap": { "$value": "32px", "$extensions": { "fluid": { "min": "20px", "max": "32px" } } },
+    "band-fade": { "$value": "clamp(80px, 12vh, 220px)", "$type": "string", "$description": "Feathered top/bottom edge of dark bands over the wash." },
+    "band-inset": { "$value": "16px", "$extensions": { "fluid": { "min": "8px", "max": "16px" } }, "$description": "Side inset of light bands: they sit on the dark stage as panels, never as full-bleed straight cuts." },
+    "band-radius": { "$value": "40px", "$extensions": { "fluid": { "min": "20px", "max": "40px" } }, "$description": "Corner radius of light band panels (reference: another app's rising panel)." }
+  },
+  "type": {
+    "display": {
+      "size": { "$type": "dimension", "$value": "{font.size.display}" },
+      "weight": { "$type": "fontWeight", "$value": "{font.weight.heavy}" },
+      "line-height": { "$type": "number", "$value": "{font.line-height.tight}" },
+      "tracking": { "$type": "dimension", "$value": "{font.tracking.display}" }
+    },
+    "h1": {
+      "size": { "$type": "dimension", "$value": "{font.size.h1}" },
+      "weight": { "$type": "fontWeight", "$value": "{font.weight.heavy}" },
+      "line-height": { "$type": "number", "$value": "{font.line-height.tight}" },
+      "tracking": { "$type": "dimension", "$value": "{font.tracking.display}" }
+    },
+    "h2": {
+      "size": { "$type": "dimension", "$value": "{font.size.h2}" },
+      "weight": { "$type": "fontWeight", "$value": "{font.weight.heavy}" },
+      "line-height": { "$type": "number", "$value": "{font.line-height.heading}" },
+      "tracking": { "$type": "dimension", "$value": "{font.tracking.heading}" }
+    },
+    "h3": {
+      "size": { "$type": "dimension", "$value": "{font.size.h3}" },
+      "weight": { "$type": "fontWeight", "$value": "{font.weight.bold}" },
+      "line-height": { "$type": "number", "$value": "{font.line-height.snug}" },
+      "tracking": { "$type": "dimension", "$value": "{font.tracking.title}" }
+    },
+    "card-title": { "$type": "dimension", "$value": "{font.size.card-title}" },
+    "lead": { "$type": "dimension", "$value": "{font.size.lead}" },
+    "body": { "$type": "dimension", "$value": "{font.size.md}" },
+    "small": { "$type": "dimension", "$value": "{font.size.sm}" },
+    "label": { "$type": "dimension", "$value": "{font.size.xs}" },
+    "label-tracking": { "$type": "dimension", "$value": "{font.tracking.label}" }
+  },
+  "eyebrow": {
+    "$type": "color",
+    "text": { "$value": "{accent.default}" },
+    "dot": { "$value": "{accent.default}" }
+  },
+  "link": {
+    "$type": "color",
+    "text": { "$value": "{text.link}" },
+    "hover": { "$value": "{text.link-hover}" },
+    "underline": { "$value": "{border.strong}" }
+  },
+  "marker": {
+    "$type": "color",
+    "text": { "$value": "{text.on-highlight}" },
+    "stroke": { "$value": "{highlight.marker}" }
+  },
+  "focus": {
+    "ring-color": { "$type": "color", "$value": "{focus.ring}" },
+    "ring-width": { "$type": "dimension", "$value": "2px" },
+    "ring-offset": { "$type": "dimension", "$value": "2px" }
+  },
+  "button": {
+    "height": { "$type": "dimension", "$value": "{layout.touch-target}" },
+    "height-lg": { "$type": "dimension", "$value": "56px" },
+    "height-sm": { "$type": "dimension", "$value": "40px" },
+    "radius": { "$type": "dimension", "$value": "{radius.pill}" },
+    "pad-x": { "$type": "dimension", "$value": "{space.6}" },
+    "gap": { "$type": "dimension", "$value": "{space.2}" },
+    "weight": { "$type": "fontWeight", "$value": "{font.weight.bold}" },
+    "primary-fill": { "$type": "gradient", "$value": "{gradient.action}" },
+    "primary-text": { "$type": "color", "$value": "{text.on-action}" },
+    "primary-shadow-hover": { "$type": "shadow", "$value": "{shadow.pill}" },
+    "secondary-text": { "$type": "color", "$value": "{text.primary}" },
+    "secondary-border": { "$type": "color", "$value": "{border.control}" },
+    "secondary-border-hover": { "$type": "color", "$value": "{accent.default}" },
+    "secondary-fill-hover": { "$type": "color", "$value": "{accent.soft}" },
+    "disabled-opacity": { "$type": "number", "$value": 0.55 }
+  },
+  "chip": {
+    "radius": { "$type": "dimension", "$value": "{radius.pill}" },
+    "pad-y": { "$type": "dimension", "$value": "{space.1}" },
+    "pad-x": { "$type": "dimension", "$value": "{space.3}" },
+    "text": { "$type": "color", "$value": "{text.secondary}" },
+    "fill": { "$type": "color", "$value": "{surface.control}" },
+    "border": { "$type": "color", "$value": "{border.default}" },
+    "accent-text": { "$type": "color", "$value": "{accent.default}" },
+    "accent-fill": { "$type": "color", "$value": "{accent.soft}" },
+    "highlight-text": { "$type": "color", "$value": "{highlight.text}" },
+    "highlight-fill": { "$type": "color", "$value": "{highlight.soft}" }
+  },
+  "tag": {
+    "radius": { "$type": "dimension", "$value": "{radius.chip}" },
+    "text": { "$type": "color", "$value": "{text.muted}" },
+    "border": { "$type": "color", "$value": "{border.default}" }
+  },
+  "card": {
+    "radius": { "$type": "dimension", "$value": "{radius.card}" },
+    "radius-lg": { "$type": "dimension", "$value": "{radius.surface}" },
+    "pad": { "$type": "dimension", "$value": "28px", "$extensions": { "fluid": { "min": "20px", "max": "28px" } } },
+    "fill": { "$type": "color", "$value": "{surface.card}" },
+    "fill-hover": { "$type": "color", "$value": "{surface.card-hover}" },
+    "border": { "$type": "color", "$value": "{border.default}" },
+    "border-hover": { "$type": "color", "$value": "{border.strong}" },
+    "shadow": { "$type": "shadow", "$value": "{elevation.card}" },
+    "shadow-hover": { "$type": "shadow", "$value": "{elevation.card-hover}" },
+    "title": { "$type": "color", "$value": "{text.primary}" },
+    "text": { "$type": "color", "$value": "{text.secondary}" },
+    "meta": { "$type": "color", "$value": "{text.muted}" }
+  },
+  "panel": {
+    "radius": { "$type": "dimension", "$value": "{radius.panel}" },
+    "border": { "$type": "color", "$value": "{border.subtle}" },
+    "grid-line": { "$type": "color", "$value": "{border.subtle}" },
+    "shadow": { "$type": "shadow", "$value": "{shadow.panel}" },
+    "label": { "$type": "color", "$value": "{text.muted}" }
+  },
+  "photo": {
+    "radius": { "$type": "dimension", "$value": "{radius.surface}" },
+    "fill": { "$type": "color", "$value": "{surface.sunken}", "$description": "Placeholder colour while an image loads." },
+    "caption": { "$type": "color", "$value": "{text.muted}" }
+  },
+  "nav": {
+    "fill": { "$type": "color", "$value": "{surface.floating}" },
+    "border": { "$type": "color", "$value": "{border.default}" },
+    "divider": { "$type": "color", "$value": "{border.subtle}" },
+    "shadow": { "$type": "shadow", "$value": "{elevation.floating}" },
+    "text": { "$type": "color", "$value": "{text.secondary}" },
+    "text-active": { "$type": "color", "$value": "{text.primary}" },
+    "radius": { "$type": "dimension", "$value": "{radius.pill}" }
+  },
+  "footer": {
+    "text": { "$type": "color", "$value": "{text.muted}" },
+    "heading": { "$type": "color", "$value": "{text.secondary}" },
+    "link-hover": { "$type": "color", "$value": "{text.link}" },
+    "divider": { "$type": "color", "$value": "{border.subtle}" },
+    "column-rule": { "$type": "color", "$value": "{border.subtle}", "$description": "Hairline to the left of each link column." },
+    "panel-fill": { "$type": "color", "$value": "{surface.card}", "$description": "Footer panel: one frost step above the stage, never a darker band." },
+    "panel-border": { "$type": "color", "$value": "{border.subtle}" }
+  },
+  "breadcrumb": {
+    "text": { "$type": "color", "$value": "{text.muted}" },
+    "current": { "$type": "color", "$value": "{text.secondary}" },
+    "hover": { "$type": "color", "$value": "{text.primary}" }
+  },
+  "toc": {
+    "label": { "$type": "color", "$value": "{text.muted}" },
+    "text": { "$type": "color", "$value": "{text.secondary}" },
+    "hover": { "$type": "color", "$value": "{text.link}" },
+    "active": { "$type": "color", "$value": "{highlight.text}" },
+    "divider": { "$type": "color", "$value": "{border.subtle}" }
+  },
+  "faq": {
+    "divider": { "$type": "color", "$value": "{border.subtle}" },
+    "question": { "$type": "color", "$value": "{text.primary}" },
+    "answer": { "$type": "color", "$value": "{text.secondary}" },
+    "icon": { "$type": "color", "$value": "{highlight.text}" },
+    "hover-fill": { "$type": "color", "$value": "{surface.control}" }
+  },
+  "input": {
+    "height": { "$type": "dimension", "$value": "{layout.touch-target}" },
+    "radius": { "$type": "dimension", "$value": "{radius.control}" },
+    "pad-x": { "$type": "dimension", "$value": "{space.4}" },
+    "fill": { "$type": "color", "$value": "{surface.control}" },
+    "fill-hover": { "$type": "color", "$value": "{surface.control-hover}" },
+    "border": { "$type": "color", "$value": "{border.control}" },
+    "border-focus": { "$type": "color", "$value": "{focus.ring}" },
+    "border-invalid": { "$type": "color", "$value": "{status.error}" },
+    "text": { "$type": "color", "$value": "{text.primary}" },
+    "placeholder": { "$type": "color", "$value": "{text.muted}" },
+    "label": { "$type": "color", "$value": "{text.secondary}" },
+    "help": { "$type": "color", "$value": "{text.muted}" }
+  },
+  "status": {
+    "success-text": { "$type": "color", "$value": "{status.success}" },
+    "success-fill": { "$type": "color", "$value": "{status.success-soft}" },
+    "warning-text": { "$type": "color", "$value": "{status.warning}" },
+    "warning-fill": { "$type": "color", "$value": "{status.warning-soft}" },
+    "error-text": { "$type": "color", "$value": "{status.error}" },
+    "error-fill": { "$type": "color", "$value": "{status.error-soft}" },
+    "info-text": { "$type": "color", "$value": "{accent.default}" },
+    "info-fill": { "$type": "color", "$value": "{accent.soft}" }
+  },
+  "callout": {
+    "radius": { "$type": "dimension", "$value": "{radius.card}" },
+    "fill": { "$type": "color", "$value": "{highlight.soft}" },
+    "rule": { "$type": "color", "$value": "{highlight.default}" },
+    "text": { "$type": "color", "$value": "{text.primary}" }
+  },
+  "modal": {
+    "radius": { "$type": "dimension", "$value": "{radius.surface}" },
+    "fill": { "$type": "color", "$value": "{surface.floating}" },
+    "border": { "$type": "color", "$value": "{border.default}" },
+    "shadow": { "$type": "shadow", "$value": "{shadow.panel}" },
+    "scrim": { "$type": "color", "$value": "{surface.scrim}" }
+  },
+  "toast": {
+    "radius": { "$type": "dimension", "$value": "{radius.card}" },
+    "fill": { "$type": "color", "$value": "{surface.floating}" },
+    "border": { "$type": "color", "$value": "{border.default}" },
+    "shadow": { "$type": "shadow", "$value": "{elevation.floating}" }
+  },
+  "table": {
+    "head-text": { "$type": "color", "$value": "{text.muted}" },
+    "head-fill": { "$type": "color", "$value": "{surface.control}" },
+    "row-divider": { "$type": "color", "$value": "{border.subtle}" },
+    "row-hover": { "$type": "color", "$value": "{surface.control}" },
+    "cell-text": { "$type": "color", "$value": "{text.secondary}" },
+    "cell-strong": { "$type": "color", "$value": "{text.primary}" },
+    "radius": { "$type": "dimension", "$value": "{radius.card}" }
+  },
+  "code": {
+    "fill": { "$type": "color", "$value": "{surface.inset}" },
+    "text": { "$type": "color", "$value": "{text.primary}" },
+    "inline-text": { "$type": "color", "$value": "{accent.default}" },
+    "border": { "$type": "color", "$value": "{border.subtle}" },
+    "radius": { "$type": "dimension", "$value": "{radius.control}" }
+  },
+  "kbd": {
+    "fill": { "$type": "color", "$value": "{surface.inset}" },
+    "text": { "$type": "color", "$value": "{text.primary}" },
+    "border": { "$type": "color", "$value": "{border.strong}" },
+    "radius": { "$type": "dimension", "$value": "{radius.chip}" }
+  },
+  "prose": {
+    "measure": { "$type": "dimension", "$value": "{layout.measure-prose}" },
+    "text": { "$type": "color", "$value": "{text.secondary}" },
+    "heading": { "$type": "color", "$value": "{text.primary}" },
+    "strong": { "$type": "color", "$value": "{text.primary}" },
+    "quote-rule": { "$type": "color", "$value": "{highlight.default}" },
+    "quote-text": { "$type": "color", "$value": "{text.primary}" },
+    "rule": { "$type": "color", "$value": "{border.subtle}" },
+    "line-height": { "$type": "number", "$value": "{font.line-height.relaxed}" }
+  },
+  "overlay": {
+    "$description": "The recording overlay (the fluid pill that floats over the desktop while dictating). Theme-invariant: one capsule reads on light and dark desktops alike. Shape, motion and behaviour stay in the app's OverlayDesignSpec; these are only its colours, shared 1:1 by the website renderer (src/scripts/overlay-tokens.generated.ts) and, once adopted, the app.",
+    "fill": { "$type": "color", "$value": "{color.navy.900}", "$description": "Flat, opaque capsule fill. Navy only, no gradient, no violet." },
+    "accent": { "$type": "color", "$value": "{color.cyan.300}", "$description": "Primary: live dot, progress timeline and the hairline border (at 20 %)." },
+    "wave": { "$type": "color", "$value": "{color.amber.400}", "$description": "Secondary: the waveform, flat and fully opaque, one colour for every bar." },
+    "success": { "$type": "color", "$value": "{color.green.400}", "$description": "Done checkmark." },
+    "error": { "$type": "color", "$value": "{color.red.400}", "$description": "Error icon." },
+    "glyph": { "$type": "color", "$value": "{color.frost.50}", "$description": "Timer and status text, close cross, stop square." },
+    "glyph-shadow": { "$type": "color", "$value": "{color.navy.950}", "$description": "Soft shadow behind the glyphs, keeps them legible on any desktop." }
+  },
+  "illustration": {
+    "$description": "Motion graphics and diagrams. Every SVG colour reads one of these, so a graphic adapts to the band it sits on.",
+    "stroke": { "$type": "color", "$value": "{text.secondary}" },
+    "stroke-soft": { "$type": "color", "$value": "{border.strong}" },
+    "fill": { "$type": "color", "$value": "{surface.card}" },
+    "node": { "$type": "color", "$value": "{surface.floating}", "$description": "Opaque node/label bodies (white on light, navy on dark)." },
+    "node-border": { "$type": "color", "$value": "{border.default}" },
+    "core": { "$type": "color", "$value": "{color.navy.800}", "$description": "The one dark hero object of a graphic (chip, device), same in both modes." },
+    "line": { "$type": "color", "$value": "{border.strong}", "$description": "Connectors and paths." },
+    "text": { "$type": "color", "$value": "{text.secondary}" },
+    "text-strong": { "$type": "color", "$value": "{text.primary}" },
+    "muted": { "$type": "color", "$value": "{text.muted}", "$description": "Inactive dots and bars." },
+    "accent": { "$type": "color", "$value": "{accent.default}" },
+    "accent-strong": { "$type": "color", "$value": "{accent.strong}" },
+    "accent-fill": { "$type": "color", "$value": "{accent.fill}", "$description": "Active dots, the recording bar, the core of the chip." },
+    "glow": { "$type": "color", "$value": "{accent.glow}" },
+    "highlight": { "$type": "color", "$value": "{highlight.default}" }
+  },
+  "progress": {
+    "track": { "$type": "color", "$value": "{border.subtle}" },
+    "fill": { "$type": "color", "$value": "{accent.default}" },
+    "height": { "$type": "dimension", "$value": "2px" }
+  }
+}

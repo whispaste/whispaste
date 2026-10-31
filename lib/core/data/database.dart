@@ -1,0 +1,3230 @@
+/// WhisPaste history database — drift database class.
+///
+/// Central database accessor for all history features.
+/// Uses drift code generation — run `dart run build_runner build`
+/// to generate the `.g.dart` file.
+library;
+
+import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:sentry_drift/sentry_drift.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+import '../../services/path_service.dart' as paths;
+
+import '../../services/snippets/interactive_snippet_composer.dart'
+    show legacyInteractiveSnippetTemplate;
+import '../l10n/persisted_locale.dart';
+import '../logging/app_logger.dart';
+import 'sqlite_write_coordinator.dart';
+import 'tables.dart';
+import '../utils/word_count.dart';
+
+part 'database.g.dart';
+
+final _log = AppLogger('HistoryDatabase');
+
+/// A [TextReplacement] joined with every trigger phrase that fires it.
+/// [triggers] is the single source of truth for matching — always non-empty
+/// for rows written through [HistoryDatabase.upsertReplacementWithTriggers];
+/// `row.trigger` is only a legacy mirror, see [TextReplacements].
+class ReplacementWithTriggers {
+  const ReplacementWithTriggers({required this.row, required this.triggers});
+
+  final TextReplacement row;
+  final List<String> triggers;
+}
+
+/// A [Snippet] joined with its field names (`SnippetFields`, schema v21),
+/// ordered by `sortOrder`. [fields] is empty for a `static` snippet.
+class SnippetWithFields {
+  const SnippetWithFields({required this.row, required this.fields});
+
+  final Snippet row;
+  final List<String> fields;
+}
+
+@DriftDatabase(
+  tables: [
+    HistoryEntries,
+    DailyStats,
+    EntryNotes,
+    EntryAttachments,
+    TextReplacements,
+    TextReplacementTriggers,
+    Tags,
+    EntryTags,
+    HotkeyLatencyEntries,
+    Snippets,
+    SnippetFields,
+    Notes,
+    NoteTags,
+    CorrectionObservations,
+  ],
+)
+class HistoryDatabase extends _$HistoryDatabase {
+  HistoryDatabase() : super(_openConnection());
+
+  /// For testing — accepts an in-memory or custom executor.
+  HistoryDatabase.forTesting(super.e);
+
+  /// Serialises every mutation method through a single-writer lock with
+  /// `SQLITE_BUSY` retry/backoff. See `sqlite_write_coordinator.dart` and
+  /// the reliability-sprint PRD Modul 5 — the goal is to make the
+  /// WP-7B…7M "database is locked" cluster invisible to users.
+  ///
+  /// CRITICAL: every mutation method in this class must funnel through
+  /// [_writeCoordinator] BEFORE opening any Drift `transaction(...)`. The
+  /// reverse order (transaction-then-lock or both-then-lock) risks the
+  /// lock-in-lock deadlock called out in the PRD §Risiken.
+  final SqliteWriteCoordinator _writeCoordinator = SqliteWriteCoordinator();
+
+  /// Guards against the double-close that causes a native crash in
+  /// `sqlite3_update_hook`.
+  ///
+  /// Shutdown sequence: [onWindowClose] / [_quit] calls [close()] explicitly,
+  /// then calls `windowManager.destroy()`. The engine teardown that follows
+  /// unmounts the [ProviderScope], which triggers [ProviderContainer.dispose],
+  /// which runs the `ref.onDispose(db.close)` registered in
+  /// [historyDatabaseProvider] — a second [close()] call on an already-freed
+  /// SQLite handle. SQLite's internal cleanup path (`sqlite3_close_v2`
+  /// → deregister hooks) then accesses freed memory, manifesting as a crash
+  /// inside `sqlite3_update_hook`. The guard turns the second call into a
+  /// cheap no-op.
+  bool _isClosed = false;
+
+  /// Idempotent close: the first call delegates to drift's [GeneratedDatabase];
+  /// subsequent calls are no-ops that prevent use-after-free in the native
+  /// SQLite update-hook deregistration path.
+  @override
+  Future<void> close() {
+    if (_isClosed) return Future.value();
+    _isClosed = true;
+    return super.close();
+  }
+
+  @override
+  int get schemaVersion => 25;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (m) async {
+      await m.createAll();
+      // Create FTS5 virtual table and sync triggers via raw SQL
+      await _createFts(m);
+      await _createAppSettingsTable();
+    },
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await _createAppSettingsTable();
+      }
+      if (from < 3) {
+        await m.createTable(textReplacements);
+      }
+      if (from < 4) {
+        await m.createTable(tags);
+        await m.createTable(entryTags);
+        await _recreateFtsWithTags();
+        await _migrateJsonTags();
+      }
+      if (from < 5) {
+        await _addDailyStatsDurationColumns();
+      }
+      if (from < 10) {
+        await _runV10Migration();
+      }
+      if (from < 11) {
+        await m.createTable(hotkeyLatencyEntries);
+      }
+      if (from < 12) {
+        await _backfillNullableHistoryColumns();
+      }
+      if (from < 13) {
+        await m.createTable(textReplacementTriggers);
+        await _backfillReplacementTriggers();
+      }
+      if (from < 15) {
+        await m.createTable(snippets);
+      }
+      if (from < 16) {
+        // The trigger-phrase-driven "automation" feature (dictation-
+        // automations tickets 02-04, schema version 14) was retired: full
+        // parity between the sandboxed Mac App Store build and the
+        // Direct-Download build turned out unreachable within Apple's
+        // sandbox rules. `IF EXISTS` covers DBs that never passed through
+        // version 14 at all.
+        await customStatement('DROP TABLE IF EXISTS automations');
+      }
+      if (from < 17) {
+        await m.createTable(notes);
+        await m.createTable(noteTags);
+      }
+      if (from < 18) {
+        await _addHistoryColorSlotColumn();
+      }
+      if (from < 19) {
+        await _addQuickNoteColumn();
+      }
+      if (from < 20) {
+        await _addFuzzyReplacementColumns();
+      }
+      if (from < 21) {
+        await m.createTable(snippetFields);
+        await _addSnippetKindColumn();
+      }
+      if (from < 22) {
+        await _addSmartModeEditedContentColumn();
+      }
+      if (from < 23) {
+        await _backfillInteractiveSnippetTemplates();
+      }
+      if (from < 24) {
+        await _addOriginalTranscriptAndTargetAppColumns();
+      }
+      if (from < 25) {
+        await m.createTable(correctionObservations);
+      }
+    },
+    beforeOpen: (details) async {
+      // Reconcile Go-era schema if DB was created by the old Go backend
+      // (column "text" instead of "content", TEXT timestamps instead of
+      // INTEGER). Must run BEFORE any Drift queries touch the table.
+      await _reconcileGoSchema();
+      // Ensure indexes on entry_tags for fast tag joins.
+      await _ensureEntryTagIndexes();
+      // Ensure indexes on notes/note_tags for fast sort/tag joins.
+      await _ensureNotesIndexes();
+      // Ensure index on history_entries for fast active/trash/archive sort.
+      await _ensureHistoryEntriesIndexes();
+      // Ensure index on entry_notes for fast per-entry "Anmerkung" lookups.
+      await _ensureEntryNotesIndexes();
+      // One-time backfill: populate DailyStats from existing history
+      // entries so that stats are correct for users upgrading from
+      // a version that never wrote to DailyStats.
+      await backfillDailyStats();
+      // One-time Groq removal migration (v1.2.13):
+      //   1. Drop the groq_api_key column from app_settings (SQLite ≥ 3.35).
+      //   2. Rewrite stt_provider = 'Groq' → 'On Device'.
+      await _dropGroqApiKeyColumn();
+      await _migrateGroqSttProvider();
+    },
+  );
+
+  /// Creates the FTS5 virtual table and triggers for full-text search.
+  Future<void> _createFts(Migrator m) async {
+    await customStatement('''
+      CREATE VIRTUAL TABLE IF NOT EXISTS history_fts USING fts5(
+        title, content, tags,
+        content='',
+        tokenize='unicode61'
+      )
+    ''');
+
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS history_fts_ai AFTER INSERT ON history_entries
+      BEGIN
+        INSERT INTO history_fts(rowid, title, content, tags)
+        VALUES (new.rowid, new.title, new.content, new.tags);
+      END
+    ''');
+
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS history_fts_ad AFTER DELETE ON history_entries
+      BEGIN
+        INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+        VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+      END
+    ''');
+
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS history_fts_au AFTER UPDATE ON history_entries
+      BEGIN
+        INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+        VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+        INSERT INTO history_fts(rowid, title, content, tags)
+        VALUES (new.rowid, new.title, new.content, new.tags);
+      END
+    ''');
+  }
+
+  /// Creates the key-value settings table used by the Flutter settings layer.
+  Future<void> _createAppSettingsTable() async {
+    await customStatement('''
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+  }
+
+  /// Recreates FTS5 table and triggers with the tags column (v4 migration).
+  Future<void> _recreateFtsWithTags() async {
+    await customStatement('DROP TRIGGER IF EXISTS history_fts_ai');
+    await customStatement('DROP TRIGGER IF EXISTS history_fts_ad');
+    await customStatement('DROP TRIGGER IF EXISTS history_fts_au');
+    await customStatement('DROP TABLE IF EXISTS history_fts');
+
+    await customStatement('''
+      CREATE VIRTUAL TABLE IF NOT EXISTS history_fts USING fts5(
+        title, content, tags,
+        content='',
+        tokenize='unicode61'
+      )
+    ''');
+
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS history_fts_ai AFTER INSERT ON history_entries
+      BEGIN
+        INSERT INTO history_fts(rowid, title, content, tags)
+        VALUES (new.rowid, new.title, new.content, new.tags);
+      END
+    ''');
+
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS history_fts_ad AFTER DELETE ON history_entries
+      BEGIN
+        INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+        VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+      END
+    ''');
+
+    await customStatement('''
+      CREATE TRIGGER IF NOT EXISTS history_fts_au AFTER UPDATE ON history_entries
+      BEGIN
+        INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+        VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+        INSERT INTO history_fts(rowid, title, content, tags)
+        VALUES (new.rowid, new.title, new.content, new.tags);
+      END
+    ''');
+
+    // Rebuild FTS index from existing data
+    await customStatement('''
+      INSERT INTO history_fts(rowid, title, content, tags)
+      SELECT rowid, title, content, tags FROM history_entries
+    ''');
+  }
+
+  /// Migrates JSON tag arrays on history_entries into normalized Tags/EntryTags.
+  Future<void> _migrateJsonTags() async {
+    final rows = await customSelect(
+      "SELECT id, tags FROM history_entries WHERE tags != '[]' AND tags != ''",
+    ).get();
+
+    for (final row in rows) {
+      final entryId = row.read<String>('id');
+      final tagsJson = row.read<String>('tags');
+
+      List<String> tagNames;
+      try {
+        final decoded = jsonDecode(tagsJson);
+        if (decoded is List) {
+          tagNames = decoded.cast<String>();
+        } else {
+          continue;
+        }
+      } catch (_) {
+        continue;
+      }
+
+      for (final name in tagNames) {
+        final normalized = name.toLowerCase().trim();
+        if (normalized.isEmpty) continue;
+
+        final tag = await createTag(normalized);
+        await tagEntry(entryId, tag.id);
+      }
+    }
+  }
+
+  /// Reconciles Go-era (v1.1.3) schema to match Flutter/Drift expectations.
+  ///
+  /// Each check is independent so partial migrations (e.g. column already
+  /// renamed but timestamps not converted) are handled correctly.
+  Future<void> _reconcileGoSchema() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('history_entries')",
+    ).get();
+    final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+    var changed = false;
+
+    // 1. Rename Go's "text" column to Drift's "content".
+    if (colNames.contains('text') && !colNames.contains('content')) {
+      _log.info('Renaming column "text" → "content"');
+      await customStatement(
+        'ALTER TABLE history_entries RENAME COLUMN "text" TO "content"',
+      );
+      changed = true;
+    }
+
+    // 2. Add "deleted_at" column if missing (Go v1.1.3 doesn't have it).
+    if (!colNames.contains('deleted_at')) {
+      _log.info('Adding column "deleted_at"');
+      await customStatement(
+        'ALTER TABLE history_entries ADD COLUMN deleted_at INTEGER',
+      );
+      changed = true;
+    }
+
+    // 3. Add "title_edited" column if missing (Go v1.1.3 doesn't have it).
+    if (!colNames.contains('title_edited')) {
+      _log.info('Adding column "title_edited"');
+      await customStatement(
+        'ALTER TABLE history_entries ADD COLUMN title_edited '
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      changed = true;
+    }
+
+    // 4. Convert ISO 8601 TEXT timestamps → Unix epoch integers.
+    // COALESCE guards against NULL from unparseable dates (strftime returns
+    // NULL for invalid input, which would violate the NOT NULL constraint).
+    await customStatement('''
+      UPDATE history_entries
+      SET timestamp = COALESCE(CAST(strftime('%s', timestamp) AS INTEGER), 0)
+      WHERE typeof(timestamp) = 'text'
+    ''');
+    final tsChanges = await customSelect('SELECT changes() AS n').getSingle();
+    if ((tsChanges.data['n'] as int? ?? 0) > 0) changed = true;
+
+    // 5. Migrate JSON tags into normalized Tags/EntryTags if needed.
+    await _migrateJsonTagsIfNeeded();
+
+    // 6. Ensure daily_stats has duration bucket columns (Go-era DBs lack them).
+    await _addDailyStatsDurationColumns();
+
+    // 7. Ensure history_entries has the color_slot column (Go-era DBs lack
+    // it too — like #6, a fresh Go-era DB's very first open lands on
+    // `onCreate` (user_version 0), which skips the `onUpgrade` staircase
+    // entirely, so `_addHistoryColorSlotColumn`'s `if (from < 18)` call
+    // there never runs for it).
+    await _addHistoryColorSlotColumn();
+
+    if (changed) {
+      await _recreateFtsWithTags();
+      _goMigrationEntryCount = await _countHistoryEntries();
+      _log.info(
+        'Go-era schema reconciliation complete '
+        '($_goMigrationEntryCount dictations migrated)',
+      );
+    }
+  }
+
+  /// Adds duration bucket columns to daily_stats if missing (v5 migration).
+  ///
+  /// Safe to call multiple times (idempotent). Checks PRAGMA table_info
+  /// before each ALTER TABLE to avoid "duplicate column" errors.
+  Future<void> _addDailyStatsDurationColumns() async {
+    try {
+      final cols = await customSelect("PRAGMA table_info('daily_stats')").get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      final columnsToAdd = [
+        ('dur_under15s', 'INTEGER NOT NULL DEFAULT 0'),
+        ('dur15_to30s', 'INTEGER NOT NULL DEFAULT 0'),
+        ('dur30_to60s', 'INTEGER NOT NULL DEFAULT 0'),
+        ('dur1_to3m', 'INTEGER NOT NULL DEFAULT 0'),
+        ('dur_over3m', 'INTEGER NOT NULL DEFAULT 0'),
+      ];
+
+      for (final (colName, colDef) in columnsToAdd) {
+        if (!colNames.contains(colName)) {
+          _log.info('Adding column "$colName" to daily_stats');
+          await customStatement(
+            'ALTER TABLE daily_stats ADD COLUMN $colName $colDef',
+          );
+        }
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      _log.warning('Could not add daily_stats columns: $e', e);
+    }
+  }
+
+  /// Adds the decorative `color_slot` column to history_entries if missing
+  /// (v18 migration), then backfills existing rows with a random slot drawn
+  /// from the 8 category hues (0–7; `neutral`'s index 8 is never a backfill
+  /// target). One `UPDATE` covers every row, so unlike the forward-going
+  /// creation path in [insertHistoryEntry], this backfill carries no
+  /// never-twice-in-a-row guarantee against a row's neighbours — the ticket
+  /// does not require one for historical data.
+  Future<void> _addHistoryColorSlotColumn() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('history_entries')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('color_slot')) {
+        _log.info('Adding column "color_slot" to history_entries');
+        await customStatement(
+          'ALTER TABLE history_entries ADD COLUMN color_slot '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+        await customStatement(
+          'UPDATE history_entries SET color_slot = ABS(RANDOM()) % 8',
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      _log.warning('Could not add history_entries color_slot column: $e', e);
+    }
+  }
+
+  /// Exposed for testing — runs the v18 color-slot migration directly
+  /// against the already-open database.
+  @visibleForTesting
+  Future<void> addHistoryColorSlotColumnForTesting() =>
+      _addHistoryColorSlotColumn();
+
+  /// Adds the `is_quick_note` column to notes if missing (v19 migration).
+  /// No backfill needed — the column defaults to false, and at most one row
+  /// is ever expected to carry `true` (see the partial unique index in
+  /// [_ensureNotesIndexes]).
+  Future<void> _addQuickNoteColumn() async {
+    try {
+      final cols = await customSelect("PRAGMA table_info('notes')").get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('is_quick_note')) {
+        _log.info('Adding column "is_quick_note" to notes');
+        await customStatement(
+          'ALTER TABLE notes ADD COLUMN is_quick_note '
+          'INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      _log.warning('Could not add notes is_quick_note column: $e', e);
+    }
+  }
+
+  /// Adds `match_mode`/`fuzzy_threshold`/`origin` to `text_replacements` if
+  /// missing (v20 migration, vocabulary-fuzzy-replacements PRD). Additive:
+  /// every pre-existing row keeps matching exactly as before, since
+  /// `match_mode` defaults to `'exact'` and `origin` to `'manual'`.
+  @visibleForTesting
+  Future<void> addFuzzyReplacementColumnsForTesting() =>
+      _addFuzzyReplacementColumns();
+
+  /// Adds `kind` to `snippets` if missing (v21 migration,
+  /// interactive-snippets PRD). Additive: every pre-existing row keeps
+  /// behaving exactly as before, since `kind` defaults to `'static'`.
+  @visibleForTesting
+  Future<void> addSnippetKindColumnForTesting() => _addSnippetKindColumn();
+
+  Future<void> _addSnippetKindColumn() async {
+    try {
+      final cols = await customSelect("PRAGMA table_info('snippets')").get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('kind')) {
+        _log.info('Adding column "kind" to snippets');
+        await customStatement(
+          "ALTER TABLE snippets ADD COLUMN kind TEXT NOT NULL DEFAULT 'static'",
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      _log.warning('Could not add snippets kind column: $e', e);
+    }
+  }
+
+  /// Adds `smart_mode_edited_content` to `history_entries` if missing (v22
+  /// migration, Smart-Mode-v2 ticket 05). Additive and nullable: every
+  /// pre-existing row simply has no edited version yet (`null`) until a
+  /// Smart Mode preset is applied to it, live or retroactively.
+  @visibleForTesting
+  Future<void> addSmartModeEditedContentColumnForTesting() =>
+      _addSmartModeEditedContentColumn();
+
+  Future<void> _addSmartModeEditedContentColumn() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('history_entries')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('smart_mode_edited_content')) {
+        _log.info(
+          'Adding column "smart_mode_edited_content" to history_entries',
+        );
+        await customStatement(
+          'ALTER TABLE history_entries ADD COLUMN '
+          'smart_mode_edited_content TEXT',
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      _log.warning(
+        'Could not add history_entries smart_mode_edited_content column: $e',
+        e,
+      );
+    }
+  }
+
+  /// Adds `original_transcript` and `target_app` to `history_entries` if
+  /// missing (v24 migration, ticket 12). Both additive and nullable: every
+  /// pre-existing row simply has neither (`null`) — never backfilled, since
+  /// the pre-transform text/paste target of a past dictation is not
+  /// recoverable after the fact.
+  @visibleForTesting
+  Future<void> addOriginalTranscriptAndTargetAppColumnsForTesting() =>
+      _addOriginalTranscriptAndTargetAppColumns();
+
+  Future<void> _addOriginalTranscriptAndTargetAppColumns() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('history_entries')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('original_transcript')) {
+        _log.info('Adding column "original_transcript" to history_entries');
+        await customStatement(
+          'ALTER TABLE history_entries ADD COLUMN original_transcript TEXT',
+        );
+      }
+      if (!colNames.contains('target_app')) {
+        _log.info('Adding column "target_app" to history_entries');
+        await customStatement(
+          'ALTER TABLE history_entries ADD COLUMN target_app TEXT',
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      _log.warning(
+        'Could not add history_entries original_transcript/target_app '
+        'columns: $e',
+        e,
+      );
+    }
+  }
+
+  /// One-time backfill for `interactive` snippets created before templates
+  /// existed (schema v23): their `body` was written as `''` and the composed
+  /// output came from a fixed heading-per-field layout instead. Rewrites
+  /// `body` to [legacyInteractiveSnippetTemplate] of their current fields so
+  /// composed output stays byte-for-byte identical after the upgrade.
+  @visibleForTesting
+  Future<void> backfillInteractiveSnippetTemplatesForTesting() =>
+      _backfillInteractiveSnippetTemplates();
+
+  Future<void> _backfillInteractiveSnippetTemplates() async {
+    try {
+      final rows = await (select(
+        snippets,
+      )..where((s) => s.kind.equals('interactive'))).get();
+      for (final row in rows) {
+        final fields = await readSnippetFields(row.id);
+        final template = legacyInteractiveSnippetTemplate([
+          for (final f in fields) f.name,
+        ]);
+        await (update(snippets)..where((s) => s.id.equals(row.id))).write(
+          SnippetsCompanion(body: Value(template)),
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      _log.warning('Could not backfill interactive snippet templates: $e', e);
+    }
+  }
+
+  Future<void> _addFuzzyReplacementColumns() async {
+    try {
+      final cols = await customSelect(
+        "PRAGMA table_info('text_replacements')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+
+      if (!colNames.contains('match_mode')) {
+        _log.info('Adding column "match_mode" to text_replacements');
+        await customStatement(
+          'ALTER TABLE text_replacements ADD COLUMN match_mode '
+          "TEXT NOT NULL DEFAULT 'exact'",
+        );
+      }
+      if (!colNames.contains('fuzzy_threshold')) {
+        _log.info('Adding column "fuzzy_threshold" to text_replacements');
+        await customStatement(
+          'ALTER TABLE text_replacements ADD COLUMN fuzzy_threshold REAL',
+        );
+      }
+      if (!colNames.contains('origin')) {
+        _log.info('Adding column "origin" to text_replacements');
+        await customStatement(
+          'ALTER TABLE text_replacements ADD COLUMN origin '
+          "TEXT NOT NULL DEFAULT 'manual'",
+        );
+      }
+    } catch (e) {
+      // Table may not exist yet during initial creation — skip.
+      _log.warning('Could not add text_replacements fuzzy columns: $e', e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // v10 migration — destructive Projects removal
+  // ---------------------------------------------------------------------------
+
+  /// Drops the dead `projects` table and the `history_entries.project_id`
+  /// column. Wrapped in a single transaction so partial failure can't leave
+  /// the schema half-migrated. Idempotent on re-runs.
+  ///
+  /// Pattern mirrors the v1.2.13 Groq removal: one-time destructive cleanup
+  /// of schema that was never wired to user-facing UI, so no real data is
+  /// lost.
+  ///
+  /// For the column drop we hand-roll the SQLite rebuild (CREATE NEW + COPY
+  /// + DROP OLD + RENAME) rather than using Drift's experimental
+  /// `TableMigration` API. SQLite ≥ 3.35 supports native `DROP COLUMN`, but
+  /// the rebuild pattern works on every SQLite version Flutter ships with
+  /// and stays inside Drift's stable API surface.
+  Future<void> _runV10Migration() async {
+    await transaction(() async {
+      // 1. Drop the dead projects table (idempotent — IF EXISTS).
+      await customStatement('DROP TABLE IF EXISTS projects');
+
+      // 2. Drop the dead project_id column from history_entries via SQLite
+      //    rebuild. Only run when the column is actually present, so a
+      //    second run on an already-migrated DB is a cheap no-op.
+      final cols = await customSelect(
+        "PRAGMA table_info('history_entries')",
+      ).get();
+      final hasProjectId = cols
+          .map((r) => r.data['name'] as String)
+          .contains('project_id');
+      if (!hasProjectId) return;
+
+      // SQLite rebuild pattern. FTS triggers reference history_entries, so
+      // we drop them first and recreate them afterwards.
+      await customStatement('DROP TRIGGER IF EXISTS history_fts_ai');
+      await customStatement('DROP TRIGGER IF EXISTS history_fts_ad');
+      await customStatement('DROP TRIGGER IF EXISTS history_fts_au');
+
+      await customStatement('''
+        CREATE TABLE history_entries_new (
+          id TEXT NOT NULL PRIMARY KEY,
+          content TEXT NOT NULL DEFAULT '',
+          title TEXT NOT NULL DEFAULT '',
+          timestamp INTEGER NOT NULL,
+          duration_sec REAL NOT NULL DEFAULT 0.0,
+          processing_duration_sec REAL NOT NULL DEFAULT 0.0,
+          language TEXT NOT NULL DEFAULT '',
+          language_hint TEXT NOT NULL DEFAULT '',
+          tags TEXT NOT NULL DEFAULT '[]',
+          pinned INTEGER NOT NULL DEFAULT 0,
+          source TEXT NOT NULL DEFAULT 'dictation',
+          model TEXT NOT NULL DEFAULT '',
+          is_local INTEGER NOT NULL DEFAULT 0,
+          cost_usd REAL NOT NULL DEFAULT 0.0,
+          archived INTEGER NOT NULL DEFAULT 0,
+          title_edited INTEGER NOT NULL DEFAULT 0,
+          deleted_at INTEGER
+        )
+      ''');
+
+      await customStatement('''
+        INSERT INTO history_entries_new (
+          id, content, title, timestamp, duration_sec, processing_duration_sec,
+          language, language_hint, tags, pinned, source, model, is_local,
+          cost_usd, archived, title_edited, deleted_at
+        )
+        SELECT
+          id, content, title, timestamp, duration_sec, processing_duration_sec,
+          language, language_hint, tags, pinned, source, model, is_local,
+          cost_usd, archived, title_edited, deleted_at
+        FROM history_entries
+      ''');
+
+      await customStatement('DROP TABLE history_entries');
+      await customStatement(
+        'ALTER TABLE history_entries_new RENAME TO history_entries',
+      );
+
+      // Recreate FTS triggers — but only if the FTS virtual table exists.
+      // Production DBs always have it (created in onCreate / _recreateFts),
+      // while bare-bones test fixtures may skip it. Without this guard the
+      // triggers fire later against a missing table and crash unrelated
+      // writes.
+      final ftsExists = await customSelect(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='history_fts'",
+      ).get();
+      if (ftsExists.isNotEmpty) {
+        await customStatement('''
+          CREATE TRIGGER IF NOT EXISTS history_fts_ai AFTER INSERT ON history_entries
+          BEGIN
+            INSERT INTO history_fts(rowid, title, content, tags)
+            VALUES (new.rowid, new.title, new.content, new.tags);
+          END
+        ''');
+        await customStatement('''
+          CREATE TRIGGER IF NOT EXISTS history_fts_ad AFTER DELETE ON history_entries
+          BEGIN
+            INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+            VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+          END
+        ''');
+        await customStatement('''
+          CREATE TRIGGER IF NOT EXISTS history_fts_au AFTER UPDATE ON history_entries
+          BEGIN
+            INSERT INTO history_fts(history_fts, rowid, title, content, tags)
+            VALUES ('delete', old.rowid, old.title, old.content, old.tags);
+            INSERT INTO history_fts(rowid, title, content, tags)
+            VALUES (new.rowid, new.title, new.content, new.tags);
+          END
+        ''');
+      }
+    });
+    _log.info(
+      'Drift migration v9 → v10: dropped Projects table, '
+      'dropped HistoryEntries.project_id',
+    );
+  }
+
+  /// Exposed for testing — runs the v10 migration steps directly against
+  /// the already-open database. Safe to call multiple times.
+  @visibleForTesting
+  Future<void> runV10MigrationForTesting() => _runV10Migration();
+
+  // ---------------------------------------------------------------------------
+  // Groq removal migration — v1.2.13
+  // ---------------------------------------------------------------------------
+
+  /// Whether the Groq STT provider was detected and migrated on this startup.
+  ///
+  /// Set by [_migrateGroqSttProvider]; consumed by [consumeGroqMigrationFlag].
+  bool _groqMigrationOccurred = false;
+
+  /// Returns `true` if the Groq migration ran this session, and resets the
+  /// flag. Used by [SettingsNotifier] to show a one-time localised toast.
+  bool consumeGroqMigrationFlag() {
+    final flag = _groqMigrationOccurred;
+    _groqMigrationOccurred = false;
+    return flag;
+  }
+
+  /// Exposed for testing — runs the Groq removal migration steps directly
+  /// against the already-open database.
+  @visibleForTesting
+  Future<void> runGroqMigrationForTesting() async {
+    await _dropGroqApiKeyColumn();
+    await _migrateGroqSttProvider();
+  }
+
+  /// Drops the `groq_api_key` column from `app_settings` — one-time cleanup.
+  ///
+  /// ONE-TIME EXCEPTION to the additive-only Drift migration convention:
+  /// `groq_api_key` is dead code after v1.2.13 and must be removed to
+  /// prevent stale plaintext credentials lingering in the DB. The column
+  /// never contained real keys (API keys moved to secure storage in an
+  /// earlier migration) so dropping it is safe. We use SQLite ≥ 3.35 native
+  /// ALTER TABLE … DROP COLUMN. On older SQLite the statement fails silently
+  /// (column stays, value is always ''); a Sentry breadcrumb records the skip.
+  Future<void> _dropGroqApiKeyColumn() async {
+    try {
+      // Check whether the column still exists before attempting to drop it.
+      final cols = await customSelect(
+        "PRAGMA table_info('app_settings')",
+      ).get();
+      final colNames = cols.map((r) => r.data['name'] as String).toSet();
+      if (!colNames.contains('groq_api_key')) return; // already gone
+
+      await customStatement(
+        'ALTER TABLE app_settings DROP COLUMN groq_api_key',
+      );
+      _log.info('Dropped app_settings.groq_api_key column');
+    } catch (e) {
+      // SQLite < 3.35 does not support DROP COLUMN — log and continue.
+      // The column stays with an empty value; no user data is at risk.
+      _log.warning('Could not drop groq_api_key column: $e', e);
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: 'groq_api_key column drop skipped (SQLite < 3.35)',
+          level: SentryLevel.warning,
+          data: {'error': e.toString()},
+        ),
+      );
+    }
+  }
+
+  /// Rewrites `stt_provider = 'Groq'` to `'On Device'` in `app_settings`.
+  ///
+  /// If a row is updated, sets [_groqMigrationOccurred] so that
+  /// [SettingsNotifier] can show the localised toast on startup.
+  Future<void> _migrateGroqSttProvider() async {
+    try {
+      // Check current value.
+      final rows = await customSelect(
+        "SELECT value FROM app_settings WHERE key = 'stt_provider'",
+      ).get();
+      if (rows.isEmpty) return;
+      final current = rows.first.data['value'] as String?;
+      if (current != 'Groq') return;
+
+      await customStatement(
+        "UPDATE app_settings SET value = 'On Device' WHERE key = 'stt_provider'",
+      );
+      _groqMigrationOccurred = true;
+      _log.info('Rewrote stt_provider Groq → On Device');
+
+      // Add a Sentry breadcrumb at level:info for reach analysis (no PII).
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: 'groq-removal-migration: stt_provider reset to On Device',
+          level: SentryLevel.info,
+          data: {'fingerprint': 'groq-removal-migration'},
+        ),
+      );
+    } catch (e) {
+      _log.warning('_migrateGroqSttProvider failed: $e', e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Legacy-NULL backfill migration — v12
+  // ---------------------------------------------------------------------------
+
+  /// Backfills legacy NULL values in [HistoryEntries] columns that Drift
+  /// declares non-nullable but that pre-Drift (Go-era) or early-migration
+  /// rows may still contain as NULL — causing a null-check crash in the
+  /// generated `$HistoryEntriesTable.map` reader, which reads every
+  /// non-nullable column with `!` (see FLUTTER_WHISPASTE-B1). Unlike
+  /// `title_edited` (added with an explicit `NOT NULL DEFAULT 0` in
+  /// [_reconcileGoSchema]), these columns never had their NULL-ness closed
+  /// off for rows that predate that column's introduction.
+  ///
+  /// Defaults mirror the `.withDefault(Constant(...))` values declared in
+  /// `tables.dart` exactly, so a backfilled row is indistinguishable from one
+  /// that always had its default. Idempotent — the `WHERE` clause only
+  /// touches rows that still have a NULL.
+  Future<void> _backfillNullableHistoryColumns() async {
+    try {
+      await customStatement('''
+        UPDATE history_entries SET
+          content = COALESCE(content, ''),
+          title = COALESCE(title, ''),
+          duration_sec = COALESCE(duration_sec, 0.0),
+          processing_duration_sec = COALESCE(processing_duration_sec, 0.0),
+          language = COALESCE(language, ''),
+          language_hint = COALESCE(language_hint, ''),
+          tags = COALESCE(tags, '[]'),
+          pinned = COALESCE(pinned, 0),
+          source = COALESCE(source, 'dictation'),
+          model = COALESCE(model, ''),
+          is_local = COALESCE(is_local, 0),
+          cost_usd = COALESCE(cost_usd, 0.0),
+          archived = COALESCE(archived, 0)
+        WHERE content IS NULL OR title IS NULL OR duration_sec IS NULL
+           OR processing_duration_sec IS NULL OR language IS NULL
+           OR language_hint IS NULL OR tags IS NULL OR pinned IS NULL
+           OR source IS NULL OR model IS NULL OR is_local IS NULL
+           OR cost_usd IS NULL OR archived IS NULL
+      ''');
+    } catch (e) {
+      _log.warning('_backfillNullableHistoryColumns failed: $e', e);
+    }
+  }
+
+  /// Exposed for testing — runs the v12 backfill directly against the
+  /// already-open database.
+  @visibleForTesting
+  Future<void> backfillNullableHistoryColumnsForTesting() =>
+      _backfillNullableHistoryColumns();
+
+  /// v13 migration: seeds [TextReplacementTriggers] from every pre-existing
+  /// [TextReplacements] row's single `trigger` column, so replacements
+  /// created before multi-trigger support keep matching unchanged — no data
+  /// loss, no manual re-entry required. Idempotent: `id` is derived from the
+  /// replacement id, so re-running on an already-backfilled row is a no-op
+  /// insert conflict rather than a duplicate.
+  Future<void> _backfillReplacementTriggers() async {
+    await customStatement('''
+      INSERT OR IGNORE INTO text_replacement_triggers (id, replacement_id, trigger)
+      SELECT id || '_t0', id, trigger FROM text_replacements
+    ''');
+  }
+
+  /// Exposed for testing — runs the v13 backfill directly against the
+  /// already-open database.
+  @visibleForTesting
+  Future<void> backfillReplacementTriggersForTesting() =>
+      _backfillReplacementTriggers();
+
+  // ---------------------------------------------------------------------------
+
+  /// Number of entries migrated from Go — set during reconciliation,
+  /// read by the UI to show a one-time migration toast.
+  int? _goMigrationEntryCount;
+
+  /// Returns the number of entries migrated from Go, or null if no
+  /// Go migration occurred. Resets after reading.
+  int? consumeGoMigrationCount() {
+    final count = _goMigrationEntryCount;
+    _goMigrationEntryCount = null;
+    return count;
+  }
+
+  Future<int> _countHistoryEntries() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Runs JSON tag migration only if entry_tags is empty but history
+  /// has tagged entries. Safe to call multiple times (idempotent guard).
+  Future<void> _migrateJsonTagsIfNeeded() async {
+    try {
+      final tagCount = await customSelect(
+        'SELECT COUNT(*) AS cnt FROM entry_tags',
+      ).getSingle();
+      if ((tagCount.data['cnt'] as int? ?? 0) > 0) return;
+
+      final taggedEntries = await customSelect(
+        'SELECT COUNT(*) AS cnt FROM history_entries '
+        "WHERE tags != '[]' AND tags != ''",
+      ).getSingle();
+      if ((taggedEntries.data['cnt'] as int? ?? 0) == 0) return;
+
+      _log.info('Migrating JSON tags → Tags/EntryTags tables');
+      await _migrateJsonTags();
+    } catch (e, st) {
+      // Tables may not exist yet during initial creation — skip.
+      _log.debug(
+        '_migrateJsonTagsIfNeeded skipped (tables not yet ready)',
+        e,
+        st,
+      );
+    }
+  }
+
+  /// Creates indexes on entry_tags for faster tag joins (idempotent).
+  Future<void> _ensureEntryTagIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_entry_tags_entry_id '
+        'ON entry_tags(entry_id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_entry_tags_tag_id '
+        'ON entry_tags(tag_id)',
+      );
+    } catch (e, st) {
+      // Table may not exist yet during initial creation — skip.
+      _log.debug(
+        '_ensureEntryTagIndexes skipped (tables not yet ready)',
+        e,
+        st,
+      );
+    }
+  }
+
+  /// Creates indexes on notes/note_tags for fast active-sort and tag joins
+  /// (idempotent). Also enforces "at most one quick note" via a partial
+  /// unique index rather than application-level locking — every write path
+  /// (see [setQuickNote]) must therefore clear the old mark before setting
+  /// the new one, in the same transaction.
+  Future<void> _ensureNotesIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_note_tags_tag_id '
+        'ON note_tags(tag_id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_note_tags_note_id '
+        'ON note_tags(note_id)',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_notes_active_sort '
+        'ON notes(deleted_at, pinned, updated_at)',
+      );
+      await customStatement(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_quick_note_unique '
+        'ON notes(is_quick_note) WHERE is_quick_note = 1',
+      );
+    } catch (e, st) {
+      // Table may not exist yet during initial creation — skip.
+      _log.debug('_ensureNotesIndexes skipped (tables not yet ready)', e, st);
+    }
+  }
+
+  /// Exposed for testing — re-runs the idempotent notes/note_tags index
+  /// guard directly against the already-open database.
+  @visibleForTesting
+  Future<void> ensureNotesIndexesForTesting() => _ensureNotesIndexes();
+
+  /// Creates an index on history_entries for fast active/trash/archive sort
+  /// (idempotent). `history_entries` is the app's largest and hottest table
+  /// — it backs the main history list ([watchEntries]), the trash and
+  /// archive lists ([watchTrash], [watchArchived]), and the per-save trim
+  /// logic ([trimToMaxEntries]), all of which previously ran as full table
+  /// scans. `(deleted_at, pinned, timestamp)` matches [watchEntries]'s
+  /// `WHERE deleted_at IS NULL … ORDER BY pinned DESC, timestamp DESC` and
+  /// [trimToMaxEntries]'s `WHERE deleted_at IS NULL AND pinned = false
+  /// ORDER BY timestamp DESC` exactly, and its leading `deleted_at` column
+  /// also serves [watchTrash]'s `WHERE deleted_at IS NOT NULL ORDER BY
+  /// deleted_at DESC`.
+  Future<void> _ensureHistoryEntriesIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_history_entries_active_sort '
+        'ON history_entries(deleted_at, pinned, timestamp)',
+      );
+    } catch (e, st) {
+      // Table may not exist yet during initial creation — skip.
+      _log.debug(
+        '_ensureHistoryEntriesIndexes skipped (tables not yet ready)',
+        e,
+        st,
+      );
+    }
+  }
+
+  /// Creates an index on entry_notes for fast per-entry "Anmerkung" lookups
+  /// (idempotent). [notesForEntry]/[watchNotesForEntry] both do a point
+  /// lookup `WHERE entry_id = ?` on entry_notes, which has no index at all —
+  /// without one, every history-entry detail panel open runs a full table
+  /// scan of entry_notes. (Note: [searchEntries]'s note-content branch does a
+  /// `LIKE` on `content`, not `entry_id`, so this index does not speed up
+  /// search — that stays a full scan regardless.)
+  Future<void> _ensureEntryNotesIndexes() async {
+    try {
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_entry_notes_entry_id '
+        'ON entry_notes(entry_id)',
+      );
+    } catch (e, st) {
+      // Table may not exist yet during initial creation — skip.
+      _log.debug(
+        '_ensureEntryNotesIndexes skipped (tables not yet ready)',
+        e,
+        st,
+      );
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Query helpers
+  // ---------------------------------------------------------------------------
+
+  /// All non-deleted, non-archived entries, pinned first then newest.
+  Future<List<HistoryEntry>> allEntries({int limit = 100, int offset = 0}) {
+    return (select(historyEntries)
+          ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
+          ..orderBy([
+            (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+            (e) =>
+                OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+          ])
+          ..limit(limit, offset: offset))
+        .get();
+  }
+
+  /// Pinned entries only (non-deleted, non-archived).
+  Future<List<HistoryEntry>> pinnedEntries() {
+    return (select(historyEntries)
+          ..where(
+            (e) =>
+                e.pinned.equals(true) &
+                e.deletedAt.isNull() &
+                e.archived.equals(false),
+          )
+          ..orderBy([
+            (e) =>
+                OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+          ]))
+        .get();
+  }
+
+  /// Archived entries only (non-deleted).
+  Future<List<HistoryEntry>> archivedEntries({int limit = 100}) {
+    return (select(historyEntries)
+          ..where((e) => e.archived.equals(true) & e.deletedAt.isNull())
+          ..orderBy([
+            (e) =>
+                OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+          ])
+          ..limit(limit))
+        .get();
+  }
+
+  /// Trash: soft-deleted entries, newest deletion first.
+  Future<List<HistoryEntry>> trashEntries({int limit = 100}) {
+    return (select(historyEntries)
+          ..where((e) => e.deletedAt.isNotNull())
+          ..orderBy([
+            (e) =>
+                OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc),
+          ])
+          ..limit(limit))
+        .get();
+  }
+
+  /// Full-text search via FTS5 + normalized tag names + note content.
+  ///
+  /// Merges results from three sources:
+  /// 1. FTS5 on title, content, legacy tags column
+  /// 2. LIKE on normalized tag names (entry_tags → tags)
+  /// 3. LIKE on entry_notes content
+  Future<List<HistoryEntry>> searchEntries(String query) async {
+    final sanitized = _sanitizeFtsQuery(query);
+    final rawLower = query.toLowerCase().trim();
+    if (sanitized.isEmpty && rawLower.isEmpty) return [];
+
+    try {
+      final rowIds = <int>{};
+
+      // 1. FTS5 full-text search on title, content, legacy tags
+      if (sanitized.isNotEmpty) {
+        final ftsResults = await customSelect(
+          'SELECT rowid FROM history_fts WHERE history_fts MATCH ?',
+          variables: [Variable.withString(sanitized)],
+        ).get();
+        rowIds.addAll(ftsResults.map((r) => r.read<int>('rowid')));
+      }
+
+      // 2. Normalized tag name search (partial match via LIKE)
+      if (rawLower.isNotEmpty) {
+        final escapedLike = _escapeLike(rawLower);
+        final tagResults = await customSelect(
+          'SELECT DISTINCT he.rowid FROM history_entries he '
+          'INNER JOIN entry_tags et ON et.entry_id = he.id '
+          'INNER JOIN tags t ON t.id = et.tag_id '
+          r"WHERE he.deleted_at IS NULL AND LOWER(t.name) LIKE ? ESCAPE '\'",
+          variables: [Variable.withString('%$escapedLike%')],
+        ).get();
+        rowIds.addAll(tagResults.map((r) => r.read<int>('rowid')));
+
+        // 3. Note content search
+        final noteResults = await customSelect(
+          'SELECT DISTINCT he.rowid FROM history_entries he '
+          'INNER JOIN entry_notes en ON en.entry_id = he.id '
+          r"WHERE he.deleted_at IS NULL AND LOWER(en.content) LIKE ? ESCAPE '\'",
+          variables: [Variable.withString('%$escapedLike%')],
+        ).get();
+        rowIds.addAll(noteResults.map((r) => r.read<int>('rowid')));
+      }
+
+      if (rowIds.isEmpty) return [];
+
+      return (select(historyEntries)
+            ..where((e) => e.rowId.isIn(rowIds.toList()) & e.deletedAt.isNull())
+            ..orderBy([
+              (e) =>
+                  OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+              (e) => OrderingTerm(
+                expression: e.timestamp,
+                mode: OrderingMode.desc,
+              ),
+            ]))
+          .get();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Advanced search with exact tag filtering and optional language filter.
+  ///
+  /// - [freeText] is passed to FTS5 + LIKE (same as [searchEntries]).
+  /// - [tagNames] are exact tag name matches (AND semantics — entry must have
+  ///   ALL listed tags).  De-duplicated and lowercased before querying.
+  /// - [langCode] filters by the `language` column (exact match).
+  ///
+  /// When [freeText] is empty and no tags/lang are given, returns all active
+  /// entries sorted by pinned desc, timestamp desc.
+  Future<List<HistoryEntry>> searchEntriesAdvanced({
+    String freeText = '',
+    List<String> tagNames = const [],
+    String? langCode,
+    bool includeDeleted = false,
+    bool includeArchived = false,
+  }) async {
+    try {
+      // Deduplicate tag names
+      final uniqueTags = tagNames
+          .map((t) => t.toLowerCase().trim())
+          .where((t) => t.isNotEmpty)
+          .toSet()
+          .toList();
+
+      Set<String>? freeTextIds;
+
+      // --- Free-text search (FTS5 + tag LIKE + note LIKE) ---
+      if (freeText.isNotEmpty) {
+        final results = await searchEntries(freeText);
+        freeTextIds = results.map((e) => e.id).toSet();
+        if (freeTextIds.isEmpty) return [];
+      }
+
+      // --- Exact tag filtering via GROUP BY / HAVING COUNT ---
+      Set<String>? tagIds;
+      if (uniqueTags.isNotEmpty) {
+        final placeholders = uniqueTags.map((_) => '?').join(', ');
+        final tagResults = await customSelect(
+          'SELECT he.id FROM history_entries he '
+          'INNER JOIN entry_tags et ON et.entry_id = he.id '
+          'INNER JOIN tags t ON t.id = et.tag_id '
+          'WHERE ${includeDeleted ? '1=1' : 'he.deleted_at IS NULL'} '
+          '  AND LOWER(t.name) IN ($placeholders) '
+          'GROUP BY he.id '
+          'HAVING COUNT(DISTINCT LOWER(t.name)) = ${uniqueTags.length}',
+          variables: uniqueTags.map(Variable.withString).toList(),
+        ).get();
+        tagIds = tagResults.map((r) => r.read<String>('id')).toSet();
+        if (tagIds.isEmpty) return [];
+      }
+
+      // Intersect free-text and tag results
+      Set<String>? combinedIds;
+      if (freeTextIds != null && tagIds != null) {
+        combinedIds = freeTextIds.intersection(tagIds);
+      } else {
+        combinedIds = freeTextIds ?? tagIds;
+      }
+
+      final finalQuery = select(historyEntries);
+      if (combinedIds != null) {
+        finalQuery.where((e) => e.id.isIn(combinedIds!.toList()));
+      }
+      if (!includeDeleted) {
+        finalQuery.where((e) => e.deletedAt.isNull());
+      }
+      if (!includeArchived && combinedIds == null) {
+        // Only suppress archived when returning everything (no filter pinpoints it)
+        finalQuery.where((e) => e.archived.equals(false));
+      }
+      if (langCode != null && langCode.isNotEmpty) {
+        finalQuery.where((e) => e.language.equals(langCode));
+      }
+      finalQuery.orderBy([
+        (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+        (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+      ]);
+
+      return finalQuery.get();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Escapes LIKE special characters (`%`, `_`, `\`).
+  static String _escapeLike(String input) {
+    return input
+        .replaceAll(r'\', r'\\')
+        .replaceAll('%', r'\%')
+        .replaceAll('_', r'\_');
+  }
+
+  /// Escapes special FTS5 characters and converts to a prefix query.
+  static String _sanitizeFtsQuery(String query) {
+    final cleaned = query
+        .replaceAll(RegExp(r'[*"()+\-^{}~:\\/]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (cleaned.isEmpty) return '';
+    final terms = cleaned.split(' ').where((t) => t.isNotEmpty).toList();
+    if (terms.isEmpty) return '';
+    return terms.map((t) => '"$t"*').join(' ');
+  }
+
+  /// Get a single entry by ID (or null if not found).
+  Future<HistoryEntry?> getEntry(String entryId) {
+    return (select(
+      historyEntries,
+    )..where((e) => e.id.equals(entryId))).getSingleOrNull();
+  }
+
+  /// Partial update of an existing entry (only writes provided fields).
+  Future<int> updateEntry(String entryId, HistoryEntriesCompanion companion) {
+    return _writeCoordinator.write<int>(
+      () => (update(
+        historyEntries,
+      )..where((e) => e.id.equals(entryId))).write(companion),
+    );
+  }
+
+  /// Soft-delete an entry (move to trash).
+  Future<int> softDeleteEntry(String entryId) {
+    return _writeCoordinator.write<int>(
+      () => (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
+        HistoryEntriesCompanion(deletedAt: Value(DateTime.now())),
+      ),
+    );
+  }
+
+  /// Restore a soft-deleted entry from trash.
+  Future<int> restoreEntry(String entryId) {
+    return _writeCoordinator.write<int>(
+      () => (update(historyEntries)..where((e) => e.id.equals(entryId))).write(
+        const HistoryEntriesCompanion(deletedAt: Value(null)),
+      ),
+    );
+  }
+
+  /// Permanently delete a single entry.
+  Future<int> permanentDeleteEntry(String entryId) {
+    return _writeCoordinator.write<int>(
+      () => (delete(historyEntries)..where((e) => e.id.equals(entryId))).go(),
+    );
+  }
+
+  /// Permanently remove soft-deleted entries older than [days].
+  Future<int> purgeTrash({int days = 30}) {
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    return _writeCoordinator.write<int>(
+      () =>
+          (delete(historyEntries)..where(
+                (e) =>
+                    e.deletedAt.isNotNull() &
+                    e.deletedAt.isSmallerThanValue(cutoff),
+              ))
+              .go(),
+    );
+  }
+
+  /// Permanently remove ALL soft-deleted entries (empty trash).
+  Future<int> emptyTrash() {
+    return _writeCoordinator.write<int>(
+      () =>
+          (delete(historyEntries)..where((e) => e.deletedAt.isNotNull())).go(),
+    );
+  }
+
+  /// Soft-delete the oldest non-favorite, non-trashed entries that exceed
+  /// [max] active entries. Returns the number of entries moved to trash.
+  /// A [max] of 0 is a no-op (unlimited).
+  Future<int> trimToMaxEntries(int max) {
+    if (max <= 0) return Future<int>.value(0);
+
+    return _writeCoordinator.write<int>(() async {
+      // IDs of active (non-trashed) entries, ordered newest-first.
+      // Favorites are excluded — they are never auto-trimmed.
+      final activeQuery = selectOnly(historyEntries)
+        ..addColumns([historyEntries.id])
+        ..where(
+          historyEntries.deletedAt.isNull() &
+              historyEntries.pinned.equals(false),
+        )
+        ..orderBy([
+          OrderingTerm(
+            expression: historyEntries.timestamp,
+            mode: OrderingMode.desc,
+          ),
+          OrderingTerm(expression: historyEntries.id, mode: OrderingMode.desc),
+        ]);
+
+      final rows = await activeQuery.get();
+      if (rows.length <= max) return 0;
+
+      final idsToTrash = rows
+          .skip(max)
+          .map((r) => r.read(historyEntries.id)!)
+          .toList();
+
+      final now = DateTime.now();
+      await (update(historyEntries)..where((e) => e.id.isIn(idsToTrash))).write(
+        HistoryEntriesCompanion(deletedAt: Value(now)),
+      );
+
+      return idsToTrash.length;
+    });
+  }
+
+  Future<void> _toggleBoolField(
+    String entryId,
+    HistoryEntriesCompanion Function(HistoryEntry e) companionBuilder,
+  ) async {
+    final entry = await (select(
+      historyEntries,
+    )..where((e) => e.id.equals(entryId))).getSingleOrNull();
+    if (entry == null) return;
+    await (update(
+      historyEntries,
+    )..where((e) => e.id.equals(entryId))).write(companionBuilder(entry));
+  }
+
+  /// Toggle archive status.
+  Future<void> toggleArchive(String entryId) => _toggleBoolField(
+    entryId,
+    (e) => HistoryEntriesCompanion(archived: Value(!e.archived)),
+  );
+
+  /// Bulk soft-delete multiple entries.
+  Future<void> softDeleteEntries(List<String> entryIds) async {
+    await (update(historyEntries)..where((e) => e.id.isIn(entryIds))).write(
+      HistoryEntriesCompanion(deletedAt: Value(DateTime.now())),
+    );
+  }
+
+  /// Bulk archive multiple entries.
+  Future<void> batchArchive(List<String> entryIds) async {
+    if (entryIds.isEmpty) return;
+    await (update(historyEntries)..where((e) => e.id.isIn(entryIds))).write(
+      const HistoryEntriesCompanion(archived: Value(true)),
+    );
+  }
+
+  /// Bulk restore entries from archive or trash.
+  Future<void> batchRestore(List<String> entryIds) async {
+    if (entryIds.isEmpty) return;
+    await (update(historyEntries)..where((e) => e.id.isIn(entryIds))).write(
+      const HistoryEntriesCompanion(
+        archived: Value(false),
+        deletedAt: Value(null),
+      ),
+    );
+  }
+
+  /// Bulk permanently delete entries.
+  Future<void> batchPermanentDelete(List<String> entryIds) async {
+    if (entryIds.isEmpty) return;
+    await (delete(historyEntries)..where((e) => e.id.isIn(entryIds))).go();
+  }
+
+  /// Merge multiple entries into one. Keeps the oldest timestamp,
+  /// concatenates content with dividers, combines tags.
+  Future<HistoryEntry?> mergeEntries(List<String> entryIds) async {
+    if (entryIds.length < 2) return null;
+    final entries =
+        await (select(historyEntries)
+              ..where((e) => e.id.isIn(entryIds))
+              ..orderBy([
+                (e) => OrderingTerm(
+                  expression: e.timestamp,
+                  mode: OrderingMode.asc,
+                ),
+              ]))
+            .get();
+    if (entries.length < 2) return null;
+
+    // Merge content
+    final mergedContent = entries
+        .map((e) => e.content.trim())
+        .where((c) => c.isNotEmpty)
+        .join('\n\n---\n\n');
+
+    // Merge tags (deduplicate)
+    final allTags = <String>{};
+    for (final e in entries) {
+      // Tags are stored as JSON array string
+      final raw = e.tags;
+      if (raw.isNotEmpty && raw != '[]') {
+        // Simple parse: strip brackets, split by comma
+        for (final t
+            in raw
+                .replaceAll('[', '')
+                .replaceAll(']', '')
+                .replaceAll('"', '')
+                .split(',')
+                .map((s) => s.trim())
+                .where((s) => s.isNotEmpty)) {
+          allTags.add(t);
+        }
+      }
+    }
+    final tagsJson = allTags.isEmpty
+        ? '[]'
+        : '[${allTags.map((t) => '"$t"').join(',')}]';
+
+    // Sum durations
+    final totalDuration = entries.fold<double>(0, (s, e) => s + e.durationSec);
+
+    // Mark as merged via tag (not title suffix)
+    allTags.add('merged');
+
+    // Use first entry as base, update it
+    final base = entries.first;
+    final companion = HistoryEntriesCompanion(
+      id: Value(base.id),
+      content: Value(mergedContent),
+      title: Value(base.title),
+      timestamp: Value(base.timestamp),
+      durationSec: Value(totalDuration),
+      tags: Value(tagsJson),
+      pinned: Value(entries.any((e) => e.pinned)),
+    );
+    await into(historyEntries).insertOnConflictUpdate(companion);
+
+    // Soft-delete the other entries
+    final otherIds = entryIds.where((id) => id != base.id).toList();
+    await softDeleteEntries(otherIds);
+
+    // Return the merged entry
+    return (select(
+      historyEntries,
+    )..where((e) => e.id.equals(base.id))).getSingleOrNull();
+  }
+
+  /// Insert or update an entry.
+  ///
+  /// This is the canonical "save Verlauf-Eintrag" path (the PRD calls it
+  /// `saveEntry` — the codebase keeps the more accurate `upsertEntry`
+  /// name). Routed through the [SqliteWriteCoordinator] so concurrent
+  /// Aufnahme-Vorgang-Speicherung and history restores cannot trip
+  /// `SQLITE_BUSY`.
+  Future<void> upsertEntry(HistoryEntriesCompanion entry) {
+    return _writeCoordinator.write<void>(
+      () => into(historyEntries).insertOnConflictUpdate(entry),
+    );
+  }
+
+  /// Inserts a brand-new history entry, drawing its decorative color slot
+  /// atomically with the insert.
+  ///
+  /// This is the **only** sanctioned way to assign a color slot. [upsertEntry]
+  /// above is shared with edits (title/tag changes go through [updateEntry],
+  /// but tests and a few callers still reach for `upsertEntry` as a generic
+  /// fixture writer) and must never touch the slot — otherwise every save
+  /// would re-roll the entry's color. The previous-entry lookup and the
+  /// insert share one [SqliteWriteCoordinator] block so a concurrent create
+  /// can never read a stale "previous entry" slot.
+  Future<void> insertHistoryEntry(HistoryEntriesCompanion entry) {
+    return _writeCoordinator.write<void>(() async {
+      // Ordered by the implicit SQLite `rowid`, not `timestamp` — two
+      // creations in the same millisecond (a fast burst of recordings, or a
+      // tight test loop) would otherwise tie on `timestamp` and leave which
+      // row counts as "previous" up to SQLite's unspecified tie-break,
+      // breaking the never-twice-in-a-row guarantee below.
+      final previousRow = await customSelect(
+        'SELECT color_slot FROM history_entries ORDER BY rowid DESC LIMIT 1',
+      ).getSingleOrNull();
+      final previousSlot = previousRow?.data['color_slot'] as int?;
+      final slot = _drawColorSlot(previousSlot: previousSlot);
+      await into(historyEntries).insert(entry.copyWith(colorSlot: Value(slot)));
+    });
+  }
+
+  /// Draws a random category slot (index 0–7 — [WpCategorySlot.categories];
+  /// `neutral` at index 8 is never a rotation target) that differs from
+  /// [previousSlot].
+  ///
+  /// On a collision the redraw is limited to the remaining 7 slots, so this
+  /// is exactly one redraw, never a retry loop, and "never twice in a row"
+  /// is a structural guarantee rather than a probabilistic one.
+  int _drawColorSlot({required int? previousSlot}) {
+    const slotCount = 8;
+    final first = _colorSlotRandom.nextInt(slotCount);
+    if (previousSlot == null || first != previousSlot) return first;
+    final remaining = [
+      for (var i = 0; i < slotCount; i++)
+        if (i != previousSlot) i,
+    ];
+    return remaining[_colorSlotRandom.nextInt(remaining.length)];
+  }
+
+  final Random _colorSlotRandom = Random();
+
+  /// Links a retained dictation WAV to its history [entryId] as an
+  /// [EntryAttachment] — either the uncapped `kRetainDebugAudio` diagnosis
+  /// flag or the user-facing rotating retention setting. Neither flag is
+  /// checked here; gating happens entirely at the call site.
+  Future<void> insertAudioAttachment({
+    required String entryId,
+    required String filePath,
+    required int sizeBytes,
+  }) {
+    final id = '${DateTime.now().millisecondsSinceEpoch}-debug-audio';
+    return _writeCoordinator.write<void>(
+      () => into(entryAttachments).insertOnConflictUpdate(
+        EntryAttachmentsCompanion.insert(
+          id: id,
+          entryId: entryId,
+          filename: p.basename(filePath),
+          filepath: filePath,
+          mimeType: const Value('audio/wav'),
+          sizeBytes: Value(sizeBytes),
+          createdAt: DateTime.now(),
+        ),
+      ),
+    );
+  }
+
+  /// Keeps only the [max] most-recently-created `audio/wav` attachments,
+  /// deleting the rest of their rows and returning their filepaths so the
+  /// caller can remove the corresponding files on disk (this DB layer never
+  /// touches the filesystem itself).
+  ///
+  /// Attachment rows are not foreign-key-cascaded when their history entry
+  /// is deleted (no `PRAGMA foreign_keys`), so an entry's deletion can
+  /// orphan its attachment row — harmless here, since this cap bounds total
+  /// retained rows regardless of whether their entries still exist.
+  Future<List<String>> enforceAudioAttachmentCap({int max = 20}) {
+    return _writeCoordinator.write<List<String>>(() async {
+      final rows =
+          await (select(entryAttachments)
+                ..where((a) => a.mimeType.equals('audio/wav'))
+                ..orderBy([
+                  (a) => OrderingTerm(
+                    expression: a.createdAt,
+                    mode: OrderingMode.desc,
+                  ),
+                ]))
+              .get();
+      if (rows.length <= max) return const [];
+      final excess = rows.sublist(max);
+      await (delete(
+        entryAttachments,
+      )..where((a) => a.id.isIn(excess.map((r) => r.id)))).go();
+      return [for (final row in excess) row.filepath];
+    });
+  }
+
+  /// Duplicate an entry with a new ID and "(copy)" title suffix.
+  Future<HistoryEntry?> duplicateEntry(String entryId) {
+    return _writeCoordinator.write<HistoryEntry?>(() async {
+      final original = await (select(
+        historyEntries,
+      )..where((e) => e.id.equals(entryId))).getSingleOrNull();
+      if (original == null) return null;
+
+      final newId = DateTime.now().millisecondsSinceEpoch.toString();
+      final companion = HistoryEntriesCompanion(
+        id: Value(newId),
+        content: Value(original.content),
+        title: Value('${original.title} (copy)'),
+        timestamp: Value(DateTime.now()),
+        durationSec: Value(original.durationSec),
+        processingDurationSec: Value(original.processingDurationSec),
+        language: Value(original.language),
+        languageHint: Value(original.languageHint),
+        tags: Value(original.tags),
+        pinned: const Value(false),
+        source: Value(original.source),
+        model: Value(original.model),
+        isLocal: Value(original.isLocal),
+        costUsd: Value(original.costUsd),
+        archived: const Value(false),
+        titleEdited: const Value(false),
+        colorSlot: Value(original.colorSlot),
+      );
+      await into(historyEntries).insert(companion);
+      return (select(
+        historyEntries,
+      )..where((e) => e.id.equals(newId))).getSingleOrNull();
+    });
+  }
+
+  /// Toggle pin status.
+  Future<void> togglePin(String entryId) => _toggleBoolField(
+    entryId,
+    (e) => HistoryEntriesCompanion(pinned: Value(!e.pinned)),
+  );
+
+  /// Watch all non-deleted, non-archived entries as a live stream.
+  Stream<List<HistoryEntry>> watchEntries({int? limit}) {
+    if (_isClosed) return const Stream.empty();
+    final query = select(historyEntries)
+      ..where((e) => e.deletedAt.isNull() & e.archived.equals(false))
+      ..orderBy([
+        (e) => OrderingTerm(expression: e.pinned, mode: OrderingMode.desc),
+        (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+      ]);
+    if (limit != null) query.limit(limit);
+    return query.watch();
+  }
+
+  /// Watch archived entries.
+  Stream<List<HistoryEntry>> watchArchived({int? limit}) {
+    if (_isClosed) return const Stream.empty();
+    final query = select(historyEntries)
+      ..where((e) => e.archived.equals(true) & e.deletedAt.isNull())
+      ..orderBy([
+        (e) => OrderingTerm(expression: e.timestamp, mode: OrderingMode.desc),
+      ]);
+    if (limit != null) query.limit(limit);
+    return query.watch();
+  }
+
+  /// Watch trash entries.
+  Stream<List<HistoryEntry>> watchTrash({int? limit}) {
+    if (_isClosed) return const Stream.empty();
+    final query = select(historyEntries)
+      ..where((e) => e.deletedAt.isNotNull())
+      ..orderBy([
+        (e) => OrderingTerm(expression: e.deletedAt, mode: OrderingMode.desc),
+      ]);
+    if (limit != null) query.limit(limit);
+    return query.watch();
+  }
+
+  /// Count active (non-deleted, non-archived) entries.
+  Future<int> countActive() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries '
+      'WHERE deleted_at IS NULL AND archived = 0',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Count archived entries.
+  Future<int> countArchived() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries '
+      'WHERE archived = 1 AND deleted_at IS NULL',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Count trashed entries.
+  Future<int> countTrash() async {
+    final result = await customSelect(
+      'SELECT COUNT(*) AS cnt FROM history_entries WHERE deleted_at IS NOT NULL',
+    ).getSingle();
+    return result.data['cnt'] as int? ?? 0;
+  }
+
+  /// Count entries matching a search query across a specific pool.
+  ///
+  /// [pool] is one of 'active', 'archived', 'trash'.
+  Future<int> countSearchMatches(String query, {String pool = 'active'}) async {
+    if (query.trim().isEmpty) {
+      switch (pool) {
+        case 'archived':
+          return countArchived();
+        case 'trash':
+          return countTrash();
+        default:
+          return countActive();
+      }
+    }
+    final results = await searchEntriesAdvanced(
+      freeText: query,
+      includeArchived: pool == 'archived',
+      includeDeleted: pool == 'trash',
+    );
+    // Filter to the right pool
+    switch (pool) {
+      case 'archived':
+        return results.where((e) => e.archived && e.deletedAt == null).length;
+      case 'trash':
+        return results.where((e) => e.deletedAt != null).length;
+      default:
+        return results.where((e) => !e.archived && e.deletedAt == null).length;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tags — normalized tag CRUD
+  // ---------------------------------------------------------------------------
+
+  /// Creates a tag with the given name (lowercased). Returns existing if duplicate.
+  Future<Tag> createTag(String name) async {
+    final normalized = name.toLowerCase().trim();
+    final existing = await (select(
+      tags,
+    )..where((t) => t.name.equals(normalized))).getSingleOrNull();
+    if (existing != null) return existing;
+
+    final id = _uuid();
+    final now = DateTime.now();
+    await into(
+      tags,
+    ).insert(TagsCompanion.insert(id: id, name: normalized, createdAt: now));
+    return Tag(id: id, name: normalized, createdAt: now);
+  }
+
+  /// Deletes a tag and all its entry and note links.
+  Future<void> deleteTag(String tagId) {
+    return _writeCoordinator.write<void>(() async {
+      await (delete(entryTags)..where((et) => et.tagId.equals(tagId))).go();
+      await (delete(noteTags)..where((nt) => nt.tagId.equals(tagId))).go();
+      await (delete(tags)..where((t) => t.id.equals(tagId))).go();
+    });
+  }
+
+  /// Renames a tag (lowercased). Fails silently if new name already exists.
+  Future<void> renameTag(String tagId, String newName) async {
+    final normalized = newName.toLowerCase().trim();
+    final existing = await (select(
+      tags,
+    )..where((t) => t.name.equals(normalized))).getSingleOrNull();
+    if (existing != null && existing.id != tagId) return;
+
+    await (update(tags)..where((t) => t.id.equals(tagId))).write(
+      TagsCompanion(name: Value(normalized)),
+    );
+  }
+
+  /// All tags, alphabetically.
+  Future<List<Tag>> allTags() {
+    return (select(tags)..orderBy([(t) => OrderingTerm.asc(t.name)])).get();
+  }
+
+  /// Tags for a specific entry (via join).
+  Future<List<Tag>> tagsForEntry(String entryId) async {
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
+          ..where(entryTags.entryId.equals(entryId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
+    final rows = await query.get();
+    return rows.map((r) => r.readTable(tags)).toList();
+  }
+
+  /// Reactive stream of tags for a specific entry.
+  Stream<List<Tag>> watchTagsForEntry(String entryId) {
+    if (_isClosed) return const Stream.empty();
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(entryTags, entryTags.tagId.equalsExp(tags.id))])
+          ..where(entryTags.entryId.equals(entryId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
+    return query.watch().map(
+      (rows) => rows.map((r) => r.readTable(tags)).toList(),
+    );
+  }
+
+  /// Most-used tags by entry+note count.
+  Future<List<Tag>> frequentTags({int limit = 10}) async {
+    final withCount = await frequentTagsWithCount(limit: limit);
+    return withCount.map((r) => r.$1).toList();
+  }
+
+  /// Like [frequentTags] but also returns usage count per tag.
+  ///
+  /// Counts links from BOTH [entryTags] and [noteTags] — same fix as
+  /// [allTagsWithCount] (Ticket 05), applied here too: a tag used only on
+  /// notes must still be able to surface as "frequent". Unlike
+  /// [allTagsWithCount], unused tags (count 0) stay excluded, and [limit] is
+  /// applied AFTER merging both counts — capping either source query first
+  /// could drop a tag that ranks low on entries but high on notes.
+  Future<List<(Tag, int)>> frequentTagsWithCount({int limit = 10}) async {
+    final counts = await _combinedTagUsageCounts();
+    final all = await allTags();
+    final used =
+        all
+            .where((t) => (counts[t.id] ?? 0) > 0)
+            .map((t) => (t, counts[t.id]!))
+            .toList()
+          ..sort((a, b) {
+            final byCount = b.$2.compareTo(a.$2);
+            // List.sort isn't stable — tags with equal counts (commonly 1)
+            // need an explicit tie-break for a deterministic order.
+            return byCount != 0 ? byCount : a.$1.name.compareTo(b.$1.name);
+          });
+    return used.take(limit).toList();
+  }
+
+  /// All tags with their usage counts, alphabetically.
+  ///
+  /// Counts links from BOTH [entryTags] and [noteTags] — a tag used only by a
+  /// note must not show as unused just because it has no history-entry link
+  /// (bug fixed for Ticket 05: `deleteUnusedTags()` silently deleted tags
+  /// that were only attached to a note). Summed via two separate grouped
+  /// queries rather than a single join across both junction tables, which
+  /// would multiply rows and produce wrong counts.
+  ///
+  /// Unlike [frequentTagsWithCount], this includes unused tags (count 0)
+  /// and does not limit results.
+  Future<List<(Tag, int)>> allTagsWithCount() async {
+    final counts = await _combinedTagUsageCounts();
+    final all = await allTags();
+    return all.map((t) => (t, counts[t.id] ?? 0)).toList();
+  }
+
+  /// Per-tag usage count, summed across [entryTags] and [noteTags] links.
+  Future<Map<String, int>> _combinedTagUsageCounts() async {
+    final counts = <String, int>{};
+
+    final entryCount = entryTags.tagId.count();
+    final entryRows =
+        await (selectOnly(entryTags)
+              ..addColumns([entryTags.tagId, entryCount])
+              ..groupBy([entryTags.tagId]))
+            .get();
+    for (final row in entryRows) {
+      final tagId = row.read(entryTags.tagId);
+      if (tagId == null) continue;
+      counts[tagId] = (counts[tagId] ?? 0) + (row.read(entryCount) ?? 0);
+    }
+
+    final noteCount = noteTags.tagId.count();
+    final noteRows =
+        await (selectOnly(noteTags)
+              ..addColumns([noteTags.tagId, noteCount])
+              ..groupBy([noteTags.tagId]))
+            .get();
+    for (final row in noteRows) {
+      final tagId = row.read(noteTags.tagId);
+      if (tagId == null) continue;
+      counts[tagId] = (counts[tagId] ?? 0) + (row.read(noteCount) ?? 0);
+    }
+
+    return counts;
+  }
+
+  /// Tags with zero linked entries.
+  Future<List<Tag>> unusedTags() async {
+    final all = await allTagsWithCount();
+    return all.where((r) => r.$2 == 0).map((r) => r.$1).toList();
+  }
+
+  /// Deletes all tags that have zero linked entries.
+  /// Returns the number of tags deleted.
+  Future<int> deleteUnusedTags() async {
+    final unused = await unusedTags();
+    if (unused.isEmpty) return 0;
+    // Single batched DELETE (`id IN (...)`) instead of one DELETE statement
+    // per tag — same rows removed, same return value, one round-trip
+    // instead of N.
+    return (delete(
+      tags,
+    )..where((t) => t.id.isIn(unused.map((u) => u.id)))).go();
+  }
+
+  /// Prefix search for tag autocomplete.
+  Future<List<Tag>> searchTags(String prefix) {
+    final normalized = prefix.toLowerCase().trim();
+    return (select(tags)
+          ..where((t) => t.name.like('$normalized%'))
+          ..orderBy([(t) => OrderingTerm.asc(t.name)])
+          ..limit(20))
+        .get();
+  }
+
+  /// Link an entry to a tag.
+  Future<void> tagEntry(String entryId, String tagId) {
+    return into(entryTags).insert(
+      EntryTagsCompanion.insert(entryId: entryId, tagId: tagId),
+      mode: InsertMode.insertOrIgnore,
+    );
+  }
+
+  /// Remove a tag from an entry.
+  Future<void> untagEntry(String entryId, String tagId) {
+    return (delete(
+      entryTags,
+    )..where((et) => et.entryId.equals(entryId) & et.tagId.equals(tagId))).go();
+  }
+
+  /// Generates a v4 UUID without external dependencies.
+  static String _uuid() => generateV4Uuid();
+
+  // ---------------------------------------------------------------------------
+  // App settings
+  // ---------------------------------------------------------------------------
+
+  /// Reads all persisted app settings from the local key-value table.
+  ///
+  /// Also refreshes the `locale` sidecar mirror — this is the read the main
+  /// engine performs at startup, so it heals a missing or stale mirror before
+  /// any secondary engine boots. See [writeLocaleMirror].
+  Future<Map<String, String>> readAppSettings() async {
+    final rows = await customSelect(
+      'SELECT key, value FROM app_settings',
+    ).get();
+
+    final values = {
+      for (final row in rows)
+        row.read<String>('key'): row.read<String>('value'),
+    };
+    writeLocaleMirror(values['locale']);
+    return values;
+  }
+
+  /// Writes the complete settings snapshot to the local key-value table.
+  Future<void> writeAppSettings(Map<String, String> values) async {
+    await transaction(() async {
+      for (final entry in values.entries) {
+        await customStatement(
+          'INSERT INTO app_settings (key, value) VALUES (?, ?) '
+          'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+          [entry.key, entry.value],
+        );
+      }
+    });
+    // Keep the sidecar the secondary engines read in sync with the row that
+    // just landed, so they never have to open SQLite for it.
+    writeLocaleMirror(values['locale']);
+  }
+
+  /// Removes all persisted settings, causing the app to fall back to defaults.
+  Future<void> resetAppSettings() {
+    return _writeCoordinator.write<void>(
+      () => customStatement('DELETE FROM app_settings'),
+    );
+  }
+
+  /// Removes all accumulated daily analytics stats.
+  Future<void> resetDailyStats() {
+    return _writeCoordinator.write<void>(() => delete(dailyStats).go());
+  }
+
+  /// Deletes every history entry — active, archived and trashed — with its
+  /// tag links, entry notes and attachment rows; the "Forgot PIN?" wipe.
+  /// Standalone notes, tags, snippets and settings are kept. Returns the
+  /// attachment filepaths so the caller can remove the files (this layer
+  /// never touches the filesystem).
+  Future<List<String>> deleteAllHistory() {
+    return _writeCoordinator.write<List<String>>(() async {
+      return transaction(() async {
+        final files = [
+          for (final row in await select(entryAttachments).get()) row.filepath,
+        ];
+        await delete(entryTags).go();
+        await delete(entryNotes).go();
+        await delete(entryAttachments).go();
+        await delete(historyEntries).go();
+        return files;
+      });
+    });
+  }
+
+  /// Deletes ALL user data from ALL tables — used by Factory Reset.
+  ///
+  /// Wrapped in a transaction so partial failure never leaves the DB in
+  /// an inconsistent state. Order: junction/child tables first.
+  ///
+  /// Coordinator-lock is taken **before** the Drift `transaction(...)` —
+  /// see the lock-in-lock note in [_writeCoordinator]'s doc comment and
+  /// the PRD §Risiken on doubled locks.
+  Future<void> deleteAllData() {
+    return _writeCoordinator.write<void>(() async {
+      await transaction(() async {
+        await delete(entryTags).go();
+        await delete(entryNotes).go();
+        await delete(entryAttachments).go();
+        await delete(tags).go();
+        await delete(historyEntries).go();
+        await delete(dailyStats).go();
+        await delete(textReplacementTriggers).go();
+        await delete(textReplacements).go();
+        await delete(snippets).go();
+        await delete(correctionObservations).go();
+        await customStatement('DELETE FROM app_settings');
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Text Replacements
+  // ---------------------------------------------------------------------------
+
+  Future<List<ReplacementWithTriggers>> readAllReplacements() async {
+    final rows = await _replacementsJoinQuery().get();
+    return _groupReplacementRows(rows);
+  }
+
+  Stream<List<ReplacementWithTriggers>> watchAllReplacements() {
+    if (_isClosed) return const Stream.empty();
+    return _replacementsJoinQuery().watch().map(_groupReplacementRows);
+  }
+
+  JoinedSelectStatement<HasResultSet, dynamic> _replacementsJoinQuery() {
+    // Two ordering terms, parent then child — a single ORDER BY on the
+    // trigger id alone would sort the *whole* joined row stream by that
+    // column, which reshuffles which replacement's rows appear first
+    // (replacement id is not a prefix-free sort key: e.g. seeded rows'
+    // trigger ids are '<ts>_mfg_t0'/'<ts>_lg_t0'/'<ts>_tel_t0', so a
+    // trigger-only sort returns replacements alphabetically by trigger
+    // name instead of creation order). Ordering by the parent's rowid
+    // first (unique, strictly insertion-ordered, never ties) pins
+    // replacement order to creation order same as before this table
+    // existed; the trigger id is then the tiebreak *within* one
+    // replacement, giving stable trigger order — and therefore a stable
+    // `triggers.first` (the legacy-mirror source) and stable UI chip
+    // order — instead of depending on unspecified SQL row order.
+    return select(textReplacements).join([
+      leftOuterJoin(
+        textReplacementTriggers,
+        textReplacementTriggers.replacementId.equalsExp(textReplacements.id),
+      ),
+    ])..orderBy([
+      OrderingTerm(
+        expression: const CustomExpression<int>('text_replacements.rowid'),
+      ),
+      OrderingTerm(expression: textReplacementTriggers.id),
+    ]);
+  }
+
+  /// Groups flat join rows (one row per trigger, or one null-trigger row for
+  /// a replacement with none) back into one [ReplacementWithTriggers] per
+  /// replacement, preserving every parent row via the left outer join even
+  /// when it has zero trigger rows — the notifier that seeds sample data on
+  /// an empty table relies on this to see every parent row regardless of
+  /// whether its triggers backfilled correctly.
+  List<ReplacementWithTriggers> _groupReplacementRows(List<TypedResult> rows) {
+    final order = <String>[];
+    final replacementById = <String, TextReplacement>{};
+    final triggersById = <String, List<String>>{};
+    for (final row in rows) {
+      final replacement = row.readTable(textReplacements);
+      if (!replacementById.containsKey(replacement.id)) {
+        order.add(replacement.id);
+        replacementById[replacement.id] = replacement;
+        triggersById[replacement.id] = [];
+      }
+      final trigger = row.readTableOrNull(textReplacementTriggers);
+      if (trigger != null) {
+        triggersById[replacement.id]!.add(trigger.trigger);
+      }
+    }
+    return [
+      for (final id in order)
+        ReplacementWithTriggers(
+          row: replacementById[id]!,
+          triggers: triggersById[id]!,
+        ),
+    ];
+  }
+
+  /// Upserts a replacement and its full set of trigger phrases in one
+  /// transaction. `triggers` is the complete list (not a delta) — existing
+  /// trigger rows for [id] are replaced. `triggers.first` is also mirrored
+  /// into the legacy `text_replacements.trigger` column (see
+  /// [TextReplacements] doc comment).
+  Future<void> upsertReplacementWithTriggers({
+    required String id,
+    required List<String> triggers,
+    required String replacement,
+    required DateTime createdAt,
+    String matchMode = 'exact',
+    double? fuzzyThreshold,
+    String origin = 'manual',
+  }) async {
+    assert(triggers.isNotEmpty, 'a replacement needs at least one trigger');
+    await transaction(() async {
+      await into(textReplacements).insertOnConflictUpdate(
+        TextReplacementsCompanion(
+          id: Value(id),
+          trigger: Value(triggers.first),
+          replacement: Value(replacement),
+          createdAt: Value(createdAt),
+          matchMode: Value(matchMode),
+          fuzzyThreshold: Value(fuzzyThreshold),
+          origin: Value(origin),
+        ),
+      );
+      await (delete(
+        textReplacementTriggers,
+      )..where((t) => t.replacementId.equals(id))).go();
+      await batch((b) {
+        b.insertAll(textReplacementTriggers, [
+          for (var i = 0; i < triggers.length; i++)
+            TextReplacementTriggersCompanion.insert(
+              id: '${id}_t$i',
+              replacementId: id,
+              trigger: triggers[i],
+            ),
+        ]);
+      });
+    });
+  }
+
+  Future<void> deleteReplacement(String id) {
+    return transaction(() async {
+      await (delete(
+        textReplacementTriggers,
+      )..where((t) => t.replacementId.equals(id))).go();
+      await (delete(textReplacements)..where((t) => t.id.equals(id))).go();
+    });
+  }
+
+  /// Deletes all text replacements (and their triggers). Used by settings
+  /// import (Cluster 5 portability) to restore an exported set as the exact
+  /// new contents.
+  Future<void> deleteAllReplacements() {
+    return transaction(() async {
+      await delete(textReplacementTriggers).go();
+      await delete(textReplacements).go();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Correction observations (vocab-learning-from-corrections, ticket 01)
+  // ---------------------------------------------------------------------------
+
+  /// Reads the persisted observation for [normalizedKey], or `null` if this
+  /// correction has never been observed before.
+  Future<CorrectionObservationRow?> readCorrectionObservation(
+    String normalizedKey,
+  ) {
+    return (select(
+      correctionObservations,
+    )..where((t) => t.normalizedKey.equals(normalizedKey))).getSingleOrNull();
+  }
+
+  /// Inserts or updates the observation row for [normalizedKey] — one row
+  /// per normalized correction, [id] stable across repeats of the same
+  /// correction (`upsert` keyed on the table's primary key).
+  Future<void> upsertCorrectionObservation({
+    required String id,
+    required String normalizedKey,
+    required String sourceText,
+    required String targetText,
+    required int occurrenceCount,
+    required String status,
+    required String source,
+    required DateTime firstSeenAt,
+    required DateTime lastSeenAt,
+  }) {
+    return into(correctionObservations).insertOnConflictUpdate(
+      CorrectionObservationsCompanion(
+        id: Value(id),
+        normalizedKey: Value(normalizedKey),
+        sourceText: Value(sourceText),
+        targetText: Value(targetText),
+        occurrenceCount: Value(occurrenceCount),
+        status: Value(status),
+        source: Value(source),
+        firstSeenAt: Value(firstSeenAt),
+        lastSeenAt: Value(lastSeenAt),
+      ),
+    );
+  }
+
+  /// Every observation still `pending` with at least
+  /// [correctionCandidateThreshold] occurrences — i.e. exactly the rows the
+  /// review UI should offer. Ordered by [CorrectionObservations.rowid] for
+  /// the same stable-insertion-order reason as [_replacementsJoinQuery].
+  Future<List<CorrectionObservationRow>> readPendingCorrectionCandidates(
+    int threshold,
+  ) {
+    return (select(correctionObservations)
+          ..where(
+            (t) =>
+                t.status.equals('pending') &
+                t.occurrenceCount.isBiggerOrEqualValue(threshold),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(
+              expression: const CustomExpression<int>(
+                'correction_observations.rowid',
+              ),
+            ),
+          ]))
+        .get();
+  }
+
+  /// Reads every learned (auto-accepted) correction observation row, keyed
+  /// by [id] — used by the review commit step to look up an accepted
+  /// candidate's source/target text by the id the UI selected.
+  Future<CorrectionObservationRow?> readCorrectionObservationById(String id) {
+    return (select(
+      correctionObservations,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
+  /// Flips [id]'s status to [status] (`accepted`/`rejected`) — never back to
+  /// `pending`.
+  Future<void> setCorrectionObservationStatus(String id, String status) {
+    return (update(correctionObservations)..where((t) => t.id.equals(id)))
+        .write(CorrectionObservationsCompanion(status: Value(status)));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Snippets (dictation-automations ticket 05)
+  // ---------------------------------------------------------------------------
+
+  /// Ordered by SQLite rowid (insertion order) — same technique as
+  /// [_replacementsJoinQuery], see its doc comment for why a plain
+  /// `ORDER BY` on a text column would not give creation order.
+  SimpleSelectStatement<$SnippetsTable, Snippet> _snippetsQuery() {
+    return select(snippets)..orderBy([
+      (s) => OrderingTerm(
+        expression: const CustomExpression<int>('snippets.rowid'),
+      ),
+    ]);
+  }
+
+  Future<List<Snippet>> readAllSnippets() => _snippetsQuery().get();
+
+  Stream<List<Snippet>> watchAllSnippets() {
+    if (_isClosed) return const Stream.empty();
+    return _snippetsQuery().watch();
+  }
+
+  Future<List<SnippetWithFields>> readAllSnippetsWithFields() async {
+    final rows = await _snippetsFieldsJoinQuery().get();
+    return _groupSnippetFieldRows(rows);
+  }
+
+  Stream<List<SnippetWithFields>> watchAllSnippetsWithFields() {
+    if (_isClosed) return const Stream.empty();
+    return _snippetsFieldsJoinQuery().watch().map(_groupSnippetFieldRows);
+  }
+
+  JoinedSelectStatement<HasResultSet, dynamic> _snippetsFieldsJoinQuery() {
+    // Same two-ordering-term shape as [_replacementsJoinQuery] — parent
+    // rowid first (stable creation order), then the child's own sortOrder
+    // as the tiebreak within one snippet's fields.
+    return select(snippets).join([
+      leftOuterJoin(
+        snippetFields,
+        snippetFields.snippetId.equalsExp(snippets.id),
+      ),
+    ])..orderBy([
+      OrderingTerm(expression: const CustomExpression<int>('snippets.rowid')),
+      OrderingTerm(expression: snippetFields.sortOrder),
+    ]);
+  }
+
+  /// Groups flat join rows back into one [SnippetWithFields] per snippet,
+  /// preserving every parent row via the left outer join even when it has
+  /// zero field rows (a `static` snippet, or an `interactive` one whose
+  /// fields haven't backfilled).
+  List<SnippetWithFields> _groupSnippetFieldRows(List<TypedResult> rows) {
+    final order = <String>[];
+    final snippetById = <String, Snippet>{};
+    final fieldsById = <String, List<String>>{};
+    for (final row in rows) {
+      final snippet = row.readTable(snippets);
+      if (!snippetById.containsKey(snippet.id)) {
+        order.add(snippet.id);
+        snippetById[snippet.id] = snippet;
+        fieldsById[snippet.id] = [];
+      }
+      final field = row.readTableOrNull(snippetFields);
+      if (field != null) {
+        fieldsById[snippet.id]!.add(field.name);
+      }
+    }
+    return [
+      for (final id in order)
+        SnippetWithFields(row: snippetById[id]!, fields: fieldsById[id]!),
+    ];
+  }
+
+  Future<void> upsertSnippet({
+    required String id,
+    required String title,
+    required String body,
+    required DateTime createdAt,
+    String kind = 'static',
+  }) {
+    return into(snippets).insertOnConflictUpdate(
+      SnippetsCompanion(
+        id: Value(id),
+        title: Value(title),
+        body: Value(body),
+        createdAt: Value(createdAt),
+        kind: Value(kind),
+      ),
+    );
+  }
+
+  /// Upserts a snippet and its complete field list in one transaction —
+  /// `fieldNames` is the full ordered list (not a delta), mirroring
+  /// [upsertReplacementWithTriggers]. Pass an empty list for a `static`
+  /// snippet (no fields).
+  Future<void> upsertSnippetWithFields({
+    required String id,
+    required String title,
+    required String body,
+    required DateTime createdAt,
+    required String kind,
+    required List<String> fieldNames,
+  }) {
+    return transaction(() async {
+      await upsertSnippet(
+        id: id,
+        title: title,
+        body: body,
+        createdAt: createdAt,
+        kind: kind,
+      );
+      await replaceSnippetFields(snippetId: id, fieldNames: fieldNames);
+    });
+  }
+
+  Future<void> deleteSnippet(String id) {
+    return transaction(() async {
+      await (delete(snippetFields)..where((f) => f.snippetId.equals(id))).go();
+      await (delete(snippets)..where((s) => s.id.equals(id))).go();
+    });
+  }
+
+  /// Deletes all snippets (and their fields). Used by settings import
+  /// (portability) so the imported file becomes the exact new contents
+  /// rather than being merged with existing entries.
+  Future<void> deleteAllSnippets() {
+    return transaction(() async {
+      await delete(snippetFields).go();
+      await delete(snippets).go();
+    });
+  }
+
+  /// Reads every [SnippetField] for [snippetId], ordered by `sortOrder`
+  /// (PRD: "kein Zurückspringen, kein Überspringen" — the strict field
+  /// sequence an interactive snippet's guided recording walks through).
+  Future<List<SnippetField>> readSnippetFields(String snippetId) {
+    return (select(snippetFields)
+          ..where((f) => f.snippetId.equals(snippetId))
+          ..orderBy([(f) => OrderingTerm(expression: f.sortOrder)]))
+        .get();
+  }
+
+  /// Replaces the complete field list of an `interactive` snippet in one
+  /// transaction — `fieldNames` is the full ordered list (not a delta),
+  /// mirroring [upsertReplacementWithTriggers]'s replace-triggers approach.
+  Future<void> replaceSnippetFields({
+    required String snippetId,
+    required List<String> fieldNames,
+  }) {
+    return transaction(() async {
+      await (delete(
+        snippetFields,
+      )..where((f) => f.snippetId.equals(snippetId))).go();
+      await batch((b) {
+        b.insertAll(snippetFields, [
+          for (var i = 0; i < fieldNames.length; i++)
+            SnippetFieldsCompanion.insert(
+              id: '${snippetId}_f$i',
+              snippetId: snippetId,
+              name: fieldNames[i],
+              sortOrder: i,
+            ),
+        ]);
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Notes
+  // ---------------------------------------------------------------------------
+
+  Future<List<EntryNote>> notesForEntry(String entryId) {
+    return (select(entryNotes)
+          ..where((n) => n.entryId.equals(entryId))
+          ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]))
+        .get();
+  }
+
+  /// Watch notes for a specific entry as a live stream.
+  Stream<List<EntryNote>> watchNotesForEntry(String entryId) {
+    if (_isClosed) return const Stream.empty();
+    return (select(entryNotes)
+          ..where((n) => n.entryId.equals(entryId))
+          ..orderBy([(n) => OrderingTerm.desc(n.createdAt)]))
+        .watch();
+  }
+
+  Future<void> upsertNote(EntryNotesCompanion note) {
+    return into(entryNotes).insertOnConflictUpdate(note);
+  }
+
+  /// Partial update of an existing note (only writes provided fields).
+  Future<int> updateNoteFields(String noteId, EntryNotesCompanion companion) {
+    return (update(
+      entryNotes,
+    )..where((n) => n.id.equals(noteId))).write(companion);
+  }
+
+  Future<int> deleteNote(String noteId) {
+    return (delete(entryNotes)..where((n) => n.id.equals(noteId))).go();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Notes area (sidebar Notizen feature, schema v17) — collision-free naming
+  // vs. the EntryNotes methods above, which back the unrelated per-entry
+  // "Anmerkung" section instead. Every mutator funnels through
+  // [_writeCoordinator]; sorting happens in SQL so no separate
+  // "pinned first" provider is needed.
+  // ---------------------------------------------------------------------------
+
+  /// Active (non-deleted) notes, favourites first then most recently updated.
+  Stream<List<Note>> watchNotes() {
+    if (_isClosed) return const Stream.empty();
+    return (select(notes)
+          ..where((n) => n.deletedAt.isNull())
+          ..orderBy([
+            (n) => OrderingTerm(expression: n.pinned, mode: OrderingMode.desc),
+            (n) =>
+                OrderingTerm(expression: n.updatedAt, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
+  /// Trashed notes, most recently deleted first.
+  Stream<List<Note>> watchTrashNotes() {
+    if (_isClosed) return const Stream.empty();
+    return (select(notes)
+          ..where((n) => n.deletedAt.isNotNull())
+          ..orderBy([
+            (n) =>
+                OrderingTerm(expression: n.deletedAt, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
+  Future<Note?> getNote(String noteId) {
+    return (select(notes)..where((n) => n.id.equals(noteId))).getSingleOrNull();
+  }
+
+  /// Creates a new, empty note and returns it.
+  Future<Note?> duplicateNote(String noteId) {
+    return _writeCoordinator.write<Note?>(() async {
+      final original = await (select(
+        notes,
+      )..where((n) => n.id.equals(noteId))).getSingleOrNull();
+      if (original == null) return null;
+
+      final newId = _uuid();
+      final now = DateTime.now();
+
+      final companion = NotesCompanion.insert(
+        id: newId,
+        content: Value(original.content),
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      await into(notes).insert(companion);
+
+      // Copy tags from original note
+      final tags = await (select(
+        noteTags,
+      )..where((t) => t.noteId.equals(original.id))).get();
+      for (final tag in tags) {
+        await into(noteTags).insert(
+          NoteTagsCompanion.insert(noteId: newId, tagId: tag.tagId),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+
+      return (select(
+        notes,
+      )..where((n) => n.id.equals(newId))).getSingleOrNull();
+    });
+  }
+
+  Future<Note> createNote() {
+    return _writeCoordinator.write<Note>(() async {
+      final id = _uuid();
+      final now = DateTime.now();
+      await into(
+        notes,
+      ).insert(NotesCompanion.insert(id: id, createdAt: now, updatedAt: now));
+      return Note(
+        id: id,
+        content: '',
+        pinned: false,
+        isQuickNote: false,
+        deletedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+    });
+  }
+
+  /// Overwrites a note's content and bumps `updatedAt` — the autosave write
+  /// path (debounced in `note_autosave.dart`, not called on every keystroke).
+  Future<int> updateNoteContent(String noteId, String content) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(
+          content: Value(content),
+          updatedAt: Value(DateTime.now()),
+        ),
+      ),
+    );
+  }
+
+  Future<int> toggleNotePin(String noteId, {required bool pinned}) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(pinned: Value(pinned), updatedAt: Value(DateTime.now())),
+      ),
+    );
+  }
+
+  /// Marks [noteId] as the one exclusive "quick note", unmarking whichever
+  /// note (if any) held the mark before. Deliberately does not bump
+  /// `updatedAt` — the mark is not sort-affecting (see `idx_notes_active_sort`
+  /// / `watchNotes`). Clears before setting, in one transaction, matching the
+  /// partial unique index in [_ensureNotesIndexes]. The clear step is
+  /// unscoped by `deletedAt` on purpose: a trashed note can still hold a
+  /// stale mark (soft-delete doesn't clear it), and leaving it there would
+  /// collide with the unique index the moment a different note is marked.
+  Future<void> setQuickNote(String noteId) {
+    return _writeCoordinator.write<void>(
+      () => transaction(() async {
+        await (update(notes)..where((n) => n.isQuickNote.equals(true))).write(
+          const NotesCompanion(isQuickNote: Value(false)),
+        );
+        await (update(notes)..where((n) => n.id.equals(noteId))).write(
+          const NotesCompanion(isQuickNote: Value(true)),
+        );
+      }),
+    );
+  }
+
+  /// Clears the quick-note mark, if any, without marking another note.
+  Future<void> clearQuickNote() {
+    return _writeCoordinator.write<void>(
+      () => (update(notes)..where((n) => n.isQuickNote.equals(true))).write(
+        const NotesCompanion(isQuickNote: Value(false)),
+      ),
+    );
+  }
+
+  /// The currently marked quick note, or `null` if none is marked or the
+  /// marked note is in the trash — a trashed note is not a valid target.
+  Future<Note?> getQuickNote() {
+    return (select(notes)
+          ..where((n) => n.isQuickNote.equals(true) & n.deletedAt.isNull()))
+        .getSingleOrNull();
+  }
+
+  /// Soft-delete a note (move to notes trash).
+  Future<int> softDeleteNote(String noteId) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        NotesCompanion(deletedAt: Value(DateTime.now())),
+      ),
+    );
+  }
+
+  /// Restore a soft-deleted note from the notes trash.
+  Future<int> restoreNote(String noteId) {
+    return _writeCoordinator.write<int>(
+      () => (update(notes)..where((n) => n.id.equals(noteId))).write(
+        const NotesCompanion(deletedAt: Value(null)),
+      ),
+    );
+  }
+
+  Future<int> permanentDeleteNote(String noteId) {
+    return _writeCoordinator.write<int>(
+      () => (delete(notes)..where((n) => n.id.equals(noteId))).go(),
+    );
+  }
+
+  /// Permanently removes ALL trashed notes (empty the notes trash).
+  Future<int> emptyNotesTrash() {
+    return _writeCoordinator.write<int>(
+      () => (delete(notes)..where((n) => n.deletedAt.isNotNull())).go(),
+    );
+  }
+
+  /// Permanently deletes active notes whose content is blank
+  /// (`content.trim().isEmpty`) — a self-healing sweep run once when the
+  /// Notizen page mounts, covering notes abandoned by a crash/quit that
+  /// skipped the explicit empty-discard triggers (selection change, page
+  /// dispose). The quick note is exempt even while blank — it is the
+  /// pipeline's zero-config dictation target and must survive until the
+  /// user unmarks it, not just until the next dictation lands. Returns the
+  /// number of notes deleted.
+  Future<int> purgeEmptyNotes() {
+    return _writeCoordinator.write<int>(() async {
+      final active = await (select(
+        notes,
+      )..where((n) => n.deletedAt.isNull())).get();
+      final emptyIds = active
+          .where((n) => n.content.trim().isEmpty && !n.isQuickNote)
+          .map((n) => n.id)
+          .toList();
+      if (emptyIds.isEmpty) return 0;
+      await (delete(notes)..where((n) => n.id.isIn(emptyIds))).go();
+      return emptyIds.length;
+    });
+  }
+
+  /// Deletes [noteId] if — and only if — it is still blank and not the
+  /// marked quick note. Backs the explicit empty-discard triggers (leaving a
+  /// note, closing the Notizen page) that would otherwise drop a quick note
+  /// the user marked before ever dictating into it. Returns whether the note
+  /// was deleted.
+  Future<bool> discardNoteIfBlank(String noteId) {
+    return _writeCoordinator.write<bool>(() async {
+      final note = await (select(
+        notes,
+      )..where((n) => n.id.equals(noteId))).getSingleOrNull();
+      if (note == null || note.content.trim().isNotEmpty || note.isQuickNote) {
+        return false;
+      }
+      await (delete(notes)..where((n) => n.id.equals(noteId))).go();
+      return true;
+    });
+  }
+
+  /// Link a note to a tag — mirrors [tagEntry], reuses the shared [Tags]
+  /// table. Idempotent (no duplicate links).
+  Future<void> tagNote(String noteId, String tagId) {
+    return _writeCoordinator.write<void>(
+      () => into(noteTags).insert(
+        NoteTagsCompanion.insert(noteId: noteId, tagId: tagId),
+        mode: InsertMode.insertOrIgnore,
+      ),
+    );
+  }
+
+  /// Remove a tag from a note (does not delete the tag itself).
+  Future<void> untagNote(String noteId, String tagId) {
+    return _writeCoordinator.write<void>(
+      () => (delete(
+        noteTags,
+      )..where((nt) => nt.noteId.equals(noteId) & nt.tagId.equals(tagId))).go(),
+    );
+  }
+
+  /// Tags for a specific note (via join), sorted alphabetically.
+  Future<List<Tag>> tagsForNote(String noteId) async {
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(noteTags, noteTags.tagId.equalsExp(tags.id))])
+          ..where(noteTags.noteId.equals(noteId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
+    final rows = await query.get();
+    return rows.map((r) => r.readTable(tags)).toList();
+  }
+
+  /// Reactive stream of tags for a specific note.
+  Stream<List<Tag>> watchTagsForNote(String noteId) {
+    if (_isClosed) return const Stream.empty();
+    final query =
+        select(
+            tags,
+          ).join([innerJoin(noteTags, noteTags.tagId.equalsExp(tags.id))])
+          ..where(noteTags.noteId.equals(noteId))
+          ..orderBy([OrderingTerm.asc(tags.name)]);
+    return query.watch().map(
+      (rows) => rows.map((r) => r.readTable(tags)).toList(),
+    );
+  }
+
+  /// Reactive stream of ALL note→tags links, grouped by note id.
+  ///
+  /// Needed because — unlike [HistoryEntries], which denormalizes tag names
+  /// into a JSON column for FTS — [Notes] has no such column: Ticket 06's
+  /// search-by-tag filters in memory against this map.
+  Stream<Map<String, List<Tag>>> watchAllNoteTags() {
+    if (_isClosed) return const Stream.empty();
+    final query = select(noteTags).join([
+      innerJoin(tags, tags.id.equalsExp(noteTags.tagId)),
+    ])..orderBy([OrderingTerm.asc(tags.name)]);
+    return query.watch().map((rows) {
+      final grouped = <String, List<Tag>>{};
+      for (final row in rows) {
+        final noteId = row.readTable(noteTags).noteId;
+        grouped.putIfAbsent(noteId, () => []).add(row.readTable(tags));
+      }
+      return grouped;
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // DailyStats — persistent analytics (independent of history CRUD)
+  // ---------------------------------------------------------------------------
+
+  /// Record a completed transcription in the DailyStats table.
+  ///
+  /// Uses upsert (INSERT OR UPDATE) keyed on (date, model, isLocal).
+  /// This is the ONLY write path for analytics — deleting history entries
+  /// does NOT affect these counters.
+  Future<void> recordDailyStat({
+    required DateTime timestamp,
+    required String model,
+    required bool isLocal,
+    required double durationSec,
+    required double processingDurationSec,
+    required int wordCount,
+    required double costUsd,
+  }) async {
+    final dateStr = _dateKey(timestamp);
+    final bucket = _durationBucket(durationSec);
+
+    await into(dailyStats).insert(
+      DailyStatsCompanion(
+        date: Value(dateStr),
+        model: Value(model.isEmpty ? 'unknown' : model),
+        isLocal: Value(isLocal),
+        count: const Value(1),
+        totalDurationSec: Value(durationSec),
+        totalProcessingSec: Value(processingDurationSec),
+        totalWords: Value(wordCount),
+        totalCostUsd: Value(costUsd),
+        durUnder15s: Value(bucket == 0 ? 1 : 0),
+        dur15To30s: Value(bucket == 1 ? 1 : 0),
+        dur30To60s: Value(bucket == 2 ? 1 : 0),
+        dur1To3m: Value(bucket == 3 ? 1 : 0),
+        durOver3m: Value(bucket == 4 ? 1 : 0),
+      ),
+      onConflict: DoUpdate(
+        (old) => DailyStatsCompanion.custom(
+          count: dailyStats.count + const Constant(1),
+          totalDurationSec: dailyStats.totalDurationSec + Variable(durationSec),
+          totalProcessingSec:
+              dailyStats.totalProcessingSec + Variable(processingDurationSec),
+          totalWords: dailyStats.totalWords + Variable(wordCount),
+          totalCostUsd: dailyStats.totalCostUsd + Variable(costUsd),
+          durUnder15s: dailyStats.durUnder15s + Variable(bucket == 0 ? 1 : 0),
+          dur15To30s: dailyStats.dur15To30s + Variable(bucket == 1 ? 1 : 0),
+          dur30To60s: dailyStats.dur30To60s + Variable(bucket == 2 ? 1 : 0),
+          dur1To3m: dailyStats.dur1To3m + Variable(bucket == 3 ? 1 : 0),
+          durOver3m: dailyStats.durOver3m + Variable(bucket == 4 ? 1 : 0),
+        ),
+        target: [dailyStats.date, dailyStats.model, dailyStats.isLocal],
+      ),
+    );
+  }
+
+  /// Backfill DailyStats from existing HistoryEntries (one-time migration).
+  Future<void> backfillDailyStats() async {
+    // Check if DailyStats already has data — skip if already backfilled.
+    final existing = await (selectOnly(
+      dailyStats,
+    )..addColumns([dailyStats.count.sum()])).getSingle();
+    final existingCount = existing.read(dailyStats.count.sum()) ?? 0;
+    if (existingCount > 0) return;
+
+    // Read ALL history entries (including deleted/archived) for backfill.
+    final entries = await select(historyEntries).get();
+    // One transaction for the whole backfill instead of one implicit
+    // commit per `recordDailyStat` upsert: with no explicit WAL pragma set
+    // on the connection (see `_openConnection`), each un-batched statement
+    // is its own autocommit round-trip to disk. For a user with thousands
+    // of history entries — reachable not just on first launch after an
+    // upgrade, but any time `resetDailyStats()` runs (Settings/Analytics
+    // "reset stats") and the next app open re-triggers this backfill —
+    // that is thousands of individual fsyncs instead of one. Wrapping the
+    // loop cuts it to a single commit; the SQL emitted per row and the
+    // resulting DailyStats rows are unchanged.
+    await transaction(() async {
+      for (final e in entries) {
+        final words = computeWordCountFast(e.content);
+        await recordDailyStat(
+          timestamp: e.timestamp,
+          model: e.model,
+          isLocal: e.isLocal,
+          durationSec: e.durationSec,
+          processingDurationSec: e.processingDurationSec,
+          wordCount: words,
+          costUsd: e.costUsd,
+        );
+      }
+    });
+  }
+
+  static String _dateKey(DateTime dt) =>
+      '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
+
+  static int _durationBucket(double sec) {
+    if (sec < 15) return 0;
+    if (sec < 30) return 1;
+    if (sec < 60) return 2;
+    if (sec < 180) return 3;
+    return 4;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Analytics queries — read from DailyStats (history-independent)
+  // ---------------------------------------------------------------------------
+
+  Future<T?> _sumDailyStat<T extends num>(
+    Expression<T> column,
+    DateTime? since,
+  ) async {
+    final total = column.sum();
+    final q = selectOnly(dailyStats)..addColumns([total]);
+    if (since != null) {
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final row = await q.getSingle();
+    return row.read(total);
+  }
+
+  /// Total number of recordings ever made.
+  Future<int> analyticsEntryCount({DateTime? since}) async =>
+      (await _sumDailyStat(dailyStats.count, since)) ?? 0;
+
+  /// Sum of recording duration in seconds.
+  Future<double> analyticsTotalDurationSec({DateTime? since}) async =>
+      (await _sumDailyStat(dailyStats.totalDurationSec, since)) ?? 0.0;
+
+  /// Total word count across all recordings.
+  Future<int> analyticsTotalWords({DateTime? since}) async =>
+      (await _sumDailyStat(dailyStats.totalWords, since)) ?? 0;
+
+  /// Total cloud cost in USD.
+  Future<double> analyticsTotalCostUsd({DateTime? since}) async =>
+      (await _sumDailyStat(dailyStats.totalCostUsd, since)) ?? 0.0;
+
+  /// Estimated savings: sum durationSec of local entries × rate/min.
+  Future<double> analyticsLocalSavingsUsd({
+    DateTime? since,
+    double ratePerMinute = 0.006,
+  }) async {
+    final total = dailyStats.totalDurationSec.sum();
+    final q = selectOnly(dailyStats)..addColumns([total]);
+    q.where(dailyStats.isLocal.equals(true));
+    if (since != null) {
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final row = await q.getSingle();
+    final totalSec = row.read(total) ?? 0.0;
+    return (totalSec / 60.0) * ratePerMinute;
+  }
+
+  /// Per-model usage stats.
+  Future<List<AnalyticsModelUsage>> analyticsModelUsage({
+    DateTime? since,
+  }) async {
+    final cnt = dailyStats.count.sum();
+    final q = selectOnly(dailyStats)
+      ..addColumns([dailyStats.model, cnt])
+      ..groupBy([dailyStats.model])
+      ..orderBy([OrderingTerm.desc(cnt)]);
+    if (since != null) {
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final rows = await q.get();
+    final total = rows.fold<int>(0, (s, r) => s + (r.read(cnt) ?? 0));
+    return rows.map((r) {
+      final name = r.read(dailyStats.model) ?? '';
+      final count = r.read(cnt) ?? 0;
+      return AnalyticsModelUsage(
+        model: name.isEmpty ? 'Unknown' : name,
+        count: count,
+        fraction: total > 0 ? count / total : 0.0,
+      );
+    }).toList();
+  }
+
+  /// Recordings per day-of-week (0=Monday … 6=Sunday) for the last 7 days.
+  ///
+  /// Uses DailyStats date strings to derive day-of-week.
+  Future<List<double>> analyticsWeeklyActivity() async {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final sinceStr = _dateKey(weekAgo);
+
+    final cnt = dailyStats.count.sum();
+    final q = selectOnly(dailyStats)
+      ..addColumns([dailyStats.date, cnt])
+      ..groupBy([dailyStats.date]);
+    q.where(dailyStats.date.isBiggerOrEqualValue(sinceStr));
+    final rows = await q.get();
+
+    final counts = List.filled(7, 0.0);
+    for (final r in rows) {
+      final dateStr = r.read(dailyStats.date);
+      if (dateStr == null) continue;
+      final dt = DateTime.tryParse(dateStr);
+      if (dt == null) continue;
+      final idx = dt.weekday - 1; // 0-based Mon..Sun
+      counts[idx] += (r.read(cnt) ?? 0).toDouble();
+    }
+    return counts;
+  }
+
+  /// Duration distribution buckets: [<15s, 15-30s, 30-60s, 1-3m, >3m].
+  Future<List<int>> analyticsDurationBuckets({DateTime? since}) async {
+    final cols = [
+      dailyStats.durUnder15s.sum(),
+      dailyStats.dur15To30s.sum(),
+      dailyStats.dur30To60s.sum(),
+      dailyStats.dur1To3m.sum(),
+      dailyStats.durOver3m.sum(),
+    ];
+    final q = selectOnly(dailyStats)..addColumns(cols);
+    if (since != null) {
+      q.where(dailyStats.date.isBiggerOrEqualValue(_dateKey(since)));
+    }
+    final row = await q.getSingle();
+    return [
+      row.read(cols[0]) ?? 0,
+      row.read(cols[1]) ?? 0,
+      row.read(cols[2]) ?? 0,
+      row.read(cols[3]) ?? 0,
+      row.read(cols[4]) ?? 0,
+    ];
+  }
+
+  // ---------------------------------------------------------------------------
+  // Hotkey→text latency — local-only performance KPI (issue 07)
+  // ---------------------------------------------------------------------------
+
+  /// Hard cap on stored [hotkeyLatencyEntries] rows. Unlike history entries
+  /// (`historyMaxEntries`), this local-only KPI table has no user-facing
+  /// retention setting, so — like [enforceAudioAttachmentCap]'s `max: 20`
+  /// default — the cap is a fixed constant.
+  static const int _maxHotkeyLatencyEntries = 1000;
+
+  /// Persists one end-to-end hotkey→text latency sample.
+  ///
+  /// Local-only: this table is never read by the outgoing telemetry path
+  /// (`_latencyBucketSeconds` in `recording_orchestrator.dart` remains the
+  /// sole, intentionally coarse latency signal that leaves the device).
+  ///
+  /// Trims the table to [_maxHotkeyLatencyEntries] rows (oldest-first) after
+  /// each insert via [_trimHotkeyLatencyEntries] — same row-count-cap policy
+  /// as [trimToMaxEntries]/[enforceAudioAttachmentCap], run as its own
+  /// top-level [_writeCoordinator] call rather than nested inside the
+  /// insert's (the coordinator's lock is not reentrant — see the
+  /// lock-in-lock note on [_writeCoordinator]'s doc comment). As a
+  /// consequence, [analyticsAverageHotkeyLatencyMs] only ever averages over
+  /// the retained window.
+  Future<void> recordHotkeyLatency({
+    required DateTime recordedAt,
+    required int latencyMs,
+  }) async {
+    await _writeCoordinator.write<void>(
+      () => into(hotkeyLatencyEntries).insert(
+        HotkeyLatencyEntriesCompanion.insert(
+          id: _uuid(),
+          recordedAt: recordedAt,
+          latencyMs: latencyMs,
+        ),
+      ),
+    );
+    await _trimHotkeyLatencyEntries();
+  }
+
+  /// Keeps only the [_maxHotkeyLatencyEntries] most recent latency samples,
+  /// deleting the rest. Same query shape as [enforceAudioAttachmentCap]:
+  /// fetch ordered rows, slice off everything past the cap, delete by id.
+  Future<int> _trimHotkeyLatencyEntries() {
+    return _writeCoordinator.write<int>(() async {
+      final rows =
+          await (select(hotkeyLatencyEntries)..orderBy([
+                (e) => OrderingTerm(
+                  expression: e.recordedAt,
+                  mode: OrderingMode.desc,
+                ),
+              ]))
+              .get();
+      if (rows.length <= _maxHotkeyLatencyEntries) return 0;
+
+      final excess = rows.sublist(_maxHotkeyLatencyEntries);
+      await (delete(
+        hotkeyLatencyEntries,
+      )..where((e) => e.id.isIn(excess.map((r) => r.id)))).go();
+      return excess.length;
+    });
+  }
+
+  /// Average hotkey→text latency in milliseconds across recorded samples.
+  ///
+  /// Returns `null` when no samples exist yet.
+  Future<double?> analyticsAverageHotkeyLatencyMs({DateTime? since}) async {
+    final avg = hotkeyLatencyEntries.latencyMs.avg();
+    final q = selectOnly(hotkeyLatencyEntries)..addColumns([avg]);
+    if (since != null) {
+      q.where(hotkeyLatencyEntries.recordedAt.isBiggerOrEqualValue(since));
+    }
+    final row = await q.getSingle();
+    return row.read(avg);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Analytics data classes
+// ---------------------------------------------------------------------------
+
+/// Model usage row for analytics.
+class AnalyticsModelUsage {
+  const AnalyticsModelUsage({
+    required this.model,
+    required this.count,
+    required this.fraction,
+  });
+
+  final String model;
+  final int count;
+  final double fraction;
+}
+
+// ---------------------------------------------------------------------------
+// Connection factory
+// ---------------------------------------------------------------------------
+
+QueryExecutor _openConnection() {
+  // LazyDatabase opens the underlying NativeDatabase on first use; the
+  // SentryQueryInterceptor emits a child span per query when a transaction
+  // is sampled. Span volume is therefore gated by `tracesSampleRate` in
+  // app_monitoring.dart — with a low sample rate, the vast majority of
+  // queries are never traced and never count against the Free-Tier quota.
+  return LazyDatabase(() async {
+    final dir = Directory(paths.appDataDir());
+    if (!dir.existsSync()) dir.createSync(recursive: true);
+    await _migrateFromNestedPath(dir.path);
+    final file = File(p.join(dir.path, 'history.db'));
+    return NativeDatabase.createInBackground(
+      file,
+    ).interceptWith(SentryQueryInterceptor(databaseName: 'history'));
+  });
+}
+
+/// One-time migration: move history.db from the old double-nested
+/// `%APPDATA%\WhisPaste\WhisPaste\` path to the correct single-level
+/// `%APPDATA%\WhisPaste\` path. If a Go-era DB already occupies the
+/// target, back it up and prefer the Flutter DB (correct Drift schema).
+Future<void> _migrateFromNestedPath(String correctDir) async {
+  if (!Platform.isWindows) return;
+  final nestedDb = File(p.join(correctDir, 'WhisPaste', 'history.db'));
+  if (!nestedDb.existsSync()) return;
+
+  final targetDb = File(p.join(correctDir, 'history.db'));
+  try {
+    // If a DB already exists at the target (likely Go-era), back it up.
+    if (targetDb.existsSync()) {
+      final backup = File(p.join(correctDir, 'history.db.pre-migration'));
+      await targetDb.copy(backup.path);
+      await targetDb.delete();
+      for (final suffix in ['-wal', '-shm']) {
+        final f = File('${targetDb.path}$suffix');
+        if (f.existsSync()) await f.delete();
+      }
+    }
+
+    // Copy Flutter DB from nested path.
+    await nestedDb.copy(targetDb.path);
+    for (final suffix in ['-wal', '-shm']) {
+      final src = File('${nestedDb.path}$suffix');
+      if (src.existsSync()) await src.copy('${targetDb.path}$suffix');
+    }
+
+    // Remove old nested directory (best-effort).
+    try {
+      await Directory(p.join(correctDir, 'WhisPaste')).delete(recursive: true);
+    } catch (e, st) {
+      _log.debug(
+        'Failed to remove nested WhisPaste directory after migration',
+        e,
+        st,
+      );
+    }
+
+    _log.info('DB migrated from nested WhisPaste/WhisPaste/ path');
+  } catch (e) {
+    _log.warning('DB migration failed (will use existing location): $e', e);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Riverpod provider
+// ---------------------------------------------------------------------------
+
+/// Global database provider — single instance across the app.
+final historyDatabaseProvider = Provider<HistoryDatabase>((ref) {
+  final db = HistoryDatabase();
+  ref.onDispose(db.close);
+  return db;
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Generates a v4 UUID without external dependencies.
+String generateV4Uuid() {
+  final r = Random.secure();
+  final bytes = List.generate(16, (_) => r.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  final h = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  return '${h.substring(0, 8)}-${h.substring(8, 12)}-'
+      '${h.substring(12, 16)}-${h.substring(16, 20)}-${h.substring(20)}';
+}

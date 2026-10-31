@@ -1,0 +1,14 @@
+Hotkey drücken, sprechen, und der Text erscheint am Cursor, in jeder Windows-App
+Zwei lokale Engines: Whisper (99 Sprachen, GPU-Beschleunigung) und Parakeet (schnell auf der CPU)
+Dein Audio bleibt auf deinem PC; nach einmaligem Modell-Download offline nutzbar
+Optionale Cloud-Transkription über OpenAI oder Deepgram mit eigenem API-Schlüssel, direkt zum Anbieter
+Smart Mode: vor dem Einfügen bereinigen, kürzen oder übersetzen, lokal oder über OpenAI
+Markierten Text per Stimme ändern: sag, was anders sein soll, und WhisPaste schreibt ihn um (standardmäßig aus)
+Gesprochene Zeilenumbrüche: beim Diktieren „neuer Absatz“ oder „neue Zeile“ sagen
+Textbausteine per Stichwort, auch als interaktive Vorlagen
+Eigenes Vokabular und Ersetzungen für Namen und Fachbegriffe
+Durchsuchbarer Verlauf mit Tags, Anheften, Archiv, Zusammenführen und PIN-Sperre
+Export als TXT, Markdown, JSON, CSV und Word (.docx)
+Umschalten oder Push-to-Talk mit frei wählbarem globalem Hotkey
+Live-Overlay, Floating Button, Zwischenablage-Seitenleiste, System-Tray und Autostart
+Einmalkauf, kein Abo, kein Konto; quelloffen unter MIT-Lizenz

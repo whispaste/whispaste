@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --screen-w: 1920px;
+    --screen-h: 1080px;
+    --num-screens: 6;
+    --accent: #38D9F0;
+    --accent-secondary: #0891B2;
+    --bg-dark: #0f1219;
+    --bg-light: #f5f7fa;
+    --text-primary: #f0f4f8;
+    --text-muted: rgba(240, 244, 248, 0.58);
+    --text-primary-light: #111827;
+    --text-muted-light: rgba(17, 24, 39, 0.62);
+    --category-color: #38D9F0;
+    --window-radius: 16px;
+    --window-shadow: 0 34px 84px rgba(0, 0, 0, 0.42);
+    /* Width scale factor: product-screen sizes are designed at 1440px and
+       multiply by --k so 1920×1080 renders proportionally, not shrunken. */
+    --k: 1.3333;
+  }
+
+  body {
+    width: calc(var(--screen-w) * var(--num-screens));
+    height: var(--screen-h);
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg-dark);
+  }
+
+  .panorama {
+    width: 100%;
+    height: 100%;
+    display: flex;
+  }
+
+  .screen {
+    width: var(--screen-w);
+    height: var(--screen-h);
+    flex-shrink: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 54px;
+    overflow: hidden;
+    padding: 56px 72px;
+  }
+
+  .screen.bg-dark {
+    background:
+      radial-gradient(ellipse 760px 540px at 14% 84%, rgba(56, 217, 240, 0.06) 0%, transparent 62%),
+      radial-gradient(ellipse 520px 420px at 88% 18%, rgba(8, 145, 178, 0.04) 0%, transparent 54%),
+      linear-gradient(135deg, #0f1219 0%, #111827 52%, #0f1219 100%);
+  }
+
+  .screen.bg-light {
+    /* Kept a step darker than the app UI's light surfaces so the window
+       edge separates instead of melting into the canvas. */
+    background:
+      radial-gradient(ellipse 760px 540px at 84% 22%, rgba(56, 217, 240, 0.14) 0%, transparent 58%),
+      radial-gradient(ellipse 560px 420px at 16% 82%, rgba(8, 145, 178, 0.1) 0%, transparent 52%),
+      linear-gradient(135deg, #eceff6 0%, #e2e7f0 52%, #eceff6 100%);
+  }
+
+  /* ---- Product screens: top text band + staged window with bottom bleed ----
+     Composition cycles center → left → right → left → center across the set.
+     All variants share the same vertical rhythm (band, fixed gap, window) so
+     text never overlaps the window; left/right only change text alignment
+     and nudge the window slightly toward the opposite side. The window
+     always bleeds off the bottom edge, which also absorbs the 16:10 (Mac)
+     vs 16:9 (Microsoft) aspect difference gracefully. */
+
+  .screen.product {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+  }
+
+  .band {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    padding: calc(var(--screen-h) * 0.082) calc(92px * var(--k)) 0;
+  }
+
+  .comp-center .band { align-items: center; text-align: center; }
+  .comp-left .band { align-items: flex-start; text-align: left; }
+  .comp-right .band { align-items: flex-end; text-align: right; }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: calc(13px * var(--k));
+    margin-bottom: calc(26px * var(--k));
+  }
+
+  .eyebrow-wave {
+    display: flex;
+    align-items: center;
+    gap: calc(3px * var(--k));
+  }
+
+  .eyebrow-wave i {
+    display: block;
+    width: calc(3px * var(--k));
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .eyebrow-wave i:nth-child(1) { height: calc(7px * var(--k)); opacity: 0.45; }
+  .eyebrow-wave i:nth-child(2) { height: calc(13px * var(--k)); opacity: 0.65; }
+  .eyebrow-wave i:nth-child(3) { height: calc(19px * var(--k)); opacity: 1; }
+  .eyebrow-wave i:nth-child(4) { height: calc(11px * var(--k)); opacity: 0.65; }
+  .eyebrow-wave i:nth-child(5) { height: calc(6px * var(--k)); opacity: 0.45; }
+
+  .idx {
+    font-size: calc(14px * var(--k));
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    color: var(--accent);
+  }
+
+  .eyebrow-rule {
+    width: calc(30px * var(--k));
+    height: 1px;
+    background: rgba(240, 244, 248, 0.26);
+  }
+
+  .cat {
+    font-size: calc(13px * var(--k));
+    font-weight: 800;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(240, 244, 248, 0.66);
+  }
+
+  .bg-light .eyebrow-wave i { background: var(--accent-secondary); }
+  .bg-light .idx { color: var(--accent-secondary); }
+  .bg-light .eyebrow-rule { background: rgba(17, 24, 39, 0.24); }
+  .bg-light .cat { color: rgba(17, 24, 39, 0.58); }
+
+  .product .headline {
+    font-size: calc(57px * var(--k));
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    color: var(--text-primary);
+    margin-bottom: calc(20px * var(--k));
+    white-space: pre-line;
+  }
+
+  .comp-center .headline { font-size: calc(64px * var(--k)); }
+
+  .product .headline em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .bg-light .headline { color: var(--text-primary-light); }
+  .bg-light .headline em { color: var(--accent-secondary); }
+
+  .product .subtitle {
+    font-size: calc(19px * var(--k));
+    line-height: 1.55;
+    color: var(--text-muted);
+    max-width: calc(620px * var(--k));
+    text-wrap: balance;
+  }
+
+  .comp-center .subtitle { max-width: calc(720px * var(--k)); }
+  .bg-light .subtitle { color: var(--text-muted-light); }
+
+  .stage {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    margin-top: calc(var(--screen-h) * 0.055);
+  }
+
+  .product .window-frame {
+    position: absolute;
+    top: 0;
+    /* Per-screen window scale, injected as --ws from config.js */
+    width: calc(var(--screen-w) * var(--ws, 0.78));
+    border-radius: calc(18px * var(--k)) calc(18px * var(--k)) 0 0;
+    overflow: hidden;
+    background: #1a1f2e;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 calc(30px * var(--k)) calc(70px * var(--k)) rgba(0, 0, 0, 0.45),
+      0 calc(70px * var(--k)) calc(160px * var(--k)) rgba(0, 0, 0, 0.35);
+  }
+
+  .bg-light .window-frame {
+    background: #f5f7fa;
+    box-shadow:
+      0 0 0 1px rgba(17, 24, 39, 0.16),
+      0 calc(30px * var(--k)) calc(70px * var(--k)) rgba(15, 23, 42, 0.26),
+      0 calc(70px * var(--k)) calc(160px * var(--k)) rgba(15, 23, 42, 0.16);
+  }
+
+  .comp-center .window-frame {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* Left/right text: window stays near-centered but leans ~2% toward the
+     side opposite the text, echoing the alignment without opening a dead
+     column (a hard side-anchor at these scales leaves a hollow strip). */
+  .comp-left .window-frame {
+    left: 52%;
+    transform: translateX(-50%);
+  }
+
+  .comp-right .window-frame {
+    left: 48%;
+    transform: translateX(-50%);
+  }
+
+  /* ---- Floating overlay pill: the REAL captured OverlayPainter output
+     (assets/overlay-recording-dark-compact.png), not a hand-rebuilt CSS
+     approximation — two prior CSS recreations (this file's own former
+     .float-pill, and hero-device-template.html's .overlay-pill) both
+     drifted from the actual app rendering. The golden test captures the
+     painter on a transparent canvas, so the PNG already carries the real
+     per-pixel alpha for the translucent glass fill — a plain <img> with
+     normal alpha compositing reproduces the exact real translucency.
+     Straddles the window's top edge so it reads as hovering above the app. */
+
+  /* Integration model: a native always-on-top window is axis-aligned
+     (0deg — a tilt reads as a pasted sticker and costs sharpness through
+     rotation resampling) and hovers OVER the app: most of the pill overlaps
+     the window so its shadow falls visibly onto the window surface (the
+     canvas is near-black, where any shadow would vanish), while the top
+     breaks the window edge. The source asset is now captured at 2x
+     (472×112 device px for the 236×56 logical liquid-glass window, see
+     test/screenshots/overlay_pill_asset_capture_test.dart), so at
+     deviceScaleFactor 2 the browser composites it ~1:1 in device pixels —
+     the former `image-rendering: pixelated` workaround for the 1x source
+     is gone. Height stays auto so the wobbled (liquid peak frame)
+     silhouette keeps its true aspect. */
+  .float-pill-img {
+    position: absolute;
+    z-index: 3;
+    width: calc(236px * var(--k));
+    height: auto;
+    top: calc(-22px * var(--k));
+    right: calc(var(--screen-w) * 0.055);
+    filter:
+      drop-shadow(0 calc(10px * var(--k)) calc(26px * var(--k)) rgba(0, 0, 0, 0.5))
+      drop-shadow(0 calc(3px * var(--k)) calc(7px * var(--k)) rgba(0, 0, 0, 0.3));
+  }
+
+  .window-frame img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* ---- Hero / poster screen (no app window) ---- */
+
+  .screen.hero {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 0;
+    padding: 56px 96px;
+    background:
+      radial-gradient(ellipse 900px 620px at 50% 30%, rgba(56, 217, 240, 0.07) 0%, transparent 60%),
+      radial-gradient(ellipse 700px 480px at 12% 94%, rgba(8, 145, 178, 0.05) 0%, transparent 55%),
+      radial-gradient(ellipse 700px 480px at 88% 94%, rgba(8, 145, 178, 0.05) 0%, transparent 55%),
+      linear-gradient(180deg, #0d1017 0%, #111827 55%, #0f1219 100%);
+  }
+
+  .hero-icon-row {
+    display: flex;
+    align-items: center;
+    gap: 42px;
+    margin-bottom: 46px;
+  }
+
+  .hero-wave {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .hero-wave-bar {
+    width: 5px;
+    border-radius: 3px;
+  }
+
+  .hero-icon {
+    width: 172px;
+    height: 172px;
+    filter: drop-shadow(0 22px 48px rgba(0, 0, 0, 0.5));
+  }
+
+  .hero-headline {
+    font-size: 74px;
+    font-weight: 900;
+    line-height: 1.06;
+    letter-spacing: -0.04em;
+    color: var(--text-primary);
+    margin-bottom: 26px;
+    white-space: pre-line;
+  }
+
+  .hero-headline em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .hero-subtitle {
+    font-size: 22px;
+    line-height: 1.55;
+    color: var(--text-muted);
+    max-width: 940px;
+    margin-bottom: 42px;
+  }
+
+  .hero-badges {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+  }
+
+  .hero-badge {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(240, 244, 248, 0.72);
+    padding: 11px 22px;
+    border: 1px solid rgba(56, 217, 240, 0.26);
+    border-radius: 999px;
+  }
+</style>
+</head>
+<body>
+<div class="panorama">
+  <div id="screen-0" class="screen hero">
+    <div class="hero-icon-row">
+      <div class="hero-wave" id="hero-wave-left"></div>
+      <img id="hero-icon" class="hero-icon" src="" alt="WhisPaste app icon">
+      <div class="hero-wave" id="hero-wave-right"></div>
+    </div>
+    <div id="hl-0" class="hero-headline"></div>
+    <div id="sub-0" class="hero-subtitle"></div>
+    <div id="badges-0" class="hero-badges"></div>
+  </div>
+
+  <div id="screen-1" class="screen product bg-dark comp-center">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">01</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-1" class="cat"></span>
+      </div>
+      <div id="hl-1" class="headline"></div>
+      <div id="sub-1" class="subtitle"></div>
+    </div>
+    <div class="stage">
+      <div class="window-frame">
+        <img id="ss-1" src="" alt="Workspace overview">
+      </div>
+      <img id="float-pill-img" class="float-pill-img" src="" alt="" />
+    </div>
+  </div>
+
+  <div id="screen-2" class="screen product bg-light comp-left">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">02</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-2" class="cat"></span>
+      </div>
+      <div id="hl-2" class="headline"></div>
+      <div id="sub-2" class="subtitle"></div>
+    </div>
+    <div class="stage">
+      <div class="window-frame">
+        <img id="ss-2" src="" alt="Workspace detail">
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-3" class="screen product bg-dark comp-right">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">03</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-3" class="cat"></span>
+      </div>
+      <div id="hl-3" class="headline"></div>
+      <div id="sub-3" class="subtitle"></div>
+    </div>
+    <div class="stage">
+      <div class="window-frame">
+        <img id="ss-3" src="" alt="Voice shortcuts">
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-4" class="screen product bg-light comp-left">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">04</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-4" class="cat"></span>
+      </div>
+      <div id="hl-4" class="headline"></div>
+      <div id="sub-4" class="subtitle"></div>
+    </div>
+    <div class="stage">
+      <div class="window-frame">
+        <img id="ss-4" src="" alt="Hotkey settings">
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-5" class="screen product bg-dark comp-center">
+    <div class="band">
+      <div class="eyebrow">
+        <span class="eyebrow-wave"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="idx">05</span>
+        <span class="eyebrow-rule"></span>
+        <span id="cat-5" class="cat"></span>
+      </div>
+      <div id="hl-5" class="headline"></div>
+      <div id="sub-5" class="subtitle"></div>
+    </div>
+    <div class="stage">
+      <div class="window-frame">
+        <img id="ss-5" src="" alt="Time saved">
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Deterministic waveform flanking the app icon (fixed heights, no randomness
+  // so store screenshots stay reproducible). Bars fade out away from the icon.
+  (function () {
+    const heights = [10, 20, 14, 28, 18, 38, 24, 50, 34, 58, 44, 66];
+    const left = document.getElementById('hero-wave-left');
+    const right = document.getElementById('hero-wave-right');
+    if (!left || !right) return;
+    heights.forEach(function (h, i) {
+      const alpha = (0.1 + (i / (heights.length - 1)) * 0.32).toFixed(2);
+      [left, right].forEach(function (container) {
+        const bar = document.createElement('div');
+        bar.className = 'hero-wave-bar';
+        bar.style.height = h + 'px';
+        bar.style.background = 'rgba(56, 217, 240, ' + alpha + ')';
+        if (container === right) {
+          container.insertBefore(bar, container.firstChild);
+        } else {
+          container.appendChild(bar);
+        }
+      });
+    });
+  })();
+</script>
+</body>
+</html>

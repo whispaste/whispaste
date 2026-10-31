@@ -1,0 +1,185 @@
+{
+  "$description": "WhisPaste primitive tokens: raw values without meaning. Never referenced by components directly, only by semantic tokens. Format follows the W3C Design Tokens (DTCG) shape: $type, $value, $description, aliases as {group.token}. Fluid sizes carry $extensions.fluid (min/max in px, interpolated linearly between 390px and 1920px viewport width unless minVw/maxVw say otherwise); platforms without viewport scaling (the desktop app) use the max value.",
+  "color": {
+    "$type": "color",
+    "navy": {
+      "950": { "$value": "#070B19", "$description": "Deep ink: the darkest band, gives tonal contrast against the stage wash." },
+      "900": { "$value": "#0B122A", "$description": "App background (WpColorsDark.background); text colour on cyan and amber fills." },
+      "850": { "$value": "#0D1936", "$description": "App surface (WpColorsDark.surface)." },
+      "800": { "$value": "#122247", "$description": "App surfaceElevated." },
+      "700": { "$value": "#13274F", "$description": "Stage navy, first stop of the ambient wash." },
+      "600": { "$value": "#171D53", "$description": "Stage indigo, middle stop of the wash; cards and floating chrome." },
+      "500": { "$value": "#2E2153", "$description": "Stage violet, last stop of the wash. Used sparingly." }
+    },
+    "glacier": {
+      "50": { "$value": "#F3F7FB", "$description": "Brightest light surface: inputs and cards on light bands." },
+      "100": { "$value": "#E6EEF7", "$description": "Light band base." },
+      "200": { "$value": "#D6E2F0", "$description": "Second light tone for alternating light bands." },
+      "300": { "$value": "#BFCFE3", "$description": "Hairlines on light surfaces." },
+      "500": { "$value": "#6B7A96", "$description": "Control borders on light surfaces (3:1 against glacier.100)." },
+      "600": { "$value": "#52607A", "$description": "Subtle text on light (AA on glacier.200)." },
+      "700": { "$value": "#3D4A66", "$description": "Secondary text on light." },
+      "900": { "$value": "#0B122A", "$description": "Primary text on light; same value as navy.900." }
+    },
+    "frost": {
+      "50": { "$value": "#F0F4FA", "$description": "Primary text on dark (WpColorsDark.textPrimary)." },
+      "200": { "$value": "#ABB8CC", "$description": "Secondary text on dark (textSecondary)." },
+      "400": { "$value": "#8A99B2", "$description": "Muted text on dark (textMuted)." }
+    },
+    "cyan": {
+      "200": { "$value": "#A7EAF6", "$description": "Accent hover (WpColorsDark.accentHover)." },
+      "300": { "$value": "#6FDDF0", "$description": "Brand cyan: action and recording accent." },
+      "400": { "$value": "#1ACBE9", "$description": "Middle stop of the CTA gradient." },
+      "500": { "$value": "#0BAACC", "$description": "Brand teal, last stop of the CTA gradient." },
+      "600": { "$value": "#00788E", "$description": "Gradient mid-stop for large text on light (3:1 on glacier.200)." },
+      "700": { "$value": "#005F73", "$description": "Cyan as text on light surfaces (AA on glacier.200)." }
+    },
+    "amber": {
+      "200": { "$value": "#FFD99E", "$description": "Soft amber for highlighter fills behind dark text." },
+      "400": { "$value": "#FFB547", "$description": "Warm accent: markers, hints, highlights. Never a button fill." },
+      "800": { "$value": "#8A4B00", "$description": "Amber as text on light surfaces (AA on glacier.200)." }
+    },
+    "green": {
+      "400": { "$value": "#36D98B", "$description": "Success on dark (app semantic success)." },
+      "800": { "$value": "#0B6B40", "$description": "Success as text on light." }
+    },
+    "yellow": {
+      "400": { "$value": "#F5C842", "$description": "Warning on dark (app semantic warning)." },
+      "800": { "$value": "#735400", "$description": "Warning as text on light." }
+    },
+    "red": {
+      "400": { "$value": "#FF7B7B", "$description": "Error on dark (app semantic error)." },
+      "800": { "$value": "#B42318", "$description": "Error as text on light." }
+    },
+    "white": { "$value": "#FFFFFF" },
+    "black": { "$value": "#000000" }
+  },
+  "font": {
+    "family": {
+      "$type": "fontFamily",
+      "display": { "$value": ["Bricolage Grotesque Variable", "Bricolage Grotesque Fallback", "ui-sans-serif", "system-ui", "sans-serif"], "$description": "Headlines. Self-hosted variable font; the metric-matched local Arial fallback (global.css) keeps headlines from jumping while the font loads." },
+      "body": { "$value": ["Hanken Grotesk Variable", "Hanken Grotesk Fallback", "ui-sans-serif", "system-ui", "-apple-system", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"], "$description": "Body copy and UI. Metric-matched local Arial fallback, see display." },
+      "mono": { "$value": ["ui-monospace", "SFMono-Regular", "SF Mono", "Menlo", "Consolas", "Liberation Mono", "monospace"], "$description": "Labels, keycaps, metrics, code. System stack, no extra request." }
+    },
+    "weight": {
+      "$type": "fontWeight",
+      "regular": { "$value": 400 },
+      "medium": { "$value": 500 },
+      "semibold": { "$value": 600 },
+      "bold": { "$value": 700 },
+      "heavy": { "$value": 800 }
+    },
+    "size": {
+      "$type": "dimension",
+      "2xs": { "$value": "11px" },
+      "xs": { "$value": "12px" },
+      "sm": { "$value": "14px" },
+      "md": { "$value": "16px" },
+      "lg": { "$value": "18px" },
+      "xl": { "$value": "20px" },
+      "lead": { "$value": "20px", "$extensions": { "fluid": { "min": "17px", "max": "20px" } } },
+      "card-title": { "$value": "21px", "$extensions": { "fluid": { "min": "18px", "max": "21px" } } },
+      "h3": { "$value": "28px", "$extensions": { "fluid": { "min": "22px", "max": "28px" } } },
+      "title": { "$value": "48px", "$extensions": { "fluid": { "min": "28px", "max": "48px" } } },
+      "h2": { "$value": "84px", "$extensions": { "fluid": { "min": "36px", "max": "84px" } } },
+      "h1": { "$value": "100px", "$extensions": { "fluid": { "min": "40px", "max": "100px" } } },
+      "display": { "$value": "112px", "$extensions": { "fluid": { "min": "44px", "max": "112px" } } }
+    },
+    "line-height": {
+      "$type": "number",
+      "tight": { "$value": 1 },
+      "heading": { "$value": 1.05 },
+      "snug": { "$value": 1.25 },
+      "body": { "$value": 1.6 },
+      "relaxed": { "$value": 1.75 }
+    },
+    "tracking": {
+      "$type": "dimension",
+      "display": { "$value": "-0.035em" },
+      "heading": { "$value": "-0.03em" },
+      "title": { "$value": "-0.015em" },
+      "normal": { "$value": "0em" },
+      "label": { "$value": "0.12em" }
+    }
+  },
+  "space": {
+    "$type": "dimension",
+    "$description": "4px base grid, mirrors WpSpacing in the app (xxs 4 … xxxl 48) and extends it for page layout.",
+    "1": { "$value": "4px" },
+    "2": { "$value": "8px" },
+    "3": { "$value": "12px" },
+    "4": { "$value": "16px" },
+    "5": { "$value": "20px" },
+    "6": { "$value": "24px" },
+    "8": { "$value": "32px" },
+    "10": { "$value": "40px" },
+    "12": { "$value": "48px" },
+    "16": { "$value": "64px" },
+    "24": { "$value": "96px" },
+    "32": { "$value": "128px" }
+  },
+  "radius": {
+    "$type": "dimension",
+    "chip": { "$value": "6px", "$description": "Micro chips and tags under ~24px height." },
+    "control": { "$value": "10px", "$description": "Inputs, small controls, thumbnails." },
+    "card": { "$value": "14px", "$description": "Cards (WpRadius.lg range)." },
+    "surface": { "$value": "20px", "$description": "Modals, image tiles, panels (WpRadius.xl)." },
+    "panel": { "$value": "24px", "$description": "Large framed panels and hero illustrations." },
+    "pill": { "$value": "999px", "$description": "Buttons and status pills." }
+  },
+  "duration": {
+    "$type": "duration",
+    "instant": { "$value": "0ms" },
+    "fast": { "$value": "140ms", "$description": "State flips on small controls." },
+    "base": { "$value": "180ms", "$description": "Default transition." },
+    "slow": { "$value": "320ms", "$description": "Cards, figures, modals." },
+    "cinematic": { "$value": "900ms", "$description": "Set-piece reveals." },
+    "cinematic-slow": { "$value": "1400ms" },
+    "breathe": { "$value": "8000ms", "$description": "Idle pulse period of the recording overlay; every ambient loop uses it." },
+    "stagger": { "$value": "80ms", "$description": "Step between staggered items." }
+  },
+  "easing": {
+    "$type": "cubicBezier",
+    "flow": { "$value": [0.22, 1, 0.36, 1], "$description": "The brand deceleration: arrive confidently, settle softly." },
+    "standard": { "$value": [0.4, 0, 0.2, 1] },
+    "in-out": { "$value": [0.65, 0, 0.35, 1] }
+  },
+  "shadow": {
+    "$type": "shadow",
+    "card": { "$value": [{ "offsetX": "0px", "offsetY": "2px", "blur": "6px", "spread": "0px", "color": "rgba(0, 0, 0, 0.25)" }, { "offsetX": "0px", "offsetY": "0px", "blur": "1px", "spread": "0px", "color": "rgba(0, 0, 0, 0.1)" }] },
+    "card-hover": { "$value": [{ "offsetX": "0px", "offsetY": "10px", "blur": "30px", "spread": "0px", "color": "rgba(0, 0, 0, 0.22)" }] },
+    "overlay": { "$value": [{ "offsetX": "0px", "offsetY": "12px", "blur": "32px", "spread": "0px", "color": "rgba(0, 0, 0, 0.3)" }] },
+    "pill": { "$value": [{ "offsetX": "0px", "offsetY": "4px", "blur": "12px", "spread": "0px", "color": "rgba(0, 0, 0, 0.3)" }, { "offsetX": "0px", "offsetY": "1px", "blur": "3px", "spread": "0px", "color": "rgba(0, 0, 0, 0.15)" }] },
+    "pill-active": { "$value": [{ "offsetX": "0px", "offsetY": "1px", "blur": "4px", "spread": "0px", "color": "rgba(0, 0, 0, 0.2)" }] },
+    "panel": { "$value": [{ "offsetX": "0px", "offsetY": "30px", "blur": "80px", "spread": "-40px", "color": "rgba(0, 0, 0, 0.6)" }] },
+    "light-card": { "$value": [{ "offsetX": "0px", "offsetY": "1px", "blur": "2px", "spread": "0px", "color": "rgba(11, 18, 42, 0.08)" }, { "offsetX": "0px", "offsetY": "12px", "blur": "32px", "spread": "-12px", "color": "rgba(11, 18, 42, 0.18)" }], "$description": "Navy-tinted shadow for cards on light bands; black shadows look dirty on glacier." }
+  },
+  "z": {
+    "$type": "number",
+    "base": { "$value": 0 },
+    "raised": { "$value": 10 },
+    "sticky": { "$value": 30 },
+    "nav": { "$value": 50 },
+    "progress": { "$value": 60 },
+    "overlay": { "$value": 80 },
+    "modal": { "$value": 100 },
+    "toast": { "$value": 110 },
+    "grain": { "$value": 9999 }
+  },
+  "layout": {
+    "$type": "dimension",
+    "site-max": { "$value": "1920px", "$description": "Frame cap; above it the root font scales up instead (ultrawide rule)." },
+    "measure-lead": { "$value": "640px" },
+    "measure-prose": { "$value": "800px" },
+    "measure-reading": { "$value": "68ch" },
+    "touch-target": { "$value": "48px", "$description": "Minimum hit area (WpLayout.minTouchTarget)." },
+    "breakpoint": {
+      "sm": { "$value": "640px" },
+      "md": { "$value": "768px" },
+      "lg": { "$value": "1024px" },
+      "xl": { "$value": "1280px" },
+      "2xl": { "$value": "1536px" },
+      "ultrawide": { "$value": "1921px" }
+    }
+  }
+}

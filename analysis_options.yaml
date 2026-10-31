@@ -1,0 +1,58 @@
+# WhisPaste — Strict Dart/Flutter analysis configuration.
+# Enforces clean, type-safe, performant code across the entire project.
+
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    # Treat these as errors (not warnings) in CI
+    unused_import: error
+    unused_local_variable: warning
+    dead_code: warning
+    missing_return: error
+    invalid_use_of_protected_member: error
+    # Enforce lint rules the project opted into as warnings, not silent infos
+    prefer_const_constructors: warning
+    prefer_const_declarations: warning
+    prefer_final_locals: warning
+    prefer_final_in_for_each: warning
+    avoid_dynamic_calls: warning
+    avoid_print: warning
+    deprecated_member_use: warning
+    no_leading_underscores_for_local_identifiers: warning
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "build/**"
+    - ".dart_tool/**"
+    # Scratch/measurement probes some agents drop under test/ while working and
+    # then delete — this repo has no worktree isolation, so a repo-wide
+    # analyze in the pre-commit hook can pick up another agent's in-flight
+    # probe and block an unrelated commit. Name throwaway files `zz_*` to get
+    # them excluded automatically instead of racing to delete them in time.
+    - "**/zz_*"
+
+linter:
+  rules:
+    # Style
+    prefer_single_quotes: true
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_final_locals: true
+    prefer_final_in_for_each: true
+    avoid_print: true
+    sort_child_properties_last: true
+    use_build_context_synchronously: true
+    sized_box_for_whitespace: true
+    use_decorated_box: true
+
+    # Safety
+    avoid_dynamic_calls: true
+    cancel_subscriptions: true
+    close_sinks: true
+    no_duplicate_case_values: true
+    prefer_void_to_null: true
+    unnecessary_statements: true
+
+    # Documentation (informational)
+    # public_member_api_docs: false  # Enable when API stabilizes

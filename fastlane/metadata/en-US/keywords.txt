@@ -1,0 +1,1 @@
+transcription,voice typing,whisper,voice notes,hotkey,local,dictation,whisper desktop,offline

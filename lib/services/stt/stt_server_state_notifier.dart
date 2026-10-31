@@ -1,0 +1,1610 @@
+/// Riverpod notifier that composes all STT sub-modules.
+///
+/// Re-exports [SttStatus] and [SttServerState] so external consumers can
+/// import from this single file instead of hunting through the subsystem.
+library;
+
+import 'dart:async';
+import 'dart:convert' show utf8;
+import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart'
+    show Breadcrumb, Sentry, SentryLevel;
+
+import '../../core/config/punctuation_priming_prompts.dart';
+import '../../core/config/settings_enums.dart' show OnDeviceEngine;
+import '../../core/config/settings_provider.dart';
+import '../../core/config/whisper_languages.dart';
+import '../../core/logging/app_logger.dart';
+import '../../core/logging/crash_fingerprints.dart';
+import '../../core/logging/crash_reporter.dart';
+import '../../core/recording/recording_state.dart'
+    show SttServerState, transcriptionStuckBudget;
+import '../hardware_info_service.dart' as hw;
+import '../model_download_service.dart';
+import '../path_service.dart';
+import 'inference_client_rejected.dart';
+import 'inference_request_validator.dart';
+import 'live_preview/live_transcript_previewer.dart';
+import 'prompt_token_budget.dart';
+import 'stt_benchmark.dart' show SttBenchmark;
+import 'wav_header_repair.dart';
+import 'whisper/cuda_pack.dart';
+import 'whisper/gpu_load_crash_guard.dart';
+import 'whisper/whisper_engine.dart';
+import 'whisper/whisper_ffi_engine.dart' show defaultWhisperVadModelPath;
+import 'whisper/whisper_isolate_engine.dart';
+import 'whisper/whisper_resilience_policy.dart';
+
+// Re-export for external consumers.
+export '../../core/recording/recording_state.dart' show SttServerState;
+export 'stt_exit_classifier.dart' show SttExitKind, classifySttExitCode;
+export 'stt_gpu_fallback_policy.dart' show SttGpuFallbackPolicy;
+
+// ---------------------------------------------------------------------------
+// SttStatus (local copy so stt_bundle.dart can re-export without coupling
+// to the legacy stt_service.dart)
+// ---------------------------------------------------------------------------
+
+/// Immutable snapshot of the STT service.
+class SttStatus {
+  const SttStatus({
+    this.serverState = SttServerState.stopped,
+    this.port = 0,
+    this.modelId = '',
+    this.errorMessage,
+    this.startingSince,
+    this.isBenchmarking = false,
+    this.benchmarkingTier,
+    this.cpuFallbackActive = false,
+    this.backend,
+  });
+
+  final SttServerState serverState;
+
+  /// Legacy HTTP-era field, permanently `0` since the Issue 03 cutover to the
+  /// in-process [WhisperEngine] — there is no localhost port to bind. Kept
+  /// (rather than removed) so the existing test fixtures that construct
+  /// `SttStatus(..., port: 9999)` keep compiling unchanged; no production
+  /// code reads it besides [toString] and [endpoint] (also unused — see
+  /// issue 09's `endpoint`/`port` decision).
+  final int port;
+  final String modelId;
+  final String? errorMessage;
+
+  /// When the server entered the [SttServerState.starting] state.
+  final DateTime? startingSince;
+
+  /// Whether a benchmark is currently running for this model.
+  final bool isBenchmarking;
+
+  /// Which tier is currently being benchmarked, if any.
+  final QualityTier? benchmarkingTier;
+
+  /// True when the GPU crashed and the server restarted on CPU automatically.
+  final bool cpuFallbackActive;
+
+  /// The compute backend the currently loaded model actually runs on
+  /// ([WhisperEngineStatus.backend] at the moment the load/warmup last
+  /// completed), or `null` before any model has ever loaded. Distinct from
+  /// [cpuFallbackActive]: that flag only covers the load-time GPU→CPU
+  /// retry, while this reflects the real backend regardless of *why* it
+  /// ended up there (including hardware that was never GPU-capable).
+  final WhisperBackend? backend;
+
+  bool get isReady => serverState == SttServerState.ready;
+
+  /// Legacy HTTP-era getter — dead since Issue 03's cutover to the in-process
+  /// [WhisperEngine] (no server, no port, nothing listens on this URL). Has
+  /// zero production callers; kept as a documented no-op rather than removed
+  /// (issue 09's `endpoint`/`port` decision) to avoid an unrelated ripple.
+  String get endpoint => 'http://127.0.0.1:$port';
+
+  SttStatus copyWith({
+    SttServerState? serverState,
+    int? port,
+    String? modelId,
+    String? errorMessage,
+    DateTime? startingSince,
+    bool? isBenchmarking,
+    QualityTier? benchmarkingTier,
+    bool clearBenchmarkingTier = false,
+    bool? cpuFallbackActive,
+    WhisperBackend? backend,
+  }) {
+    return SttStatus(
+      serverState: serverState ?? this.serverState,
+      port: port ?? this.port,
+      modelId: modelId ?? this.modelId,
+      errorMessage: errorMessage ?? this.errorMessage,
+      startingSince: startingSince ?? this.startingSince,
+      isBenchmarking: isBenchmarking ?? this.isBenchmarking,
+      benchmarkingTier: clearBenchmarkingTier
+          ? null
+          : (benchmarkingTier ?? this.benchmarkingTier),
+      cpuFallbackActive: cpuFallbackActive ?? this.cpuFallbackActive,
+      backend: backend ?? this.backend,
+    );
+  }
+
+  @override
+  String toString() =>
+      'SttStatus($serverState, port=$port, model=$modelId, '
+      'benchmarking=$isBenchmarking, cpuFallback=$cpuFallbackActive, '
+      'backend=$backend)';
+}
+
+// ---------------------------------------------------------------------------
+// Pure helpers (top-level, testable)
+// ---------------------------------------------------------------------------
+
+/// Returns `true` when [fileSizeBytes] is suspiciously small for a valid GGML
+/// model, indicating a truncated or failed download.
+bool isSttModelFileTooSmall(
+  int fileSizeBytes, {
+  int minModelBytes = 10 * 1024 * 1024,
+}) => fileSizeBytes < minModelBytes;
+
+// ---------------------------------------------------------------------------
+// SttServerStateNotifier
+// ---------------------------------------------------------------------------
+
+/// Riverpod [Notifier] that drives the in-process [WhisperEngine] behind a
+/// single [SttStatus] surface.
+///
+/// This is the public entry point for the STT subsystem. All callers use
+/// [localSttBundleProvider] since issue 15.
+///
+/// The engine seam replaced the former `whisper-server` subprocess + HTTP
+/// transport (Issue 03). The subprocess-era GPU-DLL-gate and CUDA-OOM/exit-code
+/// classification had no equivalent against an in-process engine and were
+/// removed, along with the rest of the subprocess-runtime stack (`ProcessRunner`,
+/// `LocalSttServer`, `SttHealthProbe`, `SttWarmLivenessPolicy`, `SubprocessGuard`)
+/// in Issue 08. The `ServerBinaryRecovery` machinery (and the whole server-binary
+/// download/manifest stack) was retired in Issue 07. Real backend selection
+/// (Metal/CUDA/Vulkan) is Issue 04; OOM/retry resilience against FFI error
+/// codes is Issue 05.
+class SttServerStateNotifier extends Notifier<SttStatus> {
+  static final _log = AppLogger('SttServerState');
+
+  /// Pre-flight whitelist: the full 99-language catalog of the bundled
+  /// multilingual Whisper models ([whisperLanguages]). `'auto'` bypasses
+  /// the whitelist inside the validator. Until June 2026 this was a
+  /// hard-coded en/de/fr/es subset, which wrongly rejected every other
+  /// language the models support (store review: Russian).
+  static final Set<String> _whisperSupportedLanguages = whisperLanguageCodes;
+
+  /// Defensive pre-flight char-length backstop against obvious-garbage
+  /// requests (e.g. a corrupted settings value) — NOT the real prompt
+  /// budget. The real, binding ceiling is whisper.cpp's own *tokenized*
+  /// `initial_prompt` limit, far below this: ~[_promptTokenBudget] tokens,
+  /// enforced by [_resolveEffectivePrompt] via [PromptTokenCounter]/
+  /// [truncatePromptToTokenBudget] before the prompt ever reaches the
+  /// validator below. A prompt that passes this char check can still have
+  /// been silently truncated to fit the real token budget — that is
+  /// intentional (partial biasing beats a hard reject) and is why this
+  /// constant stays generous rather than tight.
+  static const int _promptCharLimit = 1024;
+
+  /// Effective token ceiling whisper.cpp applies to the tokenized
+  /// `initial_prompt`, derived from the native formula (`whisper.cpp`
+  /// `whisper_full_with_state`): `max(1, min(n_max_text_ctx,
+  /// whisper_n_text_ctx(ctx) / 2) - 1)`. WhisPaste hard-codes
+  /// `n_max_text_ctx = 64` ([WhisperFfiEngine._decodeOnce]) and every
+  /// bundled ggml model uses the standard `whisper_n_text_ctx(ctx) = 448`
+  /// text context, so `min(64, 224) - 1 = 63` is a fixed, not a measured,
+  /// value — it moves in lockstep with `n_max_text_ctx` and must be updated
+  /// if that ever changes.
+  static const int _promptTokenBudget = 63;
+
+  /// Stuck-Guard budget: a single in-flight [WhisperEngine.transcribe] that
+  /// never returns is abandoned after this timeout with a clean error instead
+  /// of hanging the app (CONTEXT.md §3.3). Mutable + [visibleForTesting] so
+  /// resilience tests can shrink it to milliseconds; production keeps the 5 min
+  /// budget the subprocess-era pipeline used.
+  @visibleForTesting
+  static Duration stuckGuardTimeout = const Duration(minutes: 5);
+
+  /// Upper bound on how long [stop] waits for an in-flight [transcribeBytes]
+  /// call to drain before unloading the engine anyway (FLUTTER_WHISPASTE-6X).
+  /// The race being closed is a millisecond-scale window between the
+  /// readiness check and the engine call, not the multi-minute
+  /// [stuckGuardTimeout] budget an already-running inference can take —
+  /// reusing that budget here would block app quit (`app.dart`'s
+  /// `onWindowClose`) behind an in-flight transcription instead of the
+  /// few-second grace this actually needs. Mutable + [visibleForTesting] so
+  /// tests can shrink it further.
+  @visibleForTesting
+  static Duration stopDrainTimeout = const Duration(seconds: 1);
+
+  /// Quiet period the dictation pipeline must hold before a deferred
+  /// benchmark ([_scheduleBenchmark]) claims the worker, so a rapid follow-up
+  /// dictation still wins the queue. Mutable + [visibleForTesting] so tests
+  /// don't have to wait it out in real time.
+  @visibleForTesting
+  static Duration benchmarkIdleDelay = const Duration(seconds: 2);
+
+  /// Upper bound on automatic retries of a transient transcription failure
+  /// before the error is surfaced (CONTEXT.md §3.3 — "bis zu 3 Wiederholungen").
+  static const int _maxTranscribeRetries = 3;
+
+  /// Pure decision policy for FFI-era transcription failures (CPU-fallback).
+  static const _resiliencePolicy = WhisperResiliencePolicy();
+
+  String? _activeModel;
+  Timer? _idleTimer;
+  String? _lastPrompt;
+  DateTime? _lastPromptTime;
+  static const _promptExpiry = Duration(minutes: 10);
+  bool _idleExtended = false;
+  bool _isRecordingActive = false;
+
+  /// Post-load benchmark waiting for the dictation pipeline to go quiet —
+  /// see [_scheduleBenchmark]. Null when nothing is pending.
+  String? _pendingBenchmarkModelId;
+  Timer? _benchmarkDeferTimer;
+
+  /// Number of [transcribeBytes] calls currently holding the worker. Covers
+  /// the request paths that never touch [notifyRecordingStarted] (voice
+  /// notes, re-transcription from the history), which [_isRecordingActive]
+  /// alone would miss.
+  int _transcribeInFlight = 0;
+
+  /// Resolved once [_transcribeInFlight] drops back to zero. Lets [stop]
+  /// wait out a request already past the [transcribeBytes] readiness check
+  /// before freeing the native engine — see [stop] (FLUTTER_WHISPASTE-6X).
+  Completer<void>? _drainCompleter;
+  Completer<void>? _startCompleter;
+  final Set<String> _modelLoadFailedIds = {};
+  Timer? _modelChangeDebounce;
+
+  // Nullable rather than `late final`: [FakeSttService]-style test doubles
+  // override [build] entirely (skipping the assignment below) while
+  // inheriting [stop] unmodified — a `late final` throws
+  // `LateInitializationError` from `stop()` in that shape. Real callers
+  // always go through [build] first (Riverpod builds before any method is
+  // reachable), so `_engine!` is safe at every other call site.
+  WhisperEngine? _engine;
+
+  /// Live/partial-transcript stream of the currently active engine (ticket
+  /// 11), or `null` if that engine doesn't support it (see
+  /// [PartialTranscriptSource]'s doc comment — e.g. no engine loaded yet, or
+  /// a future non-whisper local engine). Read fresh on every access rather
+  /// than cached: the CPU-fallback path (see [_downgradeToCpuFallback]-style
+  /// call sites around `_engine = cpuEngine`) can swap [_engine] to a
+  /// different instance mid-session, and a stale stream reference would
+  /// silently stop emitting.
+  Stream<String>? get partialTranscriptStream {
+    final e = _engine;
+    if (e is PartialTranscriptSource) {
+      return (e as PartialTranscriptSource).partialTranscript;
+    }
+    return null;
+  }
+
+  // ── Live-transcript-DURING-recording preview (live-transcript-streaming
+  // ticket) ──────────────────────────────────────────────────────────────
+
+  /// Owns the sliding-window buffering + trigger/debounce logic (see
+  /// `live_transcript_previewer.dart`). `null` whenever the feature is
+  /// inactive — either the setting is off, or [_engine] doesn't support
+  /// [LivePreviewEngine] — so [notifyRecordingStarted]/[feedLivePreviewPcm]
+  /// never allocate/compute anything in that case (the performance
+  /// guarantee the toggle promises).
+  LiveTranscriptPreviewer? _livePreview;
+
+  /// Broadcast stream of live-preview text emitted WHILE a recording is
+  /// still in progress, or `null` when the feature is currently inactive.
+  /// [FloatingOverlayService] listens to this only during
+  /// [RecordingPhase.recording] — distinct from [partialTranscriptStream],
+  /// which only ever fires once a recording has stopped and its batch
+  /// decode is under way.
+  Stream<String>? get livePreviewStream => _livePreview?.preview;
+
+  /// Starts the during-recording live-preview pipeline if — and only if —
+  /// [enabled] is true and the active engine supports it. Called from
+  /// [notifyRecordingStarted] with the current
+  /// `AppSettings.overlayShowLiveTranscript` value; a caller that never
+  /// passes `true` here (setting off) never touches [LivePreviewEngine] at
+  /// all — no native state is allocated, no timer starts.
+  void _maybeStartLivePreview(bool enabled) {
+    if (!enabled || !state.isReady) return;
+    final engine = _engine;
+    if (engine is! LivePreviewEngine) return;
+    final e = engine as LivePreviewEngine;
+
+    _livePreview?.dispose();
+    final previewer = LiveTranscriptPreviewer(
+      decode: (samples) => e.decodeLivePreview(samples),
+    );
+    _livePreview = previewer;
+    previewer.start();
+    unawaited(
+      e.startLivePreview().catchError((Object err) {
+        _log.warning('Live-preview state init failed: $err');
+        previewer.stop();
+      }),
+    );
+  }
+
+  /// Feeds one raw PCM chunk (16-bit mono LE, no WAV header) from the
+  /// active recording into the live-preview sliding window. No-op unless
+  /// [_maybeStartLivePreview] actually started a previewer for this
+  /// recording.
+  void feedLivePreviewPcm(Uint8List chunk) {
+    _livePreview?.addPcmChunk(chunk);
+  }
+
+  /// Tears down the live-preview pipeline (timer + native decode state).
+  /// Safe to call unconditionally — including when the feature was never
+  /// started — so every recording-ending path (stop, cancel, error) can
+  /// call this without first checking whether it applies.
+  ///
+  /// Only reaches into [LivePreviewEngine.stopLivePreview] (the native
+  /// `whisper_free_state` call) when [_livePreview] was actually non-null —
+  /// i.e. [_maybeStartLivePreview] actually started it for this recording.
+  /// Without that guard this would call into the engine on EVERY
+  /// recording-ending path even with `overlayShowLiveTranscript` off,
+  /// breaking the performance guarantee the toggle promises (issue's
+  /// architecture decision #1 — zero extra native calls while off).
+  void _stopLivePreview() {
+    final previewer = _livePreview;
+    _livePreview = null;
+    if (previewer == null) return;
+    previewer.dispose();
+    final engine = _engine;
+    if (engine is LivePreviewEngine) {
+      final e = engine as LivePreviewEngine;
+      unawaited(
+        e.stopLivePreview().catchError((Object err) {
+          _log.warning('Live-preview state teardown failed: $err');
+        }),
+      );
+    }
+  }
+
+  @override
+  SttStatus build() {
+    _engine = ref.read(whisperEngineProvider);
+    // The provider rebuilds when its GPU inputs change (settings finishing
+    // their async load, the GPU toggle, detection) and its onDispose shuts
+    // the previous engine down. Keeping that instance left `state` ready on
+    // a dead engine, so the next dictation failed with
+    // whisper_engine_not_loaded (Sentry 120963723) — follow the replacement
+    // and reload on next use instead.
+    ref.listen<WhisperEngine>(whisperEngineProvider, (_, next) {
+      if (identical(next, _engine)) return;
+      _log.info('STT engine replaced — reloading on next use');
+      unawaited(stop());
+      _engine = next;
+    });
+
+    ref.onDispose(() {
+      _idleTimer?.cancel();
+      _idleTimer = null;
+      _modelChangeDebounce?.cancel();
+      _modelChangeDebounce = null;
+      _benchmarkDeferTimer?.cancel();
+      _benchmarkDeferTimer = null;
+      _pendingBenchmarkModelId = null;
+      _stopLivePreview();
+      unawaited(_engine?.unload() ?? Future<void>.value());
+      _activeModel = null;
+      _lastPrompt = null;
+      _lastPromptTime = null;
+    });
+
+    ref.listen(settingsProvider, (prev, next) {
+      final prevSettings = prev?.value;
+      final nextSettings = next.value;
+      if (prevSettings == null || nextSettings == null) return;
+
+      if (prevSettings.gpuAcceleration != nextSettings.gpuAcceleration ||
+          prevSettings.effectiveModelId != nextSettings.effectiveModelId) {
+        _modelLoadFailedIds.remove(prevSettings.effectiveModelId);
+      }
+
+      final prevModel = prevSettings.effectiveModelId;
+      final nextModel = nextSettings.effectiveModelId;
+      if (prevModel == nextModel) return;
+      if (!nextSettings.sttProviderType.isLocal) return;
+
+      _debouncedPrewarmOnModelChange(nextModel);
+    });
+
+    ref.listen(modelDownloadProvider, (prev, next) {
+      if (prev == null) return;
+      final newlyDownloaded = next.downloadedModels.difference(
+        prev.downloadedModels,
+      );
+      for (final id in newlyDownloaded) {
+        _modelLoadFailedIds.remove(id);
+      }
+    });
+
+    return const SttStatus();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
+
+  Future<void> ensureRunning() async {
+    if (_startCompleter != null) {
+      return _startCompleter!.future;
+    }
+
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final modelId = settings.effectiveModelId;
+
+    if (_activeModel != null && _activeModel != modelId) {
+      _log.info('STT model changed ($_activeModel → $modelId), restarting');
+      stop();
+    }
+
+    if (state.isReady && state.modelId == modelId) {
+      _resetIdleTimer();
+      _log.debug('STT engine already loaded (warm) for model $modelId');
+      return;
+    }
+
+    if (_modelLoadFailedIds.contains(modelId)) {
+      _fail(
+        'STT model file is corrupted. '
+        'Please re-download the model in Settings.',
+      );
+      return;
+    }
+
+    if (state.serverState != SttServerState.stopped) {
+      stop();
+    }
+
+    _startCompleter = Completer<void>();
+    try {
+      await _start(modelId: modelId);
+      _startCompleter?.complete();
+    } on Exception catch (e) {
+      _startCompleter?.completeError(e);
+      rethrow;
+    } finally {
+      _startCompleter = null;
+    }
+  }
+
+  Future<void> prewarm() async {
+    try {
+      await ensureRunning();
+      _log.info('STT model pre-warmed (${state.modelId})');
+    } on Exception catch (e) {
+      _log.debug('Pre-warm skipped: $e');
+    }
+  }
+
+  Future<void> runBenchmark() async {
+    final currentModelId = state.modelId;
+    if (currentModelId.isEmpty) {
+      _log.debug('Cannot run benchmark: no model is currently active');
+      return;
+    }
+    stop();
+    try {
+      await _start(modelId: currentModelId);
+      _log.info('Re-benchmark completed for $currentModelId');
+    } on Exception catch (e) {
+      _log.debug('Re-benchmark failed: $e');
+    }
+  }
+
+  void notifyRecordingStarted() {
+    _isRecordingActive = true;
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    // Only when the on-device engine is actually whisper AND the user
+    // opted in — see [_maybeStartLivePreview]'s doc comment for the
+    // performance guarantee this gate provides.
+    final settings = ref.read(settingsProvider).value;
+    final wantsLivePreview =
+        settings != null &&
+        settings.overlayShowLiveTranscript &&
+        settings.sttProviderType.isLocal &&
+        settings.onDeviceEngine == OnDeviceEngine.whisper;
+    _maybeStartLivePreview(wantsLivePreview);
+  }
+
+  void notifyTranscriptionCompleted() {
+    _isRecordingActive = false;
+    _idleExtended = false;
+    _resetIdleTimer(extendAfterTranscription: true);
+    _rearmPendingBenchmark();
+  }
+
+  void notifyRecordingStopped() {
+    _isRecordingActive = false;
+    _stopLivePreview();
+    _resetIdleTimer();
+    _rearmPendingBenchmark();
+  }
+
+  Future<String> transcribe(String wavFilePath, {String? language}) async {
+    final file = File(wavFilePath);
+    if (!file.existsSync()) {
+      throw Exception('WAV file not found: $wavFilePath');
+    }
+    return transcribeBytes(await file.readAsBytes(), language: language);
+  }
+
+  Future<String> transcribeBytes(List<int> wavBytes, {String? language}) async {
+    if (!state.isReady) {
+      throw StateError('STT server is not running');
+    }
+    // Claims the worker for the *whole* request, not just the engine call:
+    // a deferred benchmark ([_scheduleBenchmark]) must not slip into the gap
+    // between pre-flight validation and the inference it is about to enqueue.
+    _transcribeInFlight++;
+    try {
+      return await _transcribeBytesInner(wavBytes, language: language);
+    } finally {
+      _transcribeInFlight--;
+      if (_transcribeInFlight == 0) {
+        _drainCompleter?.complete();
+        _drainCompleter = null;
+      }
+    }
+  }
+
+  Future<String> _transcribeBytesInner(
+    List<int> wavBytes, {
+    String? language,
+  }) async {
+    _resetIdleTimer();
+    final lang = language ?? 'auto';
+
+    _log.info(
+      'STT inference: model=${state.modelId} '
+      'wavBytes=${wavBytes.length} lang=$lang',
+    );
+    final stopwatch = Stopwatch()..start();
+
+    // Materialize the payload as a [Uint8List] once so both the pre-flight
+    // validator and the engine call use the same byte view.
+    final wavView = wavBytes is Uint8List
+        ? wavBytes
+        : Uint8List.fromList(wavBytes);
+
+    // Derive audio duration (16 kHz mono 16-bit + 44-byte header). Used by
+    // breadcrumb extras and the validator context. Clamped at zero so the
+    // empty-WAV reject path does not produce a negative value.
+    final audioDurationMs = wavBytes.length > 44
+        ? ((wavBytes.length - 44) / 32000 * 1000).round()
+        : 0;
+
+    final settings = ref.read(settingsProvider).value;
+    final vocab = settings?.customVocabulary.trim() ?? '';
+    final effectivePrompt = await _resolveEffectivePrompt(
+      vocab,
+      lang: lang,
+      punctuationPriming: settings?.stt.punctuationPriming ?? true,
+    );
+
+    // ── Pre-flight validation ─────────────────────────────────────────────
+    // Reject obvious-garbage requests before they reach the engine. Sentry
+    // sees one breadcrumb in category `stt` but never a captureError — these
+    // are user-input issues, not crashes.
+    final validation = InferenceRequestValidator.validate(
+      wavBytes: wavView,
+      language: lang,
+      prompt: effectivePrompt,
+      supportedLanguages: _whisperSupportedLanguages,
+      promptCharLimit: _promptCharLimit,
+    );
+    if (validation is ValidationReject) {
+      Sentry.addBreadcrumb(
+        Breadcrumb(
+          message: 'Inference request rejected pre-flight',
+          category: 'stt',
+          level: SentryLevel.warning,
+          data: <String, dynamic>{
+            'reject_reason': validation.reason.name,
+            'wav_size_bytes': wavBytes.length,
+            'audio_duration_ms': audioDurationMs,
+            'language': lang,
+          },
+        ),
+      );
+      _log.warning(
+        'STT inference rejected pre-flight: reason=${validation.reason.name} '
+        'key=${validation.userMessageKey} wavBytes=${wavBytes.length}',
+      );
+      throw InferenceClientRejected(validation.userMessageKey);
+    }
+
+    // ── Pre-send WAV header repair (FLUTTER_WHISPASTE-7X) ─────────────────
+    // A recording whose header patch never ran ships valid PCM data behind
+    // zeroed RIFF/data size fields — the engine's WAV decoder rejects that
+    // container. The sizes are derivable from the byte length, so repair
+    // them instead of losing the user's dictation.
+    final payload = _repairWavIfNeeded(
+      wavView,
+      audioDurationMs,
+      wavBytes.length,
+    );
+
+    final String rawText;
+    try {
+      rawText = await _transcribeResilient(
+        payload,
+        lang,
+        effectivePrompt,
+        wavBytes.length,
+        audioDurationMs,
+        settings?.stt.vadEnabled ?? true,
+      );
+    } catch (e) {
+      stopwatch.stop();
+      // The resilience wrapper already classified the failure and (for
+      // surfaced failures) captured it to Sentry with the right fingerprint.
+      // This warning is deliberately below the AppLogger auto-escalation
+      // threshold so it does not add a second capture (see the dedup test).
+      // The wrapped string preserves any `stt_cuda_oom` token so the
+      // orchestrator's OOM-recovery path keeps firing unchanged.
+      _log.warning('STT inference failed: $e');
+      throw Exception('STT inference failed: $e');
+    }
+
+    stopwatch.stop();
+    // charsPerSec is the fastest drop signal for diagnosing "transcription
+    // swallowed part of the audio": a healthy dictation lands around
+    // 10-20 chars/sec (German/English speech), so a value far below that
+    // for a longer clip flags a likely dropped segment worth pulling from
+    // history.db and cross-checking against the retained WAV
+    // (kRetainDebugAudio, see build_config.dart).
+    final charsPerSec = audioDurationMs > 0
+        ? (rawText.length / (audioDurationMs / 1000)).toStringAsFixed(1)
+        : 'n/a';
+    _log.info(
+      'STT inference response: duration=${stopwatch.elapsedMilliseconds}ms '
+      'textLen=${rawText.length} audioDurationMs=$audioDurationMs '
+      'charsPerSec=$charsPerSec',
+    );
+
+    var text = rawText.trim();
+    text = _stripNonSpeechMarkers(text);
+    text = _collapseRepetitions(text);
+
+    if (text.isNotEmpty) {
+      _lastPrompt = text.length > 200
+          ? text.substring(text.length - 200)
+          : text;
+      _lastPromptTime = DateTime.now();
+    }
+
+    return text;
+  }
+
+  /// Unloads the engine if it holds or is loading [modelId], so the model
+  /// file can be deleted — Windows refuses to delete a file that is open.
+  Future<void> releaseModel(String modelId) async {
+    if (_activeModel != modelId && state.modelId != modelId) return;
+    await stop();
+  }
+
+  /// Stops the engine. Returns a [Future] that completes once the native
+  /// context is actually freed — callers that need the app to stay alive
+  /// until then (app quit, see `app.dart`'s `onWindowClose`) must await it;
+  /// existing fire-and-forget callers (model switch, provider change) can
+  /// keep calling `stop()` without awaiting (FLUTTER_WHISPASTE-BC: the
+  /// native free racing an imminent process exit is what crashes, not what
+  /// this method itself does).
+  Future<void> stop() async {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _modelChangeDebounce?.cancel();
+    _modelChangeDebounce = null;
+    // A benchmark still waiting for a quiet pipeline belongs to the engine
+    // that is going away — dropping it here keeps a model switch from
+    // benchmarking the old model against the new one's context.
+    _benchmarkDeferTimer?.cancel();
+    _benchmarkDeferTimer = null;
+    _pendingBenchmarkModelId = null;
+    _activeModel = null;
+    _lastPrompt = null;
+    _lastPromptTime = null;
+    _idleExtended = false;
+    _isRecordingActive = false;
+    _stopLivePreview();
+    // Transition to stopped immediately (synchronously, before the first
+    // await below) — UI responsiveness for the common case (model switch)
+    // must not wait on native cleanup. The returned Future still resolves
+    // only once the engine confirms it, for callers that need that
+    // guarantee (app quit, see `app.dart`'s `onWindowClose`).
+    _transition(const SttStatus());
+    // A caller can already be past transcribeBytes's readiness check (idle
+    // timer, model switch, and the OOM/cloud-switch fallback all call stop()
+    // without coordinating with in-flight requests) — unloading the native
+    // engine underneath that call raced it into "whisper_engine_not_loaded"
+    // (FLUTTER_WHISPASTE-6X). Wait for it to finish first, bounded by
+    // [stopDrainTimeout] — a short grace for the readiness-check race, not
+    // [stuckGuardTimeout]'s multi-minute budget, which would otherwise stall
+    // app quit behind a still-running transcription.
+    if (_transcribeInFlight > 0) {
+      _drainCompleter ??= Completer<void>();
+      await _drainCompleter!.future.timeout(stopDrainTimeout, onTimeout: () {});
+    }
+    await (_engine?.unload() ?? Future<void>.value());
+  }
+
+  // ---------------------------------------------------------------------------
+  // transcribeBytes helpers
+  // ---------------------------------------------------------------------------
+
+  /// Builds the effective prompt from the custom vocabulary setting and the
+  /// rolling context window, updating [_lastPrompt]/[_lastPromptTime] on
+  /// expiry.  Extracted from [transcribeBytes] to lower its cyclomatic count.
+  ///
+  /// When neither [vocab] nor the rolling context yields anything and
+  /// [punctuationPriming] is enabled, falls back to a short punctuated
+  /// example prompt for [lang] (see `punctuation_priming_prompts.dart`) so
+  /// greedy decoding is biased towards punctuated output. Never overrides a
+  /// real vocab/context prompt — style-mimicry priming only fills the gap.
+  ///
+  /// The combined string is then budgeted against whisper.cpp's real
+  /// tokenized `initial_prompt` ceiling ([_promptTokenBudget]) via
+  /// [_truncateToRealTokenBudget] — see [_promptTokenBudget]'s doc comment
+  /// for why this step exists at all (silent native truncation bug).
+  Future<String?> _resolveEffectivePrompt(
+    String vocab, {
+    required String lang,
+    required bool punctuationPriming,
+  }) async {
+    String? promptValue;
+    if (_lastPrompt != null &&
+        _lastPrompt!.isNotEmpty &&
+        _lastPromptTime != null &&
+        DateTime.now().difference(_lastPromptTime!) < _promptExpiry) {
+      promptValue = _lastPrompt!;
+    } else if (_lastPrompt != null) {
+      _lastPrompt = null;
+      _lastPromptTime = null;
+    }
+    final trimmedVocab = vocab.isNotEmpty ? vocab : null;
+    final combined = <String>[
+      ?trimmedVocab,
+      if (promptValue != null && promptValue.isNotEmpty) promptValue,
+    ].join(' ');
+    if (combined.isEmpty) {
+      if (!punctuationPriming) return null;
+      return resolvePunctuationPrimingPrompt(lang);
+    }
+    return _truncateToRealTokenBudget(combined, vocab: trimmedVocab);
+  }
+
+  /// Truncates [combined] (vocab + rolling context, already joined) to fit
+  /// [_promptTokenBudget] real whisper.cpp tokens.
+  ///
+  /// Fast path: skips the async, isolate-proxied exact token count entirely
+  /// whenever [combined]'s UTF-8 byte length already guarantees it fits —
+  /// whisper's byte-level BPE tokenizer only ever MERGES base bytes, so a
+  /// string's token count can never exceed its byte count. This covers the
+  /// overwhelming majority of real prompts (short vocab/context) with zero
+  /// isolate round-trips; the exact FFI count only runs for the rare
+  /// longer prompt that might actually overflow the budget.
+  ///
+  /// When it does overflow, [vocab] is preserved preferentially over the
+  /// rolling context: the combined string's tail (the rolling context) is
+  /// dropped first, and only [vocab] itself is truncated (front-anchored,
+  /// see [truncatePromptToTokenBudget]) if even that alone is too long.
+  /// This is a deliberate choice, not the only valid one — the user
+  /// explicitly configured [vocab] in settings, while the rolling context
+  /// is an automatic, best-effort addition.
+  ///
+  /// Falls back to returning [combined] unchanged if [_engine] doesn't
+  /// implement [PromptTokenCounter] (no engine loaded yet, or a future
+  /// non-whisper local engine) or the count call itself fails — the
+  /// char-length backstop in [InferenceRequestValidator] still applies, so
+  /// this degrades to the pre-fix behaviour rather than crashing.
+  Future<String> _truncateToRealTokenBudget(
+    String combined, {
+    required String? vocab,
+  }) async {
+    if (utf8.encode(combined).length <= _promptTokenBudget) return combined;
+    final rawEngine = _engine;
+    if (rawEngine is! PromptTokenCounter) return combined;
+    final engine = rawEngine as PromptTokenCounter;
+    try {
+      if (await engine.countPromptTokens(combined) <= _promptTokenBudget) {
+        return combined;
+      }
+      if (vocab == null || vocab.isEmpty) {
+        return truncatePromptToTokenBudget(
+          combined,
+          _promptTokenBudget,
+          engine.countPromptTokens,
+        );
+      }
+      return truncatePromptToTokenBudget(
+        vocab,
+        _promptTokenBudget,
+        engine.countPromptTokens,
+      );
+    } catch (e) {
+      _log.warning(
+        'Prompt token-budget check failed, using untruncated prompt: $e',
+      );
+      return combined;
+    }
+  }
+
+  /// Moves the active model from the GPU engine onto the always-CPU fallback
+  /// engine after a transcribe-time GPU crash, so the retry does not run on
+  /// the same crashing GPU configuration. Mirrors the load-time fallback in
+  /// [_start]: load the model on the fallback engine, swap [_engine],
+  /// then unload the old engine.
+  ///
+  /// Returns `false` (and leaves [_engine] untouched) when no retry on CPU is
+  /// possible — no active model, already on the fallback engine, or the CPU
+  /// load itself failed. The caller then surfaces the original crash.
+  Future<bool> _swapToCpuEngineForRetry() async {
+    final modelId = _activeModel;
+    final modelPath = modelId == null ? null : sttModelPath(modelId);
+    final gpuEngine = _engine;
+    final cpuEngine = ref.read(whisperCpuFallbackEngineProvider);
+    if (modelPath == null || gpuEngine == null) return false;
+    if (identical(gpuEngine, cpuEngine)) return false;
+    try {
+      await cpuEngine.load(
+        modelPath: modelPath,
+        vadModelPath: defaultWhisperVadModelPath(),
+      );
+    } catch (cpuError) {
+      _log.warning('CPU load after GPU crash failed: $cpuError');
+      return false;
+    }
+    _engine = cpuEngine;
+    unawaited(
+      gpuEngine.unload().catchError((Object e) {
+        _log.warning('Unload of crashed GPU engine failed: $e');
+      }),
+    );
+    if (ref.mounted) {
+      state = state.copyWith(
+        cpuFallbackActive: true,
+        backend: WhisperBackend.cpu,
+      );
+    }
+    _log.warning(
+      'GPU crash during inference — reloaded model on CPU and retrying',
+    );
+    return true;
+  }
+
+  /// Runs [WhisperEngine.transcribe] behind the FFI resilience chain
+  /// (CONTEXT.md §3.3), reacting to the engine's distinguishable
+  /// [WhisperFailureKind] signals:
+  ///
+  /// - **Stuck-Guard** — the call is raced against
+  ///   `transcriptionStuckBudget(audio, floor: stuckGuardTimeout)`, so long
+  ///   recordings get a budget that scales with their length; a hang ends as a
+  ///   clean [WhisperFailureKind.timeout] error, never a deadlock.
+  /// - **CPU-Fallback** — a [WhisperFailureKind.gpuCrash] degrades to CPU once
+  ///   (`cpuFallbackActive` set) and retries.
+  /// - **Retry** — a [WhisperFailureKind.transient] failure is retried up to
+  ///   [_maxTranscribeRetries] times before being surfaced.
+  /// - **OOM** — a [WhisperFailureKind.oom] is not retried here; it is captured
+  ///   and rethrown carrying the `stt_cuda_oom` token so the orchestrator's
+  ///   `OomRecoveryHandler` (smaller model / cloud) recovers it.
+  ///
+  /// Surfaced (unrecovered) failures are captured to Sentry with a stable
+  /// fingerprint before the exception propagates.
+  Future<String> _transcribeResilient(
+    List<int> payload,
+    String lang,
+    String? prompt,
+    int wavSizeBytes,
+    int audioDurationMs,
+    bool vadEnabled,
+  ) async {
+    var transientAttempts = 0;
+    var cpuFallbackTried = false;
+
+    while (true) {
+      try {
+        // `_isRecordingActive` reflects a NEW recording's live audio
+        // capture (set/cleared in `notifyRecordingStarted`/
+        // `notifyRecordingStopped` — see their doc comments), not this
+        // transcription's own recording. Reading it fresh on every retry
+        // means: if the user has already started dictating their next
+        // utterance while this one is still decoding, this call throttles
+        // itself so Whisper's own CPU load doesn't compete with that live
+        // capture (see `WhisperFfiEngine._decodeOnce`'s "Audio-capture
+        // protection" comment for why this is the one place in this app's
+        // batch architecture where that contention is real and something
+        // this app actually controls).
+        return await _engine!
+            .transcribe(
+              payload,
+              language: lang,
+              prompt: prompt,
+              vadEnabled: vadEnabled,
+              reducedThreads: _isRecordingActive,
+            )
+            .timeout(
+              transcriptionStuckBudget(
+                Duration(milliseconds: audioDurationMs),
+                floor: stuckGuardTimeout,
+              ),
+            );
+      } on TimeoutException {
+        const failure = WhisperEngineException(
+          WhisperFailureKind.timeout,
+          'pipeline_timeout: transcription exceeded the stuck-guard budget',
+        );
+        _captureInferenceFailure(
+          failure,
+          sttExitOther,
+          lang,
+          wavSizeBytes,
+          audioDurationMs,
+        );
+        throw failure;
+      } on WhisperEngineException catch (e) {
+        switch (e.kind) {
+          case WhisperFailureKind.gpuCrash:
+            final retryOnCpu =
+                !cpuFallbackTried && _resiliencePolicy.shouldRetryOnCpu(e.kind);
+            cpuFallbackTried = true;
+            if (retryOnCpu && await _swapToCpuEngineForRetry()) {
+              continue;
+            }
+            _captureInferenceFailure(
+              e,
+              sttExitGpuFatal,
+              lang,
+              wavSizeBytes,
+              audioDurationMs,
+            );
+            rethrow;
+          case WhisperFailureKind.oom:
+            _captureInferenceFailure(
+              e,
+              sttCudaOom,
+              lang,
+              wavSizeBytes,
+              audioDurationMs,
+            );
+            rethrow;
+          case WhisperFailureKind.transient:
+            transientAttempts++;
+            if (transientAttempts <= _maxTranscribeRetries) {
+              _log.warning(
+                'Transient STT failure '
+                '(attempt $transientAttempts/$_maxTranscribeRetries) — retrying',
+              );
+              continue;
+            }
+            _captureInferenceFailure(
+              e,
+              sttExitOther,
+              lang,
+              wavSizeBytes,
+              audioDurationMs,
+            );
+            rethrow;
+          case WhisperFailureKind.timeout:
+          case WhisperFailureKind.other:
+            _captureInferenceFailure(
+              e,
+              sttExitOther,
+              lang,
+              wavSizeBytes,
+              audioDurationMs,
+            );
+            rethrow;
+        }
+      } on InferenceClientRejected {
+        rethrow;
+      } catch (e) {
+        // Catch-all for failures the engine raises as a bare error rather
+        // than a typed [WhisperEngineException] — e.g. the isolate proxy's
+        // `StateError('whisper_engine_not_loaded')` when the worker's native
+        // context was freed out from under a stale "ready" state (see
+        // `WhisperIsolateEngine.unload`'s doc comment). Previously this fell
+        // through both `on` clauses above untouched, so it never reached
+        // [_captureInferenceFailure]/Sentry at all — reproduced empirically:
+        // the user saw only a generic "Etwas ist schiefgelaufen" toast, and
+        // this project's own Sentry had zero events for it.
+        final failure = WhisperEngineException(WhisperFailureKind.other, '$e');
+        _captureInferenceFailure(
+          failure,
+          sttExitOther,
+          lang,
+          wavSizeBytes,
+          audioDurationMs,
+        );
+        // Self-heal: don't leave `state` claiming a model is `ready` when
+        // the engine just proved it isn't — otherwise `ensureRunning()`'s
+        // warm-engine fast path keeps returning immediately and every
+        // subsequent dictation repeats this same failure until an idle
+        // unload or app restart happens to clear it (reproduced live: a
+        // mid-session model switch broke dictation for the rest of the
+        // session). Dropping back to `stopped` makes the next `ensureRunning()`
+        // call go through `_start()` for a genuine reload.
+        if (ref.mounted) _transition(const SttStatus());
+        throw failure;
+      }
+    }
+  }
+
+  /// Captures an unrecovered inference failure to Sentry under [fingerprint]
+  /// (from the central inventory), mirroring the pre-cutover HTTP-status
+  /// capture path so surfaced FFI errors stay actionable.
+  void _captureInferenceFailure(
+    WhisperEngineException failure,
+    String fingerprint,
+    String lang,
+    int wavSizeBytes,
+    int audioDurationMs,
+  ) {
+    CrashReporter.instance?.captureError(
+      message: 'STT inference failed: ${failure.message}',
+      error: failure,
+      severity: 'error',
+      type: 'stt_inference_failed',
+      fingerprint: [fingerprint],
+      extras: {
+        'failure_kind': failure.kind.name,
+        'model_id': state.modelId,
+        'language': lang,
+        'wav_size_bytes': wavSizeBytes,
+        'audio_duration_ms': audioDurationMs,
+        'platform': Platform.operatingSystem,
+      },
+    );
+  }
+
+  /// Repairs zeroed WAV size fields in-memory (FLUTTER_WHISPASTE-7X) and
+  /// emits a Sentry breadcrumb + warning log when a repair was needed.
+  /// Returns [wavView] unmodified when no repair is required.
+  Uint8List _repairWavIfNeeded(
+    Uint8List wavView,
+    int audioDurationMs,
+    int wavBytesLength,
+  ) {
+    final repairedWav = repairZeroedWavSizeFields(wavView);
+    if (repairedWav == null) return wavView;
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        message: 'WAV size fields were zero — repaired before inference',
+        category: 'stt',
+        level: SentryLevel.warning,
+        data: <String, dynamic>{
+          'wav_size_bytes': wavBytesLength,
+          'audio_duration_ms': audioDurationMs,
+        },
+      ),
+    );
+    _log.warning(
+      'WAV header size fields were zero (unpatched header) — repaired '
+      'in-memory before inference ($wavBytesLength bytes).',
+    );
+    return repairedWav;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private
+  // ---------------------------------------------------------------------------
+
+  void _transition(SttStatus next) {
+    // Every state mutation flows through here, so a single mounted-guard
+    // covers async resumes that race the provider container shutdown
+    // (test teardown, app quit, hot-reload). Without it, a completion that
+    // lands after the scope is torn down throws a "Cannot use the Ref …
+    // after it has been disposed" deep in async continuations and surfaces
+    // as a "failed after test completion" flake on CI.
+    if (!ref.mounted) return;
+
+    final prev = state.serverState;
+
+    if (next.serverState == SttServerState.starting &&
+        next.startingSince == null) {
+      next = SttStatus(
+        serverState: next.serverState,
+        port: next.port,
+        modelId: next.modelId,
+        errorMessage: next.errorMessage,
+        startingSince: DateTime.now(),
+      );
+    }
+
+    state = next;
+    if (prev == next.serverState) return;
+
+    final extra = StringBuffer();
+    if (next.modelId.isNotEmpty) extra.write(' model=${next.modelId}');
+    if (next.errorMessage != null) extra.write(' error="${next.errorMessage}"');
+
+    _log.info('STT lifecycle: $prev → ${next.serverState}$extra');
+  }
+
+  void _resetIdleTimer({bool extendAfterTranscription = false}) {
+    if (_isRecordingActive) return;
+
+    _idleTimer?.cancel();
+    _idleTimer = null;
+
+    final settings = ref.read(settingsProvider).value ?? AppSettings.defaults;
+    final baseMinutes = settings.sttIdleTimeoutMinutes;
+
+    if (baseMinutes <= 0) return;
+
+    var timeoutMinutes = baseMinutes;
+
+    if (extendAfterTranscription && !_idleExtended) {
+      timeoutMinutes = math.min(baseMinutes + 5, baseMinutes * 2);
+      _idleExtended = true;
+      _log.debug(
+        'Idle timer extended: ${timeoutMinutes}min '
+        '(base=${baseMinutes}min, burst=+5min)',
+      );
+    }
+
+    final timeout = Duration(minutes: timeoutMinutes);
+    _idleTimer = Timer(timeout, () {
+      _log.info(
+        'STT engine idle for ${timeout.inMinutes} min, '
+        'unloading to free memory',
+      );
+      stop();
+    });
+  }
+
+  void _debouncedPrewarmOnModelChange(String newModelId) {
+    _modelChangeDebounce?.cancel();
+    _modelChangeDebounce = Timer(const Duration(milliseconds: 500), () async {
+      _log.info('Model changed to $newModelId, starting debounced pre-warm');
+
+      final modelPath = sttModelPath(newModelId);
+      if (modelPath == null || !await File(modelPath).exists()) {
+        _log.debug('Model file not downloaded yet, skipping pre-warm');
+        return;
+      }
+
+      if (state.serverState != SttServerState.stopped) stop();
+      try {
+        await ensureRunning();
+        _log.info('Pre-warm after model change complete');
+      } on Exception catch (e) {
+        _log.debug('Pre-warm after model change skipped: $e');
+      }
+    });
+  }
+
+  /// Best-effort GPU/engine warmup so the first real dictation after a cold
+  /// load doesn't pay the one-time kernel-compile/cache-fill penalty.
+  /// Failures are non-fatal — mirrors the pre-cutover HTTP warmup's contract.
+  /// Returns `false` when the warmup threw: a failed warmup proves nothing
+  /// about the GPU, so the caller must not count it as a surviving GPU path.
+  Future<bool> _warmupInference() async {
+    final sw = Stopwatch()..start();
+    try {
+      final silentWav = _generateSilentWav();
+      await _engine!.transcribe(silentWav);
+      sw.stop();
+      _log.info(
+        'Engine warmup inference completed in ${sw.elapsedMilliseconds}ms',
+      );
+      return true;
+    } catch (e) {
+      sw.stop();
+      _log.debug('Engine warmup skipped: $e');
+      return false;
+    }
+  }
+
+  /// Measures the real-time factor for [modelId] against a 3 s benchmark WAV
+  /// via the engine seam (previously timed over HTTP against the whisper-server
+  /// subprocess). Drives the onboarding quality-tier auto-selection.
+  Future<void> _runBenchmark(String modelId) async {
+    final tier = tierForModel(modelId);
+
+    if (!ref.mounted) return;
+
+    state = state.copyWith(isBenchmarking: true, benchmarkingTier: tier);
+
+    final sw = Stopwatch()..start();
+    try {
+      final benchmarkWav = SttBenchmark.generateBenchmarkWav();
+      await _engine!.transcribe(benchmarkWav);
+      sw.stop();
+
+      const audioDurationMs = 3000;
+      final rtf = sw.elapsedMilliseconds / audioDurationMs;
+
+      _log.info(
+        'Benchmark completed for $modelId: ${sw.elapsedMilliseconds}ms '
+        '(RTF=$rtf)',
+      );
+
+      if (ref.mounted) await _storeBenchmarkResult(modelId, rtf);
+    } catch (e) {
+      sw.stop();
+      _log.debug('Benchmark failed: $e');
+    } finally {
+      if (ref.mounted) {
+        state = state.copyWith(
+          isBenchmarking: false,
+          clearBenchmarkingTier: true,
+        );
+      }
+    }
+  }
+
+  /// Queues the post-load benchmark, but lets the dictation pipeline go first.
+  ///
+  /// The whisper worker handles one request at a time and knows no priorities,
+  /// so a benchmark inference fired while the user is already dictating puts
+  /// their real transcription behind 3 s of synthetic audio. On a cold Metal
+  /// context that cost 16 s in a captured session (hotkey at 14:19:05,
+  /// transcript only at 14:19:37) — which reads as "the app stopped
+  /// responding", not as "a benchmark is running".
+  void _scheduleBenchmark(String modelId) {
+    _pendingBenchmarkModelId = modelId;
+    _maybeRunPendingBenchmark();
+  }
+
+  /// Runs the pending benchmark if nothing else needs the worker; otherwise
+  /// leaves it pending for [_rearmPendingBenchmark] to retry.
+  void _maybeRunPendingBenchmark() {
+    final modelId = _pendingBenchmarkModelId;
+    if (modelId == null) return;
+    if (_isRecordingActive || _transcribeInFlight > 0) {
+      _log.debug('Benchmark deferred — dictation pipeline busy');
+      return;
+    }
+    _pendingBenchmarkModelId = null;
+    unawaited(_runBenchmark(modelId));
+  }
+
+  /// Retries a deferred benchmark once the pipeline has been quiet for
+  /// [benchmarkIdleDelay]. Re-armed on every notification, so a burst of
+  /// dictations keeps pushing the benchmark out rather than racing them.
+  void _rearmPendingBenchmark() {
+    if (_pendingBenchmarkModelId == null) return;
+    _benchmarkDeferTimer?.cancel();
+    _benchmarkDeferTimer = Timer(benchmarkIdleDelay, _maybeRunPendingBenchmark);
+  }
+
+  Future<void> _storeBenchmarkResult(String modelId, double rtf) async {
+    try {
+      final tier = tierForModel(modelId);
+      if (tier == null) return;
+      if (!ref.mounted) return;
+
+      final currentSettings = ref.read(settingsProvider).value;
+      final currentRtfMap = Map<QualityTier, double>.from(
+        currentSettings?.tierBenchmarkRtf ?? {},
+      );
+      currentRtfMap[tier] = rtf;
+
+      final gpuInfo = await ref.read(hw.gpuInfoProvider.future);
+      if (!ref.mounted) return;
+      final hwId = gpuInfo.vendor == hw.GpuVendor.none
+          ? 'cpu'
+          : '${gpuInfo.vendor.name}_${gpuInfo.vramMB ?? 0}';
+
+      await ref
+          .read(settingsProvider.notifier)
+          .updateSettings(
+            (s) => s.copyWith(
+              tierBenchmarkRtf: currentRtfMap,
+              benchmarkHardwareId: hwId,
+              benchmarkTimestamp: DateTime.now(),
+            ),
+          );
+
+      _log.info('Benchmark stored: $modelId → tier=$tier, RTF=$rtf');
+    } catch (e) {
+      _log.debug('Failed to store benchmark: $e');
+    }
+  }
+
+  static Uint8List _generateSilentWav() {
+    const sampleRate = 16000;
+    const durationSamples = sampleRate ~/ 4;
+    const bitsPerSample = 16;
+    const numChannels = 1;
+    const bytesPerSample = bitsPerSample ~/ 8;
+    const dataSize = durationSamples * numChannels * bytesPerSample;
+    const headerSize = 44;
+
+    final buffer = Uint8List(headerSize + dataSize);
+    final data = ByteData.sublistView(buffer);
+
+    buffer[0] = 0x52;
+    buffer[1] = 0x49;
+    buffer[2] = 0x46;
+    buffer[3] = 0x46;
+    data.setUint32(4, headerSize + dataSize - 8, Endian.little);
+    buffer[8] = 0x57;
+    buffer[9] = 0x41;
+    buffer[10] = 0x56;
+    buffer[11] = 0x45;
+    buffer[12] = 0x66;
+    buffer[13] = 0x6D;
+    buffer[14] = 0x74;
+    buffer[15] = 0x20;
+    data.setUint32(16, 16, Endian.little);
+    data.setUint16(20, 1, Endian.little);
+    data.setUint16(22, numChannels, Endian.little);
+    data.setUint32(24, sampleRate, Endian.little);
+    data.setUint32(
+      28,
+      sampleRate * numChannels * bytesPerSample,
+      Endian.little,
+    );
+    data.setUint16(32, numChannels * bytesPerSample, Endian.little);
+    data.setUint16(34, bitsPerSample, Endian.little);
+    buffer[36] = 0x64;
+    buffer[37] = 0x61;
+    buffer[38] = 0x74;
+    buffer[39] = 0x61;
+    data.setUint32(40, dataSize, Endian.little);
+
+    return buffer;
+  }
+
+  Future<void> _start({required String modelId}) async {
+    _transition(const SttStatus(serverState: SttServerState.starting));
+
+    final modelPath = sttModelPath(modelId);
+    if (modelPath == null) {
+      _fail('Unknown STT model: $modelId');
+      return;
+    }
+
+    final modelFile = File(modelPath);
+    if (!await modelFile.exists()) {
+      _fail(
+        'STT model file not found at $modelPath. '
+        'Download the model first.',
+      );
+      return;
+    }
+
+    const minModelBytes = 10 * 1024 * 1024;
+    final modelFileSize = await modelFile.length();
+    if (isSttModelFileTooSmall(modelFileSize, minModelBytes: minModelBytes)) {
+      // Explicit capture under the canonical `sttModelCorrupted` bucket so
+      // disk-truncated / interrupted-download model files surface as their
+      // own Sentry issue instead of merging into the generic auto-escalate
+      // catch-all via `_log.error`. Log is downgraded to warning to avoid
+      // a second event from the AppLogger pipeline.
+      CrashReporter.instance?.captureError(
+        message:
+            'STT model file corrupted on disk '
+            '($modelFileSize bytes, expected >$minModelBytes)',
+        severity: 'error',
+        type: 'stt_model_corrupted',
+        fingerprint: const [sttModelCorrupted],
+        extras: {
+          'model_id': modelId,
+          'model_path': modelPath,
+          'file_size_bytes': modelFileSize,
+          'min_required_bytes': minModelBytes,
+          'platform': Platform.operatingSystem,
+        },
+      );
+      _log.warning(
+        'STT model file appears corrupted: $modelPath '
+        '($modelFileSize bytes, expected >$minModelBytes). '
+        'Triggering silent re-download.',
+      );
+      unawaited(
+        modelFile.delete().catchError((Object e) {
+          _log.warning('Failed to delete corrupt model file: $e');
+          return modelFile;
+        }),
+      );
+      // Mirror the pre-cutover self-heal: park in stopped, then trigger a
+      // silent re-download via modelDownloadProvider.
+      _transition(const SttStatus(serverState: SttServerState.stopped));
+      unawaited(
+        ref
+            .read(modelDownloadProvider.notifier)
+            .downloadModel(modelId)
+            .catchError((Object e) {
+              _log.warning(
+                'Silent re-download of corrupt model $modelId failed: $e',
+              );
+            }),
+      );
+      return;
+    }
+
+    _log.info('Loading STT model: $modelId ($modelPath)');
+
+    // Crash-loop breaker (see gpu_load_crash_guard.dart): a genuine native
+    // fault has no catchable Dart exception and kills the whole process
+    // before any code below ever runs. Mark intent to disk right before the
+    // GPU-backed load, and keep it marked through the warmup inference below:
+    // on old/weak GPUs the first *compute dispatch* (not the weight load
+    // itself) is the more likely crash point, so clearing right after
+    // `load()` would let that exact crash repeat the loop undetected. Only
+    // clear once the process has provably survived both load AND the first
+    // inference, or once the GPU path has been abandoned for CPU.
+    final crashGuard = ref.read(gpuLoadCrashGuardProvider);
+    final attemptingGpu = _engine!.status.backend != WhisperBackend.cpu;
+    if (attemptingGpu) {
+      crashGuard.markAttempt(cuda: ref.read(activeCudaPackDirProvider) != null);
+    }
+    // Tracks whether the marker set above still needs clearing — a plain
+    // bool rather than re-deriving from `attemptingGpu` at each call site,
+    // so the catch branch's clear (GPU abandoned for CPU) and the
+    // post-warmup clear (GPU path survived) can't both fire for one load.
+    var gpuAttemptPending = attemptingGpu;
+
+    try {
+      await _engine!.load(
+        modelPath: modelPath,
+        vadModelPath: defaultWhisperVadModelPath(),
+      );
+    } catch (e) {
+      if (gpuAttemptPending) {
+        crashGuard.clearAttempt();
+        gpuAttemptPending = false;
+      }
+      // FLUTTER_WHISPASTE-80: a GPU/driver cold-start (e.g. first-ever
+      // shader compile) can hang past the engine's internal load timeout
+      // and fail the whole session even though CPU would have worked fine.
+      // Mirrors the existing GPU-crash-during-transcribe CPU fallback
+      // (_transcribeResilient) — degrade once, don't just surface the raw
+      // timeout to the user.
+      if (_engine!.status.backend == WhisperBackend.cpu) {
+        _fail('Failed to load STT model: $e');
+        return;
+      }
+      _log.warning(
+        'STT model load failed on ${_engine!.status.backend.name} backend '
+        '($e) — retrying once on CPU',
+      );
+      final cpuEngine = ref.read(whisperCpuFallbackEngineProvider);
+      try {
+        await cpuEngine.load(
+          modelPath: modelPath,
+          vadModelPath: defaultWhisperVadModelPath(),
+        );
+      } catch (cpuError) {
+        _fail('Failed to load STT model: $cpuError');
+        return;
+      }
+      unawaited(_engine!.unload());
+      _engine = cpuEngine;
+      if (ref.mounted) {
+        state = state.copyWith(cpuFallbackActive: true);
+      }
+    }
+    if (!ref.mounted) return;
+
+    _activeModel = modelId;
+    _resetIdleTimer();
+
+    final warmupOk = await _warmupInference();
+    // Reaching here proves the process survived the first GPU compute
+    // dispatch, not just the weight load — see the crash-loop-breaker
+    // comment above. Only fires if the catch branch above didn't already
+    // clear it (GPU abandoned for CPU before we got this far). The in-flight
+    // marker is cleared either way (a Dart-level warmup exception is not a
+    // native crash), but the consecutive-crash streak is only reset when the
+    // warmup actually succeeded: a failed warmup is not proof the GPU works.
+    if (gpuAttemptPending) {
+      crashGuard.clearAttempt();
+      if (warmupOk) crashGuard.resetCrashStreak();
+      gpuAttemptPending = false;
+    }
+    _scheduleBenchmark(modelId);
+
+    _transition(
+      SttStatus(
+        serverState: SttServerState.ready,
+        modelId: modelId,
+        // Preserve a load-time CPU fallback (FLUTTER_WHISPASTE-80) — this
+        // constructs a fresh SttStatus rather than copyWith-ing the current
+        // one, so cpuFallbackActive would otherwise silently reset to false.
+        cpuFallbackActive: state.cpuFallbackActive,
+        // The real backend this load ended up on — reads _engine.status
+        // directly rather than trusting the pre-load `attemptingGpu` guess,
+        // so it reflects the CPU swap above when that branch fired.
+        backend: _engine!.status.backend,
+      ),
+    );
+  }
+
+  /// Strips whisper.cpp non-speech annotations from the transcript.
+  ///
+  /// On silence or background noise, whisper emits bracketed sound tags
+  /// instead of words — `[Musik]`, `[Music]`, `[BLANK_AUDIO]`, `[Applause]`,
+  /// `[ Pause ]` and the like. These are never something the user dictated,
+  /// yet they were being pasted into the active text field and saved to the
+  /// history. whisper.cpp wraps these markers in square brackets, so we drop
+  /// any token wholly enclosed in `[...]`. Round brackets are deliberately
+  /// left untouched — a user may legitimately dictate parenthesised text,
+  /// whereas square brackets effectively never occur in spoken input.
+  ///
+  /// If the whole transcript was nothing but such markers the result is the
+  /// empty string, which the orchestrator already surfaces as
+  /// `transcription_empty` instead of inserting noise.
+  String _stripNonSpeechMarkers(String text) {
+    if (text.isEmpty) return text;
+    final stripped = text
+        .replaceAll(RegExp(r'\[[^\]]*\]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (stripped != text) {
+      _log.info('Stripped non-speech markers from transcript');
+    }
+    return stripped;
+  }
+
+  String _collapseRepetitions(String text) {
+    if (text.length < 20) return text;
+
+    final sentences = <String>[];
+    final buf = StringBuffer();
+    for (var i = 0; i < text.length; i++) {
+      buf.writeCharCode(text.codeUnitAt(i));
+      final c = text[i];
+      if (c == '.' || c == '?' || c == '!') {
+        sentences.add(buf.toString().trim());
+        buf.clear();
+      }
+    }
+    final trailing = buf.toString().trim();
+    if (trailing.isNotEmpty) sentences.add(trailing);
+
+    if (sentences.length < 3) return text;
+
+    final result = <String>[];
+    var prevSentence = '';
+    var runCount = 0;
+    var hadRepetition = false;
+
+    for (final s in sentences) {
+      if (s == prevSentence) {
+        runCount++;
+        if (runCount < 3) {
+          result.add(s);
+        } else {
+          hadRepetition = true;
+        }
+      } else {
+        prevSentence = s;
+        runCount = 1;
+        result.add(s);
+      }
+    }
+
+    if (hadRepetition) {
+      _log.warning(
+        'Whisper hallucination detected: collapsed ${sentences.length} '
+        'sentences to ${result.length}',
+      );
+      _lastPrompt = null;
+      _lastPromptTime = null;
+    }
+
+    return result.join(' ');
+  }
+
+  void _fail(String message) {
+    _log.error('STT error: $message');
+    _transition(
+      SttStatus(serverState: SttServerState.error, errorMessage: message),
+    );
+  }
+}
+
+// Providers are defined in stt_providers.dart and re-exported via stt_bundle.dart.

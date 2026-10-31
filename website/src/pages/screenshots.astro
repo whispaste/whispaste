@@ -1,0 +1,8 @@
+---
+import ScreenshotsPage from "../components/pages/ScreenshotsPage.astro";
+import { currentLocale } from "../scripts/i18n.ts";
+
+const lang = currentLocale(Astro.currentLocale);
+---
+
+<ScreenshotsPage lang={lang} />

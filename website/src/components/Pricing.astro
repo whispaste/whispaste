@@ -1,0 +1,237 @@
+---
+import StoreButton from './StoreButton.astro';
+import MacStoreButton from './MacStoreButton.astro';
+import LinuxButton from './LinuxButton.astro';
+import SectionEyebrow from './SectionEyebrow.astro';
+import StorePerks from './StorePerks.astro';
+import { t, localePath, currentLocale } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+
+const features = ['offline', 'snippets', 'smartmode', 'sidepanel', 'gpu', 'history', 'updates', 'opensource'] as const;
+
+---
+
+<!-- Pricing: two routes to the same app, side by side (another app principle:
+     parallel option cards, a small tilted label on each, one action per
+     card, then what is included). The OS store button stays the primary
+     action (maintainer decision), the free GitHub route is the second card;
+     the feature list below applies to both. No extra CTA band. -->
+<section id="pricing" class="band band-raised relative wp-section scroll-mt-20" data-testid="pricing">
+  <div class="relative wp-container">
+    <div class="wp-section-head">
+      <SectionEyebrow key="pricing.label" />
+      <h2 class="section-title"><span data-i18n="pricing.titleLead">{t(lang, "pricing.titleLead")}</span><span class="wp-marker" data-i18n="pricing.titleAccent">{t(lang, "pricing.titleAccent")}</span><span data-i18n="pricing.titleTail">{t(lang, "pricing.titleTail")}</span></h2>
+      <p class="wp-lead mt-4" data-i18n="pricing.desc">{t(lang, "pricing.desc")}</p>
+    </div>
+
+    <div class="price-grid">
+      <div class="price-card price-card--get" data-testid="pricing-get">
+        <span class="price-tag" data-i18n="pricing.tag.recommended">{t(lang, "pricing.tag.recommended")}</span>
+        <h3 class="price-card__title" data-i18n="pricing.get.title">{t(lang, "pricing.get.title")}</h3>
+        <!-- Platform-adaptive store button, same gate as the hero. -->
+        <div class="price-get__buttons">
+          <div data-platform-btn="windows" data-testid="pricing-microsoft-store"><StoreButton /></div>
+          <div data-platform-btn="macos" data-testid="pricing-mac-store"><MacStoreButton /></div>
+          <div data-platform-btn="linux"><LinuxButton /></div>
+        </div>
+        <div data-requires-os="windows macos" class="price-get__perks">
+          <StorePerks testid="pricing-store-hint" />
+        </div>
+      </div>
+
+      <div class="price-card price-card--free" data-testid="pricing-free-card">
+        <span class="price-tag price-tag--free" data-i18n="pricing.tag.free">{t(lang, "pricing.tag.free")}</span>
+        <h3 class="price-card__title price-card__title--big" data-i18n="pricing.price">{t(lang, "pricing.price")}</h3>
+        <p class="price-card__meta" data-i18n="pricing.forever">{t(lang, "pricing.forever")}</p>
+        <ul class="price-chips">
+          {(["noSub", "noAccount", "noTrial"] as const).map((k) => (
+            <li><span data-i18n={`pricing.${k}`}>{t(lang, `pricing.${k}`)}</span></li>
+          ))}
+        </ul>
+        <a href={localePath(lang, "download")} class="price-free__link" data-testid="pricing-free">
+          <span data-i18n="hero.cta.secondary">{t(lang, "hero.cta.secondary")}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+        </a>
+      </div>
+    </div>
+
+    <div class="price-includes" data-testid="pricing-includes">
+      <h3 class="price-includes__title" data-i18n="pricing.includes">{t(lang, "pricing.includes")}</h3>
+      <ul class="price-features">
+        {features.map((key) => (
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7"/></svg>
+            <span data-i18n={`pricing.feature.${key}`}>{t(lang, `pricing.feature.${key}`)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .price-grid {
+    display: grid;
+    gap: var(--wp-space-8) var(--wp-space-6);
+    padding-top: var(--wp-space-4);
+  }
+  @media (min-width: 1024px) {
+    .price-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .price-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-4);
+    padding: var(--wp-space-10) var(--wp-card-pad) var(--wp-card-pad);
+    border-radius: var(--wp-card-radius-lg);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    box-shadow: var(--wp-card-shadow);
+  }
+  @media (min-width: 1024px) {
+    .price-card { padding: var(--wp-space-12) var(--wp-space-10) var(--wp-space-10); }
+  }
+  /* The recommended route carries the accent edge. */
+  .price-card--get {
+    border-color: var(--wp-accent-fill);
+  }
+
+  /* Small tilted label riding the top edge of each card. */
+  .price-tag {
+    position: absolute;
+    top: 0;
+    left: var(--wp-card-pad);
+    translate: 0 -50%;
+    rotate: -3deg;
+    padding: var(--wp-chip-pad-y) var(--wp-chip-pad-x);
+    border-radius: var(--wp-chip-radius);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--wp-accent-on-fill);
+    background: var(--wp-accent-fill);
+    box-shadow: var(--wp-card-shadow);
+  }
+  .price-tag--free {
+    rotate: 2deg;
+    color: var(--wp-marker-text);
+    background: var(--wp-marker-stroke);
+  }
+
+  .price-card__title {
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-h3);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--wp-card-title);
+  }
+  .price-card__title--big {
+    font-size: var(--wp-font-size-title);
+    line-height: 1.05;
+  }
+  .price-card__meta {
+    margin-top: calc(var(--wp-space-2) * -1);
+    font-size: var(--wp-font-size-md);
+    color: var(--wp-card-meta);
+  }
+  .price-get__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-3);
+  }
+  .price-get__perks {
+    padding-top: var(--wp-space-5);
+    border-top: 1px solid var(--wp-border-subtle);
+  }
+  .price-chips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-2);
+  }
+  .price-chips li {
+    padding: var(--wp-chip-pad-y) var(--wp-chip-pad-x);
+    border-radius: var(--wp-chip-radius);
+    border: 1px solid var(--wp-chip-border);
+    background: var(--wp-chip-fill);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 500;
+    color: var(--wp-chip-text);
+  }
+  .price-free__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    min-height: 44px;
+    margin-top: auto;
+    padding-top: var(--wp-space-4);
+    border-top: 1px solid var(--wp-border-subtle);
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+    color: var(--wp-text-link);
+    text-decoration: none;
+  }
+  .price-free__link svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    transition: translate var(--dur-fast) var(--ease-flow);
+  }
+  .price-free__link:hover span { text-decoration: underline; }
+  .price-free__link:hover svg { translate: 2px 0; }
+
+  /* What both routes include: one quiet row under the cards. */
+  .price-includes {
+    margin-top: var(--wp-space-10);
+    padding-top: var(--wp-space-6);
+    border-top: 1px solid var(--wp-border-subtle);
+  }
+  .price-includes__title {
+    margin-bottom: var(--wp-space-4);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--wp-text-link);
+  }
+  .price-features {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--wp-space-3) var(--wp-space-8);
+  }
+  @media (min-width: 640px) {
+    .price-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1024px) {
+    .price-features { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  .price-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--wp-space-3);
+    font-size: var(--wp-font-size-md);
+    color: var(--wp-text-secondary);
+  }
+  .price-features svg {
+    width: 1rem;
+    height: 1rem;
+    margin-top: var(--wp-space-1);
+    flex-shrink: 0;
+    color: var(--wp-accent-default);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .price-free__link svg { transition: none; }
+  }
+</style>

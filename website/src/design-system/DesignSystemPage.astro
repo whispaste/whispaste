@@ -1,0 +1,315 @@
+---
+/**
+ * Living catalogue of the design system (dev server only, see the
+ * wp-design-system-catalogue integration in astro.config.mjs). Reads the
+ * token JSON directly, so every value shown here is the value in use.
+ * Each component appears twice: on the dark stage and on a light band.
+ */
+import Layout from '../layouts/Layout.astro';
+import { loadTokens } from '../../scripts/build-tokens.mjs';
+
+const { primitives, dark, components } = loadTokens();
+const cssVar = (path: string) => `--wp-${path.replaceAll('.', '-')}`;
+const group = (map: Map<string, { type?: string; value: unknown; description?: string }>, prefix: string) =>
+  [...map.entries()].filter(([k]) => k.startsWith(`${prefix}.`)).map(([path, t]) => ({ path, ...t }));
+
+const palettes = ['navy', 'glacier', 'frost', 'cyan', 'amber', 'green', 'yellow', 'red'].map((name) => ({
+  name,
+  swatches: group(primitives, `color.${name}`),
+}));
+const semanticGroups = ['surface', 'text', 'border', 'accent', 'highlight', 'status'].map((name) => ({
+  name,
+  tokens: group(dark, name),
+}));
+const typeSteps = [
+  { name: 'display', cls: 'ds-t-display', sample: 'Sprich, wo du schreibst.' },
+  { name: 'h1', cls: 'ds-t-h1', sample: 'Diktieren ohne Umweg' },
+  { name: 'h2', cls: 'ds-t-h2', sample: 'Für die Texte, die du ohnehin schreibst' },
+  { name: 'h3', cls: 'ds-t-h3', sample: 'Lokal als Standard' },
+  { name: 'lead', cls: 'ds-t-lead', sample: 'WhisPaste wandelt Sprache in Text um und fügt ihn dort ein, wo dein Cursor steht.' },
+  { name: 'body', cls: 'ds-t-body', sample: 'Fließtext in Hanken Grotesk, 16 px, Zeilenhöhe 1,6.' },
+  { name: 'label', cls: 'ds-t-label', sample: 'Anwendungsfälle' },
+];
+const spaces = group(primitives, 'space');
+const radii = group(primitives, 'radius');
+const shadows = group(primitives, 'shadow');
+const durations = group(primitives, 'duration');
+const componentGroups = [...new Set([...components.keys()].map((k) => k.split('.')[0]))];
+const surfaces = [
+  { mode: 'dark', label: 'Dunkel (Bühne)' },
+  { mode: 'light', label: 'Hell (Gletscher)' },
+] as const;
+---
+
+<Layout title="Designsystem · WhisPaste" description="Interner Katalog der Design-Tokens und Komponenten." lang="de">
+  <meta slot="head" name="robots" content="noindex, nofollow" />
+  <main class="ds" data-testid="design-system">
+    <header class="wp-container ds-head">
+      <p class="wp-eyebrow">Designsystem · nur Dev-Server</p>
+      <h1 class="page-title">WhisPaste <span class="text-gradient-brand">Gletscher + Bernstein</span></h1>
+      <p class="wp-lead">
+        Quelle: <code>design-tokens/*.tokens.json</code> → <code>npm run tokens</code> →
+        <code>src/styles/tokens.css</code>. Drei Ebenen: Primitive (Rohwerte) → Semantik (Rolle, je Modus) →
+        Komponente. Komponenten lesen nur ihre eigenen Tokens.
+      </p>
+      <nav class="ds-toc" aria-label="Abschnitte">
+        <a href="#farben">Farben</a><a href="#semantik">Semantik</a><a href="#typo">Typografie</a>
+        <a href="#raster">Abstände &amp; Radien</a><a href="#tiefe">Tiefe &amp; Bewegung</a>
+        <a href="#komponenten">Komponenten</a><a href="#prosa">Prosa (Blog)</a><a href="#token-liste">Komponenten-Tokens</a>
+      </nav>
+    </header>
+
+    <section id="farben" class="wp-container ds-sec">
+      <h2 class="ds-h2">Primitive Farben</h2>
+      <p class="ds-note">Nie direkt in Komponenten verwenden. Cyan = Aktion und Aufnahme, Bernstein = Markierung und Hinweis, Navy/Gletscher = Flächen.</p>
+      {palettes.map((p) => (
+        <div class="ds-palette">
+          <h3 class="ds-h3">{p.name}</h3>
+          <div class="ds-swatches">
+            {p.swatches.map((s) => (
+              <figure class="ds-swatch">
+                <span class="ds-chip" style={`background:var(${cssVar(s.path)})`} />
+                <figcaption><b>{s.path.split('.').pop()}</b> {String(s.value)}<br /><small>{s.description}</small></figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+
+    <section id="semantik" class="wp-container ds-sec">
+      <h2 class="ds-h2">Semantische Tokens in beiden Modi</h2>
+      <p class="ds-note">Gleicher Name, anderer Wert je Modus. Ein Abschnitt schaltet mit <code>data-surface="light"</code> um.</p>
+      <div class="ds-modes">
+        {surfaces.map((s) => (
+          <div class="ds-mode" data-surface={s.mode}>
+            <h3 class="ds-h3">{s.label}</h3>
+            {semanticGroups.map((g) => (
+              <div class="ds-sem">
+                <h4 class="ds-h4">{g.name}</h4>
+                {g.tokens.map((t) => (
+                  <div class="ds-sem-row">
+                    <span class="ds-chip ds-chip--sm" style={`background:var(${cssVar(t.path)})`} />
+                    <code>{cssVar(t.path)}</code>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section id="typo" class="wp-container ds-sec">
+      <h2 class="ds-h2">Typografie</h2>
+      <p class="ds-note">Bricolage Grotesque für Überschriften, Hanken Grotesk für Text, System-Mono für Labels und Code. Größen fließend zwischen 390 und 1920 px.</p>
+      <div class="ds-type">
+        {typeSteps.map((t) => (
+          <div class="ds-type-row">
+            <code>{t.name}</code>
+            <p class={t.cls}>{t.sample}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section id="raster" class="wp-container ds-sec">
+      <h2 class="ds-h2">Abstände &amp; Radien</h2>
+      <div class="ds-grid2">
+        <div>
+          <h3 class="ds-h3">Abstände (4-px-Raster, wie WpSpacing)</h3>
+          {spaces.map((s) => (
+            <div class="ds-space"><code>space.{s.path.split('.').pop()}</code><span style={`width:var(${cssVar(s.path)})`} />{String(s.value)}</div>
+          ))}
+        </div>
+        <div>
+          <h3 class="ds-h3">Radien</h3>
+          <div class="ds-radii">
+            {radii.map((r) => (
+              <div class="ds-radius" style={`border-radius:var(${cssVar(r.path)})`}><code>{r.path.split('.').pop()}</code>{String(r.value)}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tiefe" class="wp-container ds-sec">
+      <h2 class="ds-h2">Tiefe &amp; Bewegung</h2>
+      <div class="ds-shadows">
+        {shadows.map((s) => (
+          <div class="ds-shadow" data-surface={s.path.includes('light') ? 'light' : 'dark'} style={`box-shadow:var(${cssVar(s.path)})`}><code>{s.path}</code></div>
+        ))}
+      </div>
+      <div class="ds-motion">
+        {durations.map((d) => (
+          <div class="ds-dur"><code>{d.path}</code> {String(d.value)} <small>{d.description}</small></div>
+        ))}
+        <p class="ds-note">Kurve: <code>--wp-easing-flow</code> = cubic-bezier(0.22, 1, 0.36, 1). Jede Bewegung respektiert <code>prefers-reduced-motion</code>.</p>
+      </div>
+    </section>
+
+    <section id="komponenten" class="ds-sec">
+      <div class="wp-container"><h2 class="ds-h2">Komponenten auf beiden Flächen</h2></div>
+      {surfaces.map((s) => (
+        <div class="ds-stage wp-band" data-surface={s.mode}>
+          <div class="wp-container ds-comp">
+            <p class="wp-eyebrow">{s.label}</p>
+            <h3 class="section-title ds-comp-title">Für die Texte, die du <span class="wp-marker">ohnehin schreibst</span>.</h3>
+            <div class="ds-row">
+              <a class="wp-btn wp-btn--primary" href="#komponenten">Kostenlos herunterladen</a>
+              <a class="wp-btn wp-btn--secondary" href="#komponenten">So funktioniert's</a>
+              <button class="wp-btn wp-btn--secondary wp-btn--sm" type="button" disabled>Deaktiviert</button>
+            </div>
+            <div class="ds-row">
+              <span class="wp-chip">Neutral</span>
+              <span class="wp-chip wp-chip--accent">Lokal</span>
+              <span class="wp-chip wp-chip--highlight">Neu</span>
+              <span class="wp-chip wp-chip--success">Gemessen</span>
+              <span class="wp-chip wp-chip--warning">Beta</span>
+              <span class="wp-chip wp-chip--error">Fehler</span>
+              <span class="wp-tag">x64</span>
+              <span>Hotkey <kbd class="wp-kbd">Ctrl</kbd> + <kbd class="wp-kbd">Shift</kbd> + <kbd class="wp-kbd">D</kbd></span>
+            </div>
+            <div class="ds-cards">
+              <article class="wp-card">
+                <p class="wp-tag">Entwicklung</p>
+                <h4 class="ds-card-title">Reviews und Commit-Messages</h4>
+                <p>Erklären statt tippen, direkt im Browser oder Editor.</p>
+                <a class="ds-link" href="#komponenten">Mehr zum Entwickler-Alltag</a>
+              </article>
+              <div class="wp-callout"><strong>Hinweis:</strong> Für Auto-Paste braucht die App die Bedienungshilfen deines Systems.</div>
+              <div class="ds-form">
+                <label class="wp-field">
+                  <span class="wp-field__label">E-Mail</span>
+                  <input class="wp-input" type="email" placeholder="du@beispiel.de" />
+                  <span class="wp-field__help">Nur für die Antwort.</span>
+                </label>
+                <label class="wp-field">
+                  <span class="wp-field__label">Nachricht</span>
+                  <textarea class="wp-input" rows="2" aria-invalid="true">zu kurz</textarea>
+                  <span class="wp-field__error">Bitte mindestens 10 Zeichen.</span>
+                </label>
+              </div>
+            </div>
+            <div class="wp-table-wrap">
+              <table class="wp-table">
+                <thead><tr><th>Engine</th><th>Hardware</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td><strong>Whisper large-v3-turbo</strong></td><td>CUDA / Vulkan / CPU</td><td><span class="wp-chip wp-chip--success">Gemessen</span></td></tr>
+                  <tr><td><strong>Parakeet</strong></td><td>CPU</td><td><span class="wp-chip wp-chip--warning">Ausstehend</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <details class="ds-faq">
+              <summary>Läuft das auf meinem Rechner?</summary>
+              <p>Ab etwa 8 GB Arbeitsspeicher, mit GPU schneller, sonst auf der CPU.</p>
+            </details>
+          </div>
+        </div>
+      ))}
+    </section>
+
+    <section id="prosa" class="ds-sec">
+      <div class="wp-container"><h2 class="ds-h2">Prosa für Blog, Rechtstexte und Changelog</h2>
+        <p class="ds-note">Alle Elemente, die der Markdown-Renderer erzeugt. Klasse <code>.wp-prose</code>.</p></div>
+      {surfaces.map((s) => (
+        <div class="ds-stage wp-band" data-surface={s.mode}>
+          <div class="wp-container">
+            <article class="wp-prose">
+              <h2>Vom Hotkey zum Text</h2>
+              <p>Du drückst <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd>, sprichst und lässt los. Der Text landet <mark>im aktiven Fenster</mark>. Mehr dazu im <a href="#prosa">Leitfaden</a>, Befehl <code>whispaste --version</code>.</p>
+              <h3>Was lokal bleibt</h3>
+              <ul><li>Audio bleibt auf dem Gerät.</li><li>Kein Konto nötig.</li></ul>
+              <ol><li>Installieren</li><li>Hotkey drücken</li></ol>
+              <blockquote>Sprechen geht schneller als Tippen, wenn der Text dort landet, wo du arbeitest.</blockquote>
+              <pre><code>sudo apt install ./whispaste_amd64.deb</code></pre>
+              <table><thead><tr><th>Modell</th><th>RAM</th></tr></thead><tbody><tr><td>base</td><td>1 GB</td></tr><tr><td>large-v3-turbo</td><td>6 GB</td></tr></tbody></table>
+              <hr />
+              <p><strong>Fazit:</strong> lokal, schnell, ohne Konto.</p>
+            </article>
+          </div>
+        </div>
+      ))}
+    </section>
+
+    <section id="token-liste" class="wp-container ds-sec">
+      <h2 class="ds-h2">Komponenten-Tokens</h2>
+      <p class="ds-note">{components.size} Tokens in {componentGroups.length} Gruppen. Jede Komponente liest nur ihre eigene Gruppe.</p>
+      <div class="ds-token-groups">
+        {componentGroups.map((g) => (
+          <details class="ds-token-group">
+            <summary>{g} <small>({group(components, g).length})</small></summary>
+            <ul>
+              {group(components, g).map((t) => (
+                <li><code>{cssVar(t.path)}</code> <span>{typeof t.value === 'string' ? t.value : JSON.stringify(t.value)}</span></li>
+              ))}
+            </ul>
+          </details>
+        ))}
+      </div>
+    </section>
+  </main>
+</Layout>
+
+<style>
+  .ds { padding-bottom: 6rem; }
+  .ds-head { padding-top: 3rem; padding-bottom: 2rem; }
+  .ds-toc { margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; font-size: 0.9rem; }
+  .ds-toc a { color: var(--wp-link-text); }
+  .ds-sec { padding-block: 3rem; }
+  .ds-h2 { font-family: var(--wp-font-family-display); font-size: var(--wp-font-size-h3); font-weight: 800; margin-bottom: 0.5rem; }
+  .ds-h3 { font-family: var(--wp-font-family-mono); font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--wp-text-muted); margin: 1.5rem 0 0.75rem; }
+  .ds-h4 { font-weight: 700; margin: 1rem 0 0.4rem; color: var(--wp-text-primary); }
+  .ds-note { color: var(--wp-text-secondary); max-width: 60rem; }
+  .ds code { font-family: var(--wp-font-family-mono); font-size: 0.8em; }
+  .ds-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr)); gap: 1rem; }
+  .ds-swatch { margin: 0; font-size: 0.8rem; color: var(--wp-text-secondary); }
+  .ds-swatch small { color: var(--wp-text-muted); }
+  .ds-chip { display: block; height: 4rem; border-radius: var(--wp-radius-control); border: 1px solid var(--wp-border-default); margin-bottom: 0.4rem; }
+  .ds-chip--sm { display: inline-block; width: 1.5rem; height: 1.5rem; margin: 0; flex: none; }
+  .ds-modes { display: grid; gap: 1.5rem; }
+  @media (min-width: 1024px) { .ds-modes { grid-template-columns: 1fr 1fr; } }
+  .ds-mode { padding: 1.5rem; border-radius: var(--wp-radius-surface); background: var(--wp-surface-band); }
+  .ds-sem-row { display: flex; align-items: center; gap: 0.6rem; padding: 0.15rem 0; color: var(--wp-text-secondary); overflow-wrap: anywhere; }
+  .ds-type-row { display: grid; gap: 0.25rem 2rem; padding: 1rem 0; border-top: 1px solid var(--wp-border-subtle); }
+  @media (min-width: 900px) { .ds-type-row { grid-template-columns: 6rem 1fr; align-items: baseline; } }
+  .ds-type-row code { color: var(--wp-text-muted); }
+  .ds-t-display { font-family: var(--wp-font-family-display); font-size: var(--wp-type-display-size); font-weight: 800; line-height: var(--wp-type-display-line-height); letter-spacing: var(--wp-type-display-tracking); }
+  .ds-t-h1 { font-family: var(--wp-font-family-display); font-size: var(--wp-type-h1-size); font-weight: 800; line-height: var(--wp-type-h1-line-height); letter-spacing: var(--wp-type-h1-tracking); }
+  .ds-t-h2 { font-family: var(--wp-font-family-display); font-size: var(--wp-type-h2-size); font-weight: 800; line-height: var(--wp-type-h2-line-height); letter-spacing: var(--wp-type-h2-tracking); }
+  .ds-t-h3 { font-family: var(--wp-font-family-display); font-size: var(--wp-type-h3-size); font-weight: 700; line-height: var(--wp-type-h3-line-height); }
+  .ds-t-lead { font-size: var(--wp-type-lead); color: var(--wp-text-secondary); max-width: 40rem; }
+  .ds-t-body { font-size: var(--wp-type-body); }
+  .ds-t-label { font-family: var(--wp-font-family-mono); font-size: var(--wp-type-label); letter-spacing: var(--wp-type-label-tracking); text-transform: uppercase; color: var(--wp-text-muted); }
+  .ds-grid2 { display: grid; gap: 2rem; }
+  @media (min-width: 1024px) { .ds-grid2 { grid-template-columns: 1fr 1fr; } }
+  .ds-space { display: flex; align-items: center; gap: 1rem; padding: 0.2rem 0; color: var(--wp-text-muted); font-size: 0.85rem; }
+  .ds-space code { width: 5rem; color: var(--wp-text-secondary); }
+  .ds-space span { height: 0.75rem; background: var(--wp-accent-default); border-radius: 2px; }
+  .ds-radii { display: flex; flex-wrap: wrap; gap: 1rem; }
+  .ds-radius { width: 7rem; height: 5rem; display: grid; place-content: center; text-align: center; font-size: 0.8rem; color: var(--wp-text-secondary); border: 1px solid var(--wp-border-strong); background: var(--wp-surface-card); }
+  .ds-shadows { display: grid; grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); gap: 2rem; padding: 1rem 0 2rem; }
+  .ds-shadow { height: 6rem; display: grid; place-content: center; border-radius: var(--wp-radius-card); background: var(--wp-surface-card); color: var(--wp-text-secondary); }
+  .ds-dur { padding: 0.3rem 0; color: var(--wp-text-secondary); }
+  .ds-dur small { color: var(--wp-text-muted); }
+  .ds-stage { padding-block: 3.5rem; }
+  .ds-comp { display: grid; gap: 1.5rem; }
+  .ds-comp-title { font-size: var(--wp-type-h2-size); }
+  .ds-row { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+  .ds-cards { display: grid; gap: 1.25rem; }
+  @media (min-width: 1024px) { .ds-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; } }
+  .ds-card-title { margin: 0.6rem 0 0.4rem; font-size: var(--wp-type-card-title); font-weight: 700; color: var(--wp-card-title); }
+  .ds-link { display: inline-block; margin-top: 0.75rem; color: var(--wp-link-text); font-weight: 600; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--wp-link-underline); }
+  .ds-link:hover { color: var(--wp-link-hover); }
+  .ds-form { display: grid; gap: 1rem; }
+  .ds-faq { border-top: 1px solid var(--wp-faq-divider); border-bottom: 1px solid var(--wp-faq-divider); padding: 1rem 0; }
+  .ds-faq summary { cursor: pointer; font-weight: 700; color: var(--wp-faq-question); display: flex; justify-content: space-between; list-style: none; }
+  .ds-faq summary::after { content: "+"; font-family: var(--wp-font-family-mono); color: var(--wp-faq-icon); }
+  .ds-faq[open] summary::after { content: "–"; }
+  .ds-faq p { margin-top: 0.5rem; color: var(--wp-faq-answer); }
+  .ds-token-groups { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr)); }
+  .ds-token-group { border: 1px solid var(--wp-border-subtle); border-radius: var(--wp-radius-control); padding: 0.75rem 1rem; }
+  .ds-token-group summary { cursor: pointer; font-weight: 700; }
+  .ds-token-group li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.2rem 0; font-size: 0.8rem; color: var(--wp-text-muted); overflow-wrap: anywhere; }
+  .ds-token-group li code { color: var(--wp-text-secondary); }
+</style>

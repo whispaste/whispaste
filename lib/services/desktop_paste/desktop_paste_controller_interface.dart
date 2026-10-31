@@ -1,0 +1,330 @@
+/// Pure interface for the desktop paste controller.
+///
+/// All shared types, enums, and the abstract [DesktopPasteController] class
+/// live here so that platform implementations can import only this file and
+/// avoid a circular dependency with the factory/provider layer.
+library;
+
+/// Structured outcome of a native paste call. Mirrors the `{status, detail}`
+/// map returned by the platform bridges so the UI can distinguish the
+/// silent failure modes (no target / permission missing / post failed)
+/// instead of seeing a bare `false`.
+enum NativePasteStatus {
+  success,
+  noTarget,
+  permissionMissing,
+
+  /// Windows-only: `SetForegroundWindow` was refused because the target
+  /// window belongs to a process running with higher privileges than
+  /// WhisPaste (UIPI). Distinct from [postFailed] because the fix is
+  /// specific — restart WhisPaste elevated — not "just retry".
+  foregroundBlocked,
+  postFailed,
+  unknown;
+
+  static NativePasteStatus fromCode(String? code) => switch (code) {
+    'success' => NativePasteStatus.success,
+    'no_target' => NativePasteStatus.noTarget,
+    'no_accessibility' ||
+    'permission_missing' => NativePasteStatus.permissionMissing,
+    'foreground_blocked' => NativePasteStatus.foregroundBlocked,
+    'post_failed' || 'send_input_failed' => NativePasteStatus.postFailed,
+    _ => NativePasteStatus.unknown,
+  };
+}
+
+class NativePasteResult {
+  const NativePasteResult({required this.status, this.detail});
+
+  final NativePasteStatus status;
+  final String? detail;
+
+  bool get isSuccess => status == NativePasteStatus.success;
+
+  factory NativePasteResult.fromMap(Map<Object?, Object?>? map) {
+    if (map == null) {
+      return const NativePasteResult(status: NativePasteStatus.unknown);
+    }
+    final code = map['status'] as String?;
+    final detail = map['detail'] as String?;
+    return NativePasteResult(
+      status: NativePasteStatus.fromCode(code),
+      detail: detail,
+    );
+  }
+
+  factory NativePasteResult.fromLegacyBool(bool? value) => NativePasteResult(
+    status: value == true
+        ? NativePasteStatus.success
+        : NativePasteStatus.postFailed,
+  );
+}
+
+/// Outcome of [DesktopPasteController.diagnosticPaste].
+///
+/// Mirrors the `{status, detail?}`-map returned by the native bridges in a
+/// closed, exhaustive set so the onboarding UI can switch on it without
+/// resorting to stringly typed status codes.
+///
+///   - [TestPasteOutcomeSuccess]   — the demo keystroke landed.
+///   - [TestPasteOutcomeNoFrontmost] — no frontmost window was reachable
+///     when the paste fired; the user usually has to click the demo field
+///     and retry.
+///   - [TestPasteOutcomeFailure]   — the paste did not land. `reason` is a
+///     PII-free status code (`"not_trusted"`, `"uipi_blocked"`,
+///     `"exception"`, `"unknown"`, ...).
+///   - [TestPasteOutcomeUnsupported] — the platform has no native bridge
+///     (Linux, or controller running in a test env without a real channel).
+sealed class TestPasteOutcome {
+  const TestPasteOutcome();
+
+  factory TestPasteOutcome.fromMap(Map<Object?, Object?>? map) {
+    if (map == null) {
+      return const TestPasteOutcomeUnsupported();
+    }
+    final status = map['status'] as String?;
+    return switch (status) {
+      'success' => const TestPasteOutcomeSuccess(),
+      'no_frontmost' => const TestPasteOutcomeNoFrontmost(),
+      'unsupported' => const TestPasteOutcomeUnsupported(),
+      'failure' => TestPasteOutcomeFailure(
+        (map['detail'] as String?) ?? 'unknown',
+      ),
+      _ => const TestPasteOutcomeFailure('unknown_status'),
+    };
+  }
+}
+
+class TestPasteOutcomeSuccess extends TestPasteOutcome {
+  const TestPasteOutcomeSuccess();
+}
+
+class TestPasteOutcomeNoFrontmost extends TestPasteOutcome {
+  const TestPasteOutcomeNoFrontmost();
+}
+
+class TestPasteOutcomeFailure extends TestPasteOutcome {
+  const TestPasteOutcomeFailure(this.reason);
+
+  /// PII-free status code, e.g. `"not_trusted"`, `"uipi_blocked"`,
+  /// `"exception"`, `"unknown"`.
+  final String reason;
+}
+
+class TestPasteOutcomeUnsupported extends TestPasteOutcome {
+  const TestPasteOutcomeUnsupported();
+}
+
+enum NativeCapabilityStatus { ready, permissionMissing, unsupported }
+
+class NativeCapabilityResult {
+  const NativeCapabilityResult({
+    required this.status,
+    this.canPrompt = false,
+    this.detail,
+  });
+
+  final NativeCapabilityStatus status;
+  final bool canPrompt;
+  final String? detail;
+
+  factory NativeCapabilityResult.fromMap(Map<Object?, Object?>? map) {
+    if (map == null) {
+      return const NativeCapabilityResult(
+        status: NativeCapabilityStatus.unsupported,
+      );
+    }
+    final code = map['status'] as String?;
+    return NativeCapabilityResult(
+      status: switch (code) {
+        'ready' => NativeCapabilityStatus.ready,
+        'permission_missing' => NativeCapabilityStatus.permissionMissing,
+        _ => NativeCapabilityStatus.unsupported,
+      },
+      canPrompt: map['canPrompt'] as bool? ?? false,
+      detail: map['detail'] as String?,
+    );
+  }
+}
+
+/// What [ClipboardReceiptBridge.waitForClipboardRead] observed.
+enum ClipboardReadReceipt {
+  /// A reader pulled the transcript off the clipboard after the paste
+  /// shortcut was posted — the target app has the text.
+  read,
+
+  /// Another writer replaced the clipboard — WhisPaste no longer owns it, so
+  /// restoring would clobber someone else's content.
+  ownershipLost,
+
+  /// No usable signal (superseded, no receipt armed, channel unavailable) —
+  /// the caller keeps waiting for its fixed fallback buffer.
+  unknown;
+
+  static ClipboardReadReceipt fromCode(String? code) => switch (code) {
+    'read' => ClipboardReadReceipt.read,
+    'lost' => ClipboardReadReceipt.ownershipLost,
+    _ => ClipboardReadReceipt.unknown,
+  };
+}
+
+/// Outcome of [ClipboardReceiptBridge.restoreClipboardTextIfOwner].
+enum ClipboardRestoreOutcome {
+  restored,
+
+  /// Skipped: another process changed the clipboard in the meantime.
+  notOwner,
+  failed;
+
+  static ClipboardRestoreOutcome fromCode(String? code) => switch (code) {
+    'restored' => ClipboardRestoreOutcome.restored,
+    'not_owner' => ClipboardRestoreOutcome.notOwner,
+    _ => ClipboardRestoreOutcome.failed,
+  };
+}
+
+/// Receipt-based clipboard restore (macOS/Windows only — Linux keeps its
+/// fixed-delay uinput path).
+///
+/// Instead of "write transcript → paste → wait a fixed buffer → restore",
+/// the transcript is put on the clipboard *lazily* (macOS
+/// `NSPasteboardItemDataProvider`, Windows delayed rendering via
+/// `SetClipboardData(fmt, NULL)` + `WM_RENDERFORMAT`), so the native host
+/// learns the moment the target app actually reads it. The restore then
+/// happens right after that read, and only while WhisPaste still owns the
+/// clipboard (macOS `changeCount`, Windows `WM_DESTROYCLIPBOARD`/
+/// `GetClipboardOwner`).
+abstract interface class ClipboardReceiptBridge {
+  /// Writes [text] as a lazily rendered, history-excluded clipboard item
+  /// (macOS: marked `org.nspasteboard.TransientType` + `ConcealedType`).
+  /// Returns `false` when the platform can't arm a receipt — the caller then
+  /// uses the classic write + fixed-delay restore.
+  Future<bool> writeClipboardTextWithReceipt(String text);
+
+  /// Completes once the receipt written by [writeClipboardTextWithReceipt]
+  /// was read after the paste shortcut went out, or ownership was lost.
+  /// Never times out on its own — the caller bounds it.
+  Future<ClipboardReadReceipt> waitForClipboardRead();
+
+  /// Writes [text] back (history-excluded) only if WhisPaste is still the
+  /// clipboard owner since the receipt write.
+  Future<ClipboardRestoreOutcome> restoreClipboardTextIfOwner(String text);
+}
+
+/// Platform-agnostic interface for desktop clipboard pasting.
+///
+/// The controller captures the current paste target before recording starts and
+/// later restores focus so a simulated paste lands back in the intended app.
+abstract class DesktopPasteController {
+  /// Captures the current desktop window/application as the paste target.
+  ///
+  /// Returns `true` when a suitable external target window was captured.
+  Future<bool> capturePasteTarget();
+
+  /// Returns the bundle ID (macOS) or process name (Windows) of the captured
+  /// paste target, or `null` if no target was captured.
+  Future<String?> getTargetBundleId();
+
+  /// Restores the captured target and sends the paste shortcut.
+  ///
+  /// Returns a [NativePasteResult] so the caller can distinguish silent
+  /// failure modes (no target, permission missing, OS post failed).
+  Future<NativePasteResult> pasteClipboard({required Duration delay});
+
+  /// Restores the captured target and sends the copy shortcut
+  /// (Cmd/Ctrl+C), so the target app copies its current selection to the
+  /// clipboard ("edit selection by voice"). The caller owns the clipboard
+  /// snapshot/restore around this call and detects "nothing selected" by
+  /// the clipboard staying unchanged — the shortcut itself reports success
+  /// either way.
+  ///
+  /// Same [NativePasteResult] vocabulary as [pasteClipboard].
+  Future<NativePasteResult> copySelection({required Duration delay});
+
+  /// Restores the captured target and types [text] directly via synthetic
+  /// Unicode keystrokes — no clipboard involved at all.
+  ///
+  /// Returns the same [NativePasteResult] shape as [pasteClipboard] so
+  /// callers can distinguish the same silent failure modes.
+  Future<NativePasteResult> typeText(String text, {required Duration delay});
+
+  /// Writes [text] to the OS clipboard using the platform's clipboard-
+  /// history / cloud-clipboard opt-out formats where available (Windows'
+  /// `ExcludeClipboardContentFromMonitorProcessing` etc.), so a transient
+  /// write never surfaces as a new entry in e.g. Windows' Win+V history.
+  ///
+  /// Returns `false` on platforms with no such mechanism (macOS, Linux) or
+  /// on any channel failure — callers then fall back to an ordinary
+  /// clipboard write that the OS may record in its own history.
+  Future<bool> writeClipboardTextExcludingHistory(String text);
+
+  /// Probes whether the OS would allow Auto-Paste right now — without
+  /// actually pasting. When [promptIfMissing] is `true`, triggers the
+  /// OS-native permission dialog if applicable (macOS Accessibility).
+  Future<NativeCapabilityResult> checkCapability({
+    bool promptIfMissing = false,
+  });
+
+  /// Diagnostic paste — exercises the production Auto-Paste pipeline with a
+  /// caller-supplied `demoText` so the onboarding flow can prove Auto-Paste
+  /// works *before* the user finishes onboarding.
+  ///
+  /// The native side is expected to: (1) backup the current clipboard,
+  /// (2) write [demoText] into it, (3) synthesise the platform's paste
+  /// shortcut, (4) wait briefly for the keystroke to be delivered, (5)
+  /// restore the original clipboard — even on the failure path. Returns a
+  /// [TestPasteOutcome] mirroring the native `{status, detail?}` response;
+  /// exceptions thrown by the channel call map to
+  /// [TestPasteOutcomeFailure] with `reason: "exception"`.
+  Future<TestPasteOutcome> diagnosticPaste(String demoText);
+
+  /// Wipes stale TCC entries for the permission services Auto-Paste uses
+  /// (macOS Accessibility + AppleEvents). The next paste attempt will
+  /// trigger fresh OS prompts bound to the current binary's signature —
+  /// the documented workaround for ad-hoc-signed apps whose UI toggle
+  /// shows "ON" but `AXIsProcessTrusted()` returns `false`.
+  ///
+  /// No-op on platforms without TCC (Windows). Returns the per-service
+  /// counts of cleared entries (negative = call failed).
+  Future<TccRepairResult> repairTccEntries();
+
+  /// Releases any native resources held by the controller.
+  Future<void> dispose();
+}
+
+class TccRepairResult {
+  const TccRepairResult({
+    required this.accessibilityCleared,
+    required this.appleEventsCleared,
+    this.error,
+  });
+
+  /// Count of Accessibility entries cleared. -1 = call failed, 0 = nothing
+  /// to clear (clean state), 1+ = stale entries removed.
+  final int accessibilityCleared;
+  final int appleEventsCleared;
+  final String? error;
+
+  bool get isSupported => error == null;
+
+  factory TccRepairResult.fromMap(Map<Object?, Object?>? map) {
+    if (map == null) {
+      return const TccRepairResult(
+        accessibilityCleared: -1,
+        appleEventsCleared: -1,
+        error: 'no_response',
+      );
+    }
+    return TccRepairResult(
+      accessibilityCleared: (map['ax'] as int?) ?? -1,
+      appleEventsCleared: (map['ae'] as int?) ?? -1,
+      error: map['error'] as String?,
+    );
+  }
+
+  factory TccRepairResult.unsupported() => const TccRepairResult(
+    accessibilityCleared: 0,
+    appleEventsCleared: 0,
+    error: 'unsupported_platform',
+  );
+}

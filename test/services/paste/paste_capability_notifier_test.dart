@@ -1,0 +1,1656 @@
+/// Unit tests for [PasteCapabilityNotifier].
+///
+/// Style mirrors `paster_test.dart`: hand-rolled fakes for the platform
+/// dependencies (`Paster`, `DesktopPasteController`), Riverpod overrides
+/// for DI. No mockito/build_runner required.
+library;
+
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:plugin_platform_interface/plugin_platform_interface.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher_platform_interface/link.dart';
+import 'package:url_launcher_platform_interface/url_launcher_platform_interface.dart';
+
+import 'package:whispaste/services/desktop_paste/desktop_paste_controller.dart';
+import 'package:whispaste/services/paste/paste_capability_notifier.dart';
+import 'package:whispaste/services/paste/paster.dart';
+
+// ---------------------------------------------------------------------------
+// Fakes
+// ---------------------------------------------------------------------------
+
+class _FakePaster implements Paster {
+  _FakePaster({
+    PasteCapability initial = const PasteCapability(
+      status: PasteCapabilityStatus.permissionMissing,
+      canPrompt: true,
+    ),
+  }) : _next = initial;
+
+  PasteCapability _next;
+  final List<bool> calls = <bool>[];
+  Completer<void>? _gate;
+
+  set nextResult(PasteCapability cap) => _next = cap;
+
+  /// If set, [checkCapability] awaits this completer before resolving. Used
+  /// to test that [PasteCapabilityNotifier.check] does not stack concurrent
+  /// calls (later) and to model the periodic-call ordering in polling tests.
+  set gate(Completer<void>? c) => _gate = c;
+
+  /// Optional probe fired at the top of every [checkCapability]. Lets a test
+  /// snapshot unrelated state at that exact instant — how
+  /// [PasteCapabilityNotifier.repairAndRequestGrant]'s "repair strictly before
+  /// the prompted check" guarantee is proven without a shared order log.
+  void Function()? onCheck;
+
+  @override
+  Future<PasteCapability> checkCapability({
+    bool promptIfMissing = false,
+  }) async {
+    onCheck?.call();
+    calls.add(promptIfMissing);
+    final g = _gate;
+    if (g != null) await g.future;
+    return _next;
+  }
+
+  // Unused methods — checkCapability is the only Paster surface the notifier
+  // touches.
+  @override
+  Future<void> prime() async {}
+
+  @override
+  Future<PasteOutcome> paste(String text, PasteOptions options) async =>
+      PasteOutcome.platformUnavailable;
+
+  @override
+  Future<PasteOutcome> typeText(String text, PasteOptions options) async =>
+      PasteOutcome.platformUnavailable;
+
+  @override
+  Future<String?> getTargetBundleId() async => null;
+}
+
+class _FakeRepairController implements DesktopPasteController {
+  TccRepairResult repairResult = const TccRepairResult(
+    accessibilityCleared: 0,
+    appleEventsCleared: 0,
+  );
+  int repairCalls = 0;
+
+  /// Seeded outcome for [diagnosticPaste]. Tests rebind it per scenario to
+  /// exercise each [TestPasteOutcome] variant.
+  TestPasteOutcome diagnosticOutcome = const TestPasteOutcomeSuccess();
+
+  /// Captures every demoText the notifier forwards to the controller — proves
+  /// the wrapper does not silently re-key the argument.
+  final List<String> diagnosticCalls = <String>[];
+
+  @override
+  Future<TccRepairResult> repairTccEntries() async {
+    repairCalls++;
+    return repairResult;
+  }
+
+  @override
+  Future<TestPasteOutcome> diagnosticPaste(String demoText) async {
+    diagnosticCalls.add(demoText);
+    return diagnosticOutcome;
+  }
+
+  // Unused
+  @override
+  Future<bool> capturePasteTarget() async => false;
+  @override
+  Future<NativeCapabilityResult> checkCapability({
+    bool promptIfMissing = false,
+  }) async =>
+      const NativeCapabilityResult(status: NativeCapabilityStatus.unsupported);
+  @override
+  Future<String?> getTargetBundleId() async => null;
+  @override
+  Future<NativePasteResult> pasteClipboard({required Duration delay}) async =>
+      const NativePasteResult(status: NativePasteStatus.unknown);
+  @override
+  Future<NativePasteResult> copySelection({required Duration delay}) async =>
+      const NativePasteResult(status: NativePasteStatus.unknown);
+
+  @override
+  Future<NativePasteResult> typeText(
+    String text, {
+    required Duration delay,
+  }) async => const NativePasteResult(status: NativePasteStatus.unknown);
+  @override
+  Future<bool> writeClipboardTextExcludingHistory(String text) async => false;
+  @override
+  Future<void> dispose() async {}
+}
+
+/// Records every URL [requestGrant]/[openAccessibilitySettings] hand off to
+/// the OS, so tests can assert whether the Settings deep-link fired without
+/// touching a real platform channel.
+class _FakeUrlLauncher extends UrlLauncherPlatform
+    with MockPlatformInterfaceMixin {
+  final List<String> launchedUrls = <String>[];
+
+  @override
+  LinkDelegate? get linkDelegate => null;
+
+  @override
+  Future<bool> canLaunch(String url) async => true;
+
+  @override
+  Future<bool> launchUrl(String url, LaunchOptions options) async {
+    launchedUrls.add(url);
+    return true;
+  }
+}
+
+ProviderContainer _container({
+  Paster? paster,
+  DesktopPasteController? controller,
+}) {
+  return ProviderContainer(
+    overrides: [
+      pasterProvider.overrideWithValue(paster),
+      desktopPasteControllerProvider.overrideWithValue(controller),
+    ],
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  group('PasteCapabilityNotifier — check()', () {
+    test(
+      'check(prompt: false) calls Paster.checkCapability(promptIfMissing: false) once '
+      'and state mirrors the result',
+      () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        await notifier.check();
+
+        expect(paster.calls, [false]);
+        final state = container.read(pasteCapabilityNotifierProvider);
+        expect(state.capability?.status, PasteCapabilityStatus.ready);
+      },
+    );
+
+    test('an in-flight probe coalesces another probe but never swallows a '
+        'prompting call — the OS dialog must not go missing', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      // A probe suspended mid-round-trip, exactly like the foreground recheck
+      // that fires when the user dismisses the microphone dialog.
+      final gate = Completer<void>();
+      paster.gate = gate;
+      final probe = notifier.check();
+      await pumpEventQueue();
+      expect(paster.calls, [false]);
+
+      // A second probe is still coalesced away (unchanged behaviour).
+      final duplicate = notifier.check();
+      await pumpEventQueue();
+      expect(paster.calls, [false]);
+
+      // The prompting call is an action, not a probe: it must reach the
+      // platform even inside the probe's flight window. Dropping it is what
+      // made macOS's Accessibility alert silently never appear.
+      final prompted = notifier.check(prompt: true);
+      await pumpEventQueue();
+      expect(
+        paster.calls,
+        [false, true],
+        reason:
+            'A prompting check entered while a probe is in flight must still '
+            'reach Paster.checkCapability — otherwise the user gets no dialog '
+            'at all (live-reproduced startup-gate dead end).',
+      );
+
+      gate.complete();
+      await Future.wait([probe, duplicate, prompted]);
+    });
+
+    test('check(prompt: true) with permissionMissing does NOT set '
+        'sentToOsGrantFlow — probing never owns the handoff bit', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check(prompt: true);
+
+      expect(paster.calls, [true]);
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.capability?.status, PasteCapabilityStatus.permissionMissing);
+      expect(
+        state.sentToOsGrantFlow,
+        isFalse,
+        reason:
+            'Only requestGrant/openAccessibilitySettings own the handoff '
+            'bit — a bare probe must not flip it.',
+      );
+    });
+
+    test('openAccessibilitySettings sets sentToOsGrantFlow so the next '
+        'missing probe resolves to restart', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.openAccessibilitySettings();
+
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.sentToOsGrantFlow, isTrue);
+    });
+
+    test(
+      'check without paster surface yields unsupported capability',
+      () async {
+        final container = _container(paster: null);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        await notifier.check();
+
+        final state = container.read(pasteCapabilityNotifierProvider);
+        expect(state.capability?.status, PasteCapabilityStatus.unsupported);
+      },
+    );
+  });
+
+  group('PasteCapabilityNotifier — pollingPhase', () {
+    test('initial state is PollingPhase.idle', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.pollingPhase, PollingPhase.idle);
+    });
+
+    test('startPolling sets pollingPhase to awaitingGrant', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      notifier.startPolling(
+        interval: const Duration(seconds: 1),
+        timeout: const Duration(seconds: 30),
+      );
+
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.pollingPhase, PollingPhase.awaitingGrant);
+      expect(notifier.isPolling, isTrue);
+
+      // Clean up the active timer.
+      notifier.stopPolling();
+    });
+
+    test(
+      'successful poll (capability ready) sets pollingPhase to succeeded and stops timer',
+      () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        notifier.startPolling(
+          interval: const Duration(milliseconds: 20),
+          timeout: const Duration(seconds: 5),
+        );
+        // Let the first tick observe `ready`.
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+
+        expect(notifier.isPolling, isFalse);
+        final state = container.read(pasteCapabilityNotifierProvider);
+        expect(state.pollingPhase, PollingPhase.succeeded);
+      },
+    );
+
+    test('timeout sets pollingPhase to timedOut', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      notifier.startPolling(
+        interval: const Duration(milliseconds: 20),
+        timeout: const Duration(milliseconds: 60),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      expect(notifier.isPolling, isFalse);
+      final state = container.read(pasteCapabilityNotifierProvider);
+      expect(state.pollingPhase, PollingPhase.timedOut);
+    });
+
+    test('stopPolling sets pollingPhase to idle', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      notifier.startPolling(
+        interval: const Duration(milliseconds: 20),
+        timeout: const Duration(seconds: 5),
+      );
+      expect(
+        container.read(pasteCapabilityNotifierProvider).pollingPhase,
+        PollingPhase.awaitingGrant,
+      );
+
+      notifier.stopPolling();
+      expect(
+        container.read(pasteCapabilityNotifierProvider).pollingPhase,
+        PollingPhase.idle,
+      );
+    });
+
+    test(
+      'isPolling getter returns true iff pollingPhase == awaitingGrant',
+      () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        expect(notifier.isPolling, isFalse);
+
+        notifier.startPolling(
+          interval: const Duration(seconds: 1),
+          timeout: const Duration(seconds: 30),
+        );
+        expect(notifier.isPolling, isTrue);
+
+        notifier.stopPolling();
+        expect(notifier.isPolling, isFalse);
+      },
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // requiredAction / needsRestart — the single recovery-action resolver every
+  // UI surface shares. Pure function of three state fields:
+  //   - capability?.status
+  //   - pollingPhase == awaitingGrant (a live poll owns the screen)
+  //   - sentToOsGrantFlow (has WhisPaste handed the user to the OS grant flow?)
+  //
+  // Missing + not-polling collapses to grant (never sent) or restart (sent).
+  // Crucially, unlike the former timeout-only heuristic, `idle` after a
+  // handoff still resolves to restart — stopping polling no longer silently
+  // downgrades a granted-but-stale permission back to "Erlauben".
+  // ---------------------------------------------------------------------------
+  group('PasteCapabilityNotifier — requiredAction / needsRestart', () {
+    /// Probe the notifier once with [status] (un-prompted) so `state.capability`
+    /// is populated the same way the real flow does.
+    Future<PasteCapabilityNotifier> probed(
+      ProviderContainer container,
+      _FakePaster paster,
+      PasteCapabilityStatus status,
+    ) async {
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      paster.nextResult = PasteCapability(status: status);
+      await notifier.check();
+      return notifier;
+    }
+
+    test('ready → none', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await probed(
+        container,
+        paster,
+        PasteCapabilityStatus.ready,
+      );
+      expect(notifier.requiredAction, PastePermissionAction.none);
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test('unsupported → none', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await probed(
+        container,
+        paster,
+        PasteCapabilityStatus.unsupported,
+      );
+      expect(notifier.requiredAction, PastePermissionAction.none);
+    });
+
+    test('initial (unprobed) state → none', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      expect(notifier.requiredAction, PastePermissionAction.none);
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test('missing + not sent + idle → grant', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await probed(
+        container,
+        paster,
+        PasteCapabilityStatus.permissionMissing,
+      );
+      expect(notifier.requiredAction, PastePermissionAction.grant);
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test('missing + sent + idle → restart on a cached-probe (MAS) build '
+        '(no poll timeout required)', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await probed(
+        container,
+        paster,
+        PasteCapabilityStatus.permissionMissing,
+      );
+      // Restart is only a real recovery where the probe is cached at
+      // process start; the live-probe leg is covered in its own group.
+      notifier.usesCachedPermissionProbe = true;
+      // Hand the user to the OS grant flow (sets sentToOsGrantFlow); no poll.
+      await notifier.openAccessibilitySettings();
+
+      expect(notifier.requiredAction, PastePermissionAction.restart);
+      expect(notifier.needsRestart, isTrue);
+    });
+
+    test('missing + sent + awaitingGrant → none (waiting hint owns the '
+        'screen)', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check(); // populate capability = missing
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 10),
+        timeout: const Duration(seconds: 10),
+      );
+
+      expect(notifier.requiredAction, PastePermissionAction.none);
+      expect(notifier.needsRestart, isFalse);
+      notifier.stopPolling();
+    });
+
+    test('missing + sent + timedOut → restart on a cached-probe (MAS) '
+        'build', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier)
+        ..usesCachedPermissionProbe = true;
+      await notifier.check(); // populate capability = missing
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 5),
+        timeout: const Duration(milliseconds: 20),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+
+      expect(notifier.needsRestart, isTrue);
+    });
+  });
+
+  group('PasteCapabilityNotifier — requestGrant spurious-restart race', () {
+    // Regression for the "app auto-restarts / double-instances the instant the
+    // user grants" bug. The app-level restart watch (app.dart's
+    // _setupAutoPasteRestartWatch) reads `needsRestart` on EVERY notification
+    // from this notifier and, when it sees `true`, fires the forced-restart
+    // modal — which releases the single-instance lock and relaunches. So
+    // requestGrant must never let an observer see a transient
+    // `needsRestart == true`: between marking the OS-grant handoff
+    // (sentToOsGrantFlow) and arming the poll (awaitingGrant) there was a window
+    // where requiredAction resolved to `restart`, so every grant kicked off an
+    // unwanted relaunch before polling could ever detect the real grant.
+    test(
+      'never surfaces needsRestart==true to a listener during the handoff',
+      () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        // Seed capability = missing exactly like the cold-start probe does.
+        await notifier.check();
+
+        // Gate the prompt round-trip so the pre-poll state is guaranteed to be
+        // observed by the listener while requestGrant is suspended mid-flight —
+        // the exact yield the real CGRequestPostEventAccess round-trip introduces.
+        final gate = Completer<void>();
+        paster.gate = gate;
+
+        final observed = <bool>[];
+        final sub = container.listen(pasteCapabilityNotifierProvider, (_, _) {
+          observed.add(notifier.needsRestart);
+        });
+
+        final future = notifier.requestGrant(
+          pollInterval: const Duration(milliseconds: 10),
+          pollTimeout: const Duration(seconds: 30),
+        );
+        // Flush microtasks so any notification scheduled from the pre-await state
+        // mutations is delivered while the prompt check is still gated.
+        await pumpEventQueue();
+        gate.complete();
+        await future;
+        // Stop observing before teardown cancels the live poll: stopping the poll
+        // while still missing+sent legitimately resolves to `restart` (the
+        // timeout/foreground path, covered separately) — that is the intended
+        // post-handoff behavior, not the race this test guards.
+        sub.close();
+
+        expect(
+          observed,
+          everyElement(isFalse),
+          reason:
+              'A transient needsRestart==true during requestGrant makes the '
+              'app-level restart watch fire a forced relaunch before polling can '
+              'detect the granted permission — the endless-restart / '
+              'double-instance bug.',
+        );
+      },
+    );
+  });
+
+  group(
+    'PasteCapabilityNotifier — requestGrant Settings deep-link vs native alert',
+    () {
+      // Regression for the live-reported window-stacking bug: macOS shows its
+      // own PostEvent/Accessibility alert at most once per process. Firing our
+      // Settings deep-link unconditionally right alongside that first alert
+      // raced the two windows — System Settings landed on top of the
+      // still-visible native alert, hiding the one control that actually
+      // creates the grant entry. The deep-link is still required from the
+      // SECOND call onward, where macOS is known to stay silent.
+      late UrlLauncherPlatform original;
+      late _FakeUrlLauncher fakeLauncher;
+
+      setUp(() {
+        original = UrlLauncherPlatform.instance;
+        fakeLauncher = _FakeUrlLauncher();
+        UrlLauncherPlatform.instance = fakeLauncher;
+      });
+
+      tearDown(() {
+        UrlLauncherPlatform.instance = original;
+      });
+
+      test('first requestGrant call this process does not open Settings '
+          '(the native alert is expected instead)', () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        await notifier.requestGrant(
+          pollInterval: const Duration(milliseconds: 10),
+          pollTimeout: const Duration(milliseconds: 10),
+        );
+
+        expect(
+          fakeLauncher.launchedUrls,
+          isEmpty,
+          reason:
+              'the first call this process must leave Settings-opening to '
+              "the OS's own alert, not race it with our own window",
+        );
+      });
+
+      // requestGrant only deep-links to Settings on macOS (see its doc);
+      // this assertion is only meaningful on a macOS test host.
+      test(
+        'second requestGrant call this process DOES open Settings '
+        '(macOS stays silent on repeat prompts)',
+        skip: !Platform.isMacOS,
+        () async {
+          final paster = _FakePaster();
+          final container = _container(paster: paster);
+          addTearDown(container.dispose);
+          final notifier = container.read(
+            pasteCapabilityNotifierProvider.notifier,
+          );
+
+          await notifier.requestGrant(
+            pollInterval: const Duration(milliseconds: 10),
+            pollTimeout: const Duration(milliseconds: 10),
+          );
+          await notifier.requestGrant(
+            pollInterval: const Duration(milliseconds: 10),
+            pollTimeout: const Duration(milliseconds: 10),
+          );
+
+          expect(
+            fakeLauncher.launchedUrls,
+            hasLength(1),
+            reason:
+                'macOS shows no alert on the second prompt this process, so '
+                'the deep-link is the only remaining path to Settings',
+          );
+        },
+      );
+
+      // Regression: "die Systemeinstellungen öffnen sich beim Onboarding
+      // schon wieder nicht" — live-reproduced 2026-08-03. A grant-driven
+      // restart always starts a genuinely new process, so
+      // `_osPromptFiredThisProcess` resets to false there too — the *very
+      // first* requestGrant call of every restarted process was treated as
+      // "trust the OS's own alert" and skipped our deep-link, forever, no
+      // matter how many restart cycles ran. If macOS ever stops showing its
+      // own alert for this app (already asked once, previously denied, MDM
+      // policy — the real-world reason varies but the app cannot tell), the
+      // user was permanently stranded with no path to Settings at all.
+      test(
+        'requestGrant on a FRESH process (simulating a post-restart relaunch) '
+        'opens Settings immediately once a prior restart already happened — '
+        'the OS alert cannot be trusted a second time across a restart',
+        skip: !Platform.isMacOS,
+        () async {
+          SharedPreferences.setMockInitialValues({});
+
+          // Process 1: user's first-ever attempt this install. No prior
+          // restart marker — the OS alert is plausible, deep-link stays
+          // skipped (matches the "first call" test above).
+          final paster1 = _FakePaster();
+          final container1 = _container(paster: paster1);
+          final notifier1 = container1.read(
+            pasteCapabilityNotifierProvider.notifier,
+          );
+          await notifier1.requestGrant(
+            pollInterval: const Duration(milliseconds: 10),
+            pollTimeout: const Duration(milliseconds: 10),
+          );
+          // Persists the cross-process marker without exercising the actual
+          // native relaunch (covered separately by the `restartForGrant`
+          // tests below) — all this test needs is "a restart already
+          // happened once before this process".
+          await notifier1.markRestartAttempted();
+          container1.dispose();
+
+          // Process 2: simulates the relaunched process after the restart
+          // above — a fresh notifier instance (fresh `_osPromptFiredThisProcess`
+          // in-memory state) that hydrates the marker persisted by process 1
+          // before doing anything else, exactly like `app.dart` does at
+          // startup.
+          final paster2 = _FakePaster();
+          final container2 = _container(paster: paster2);
+          addTearDown(container2.dispose);
+          final notifier2 = container2.read(
+            pasteCapabilityNotifierProvider.notifier,
+          );
+          await notifier2.hydrateRestartMarker();
+
+          await notifier2.requestGrant(
+            pollInterval: const Duration(milliseconds: 10),
+            pollTimeout: const Duration(milliseconds: 10),
+          );
+
+          expect(
+            fakeLauncher.launchedUrls,
+            isNotEmpty,
+            reason:
+                'a restart already happened once before this process — the '
+                "OS's one-alert-per-process budget was already spent on a "
+                'now-dead process, so this process must not gamble on it '
+                'again and has to open Settings itself',
+          );
+        },
+      );
+    },
+  );
+
+  group('PasteCapabilityNotifier — recheckOnForeground', () {
+    test('no-op when already ready (skips the probe)', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check(); // populate `ready`
+      paster.calls.clear();
+
+      await notifier.recheckOnForeground();
+
+      expect(
+        paster.calls,
+        isEmpty,
+        reason: 'A ready capability needs no foreground re-probe',
+      );
+    });
+
+    test('AX live-flip: a fresh probe that reads ready promotes state and '
+        'clears the restart affordance', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 10),
+        timeout: const Duration(seconds: 10),
+      );
+
+      // User returns from System Settings having actually granted it.
+      paster.nextResult = const PasteCapability(
+        status: PasteCapabilityStatus.ready,
+      );
+      await notifier.recheckOnForeground();
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).capability?.status,
+        PasteCapabilityStatus.ready,
+      );
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test('MAS stale: foreground return with a still-missing probe stops the '
+        'doomed poll so restart surfaces immediately', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier)
+        ..usesCachedPermissionProbe = true;
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 30),
+        timeout: const Duration(seconds: 30),
+      );
+      expect(notifier.isPolling, isTrue);
+      // While polling, requiredAction is none (waiting hint).
+      expect(notifier.requiredAction, PastePermissionAction.none);
+
+      // User returns from Settings; on MAS the probe is still cached-missing.
+      await notifier.recheckOnForeground();
+
+      expect(
+        notifier.isPolling,
+        isFalse,
+        reason: 'The pointless poll must be stopped on foreground return',
+      );
+      expect(notifier.needsRestart, isTrue);
+    });
+  });
+
+  group('PasteCapabilityNotifier — polling', () {
+    test(
+      'startPolling calls check periodically until ready, then stops itself',
+      () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        notifier.startPolling(
+          interval: const Duration(milliseconds: 20),
+          timeout: const Duration(seconds: 5),
+        );
+
+        // Let two polling intervals pass while still permissionMissing.
+        await Future<void>.delayed(const Duration(milliseconds: 70));
+        expect(paster.calls.length, greaterThanOrEqualTo(2));
+        expect(notifier.isPolling, isTrue);
+
+        // Flip to ready and let the next tick observe it.
+        paster.nextResult = const PasteCapability(
+          status: PasteCapabilityStatus.ready,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+
+        expect(notifier.isPolling, isFalse);
+        final state = container.read(pasteCapabilityNotifierProvider);
+        expect(state.capability?.status, PasteCapabilityStatus.ready);
+
+        // No further calls after self-stop.
+        final callsAfterStop = paster.calls.length;
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        expect(paster.calls.length, callsAfterStop);
+      },
+    );
+
+    test('startPolling self-stops after timeout even if never ready', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      notifier.startPolling(
+        interval: const Duration(milliseconds: 20),
+        timeout: const Duration(milliseconds: 80),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(notifier.isPolling, isFalse);
+
+      // No further calls after timeout.
+      final callsAfterTimeout = paster.calls.length;
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(paster.calls.length, callsAfterTimeout);
+    });
+
+    test('stopPolling is idempotent and safe to call repeatedly', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      // Idempotent before any startPolling call.
+      notifier.stopPolling();
+      notifier.stopPolling();
+      expect(notifier.isPolling, isFalse);
+
+      // Idempotent after startPolling.
+      notifier.startPolling(
+        interval: const Duration(milliseconds: 20),
+        timeout: const Duration(seconds: 5),
+      );
+      notifier.stopPolling();
+      notifier.stopPolling();
+      expect(notifier.isPolling, isFalse);
+
+      final callsAfterStop = paster.calls.length;
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(paster.calls.length, callsAfterStop);
+    });
+  });
+
+  group('PasteCapabilityNotifier — runDiagnosticPaste()', () {
+    test(
+      'delegates to controller with the given demoText and returns success',
+      () async {
+        final controller = _FakeRepairController()
+          ..diagnosticOutcome = const TestPasteOutcomeSuccess();
+        final paster = _FakePaster();
+        final container = _container(paster: paster, controller: controller);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        final outcome = await notifier.runDiagnosticPaste('WhisPaste demo');
+
+        expect(controller.diagnosticCalls, ['WhisPaste demo']);
+        expect(outcome, isA<TestPasteOutcomeSuccess>());
+      },
+    );
+
+    test('propagates noFrontmost outcome 1:1', () async {
+      final controller = _FakeRepairController()
+        ..diagnosticOutcome = const TestPasteOutcomeNoFrontmost();
+      final paster = _FakePaster();
+      final container = _container(paster: paster, controller: controller);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final outcome = await notifier.runDiagnosticPaste('demo');
+
+      expect(outcome, isA<TestPasteOutcomeNoFrontmost>());
+    });
+
+    test('propagates failure outcome with reason', () async {
+      final controller = _FakeRepairController()
+        ..diagnosticOutcome = const TestPasteOutcomeFailure('not_trusted');
+      final paster = _FakePaster();
+      final container = _container(paster: paster, controller: controller);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final outcome = await notifier.runDiagnosticPaste('demo');
+
+      expect(outcome, isA<TestPasteOutcomeFailure>());
+      expect((outcome as TestPasteOutcomeFailure).reason, 'not_trusted');
+    });
+
+    test('propagates unsupported outcome', () async {
+      final controller = _FakeRepairController()
+        ..diagnosticOutcome = const TestPasteOutcomeUnsupported();
+      final paster = _FakePaster();
+      final container = _container(paster: paster, controller: controller);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final outcome = await notifier.runDiagnosticPaste('demo');
+
+      expect(outcome, isA<TestPasteOutcomeUnsupported>());
+    });
+
+    test('returns unsupported when no controller is registered', () async {
+      final paster = _FakePaster();
+      final container = _container(paster: paster, controller: null);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      final outcome = await notifier.runDiagnosticPaste('demo');
+
+      expect(outcome, isA<TestPasteOutcomeUnsupported>());
+    });
+  });
+
+  group('PasteCapabilityNotifier — repair()', () {
+    test(
+      'repair delegates to DesktopPasteController.repairTccEntries and returns the result',
+      () async {
+        final controller = _FakeRepairController()
+          ..repairResult = const TccRepairResult(
+            accessibilityCleared: 2,
+            appleEventsCleared: 1,
+          );
+        final paster = _FakePaster();
+        final container = _container(paster: paster, controller: controller);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        final result = await notifier.repair();
+
+        expect(controller.repairCalls, 1);
+        expect(result.accessibilityCleared, 2);
+        expect(result.appleEventsCleared, 1);
+        expect(result.isSupported, isTrue);
+      },
+    );
+
+    test(
+      'repairAndRequestGrant wipes the entry BEFORE the prompted check, so '
+      'the fresh prompt cannot bind against the entry being deleted',
+      () async {
+        final controller = _FakeRepairController();
+        final paster = _FakePaster();
+        final container = _container(paster: paster, controller: controller);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        notifier.stopPolling();
+
+        // Snapshot how many repairs had completed at each capability probe.
+        final repairsSeenAtCheck = <int>[];
+        paster.onCheck = () => repairsSeenAtCheck.add(controller.repairCalls);
+
+        await notifier.repairAndRequestGrant(
+          pollTimeout: const Duration(milliseconds: 1),
+        );
+        notifier.stopPolling();
+
+        expect(controller.repairCalls, 1);
+        expect(
+          repairsSeenAtCheck.first,
+          1,
+          reason:
+              'The repair must already have completed when the prompting '
+              'check runs. Fire the two concurrently and macOS binds the new '
+              'grant to the TCC row that is about to be removed — exactly the '
+              'stale state this recovery exists to leave.',
+        );
+      },
+    );
+
+    test('grantRequiresEntryReset separates the two macOS builds: only the '
+        'live-probe leg puts the entry reset in front of the grant', () async {
+      final container = _container(
+        paster: _FakePaster(),
+        controller: _FakeRepairController(),
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      notifier.usesCachedPermissionProbe = true;
+      expect(
+        notifier.grantRequiresEntryReset,
+        isFalse,
+        reason:
+            'On a cached probe "granted but this process cannot see it yet" '
+            'is a real state that a restart fixes, so wiping the entry '
+            'would destroy a working grant.',
+      );
+
+      notifier.usesCachedPermissionProbe = false;
+      expect(
+        notifier.grantRequiresEntryReset,
+        isTrue,
+        reason:
+            'AXIsProcessTrusted() answers live, so a missing permission '
+            'here cannot be a stale in-process view — a stale TCC entry is '
+            'the remaining explanation and the reset is what clears it.',
+      );
+    }, skip: !Platform.isMacOS);
+
+    test(
+      'repair returns unsupported result when no controller is available',
+      () async {
+        final paster = _FakePaster();
+        final container = _container(paster: paster, controller: null);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+        final result = await notifier.repair();
+
+        expect(result.isSupported, isFalse);
+      },
+    );
+  });
+
+  group('PasteCapabilityNotifier — restart marker / restartWasIneffective', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    test('hydrateRestartMarker loads the persisted flag into state', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteRestartMarkerKey: true,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      await notifier.hydrateRestartMarker();
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).restartAttempted,
+        isTrue,
+      );
+    });
+
+    test('cold-start missing probe after a restart resolves to '
+        'restartWasIneffective (grant action, honest copy) — not a naive '
+        'restart — on a cached-probe (MAS) build', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteRestartMarkerKey: true,
+      });
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      notifier.usesCachedPermissionProbe = true;
+
+      await notifier.hydrateRestartMarker();
+      await notifier.check();
+
+      // Fresh process: sentToOsGrantFlow is false, so the plain resolver
+      // yields grant — but the persisted marker upgrades the *copy* to the
+      // honest "restart didn't take" surface.
+      expect(notifier.requiredAction, PastePermissionAction.grant);
+      expect(notifier.restartWasIneffective, isTrue);
+    });
+
+    test('a ready probe clears the persisted restart marker', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteRestartMarkerKey: true,
+      });
+      final paster = _FakePaster(
+        initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      await notifier.hydrateRestartMarker();
+      await notifier.check();
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).restartAttempted,
+        isFalse,
+      );
+      expect(notifier.restartWasIneffective, isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kAutoPasteRestartMarkerKey), isNull);
+    });
+
+    test('markRestartAttempted sets state and persists the marker', () async {
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      await notifier.markRestartAttempted();
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).restartAttempted,
+        isTrue,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kAutoPasteRestartMarkerKey), isTrue);
+    });
+
+    test(
+      'restartForGrant marks the persisted marker BEFORE relaunching so '
+      'every manual restart surface (not just the modal) is loop-aware',
+      () async {
+        const channel = MethodChannel('com.whispaste.app_lifecycle');
+        final calls = <String>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, (call) async {
+              calls.add(call.method);
+              return null;
+            });
+        addTearDown(() {
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(channel, null);
+        });
+
+        final container = _container(paster: _FakePaster());
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        await notifier.restartForGrant();
+
+        expect(
+          container.read(pasteCapabilityNotifierProvider).restartAttempted,
+          isTrue,
+          reason:
+              'restartForGrant must set the marker so the fresh process can '
+              'detect an ineffective restart no matter which button was pressed.',
+        );
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool(kAutoPasteRestartMarkerKey), isTrue);
+        // MacOSLifecycleChannel.restart() is a no-op off macOS — the native
+        // relaunch call is only meaningful on a macOS test host.
+        if (Platform.isMacOS) {
+          expect(calls, contains('restart'));
+        }
+      },
+    );
+
+    test('restartWasIneffective is false without a marker even when '
+        'permission is missing (ordinary first-contact state)', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+
+      await notifier.check();
+
+      expect(notifier.requiredAction, PastePermissionAction.grant);
+      expect(notifier.restartWasIneffective, isFalse);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // Live-probe (Developer-ID) build: restart is never a valid recovery.
+  // -------------------------------------------------------------------------
+  //
+  // Regression cover for the "far too many restarts" report. On the
+  // Developer-ID build the probe is `AXIsProcessTrusted()`, which flips LIVE
+  // — a relaunch cannot reveal a grant that polling would not have seen
+  // anyway. Every one of these cases used to resolve to `restart` and, via
+  // the app-level `needsRestart` watch, fired the forced-restart modal.
+  //
+  // The captured field trace that motivated this (unified log, subsystem
+  // `com.whispaste.paste`, Developer-ID debug build): a 1 Hz poll ticking
+  // `checkCapability: trusted=false` at :30.668 … :42.668, then an
+  // OFF-CADENCE probe at :43.334 — `recheckOnForeground` — after which the
+  // periodic tick never reappears and the process is replaced 2 s later.
+  // The poll was torn down 13 s into its 30 s budget and the user was
+  // relaunched instead of simply waited out.
+  group('PasteCapabilityNotifier — live-probe build never demands restart', () {
+    test('foreground return with a still-missing probe keeps the poll armed '
+        'and does NOT surface restart', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      expect(
+        notifier.usesCachedPermissionProbe,
+        isFalse,
+        reason: 'Default (non-MAS) build probes AXIsProcessTrusted() live',
+      );
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 30),
+        timeout: const Duration(seconds: 30),
+      );
+      expect(notifier.isPolling, isTrue);
+
+      // User tabs back to WhisPaste a beat before TCC propagates the grant.
+      await notifier.recheckOnForeground();
+
+      expect(
+        notifier.isPolling,
+        isTrue,
+        reason:
+            'AXIsProcessTrusted() flips live — the poll that would have '
+            'resolved the grant must survive the foreground return',
+      );
+      expect(notifier.requiredAction, PastePermissionAction.none);
+      expect(notifier.needsRestart, isFalse);
+      notifier.stopPolling();
+    });
+
+    test('a timed-out poll degrades to grant, not restart', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check();
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(milliseconds: 20),
+        timeout: const Duration(milliseconds: 60),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).pollingPhase,
+        PollingPhase.timedOut,
+      );
+      expect(
+        notifier.requiredAction,
+        PastePermissionAction.grant,
+        reason:
+            '30 s is an ordinary first trip through the Accessibility pane; '
+            'a relaunch cannot help, so keep offering the grant action',
+      );
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test('a cancelled poll (user navigated away) degrades to grant, not '
+        'restart', () async {
+      final paster = _FakePaster(
+        initial: const PasteCapability(
+          status: PasteCapabilityStatus.permissionMissing,
+          canPrompt: true,
+        ),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier);
+      await notifier.check();
+      await notifier.openAccessibilitySettings();
+      notifier.startPolling(
+        interval: const Duration(seconds: 30),
+        timeout: const Duration(seconds: 30),
+      );
+      notifier.stopPolling();
+
+      expect(notifier.requiredAction, PastePermissionAction.grant);
+      expect(notifier.needsRestart, isFalse);
+    });
+
+    test(
+      'cached-probe (MAS) build keeps the restart recovery — the '
+      'CGPreflightPostEventAccess value really is stale until relaunch',
+      () async {
+        final paster = _FakePaster(
+          initial: const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        )..usesCachedPermissionProbe = true;
+        await notifier.check();
+        await notifier.openAccessibilitySettings();
+        notifier.startPolling(
+          interval: const Duration(seconds: 30),
+          timeout: const Duration(seconds: 30),
+        );
+        expect(notifier.isPolling, isTrue);
+
+        await notifier.recheckOnForeground();
+
+        expect(
+          notifier.isPolling,
+          isFalse,
+          reason: 'The poll can never resolve on a cached probe — stop it',
+        );
+        expect(notifier.requiredAction, PastePermissionAction.restart);
+        expect(notifier.needsRestart, isTrue);
+      },
+    );
+
+    test(
+      'a restart marker never latches the "restart did not take" copy onto a '
+      'live-probe build, not even after the always-on troubleshoot restart',
+      () async {
+        // Reachable, not legacy: `paste_capability_indicator.dart` offers its
+        // troubleshoot restart button unconditionally on macOS, so one press
+        // persists kAutoPasteRestartMarkerKey even on a Developer-ID build.
+        // Since requiredAction now always resolves to `grant` here, an
+        // ungated restartWasIneffective would blame that one press for every
+        // later missing state — including right after a fresh grant — until a
+        // `ready` probe cleared the marker.
+        SharedPreferences.setMockInitialValues({
+          kAutoPasteRestartMarkerKey: true,
+        });
+        final paster = _FakePaster(
+          initial: const PasteCapability(
+            status: PasteCapabilityStatus.permissionMissing,
+            canPrompt: true,
+          ),
+        );
+        final container = _container(paster: paster);
+        addTearDown(container.dispose);
+        final notifier = container.read(
+          pasteCapabilityNotifierProvider.notifier,
+        );
+
+        await notifier.hydrateRestartMarker();
+        await notifier.check();
+
+        expect(
+          container.read(pasteCapabilityNotifierProvider).restartAttempted,
+          isTrue,
+          reason: 'the marker itself still hydrates — only the copy is gated',
+        );
+        expect(notifier.requiredAction, PastePermissionAction.grant);
+        expect(
+          notifier.restartWasIneffective,
+          isFalse,
+          reason:
+              'a relaunch never carried permission information on this build, '
+              'so it cannot be what failed — show the plain grant copy',
+        );
+      },
+    );
+  });
+
+  group('PasteCapabilityNotifier — signature change / stale entry', () {
+    const oldRequirement = 'identifier "de.whispaste.app" and anchor apple';
+    const newRequirement =
+        'identifier "de.whispaste.app" and certificate leaf = H"abc"';
+
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    Future<PasteCapabilityNotifier> hydrated(
+      ProviderContainer container, {
+      required bool masBuild,
+      String? running = newRequirement,
+    }) async {
+      final notifier = container.read(pasteCapabilityNotifierProvider.notifier)
+        ..usesCachedPermissionProbe = masBuild
+        ..readSigningRequirement = () async => running;
+      await notifier.hydrateRestartMarker();
+      await notifier.check();
+      return notifier;
+    }
+
+    test('a grant bound to another signature is a stale entry on the MAS '
+        'build — on the very first start, without any restart', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true);
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).signatureChanged,
+        isTrue,
+      );
+      expect(notifier.staleEntrySuspected, isTrue);
+    }, skip: !Platform.isMacOS);
+
+    test('an unchanged signature is an ordinary first contact', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: newRequirement,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true);
+
+      expect(notifier.staleEntrySuspected, isFalse);
+    });
+
+    test('no remembered signature (fresh install) is no evidence', () async {
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true);
+
+      expect(notifier.staleEntrySuspected, isFalse);
+    });
+
+    test('an unreadable running signature is no evidence', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true, running: null);
+
+      expect(notifier.staleEntrySuspected, isFalse);
+    });
+
+    test(
+      'an ineffective restart counts as a stale entry on the MAS build',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          kAutoPasteRestartMarkerKey: true,
+        });
+        final container = _container(paster: _FakePaster());
+        addTearDown(container.dispose);
+
+        final notifier = await hydrated(container, masBuild: true);
+
+        expect(notifier.staleEntrySuspected, isTrue);
+      },
+      skip: !Platform.isMacOS,
+    );
+
+    test('the live-probe build never needs the guide — it resets the entry '
+        'itself before every grant flow', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: false);
+
+      expect(notifier.requiresManualEntryRemoval, isFalse);
+      expect(notifier.staleEntrySuspected, isFalse);
+      expect(notifier.grantRequiresEntryReset, Platform.isMacOS);
+    });
+
+    test('a ready probe remembers the running signature and clears the '
+        'stale signal', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      final paster = _FakePaster(
+        initial: const PasteCapability(status: PasteCapabilityStatus.ready),
+      );
+      final container = _container(paster: paster);
+      addTearDown(container.dispose);
+
+      final notifier = await hydrated(container, masBuild: true);
+
+      expect(
+        container.read(pasteCapabilityNotifierProvider).signatureChanged,
+        isFalse,
+      );
+      expect(notifier.staleEntrySuspected, isFalse);
+      final prefs = await SharedPreferences.getInstance();
+      expect(
+        prefs.getString(kAutoPasteGrantedSigningRequirementKey),
+        newRequirement,
+      );
+    });
+
+    test('restartForEntryRemoval clears both cross-process markers so the '
+        'fresh process is a genuine first contact (no guide loop)', () async {
+      SharedPreferences.setMockInitialValues({
+        kAutoPasteRestartMarkerKey: true,
+        kAutoPasteGrantedSigningRequirementKey: oldRequirement,
+      });
+      const channel = MethodChannel('com.whispaste.app_lifecycle');
+      final calls = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            calls.add(call.method);
+            return null;
+          });
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null);
+      });
+      final container = _container(paster: _FakePaster());
+      addTearDown(container.dispose);
+      final notifier = await hydrated(container, masBuild: true);
+      expect(notifier.staleEntrySuspected, isTrue);
+
+      await notifier.restartForEntryRemoval();
+
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(kAutoPasteRestartMarkerKey), isNull);
+      expect(prefs.getString(kAutoPasteGrantedSigningRequirementKey), isNull);
+      if (Platform.isMacOS) expect(calls, contains('restart'));
+
+      // What the relaunched process sees: no evidence of a stale entry left.
+      final fresh = _container(paster: _FakePaster());
+      addTearDown(fresh.dispose);
+      final freshNotifier = await hydrated(fresh, masBuild: true);
+      expect(freshNotifier.staleEntrySuspected, isFalse);
+    }, skip: !Platform.isMacOS);
+  });
+}

@@ -1,0 +1,382 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:screen_retriever/screen_retriever.dart';
+import 'package:window_manager/window_manager.dart';
+
+import '../../core/navigation/page_state.dart' show activePageProvider;
+import '../../core/config/settings_provider.dart';
+import '../../core/data/database.dart' show HistoryEntry;
+import '../../core/theme/overlay_design_spec.dart' show FloatingButtonSpec;
+import '../../core/data/history_providers.dart';
+import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/logging/app_logger.dart';
+import '../../core/platform/display_bounds.dart';
+import '../../core/platform/macos_lifecycle_channel.dart';
+import '../../core/platform/window_position_clamp.dart';
+import '../../features/history/data/history_lock.dart';
+import '../../core/recording/recording_state.dart';
+import '../clipboard_history/app_clipboard.dart';
+import '../floating_platform_service_base.dart';
+import '../graceful_shutdown.dart';
+import '../recording_orchestrator.dart';
+import '../telemetry_service.dart';
+import 'floating_button_context_menu.dart';
+import 'floating_button_controller.dart';
+import 'floating_button_events.dart';
+
+final _log = AppLogger('FloatingButtonService');
+
+/// Maps [RecordingPhase] to the native button's visual state.
+FloatingButtonVisualState _mapPhase(RecordingPhase phase) => switch (phase) {
+  RecordingPhase.idle => FloatingButtonVisualState.idle,
+  RecordingPhase.recording => FloatingButtonVisualState.recording,
+  RecordingPhase.transcribing => FloatingButtonVisualState.transcribing,
+  // Smart Mode v2's refining phase (ticket 02) has no dedicated visual state
+  // here — the floating button keeps showing "transcribing" while it runs,
+  // the same busy indicator the user already saw a moment ago.
+  RecordingPhase.refining => FloatingButtonVisualState.transcribing,
+  RecordingPhase.done => FloatingButtonVisualState.done,
+  RecordingPhase.error => FloatingButtonVisualState.error,
+};
+
+/// Manages the native floating button lifecycle.
+///
+/// Layer 3 — business logic. Watches settings and recording state,
+/// forwards visual commands to the platform controller (Layer 2),
+/// and handles events (click → toggle recording, drag → save position).
+///
+/// Extends [FloatingPlatformServiceBase] which handles controller creation,
+/// event-stream subscription, and cleanup in [ref.onDispose].
+class FloatingButtonService
+    extends
+        FloatingPlatformServiceBase<
+          FloatingButtonController,
+          FloatingButtonEvent
+        >
+    with ScreenListener {
+  Timer? _autoResetTimer;
+
+  /// Cached history entries for context menu (last 5).
+  List<({String id, String content})> _menuEntries = [];
+
+  /// Localizations for the right-click context menu, resolved from the system
+  /// locale (the native button window has no [BuildContext] of its own).
+  L10n? _l10n;
+
+  // ── FloatingPlatformServiceBase contract ──────────────────────────────────
+
+  @override
+  FloatingButtonController? createController() =>
+      createFloatingButtonController();
+
+  @override
+  Stream<FloatingButtonEvent> eventsFrom(FloatingButtonController controller) =>
+      controller.events;
+
+  @override
+  Future<void> disposeController(FloatingButtonController controller) =>
+      controller.dispose();
+
+  @override
+  void onControllerReady(FloatingButtonController controller) {
+    // Watch settings for show/hide + configuration.
+    ref.listen(settingsProvider, (_, next) {
+      next.whenData((s) => _syncSettings(s));
+    });
+
+    // Watch recording phase for visual state changes.
+    ref.listen(recordingPhaseProvider, (prev, next) {
+      _syncPhase(next);
+    });
+
+    // Watch history entries for context menu updates. A PIN-locked history
+    // (`internal-notes`) lists none, so re-sync on lock changes.
+    ref.listen(historyEntriesProvider, (_, next) {
+      next.whenData((entries) => _updateContextMenu(entries));
+    });
+    ref.listen(historyContentHiddenProvider, (_, _) {
+      ref.read(historyEntriesProvider).whenData(_updateContextMenu);
+    });
+
+    // Apply initial settings if already loaded.
+    final settings = ref.read(settingsProvider);
+    settings.whenData((s) => _syncSettings(s));
+
+    // Clean up the auto-reset timer on dispose.
+    ref.onDispose(() => _autoResetTimer?.cancel());
+
+    // Re-clamp the button position on monitor connect/disconnect/resolution
+    // change — the button (unlike the transient overlay) stays visible for
+    // the whole session, so it needs live protection, not just a clamp at
+    // the next settings sync.
+    ScreenRetriever.instance.addListener(this);
+    ref.onDispose(() => ScreenRetriever.instance.removeListener(this));
+  }
+
+  @override
+  void onScreenEvent(String eventName) => unawaited(_reclampButtonPosition());
+
+  Future<void> _reclampButtonPosition() async {
+    final c = controller;
+    if (c == null) return;
+    try {
+      final current = await c.getPosition();
+      if (current == null) return;
+      const size = FloatingButtonSpec.buttonDiameter;
+      final displays = await currentDisplayBounds();
+      final clamped = WindowPositionClamp.clamp(
+        position: Offset(current.x, current.y),
+        size: const Size(size, size),
+        displays: displays,
+      );
+      if (clamped.dx != current.x || clamped.dy != current.y) {
+        await c.setPosition(clamped.dx, clamped.dy);
+        await _savePosition(clamped.dx, clamped.dy);
+      }
+    } catch (e, st) {
+      _log.error('Failed to re-clamp floating button position', e, st);
+    }
+  }
+
+  @override
+  void onEvent(FloatingButtonEvent event) => _onEvent(event);
+
+  // ── Settings sync ─────────────────────────────────────────────────────────
+
+  Future<void> _syncSettings(AppSettings s) async {
+    final c = controller;
+    if (c == null) return;
+
+    try {
+      if (s.showFloatingButton) {
+        const diameter = FloatingButtonSpec.buttonDiameter;
+        final size = diameter.toInt();
+        // A position saved before its monitor was unplugged (or restored
+        // from a settings backup made on different hardware) must never show
+        // the button off every currently connected display.
+        final displays = await currentDisplayBounds();
+        final clampedPosition = WindowPositionClamp.clamp(
+          position: Offset(s.floatingButtonX, s.floatingButtonY),
+          size: const Size(diameter, diameter),
+          displays: displays,
+        );
+        final x = clampedPosition.dx;
+        final y = clampedPosition.dy;
+        if (x != s.floatingButtonX || y != s.floatingButtonY) {
+          unawaited(_savePosition(x, y));
+        }
+
+        await c.show(x: x, y: y, size: size);
+        await c.setSize(size);
+
+        // Send current recording phase.
+        final phase = ref.read(recordingPhaseProvider);
+        await c.setState(_mapPhase(phase));
+      } else {
+        await c.hide();
+      }
+    } catch (e, st) {
+      _log.error('Failed to sync floating button settings', e, st);
+    }
+  }
+
+  // ── Recording phase sync ──────────────────────────────────────────────────
+
+  Future<void> _syncPhase(RecordingPhase phase) async {
+    final c = controller;
+    if (c == null) return;
+
+    _log.info('[DEBUG-a1] _syncPhase entering: phase=${phase.name}');
+    try {
+      await c.setState(_mapPhase(phase));
+      _log.info('[DEBUG-a1] _syncPhase relay OK: phase=${phase.name}');
+
+      // Auto-reset done/error back to idle after a delay.
+      _autoResetTimer?.cancel();
+      if (phase == RecordingPhase.done) {
+        _autoResetTimer = Timer(const Duration(seconds: 2), () {
+          _log.info('[DEBUG-a1] auto-reset timer fired (done→idle)');
+          controller
+              ?.setState(FloatingButtonVisualState.idle)
+              .then((_) => _log.info('[DEBUG-a1] auto-reset setState(idle) OK'))
+              .catchError(
+                (Object e, StackTrace st) => _log.error(
+                  '[DEBUG-a1] auto-reset setState(idle) THREW',
+                  e,
+                  st,
+                ),
+              );
+        });
+      } else if (phase == RecordingPhase.error) {
+        _autoResetTimer = Timer(const Duration(seconds: 3), () {
+          _log.info('[DEBUG-a1] auto-reset timer fired (error→idle)');
+          controller
+              ?.setState(FloatingButtonVisualState.idle)
+              .then((_) => _log.info('[DEBUG-a1] auto-reset setState(idle) OK'))
+              .catchError(
+                (Object e, StackTrace st) => _log.error(
+                  '[DEBUG-a1] auto-reset setState(idle) THREW',
+                  e,
+                  st,
+                ),
+              );
+        });
+      }
+    } catch (e, st) {
+      _log.error(
+        '[DEBUG-a1] _syncPhase relay THREW for phase=${phase.name} — '
+        'auto-reset timer NOT scheduled',
+        e,
+        st,
+      );
+    }
+  }
+
+  // ── Event handling ────────────────────────────────────────────────────────
+
+  void _onEvent(FloatingButtonEvent event) {
+    switch (event) {
+      case FloatingButtonClicked():
+        _log.debug('Floating button clicked → toggleRecording');
+        ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        ref
+            .read(telemetrySessionAggregatorProvider)
+            .count(category: 'ui', action: 'fab_click');
+
+      case FloatingButtonSecondaryClicked():
+        _log.debug('Floating button secondary click → show main window');
+        _bringMainWindowToFront();
+
+      case FloatingButtonContextMenuSelected(id: final id):
+        _log.debug('Context menu item selected: $id');
+        _handleContextMenuAction(id);
+
+      case FloatingButtonDragEnded(x: final x, y: final y):
+        _log.debug('Floating button dragged to ($x, $y)');
+        _savePosition(x, y);
+
+      case FloatingButtonRenderEngineDiagnostic(
+        message: final message,
+        isError: final isError,
+      ):
+        if (isError) {
+          _log.error('Render engine: $message');
+        } else {
+          _log.warning('Render engine: $message');
+        }
+    }
+  }
+
+  void _handleContextMenuAction(String id) {
+    switch (id) {
+      case '__open__':
+        _bringMainWindowToFront();
+      case '__new_recording__':
+        _bringMainWindowToFront().then((_) {
+          ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+        });
+      case '__history__':
+        _bringMainWindowToFront().then((_) {
+          ref.read(activePageProvider.notifier).setPage('history');
+        });
+      case '__settings__':
+        _bringMainWindowToFront().then((_) {
+          ref.read(activePageProvider.notifier).setPage('settings');
+        });
+      case '__quit__':
+        unawaited(_quit());
+      default:
+        // History entry ID → copy to clipboard.
+        _copyEntryToClipboard(id);
+    }
+  }
+
+  Future<void> _bringMainWindowToFront() async {
+    try {
+      // On macOS, restore Dock presence before showing the window.
+      await MacOSLifecycleChannel.setRegular();
+      await windowManager.show();
+      await windowManager.focus();
+    } catch (e, st) {
+      _log.error('Failed to bring main window to front', e, st);
+    }
+  }
+
+  Future<void> _quit() async {
+    // Stop the on-device STT engine and WAIT for native teardown (plus DB
+    // close + telemetry flush) before destroying the window — same shared
+    // helper as app.dart's onWindowClose, the macOS native-terminate path,
+    // and tray_service.dart's _quit() (see graceful_shutdown.dart).
+    // Previously this fired STT stop() without awaiting it and proceeded
+    // straight to DB close/window destroy, racing native engine teardown
+    // against process exit — same bug class as FLUTTER_WHISPASTE-BC (fixed
+    // for onWindowClose/Cmd+Q, but not here): if the process starts tearing
+    // down native GPU/ORT resources before the engine actually freed them,
+    // ggml's Metal-residency-set teardown assert (or an analogous native
+    // check) aborts the whole app.
+    await runGracefulEngineShutdown(ref.container);
+
+    await windowManager.destroy();
+  }
+
+  Future<void> _savePosition(double x, double y) => saveSettingsSafely(
+    _log,
+    'Failed to save floating button position',
+    () => ref
+        .read(settingsProvider.notifier)
+        .updateSettings(
+          (s) => s.copyWith(floatingButtonX: x, floatingButtonY: y),
+        ),
+  );
+
+  // ── Context menu ──────────────────────────────────────────────────────────
+
+  void _updateContextMenu(List<HistoryEntry> entries) {
+    final c = controller;
+    if (c == null) return;
+
+    // Take the 5 most recent entries.
+    final recent = ref.read(historyContentHiddenProvider)
+        ? const <HistoryEntry>[]
+        : entries.take(5).toList();
+    _menuEntries = recent.map((e) => (id: e.id, content: e.content)).toList();
+
+    final l10n = _l10n ??= _resolveL10n();
+    final items = buildFloatingButtonContextMenu(
+      l10n: l10n,
+      entries: _menuEntries,
+    );
+
+    c.setContextMenuItems(items).catchError((e, st) {
+      _log.error('Failed to update context menu items', e, st);
+    });
+  }
+
+  /// Resolves localizations from the system locale, falling back to English.
+  L10n _resolveL10n() {
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    try {
+      return lookupL10n(locale);
+    } catch (_) {
+      return lookupL10n(const Locale('en'));
+    }
+  }
+
+  Future<void> _copyEntryToClipboard(String id) async {
+    final entry = _menuEntries.where((e) => e.id == id).firstOrNull;
+    if (entry == null) return;
+
+    try {
+      await AppClipboard.setText(entry.content);
+      _log.info('Copied history entry to clipboard: ${entry.id}');
+    } catch (e, st) {
+      _log.error('Failed to copy to clipboard', e, st);
+    }
+  }
+}
+
+/// Provider for the floating button service (keepAlive — lives for app lifetime).
+final floatingButtonServiceProvider =
+    NotifierProvider<FloatingButtonService, void>(FloatingButtonService.new);

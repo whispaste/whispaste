@@ -1,0 +1,4786 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for English (`en`).
+class L10nEn extends L10n {
+  L10nEn([String locale = 'en']) : super(locale);
+
+  @override
+  String get appName => 'WhisPaste';
+
+  @override
+  String get navHistory => 'History';
+
+  @override
+  String get navNotes => 'Notes';
+
+  @override
+  String get navSettings => 'Settings';
+
+  @override
+  String get navReplacements => 'Replacements';
+
+  @override
+  String get navSnippets => 'Snippets';
+
+  @override
+  String get navAnalytics => 'Analytics';
+
+  @override
+  String get navAbout => 'About';
+
+  @override
+  String get navFeedback => 'Feedback';
+
+  @override
+  String get pageHistoryTitle => 'History';
+
+  @override
+  String get pageSettingsTitle => 'Settings';
+
+  @override
+  String get pageReplacementsTitle => 'Replacements';
+
+  @override
+  String get pageAnalyticsTitle => 'Analytics';
+
+  @override
+  String get pageAboutTitle => 'About';
+
+  @override
+  String get pageFeedbackTitle => 'Feedback';
+
+  @override
+  String get historyEmpty => 'No recordings yet';
+
+  @override
+  String get historyEmptyHint =>
+      'Press the record button or use the hotkey to start recording.';
+
+  @override
+  String get historyPrivacyGateTitle => 'History hidden';
+
+  @override
+  String get historyPrivacyGateHint =>
+      'Your past transcriptions stay hidden until you choose to show them.';
+
+  @override
+  String get historyPrivacyGateShow => 'Show history';
+
+  @override
+  String get historySearch => 'Search…';
+
+  @override
+  String get historyPinned => 'Favorites';
+
+  @override
+  String get historyToday => 'Today';
+
+  @override
+  String get historyYesterday => 'Yesterday';
+
+  @override
+  String get historyThisWeek => 'This Week';
+
+  @override
+  String get historyOlder => 'Older';
+
+  @override
+  String get historyAll => 'All';
+
+  @override
+  String get historyTrash => 'Trash';
+
+  @override
+  String get historyArchive => 'Archive';
+
+  @override
+  String get historyArchived => 'Archived';
+
+  @override
+  String get historyList => 'List';
+
+  @override
+  String get historyCards => 'Cards';
+
+  @override
+  String get historyCompact => 'Compact';
+
+  @override
+  String historyItemsSelected(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get historyMerge => 'Merge';
+
+  @override
+  String get historyRestore => 'Restore';
+
+  @override
+  String get historyDeleteForever => 'Delete forever';
+
+  @override
+  String get historyDeletePermanently => 'Delete Permanently';
+
+  @override
+  String get historyUnarchive => 'Unarchive';
+
+  @override
+  String get historyExport => 'Export';
+
+  @override
+  String get historyExportAction => 'Export…';
+
+  @override
+  String get historyCopyAsMarkdown => 'Copy as Markdown';
+
+  @override
+  String get historyDetail => 'Detail';
+
+  @override
+  String get historyTags => 'Tags';
+
+  @override
+  String get historyDuration => 'Duration';
+
+  @override
+  String get historyModel => 'Model';
+
+  @override
+  String get historyWords => 'Words';
+
+  @override
+  String get historyCharacters => 'Characters';
+
+  @override
+  String historyWordCount(int count) {
+    return '$count words';
+  }
+
+  @override
+  String historyReadingTime(int minutes) {
+    return '$minutes min read';
+  }
+
+  @override
+  String get historyReadingTimeUnder1 => '< 1 min read';
+
+  @override
+  String historyListWordCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'approx. $count words',
+      one: 'approx. 1 word',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historyToolsMenu => 'View and selection';
+
+  @override
+  String get historyEditing => 'Editing';
+
+  @override
+  String get historySearchTranscriptions => 'Search transcriptions…';
+
+  @override
+  String get historySearchFieldLabel => 'Search transcriptions';
+
+  @override
+  String get historyNewRecording => 'New recording';
+
+  @override
+  String get historyStopRecording => 'Stop recording';
+
+  @override
+  String get historyNoResults => 'No results';
+
+  @override
+  String historyNoResultsHint(String query) {
+    return 'No transcriptions match \"$query\".\nTry a different search term.';
+  }
+
+  @override
+  String get historyTrashEmpty => 'Trash is empty';
+
+  @override
+  String get historyTrashEmptyHint =>
+      'Deleted transcriptions will appear here.\nItems are permanently removed after 30 days.';
+
+  @override
+  String get historyEmptyTrash => 'Empty Trash';
+
+  @override
+  String get historyEmptyTrashConfirm => 'Empty trash?';
+
+  @override
+  String get historyEmptyTrashConfirmMessage =>
+      'This will permanently delete all items in the trash. This action cannot be undone.';
+
+  @override
+  String historyTrashEmptied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Trash emptied — $count entries deleted',
+      one: 'Trash emptied — 1 entry deleted',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historyNoArchivedItems => 'No archived items';
+
+  @override
+  String get historyNoArchivedItemsHint =>
+      'Archive transcriptions you want to keep\nbut don\'t need in your main list.';
+
+  @override
+  String get historyNoRecordingsHint =>
+      'Press the record button or use the hotkey to start recording.\nYour transcriptions will appear here.';
+
+  @override
+  String get historyNoPinned => 'No favorites yet';
+
+  @override
+  String get historyNoPinnedHint =>
+      'Mark a transcription as a favorite to find it here quickly.';
+
+  @override
+  String get historyNoToday => 'Nothing recorded today';
+
+  @override
+  String get historyNoTodayHint => 'Today\'s transcriptions will appear here.';
+
+  @override
+  String get historyNoThisWeek => 'Nothing recorded this week';
+
+  @override
+  String get historyNoThisWeekHint =>
+      'This week\'s transcriptions will appear here.';
+
+  @override
+  String get historyCopiedToClipboard => 'Copied to clipboard';
+
+  @override
+  String get historyMovedToTrash => 'Moved to trash';
+
+  @override
+  String get historyUndo => 'Undo';
+
+  @override
+  String get historyEntriesMerged => 'Entries merged';
+
+  @override
+  String historyMergeConfirm(int count) {
+    return 'Merge $count entries?';
+  }
+
+  @override
+  String get historyMergeConfirmMessage =>
+      'The selected entries will be combined into one. This cannot be undone.';
+
+  @override
+  String get historyExitSelection => 'Exit selection';
+
+  @override
+  String get historySelectMultiple => 'Select multiple';
+
+  @override
+  String get historyProcessed => 'Processed';
+
+  @override
+  String get historyOnDevice => 'On device';
+
+  @override
+  String get historyUntitledRecording => 'Untitled recording';
+
+  @override
+  String get historyUntitled => 'Untitled';
+
+  @override
+  String get historyPinToTop => 'Add to Favorites';
+
+  @override
+  String get historyUnpin => 'Remove from Favorites';
+
+  @override
+  String get historyCopyText => 'Copy text';
+
+  @override
+  String get historyClose => 'Close';
+
+  @override
+  String get historyLanguageLabel => 'Language';
+
+  @override
+  String historyResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results',
+      one: '1 result',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get historySelectAll => 'Select All';
+
+  @override
+  String get historyDeselectAll => 'Deselect All';
+
+  @override
+  String get settingsInterface => 'Interface';
+
+  @override
+  String get settingsInterfaceSubtitle => 'Appearance and behavior';
+
+  @override
+  String get settingsLaunchAtStartup => 'Launch at Startup';
+
+  @override
+  String get settingsStartMinimized => 'Start Minimized';
+
+  @override
+  String get settingsStartMinimizedSubtitle =>
+      'Start in the background when launched at system boot';
+
+  @override
+  String get settingsAutostartNever => 'Never';
+
+  @override
+  String get settingsAutostartNormal => 'Normal';
+
+  @override
+  String get settingsAutostartMinimized => 'Minimized';
+
+  @override
+  String get settingsAutostartSyncFailed =>
+      'Autostart couldn\'t be registered with the operating system. This may be a permissions issue or your OS version isn\'t supported.';
+
+  @override
+  String get settingsShowNotifications => 'Show Notifications';
+
+  @override
+  String get settingsShowBackendUtilization =>
+      'CPU/GPU indicator in status bar';
+
+  @override
+  String get settingsShowBackendUtilizationSubtitle =>
+      'Shows whether transcription is really running on CPU or GPU, plus utilization';
+
+  @override
+  String get settingsAudio => 'Audio';
+
+  @override
+  String get settingsAudioSubtitle => 'Microphone and recording';
+
+  @override
+  String get settingsMicrophone => 'Microphone';
+
+  @override
+  String get settingsGain => 'Microphone Volume';
+
+  @override
+  String get settingsClippingBanner =>
+      'Last recording had clipping. Reduce gain?';
+
+  @override
+  String get settingsClippingDismiss => 'Dismiss';
+
+  @override
+  String get settingsHoldToRecord => 'Hold to Record';
+
+  @override
+  String get pushToTalkUnavailableTooltip => 'Not available on this platform';
+
+  @override
+  String get pushToTalkUnavailableLinuxTooltip =>
+      'Your desktop doesn\'t report key releases here. Bind “whispaste --toggle” to a shortcut in your system settings instead.';
+
+  @override
+  String get settingsExperimentalBadge => 'Experimental';
+
+  @override
+  String get settingsHoldOrTap => 'Tap or Hold';
+
+  @override
+  String get settingsHoldOrTapHint =>
+      'A short tap starts and stops recording; holding records until you let go.';
+
+  @override
+  String get settingsSpeechRecognition => 'Speech Recognition';
+
+  @override
+  String get settingsSpeechRecognitionSubtitle =>
+      'Voice recognition quality and service';
+
+  @override
+  String get settingsService => 'Service';
+
+  @override
+  String get settingsQuality => 'Quality';
+
+  @override
+  String get settingsRecordingSafety => 'Recording Safety';
+
+  @override
+  String get settingsRecordingSafetySubtitle =>
+      'Automatic checks and safeguards';
+
+  @override
+  String get settingsDeadMicTimeout => 'Silent Mic Detection';
+
+  @override
+  String get settingsDeadMicTimeoutHint =>
+      'Stop recording if no audio detected within this time (seconds). 0 = disabled.';
+
+  @override
+  String get settingsAutoStopSilence => 'Auto-Stop After Silence';
+
+  @override
+  String get settingsAutoStopSilenceHint =>
+      'Automatically stop after this many seconds of silence (after speech). 0 = disabled.';
+
+  @override
+  String get settingsEnabled => 'Enabled';
+
+  @override
+  String get settingsStyle => 'Style';
+
+  @override
+  String get settingsMicSystemDefault => 'System Default';
+
+  @override
+  String get settingsMicSystemHint =>
+      'Audio input is managed by your system settings';
+
+  @override
+  String get settingsServiceOnDevicePrivate => 'Locally on Device';
+
+  @override
+  String get settingsLanguageAutoDetect => 'Auto-detect';
+
+  @override
+  String get settingsLanguageEnglish => 'English';
+
+  @override
+  String get settingsLanguageGerman => 'German';
+
+  @override
+  String get settingsLanguageFrench => 'French';
+
+  @override
+  String get settingsLanguageSpanish => 'Spanish';
+
+  @override
+  String get settingsLanguageHebrew => 'Hebrew';
+
+  @override
+  String get settingsSoundFeedback => 'Sound & Feedback';
+
+  @override
+  String get settingsSoundFeedbackSubtitle => 'Audio cues for recording events';
+
+  @override
+  String get settingsSoundsEnabled => 'Sounds';
+
+  @override
+  String get settingsRecordStartSound => 'Record Start Sound';
+
+  @override
+  String get settingsRecordStopSound => 'Record Stop Sound';
+
+  @override
+  String get settingsTranscriptionCompleteSound =>
+      'Transcription Complete Sound';
+
+  @override
+  String get settingsDurationWarningSound => 'Duration Limit Warning';
+
+  @override
+  String get settingsSoundVolume => 'Sound Volume';
+
+  @override
+  String get settingsAfterTranscription => 'After Transcription';
+
+  @override
+  String get settingsAfterTranscriptionSubtitle =>
+      'What happens with the transcribed text';
+
+  @override
+  String get settingsAfterTranscriptionActionLabel => 'Action';
+
+  @override
+  String get settingsAfterTranscriptionClipboard => 'Copy to Clipboard';
+
+  @override
+  String get settingsAfterTranscriptionPaste => 'Auto-Paste at Cursor';
+
+  @override
+  String get settingsAfterTranscriptionBoth => 'Copy & Auto-Paste';
+
+  @override
+  String get settingsAfterTranscriptionNothing => 'Do Nothing';
+
+  @override
+  String get pasteFailurePermissionMissing =>
+      'Auto-Paste was blocked by the OS. WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'.';
+
+  @override
+  String get pasteFailureNoTarget =>
+      'Auto-Paste skipped, no target window was captured. Focus the destination app before triggering a recording.';
+
+  @override
+  String get pasteFailureElevationBlocked =>
+      'Auto-Paste blocked: the target app is running with administrator rights. Restart WhisPaste as an administrator to paste into that app.';
+
+  @override
+  String get pasteFailureGeneric =>
+      'Auto-Paste failed. The transcript is on the clipboard, paste it manually with ⌘V / Ctrl+V.';
+
+  @override
+  String get pasteFailureOpenSettings => 'Open Settings';
+
+  @override
+  String get pasteNotificationNoTargetTitle => 'WhisPaste: Auto-Paste Skipped';
+
+  @override
+  String get pasteNotificationNoTargetBody =>
+      'No target app detected. Focus the destination app first, then start recording. The text is on the clipboard.';
+
+  @override
+  String get pasteNotificationNoTargetTray => 'Auto-Paste: Target App Missing';
+
+  @override
+  String get pasteNotificationRestartNeededTitle => 'WhisPaste: Restart Needed';
+
+  @override
+  String get pasteNotificationRestartNeededBody =>
+      'The permission was granted, but WhisPaste is still running the old state. Click here to restart WhisPaste.';
+
+  @override
+  String get pasteNotificationRestartNeededTray =>
+      'Auto-Paste Blocked — Restart Needed';
+
+  @override
+  String get pasteNotificationPermissionBlockedTitle =>
+      'WhisPaste: Auto-Paste Blocked';
+
+  @override
+  String get pasteNotificationPermissionResetEntryBody =>
+      'WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'. Click here: WhisPaste will clear a possibly stale entry and let macOS ask again.';
+
+  @override
+  String get pasteNotificationPermissionOpenSettingsBody =>
+      'WhisPaste needs permission to insert text into other apps — macOS calls this permission \'Accessibility\'. Click here or the tray icon to open System Settings.';
+
+  @override
+  String get pasteNotificationPermissionBlockedTray =>
+      'Auto-Paste Blocked — Open System Settings';
+
+  @override
+  String get pasteNotificationElevationBlockedTitle =>
+      'WhisPaste: Auto-Paste Blocked';
+
+  @override
+  String get pasteNotificationElevationBlockedBody =>
+      'The target app is running with administrator rights. Restart WhisPaste as an administrator too, to paste into that app.';
+
+  @override
+  String get pasteNotificationElevationBlockedTray =>
+      'Auto-Paste Blocked — Administrator Needed';
+
+  @override
+  String get pasteNotificationFailedTitle => 'WhisPaste: Auto-Paste Failed';
+
+  @override
+  String get pasteNotificationFailedBody =>
+      'The system rejected the paste. The text is on the clipboard — paste it manually with ⌘V / Ctrl+V.';
+
+  @override
+  String get pasteNotificationFailedTray => 'Auto-Paste Failed';
+
+  @override
+  String get pasteCapabilityCheckTitle => 'One moment…';
+
+  @override
+  String get pasteCapabilityReady => 'All set';
+
+  @override
+  String get pasteCapabilityReadySubtitle =>
+      'Your dictation lands right at the cursor.';
+
+  @override
+  String get pasteCapabilityPermissionMissing => 'Not yet allowed';
+
+  @override
+  String get pasteCapabilityUnsupported =>
+      'Auto-Paste is not available on this platform';
+
+  @override
+  String get pasteCapabilityTestButton => 'Test now';
+
+  @override
+  String get pasteCapabilityGrantButton => 'Continue';
+
+  @override
+  String get pasteCapabilityWhyMac =>
+      'WhisPaste needs permission to type text into the app you\'re working in — macOS calls this permission \'Accessibility\'.';
+
+  @override
+  String get pasteCapabilityTroubleshoot => 'Having trouble?';
+
+  @override
+  String get pasteCapabilityRepairHint =>
+      'Sometimes macOS remembers an old entry and forgets the new approval. Reset the entry. macOS will then ask you cleanly again.';
+
+  @override
+  String get pasteCapabilityRepairButton => 'Reset entry';
+
+  @override
+  String get pasteCapabilityRestartButton => 'Restart WhisPaste';
+
+  @override
+  String get pasteCapabilityRestartTitle => 'Almost there — restart WhisPaste';
+
+  @override
+  String get pasteCapabilityRestartBody =>
+      'If you enabled the permission, macOS only applies it to a freshly started app. One click — WhisPaste quits and comes right back.';
+
+  @override
+  String get pasteRestartAlertTitle => 'Restart WhisPaste now';
+
+  @override
+  String get pasteRestartAlertBody =>
+      'The Auto-Paste permission is set, but macOS only applies it after a restart. WhisPaste will quit and come right back.';
+
+  @override
+  String get pasteRestartAlertConfirm => 'Restart now';
+
+  @override
+  String get pasteStaleEntryGuideTitle => 'Remove the old WhisPaste entry';
+
+  @override
+  String get pasteStaleEntryGuideBody =>
+      'macOS is still holding on to the Auto-Paste permission of an earlier WhisPaste version. That entry can\'t be switched on — it has to be removed once:\n\n1. Select “WhisPaste” in the list.\n2. Click “−” below the list.\n3. Come back to WhisPaste.\n\nAfter a restart, macOS asks you again — just allow it.';
+
+  @override
+  String get pasteStaleEntryGuideConfirm => 'Open System Settings';
+
+  @override
+  String get pasteStaleEntryRestartTitle => 'Restart WhisPaste';
+
+  @override
+  String get pasteStaleEntryRestartBody =>
+      'Once the old entry is gone, restart WhisPaste. macOS then asks for the permission again — confirm it and switch WhisPaste on.';
+
+  @override
+  String get pasteStaleEntryRestartConfirm => 'Restart WhisPaste';
+
+  @override
+  String get permissionAlertLaterButton => 'Not now';
+
+  @override
+  String get micGateAlertTitle => 'Microphone access is missing';
+
+  @override
+  String get micGateAlertBody =>
+      'WhisPaste can\'t record without microphone access. Confirm to open System Settings → Privacy & Security → Microphone — enable the switch for WhisPaste there. WhisPaste detects your approval automatically.';
+
+  @override
+  String get micGateAlertBodyGeneric =>
+      'WhisPaste can\'t record without microphone access. Please allow microphone access for WhisPaste in your system\'s privacy settings — WhisPaste detects your approval automatically.';
+
+  @override
+  String get micGateAlertConfirm => 'Open Settings';
+
+  @override
+  String get micGateRestartAlertTitle => 'Restart WhisPaste to finish';
+
+  @override
+  String get micGateRestartAlertBody =>
+      'Microphone access is granted, but this running WhisPaste instance can\'t pick it up yet. WhisPaste will quit and come right back — everything stays as it is.';
+
+  @override
+  String get micGateRestartAlertConfirm => 'Restart now';
+
+  @override
+  String get autoPasteGateAlertTitle => 'One switch is missing for auto-insert';
+
+  @override
+  String get autoPasteGateAlertBody =>
+      'WhisPaste inserts your dictation right at the cursor. macOS requires one switch for that which only you can flip: System Settings → Privacy & Security → Accessibility. Confirm to open exactly that page — WhisPaste detects your approval automatically and restarts itself afterwards if needed.';
+
+  @override
+  String get autoPasteGateAlertConfirm => 'Open System Settings';
+
+  @override
+  String get pasteCapabilityRestartIneffectiveTitle =>
+      'The restart didn\'t apply the permission';
+
+  @override
+  String get pasteCapabilityRestartIneffectiveSubtitle =>
+      'Open the permission again and check under System Settings → Privacy & Security → Accessibility that WhisPaste is really switched on. Re-enable the toggle, then WhisPaste restarts once more.';
+
+  @override
+  String pasteCapabilityRepairDone(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'Cleared $count stale entries. Try paste once to see fresh prompts.',
+      one: 'Cleared 1 stale entry. Try paste once to see a fresh prompt.',
+      zero: 'No stale entries found. Try paste once.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pasteCapabilityRepairNothingToClear =>
+      'No old entry found. A restart is likely to help now.';
+
+  @override
+  String get pasteCapabilityRepairFailed =>
+      'Could not run the macOS permission reset. Try removing WhisPaste from System Settings → Accessibility manually.';
+
+  @override
+  String get onboardingPasteTitle => 'So your text lands where you\'re typing';
+
+  @override
+  String get onboardingPasteSubtitle =>
+      'macOS will ask you in a moment whether WhisPaste may do this. Say yes, done.';
+
+  @override
+  String get onboardingPasteSubtitleWin =>
+      'No permission needed on Windows — just choose whether WhisPaste should insert dictated text for you.';
+
+  @override
+  String get onboardingPasteChipReady => 'Auto-Paste ready';
+
+  @override
+  String get onboardingPasteChipPending => 'Auto-Paste access pending';
+
+  @override
+  String get onboardingPasteChipAction => 'Auto-Paste: action needed';
+
+  @override
+  String get onboardingPasteGrantCta => 'Allow auto-paste';
+
+  @override
+  String get onboardingPasteSkip => 'Just copy for now, no auto-insert';
+
+  @override
+  String get onboardingPasteWhyMac =>
+      'Without permission, your text is copied to the clipboard. You\'ll then paste manually with ⌘V.';
+
+  @override
+  String get onboardingPasteWhyWin =>
+      'Auto-Paste presses Ctrl+V for you after each dictation, so the text lands right where you\'re typing. Verified working on this machine — turn it on below.';
+
+  @override
+  String get onboardingPasteWhyWinUipi =>
+      'In certain apps with UIPI/UAC protection, Auto-Paste won\'t work. The text will sit in the clipboard and you\'ll need to paste it with Ctrl+V yourself.';
+
+  @override
+  String get onboardingPasteWinOnTitle => 'Auto-Paste is on';
+
+  @override
+  String get onboardingPasteWinOnDetail =>
+      'After each dictation, WhisPaste presses Ctrl+V for you — the text lands right at your cursor. A copy stays on the clipboard, too.';
+
+  @override
+  String get onboardingPasteWinEnableCta => 'Turn on Auto-Paste';
+
+  @override
+  String get onboardingPasteWinAdminCaveat =>
+      'Apps running as administrator don\'t accept simulated keystrokes — there your text stays on the clipboard, ready to paste with Ctrl+V.';
+
+  @override
+  String get onboardingPasteWaitingForGrantTitle =>
+      'Tick the box next to WhisPaste';
+
+  @override
+  String get onboardingPasteWaitingForGrantHint =>
+      'System Settings is open. Find WhisPaste in the list and switch it on.\n\nNot in the list? Drag the app icon in or click „+\".';
+
+  @override
+  String get onboardingPasteTestTitle => 'Try Auto-Paste';
+
+  @override
+  String get onboardingPasteTestSubtitle =>
+      'Click the button. The demo text should appear in the field below.';
+
+  @override
+  String get onboardingPasteDemoText => 'WhisPaste types for you.';
+
+  @override
+  String get onboardingPasteTestSuccess =>
+      'Auto-Paste works! Click Next to continue.';
+
+  @override
+  String get onboardingPasteTestNoFrontmost =>
+      'No input field detected. Click the field below and try again.';
+
+  @override
+  String get onboardingPasteTestFailure =>
+      'Test failed. Try restarting the app, or continue without testing.';
+
+  @override
+  String get onboardingPasteTestSkip => 'Continue without testing';
+
+  @override
+  String get settingsOverlayFloatingButton => 'Recording Overlay';
+
+  @override
+  String get settingsOverlayFloatingButtonSubtitle =>
+      'Control how recording status appears while you record';
+
+  @override
+  String get settingsShowOverlay => 'Recording status display';
+
+  @override
+  String get settingsShowOverlaySubtitle =>
+      'Choose where live recording feedback appears while you record';
+
+  @override
+  String get settingsOverlayModeFloating => 'Floating window (always visible)';
+
+  @override
+  String get settingsOverlayModeOff => 'Off';
+
+  @override
+  String get settingsOverlayStartPosition => 'Overlay start position';
+
+  @override
+  String get settingsOverlayStartPositionSubtitle =>
+      'Where the floating overlay appears when recording starts';
+
+  @override
+  String get settingsOverlayStartTopCenter => 'Top center';
+
+  @override
+  String get settingsOverlayStartBottomCenter => 'Bottom center';
+
+  @override
+  String get settingsOverlayStartLastPosition => 'Remember last position';
+
+  @override
+  String get settingsShowFloatingButton => 'Floating recording button';
+
+  @override
+  String get settingsShowFloatingButtonSubtitle =>
+      'Small always-on-top button for starting or stopping recording from any app';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsRecognitionLanguage => 'Recognition Language';
+
+  @override
+  String get settingsCustomVocabulary => 'Custom Vocabulary';
+
+  @override
+  String get settingsCustomVocabularyHint =>
+      'Names, technical terms: improves recognition accuracy';
+
+  @override
+  String get settingsCustomVocabularyPlaceholder =>
+      'e.g. WhisPaste, Kubernetes, Dr. Mueller';
+
+  @override
+  String settingsCustomVocabularyBudgetCounter(int count, int budget) {
+    return '~$count / $budget tokens';
+  }
+
+  @override
+  String settingsCustomVocabularyBudgetWarning(int budget) {
+    return 'Long entries may be shortened automatically — only roughly the first $budget tokens are used.';
+  }
+
+  @override
+  String get settingsPunctuationPriming => 'Punctuation priming';
+
+  @override
+  String get settingsPunctuationPrimingSubtitle =>
+      'Nudges Whisper towards punctuated output when no custom vocabulary is set. No effect on speed.';
+
+  @override
+  String get settingsVadEnabled => 'Trim trailing silence';
+
+  @override
+  String get settingsVadEnabledSubtitle =>
+      'Removes long silence/noise at the end of a recording before Whisper decodes it, so it can\'t fabricate a closing sentence there (e.g. \"Thanks for watching\"-style hallucinations). Negligible cost, off if you\'d rather keep Whisper\'s raw output.';
+
+  @override
+  String get settingsStripPunctuation => 'Strip punctuation';
+
+  @override
+  String get settingsStripPunctuationSubtitle =>
+      'Removes periods, commas, and other sentence punctuation from every transcript before it\'s saved or pasted. Works the same way for every engine and provider, not just Whisper.';
+
+  @override
+  String get settingsNumericOnlyMode => 'Numbers only';
+
+  @override
+  String get settingsNumericOnlyModeSubtitle =>
+      'Converts spoken numbers (German and English) to digits, e.g. \"five point two\" becomes \"5.2\". Leaves the transcript untouched if it isn\'t fully convertible.';
+
+  @override
+  String get settingsRemoveFillerWords => 'Remove filler words';
+
+  @override
+  String get settingsRemoveFillerWordsSubtitle =>
+      'Removes hesitation sounds such as \"uh\", \"um\" and \"erm\" before the transcript is saved or pasted. Only unambiguous English and German fillers; words that can carry meaning are never touched.';
+
+  @override
+  String get settingsVoiceLineBreaks => 'Spoken line breaks';
+
+  @override
+  String get settingsVoiceLineBreaksSubtitle =>
+      'Turns spoken commands such as \"new paragraph\" and \"new line\" into real line breaks. Uses the transcription language, or all supported languages with auto-detect.';
+
+  @override
+  String get settingsAppLanguage => 'App Language';
+
+  @override
+  String get settingsSttModels => 'Speech Recognition Models';
+
+  @override
+  String get settingsOpenAiApiKey => 'OpenAI API Key';
+
+  @override
+  String get settingsDeepgramApiKey => 'Deepgram API Key';
+
+  @override
+  String get settingsToggleApiKeyVisibility => 'Toggle API key visibility';
+
+  @override
+  String get settingsAdvanced => 'Advanced';
+
+  @override
+  String get settingsAdvancedSubtitle =>
+      'Reset, error reporting, updates, and system behavior';
+
+  @override
+  String get settingsResetToDefaults => 'Reset to Defaults';
+
+  @override
+  String get settingsResetTitle => 'Reset Settings';
+
+  @override
+  String get settingsResetMessage =>
+      'All settings will be restored to defaults. API keys will be removed. This cannot be undone.';
+
+  @override
+  String get settingsResetConfirm => 'Reset';
+
+  @override
+  String get settingsResetSuccess => 'Settings reset to defaults';
+
+  @override
+  String get settingsFactoryReset => 'Factory Reset';
+
+  @override
+  String get settingsFactoryResetTitle => 'Factory Reset';
+
+  @override
+  String get settingsFactoryResetMessage =>
+      'This will permanently delete ALL data: recording history, tags, replacements, downloaded models, logs, and settings. The app will return to its initial state.\n\nThis cannot be undone.';
+
+  @override
+  String get settingsFactoryResetConfirm => 'Delete Everything';
+
+  @override
+  String get settingsFactoryResetSuccess => 'App has been completely reset';
+
+  @override
+  String get settingsFactoryResetProgressTitle => 'Resetting WhisPaste';
+
+  @override
+  String get settingsFactoryResetPhaseStoppingSubprocess =>
+      'Stopping voice service…';
+
+  @override
+  String get settingsFactoryResetPhaseDeletingModels =>
+      'Deleting voice models…';
+
+  @override
+  String get settingsFactoryResetPhaseDeletingDatabase => 'Deleting database…';
+
+  @override
+  String get settingsFactoryResetPhaseResettingSecureStore =>
+      'Clearing credentials…';
+
+  @override
+  String get settingsFactoryResetPhaseResettingSettings =>
+      'Restoring default settings…';
+
+  @override
+  String get settingsFactoryResetFailedMessage =>
+      'Factory reset incomplete. Please restart the app.';
+
+  @override
+  String get settingsPortabilitySectionTitle => 'Backup & Transfer';
+
+  @override
+  String get settingsPortabilitySectionSubtitle =>
+      'Keep a backup of your WhisPaste setup or take it to another computer';
+
+  @override
+  String get settingsPortabilityExportAction => 'Export';
+
+  @override
+  String get settingsPortabilityImportAction => 'Import';
+
+  @override
+  String get settingsPortabilityExportLocationLabel => 'Export destination';
+
+  @override
+  String get settingsPortabilityImportLocationLabel => 'Import source';
+
+  @override
+  String get settingsPortabilityExportLocationUnset =>
+      'You\'ll be asked on first export';
+
+  @override
+  String get settingsPortabilityImportLocationUnset =>
+      'You\'ll be asked on first import';
+
+  @override
+  String get settingsPortabilityChooseExportLocation =>
+      'Choose a different export destination (nothing is exported yet)';
+
+  @override
+  String get settingsPortabilityChooseImportLocation =>
+      'Choose a different import source (nothing is imported yet)';
+
+  @override
+  String settingsPortabilityExportSuccess(String path) {
+    return 'Settings exported to $path';
+  }
+
+  @override
+  String settingsPortabilityExportError(String reason) {
+    return 'Export failed: $reason';
+  }
+
+  @override
+  String get settingsPortabilityImportConfirmTitle => 'Import Settings?';
+
+  @override
+  String settingsPortabilityImportConfirmMessage(String path) {
+    return 'This replaces your current settings — including interface, speech-recognition configuration, behavior, text replacements, and snippets — with the contents of $path. Your API keys are left untouched.';
+  }
+
+  @override
+  String settingsPortabilityImportSuccess(String path) {
+    return 'Settings imported from $path';
+  }
+
+  @override
+  String settingsPortabilityImportNotFound(String path) {
+    return 'No export file found at $path. Export settings first, or copy an export file there.';
+  }
+
+  @override
+  String settingsPortabilityImportError(String reason) {
+    return 'Import failed: $reason';
+  }
+
+  @override
+  String get settingsAutosaveLabel => 'Automatic backup';
+
+  @override
+  String get settingsAutosaveHint =>
+      'Saves your setup to the chosen folder a few seconds after every change';
+
+  @override
+  String get settingsAutosaveChooseFolder =>
+      'Choose a different folder for automatic backups (nothing is backed up yet)';
+
+  @override
+  String settingsAutosaveLastRun(String time) {
+    return 'Last backup: $time';
+  }
+
+  @override
+  String get settingsAutosaveNeverRun => 'No backup yet';
+
+  @override
+  String get settingsAutosaveLastRunFailed => 'Backup failed';
+
+  @override
+  String settingsAutosaveLastRunFailedSince(String time) {
+    return 'Last attempt failed — last backup: $time';
+  }
+
+  @override
+  String get settingsAutosaveErrorLocation =>
+      'Automatic backup failed: the chosen folder is unavailable.';
+
+  @override
+  String settingsAutosaveErrorWrite(String reason) {
+    return 'Automatic backup failed: $reason';
+  }
+
+  @override
+  String get groqRemovedToast =>
+      'Groq STT was removed. Provider reset to On-Device.';
+
+  @override
+  String migrationComplete(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count recordings migrated from WhisPaste 1.x',
+      one: '1 recording migrated from WhisPaste 1.x',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsOff => 'Off';
+
+  @override
+  String get settingsOn => 'On';
+
+  @override
+  String get statusReady => 'Ready';
+
+  @override
+  String get statusRecording => 'Recording…';
+
+  @override
+  String get statusTranscribing => 'Transcribing…';
+
+  @override
+  String get statusProcessing => 'Processing…';
+
+  @override
+  String get statusTranscriptionDone => 'Transcription complete';
+
+  @override
+  String get statusSelectionEdited => 'Selection edited';
+
+  @override
+  String get statusCopied => 'Copied!';
+
+  @override
+  String get statusLocal => 'Local';
+
+  @override
+  String get statusCloud => 'Cloud';
+
+  @override
+  String get statusOnline => 'Online';
+
+  @override
+  String get statusOffline => 'Offline';
+
+  @override
+  String get recordingGuardFailed =>
+      'No audio detected. Please try again. Sometimes the microphone needs a moment to warm up.';
+
+  @override
+  String get recordingAutoStopped => 'Recording stopped: silence detected.';
+
+  @override
+  String get actionCopy => 'Copy';
+
+  @override
+  String get actionDuplicate => 'Duplicate';
+
+  @override
+  String get actionDelete => 'Delete';
+
+  @override
+  String get actionDismiss => 'Dismiss';
+
+  @override
+  String get actionEdit => 'Edit';
+
+  @override
+  String get actionExport => 'Export';
+
+  @override
+  String get actionCancel => 'Cancel';
+
+  @override
+  String get actionConfirm => 'Confirm';
+
+  @override
+  String get actionSave => 'Save';
+
+  @override
+  String get actionRetry => 'Try again';
+
+  @override
+  String get actionClearSearch => 'Clear search';
+
+  @override
+  String get tooltipLanguage => 'Language';
+
+  @override
+  String aboutVersion(String version) {
+    return 'Version $version';
+  }
+
+  @override
+  String get onboardingWelcome => 'Speak it once. Paste it anywhere.';
+
+  @override
+  String get feedbackTitle => 'Send Feedback';
+
+  @override
+  String get feedbackHint => 'Tell us what you think. We read every message.';
+
+  @override
+  String get analyticsPreviewBanner =>
+      'Preview: showing sample data. Real analytics will appear once you start recording.';
+
+  @override
+  String get analyticsEmptyTitle => 'No recordings yet';
+
+  @override
+  String get analyticsEmptySubtitle =>
+      'Start recording to see your analytics here.';
+
+  @override
+  String get analyticsOverview => 'Overview';
+
+  @override
+  String get analyticsOverviewSubtitle => 'Your recording stats at a glance';
+
+  @override
+  String get analyticsActivity => 'Activity';
+
+  @override
+  String get analyticsInsights => 'Insights';
+
+  @override
+  String get analyticsTotalRecordings => 'Total Recordings';
+
+  @override
+  String get analyticsTotalDuration => 'Total Duration';
+
+  @override
+  String get analyticsWordsDictated => 'Words Transcribed';
+
+  @override
+  String get analyticsTimeSaved => 'Time Saved';
+
+  @override
+  String get analyticsAvgLatency => 'Avg. Speed';
+
+  @override
+  String get analyticsRecordingActivity => 'Recording Activity';
+
+  @override
+  String get analyticsLast7Days => 'Last 7 days';
+
+  @override
+  String get analyticsModelUsage => 'Model Usage';
+
+  @override
+  String get analyticsDurationDistribution => 'Duration Distribution';
+
+  @override
+  String get analyticsCostSavings => 'Cost & Savings';
+
+  @override
+  String get analyticsLocalSavings => 'Local savings';
+
+  @override
+  String get analyticsCloudCost => 'Cloud cost';
+
+  @override
+  String get analyticsPeriod7d => '7 days';
+
+  @override
+  String get analyticsPeriod30d => '30 days';
+
+  @override
+  String get analyticsPeriod90d => '90 days';
+
+  @override
+  String get analyticsPeriodAll => 'All time';
+
+  @override
+  String get analyticsReset => 'Reset';
+
+  @override
+  String get analyticsResetTitle => 'Reset Statistics';
+
+  @override
+  String get analyticsResetMessage =>
+      'Are you sure you want to clear all analytics data? This action cannot be undone.';
+
+  @override
+  String get analyticsDayMon => 'Mon';
+
+  @override
+  String get analyticsDayTue => 'Tue';
+
+  @override
+  String get analyticsDayWed => 'Wed';
+
+  @override
+  String get analyticsDayThu => 'Thu';
+
+  @override
+  String get analyticsDayFri => 'Fri';
+
+  @override
+  String get analyticsDaySat => 'Sat';
+
+  @override
+  String get analyticsDaySun => 'Sun';
+
+  @override
+  String analyticsThisWeek(String delta) {
+    return '$delta this week';
+  }
+
+  @override
+  String analyticsVsLastMonth(String delta) {
+    return '$delta vs last month';
+  }
+
+  @override
+  String analyticsDurationHoursMinutes(int hours, int minutes) {
+    return '${hours}h ${minutes}m';
+  }
+
+  @override
+  String get analyticsDurationLt15s => '< 15s';
+
+  @override
+  String get analyticsDuration15To30s => '15-30s';
+
+  @override
+  String get analyticsDuration30To60s => '30-60s';
+
+  @override
+  String get analyticsDuration1To3m => '1-3m';
+
+  @override
+  String get analyticsDurationGt3m => '> 3m';
+
+  @override
+  String analyticsSavedAmount(String amount) {
+    return '$amount saved';
+  }
+
+  @override
+  String analyticsSpentAmount(String amount) {
+    return '$amount spent';
+  }
+
+  @override
+  String get replacementsSearch => 'Search replacements…';
+
+  @override
+  String get replacementsSearchFieldLabel => 'Search replacements';
+
+  @override
+  String get replacementsAdd => 'Add';
+
+  @override
+  String get replacementsEmpty => 'No replacements yet';
+
+  @override
+  String get replacementsEmptyHint =>
+      'Add replacements to auto-replace words while recording.\nExample: \"btw\" → \"by the way\"';
+
+  @override
+  String get replacementsNoMatches => 'No matches';
+
+  @override
+  String get replacementsNoMatchesHint => 'Try a different search term.';
+
+  @override
+  String get replacementsToggleLabel => 'Enable replacements';
+
+  @override
+  String get replacementsToggleEnabled => 'Replacements are active';
+
+  @override
+  String get replacementsToggleDisabled => 'Replacements are disabled';
+
+  @override
+  String get replacementsEnableBannerTitle => 'Replacements are turned off';
+
+  @override
+  String get replacementsEnableBannerHint =>
+      'Enable them so trigger phrases are replaced automatically while recording.';
+
+  @override
+  String get replacementsEnableAction => 'Enable';
+
+  @override
+  String get replacementsDisableAction => 'Disable';
+
+  @override
+  String get replacementsEditShortcut => 'Edit Replacement';
+
+  @override
+  String get replacementsNewShortcut => 'New Replacement';
+
+  @override
+  String get replacementsDialogHint =>
+      'Any of the trigger phrases will be replaced automatically while recording.';
+
+  @override
+  String get replacementsTriggerLabel => 'Trigger phrases';
+
+  @override
+  String get replacementsTriggerHint => 'e.g. btw';
+
+  @override
+  String get replacementsAddTrigger => 'Add trigger phrase';
+
+  @override
+  String get replacementsRemoveTrigger => 'Remove trigger phrase';
+
+  @override
+  String get replacementsReplacementLabel => 'Replacement text';
+
+  @override
+  String get replacementsReplacementHint => 'e.g. by the way';
+
+  @override
+  String get replacementsReplacementHelper =>
+      'Use \\n for a line break and \\n\\n for a blank line. To keep a literal backslash-n, write \\\\n.';
+
+  @override
+  String get replacementsDeleteTitle => 'Delete Replacement';
+
+  @override
+  String replacementsDeleteMessage(String trigger) {
+    return 'Remove the replacement \"$trigger\"? This cannot be undone.';
+  }
+
+  @override
+  String get replacementsImportFromFolder => 'Import from folder';
+
+  @override
+  String get replacementsImportHint =>
+      'Scan a project folder for identifiers and add them as fuzzy replacements — nothing leaves your device.';
+
+  @override
+  String replacementsImportSummary(int found, int added, int skipped) {
+    return 'Found $found, added $added, skipped $skipped duplicate(s)';
+  }
+
+  @override
+  String get replacementsImportScanning =>
+      'Scanning the folder — this can take a moment for large projects…';
+
+  @override
+  String get replacementsImportError =>
+      'Import failed — the folder could not be scanned.';
+
+  @override
+  String get replacementsImportedBadge => 'Imported';
+
+  @override
+  String get replacementsLearnedBadge => 'Learned';
+
+  @override
+  String get correctionLearningToggleLabel => 'Learn from corrections';
+
+  @override
+  String get correctionLearningToggleEnabled =>
+      'Watching repeated corrections for suggestions';
+
+  @override
+  String get correctionLearningToggleDisabled =>
+      'Not watching corrections for suggestions';
+
+  @override
+  String get correctionLearningHowTo =>
+      'While recording a note in History, say “correct: …” (or “korrektur: …”) followed by the fixed text to overwrite it. Fix the same thing twice and WhisPaste offers it here as an automatic replacement.';
+
+  @override
+  String get correctionCandidatesCardTitle => 'Suggested from your corrections';
+
+  @override
+  String correctionCandidatesCardHint(int count) {
+    return '$count suggestion(s) from corrections you repeated — review before they become replacements.';
+  }
+
+  @override
+  String get correctionCandidatesReviewButton => 'Review';
+
+  @override
+  String get correctionCandidatesReviewTitle => 'Review learned corrections';
+
+  @override
+  String correctionCandidatesReviewSubtitle(int count) {
+    return '$count correction(s) you repeated — accept the ones WhisPaste should apply automatically from now on. Nothing changes until you confirm.';
+  }
+
+  @override
+  String correctionCandidatesCommitSummary(int added) {
+    return 'Added $added learned replacement(s)';
+  }
+
+  @override
+  String get replacementsImportNothingFound =>
+      'No new identifiers found in this folder.';
+
+  @override
+  String get replacementsImportReviewTitle => 'Choose what to import';
+
+  @override
+  String replacementsImportReviewSubtitle(int count) {
+    return '$count candidates found — pick which ones become replacements. Nothing is added until you confirm.';
+  }
+
+  @override
+  String get replacementsImportReviewSearchHint => 'Filter candidates';
+
+  @override
+  String get replacementsImportReviewSelectAllFiltered => 'Select all shown';
+
+  @override
+  String get replacementsImportReviewDeselectAll => 'Deselect all';
+
+  @override
+  String replacementsImportReviewSelectedCount(int selected, int total) {
+    return '$selected of $total selected';
+  }
+
+  @override
+  String get replacementsImportReviewNoMatches =>
+      'No candidates match your filter.';
+
+  @override
+  String replacementsImportReviewImportButton(int count) {
+    return 'Import selected ($count)';
+  }
+
+  @override
+  String get replacementsMatchModeLabel => 'Matching';
+
+  @override
+  String get replacementsMatchModeExact => 'Exact';
+
+  @override
+  String get replacementsMatchModeFuzzy => 'Similar';
+
+  @override
+  String get replacementsFuzzyToleranceLabel => 'Tolerance';
+
+  @override
+  String get replacementsFuzzyToleranceStrict => 'Strict';
+
+  @override
+  String get replacementsFuzzyToleranceStandard => 'Standard';
+
+  @override
+  String get replacementsFuzzyToleranceTolerant => 'Tolerant';
+
+  @override
+  String get replacementsFuzzyToleranceHint =>
+      'How close a dictated phrase must sound to a trigger to still count as a match. Strict only catches near-identical wording, so almost nothing gets replaced by accident, but a mumbled trigger may slip through unmatched. Standard is a balanced default for everyday dictation. Tolerant also catches noticeably different pronunciation or phrasing, at a higher risk of matching something you did not mean to replace.';
+
+  @override
+  String replacementsFuzzyTooShortWarning(int minLength) {
+    return 'Trigger phrases under $minLength characters cannot use similar matching — too many false hits.';
+  }
+
+  @override
+  String get snippetsSearch => 'Search snippets…';
+
+  @override
+  String get snippetsSearchFieldLabel => 'Search snippets';
+
+  @override
+  String get snippetsAdd => 'Add';
+
+  @override
+  String get snippetsEmpty => 'No snippets yet';
+
+  @override
+  String get snippetsEmptyHint =>
+      'Add a snippet to quickly reuse a block of text — like a signature or a boilerplate reply.';
+
+  @override
+  String get snippetsNoMatches => 'No matches';
+
+  @override
+  String get snippetsNoMatchesHint => 'Try a different search term.';
+
+  @override
+  String get snippetsEditSnippet => 'Edit Snippet';
+
+  @override
+  String get snippetsNewSnippet => 'New Snippet';
+
+  @override
+  String get snippetsDialogHint =>
+      'Open the snippet picker while dictating to insert this text.';
+
+  @override
+  String get snippetsTitleLabel => 'Title';
+
+  @override
+  String get snippetsTitleHint => 'e.g. Email signature';
+
+  @override
+  String get snippetsBodyLabel => 'Body';
+
+  @override
+  String get snippetsBodyHint => 'The text this snippet inserts…';
+
+  @override
+  String get snippetsKindLabel => 'Type';
+
+  @override
+  String get snippetsKindStatic => 'Static';
+
+  @override
+  String get snippetsKindInteractive => 'Interactive';
+
+  @override
+  String get snippetsFieldsLabel => 'Fields';
+
+  @override
+  String get snippetsFieldsHint =>
+      'You\'ll be guided through each field with its own short recording, in this order.';
+
+  @override
+  String snippetsFieldNameHint(int number) {
+    return 'Field $number name';
+  }
+
+  @override
+  String get snippetsFieldMoveUp => 'Move field up';
+
+  @override
+  String get snippetsFieldMoveDown => 'Move field down';
+
+  @override
+  String get snippetsFieldRemove => 'Remove field';
+
+  @override
+  String get snippetsFieldAdd => 'Add field';
+
+  @override
+  String get snippetsFieldInsertIntoTemplate => 'Insert into template';
+
+  @override
+  String snippetsFieldsMinWarning(int min) {
+    String _temp0 = intl.Intl.pluralLogic(
+      min,
+      locale: localeName,
+      other: '$min named fields',
+      one: '1 named field',
+    );
+    return 'An interactive snippet needs at least $_temp0.';
+  }
+
+  @override
+  String get snippetsTemplateLabel => 'Template';
+
+  @override
+  String get snippetsTemplateHint =>
+      'Write your snippet text, then use each field\'s insert button to place it wherever you want.';
+
+  @override
+  String get snippetsTemplateFieldHint =>
+      'Write your text here and insert fields using the buttons above.';
+
+  @override
+  String get snippetsTemplateMissingFieldsWarning =>
+      'Not all fields appear in the template yet — their dictated text would go unused.';
+
+  @override
+  String get snippetsInteractiveBadge => 'Interactive';
+
+  @override
+  String interactiveSnippetBriefingLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count fields',
+      one: '1 field',
+    );
+    return '$_temp0 · Enter to start';
+  }
+
+  @override
+  String interactiveSnippetBriefingHint(String name) {
+    return 'Field 1: $name · Esc: cancel';
+  }
+
+  @override
+  String interactiveSnippetAnnounceLabel(int index, int count, String name) {
+    return 'Field $index/$count: $name';
+  }
+
+  @override
+  String get interactiveSnippetAnnounceHint => 'Get ready to speak…';
+
+  @override
+  String interactiveSnippetSpeakNowLabel(String name, int index, int count) {
+    return '$index/$count: $name';
+  }
+
+  @override
+  String get interactiveSnippetAdvance => 'Next';
+
+  @override
+  String get snippetsDeleteTitle => 'Delete Snippet';
+
+  @override
+  String snippetsDeleteMessage(String title) {
+    return 'Remove the snippet \"$title\"? This cannot be undone.';
+  }
+
+  @override
+  String get snippetsPickerTriggerLabel => 'Picker trigger word';
+
+  @override
+  String get snippetsPickerTriggerSubtitle =>
+      'Speak only this word to open the snippet picker. Leave empty to turn the picker off.';
+
+  @override
+  String get snippetsPickerTriggerHint => 'e.g. snippet';
+
+  @override
+  String get snippetsPickerTriggerEmptyListHint =>
+      'The trigger word is set, but there are no snippets yet — dictating it inserts the word as normal text until you add your first snippet.';
+
+  @override
+  String get snippetsPickerHotkeyLabel => 'Picker hotkey';
+
+  @override
+  String get snippetsPickerHotkeySubtitle =>
+      'Opens the picker straight away — the second way to the same panel.';
+
+  @override
+  String get snippetsPickerHotkeyOff => 'The picker hotkey is switched off.';
+
+  @override
+  String get snippetsPickerHotkeyEnable => 'Turn hotkey on';
+
+  @override
+  String get snippetsPickerUnavailable =>
+      'The snippet picker is not available on this platform yet.';
+
+  @override
+  String get snippetsPickerSemanticsLabel => 'Snippet picker';
+
+  @override
+  String get snippetsPickerInsertAction => 'Insert';
+
+  @override
+  String get aboutTagline => 'Voice to text, instantly.';
+
+  @override
+  String get aboutWhatsNew => 'What\'s New';
+
+  @override
+  String get aboutGitHub => 'GitHub';
+
+  @override
+  String get aboutReportIssue => 'Report Issue';
+
+  @override
+  String get aboutSupportTitle => 'Support this project';
+
+  @override
+  String get aboutSupportDescription =>
+      'WhisPaste is free and open source under the MIT license. Sponsoring covers real recurring fixed costs (the Apple Developer Program, Microsoft Partner Center, and hosting/domain) that keep it available on every platform.';
+
+  @override
+  String get aboutGitHubSponsors => 'GitHub Sponsors';
+
+  @override
+  String get aboutKofi => 'Ko-fi';
+
+  @override
+  String get aboutStarOnGitHub => 'Star on GitHub';
+
+  @override
+  String get aboutSponsorsTitle => 'Sponsors';
+
+  @override
+  String get supportPromptRecurringTitle => 'Make it monthly?';
+
+  @override
+  String get supportPromptRecurringDescription =>
+      'Thank you for supporting WhisPaste before. If you\'d like, you could turn that into a small monthly sponsoring that keeps covering our recurring fixed costs.';
+
+  @override
+  String get aboutBuiltWith => 'Built with';
+
+  @override
+  String get aboutFlutterGo => 'Flutter';
+
+  @override
+  String get aboutFlutterGoDesc =>
+      'Cross-platform UI with Flutter. Local speech recognition via whisper.cpp and Parakeet.';
+
+  @override
+  String get aboutWhisper => 'whisper.cpp & OpenAI Whisper';
+
+  @override
+  String get aboutWhisperDesc =>
+      'Local and cloud speech recognition: fast, accurate, multilingual (99 languages).';
+
+  @override
+  String get aboutParakeet => 'NVIDIA Parakeet & sherpa-onnx';
+
+  @override
+  String get aboutParakeetDesc =>
+      'Local speech recognition, GPU-accelerated where available (Metal, Vulkan, CUDA) and on the CPU otherwise (~25 languages).';
+
+  @override
+  String get aboutParakeetModelCredit =>
+      'Model: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0';
+
+  @override
+  String get aboutParakeetGgufCredit => 'GGUF conversion: ggml-org, MIT';
+
+  @override
+  String get aboutPrivacyFirst => 'Privacy-first';
+
+  @override
+  String get aboutPrivacyFirstDesc =>
+      'Local speech recognition by default: your voice never leaves your device unless you choose a cloud provider.';
+
+  @override
+  String get aboutPrivacy => 'Privacy & Data';
+
+  @override
+  String get aboutPrivacyLocal =>
+      'All transcriptions and history are stored locally on your device, never on external servers.';
+
+  @override
+  String get aboutPrivacyCloud =>
+      'Cloud providers (OpenAI, Deepgram) only receive audio when you actively use them. Their privacy policies apply.';
+
+  @override
+  String get aboutPrivacyNoTracking =>
+      'Usage statistics are anonymous and GDPR-compliant (EU server), and can be switched off in Settings → Privacy. No user accounts. Update checks contact GitHub (version + IP only).';
+
+  @override
+  String get aboutKeyboardShortcuts => 'Keyboard Shortcuts';
+
+  @override
+  String get aboutShortcutRecord => 'Start / Stop recording';
+
+  @override
+  String get aboutLinks => 'Links';
+
+  @override
+  String get aboutWebsite => 'Website';
+
+  @override
+  String get aboutGitHubRepo => 'GitHub Repository';
+
+  @override
+  String get aboutFollowOnX => 'Follow on X';
+
+  @override
+  String get aboutMitLicense => 'MIT License';
+
+  @override
+  String get aboutViewOnGitHub => 'View on GitHub';
+
+  @override
+  String get aboutPrivacyPolicy => 'Privacy Policy';
+
+  @override
+  String get aboutSystemInfo => 'System Info';
+
+  @override
+  String get aboutSystemInfoDesc =>
+      'Copy a compact diagnostics snapshot for bug reports.';
+
+  @override
+  String get aboutCopyDebugInfo => 'Copy Debug Info';
+
+  @override
+  String get aboutCopied => 'Copied!';
+
+  @override
+  String get aboutMadeWith => 'Made with ♥ by WhisPaste';
+
+  @override
+  String get aboutOpenSource => 'Open source under the MIT License';
+
+  @override
+  String get feedbackSubtitle =>
+      'Help us improve WhisPaste. Every voice matters.';
+
+  @override
+  String get feedbackCategoryLabel => 'What\'s this about?';
+
+  @override
+  String get feedbackCategoryBug => 'Bug Report';
+
+  @override
+  String get feedbackCategoryFeature => 'Feature Idea';
+
+  @override
+  String get feedbackCategoryGeneral => 'General';
+
+  @override
+  String get feedbackCategoryAiQuality => 'AI Quality';
+
+  @override
+  String get feedbackRatingLabel => 'How are you feeling about WhisPaste?';
+
+  @override
+  String get feedbackCommentsLabel => 'Tell us more';
+
+  @override
+  String get feedbackPlaceholderBug =>
+      'Describe what happened and what you expected…';
+
+  @override
+  String get feedbackPlaceholderFeature =>
+      'What would you like to see in WhisPaste?';
+
+  @override
+  String get feedbackPlaceholderAi => 'How was the transcription quality?';
+
+  @override
+  String get feedbackPlaceholderGeneral => 'Share your thoughts…';
+
+  @override
+  String get feedbackContactEmailLabel => 'Email (optional)';
+
+  @override
+  String get feedbackContactEmailExplanation =>
+      'Only if you\'d like a reply. We\'ll use it solely to follow up on this message, never for marketing, and it\'s deleted after 90 days.';
+
+  @override
+  String get feedbackContactEmailPlaceholder => 'you@example.com';
+
+  @override
+  String get feedbackContactEmailInvalid =>
+      'Please enter a valid email address, or leave it empty.';
+
+  @override
+  String get feedbackContactLanguageLabel => 'Reply in';
+
+  @override
+  String get feedbackContactLanguageHint =>
+      'Which language should we use if we get back to you?';
+
+  @override
+  String get feedbackSubmit => 'Send Feedback';
+
+  @override
+  String get feedbackPrivacyNote =>
+      'Anonymous by default, only identifiable if you add your email above.';
+
+  @override
+  String get feedbackThankYou => 'Thank you!';
+
+  @override
+  String get feedbackThankYouMessage =>
+      'Your feedback helps us make WhisPaste better\nfor everyone.';
+
+  @override
+  String get feedbackSendAnother => 'Send another';
+
+  @override
+  String get feedbackRatingFrustrated => 'Frustrated';
+
+  @override
+  String get feedbackRatingMeh => 'Meh';
+
+  @override
+  String get feedbackRatingOkay => 'Okay';
+
+  @override
+  String get feedbackRatingHappy => 'Happy';
+
+  @override
+  String get feedbackRatingLoveIt => 'Love it!';
+
+  @override
+  String get feedbackSubmitting => 'Sending…';
+
+  @override
+  String get feedbackErrorRateLimited =>
+      'You already sent feedback recently. Please try again later.';
+
+  @override
+  String get feedbackErrorNetwork =>
+      'Could not connect to the server. Please check your internet connection.';
+
+  @override
+  String get feedbackErrorServer =>
+      'Something went wrong. Please try again later.';
+
+  @override
+  String get feedbackErrorNotConfigured =>
+      'Feedback is not available in this build.';
+
+  @override
+  String get statusBarOnDevice => 'On device';
+
+  @override
+  String get statusBarOverlayFloating => 'Overlay: Floating';
+
+  @override
+  String get statusBarOverlayOff => 'Overlay: Off';
+
+  @override
+  String get statusBarAfterCopy => 'After: Copy';
+
+  @override
+  String get statusBarAfterPaste => 'After: Paste';
+
+  @override
+  String get statusBarAfterBoth => 'After: Copy & Paste';
+
+  @override
+  String get statusBarAfterNothing => 'After: Manual';
+
+  @override
+  String get sttStatusStandby => 'Standby';
+
+  @override
+  String get sttStatusStarting => 'Starting…';
+
+  @override
+  String get sttStatusReady => 'Ready';
+
+  @override
+  String get sttStatusError => 'Error';
+
+  @override
+  String get statusBarSttTooltip => 'Speech service and current status';
+
+  @override
+  String statusBarSttBackendTooltip(String backend) {
+    return 'Transcription backend: $backend';
+  }
+
+  @override
+  String get statusBarBackendGpuUtilizationUnavailable =>
+      'Real GPU utilization can\'t be measured across platforms without elevated privileges; the percentage shown reflects this process\'s CPU activity instead.';
+
+  @override
+  String get statusBarRecording => 'Recording…';
+
+  @override
+  String get statusBarTranscribing => 'Transcribing…';
+
+  @override
+  String get statusBarRefining => 'Refining…';
+
+  @override
+  String get statusBarDone => 'Done';
+
+  @override
+  String get statusBarHotkeyTooltip => 'Global hotkey: click to configure';
+
+  @override
+  String get statusBarAutoPasteOffHint => 'Auto-Paste off, enable in Settings';
+
+  @override
+  String get statusBarAutoPasteOffHintTooltip =>
+      'Auto-Paste is currently disabled. Click to open Settings.';
+
+  @override
+  String get statusBarAutoPasteOffHintDismiss => 'Dismiss';
+
+  @override
+  String statusBarAutomationApiChipLabel(int port) {
+    return 'API: $port';
+  }
+
+  @override
+  String get statusBarAutomationApiChipLabelError => 'API: error';
+
+  @override
+  String statusBarAutomationApiTooltip(int port) {
+    return 'Automation API active on port $port';
+  }
+
+  @override
+  String statusBarAutomationApiTooltipFallback(int port, int requestedPort) {
+    return 'Automation API active on port $port (port $requestedPort was in use)';
+  }
+
+  @override
+  String get statusBarAutomationApiTooltipError =>
+      'Automation API: no free port found';
+
+  @override
+  String get modifierCtrl => 'Ctrl';
+
+  @override
+  String get modifierShift => 'Shift';
+
+  @override
+  String get modifierAlt => 'Alt';
+
+  @override
+  String get modifierWin => 'Win';
+
+  @override
+  String get modifierCmd => 'Cmd';
+
+  @override
+  String get modifierOption => 'Option';
+
+  @override
+  String get modifierAltGr => 'AltGr';
+
+  @override
+  String get shortcutKeySpace => 'Space';
+
+  @override
+  String get shortcutKeyEnter => 'Enter';
+
+  @override
+  String get shortcutKeyEscape => 'Esc';
+
+  @override
+  String get shortcutKeyBackspace => 'Backspace';
+
+  @override
+  String get shortcutKeyTab => 'Tab';
+
+  @override
+  String get shortcutKeyDelete => 'Del';
+
+  @override
+  String get shortcutKeyInsert => 'Insert';
+
+  @override
+  String get shortcutKeyHome => 'Home';
+
+  @override
+  String get shortcutKeyEnd => 'End';
+
+  @override
+  String get shortcutKeyPageUp => 'Page Up';
+
+  @override
+  String get shortcutKeyPageDown => 'Page Down';
+
+  @override
+  String get modelServerReady => 'Speech service ready';
+
+  @override
+  String get modelServerMissing => 'Speech service not installed';
+
+  @override
+  String get modelServerWhisper => 'Local speech service';
+
+  @override
+  String get modelReady => 'Ready';
+
+  @override
+  String get modelDownloadComplete => 'Model ready to use';
+
+  @override
+  String get modelUse => 'Use';
+
+  @override
+  String get modelDownload => 'Download';
+
+  @override
+  String get modelDownloading => 'Downloading…';
+
+  @override
+  String get modelDownloadingEngine => 'Preparing speech service…';
+
+  @override
+  String get modelVerifying => 'Verifying…';
+
+  @override
+  String get modelExtracting => 'Extracting…';
+
+  @override
+  String get modelDeleteConfirm => 'Delete this model?';
+
+  @override
+  String get modelDeleteConfirmMessage =>
+      'The model file will be permanently removed. You can re-download it any time.';
+
+  @override
+  String get qualityTierCompactLabel => 'Quick & Compact';
+
+  @override
+  String get qualityTierCompactDesc =>
+      'Fast results, small download. Great for short notes and quick messages.';
+
+  @override
+  String get qualityTierBalancedLabel => 'Balanced';
+
+  @override
+  String get qualityTierBalancedDesc =>
+      'Accurate and reliable for everyday recording. Works on most devices.';
+
+  @override
+  String get qualityTierPremiumLabel => 'Best Quality';
+
+  @override
+  String get qualityTierPremiumDesc =>
+      'Top accuracy for longer recordings and complex content. Needs a capable GPU.';
+
+  @override
+  String get qualityTierRecommended => 'Recommended for your device';
+
+  @override
+  String qualityTierDownloadSize(String size) {
+    return '$size download';
+  }
+
+  @override
+  String get qualityTierDownloadAndContinue => 'Download model';
+
+  @override
+  String get qualityTierChooseDifferent => 'Choose a different quality level';
+
+  @override
+  String get qualityTierActive => 'Active';
+
+  @override
+  String qualityTierInfoSlow(String ratio) {
+    return 'Best quality, takes ~${ratio}x longer to process';
+  }
+
+  @override
+  String qualityTierInfoSlowerThanCompact(String ratio) {
+    return 'Best quality, ~${ratio}x slower than Small';
+  }
+
+  @override
+  String get qualityTierInfoModerate => 'Good balance of speed and quality';
+
+  @override
+  String get qualityTierBenchmarkReRun => 'Re-run benchmark';
+
+  @override
+  String get qualityTierBenchmarkRun => 'Run benchmark';
+
+  @override
+  String get qualityTierInfoBenchmarking => 'Testing performance…';
+
+  @override
+  String get qualityTierActionOverride => 'Use anyway';
+
+  @override
+  String get qualityTierActionOverrideHint =>
+      'Use this quality level despite the warning';
+
+  @override
+  String qualityTierModelTooltip(String modelName, String size) {
+    return 'Whisper $modelName · $size';
+  }
+
+  @override
+  String analyticsModelDisplayName(String tierLabel, String modelLabel) {
+    return '$tierLabel (Whisper $modelLabel)';
+  }
+
+  @override
+  String get settingsQualityBasic => 'Basic';
+
+  @override
+  String get settingsQualityBalanced => 'Balanced';
+
+  @override
+  String get settingsQualityHigh => 'High Quality';
+
+  @override
+  String get settingsQualityBest => 'Best Quality';
+
+  @override
+  String get settingsQualityMaximum => 'Maximum Accuracy';
+
+  @override
+  String get settingsQualityRecommended => '★ Recommended';
+
+  @override
+  String get settingsModelStatusReady => 'Speech model ready';
+
+  @override
+  String get settingsModelStatusNeeded =>
+      'Speech model will be downloaded when you start recording';
+
+  @override
+  String get settingsModelStatusDownloading => 'Downloading speech model…';
+
+  @override
+  String get settingsAdvancedModelManagement => 'Advanced model settings';
+
+  @override
+  String get infoEngineDownloading =>
+      'Speech service is being prepared. Please wait a moment.';
+
+  @override
+  String get infoModelMissing =>
+      'Please download a speech model in Settings first.';
+
+  @override
+  String infoModelMissingSelected(String size) {
+    return 'The selected speech model ($size) isn\'t downloaded yet.';
+  }
+
+  @override
+  String get infoModelMissingDownload => 'Download now';
+
+  @override
+  String get statusBarModelMissing => 'Model missing';
+
+  @override
+  String statusBarModelDownloading(int percent) {
+    return 'Downloading model… $percent %';
+  }
+
+  @override
+  String get modelDownloadAction => 'Download';
+
+  @override
+  String get modelMissingDownloadAction => 'Missing — download';
+
+  @override
+  String get infoPipelineBusy =>
+      'WhisPaste is still busy with the previous recording.';
+
+  @override
+  String get infoSnippetPickerEmpty =>
+      'Trigger word recognized, but you have no snippets yet — the text was inserted as usual.';
+
+  @override
+  String get infoSnippetPickerEmptyAction => 'Open Snippets';
+
+  @override
+  String get oomRecoveryTitle => 'Recording failed: GPU memory issue';
+
+  @override
+  String get oomRecoveryMessage =>
+      'Your GPU ran out of memory. Choose how to proceed:';
+
+  @override
+  String get oomRecoveryTrySmaller => 'Try smaller model';
+
+  @override
+  String oomRecoveryTrySmallerHint(String model) {
+    return 'Switch to $model and retry recording';
+  }
+
+  @override
+  String get oomRecoverySwitchCloud => 'Switch to Cloud';
+
+  @override
+  String get oomRecoverySwitchCloudHint =>
+      'Use cloud speech recognition instead';
+
+  @override
+  String get oomRecoveryCancel => 'Cancel';
+
+  @override
+  String get oomRecoveryPermanentTitle =>
+      'Local speech recognition unavailable';
+
+  @override
+  String get oomRecoveryPermanentMessage =>
+      'All local models failed due to GPU memory limits. Please switch to cloud speech recognition in settings.';
+
+  @override
+  String get oomRecoveryPermanentCloud => 'Open Settings';
+
+  @override
+  String oomRecoveryDowngrading(String model) {
+    return 'Switching to $model…';
+  }
+
+  @override
+  String get oomRecoverySwitchingCloud =>
+      'Switching to cloud speech recognition…';
+
+  @override
+  String oomRecoveryAttemptFailed(String model) {
+    return 'Model $model also failed. Trying next option…';
+  }
+
+  @override
+  String get infoSttCudaOomFallbackModel =>
+      'Quality reduced: your GPU ran out of memory. Switched to a lighter model.';
+
+  @override
+  String get infoSttCudaOomFallbackCpu =>
+      'Your GPU ran out of memory. Switched to CPU mode for reliability.';
+
+  @override
+  String get errorSttServerConnectionLost =>
+      'Speech service stopped unexpectedly. Please try again.';
+
+  @override
+  String get errorSttCudaOom =>
+      'Your GPU ran out of memory. Quality was reduced so the next try should work.';
+
+  @override
+  String get errorCloudAuth =>
+      'Cloud API key is missing or invalid. Check it in Settings → Speech Recognition.';
+
+  @override
+  String get errorCloudQuota =>
+      'Cloud provider rate limit reached. Please wait a moment and try again.';
+
+  @override
+  String get errorOnboardingNotCompleted =>
+      'Please complete the setup wizard first.';
+
+  @override
+  String get errorSttModelNotFound =>
+      'Speech model not found. Please download it in Settings.';
+
+  @override
+  String get errorSttModelUnknown =>
+      'Unknown speech model. Please select a valid model in Settings.';
+
+  @override
+  String get errorRecordingFailed =>
+      'Could not start recording, please try again';
+
+  @override
+  String get errorNoAudioRecorded => 'No audio recorded, please try again';
+
+  @override
+  String get errorTranscriptionEmpty =>
+      'Transcription returned empty text, please try again';
+
+  @override
+  String get errorSttServerFailed => 'Speech service failed to start';
+
+  @override
+  String get errorSttModelIncompatibleRuntime =>
+      'Speech model is incompatible with the installed runtime. Please re-download the speech model in Settings.';
+
+  @override
+  String get errorSttModelCorruptedRedownloading =>
+      'Speech model appears corrupted. Downloading a fresh copy automatically.';
+
+  @override
+  String get errorSttDllMissing =>
+      'A required system component is missing. Retrying with CPU mode.';
+
+  @override
+  String get errorSttGpuFatal =>
+      'GPU acceleration failed. Retrying with CPU mode.';
+
+  @override
+  String get errorSttHeapCorruption =>
+      'A memory error occurred. Retrying with CPU mode.';
+
+  @override
+  String get errorSttCpuFallbackFailed =>
+      'Speech service failed on both GPU and CPU. Please restart the app or re-download the model.';
+
+  @override
+  String get errorPipelineTimeout =>
+      'Recording took too long. Please try a shorter recording.';
+
+  @override
+  String get errorWavFileNotCreated =>
+      'Could not save the audio file. Please try again.';
+
+  @override
+  String get errorWavFileEmpty =>
+      'No audio was captured. Please check your microphone.';
+
+  @override
+  String get errorSttStartTimeout =>
+      'Speech service is still starting. Please try again in a moment.';
+
+  @override
+  String get errorTranscriptionTimeout =>
+      'Transcription took too long. Please try a shorter recording.';
+
+  @override
+  String get errorMicPermissionDenied =>
+      'Microphone access is needed. Please allow it in your system settings.';
+
+  @override
+  String get errorRecordingStartFailed =>
+      'Could not start recording. Please try again.';
+
+  @override
+  String get errorNoMicrophone =>
+      'No microphone found. Connect a microphone and try again.';
+
+  @override
+  String get errorGeneric => 'Something went wrong. Please try again.';
+
+  @override
+  String get modelDownloadFailed =>
+      'Download failed. Please check your internet connection.';
+
+  @override
+  String get modelDeleteInUse =>
+      'The model file is in use by another program and could not be deleted. Close it and try again.';
+
+  @override
+  String get statusSttLoading => 'Loading model…';
+
+  @override
+  String get statusSttReady => 'Model ready';
+
+  @override
+  String get historyDuplicate => 'Duplicate';
+
+  @override
+  String get historyDuplicated => 'Entry duplicated';
+
+  @override
+  String get historyViewRaw => 'Raw';
+
+  @override
+  String get historyViewEdited => 'Edited';
+
+  @override
+  String get historyApplySmartModePreset => 'Apply Smart Mode preset';
+
+  @override
+  String get historySmartModeApplied => 'Smart Mode applied';
+
+  @override
+  String get historySmartModeFailedModelMissing =>
+      'Smart Mode model not downloaded';
+
+  @override
+  String get historySmartModeFailedTimeout => 'Smart Mode timed out';
+
+  @override
+  String get historySmartModeFailedGeneric =>
+      'Smart Mode failed — please try again';
+
+  @override
+  String get historySmartModeSelectTargetLanguage => 'Select target language';
+
+  @override
+  String get historyAddNote => 'Add annotation';
+
+  @override
+  String get historyEditNote => 'Edit annotation';
+
+  @override
+  String get historyNotes => 'Annotations';
+
+  @override
+  String get historyNotePlaceholder => 'Write an annotation…';
+
+  @override
+  String get historyVoiceNoteHint =>
+      'Tip: say “tag: name” or “correct: text” while recording.';
+
+  @override
+  String get historyNoteAdded => 'Annotation added';
+
+  @override
+  String get historyNoteDeleted => 'Annotation deleted';
+
+  @override
+  String get historyCopiedAsMarkdown => 'Copied as Markdown';
+
+  @override
+  String get historyAddTag => 'Add tag…';
+
+  @override
+  String get historySearchTags => 'Search or create…';
+
+  @override
+  String get historyNoteEdited => 'edited';
+
+  @override
+  String get historyTagAdded => 'Tag added';
+
+  @override
+  String get historyTagRemoved => 'Tag removed';
+
+  @override
+  String historyCreateTag(Object tag) {
+    return 'Create \"$tag\"';
+  }
+
+  @override
+  String get historyManageTags => 'Manage tags';
+
+  @override
+  String get tagManageTitle => 'Manage Tags';
+
+  @override
+  String get tagManageEmpty => 'No tags created yet.';
+
+  @override
+  String tagUsageCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+      zero: 'unused',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tagOverflowMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count more tags',
+      one: '1 more tag',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tagDeleteConfirmTitle => 'Delete tag?';
+
+  @override
+  String tagDeleteConfirmMessage(String name, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count entries',
+      one: '1 entry',
+    );
+    return 'The tag \"$name\" is used in $_temp0. It will be removed from all of them.';
+  }
+
+  @override
+  String tagDeleted(String name) {
+    return 'Tag \"$name\" deleted';
+  }
+
+  @override
+  String get tagDeleteUnusedTitle => 'Delete unused tags?';
+
+  @override
+  String tagDeleteUnusedMessage(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unused tags',
+      one: '1 unused tag',
+    );
+    return '$_temp0 will be permanently deleted.';
+  }
+
+  @override
+  String tagDeleteUnusedAction(int count) {
+    return 'Delete $count unused';
+  }
+
+  @override
+  String tagDeletedUnused(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count unused tags',
+      one: '1 unused tag',
+    );
+    return '$_temp0 deleted';
+  }
+
+  @override
+  String get historyEditTranscript => 'Edit transcript';
+
+  @override
+  String get historyTranscriptSaved => 'Transcript saved';
+
+  @override
+  String get historySaveTranscript => 'Save';
+
+  @override
+  String get historyShortcutHelp => 'Keyboard Shortcuts';
+
+  @override
+  String get historyShortcutGeneral => 'GENERAL';
+
+  @override
+  String get historyShortcutTags => 'Focus tag input';
+
+  @override
+  String get historyShortcutNotes => 'Add an annotation';
+
+  @override
+  String get historyShortcutPin => 'Favorite / unfavorite';
+
+  @override
+  String get historyShortcutClose => 'Save & close';
+
+  @override
+  String get historyShortcutEditing => 'EDITING';
+
+  @override
+  String get historyShortcutToggleEdit => 'Toggle edit mode';
+
+  @override
+  String get historyShortcutSave => 'Save transcript';
+
+  @override
+  String get historyShortcutBold => 'Bold';
+
+  @override
+  String get historyShortcutItalic => 'Italic';
+
+  @override
+  String get historyShortcutCopy => 'Copy to clipboard';
+
+  @override
+  String get historyShortcutEditTitle => 'Edit title';
+
+  @override
+  String get historyEditTitle => 'Edit title';
+
+  @override
+  String get historyTitlePlaceholder => 'Enter a title…';
+
+  @override
+  String get historyTitleSaved => 'Title saved';
+
+  @override
+  String get historySearchHelpTitle => 'Search Tips';
+
+  @override
+  String get historySearchHelpTags => 'Type # to filter by tags';
+
+  @override
+  String get historySearchHelpLang => 'Type lang: to filter by language';
+
+  @override
+  String get historySearchHelpFreeText => 'Or just type any keyword';
+
+  @override
+  String get historySearchQuickTags => 'Popular tags';
+
+  @override
+  String get historyRecentSearches => 'Recent searches';
+
+  @override
+  String get historyRemoveRecentSearch => 'Remove recent search';
+
+  @override
+  String get historyRemoveFilter => 'Remove filter';
+
+  @override
+  String get historyQuickActions => 'Quick filters';
+
+  @override
+  String get historyQuickActionAllLangs => 'All languages';
+
+  @override
+  String get historyQuickActionFavorites => 'Favorites only';
+
+  @override
+  String get historySortNewest => 'Newest first';
+
+  @override
+  String get historySortOldest => 'Oldest first';
+
+  @override
+  String get historySortLongest => 'Longest first';
+
+  @override
+  String historySearchActiveTag(String tag) {
+    return '#$tag';
+  }
+
+  @override
+  String historySearchActiveLang(String code) {
+    return 'lang:$code';
+  }
+
+  @override
+  String get historySearchSuggestTag => 'Filter by tag';
+
+  @override
+  String get historySearchSuggestLang => 'Filter by language';
+
+  @override
+  String get settingsKeyboardShortcut => 'Keyboard Shortcut';
+
+  @override
+  String get settingsKeyboardShortcutSubtitle =>
+      'Global hotkey to start and stop recording';
+
+  @override
+  String get settingsHotkeyEnabled => 'Enable Global Hotkey';
+
+  @override
+  String get settingsCurrentHotkey => 'Current Hotkey';
+
+  @override
+  String get settingsChangeHotkey => 'Change';
+
+  @override
+  String get settingsHotkeyRecorderTitle => 'Record New Hotkey';
+
+  @override
+  String get settingsHotkeyRecorderHint =>
+      'Press the key combination you want to use…';
+
+  @override
+  String get settingsHotkeyRecorderModifierHint =>
+      'Any modifier combination works: e.g. Alt+Space, Ctrl+Alt+V, or Ctrl+Alt+Shift+R';
+
+  @override
+  String get settingsHotkeyRecorderCancel => 'Cancel';
+
+  @override
+  String get settingsHotkeyRecorderSave => 'Save';
+
+  @override
+  String get settingsHotkeyRecorderClear => 'Clear';
+
+  @override
+  String get settingsHotkeyRecorderInvalidKey =>
+      'This key can\'t be used as a hotkey. Try a letter, digit, function key (F1-F12), or an arrow key.';
+
+  @override
+  String get settingsHotkeyActionRecording => 'Start/stop recording';
+
+  @override
+  String get settingsHotkeyActionQuickNote => 'Quick note';
+
+  @override
+  String get settingsQuickNoteHotkeyEnabled => 'Quick-note hotkey';
+
+  @override
+  String get settingsQuickNoteHotkeyHint =>
+      'Dictated text is appended to the note marked as your quick note. You pick that note in the Notes area.';
+
+  @override
+  String get settingsQuickNoteCurrentHotkey => 'Combination';
+
+  @override
+  String settingsQuickNoteHotkeyCollision(String action) {
+    return 'This combination is already used for \"$action\". Pick a different one.';
+  }
+
+  @override
+  String get settingsQuickNoteHotkeyInactive =>
+      'This combination could not be registered — the quick-note hotkey is currently not active. Pick a different combination.';
+
+  @override
+  String get settingsHotkeyActionSnippetPicker => 'Snippet picker';
+
+  @override
+  String get settingsSnippetPickerHotkeyEnabled => 'Snippet-picker hotkey';
+
+  @override
+  String get settingsSnippetPickerHotkeyHint =>
+      'Opens the snippet picker straight away — no recording, and without the spoken trigger word.';
+
+  @override
+  String get settingsSnippetPickerCurrentHotkey => 'Combination';
+
+  @override
+  String settingsSnippetPickerHotkeyCollision(String action) {
+    return 'This combination is already used for \"$action\". Pick a different one.';
+  }
+
+  @override
+  String get settingsSnippetPickerHotkeyInactive =>
+      'This combination could not be registered — the snippet-picker hotkey is currently not active. Pick a different combination.';
+
+  @override
+  String get settingsMaxRecordDuration => 'Max Recording Duration';
+
+  @override
+  String get settingsMaxRecordDurationSubtitle =>
+      'Automatic safety stop after this time';
+
+  @override
+  String get settingsMaxRecordDurationUnlimited => 'Unlimited';
+
+  @override
+  String get settingsCloseToTray => 'Close to Tray';
+
+  @override
+  String get settingsCloseToTraySubtitle =>
+      'Keep running in the system tray when closing the window';
+
+  @override
+  String get settingsSidePanelEnabled => 'Clipboard Quick-Paste Panel';
+
+  @override
+  String get settingsSidePanelEnabledSubtitle =>
+      'Slide-out panel on hover at the chosen screen edge for transcriptions, snippets and clipboard history';
+
+  @override
+  String get settingsSidePanelEdge => 'Panel Position';
+
+  @override
+  String get settingsSidePanelEdgeSubtitle =>
+      'Which screen edge the panel docks to and slides out from';
+
+  @override
+  String get settingsSidePanelEdgeLeft => 'Left edge';
+
+  @override
+  String get settingsSidePanelEdgeRight => 'Right edge';
+
+  @override
+  String get settingsErrorReporting => 'Error Reporting';
+
+  @override
+  String get settingsErrorReportingSubtitle =>
+      'Sends crash and error reports with a hashed device ID, never your audio or text';
+
+  @override
+  String get settingsErrorReportingRestartHint =>
+      'Takes effect after restarting WhisPaste.';
+
+  @override
+  String get settingsAutoPasteDelay => 'Auto-Paste Delay';
+
+  @override
+  String get settingsAutoPasteDelaySubtitle =>
+      'Wait time before pasting into the active window';
+
+  @override
+  String get settingsAutoPasteBlocklist => 'Auto-Paste Blocklist';
+
+  @override
+  String get settingsAutoPasteBlocklistSubtitle =>
+      'Comma-separated app identifiers where auto-paste is disabled';
+
+  @override
+  String get settingsAutoPasteBlocklistPlaceholder =>
+      'e.g. com.apple.Terminal, com.1password';
+
+  @override
+  String get settingsCheckUpdates => 'Check for Updates';
+
+  @override
+  String get settingsCheckUpdatesSubtitle =>
+      'Check for new versions at startup and every 24 hours';
+
+  @override
+  String get settingsCheckForUpdatesNow => 'Check for updates now';
+
+  @override
+  String get settingsUpdates => 'Updates';
+
+  @override
+  String get settingsUpdatesSubtitle => 'Release channel and update checks';
+
+  @override
+  String get settingsBetaUpdates => 'Beta Updates';
+
+  @override
+  String get settingsBetaUpdatesSubtitle =>
+      'Get pre-release versions that are less tested.';
+
+  @override
+  String get settingsStableRevertHintMessage =>
+      'Switching back to Stable automatically isn\'t possible here. You already have a newer beta version installed.';
+
+  @override
+  String settingsStableRevertHintLink(String stableVersion) {
+    return 'Manually download stable $stableVersion';
+  }
+
+  @override
+  String get onboardingNext => 'Next';
+
+  @override
+  String get onboardingBack => 'Back';
+
+  @override
+  String get onboardingPrivacyTitle => 'Help make WhisPaste better';
+
+  @override
+  String get onboardingPrivacyHint =>
+      'Audio and text stay local. Anonymous usage statistics go to a self-hosted server in the EU, crash reports to Sentry (EU region) — GDPR-compliant.';
+
+  @override
+  String get onboardingPrivacyToggle => 'Share anonymous usage statistics';
+
+  @override
+  String get onboardingPrivacyToggleHint => 'On by default, switch off anytime';
+
+  @override
+  String get onboardingPrivacyCrashToggle => 'Send anonymous crash reports';
+
+  @override
+  String get onboardingPrivacyCrashToggleHint =>
+      'Helps fix bugs, on by default, switch off anytime';
+
+  @override
+  String onboardingStepOf(int current, int total) {
+    return 'Step $current of $total';
+  }
+
+  @override
+  String get onboardingAppearancePageTitle => 'Appearance';
+
+  @override
+  String get onboardingAppearancePageSubtitle =>
+      'How the app starts, and how the recording overlay looks.';
+
+  @override
+  String get onboardingBeat1Title => 'Press the hotkey, speak, done';
+
+  @override
+  String get onboardingBeat1Caption =>
+      'Recording starts instantly — your words land as text right at your cursor.';
+
+  @override
+  String get onboardingBeat2Title => 'Runs locally, on your hardware';
+
+  @override
+  String get onboardingBeat2Caption =>
+      'Transcription happens on your device — no internet needed.';
+
+  @override
+  String get onboardingBeat3Title => 'Everywhere you type';
+
+  @override
+  String get onboardingBeat3Caption =>
+      'Browser, mail, editor — WhisPaste works system-wide.';
+
+  @override
+  String get onboardingMicChipReady => 'Microphone ready';
+
+  @override
+  String get onboardingMicChipPending => 'Microphone access pending';
+
+  @override
+  String get onboardingMicChipAction => 'Microphone: action needed';
+
+  @override
+  String get onboardingModelTitle => 'Set up speech recognition';
+
+  @override
+  String get onboardingModelSubtitle =>
+      'Download the speech model to record offline. Your voice never leaves your device.';
+
+  @override
+  String get onboardingModelRecommended => 'Recommended';
+
+  @override
+  String get onboardingModelChangeLater =>
+      'You can adjust quality later in Settings';
+
+  @override
+  String get onboardingModelDownloading => 'Downloading…';
+
+  @override
+  String get onboardingModelReady => 'Model ready';
+
+  @override
+  String get onboardingModelGpuCpuFallback =>
+      'Optimised GPU acceleration unavailable, app will use the CPU';
+
+  @override
+  String get onboardingModelEngineParakeetLabel => 'Fast & European';
+
+  @override
+  String get onboardingModelEngineParakeetDesc =>
+      'The quickest way to text in about 25 European languages, including German. Runs well on any hardware, GPU or not.';
+
+  @override
+  String get onboardingModelEngineWhisperLabel => 'All 99 Languages';
+
+  @override
+  String get onboardingModelEngineWhisperDesc =>
+      'Broadest language coverage, plus custom vocabulary and punctuation tuning for names, acronyms, and jargon.';
+
+  @override
+  String get onboardingModelEngineUnsupportedLanguage =>
+      'Doesn\'t support your selected language yet';
+
+  @override
+  String get onboardingTestRecordingTitle => 'Give it a try';
+
+  @override
+  String get onboardingTestRecordingSubtitle =>
+      'Press the button below and say a sentence. The text lands in the test field. Your hotkey works too.';
+
+  @override
+  String get onboardingTestRecordingHotkeyLabel => 'Your hotkey';
+
+  @override
+  String get onboardingTestRecordingStartCta => 'Start recording';
+
+  @override
+  String get onboardingTestRecordingStopCta => 'Stop recording';
+
+  @override
+  String get onboardingTestRecordingCompletionHint =>
+      'Try a recording first to continue.';
+
+  @override
+  String get onboardingTestRecordingMicBypassCta =>
+      'Continue without a microphone';
+
+  @override
+  String get onboardingTestRecordingMicBypassHint =>
+      'Without a working microphone, WhisPaste can\'t start a recording yet. You can catch up anytime via the microphone status on this page or in Settings.';
+
+  @override
+  String get onboardingTestRecordingPlaceholder =>
+      'Your spoken text will appear here …';
+
+  @override
+  String get onboardingTestRecordingInProgress =>
+      'Recording: just start talking. Press again to stop.';
+
+  @override
+  String get onboardingTestRecordingDoneMessage =>
+      'That\'s it! This is exactly how it works in every app.';
+
+  @override
+  String get onboardingTestRecordingReassurance =>
+      'Just a test, the text stays in this field.';
+
+  @override
+  String onboardingTestRecordingReassuranceWithDuration(
+    int seconds,
+    String section,
+  ) {
+    return 'Just a test, the text stays in this field — recordings stop automatically after $seconds seconds, adjustable under Settings → $section.';
+  }
+
+  @override
+  String get onboardingReadyTitle => 'You\'re All Set!';
+
+  @override
+  String get onboardingReadySubtitle => 'Here\'s how to use WhisPaste';
+
+  @override
+  String get onboardingReadyStep1 => 'Press the hotkey to start recording';
+
+  @override
+  String get onboardingReadyStep2 => 'Press again to stop and transcribe';
+
+  @override
+  String get onboardingReadyStep3AutoPaste =>
+      'Text flows straight into the active app';
+
+  @override
+  String get onboardingReadyStep3CopyOnly =>
+      'Text is in your clipboard, press ⌘V / Ctrl+V to paste';
+
+  @override
+  String get onboardingReadyContextCarryoverHint =>
+      'WhisPaste carries context from your previous recording forward for up to ten minutes. Before a quick switch to an unrelated topic, a short pause keeps the next result on track.';
+
+  @override
+  String get onboardingReadyAutostartToggle => 'Launch WhisPaste at login';
+
+  @override
+  String get onboardingReadyAutostartToggleHint =>
+      'Off by default, turn on anytime in Settings';
+
+  @override
+  String get onboardingTriggerTitle => 'How do you want to start recording?';
+
+  @override
+  String get onboardingTriggerSubtitle =>
+      'Set your hotkey and choose how it starts a recording.';
+
+  @override
+  String get onboardingTriggerCurrentHotkey => 'Current hotkey';
+
+  @override
+  String get onboardingTriggerHotkeyConflictTitle => 'Hotkey already in use';
+
+  @override
+  String get onboardingTriggerHotkeyConflictBody =>
+      'Your hotkey seems to be in use by another app. Record a new combination below to continue.';
+
+  @override
+  String get onboardingReadyHotkeyConflictBody =>
+      'Go back to the hotkey page and record a new combination there.';
+
+  @override
+  String get onboardingTriggerModeHoldHint =>
+      'Hold the hotkey and speak, release to finish';
+
+  @override
+  String get onboardingTriggerModeToggleHint =>
+      'Press once to start, press again to finish';
+
+  @override
+  String get onboardingTriggerSystemWideHint =>
+      'Works system-wide — not just inside WhisPaste.';
+
+  @override
+  String get onboardingStartUsing => 'Let\'s go';
+
+  @override
+  String get onboardingReviewExit => 'Close introduction';
+
+  @override
+  String get onboardingReviewDone => 'Done';
+
+  @override
+  String get onboardingReviewEntry => 'Introduction';
+
+  @override
+  String get onboardingReviewSubtitle =>
+      'Go through the five setup steps again whenever you like — nothing changes unless you change it.';
+
+  @override
+  String get onboardingReviewLabel => 'Review the introduction';
+
+  @override
+  String get onboardingReviewAction => 'Open';
+
+  @override
+  String get onboardingRevisionNoticeTitle =>
+      'WhisPaste was updated — your settings are unchanged.';
+
+  @override
+  String get onboardingRevisionExit => 'Leave introduction';
+
+  @override
+  String get onboardingRevisionExitConfirmTitle => 'Leave the introduction?';
+
+  @override
+  String get onboardingRevisionExitConfirmBody =>
+      'This update walkthrough is shown only once, so the steps you skip now won\'t be set up for you. You can reopen the same steps any time under Settings → Introduction, and every setting they cover also has its own place in Settings. What you already configured stays untouched.';
+
+  @override
+  String get onboardingRevisionExitConfirmAction => 'Leave';
+
+  @override
+  String get overlayRecording => 'Recording';
+
+  @override
+  String get overlayTranscribing => 'Transcribing…';
+
+  @override
+  String get overlayRefining => 'Refining…';
+
+  @override
+  String get overlayDone => 'Copied';
+
+  @override
+  String get overlayDonePasted => 'Pasted';
+
+  @override
+  String get overlayDoneBoth => 'Copied & Pasted';
+
+  @override
+  String get overlayDoneReady => 'Done';
+
+  @override
+  String get overlayError => 'Error';
+
+  @override
+  String get overlayCancel => 'Cancel';
+
+  @override
+  String get overlayPause => 'Pause';
+
+  @override
+  String get overlayResume => 'Resume';
+
+  @override
+  String get overlayStop => 'Stop';
+
+  @override
+  String overlayKeyboardHint(String hotkey) {
+    return 'Press $hotkey to stop';
+  }
+
+  @override
+  String overlayKeyboardHintNextFieldEnter(String hotkey) {
+    return 'Enter or $hotkey: next field · Esc: cancel';
+  }
+
+  @override
+  String get overlayKeyboardHintNextFieldEnterOnly =>
+      'Enter: next field · Esc: cancel';
+
+  @override
+  String get overlayProcessingLocal => 'Local';
+
+  @override
+  String get overlayProcessingCloud => 'Cloud';
+
+  @override
+  String get overlayRecordingQuickNote => 'Recording to note';
+
+  @override
+  String get overlayTargetQuickNote => 'Note';
+
+  @override
+  String overlayRecordingTargetTimer(String elapsed, String target) {
+    return '$elapsed · $target';
+  }
+
+  @override
+  String get overlayDoneQuickNote => 'Added to note';
+
+  @override
+  String get floatingButtonHide => 'Hide';
+
+  @override
+  String get floatingButtonQuit => 'Quit';
+
+  @override
+  String get a11yRecordingButton => 'Recording button';
+
+  @override
+  String get a11yRecordingOverlay => 'Recording overlay';
+
+  @override
+  String get a11ySidePanel => 'Quick paste panel';
+
+  @override
+  String get trayStatusRecording => 'Recording…';
+
+  @override
+  String get trayStatusReady => 'Ready';
+
+  @override
+  String get trayStartRecording => 'Start Recording';
+
+  @override
+  String get trayStopRecording => 'Stop Recording';
+
+  @override
+  String get trayOpenApp => 'Open WhisPaste';
+
+  @override
+  String get traySettings => 'Settings';
+
+  @override
+  String get trayQuit => 'Quit';
+
+  @override
+  String get trayMicrophone => 'Microphone';
+
+  @override
+  String get settingsComingSoon => 'Coming Soon';
+
+  @override
+  String get undo => 'Undo';
+
+  @override
+  String get hintDismiss => 'Dismiss hint';
+
+  @override
+  String get voiceNoteButton => 'Voice note';
+
+  @override
+  String get voiceNoteRecording => 'Recording voice note…';
+
+  @override
+  String get voiceNoteTranscribing => 'Transcribing…';
+
+  @override
+  String get voiceNoteAdded => 'Voice note added';
+
+  @override
+  String voiceTagAdded(String tag) {
+    return 'Tag \"$tag\" added by voice';
+  }
+
+  @override
+  String get voiceCorrectionApplied => 'Transcript corrected by voice';
+
+  @override
+  String get voiceCorrectionUndone => 'Correction undone';
+
+  @override
+  String get voiceNoteEmpty => 'No speech detected';
+
+  @override
+  String get voiceNoteError => 'Voice note failed';
+
+  @override
+  String get historyVoiceNoteButtonTooltip =>
+      'Voice note — say “tag: …” to add a tag, or “correct: …” to rewrite this transcript';
+
+  @override
+  String updateAvailable(String version) {
+    return 'Update available: v$version';
+  }
+
+  @override
+  String updateDownloading(int percent) {
+    return 'Downloading update… $percent%';
+  }
+
+  @override
+  String get updateReadyToInstall => 'Update ready, click to install';
+
+  @override
+  String get updateUpToDate => 'You\'re on the latest version';
+
+  @override
+  String get updateCheckNow => 'Check Now';
+
+  @override
+  String get updateInstall => 'Install Update';
+
+  @override
+  String get updateDownload => 'Download';
+
+  @override
+  String get updateViewRelease => 'Release Notes';
+
+  @override
+  String get updateError => 'Update check failed';
+
+  @override
+  String get updateRateLimited => 'Too many requests, try again later';
+
+  @override
+  String updateStatusBarChip(String version) {
+    return 'v$version available';
+  }
+
+  @override
+  String get settingsOverlaySize => 'Overlay size';
+
+  @override
+  String get settingsOverlaySizeSubtitle =>
+      'Choose between detailed or minimal display';
+
+  @override
+  String get settingsOverlaySizeNormal => 'Normal';
+
+  @override
+  String get settingsOverlaySizeCompact => 'Compact';
+
+  @override
+  String get settingsOverlaySizeMini => 'Mini';
+
+  @override
+  String get settingsOverlayStyle => 'Overlay style';
+
+  @override
+  String get settingsOverlayStyleSubtitle =>
+      'Choose between glass or a solid opaque look';
+
+  @override
+  String get settingsOverlayStyleGlass => 'Glass';
+
+  @override
+  String get settingsOverlayStyleSolid => 'Solid';
+
+  @override
+  String get settingsOverlayLiveTranscript => 'Live transcript';
+
+  @override
+  String get settingsOverlayLiveTranscriptSubtitle =>
+      'Show recognized text live while you\'re still speaking, instead of the waveform only. Uses extra CPU during recording';
+
+  @override
+  String get overlayRetry => 'Retry';
+
+  @override
+  String get overlayDismiss => 'Dismiss';
+
+  @override
+  String get overlayContextCancel => 'Cancel recording';
+
+  @override
+  String get overlayContextSwitchNormal => 'Switch to Normal';
+
+  @override
+  String get overlayContextSwitchCompact => 'Switch to Compact';
+
+  @override
+  String get overlayContextSwitchMini => 'Switch to Mini';
+
+  @override
+  String get overlayContextHide => 'Hide overlay';
+
+  @override
+  String get buttonContextOpen => 'Open WhisPaste';
+
+  @override
+  String get buttonContextStartRecording => 'Start Recording';
+
+  @override
+  String get buttonContextShowHistory => 'Show History';
+
+  @override
+  String get buttonContextSettings => 'Settings';
+
+  @override
+  String get buttonContextQuit => 'Quit WhisPaste';
+
+  @override
+  String get settingsHistory => 'History';
+
+  @override
+  String get settingsHistorySubtitle => 'Retention and automatic cleanup';
+
+  @override
+  String get settingsHistoryMaxEntries => 'Maximum entries';
+
+  @override
+  String get settingsHistoryMaxEntriesUnlimited => 'Unlimited';
+
+  @override
+  String get settingsHistoryAutoTrashDays => 'Auto-delete trash after';
+
+  @override
+  String get settingsHistoryAutoTrashNever => 'Never';
+
+  @override
+  String settingsHistoryAutoTrashDaysLabel(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsHistoryRetentionPreset => 'Retention';
+
+  @override
+  String get settingsHistoryPresetMinimal => 'Minimal';
+
+  @override
+  String get settingsHistoryPresetStandard => 'Standard';
+
+  @override
+  String get settingsHistoryPresetUnlimited => 'Unlimited';
+
+  @override
+  String get settingsHistoryPresetCustom => 'Custom';
+
+  @override
+  String get settingsHistoryHideOnOpen => 'Hide history on open';
+
+  @override
+  String get settingsHistoryHideOnOpenSubtitle =>
+      'Shows a “Show history” button instead of your transcriptions whenever WhisPaste starts or its window reopens';
+
+  @override
+  String get historyPinGateTitle => 'History is locked';
+
+  @override
+  String get historyPinGateHint =>
+      'Enter your PIN to show your transcriptions.';
+
+  @override
+  String get historyPinUnlock => 'Unlock';
+
+  @override
+  String get historyPinDialogTitle => 'Enter PIN';
+
+  @override
+  String get historyPinDialogSubtitle =>
+      'Your history is protected with a PIN.';
+
+  @override
+  String get historyPinFieldHint => 'PIN';
+
+  @override
+  String get historyPinRepeatHint => 'Repeat PIN';
+
+  @override
+  String get historyPinWrong => 'Wrong PIN.';
+
+  @override
+  String historyPinLockedOut(int seconds) {
+    return 'Too many attempts. Try again in $seconds s.';
+  }
+
+  @override
+  String get historyPinForgot => 'Forgot PIN?';
+
+  @override
+  String get historyPinForgotConfirmTitle => 'Delete history and remove PIN?';
+
+  @override
+  String get historyPinForgotConfirmMessage =>
+      'A forgotten PIN cannot be recovered. To reset it, your entire history — including archive, trash and kept recordings — is permanently deleted. Settings, notes, snippets and replacements are kept.';
+
+  @override
+  String get historyPinForgotConfirmAction => 'Delete history';
+
+  @override
+  String get historyPinSetTitle => 'Set PIN';
+
+  @override
+  String get historyPinSetSubtitle =>
+      '4–8 digits. Keeps others from casually viewing your history on this computer — it does not encrypt it.';
+
+  @override
+  String get historyPinInvalid => 'Use 4 to 8 digits.';
+
+  @override
+  String get historyPinMismatch => 'The PINs do not match.';
+
+  @override
+  String get settingsHistoryPin => 'PIN protection';
+
+  @override
+  String get settingsHistoryPinSubtitle =>
+      'Require a PIN to show the history, including side panel, floating button menu and automation API.';
+
+  @override
+  String get settingsHistoryPinChange => 'Change';
+
+  @override
+  String get settingsHistoryPinRemove => 'Remove';
+
+  @override
+  String get settingsHistoryAutoLock => 'Lock automatically';
+
+  @override
+  String get settingsHistoryAutoLockSubtitle =>
+      'Hide the history again after this much inactivity.';
+
+  @override
+  String get settingsHistoryAutoLockNever => 'Never';
+
+  @override
+  String settingsHistoryAutoLockMinutes(int minutes) {
+    return 'After $minutes min';
+  }
+
+  @override
+  String get settingsFloatingButtonSection => 'Floating Button';
+
+  @override
+  String get settingsFloatingButtonSectionSubtitle =>
+      'Always-on-top recording button for quick access';
+
+  @override
+  String get settingsSttIdleTimeout => 'Engine idle timeout';
+
+  @override
+  String get settingsSttIdleTimeoutSubtitle =>
+      'How long the speech service stays loaded after use';
+
+  @override
+  String get settingsSttIdleTimeoutKeepAlive => 'Keep alive';
+
+  @override
+  String settingsSttIdleTimeoutMinutes(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count minutes',
+      one: '1 minute',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get reviewPromptTitle => 'Are you enjoying WhisPaste?';
+
+  @override
+  String get reviewPromptBody =>
+      'Your rating helps others discover it and keeps development going.';
+
+  @override
+  String get reviewPromptYes => 'Loving it!';
+
+  @override
+  String get reviewPromptNotNow => 'Not now';
+
+  @override
+  String get reviewPromptNever => 'Never ask again';
+
+  @override
+  String get reviewPromptStarGitHub => '⭐ Star on GitHub';
+
+  @override
+  String get reviewPromptRateStore => '★ Rate on the Store';
+
+  @override
+  String get reviewPromptGateBody =>
+      'Just a quick question for us, this isn\'t a store rating.';
+
+  @override
+  String get reviewPromptGateYes => 'Yes, I like it';
+
+  @override
+  String get reviewPromptGateNo => 'Not really';
+
+  @override
+  String get reviewSupportEntry => 'Rate & support WhisPaste';
+
+  @override
+  String get reviewSupportLabel => 'Your rating';
+
+  @override
+  String get reviewSupportSubtitle =>
+      'Your rating helps others discover WhisPaste and supports the project.';
+
+  @override
+  String get reviewSupportAction => 'Rate';
+
+  @override
+  String get ideasBoardLabel => 'Ideas & feature requests';
+
+  @override
+  String get ideasBoardAction => 'View board';
+
+  @override
+  String get feedbackIdeasLink => 'Suggest & vote on ideas';
+
+  @override
+  String get insufficientRamTitle => 'Not Enough Memory';
+
+  @override
+  String insufficientRamBody(double detectedGb, int requiredGb) {
+    final intl.NumberFormat detectedGbNumberFormat =
+        intl.NumberFormat.decimalPattern(localeName);
+    final String detectedGbString = detectedGbNumberFormat.format(detectedGb);
+
+    return 'WhisPaste requires at least $requiredGb GB of RAM to run. Your system has $detectedGbString GB.\n\nWith less memory, the AI transcription engine may fail to load or crash mid-session.';
+  }
+
+  @override
+  String get insufficientRamQuit => 'Quit WhisPaste';
+
+  @override
+  String get insufficientRamLearnMore => 'System requirements';
+
+  @override
+  String get insufficientRamSystemCheck => 'System Check';
+
+  @override
+  String get insufficientRamYourSystem => 'Your system';
+
+  @override
+  String get insufficientRamRequired => 'Required';
+
+  @override
+  String get hotkeyRegistrationFailed =>
+      'Hotkey registration failed, please re-bind your shortcut in Settings.';
+
+  @override
+  String get hotkeyRegistrationFailedDefaultActive =>
+      'Hotkey registration failed, using Ctrl+Shift+Space as fallback. Please re-bind in Settings.';
+
+  @override
+  String hotkeyConflictWarning(String platform, String note) {
+    return 'This shortcut is reserved by $platform ($note) and may not work.';
+  }
+
+  @override
+  String get exportFormatPickerTitle => 'Choose Export Format';
+
+  @override
+  String get exportFormatText => 'Text';
+
+  @override
+  String get exportFormatMarkdown => 'Markdown';
+
+  @override
+  String get exportFormatCsv => 'CSV';
+
+  @override
+  String get exportFormatJson => 'JSON';
+
+  @override
+  String get exportFormatWord => 'Word';
+
+  @override
+  String get cpuFallbackToast =>
+      'Transcription is taking a little longer than usual right now, it\'s still working.';
+
+  @override
+  String get recoveryExhaustedToast =>
+      'Voice service cannot start. Please restart the app or reload the voice model.';
+
+  @override
+  String get recoveryExhaustedAction => 'Open settings';
+
+  @override
+  String get recoveryVcRuntimeToast =>
+      'Voice service cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.';
+
+  @override
+  String get recoveryVcRuntimeAction => 'Install';
+
+  @override
+  String get modelAbiInfoToast => 'Reloading voice model, please wait.';
+
+  @override
+  String get recoveryGpuDisabledToast =>
+      'WhisPaste is now running without GPU acceleration due to a problem on the last launch. Dictation still works as usual.';
+
+  @override
+  String get serverDownloadFailedToast =>
+      'Voice service could not be downloaded. Check your internet connection?';
+
+  @override
+  String get serverDownloadFailedAction => 'Try again';
+
+  @override
+  String get serverDownloadStalledToast => 'Download stalled: reconnecting.';
+
+  @override
+  String get historyWriteFailedToast =>
+      'Entry could not be saved, please check available storage.';
+
+  @override
+  String get historyWriteFailedAction => 'Copy diagnostics';
+
+  @override
+  String get factoryResetFailedToast =>
+      'Factory reset incomplete. Restart the app?';
+
+  @override
+  String get factoryResetFailedAction => 'Quit app';
+
+  @override
+  String get errorSttRejectEmpty =>
+      'No audio to transcribe, please record again.';
+
+  @override
+  String get errorSttRejectInvalidWav =>
+      'Audio file is corrupted, please record again.';
+
+  @override
+  String get errorSttRejectUnsupportedLanguage =>
+      'This language is not supported by the local speech model, please review the language in Settings.';
+
+  @override
+  String get errorSttRejectPromptTooLong =>
+      'Custom vocabulary is too long, please shorten it in Settings.';
+
+  @override
+  String get settingsGpuAcceleration => 'Graphics Acceleration';
+
+  @override
+  String get settingsGpuAccelerationSubtitle =>
+      'Controls whether the speech service uses GPU or CPU for local recognition';
+
+  @override
+  String get settingsGpuAccelerationAuto => 'Automatic (recommended)';
+
+  @override
+  String get settingsGpuAccelerationEnabled => 'GPU (force)';
+
+  @override
+  String get settingsGpuAccelerationDisabled => 'CPU only';
+
+  @override
+  String get settingsSttEngine => 'Engine';
+
+  @override
+  String get settingsSttEngineSubtitle =>
+      'Whisper covers 99 languages and every GPU backend; Parakeet is much faster and covers ~25 languages, on the GPU where available';
+
+  @override
+  String get settingsSttEngineWhisper => 'Whisper';
+
+  @override
+  String get settingsSttEngineParakeet => 'Parakeet (fastest, ~25 languages)';
+
+  @override
+  String get parakeetModelTitle => 'Parakeet TDT model';
+
+  @override
+  String parakeetModelSubtitle(String size) {
+    return 'One-time download ($size), then runs fully offline';
+  }
+
+  @override
+  String get parakeetModelDownload => 'Download';
+
+  @override
+  String get parakeetModelDownloading => 'Downloading…';
+
+  @override
+  String get parakeetModelInstalled => 'Installed';
+
+  @override
+  String get parakeetModelDelete => 'Delete';
+
+  @override
+  String get parakeetModelCancel => 'Cancel';
+
+  @override
+  String get settingsSearchHint => 'Search settings…';
+
+  @override
+  String get settingsSearchNoResults => 'No Results';
+
+  @override
+  String get settingsSearchNoResultsHint => 'Try a different search term.';
+
+  @override
+  String get settingsSearchFieldLabel => 'Search settings';
+
+  @override
+  String settingsSearchResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results',
+      one: '1 result',
+      zero: 'No results',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settingsPrivacy => 'Privacy';
+
+  @override
+  String get settingsPrivacySubtitle => 'Control what data WhisPaste shares';
+
+  @override
+  String get settingsShareUsageStats => 'Share anonymous usage statistics';
+
+  @override
+  String get settingsShareUsageStatsSubtitle =>
+      'Cookieless, with a random per-session ID and a weekly changing pseudonym — helps us understand how WhisPaste is used';
+
+  @override
+  String get settingsRetainRecentAudio => 'Keep recent recordings';
+
+  @override
+  String get settingsRetainRecentAudioSubtitle =>
+      'Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically';
+
+  @override
+  String get featureSpotlightHeading => 'New in WhisPaste';
+
+  @override
+  String get featureSpotlightDismiss => 'Got it';
+
+  @override
+  String get featureSpotlightSnippetPickerTitle => 'Snippet Picker';
+
+  @override
+  String get featureSpotlightSnippetPickerDescription =>
+      'Save reusable text blocks and insert them anywhere with a hotkey or a spoken trigger — no retyping needed.';
+
+  @override
+  String get featureSpotlightSidePanelTitle => 'Clipboard Side Panel';
+
+  @override
+  String get featureSpotlightSidePanelDescription =>
+      'Hover the screen edge to open your recent clipboard history and drag any item straight into your document.';
+
+  @override
+  String get featureSpotlightInteractiveSnippetsTitle => 'Interactive Snippets';
+
+  @override
+  String get featureSpotlightInteractiveSnippetsDescription =>
+      'Snippets with blanks: WhisPaste walks you through each field — dictate, press Enter for the next one, and the finished text is pasted in one piece.';
+
+  @override
+  String get featureSpotlightSmartModeTitle => 'Smart Mode';
+
+  @override
+  String get featureSpotlightSmartModeDescription =>
+      'Clean up, shorten, or translate your dictation before it is pasted — fully on-device, with its own hotkey, preset, and target language.';
+
+  @override
+  String get featureSpotlightHistoryPinTitle => 'Lock your history with a PIN';
+
+  @override
+  String get featureSpotlightHistoryPinDescription =>
+      'Keep your transcriptions private behind a PIN — including the side panel and the floating button menu — with optional auto-lock after inactivity. Settings → History.';
+
+  @override
+  String get featureSpotlightEditSelectionTitle =>
+      'Edit selected text by voice';
+
+  @override
+  String get featureSpotlightEditSelectionDescription =>
+      'Select text in any app, press the edit-selection hotkey and say what should change — or just “shorter”, “improve” or “translate”. Uses your Smart Mode engine. Off by default: turn it on under Settings → Smart Mode.';
+
+  @override
+  String get featureSpotlightChangelogLink => 'View full changelog';
+
+  @override
+  String get featureSpotlightReviewLabel => 'Review the new features';
+
+  @override
+  String get featureSpotlightReviewAction => 'Show';
+
+  @override
+  String get notesNewNote => 'New note';
+
+  @override
+  String get notesEmptyTitle => 'No notes yet';
+
+  @override
+  String get notesEmptyHint =>
+      'Create a note to start collecting text from anywhere.';
+
+  @override
+  String get notesUntitled => 'Untitled note';
+
+  @override
+  String get notesEditorPlaceholder => 'Start typing…';
+
+  @override
+  String get notesListSemantics => 'Notes list';
+
+  @override
+  String get notesCopy => 'Copy note';
+
+  @override
+  String get notesCopied => 'Note copied';
+
+  @override
+  String get notesFavorite => 'Mark as favorite';
+
+  @override
+  String get notesUnfavorite => 'Remove from favorites';
+
+  @override
+  String get notesQuickNoteSet =>
+      'Make this the quick note the hotkey appends to';
+
+  @override
+  String get notesQuickNoteClear => 'Quick note — remove the mark';
+
+  @override
+  String get notesQuickNoteHotkeyLabel => 'Hotkey';
+
+  @override
+  String notesQuickNoteHotkeyChange(String combination) {
+    return 'Change the quick-note hotkey — currently $combination';
+  }
+
+  @override
+  String get notesQuickNoteHotkeyOff =>
+      'The quick-note hotkey is switched off.';
+
+  @override
+  String get notesQuickNoteHotkeyEnable => 'Turn hotkey on';
+
+  @override
+  String get notesMoveToTrash => 'Move to Trash';
+
+  @override
+  String get notesMovedToTrash => 'Moved to trash';
+
+  @override
+  String get notesRestore => 'Restore';
+
+  @override
+  String get notesDeleteForever => 'Delete forever';
+
+  @override
+  String get notesDeleteForeverConfirm => 'Delete note forever?';
+
+  @override
+  String get notesTrash => 'Trash';
+
+  @override
+  String get notesTrashEmpty => 'Trash is empty';
+
+  @override
+  String get notesTrashEmptyHint =>
+      'Deleted notes land here and aren\'t removed automatically.';
+
+  @override
+  String get notesUndo => 'Undo';
+
+  @override
+  String get notesAddTag => 'Add tag';
+
+  @override
+  String get notesTagPlaceholder => 'Tag name…';
+
+  @override
+  String get notesSearchPlaceholder => 'Search notes…';
+
+  @override
+  String get notesSearchFieldLabel => 'Search notes';
+
+  @override
+  String get notesNoResults => 'No results';
+
+  @override
+  String notesNoResultsHint(String query) {
+    return 'No notes match \"$query\".\nTry a different search term.';
+  }
+
+  @override
+  String notesResultCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results',
+      one: '1 result',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get notesExport => 'Export';
+
+  @override
+  String markdownToolbarBold(String shortcut) {
+    return 'Bold ($shortcut)';
+  }
+
+  @override
+  String markdownToolbarItalic(String shortcut) {
+    return 'Italic ($shortcut)';
+  }
+
+  @override
+  String get markdownToolbarHeading => 'Heading';
+
+  @override
+  String markdownToolbarBulletList(String shortcut) {
+    return 'Bullet list ($shortcut)';
+  }
+
+  @override
+  String get markdownToolbarNumberedList => 'Numbered list';
+
+  @override
+  String get markdownToolbarQuote => 'Quote';
+
+  @override
+  String get markdownToolbarCode => 'Code';
+
+  @override
+  String get findReplaceToggle => 'Find and replace in this text';
+
+  @override
+  String get findReplaceFindLabel => 'Find in this text';
+
+  @override
+  String get findReplaceFindHint => 'Find…';
+
+  @override
+  String get findReplaceReplaceLabel => 'Replace matches with';
+
+  @override
+  String get findReplaceReplaceHint => 'Replace with…';
+
+  @override
+  String get findReplaceNext => 'Next match';
+
+  @override
+  String get findReplacePrevious => 'Previous match';
+
+  @override
+  String get findReplaceReplaceAction => 'Replace this match';
+
+  @override
+  String get findReplaceReplaceAllAction => 'Replace all matches';
+
+  @override
+  String get findReplaceClose => 'Close find and replace';
+
+  @override
+  String get findReplaceNoMatches => 'No matches';
+
+  @override
+  String findReplaceMatchCount(int current, int total) {
+    return '$current of $total';
+  }
+
+  @override
+  String get sidePanelTranscriptionsTitle => 'Transcriptions';
+
+  @override
+  String get sidePanelSnippetsTitle => 'Snippets';
+
+  @override
+  String get sidePanelClipboardHistoryTitle => 'Clipboard History';
+
+  @override
+  String get sidePanelClipboardHistoryEmpty => 'Nothing copied yet';
+
+  @override
+  String get sidePanelClipboardHistoryEmptyHint =>
+      'Anything you copy while WhisPaste is running shows up here — cleared when the app restarts.';
+
+  @override
+  String get sidePanelClose => 'Close panel';
+
+  @override
+  String get sidePanelSearchHint => 'Search';
+
+  @override
+  String get sidePanelSearchFieldLabel => 'Search this list';
+
+  @override
+  String get sidePanelNoMatches => 'No matches';
+
+  @override
+  String get sidePanelNoMatchesHint => 'Try a different search term.';
+
+  @override
+  String get settingsSmartMode => 'Smart Mode';
+
+  @override
+  String get settingsSmartModeSubtitle =>
+      'Local text cleanup, shortening, and translation after dictation';
+
+  @override
+  String get smartModeStandardPreset => 'Standard preset';
+
+  @override
+  String get smartModePresetOff => 'Off';
+
+  @override
+  String get smartModePresetOffDescription =>
+      'No automatic post-processing — the dictated text is used exactly as transcribed.';
+
+  @override
+  String get smartModePresetCleanup => 'Cleanup';
+
+  @override
+  String get smartModePresetCleanupDescription =>
+      'Removes filler words like \"um\" and fixes punctuation and capitalization, without changing the wording, meaning, or language.';
+
+  @override
+  String get smartModePresetConcise => 'Concise';
+
+  @override
+  String get smartModePresetConciseDescription =>
+      'Shortens the text by removing redundancy and filler while keeping every important fact, in the same language.';
+
+  @override
+  String get smartModePresetTranslate => 'Translate';
+
+  @override
+  String get smartModePresetTranslateDescription =>
+      'Translates the dictated text into the target language set below.';
+
+  @override
+  String get smartModeTargetLanguage => 'Target language';
+
+  @override
+  String get smartModeTargetLanguageGerman => 'German';
+
+  @override
+  String get smartModeTargetLanguageEnglish => 'English';
+
+  @override
+  String get smartModeTargetLanguageSpanish => 'Spanish';
+
+  @override
+  String get smartModeTargetLanguageFrench => 'French';
+
+  @override
+  String get smartModeTargetLanguagePortuguese => 'Portuguese';
+
+  @override
+  String get smartModeTargetLanguageMandarin => 'Mandarin';
+
+  @override
+  String get smartModeTargetLanguageRussian => 'Russian';
+
+  @override
+  String get smartModeDownload => 'Download';
+
+  @override
+  String get smartModeDownloadComplete => 'Smart Mode model ready to use';
+
+  @override
+  String get smartModeRamWarningTitle => 'Limited memory detected';
+
+  @override
+  String get smartModeRamWarningBody =>
+      'Smart Mode\'s local model runs best with 8 GB of RAM or more. It may still work, but could run slowly or fail on this machine. Download anyway?';
+
+  @override
+  String get smartModeRamWarningContinue => 'Download anyway';
+
+  @override
+  String get smartModeRamWarningCancel => 'Cancel';
+
+  @override
+  String get smartModeMemoryFootprintInfo =>
+      'Runs fully on-device. While active, it uses about 4–5 GB of RAM in addition to disk space — shared with the transcription model, so total memory use depends on which STT model you also have loaded.';
+
+  @override
+  String get smartModeSpeedExampleInfo =>
+      'Example: a typical 50-word dictation takes roughly 1–6 seconds to process, depending on your device\'s hardware.';
+
+  @override
+  String get smartModeLocalUnavailable =>
+      'On-device Smart Mode isn\'t included in this build. Switch to OpenAI, or install an official WhisPaste release.';
+
+  @override
+  String get settingsHotkeyActionSmartMode => 'Smart Mode';
+
+  @override
+  String get settingsSmartModeHotkeyEnabled => 'Smart-Mode hotkey';
+
+  @override
+  String get settingsSmartModeHotkeyHint =>
+      'Starts a recording with a fixed preset, independent of your standard preset above. Supports push-to-talk just like the main hotkey.';
+
+  @override
+  String get settingsSmartModeHotkeyPreset => 'Preset';
+
+  @override
+  String get settingsSmartModeCurrentHotkey => 'Combination';
+
+  @override
+  String settingsSmartModeHotkeyCollision(String action) {
+    return 'This combination is already used for \"$action\". Pick a different one.';
+  }
+
+  @override
+  String get settingsSmartModeHotkeyInactive =>
+      'This combination could not be registered — the Smart-Mode hotkey is currently not active. Pick a different combination.';
+
+  @override
+  String get smartModeOnboardingHintTitle => 'Try Smart Mode';
+
+  @override
+  String get smartModeOnboardingHintBody =>
+      'Smart Mode can clean up, shorten, or translate your dictated text automatically — fully on-device. Download the local model now, or set it up later in Settings.';
+
+  @override
+  String get smartModeOnboardingHintExampleBeforeLabel => 'Raw dictation';
+
+  @override
+  String get smartModeOnboardingHintExampleBefore =>
+      'so um the client meeting got moved to thursday at three pm and uh we still need the updated slides from marketing';
+
+  @override
+  String get smartModeOnboardingHintExampleAfterLabel => 'Smart Mode result';
+
+  @override
+  String get smartModeOnboardingHintExampleAfter =>
+      'So, the client meeting got moved to Thursday at three PM, and we still need the updated slides from Marketing.';
+
+  @override
+  String get smartModeOnboardingHintDownloadCta => 'Download';
+
+  @override
+  String get smartModeOnboardingHintSkipCta => 'Skip';
+
+  @override
+  String get smartModeUsageHintTitle => 'Try Smart Mode on your next dictation';
+
+  @override
+  String get smartModeUsageHintBody =>
+      'Smart Mode can clean up, shorten, or translate text like this automatically, right on your device. Here\'s what you just dictated:';
+
+  @override
+  String get smartModeUsageHintCta => 'Set up';
+
+  @override
+  String get smartModeUsageHintDismiss => 'Not now';
+
+  @override
+  String get settingsAutomationApi => 'Local Automation API';
+
+  @override
+  String get settingsAutomationApiSubtitle =>
+      'Trigger dictation from your own scripts over a loopback-only HTTP API';
+
+  @override
+  String get settingsAutomationApiEnable => 'Enable local automation API';
+
+  @override
+  String get settingsAutomationApiEnableSubtitle =>
+      'Binds only to 127.0.0.1/::1 — never reachable from the network';
+
+  @override
+  String settingsAutomationApiStatusRunning(int port) {
+    return 'Running on port $port';
+  }
+
+  @override
+  String settingsAutomationApiStatusRunningFallback(
+    int port,
+    int requestedPort,
+  ) {
+    return 'Running on port $port (port $requestedPort was in use)';
+  }
+
+  @override
+  String get settingsAutomationApiStatusStopped => 'Not running';
+
+  @override
+  String settingsAutomationApiStatusError(int start, int end) {
+    return 'No free port found in range $start–$end';
+  }
+
+  @override
+  String get settingsAutomationApiCustomPortLabel => 'Custom port';
+
+  @override
+  String get settingsAutomationApiCustomPortSubtitle =>
+      'Leave empty for automatic port selection — falls back automatically if it\'s taken';
+
+  @override
+  String get settingsAutomationApiCustomPortHint => 'Automatic';
+
+  @override
+  String get settingsAutomationApiCustomPortInvalid =>
+      'Enter a port between 1024 and 65535';
+
+  @override
+  String get settingsAutomationApiToken => 'Bearer token';
+
+  @override
+  String get settingsAutomationApiTokenSubtitle =>
+      'Send it as \"Authorization: Bearer <token>\" — every request without it is rejected';
+
+  @override
+  String get settingsAutomationApiRegenerate => 'Regenerate';
+
+  @override
+  String get settingsAutomationApiRegenerateConfirmTitle => 'Regenerate token?';
+
+  @override
+  String get settingsAutomationApiRegenerateConfirmMessage =>
+      'The current token stops working immediately. Any script using it will need the new one.';
+
+  @override
+  String get settingsAutomationApiCopyToken => 'Copy token';
+
+  @override
+  String get settingsAutomationApiTokenCopied => 'Token copied to clipboard';
+
+  @override
+  String get settingsAutomationApiDocumentation => 'Documentation';
+
+  @override
+  String get settingsAutomationApiDocumentationSubtitle =>
+      'Endpoint reference and curl examples';
+
+  @override
+  String get settingsAutomationApiDocumentationAction => 'Open';
+
+  @override
+  String historyCharacterCount(int count) {
+    return '$count characters';
+  }
+
+  @override
+  String historyPastedInto(String app) {
+    return 'Pasted into $app';
+  }
+
+  @override
+  String get historyShowOriginalTranscript => 'Show original transcript';
+
+  @override
+  String get historyHideOriginalTranscript => 'Hide original transcript';
+
+  @override
+  String get historyOriginalTranscriptLabel => 'Original transcript';
+
+  @override
+  String get settingsHotkeyActionSelectionEdit => 'Edit selection';
+
+  @override
+  String get settingsSelectionEditHotkeyEnabled => 'Edit-selection hotkey';
+
+  @override
+  String get settingsSelectionEditHotkeyHint =>
+      'Select text in any app, press this hotkey and say what to change — or just \"shorter\", \"improve\" or \"translate\". The result replaces the selection; undo in the app brings the original back. Uses the Smart Mode engine configured above.';
+
+  @override
+  String get settingsSelectionEditHotkeyInactive =>
+      'This combination could not be registered — the edit-selection hotkey is currently not active. Pick a different combination.';
+
+  @override
+  String get overlayTargetSelectionEdit => 'Edit selection';
+
+  @override
+  String get overlayRecordingSelectionEdit => 'Say what to change';
+
+  @override
+  String get overlaySelectionEditHint =>
+      'Say what to change — or: shorter · improve · translate';
+
+  @override
+  String get overlayEditingSelection => 'Editing selection…';
+
+  @override
+  String get overlayDoneSelectionEdit => 'Selection replaced';
+
+  @override
+  String get errorSelectionEditNoSelection =>
+      'No text selected — select text first, then press the hotkey';
+
+  @override
+  String get errorSelectionEditNoEngine =>
+      'Set up Smart Mode first (download the local model or add an OpenAI key) to edit selections';
+
+  @override
+  String get errorSelectionEditUnsupported =>
+      'Editing a selection needs auto-paste, which is not available in this build';
+
+  @override
+  String get errorSelectionEditCopyFailed =>
+      'Could not read the selection — check the auto-paste permission';
+
+  @override
+  String get errorSelectionEditFailed =>
+      'Editing failed — your text was left unchanged';
+
+  @override
+  String get errorSelectionEditPasteFailed =>
+      'Could not replace the selection — your text was left unchanged';
+
+  @override
+  String get settingsCudaPackTitle => 'NVIDIA CUDA acceleration';
+
+  @override
+  String settingsCudaPackSubtitle(String size) {
+    return 'Faster dictation on GeForce RTX and GTX 16 cards. One-time download of $size.';
+  }
+
+  @override
+  String get settingsCudaPackInstalledSubtitle =>
+      'Installed. If your graphics driver is too old, WhisPaste keeps using Vulkan.';
+
+  @override
+  String get settingsCudaPackDownload => 'Download';
+
+  @override
+  String settingsCudaPackDownloading(int percent) {
+    return 'Downloading $percent %';
+  }
+
+  @override
+  String get settingsCudaPackInstalling => 'Installing …';
+
+  @override
+  String get settingsCudaPackCancel => 'Cancel download';
+
+  @override
+  String get settingsCudaPackRemove => 'Remove CUDA pack';
+
+  @override
+  String get settingsCudaPackToggle => 'Use CUDA';
+
+  @override
+  String get settingsCudaPackErrorNetwork =>
+      'Download failed. Check your connection and try again.';
+
+  @override
+  String get settingsCudaPackErrorVerification =>
+      'The download was damaged. Please try again.';
+
+  @override
+  String get settingsCudaPackErrorStorage =>
+      'The pack could not be saved. Check your free disk space.';
+
+  @override
+  String get recoveryCudaDisabledToast =>
+      'CUDA acceleration was switched off because of a problem on the last launch. WhisPaste now uses Vulkan, dictation works as usual.';
+
+  @override
+  String get supportPromptSnooze => 'Don\'t ask for 90 days';
+
+  @override
+  String get supportPayPalLabel => 'PayPal';
+
+  @override
+  String get supportStoreThankYouLine =>
+      'Thank you for buying WhisPaste in the store. Any further support is optional.';
+
+  @override
+  String get supportShareText =>
+      'I use WhisPaste to speak text straight into my apps. Local on my computer and open source:';
+
+  @override
+  String get supportPageTitle => 'Support WhisPaste';
+
+  @override
+  String get supportPageOpenAction => 'All ways to help';
+
+  @override
+  String get supportIntroDirect =>
+      'WhisPaste is free and open source. A contribution or recommendation helps the project.';
+
+  @override
+  String get supportCostsNote =>
+      'Contributions help cover development and the ongoing costs of publishing, hosting and the domain.';
+
+  @override
+  String get supportSectionOnce => 'One-time support';
+
+  @override
+  String get supportSectionOthers => 'Other ways to support';
+
+  @override
+  String get supportSectionReach => 'Recommend WhisPaste';
+
+  @override
+  String get supportStoreTitleWindows => 'WhisPaste in the Microsoft Store';
+
+  @override
+  String get supportStoreTitleMac => 'WhisPaste in the Mac App Store';
+
+  @override
+  String get supportStoreFactManaged =>
+      'Installation and updates are handled by the store.';
+
+  @override
+  String get supportStoreFactPurchase =>
+      'Your one-time purchase supports WhisPaste.';
+
+  @override
+  String get supportStoreFactSameFeatures =>
+      'Same features. The direct version stays free to use.';
+
+  @override
+  String get supportStoreCtaWindows => 'View in Microsoft Store';
+
+  @override
+  String get supportStoreCtaMac => 'View in Mac App Store';
+
+  @override
+  String get supportStorePriceNote => 'Price in the store';
+
+  @override
+  String get supportStoreCoffeeNote =>
+      'A one-time purchase, roughly the price of a coffee. The store shows the current price.';
+
+  @override
+  String get supportStoreDismiss => 'Hide store option';
+
+  @override
+  String get supportStoreShowAgain => 'Show store option';
+
+  @override
+  String get supportSponsorsCta => 'Open GitHub Sponsors';
+
+  @override
+  String get supportSponsorsNote =>
+      'Monthly or with an amount you choose. Pick the amount and rhythm there.';
+
+  @override
+  String get supportKofiCta => 'Open Ko-fi';
+
+  @override
+  String get supportPayPalCta => 'Support with PayPal';
+
+  @override
+  String get supportNativeTitle => 'Support once in the store';
+
+  @override
+  String get supportNativeDescription =>
+      'A one-time amount, billed by the store. Same features, no subscription.';
+
+  @override
+  String get supportNativeCta => 'Support once';
+
+  @override
+  String get supportSheetChoose => 'Choose an amount';
+
+  @override
+  String get supportSheetLoading => 'Loading amounts …';
+
+  @override
+  String supportSheetBuy(String price) {
+    return 'Support for $price';
+  }
+
+  @override
+  String get supportSheetPurchasing =>
+      'The store is confirming your purchase …';
+
+  @override
+  String get supportSheetThanks => 'Thank you for your support!';
+
+  @override
+  String get supportSheetThanksDetail =>
+      'Your supporter badge is active now. All features stay available to everyone.';
+
+  @override
+  String get supportSheetPending => 'Your purchase is awaiting confirmation.';
+
+  @override
+  String get supportSheetPurchaseError =>
+      'The purchase could not be completed. Please try again later.';
+
+  @override
+  String get supportSheetPricesError =>
+      'Prices couldn\'t be loaded. Please try again later.';
+
+  @override
+  String get supportSheetUnavailable =>
+      'No amounts are available in the store right now.';
+
+  @override
+  String get supportSheetRetry => 'Try again';
+
+  @override
+  String get supportSheetClose => 'Close';
+
+  @override
+  String get supportSelfDeclareCta => 'I already support WhisPaste';
+
+  @override
+  String get supportSelfDeclareNote =>
+      'Just a note on this device, nothing is verified. The sponsor button in the status bar is hidden.';
+
+  @override
+  String get supportSelfDeclareHint =>
+      'Nothing is verified. Use this if you already contributed.';
+
+  @override
+  String get supportSupporterLine => 'You support WhisPaste. Thank you!';
+
+  @override
+  String get supportSupporterBadge => 'Supporter';
+
+  @override
+  String get supportRateCta => 'Rate in the store';
+
+  @override
+  String get supportShareCopy => 'Copy link';
+
+  @override
+  String get supportShareCopied => 'Link copied';
+
+  @override
+  String get supportShareEmail => 'Email';
+
+  @override
+  String get supportChipLabel => 'Sponsor';
+
+  @override
+  String get supportChipTooltip => 'Support WhisPaste';
+
+  @override
+  String get supportChipThanksLabel => 'Thanks';
+
+  @override
+  String get supportChipThanksTooltip => 'Thank you for your support';
+
+  @override
+  String get supportChipHide => 'Hide';
+
+  @override
+  String get settingsSponsorChip => 'Sponsor button in the status bar';
+
+  @override
+  String get settingsSponsorChipSubtitle =>
+      'Shows the way to the support page. You can hide it once you have supported the project in the store or confirmed it here.';
+}

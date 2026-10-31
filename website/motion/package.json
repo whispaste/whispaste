@@ -1,0 +1,19 @@
+{
+  "name": "whispaste-motion",
+  "private": true,
+  "description": "Remotion sources for the website's pre-rendered motion graphics.",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "node render.mjs"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.536",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.536"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
+  }
+}

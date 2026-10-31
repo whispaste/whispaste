@@ -1,0 +1,10 @@
+{
+    "description": "Deliberately broken fixture — missing version, bin and autoupdate.",
+    "homepage": "https://whispaste.de",
+    "architecture": {
+        "64bit": {
+            "url": "https://example.com/WhisPaste.zip",
+            "hash": "aaaa"
+        }
+    }
+}

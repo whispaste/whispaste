@@ -1,0 +1,34 @@
+---
+/**
+ * Shared frame for the blog index and posts. Built on SubpageLayout (nav,
+ * full footer, language switch, pointer spotlight) like every other page
+ * outside the landing; adds the RSS alternate link. The editorial header
+ * (slot "hero": crumbs, title, lead) sits on the dark stage like PageHero,
+ * the content in the light PageSheet below, as on every other subpage.
+ */
+import SubpageLayout from "./SubpageLayout.astro";
+import PageSheet from "../components/PageSheet.astro";
+import { feedPath } from "../scripts/blog.ts";
+import { t, type Locale } from "../scripts/i18n.ts";
+
+interface Props {
+  readonly lang: Locale;
+  readonly title: string;
+  readonly description: string;
+  readonly ogImage?: string;
+}
+
+const { lang, title, description, ogImage } = Astro.props;
+---
+
+<SubpageLayout lang={lang} title={title} description={description} ogImage={ogImage}>
+  <link slot="head" rel="alternate" type="application/rss+xml" title={t(lang, "blog.seoTitle")} href={feedPath(lang)} />
+  <header class="page-hero band band-spotlight" data-testid="blog-hero">
+    <div class="wp-container">
+      <slot name="hero" />
+    </div>
+  </header>
+  <PageSheet>
+    <slot />
+  </PageSheet>
+</SubpageLayout>

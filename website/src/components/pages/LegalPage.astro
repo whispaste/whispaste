@@ -1,0 +1,150 @@
+---
+/**
+ * Frame for the legal pages (imprint, privacy policy). The page passes its
+ * legal text as the default slot; this component renders it once, gives
+ * every h2 a stable anchor id and builds the table of contents from those
+ * headings at build time, so the sticky rail works without JavaScript and
+ * can never drift from the text.
+ */
+import SubpageLayout from '../../layouts/SubpageLayout.astro';
+import PageHero from '../PageHero.astro';
+import BreadcrumbListSchema from '../schema/BreadcrumbListSchema.astro';
+import type { Locale } from '../../scripts/i18n.ts';
+
+interface Crumb {
+  readonly name: string;
+  readonly item: string;
+}
+
+interface Props {
+  readonly lang: Locale;
+  readonly metaTitle: string;
+  readonly metaDescription: string;
+  readonly title: string;
+  readonly crumbs: readonly Crumb[];
+  /** Heading of the table of contents in the page language. */
+  readonly tocLabel: string;
+  readonly testid: string;
+}
+
+const { lang, metaTitle, metaDescription, title, crumbs, tocLabel, testid } = Astro.props;
+
+const html = await Astro.slots.render('default');
+const toc: { id: string; label: string }[] = [];
+const body = html.replace(/<h2([^>]*)>([\s\S]*?)<\/h2>/g, (_match, attrs: string, inner: string) => {
+  const id = `section-${toc.length + 1}`;
+  // Tags stripped, entities kept: the label is already escaped HTML and is
+  // emitted with set:html so "&amp;" is not escaped twice.
+  const label = inner.replace(/<[^>]+>/g, '').trim();
+  toc.push({ id, label });
+  return `<h2${attrs} id="${id}">${inner}</h2>`;
+});
+import PageSheet from "../PageSheet.astro";
+---
+
+<SubpageLayout lang={lang} title={metaTitle} description={metaDescription}>
+  <PageHero title={title} titleId="pageTitle" crumbs={crumbs} testid={testid} />
+
+  <PageSheet>
+    <div class="page-split">
+      <article class="page-prose wp-prose legal-prose" data-testid={`${testid}-content`} set:html={body} />
+
+      <nav class="page-split__rail legal-toc" aria-label={tocLabel} data-testid={`${testid}-toc`}>
+        <p class="legal-toc__label">{tocLabel}</p>
+        <ol>
+          {toc.map((entry) => (
+            <li><a href={`#${entry.id}`} set:html={entry.label} /></li>
+          ))}
+        </ol>
+      </nav>
+    </div>
+  </PageSheet>
+
+  <BreadcrumbListSchema slot="head" items={crumbs} />
+</SubpageLayout>
+
+<style>
+  .legal-prose {
+    color: var(--color-ink-muted);
+    line-height: 1.75;
+  }
+  .legal-prose :global(section) {
+    padding: var(--wp-space-8) 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
+  }
+  .legal-prose :global(h2) {
+    font-family: var(--font-display);
+    font-weight: 750;
+    font-size: var(--wp-font-size-h3);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+    margin: 0 0 var(--wp-space-4);
+    scroll-margin-top: calc(var(--nav-clear, 6.5rem) + 1rem);
+  }
+  .legal-prose :global(h3) {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--wp-font-size-lg);
+    color: var(--color-ink);
+    margin: var(--wp-space-6) 0 var(--wp-space-2);
+  }
+  .legal-prose :global(p + p),
+  .legal-prose :global(p + ul),
+  .legal-prose :global(ul + p) {
+    margin-top: var(--wp-space-3);
+  }
+  .legal-prose :global(ul) {
+    padding-left: var(--wp-space-5);
+    list-style: disc;
+  }
+  .legal-prose :global(li + li) {
+    margin-top: var(--wp-space-1);
+  }
+  .legal-prose :global(strong) {
+    color: var(--color-ink);
+  }
+  .legal-prose :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    color: var(--color-brand-cyan);
+    overflow-wrap: anywhere;
+  }
+  .legal-prose :global(a) {
+    color: var(--color-brand-cyan);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    text-decoration-thickness: 1px;
+  }
+
+  .legal-toc__label {
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+    margin-bottom: var(--wp-space-3);
+  }
+  .legal-toc ol {
+    display: grid;
+    max-height: calc(100vh - var(--nav-clear, 6.5rem) - 5rem);
+    overflow-y: auto;
+  }
+  .legal-toc a {
+    display: block;
+    padding: var(--wp-space-2) 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 7%, transparent);
+    font-size: var(--wp-font-size-sm);
+    color: var(--color-ink-muted);
+    transition: color var(--dur-base) var(--ease-flow);
+  }
+  .legal-toc a:hover {
+    color: var(--color-brand-cyan);
+  }
+  /* Below the split breakpoint the TOC would only repeat the text after it. */
+  @media (max-width: 1279px) {
+    .legal-toc {
+      display: none;
+    }
+  }
+</style>

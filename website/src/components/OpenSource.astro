@@ -1,0 +1,215 @@
+---
+import SectionEyebrow from './SectionEyebrow.astro';
+import { t, currentLocale } from '../scripts/i18n.ts';
+import { GITHUB_REPO_URL } from './schema/builders.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+
+// Four ways to take part, numbered like the packets in the motion loop
+// (website/motion/src/Community.tsx). Contributor docs live on GitHub, the
+// ideas board on VotePit (no GitHub account needed).
+const ways = [
+  { key: 'issue', href: `${GITHUB_REPO_URL}/issues/new/choose` },
+  { key: 'pr', href: `${GITHUB_REPO_URL}/blob/main/CONTRIBUTING.md` },
+  { key: 'ideas', href: 'https://app.votepit.com/silvio-und-maik/whispaste' },
+  { key: 'translate', href: `${GITHUB_REPO_URL}/blob/main/CONTRIBUTING_TRANSLATIONS.md` },
+] as const;
+---
+
+<!-- Open source: a call to take part. Ditto principle (not motif): several
+     flows run along paths into one hub — the loop shows the four ways in
+     arriving at WhisPaste and shipping a release together. Shares the use
+     cases' light sheet (joined bands, thin rule on the seam, components.css);
+     the dark panel rises from it (another app principle). -->
+<section id="open-source" class="wp-band relative wp-section scroll-mt-20" data-surface="light" data-testid="open-source">
+  <div class="wp-container">
+    <div class="os-panel" data-surface="dark">
+      <div class="os-intro">
+        <div class="os-copy">
+          <SectionEyebrow key="openSource.label" />
+          <h2 class="section-title"><span data-i18n="openSource.titleLead">{t(lang, "openSource.titleLead")}</span><span class="wp-marker" data-i18n="openSource.titleAccent">{t(lang, "openSource.titleAccent")}</span><span data-i18n="openSource.titleTail">{t(lang, "openSource.titleTail")}</span></h2>
+          <p class="os-lead" data-i18n="openSource.subtitle">{t(lang, "openSource.subtitle")}</p>
+          <a href={GITHUB_REPO_URL} target="_blank" rel="noopener" class="wp-cta os-cta" data-testid="open-source-github">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.19-3.08-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.8 1.19 1.83 1.19 3.08 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>
+            <span data-i18n="openSource.cta">{t(lang, "openSource.cta")}</span>
+          </a>
+        </div>
+        <figure class="os-motion" aria-hidden="true">
+          <video muted loop playsinline preload="none" poster="/motion/community.webp" width="720" height="426" data-motion-loop="/motion/community" data-testid="open-source-video"></video>
+        </figure>
+      </div>
+
+      <ol class="os-ways" aria-label={t(lang, "openSource.waysAria")} data-i18n-aria="openSource.waysAria">
+        {ways.map((w) => (
+          <li class="os-way" data-testid={`open-source-way-${w.key}`}>
+            <h3 class="os-way__title" data-i18n={`openSource.${w.key}.title`}>{t(lang, `openSource.${w.key}.title`)}</h3>
+            <p class="os-way__desc" data-i18n={`openSource.${w.key}.desc`}>{t(lang, `openSource.${w.key}.desc`)}</p>
+            <a href={w.href} target="_blank" rel="noopener" class="os-way__link" data-testid={`open-source-link-${w.key}`}>
+              <span data-i18n={`openSource.${w.key}.link`}>{t(lang, `openSource.${w.key}.link`)}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M8 7h9v9"/></svg>
+            </a>
+          </li>
+        ))}
+      </ol>
+
+      <p class="os-footnote">
+        <span data-i18n="openSource.footnote">{t(lang, "openSource.footnote")}</span>
+        <a href={`${GITHUB_REPO_URL}/blob/main/LICENSE`} target="_blank" rel="noopener" data-testid="open-source-license"><span data-i18n="openSource.license">{t(lang, "openSource.license")}</span></a>
+      </p>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { initMotionLoops } from '../scripts/motion-loops';
+
+  initMotionLoops();
+</script>
+
+<style>
+  /* The dark panel rises from the light sheet; the accent glow sits behind
+     the loop, where the ways meet. */
+  .os-panel {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: grid;
+    gap: var(--wp-space-8);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-panel-radius);
+    background:
+      radial-gradient(50% 55% at 75% 35%, color-mix(in srgb, var(--wp-accent-default) 16%, transparent), transparent 70%),
+      var(--wp-surface-band);
+    box-shadow: var(--wp-panel-shadow);
+    color: var(--wp-text-primary);
+  }
+  @media (min-width: 1024px) {
+    .os-panel {
+      padding: var(--wp-space-12);
+      gap: var(--wp-space-10);
+    }
+  }
+  .os-intro {
+    display: grid;
+    gap: var(--wp-space-6);
+    align-items: center;
+  }
+  @media (min-width: 1024px) {
+    .os-intro {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--wp-space-10);
+    }
+  }
+  .os-lead {
+    margin-top: var(--wp-space-4);
+    max-width: var(--measure-lead);
+    font-size: var(--wp-font-size-lg);
+    line-height: 1.6;
+    color: var(--wp-text-secondary);
+  }
+  .os-cta {
+    margin-top: var(--wp-space-6);
+  }
+  .os-cta svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .os-motion {
+    margin: 0;
+    aspect-ratio: 720 / 426;
+  }
+  .os-motion video {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Ways: numbered like the loop's step badges. */
+  .os-ways {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--wp-space-4);
+    counter-reset: way;
+  }
+  @media (min-width: 640px) {
+    .os-ways { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 1280px) {
+    .os-ways { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  .os-way {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-2);
+    padding: var(--wp-card-pad);
+    border-radius: var(--wp-card-radius);
+    border: 1px solid var(--wp-card-border);
+    background: var(--wp-card-fill);
+    counter-increment: way;
+  }
+  .os-way__title {
+    display: flex;
+    align-items: center;
+    gap: var(--wp-space-3);
+    font-family: var(--font-display);
+    font-size: var(--wp-font-size-xl);
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--wp-card-title);
+  }
+  .os-way__title::before {
+    content: counter(way);
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: var(--wp-space-8);
+    height: var(--wp-space-8);
+    border-radius: var(--wp-radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 700;
+    color: var(--wp-accent-on-fill);
+    background: var(--wp-accent-fill);
+  }
+  .os-way__desc {
+    font-size: var(--wp-font-size-md);
+    line-height: 1.6;
+    color: var(--wp-card-text);
+  }
+  .os-way__link {
+    margin-top: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-1);
+    min-height: 44px;
+    font-weight: 600;
+    color: var(--wp-text-link);
+    text-decoration: none;
+  }
+  .os-way__link svg {
+    width: 1rem;
+    height: 1rem;
+    transition: translate var(--dur-fast) var(--ease-flow);
+  }
+  .os-way__link:hover span { text-decoration: underline; }
+  .os-way__link:hover svg { translate: 2px -2px; }
+  .os-way__link:focus-visible {
+    outline: 2px solid var(--wp-focus-ring);
+    outline-offset: 2px;
+    border-radius: var(--wp-radius-control);
+  }
+  .os-footnote {
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-text-muted);
+  }
+  .os-footnote a {
+    margin-left: var(--wp-space-1);
+    color: var(--wp-text-link);
+    font-weight: 600;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .os-way__link svg { transition: none; }
+  }
+</style>

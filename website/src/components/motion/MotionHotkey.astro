@@ -1,0 +1,104 @@
+---
+/**
+ * Motion illustration: hotkey to text. Two keycaps press together, the
+ * recording pill pops up, then a pasted text line lands in the target
+ * field. Platform-neutral glyphs. Inline SVG + CSS, transform/opacity only;
+ * static under prefers-reduced-motion. Decorative.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+// Unique gradient id per instance, so the graphic can render twice on a page.
+const accentId = `hk-accent-${Math.random().toString(36).slice(2, 8)}`;
+---
+
+<svg
+  class:list={['motion-hk', className]}
+  viewBox="0 0 480 320"
+  fill="none"
+  aria-hidden="true"
+  focusable="false"
+  data-testid="motion-hotkey"
+>
+  <defs>
+    <linearGradient id={accentId} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" style="stop-color: var(--wp-illustration-accent-fill)" />
+      <stop offset="1" style="stop-color: var(--wp-illustration-accent-strong)" />
+    </linearGradient>
+  </defs>
+
+  <!-- keycaps: the app's default main hotkey, Ctrl+Shift+D (CONTEXT.md §2.5) -->
+  <g class="key k1">
+    <rect class="hk-core" x="40" y="196" width="80" height="80" rx="16" />
+    <rect class="hk-node" x="40" y="186" width="80" height="80" rx="16" />
+    <text class="hk-label" x="80" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">Ctrl</text>
+  </g>
+  <g class="key k2">
+    <rect class="hk-core" x="130" y="196" width="88" height="80" rx="16" />
+    <rect class="hk-node" x="130" y="186" width="88" height="80" rx="16" />
+    <text class="hk-label" x="174" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">Shift</text>
+  </g>
+  <g class="key k3">
+    <rect class="hk-core" x="228" y="196" width="76" height="80" rx="16" />
+    <rect class="hk-node" style={`stroke: url(#${accentId})`} x="228" y="186" width="76" height="80" rx="16" stroke-width="2" />
+    <text class="hk-accent-text" x="266" y="236" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">D</text>
+  </g>
+
+  <!-- recording pill -->
+  <g class="pill">
+    <rect class="hk-pill" x="96" y="104" width="140" height="44" rx="22" />
+    <circle class="hk-dot" cx="122" cy="126" r="7" />
+    {[0, 1, 2, 3, 4, 5].map((i) => (
+      <rect class="bar" x={142 + i * 12} y="114" width="6" height="24" rx="3" fill={`url(#${accentId})`} style={`--i:${i}`} />
+    ))}
+  </g>
+
+  <!-- target field -->
+  <rect class="hk-target" x="316" y="72" width="136" height="200" rx="16" />
+  <rect class="hk-placeholder" x="334" y="96" width="100" height="8" rx="4" />
+  <rect class="hk-placeholder" x="334" y="116" width="78" height="8" rx="4" />
+  <rect class="paste hk-paste-box" x="334" y="140" width="100" height="36" rx="8" />
+  <rect class="paste hk-label" x="344" y="154" width="72" height="8" rx="4" />
+</svg>
+
+<style>
+  .motion-hk { display: block; width: 100%; height: auto; }
+  .motion-hk .key,
+  .motion-hk .pill,
+  .motion-hk .bar,
+  .motion-hk .paste { transform-box: fill-box; transform-origin: center; }
+  .motion-hk .paste { transform-origin: left center; }
+
+  /* Solid token colours: the graphic must read on dark and light bands. */
+  .motion-hk .hk-core { fill: var(--wp-illustration-core); }
+  .motion-hk .hk-node { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-node-border); }
+  .motion-hk .hk-pill { fill: var(--wp-illustration-node); stroke: var(--wp-illustration-accent); }
+  .motion-hk .hk-label { fill: var(--wp-illustration-text-strong); }
+  .motion-hk .hk-accent-text { fill: var(--wp-illustration-accent); }
+  .motion-hk .hk-dot { fill: var(--wp-illustration-accent-fill); }
+  .motion-hk .hk-target { fill: var(--wp-illustration-fill); stroke: var(--wp-illustration-node-border); }
+  .motion-hk .hk-placeholder { fill: var(--wp-illustration-muted); }
+  .motion-hk .hk-paste-box { fill: var(--wp-illustration-glow); stroke: var(--wp-illustration-accent); }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .motion-hk .key { animation: hk-press 6s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+    .motion-hk .k2 { animation-delay: 0.08s; }
+    .motion-hk .k3 { animation-delay: 0.16s; }
+    .motion-hk .pill { animation: hk-pill 6s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+    .motion-hk .bar { animation: hk-bar 0.9s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -0.15s); }
+    .motion-hk .paste { animation: hk-paste 6s cubic-bezier(0.22, 1, 0.36, 1) infinite; }
+  }
+  @keyframes hk-press { 0%, 6% { transform: translateY(0); } 10%, 14% { transform: translateY(8px); } 20%, 100% { transform: translateY(0); } }
+  @keyframes hk-pill {
+    0%, 12% { transform: translateY(12px) scale(0.8); opacity: 0; }
+    20%, 58% { transform: translateY(0) scale(1); opacity: 1; }
+    66%, 100% { transform: translateY(-6px) scale(0.9); opacity: 0; }
+  }
+  @keyframes hk-bar { from { transform: scaleY(0.3); } to { transform: scaleY(1); } }
+  @keyframes hk-paste {
+    0%, 60% { transform: scaleX(0); opacity: 0; }
+    70%, 92% { transform: scaleX(1); opacity: 1; }
+    100% { transform: scaleX(1); opacity: 0; }
+  }
+</style>

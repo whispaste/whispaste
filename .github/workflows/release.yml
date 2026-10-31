@@ -1,0 +1,2317 @@
+name: Release
+
+# Triggert ausschließlich bei Tag-Push (oder manuell). Ein reiner Merge nach
+# main ohne Tag würde sonst Win+macOS+MSIX bauen, ohne dass `create-release`
+# (das nur für Tags läuft) jemals ein Release veröffentlicht — die Artefakte
+# wären weggeworfene Build-Zeit. CI auf dev validiert vor dem Merge.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    # Promote-Job (PRD §5.2/§7.2, Issue 05): a manual dispatch that promotes a
+    # validated beta build to stable WITHOUT rebuilding — it copies the beta
+    # release artifacts verbatim under a new stable tag and re-derives the
+    # stable appcast (same EdDSA signature, since the bytes + seed are
+    # identical). The `promote` boolean gates the dedicated job below so a plain
+    # manual dispatch keeps its previous behavior (build jobs run as today).
+    inputs:
+      promote:
+        description: 'Promote a validated beta build to stable — copy artifacts + same EdDSA signature, NO rebuild (PRD §7.2)'
+        type: boolean
+        required: true
+        default: false
+      beta-tag:
+        description: 'Source beta tag, e.g. v1.2.44-beta.1'
+        type: string
+        required: true
+      stable-version:
+        description: 'Target stable version, e.g. 1.2.44 (released under tag vX.Y.Z)'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Build Windows (NSIS + MSIX)
+    runs-on: windows-latest
+    # No job in this file had a timeout before (GitHub default: 360min) — a
+    # hang would burn runner time for hours before failing. Observed normal
+    # duration ~15-25min; 60min gives headroom for signing/notarization
+    # variance without masking an actual stuck job.
+    timeout-minutes: 60
+    # Skip the (expensive) multi-platform rebuilds on a Promote dispatch — the
+    # promote job copies beta artifacts verbatim instead of building (PRD §7.2).
+    # Tag pushes and plain manual dispatches are unaffected (the guard only
+    # short-circuits when promote=true).
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == 'true') }}
+    outputs:
+      msix-built: ${{ steps.msix_config.outputs.skip != 'true' }}
+      # Explicit success marker: set by the last real build step. Decouples
+      # downstream jobs from `needs.build-windows.result`, which can flip to
+      # `failure` when an action's Post-step (e.g. flutter-action cache save)
+      # exits non-zero even though every functional step succeeded.
+      build-succeeded: ${{ steps.mark_success.outputs.ok == 'true' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Windows release
+        shell: pwsh
+        run: |
+          # Resolve the version from the tag (preferred) or pubspec.yaml so
+          # APP_VERSION can be baked into the binary via --dart-define. This
+          # makes app_info.appVersion available synchronously at app start,
+          # so Sentry's options.release is correct from the first event.
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^v?\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
+
+          flutter build windows --release --no-tree-shake-icons `
+            --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" `
+            --dart-define=SUPABASE_PUBLISHABLE_KEY="${{ secrets.SUPABASE_PUBLISHABLE_KEY }}" `
+            --dart-define=WHISPASTE_MATOMO_URL="${{ secrets.WHISPASTE_MATOMO_URL }}" `
+            --dart-define=WHISPASTE_MATOMO_SITE_ID="${{ secrets.WHISPASTE_MATOMO_SITE_ID }}" `
+            --dart-define=APP_VERSION="$version"
+
+      # ── Bundle libwhisper (on-device FFI engine) ─────────────────────────────
+      # Same root cause as macOS/Linux (found + fixed during v1.2.45 release
+      # prep): the Xcode/CMake side only had scripts, nothing in CI called them.
+      # -DGGML_BACKEND_DL=ON is required on Windows specifically — without it,
+      # ggml.dll hard-imports ggml-vulkan.dll (-> vulkan-1.dll), so a machine
+      # with no Vulkan-capable GPU driver at all would fail to load ANY
+      # on-device Whisper, even pure CPU. Verified live on a real Windows box:
+      # removing ggml-vulkan.dll breaks the load without this flag, loads fine
+      # with it. -DGGML_OPENMP=OFF avoids an extra VCOMP140.DLL dependency
+      # nothing else bundles. See scripts/bundle-libwhisper-windows.ps1 header
+      # for the full writeup.
+      # humbletim/setup-vulkan-sdk (a slim from-source component builder,
+      # avoiding the ~250MB full official installer) was tried first and hit
+      # three successive dead ends live in CI: Glslang needing SPIRV-Tools,
+      # the "Visual Studio 17 2022" CMake generator failing its own vswhere
+      # detection, and finally "Shaderc" — the component that builds glslc.exe,
+      # which ggml-vulkan's CMakeLists hard-requires via
+      # find_package(Vulkan REQUIRED COMPONENTS glslc) — not being buildable
+      # through that action at all ("unknown component: Shaderc", confirmed
+      # live in CI, v1.2.50 Windows job). Switched to installing the official
+      # LunarG SDK directly: prebuilt binaries (glslc.exe included), no
+      # from-source component builds, no generator-detection surface at all.
+      - name: Cache Vulkan SDK
+        id: vulkan_sdk_cache
+        uses: actions/cache@v4
+        with:
+          path: C:\VulkanSDK\1.4.328.1
+          key: vulkan-sdk-windows-1.4.328.1
+
+      - name: Setup Vulkan SDK
+        if: steps.vulkan_sdk_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $VulkanVersion = "1.4.328.1"
+          $InstallerUrl = "https://sdk.lunarg.com/sdk/download/$VulkanVersion/windows/vulkansdk-windows-X64-$VulkanVersion.exe"
+          $InstallerPath = "$env:RUNNER_TEMP\vulkan-sdk.exe"
+          Invoke-WebRequest -Uri $InstallerUrl -OutFile $InstallerPath
+          & $InstallerPath --root "C:\VulkanSDK\$VulkanVersion" --accept-licenses --default-answer --confirm-command install
+          if ($LASTEXITCODE -ne 0) { throw "Vulkan SDK installer exited with code $LASTEXITCODE" }
+
+      - name: Add Vulkan SDK to PATH/env
+        shell: pwsh
+        run: |
+          echo "VULKAN_SDK=C:\VulkanSDK\1.4.328.1" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "C:\VulkanSDK\1.4.328.1\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+
+      - name: Cache libwhisper build (Windows)
+        id: libwhisper_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libwhisper/windows
+          key: libwhisper-windows-v1.9.5-d1be6fd-${{ hashFiles('scripts/bundle-libwhisper-windows.ps1', 'scripts/collect-pdbs-windows.ps1', 'native/ffi_guard/**') }}
+
+      - name: Clone pinned whisper.cpp source
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
+
+      # ilammy/msvc-dev-cmd puts cl.exe/link.exe on PATH (equivalent to a
+      # Developer Command Prompt) so the Ninja generator below can find the
+      # MSVC toolchain directly. Required because the "Visual Studio 17 2022"
+      # IDE generator's own vswhere-based instance-detection failed outright
+      # in this job ("could not find any instance of Visual Studio") even
+      # though the same runner clearly has VS (flutter build windows, just
+      # above, succeeds via its own Ninja-based CMake build). Confirmed live
+      # in CI (v1.2.48 Windows job) — switching to the same Ninja+cl.exe
+      # combination flutter itself already relies on sidesteps the whole
+      # vswhere/generator-detection failure class instead of chasing it.
+      - name: Activate MSVC dev environment (x64)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build libwhisper (Windows)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          # /Z7 + /DEBUG: PDBs for Sentry, see scripts/build-libllama-windows.ps1.
+          $env:CFLAGS = '/Z7'
+          $env:CXXFLAGS = '/Z7'
+          $env:LDFLAGS = '/DEBUG /OPT:REF /OPT:ICF'
+          cmake -S .build/deps/whisper.cpp/v1.9.5 -B .build/libwhisper/windows-build `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=ON `
+            -DGGML_VULKAN=ON -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DGGML_BACKEND_DL=ON -DGGML_CPU_ALL_VARIANTS=ON `
+            -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF
+          cmake --build .build/libwhisper/windows-build --config Release -j
+          # wp_ffi_guard (native/ffi_guard): catches C++ exceptions before
+          # they unwind into Dart FFI frames; bundled next to whisper.dll.
+          cmake -S native/ffi_guard -B .build/libwhisper/windows-build/ffi_guard `
+            -G Ninja -DCMAKE_BUILD_TYPE=Release `
+            -DWHISPER_SOURCE_DIR="$PWD/.build/deps/whisper.cpp/v1.9.5"
+          cmake --build .build/libwhisper/windows-build/ffi_guard --config Release
+          New-Item -ItemType Directory -Force -Path .build/libwhisper/windows | Out-Null
+          # v1.9.5 also builds parakeet.dll: the GPU Parakeet engine (libparakeet).
+          Copy-Item .build/libwhisper/windows-build/bin/*.dll .build/libwhisper/windows/ -Force
+          Copy-Item .build/libwhisper/windows-build/ffi_guard/wp_ffi_guard.dll .build/libwhisper/windows/ -Force
+          pwsh scripts/collect-pdbs-windows.ps1 -DllDir .build/libwhisper/windows -OutDir .build/libwhisper/windows/pdb
+          if ($LASTEXITCODE -ne 0) { throw "collect-pdbs-windows.ps1 failed" }
+
+      - name: Stage libwhisper next to whispaste.exe
+        shell: pwsh
+        run: |
+          pwsh scripts/bundle-libwhisper-windows.ps1 -Source .build/libwhisper/windows
+
+      - name: Verify libwhisper is embedded
+        shell: pwsh
+        run: |
+          $dll = "build\windows\x64\runner\Release\whisper.dll"
+          if (-not (Test-Path $dll)) {
+            Write-Host "::error::whisper.dll missing from $dll — on-device Whisper would be broken in this build."
+            exit 1
+          }
+          Write-Host "whisper.dll present: $((Get-Item $dll).Length) bytes"
+
+      # ── Bundle libllama + smartmode_shim (Smart Mode's on-device FFI engine) ─
+      # Settings → Smart Mode → On-Device is selectable on every platform with
+      # no build-time gate (see smart_mode_section.dart) and macOS already
+      # embeds libllama unconditionally in every build (embed_libllama.sh) —
+      # this closes the matching Windows gap: without it, every Windows build
+      # shipped a Settings option ("On-Device") that could never actually
+      # work, because smart_mode\smartmode_shim.dll was never produced or
+      # bundled anywhere in this pipeline.
+      - name: Cache libllama build (Windows)
+        id: libllama_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libllama/windows
+          key: libllama-windows-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-windows.ps1', 'scripts/build-smartmode-shim-windows.ps1', 'scripts/collect-pdbs-windows.ps1', 'native/smart_mode/**') }}
+
+      - name: Clone pinned llama.cpp source
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch b10150 https://github.com/ggml-org/llama.cpp .build/deps/llama.cpp/b10150
+
+      # Reuses the same cl.exe/link.exe on PATH that "Activate MSVC dev
+      # environment (x64)" put there for the libwhisper build above —
+      # ilammy/msvc-dev-cmd persists PATH/env for the rest of the job, no
+      # need to re-run it.
+      - name: Build libllama (Windows)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: pwsh scripts/build-libllama-windows.ps1
+
+      - name: Build smartmode_shim (Windows)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: pwsh scripts/build-smartmode-shim-windows.ps1
+
+      - name: Stage libllama next to whispaste.exe
+        shell: pwsh
+        run: pwsh scripts/bundle-libllama-windows.ps1 -Source .build/libllama/windows
+
+      - name: Verify smartmode_shim is embedded
+        shell: pwsh
+        run: |
+          $dll = "build\windows\x64\runner\Release\smart_mode\smartmode_shim.dll"
+          if (-not (Test-Path $dll)) {
+            Write-Host "::error::smartmode_shim.dll missing from $dll — on-device Smart Mode would be broken in this build."
+            exit 1
+          }
+          Write-Host "smartmode_shim.dll present: $((Get-Item $dll).Length) bytes"
+
+      # Upload native PDB/DLL debug symbols so Sentry can symbolicate
+      # native crash frames. Skipped silently when the secret is unset
+      # (e.g. on forks). Symbol upload does NOT count against Sentry's
+      # Free-Tier event/span quotas — it is a separate billing bucket
+      # only constrained by total storage (effectively unlimited at our
+      # release cadence).
+      - name: Upload debug symbols to Sentry
+        if: env.SENTRY_AUTH_TOKEN != ''
+        shell: pwsh
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^v?\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
+          # Must match `sentryRelease` in lib/core/app_info.dart and
+          # the action-release step at the end of this workflow.
+          $env:SENTRY_RELEASE = "whispaste@$version"
+          dart run sentry_dart_plugin
+          # The plugin only scans the Flutter Release dir, where no PDB may
+          # go (it is packaged as-is). Upload the runner (whispaste.exe) and
+          # whisper/ggml/llama/shim PDBs from their staging dirs with the
+          # sentry-cli the plugin just downloaded and checksum-verified. A
+          # failed upload must not block the release, so it only warns.
+          & .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli.exe --url https://de.sentry.io `
+            debug-files upload --org org --project flutter_whispaste `
+            build/windows/x64/symbols .build/libwhisper/windows/pdb .build/libllama/windows/pdb
+          if ($LASTEXITCODE -ne 0) { Write-Host "::warning::Native PDB upload to Sentry failed -- crash frames in whispaste.exe/whisper/ggml/llama stay unsymbolicated for this release." }
+
+      - name: Install NSIS
+        run: choco install nsis -y --no-progress
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          # Use tag version when on a tag push; fall back to pubspec.yaml on branch push
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^v?\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
+          # X.X.X.N format for Windows file properties (VIFileVersion, read by
+          # WinSparkle as the "installed version" for its update comparison —
+          # see auto_updater_windows: it never calls win_sparkle_set_app_details,
+          # so it falls back to the EXE's own VERSIONINFO resource). The 4th
+          # component MUST be the pubspec BUILD NUMBER (the "+N" suffix in
+          # pubspec.yaml's version field), NOT the "-beta.B" pre-release
+          # counter — those are two independent counters that can diverge
+          # (e.g. beta.9+10). Flutter's own tooling already derives
+          # FLUTTER_VERSION_BUILD this exact way for the actually-running
+          # whispaste.exe (packages/flutter_tools/lib/src/cmake.dart's
+          # _tryDetermineBuildVersion, embedded via windows/runner/Runner.rc's
+          # FILEVERSION) — this must match it, or the installer advertises a
+          # different numeric version than the binary it installs. That
+          # mismatch is exactly why WinSparkle's "check for updates" re-offered
+          # the just-installed build (mirrors generate_appcast.sh's
+          # SPARKLE_VERSION_COMPARE, which uses the same derivation).
+          $pubspecRaw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+          $pubspecVersion = ($pubspecRaw -replace '^\s*version:\s*', '').Trim()
+          $buildNumber = '0'
+          if ($pubspecVersion -match '\+(\d+)$') {
+            $buildNumber = $Matches[1]
+          }
+          $parts = $version -split '[.\-]'
+          $numeric = "$($parts[0]).$($parts[1]).$($parts[2]).$buildNumber"
+
+          & "C:\Program Files (x86)\NSIS\makensis.exe" `
+            /DPRODUCT_VERSION=$version `
+            /DPRODUCT_VERSION_NUMERIC=$numeric `
+            installer\whispaste.nsi
+
+          if ($LASTEXITCODE -ne 0) { throw "NSIS build failed" }
+          Write-Host "Built: installer\WhisPaste-Setup.exe"
+
+      # --- WhisPaste-Diagnose: Dart-native .exe (dart compile exe) ---------
+      # Native Windows build — no ps2exe, no PowerShell wrapper. Produces a
+      # self-contained Dart AOT binary that ships as the release artifact.
+      - name: Build WhisPaste-Diagnose.exe (Dart)
+        working-directory: packages/whispaste_diagnostics
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          dart pub get
+          $diagVersion = "${{ github.ref_name }}".TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($diagVersion)) { $diagVersion = 'unbekannt' }
+          dart compile exe bin/whispaste_diagnose.dart `
+            --define=whispaste_version=$diagVersion `
+            -o dist/WhisPaste-Diagnose.exe
+          if (-not (Test-Path dist/WhisPaste-Diagnose.exe)) {
+            throw 'dart compile exe did not produce WhisPaste-Diagnose.exe'
+          }
+          Write-Output "Binary size: $((Get-Item dist/WhisPaste-Diagnose.exe).Length) bytes"
+
+      # --- WhisPaste-GPU-Probe: voll gebündelte, entpack-und-doppelklick ZIP --
+      # Kompiliert die Dart-native Probe-exe frisch (mit Versions-Define) und
+      # fügt sie mit dem statischen, vorab gepinnten Engine-Bundle zur fertigen
+      # ZIP zusammen (make-dist.ps1). Das Engine-Bundle (const-me, sherpa,
+      # faster-whisper, Vulkan, DirectML + CPU-Baseline) ändert sich praktisch
+      # nie und wird daher NICHT pro Release neu gebaut, sondern aus dem festen
+      # Tag `gpu-probe-engines` gezogen (siehe tools/pack-engines.ps1).
+      # Tolerant via continue-on-error: fehlt das Bundle (z. B. vor dem ersten
+      # manuellen Upload), wird die GPU-Probe-ZIP übersprungen statt das ganze
+      # Release zu brechen.
+      - name: Build WhisPaste-GPU-Probe ZIP
+        id: gpu_probe
+        continue-on-error: true
+        working-directory: packages/whispaste_gpu_probe
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ENGINES_TAG: gpu-probe-engines
+          ENGINES_ASSET: gpu-probe-engines-x64.zip
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          if ([string]::IsNullOrWhiteSpace($version)) { $version = 'unbekannt' }
+
+          $runDir = Join-Path $env:RUNNER_TEMP 'gpuprobe-run'
+          $outDir = Join-Path $env:RUNNER_TEMP 'gpuprobe-dist'
+          New-Item -ItemType Directory -Force -Path $runDir, $outDir | Out-Null
+
+          # Statisches Engine-Bundle vom gepinnten Release ziehen und in den
+          # RunDir entpacken (Inhalt liegt im Blob bereits auf Root-Ebene).
+          gh release download $env:ENGINES_TAG `
+            --repo "${{ github.repository }}" `
+            --pattern $env:ENGINES_ASSET `
+            --dir $env:RUNNER_TEMP --clobber
+          if ($LASTEXITCODE -ne 0) {
+            throw "engine bundle '$env:ENGINES_ASSET' not found on tag '$env:ENGINES_TAG' — skipping GPU-Probe ZIP"
+          }
+          Expand-Archive -Path (Join-Path $env:RUNNER_TEMP $env:ENGINES_ASSET) `
+            -DestinationPath $runDir -Force
+
+          # Probe-exe frisch kompilieren (Versions-Define landet im Report).
+          dart pub get
+          dart compile exe bin/whispaste_gpu_probe.dart `
+            --define=whispaste_version=$version `
+            -o (Join-Path $runDir 'whispaste-gpu-probe.exe')
+
+          # Probe-exe + Engines + LIESMICH.txt zur nutzbaren ZIP zusammenführen.
+          & ".\tools\make-dist.ps1" -Version $version -RunDir $runDir -OutDir $outDir
+          $zip = Join-Path $outDir "WhisPaste-GPU-Probe-$version.zip"
+          if (-not (Test-Path $zip)) { throw "make-dist did not produce $zip" }
+          Write-Output "GPU-Probe ZIP: $zip ($([math]::Round((Get-Item $zip).Length / 1MB, 0)) MB)"
+          echo "zip=$zip" >> $env:GITHUB_OUTPUT
+
+      # Wichtig: Portable ZIP MUSS vor `msix:create` gebaut werden, sonst
+      # landet die später erzeugte .msix-Datei im Release-Ordner und damit
+      # auch im Portable-Zip.
+      - name: Prepare release artifacts
+        shell: pwsh
+        run: |
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
+          $artifactDir = "release-artifacts"
+          New-Item -ItemType Directory -Path $artifactDir -Force
+
+          # Portable ZIP from build output
+          $buildDir = "build\windows\x64\runner\Release"
+          $zipName = "WhisPaste-$version-windows-x64.zip"
+          Compress-Archive -Path "$buildDir\*" -DestinationPath "$artifactDir\$zipName"
+
+          # NSIS installer (stable filename for direct download links)
+          Copy-Item "installer\WhisPaste-Setup.exe" "$artifactDir\"
+
+          # WhisPaste-Diagnose: Dart-native standalone .exe.
+          Copy-Item "packages\whispaste_diagnostics\dist\WhisPaste-Diagnose.exe" "$artifactDir\"
+
+          # WhisPaste-GPU-Probe: voll gebündelte, nutzbare ZIP (falls gebaut —
+          # der Schritt ist continue-on-error, das Engine-Bundle kann fehlen).
+          $gpuZip = "${{ steps.gpu_probe.outputs.zip }}"
+          if ($gpuZip -and (Test-Path $gpuZip)) {
+            Copy-Item $gpuZip "$artifactDir\"
+            Write-Host "Added GPU-Probe ZIP: $gpuZip"
+          } else {
+            Write-Warning "GPU-Probe ZIP not built — skipping (engine bundle missing?)"
+          }
+
+          Write-Host "Release artifacts:"
+          Get-ChildItem $artifactDir
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-release
+          path: release-artifacts/
+
+      # MSIX wird im selben Job gebaut, weil msix:create unter der Haube
+      # exakt denselben `flutter build windows --release` braucht, den wir
+      # oben bereits ausgeführt haben. Mit `--build-windows false` überspringt
+      # msix:create den Rebuild und nutzt das vorhandene Release-Verzeichnis.
+      - name: Configure MSIX publisher and version
+        id: msix_config
+        shell: pwsh
+        env:
+          MSIX_PUBLISHER: ${{ secrets.MSIX_PUBLISHER }}
+        run: |
+          # AC-5 / Q2 (PRD §6.3): Beta tags build NO MSIX and trigger NO Store
+          # submission. Setting skip=true here short-circuits every downstream
+          # MSIX step in this job (Build MSIX, Upload MSIX, .msixupload, symbol
+          # upload) AND flips the `msix-built` job output to false, which in
+          # turn skips wack-gate and the MSIX download in create-release.
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '-beta\.') {
+            Write-Warning "Beta tag ($refName) — skipping MSIX build + Store submission (AC-5/Q2)."
+            echo "skip=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          if (-not $env:MSIX_PUBLISHER) {
+            Write-Warning "MSIX_PUBLISHER secret not set — skipping MSIX build"
+            echo "skip=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $refName = "${{ github.ref_name }}"
+          if ($refName -match '^v?\d+\.\d+\.\d+') {
+            $version = $refName.TrimStart('v')
+          } else {
+            $raw = (Get-Content pubspec.yaml | Select-String '^\s*version:').ToString()
+            $version = ($raw -replace '^\s*version:\s*', '' -replace '\+.*', '').Trim()
+          }
+          $parts = $version -split '[.\-]'
+          $numericVersion = "$($parts[0]).$($parts[1]).$($parts[2]).0"
+
+          $content = Get-Content pubspec.yaml
+          $content = $content -replace 'msix_version:.*', "msix_version: $numericVersion"
+          # Replace only the `publisher:` line, not `publisher_display_name:`
+          $content = $content -replace '(?m)^(\s*)publisher:\s.*', "`${1}publisher: $env:MSIX_PUBLISHER"
+          $content | Set-Content pubspec.yaml
+
+          Write-Host "MSIX configured: version=$numericVersion publisher=$env:MSIX_PUBLISHER"
+          echo "skip=false" >> $env:GITHUB_OUTPUT
+
+      - name: Build MSIX
+        if: steps.msix_config.outputs.skip != 'true'
+        run: dart run msix:create --store --build-windows false
+
+      - name: Upload MSIX
+        if: steps.msix_config.outputs.skip != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: msix-release
+          path: build/windows/x64/runner/Release/*.msix
+
+      # Build the Store upload package (.msixupload = ZIP of MSIX + .appxsym,
+      # .appxsym = ZIP of public PDBs), which submit-ms-store submits instead
+      # of the bare .msix. Without it Partner Center cannot symbolicate native
+      # crashes: failure names end in `!unknown` and the Health report shows
+      # rising crash rates with no usable cause. Up to v1.3.0 this step looked
+      # for PDBs only in the Release bundle dir, where none may live, so it
+      # always logged "No PDBs (0)" and was skipped silently.
+      # PDB sources: the runner (windows/runner/CMakeLists.txt) plus the
+      # whisper/ggml/llama/shim staging dirs. ggml backend DLLs exist in both
+      # the whisper and the llama tree under the same name; the .appxsym is
+      # flat, so for those names the whisper PDB (dictation hot path) wins.
+      # Fails the job on purpose: a release without symbols is what hid the
+      # v1.3.0 crash causes.
+      - name: Build Store upload package (.msixupload)
+        if: steps.msix_config.outputs.skip != 'true'
+        id: msixupload
+        shell: pwsh
+        run: |
+          $buildDir = "build\windows\x64\runner\Release"
+          $msix = Get-ChildItem "$buildDir\*.msix" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $msix) { throw "No MSIX in $buildDir -- cannot build .msixupload" }
+          $runnerPdb = "build\windows\x64\symbols\whispaste.pdb"
+          if (-not (Test-Path $runnerPdb)) { throw "$runnerPdb missing -- check /DEBUG + /PDB in windows/runner/CMakeLists.txt" }
+          $symStaging = "build\windows\x64\appxsym-staging"
+          if (Test-Path $symStaging) { Remove-Item -Recurse -Force $symStaging }
+          New-Item -ItemType Directory -Path $symStaging -Force | Out-Null
+          # Order matters for name collisions: later copies win (see above).
+          foreach ($dir in @("build\windows\x64\symbols", ".build\libllama\windows\pdb", ".build\libwhisper\windows\pdb")) {
+            if (-not (Test-Path $dir)) { throw "PDB dir $dir missing" }
+            Get-ChildItem -Path $dir -Filter *.pdb | ForEach-Object {
+              if (Test-Path (Join-Path $symStaging $_.Name)) { Write-Host "PDB name collision, $dir wins: $($_.Name)" }
+              Copy-Item $_.FullName $symStaging -Force
+            }
+          }
+          $pdbCount = (Get-ChildItem $symStaging -Filter *.pdb).Count
+          $appxsym = "build\windows\x64\WhisPaste.appxsym"
+          Compress-Archive -Path "$symStaging\*.pdb" -DestinationPath $appxsym -Force
+          Remove-Item -Recurse -Force $symStaging
+          $upStaging = "build\windows\x64\msixupload-staging"
+          if (Test-Path $upStaging) { Remove-Item -Recurse -Force $upStaging }
+          New-Item -ItemType Directory -Path $upStaging -Force | Out-Null
+          Copy-Item $msix.FullName $upStaging
+          Copy-Item $appxsym $upStaging
+          New-Item -ItemType Directory -Path store-upload -Force | Out-Null
+          # Compress-Archive only writes .zip; rename to the extension Partner Center expects.
+          $zip = "store-upload\WhisPaste.zip"
+          Compress-Archive -Path "$upStaging\*" -DestinationPath $zip -Force
+          Move-Item $zip "store-upload\WhisPaste.msixupload" -Force
+          Remove-Item -Recurse -Force $upStaging
+          $sizeMB = [math]::Round((Get-Item "store-upload\WhisPaste.msixupload").Length / 1MB, 1)
+          Write-Host "Built .msixupload with $pdbCount PDBs ($sizeMB MB)"
+
+      - name: Upload Store upload package
+        if: steps.msix_config.outputs.skip != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: msix-symbol-package
+          path: store-upload/WhisPaste.msixupload
+          if-no-files-found: error
+
+      # Package smoke test (catchup ticket 11): silent NSIS install +
+      # MSIX side-load (throwaway test certificate, the uploaded MSIX stays
+      # untouched), each started once with `whispaste.exe --diagnose`. Runs
+      # before mark_success, so a failure keeps create-release and the Store
+      # submission from publishing. Windows PowerShell: Add-AppxPackage is
+      # unreliable under pwsh 7.
+      - name: Smoke-test Windows packages
+        shell: powershell
+        run: |
+          $msix = Get-ChildItem "build\windows\x64\runner\Release\*.msix" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $smokeArgs = @{ ArtifactDir = "release-artifacts"; InstallDir = (Join-Path $env:RUNNER_TEMP "whispaste-smoke-install") }
+          if ("${{ steps.msix_config.outputs.skip }}" -ne "true") {
+            if (-not $msix) { throw "MSIX was configured but not built" }
+            $smokeArgs.MsixPath = $msix.FullName
+          }
+          & .\scripts\smoke\smoke-windows.ps1 @smokeArgs
+
+      - name: Mark build succeeded
+        id: mark_success
+        shell: pwsh
+        run: echo "ok=true" >> $env:GITHUB_OUTPUT
+
+  wack-gate:
+    name: WACK Pre-Certification (non-blocking)
+    needs: [build-windows]
+    # Only run when an MSIX was actually built. Non-blocking: continue-on-error
+    # at job level ensures a WACK tooling failure never blocks the release.
+    continue-on-error: true
+    if: |
+      !cancelled() &&
+      needs.build-windows.outputs.msix-built == 'true' &&
+      needs.build-windows.outputs.build-succeeded == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download MSIX artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: msix-release
+          path: msix/
+
+      - name: Run WACK (Windows App Certification Kit)
+        id: wack
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          # Locate appcert.exe from the Windows SDK (installed on windows-latest runners).
+          $appcert = @(
+            'C:\Program Files (x86)\Windows Kits\10\App Certification Kit\appcert.exe',
+            'C:\Program Files\Windows Kits\10\App Certification Kit\appcert.exe'
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $appcert) {
+            Write-Host "::warning::appcert.exe not found on this runner — WACK skipped (headless/tooling limitation)."
+            echo "wack_skipped=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $msixPath = Get-ChildItem msix\*.msix | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $msixPath) {
+            Write-Host "::warning::No .msix file found in msix/ — WACK skipped."
+            echo "wack_skipped=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          $reportPath = "$env:RUNNER_TEMP\wack-report.xml"
+          Write-Host ":: Running WACK against: $msixPath"
+          Write-Host ":: Report output: $reportPath"
+
+          # Reset any previous WACK state.
+          & $appcert reset
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::appcert reset failed (exit $LASTEXITCODE) — likely a headless/desktop-session limitation. WACK result unreliable."
+            echo "wack_skipped=true" >> $env:GITHUB_OUTPUT
+            exit 0
+          }
+
+          & $appcert test -appxpackagepath $msixPath -reportoutputpath $reportPath
+          $wackExit = $LASTEXITCODE
+          echo "wack_exit=$wackExit" >> $env:GITHUB_OUTPUT
+          echo "wack_skipped=false" >> $env:GITHUB_OUTPUT
+
+          if ($wackExit -ne 0) {
+            Write-Host "::warning::appcert exited with code $wackExit. This may indicate a headless limitation or a real certification issue — review the uploaded WACK report artifact."
+          } else {
+            Write-Host ":: appcert test completed (exit 0)."
+          }
+
+          # Parse the XML report for FAIL results and surface them as warnings.
+          if (Test-Path $reportPath) {
+            try {
+              [xml]$report = Get-Content $reportPath -Encoding UTF8
+              $tests = $report.REPORT.REQUIREMENT | ForEach-Object { $_ }
+              $failed = @($tests | Where-Object { $_.RESULT -eq 'FAIL' })
+              $passed = @($tests | Where-Object { $_.RESULT -eq 'PASS' })
+              $skipped = @($tests | Where-Object { $_.RESULT -notin @('PASS','FAIL') })
+              Write-Host ":: WACK results — PASS: $($passed.Count), FAIL: $($failed.Count), OTHER: $($skipped.Count)"
+              foreach ($t in $failed) {
+                $name = if ($t.REQUIREMENTNAME) { $t.REQUIREMENTNAME } else { $t.Name }
+                $desc = if ($t.DESCRIPTION) { " — $($t.DESCRIPTION)" } else { '' }
+                Write-Host "::warning::WACK FAIL: $name$desc"
+              }
+              if ($failed.Count -eq 0 -and $wackExit -eq 0) {
+                Write-Host "::notice::WACK: all certification tests passed."
+              }
+            } catch {
+              Write-Host "::warning::Could not parse WACK XML report: $_"
+            }
+          }
+
+      - name: Upload WACK report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: wack-report
+          path: ${{ runner.temp }}\wack-report.xml
+          if-no-files-found: warn
+
+  submit-ms-store:
+    name: Submit to Microsoft Store
+    needs: [build-windows, wack-gate]
+    # Uses scripts/submit-ms-store.ps1 against the classic DevCenter Submission
+    # API directly, NOT the `msstore` CLI used here previously up to v1.2.58.
+    # That CLI hard-aborts (and deletes the draft submission) on any paid
+    # product since its PR #115 (github.com/microsoft/msstore-cli/pull/115,
+    # merged 2025-12-01): "App updates are supported only for Free products."
+    # That's a CLI-side guard, not a platform limit — Microsoft's own docs say
+    # the classic API can "continue … to update modules other than Pricing and
+    # availability" even for a Pricing V2 account (which is WhisPaste's real
+    # constraint: Pricing itself can't be written for V2 through any API, see
+    # scripts/submit-ms-store.ps1's header and docs/store-release.md). This job
+    # revives the ps1-based submission removed in commit 213c1d18 (v1.2.45 had
+    # briefly switched to the msstore CLI instead of fixing that script).
+    # Stable-only, same as manifest-bump: a beta build never has an MSIX
+    # (AC-5/Q2) and must never reach the Store.
+    # continue-on-error at job level: a Store-submission failure never blocks
+    # the rest of the release (GitHub Release/website/other channels).
+    continue-on-error: true
+    if: |
+      !cancelled() &&
+      needs.build-windows.outputs.msix-built == 'true' &&
+      needs.build-windows.outputs.build-succeeded == 'true' &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      !contains(github.ref_name, '-')
+    runs-on: windows-latest
+    # scripts/submit-ms-store.ps1 bounds its own status polling to 10min and
+    # its API retries to 3 attempts — 30min covers that plus build/download
+    # overhead with headroom, without masking an actual hang.
+    timeout-minutes: 30
+    steps:
+      - name: Check Store credentials
+        id: store_check
+        shell: pwsh
+        run: |
+          if (-not $env:MS_STORE_TENANT_ID -or -not $env:MS_STORE_CLIENT_ID -or
+              -not $env:MS_STORE_CLIENT_SECRET -or -not $env:MS_STORE_SELLER_ID -or
+              -not $env:MS_STORE_APP_ID) {
+            Write-Host "::warning::MS_STORE_* secrets not set — skipping Microsoft Store submission. Submit the msix-release artifact manually via Partner Center (see docs/store-release.md)."
+            echo "skip=true" >> $env:GITHUB_OUTPUT
+          } else {
+            echo "skip=false" >> $env:GITHUB_OUTPUT
+          }
+        env:
+          MS_STORE_TENANT_ID: ${{ secrets.MS_STORE_TENANT_ID }}
+          MS_STORE_CLIENT_ID: ${{ secrets.MS_STORE_CLIENT_ID }}
+          MS_STORE_CLIENT_SECRET: ${{ secrets.MS_STORE_CLIENT_SECRET }}
+          MS_STORE_SELLER_ID: ${{ secrets.MS_STORE_SELLER_ID }}
+          MS_STORE_APP_ID: ${{ secrets.MS_STORE_APP_ID }}
+
+      # Needed from here on for scripts/submit-ms-store.ps1 + store/ — this
+      # job previously only consumed the msix-release artifact, no repo checkout.
+      - name: Checkout
+        if: steps.store_check.outputs.skip != 'true'
+        uses: actions/checkout@v6
+
+      - name: Download MSIX artifact
+        if: steps.store_check.outputs.skip != 'true'
+        uses: actions/download-artifact@v6
+        with:
+          name: msix-release
+          path: msix
+
+      # .msixupload (MSIX + public PDBs) built in build-windows; submitted in
+      # place of the bare .msix so Partner Center can symbolicate crashes.
+      - name: Download Store upload package
+        if: steps.store_check.outputs.skip != 'true'
+        continue-on-error: true
+        uses: actions/download-artifact@v6
+        with:
+          name: msix-symbol-package
+          path: msixupload
+
+      # Generates the Microsoft Store screenshot set (tools/appstore-screens/
+      # output/<lang>/microsoft/*.png) that submit-ms-store.ps1 uploads below.
+      # Reads from the Flutter-golden PNGs already committed under
+      # test/screenshots/goldens/ — no Flutter/Dart toolchain needed on this
+      # windows-latest runner, just Node + a Playwright-driven HTML renderer.
+      - name: Set up Node.js
+        if: steps.store_check.outputs.skip != 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install screenshot generator dependencies
+        if: steps.store_check.outputs.skip != 'true'
+        working-directory: tools/appstore-screens
+        run: npm ci
+
+      - name: Install Playwright (Chromium only — generator uses no other engine)
+        if: steps.store_check.outputs.skip != 'true'
+        working-directory: tools/appstore-screens
+        run: npx playwright install --with-deps chromium
+
+      # Hard dependency of generate.cjs (fixed 2026-07-29): the approved
+      # hero screenshot is this photographic device composite (laptop +
+      # hand, real app UI), not the plain logo/badge card generate.cjs's own
+      # template renders — generate.cjs overrides screenshot #1 with this
+      # render's output and fails loudly if it's missing. MUST run first.
+      - name: Render approved device-photo hero
+        if: steps.store_check.outputs.skip != 'true'
+        working-directory: tools/appstore-screens
+        run: node render-hero-device.cjs --lang=all
+
+      - name: Generate Microsoft Store screenshots
+        if: steps.store_check.outputs.skip != 'true'
+        working-directory: tools/appstore-screens
+        run: npm run generate:all
+
+      # Uploads package + listing metadata (title/description/features/
+      # keywords/release notes from store/) and COMMITS the submission —
+      # unlike the previous msstore-CLI job, this does reach Certification
+      # automatically. Pricing (store/defaults.json's default.PriceId) is
+      # explicitly written on every submission since 2026-09-04 (Microsoft
+      # support confirmed the account's Pricing V2 "Base" GET value can
+      # never be passed through untouched — see the script's own header for
+      # the full trail). scripts/verify-ms-store-listing.ps1 checks the
+      # written price against defaults.json after every submission; run it
+      # manually after the first real run following any PriceId change (see
+      # docs/store-release.md).
+      - name: Submit to Microsoft Store (classic DevCenter API, commits)
+        id: submit
+        if: steps.store_check.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          # Prefer the .msixupload (symbols); the bare .msix is only a fallback
+          # and leaves Partner Center crash reports unsymbolicated.
+          $msix = Get-ChildItem -Path msixupload -Filter *.msixupload -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $msix) {
+            Write-Host "::warning::No .msixupload found — submitting the bare .msix; Partner Center crash reports will lack symbols."
+            $msix = Get-ChildItem -Path msix -Filter *.msix -Recurse | Select-Object -First 1
+          }
+          if (-not $msix) {
+            Write-Host "::warning::No .msix file found in the msix-release artifact — skipping Store submission."
+            exit 0
+          }
+          ./scripts/submit-ms-store.ps1 `
+            -AppId ${{ secrets.MS_STORE_APP_ID }} `
+            -TenantId ${{ secrets.MS_STORE_TENANT_ID }} `
+            -ClientId ${{ secrets.MS_STORE_CLIENT_ID }} `
+            -ClientSecret ${{ secrets.MS_STORE_CLIENT_SECRET }} `
+            -MsixPath $msix.FullName
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::submit-ms-store.ps1 failed (exit $LASTEXITCODE)"; exit $LASTEXITCODE }
+
+      # The job-level `continue-on-error: true` above is deliberate (a Store
+      # outage must not block the GitHub Release), but it made a HARD API
+      # rejection indistinguishable from success: the whole run still reports
+      # green, so nobody opens it. That is not theoretical — an
+      # `InvalidParameterValue: 'Base' is not a valid PriceId` rejection
+      # silently failed the Store submission on SIX consecutive releases
+      # (v1.2.67 … v1.2.72) while every run showed green; it was only noticed
+      # and fixed at v1.2.73 (2fee2b52). Keep the job non-blocking, but make
+      # the failure impossible to miss on the run summary page.
+      - name: Surface a failed Store submission on the run summary
+        if: failure()
+        shell: bash
+        run: |
+          {
+            echo "## ⚠️ Microsoft Store submission FAILED"
+            echo ""
+            echo "Tag: \`${{ github.ref_name }}\`"
+            echo ""
+            echo "This job is \`continue-on-error\`, so the overall run still"
+            echo "reports success — the GitHub Release and every other channel"
+            echo "published normally. **The Store submission did not.**"
+            echo ""
+            echo "Check the \`Submit to Microsoft Store\` job log above, then"
+            echo "re-submit (see docs/store-release.md). Do not assume the"
+            echo "green run means the Store got this build."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build-macos:
+    name: Build macOS
+    runs-on: macos-latest
+    # See build-windows' timeout-minutes comment. Observed ~12-16min with a
+    # warm libllama cache; a cold libllama build adds a large chunk on top
+    # (v1.4.0's first cold run hit the old 45-minute cap).
+    timeout-minutes: 75
+    # See build-windows: skip on a Promote dispatch (no rebuild).
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == 'true') }}
+    outputs:
+      # See build-windows for rationale (decouple from Post-step failures).
+      build-succeeded: ${{ steps.mark_success.outputs.ok == 'true' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # ── Bundle libwhisper (on-device FFI engine) ─────────────────────────────
+      # Without this, whisper_ffi_engine.dart's DynamicLibrary.open() has nothing
+      # to load and on-device Whisper transcription is broken in the shipped app
+      # (found + fixed during v1.2.45 release prep — the Xcode embed phase existed
+      # but nothing ever built the source dylibs it embeds). Cached on the pinned
+      # whisper.cpp commit so a release retry doesn't rebuild from scratch.
+      - name: Cache libwhisper build (macOS)
+        id: libwhisper_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libwhisper/macos
+          key: libwhisper-macos-v1.9.5-d1be6fd-${{ hashFiles('scripts/build-libwhisper-macos.sh', 'native/ffi_guard/**') }}
+
+      - name: Clone pinned whisper.cpp source
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
+
+      - name: Build + stage libwhisper (macOS)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-libwhisper-macos.sh
+
+      # ── Build libllama + libsmartmode_shim (Smart Mode's on-device engine) ──
+      # macos/embed_libllama.sh embeds these from .build/libllama/macos, but
+      # nothing in this job ever fetched the llama.cpp source, so the embed
+      # phase's self-heal build failed and it warned-and-skipped: every macOS
+      # release up to v1.3.0 shipped without on-device Smart Mode. Same pin +
+      # cache pattern as the Windows/Linux libllama steps.
+      - name: Cache libllama build (macOS)
+        id: libllama_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libllama/macos
+          key: libllama-macos-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-macos.sh', 'scripts/build-smartmode-shim-macos.sh', 'native/smart_mode/**') }}
+
+      - name: Clone pinned llama.cpp source
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch b10150 https://github.com/ggml-org/llama.cpp .build/deps/llama.cpp/b10150
+
+      - name: Build + stage libllama + smartmode_shim (macOS)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: |
+          bash scripts/build-libllama-macos.sh
+          bash scripts/build-smartmode-shim-macos.sh
+
+      - name: Build macOS release
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          WHISPASTE_MATOMO_URL: ${{ secrets.WHISPASTE_MATOMO_URL }}
+          WHISPASTE_MATOMO_SITE_ID: ${{ secrets.WHISPASTE_MATOMO_SITE_ID }}
+        run: |
+          URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r\n')"
+          KEY="$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '\r\n')"
+          MATOMO_URL="$(printf '%s' "$WHISPASTE_MATOMO_URL" | tr -d '\r\n')"
+          MATOMO_SITE_ID="$(printf '%s' "$WHISPASTE_MATOMO_SITE_ID" | tr -d '\r\n')"
+
+          # Resolve the version from the tag (preferred) or pubspec.yaml so
+          # APP_VERSION can be baked into the binary via --dart-define. This
+          # makes app_info.appVersion available synchronously at app start,
+          # so Sentry's options.release is correct from the first event.
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+
+          flutter build macos --release --no-tree-shake-icons \
+            "--dart-define=SUPABASE_URL=$URL" \
+            "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY" \
+            "--dart-define=WHISPASTE_MATOMO_URL=$MATOMO_URL" \
+            "--dart-define=WHISPASTE_MATOMO_SITE_ID=$MATOMO_SITE_ID" \
+            "--dart-define=APP_VERSION=$VERSION"
+
+      # Hard-fail if libwhisper didn't make it into the bundle — the Xcode embed
+      # phase warns-and-skips on a missing source (so local dev builds without
+      # libwhisper still compile), which is exactly how a broken bundling step
+      # shipped silently before. A release build must never do that quietly.
+      - name: Verify libwhisper is embedded
+        run: |
+          APP_PATH="build/macos/Build/Products/Release/WhisPaste.app"
+          FW="$APP_PATH/Contents/Frameworks/libwhisper.dylib"
+          if [[ ! -f "$FW" ]]; then
+            echo "::error::libwhisper.dylib missing from $FW — on-device Whisper would be broken in this build."
+            exit 1
+          fi
+          echo "libwhisper.dylib present: $(ls -la "$FW")"
+
+      # Same hard-fail for Smart Mode: embed_libllama.sh warns-and-skips too.
+      - name: Verify smartmode_shim is embedded
+        run: |
+          FW="build/macos/Build/Products/Release/WhisPaste.app/Contents/Frameworks/libsmartmode_shim.dylib"
+          if [[ ! -f "$FW" ]]; then
+            echo "::error::libsmartmode_shim.dylib missing from $FW — on-device Smart Mode would be disabled in this build."
+            exit 1
+          fi
+          echo "libsmartmode_shim.dylib present: $(ls -la "$FW")"
+
+      # Upload .dSYM debug symbols for native crash symbolication.
+      # See the Windows job for rationale and Free-Tier accounting.
+      - name: Upload debug symbols to Sentry
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          export SENTRY_RELEASE="whispaste@$VERSION"
+          dart run sentry_dart_plugin
+
+      # ── Developer-ID Signing + Notarization ──────────────────────────────────
+      # Reactivated (v1.2.45): the stable self-signed identity (70e3eb4d) was a
+      # workaround for not having a paid Apple Developer Program at the time — an
+      # active program (same Team/ASC API key already used by the local Fastlane
+      # lanes) now exists, and Developer-ID is Apple's own supported path for a
+      # stable, identity-based designated requirement, so it supersedes the
+      # self-signed workaround outright: the macOS Accessibility (TCC) permission
+      # still persists across updates (same reasoning as 70e3eb4d), AND the app is
+      # notarized — no more "unidentified developer" Gatekeeper warning on a fresh
+      # download, and the Homebrew cask path (which requires notarization) unlocks.
+      #
+      # Requires six secrets (set via scripts/setup-gh-secrets.sh):
+      #   MACOS_DEVELOPER_ID_CERT_BASE64 — base64-encoded .p12 certificate
+      #   MACOS_DEVELOPER_ID_CERT_PASSWORD — .p12 export password
+      #   ASC_API_KEY_BASE64 — base64-encoded AuthKey_<ASC_KEY_ID>.p8
+      #   ASC_KEY_ID — App Store Connect API Key ID
+      #   ASC_ISSUER_ID — App Store Connect API Issuer ID
+      #   APPLE_TEAM_ID — Apple Developer Team ID
+      #
+      # If any of these secrets are absent the step is skipped with a clear
+      # message and the job continues — unsigned DMG is still uploaded as
+      # a best-effort artifact. Build stays green.
+      - name: Check signing secrets
+        id: signing_check
+        run: |
+          if [[ -z "${{ secrets.MACOS_DEVELOPER_ID_CERT_BASE64 }}" || \
+                -z "${{ secrets.MACOS_DEVELOPER_ID_CERT_PASSWORD }}" || \
+                -z "${{ secrets.ASC_API_KEY_BASE64 }}" || \
+                -z "${{ secrets.ASC_KEY_ID }}" || \
+                -z "${{ secrets.ASC_ISSUER_ID }}" || \
+                -z "${{ secrets.APPLE_TEAM_ID }}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::Signing secrets not set — skipping Developer-ID notarization. DMG will be unsigned and the Accessibility permission will NOT persist across updates."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Import Developer-ID certificate
+        if: steps.signing_check.outputs.skip != 'true'
+        env:
+          MACOS_DEVELOPER_ID_CERT_BASE64: ${{ secrets.MACOS_DEVELOPER_ID_CERT_BASE64 }}
+          MACOS_DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.MACOS_DEVELOPER_ID_CERT_PASSWORD }}
+        run: |
+          # Create a dedicated keychain so the cert does not persist on the runner.
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 16)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Decode and import the .p12 certificate.
+          CERT_PATH="$RUNNER_TEMP/devid.p12"
+          echo "$MACOS_DEVELOPER_ID_CERT_BASE64" | base64 --decode -o "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$MACOS_DEVELOPER_ID_CERT_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/productbuild
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Persist keychain path for subsequent steps.
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> "$GITHUB_ENV"
+
+      - name: Decode ASC API key
+        if: steps.signing_check.outputs.skip != 'true'
+        env:
+          ASC_API_KEY_BASE64: ${{ secrets.ASC_API_KEY_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          # notarytool looks for the key at the standard Fastlane path.
+          KEY_DIR="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$KEY_DIR"
+          echo "$ASC_API_KEY_BASE64" | base64 --decode -o "$KEY_DIR/AuthKey_$ASC_KEY_ID.p8"
+          chmod 600 "$KEY_DIR/AuthKey_$ASC_KEY_ID.p8"
+
+      - name: Sign, notarize and staple .app
+        if: steps.signing_check.outputs.skip != 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          APP_PATH="build/macos/Build/Products/Release/WhisPaste.app"
+
+          # Sign the app bundle with Developer-ID Application cert + Hardened Runtime.
+          codesign --deep --force --options runtime \
+            --sign "Developer ID Application" \
+            --entitlements macos/Runner/Release.entitlements \
+            "$APP_PATH"
+
+          # notarytool only accepts a .zip/.pkg/.dmg, never a raw .app bundle
+          # directly ("Error: whispaste.app must be a zip archive (.zip), flat
+          # installer package (.pkg), or UDIF disk image (.dmg)" — confirmed
+          # live in CI, v1.2.48). -c -k --keepParent preserves the bundle
+          # structure/symlinks notarization needs to inspect.
+          NOTARIZE_ZIP="$RUNNER_TEMP/whispaste-notarize.zip"
+          ditto -c -k --keepParent "$APP_PATH" "$NOTARIZE_ZIP"
+
+          # Submit to Apple for notarization and wait (same shared ASC API key as Fastlane).
+          xcrun notarytool submit "$NOTARIZE_ZIP" \
+            --key "$HOME/.appstoreconnect/private_keys/AuthKey_$ASC_KEY_ID.p8" \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait \
+            --verbose
+
+          # Staple the notarization ticket to the original .app (not the zip
+          # submitted above — the ticket staples onto the actual bundle).
+          xcrun stapler staple "$APP_PATH"
+
+          # Post-build smoke: verify ticket and Gatekeeper acceptance.
+          xcrun stapler validate "$APP_PATH"
+          spctl --assess --type exec --verbose "$APP_PATH"
+
+          echo "::notice::Developer-ID notarization and stapling completed."
+
+      - name: Clean up keychain
+        if: always() && steps.signing_check.outputs.skip != 'true'
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" || true
+
+      - name: Prepare release artifacts
+        run: |
+          # Use tag version when on a tag push; fall back to pubspec.yaml on branch push
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          ARTIFACT_DIR="release-artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+
+          APP_PATH="build/macos/Build/Products/Release/WhisPaste.app"
+
+          # Portable ZIP. Must use ditto, not zip -r: plain zip flattens the
+          # symlinks inside Sparkle.framework/Versions/Current into a real
+          # directory, which fails Gatekeeper's bundle-format check on the
+          # user's machine after unzip (confirmed locally, 2026-08-07 —
+          # `ls -la` shows a directory from zip, a proper symlink from ditto).
+          # Same tool already used for the notarization zip above, for the
+          # same reason.
+          cd build/macos/Build/Products/Release
+          ditto -c -k --keepParent WhisPaste.app "$OLDPWD/$ARTIFACT_DIR/WhisPaste-$VERSION-macos-arm64.zip"
+          cd "$OLDPWD"
+
+          # DMG via create-dmg (best-effort; falls back to zip-only)
+          brew install create-dmg || true
+          create-dmg \
+            --volname "WhisPaste" \
+            --window-size 500 320 \
+            --icon-size 80 \
+            --app-drop-link 380 170 \
+            --icon "WhisPaste.app" 120 170 \
+            "$ARTIFACT_DIR/WhisPaste-macos-arm64.dmg" \
+            "$APP_PATH" || true
+
+          # WhisPaste-Diagnose: Dart-native .app bundle + DMG.
+          # Builds the standalone diagnostics tool (pure Dart, no Flutter).
+          cd packages/whispaste_diagnostics
+          dart pub get
+          bash tool/build_app_bundle.sh
+          cd "$OLDPWD"
+          hdiutil create -volname "WhisPaste-Diagnose" \
+            -srcfolder "packages/whispaste_diagnostics/dist/WhisPaste-Diagnose.app" \
+            -ov -format UDZO \
+            "$ARTIFACT_DIR/WhisPaste-Diagnose-macOS.dmg"
+
+          echo "Release artifacts:"
+          ls -lh "$ARTIFACT_DIR"
+
+      # Package smoke test (catchup ticket 11): mounts the DMG, checks
+      # the signature and that every linked dylib resolves inside the bundle
+      # or the system (otool), then starts the app once with `--diagnose`.
+      # The DMG step above is best-effort, so fall back to the built .app
+      # rather than skipping the test.
+      - name: Smoke-test macOS package
+        run: |
+          DMG="release-artifacts/WhisPaste-macos-arm64.dmg"
+          if [[ -f "$DMG" ]]; then
+            bash scripts/smoke/smoke-macos.sh "$DMG"
+          else
+            echo "::warning::$DMG was not built — smoke-testing the .app instead."
+            bash scripts/smoke/smoke-macos.sh build/macos/Build/Products/Release/WhisPaste.app
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: macos-release
+          path: release-artifacts/
+
+      - name: Mark build succeeded
+        id: mark_success
+        run: echo "ok=true" >> "$GITHUB_OUTPUT"
+
+  build-linux:
+    name: Build Linux x86_64
+    runs-on: ubuntu-latest
+    # See build-windows' timeout-minutes comment. Observed ~8-11min with a
+    # warm libllama cache; a cold libllama build (Vulkan shaders + one CPU
+    # backend per x86-64 level, see build-libllama-linux.sh) adds a long
+    # compile on top, same order as the Windows job's 60-minute budget.
+    timeout-minutes: 60
+    # See build-windows: skip on a Promote dispatch (no rebuild).
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.promote == 'true') }}
+    outputs:
+      # See build-windows for rationale (decouple from Post-step failures).
+      build-succeeded: ${{ steps.mark_success.outputs.ok == 'true' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      # ── §3.1 Build-Stolperfallen — vollständig abgebildet ──────────────────────
+      # sentry-native: libcurl4-openssl-dev + zlib1g-dev
+      # jni-Plugin: default-jdk + JAVA_HOME
+      # flutter_soloud x86 Xiph: libflac-dev + libogg-dev + libopus-dev + libvorbis-dev
+      # libasound2-dev: ALSA (audio pipeline)
+      # libkeybinder-3.0-dev + libnotify-dev + libayatana-appindicator3-dev: desktop integration
+      # libsecret-1-dev + libgtk-3-dev: Flutter Linux baseline
+      # clang + cmake + ninja-build + pkg-config: Flutter Linux build toolchain
+      # -Werror: already removed in linux/CMakeLists.txt (commit 26fab952)
+      - name: Install Linux build dependencies
+        run: |
+          # See ci.yml's Install Linux build dependencies step: a stalled
+          # Ubuntu mirror once ate 6h of runner time. Retry, capped at 2min
+          # per attempt — on a release tag a mirror blip must not cost the
+          # whole build.
+          for attempt in 1 2 3; do
+            timeout 120 sudo apt-get update && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::apt-get update failed after 3 attempts."
+              exit 1
+            fi
+            echo "apt-get update failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
+          sudo apt-get install -y \
+            clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libsecret-1-dev \
+            libkeybinder-3.0-dev libnotify-dev \
+            libayatana-appindicator3-dev libasound2-dev \
+            libcurl4-openssl-dev zlib1g-dev \
+            libflac-dev libogg-dev libopus-dev libvorbis-dev \
+            default-jdk \
+            g++ patchelf libvulkan-dev glslang-tools glslc spirv-headers \
+            xvfb
+
+      # jni-Plugin: JAVA_HOME muss gesetzt sein (§3.1)
+      - name: Set JAVA_HOME
+        run: |
+          JAVAC_PATH="$(which javac)"
+          JAVA_HOME_PATH="$(dirname "$(dirname "$(readlink -f "$JAVAC_PATH")")")"
+          echo "JAVA_HOME=$JAVA_HOME_PATH" >> "$GITHUB_ENV"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.1
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Linux release
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+          WHISPASTE_MATOMO_URL: ${{ secrets.WHISPASTE_MATOMO_URL }}
+          WHISPASTE_MATOMO_SITE_ID: ${{ secrets.WHISPASTE_MATOMO_SITE_ID }}
+          # flutter_soloud §3.1: Xiph system libs statt x86-only Bundles verwenden
+          TRY_SYSTEM_LIBS_FIRST: "1"
+        run: |
+          URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r\n')"
+          KEY="$(printf '%s' "$SUPABASE_PUBLISHABLE_KEY" | tr -d '\r\n')"
+          MATOMO_URL="$(printf '%s' "$WHISPASTE_MATOMO_URL" | tr -d '\r\n')"
+          MATOMO_SITE_ID="$(printf '%s' "$WHISPASTE_MATOMO_SITE_ID" | tr -d '\r\n')"
+
+          # Resolve version from tag (preferred) or pubspec.yaml
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+
+          flutter build linux --release --no-tree-shake-icons \
+            "--dart-define=SUPABASE_URL=$URL" \
+            "--dart-define=SUPABASE_PUBLISHABLE_KEY=$KEY" \
+            "--dart-define=WHISPASTE_MATOMO_URL=$MATOMO_URL" \
+            "--dart-define=WHISPASTE_MATOMO_SITE_ID=$MATOMO_SITE_ID" \
+            "--dart-define=APP_VERSION=$VERSION"
+
+      # ── Bundle libwhisper (on-device FFI engine) ─────────────────────────────
+      # Same root cause as macOS/Windows (found + fixed during v1.2.45 release
+      # prep): the bundling script existed but nothing in CI called it.
+      # -DGGML_BACKEND_DL=ON: same hardware-inclusivity reasoning as Windows —
+      # without it ggml.so hard-links libggml-vulkan.so (-> libvulkan.so.1), so
+      # a machine with no Vulkan driver at all would fail to load on-device
+      # Whisper entirely. Verified live via WSL2 Ubuntu: removing
+      # libggml-vulkan.so breaks the load without this flag, loads fine with
+      # it. Unlike Windows, no DynamicLibrary-search-path code fix is needed
+      # here — the $ORIGIN rpath baked into each .so by build-libwhisper-linux.sh
+      # already covers transitive dependency resolution correctly (verified via
+      # ldd; this is a structural ELF-rpath vs. Windows-PE-search-order
+      # difference, not a Linux-specific bug).
+      - name: Cache libwhisper build (Linux)
+        id: libwhisper_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libwhisper/linux
+          key: libwhisper-linux-v1.9.5-d1be6fd-${{ hashFiles('scripts/build-libwhisper-linux.sh', 'scripts/split-debug-linux.sh', 'native/ffi_guard/**') }}
+
+      - name: Clone pinned whisper.cpp source
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch v1.9.5 https://github.com/ggml-org/whisper.cpp .build/deps/whisper.cpp/v1.9.5
+
+      - name: Build + stage libwhisper (Linux)
+        if: steps.libwhisper_cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-libwhisper-linux.sh
+
+      - name: Copy libwhisper into the Flutter bundle
+        run: |
+          mkdir -p build/linux/x64/release/bundle/lib
+          cp .build/libwhisper/linux/*.so* build/linux/x64/release/bundle/lib/
+
+      - name: Verify libwhisper is embedded
+        run: |
+          SO="build/linux/x64/release/bundle/lib/libwhisper.so"
+          if [[ ! -f "$SO" ]]; then
+            echo "::error::libwhisper.so missing from $SO — on-device Whisper would be broken in this build."
+            exit 1
+          fi
+          echo "libwhisper.so present: $(ls -la "$SO")"
+
+      # ── Bundle libllama + libsmartmode_shim (Smart Mode's on-device engine) ──
+      # Linux counterpart of the Windows libllama steps above: without it the
+      # on-device Smart Mode option is disabled in Settings (the app probes
+      # lib/smart_mode/libsmartmode_shim.so, see smart_mode_ffi_engine.dart).
+      # Staged under bundle/lib/smart_mode/, so the tarball, .deb, AppImage
+      # and the tarball-based Flatpak/Snap recipes all carry it unchanged.
+      # Same pin + cache pattern as libwhisper; vulkan/glslc/patchelf come
+      # from the dependency step at the top of this job.
+      - name: Cache libllama build (Linux)
+        id: libllama_cache
+        uses: actions/cache@v4
+        with:
+          path: .build/libllama/linux
+          key: libllama-linux-b10150-dee2a84-${{ hashFiles('scripts/build-libllama-linux.sh', 'scripts/split-debug-linux.sh', 'native/smart_mode/**') }}
+
+      - name: Clone pinned llama.cpp source
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: git clone --depth 1 --branch b10150 https://github.com/ggml-org/llama.cpp .build/deps/llama.cpp/b10150
+
+      - name: Build + stage libllama + smartmode_shim (Linux)
+        if: steps.libllama_cache.outputs.cache-hit != 'true'
+        run: bash scripts/build-libllama-linux.sh
+
+      - name: Copy libllama into the Flutter bundle
+        run: |
+          mkdir -p build/linux/x64/release/bundle/lib/smart_mode
+          cp .build/libllama/linux/*.so* build/linux/x64/release/bundle/lib/smart_mode/
+
+      - name: Verify smartmode_shim is embedded
+        run: |
+          SO="build/linux/x64/release/bundle/lib/smart_mode/libsmartmode_shim.so"
+          if [[ ! -f "$SO" ]]; then
+            echo "::error::libsmartmode_shim.so missing from $SO — on-device Smart Mode would be disabled in this build."
+            exit 1
+          fi
+          # Unresolved dependencies are caught by "Smoke-test Linux packages"
+          # below, which runs ldd over every ELF file of the installed .deb
+          # and the extracted AppImage (scripts/smoke/smoke-linux.sh).
+          echo "libsmartmode_shim.so present: $(ls -la "$SO")"
+
+      # Linux counterpart of the Windows/macOS "Upload debug symbols to
+      # Sentry" steps. The plugin uploads the bundle (Dart AOT libapp.so,
+      # plugin .so files); the native engines ship stripped, so their split
+      # DWARF (debug/*.debug, see scripts/split-debug-linux.sh) goes up
+      # separately with the sentry-cli the plugin downloaded. Symbol uploads
+      # do not count against Sentry's event quota.
+      - name: Upload debug symbols to Sentry
+        if: env.SENTRY_AUTH_TOKEN != ''
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          # Must match `sentryRelease` in lib/core/app_info.dart.
+          SENTRY_RELEASE="whispaste@$VERSION" dart run sentry_dart_plugin
+          if ! .dart_tool/pub/bin/sentry_dart_plugin/sentry-cli --url https://de.sentry.io \
+            debug-files upload --org org --project flutter_whispaste \
+            .build/libwhisper/linux/debug .build/libllama/linux/debug; then
+            echo "::warning::Native debug-file upload to Sentry failed — crash frames in whisper/ggml/llama stay unsymbolicated for this release."
+          fi
+
+      # §3.1: crashpad_handler braucht chmod +x (kann nach dem Flutter-Build fehlen)
+      - name: Ensure crashpad_handler is executable
+        run: |
+          HANDLER="build/linux/x64/release/bundle/lib/crashpad_handler"
+          if [ -f "$HANDLER" ]; then
+            chmod +x "$HANDLER"
+            echo "crashpad_handler: chmod +x applied"
+          else
+            echo "crashpad_handler not found at expected path — skipping (may be bundled differently)"
+          fi
+
+      - name: Prepare release artifacts
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          ARTIFACT_DIR="release-artifacts"
+          mkdir -p "$ARTIFACT_DIR"
+
+          BUNDLE_DIR="build/linux/x64/release/bundle"
+          if [ ! -d "$BUNDLE_DIR" ]; then
+            echo "::error::Flutter Linux release bundle not found at $BUNDLE_DIR"
+            exit 1
+          fi
+
+          ZIP_NAME="WhisPaste-${VERSION}-linux-x64.tar.gz"
+          # Ship the uinput udev rule + installer so Auto-Paste can be enabled
+          # with one sudo call (the .deb applies it automatically).
+          tar -czf "$ARTIFACT_DIR/$ZIP_NAME" -C "$BUNDLE_DIR" . \
+            -C "$GITHUB_WORKSPACE/packaging/linux" 71-whispaste-uinput.rules install-uinput-rule.sh
+
+          echo "Release artifacts:"
+          ls -lh "$ARTIFACT_DIR"
+
+      # ── Direct-download Linux packages (Slice 17): AppImage + .deb ───────────
+      # Both are packaged FROM the bundle above (no Flutter rebuild — the §3.1
+      # pitfalls are already baked in). They land in $ARTIFACT_DIR so they ride
+      # the existing `linux-release` artifact and the create-release
+      # `files: artifacts/*` glob (AC4). Build recipes + writable-path rationale:
+      # packaging/appimage/, packaging/deb/, packaging/README.md.
+      - name: Build .deb package
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          bash packaging/deb/build-deb.sh \
+            build/linux/x64/release/bundle "$VERSION" release-artifacts
+
+      - name: Install AppImage tooling
+        run: |
+          cd /tmp
+          curl -fsSL -o linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          sudo install linuxdeploy /usr/local/bin/linuxdeploy
+          # FUSE is unavailable on the runner — extract+run the AppImage instead.
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV"
+
+      - name: Build AppImage
+        run: |
+          REF_NAME="${GITHUB_REF_NAME#v}"
+          if echo "$REF_NAME" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION="$REF_NAME"
+          else
+            VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//' | tr -d '[:space:]')
+          fi
+          bash packaging/appimage/build-appimage.sh \
+            build/linux/x64/release/bundle "$VERSION" release-artifacts
+          echo "All Linux release artifacts:"
+          ls -lh release-artifacts
+
+      # Package smoke test (catchup ticket 11): installs the .deb,
+      # extracts the AppImage, runs ldd over every bundled ELF file and starts
+      # each once with `whispaste --diagnose` under Xvfb. Fails the job before
+      # upload/mark_success, so nothing broken gets published.
+      - name: Smoke-test Linux packages
+        run: bash scripts/smoke/smoke-linux.sh release-artifacts
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-release
+          path: release-artifacts/
+
+      - name: Mark build succeeded
+        id: mark_success
+        run: echo "ok=true" >> "$GITHUB_OUTPUT"
+
+  # ── Optional follow-up: Linux arm64 ───────────────────────────────────────────
+  # arm64 is explicitly NOT active (maintainer decision: x86_64 first).
+  # To add arm64 support later, duplicate build-linux above with:
+  #   runs-on: ubuntu-24.04-arm   (GitHub-hosted arm64 runner, available on paid plans)
+  #   artifact name: linux-arm64-release
+  #   ZIP_NAME: WhisPaste-${VERSION}-linux-arm64.tar.gz
+  # No other changes needed — the Flutter Linux build is arch-agnostic given
+  # the same system-library versions. Tested locally on Pi 5 / Ubuntu 26.04 arm64.
+  # ──────────────────────────────────────────────────────────────────────────────
+
+  create-release:
+    name: Create GitHub Release
+    needs: [build-windows, build-macos, build-linux]
+    # Alle drei Platform-Builds müssen erfolgreich sein. (MSIX ist optional —
+    # wenn MSIX_PUBLISHER nicht gesetzt ist, läuft Build-Windows trotzdem
+    # erfolgreich durch und das msix-release-Artefakt fehlt einfach.)
+    #
+    # Wir prüfen den explizit gesetzten `build-succeeded`-Output statt
+    # `needs.*.result`, weil ein non-zero-Exit in einem Action-Post-Step
+    # (z. B. flutter-action Cache-Save) den Job-Result auf `failure` kippt,
+    # obwohl alle echten Build/Upload-Schritte grün durchliefen. `!cancelled()`
+    # stellt sicher, dass dieser Job trotz eines `failure`-Results der
+    # Build-Jobs überhaupt startet, damit die Outputs ausgewertet werden.
+    if: |
+      !cancelled() &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.build-windows.outputs.build-succeeded == 'true' &&
+      needs.build-macos.outputs.build-succeeded == 'true' &&
+      needs.build-linux.outputs.build-succeeded == 'true'
+    runs-on: ubuntu-latest
+    # See build-windows' timeout-minutes comment. Observed ~1-2min.
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v6
+
+      # PRD §5.2/§5.3 + Q1: route by Git tag. Beta (vX.Y.Z-beta.N) is published
+      # as a GitHub Prerelease and excluded from `releases/latest` (make_latest
+      # false). Stable (vX.Y.Z, no suffix) is a non-prerelease and becomes the
+      # org's latest release so `releases/latest` resolves to it. Downstream
+      # steps consume these outputs instead of re-deriving the channel.
+      - name: Resolve release channel
+        id: channel
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
+            {
+              echo "channel=beta"
+              echo "prerelease=true"
+              echo "make_latest=false"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "channel=stable"
+              echo "prerelease=false"
+              echo "make_latest=true"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-release
+          path: artifacts/
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: macos-release
+          path: artifacts/
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-release
+          path: artifacts/
+
+      - name: Download MSIX artifact
+        if: needs.build-windows.outputs.msix-built == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: msix-release
+          path: artifacts/
+
+      - name: Extract changelog inputs
+        id: notes
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Two-input split: patch-specific delta + cumulative minor highlights.
+          # The AI step combines them into a non-repetitive bilingual release
+          # body. Website/CI/landing-page bullets are filtered in both modes.
+          node scripts/extract-cumulative-changelog.mjs "$VERSION" --mode=patch > patch-changelog.md
+          node scripts/extract-cumulative-changelog.mjs "$VERSION" --mode=minor > minor-changelog.md
+
+      - name: AI-enhance release notes
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          node scripts/generate-release-notes.mjs \
+            --version "${{ steps.notes.outputs.version }}" \
+            --patch patch-changelog.md \
+            --minor minor-changelog.md \
+            --output-dir .
+
+          if [ -s release-notes-en.md ]; then
+            cp release-notes-en.md release-body.md
+            echo "AI-generated release notes applied"
+          else
+            echo "Release ${{ steps.notes.outputs.version }}" > release-body.md
+          fi
+
+      - name: Upload release notes as artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: |
+            release-notes-en.md
+            release-notes-de.md
+
+      # PRD §13 release discipline: the maintainer runs `docs-attest.sh attest`
+      # locally before pushing a tag (enforced by .githooks/pre-push, which
+      # blocks the push unless HEAD is stamped in the gitignored .docs-attest).
+      # CI re-runs the structural `check` here as defense-in-depth right before
+      # a release goes public — the invariant set behind `attest` (anti-vocab,
+      # version-sync, msix-version-sync, platform/store SSoT, removed-features,
+      # i18n) must hold at the public-release moment. `.docs-attest` itself is
+      # local/gitignored, so CI can only verify the invariants, not stamp them.
+      - name: docs-attest gate (public-docs consistency)
+        shell: bash
+        run: bash scripts/docs-attest.sh check
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          name: WhisPaste v${{ steps.notes.outputs.version }}
+          body_path: release-body.md
+          # GitHub's immutable-release feature blocks asset uploads to an
+          # already-published release, and publish-appcast (below) still
+          # needs to attach the signed appcast after this step runs — so the
+          # release is created as a draft and only flipped to published by
+          # the finalize-release job once every upload has landed.
+          draft: true
+          # Q1/§5.3: Stable → non-prerelease + make_latest=true so
+          # releases/latest resolves to it. Beta → prerelease + make_latest=false
+          # so it never displaces the stable feed (Beta never reaches
+          # releases/latest). Computed in the Resolve release channel step.
+          prerelease: ${{ steps.channel.outputs.prerelease }}
+          make_latest: ${{ steps.channel.outputs.make_latest }}
+          # `release-notes-de.md` is attached as an asset so the website
+          # changelog (build-releases.ts) can source the German body directly,
+          # instead of re-translating the English body. Single DE source of
+          # truth: the same file already drives the Microsoft Store listing.
+          files: |
+            artifacts/*
+            release-notes-de.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Sentry release
+        if: env.SENTRY_AUTH_TOKEN != ''
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          # Org/Project/URL must match values in lib/core/app_info.dart
+          SENTRY_ORG: org
+          SENTRY_PROJECT: flutter_whispaste
+          SENTRY_URL: https://de.sentry.io
+        with:
+          environment: production
+          release: whispaste@${{ steps.notes.outputs.version }}
+
+  # Microsoft Store submission removed — release flow runs locally on macOS now.
+  # Listing text → import CSV via scripts/generate-store-listing.mjs (see store/README.md).
+
+  # ── Sparkle appcast (self-update feed, PRD Säule E) ───────────────────────────
+  # Signs the macOS DMG + Windows Setup.exe with the EdDSA key (secret
+  # SPARKLE_SIGNING_KEY) and publishes ONE signed appcast.xml carrying two
+  # enclosures (sparkle:os="macos" + "windows"). Sparkle (macOS) and WinSparkle
+  # 0.9.x (Windows, vendored) both reject unsigned feeds, so this job is MANDATORY
+  # for the in-app self-update on either platform. Runs on macOS because the
+  # Sparkle CLI tools (sign_update) are Mach-O binaries; the script bootstraps
+  # them from the official Sparkle release.
+  publish-appcast:
+    name: Publish signed Sparkle appcast
+    needs: [create-release]
+    # needs.create-release.result == 'success' (not just !cancelled()) is
+    # required — create-release itself skips whenever any platform build
+    # failed, and !cancelled() alone still evaluates true for a *skipped*
+    # dependency, so this job used to run anyway and fail hard trying to
+    # download a macos-release artifact that was never uploaded. Confirmed
+    # live in the v1.2.47 run (build-macos failed → create-release skipped →
+    # publish-appcast still ran → "Artifact not found: macos-release").
+    if: |
+      needs.create-release.result == 'success' &&
+      startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-latest
+    # See build-windows' timeout-minutes comment. Observed ~1min.
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: macos-release
+          path: artifacts/
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-release
+          path: artifacts/
+
+      - name: Generate & upload signed appcast
+        env:
+          SPARKLE_SIGNING_KEY: ${{ secrets.SPARKLE_SIGNING_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # PRD §5.2: --channel selects the feed asset filename. Beta tags emit
+          # appcast-beta.xml (consumed via the beta-appcast-pointer branch,
+          # §5.3); stable tags emit appcast.xml (consumed via releases/latest).
+          # Feed CONTENT is
+          # identical across channels (both EdDSA enclosures); only the name
+          # differs (Issue 03).
+          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
+            CHANNEL="beta"
+          else
+            CHANNEL="stable"
+          fi
+          bash scripts/generate_appcast.sh \
+            --channel "$CHANNEL" \
+            "${GITHUB_REF_NAME}" \
+            "artifacts" \
+            "https://github.com/whispaste/whispaste/releases/tag/${GITHUB_REF_NAME#v}"
+
+      # A stable release must also refresh the beta-channel fallback so
+      # Beta-channel users never sit behind stable just because no new beta
+      # build has shipped in a while (see scripts/publish_beta_fallback.sh).
+      # continue-on-error: this is a nice-to-have, must never block the
+      # actual stable release from completing.
+      - name: Refresh beta-channel fallback with this stable release
+        if: ${{ !contains(github.ref_name, '-beta.') }}
+        continue-on-error: true
+        env:
+          SPARKLE_SIGNING_KEY: ${{ secrets.SPARKLE_SIGNING_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash scripts/publish_beta_fallback.sh "${GITHUB_REF_NAME}" "artifacts"
+
+      # Issue 08 fix, v2: a GitHub Release OBJECT can never serve as the
+      # rolling `beta-latest` pointer — GitHub's immutable-releases feature
+      # (GA since 2025-10) permanently burns a tag_name the moment any release
+      # (even a prerelease) is published under it: neither `--clobber`
+      # re-uploads nor delete-then-recreate work, and disabling the repo
+      # setting afterwards does NOT un-burn an already-used name (confirmed:
+      # https://docs.github.com/en/code-security/concepts/supply-chain-security/immutable-releases).
+      # The previous attempt (delete-then-recreate `beta-latest`) hit exactly
+      # this wall in practice (HTTP 422 "tag_name was used by an immutable
+      # release") once GitHub actually enforced it — it is not something a
+      # workflow retry can work around.
+      #
+      # Fix: stop using a Release object for the pointer. Force-push the
+      # current appcast-beta.xml to a dedicated, single-purpose branch
+      # instead — branches carry none of the tag/release immutability
+      # restrictions, so a force-push is safe and idempotent forever. The
+      # app fetches it from raw.githubusercontent.com (see
+      # `_betaAppcastFeedUrl` in lib/services/auto_updater_service.dart) —
+      # not a release download URL, so nothing there needs a Release object
+      # to exist at all. Only appcast-beta.xml lives on this branch — the
+      # actual installers/DMG/Setup.exe stay on the versioned beta release
+      # (e.g. v1.2.44-beta.1); the appcast's enclosure URLs already point
+      # there and are unaffected by this fix.
+      - name: Publish beta-appcast pointer via git branch (Issue 08 fix v2)
+        if: contains(github.ref_name, '-beta.')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          POINTER_DIR="$(mktemp -d)"
+          cp artifacts/appcast-beta.xml "$POINTER_DIR/appcast-beta.xml"
+          cd "$POINTER_DIR"
+          git init -q -b beta-appcast-pointer
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast-beta.xml
+          git commit -q -m "beta appcast pointer: ${GITHUB_REF_NAME}"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git push -q --force origin beta-appcast-pointer
+          echo "beta-appcast-pointer branch updated with current appcast-beta.xml"
+
+      # Only the beta-appcast-pointer branch is checked here — it is a plain
+      # git ref served via raw.githubusercontent.com, live immediately after
+      # the force-push above, independent of the tag release's draft/publish
+      # state. The tag release's OWN download URL
+      # (releases/download/<tag>/<file> or releases/latest/download/...) is
+      # NOT publicly fetchable yet at this point in the pipeline — create-
+      # release deliberately leaves it a draft until finalize-release runs
+      # (see that job) — so verifying it here would 404 by construction, not
+      # because anything is actually broken. That check moved to
+      # finalize-release, right after the release is published.
+      - name: Gate — verify beta-appcast-pointer branch is fetchable & signed
+        if: contains(github.ref_name, '-beta.')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          sleep 5  # let raw.githubusercontent.com's CDN settle after push
+          POINTER="https://raw.githubusercontent.com/${{ github.repository }}/beta-appcast-pointer/appcast-beta.xml"
+          echo "Fetching $POINTER"
+          curl -fsSL -o /tmp/pointer-appcast.xml "$POINTER"
+          PENC=$(grep -c '<enclosure' /tmp/pointer-appcast.xml || true)
+          PSIG=$(grep -c 'sparkle:edSignature=' /tmp/pointer-appcast.xml || true)
+          [[ "$PENC" -ge 1 && "$PSIG" -eq "$PENC" ]] || {
+            echo "ERROR: beta-appcast-pointer branch is unsigned, empty, or stale." >&2
+            exit 1
+          }
+          grep -qF "${GITHUB_REF_NAME#v}" /tmp/pointer-appcast.xml || {
+            echo "ERROR: beta-appcast-pointer does not reference this release's version — force-push may have failed." >&2
+            exit 1
+          }
+          echo "OK — signed appcast live at $POINTER"
+
+  # ── Publish the release (draft → published) ────────────────────────────────
+  # create-release deliberately creates the tag release as a draft (immutable-
+  # release restrictions block asset uploads after publish) and publish-appcast
+  # attaches the signed appcast to that same draft. Only once BOTH have
+  # finished uploading does the release flip to published — the single point
+  # where releases/download/<tag>/<file> starts resolving for real users.
+  finalize-release:
+    name: Publish GitHub Release (draft → published)
+    needs: [create-release, publish-appcast]
+    if: |
+      !cancelled() &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.create-release.result == 'success' &&
+      needs.publish-appcast.result == 'success'
+    runs-on: ubuntu-latest
+    # See build-windows' timeout-minutes comment.
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release edit "${{ github.ref_name }}" --draft=false --repo "${{ github.repository }}"
+          echo "Published ${{ github.ref_name }}"
+
+      # Must run after the publish above: the website's changelog is built
+      # from the GitHub Releases API, which does not list drafts. Triggered
+      # from create-release before, it rebuilt the site while the new
+      # release was still a draft, so the changelog lagged one release behind.
+      - name: Trigger website redeploy
+        continue-on-error: true
+        run: |
+          gh workflow run deploy-pages.yml --ref main --repo "${{ github.repository }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Only meaningful once the release above is actually published — the
+      # releases/download/<tag>/<file> and releases/latest/download/... URLs
+      # 404 on a draft release, which is why this moved out of publish-appcast
+      # (see the comment on its remaining beta-appcast-pointer-only gate).
+      - name: Gate — verify published appcast is fetchable & every enclosure signed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          sleep 5  # let the release-asset CDN settle after publish
+          if [[ "${GITHUB_REF_NAME}" == *-beta.* ]]; then
+            # Beta feed: fetch the just-uploaded asset via its version tag —
+            # exercises the same signed bytes the app will consume.
+            FEED="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/appcast-beta.xml"
+          else
+            # Stable feed: releases/latest resolves to this non-prerelease
+            # (make_latest=true in create-release).
+            FEED="https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/appcast.xml"
+          fi
+          echo "Fetching $FEED"
+          curl -fsSL -o /tmp/published-appcast.xml "$FEED"
+          ENC=$(grep -c '<enclosure' /tmp/published-appcast.xml || true)
+          SIG=$(grep -c 'sparkle:edSignature=' /tmp/published-appcast.xml || true)
+          echo "Published enclosures: ${SIG}/${ENC} signed"
+          [[ "$ENC" -ge 1 && "$SIG" -eq "$ENC" ]] || {
+            echo "ERROR: published appcast is unsigned or empty — self-update would be rejected by Sparkle." >&2
+            exit 1
+          }
+          echo "OK — signed appcast live at $FEED"
+
+  # ── Manifest-Auto-Bump ────────────────────────────────────────────────────────
+  # Updates version + SHA256 in all three packaging manifests as part of the release.
+  # Each channel step is fault-tolerant: a failed channel emits ::warning:: and
+  # continues without blocking the others.
+  # The bumped manifests are committed back to dev, which then triggers the
+  # packaging-validate workflow automatically. The explicit validate-packaging job
+  # below provides in-workflow dependency tracking (AC5 wiring).
+  manifest-bump:
+    name: Bump packaging manifests (Scoop · winget · Homebrew)
+    # Needs finalize-release (not just create-release): the SHA256 steps below
+    # curl the installer straight from its releases/download/<tag>/<file> URL,
+    # which only resolves once the release is published (see finalize-release).
+    needs: [create-release, finalize-release]
+    # PRD §5.1: Scoop/winget/Homebrew are STABLE direct-download channels. A
+    # beta must never bump them (it would offer an `-beta.N` version to stable
+    # channel users). Stable-only here; validate-packaging inherits the skip via
+    # its `needs.manifest-bump.result == 'success'` condition.
+    if: |
+      !cancelled() &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      !contains(github.ref_name, '-') &&
+      needs.finalize-release.result == 'success'
+    runs-on: ubuntu-latest
+    # See build-windows' timeout-minutes comment.
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Check out dev branch
+        uses: actions/checkout@v6
+        with:
+          ref: dev
+          fetch-depth: 1
+
+      - name: Resolve version
+        id: ver
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      # ── Scoop ──────────────────────────────────────────────────────────────────
+      # Downloads the Windows ZIP from the just-published release, computes SHA256,
+      # and patches version + url + hash in packaging/scoop/whispaste.json.
+      # The checkver/autoupdate blocks stay intact for the Scoop bucket bot.
+      - name: Bump Scoop manifest
+        id: scoop
+        continue-on-error: true
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          TAG="${{ steps.ver.outputs.tag }}"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/WhisPaste-${VERSION}-windows-x64.zip"
+
+          SHA256=$(curl -fsSL --retry 3 "$URL" | sha256sum | awk '{print $1}')
+          if [[ -z "$SHA256" ]]; then
+            echo "::warning::Scoop bump: could not compute SHA256 from $URL — skipped"
+            exit 0
+          fi
+
+          jq --indent 4 \
+            --arg v "$VERSION" --arg h "$SHA256" \
+            '.version = $v |
+             .architecture["64bit"].hash = $h |
+             .architecture["64bit"].url  = ("https://github.com/whispaste/whispaste/releases/download/v" + $v + "/WhisPaste-" + $v + "-windows-x64.zip")' \
+            packaging/scoop/whispaste.json > packaging/scoop/whispaste.json.tmp \
+          && mv packaging/scoop/whispaste.json.tmp packaging/scoop/whispaste.json
+          echo "::notice::Scoop manifest → $VERSION (sha256: ${SHA256:0:16}…)"
+
+      # ── winget ─────────────────────────────────────────────────────────────────
+      # Primary: wingetcreate update (downloads installer, computes SHA256, updates YAMLs).
+      # No --submit flag — local manifest update only; submit is a separate manual step.
+      # Fallback: direct YAML + SHA256 update via sed/curl (used until the package
+      # is indexed in winget-pkgs and wingetcreate update succeeds).
+      - name: Bump winget manifests (wingetcreate update — no submit)
+        id: winget
+        continue-on-error: true
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          TAG="${{ steps.ver.outputs.tag }}"
+          INSTALLER_URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/WhisPaste-Setup.exe"
+
+          export PATH="$PATH:$HOME/.dotnet/tools"
+
+          # Primary: wingetcreate update — no --submit, local output only.
+          if dotnet tool install --global Microsoft.WingetCreate --ignore-failed-sources 2>/dev/null \
+          && wingetcreate update SilvioLindstedt.WhisPaste \
+               --version "$VERSION" \
+               --urls    "$INSTALLER_URL" \
+               --out     packaging/winget \
+               --token   "${{ secrets.GITHUB_TOKEN }}" 2>&1; then
+            echo "::notice::winget manifests → $VERSION via wingetcreate (no submit)"
+            exit 0
+          fi
+
+          echo "::warning::wingetcreate update skipped or failed — falling back to direct YAML bump"
+
+          # Fallback: download installer, compute SHA256 (uppercase), update YAML inline.
+          SHA256=$(curl -fsSL --retry 3 "$INSTALLER_URL" | sha256sum | awk '{print $1}' | tr '[:lower:]' '[:upper:]')
+          if [[ -z "$SHA256" ]]; then
+            echo "::warning::winget bump: could not compute SHA256 from installer URL — skipped"
+            exit 0
+          fi
+
+          sed -i "s/^PackageVersion:.*/PackageVersion: $VERSION/"  packaging/winget/SilvioLindstedt.WhisPaste.yaml
+          sed -i "s/^PackageVersion:.*/PackageVersion: $VERSION/"  packaging/winget/SilvioLindstedt.WhisPaste.installer.yaml
+          sed -i "s/^PackageVersion:.*/PackageVersion: $VERSION/"  packaging/winget/SilvioLindstedt.WhisPaste.locale.en-US.yaml
+          sed -i "s|InstallerUrl:.*|InstallerUrl: $INSTALLER_URL|" packaging/winget/SilvioLindstedt.WhisPaste.installer.yaml
+          sed -i "s/InstallerSha256:.*/InstallerSha256: $SHA256/"  packaging/winget/SilvioLindstedt.WhisPaste.installer.yaml
+          echo "::notice::winget manifests → $VERSION (direct YAML bump, no submit)"
+
+      # ── Homebrew ───────────────────────────────────────────────────────────────
+      # The Homebrew cask path requires a NOTARIZED build — Homebrew Cask
+      # quarantines downloads by default, so an unnotarized .app would be blocked
+      # by Gatekeeper on first launch. Reactivated (v1.2.45): build-macos now signs
+      # and notarizes with a real Developer-ID certificate whenever the three
+      # MACOS_DEVELOPER_ID_CERT_*/ASC_API_KEY_BASE64 secrets are set — mirror that
+      # same gate here so this bump only runs once those secrets actually exist.
+      - name: Check notarization (Homebrew guard)
+        id: notarization_check
+        run: |
+          if [[ -z "${{ secrets.MACOS_DEVELOPER_ID_CERT_BASE64 }}" || \
+                -z "${{ secrets.MACOS_DEVELOPER_ID_CERT_PASSWORD }}" || \
+                -z "${{ secrets.ASC_API_KEY_BASE64 }}" ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Homebrew cask bump skipped — Developer-ID notarization secrets not set."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump Homebrew cask
+        id: homebrew
+        continue-on-error: true
+        if: steps.notarization_check.outputs.skip != 'true'
+        run: |
+          VERSION="${{ steps.ver.outputs.version }}"
+          TAG="${{ steps.ver.outputs.tag }}"
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/WhisPaste-${VERSION}-macos-arm64.zip"
+
+          SHA256=$(curl -fsSL --retry 3 "$URL" | sha256sum | awk '{print $1}')
+          if [[ -z "$SHA256" ]]; then
+            echo "::warning::Homebrew bump: could not compute SHA256 from $URL — skipped"
+            exit 0
+          fi
+
+          sed -i "s/version \"[^\"]*\"/version \"$VERSION\"/" packaging/homebrew/whispaste.rb
+          sed -i "s/sha256 \"[^\"]*\"/sha256 \"$SHA256\"/"   packaging/homebrew/whispaste.rb
+          echo "::notice::Homebrew cask → $VERSION (sha256: ${SHA256:0:16}…)"
+
+      # ── Validate Scoop manifest inline before committing ───────────────────────
+      # Re-runs the same logic as packaging-validate.yml / scoop job to ensure the
+      # bumped JSON is valid before it lands on dev. The full 3-channel validation
+      # (including winget + Homebrew) runs in the validate-packaging job below.
+      - name: Validate bumped Scoop manifest (packaging-validate gate)
+        run: |
+          python3 - packaging/scoop/whispaste.json <<'PYEOF'
+          import json, sys, pathlib
+          data = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          errors = []
+          if not data.get("version"):
+              errors.append("missing: version")
+          has_url  = bool(data.get("url"))
+          has_arch = isinstance(data.get("architecture"), dict)
+          if not has_url and not has_arch:
+              errors.append("missing: url / architecture")
+          has_hash      = bool(data.get("hash"))
+          has_arch_hash = any(
+              isinstance(v, dict) and v.get("hash")
+              for v in (data.get("architecture") or {}).values()
+          )
+          if not has_hash and not has_arch_hash:
+              errors.append("missing: hash / architecture.<arch>.hash")
+          if not data.get("bin"):
+              errors.append("missing: bin")
+          if not data.get("autoupdate"):
+              errors.append("missing: autoupdate")
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+          print("  ✓ Scoop manifest valid")
+          PYEOF
+
+      # ── Commit and push bumped manifests to dev ─────────────────────────────────
+      # This push triggers packaging-validate.yml automatically (push: branches: dev,
+      # paths: packaging/**) and also feeds the explicit validate-packaging job below.
+      - name: Commit and push bumped manifests
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet packaging/; then
+            echo "No manifest changes to commit."
+            exit 0
+          fi
+
+          git add packaging/
+          git commit -m "chore(packaging): bump manifests to ${{ steps.ver.outputs.version }}"
+          git push origin dev
+
+  # ── Validate bumped manifests (full 3-channel, packaging-validate gate) ────────
+  # Runs the packaging-validate reusable workflow against the bumped manifests on dev.
+  # Depends on manifest-bump so it only starts after manifests are committed.
+  # Non-blocking: continue-on-error would be set here if this gate should warn rather
+  # than fail; currently it is a hard gate (failures are visible in the release run).
+  validate-packaging:
+    name: Validate bumped packaging manifests (packaging-validate gate)
+    needs: [manifest-bump]
+    if: |
+      !cancelled() &&
+      startsWith(github.ref, 'refs/tags/v') &&
+      needs.manifest-bump.result == 'success'
+    uses: ./.github/workflows/packaging-validate.yml
+    with:
+      ref: dev
+
+  # ── Promote: validated beta build → stable (PRD §5.2/§7.2, Issue 05) ─────────
+  # A manual workflow_dispatch (inputs.promote=true) that turns a field-validated
+  # beta X.Y.Z-beta.N into the stable X.Y.Z WITHOUT rebuilding anything. It
+  # copies the beta release artifacts verbatim under a new non-prerelease tag
+  # vX.Y.Z, re-derives the stable appcast (identical EdDSA signature — same
+  # artifact bytes + same seed), and surfaces the operator Store-Submission step.
+  #
+  # Idempotent: if vX.Y.Z already exists, the existence guard re-publishes the
+  # identical assets (--clobber) instead of duplicating them (AC-3). The build
+  # jobs above are skipped on this dispatch, so nothing is rebuilt.
+  promote-beta-to-stable:
+    name: Promote beta → stable (same build, no rebuild)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.promote == 'true' }}
+    runs-on: macos-latest
+    # See build-windows' timeout-minutes comment.
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve promote inputs
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          BETA_TAG="${{ inputs.beta-tag }}"
+          STABLE_VERSION="${{ inputs.stable-version }}"
+          # Normalize: guarantee a leading 'v' on the beta tag and strip it
+          # from the stable version (re-added as the stable tag below).
+          BETA_TAG="v${BETA_TAG#v}"
+          STABLE_VERSION="${STABLE_VERSION#v}"
+          STABLE_TAG="v${STABLE_VERSION}"
+          {
+            echo "beta-tag=${BETA_TAG}"
+            echo "stable-version=${STABLE_VERSION}"
+            echo "stable-tag=${STABLE_TAG}"
+          } >> "$GITHUB_OUTPUT"
+          echo "Promoting ${BETA_TAG} → ${STABLE_TAG} (no rebuild)"
+
+      - name: Verify source beta release exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "${{ steps.vars.outputs.beta-tag }}" --repo "${{ github.repository }}" >/dev/null; then
+            echo "::error::Source beta release ${{ steps.vars.outputs.beta-tag }} not found — promote aborted."
+            exit 1
+          fi
+          echo "Source beta release found: ${{ steps.vars.outputs.beta-tag }}"
+
+      - name: Idempotency guard — delete existing stable release if present
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # AC-3: GitHub's immutable-release feature blocks asset uploads to
+          # an already-published release, so a re-promote of the same stable
+          # version must delete the existing release object (the underlying
+          # git tag is left untouched) before recreating it fresh below,
+          # rather than re-publishing assets onto it via upload --clobber.
+          if gh release view "${{ steps.vars.outputs.stable-tag }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release delete "${{ steps.vars.outputs.stable-tag }}" --yes --repo "${{ github.repository }}"
+            echo "Deleted existing stable release ${{ steps.vars.outputs.stable-tag }} (tag preserved) for a clean re-promote."
+          else
+            echo "Stable release ${{ steps.vars.outputs.stable-tag }} absent — will create it."
+          fi
+
+      - name: Create stable release (draft)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Draft: the artifact + appcast uploads below must land before the
+          # release is published (see "Publish stable release" at the end of
+          # this job) — same immutable-release constraint as create-release.
+          gh release create "${{ steps.vars.outputs.stable-tag }}" \
+            --repo "${{ github.repository }}" \
+            --draft \
+            --title "WhisPaste v${{ steps.vars.outputs.stable-version }}" \
+            --notes "Stable release ${{ steps.vars.outputs.stable-version }} — promoted from ${{ steps.vars.outputs.beta-tag }} (same build, same EdDSA signature; PRD §7.2)."
+
+      - name: Copy beta artifacts verbatim (no rebuild)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p promote-artifacts
+          # Download ALL assets from the validated beta release. These are the
+          # exact build artefacts (DMG, Setup.exe, portable ZIPs, Linux tarball
+          # + .deb + AppImage, Diagnose, GPU-Probe, release-notes-de.md) — copied
+          # VERBATIM. Nothing is rebuilt (PRD §7.2: gleicher Build).
+          gh release download "${{ steps.vars.outputs.beta-tag }}" \
+            --repo "${{ github.repository }}" \
+            --dir promote-artifacts --clobber
+
+          # Drop the beta feed(s): the stable release gets a freshly derived
+          # appcast.xml (stable version + stable enclosure URLs) in the next
+          # step. Carrying appcast-beta.xml into stable would anchor the stable
+          # feed on the beta tag.
+          rm -f promote-artifacts/appcast-beta.xml promote-artifacts/appcast.xml
+
+          echo "Verbatim-copied stable artifacts:"
+          ls -lh promote-artifacts
+
+      - name: Attach artifacts to stable release (--clobber → idempotent, no duplicate)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # --clobber overwrites an existing same-named asset instead of
+          # erroring or duplicating — this is the idempotency guarantee (AC-3):
+          # a second promote of the same version re-publishes the identical
+          # bytes, never a double asset.
+          shopt -s nullglob
+          gh release upload "${{ steps.vars.outputs.stable-tag }}" promote-artifacts/* --clobber
+          echo "Artifacts attached to ${{ steps.vars.outputs.stable-tag }}."
+
+      - name: Publish stable appcast (identical signature — same bytes + same seed)
+        env:
+          SPARKLE_SIGNING_KEY: ${{ secrets.SPARKLE_SIGNING_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # PRD §7.2 + §5.2: derive the STABLE appcast (appcast.xml, version
+          # X.Y.Z, stable enclosure URLs) from the verbatim-copied binaries via
+          # the SAME script the beta path uses. The enclosure sparkle:edSignature
+          # is BYTE-IDENTICAL to the beta's, because sign_update is deterministic
+          # over the SAME artifact bytes and uses the SAME EdDSA seed (pubkey
+          # Ek8FS/…). AC-2 holds: the promoted build's signature is the original
+          # beta's — no rebuild, no different key.
+          bash scripts/generate_appcast.sh \
+            --channel stable \
+            "${{ steps.vars.outputs.stable-tag }}" \
+            "promote-artifacts" \
+            "https://github.com/${{ github.repository }}/releases/tag/${{ steps.vars.outputs.stable-version }}"
+
+      # Same fallback as the regular tag-push path (publish-appcast job) —
+      # a promoted stable build must also refresh beta-appcast-pointer so
+      # Beta-channel users never sit behind it. continue-on-error: nice-to-
+      # have, must never block the promotion itself.
+      - name: Refresh beta-channel fallback with this stable release
+        continue-on-error: true
+        env:
+          SPARKLE_SIGNING_KEY: ${{ secrets.SPARKLE_SIGNING_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          bash scripts/publish_beta_fallback.sh "${{ steps.vars.outputs.stable-tag }}" "promote-artifacts"
+
+      - name: Publish stable release (draft → published, mark latest)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Q1/§5.3: --latest so releases/latest resolves to this stable
+          # release once published — mirrors the tag-push path's make_latest
+          # (finalize-release job), applied here after every upload above has
+          # landed on the still-draft release.
+          gh release edit "${{ steps.vars.outputs.stable-tag }}" \
+            --repo "${{ github.repository }}" \
+            --draft=false --latest
+
+      - name: Verify promoted stable feed is live + fully signed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 5  # let the release-asset CDN settle after the upload
+          FEED="https://github.com/${{ github.repository }}/releases/latest/download/appcast.xml"
+          echo "Fetching promoted stable feed: $FEED"
+          curl -fsSL -o /tmp/promoted-appcast.xml "$FEED"
+          ENC=$(grep -c '<enclosure' /tmp/promoted-appcast.xml || true)
+          SIG=$(grep -c 'sparkle:edSignature=' /tmp/promoted-appcast.xml || true)
+          echo "Promoted stable enclosures: ${SIG}/${ENC} signed"
+          [[ "$ENC" -ge 1 && "$SIG" -eq "$ENC" ]] || {
+            echo "::error::Promoted stable appcast is unsigned or empty — self-update would be rejected by Sparkle." >&2
+            exit 1
+          }
+          echo "OK — stable feed live at $FEED with $ENC signed enclosure(s)."
+
+      - name: Store-Submission (operator follow-up — PRD §6.3/§13)
+        shell: bash
+        run: |
+          # AC-4: the Store-Submission path is WIRED here (correct invocation
+          # form, no CI execution). The actual LIVE run is an operator task:
+          # Partner Center credentials + the stable MSIX signing happen on the
+          # operator's local machine, never in CI (CLAUDE.md
+          # Microsoft-Store-Operations — no host names, local paths, or
+          # credential locations belong in this tracked, public workflow).
+          # The beta carried NO MSIX (AC-5/Q2: beta skips the MSIX build), so
+          # the stable MSIX is built + submitted locally by the operator:
+          STABLE="${{ steps.vars.outputs.stable-tag }}"
+          echo "::notice::Stable ${{ steps.vars.outputs.stable-version }} promoted. Store-Submission is an operator task (PRD §6.3):"
+          echo "    Build and submit the stable MSIX for ${STABLE} via the local Windows release pipeline."
+          echo "    See internal release-ops documentation for the exact commands and credentials."
+          echo "  First real run closes PRD §13 (Store submission live test)."

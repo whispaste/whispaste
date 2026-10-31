@@ -1,0 +1,157 @@
+---
+/**
+ * BlogCard — one post tile, shared by the blog index and the "more posts"
+ * row under an article. `featured` turns it into the wide two-column lead
+ * card at the top of the index. The whole card is one link; the "read more"
+ * cue is decorative text inside it, so there is a single tab stop per post.
+ */
+import type { CollectionEntry } from "astro:content";
+import BlogCover from "./BlogCover.astro";
+import { readingMinutes } from "../scripts/blog.ts";
+import { t, localePath, type Locale } from "../scripts/i18n.ts";
+
+interface Props {
+  lang: Locale;
+  post: CollectionEntry<"blog">;
+  featured?: boolean;
+  /** Heading level inside the card: h2 on the index, h3 under an article. */
+  level?: 2 | 3;
+}
+const { lang, post, featured = false, level = 2 } = Astro.props;
+
+const slug = post.id.slice(post.id.indexOf("/") + 1);
+const formatDate = new Intl.DateTimeFormat(lang, { dateStyle: "long", timeZone: "UTC" });
+const Heading = `h${level}` as "h2" | "h3";
+---
+
+<a
+  href={localePath(lang, `blog/${slug}`)}
+  class:list={["blog-card wp-spot", featured && "blog-card--featured"]}
+  data-testid={`blog-post-${slug}`}
+>
+  <BlogCover seed={slug} image={post.data.cover} />
+  <div class="blog-card-body">
+    {featured && <p class="wp-eyebrow blog-card-flag">{t(lang, "blog.latest")}</p>}
+    <p class="blog-meta">
+      <time datetime={post.data.date.toISOString()}>{formatDate.format(post.data.date)}</time>
+      <span aria-hidden="true">·</span>
+      <span>{t(lang, "blog.readTime").replace("{n}", String(readingMinutes(post.body ?? "")))}</span>
+    </p>
+    <Heading class="blog-card-title">{post.data.title}</Heading>
+    <p class="blog-card-desc">{post.data.description}</p>
+    <span class="blog-card-more" aria-hidden="true">{t(lang, "blog.readMore")} <span class="blog-card-arrow">→</span></span>
+  </div>
+</a>
+
+<style>
+  .blog-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-5);
+    height: 100%;
+    padding: clamp(var(--wp-space-3), var(--wp-space-2) + 0.5vw, var(--wp-space-4));
+    border-radius: calc(var(--radius-surface) + 0.5rem);
+    border: 1px solid var(--wp-border-default);
+    background-color: var(--wp-surface-control);
+    transition:
+      border-color var(--dur-base) var(--ease-flow),
+      transform var(--dur-base) var(--ease-flow);
+  }
+  .blog-card:hover {
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 40%, transparent);
+  }
+  .blog-card:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 3px;
+  }
+  .blog-card:active {
+    transform: scale(0.99);
+  }
+  .blog-card-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    padding: 0 clamp(var(--wp-space-2), var(--wp-space-1) + 0.75vw, var(--wp-space-4)) clamp(var(--wp-space-2), var(--wp-space-1) + 0.75vw, var(--wp-space-4));
+  }
+  .blog-card-flag {
+    margin-bottom: var(--wp-space-4);
+  }
+  .blog-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5em;
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+  }
+  .blog-card-title {
+    margin-top: var(--wp-space-3);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--type-card-title);
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+    text-wrap: balance;
+  }
+  .blog-card-desc {
+    margin-top: var(--wp-space-3);
+    max-width: 62ch;
+    line-height: 1.6;
+    color: var(--color-ink-muted);
+    text-wrap: pretty;
+  }
+  .blog-card-more {
+    margin-top: auto;
+    padding-top: var(--wp-space-5);
+    font-size: var(--wp-font-size-md);
+    font-weight: 600;
+    color: var(--color-brand-cyan);
+  }
+  .blog-card-arrow {
+    display: inline-block;
+    transition: transform var(--dur-base) var(--ease-flow);
+  }
+  .blog-card:hover .blog-card-arrow {
+    transform: translateX(0.25rem);
+  }
+  .blog-card:hover :global(.blog-cover svg) {
+    transform: scale(1.04);
+  }
+
+  /* Lead card: cover left, copy right, larger title. */
+  @media (min-width: 900px) {
+    .blog-card--featured {
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      align-items: center;
+      gap: clamp(var(--wp-space-6), 3vw, var(--wp-space-16));
+    }
+    .blog-card--featured :global(.blog-cover) {
+      height: 100%;
+      aspect-ratio: auto;
+      min-height: 18rem;
+    }
+    .blog-card--featured .blog-card-body {
+      padding-block: var(--wp-space-6);
+    }
+  }
+  .blog-card--featured .blog-card-title {
+    font-size: var(--wp-font-size-title);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+  }
+  .blog-card--featured .blog-card-desc {
+    font-size: var(--type-lead);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .blog-card,
+    .blog-card-arrow,
+    .blog-card:hover :global(.blog-cover svg) {
+      transition: none;
+      transform: none;
+    }
+  }
+</style>

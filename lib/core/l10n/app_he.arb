@@ -1,0 +1,1945 @@
+{
+  "@@locale": "he",
+  "appName": "WhisPaste",
+  "navHistory": "היסטוריה",
+  "navNotes": "פתקים",
+  "navSettings": "הגדרות",
+  "navReplacements": "החלפות",
+  "navSnippets": "קטעים",
+  "navAnalytics": "ניתוח נתונים",
+  "navAbout": "אודות",
+  "navFeedback": "משוב",
+  "pageHistoryTitle": "היסטוריה",
+  "pageSettingsTitle": "הגדרות",
+  "pageReplacementsTitle": "החלפות",
+  "pageAnalyticsTitle": "ניתוח נתונים",
+  "pageAboutTitle": "אודות",
+  "pageFeedbackTitle": "משוב",
+  "historyEmpty": "עדיין אין הקלטות",
+  "historyEmptyHint": "לחץ על כפתור ההקלטה או השתמש בקיצור המקלדת כדי להתחיל.",
+  "historyPrivacyGateTitle": "ההיסטוריה מוסתרת",
+  "historyPrivacyGateHint": "התמלולים הקודמים שלך יישארו מוסתרים עד שתבחרו להציג אותם.",
+  "historyPrivacyGateShow": "הצגת היסטוריה",
+  "historySearch": "חיפוש…",
+  "historyPinned": "מועדפים",
+  "historyToday": "היום",
+  "historyYesterday": "אתמול",
+  "historyThisWeek": "השבוע",
+  "historyOlder": "ישן יותר",
+  "historyAll": "הכל",
+  "historyTrash": "אשפה",
+  "historyArchive": "ארכיון",
+  "historyArchived": "בארכיון",
+  "historyList": "רשימה",
+  "historyCards": "כרטיסים",
+  "historyCompact": "קומפקטי",
+  "historyItemsSelected": "{count} נבחרו",
+  "@historyItemsSelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyMerge": "מזג",
+  "historyRestore": "שחזר",
+  "historyDeleteForever": "מחק לצמיתות",
+  "historyDeletePermanently": "מחק לצמיתות",
+  "historyUnarchive": "הוצא מהארכיון",
+  "historyExport": "ייצא",
+  "historyExportAction": "ייצא…",
+  "historyCopyAsMarkdown": "העתק כ-Markdown",
+  "historyDetail": "פרטים",
+  "historyTags": "תגיות",
+  "historyDuration": "משך",
+  "historyModel": "מודל",
+  "historyWords": "מילים",
+  "historyCharacters": "תווים",
+  "historyWordCount": "{count} מילים",
+  "@historyWordCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyReadingTime": "{minutes} דק' קריאה",
+  "@historyReadingTime": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "historyReadingTimeUnder1": "פחות מדקה קריאה",
+  "historyListWordCount": "{count, plural, =1{כ-מילה אחת} other{כ-{count} מילים}}",
+  "historyToolsMenu": "תצוגה ובחירה",
+  "historyEditing": "עריכה",
+  "historySearchTranscriptions": "חפש בתמלולים…",
+  "historySearchFieldLabel": "חפש בתמלולים",
+  "historyNewRecording": "הקלטה חדשה",
+  "historyStopRecording": "עצור הקלטה",
+  "historyNoResults": "אין תוצאות",
+  "historyNoResultsHint": "אין תמלולים שמתאימים ל \"{query}\".\nנסה מונח חיפוש אחר.",
+  "@historyNoResultsHint": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "historyTrashEmpty": "האשפה ריקה",
+  "historyTrashEmptyHint": "תמלולים שנמחקו יופיעו כאן.\nפריטים נמחקים לצמיתות אחרי 30 יום.",
+  "historyEmptyTrash": "רוקן אשפה",
+  "historyEmptyTrashConfirm": "לרוקן את האשפה?",
+  "historyEmptyTrashConfirmMessage": "פעולה זו תמחק לצמיתות את כל הפריטים באשפה. אין דרך לבטל.",
+  "historyTrashEmptied": "{count, plural, =1{האשפה רוקנה — פריט אחד נמחק} other{האשפה רוקנה — {count} פריטים נמחקו}}",
+  "@historyTrashEmptied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyNoArchivedItems": "אין פריטים בארכיון",
+  "historyNoArchivedItemsHint": "העבר תמלולים לארכיון כדי לשמור אותם\nבלי שיופיעו ברשימה הראשית.",
+  "historyNoRecordingsHint": "לחץ על כפתור ההקלטה או השתמש בקיצור כדי להתחיל.\nהתמלולים שלך יופיעו כאן.",
+  "historyNoPinned": "עדיין אין מועדפים",
+  "historyNoPinnedHint": "סמן תמלול כמועדף כדי למצוא אותו כאן במהירות.",
+  "historyNoToday": "לא הוקלט היום",
+  "historyNoTodayHint": "הקלטות מהיום יופיעו כאן.",
+  "historyNoThisWeek": "לא הוקלט השבוע",
+  "historyNoThisWeekHint": "הקלטות מהשבוע יופיעו כאן.",
+  "historyCopiedToClipboard": "הועתק ללוח",
+  "historyMovedToTrash": "הועבר לאשפה",
+  "historyUndo": "בטל",
+  "historyEntriesMerged": "רשומות מוזגו",
+  "historyMergeConfirm": "למזג {count} רשומות?",
+  "@historyMergeConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyMergeConfirmMessage": "הרשומות הנבחרות ימוזגו לאחת. אין דרך לבטל.",
+  "historyExitSelection": "צא מבחירה",
+  "historySelectMultiple": "בחר מספר",
+  "historyProcessed": "עובד",
+  "historyOnDevice": "במכשיר",
+  "historyUntitledRecording": "הקלטה ללא שם",
+  "historyUntitled": "ללא שם",
+  "historyPinToTop": "הוסף למועדפים",
+  "historyUnpin": "הסר ממועדפים",
+  "historyCopyText": "העתק טקסט",
+  "historyClose": "סגור",
+  "historyLanguageLabel": "שפה",
+  "historyResultCount": "{count, plural, =1{תוצאה אחת} other{{count} תוצאות}}",
+  "@historyResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historySelectAll": "בחר הכל",
+  "historyDeselectAll": "בטל בחירה",
+  "settingsInterface": "ממשק",
+  "settingsInterfaceSubtitle": "מראה והתנהגות",
+  "settingsLaunchAtStartup": "הפעל עם ההפעלה",
+  "settingsStartMinimized": "התחל ממוזער",
+  "settingsStartMinimizedSubtitle": "התחל ברקע כשהמחשב נדלק",
+  "settingsAutostartNever": "לעולם לא",
+  "settingsAutostartNormal": "רגיל",
+  "settingsAutostartMinimized": "ממוזער",
+  "settingsShowNotifications": "הצג התראות",
+  "settingsShowBackendUtilization": "מחוון CPU/GPU בשורת הסטטוס",
+  "settingsShowBackendUtilizationSubtitle": "מציג אם התמלול פועל בפועל על CPU או GPU, כולל ניצול",
+  "settingsAudio": "אודיו",
+  "settingsAudioSubtitle": "מיקרופון והקלטה",
+  "settingsMicrophone": "מיקרופון",
+  "settingsGain": "עוצמת מיקרופון",
+  "settingsClippingBanner": "בהקלטה האחרונה הייתה רוויה. להפחית את העוצמה?",
+  "settingsClippingDismiss": "הבנתי",
+  "settingsHoldToRecord": "החזק להקלטה",
+  "pushToTalkUnavailableTooltip": "לא זמין בפלטפורמה זו",
+  "pushToTalkUnavailableLinuxTooltip": "שולחן העבודה שלך לא מדווח כאן על שחרור מקשים. במקום זאת, הקצה את „whispaste --toggle“ לקיצור מקלדת בהגדרות המערכת.",
+  "settingsExperimentalBadge": "ניסיוני",
+  "settingsHoldOrTap": "הקשה או החזקה",
+  "settingsHoldOrTapHint": "הקשה קצרה מתחילה ועוצרת את ההקלטה; החזקה מקליטה עד שמשחררים.",
+  "settingsSpeechRecognition": "זיהוי דיבור",
+  "settingsSpeechRecognitionSubtitle": "איכות ושירות זיהוי דיבור",
+  "settingsService": "שירות",
+  "settingsQuality": "איכות",
+  "settingsRecordingSafety": "בטיחות הקלטה",
+  "settingsRecordingSafetySubtitle": "בדיקות אוטומטיות והגנות",
+  "settingsDeadMicTimeout": "זיהוי מיקרופון שקט",
+  "settingsDeadMicTimeoutHint": "עצור הקלטה אם אין אודיו בתוך זמן זה (שניות). 0 = כבוי.",
+  "settingsAutoStopSilence": "עצירה אוטומטית אחרי שקט",
+  "settingsAutoStopSilenceHint": "עצור אוטומטית אחרי X שניות של שקט. 0 = כבוי.",
+  "settingsEnabled": "פעיל",
+  "settingsStyle": "סגנון",
+  "settingsMicSystemDefault": "ברירת מחדל של המערכת",
+  "settingsMicSystemHint": "הקלט השמע מנוהל בהגדרות המערכת",
+  "settingsServiceOnDevicePrivate": "מקומי במכשיר",
+  "settingsLanguageAutoDetect": "זיהוי אוטומטי",
+  "settingsLanguageEnglish": "אנגלית",
+  "settingsLanguageGerman": "גרמנית",
+  "settingsLanguageFrench": "צרפתית",
+  "settingsLanguageSpanish": "ספרדית",
+  "settingsSoundFeedback": "צלילים ומשוב",
+  "settingsSoundFeedbackSubtitle": "צלילים לאירועי הקלטה",
+  "settingsSoundsEnabled": "צלילים",
+  "settingsRecordStartSound": "צליל התחלת הקלטה",
+  "settingsRecordStopSound": "צליל סיום הקלטה",
+  "settingsTranscriptionCompleteSound": "צליל סיום תמלול",
+  "settingsDurationWarningSound": "אזהרת משך מקסימלי",
+  "settingsSoundVolume": "עוצמת צליל",
+  "settingsAfterTranscription": "אחרי תמלול",
+  "settingsAfterTranscriptionSubtitle": "מה לעשות עם הטקסט שתומלל",
+  "settingsAfterTranscriptionActionLabel": "פעולה",
+  "settingsAfterTranscriptionClipboard": "העתק ללוח",
+  "settingsAfterTranscriptionPaste": "הדבק אוטומטי במקום הסמן",
+  "settingsAfterTranscriptionBoth": "העתק + הדבק אוטומטי",
+  "settingsAfterTranscriptionNothing": "לא לעשות כלום",
+  "pasteFailurePermissionMissing": "ההדבקה האוטומטית נחסמה על־ידי המערכת. WhisPaste זקוקה להרשאה כדי להוסיף טקסט לאפליקציות אחרות — ב־macOS ההרשאה הזו נקראת „נגישות“.",
+  "pasteFailureNoTarget": "ההדבקה האוטומטית דולגה, לא זוהה חלון יעד. מקד את האפליקציה היעד לפני התחלת ההקלטה.",
+  "pasteFailureGeneric": "ההדבקה האוטומטית נכשלה. הטקסט נמצא בלוח, הדבק ידנית עם ⌘V / Ctrl+V.",
+  "pasteFailureOpenSettings": "פתח הגדרות",
+  "pasteNotificationNoTargetTitle": "WhisPaste: ההדבקה האוטומטית דולגה",
+  "pasteNotificationNoTargetBody": "לא זוהתה אפליקציית יעד. עברו קודם לאפליקציית היעד, ואז התחילו להקליט. הטקסט נמצא בלוח.",
+  "pasteNotificationNoTargetTray": "הדבקה אוטומטית: אפליקציית היעד חסרה",
+  "pasteNotificationRestartNeededTitle": "WhisPaste: נדרשת הפעלה מחדש",
+  "pasteNotificationRestartNeededBody": "ההרשאה ניתנה, אבל WhisPaste עדיין פועלת עם המצב הישן. לחצו כאן כדי להפעיל מחדש את WhisPaste.",
+  "pasteNotificationRestartNeededTray": "ההדבקה האוטומטית חסומה — נדרשת הפעלה מחדש",
+  "pasteNotificationPermissionBlockedTitle": "WhisPaste: ההדבקה האוטומטית חסומה",
+  "pasteNotificationPermissionResetEntryBody": "WhisPaste זקוקה להרשאה כדי להכניס טקסט לאפליקציות אחרות — ב-macOS ההרשאה הזו נקראת \"נגישות\". לחצו כאן: WhisPaste תנקה רשומה שאולי אינה עדכנית ותאפשר ל-macOS לבקש שוב.",
+  "pasteNotificationPermissionOpenSettingsBody": "WhisPaste זקוקה להרשאה כדי להכניס טקסט לאפליקציות אחרות — ב-macOS ההרשאה הזו נקראת \"נגישות\". לחצו כאן או על סמל המגש כדי לפתוח את הגדרות המערכת.",
+  "pasteNotificationPermissionBlockedTray": "ההדבקה האוטומטית חסומה — פתחו את הגדרות המערכת",
+  "pasteNotificationElevationBlockedTitle": "WhisPaste: ההדבקה האוטומטית חסומה",
+  "pasteNotificationElevationBlockedBody": "אפליקציית היעד פועלת עם הרשאות מנהל. כדי להדביק בה, הפעילו מחדש גם את WhisPaste כמנהל.",
+  "pasteNotificationElevationBlockedTray": "ההדבקה האוטומטית חסומה — נדרשות הרשאות מנהל",
+  "pasteNotificationFailedTitle": "WhisPaste: ההדבקה האוטומטית נכשלה",
+  "pasteNotificationFailedBody": "המערכת דחתה את ההדבקה. הטקסט נמצא בלוח — הדביקו אותו ידנית עם ⌘V / Ctrl+V.",
+  "pasteNotificationFailedTray": "ההדבקה האוטומטית נכשלה",
+  "pasteCapabilityCheckTitle": "רגע…",
+  "pasteCapabilityReady": "הכל מוכן",
+  "pasteCapabilityReadySubtitle": "ההכתבה שלך נוחתת ישר בסמן.",
+  "pasteCapabilityPermissionMissing": "עוד לא אושר",
+  "pasteCapabilityUnsupported": "ההדבקה האוטומטית לא זמינה בפלטפורמה זו",
+  "pasteCapabilityTestButton": "בדוק עכשיו",
+  "pasteCapabilityGrantButton": "המשך",
+  "pasteCapabilityRepairHint": "לפעמים macOS זוכר רשומה ישנה ושוכח את האישור החדש. אפס את הרשומה. macOS ישאל אותך מחדש בצורה נקייה.",
+  "pasteCapabilityRepairButton": "אפס רשומה",
+  "pasteCapabilityRestartButton": "הפעל מחדש את WhisPaste",
+  "pasteCapabilityRestartTitle": "כמעט שם — הפעל מחדש את WhisPaste",
+  "pasteCapabilityRestartBody": "אם הפעלת את ההרשאה, macOS מחיל אותה רק על אפליקציה שהופעלה מחדש. לחיצה אחת — WhisPaste ייסגר ויחזור מיד.",
+  "pasteRestartAlertTitle": "הפעל מחדש את WhisPaste עכשיו",
+  "pasteRestartAlertBody": "הרשאת ההדבקה האוטומטית הוגדרה, אך macOS מחיל אותה רק לאחר הפעלה מחדש. WhisPaste ייסגר ויחזור מיד.",
+  "pasteRestartAlertConfirm": "הפעל מחדש עכשיו",
+  "pasteStaleEntryGuideTitle": "הסר את הרשומה הישנה של WhisPaste",
+  "pasteStaleEntryGuideBody": "macOS עדיין שומר את הרשאת ההדבקה האוטומטית של גרסה קודמת של WhisPaste. אי אפשר להפעיל את הרשומה הזו — יש להסיר אותה פעם אחת:\n\n1. בחר ב-„WhisPaste“ ברשימה.\n2. לחץ על „−“ מתחת לרשימה.\n3. חזור ל-WhisPaste.\n\nלאחר הפעלה מחדש macOS ישאל שוב — פשוט אשר.",
+  "pasteStaleEntryGuideConfirm": "פתח את הגדרות המערכת",
+  "pasteStaleEntryRestartTitle": "הפעל מחדש את WhisPaste",
+  "pasteStaleEntryRestartBody": "לאחר שהרשומה הישנה הוסרה, הפעל מחדש את WhisPaste. macOS יבקש את ההרשאה שוב — אשר אותה והפעל את WhisPaste.",
+  "pasteStaleEntryRestartConfirm": "הפעל מחדש את WhisPaste",
+  "permissionAlertLaterButton": "לא עכשיו",
+  "micGateAlertTitle": "חסרה גישה למיקרופון",
+  "micGateAlertBody": "WhisPaste לא יכול להקליט ללא גישה למיקרופון. אשר כדי לפתוח את הגדרות המערכת → פרטיות ואבטחה → מיקרופון — הפעל שם את המתג עבור WhisPaste. WhisPaste מזהה את האישור שלך אוטומטית.",
+  "micGateAlertBodyGeneric": "WhisPaste לא יכול להקליט ללא גישה למיקרופון. אנא אפשר ל-WhisPaste גישה למיקרופון בהגדרות הפרטיות של המערכת — WhisPaste מזהה את האישור שלך אוטומטית.",
+  "micGateAlertConfirm": "פתח הגדרות",
+  "micGateRestartAlertTitle": "הפעל מחדש את WhisPaste לסיום",
+  "micGateRestartAlertBody": "הגישה למיקרופון אושרה, אך מופע WhisPaste הפועל כעת עדיין לא יכול לקלוט אותה. WhisPaste ייסגר ויחזור מיד — הכל נשאר כפי שהוא.",
+  "micGateRestartAlertConfirm": "הפעל מחדש עכשיו",
+  "autoPasteGateAlertTitle": "חסר מתג אחד להדבקה אוטומטית",
+  "autoPasteGateAlertBody": "WhisPaste מוסיף את ההכתבה שלך ישירות במיקום הסמן. macOS דורש לשם כך מתג אחד שרק אתה יכול להפעיל: הגדרות המערכת → פרטיות ואבטחה → נגישות. אשר כדי לפתוח בדיוק את העמוד הזה — WhisPaste מזהה את האישור שלך אוטומטית ומפעיל את עצמו מחדש לאחר מכן במידת הצורך.",
+  "autoPasteGateAlertConfirm": "פתח את הגדרות המערכת",
+  "pasteCapabilityRestartIneffectiveTitle": "ההפעלה מחדש לא החילה את ההרשאה",
+  "pasteCapabilityRestartIneffectiveSubtitle": "פתח שוב את ההרשאה ובדוק תחת הגדרות המערכת → פרטיות ואבטחה → נגישות ש-WhisPaste מופעל שם באמת. הפעל מחדש את המתג, ואז WhisPaste יופעל מחדש פעם נוספת.",
+  "pasteCapabilityRepairDone": "{count, plural, =0{לא נמצאו רשומות ישנות. נסה הדבקה.}=1{נוקתה רשומה ישנה אחת. נסה הדבקה כדי לראות בקשה חדשה.}other{נוקו {count} רשומות ישנות. נסה הדבקה כדי לראות בקשות חדשות.}}",
+  "@pasteCapabilityRepairDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pasteCapabilityRepairNothingToClear": "לא נמצאה רשומה ישנה. סביר להניח שהפעלה מחדש תעזור עכשיו.",
+  "pasteCapabilityRepairFailed": "לא ניתן היה להריץ איפוס הרשאות של macOS. הסר את WhisPaste ידנית מ־הגדרות מערכת → נגישות.",
+  "onboardingPasteTitle": "כדי שהטקסט שלך ינחת איפה שאתה מקליד",
+  "onboardingPasteSubtitle": "macOS ישאל אותך בעוד רגע אם WhisPaste מורשה. אמור כן, וזהו.",
+  "onboardingPasteSubtitleWin": "ב-Windows לא נדרשת הרשאה — רק בחר אם WhisPaste ידביק עבורך את הטקסט המוכתב באופן אוטומטי.",
+  "onboardingPasteChipReady": "הדבקה אוטומטית מוכנה",
+  "onboardingPasteChipPending": "גישה להדבקה אוטומטית ממתינה",
+  "onboardingPasteChipAction": "הדבקה אוטומטית: נדרשת פעולה",
+  "onboardingPasteGrantCta": "אפשר הדבקה אוטומטית",
+  "onboardingPasteSkip": "רק להעתיק לעת עתה, בלי הדבקה אוטומטית",
+  "onboardingPasteWhyMac": "בלי אישור, הטקסט יועתק ללוח. תצטרך להדביק ידנית עם ⌘V.",
+  "onboardingPasteWhyWin": "Auto-Paste מקיש Ctrl+V עבורך אחרי כל הכתבה, כך שהטקסט מגיע ישירות למקום שבו אתה כותב. נבדק ופועל במחשב הזה — הפעל למטה.",
+  "onboardingPasteWhyWinUipi": "באפליקציות מסוימות עם הגנת UIPI/UAC, ההדבקה האוטומטית לא תעבוד. הטקסט יישאר בלוח, ויהיה עליך להדביקו עם Ctrl+V באופן ידני.",
+  "onboardingPasteWinOnTitle": "Auto-Paste פעיל",
+  "onboardingPasteWinOnDetail": "אחרי כל הכתבה WhisPaste מקיש Ctrl+V עבורך — הטקסט מגיע ישירות לסמן. עותק נשאר גם בלוח.",
+  "onboardingPasteWinEnableCta": "הפעל את Auto-Paste",
+  "onboardingPasteWinAdminCaveat": "אפליקציות שרצות כמנהל מערכת לא מקבלות הקשות מדומות — שם הטקסט נשאר בלוח, מוכן להדבקה עם Ctrl+V.",
+  "onboardingPasteWaitingForGrantTitle": "סמן את התיבה ליד WhisPaste",
+  "onboardingPasteWaitingForGrantHint": "הגדרות המערכת פתוחות. מצא את WhisPaste ברשימה והפעל אותו.\n\nלא ברשימה? גרור את סמל האפליקציה פנימה או לחץ על „+\".",
+  "onboardingPasteTestTitle": "נסה הדבקה אוטומטית",
+  "onboardingPasteTestSubtitle": "הקש על הכפתור. טקסט ההדגמה אמור להופיע בשדה למטה.",
+  "onboardingPasteDemoText": "WhisPaste מקליד בשבילך.",
+  "onboardingPasteTestSuccess": "ההדבקה האוטומטית פועלת! לחץ על הבא להמשך.",
+  "onboardingPasteTestNoFrontmost": "לא זוהה שדה קלט. לחץ על השדה למטה ונסה שוב.",
+  "onboardingPasteTestFailure": "הבדיקה נכשלה. נסה להפעיל מחדש את האפליקציה, או המשך ללא בדיקה.",
+  "onboardingPasteTestSkip": "המשך ללא בדיקה",
+  "settingsOverlayFloatingButton": "שכבת הקלטה צפה",
+  "settingsOverlayFloatingButtonSubtitle": "איך להציג סטטוס הקלטה בזמן דיבור",
+  "settingsShowOverlay": "תצוגת סטטוס הקלטה",
+  "settingsShowOverlaySubtitle": "איפה להציג משוב חי בזמן דיבור",
+  "settingsOverlayModeFloating": "חלון צף (תמיד גלוי)",
+  "settingsOverlayModeOff": "כבוי",
+  "settingsOverlayStartPosition": "מיקום התחלתי של השכבה",
+  "settingsOverlayStartPositionSubtitle": "איפה השכבה הצפה תופיע בתחילת הקלטה",
+  "settingsOverlayStartTopCenter": "למעלה במרכז",
+  "settingsOverlayStartBottomCenter": "למטה במרכז",
+  "settingsOverlayStartLastPosition": "זכור מיקום אחרון",
+  "settingsShowFloatingButton": "כפתור הקלטה צף",
+  "settingsShowFloatingButtonSubtitle": "כפתור קטן תמיד עליון להתחלת/עצירת הקלטה",
+  "settingsLanguage": "שפה",
+  "settingsRecognitionLanguage": "שפת זיהוי",
+  "settingsCustomVocabulary": "אוצר מילים מותאם",
+  "settingsCustomVocabularyHint": "שמות, מונחים טכניים: משפר דיוק",
+  "settingsCustomVocabularyPlaceholder": "לדוגמה: WhisPaste, Kubernetes, ד\"ר כהן",
+  "settingsCustomVocabularyBudgetCounter": "~{count} / {budget} טוקנים",
+  "@settingsCustomVocabularyBudgetCounter": {
+    "placeholders": {
+      "count": {"type": "int"},
+      "budget": {"type": "int"}
+    }
+  },
+  "settingsCustomVocabularyBudgetWarning": "ערכים ארוכים עשויים להתקצר אוטומטית — רק כ-{budget} הטוקנים הראשונים בשימוש.",
+  "@settingsCustomVocabularyBudgetWarning": {
+    "placeholders": {
+      "budget": {"type": "int"}
+    }
+  },
+  "settingsPunctuationPriming": "פריימינג פיסוק",
+  "settingsPunctuationPrimingSubtitle": "מטה את Whisper לכיוון פלט מפוסק כאשר לא הוגדר אוצר מילים מותאם אישית. אין השפעה על המהירות.",
+  "settingsVadEnabled": "חיתוך שתיקה בסוף ההקלטה",
+  "settingsVadEnabledSubtitle": "מסיר שתיקה או רעש ארוכים מסוף ההקלטה לפני שWhisper מפענח אותה, כדי שלא יומצא שם משפט סיום (למשל תופעות הזיה כמו \"תודה שצפיתם\"). עלות זניחה, ניתן לכבות אם עדיפה הפלט הגולמי של Whisper.",
+  "settingsStripPunctuation": "הסרת סימני פיסוק",
+  "settingsStripPunctuationSubtitle": "מסירה נקודות, פסיקים וסימני פיסוק נוספים מכל תמלול לפני השמירה או ההדבקה. פועלת באותו אופן בכל מנוע וספק, לא רק ב-Whisper.",
+  "settingsNumericOnlyMode": "מספרים בלבד",
+  "settingsNumericOnlyModeSubtitle": "ממיר מספרים מדוברים (בגרמנית ובאנגלית) לספרות, למשל \"חמש פסיק שתיים\" הופך ל-\"5,2\". משאיר את התמלול ללא שינוי אם אינו ניתן להמרה מלאה.",
+  "settingsRemoveFillerWords": "הסרת מילות מילוי",
+  "settingsRemoveFillerWordsSubtitle": "מסירה צלילי היסוס כמו \"uh\", \"um\" ו-\"äh\" לפני שהתמלול נשמר או מודבק. רק מילות מילוי חד-משמעיות באנגלית ובגרמנית; מילים שיכולות לשאת משמעות לא משתנות.",
+  "settingsVoiceLineBreaks": "מעברי שורה בקול",
+  "settingsVoiceLineBreaksSubtitle": "הופך פקודות קוליות כמו „פסקה חדשה“ ו„שורה חדשה“ למעברי שורה אמיתיים. פועל לפי שפת התמלול, ובזיהוי אוטומטי לפי כל השפות הנתמכות.",
+  "settingsAppLanguage": "שפת האפליקציה",
+  "settingsSttModels": "מודלי זיהוי דיבור",
+  "settingsOpenAiApiKey": "מפתח OpenAI",
+  "settingsDeepgramApiKey": "מפתח Deepgram",
+  "settingsToggleApiKeyVisibility": "הצג/הסתר מפתח API",
+  "settingsAdvanced": "מתקדם",
+  "settingsResetToDefaults": "אפס להגדרות ברירת מחדל",
+  "settingsResetTitle": "איפוס הגדרות",
+  "settingsResetMessage": "כל ההגדרות יחזרו לברירת מחדל. מפתחות API יוסרו. אין דרך לבטל.",
+  "settingsResetConfirm": "אפס",
+  "settingsResetSuccess": "ההגדרות אופסו",
+  "settingsFactoryReset": "איפוס מלא",
+  "settingsFactoryResetTitle": "איפוס מלא",
+  "settingsFactoryResetMessage": "פעולה זו תמחק לצמיתות את כל הנתונים: היסטוריה, תגיות, החלפות, מודלים, לוגים והגדרות. האפליקציה תחזור למצב ראשוני.\n\nאין דרך לבטל.",
+  "settingsFactoryResetConfirm": "מחק הכל",
+  "settingsFactoryResetSuccess": "האפליקציה אופסה לחלוטין",
+  "settingsFactoryResetProgressTitle": "Resetting WhisPaste",
+  "settingsFactoryResetPhaseStoppingSubprocess": "Stopping voice service…",
+  "settingsFactoryResetPhaseDeletingModels": "Deleting voice models…",
+  "settingsFactoryResetPhaseDeletingDatabase": "Deleting database…",
+  "settingsFactoryResetPhaseResettingSecureStore": "Clearing credentials…",
+  "settingsFactoryResetPhaseResettingSettings": "Restoring default settings…",
+  "settingsFactoryResetFailedMessage": "Factory reset incomplete. Please restart the app.",
+  "settingsPortabilitySectionTitle": "גיבוי והעברה",
+  "settingsPortabilitySectionSubtitle": "שמור גיבוי של הגדרות WhisPaste שלך או קח אותן איתך למחשב אחר",
+  "settingsPortabilityExportAction": "ייצוא",
+  "settingsPortabilityImportAction": "ייבוא",
+  "settingsPortabilityExportLocationLabel": "יעד הייצוא",
+  "settingsPortabilityImportLocationLabel": "מקור הייבוא",
+  "settingsPortabilityExportLocationUnset": "המיקום ייבחר בייצוא הראשון",
+  "settingsPortabilityImportLocationUnset": "המיקום ייבחר בייבוא הראשון",
+  "settingsPortabilityChooseExportLocation": "בחירת יעד ייצוא אחר (עדיין לא מתבצע ייצוא)",
+  "settingsPortabilityChooseImportLocation": "בחירת מקור ייבוא אחר (עדיין לא מתבצע ייבוא)",
+  "settingsPortabilityExportSuccess": "ההגדרות יוצאו אל {path}",
+  "settingsPortabilityExportError": "הייצוא נכשל: {reason}",
+  "settingsPortabilityImportConfirmTitle": "לייבא הגדרות?",
+  "settingsPortabilityImportConfirmMessage": "פעולה זו תחליף את ההגדרות הנוכחיות שלך — כולל ממשק, תצורת זיהוי הדיבור, התנהגות, החלפות טקסט וקטעים — בתוכן של {path}. מפתחות ה-API שלך לא ייפגעו.",
+  "settingsPortabilityImportSuccess": "ההגדרות יובאו מ-{path}",
+  "settingsPortabilityImportNotFound": "לא נמצא קובץ ייצוא ב-{path}. ייצא הגדרות תחילה, או העתק לשם קובץ ייצוא.",
+  "settingsPortabilityImportError": "הייבוא נכשל: {reason}",
+  "settingsAutosaveLabel": "גיבוי אוטומטי",
+  "settingsAutosaveHint": "שומר את ההגדרות שלך בתיקייה שנבחרה כמה שניות אחרי כל שינוי",
+  "settingsAutosaveChooseFolder": "בחירת תיקייה אחרת לגיבוי האוטומטי (עדיין לא מתבצע גיבוי)",
+  "settingsAutosaveLastRun": "הגיבוי האחרון: {time}",
+  "settingsAutosaveNeverRun": "עדיין אין גיבוי",
+  "settingsAutosaveLastRunFailed": "הגיבוי נכשל",
+  "settingsAutosaveLastRunFailedSince": "הניסיון האחרון נכשל — הגיבוי האחרון: {time}",
+  "settingsAutosaveErrorLocation": "הגיבוי האוטומטי נכשל: התיקייה שנבחרה אינה זמינה.",
+  "settingsAutosaveErrorWrite": "הגיבוי האוטומטי נכשל: {reason}",
+  "migrationComplete": "{count, plural, one{תמלול אחד הועבר מ-WhisPaste 1.x} other{{count} תמלולים הועברו מ-WhisPaste 1.x}}",
+  "@migrationComplete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsOff": "כבוי",
+  "settingsOn": "פעיל",
+  "statusReady": "מוכן",
+  "statusRecording": "מקליט…",
+  "statusTranscribing": "מתמלל…",
+  "statusProcessing": "מעבד…",
+  "statusTranscriptionDone": "תמלול הושלם",
+  "statusSelectionEdited": "הבחירה נערכה",
+  "statusCopied": "הועתק!",
+  "statusLocal": "מקומי",
+  "statusCloud": "ענן",
+  "statusOnline": "מחובר",
+  "statusOffline": "מנותק",
+  "recordingGuardFailed": "לא זוהה אודיו. נסה שוב. לפעמים המיקרופון צריך רגע להתחמם.",
+  "recordingAutoStopped": "ההקלטה נעצרה: זוהה שקט.",
+  "actionCopy": "העתק",
+  "actionDuplicate": "שכפל",
+  "actionDelete": "מחק",
+  "actionDismiss": "סגור",
+  "actionEdit": "ערוך",
+  "actionExport": "ייצא",
+  "actionCancel": "בטל",
+  "actionConfirm": "אישור",
+  "actionSave": "שמור",
+  "actionRetry": "נסה שנית",
+  "actionClearSearch": "נקה חיפוש",
+  "tooltipLanguage": "שפה",
+  "aboutVersion": "גרסה {version}",
+  "@aboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingWelcome": "דבר פעם אחת. הדבק בכל מקום.",
+  "feedbackTitle": "שלח משוב",
+  "feedbackHint": "ספר לנו מה דעתך. אנחנו קוראים כל הודעה.",
+  "analyticsPreviewBanner": "תצוגה מקדימה: נתונים לדוגמה. ניתוח אמיתי יופיע אחרי שתתחיל להקליט.",
+  "analyticsEmptyTitle": "עדיין אין הקלטות",
+  "analyticsEmptySubtitle": "התחל להקליט כדי לראות כאן ניתוח נתונים.",
+  "analyticsOverview": "סקירה",
+  "analyticsOverviewSubtitle": "סטטיסטיקות ההקלטה שלך במבט חטוף",
+  "analyticsActivity": "פעילות",
+  "analyticsInsights": "תובנות",
+  "analyticsTotalRecordings": "סה\"כ הקלטות",
+  "analyticsTotalDuration": "סה\"כ זמן",
+  "analyticsWordsDictated": "מילים שתומללו",
+  "analyticsTimeSaved": "זמן שנחסך",
+  "analyticsRecordingActivity": "פעילות הקלטה",
+  "analyticsLast7Days": "7 הימים האחרונים",
+  "analyticsModelUsage": "שימוש במודלים",
+  "analyticsDurationDistribution": "התפלגות משך",
+  "analyticsCostSavings": "עלות וחיסכון",
+  "analyticsLocalSavings": "חיסכון מקומי",
+  "analyticsCloudCost": "עלות ענן",
+  "analyticsPeriod7d": "7 ימים",
+  "analyticsPeriod30d": "30 יום",
+  "analyticsPeriod90d": "90 יום",
+  "analyticsPeriodAll": "כל הזמן",
+  "analyticsReset": "אפס",
+  "analyticsResetTitle": "איפוס סטטיסטיקות",
+  "analyticsResetMessage": "האם אתה בטוח שברצונך לנקות את כל נתוני הניתוח? אין דרך לבטל.",
+  "analyticsDayMon": "ב'",
+  "analyticsDayTue": "ג'",
+  "analyticsDayWed": "ד'",
+  "analyticsDayThu": "ה'",
+  "analyticsDayFri": "ו'",
+  "analyticsDaySat": "ש'",
+  "analyticsDaySun": "א'",
+  "analyticsThisWeek": "{delta} השבוע",
+  "@analyticsThisWeek": {
+    "placeholders": {
+      "delta": {
+        "type": "String"
+      }
+    }
+  },
+  "analyticsVsLastMonth": "{delta} לעומת החודש הקודם",
+  "@analyticsVsLastMonth": {
+    "placeholders": {
+      "delta": {
+        "type": "String"
+      }
+    }
+  },
+  "analyticsDurationHoursMinutes": "{hours}ש׳ {minutes}ד׳",
+  "@analyticsDurationHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "analyticsDurationLt15s": "פחות מ-15 שניות",
+  "analyticsDuration15To30s": "15-30 שניות",
+  "analyticsDuration30To60s": "30-60 שניות",
+  "analyticsDuration1To3m": "1-3 דקות",
+  "analyticsDurationGt3m": "יותר מ-3 דקות",
+  "analyticsSavedAmount": "{amount} נחסך",
+  "@analyticsSavedAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "analyticsSpentAmount": "{amount} הוצא",
+  "@analyticsSpentAmount": {
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
+  },
+  "replacementsSearch": "חפש החלפות…",
+  "replacementsSearchFieldLabel": "חפש החלפות",
+  "replacementsAdd": "הוסף",
+  "replacementsEmpty": "עדיין אין החלפות",
+  "replacementsEmptyHint": "הוסף החלפות כדי להחליף אוטומטית מילים בזמן הקלטה.\nדוגמה: \"btw\" → \"אגב\"",
+  "replacementsNoMatches": "אין התאמות",
+  "replacementsNoMatchesHint": "נסה מונח חיפוש אחר.",
+  "replacementsToggleLabel": "הפעל החלפות",
+  "replacementsToggleEnabled": "ההחלפות פעילות",
+  "replacementsToggleDisabled": "ההחלפות כבויות",
+  "replacementsEnableBannerTitle": "ההחלפות מושבתות",
+  "replacementsEnableBannerHint": "הפעל אותם כדי שהביטויים יוחלפו אוטומטית.",
+  "replacementsEnableAction": "הפעל",
+  "replacementsDisableAction": "כבה",
+  "replacementsEditShortcut": "ערוך החלפה",
+  "replacementsNewShortcut": "החלפה חדשה",
+  "replacementsDialogHint": "כל אחד מהביטויים המפעילים יוחלף אוטומטית בזמן הקלטה.",
+  "replacementsTriggerLabel": "ביטויים מפעילים",
+  "replacementsTriggerHint": "לדוגמה: btw",
+  "replacementsAddTrigger": "הוסף ביטוי מפעיל",
+  "replacementsRemoveTrigger": "הסר ביטוי מפעיל",
+  "replacementsReplacementLabel": "טקסט להחלפה",
+  "replacementsReplacementHint": "לדוגמה: אגב",
+  "replacementsReplacementHelper": "השתמשו ב-\\n למעבר שורה וב-\\n\\n לשורה ריקה. לשמירת backslash-n כטקסט רגיל כתבו \\\\n.",
+  "replacementsDeleteTitle": "מחק קיצור",
+  "replacementsDeleteMessage": "להסיר את הקיצור \"{trigger}\"? אין דרך לבטל.",
+  "@replacementsDeleteMessage": {
+    "placeholders": {
+      "trigger": {
+        "type": "String"
+      }
+    }
+  },
+  "replacementsImportFromFolder": "ייבוא מתיקייה",
+  "replacementsImportHint": "סורק תיקיית פרויקט לזיהוי מזהים ומוסיף אותם כהחלפות מקורבות (fuzzy) — שום דבר לא יוצא מהמכשיר שלך.",
+  "replacementsImportSummary": "נמצאו {found}, נוספו {added}, {skipped} כפילויות דולגו",
+  "@replacementsImportSummary": {
+    "placeholders": {
+      "found": {
+        "type": "int"
+      },
+      "added": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
+      }
+    }
+  },
+  "replacementsImportedBadge": "יובא",
+  "replacementsLearnedBadge": "נלמד",
+  "correctionLearningToggleLabel": "למידה מתיקונים",
+  "correctionLearningToggleEnabled": "תיקוני קול חזרים נבדקים להצעות",
+  "correctionLearningToggleDisabled": "תיקוני קול אינם נבדקים להצעות",
+  "correctionLearningHowTo": "בזמן הקלטת הערה בהיסטוריה, אמרו \"correct: …\" (או \"korrektur: …\") ואחריו את הטקסט המתוקן כדי לדרוס אותו. תקנו את אותו הדבר פעמיים, ו-WhisPaste תציע אותו כאן כהחלפה אוטומטית.",
+  "correctionCandidatesCardTitle": "הצעות מהתיקונים שלך",
+  "correctionCandidatesCardHint": "{count} הצעות מתיקוני קול חזרים — יש לבדוק לפני שהן הופכות להחלפות.",
+  "@correctionCandidatesCardHint": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "correctionCandidatesReviewButton": "בדיקה",
+  "correctionCandidatesReviewTitle": "סקירת תיקונים שנלמדו",
+  "correctionCandidatesReviewSubtitle": "{count, plural, =1{תיקון אחד שחזרתם עליו} other{{count} תיקונים שחזרתם עליהם}} — אשרו את אלה ש-WhisPaste תחיל מעכשיו אוטומטית. שום דבר לא משתנה עד שתאשרו.",
+  "correctionCandidatesCommitSummary": "נוספו {added} החלפות נלמדות",
+  "@correctionCandidatesCommitSummary": {
+    "placeholders": {
+      "added": { "type": "int" }
+    }
+  },
+  "replacementsMatchModeLabel": "התאמה",
+  "replacementsMatchModeExact": "מדויק",
+  "replacementsMatchModeFuzzy": "דומה",
+  "replacementsFuzzyToleranceLabel": "סבילות",
+  "replacementsFuzzyToleranceStrict": "מחמיר",
+  "replacementsFuzzyToleranceStandard": "רגיל",
+  "replacementsFuzzyToleranceTolerant": "סובלני",
+  "replacementsFuzzyTooShortWarning": "לביטויי הפעלה מתחת ל-{minLength} תווים אי אפשר להשתמש בהתאמה מקורבת — זה יוצר יותר מדי התאמות שגויות.",
+  "@replacementsFuzzyTooShortWarning": {
+    "placeholders": {
+      "minLength": {
+        "type": "int"
+      }
+    }
+  },
+  "snippetsSearch": "חפש קטעים…",
+  "snippetsSearchFieldLabel": "חפש קטעים",
+  "snippetsAdd": "הוסף",
+  "snippetsEmpty": "עדיין אין קטעים",
+  "snippetsEmptyHint": "הוסף קטע כדי לעשות שימוש חוזר מהיר בבלוק טקסט — כמו חתימה או תשובה סטנדרטית.",
+  "snippetsNoMatches": "אין התאמות",
+  "snippetsNoMatchesHint": "נסה מונח חיפוש אחר.",
+  "snippetsEditSnippet": "ערוך קטע",
+  "snippetsNewSnippet": "קטע חדש",
+  "snippetsDialogHint": "פתח את בורר הקטעים בזמן הכתבה כדי להוסיף את הטקסט הזה.",
+  "snippetsTitleLabel": "כותרת",
+  "snippetsTitleHint": "לדוגמה: חתימת אימייל",
+  "snippetsBodyLabel": "תוכן",
+  "snippetsBodyHint": "הטקסט שהקטע הזה מכניס…",
+  "snippetsKindLabel": "סוג",
+  "snippetsKindStatic": "סטטי",
+  "snippetsKindInteractive": "אינטראקטיבי",
+  "snippetsFieldsLabel": "שדות",
+  "snippetsFieldsHint": "תונחה דרך כל שדה בזה אחר זה, עם הקלטה קצרה משלו.",
+  "snippetsFieldNameHint": "שם לשדה {number}",
+  "@snippetsFieldNameHint": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "snippetsFieldMoveUp": "הזז שדה למעלה",
+  "snippetsFieldMoveDown": "הזז שדה למטה",
+  "snippetsFieldRemove": "הסר שדה",
+  "snippetsFieldAdd": "הוסף שדה",
+  "snippetsFieldsMinWarning": "קטע אינטראקטיבי דורש לפחות {min} שדות בעלי שם.",
+  "@snippetsFieldsMinWarning": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
+  "snippetsInteractiveBadge": "אינטראקטיבי",
+  "interactiveSnippetBriefingLabel": "{count, plural, =1{שדה אחד} other{{count} שדות}} · Enter מתחיל",
+  "@interactiveSnippetBriefingLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "interactiveSnippetBriefingHint": "שדה 1: {name} · Esc: ביטול",
+  "@interactiveSnippetBriefingHint": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "interactiveSnippetAnnounceLabel": "שדה {index}/{count}: {name}",
+  "@interactiveSnippetAnnounceLabel": {
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "interactiveSnippetAnnounceHint": "התכונן לדבר…",
+  "interactiveSnippetSpeakNowLabel": "{index}/{count}: {name}",
+  "@interactiveSnippetSpeakNowLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "index": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "interactiveSnippetAdvance": "הבא",
+  "snippetsDeleteTitle": "מחק קטע",
+  "snippetsDeleteMessage": "להסיר את הקטע \"{title}\"? אין דרך לבטל.",
+  "@snippetsDeleteMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "snippetsPickerTriggerLabel": "מילת הפעלה לבוחר הקטעים",
+  "snippetsPickerTriggerSubtitle": "אמור רק את המילה הזו כדי לפתוח את בוחר הקטעים. השאר ריק כדי לכבות את הבוחר.",
+  "snippetsPickerTriggerHint": "לדוגמה: קטע",
+  "snippetsPickerTriggerEmptyListHint": "מילת ההפעלה מוגדרת, אבל אין עדיין קטעים — הכתבה שלה תודבק כטקסט רגיל עד שתוסיף את הקטע הראשון.",
+  "snippetsPickerHotkeyLabel": "קיצור לבוחר",
+  "snippetsPickerHotkeySubtitle": "פותח את הבוחר מיד — הדרך השנייה לאותו חלון.",
+  "snippetsPickerHotkeyOff": "הקיצור לבוחר כבוי.",
+  "snippetsPickerHotkeyEnable": "הפעלת הקיצור",
+  "snippetsPickerUnavailable": "בוחר הקטעים עדיין אינו זמין בפלטפורמה הזו.",
+  "snippetsPickerSemanticsLabel": "בוחר הקטעים",
+  "snippetsPickerInsertAction": "הוסף",
+  "aboutTagline": "מדיבור לטקסט, מיד.",
+  "aboutWhatsNew": "מה חדש",
+  "aboutGitHub": "GitHub",
+  "aboutReportIssue": "דווח על בעיה",
+  "aboutSupportTitle": "תמוך בפרויקט",
+  "aboutSupportDescription": "WhisPaste חינמי וקוד פתוח תחת רישיון MIT. תמיכה מכסה עלויות קבועות שוטפות אמיתיות (Apple Developer Program,‏ Microsoft Partner Center ואחסון/דומיין) ששומרות עליו זמין בכל פלטפורמה.",
+  "aboutGitHubSponsors": "GitHub Sponsors",
+  "aboutKofi": "Ko-fi",
+  "supportPromptRecurringTitle": "להפוך את זה לתמיכה חודשית?",
+  "supportPromptRecurringDescription": "תודה שכבר תמכת ב-WhisPaste. אם תרצה, תוכל להפוך את זה לתמיכה חודשית קטנה שממשיכה לכסות את ההוצאות הקבועות שלנו.",
+  "aboutStarOnGitHub": "כוכב ב-GitHub",
+  "aboutSponsorsTitle": "ספונסרים",
+  "aboutBuiltWith": "נבנה עם",
+  "aboutFlutterGo": "Flutter",
+  "aboutFlutterGoDesc": "ממשק חוצה פלטפורמות עם Flutter. AI מקומי דרך whisper.cpp ו-llama.cpp.",
+  "aboutWhisper": "whisper.cpp ו-OpenAI Whisper",
+  "aboutWhisperDesc": "זיהוי דיבור מקומי וענן: מהיר, מדויק, רב-לשוני.",
+  "aboutPrivacyFirst": "פרטיות קודמת לכול",
+  "aboutPrivacyFirstDesc": "ברירת מחדל: AI מקומי. הקול שלך לא עוזב את המחשב אלא אם תבחר שירות ענן.",
+  "aboutPrivacy": "פרטיות ונתונים",
+  "aboutPrivacyLocal": "כל התמלולים וההיסטוריה נשמרים מקומית, לעולם לא על שרתים חיצוניים.",
+  "aboutPrivacyCloud": "ספקי ענן מקבלים אודיו או טקסט רק כשאתה משתמש בהם.",
+  "aboutPrivacyNoTracking": "נתוני השימוש אנונימיים ותואמי GDPR (שרת באיחוד האירופי) וניתן לכבותם בהגדרות ← פרטיות. ללא חשבונות משתמש. בדיקות עדכון פונות ל-GitHub (גרסה ו-IP בלבד).",
+  "aboutKeyboardShortcuts": "קיצורי מקלדת",
+  "aboutShortcutRecord": "התחל / עצור הקלטה",
+  "aboutLinks": "קישורים",
+  "aboutWebsite": "אתר",
+  "aboutGitHubRepo": "מאגר GitHub",
+  "aboutFollowOnX": "עקבו ב-X",
+  "aboutMitLicense": "רישיון MIT",
+  "aboutViewOnGitHub": "צפה ב-GitHub",
+  "aboutPrivacyPolicy": "מדיניות פרטיות",
+  "aboutSystemInfo": "מידע מערכת",
+  "aboutSystemInfoDesc": "העתק snapshot לאבחון עבור דיווחי באגים.",
+  "aboutCopyDebugInfo": "העתק מידע דיבאג",
+  "aboutCopied": "הועתק!",
+  "aboutMadeWith": "נוצר ב♥ על ידי WhisPaste",
+  "aboutOpenSource": "קוד פתוח תחת רישיון MIT",
+  "feedbackSubtitle": "עזור לנו לשפר את WhisPaste. כל קול חשוב.",
+  "feedbackCategoryLabel": "על מה זה?",
+  "feedbackCategoryBug": "דיווח באג",
+  "feedbackCategoryFeature": "רעיון לפיצ'ר",
+  "feedbackCategoryGeneral": "כללי",
+  "feedbackCategoryAiQuality": "איכות AI",
+  "feedbackRatingLabel": "איך אתה מרגיש לגבי WhisPaste?",
+  "feedbackCommentsLabel": "ספר לנו יותר",
+  "feedbackPlaceholderBug": "תאר מה קרה ומה ציפית…",
+  "feedbackPlaceholderFeature": "מה היית רוצה לראות ב-WhisPaste?",
+  "feedbackPlaceholderAi": "איך הייתה איכות התמלול או העיבוד?",
+  "feedbackPlaceholderGeneral": "שתף את מחשבותיך…",
+  "feedbackContactEmailLabel": "אימייל (אופציונלי)",
+  "feedbackContactEmailExplanation": "רק אם תרצה שנחזור אליך. נשתמש בו אך ורק כדי להגיב למשוב הזה, לעולם לא לשיווק, והוא יימחק לאחר 90 יום.",
+  "feedbackContactEmailPlaceholder": "you@example.com",
+  "feedbackContactEmailInvalid": "נא להזין כתובת אימייל תקינה, או להשאיר ריק.",
+  "feedbackContactLanguageLabel": "שפת המענה",
+  "feedbackContactLanguageHint": "באיזו שפה נוכל לחזור אליך?",
+  "feedbackSubmit": "שלח משוב",
+  "feedbackPrivacyNote": "אנונימי כברירת מחדל, ניתן לזיהוי רק אם תוסיף את האימייל שלך למעלה.",
+  "feedbackThankYou": "תודה!",
+  "feedbackThankYouMessage": "המשוב שלך עוזר לנו לשפר את WhisPaste\nלכולם.",
+  "feedbackSendAnother": "שלח עוד אחד",
+  "feedbackRatingFrustrated": "מתוסכל",
+  "feedbackRatingMeh": "בסדר גמור",
+  "feedbackRatingOkay": "סביר",
+  "feedbackRatingHappy": "שמח",
+  "feedbackRatingLoveIt": "אוהב מאוד!",
+  "feedbackSubmitting": "שולח…",
+  "feedbackErrorRateLimited": "כבר שלחת משוב לאחרונה. נסה שוב מאוחר יותר.",
+  "feedbackErrorNetwork": "לא הצלחנו להתחבר. בדוק חיבור אינטרנט.",
+  "feedbackErrorServer": "משהו השתבש. נסה שוב מאוחר יותר.",
+  "feedbackErrorNotConfigured": "משוב אינו זמין בגרסה זו.",
+  "statusBarOnDevice": "מקומי",
+  "statusBarOverlayFloating": "שכבה: צפה",
+  "statusBarOverlayOff": "שכבה: כבויה",
+  "statusBarAfterCopy": "אחרי: העתק",
+  "statusBarAfterPaste": "אחרי: הדבק",
+  "statusBarAfterBoth": "אחרי: העתק + הדבק",
+  "statusBarAfterNothing": "אחרי: ידני",
+  "sttStatusStandby": "מוכן",
+  "sttStatusStarting": "מתחיל…",
+  "sttStatusReady": "מוכן",
+  "sttStatusError": "שגיאה",
+  "statusBarSttTooltip": "מנוע דיבור וסטטוס נוכחי",
+  "statusBarSttBackendTooltip": "מנוע תמלול: {backend}",
+  "statusBarBackendGpuUtilizationUnavailable": "לא ניתן למדוד ניצול GPU אמיתי בין מערכות הפעלה ללא הרשאות מוגברות; האחוזים המוצגים משקפים במקום זאת את פעילות ה-CPU של התהליך.",
+  "statusBarRecording": "מקליט…",
+  "statusBarTranscribing": "מתמלל…",
+  "statusBarDone": "הסתיים",
+  "statusBarHotkeyTooltip": "קיצור גלובלי: לחץ להגדרה",
+  "statusBarAutoPasteOffHint": "הדבקה אוטומטית כבויה, ניתן להפעיל בהגדרות",
+  "statusBarAutoPasteOffHintTooltip": "הדבקה אוטומטית כבויה כעת. לחץ לפתיחת ההגדרות.",
+  "statusBarAutoPasteOffHintDismiss": "הסתר",
+  "statusBarAutomationApiChipLabel": "API: {port}",
+  "statusBarAutomationApiChipLabelError": "API: שגיאה",
+  "statusBarAutomationApiTooltip": "ממשק האוטומציה פעיל בפורט {port}",
+  "statusBarAutomationApiTooltipFallback": "ממשק האוטומציה פעיל בפורט {port} (פורט {requestedPort} היה תפוס)",
+  "statusBarAutomationApiTooltipError": "ממשק האוטומציה: לא נמצא פורט פנוי",
+  "modifierCtrl": "Ctrl",
+  "modifierShift": "Shift",
+  "modifierAlt": "Alt",
+  "modifierWin": "Win",
+  "modifierCmd": "Cmd",
+  "modifierOption": "Option",
+  "modifierAltGr": "AltGr",
+  "shortcutKeySpace": "רווח",
+  "shortcutKeyEnter": "Enter",
+  "shortcutKeyEscape": "Esc",
+  "shortcutKeyBackspace": "Backspace",
+  "shortcutKeyTab": "Tab",
+  "shortcutKeyDelete": "Del",
+  "shortcutKeyInsert": "Insert",
+  "shortcutKeyHome": "Home",
+  "shortcutKeyEnd": "End",
+  "shortcutKeyPageUp": "Page Up",
+  "shortcutKeyPageDown": "Page Down",
+  "modelServerReady": "מנוע דיבור מוכן",
+  "modelServerMissing": "מנוע דיבור לא מותקן",
+  "modelServerWhisper": "מנוע מקומי",
+  "modelReady": "מוכן",
+  "modelDownloadComplete": "המודל מוכן לשימוש",
+  "modelUse": "השתמש",
+  "modelDownload": "הורד",
+  "modelDownloading": "מוריד…",
+  "modelDownloadingEngine": "מכין מנוע דיבור…",
+  "modelVerifying": "מאמת…",
+  "modelExtracting": "מחלץ…",
+  "modelDeleteConfirm": "למחוק מודל זה?",
+  "modelDeleteConfirmMessage": "קובץ המודל יוסר לצמיתות. תוכל להוריד שוב בכל עת.",
+  "qualityTierCompactLabel": "מהיר וקומפקטי",
+  "qualityTierCompactDesc": "תוצאות מהירות, הורדה קטנה. מעולה להערות קצרות.",
+  "qualityTierBalancedLabel": "מאוזן",
+  "qualityTierBalancedDesc": "מדויק ואמין להקלטה יומיומית.",
+  "qualityTierPremiumLabel": "איכות מיטבית",
+  "qualityTierPremiumDesc": "דיוק גבוה להקלטות ארוכות ותוכן מורכב.",
+  "qualityTierRecommended": "מומלץ למכשיר שלך",
+  "qualityTierDownloadSize": "הורדה {size}",
+  "@qualityTierDownloadSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "qualityTierDownloadAndContinue": "הורד מודל",
+  "qualityTierChooseDifferent": "בחר רמת איכות אחרת",
+  "qualityTierActive": "פעיל",
+  "qualityTierInfoSlow": "איכות מיטבית, לוקח פי {ratio} יותר זמן",
+  "@qualityTierInfoSlow": {
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
+  "qualityTierInfoSlowerThanCompact": "איכות מיטבית, איטי פי {ratio} מ-Small",
+  "@qualityTierInfoSlowerThanCompact": {
+    "placeholders": {
+      "ratio": {
+        "type": "String"
+      }
+    }
+  },
+  "qualityTierInfoModerate": "איזון טוב בין מהירות לאיכות",
+  "qualityTierBenchmarkReRun": "הרץ בדיקה מחדש",
+  "qualityTierBenchmarkRun": "הרץ בדיקת ביצועים",
+  "qualityTierInfoBenchmarking": "בודק ביצועים…",
+  "qualityTierActionOverride": "השתמש בכל זאת",
+  "qualityTierActionOverrideHint": "השתמש ברמה זו למרות האזהרה",
+  "qualityTierModelTooltip": "Whisper {modelName} · {size}",
+  "@qualityTierModelTooltip": {
+    "placeholders": {
+      "modelName": {
+        "type": "String"
+      },
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "analyticsModelDisplayName": "{tierLabel} (Whisper {modelLabel})",
+  "@analyticsModelDisplayName": {
+    "placeholders": {
+      "tierLabel": {
+        "type": "String"
+      },
+      "modelLabel": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsQualityBasic": "בסיסי",
+  "settingsQualityBalanced": "מאוזן",
+  "settingsQualityHigh": "איכות גבוהה",
+  "settingsQualityBest": "איכות מיטבית",
+  "settingsQualityMaximum": "דיוק מקסימלי",
+  "settingsQualityRecommended": "★ מומלץ",
+  "settingsModelStatusReady": "מודל מוכן",
+  "settingsModelStatusNeeded": "המודל יורד כשתתחיל להקליט",
+  "settingsModelStatusDownloading": "מוריד מודל…",
+  "settingsAdvancedModelManagement": "ניהול מודלים מתקדם",
+  "infoEngineDownloading": "מנוע הדיבור בהכנה. המתן רגע.",
+  "infoModelMissing": "הורד קודם מודל דיבור בהגדרות.",
+  "infoModelMissingSelected": "מודל הדיבור שנבחר ({size}) עדיין לא הורד.",
+  "infoModelMissingDownload": "הורד עכשיו",
+  "statusBarModelMissing": "המודל חסר",
+  "statusBarModelDownloading": "מוריד מודל… {percent}%",
+  "modelDownloadAction": "הורד",
+  "modelMissingDownloadAction": "חסר — הורד",
+  "infoPipelineBusy": "WhisPaste עדיין עסוק בהקלטה הקודמת.",
+  "infoSnippetPickerEmpty": "מילת ההפעלה זוהתה, אבל אין לך עדיין קטעים — הטקסט הודבק כרגיל.",
+  "infoSnippetPickerEmptyAction": "פתח קטעים",
+  "oomRecoveryTitle": "ההקלטה נכשלה: בעיית זיכרון GPU",
+  "oomRecoveryMessage": "ה-GPU נגמר לו הזיכרון. בחר כיצד להמשיך:",
+  "oomRecoveryTrySmaller": "נסה מודל קטן יותר",
+  "oomRecoveryTrySmallerHint": "עבור ל-{model} ונסה שוב",
+  "@oomRecoveryTrySmallerHint": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "oomRecoverySwitchCloud": "עבור לענן",
+  "oomRecoverySwitchCloudHint": "השתמש בזיהוי דיבור בענן",
+  "oomRecoveryCancel": "בטל",
+  "oomRecoveryPermanentTitle": "זיהוי דיבור מקומי לא זמין",
+  "oomRecoveryPermanentMessage": "כל המודלים המקומיים נכשלו בגלל הגבלת זיכרון GPU. עבור לענן בהגדרות.",
+  "oomRecoveryPermanentCloud": "פתח הגדרות",
+  "oomRecoveryDowngrading": "עובר ל-{model}…",
+  "@oomRecoveryDowngrading": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "oomRecoverySwitchingCloud": "עובר לזיהוי דיבור בענן…",
+  "oomRecoveryAttemptFailed": "מודל {model} גם נכשל. מנסה את הבא…",
+  "@oomRecoveryAttemptFailed": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      }
+    }
+  },
+  "infoSttCudaOomFallbackModel": "איכות הופחתה: ה-GPU נגמר לו הזיכרון. עברתי למודל קל יותר.",
+  "infoSttCudaOomFallbackCpu": "ה-GPU נגמר לו הזיכרון. עברתי למצב CPU.",
+  "errorSttServerConnectionLost": "מנוע הדיבור נעצר באופן בלתי צפוי. נסה שוב.",
+  "errorSttCudaOom": "ה-GPU נגמר לו הזיכרון. האיכות הופחתה.",
+  "errorCloudAuth": "מפתח ה-API חסר או שגוי. בדוק אותו בהגדרות ← זיהוי דיבור.",
+  "errorCloudQuota": "הגעת למגבלת הקצב של ספק הענן. המתן רגע ונסה שוב.",
+  "errorSttCpuFallbackFailed": "מנוע הדיבור נכשל הן ב-GPU והן ב-CPU. הפעל מחדש את האפליקציה או הורד מחדש את המודל.",
+  "errorSttDllMissing": "רכיב מערכת נדרש חסר. מנסה מחדש עם מצב CPU.",
+  "errorSttGpuFatal": "האצת GPU נכשלה. מנסה מחדש עם מצב CPU.",
+  "errorSttHeapCorruption": "אירעה שגיאת זיכרון. מנסה מחדש עם מצב CPU.",
+  "errorOnboardingNotCompleted": "סיים קודם את אשף ההתקנה.",
+  "errorSttModelNotFound": "מודל דיבור לא נמצא. הורד אותו בהגדרות.",
+  "errorSttModelUnknown": "מודל דיבור לא ידוע. בחר מודל תקין בהגדרות.",
+  "errorSttModelCorruptedRedownloading": "מודל הדיבור נראה פגום. מוריד עותק חדש אוטומטית.",
+  "errorSttModelIncompatibleRuntime": "מודל הדיבור אינו תואם לסביבת הריצה המותקנת. הורד מחדש את מודל הדיבור בהגדרות.",
+  "errorRecordingFailed": "לא הצלחתי להתחיל הקלטה, נסה שוב",
+  "errorNoAudioRecorded": "לא הוקלט אודיו, נסה שוב",
+  "errorTranscriptionEmpty": "התמלול חזר ריק, נסה שוב",
+  "errorSttServerFailed": "מנוע הדיבור לא הצליח להתחיל",
+  "errorPipelineTimeout": "ההקלטה נמשכה יותר מדי. נסה הקלטה קצרה יותר.",
+  "errorWavFileNotCreated": "לא הצלחתי לשמור קובץ אודיו. נסה שוב.",
+  "errorWavFileEmpty": "לא נלכד אודיו. בדוק את המיקרופון.",
+  "errorSttStartTimeout": "מנוע הדיבור עדיין מתחיל. נסה שוב בעוד רגע.",
+  "errorTranscriptionTimeout": "התמלול לקח יותר מדי זמן. נסה הקלטה קצרה יותר.",
+  "errorMicPermissionDenied": "נדרש גישה למיקרופון. אפשר בהגדרות המערכת.",
+  "errorRecordingStartFailed": "לא הצלחתי להתחיל הקלטה. נסה שוב.",
+  "errorNoMicrophone": "לא נמצא מיקרופון. חבר מיקרופון ונסה שוב.",
+  "errorGeneric": "משהו השתבש. נסה שוב.",
+  "modelDownloadFailed": "הורדה נכשלה. בדוק חיבור אינטרנט.",
+  "modelDeleteInUse": "קובץ המודל בשימוש על ידי תוכנה אחרת ולא ניתן היה למחוק אותו. סגור אותה ונסה שוב.",
+  "statusSttLoading": "טוען מודל…",
+  "statusSttReady": "מודל מוכן",
+  "historyDuplicate": "שכפל",
+  "historyDuplicated": "רשומה שוכפלה",
+  "historyViewRaw": "מקורי",
+  "historyViewEdited": "ערוך",
+  "historyApplySmartModePreset": "החל תבנית Smart Mode",
+  "historySmartModeApplied": "Smart Mode הוחל",
+  "historySmartModeFailedModelMissing": "מודל Smart Mode לא הורד",
+  "historySmartModeFailedTimeout": "Smart Mode ארך זמן רב מדי",
+  "historySmartModeFailedGeneric": "Smart Mode נכשל — נסה שוב",
+  "historySmartModeSelectTargetLanguage": "בחר שפת יעד",
+  "historyAddNote": "הוסף הערה",
+  "historyEditNote": "ערוך הערה",
+  "historyNotes": "הערות",
+  "historyNotePlaceholder": "כתוב הערה…",
+  "historyNoteAdded": "הערה נוספה",
+  "historyNoteDeleted": "הערה נמחקה",
+  "historyCopiedAsMarkdown": "הועתק כ-Markdown",
+  "historyAddTag": "הוסף תגית…",
+  "historySearchTags": "חפש או צור…",
+  "historyNoteEdited": "נערך",
+  "historyTagAdded": "תגית נוספה",
+  "historyTagRemoved": "תגית הוסרה",
+  "historyCreateTag": "צור \"{tag}\"",
+  "historyManageTags": "נהל תגיות",
+  "tagManageTitle": "ניהול תגיות",
+  "tagManageEmpty": "עדיין לא נוצרו תגיות.",
+  "tagUsageCount": "{count, plural, =0{לא בשימוש} =1{רשומה אחת} other{{count} רשומות}}",
+  "@tagUsageCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tagOverflowMore": "{count, plural, =1{תגית נוספת אחת} other{עוד {count} תגיות}}",
+  "@tagOverflowMore": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tagDeleteConfirmTitle": "למחוק תגית?",
+  "tagDeleteConfirmMessage": "התגית \"{name}\" משמשת ב-{count, plural, =1{רשומה אחת} other{{count} רשומות}}. היא תוסר מכולן.",
+  "@tagDeleteConfirmMessage": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tagDeleted": "תגית \"{name}\" נמחקה",
+  "@tagDeleted": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tagDeleteUnusedTitle": "למחוק תגיות שאינן בשימוש?",
+  "tagDeleteUnusedMessage": "{count, plural, =1{תגית אחת} other{{count} תגיות}} שאינן בשימוש יימחקו לצמיתות.",
+  "@tagDeleteUnusedMessage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tagDeleteUnusedAction": "מחק {count} שאינן בשימוש",
+  "@tagDeleteUnusedAction": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "tagDeletedUnused": "{count, plural, =1{תגית אחת} other{{count} תגיות}} נמחקו",
+  "@tagDeletedUnused": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "historyEditTranscript": "ערוך תמלול",
+  "historyTranscriptSaved": "תמלול נשמר",
+  "historySaveTranscript": "שמור",
+  "historyShortcutHelp": "קיצורי מקלדת",
+  "historyShortcutGeneral": "כללי",
+  "historyShortcutTags": "התמקד בשדה תגיות",
+  "historyShortcutNotes": "הוסף הערה",
+  "historyShortcutPin": "מועדף / הסר מועדף",
+  "historyShortcutClose": "שמור וסגור",
+  "historyShortcutEditing": "עריכה",
+  "historyShortcutToggleEdit": "החלף מצב עריכה",
+  "historyShortcutSave": "שמור תמלול",
+  "historyShortcutBold": "מודגש",
+  "historyShortcutItalic": "נטוי",
+  "historyShortcutCopy": "העתק ללוח",
+  "historyShortcutEditTitle": "ערוך כותרת",
+  "historyEditTitle": "ערוך כותרת",
+  "historyTitlePlaceholder": "הזן כותרת…",
+  "historyTitleSaved": "כותרת נשמרה",
+  "historySearchHelpTitle": "טיפים לחיפוש",
+  "historySearchHelpTags": "הקלד # כדי לסנן לפי תגיות",
+  "historySearchHelpLang": "הקלד lang: כדי לסנן לפי שפה",
+  "historySearchHelpFreeText": "או פשוט הקלד מילת מפתח",
+  "historySearchQuickTags": "תגיות פופולריות",
+  "historyRecentSearches": "חיפושים אחרונים",
+  "historyRemoveRecentSearch": "הסר חיפוש אחרון",
+  "historyRemoveFilter": "הסר מסנן",
+  "historyQuickActions": "מסננים מהירים",
+  "historyQuickActionAllLangs": "כל השפות",
+  "historyQuickActionFavorites": "מועדפים בלבד",
+  "historySortNewest": "חדש ביותר",
+  "historySortOldest": "ישן ביותר",
+  "historySortLongest": "ארוך ביותר",
+  "historySearchActiveTag": "#{tag}",
+  "@historySearchActiveTag": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "historySearchActiveLang": "lang:{code}",
+  "@historySearchActiveLang": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "historySearchSuggestTag": "סנן לפי תגית",
+  "historySearchSuggestLang": "סנן לפי שפה",
+  "settingsKeyboardShortcut": "קיצור מקלדת",
+  "settingsKeyboardShortcutSubtitle": "קיצור גלובלי להתחלת ועצירת הקלטה",
+  "settingsHotkeyEnabled": "הפעל קיצור גלובלי",
+  "settingsCurrentHotkey": "קיצור נוכחי",
+  "settingsChangeHotkey": "שנה",
+  "settingsHotkeyRecorderTitle": "הקלט קיצור חדש",
+  "settingsHotkeyRecorderHint": "לחץ על שילוב המקשים שברצונך להשתמש…",
+  "settingsHotkeyRecorderCancel": "בטל",
+  "settingsHotkeyRecorderSave": "שמור",
+  "settingsHotkeyRecorderClear": "נקה",
+  "settingsHotkeyRecorderModifierHint": "כל שילוב מקשי Modifier אפשרי: למשל Alt+Space, Ctrl+Alt+V, או Ctrl+Alt+Shift+R",
+  "settingsHotkeyRecorderInvalidKey": "לא ניתן לשמור מקש זה כקיצור דרך. נסה אות, ספרה, מקש פונקציה (F1-F12) או מקש חץ.",
+  "settingsHotkeyActionRecording": "התחלת/עצירת הקלטה",
+  "settingsHotkeyActionQuickNote": "פתק מהיר",
+  "settingsQuickNoteHotkeyEnabled": "קיצור לפתק מהיר",
+  "settingsQuickNoteHotkeyHint": "הטקסט המוכתב מתווסף לפתק המסומן כפתק מהיר. את הפתק הזה בוחרים באזור \"פתקים\".",
+  "settingsQuickNoteCurrentHotkey": "צירוף מקשים",
+  "settingsQuickNoteHotkeyCollision": "הצירוף הזה כבר משמש עבור \"{action}\". בחר צירוף אחר.",
+  "@settingsQuickNoteHotkeyCollision": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsQuickNoteHotkeyInactive": "לא ניתן היה לרשום את הצירוף הזה — הקיצור לפתק מהיר אינו פעיל כרגע. בחר צירוף אחר.",
+  "settingsHotkeyActionSnippetPicker": "בוחר הקטעים",
+  "settingsSnippetPickerHotkeyEnabled": "קיצור לבוחר הקטעים",
+  "settingsSnippetPickerHotkeyHint": "פותח את בוחר הקטעים מיד — בלי הקלטה ובלי מילת ההפעלה המדוברת.",
+  "settingsSnippetPickerCurrentHotkey": "צירוף מקשים",
+  "settingsSnippetPickerHotkeyCollision": "הצירוף הזה כבר משמש עבור \"{action}\". בחר צירוף אחר.",
+  "@settingsSnippetPickerHotkeyCollision": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSnippetPickerHotkeyInactive": "לא ניתן היה לרשום את הצירוף הזה — הקיצור לבוחר הקטעים אינו פעיל כרגע. בחר צירוף אחר.",
+  "hotkeyRegistrationFailed": "רישום קיצור הדרך נכשל, הגדר מחדש את הקיצור בהגדרות.",
+  "hotkeyRegistrationFailedDefaultActive": "רישום קיצור הדרך נכשל, Ctrl+Shift+Space משמש כברירת מחדל. הגדר מחדש בהגדרות.",
+  "hotkeyConflictWarning": "קיצור דרך זה שמור על ידי {platform} ({note}) ועלול לא לפעול.",
+  "@hotkeyConflictWarning": {
+    "placeholders": {
+      "platform": {
+        "type": "String"
+      },
+      "note": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMaxRecordDuration": "משך הקלטה מקסימלי",
+  "settingsMaxRecordDurationSubtitle": "עצירה אוטומטית אחרי זמן זה",
+  "settingsMaxRecordDurationUnlimited": "ללא הגבלה",
+  "settingsCloseToTray": "סגור למגש",
+  "settingsCloseToTraySubtitle": "המשך לפעול במגש המערכת כשסוגרים את החלון",
+  "settingsErrorReporting": "דיווח שגיאות",
+  "settingsErrorReportingSubtitle": "שולח דיווחי קריסה ושגיאה עם מזהה מכשיר מגובב, לעולם לא את האודיו או הטקסט שלך",
+  "settingsErrorReportingRestartHint": "ייכנס לתוקף לאחר הפעלה מחדש של WhisPaste.",
+  "settingsAutoPasteDelay": "השהיית הדבקה אוטומטית",
+  "settingsAutoPasteDelaySubtitle": "זמן המתנה לפני הדבקה לחלון הפעיל",
+  "settingsAutoPasteBlocklist": "רשימת חסימה להדבקה אוטומטית",
+  "settingsAutoPasteBlocklistSubtitle": "מזהי אפליקציות מופרדים בפסיקים שבהם הדבקה אוטומטית כבויה",
+  "settingsAutoPasteBlocklistPlaceholder": "לדוגמה: com.apple.Terminal, com.1password",
+  "settingsCheckUpdates": "בדוק עדכונים",
+  "settingsCheckUpdatesSubtitle": "בדוק גרסאות חדשות בהפעלה וכל 24 שעות",
+  "settingsCheckForUpdatesNow": "בדוק עדכונים עכשיו",
+  "settingsUpdates": "עדכונים",
+  "settingsUpdatesSubtitle": "ערוץ גרסאות ובדיקת עדכונים",
+  "settingsBetaUpdates": "עדכוני בטא",
+  "settingsBetaUpdatesSubtitle": "קבל גרסאות טרום-הפצה שנבדקו פחות.",
+  "settingsStableRevertHintMessage": "לא ניתן לחזור אוטומטית לגרסה היציבה. כבר מותקנת אצלך גרסת בטא חדשה יותר.",
+  "settingsStableRevertHintLink": "הורדה ידנית של הגרסה היציבה {stableVersion}",
+  "@settingsStableRevertHintLink": {
+    "placeholders": {
+      "stableVersion": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingNext": "הבא",
+  "onboardingBack": "חזור",
+  "onboardingPrivacyTitle": "עזרו לנו לשפר את WhisPaste",
+  "onboardingPrivacyHint": "האודיו והטקסט נשארים מקומיים. נתוני שימוש אנונימיים נשלחים לשרת באירוח עצמי באיחוד האירופי, ודיווחי קריסה ל-Sentry (אזור האיחוד האירופי) — בהתאם ל-GDPR.",
+  "onboardingPrivacyToggle": "שיתוף נתוני שימוש אנונימיים",
+  "onboardingPrivacyToggleHint": "פעיל כברירת מחדל, ניתן לכבות בכל עת",
+  "onboardingPrivacyCrashToggle": "שליחת דיווחי קריסה אנונימיים",
+  "onboardingPrivacyCrashToggleHint": "עוזר לתקן באגים, פעיל כברירת מחדל, ניתן לכבות בכל עת",
+  "onboardingStepOf": "שלב {current} מתוך {total}",
+  "@onboardingStepOf": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "onboardingAppearancePageTitle": "מראה",
+  "onboardingAppearancePageSubtitle": "איך האפליקציה מופעלת, ואיך נראית שכבת ההקלטה.",
+  "onboardingBeat1Title": "לחץ על הקיצור, דבר, סיימת",
+  "onboardingBeat1Caption": "ההקלטה מתחילה מיד – המילים שלך הופכות לטקסט ישירות במיקום הסמן.",
+  "onboardingBeat2Title": "פועל מקומית, על החומרה שלך",
+  "onboardingBeat2Caption": "התמלול מתבצע במכשיר שלך – בלי צורך באינטרנט.",
+  "onboardingBeat3Title": "בכל מקום שבו אתה מקליד",
+  "onboardingBeat3Caption": "דפדפן, אימייל, עורך – WhisPaste עובד בכל המערכת.",
+  "onboardingMicChipReady": "המיקרופון מוכן",
+  "onboardingMicChipPending": "גישה למיקרופון ממתינה",
+  "onboardingMicChipAction": "מיקרופון: נדרשת פעולה",
+  "onboardingModelTitle": "הגדר זיהוי דיבור",
+  "onboardingModelSubtitle": "הורד את מנוע הדיבור כדי להקליט offline. הקול שלך לא עוזב את המכשיר.",
+  "onboardingModelRecommended": "מומלץ",
+  "onboardingModelChangeLater": "תוכל לשנות את האיכות מאוחר יותר בהגדרות",
+  "onboardingModelDownloading": "מוריד…",
+  "onboardingModelReady": "מודל מוכן",
+  "onboardingModelGpuCpuFallback": "האצת GPU מיטבית אינה זמינה, האפליקציה תשתמש במעבד",
+  "onboardingModelEngineParakeetLabel": "מהיר ואירופי",
+  "onboardingModelEngineParakeetDesc": "הדרך המהירה ביותר לטקסט בכ-25 שפות אירופיות, כולל גרמנית. פועל היטב בכל חומרה, גם ללא GPU.",
+  "onboardingModelEngineWhisperLabel": "כל 99 השפות",
+  "onboardingModelEngineWhisperDesc": "הכיסוי הרחב ביותר של שפות, בתוספת אוצר מילים מותאם אישית וכיוונון פיסוק לשמות, ראשי תיבות ומונחים מקצועיים.",
+  "onboardingModelEngineUnsupportedLanguage": "עדיין לא תומך בשפה שבחרת",
+  "onboardingTestRecordingTitle": "נסה עכשיו",
+  "onboardingTestRecordingSubtitle": "לחץ על הכפתור למטה ואמור משפט. הטקסט מופיע בשדה הבדיקה. גם הקיצור שלך עובד.",
+  "onboardingTestRecordingHotkeyLabel": "הקיצור שלך",
+  "onboardingTestRecordingStartCta": "התחל הקלטה",
+  "onboardingTestRecordingStopCta": "עצור הקלטה",
+  "onboardingTestRecordingCompletionHint": "נסה קודם הקלטה אחת כדי להמשיך.",
+  "onboardingTestRecordingMicBypassCta": "המשך ללא מיקרופון",
+  "onboardingTestRecordingMicBypassHint": "ללא מיקרופון פועל, WhisPaste עדיין לא יכול להתחיל הקלטה. אפשר להשלים זאת בכל עת דרך סטטוס המיקרופון בעמוד הזה או בהגדרות.",
+  "onboardingTestRecordingPlaceholder": "הטקסט המדובר שלך יופיע כאן…",
+  "onboardingTestRecordingInProgress": "מקליט: פשוט התחל לדבר. לחץ שוב כדי לעצור.",
+  "onboardingTestRecordingDoneMessage": "זהו! כך זה עובד בדיוק בכל אפליקציה.",
+  "onboardingTestRecordingReassurance": "רק בדיקה, הטקסט נשאר בשדה הזה.",
+  "onboardingTestRecordingReassuranceWithDuration": "רק בדיקה, הטקסט נשאר בשדה הזה — הקלטות נעצרות אוטומטית אחרי {seconds} שניות, ניתן לשנות זאת בהגדרות ← {section}.",
+  "@onboardingTestRecordingReassuranceWithDuration": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      },
+      "section": {
+        "type": "String"
+      }
+    }
+  },
+  "onboardingReadyTitle": "הכל מוכן!",
+  "onboardingReadySubtitle": "ככה משתמשים ב-WhisPaste",
+  "onboardingReadyStep1": "לחץ על הקיצור כדי להתחיל להקליט",
+  "onboardingReadyStep2": "לחץ שוב כדי לעצור ולתמלל",
+  "onboardingReadyStep3AutoPaste": "הטקסט זורם ישירות לאפליקציה הפעילה",
+  "onboardingReadyStep3CopyOnly": "הטקסט בלוח, לחץ ⌘V / Ctrl+V כדי להדביק",
+  "onboardingReadyContextCarryoverHint": "WhisPaste מעביר הקשר מההקלטה הקודמת עד עשר דקות קדימה. לפני מעבר מהיר לנושא אחר לגמרי, כדאי הפסקה קצרה, אחרת התוצאה הבאה עלולה להיות מוטה.",
+  "onboardingReadyAutostartToggle": "הפעלת WhisPaste בהתחברות",
+  "onboardingReadyAutostartToggleHint": "כבוי כברירת מחדל, ניתן להפעיל בכל עת בהגדרות",
+  "onboardingTriggerTitle": "איך תרצה להתחיל הקלטה?",
+  "onboardingTriggerSubtitle": "הגדר את מקש הקיצור ובחר כיצד הוא מתחיל הקלטה.",
+  "onboardingTriggerCurrentHotkey": "קיצור נוכחי",
+  "onboardingTriggerHotkeyConflictTitle": "הקיצור כבר בשימוש",
+  "onboardingTriggerHotkeyConflictBody": "נראה שהקיצור שלך תפוס על ידי אפליקציה אחרת. הקלט שילוב חדש למטה כדי להמשיך.",
+  "onboardingReadyHotkeyConflictBody": "חזור לעמוד מקש הקיצור והקלט שם שילוב חדש.",
+  "onboardingTriggerModeHoldHint": "החזק את הקיצור ודבר, שחרר כדי לסיים",
+  "onboardingTriggerModeToggleHint": "לחץ פעם אחת כדי להתחיל, לחץ שוב כדי לסיים",
+  "onboardingTriggerSystemWideHint": "עובד בכל המערכת — לא רק בתוך WhisPaste.",
+  "onboardingStartUsing": "בוא נתחיל",
+  "onboardingReviewExit": "סגירת המבוא",
+  "onboardingReviewDone": "סיום",
+  "onboardingReviewEntry": "מבוא",
+  "onboardingReviewSubtitle": "אפשר לעבור שוב על חמשת שלבי ההגדרה בכל עת — דבר לא משתנה אלא אם תשנו אותו.",
+  "onboardingReviewLabel": "צפייה חוזרת במבוא",
+  "onboardingReviewAction": "פתיחה",
+  "onboardingRevisionNoticeTitle": "יש עדכון ל-WhisPaste — ההגדרות שלכם נשארות כפי שהן.",
+  "onboardingRevisionExit": "יציאה מהמבוא",
+  "onboardingRevisionExitConfirmTitle": "לצאת מהמבוא?",
+  "onboardingRevisionExitConfirmBody": "מסלול העדכון מוצג פעם אחת בלבד, ולכן מה שתדלגו עליו עכשיו לא יוגדר עבורכם. אפשר לפתוח את אותם שלבים בכל עת דרך ״הגדרות״ ואז ״מבוא״, וכל הגדרה שמופיעה בהם קיימת גם בעמוד ההגדרות עצמו. מה שכבר הגדרתם נשאר כפי שהוא.",
+  "onboardingRevisionExitConfirmAction": "יציאה",
+  "overlayRecording": "מקליט",
+  "overlayTranscribing": "מתמלל…",
+  "overlayDone": "הועתק",
+  "overlayDonePasted": "הודבק",
+  "overlayDoneBoth": "הועתק והודבק",
+  "overlayDoneReady": "הסתיים",
+  "overlayError": "שגיאה",
+  "overlayCancel": "בטל",
+  "overlayPause": "השהה",
+  "overlayResume": "המשך",
+  "overlayStop": "עצור",
+  "overlayKeyboardHint": "לחץ {hotkey} כדי לעצור",
+  "@overlayKeyboardHint": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayKeyboardHintNextFieldEnter": "Enter או {hotkey}: השדה הבא · Esc: ביטול",
+  "@overlayKeyboardHintNextFieldEnter": {
+    "placeholders": {
+      "hotkey": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayKeyboardHintNextFieldEnterOnly": "Enter: השדה הבא · Esc: ביטול",
+  "overlayProcessingLocal": "מקומי",
+  "overlayProcessingCloud": "ענן",
+  "overlayRecordingQuickNote": "מקליט לפתק",
+  "overlayTargetQuickNote": "פתק",
+  "overlayRecordingTargetTimer": "{elapsed} · {target}",
+  "@overlayRecordingTargetTimer": {
+    "placeholders": {
+      "elapsed": {
+        "type": "String"
+      },
+      "target": {
+        "type": "String"
+      }
+    }
+  },
+  "overlayDoneQuickNote": "נוסף לפתק",
+  "floatingButtonHide": "הסתר",
+  "floatingButtonQuit": "צא",
+  "a11yRecordingButton": "כפתור הקלטה",
+  "a11yRecordingOverlay": "שכבת הקלטה",
+  "trayStatusRecording": "מקליט…",
+  "trayStatusReady": "מוכן",
+  "trayStartRecording": "התחל הקלטה",
+  "trayStopRecording": "עצור הקלטה",
+  "trayOpenApp": "פתח WhisPaste",
+  "traySettings": "הגדרות",
+  "trayQuit": "צא",
+  "trayMicrophone": "מיקרופון",
+  "groqRemovedToast": "Groq STT הוסר. ספק אופס למקומי.",
+  "settingsComingSoon": "בקרוב",
+  "undo": "בטל",
+  "voiceNoteButton": "הערת קול",
+  "voiceNoteRecording": "מקליט הערת קול…",
+  "voiceNoteTranscribing": "מתמלל…",
+  "voiceNoteAdded": "הערת קול נוספה",
+  "voiceTagAdded": "תגית \"{tag}\" נוספה בקול",
+  "@voiceTagAdded": {
+    "placeholders": {
+      "tag": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceCorrectionApplied": "תמלול תוקן בקול",
+  "voiceCorrectionUndone": "התיקון בוטל",
+  "voiceNoteEmpty": "לא זוהה דיבור",
+  "voiceNoteError": "הערת קול נכשלה",
+  "historyVoiceNoteButtonTooltip": "הערת קול — אמרו \"tag: …\" כדי להוסיף תגית, או \"correct: …\" כדי לכתוב מחדש את התמליל הזה",
+  "updateAvailable": "עדכון זמין: v{version}",
+  "@updateAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateDownloading": "מוריד עדכון… {percent}%",
+  "@updateDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "updateReadyToInstall": "עדכון מוכן, לחץ להתקנה",
+  "updateUpToDate": "יש לך את הגרסה העדכנית ביותר",
+  "updateCheckNow": "בדוק עכשיו",
+  "updateInstall": "התקן עדכון",
+  "updateDownload": "הורד",
+  "updateViewRelease": "הערות גרסה",
+  "updateError": "בדיקת עדכון נכשלה",
+  "updateRateLimited": "יותר מדי בקשות, נסה שוב מאוחר יותר",
+  "updateStatusBarChip": "v{version} זמין",
+  "@updateStatusBarChip": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsOverlaySize": "גודל שכבה",
+  "settingsOverlaySizeSubtitle": "בחר בין תצוגה מפורטת או מינימלית",
+  "settingsOverlaySizeNormal": "רגיל",
+  "settingsOverlaySizeCompact": "קומפקטי",
+  "settingsOverlaySizeMini": "מיני",
+  "settingsOverlayStyle": "סגנון שכבה",
+  "settingsOverlayStyleSubtitle": "בחר בין מראה זכוכית למראה אטום מלא",
+  "settingsOverlayStyleGlass": "זכוכית",
+  "settingsOverlayStyleSolid": "אטום",
+  "settingsOverlayLiveTranscript": "תמלול חי",
+  "settingsOverlayLiveTranscriptSubtitle": "הצג את הטקסט המתמלל בזמן אמת, במקום תצוגת גל בלבד",
+  "overlayRetry": "נסה שוב",
+  "overlayDismiss": "סגור",
+  "overlayContextCancel": "בטל הקלטה",
+  "overlayContextSwitchNormal": "עבור לרגיל",
+  "overlayContextSwitchCompact": "עבור לקומפקטי",
+  "overlayContextSwitchMini": "עבור למיני",
+  "overlayContextHide": "הסתר שכבה",
+  "buttonContextOpen": "פתח את WhisPaste",
+  "buttonContextStartRecording": "התחל הקלטה",
+  "buttonContextShowHistory": "הצג היסטוריה",
+  "buttonContextSettings": "הגדרות",
+  "buttonContextQuit": "צא מ-WhisPaste",
+  "settingsHistory": "היסטוריה",
+  "settingsHistorySubtitle": "שמירה וניקוי אוטומטי",
+  "settingsHistoryMaxEntries": "מספר רשומות מקסימלי",
+  "settingsHistoryMaxEntriesUnlimited": "ללא הגבלה",
+  "settingsHistoryAutoTrashDays": "מחק אשפה אוטומטית אחרי",
+  "settingsHistoryAutoTrashNever": "לעולם לא",
+  "settingsHistoryAutoTrashDaysLabel": "{count, plural, =1{יום אחד} other{{count} ימים}}",
+  "@settingsHistoryAutoTrashDaysLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsHistoryRetentionPreset": "שמירה",
+  "settingsHistoryPresetMinimal": "מינימלי",
+  "settingsHistoryPresetStandard": "רגיל",
+  "settingsHistoryPresetUnlimited": "ללא הגבלה",
+  "settingsHistoryPresetCustom": "מותאם אישית",
+  "settingsHistoryHideOnOpen": "הסתרת ההיסטוריה בפתיחה",
+  "settingsHistoryHideOnOpenSubtitle": "מציג כפתור „הצגת היסטוריה” במקום התמלולים שלך בכל פעם ש־WhisPaste מופעל או שהחלון נפתח מחדש",
+  "historyPinGateTitle": "ההיסטוריה נעולה",
+  "historyPinGateHint": "הזן את קוד ה-PIN כדי להציג את התמלולים שלך.",
+  "historyPinUnlock": "ביטול נעילה",
+  "historyPinDialogTitle": "הזן PIN",
+  "historyPinDialogSubtitle": "ההיסטוריה שלך מוגנת בקוד PIN.",
+  "historyPinFieldHint": "PIN",
+  "historyPinRepeatHint": "הזן PIN שוב",
+  "historyPinWrong": "PIN שגוי.",
+  "historyPinLockedOut": "יותר מדי ניסיונות. נסה שוב בעוד {seconds} שניות.",
+  "historyPinForgot": "שכחת את ה-PIN?",
+  "historyPinForgotConfirmTitle": "למחוק את ההיסטוריה ולהסיר את ה-PIN?",
+  "historyPinForgotConfirmMessage": "לא ניתן לשחזר PIN שנשכח. כדי לאפס אותו, כל ההיסטוריה שלך — כולל ארכיון, אשפה והקלטות שנשמרו — תימחק לצמיתות. הגדרות, הערות, קטעים והחלפות יישמרו.",
+  "historyPinForgotConfirmAction": "מחק היסטוריה",
+  "historyPinSetTitle": "הגדר PIN",
+  "historyPinSetSubtitle": "4–8 ספרות. מונע מאחרים לצפות בקלות בהיסטוריה שלך במחשב זה — אך אינו מצפין אותה.",
+  "historyPinInvalid": "השתמש ב-4 עד 8 ספרות.",
+  "historyPinMismatch": "קודי ה-PIN אינם תואמים.",
+  "settingsHistoryPin": "הגנת PIN",
+  "settingsHistoryPinSubtitle": "דורש PIN להצגת ההיסטוריה, כולל חלונית הצד, תפריט הכפתור הצף ו-API האוטומציה.",
+  "settingsHistoryPinChange": "שנה",
+  "settingsHistoryPinRemove": "הסר",
+  "settingsHistoryAutoLock": "נעילה אוטומטית",
+  "settingsHistoryAutoLockSubtitle": "מסתיר שוב את ההיסטוריה לאחר זמן חוסר פעילות זה.",
+  "settingsHistoryAutoLockNever": "אף פעם",
+  "settingsHistoryAutoLockMinutes": "אחרי {minutes} דק׳",
+  "settingsFloatingButtonSection": "כפתור צף",
+  "settingsFloatingButtonSectionSubtitle": "כפתור הקלטה תמיד עליון לגישה מהירה",
+  "settingsSttIdleTimeout": "זמן המתנה של מנוע",
+  "settingsSttIdleTimeoutSubtitle": "כמה זמן המנוע נשאר טעון אחרי שימוש",
+  "settingsSttIdleTimeoutKeepAlive": "תמיד פעיל",
+  "settingsSttIdleTimeoutMinutes": "{count, plural, =1{דקה אחת} other{{count} דקות}}",
+  "@settingsSttIdleTimeoutMinutes": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reviewPromptTitle": "אתה נהנה מ-WhisPaste?",
+  "reviewPromptBody": "הדירוג שלך עוזר לאחרים לגלות את האפליקציה וממשיך את הפיתוח.",
+  "reviewPromptYes": "אוהב מאוד!",
+  "reviewPromptNotNow": "לא עכשיו",
+  "reviewPromptNever": "אל תשאל שוב",
+  "reviewPromptStarGitHub": "⭐ כוכב ב-GitHub",
+  "reviewPromptRateStore": "★ דרג בחנות",
+  "reviewPromptGateBody": "רק שאלה קצרה אלינו, זו אינה דירוג בחנות.",
+  "reviewPromptGateYes": "כן, אני אוהב את זה",
+  "reviewPromptGateNo": "לא ממש",
+  "reviewSupportEntry": "דרגו ותמוכו ב-WhisPaste",
+  "reviewSupportLabel": "הדירוג שלך",
+  "reviewSupportSubtitle": "הדירוג שלך עוזר לאחרים לגלות את WhisPaste ותומך בפרויקט.",
+  "reviewSupportAction": "דרגו",
+  "ideasBoardLabel": "רעיונות ובקשות לתכונות",
+  "ideasBoardAction": "צפו בלוח",
+  "feedbackIdeasLink": "הציעו רעיונות והצביעו עליהם",
+  "insufficientRamTitle": "אין מספיק זיכרון",
+  "insufficientRamBody": "WhisPaste דורש לפחות {requiredGb} GB RAM. למערכת שלך יש {detectedGb} GB.\n\nעם פחות זיכרון, מנוע ה-AI עלול להיכשל.",
+  "@insufficientRamBody": {
+    "placeholders": {
+      "detectedGb": {
+        "type": "double",
+        "format": "decimalPattern",
+        "decimalDigits": 1
+      },
+      "requiredGb": {
+        "type": "int"
+      }
+    }
+  },
+  "insufficientRamQuit": "צא מ-WhisPaste",
+  "insufficientRamLearnMore": "דרישות מערכת",
+  "insufficientRamSystemCheck": "בדיקת מערכת",
+  "insufficientRamYourSystem": "המערכת שלך",
+  "insufficientRamRequired": "נדרש",
+  "settingsLanguageHebrew": "עברית",
+  "exportFormatPickerTitle": "בחר פורמט ייצוא",
+  "exportFormatText": "טקסט",
+  "exportFormatMarkdown": "Markdown",
+  "exportFormatCsv": "CSV",
+  "exportFormatJson": "JSON",
+  "exportFormatWord": "Word",
+  "recoveryExhaustedToast": "Voice service cannot start. Please restart the app or reload the voice model.",
+  "recoveryExhaustedAction": "Open settings",
+  "recoveryVcRuntimeToast": "Voice service cannot start: a Windows component is missing (Microsoft Visual C++). Please install the Visual C++ Redistributable (x64) and restart WhisPaste.",
+  "recoveryVcRuntimeAction": "Install",
+  "modelAbiInfoToast": "Reloading voice model, please wait.",
+  "recoveryGpuDisabledToast": "WhisPaste is now running without GPU acceleration due to a problem on the last launch. Dictation still works as usual.",
+  "serverDownloadFailedToast": "Voice service could not be downloaded. Check your internet connection?",
+  "serverDownloadFailedAction": "Try again",
+  "serverDownloadStalledToast": "Download stalled: reconnecting.",
+  "historyWriteFailedToast": "Entry could not be saved, please check available storage.",
+  "historyWriteFailedAction": "Copy diagnostics",
+  "factoryResetFailedToast": "Factory reset incomplete. Restart the app?",
+  "factoryResetFailedAction": "Quit app",
+  "errorSttRejectEmpty": "אין אודיו לתמלול, נסה להקליט שוב.",
+  "errorSttRejectInvalidWav": "קובץ האודיו פגום, נסה להקליט שוב.",
+  "errorSttRejectUnsupportedLanguage": "השפה אינה נתמכת על ידי מנוע הדיבור המקומי, בדוק את השפה בהגדרות.",
+  "errorSttRejectPromptTooLong": "אוצר המילים המותאם ארוך מדי, קצר אותו בהגדרות.",
+  "settingsGpuAcceleration": "האצת גרפיקה",
+  "settingsGpuAccelerationSubtitle": "קובע אם שירות הדיבור ישתמש ב-GPU או CPU לזיהוי מקומי",
+  "settingsGpuAccelerationAuto": "אוטומטי (מומלץ)",
+  "settingsGpuAccelerationEnabled": "GPU (כפוי)",
+  "settingsGpuAccelerationDisabled": "CPU בלבד",
+  "settingsSearchHint": "חיפוש הגדרות…",
+  "settingsSearchNoResults": "אין תוצאות",
+  "settingsSearchNoResultsHint": "נסה מונח חיפוש אחר.",
+  "settingsSearchFieldLabel": "חיפוש הגדרות",
+  "settingsSearchResultCount": "{count, plural, =0{אין תוצאות} other{{count} תוצאות}}",
+  "@settingsSearchResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsPrivacy": "Privacy",
+  "settingsPrivacySubtitle": "Control what data WhisPaste shares",
+  "settingsShareUsageStats": "Share anonymous usage statistics",
+  "settingsShareUsageStatsSubtitle": "ללא עוגיות, עם מזהה אקראי לכל הפעלה וכינוי מתחלף מדי שבוע — עוזר לנו להבין איך משתמשים ב-WhisPaste",
+  "settingsRetainRecentAudio": "Keep recent recordings",
+  "settingsRetainRecentAudioSubtitle": "Keep the audio of your last 20 dictations on this device for debugging or restoring a past transcript; older recordings are deleted automatically",
+  "featureSpotlightHeading": "חדש ב-WhisPaste",
+  "featureSpotlightDismiss": "הבנתי",
+  "featureSpotlightSnippetPickerTitle": "בורר קטעים",
+  "featureSpotlightSnippetPickerDescription": "שמור קטעי טקסט לשימוש חוזר והכנס אותם בכל מקום בלחיצה על מקש קיצור או במילת הפעלה קולית – בלי להקליד שוב.",
+  "featureSpotlightSidePanelTitle": "סרגל לוח הגזירים",
+  "featureSpotlightSidePanelDescription": "העבר את העכבר לקצה המסך כדי לפתוח את היסטוריית לוח הגזירים שלך וגרור כל פריט ישירות למסמך.",
+  "featureSpotlightInteractiveSnippetsTitle": "קטעים אינטראקטיביים",
+  "featureSpotlightInteractiveSnippetsDescription": "קטעים עם שדות למילוי: WhisPaste מוביל אותך משדה לשדה – הכתב, הקש Enter למעבר לשדה הבא, והטקסט המוגמר מודבק בבת אחת.",
+  "featureSpotlightSmartModeTitle": "Smart Mode",
+  "featureSpotlightSmartModeDescription": "נקה, קצר או תרגם את ההכתבה שלך לפני ההדבקה – לגמרי במכשיר שלך, עם קיצור ייעודי ושפת יעד משלו.",
+  "featureSpotlightHistoryPinTitle": "נעילת ההיסטוריה בקוד PIN",
+  "featureSpotlightHistoryPinDescription": "הגן על התמלולים שלך בקוד PIN – גם בסרגל הצד ובתפריט הכפתור הצף – עם נעילה אוטומטית אופציונלית אחרי חוסר פעילות. הגדרות ← היסטוריה.",
+  "featureSpotlightEditSelectionTitle": "עריכת טקסט מסומן בקול",
+  "featureSpotlightEditSelectionDescription": "סמנו טקסט בכל אפליקציה, לחצו על מקש הקיצור לעריכת הבחירה ואמרו מה לשנות – או פשוט „קצר”, „שפר” או „תרגם”. משתמש במנוע Smart Mode שלכם. כבוי כברירת מחדל: הפעילו בהגדרות ← Smart Mode.",
+  "featureSpotlightChangelogLink": "צפייה ביומן השינויים המלא",
+  "featureSpotlightReviewLabel": "צפייה חוזרת בתכונות החדשות",
+  "featureSpotlightReviewAction": "הצגה",
+
+  "notesNewNote": "פתק חדש",
+  "notesEmptyTitle": "עוד אין פתקים",
+  "notesEmptyHint": "צור פתק כדי להתחיל לאסוף טקסט מכל מקום.",
+  "notesUntitled": "פתק ללא כותרת",
+  "notesEditorPlaceholder": "התחל להקליד…",
+  "notesListSemantics": "רשימת פתקים",
+  "notesCopy": "העתק פתק",
+  "notesCopied": "הפתק הועתק",
+  "notesFavorite": "סמן כמועדף",
+  "notesUnfavorite": "הסר מהמועדפים",
+  "notesQuickNoteSet": "הפוך לפתק המהיר שאליו הקיצור מוסיף טקסט",
+  "notesQuickNoteClear": "פתק מהיר — הסר את הסימון",
+  "notesQuickNoteHotkeyLabel": "קיצור",
+  "notesQuickNoteHotkeyChange": "שינוי הקיצור לפתק מהיר — כרגע {combination}",
+  "@notesQuickNoteHotkeyChange": {
+    "placeholders": {
+      "combination": {
+        "type": "String"
+      }
+    }
+  },
+  "notesQuickNoteHotkeyOff": "הקיצור לפתק מהיר כבוי.",
+  "notesQuickNoteHotkeyEnable": "הפעלת הקיצור",
+  "notesMoveToTrash": "העבר לאשפה",
+  "notesMovedToTrash": "הועבר לאשפה",
+  "notesRestore": "שחזר",
+  "notesDeleteForever": "מחק לצמיתות",
+  "notesDeleteForeverConfirm": "למחוק את הפתק לצמיתות?",
+  "notesTrash": "אשפה",
+  "notesTrashEmpty": "האשפה ריקה",
+  "notesTrashEmptyHint": "פתקים שנמחקו מגיעים לכאן ולא מוסרים אוטומטית.",
+  "notesUndo": "בטל",
+  "notesAddTag": "הוסף תגית",
+  "notesTagPlaceholder": "שם התגית…",
+  "notesSearchPlaceholder": "חפש בפתקים…",
+  "notesSearchFieldLabel": "חפש בפתקים",
+  "notesNoResults": "אין תוצאות",
+  "notesNoResultsHint": "אין פתקים שמתאימים ל \"{query}\".\nנסה מונח חיפוש אחר.",
+  "@notesNoResultsHint": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "notesResultCount": "{count, plural, =1{תוצאה אחת} other{{count} תוצאות}}",
+  "@notesResultCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notesExport": "ייצא",
+  "markdownToolbarBold": "מודגש ({shortcut})",
+  "@markdownToolbarBold": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String",
+        "example": "Ctrl+B"
+      }
+    }
+  },
+  "markdownToolbarItalic": "נטוי ({shortcut})",
+  "@markdownToolbarItalic": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String",
+        "example": "Ctrl+I"
+      }
+    }
+  },
+  "markdownToolbarHeading": "כותרת",
+  "markdownToolbarBulletList": "רשימת תבליטים ({shortcut})",
+  "@markdownToolbarBulletList": {
+    "placeholders": {
+      "shortcut": {
+        "type": "String",
+        "example": "Ctrl+Shift+L"
+      }
+    }
+  },
+  "markdownToolbarNumberedList": "רשימה ממוספרת",
+  "markdownToolbarQuote": "ציטוט",
+  "markdownToolbarCode": "קוד",
+  "findReplaceToggle": "חיפוש והחלפה בטקסט הזה",
+  "findReplaceFindLabel": "חיפוש בטקסט הזה",
+  "findReplaceFindHint": "חיפוש…",
+  "findReplaceReplaceLabel": "החלפת התוצאות ב",
+  "findReplaceReplaceHint": "החלפה ב…",
+  "findReplaceNext": "התוצאה הבאה",
+  "findReplacePrevious": "התוצאה הקודמת",
+  "findReplaceReplaceAction": "החלפת התוצאה הזו",
+  "findReplaceReplaceAllAction": "החלפת כל התוצאות",
+  "findReplaceClose": "סגירת חיפוש והחלפה",
+  "findReplaceNoMatches": "אין תוצאות",
+  "findReplaceMatchCount": "{current} מתוך {total}",
+  "@findReplaceMatchCount": {
+    "placeholders": {
+      "current": {
+        "type": "int",
+        "example": "3"
+      },
+      "total": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "smartModeOnboardingHintTitle": "נסה את Smart Mode",
+  "smartModeOnboardingHintBody": "Smart Mode יכול לנקות, לקצר או לתרגם את הטקסט המוכתב שלך אוטומטית — לגמרי במכשיר שלך. הורד את המודל המקומי עכשיו, או הגדר אותו מאוחר יותר בהגדרות.",
+  "smartModeOnboardingHintExampleBeforeLabel": "הכתבה גולמית",
+  "smartModeOnboardingHintExampleBefore": "אז אממ פגישת הלקוח נדחתה ליום חמישי בשלוש אחר הצהריים ו אה אנחנו עדיין צריכים את המצגת המעודכנת מהשיווק",
+  "smartModeOnboardingHintExampleAfterLabel": "התוצאה של Smart Mode",
+  "smartModeOnboardingHintExampleAfter": "אז, פגישת הלקוח נדחתה ליום חמישי בשלוש אחר הצהריים, ואנחנו עדיין צריכים את המצגת המעודכנת מהשיווק.",
+  "smartModeOnboardingHintDownloadCta": "הורדה",
+  "smartModeOnboardingHintSkipCta": "דלג",
+  "smartModeUsageHintTitle": "נסה את Smart Mode בהכתבה הבאה שלך",
+  "smartModeUsageHintBody": "Smart Mode יכול לנקות, לקצר או לתרגם טקסט כזה אוטומטית, ישירות במכשיר שלך. הנה מה שהכתבת הרגע:",
+  "smartModeUsageHintCta": "הגדרה",
+  "smartModeUsageHintDismiss": "לא עכשיו",
+  "settingsAutomationApi": "ממשק API מקומי לאוטומציה",
+  "settingsAutomationApiSubtitle": "הפעילו הכתבה מסקריפטים משלכם דרך ממשק HTTP שזמין רק במחשב המקומי (loopback)",
+  "settingsAutomationApiEnable": "הפעלת ממשק האוטומציה המקומי",
+  "settingsAutomationApiEnableSubtitle": "מאזין רק ל-127.0.0.1/::1 — אף פעם לא נגיש מהרשת",
+  "settingsAutomationApiStatusRunning": "פועל בפורט {port}",
+  "settingsAutomationApiStatusRunningFallback": "פועל בפורט {port} (פורט {requestedPort} היה תפוס)",
+  "settingsAutomationApiStatusStopped": "לא פועל",
+  "settingsAutomationApiStatusError": "לא נמצא פורט פנוי בטווח {start}–{end}",
+  "settingsAutomationApiCustomPortLabel": "פורט מותאם אישית",
+  "settingsAutomationApiCustomPortSubtitle": "השאירו ריק לבחירת פורט אוטומטית — אם הפורט תפוס, ייבחר פורט חלופי אוטומטית",
+  "settingsAutomationApiCustomPortHint": "אוטומטי",
+  "settingsAutomationApiCustomPortInvalid": "הזינו פורט בין 1024 ל-65535",
+  "settingsAutomationApiToken": "טוקן Bearer",
+  "settingsAutomationApiTokenSubtitle": "שלחו אותו בכותרת \"Authorization: Bearer <token>\" — כל בקשה בלעדיו נדחית",
+  "settingsAutomationApiRegenerate": "צור מחדש",
+  "settingsAutomationApiRegenerateConfirmTitle": "ליצור טוקן חדש?",
+  "settingsAutomationApiRegenerateConfirmMessage": "הטוקן הנוכחי יפסיק לעבוד מיד. כל סקריפט שמשתמש בו יצטרך את הטוקן החדש.",
+  "settingsAutomationApiCopyToken": "העתק טוקן",
+  "settingsAutomationApiTokenCopied": "הטוקן הועתק ללוח",
+  "settingsAutomationApiDocumentation": "תיעוד",
+  "settingsAutomationApiDocumentationSubtitle": "תיעוד נקודות הקצה ודוגמאות curl",
+  "settingsAutomationApiDocumentationAction": "פתח",
+  "settingsAutostartSyncFailed": "לא ניתן היה לרשום את ההפעלה האוטומטית במערכת ההפעלה. ייתכן שמדובר בבעיית הרשאות או שגרסת מערכת ההפעלה שלכם אינה נתמכת.",
+  "pasteFailureElevationBlocked": "ההדבקה האוטומטית נחסמה: האפליקציה היעד פועלת בהרשאות מנהל. הפעילו את WhisPaste גם כמנהל כדי להדביק בה.",
+  "pasteCapabilityWhyMac": "WhisPaste זקוקה להרשאה כדי להקליד טקסט באפליקציה שבה אתם עובדים — ב-macOS ההרשאה הזו נקראת \"נגישות\".",
+  "pasteCapabilityTroubleshoot": "יש בעיה?",
+  "settingsAdvancedSubtitle": "איפוס, דיווח שגיאות, עדכונים והתנהגות המערכת",
+  "analyticsAvgLatency": "מהירות ממוצעת",
+  "replacementsImportScanning": "סורק את התיקייה — זה עשוי לקחת רגע בפרויקטים גדולים…",
+  "replacementsImportError": "הייבוא נכשל — לא ניתן היה לסרוק את התיקייה.",
+  "replacementsImportNothingFound": "לא נמצאו מזהים חדשים בתיקייה זו.",
+  "replacementsImportReviewTitle": "בחרו מה לייבא",
+  "replacementsImportReviewSubtitle": "נמצאו {count} מועמדים — בחרו אילו יהפכו להחלפות. שום דבר לא יתווסף עד שתאשרו.",
+  "@replacementsImportReviewSubtitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "replacementsImportReviewSearchHint": "סינון מועמדים",
+  "replacementsImportReviewSelectAllFiltered": "בחר את כל המוצגים",
+  "replacementsImportReviewDeselectAll": "בטל בחירת הכול",
+  "replacementsImportReviewSelectedCount": "{selected} מתוך {total} נבחרו",
+  "@replacementsImportReviewSelectedCount": {
+    "placeholders": {
+      "selected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "replacementsImportReviewNoMatches": "אין מועמדים התואמים לסינון שלכם.",
+  "replacementsImportReviewImportButton": "ייבא נבחרים ({count})",
+  "@replacementsImportReviewImportButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "replacementsFuzzyToleranceHint": "עד כמה דומה צריך להישמע ביטוי מוכתב לטריגר כדי שעדיין ייחשב כהתאמה. מחמיר תופס רק ניסוח כמעט זהה, כך שכמעט שום דבר לא מוחלף בטעות, אך טריגר שנאמר בצורה לא ברורה עלול לחמוק בלי התאמה. רגיל הוא ברירת מחדל מאוזנת לשימוש יומיומי. סובלני תופס גם הגייה או ניסוח שונים באופן ניכר, בסיכון גבוה יותר להתאמת משהו שלא היה מיועד להחלפה.",
+  "snippetsFieldInsertIntoTemplate": "הוסף לתוך התבנית",
+  "snippetsTemplateLabel": "תבנית",
+  "snippetsTemplateHint": "כתבו את טקסט הקטע, ולאחר מכן השתמשו בכפתור ההוספה של כל שדה כדי למקם אותו במקום הרצוי.",
+  "snippetsTemplateFieldHint": "כתבו כאן את הטקסט שלכם והוסיפו שדות באמצעות הכפתורים שלמעלה.",
+  "snippetsTemplateMissingFieldsWarning": "לא כל השדות מופיעים עדיין בתבנית — הטקסט המוכתב שלהם יישאר בלתי מנוצל.",
+  "aboutParakeet": "NVIDIA Parakeet ו-sherpa-onnx",
+  "aboutParakeetDesc": "זיהוי דיבור מקומי, מואץ ב-GPU היכן שזמין (Metal, Vulkan, CUDA) ובמעבד אחרת (כ-25 שפות).",
+  "aboutParakeetModelCredit": "מודל: NVIDIA parakeet-tdt-0.6b-v3, CC-BY-4.0",
+  "aboutParakeetGgufCredit": "המרה ל-GGUF: ggml-org, MIT",
+  "statusBarRefining": "מעודן…",
+  "historyVoiceNoteHint": "טיפ: אמרו \"tag: שם\" או \"correct: טקסט\" בזמן ההקלטה.",
+  "settingsSidePanelEnabled": "סרגל הדבקה מהירה",
+  "settingsSidePanelEnabledSubtitle": "סרגל שנפתח בהצבעה על קצה המסך שנבחר, לתמלולים, קטעים והיסטוריית לוח הגזירים",
+  "settingsSidePanelEdge": "מיקום הסרגל",
+  "settingsSidePanelEdgeSubtitle": "לאיזה קצה מסך הסרגל מעוגן ומתוכו הוא נגלל",
+  "settingsSidePanelEdgeLeft": "קצה שמאלי",
+  "settingsSidePanelEdgeRight": "קצה ימני",
+  "overlayRefining": "מעודן…",
+  "a11ySidePanel": "סרגל הדבקה מהירה",
+  "hintDismiss": "סגור רמז",
+  "cpuFallbackToast": "התמלול לוקח כרגע קצת יותר זמן מהרגיל, אך הוא עדיין פועל.",
+  "settingsSttEngine": "מנוע",
+  "settingsSttEngineSubtitle": "Whisper מכסה 99 שפות וכל backend של GPU; Parakeet מהיר בהרבה ומכסה כ-25 שפות, על GPU היכן שזמין",
+  "settingsSttEngineWhisper": "Whisper",
+  "settingsSttEngineParakeet": "Parakeet (המהיר ביותר, כ-25 שפות)",
+  "parakeetModelTitle": "מודל Parakeet TDT",
+  "parakeetModelSubtitle": "הורדה חד-פעמית ({size}), ולאחר מכן פועל לגמרי במצב לא מקוון",
+  "parakeetModelDownload": "הורד",
+  "parakeetModelDownloading": "מוריד…",
+  "parakeetModelInstalled": "מותקן",
+  "parakeetModelDelete": "מחק",
+  "parakeetModelCancel": "בטל",
+  "sidePanelTranscriptionsTitle": "תמלולים",
+  "sidePanelSnippetsTitle": "קטעים",
+  "sidePanelClipboardHistoryTitle": "היסטוריית לוח הגזירים",
+  "sidePanelClipboardHistoryEmpty": "עדיין לא הועתק כלום",
+  "sidePanelClipboardHistoryEmptyHint": "כל מה שתעתיקו בזמן ש-WhisPaste פועלת יופיע כאן — מתנקה עם הפעלה מחדש של האפליקציה.",
+  "sidePanelClose": "סגור סרגל",
+  "sidePanelSearchHint": "חיפוש",
+  "sidePanelSearchFieldLabel": "חיפוש ברשימה זו",
+  "sidePanelNoMatches": "אין התאמות",
+  "sidePanelNoMatchesHint": "נסו מונח חיפוש אחר.",
+  "settingsSmartMode": "Smart Mode",
+  "settingsSmartModeSubtitle": "ניקוי טקסט, קיצור ותרגום מקומיים לאחר ההכתבה",
+  "smartModeStandardPreset": "פריסט רגיל",
+  "smartModePresetOff": "כבוי",
+  "smartModePresetOffDescription": "אין עיבוד אוטומטי לאחר ההקלטה — הטקסט המוכתב משמש בדיוק כפי שתומלל.",
+  "smartModePresetCleanup": "ניקוי",
+  "smartModePresetCleanupDescription": "מסיר מילות מילוי כמו \"אה\" ומתקן פיסוק ורישיות, בלי לשנות את הניסוח, המשמעות או השפה.",
+  "smartModePresetConcise": "תמצות",
+  "smartModePresetConciseDescription": "מקצר את הטקסט על ידי הסרת חזרות ומילוי, תוך שמירה על כל עובדה חשובה, באותה שפה.",
+  "smartModePresetTranslate": "תרגום",
+  "smartModePresetTranslateDescription": "מתרגם את הטקסט המוכתב לשפת היעד שנקבעה למטה.",
+  "smartModeTargetLanguage": "שפת יעד",
+  "smartModeTargetLanguageGerman": "גרמנית",
+  "smartModeTargetLanguageEnglish": "אנגלית",
+  "smartModeTargetLanguageSpanish": "ספרדית",
+  "smartModeTargetLanguageFrench": "צרפתית",
+  "smartModeTargetLanguagePortuguese": "פורטוגזית",
+  "smartModeTargetLanguageMandarin": "מנדרינית",
+  "smartModeTargetLanguageRussian": "רוסית",
+  "smartModeDownload": "הורד",
+  "smartModeDownloadComplete": "מודל Smart Mode מוכן לשימוש",
+  "smartModeRamWarningTitle": "זוהה זיכרון מוגבל",
+  "smartModeRamWarningBody": "המודל המקומי של Smart Mode פועל בצורה הטובה ביותר עם 8GB זיכרון RAM ומעלה. הוא עשוי לעבוד גם עם פחות, אך עלול לפעול לאט או להיכשל במכשיר זה. להוריד בכל זאת?",
+  "smartModeRamWarningContinue": "הורד בכל זאת",
+  "smartModeRamWarningCancel": "בטל",
+  "smartModeMemoryFootprintInfo": "פועל לגמרי במכשיר. בזמן פעילות הוא צורך כ-4–5GB זיכרון RAM בנוסף לשטח האחסון — משותף עם מודל התמלול, כך שהצריכה הכוללת תלויה גם באיזה מודל STT טעון בנוסף.",
+  "smartModeSpeedExampleInfo": "לדוגמה: הכתבה טיפוסית של 50 מילים אורכת כ-1–6 שניות לעיבוד, בהתאם לחומרת המכשיר שלכם.",
+  "smartModeLocalUnavailable": "Smart Mode המקומי אינו כלול בגרסה זו. עברו ל-OpenAI או התקינו גרסה רשמית של WhisPaste.",
+  "settingsHotkeyActionSmartMode": "Smart Mode",
+  "settingsSmartModeHotkeyEnabled": "מקש קיצור ל-Smart Mode",
+  "settingsSmartModeHotkeyHint": "מתחיל הקלטה עם פריסט קבוע, ללא תלות בפריסט הרגיל שלמעלה. תומך ב-Push-to-Talk בדיוק כמו מקש הקיצור הראשי.",
+  "settingsSmartModeHotkeyPreset": "פריסט",
+  "settingsSmartModeCurrentHotkey": "צירוף מקשים",
+  "settingsSmartModeHotkeyCollision": "צירוף זה כבר משמש עבור \"{action}\". בחרו צירוף אחר.",
+  "@settingsSmartModeHotkeyCollision": {
+    "placeholders": {
+      "action": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSmartModeHotkeyInactive": "לא ניתן היה לרשום צירוף זה — מקש הקיצור של Smart Mode אינו פעיל כרגע. בחרו צירוף אחר.",
+
+  "historyCharacterCount": "{count} תווים",
+  "historyPastedInto": "הודבק ל-{app}",
+  "historyShowOriginalTranscript": "הצג תמלול מקורי",
+  "historyHideOriginalTranscript": "הסתר תמלול מקורי",
+  "historyOriginalTranscriptLabel": "תמלול מקורי",
+  "settingsHotkeyActionSelectionEdit": "עריכת הבחירה",
+  "settingsSelectionEditHotkeyEnabled": "מקש קיצור לעריכת הבחירה",
+  "settingsSelectionEditHotkeyHint": "סמנו טקסט בכל אפליקציה, לחצו על מקש הקיצור ואמרו מה לשנות — או פשוט „קצר\", „שפר\" או „תרגם\". התוצאה מחליפה את הבחירה; ביטול באפליקציה מחזיר את המקור. משתמש במנוע Smart Mode שהוגדר למעלה.",
+  "settingsSelectionEditHotkeyInactive": "לא ניתן היה לרשום צירוף זה — מקש הקיצור לעריכת הבחירה אינו פעיל כרגע. בחרו צירוף אחר.",
+  "overlayTargetSelectionEdit": "בחירה",
+  "overlayRecordingSelectionEdit": "אמרו מה לשנות",
+  "overlaySelectionEditHint": "אמרו מה לשנות — או: קצר · שפר · תרגם",
+  "overlayEditingSelection": "עורך את הבחירה…",
+  "overlayDoneSelectionEdit": "הבחירה הוחלפה",
+  "errorSelectionEditNoSelection": "לא סומן טקסט — סמנו טקסט ואז לחצו על מקש הקיצור",
+  "errorSelectionEditNoEngine": "כדי לערוך בחירות, הגדירו קודם את Smart Mode (הורידו את המודל המקומי או הוסיפו מפתח OpenAI)",
+  "errorSelectionEditUnsupported": "עריכת בחירה דורשת הדבקה אוטומטית, שאינה זמינה בגרסה זו",
+  "errorSelectionEditCopyFailed": "לא ניתן היה לקרוא את הבחירה — בדקו את ההרשאה להדבקה אוטומטית",
+  "errorSelectionEditFailed": "העריכה נכשלה — הטקסט שלכם לא שונה",
+  "errorSelectionEditPasteFailed": "לא ניתן היה להחליף את הבחירה — הטקסט שלכם לא שונה",
+  "settingsCudaPackTitle": "האצת NVIDIA CUDA",
+  "settingsCudaPackSubtitle": "הכתבה מהירה יותר בכרטיסי GeForce RTX ו-GTX 16. הורדה חד-פעמית של {size}.",
+  "settingsCudaPackInstalledSubtitle": "מותקן. אם מנהל ההתקן הגרפי ישן מדי, WhisPaste ימשיך להשתמש ב-Vulkan.",
+  "settingsCudaPackDownload": "הורדה",
+  "settingsCudaPackDownloading": "מוריד {percent} %",
+  "settingsCudaPackInstalling": "מתקין …",
+  "settingsCudaPackCancel": "ביטול ההורדה",
+  "settingsCudaPackRemove": "הסרת חבילת CUDA",
+  "settingsCudaPackToggle": "שימוש ב-CUDA",
+  "settingsCudaPackErrorNetwork": "ההורדה נכשלה. בדקו את החיבור ונסו שוב.",
+  "settingsCudaPackErrorVerification": "ההורדה הגיעה פגומה. נסו שוב.",
+  "settingsCudaPackErrorStorage": "לא ניתן היה לשמור את החבילה. בדקו את שטח הדיסק הפנוי.",
+  "recoveryCudaDisabledToast": "האצת CUDA כובתה בגלל בעיה בהפעלה האחרונה. WhisPaste משתמש כעת ב-Vulkan, וההכתבה פועלת כרגיל.",
+  "supportPromptSnooze": "אל תשאל למשך 90 יום",
+  "supportPayPalLabel": "PayPal",
+  "supportStoreThankYouLine": "תודה שרכשת את WhisPaste בחנות. כל תמיכה נוספת היא מרצון.",
+  "supportShareText": "אני משתמש ב-WhisPaste כדי להכניס טקסט בדיבור ישירות לאפליקציות שלי. מקומי על המחשב ובקוד פתוח:",
+  "supportPageTitle": "לתמוך ב-WhisPaste",
+  "supportPageOpenAction": "כל הדרכים לתמוך",
+  "supportIntroDirect": "WhisPaste חינמי וקוד פתוח. תרומה או המלצה עוזרות לפרויקט.",
+  "supportCostsNote": "תרומות עוזרות לכסות את הפיתוח ואת העלויות השוטפות של פרסום, אירוח ודומיין.",
+  "supportSectionOnce": "תמיכה חד-פעמית",
+  "supportSectionOthers": "דרכים נוספות לתמוך",
+  "supportSectionReach": "להמליץ על WhisPaste",
+  "supportStoreTitleWindows": "WhisPaste ב-Microsoft Store",
+  "supportStoreTitleMac": "WhisPaste ב-Mac App Store",
+  "supportStoreFactManaged": "ההתקנה והעדכונים מנוהלים על ידי החנות.",
+  "supportStoreFactPurchase": "הרכישה החד-פעמית שלך תומכת ב-WhisPaste.",
+  "supportStoreFactSameFeatures": "אותן יכולות. הגרסה הישירה נשארת חינמית לשימוש.",
+  "supportStoreCtaWindows": "הצג ב-Microsoft Store",
+  "supportStoreCtaMac": "הצג ב-Mac App Store",
+  "supportStorePriceNote": "המחיר בחנות",
+  "supportStoreCoffeeNote": "רכישה חד-פעמית, בערך מחיר של קפה. החנות מציגה את המחיר העדכני.",
+  "supportStoreDismiss": "הסתר את אפשרות החנות",
+  "supportStoreShowAgain": "הצג את אפשרות החנות",
+  "supportSponsorsCta": "פתח את GitHub Sponsors",
+  "supportSponsorsNote": "חודשי או בסכום לבחירתך. את הסכום ואת התדירות בוחרים שם.",
+  "supportKofiCta": "פתח את Ko-fi",
+  "supportPayPalCta": "לתמוך דרך PayPal",
+  "supportNativeTitle": "לתמוך פעם אחת בחנות",
+  "supportNativeDescription": "סכום חד-פעמי שהחנות גובה. אותן יכולות, ללא מנוי.",
+  "supportNativeCta": "לתמוך פעם אחת",
+  "supportSheetChoose": "בחר סכום",
+  "supportSheetLoading": "טוען סכומים …",
+  "supportSheetBuy": "לתמוך ב-{price}",
+  "supportSheetPurchasing": "החנות מאשרת את הרכישה שלך …",
+  "supportSheetThanks": "תודה על התמיכה!",
+  "supportSheetThanksDetail": "תג התומך שלך פעיל עכשיו. כל היכולות נשארות זמינות לכולם.",
+  "supportSheetPending": "הרכישה שלך ממתינה לאישור.",
+  "supportSheetPurchaseError": "לא ניתן היה להשלים את הרכישה. נסה שוב מאוחר יותר.",
+  "supportSheetPricesError": "לא ניתן היה לטעון את הסכומים. נסה שוב מאוחר יותר.",
+  "supportSheetUnavailable": "כרגע אין סכומים זמינים בחנות.",
+  "supportSheetRetry": "נסה שוב",
+  "supportSheetClose": "סגור",
+  "supportSelfDeclareCta": "אני כבר תומך ב-WhisPaste",
+  "supportSelfDeclareNote": "רק הערה במכשיר הזה, שום דבר לא נבדק. כפתור התורם בשורת המצב מוסתר.",
+  "supportSelfDeclareHint": "שום דבר לא נבדק. השתמש באפשרות הזו אם כבר תרמת.",
+  "supportSupporterLine": "אתה תומך ב-WhisPaste. תודה!",
+  "supportSupporterBadge": "תומך",
+  "supportRateCta": "דרג בחנות",
+  "supportShareCopy": "העתק קישור",
+  "supportShareCopied": "הקישור הועתק",
+  "supportShareEmail": "דוא״ל",
+  "supportChipLabel": "תורם",
+  "supportChipTooltip": "לתמוך ב-WhisPaste",
+  "supportChipThanksLabel": "תודה",
+  "supportChipThanksTooltip": "תודה על התמיכה",
+  "supportChipHide": "הסתר",
+  "settingsSponsorChip": "כפתור התורם בשורת המצב",
+  "settingsSponsorChipSubtitle": "מציג את הדרך לעמוד התמיכה. אפשר להסתיר אותו אחרי שתמכת בפרויקט בחנות או אישרת זאת כאן."
+}

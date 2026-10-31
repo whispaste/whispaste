@@ -1,0 +1,51 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`readReleases — schema migration > lifts a v0 fixture forward to the current schemaVersion (matches snapshot) 1`] = `
+{
+  "fetchedAt": "2026-05-14T12:00:00Z",
+  "releases": [
+    {
+      "de": {
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "something",
+                },
+              ],
+            },
+          ],
+        },
+        "bodyMarkdown": "### Highlights
+- etwas
+",
+        "translatedAt": "2026-01-01T00:01:00Z",
+      },
+      "en": {
+        "blocks": {
+          "sections": [
+            {
+              "heading": "Highlights",
+              "items": [
+                {
+                  "body": "something",
+                },
+              ],
+            },
+          ],
+        },
+        "bodyMarkdown": "### Highlights
+- something
+",
+      },
+      "htmlUrl": "https://github.com/owner/repo/releases/tag/v1.0.0",
+      "name": "Release 1.0.0",
+      "publishedAt": "2026-01-01T00:00:00Z",
+      "tag": "v1.0.0",
+    },
+  ],
+  "schemaVersion": 1,
+}
+`;

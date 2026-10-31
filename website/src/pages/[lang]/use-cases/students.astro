@@ -1,0 +1,119 @@
+---
+/**
+ * `/<lang>/use-cases/students/` — English mirror of the DE students use-case
+ * page. Slug intentionally diverges (`studierende` ↔ `students`); the
+ * `DE_SLUGS` (scripts/locales.ts) mapping keeps hreflang and canonical pairs consistent
+ * across the two locales.
+ */
+import LandingPageLayout from "../../../layouts/LandingPageLayout.astro";
+import HowToSchema from "../../../components/schema/HowToSchema.astro";
+import { t, localePath, currentLocale, prefixedLocalePaths } from "../../../scripts/i18n.ts";
+
+export function getStaticPaths() {
+  return prefixedLocalePaths();
+}
+
+const lang = currentLocale(Astro.params.lang);
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.useCases"), item: localePath(lang, "use-cases") },
+  { name: t(lang, "useCase.students.breadcrumb"), item: localePath(lang, "use-cases/students") },
+];
+
+const seo = {
+  title: t(lang, "useCase.students.seoTitle"),
+  description: t(lang, "useCase.students.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "useCase.students.heroHeading"),
+  lead: t(lang, "useCase.students.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "useCase.students.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+const howToSteps = [
+  {
+    name: t(lang, "useCase.students.howTo.step1.name"),
+    text: t(lang, "useCase.students.howTo.step1.text"),
+  },
+  {
+    name: t(lang, "useCase.students.howTo.step2.name"),
+    text: t(lang, "useCase.students.howTo.step2.text"),
+  },
+  {
+    name: t(lang, "useCase.students.howTo.step3.name"),
+    text: t(lang, "useCase.students.howTo.step3.text"),
+  },
+];
+
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+>
+  <section>
+    <h2>{t(lang, "useCase.students.section.workflow.heading")}</h2>
+    <p>{t(lang, "useCase.students.section.workflow.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.students.section.tools.heading")}</h2>
+    <p>{t(lang, "useCase.students.section.tools.body")}</p>
+  </section>
+
+  <section>
+    <h2>{t(lang, "useCase.students.section.savings.heading")}</h2>
+    <p>{t(lang, "useCase.students.section.savings.body")}</p>
+    <ol class="howto-steps">
+      <li>
+        <h3>{t(lang, "useCase.students.howTo.step1.name")}</h3>
+        <p>{t(lang, "useCase.students.howTo.step1.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "useCase.students.howTo.step2.name")}</h3>
+        <p>{t(lang, "useCase.students.howTo.step2.text")}</p>
+      </li>
+      <li>
+        <h3>{t(lang, "useCase.students.howTo.step3.name")}</h3>
+        <p>{t(lang, "useCase.students.howTo.step3.text")}</p>
+      </li>
+    </ol>
+  </section>
+
+  <HowToSchema
+    locale={lang}
+    name={t(lang, "useCase.students.seoTitle")}
+    description={t(lang, "useCase.students.heroLead")}
+    steps={howToSteps}
+  />
+</LandingPageLayout>
+
+<style>
+  .howto-steps {
+    margin-top: var(--wp-space-4);
+    padding-left: var(--wp-space-5);
+    list-style: decimal;
+    color: var(--color-ink-muted);
+  }
+  .howto-steps li + li {
+    margin-top: var(--wp-space-3);
+  }
+  .howto-steps h3 {
+    color: var(--color-ink);
+    font-weight: 600;
+    font-size: var(--wp-font-size-md);
+    margin-bottom: var(--wp-space-1);
+  }
+  .howto-steps p {
+    line-height: 1.55;
+  }
+</style>

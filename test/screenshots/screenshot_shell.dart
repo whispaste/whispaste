@@ -1,0 +1,250 @@
+/// Static full-window shell for golden screenshot tests.
+///
+/// Wraps any page widget in the complete WhisPaste UI chrome — title bar,
+/// navigation sidebar, content panel with rounded corners, and status bar —
+/// without any platform services or window_manager calls.
+///
+/// Every store/website golden should use [WpScreenshotShell] so the generated
+/// images show a realistic, populated app window rather than a bare page.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import 'package:whispaste/app.dart';
+import 'package:whispaste/core/config/settings_labels.dart';
+import 'package:whispaste/core/l10n/generated/app_localizations.dart';
+import 'package:whispaste/core/recording/recording_state.dart';
+import 'package:whispaste/core/theme/colors.dart';
+import 'package:whispaste/core/theme/tokens.dart';
+import 'package:whispaste/widgets/brand_wordmark.dart';
+import 'package:whispaste/widgets/recording_indicator_bar.dart';
+import 'package:whispaste/widgets/sidebar.dart';
+import 'package:whispaste/widgets/status_bar.dart';
+
+/// Full-window visual shell — static, test-safe.
+///
+/// Renders the complete WhisPaste UI frame matching the live [_AppShell]
+/// layout:
+/// - Diagonal gradient frame background (one ambient, one paint point)
+/// - Title bar (platform-aware: macOS traffic-light area / Windows controls)
+/// - Left navigation sidebar with [activePageId] highlighted
+/// - Right content panel with rounded top-left/bottom-left corners,
+///   page title header, and [child] content
+/// - Status bar at the bottom
+///
+/// Use [activePageId] to match one of the nav item IDs:
+/// `history`, `replacements`, `analytics`, `about`, `feedback`, `settings`.
+class WpScreenshotShell extends StatelessWidget {
+  const WpScreenshotShell({
+    super.key,
+    required this.activePageId,
+    required this.child,
+  });
+
+  final String activePageId;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // Use theme.platform (overridden by ScreenshotDevice) so Windows-target
+    // screenshots render with Windows window controls even on a macOS host.
+    final platform = Theme.of(context).platform;
+    final l10n = L10n.of(context);
+    final navItems = wpNavItems(l10n);
+    final pageTitle = wpPageTitle(activePageId, navItems, l10n);
+
+    const contentDecoration = BoxDecoration(
+      gradient: WpColorsDark.warmSurfaceGradient,
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(WpRadius.xl),
+        bottomLeft: Radius.circular(WpRadius.xl),
+      ),
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(gradient: WpColorsDark.frameGradient),
+        child: Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _ScreenshotTitleBar(platform: platform),
+                Expanded(
+                  child: Row(
+                    children: [
+                      WpSidebar(
+                        items: navItems,
+                        dividerAfterIds: wpNavDividerAfterIds,
+                        activeId: activePageId,
+                        onItemTap: (_) {},
+                        bottomItems: [wpSettingsNavItem(L10n.of(context))],
+                      ),
+                      Expanded(
+                        child: Container(
+                          decoration: contentDecoration,
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const WpRecordingIndicatorBar(
+                                phase: RecordingPhase.idle,
+                              ),
+                              _ScreenshotPageHeader(title: pageTitle),
+                              Expanded(child: child),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Same labels the real status bar builds from the default
+                // settings (local provider, Ctrl+Shift+D or Cmd+Shift+D on
+                // macOS), localized per locale.
+                WpStatusBar(
+                  sttModeLabel: L10n.of(context).statusBarOnDevice,
+                  hotkeyLabel: formatHotkeyShortcut(
+                    Theme.of(context).platform == TargetPlatform.macOS
+                        ? 'meta+shift'
+                        : 'ctrl+shift',
+                    'D',
+                    l10n: L10n.of(context),
+                  ),
+                  hotkeyEnabled: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Static title bar — no windowManager calls, safe for headless tests.
+// ---------------------------------------------------------------------------
+
+class _ScreenshotTitleBar extends StatelessWidget {
+  const _ScreenshotTitleBar({required this.platform});
+
+  final TargetPlatform platform;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMacOS = platform == TargetPlatform.macOS;
+
+    return SizedBox(
+      height: WpLayout.appBarHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: WpSpacing.lg),
+        child: Row(
+          children: [
+            // macOS: traffic-light dot row (close/minimise/maximise).
+            if (isMacOS)
+              const _MacTrafficLights()
+            else
+              const SizedBox(width: WpSpacing.sm),
+            const WpBrandWordmark(height: 34),
+            const Spacer(),
+            // Windows: static window control buttons.
+            if (!isMacOS) ...[
+              const _StaticWindowButton(icon: LucideIcons.minus),
+              const _StaticWindowButton(icon: LucideIcons.square),
+              const _StaticWindowButton(icon: LucideIcons.x),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// macOS traffic-light buttons (close / minimise / maximise).
+// ---------------------------------------------------------------------------
+
+class _MacTrafficLights extends StatelessWidget {
+  const _MacTrafficLights();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(left: 14, right: 10),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _TrafficDot(color: Color(0xFFFF5F57)),
+          SizedBox(width: 6),
+          _TrafficDot(color: Color(0xFFFEBC2E)),
+          SizedBox(width: 6),
+          _TrafficDot(color: Color(0xFF28C840)),
+        ],
+      ),
+    );
+  }
+}
+
+class _TrafficDot extends StatelessWidget {
+  const _TrafficDot({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 12,
+    height: 12,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Windows static title-bar buttons.
+// ---------------------------------------------------------------------------
+
+class _StaticWindowButton extends StatelessWidget {
+  const _StaticWindowButton({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final mutedColor = WpColorsDark.textMuted.withValues(alpha: 0.5);
+
+    return SizedBox(
+      width: 40,
+      height: 32,
+      child: Icon(icon, size: 15, color: mutedColor),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Page header — matches _PageHeader in app.dart.
+// ---------------------------------------------------------------------------
+
+class _ScreenshotPageHeader extends StatelessWidget {
+  const _ScreenshotPageHeader({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        WpSpacing.xl,
+        WpSpacing.lg,
+        WpSpacing.xl,
+        WpSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Text(title, style: Theme.of(context).textTheme.headlineLarge),
+        ],
+      ),
+    );
+  }
+}

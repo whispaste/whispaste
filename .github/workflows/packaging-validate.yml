@@ -1,0 +1,452 @@
+name: packaging-validate
+
+# Validates all three distribution manifests under packaging/ before they
+# are ever published. Runs on every push to dev that touches them (no PR
+# trigger: dev -> main merges happen locally, never via PR), and from
+# release.yml after the manifest bump.
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'packaging/**'
+      - '.github/workflows/packaging-validate.yml'
+  # Called from release.yml after manifest-bump commits updated manifests to dev.
+  # The `ref` input lets the caller pin validation to the bumped commit/branch.
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to check out and validate (empty = workflow default)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Scoop (Ubuntu, only needs python3 + jq — always available) ─────────────
+  scoop:
+    name: Scoop manifest (JSON parse + required fields)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Validate Scoop JSON
+        run: |
+          MANIFEST="packaging/scoop/whispaste.json"
+          echo "Validating $MANIFEST …"
+
+          # 1. JSON-parseable?
+          python3 -c "import json,sys; json.load(open('$MANIFEST'))" \
+            || { echo "::error::$MANIFEST is not valid JSON"; exit 1; }
+          echo "  ✓ JSON parse OK"
+
+          # 2. Required top-level fields
+          python3 - "$MANIFEST" <<'PYEOF'
+          import json, sys, pathlib
+
+          MANIFEST = pathlib.Path(sys.argv[1])
+          data = json.loads(MANIFEST.read_text())
+
+          errors = []
+
+          # version
+          if not data.get("version"):
+              errors.append("missing required field: version")
+
+          # url / architecture (Scoop accepts either a top-level url or an
+          # architecture block with per-arch url entries)
+          has_url = bool(data.get("url"))
+          has_arch = isinstance(data.get("architecture"), dict)
+          if not has_url and not has_arch:
+              errors.append("missing required field: url (or architecture)")
+
+          # hash (same dual-path logic as url)
+          has_hash = bool(data.get("hash"))
+          arch = data.get("architecture") or {}
+          has_arch_hash = any(
+              isinstance(v, dict) and v.get("hash")
+              for v in arch.values()
+          )
+          if not has_hash and not has_arch_hash:
+              errors.append("missing required field: hash (or architecture.<arch>.hash)")
+
+          # bin
+          if not data.get("bin"):
+              errors.append("missing required field: bin")
+
+          # autoupdate
+          if not data.get("autoupdate"):
+              errors.append("missing required field: autoupdate")
+
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+
+          print("  ✓ All required fields present")
+          PYEOF
+
+  # ── winget (Windows, winget is pre-installed on windows-latest) ────────────
+  winget:
+    name: winget manifest (winget validate)
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Check winget availability
+        id: check_winget
+        shell: pwsh
+        run: |
+          if (Get-Command winget -ErrorAction SilentlyContinue) {
+            echo "available=true" >> $env:GITHUB_OUTPUT
+            Write-Host "winget found: $(winget --version)"
+          } else {
+            echo "available=false" >> $env:GITHUB_OUTPUT
+            Write-Host "::notice::winget not available on this runner — skipping winget validate"
+          }
+
+      - name: Validate winget manifests
+        if: steps.check_winget.outputs.available == 'true'
+        shell: pwsh
+        run: |
+          # A split winget manifest (version + installer + locale) is one
+          # logical package and must be validated as a SET — pointing
+          # `winget validate` at a single fragment fails because each file is
+          # incomplete on its own. Validate the directory once instead.
+          $dir = "packaging/winget"
+          Write-Host "Validating winget manifest directory $dir …"
+          winget validate --manifest $dir
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::winget validate failed for $dir"
+            exit 1
+          }
+          Write-Host "  OK: $dir"
+
+      - name: Skip notice (winget unavailable)
+        if: steps.check_winget.outputs.available != 'true'
+        shell: pwsh
+        run: |
+          Write-Host "::notice::winget validate skipped — tool not found on runner. Validate locally with: winget validate --manifest packaging/winget/"
+
+  # ── Homebrew (Ubuntu, ruby is pre-installed — tool-independent) ────────────
+  # NB: `brew audit [path]` was removed in Homebrew 6.0 (audit only works by
+  # name inside a tap) and standalone `brew style` applies tap-foreign Sorbet/
+  # FrozenString cops that don't hold for cask files. We therefore validate the
+  # cask deterministically: Ruby syntax + presence of the required stanzas —
+  # mirroring the tool-independent Scoop check above. Deep `brew audit` runs at
+  # tap-publish time against github.com/whispaste/homebrew-tap.
+  homebrew:
+    name: Homebrew cask (ruby syntax + required stanzas)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Validate Homebrew cask
+        run: |
+          CASK="packaging/homebrew/whispaste.rb"
+          echo "Validating $CASK …"
+
+          # 1. Ruby-parseable?
+          ruby -c "$CASK" >/dev/null \
+            || { echo "::error::$CASK is not valid Ruby"; exit 1; }
+          echo "  ✓ Ruby syntax OK"
+
+          # 2. Required cask stanzas present
+          fail=0
+          for stanza in 'cask "whispaste" do' 'version ' 'sha256 ' 'url ' 'name ' 'desc ' 'homepage ' 'app '; do
+            grep -qF "$stanza" "$CASK" \
+              || { echo "::error::missing required stanza: ${stanza% }"; fail=1; }
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "  ✓ All required stanzas present"
+
+  # ── Flatpak / Flathub (Ubuntu) ─────────────────────────────────────────────
+  # Validates the Flatpak manifest + Flathub-required sidecar files
+  # (.desktop, AppStream .metainfo.xml) deterministically — mirroring the
+  # tool-independent Scoop/Homebrew checks. A full `flatpak-builder` build of
+  # the bundle runs at submission time / on the Linux release runner, not here
+  # (the manifest consumes the release tarball from release.yml `build-linux`).
+  flatpak:
+    name: Flatpak manifest (YAML + finish-args + AppStream + desktop)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install validators
+        run: |
+          # Retried + hard-bounded: run 32296050925 hit an azure.archive.
+          # ubuntu.com mirror that answered every line with `Ign:` and never
+          # returned, so the job sat until GitHub killed it at exactly 6h00m.
+          # A dead mirror is transient and unrelated to the manifests under
+          # test, so retry it — but never wait more than 2min per attempt.
+          for attempt in 1 2 3; do
+            timeout 120 sudo apt-get update && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::apt-get update failed after 3 attempts."
+              exit 1
+            fi
+            echo "apt-get update failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
+          sudo apt-get install -y python3-yaml desktop-file-utils appstream
+
+      - name: Validate Flatpak manifest YAML + required finish-args
+        run: |
+          MANIFEST="packaging/flatpak/de.whispaste.app.yml"
+          echo "Validating $MANIFEST …"
+
+          # 1. YAML-parseable?
+          python3 -c "import yaml; yaml.safe_load(open('$MANIFEST'))" \
+            || { echo "::error::$MANIFEST is not valid YAML"; exit 1; }
+          echo "  ✓ YAML parse OK"
+
+          # 2. Required top-level keys + finish-args covering every app function
+          #    (Hotkey, Clipboard/Paste, Audio, Network self-download +
+          #    writable data dir). See packaging/flatpak/README.md audit table.
+          python3 - "$MANIFEST" <<'PYEOF'
+          import sys, yaml, pathlib
+
+          MANIFEST = pathlib.Path(sys.argv[1])
+          data = yaml.safe_load(MANIFEST.read_text())
+          errors = []
+
+          # App-ID must match the existing reverse-DNS identifier.
+          if data.get("app-id") != "de.whispaste.app":
+              errors.append("app-id must be de.whispaste.app")
+
+          for key in ("runtime", "sdk", "command", "modules", "finish-args"):
+              if not data.get(key):
+                  errors.append(f"missing required key: {key}")
+
+          fa = data.get("finish-args") or []
+          required_args = {
+              # Audio (Aufnahme)
+              "--socket=pulseaudio": "audio",
+              # Network self-download of the Sprachdienst
+              "--share=network": "network self-download",
+              # Hotkey (session bus reaches the WM / GlobalShortcuts portal)
+              "--socket=session-bus": "hotkey",
+              # Display sockets (clipboard/paste rides on these)
+              "--socket=wayland": "wayland display",
+              "--socket=fallback-x11": "x11 display",
+          }
+          for arg, label in required_args.items():
+              if arg not in fa:
+                  errors.append(f"missing finish-arg for {label}: {arg}")
+
+          # Writable data dir for the self-downloaded + executed whisper-server.
+          if not any(a.startswith("--filesystem=xdg-data/whispaste") for a in fa):
+              errors.append(
+                  "missing writable data-dir finish-arg "
+                  "(--filesystem=xdg-data/whispaste:create)"
+              )
+
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+          print("  ✓ Required keys + finish-args present "
+                "(hotkey, clipboard/paste, audio, network self-download, "
+                "writable data dir)")
+          PYEOF
+
+      - name: Validate desktop entry
+        run: |
+          DESKTOP="packaging/flatpak/de.whispaste.app.desktop"
+          echo "Validating $DESKTOP …"
+          desktop-file-validate "$DESKTOP" \
+            || { echo "::error::$DESKTOP failed desktop-file-validate"; exit 1; }
+          echo "  ✓ desktop-file-validate OK"
+
+      - name: Validate AppStream metainfo
+        run: |
+          META="packaging/flatpak/de.whispaste.app.metainfo.xml"
+          echo "Validating $META …"
+          # --no-net: skip remote screenshot/URL fetches (deterministic, offline).
+          appstreamcli validate --no-net "$META" \
+            || { echo "::error::$META failed appstreamcli validate"; exit 1; }
+          echo "  ✓ appstreamcli validate OK"
+
+  # ── AppImage + .deb direct-download packages (Ubuntu) ──────────────────────
+  # Validates the build recipes + .deb control metadata deterministically —
+  # mirroring the tool-independent Scoop/Homebrew/Flatpak checks. The actual
+  # AppImage/.deb *build* runs in release.yml `build-linux` from the release
+  # bundle (it needs the Flutter bundle, which only exists at release time).
+  appimage-deb:
+    name: AppImage + .deb (script syntax + control metadata)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Validate build-script syntax
+        run: |
+          for s in packaging/deb/build-deb.sh packaging/appimage/build-appimage.sh; do
+            echo "bash -n $s …"
+            bash -n "$s" || { echo "::error::$s has a syntax error"; exit 1; }
+            echo "  ✓ $s syntax OK"
+          done
+
+      - name: Validate .deb control metadata
+        run: |
+          CTRL="packaging/deb/control.template"
+          echo "Validating $CTRL …"
+          fail=0
+          # Required control fields (Debian policy minimum for a binary package).
+          for field in 'Package:' 'Version:' 'Architecture:' 'Maintainer:' \
+                       'Depends:' 'Description:' 'Section:' 'Priority:' 'Homepage:'; do
+            grep -q "^$field" "$CTRL" \
+              || { echo "::error::missing control field: ${field%:}"; fail=1; }
+          done
+          # Architecture must be amd64 (x86_64 build).
+          grep -q '^Architecture: amd64$' "$CTRL" \
+            || { echo "::error::Architecture must be amd64"; fail=1; }
+          # __VERSION__ placeholder must be present (substituted by build-deb.sh).
+          grep -q '__VERSION__' "$CTRL" \
+            || { echo "::error::missing __VERSION__ placeholder in Version"; fail=1; }
+          # Runtime deps must cover the libraries the build-linux job links
+          # against (cross-checked vs the -dev packages in release.yml).
+          for dep in libgtk-3-0 libsecret-1-0 libnotify4 \
+                     libayatana-appindicator3-1 libasound2 libcurl4 \
+                     libkeybinder-3.0-0; do
+            grep -q "$dep" "$CTRL" \
+              || { echo "::error::Depends: is missing $dep"; fail=1; }
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "  ✓ control metadata + Depends complete"
+
+      - name: Cross-check Depends vs build-linux -dev packages
+        run: |
+          # The .deb runtime Depends must correspond to the -dev packages the
+          # build-linux job installs. Map each runtime dep → its -dev sibling and
+          # assert that sibling is installed in release.yml.
+          REL=".github/workflows/release.yml"
+          fail=0
+          # runtime-dep  ->  -dev package expected in release.yml
+          check() {
+            grep -q "$2" "$REL" \
+              || { echo "::error::release.yml lacks $2 (sibling of $1)"; fail=1; }
+          }
+          check libgtk-3-0                  libgtk-3-dev
+          check libsecret-1-0               libsecret-1-dev
+          check libnotify4                  libnotify-dev
+          check libayatana-appindicator3-1  libayatana-appindicator3-dev
+          check libasound2                  libasound2-dev
+          check libcurl4                    libcurl4-openssl-dev
+          check libkeybinder-3.0-0          libkeybinder-3.0-dev
+          [ "$fail" -eq 0 ] || exit 1
+          echo "  ✓ Depends ↔ build-linux -dev packages consistent"
+
+  # ── Snap (Snap Store / Ubuntu App Center) (Ubuntu) ─────────────────────────
+  # Validates the snapcraft.yaml deterministically — mirroring the
+  # tool-independent Scoop/Homebrew/Flatpak checks: YAML parse + required
+  # top-level keys + plug coverage for every app function + strict confinement.
+  # The actual `snapcraft pack` build runs on the Linux x86_64 runner (it stages
+  # the release bundle, which only exists at release time) — not here.
+  snap:
+    name: Snap manifest (YAML + required keys + plugs + confinement)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install validators
+        run: |
+          # See the Flatpak job's Install validators step for why this is
+          # retried and timeout-bounded.
+          for attempt in 1 2 3; do
+            timeout 120 sudo apt-get update && break
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::apt-get update failed after 3 attempts."
+              exit 1
+            fi
+            echo "apt-get update failed (attempt $attempt/3) — retrying in 15s."
+            sleep 15
+          done
+          sudo apt-get install -y python3-yaml
+
+      - name: Validate snapcraft.yaml YAML + required keys + plugs + confinement
+        run: |
+          MANIFEST="packaging/snap/snapcraft.yaml"
+          echo "Validating $MANIFEST …"
+
+          # 1. YAML-parseable?
+          python3 -c "import yaml; yaml.safe_load(open('$MANIFEST'))" \
+            || { echo "::error::$MANIFEST is not valid YAML"; exit 1; }
+          echo "  ✓ YAML parse OK"
+
+          # 2. Required top-level keys + strict confinement + plug coverage for
+          #    every app function (Display/Clipboard, Hotkey, Audio, Network
+          #    self-download). See packaging/snap/README.md confinement table.
+          python3 - "$MANIFEST" <<'PYEOF'
+          import sys, yaml, pathlib
+
+          MANIFEST = pathlib.Path(sys.argv[1])
+          data = yaml.safe_load(MANIFEST.read_text())
+          errors = []
+
+          # Snap store name is the lowercase `whispaste`; the app-id stays
+          # de.whispaste.app (carried in the app's common-id + desktop file).
+          if data.get("name") != "whispaste":
+              errors.append("name must be whispaste")
+
+          for key in ("base", "version", "summary", "description",
+                      "grade", "confinement", "apps", "parts"):
+              if not data.get(key):
+                  errors.append(f"missing required key: {key}")
+
+          # Strict confinement keeps the snap store-auto-reviewable.
+          if data.get("confinement") != "strict":
+              errors.append("confinement must be strict")
+
+          # The app must reference the reverse-DNS id via common-id + desktop.
+          app = (data.get("apps") or {}).get("whispaste") or {}
+          if app.get("common-id") != "de.whispaste.app":
+              errors.append("apps.whispaste.common-id must be de.whispaste.app")
+          if "gnome" not in (app.get("extensions") or []):
+              errors.append("apps.whispaste must use the gnome extension")
+
+          # Plug coverage for every app function.
+          plugs = set(app.get("plugs") or [])
+          required_plugs = {
+              # Audio (Aufnahme)
+              "audio-record": "audio record",
+              "audio-playback": "audio playback",
+              # Network self-download of the Sprachdienst
+              "network": "network self-download",
+              # Hotkey + tray/appindicator (session bus)
+              "unity7": "hotkey / appindicator",
+              # Display sockets (clipboard/paste rides on these)
+              "wayland": "wayland display",
+              "x11": "x11 display",
+              "desktop": "desktop session",
+          }
+          for plug, label in required_plugs.items():
+              if plug not in plugs:
+                  errors.append(f"missing plug for {label}: {plug}")
+
+          if errors:
+              for e in errors:
+                  print(f"::error::{e}")
+              sys.exit(1)
+          print("  ✓ Required keys + strict confinement + plugs present "
+                "(display/clipboard, hotkey, audio, network self-download)")
+          PYEOF

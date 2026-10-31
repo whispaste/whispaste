@@ -1,0 +1,18 @@
+---
+/**
+ * `<OrganizationSchema />` — site-wide Organization JSON-LD identity node.
+ * Lives in `Layout.astro` so every URL emits the same `@id`, which lets
+ * search-engine knowledge graphs consolidate the WhisPaste entity. See
+ * `buildOrganizationSchema` in `./builders.ts` for the canonical fields and
+ * the `sameAs` rationale (GitHub only until a Mastodon profile exists).
+ */
+import {
+  buildOrganizationSchema,
+  type OrganizationOptions,
+} from "./builders.ts";
+
+type Props = OrganizationOptions;
+
+const schema = buildOrganizationSchema(Astro.props);
+---
+<script type="application/ld+json" set:html={JSON.stringify(schema)} />

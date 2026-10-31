@@ -1,0 +1,100 @@
+---
+import { t, currentLocale, pathForSlug } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+const downloadHref = pathForSlug(lang, 'download');
+---
+
+<!-- Sticky mobile download bar (below 768px). Appears once the hero has
+     been scrolled past, hides again while the pricing/download area is on
+     screen. Hidden state is inert, so its link never sits in the tab order. -->
+<div id="mobile-cta" class="mobile-cta md:hidden" data-testid="mobile-cta" inert>
+  <a href={downloadHref} class="mobile-cta-btn" data-testid="mobile-cta-download">
+    <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+    <span data-i18n="mobileCta.label">{t(lang, "mobileCta.label")}</span>
+  </a>
+</div>
+
+<style>
+  .mobile-cta {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    padding: var(--wp-space-3) var(--wp-space-4) calc(var(--wp-space-3) + env(safe-area-inset-bottom, 0px));
+    /* --color-brand-floating, matching Nav's pill --
+       the other two persistent-overlay-chrome surfaces on the site, same
+       role (floating over page content, not a content card). Was
+       --color-brand-darker, an unrelated shade with no other floating-chrome
+       user. */
+    background: var(--color-brand-floating);
+    border-top: 1px solid var(--wp-border-default);
+    transform: translateY(120%);
+    opacity: 0;
+    transition: transform var(--wp-duration-slow) var(--ease-flow), opacity var(--wp-duration-slow) ease;
+    pointer-events: none;
+  }
+  .mobile-cta.visible {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .mobile-cta-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--wp-space-2);
+    width: 100%;
+    max-width: 22rem;
+    min-height: 48px;
+    margin-inline: auto;
+    padding: var(--wp-space-3) var(--wp-space-4);
+    text-align: center;
+    border-radius: var(--radius-pill);
+    background: var(--gradient-accent-cta);
+    /* Dark, not white — see StoreButton.astro for the measured contrast
+       failure white text has against this gradient's light-cyan stop. */
+    color: var(--color-brand-darker);
+    font-weight: 600;
+    font-size: var(--wp-font-size-md);
+    transition: transform var(--wp-duration-fast) ease;
+  }
+  .mobile-cta-btn:active {
+    transform: scale(0.98);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mobile-cta {
+      transition: opacity var(--wp-duration-base) ease;
+    }
+  }
+</style>
+
+<script>
+  const bar = document.getElementById('mobile-cta');
+  const hero = document.querySelector('[data-testid="hero"]');
+  const downloadArea = document.getElementById('pricing');
+  if (bar && hero) {
+    let pastHero = false;
+    let downloadVisible = false;
+    const apply = () => {
+      const show = pastHero && !downloadVisible;
+      // Never pull the bar away from under a focused link.
+      if (!show && bar.contains(document.activeElement)) return;
+      bar.classList.toggle('visible', show);
+      bar.toggleAttribute('inert', !show);
+    };
+    new IntersectionObserver(([entry]) => {
+      // Past = hero fully out of view above the viewport.
+      pastHero = !entry.isIntersecting && entry.boundingClientRect.bottom < 0;
+      apply();
+    }).observe(hero);
+    if (downloadArea) {
+      new IntersectionObserver(([entry]) => {
+        downloadVisible = entry.isIntersecting;
+        apply();
+      }).observe(downloadArea);
+    }
+    bar.addEventListener('focusout', () => requestAnimationFrame(apply));
+  }
+</script>

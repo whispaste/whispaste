@@ -1,0 +1,7 @@
+voz para texto
+reconhecimento de voz
+transcrição offline
+ditado
+transcrição
+whisper
+entrada por voz

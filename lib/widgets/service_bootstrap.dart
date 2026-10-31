@@ -1,0 +1,380 @@
+/// Eagerly initializes all required keepAlive services via [ref.watch].
+///
+/// Place near the widget tree root. It renders [child] unchanged — its only
+/// purpose is to ensure Riverpod providers that manage system-level services
+/// (tray, hotkeys, autostart, STT) are alive for the app lifetime.
+library;
+
+import 'dart:async';
+
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../core/data/database.dart' show historyDatabaseProvider;
+import '../core/navigation/page_state.dart'
+    show activePageProvider, settingsScrollTargetProvider;
+import '../core/config/settings_provider.dart';
+import '../core/logging/ui_thread_watchdog.dart';
+import '../core/recording/recording_state.dart'
+    show
+        RecordingPhase,
+        RecordingTarget,
+        recordingPhaseProvider,
+        recordingProvider;
+import '../services/autostart_service.dart';
+import '../services/clipboard_history/clipboard_history_monitor_service.dart';
+import '../services/floating_button/floating_button_service.dart';
+import '../services/floating_overlay/floating_overlay_service.dart';
+import '../services/hotkey_service.dart';
+import '../services/paste/paste_capability_notifier.dart';
+import '../services/recording_orchestrator.dart';
+import '../services/recording_trigger_handler.dart';
+import '../services/smart_mode/smart_mode_presets.dart';
+import '../services/snippet_picker/snippet_picker_service.dart';
+import '../services/snippets/interactive_snippet_controller.dart';
+import '../services/side_panel/side_panel_service.dart';
+import '../services/single_instance_service.dart';
+import '../services/tray_service.dart';
+
+/// Invisible wrapper that eagerly boots keepAlive service providers.
+class WpServiceBootstrap extends ConsumerStatefulWidget {
+  const WpServiceBootstrap({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  ConsumerState<WpServiceBootstrap> createState() => _WpServiceBootstrapState();
+}
+
+class _WpServiceBootstrapState extends ConsumerState<WpServiceBootstrap> {
+  bool _orchestratorInitialized = false;
+
+  /// The single [RecordingTriggerHandler] instance for this state's lifetime.
+  ///
+  /// Must NOT be recreated on every [build] — the handler holds keyDown/keyUp
+  /// state (`_keyDownAt`, `_keyUpBreadcrumbSent`) and losing it between
+  /// hotkey events breaks Push-to-Talk (see issue 06 of the
+  /// `hotkey-modifier-storage-fix` PRD).
+  late final RecordingTriggerHandler _triggerHandler;
+
+  /// Trigger handler for the quick-note hotkey (ticket 20). Same class, same
+  /// held-for-lifetime rule as [_triggerHandler] — a second instance rather
+  /// than a shared one, since each hotkey needs its own PTT/toggle mode
+  /// (this action is always toggle-only) and its own recording target.
+  late final RecordingTriggerHandler _quickNoteTriggerHandler;
+
+  /// Trigger handler for the Smart-Mode hotkey (ticket 04 of
+  /// `internal-notes`). Same held-for-lifetime rule as
+  /// [_triggerHandler] — unlike the quick-note handler, this one DOES support
+  /// push-to-talk (mirrors the main hotkey's behaviour per the ticket), so it
+  /// needs its own instance to track its own keyDown/keyUp state
+  /// independently of the main hotkey's.
+  late final RecordingTriggerHandler _smartModeTriggerHandler;
+
+  /// Trigger handler for the edit-selection hotkey
+  /// (`internal-notes`) — push-to-talk and toggle like the
+  /// Smart-Mode hotkey, recording into [RecordingTarget.selectionEdit].
+  late final RecordingTriggerHandler _selectionEditTriggerHandler;
+
+  /// Whether an interactive-snippet guided sequence is currently running —
+  /// while it is, the main recording hotkey advances to the next field
+  /// (PRD `interactive-snippets` User Story 14) instead of its usual
+  /// stop/toggle behavior.
+  bool get _isInteractiveSnippetActive =>
+      ref.read(interactiveSnippetControllerProvider.notifier).isActive;
+
+  Future<void> _stopOrAdvance() {
+    if (_isInteractiveSnippetActive) {
+      return ref
+          .read(interactiveSnippetControllerProvider.notifier)
+          .advanceField();
+    }
+    return ref.read(recordingOrchestratorProvider.notifier).stopRecording();
+  }
+
+  /// Registers/unregisters the system-wide cancel-dictation Escape key (issue
+  /// #145) as the recording phase crosses in/out of
+  /// recording/transcribing/refining. Lives here — not in
+  /// `FloatingOverlayService` — because Escape must cancel a dictation
+  /// regardless of whether the floating overlay is even enabled
+  /// (`OverlayMode.off`): the key is the source of truth, the overlay is
+  /// just one of its visual surfaces.
+  ///
+  /// Skipped entirely while an interactive-snippet sequence is active — that
+  /// sequence's own Escape registration (`registerInteractiveSnippetKeys`)
+  /// already owns the key for its "cancel sequence" meaning, which must not
+  /// be overridden or raced by this one.
+  static bool _isCancelableDictationPhase(RecordingPhase phase) =>
+      phase == RecordingPhase.recording ||
+      phase == RecordingPhase.transcribing ||
+      phase == RecordingPhase.refining;
+
+  void _syncCancelDictationEscapeKey(RecordingPhase prev, RecordingPhase next) {
+    if (_isInteractiveSnippetActive) return;
+    final wasActive = _isCancelableDictationPhase(prev);
+    final isActive = _isCancelableDictationPhase(next);
+    if (isActive && !wasActive) {
+      unawaited(
+        ref
+            .read(hotkeyServiceProvider.notifier)
+            .registerCancelDictationKey(
+              onCancel: () => ref
+                  .read(recordingOrchestratorProvider.notifier)
+                  .cancelRecording(),
+            ),
+      );
+    } else if (!isActive && wasActive) {
+      unawaited(
+        ref.read(hotkeyServiceProvider.notifier).unregisterCancelDictationKey(),
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Start UI thread jank detection.
+    UiThreadWatchdog.instance.start();
+
+    // ── Trigger handler — created once and kept for the state's lifetime ──
+    // Reads (`ref.read`) stay closure-bound to the live `ref`, so settings
+    // and orchestrator look-ups always see the current values, not a snapshot.
+    final hotkeySvc = ref.read(hotkeyServiceProvider.notifier);
+    _triggerHandler = RecordingTriggerHandler(
+      // A no-op while an interactive-snippet sequence is running: each
+      // field's recording is already started by InteractiveSnippetController
+      // itself, so a Push-to-Talk keyDown of the main hotkey mid-sequence
+      // must not start a second, conflicting `clipboard`-target recording.
+      startRecording: () => _isInteractiveSnippetActive
+          ? Future<void>.value()
+          : ref.read(recordingOrchestratorProvider.notifier).startRecording(),
+      stopRecording: () => _stopOrAdvance(),
+      toggleRecording: () => _isInteractiveSnippetActive
+          ? _stopOrAdvance()
+          : ref.read(recordingOrchestratorProvider.notifier).toggleRecording(),
+      pushToTalkEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
+      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+      holdOrTapEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .audioInput
+              .holdOrTap,
+      isRecording: () => ref.read(recordingProvider).isRecording,
+    );
+    hotkeySvc.onHotkeyPressed = _triggerHandler.onKeyDown;
+    hotkeySvc.onHotkeyReleased = _triggerHandler.onKeyUp;
+
+    // ── Quick-note trigger handler (ticket 20) — toggle-only, no PTT ──
+    _quickNoteTriggerHandler = RecordingTriggerHandler(
+      startRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .startRecording(target: RecordingTarget.quickNote),
+      stopRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
+      toggleRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .toggleRecording(target: RecordingTarget.quickNote),
+      // Hardcoded false: the quick-note hotkey never wires a keyUpHandler
+      // (see HotkeyService.updateQuickNoteHotkey), so onKeyUp never fires
+      // for it anyway — this just documents the invariant at the call site.
+      pushToTalkEnabled: () => false,
+      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+    );
+    hotkeySvc.onQuickNoteHotkeyPressed = _quickNoteTriggerHandler.onKeyDown;
+
+    // ── Snippet-Picker hotkey (ticket 26) — one-shot, no recording, so no
+    // RecordingTriggerHandler needed: just a direct closure into the
+    // orchestrator's dedicated method. ──
+    hotkeySvc.onSnippetPickerHotkeyPressed = () => ref
+        .read(recordingOrchestratorProvider.notifier)
+        .openSnippetPickerViaHotkey();
+
+    // ── Smart-Mode trigger handler (ticket 04) — push-to-talk AND toggle,
+    // identical to the main hotkey's behaviour, but always forces the bound
+    // preset regardless of the standard-preset setting. ──
+    SmartModePreset boundSmartModePreset() => smartModePresetFromSettingsValue(
+      (ref.read(settingsProvider).value ?? AppSettings.defaults)
+          .smartModeHotkey
+          .smartModeHotkeyPreset,
+    );
+    _smartModeTriggerHandler = RecordingTriggerHandler(
+      startRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .startRecording(forcedSmartModePreset: boundSmartModePreset()),
+      stopRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
+      toggleRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .toggleRecording(forcedSmartModePreset: boundSmartModePreset()),
+      pushToTalkEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
+      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+      holdOrTapEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .audioInput
+              .holdOrTap,
+      isRecording: () => ref.read(recordingProvider).isRecording,
+    );
+    hotkeySvc.onSmartModeHotkeyPressed = _smartModeTriggerHandler.onKeyDown;
+    hotkeySvc.onSmartModeHotkeyReleased = _smartModeTriggerHandler.onKeyUp;
+
+    // ── Edit-selection trigger handler (`internal-notes`) ──
+    _selectionEditTriggerHandler = RecordingTriggerHandler(
+      startRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .startRecording(target: RecordingTarget.selectionEdit),
+      stopRecording: () =>
+          ref.read(recordingOrchestratorProvider.notifier).stopRecording(),
+      toggleRecording: () => ref
+          .read(recordingOrchestratorProvider.notifier)
+          .toggleRecording(target: RecordingTarget.selectionEdit),
+      pushToTalkEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults).pushToTalk,
+      registrarSupportsKeyUp: () => hotkeySvc.supportsKeyUp,
+      holdOrTapEnabled: () =>
+          (ref.read(settingsProvider).value ?? AppSettings.defaults)
+              .audioInput
+              .holdOrTap,
+      isRecording: () => ref.read(recordingProvider).isRecording,
+    );
+    hotkeySvc.onSelectionEditHotkeyPressed =
+        _selectionEditTriggerHandler.onKeyDown;
+    hotkeySvc.onSelectionEditHotkeyReleased =
+        _selectionEditTriggerHandler.onKeyUp;
+
+    // ── Interactive-snippet selection (interactive-snippets PRD) — wired
+    // here, not inside SnippetPickerService itself, to avoid a file-level
+    // import cycle (see the doc comment on
+    // SnippetPickerService.onInteractiveSnippetSelected).
+    ref
+        .read(snippetPickerServiceProvider.notifier)
+        .onInteractiveSnippetSelected = (snippet) async {
+      final fields = await ref
+          .read(historyDatabaseProvider)
+          .readSnippetFields(snippet.id);
+      await ref
+          .read(interactiveSnippetControllerProvider.notifier)
+          .start(fields, template: snippet.body);
+    };
+
+    // ── CLI remote control (`whispaste --toggle` / `--cancel`) — forwarded
+    // by a second process over the single-instance channel. Registered after
+    // the first frame, alongside the orchestrator's deferred init, so a
+    // command queued during startup (cold start via `--toggle`) runs against
+    // a live pipeline. `--toggle` always toggles, like the tray entry, also
+    // in Push-to-Talk mode: a CLI call has no key-up to stop on. ──
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      SingleInstanceService.onRemoteCommand = _onRemoteCommand;
+    });
+
+    // ── Tray callbacks — stateless closures, safe to wire once ──
+    final tray = ref.read(trayServiceProvider.notifier);
+    tray.onToggleRecording = () {
+      ref.read(recordingOrchestratorProvider.notifier).toggleRecording();
+    };
+    tray.onNavigate = (page) {
+      ref.read(activePageProvider.notifier).setPage(page);
+    };
+    tray.onActionNeededTap = (key) {
+      // A blocked Auto-Paste permission is handled where it broke, not in
+      // settings: run the same recovery the failed-paste notification and
+      // the in-app toast offer. Sending the user to a settings page to find
+      // the fix themselves is what made this flow feel unguided, and the
+      // tray is the surface that outlives the other two — a notification
+      // expires, so this entry is often the only one still there when the
+      // user gets around to acting.
+      if (key == kTrayPastePermissionActionNeededKey) {
+        unawaited(
+          ref
+              .read(pasteCapabilityNotifierProvider.notifier)
+              .runMissingPermissionRecovery(),
+        );
+        return;
+      }
+      // Every other action-needed item is a paste failure the user resolves
+      // by changing a setting (no target app, elevation, unknown), so those
+      // still jump to the Auto-Paste settings and its capability indicator.
+      if (key == kTrayPasteActionNeededKey) {
+        ref
+            .read(settingsScrollTargetProvider.notifier)
+            .set('afterTranscription');
+        ref.read(activePageProvider.notifier).setPage('settings');
+      }
+    };
+  }
+
+  void _onRemoteCommand(InstanceCommand command) {
+    final orchestrator = ref.read(recordingOrchestratorProvider.notifier);
+    switch (command) {
+      case InstanceCommand.toggle:
+        unawaited(
+          _isInteractiveSnippetActive
+              ? _stopOrAdvance()
+              : orchestrator.toggleRecording(),
+        );
+      case InstanceCommand.cancel:
+        unawaited(orchestrator.cancelRecording());
+      case InstanceCommand.focus:
+        // Handled by SingleInstanceService.onSecondInstanceLaunched.
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    SingleInstanceService.onRemoteCommand = null;
+    UiThreadWatchdog.instance.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // ── Recording orchestrator ──
+    // Defer first init until after the first frame so the window paints fast.
+    if (!_orchestratorInitialized) {
+      _orchestratorInitialized = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(recordingOrchestratorProvider);
+      });
+    } else {
+      ref.watch(recordingOrchestratorProvider);
+    }
+
+    ref.listen<RecordingPhase>(recordingPhaseProvider, (prev, next) {
+      _syncCancelDictationEscapeKey(prev ?? RecordingPhase.idle, next);
+    });
+
+    // ── Keep the keepAlive service providers alive for the app lifetime ──
+    ref.watch(trayServiceProvider);
+    ref.watch(hotkeyServiceProvider);
+    ref.watch(autostartServiceProvider);
+    ref.watch(floatingButtonServiceProvider);
+    ref.watch(floatingOverlayServiceProvider);
+    // Without this watch, nothing in production ever reads
+    // sidePanelServiceProvider, so it gets disposed immediately after each
+    // native hover-trigger call -- tearing down its onControllerReady
+    // ref.listen subscriptions and losing the row-content maps between
+    // open() and the next row click.
+    //
+    // Gated on the setting on purpose, not just watched unconditionally: a
+    // user who turns the panel off wants its native edge sensors gone, not
+    // merely unreachable. Dropping the watch lets the (autoDispose) provider
+    // tear down through the same disposeController -> controller.dispose()
+    // path a hover-triggered auto-dispose already exercises; flipping the
+    // setting back on re-runs build() and recreates the native host.
+    final sidePanelEnabled = ref.watch(
+      settingsProvider.select(
+        (s) => s.value?.interface_.sidePanelEnabled ?? true,
+      ),
+    );
+    if (sidePanelEnabled) {
+      ref.watch(sidePanelServiceProvider);
+    }
+    // Registers the clipEntryDetected method-call handler for the native
+    // clipboard monitors (issues 04-06); same keepAlive rationale as above.
+    ref.watch(clipboardHistoryMonitorServiceProvider);
+
+    return widget.child;
+  }
+}

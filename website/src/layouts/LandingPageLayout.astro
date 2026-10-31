@@ -1,0 +1,360 @@
+---
+/**
+ * Layout for long-tail content pages (use cases, comparisons, explainers).
+ *
+ * Built on the shared subpage shell: SubpageLayout (nav, footer, language
+ * switch) plus PageHero (crumbs, display headline, lead, CTA and a motion
+ * illustration picked from the URL, so consumer pages need no art prop).
+ * The body is a full-width split: the article on the left, a sticky rail
+ * with the download CTA and related pages on the right (≥1280px).
+ *
+ * Schema: BreadcrumbListSchema is emitted here with the same items as the
+ * visible crumbs. Page-specific schemas (HowTo, FAQPage) are emitted by the
+ * consumer inside the default slot.
+ */
+import SubpageLayout from "./SubpageLayout.astro";
+import PageHero from "../components/PageHero.astro";
+import BreadcrumbListSchema from "../components/schema/BreadcrumbListSchema.astro";
+import MotionVoiceToText from "../components/motion/MotionVoiceToText.astro";
+import MotionHardware from "../components/motion/MotionHardware.astro";
+import MotionPrivacy from "../components/motion/MotionPrivacy.astro";
+import MotionHotkey from "../components/motion/MotionHotkey.astro";
+import MotionPlatforms from "../components/motion/MotionPlatforms.astro";
+import { t, type Locale } from "../scripts/i18n.ts";
+
+interface SeoProps {
+  readonly title: string;
+  readonly description: string;
+}
+
+interface CrumbItem {
+  readonly name: string;
+  readonly item: string;
+}
+
+interface HeroProps {
+  readonly heading: string;
+  readonly lead: string;
+}
+
+interface CtaProps {
+  readonly label: string;
+  readonly href: string;
+}
+
+interface RelatedPageLink {
+  readonly label: string;
+  readonly href: string;
+}
+
+interface Props {
+  readonly lang: Locale;
+  readonly seo: SeoProps;
+  readonly breadcrumbs: readonly CrumbItem[];
+  readonly hero: HeroProps;
+  readonly cta: CtaProps;
+  /** Cross-links within the content cluster, so no page is a sitemap orphan. */
+  readonly relatedPages?: readonly RelatedPageLink[];
+}
+
+const { lang, seo, breadcrumbs, hero, cta, relatedPages } = Astro.props;
+
+// Topic → illustration. Matched against the URL so all locales (and the
+// diverging DE slugs) resolve without per-page wiring. First match wins.
+const path = Astro.url.pathname;
+const artRules: readonly { readonly match: RegExp; readonly art: string }[] = [
+  { match: /gpu|engine|model|modell/, art: "hardware" },
+  { match: /privacy|privatsphaere|offline/, art: "privacy" },
+  { match: /vergleich|comparison/, art: "hotkey" },
+  { match: /linux|whisper-desktop/, art: "platforms" },
+];
+const art = artRules.find((rule) => rule.match.test(path))?.art ?? "voice";
+// Use-case pages reuse the scene photo of their card on the home page.
+const photoRules: readonly { readonly match: RegExp; readonly photo: string }[] = [
+  { match: /use-cases\/programm/, photo: "developer" },
+  { match: /use-cases\/(students|studierende)/, photo: "students" },
+  { match: /use-cases\/(everyday|vielschreiber)/, photo: "everyday" },
+];
+const photo = photoRules.find((rule) => rule.match.test(path))?.photo;
+import PageSheet from "../components/PageSheet.astro";
+---
+
+<SubpageLayout lang={lang} title={seo.title} description={seo.description}>
+  <PageHero
+    title={hero.heading}
+    lead={hero.lead}
+    crumbs={breadcrumbs}
+    artLabel={photo ? undefined : art.toUpperCase()}
+    testid="lp-hero"
+  >
+    <a slot="actions" href={cta.href} class="wp-cta" data-testid="lp-hero-cta">
+      <span>{cta.label}</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+      </svg>
+    </a>
+    <div slot="art" class="lp-art">
+      {photo && (
+        <figure class="lp-photo" data-testid="lp-photo">
+          <picture>
+            <source type="image/avif" srcset={`/images/use-cases/${photo}-640.avif 640w, /images/use-cases/${photo}-1200.avif 1200w`} sizes="(min-width: 1024px) 40vw, 100vw" />
+            <img
+              src={`/images/use-cases/${photo}-1200.webp`}
+              srcset={`/images/use-cases/${photo}-640.webp 640w, /images/use-cases/${photo}-1200.webp 1200w`}
+              sizes="(min-width: 1024px) 40vw, 100vw"
+              alt=""
+              width="1200"
+              height="750"
+              decoding="async"
+              fetchpriority="high"
+            />
+          </picture>
+          {/* EU AI Act Art. 50(4): AI-generated, realistic — labelled. */}
+          <figcaption class="lp-photo__ai">{t(lang, "ai.badge")}</figcaption>
+        </figure>
+      )}
+      {!photo && art === "hardware" && <MotionHardware />}
+      {!photo && art === "privacy" && <MotionPrivacy />}
+      {!photo && art === "platforms" && <MotionPlatforms />}
+      {!photo && art === "hotkey" && <MotionHotkey />}
+      {!photo && art === "voice" && <MotionVoiceToText />}
+    </div>
+  </PageHero>
+
+  <PageSheet>
+    <div class="page-split">
+      <article class="landing-content" data-testid="lp-content">
+        <slot />
+      </article>
+
+      <aside class="page-split__rail" data-testid="lp-rail">
+        <div class="lp-rail-card">
+          <p class="lp-rail-kicker">WhisPaste</p>
+          <a href={cta.href} class="wp-cta lp-rail-cta">
+            <span>{cta.label}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+            </svg>
+          </a>
+          <p class="lp-rail-trust">{t(lang, "explainer.cta.trust")}</p>
+        </div>
+        {relatedPages && relatedPages.length > 0 && (
+          <nav aria-label={t(lang, "explainer.related.aria")} class="lp-related" data-testid="lp-related">
+            <p class="lp-rail-kicker">{t(lang, "explainer.related.heading")}</p>
+            <ul>
+              {relatedPages.map((page) => (
+                <li><a href={page.href}>{page.label}</a></li>
+              ))}
+            </ul>
+          </nav>
+        )}
+      </aside>
+    </div>
+
+    {/* Closing CTA; id=lp-cta doubles as the "content read" sentinel. */}
+    <aside id="lp-cta" class="lp-end wp-spot" data-surface="dark" data-testid="lp-cta">
+      <p class="lp-end-title">{hero.heading}</p>
+      <a href={cta.href} class="wp-cta">
+        <span>{cta.label}</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14" /><path d="m12 5 7 7-7 7" />
+        </svg>
+      </a>
+      <p class="lp-rail-trust">{t(lang, "explainer.cta.trust")}</p>
+    </aside>
+  </PageSheet>
+
+  <script>
+    // "Content read" engagement event (cookieless, once): fires when the
+    // closing CTA becomes visible. Name = page title. _paq exists only in prod.
+    const sentinel = document.getElementById('lp-cta');
+    if (sentinel && 'IntersectionObserver' in window) {
+      const obs = new IntersectionObserver((entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) {
+            const paq = (window as unknown as { _paq?: unknown[][] })._paq;
+            if (paq) paq.push(['trackEvent', 'Engagement', 'Inhalt gelesen', document.title]);
+            obs.disconnect();
+            break;
+          }
+        }
+      }, { threshold: 0.6 });
+      obs.observe(sentinel);
+    }
+  </script>
+
+  <BreadcrumbListSchema slot="head" items={breadcrumbs} />
+</SubpageLayout>
+
+<style>
+  .lp-photo {
+    position: relative;
+    margin: 0;
+    overflow: hidden;
+    border-radius: var(--wp-photo-radius);
+    background: var(--wp-photo-fill);
+    box-shadow: var(--wp-card-shadow);
+  }
+  .lp-photo img {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+  }
+  .lp-photo__ai {
+    position: absolute;
+    top: var(--wp-space-3);
+    left: var(--wp-space-3);
+    padding: 2px var(--wp-space-2);
+    border-radius: var(--wp-radius-chip);
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 500;
+    color: var(--wp-color-frost-200);
+    background: var(--wp-overlay-fill);
+  }
+  .lp-art :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* Rail: compact CTA card + related links. Sticky via .page-split__rail. */
+  .lp-rail-card {
+    padding: var(--wp-space-6);
+    border-radius: var(--wp-radius-surface);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 22%, transparent);
+    background: color-mix(in srgb, var(--color-brand-cyan) 5%, transparent);
+  }
+  .lp-rail-kicker {
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+    margin-bottom: var(--wp-space-4);
+  }
+  .lp-rail-cta {
+    width: 100%;
+    justify-content: center;
+  }
+  .lp-rail-trust {
+    margin-top: var(--wp-space-4);
+    font-size: var(--wp-font-size-sm);
+    color: var(--color-ink-subtle);
+  }
+  .lp-related {
+    margin-top: var(--wp-space-8);
+  }
+  .lp-related ul {
+    display: grid;
+    gap: var(--wp-space-1);
+  }
+  .lp-related a {
+    display: block;
+    padding: var(--wp-space-2) 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+    color: var(--color-ink-muted);
+    transition: color var(--dur-base) var(--ease-flow);
+  }
+  .lp-related a:hover {
+    color: var(--color-brand-cyan);
+  }
+
+  /* Article: editorial sections separated by hairlines with a mono counter,
+     instead of tinted full-bleed bands. */
+  .landing-content {
+    counter-reset: lp-section;
+    min-width: 0;
+  }
+  .landing-content :global(> section),
+  .landing-content :global(> * > section) {
+    counter-increment: lp-section;
+    padding: var(--wp-space-10) 0;
+    border-top: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
+  }
+  .landing-content :global(> section:first-child) {
+    border-top: 0;
+    padding-top: 0;
+  }
+  /* The TL;DR opener reads as a pull quote above the numbered sections. */
+  .landing-content :global(> .tldr) {
+    font-size: var(--wp-font-size-card-title);
+    line-height: 1.6;
+    color: var(--color-ink);
+    padding-left: var(--wp-space-5);
+    margin-bottom: var(--wp-space-10);
+    border-left: 2px solid var(--color-brand-cyan);
+    max-width: 62ch;
+  }
+  .landing-content :global(section h2) {
+    font-family: var(--font-display);
+    font-weight: 750;
+    font-size: var(--wp-font-size-title);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+    margin-bottom: var(--wp-space-4);
+    max-width: 40ch;
+  }
+  .landing-content :global(> section > h2::before),
+  .landing-content :global(> * > section > h2::before) {
+    content: counter(lp-section, decimal-leading-zero);
+    display: block;
+    margin-bottom: var(--wp-space-2);
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    color: var(--color-brand-cyan);
+  }
+  .landing-content :global(section h3) {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--wp-font-size-xl);
+    color: var(--color-ink);
+    margin: var(--wp-space-6) 0 var(--wp-space-2);
+  }
+  .landing-content :global(section p) {
+    color: var(--color-ink-muted);
+    line-height: 1.7;
+    max-width: 72ch;
+  }
+  .landing-content :global(section p + p) {
+    margin-top: var(--wp-space-3);
+  }
+  .landing-content :global(section ul) {
+    color: var(--color-ink-muted);
+    line-height: 1.65;
+    margin-top: var(--wp-space-3);
+    padding-left: var(--wp-space-5);
+    list-style: disc;
+    max-width: 72ch;
+  }
+  .landing-content :global(section ul li + li) {
+    margin-top: var(--wp-space-2);
+  }
+
+  /* Closing CTA: a wide statement band, not a small centered box. */
+  .lp-end {
+    margin-top: var(--wp-space-12);
+    padding: clamp(var(--wp-space-8), 4vw, 3.5rem);
+    border-radius: var(--wp-radius-panel);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 20%, transparent);
+    background:
+      radial-gradient(60% 120% at 100% 0%, color-mix(in srgb, var(--color-brand-cyan) 14%, transparent), transparent 70%),
+      var(--wp-surface-band);
+    display: grid;
+    gap: var(--wp-space-5);
+    justify-items: start;
+  }
+  .lp-end-title {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: var(--wp-font-size-title);
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    color: var(--color-ink);
+    max-width: 28ch;
+  }
+</style>

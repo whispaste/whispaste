@@ -1,0 +1,75 @@
+{
+  "$description": "Semantic tokens, dark mode: the default on the website and the only mode of the desktop app. Every key here must exist in semantic.light.tokens.json as well (checked by the generator).",
+  "surface": {
+    "$type": "color",
+    "page": { "$value": "{color.navy.900}", "$description": "Fallback page colour under the stage wash." },
+    "band": { "$value": "{color.navy.600}", "$description": "Section band tint over the wash." },
+    "band-alt": { "$value": "{color.navy.500}", "$description": "Second band tone." },
+    "sunken": { "$value": "{color.navy.900}", "$description": "Recessed wells inside a band (code, quotes). Never a full-width band: a darker band makes cards on it read as lying in a hole." },
+    "card": { "$value": "#F0F4FA0F", "$description": "Cards and tiles: a neutral frost lift (frost.50 6%) over the stage, the app's glass material. Never another opaque navy, which reads as blue on blue." },
+    "card-hover": { "$value": "#F0F4FA17" },
+    "floating": { "$value": "{color.navy.600}", "$description": "Chrome over arbitrary content: nav, dialogs, popovers, toasts." },
+    "control": { "$value": "#FFFFFF0A", "$description": "Input and control fill (white 4%)." },
+    "control-hover": { "$value": "#FFFFFF14" },
+    "inset": { "$value": "#0B122AB3", "$description": "Code blocks, wells, keycaps (navy.900 70%)." },
+    "scrim": { "$value": "#070B19CC", "$description": "Backdrop behind modals and the lightbox." }
+  },
+  "text": {
+    "$type": "color",
+    "primary": { "$value": "{color.frost.50}" },
+    "secondary": { "$value": "{color.frost.200}" },
+    "muted": { "$value": "{color.frost.400}" },
+    "link": { "$value": "{color.cyan.300}" },
+    "link-hover": { "$value": "{color.cyan.200}" },
+    "on-action": { "$value": "{color.navy.900}", "$description": "Text on cyan CTA fills." },
+    "on-highlight": { "$value": "{color.navy.900}", "$description": "Text on amber fills." }
+  },
+  "border": {
+    "$type": "color",
+    "subtle": { "$value": "#F0F4FA17", "$description": "Hairlines and dividers (ink 9%)." },
+    "default": { "$value": "#FFFFFF1F", "$description": "Card borders (borderSubtle, white 12%)." },
+    "strong": { "$value": "#FFFFFF30", "$description": "Hover borders (borderDefault, white 19%)." },
+    "control": { "$value": "#F0F4FA29", "$description": "Input and secondary button outlines (ink 16%)." }
+  },
+  "accent": {
+    "$type": "color",
+    "default": { "$value": "{color.cyan.300}", "$description": "Action and recording accent: icons, eyebrows, active states, waveform." },
+    "strong": { "$value": "{color.cyan.500}" },
+    "fill": { "$value": "{color.cyan.300}", "$description": "Solid accent fill (active tab, selected chip, dots). Never accent.default as a fill: on light that is dark text cyan." },
+    "on-fill": { "$value": "{color.navy.900}", "$description": "Text and icons on accent.fill." },
+    "soft": { "$value": "#6FDDF01F", "$description": "Accent fill behind chips and selected rows (12%)." },
+    "glow": { "$value": "#6FDDF029", "$description": "Spotlight and aura tint (16%)." }
+  },
+  "highlight": {
+    "$type": "color",
+    "default": { "$value": "{color.amber.400}", "$description": "Warm accent for markers, hints and the one highlighted word. Never for buttons." },
+    "text": { "$value": "{color.amber.400}", "$description": "Highlighted words on the current surface." },
+    "marker": { "$value": "{color.amber.400}", "$description": "Solid marker block behind one key phrase, identical in both modes. Opaque on purpose: translucent amber over the blue stage or glacier mixes to beige." },
+    "soft": { "$value": "#FFB5471F", "$description": "Background of hint callouts." }
+  },
+  "focus": {
+    "$type": "color",
+    "ring": { "$value": "{color.cyan.300}" }
+  },
+  "status": {
+    "$type": "color",
+    "success": { "$value": "{color.green.400}" },
+    "success-soft": { "$value": "#36D98B1F" },
+    "warning": { "$value": "{color.yellow.400}" },
+    "warning-soft": { "$value": "#F5C8421F" },
+    "error": { "$value": "{color.red.400}" },
+    "error-soft": { "$value": "#FF7B7B1F" }
+  },
+  "gradient": {
+    "$type": "gradient",
+    "action": { "$value": [{ "color": "{color.cyan.300}", "position": 0 }, { "color": "{color.cyan.400}", "position": 0.5 }, { "color": "{color.cyan.500}", "position": 1 }], "$extensions": { "angle": "135deg" }, "$description": "Primary CTA fill (WpColorsDark.accentWarmGradient)." },
+    "brand-text": { "$value": [{ "color": "{color.cyan.300}", "position": 0 }, { "color": "{color.cyan.500}", "position": 0.5 }, { "color": "{color.cyan.300}", "position": 1 }], "$extensions": { "angle": "135deg" }, "$description": "Gradient headline words; palindrome so a shimmer loops." },
+    "stage": { "$value": [{ "color": "{color.navy.700}", "position": 0 }, { "color": "{color.navy.600}", "position": 0.5 }, { "color": "{color.navy.500}", "position": 1 }], "$extensions": { "angle": "135deg" }, "$description": "Ambient page wash (WpColorsDark.warmSurfaceGradient)." }
+  },
+  "elevation": {
+    "$type": "shadow",
+    "card": { "$value": "{shadow.card}" },
+    "card-hover": { "$value": "{shadow.card-hover}" },
+    "floating": { "$value": "{shadow.overlay}" }
+  }
+}

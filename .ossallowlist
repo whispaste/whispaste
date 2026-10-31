@@ -1,0 +1,174 @@
+# WhisPaste — OSS-Allowlist (öffentliche Pfade)
+#
+# Was hier NICHT steht, wird vom pre-commit- und pre-push-Hook blockiert
+# (.githooks/). Interne Doku/Planung gehört nach internal-notes (gitignored).
+#
+# Erlaubt sind: exakte Dateipfade ODER Verzeichnis-Präfixe (mit "/").
+# Kommentare (#) und Leerzeilen sind erlaubt.
+
+# Root-Markdown + Lizenz + Disclosure
+README.md
+SECURITY.md
+NETWORK.md
+AUTOMATION_API.md
+LICENSE
+CHANGELOG.md
+SPONSORS.md
+LOGGING.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+CONTRIBUTING_TRANSLATIONS.md
+BUILD.md
+ARCHITECTURE.md
+
+# Build-/Paket-Metadaten
+pubspec.yaml
+pubspec.lock
+analysis_options.yaml
+l10n.yaml
+baseline.json
+loam.yaml
+dart_test.yaml
+Gemfile
+Gemfile.lock
+.metadata
+
+# Config-Vorlagen (keine Secrets)
+.env.example
+
+# Konfig-/Guard-Dateien (öffentlich, kein Infra-Leak)
+.gitignore
+.gitattributes
+.gitleaks.toml
+.ossallowlist
+.clang-tidy
+
+# CI / GitHub Actions (Workflows, CodeQL, Funding)
+.github/
+
+# Versionierte Hooks (muss committet sein, um für Klonende zu gelten)
+.githooks/
+
+# Öffentliche Quell-Code-/Plattform-Verzeichnisse (Flutter + Native)
+lib/
+test/
+integration_test/
+packages/
+assets/
+resources/
+
+# Plattform-Projekte
+macos/
+linux/
+windows/
+
+# Design tokens (platform-neutral source for website and app theme)
+design-tokens/
+
+# Installer + Packaging
+installer/
+packaging/
+
+# Website (öffentlicher Astro-Quellcode; dist/node_modules/design-system/test-results
+# sind über website/.gitignore ausgeschlossen)
+website/.fallowrc.json
+website/.gitignore
+website/astro.config.mjs
+website/eslint.config.mjs
+website/package.json
+website/package-lock.json
+website/playwright.config.ts
+website/tsconfig.json
+website/vitest.config.ts
+website/vitest.setup.ts
+website/sentry.client.config.js
+website/sentry.server.config.js
+website/src/
+website/public/
+website/tests/
+website/scripts/
+# Remotion sources for the pre-rendered website motion loops
+website/motion/
+
+# Store-Listings (öffentliche Marketing-Texte, MS-Store-Partner-Center)
+store/
+
+# Supabase-Migrationen (öffentliche Infra-as-Code; Secrets via CI)
+supabase/
+
+# Public-Release-Skripte (einzeln aufgelistet — scripts/* ist gitignored
+# und nur diese Ausnahmen sind öffentlich erlaubt)
+scripts/GITHUB-SECRETS-SETUP.md
+scripts/docs-attest.sh
+scripts/approve-release.sh
+scripts/docs-drift.sh
+scripts/check-workflow-hygiene.sh
+scripts/ci/detect-changes.sh
+scripts/ci/flutter-test.sh
+scripts/smoke/
+scripts/extract-cumulative-changelog.mjs
+scripts/generate-release-notes.mjs
+scripts/generate-screenshots.py
+scripts/generate-store-icons.py
+scripts/generate-store-listing.mjs
+scripts/apply-store-metadata.mjs
+scripts/apply-store-metadata.test.mjs
+scripts/build-store-trailer.sh
+scripts/generate-whisper-server-manifest.sh
+scripts/build-libwhisper-macos.sh
+scripts/build-libwhisper-linux.sh
+scripts/split-debug-linux.sh
+scripts/bundle-libwhisper-windows.ps1
+scripts/build-libllama-macos.sh
+scripts/build-libllama-linux.sh
+scripts/build-smartmode-shim-macos.sh
+scripts/ensure-libllama-macos.sh
+scripts/build-libllama-windows.ps1
+scripts/build-smartmode-shim-windows.ps1
+scripts/bundle-libllama-windows.ps1
+scripts/collect-pdbs-windows.ps1
+scripts/fetch-cuda-redist.py
+scripts/build-cuda-pack-linux.sh
+scripts/build-cuda-pack-windows.ps1
+scripts/cuda-pack-NOTICE.template.txt
+
+# Smart-Mode-v2 native shim (llama.cpp FFI wrapper, mirrors the libwhisper pattern)
+native/
+scripts/generate_appcast.sh
+scripts/publish_beta_fallback.sh
+# Generated Sparkle Beta feed — sole content of the orphan branch
+# beta-appcast-pointer (release.yml + publish_beta_fallback.sh), served live
+# to Beta-channel clients via raw.githubusercontent.com. Deliberately public.
+appcast-beta.xml
+scripts/install-hooks.sh
+scripts/macos-selfsign.sh
+scripts/macos-selfsign-export-secret.sh
+scripts/probe-packaging-validate.sh
+scripts/setup-gh-secrets.sh
+scripts/setup-gh-secrets.ps1
+scripts/setup-gh-secrets.py
+scripts/submit-ms-store.ps1
+scripts/verify-ms-store-listing.ps1
+
+# Tooling (Build-/Store-Helfer; deploy-spezifische Skripte wie win-smoke/
+# sind über .gitignore ausgeschlossen und dürfen NIE in die Allowlist)
+tools/appstore/
+tools/appstore-screens/
+tools/store-icons/
+tools/testimonials/
+
+# iOS-Build-Automation
+fastlane/
+
+# Diagnose-Tool-CLI (öffentlich gebaut und als Release-Artefakt ausgeliefert)
+tool/
+
+# Jules-Bot-Lern-Logs (persona-gebundene Learning/Action-Notizen, keine
+# Secrets/Infra-Details — git-basiertes Memory, muss für Cross-Run-Kontinuität
+# getrackt bleiben)
+.jules/
+
+# Root AGENTS.md — the only file Jules documentedly reads for repo-wide
+# agent instructions; points to .jules/GUIDANCE.md. No secrets/infra details.
+AGENTS.md
+

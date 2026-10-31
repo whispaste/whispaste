@@ -1,0 +1,325 @@
+/// WhisPaste history database — drift schema definitions.
+///
+/// Tables: history_entries, daily_stats, entry_notes, entry_attachments,
+/// text_replacements, tags, entry_tags. FTS5 is handled separately via raw
+/// SQL.
+///
+/// History note: a `projects` table and `history_entries.project_id` column
+/// existed in the Go-era schema (≤ v9) but were never wired to any UI and
+/// have been dropped destructively in schema v10 (see [HistoryDatabase] in
+/// `database.dart`).
+library;
+
+import 'package:drift/drift.dart';
+
+// ---------------------------------------------------------------------------
+// Tables
+// ---------------------------------------------------------------------------
+
+/// Core transcription history entries.
+@DataClassName('HistoryEntry')
+class HistoryEntries extends Table {
+  TextColumn get id => text()();
+  TextColumn get content => text().withDefault(const Constant(''))();
+  TextColumn get title => text().withDefault(const Constant(''))();
+  DateTimeColumn get timestamp => dateTime()();
+  RealColumn get durationSec => real().withDefault(const Constant(0.0))();
+  RealColumn get processingDurationSec =>
+      real().withDefault(const Constant(0.0))();
+  TextColumn get language => text().withDefault(const Constant(''))();
+  TextColumn get languageHint => text().withDefault(const Constant(''))();
+  TextColumn get tags => text().withDefault(const Constant('[]'))();
+  BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+  TextColumn get source => text().withDefault(const Constant('dictation'))();
+  TextColumn get model => text().withDefault(const Constant(''))();
+  BoolColumn get isLocal => boolean().withDefault(const Constant(false))();
+  RealColumn get costUsd => real().withDefault(const Constant(0.0))();
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+  BoolColumn get titleEdited => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  /// Decorative color slot (v18) — an index into the 8 rotating category
+  /// hues (`WpCategorySlot.categories`, index 0–7). Assigned once at real
+  /// creation time in [DriftRecordingStore.save] and never touched again;
+  /// see `insertHistoryEntry` in `database.dart`. Purely decorative, not a
+  /// content category — the 9th slot, `WpCategorySlot.neutral`, is never a
+  /// value here because there is no "uncategorized" case for this rotation.
+  IntColumn get colorSlot => integer().withDefault(const Constant(0))();
+
+  /// Smart Mode's "current edited version" (v22, Smart-Mode-v2 ticket 05) —
+  /// overwritten in place by every preset application (live or retroactive),
+  /// never a version stack. `null` means no preset has ever been applied to
+  /// this entry; [content] (the raw transcript) is never touched by Smart
+  /// Mode and stays the source of truth for the "raw" view.
+  TextColumn get smartModeEditedContent => text().nullable()();
+
+  /// Original transcript before live Smart-Mode refinement / text
+  /// replacements were applied (v24, ticket 12). `null` for entries where
+  /// no transform changed the transcript, or for pre-v24 entries — never
+  /// backfilled. [content] stays the final, post-transform text; this
+  /// column only exists so the detail panel can show what was originally
+  /// dictated when it actually differs from [content].
+  TextColumn get originalTranscript => text().nullable()();
+
+  /// Bundle ID (macOS) / process identifier (Windows) of the app the
+  /// dictation was pasted into, captured via the same auto-paste target
+  /// lookup the blocklist uses (v24, ticket 12). `null` when unavailable
+  /// (Linux, no target captured, permission missing, or pre-v24 entries).
+  TextColumn get targetApp => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Pre-aggregated daily statistics for fast analytics.
+@DataClassName('DailyStat')
+class DailyStats extends Table {
+  TextColumn get date => text()();
+  TextColumn get model => text()();
+  BoolColumn get isLocal => boolean()();
+  IntColumn get count => integer().withDefault(const Constant(0))();
+  RealColumn get totalDurationSec => real().withDefault(const Constant(0.0))();
+  RealColumn get totalProcessingSec =>
+      real().withDefault(const Constant(0.0))();
+  IntColumn get totalWords => integer().withDefault(const Constant(0))();
+  RealColumn get totalCostUsd => real().withDefault(const Constant(0.0))();
+  IntColumn get durUnder15s => integer().withDefault(const Constant(0))();
+  IntColumn get dur15To30s => integer().withDefault(const Constant(0))();
+  IntColumn get dur30To60s => integer().withDefault(const Constant(0))();
+  IntColumn get dur1To3m => integer().withDefault(const Constant(0))();
+  IntColumn get durOver3m => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {date, model, isLocal};
+}
+
+/// Rich-text notes attached to history entries.
+@DataClassName('EntryNote')
+class EntryNotes extends Table {
+  TextColumn get id => text()();
+  TextColumn get entryId => text().references(HistoryEntries, #id)();
+  TextColumn get content => text().withDefault(const Constant(''))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// File attachments for history entries (audio, screenshots, etc.).
+@DataClassName('EntryAttachment')
+class EntryAttachments extends Table {
+  TextColumn get id => text()();
+  TextColumn get entryId => text().references(HistoryEntries, #id)();
+  TextColumn get filename => text()();
+  TextColumn get filepath => text()();
+  TextColumn get mimeType => text().withDefault(const Constant(''))();
+  IntColumn get sizeBytes => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Replacements — auto-replace trigger words during dictation.
+///
+/// `trigger` is kept as a legacy, schema-additive mirror of the first entry
+/// in [TextReplacementTriggers] for this row (written on every save, never
+/// read by app logic) — see [TextReplacementTriggers] for the source of
+/// truth on which trigger phrases fire this replacement.
+@DataClassName('TextReplacement')
+class TextReplacements extends Table {
+  TextColumn get id => text()();
+  TextColumn get trigger => text()();
+  TextColumn get replacement => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  /// Match algorithm — `exact` (word-boundary regex, unchanged pre-v20
+  /// behavior) or `fuzzy` (similarity scoring, vocabulary-fuzzy-replacements
+  /// PRD, schema v20). Stored as text rather than an int enum so a raw
+  /// `SELECT` stays human-readable in the DB browser, consistent with other
+  /// text-backed enum-ish columns in this file (e.g. `source` on
+  /// `HistoryEntries`).
+  TextColumn get matchMode => text().withDefault(const Constant('exact'))();
+
+  /// Similarity threshold (0.0-1.0) for `matchMode == fuzzy`; unused and left
+  /// `null` for `exact` rows. The UI only ever offers three named steps
+  /// (Streng 0.92 / Standard 0.85 / Tolerant 0.75), not a free slider — see
+  /// PRD.md.
+  RealColumn get fuzzyThreshold => real().nullable()();
+
+  /// `manual` (default, user-authored) or `imported` (vocabulary-import
+  /// scan) — display-only distinction (PRD User Story 11), no behavioral
+  /// difference in matching.
+  TextColumn get origin => text().withDefault(const Constant('manual'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Trigger phrases for a [TextReplacements] row — normalized N:1 so a single
+/// replacement can fire on multiple trigger phrases (schema v13). Every
+/// replacement has at least one row here; each is matched independently
+/// with the existing word-boundary regex (`DriftRecordingStore.save()`).
+@DataClassName('TextReplacementTrigger')
+class TextReplacementTriggers extends Table {
+  TextColumn get id => text()();
+  TextColumn get replacementId => text().references(TextReplacements, #id)();
+  TextColumn get trigger => text()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Normalized tags for categorizing history entries.
+@DataClassName('Tag')
+class Tags extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text().unique()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Many-to-many link between history entries and tags.
+@DataClassName('EntryTag')
+class EntryTags extends Table {
+  TextColumn get entryId => text().references(HistoryEntries, #id)();
+  TextColumn get tagId => text().references(Tags, #id)();
+
+  @override
+  Set<Column> get primaryKey => {entryId, tagId};
+}
+
+/// User-defined text snippets (dictation-automations ticket 05) — named,
+/// multi-line reusable text blocks, deliberately a separate table/data type
+/// from [TextReplacements] (no trigger phrase, no auto-fire during a
+/// recording cycle; snippets are inserted on explicit user action via a
+/// picker, tickets 06/07/08). The trigger-phrase-driven "automation" feature
+/// this table's doc comment used to reference alongside it (open URL/run
+/// shell command/run script, tickets 02-04) was shipped and then retired —
+/// full feature parity between the sandboxed Mac App Store build and the
+/// Direct-Download build turned out unreachable within Apple's sandbox
+/// rules, and maintaining two divergent action-type sets wasn't worth it.
+@DataClassName('Snippet')
+class Snippets extends Table {
+  TextColumn get id => text()();
+  TextColumn get title => text()();
+  TextColumn get body => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  /// `static` (default, today's only behavior — [body] is inserted verbatim)
+  /// or `interactive` (schema v21, `interactive-snippets` PRD; template
+  /// authoring added in schema v23): for `interactive`, [body] holds the
+  /// user-authored template ([interactiveSnippetPlaceholder] tokens mark
+  /// where each [SnippetFields] entry's dictated text is substituted at
+  /// trigger time, see `interactive_snippet_composer.dart`) rather than
+  /// text inserted verbatim.
+  TextColumn get kind => text().withDefault(const Constant('static'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Named fields of an `interactive`-[Snippets.kind] snippet (schema v21),
+/// N:1 to [Snippets] — analogous to [TextReplacementTriggers]. Unused for a
+/// `static` snippet. [sortOrder] fixes the strictly sequential field order
+/// the guided recording walks through (PRD: "kein Zurückspringen, kein
+/// Überspringen").
+@DataClassName('SnippetField')
+class SnippetFields extends Table {
+  TextColumn get id => text()();
+  TextColumn get snippetId => text().references(Snippets, #id)();
+  TextColumn get name => text()();
+  IntColumn get sortOrder => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Standalone notes for the sidebar Notizen area (schema v17) — distinct
+/// from [EntryNotes], which back the per-history-entry "Anmerkung" section
+/// and are a different feature entirely. No title column: the list/editor
+/// derive a display title from [content] (see `deriveNoteTitle`).
+@DataClassName('Note')
+class Notes extends Table {
+  TextColumn get id => text()();
+  TextColumn get content => text().withDefault(const Constant(''))();
+  BoolColumn get pinned => boolean().withDefault(const Constant(false))();
+  // Exclusive "quick note" mark (schema v19): at most one note carries it at
+  // any time, enforced by a partial unique index (see _ensureNotesIndexes).
+  // Deliberately its own column, not a reuse of [pinned] — pinned is
+  // multi-valued and sort-affecting, this is exclusive and sort-neutral.
+  BoolColumn get isQuickNote => boolean().withDefault(const Constant(false))();
+  DateTimeColumn get deletedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Many-to-many link between [Notes] and [Tags] — mirrors [EntryTags], reuses
+/// the same [Tags] table so a tag can be shared between history entries and
+/// notes.
+@DataClassName('NoteTag')
+class NoteTags extends Table {
+  TextColumn get noteId => text().references(Notes, #id)();
+  TextColumn get tagId => text().references(Tags, #id)();
+
+  @override
+  Set<Column> get primaryKey => {noteId, tagId};
+}
+
+/// Per-recording end-to-end hotkey→text latency — local-only performance KPI.
+///
+/// A different privacy domain than the outgoing (bucketed) telemetry latency
+/// counter in `recording_orchestrator.dart` (`_latencyBucketSeconds`) /
+/// `telemetry_service.dart`: rows here are never read by anything that
+/// leaves the device. See
+/// `internal-notes`.
+@DataClassName('HotkeyLatencyEntry')
+class HotkeyLatencyEntries extends Table {
+  TextColumn get id => text()();
+  DateTimeColumn get recordedAt => dateTime()();
+  IntColumn get latencyMs => integer()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// One persisted correction observation for vocabulary-learning-from-
+/// corrections (ticket 01 `internal-notes`) — the
+/// Drift-shape counterpart of the pure `CorrectionObservation` in
+/// `services/replacements/correction_candidate_detector.dart`.
+///
+/// `normalizedKey` is the case-insensitive, whitespace-collapsed grouping key
+/// (`normalizeCorrectionKey`) that decides whether two [CorrectionSignal]s
+/// are "the same correction"; `sourceText`/`targetText` keep the most
+/// recently observed original casing for display and for the eventual
+/// replacement entry. A row only ever leaves `pending` for `accepted` or
+/// `rejected` (never back), so a rejected correction can never resurface
+/// with identical content.
+@DataClassName('CorrectionObservationRow')
+class CorrectionObservations extends Table {
+  TextColumn get id => text()();
+  TextColumn get normalizedKey => text().unique()();
+  TextColumn get sourceText => text()();
+  TextColumn get targetText => text()();
+  IntColumn get occurrenceCount => integer().withDefault(const Constant(1))();
+
+  /// `pending` / `accepted` / `rejected` — see [CorrectionObservationStatus]
+  /// in `correction_candidate_detector.dart`. Text-backed like other
+  /// enum-ish columns in this file (e.g. `TextReplacements.origin`).
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+
+  /// `voiceCommand` / `manualEdit` — see `CorrectionSignalSource` in
+  /// `correction_signal.dart`.
+  TextColumn get source => text()();
+  DateTimeColumn get firstSeenAt => dateTime()();
+  DateTimeColumn get lastSeenAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

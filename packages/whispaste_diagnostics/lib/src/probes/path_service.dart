@@ -1,0 +1,507 @@
+/// Cross-platform path helpers for WhisPaste app data and STT assets.
+///
+/// Pure-Dart (no Flutter, no Riverpod). All functions are synchronous —
+/// they derive paths from environment variables and well-known directory
+/// conventions.
+library;
+
+import 'dart:io';
+
+import 'package:meta/meta.dart';
+import 'package:path/path.dart' as p;
+
+/// Override the app-data directory for testing. When non-null,
+/// [appDataDir] returns this value instead of the real platform path,
+/// isolating tests (e.g. log rotation/redaction) from the host file system.
+@visibleForTesting
+String? appDataDirOverride;
+
+/// Override the STT directory for testing. When non-null, [sttDir] returns
+/// this value instead of the real AppData path, isolating tests from the
+/// host file system.
+@visibleForTesting
+String? sttDirOverride;
+
+/// Override the retained-audio directory for testing. When non-null,
+/// [retainedAudioDir] returns this value instead of the real AppData path,
+/// isolating tests from the host file system.
+@visibleForTesting
+String? retainedAudioDirOverride;
+
+// ---------------------------------------------------------------------------
+// Model ID → GGML filename lookup
+// ---------------------------------------------------------------------------
+
+/// Maps model IDs to their on-disk GGML filenames.
+const Map<String, String> modelFilenames = {
+  'whisper-small': 'ggml-small-q5_1.bin',
+  'whisper-medium': 'ggml-medium-q5_0.bin',
+  'whisper-large-v3-turbo': 'ggml-large-v3-turbo-q5_0.bin',
+};
+
+/// Falls back to scanning the STT directory for a matching `ggml-*.bin`
+/// file if the ID is not in the known table — this covers custom models
+/// that may have been added after this code was compiled.
+String? resolveModelFilename(String modelId) {
+  final known = modelFilenames[modelId];
+  if (known != null) return known;
+
+  // Fallback: scan the stt directory for a file whose stem contains the ID.
+  try {
+    final dir = Directory(sttDir());
+    if (!dir.existsSync()) return null;
+    for (final entity in dir.listSync()) {
+      if (entity is File) {
+        final name = p.basename(entity.path);
+        if (name.startsWith('ggml-') &&
+            name.endsWith('.bin') &&
+            name.contains(modelId)) {
+          return name;
+        }
+      }
+    }
+  } on FileSystemException {
+    // Can't scan — fall through to null.
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Path helpers
+// ---------------------------------------------------------------------------
+
+/// Returns the platform-specific WhisPaste app data directory.
+///
+/// - Windows: `%APPDATA%\WhisPaste`
+/// - macOS: `~/Library/Application Support/WhisPaste`
+/// - Linux: `$XDG_CONFIG_HOME/whispaste` or `~/.config/whispaste`
+String appDataDir() {
+  final override = appDataDirOverride;
+  if (override != null) return override;
+  if (Platform.isWindows) {
+    final appData = Platform.environment['APPDATA'];
+    if (appData == null || appData.isEmpty) {
+      throw StateError('APPDATA environment variable is not set');
+    }
+    return p.join(appData, 'WhisPaste');
+  }
+  if (Platform.isMacOS) {
+    final home = Platform.environment['HOME'] ?? '';
+    return p.join(home, 'Library', 'Application Support', 'WhisPaste');
+  }
+  // Linux / other Unix
+  final xdgConfig = Platform.environment['XDG_CONFIG_HOME'];
+  if (xdgConfig != null && xdgConfig.isNotEmpty) {
+    return p.join(xdgConfig, 'whispaste');
+  }
+  final home = Platform.environment['HOME'] ?? '';
+  return p.join(home, '.config', 'whispaste');
+}
+
+/// Directory containing STT model files and whisper-server.
+String sttDir() => sttDirOverride ?? p.join(appDataDir(), 'models', 'stt');
+
+/// Directory holding recent retained dictation WAVs (rotating cap enforced
+/// by the app layer). Deliberately outside the system temp directory — the
+/// app's startup cleanup sweeps `whispaste_*.wav` files there, which would
+/// silently defeat retention.
+String retainedAudioDir() =>
+    retainedAudioDirOverride ?? p.join(appDataDir(), 'recordings');
+
+/// Full path to the whisper-server executable.
+///
+/// On macOS, checks the app bundle first (`Contents/Helpers/whisper-server`)
+/// for App Store builds where the binary is bundled at build time. Falls back
+/// to the downloaded path in Application Support.
+String whisperServerPath() {
+  final name = Platform.isWindows ? 'whisper-server.exe' : 'whisper-server';
+
+  // Check app bundle first (macOS App Store distribution bundles the binary).
+  if (Platform.isMacOS) {
+    final exe = Platform.resolvedExecutable;
+    final contentsDir = p.dirname(p.dirname(exe)); // .app/Contents/
+    final bundledPath = p.join(contentsDir, 'Helpers', name);
+    if (File(bundledPath).existsSync()) {
+      return bundledPath;
+    }
+  }
+
+  return p.join(sttDir(), name);
+}
+
+/// Full path to the GGML model file for [modelId].
+///
+/// Returns `null` if the model ID is not in the lookup table.
+String? sttModelPath(String modelId) {
+  final filename = resolveModelFilename(modelId);
+  if (filename == null) return null;
+  return p.join(sttDir(), filename);
+}
+
+// ---------------------------------------------------------------------------
+// MSIX standalone-tool data-root discovery (Slice 1)
+// ---------------------------------------------------------------------------
+
+/// Identity prefix for WhisPaste MSIX packages as published to the Microsoft
+/// Store. Glob-equivalent: `12342SilvioLindstedt.WhisPaste_*`.
+const String msixPackageIdentityPrefix = '12342SilvioLindstedt.WhisPaste';
+
+/// Builds the list of candidate data-root directories a WhisPaste MSIX
+/// installation might have written its data to.
+///
+/// Each candidate is:
+///   `<localAppData>\Packages\<entry>\LocalCache\Roaming\WhisPaste`
+/// where `<entry>` is every directory name inside
+///   `<localAppData>\Packages\`
+/// that starts with [msixPackageIdentityPrefix].
+///
+/// Pure function — no I/O. [packageDirNames] is the pre-read list of entry
+/// names directly under the `Packages\` directory (no path prefix).
+///
+/// Exposed [@visibleForTesting] so that the table tests can drive it without
+/// touching the real file system. The production I/O wrapper is
+/// [resolveMsixFallbackDataRoot].
+@visibleForTesting
+List<String> msixLocalCacheCandidatesFor({
+  required String localAppData,
+  required List<String> packageDirNames,
+}) {
+  final results = <String>[];
+  for (final name in packageDirNames) {
+    if (name.toLowerCase().startsWith(
+      msixPackageIdentityPrefix.toLowerCase(),
+    )) {
+      results.add(
+        p.windows.join(
+          localAppData,
+          'Packages',
+          name,
+          'LocalCache',
+          'Roaming',
+          'WhisPaste',
+        ),
+      );
+    }
+  }
+  return results;
+}
+
+/// Selects the effective MSIX data root from a list of [candidates].
+///
+/// Returns the first candidate for which [hasSttSubdir] returns `true`
+/// (i.e. the `models\stt` sub-directory is present). When multiple
+/// candidates match, the **first** one in list order is chosen — callers
+/// should provide candidates in a deterministic order (e.g. sorted by
+/// package family name) so the selection is stable.
+///
+/// Returns `null` when [candidates] is empty or none of the candidates
+/// pass [hasSttSubdir].
+///
+/// Pure function — [hasSttSubdir] is the only I/O seam.
+@visibleForTesting
+String? selectMsixDataRoot(
+  List<String> candidates, {
+  required bool Function(String candidateRoot) hasSttSubdir,
+}) {
+  for (final candidate in candidates) {
+    if (hasSttSubdir(candidate)) return candidate;
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Multi-root collection (Slice 2) — all found data roots with labels
+// ---------------------------------------------------------------------------
+
+/// A discovered WhisPaste data root together with its install-variant label.
+///
+/// The [label] is one of the canonical variant strings:
+///   - `'EXE-Installer'`
+///   - `'Microsoft Store / MSIX'`
+class DataRootEntry {
+  const DataRootEntry({required this.root, required this.label});
+
+  /// The absolute path to the data root (e.g. `%APPDATA%\WhisPaste` or a
+  /// `LocalCache\Roaming\WhisPaste` path).
+  final String root;
+
+  /// Canonical install-variant label for this root.
+  final String label;
+
+  @override
+  String toString() => 'DataRootEntry(root: $root, label: $label)';
+
+  @override
+  bool operator ==(Object other) =>
+      other is DataRootEntry && other.root == root && other.label == label;
+
+  @override
+  int get hashCode => Object.hash(root, label);
+}
+
+/// Collects **all** WhisPaste data roots that have an `models\stt`
+/// sub-directory, across both the EXE and every MSIX candidate.
+///
+/// Ordering (deterministic):
+///   1. EXE root (`%APPDATA%\WhisPaste`) — if [exeDataRoot] is non-null and
+///      passes [hasSttSubdir].
+///   2. Every MSIX candidate (in [msixCandidates] list order) that passes
+///      [hasSttSubdir], each labelled `'Microsoft Store / MSIX'`.
+///
+/// Returns an empty list when no root has the `models\stt` sub-directory.
+///
+/// Pure function — [hasSttSubdir] is the only I/O seam. Callers must provide
+/// [msixCandidates] in a deterministic order (already sorted by the
+/// [resolveMsixFallbackDataRoot] I/O wrapper).
+@visibleForTesting
+List<DataRootEntry> collectAllDataRoots({
+  required String? exeDataRoot,
+  required List<String> msixCandidates,
+  required bool Function(String candidateRoot) hasSttSubdir,
+}) {
+  final results = <DataRootEntry>[];
+
+  if (exeDataRoot != null && hasSttSubdir(exeDataRoot)) {
+    results.add(DataRootEntry(root: exeDataRoot, label: 'EXE-Installer'));
+  }
+
+  for (final candidate in msixCandidates) {
+    if (hasSttSubdir(candidate)) {
+      results.add(
+        DataRootEntry(root: candidate, label: 'Microsoft Store / MSIX'),
+      );
+    }
+  }
+
+  return results;
+}
+
+/// Injectable seam: overrides the `%LOCALAPPDATA%` value used by
+/// [resolveMsixFallbackDataRoot]. Production code leaves this null.
+@visibleForTesting
+String? localAppDataOverride;
+
+/// Resolves the effective WhisPaste data root for a Standalone-Diagnose run
+/// when the regular [appDataDir] is empty or absent (MSIX install outside the
+/// container).
+///
+/// Steps:
+///   1. List `%LOCALAPPDATA%\Packages\` and filter for entries that start
+///      with [msixPackageIdentityPrefix].
+///   2. For each candidate data root, probe whether `models\stt` exists.
+///   3. Return the first matching root, or `null` when none match.
+///
+/// No-op (returns `null`) on non-Windows.
+///
+/// [localAppDataOverride] and [sttDirExistsCheck] are injectable seams for
+/// tests; production code omits both.
+String? resolveMsixFallbackDataRoot({
+  String? Function()? localAppDataProvider,
+  bool Function(String candidateRoot)? sttDirExistsCheck,
+}) {
+  if (!Platform.isWindows) return null;
+
+  final localAppData =
+      (localAppDataProvider != null ? localAppDataProvider() : null) ??
+      localAppDataOverride ??
+      Platform.environment['LOCALAPPDATA'];
+
+  if (localAppData == null || localAppData.isEmpty) return null;
+
+  final packagesDir = Directory(p.join(localAppData, 'Packages'));
+
+  List<String> entries;
+  try {
+    if (!packagesDir.existsSync()) return null;
+    entries =
+        packagesDir
+            .listSync()
+            .whereType<Directory>()
+            .map((d) => p.basename(d.path))
+            .toList()
+          ..sort(); // deterministic order
+  } on FileSystemException {
+    return null;
+  }
+
+  final candidates = msixLocalCacheCandidatesFor(
+    localAppData: localAppData,
+    packageDirNames: entries,
+  );
+
+  return selectMsixDataRoot(
+    candidates,
+    hasSttSubdir:
+        sttDirExistsCheck ??
+        (root) => Directory(p.join(root, 'models', 'stt')).existsSync(),
+  );
+}
+
+/// Resolves **all** WhisPaste data roots visible from a Standalone-Diagnose
+/// run: both the regular EXE root (`%APPDATA%\WhisPaste`) and every
+/// MSIX-LocalCache root found under `%LOCALAPPDATA%\Packages\`.
+///
+/// Returns only roots for which `models\stt` is present on disk.  The EXE
+/// root comes first (when present), followed by all MSIX roots in sorted
+/// package-directory order — fully deterministic.
+///
+/// No-op (returns empty list) on non-Windows.
+///
+/// Injectable seams ([localAppDataProvider], [sttDirExistsCheck]) are the
+/// same as [resolveMsixFallbackDataRoot]; test code uses them to exercise the
+/// multi-root logic without touching the real file system.
+List<DataRootEntry> resolveAllDataRoots({
+  String? Function()? localAppDataProvider,
+  bool Function(String candidateRoot)? sttDirExistsCheck,
+}) {
+  if (!Platform.isWindows) return const [];
+
+  final localAppData =
+      (localAppDataProvider != null ? localAppDataProvider() : null) ??
+      localAppDataOverride ??
+      Platform.environment['LOCALAPPDATA'];
+
+  if (localAppData == null || localAppData.isEmpty) return const [];
+
+  final packagesDir = Directory(p.join(localAppData, 'Packages'));
+
+  List<String> entries;
+  try {
+    if (!packagesDir.existsSync()) return const [];
+    entries =
+        packagesDir
+            .listSync()
+            .whereType<Directory>()
+            .map((d) => p.basename(d.path))
+            .toList()
+          ..sort(); // deterministic order
+  } on FileSystemException {
+    return const [];
+  }
+
+  final msixCandidates = msixLocalCacheCandidatesFor(
+    localAppData: localAppData,
+    packageDirNames: entries,
+  );
+
+  final hasStt =
+      sttDirExistsCheck ??
+      (String root) => Directory(p.join(root, 'models', 'stt')).existsSync();
+
+  // The EXE root lives under APPDATA (from environment), not LOCALAPPDATA.
+  final appData = Platform.environment['APPDATA'];
+  final exeRoot = (appData != null && appData.isNotEmpty)
+      ? p.windows.join(appData, 'WhisPaste')
+      : null;
+
+  return collectAllDataRoots(
+    exeDataRoot: exeRoot,
+    msixCandidates: msixCandidates,
+    hasSttSubdir: hasStt,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// MSIX child-process path de-virtualization (FLUTTER_WHISPASTE-A0)
+// ---------------------------------------------------------------------------
+
+/// Test seam: overrides the executable path used to detect an MSIX package and
+/// derive its family name. Production reads [Platform.resolvedExecutable].
+@visibleForTesting
+String? resolvedExecutableOverride;
+
+/// The running executable's path, honoring [resolvedExecutableOverride] when
+/// set by a test. Other files in this package must go through this instead of
+/// reading the test-only override directly.
+String resolvedExecutablePath() =>
+    resolvedExecutableOverride ?? Platform.resolvedExecutable;
+
+/// Derives the MSIX **Package Family Name** (`Name_PublisherId`) from a
+/// `…\WindowsApps\<PackageFullName>\…` executable path, or `null` when the path
+/// is not inside a WindowsApps package directory.
+///
+/// A package full name is `Name_Version_Arch_ResourceId_PublisherId` — the
+/// ResourceId segment is usually empty, leaving a `__` before the publisher
+/// hash (e.g. `12342SilvioLindstedt.WhisPaste_1.2.36.0_x64__phagqa3gq04kr`).
+/// The family name keeps only the first (`Name`) and last (`PublisherId`)
+/// segments. All logic is plain string handling so it is unit-testable off
+/// Windows.
+@visibleForTesting
+String? msixPackageFamilyFromExePath(String exePath) {
+  final normalized = exePath.replaceAll('/', r'\');
+  const marker = r'\windowsapps\';
+  final idx = normalized.toLowerCase().indexOf(marker);
+  if (idx < 0) return null;
+  final after = normalized.substring(idx + marker.length);
+  final fullName = after.split(r'\').first;
+  final parts = fullName.split('_');
+  if (parts.length < 2) return null;
+  final name = parts.first;
+  final publisherId = parts.last;
+  if (name.isEmpty || publisherId.isEmpty) return null;
+  return '${name}_$publisherId';
+}
+
+/// Pure core of [deVirtualizeMsixChildPath] — every input is injected so the
+/// mapping can be exercised cross-platform. Uses the Windows path style
+/// unconditionally because MSIX is a Windows-only concept.
+///
+/// Returns [path] unchanged when [exePath] is not a WindowsApps package path,
+/// either env var is missing, or [path] is not under `%APPDATA%\WhisPaste`.
+@visibleForTesting
+String deVirtualizeMsixChildPathFor({
+  required String path,
+  required String exePath,
+  required String? appData,
+  required String? localAppData,
+}) {
+  final family = msixPackageFamilyFromExePath(exePath);
+  if (family == null) return path;
+  if (appData == null || appData.isEmpty) return path;
+  if (localAppData == null || localAppData.isEmpty) return path;
+
+  final virtualRoot = p.windows.join(appData, 'WhisPaste');
+  // Windows paths are case-insensitive; compare lower-cased.
+  if (!path.toLowerCase().startsWith(virtualRoot.toLowerCase())) return path;
+
+  final physicalRoot = p.windows.join(
+    localAppData,
+    'Packages',
+    family,
+    'LocalCache',
+    'Roaming',
+    'WhisPaste',
+  );
+  return '$physicalRoot${path.substring(virtualRoot.length)}';
+}
+
+/// Rewrites a logical WhisPaste data [path] (under the MSIX-virtualized
+/// `%APPDATA%\WhisPaste` root) into the **physical** package-local path the
+/// MSIX runtime redirects those writes to:
+///
+///     %APPDATA%\WhisPaste\…
+///       → %LOCALAPPDATA%\Packages\`<PFN>`\LocalCache\Roaming\WhisPaste\…
+///
+/// The packaged parent process resolves the virtualized path transparently via
+/// the runtime's AppData redirection. A spawned **non-packaged** child (the
+/// downloaded `whisper-server.exe`) does **not** inherit that redirection — it
+/// resolves the literal string against the un-virtualized filesystem, where the
+/// real `%APPDATA%\WhisPaste` is empty. Passing the child the physical path
+/// makes it resolve the model / binary / working-dir identically to the parent.
+///
+/// Field repro — FLUTTER_WHISPASTE-A0 (GTX 650, Microsoft Store / MSIX build):
+/// whisper-server exits 3 with `ggml_backend_load_best: search path … does not
+/// exist` and `whisper_init_from_file…: failed to open` the model, even though
+/// the packaged app sees the file present and SHA-256-verified.
+///
+/// Returns [path] unchanged on non-Windows, on non-MSIX builds, or when [path]
+/// is not under the `%APPDATA%\WhisPaste` root.
+String deVirtualizeMsixChildPath(String path) {
+  if (!Platform.isWindows) return path;
+  return deVirtualizeMsixChildPathFor(
+    path: path,
+    exePath: resolvedExecutablePath(),
+    appData: Platform.environment['APPDATA'],
+    localAppData: Platform.environment['LOCALAPPDATA'],
+  );
+}

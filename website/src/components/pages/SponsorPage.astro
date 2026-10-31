@@ -1,0 +1,263 @@
+---
+/**
+ * Sponsoring page for every locale. Hero with the support motion
+ * illustration, then the three channels as large numbered cards across the
+ * full width, then cost transparency and free ways to help side by side.
+ * Wording rule: support/sponsoring only (CONTEXT.md §7).
+ */
+import SubpageLayout from '../../layouts/SubpageLayout.astro';
+import PageHero from '../PageHero.astro';
+import MotionSupport from '../motion/MotionSupport.astro';
+import BreadcrumbListSchema from '../schema/BreadcrumbListSchema.astro';
+import { t, localePath, type Locale } from '../../scripts/i18n.ts';
+
+interface Props {
+  readonly lang: Locale;
+}
+
+const { lang } = Astro.props;
+const breadcrumbItems = [
+  { name: t(lang, 'breadcrumb.home'), item: localePath(lang, '') },
+  { name: t(lang, 'breadcrumb.sponsor'), item: localePath(lang, 'sponsor') },
+];
+
+const channels = [
+  {
+    id: 'github',
+    href: 'https://github.com/sponsors/silvio-l',
+    icon: '<path fill="currentColor" stroke="none" d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>',
+  },
+  {
+    id: 'kofi',
+    href: 'https://ko-fi.com/silviol',
+    icon: '<path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/>',
+  },
+  {
+    id: 'paypal',
+    href: 'https://www.paypal.com/donate/?hosted_button_id=GY8ZQQGJB9XPY',
+    icon: '<path fill="currentColor" stroke="none" d="M7.08 21.5H3.6a.6.6 0 0 1-.59-.7L5.9 2.7A1 1 0 0 1 6.89 2h6.6c3.63 0 5.95 1.9 5.3 5.36-.7 3.73-3.36 5.39-6.83 5.39H9.8a.8.8 0 0 0-.79.67L7.98 20.8a.8.8 0 0 1-.9.7Zm13.1-12.9c-.15-.1-.32.03-.36.2-.84 3.6-3.6 5.55-7.5 5.55h-1.4a.6.6 0 0 0-.59.5l-1.05 6.62a.6.6 0 0 0 .6.7h2.65a.8.8 0 0 0 .79-.67l.7-4.44a.8.8 0 0 1 .79-.68h.8c3 0 5.3-1.4 5.9-4.6.28-1.5.03-2.67-.33-3.18Z"/>',
+  },
+] as const;
+
+const costs = ['apple', 'microsoft', 'hosting'] as const;
+import PageSheet from "../PageSheet.astro";
+---
+
+<SubpageLayout lang={lang} title={t(lang, 'meta.title.sponsor')} description={t(lang, 'meta.description.sponsor')}>
+  <PageHero
+    title={t(lang, 'sponsor.title')}
+    titleKey="sponsor.title"
+    lead={t(lang, 'sponsor.desc')}
+    leadKey="sponsor.desc"
+    crumbs={breadcrumbItems}
+    artLabel="COMMUNITY"
+    testid="sponsor-hero"
+  >
+    <MotionSupport slot="art" />
+  </PageHero>
+
+  <PageSheet>
+    <div class="sp-channels">
+      {channels.map((channel, index) => (
+        <a
+          href={channel.href}
+          target="_blank"
+          rel="noopener"
+          class="sp-channel wp-spot"
+          data-testid={`sponsor-${channel.id}`}
+        >
+          <span class="sp-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+          <span class="sp-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" set:html={channel.icon} />
+          </span>
+          <h2 class="sp-title" data-i18n={`sponsor.${channel.id}.title`}>{t(lang, `sponsor.${channel.id}.title`)}</h2>
+          <p class="sp-sub" data-i18n={`sponsor.${channel.id}.subtitle`}>{t(lang, `sponsor.${channel.id}.subtitle`)}</p>
+          <p class="sp-desc" data-i18n={`sponsor.${channel.id}.desc`}>{t(lang, `sponsor.${channel.id}.desc`)}</p>
+          <span class="sp-cta">
+            <span data-i18n={`sponsor.${channel.id}.cta`}>{t(lang, `sponsor.${channel.id}.cta`)}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+          </span>
+        </a>
+      ))}
+    </div>
+
+    <div class="sp-details">
+      <!-- Where sponsoring goes: real cost categories, never a total amount. -->
+      <section class="sp-block" data-testid="sponsor-cost-table">
+        <h3 class="sp-block-title" data-i18n="sponsor.costs.title">{t(lang, 'sponsor.costs.title')}</h3>
+        <ul class="sp-list">
+          {costs.map((cost) => (
+            <li>
+              <p class="sp-list-title" data-i18n={`sponsor.costs.${cost}.title`}>{t(lang, `sponsor.costs.${cost}.title`)}</p>
+              <p class="sp-list-desc" data-i18n={`sponsor.costs.${cost}.desc`}>{t(lang, `sponsor.costs.${cost}.desc`)}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section class="sp-block" data-testid="sponsor-free-help">
+        <h3 class="sp-block-title" data-i18n="sponsor.free.title">{t(lang, 'sponsor.free.title')}</h3>
+        <p class="sp-list-desc" data-i18n="sponsor.free.desc">{t(lang, 'sponsor.free.desc')}</p>
+        <ul class="sp-list">
+          <li>
+            <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener" class="sp-free-link" data-testid="sponsor-free-star">
+              <span class="sp-list-title" data-i18n="sponsor.free.star">{t(lang, 'sponsor.free.star')}</span>
+              <span class="sp-list-desc" data-i18n="sponsor.free.star.desc">{t(lang, 'sponsor.free.star.desc')}</span>
+            </a>
+          </li>
+          <li>
+            <p class="sp-list-title" data-i18n="sponsor.free.share">{t(lang, 'sponsor.free.share')}</p>
+            <p class="sp-list-desc" data-i18n="sponsor.free.share.desc">{t(lang, 'sponsor.free.share.desc')}</p>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </PageSheet>
+
+  <BreadcrumbListSchema items={breadcrumbItems} />
+</SubpageLayout>
+
+<style>
+  .sp-channels {
+    display: grid;
+    gap: var(--wp-space-5);
+  }
+  @media (min-width: 768px) {
+    .sp-channels {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  .sp-channel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-2);
+    padding: clamp(var(--wp-space-6), var(--wp-space-4) + 1.5vw, var(--wp-space-10));
+    min-height: 100%;
+    border-radius: var(--wp-radius-panel);
+    border: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+    background: var(--color-brand-card);
+    transition: border-color var(--dur-base) var(--ease-flow), transform var(--dur-base) var(--ease-flow);
+  }
+  .sp-channel:hover {
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 40%, transparent);
+    transform: translateY(-3px);
+  }
+  .sp-index {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.5rem;
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    letter-spacing: 0.14em;
+    color: var(--color-ink-subtle);
+  }
+  .sp-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    margin-bottom: var(--wp-space-4);
+    border-radius: var(--radius-card, var(--wp-radius-card));
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 25%, transparent);
+    background: color-mix(in srgb, var(--color-brand-cyan) 8%, transparent);
+    color: var(--color-brand-cyan);
+  }
+  .sp-icon svg {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+  .sp-title {
+    font-family: var(--font-display);
+    font-weight: 750;
+    font-size: var(--wp-font-size-h3);
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+  }
+  .sp-sub {
+    font-family: var(--font-mono);
+    font-size: var(--wp-font-size-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-ink-subtle);
+  }
+  .sp-desc {
+    margin-top: var(--wp-space-2);
+    color: var(--color-ink-muted);
+    line-height: 1.65;
+    flex: 1;
+  }
+  .sp-cta {
+    margin-top: var(--wp-space-5);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    font-weight: 700;
+    color: var(--color-brand-cyan);
+  }
+  .sp-cta svg {
+    width: 1rem;
+    height: 1rem;
+    transition: transform var(--dur-base) var(--ease-flow);
+  }
+  .sp-channel:hover .sp-cta svg {
+    transform: translateX(4px);
+  }
+
+  .sp-details {
+    margin-top: clamp(var(--wp-space-12), var(--wp-space-8) + 3vw, 5rem);
+    display: grid;
+    gap: clamp(var(--wp-space-8), var(--wp-space-4) + 3vw, var(--wp-space-16));
+  }
+  @media (min-width: 1024px) {
+    .sp-details {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  .sp-block {
+    padding-top: var(--wp-space-6);
+    border-top: 1px solid color-mix(in srgb, var(--color-brand-cyan) 30%, transparent);
+  }
+  .sp-block-title {
+    font-family: var(--font-display);
+    font-weight: 750;
+    font-size: var(--wp-font-size-h3);
+    letter-spacing: -0.02em;
+    color: var(--color-ink);
+    margin-bottom: var(--wp-space-4);
+  }
+  .sp-list {
+    display: grid;
+    margin-top: var(--wp-space-2);
+  }
+  .sp-list li {
+    padding: var(--wp-space-4) 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+  }
+  .sp-list-title {
+    display: block;
+    font-weight: 600;
+    color: var(--color-ink);
+  }
+  .sp-list-desc {
+    display: block;
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-sm);
+    color: var(--color-ink-subtle);
+    line-height: 1.6;
+  }
+  .sp-free-link:hover .sp-list-title {
+    color: var(--color-brand-cyan);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sp-channel,
+    .sp-cta svg {
+      transition: none;
+    }
+    .sp-channel:hover,
+    .sp-channel:hover .sp-cta svg {
+      transform: none;
+    }
+  }
+</style>

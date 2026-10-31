@@ -1,0 +1,194 @@
+# Flatpak manifest — WhisPaste (primary cross-distro Linux channel, Flathub).
+#
+# Builds the Flatpak from the prebuilt Linux x86_64 release bundle produced by
+# the `build-linux` job in .github/workflows/release.yml
+# (artifact `linux-release` → WhisPaste-<version>-linux-x64.tar.gz, created with
+# `tar -czf … -C build/linux/x64/release/bundle .`). The archive root therefore
+# contains the `whispaste` executable, `lib/` and `data/` directly — we do NOT
+# rebuild Flutter inside the Flatpak sandbox.
+#
+# App-ID = the existing reverse-DNS identifier (linux/CMakeLists.txt
+# APPLICATION_ID, macOS PRODUCT_BUNDLE_IDENTIFIER). Do not invent a new one.
+#
+# Per-release the maintainer updates the `archive` source `url` + `sha256`
+# (see packaging/flatpak/README.md for the runbook) — re-verify against the
+# latest GitHub release before submitting/resubmitting, this is not
+# auto-bumped by release.yml.
+app-id: de.whispaste.app
+# GNOME runtime (not bare freedesktop): it already ships GTK3, libsecret,
+# libnotify, libcurl and the ogg/opus/vorbis codecs the bundle links against.
+# The remaining non-runtime libs (libkeybinder-3.0 + the ayatana-appindicator
+# stack the tray/hotkey plugins need) are built from source as modules below.
+runtime: org.gnome.Platform
+runtime-version: '50'
+sdk: org.gnome.Sdk
+command: whispaste
+separate-locales: false
+
+finish-args:
+  # ── Display / windowing ────────────────────────────────────────────────────
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  # ── Global Hotkey (CONTEXT.md §2.5) ─────────────────────────────────────────
+  # X11 grabs the global hotkey directly; under Wayland the GlobalShortcuts
+  # portal + the keybinder path both need the session bus to talk to the WM/
+  # portal frontend.
+  - --socket=session-bus
+  # ── Clipboard / Paste (CONTEXT.md §2.4) ─────────────────────────────────────
+  # Clipboard inject runs over the Wayland/X11 sockets above; no extra arg is
+  # needed for clipboard write. (Auto-Paste keystroke synthesis is unsupported
+  # on Linux — PasteCapabilityStatus.unsupported, CONTEXT.md §2.7 — so we do not
+  # request input-device injection here.)
+  # ── Audio (Aufnahme — CONTEXT.md §2.2) ──────────────────────────────────────
+  - --socket=pulseaudio
+  # ── Network: self-download of the Sprachdienst (whisper-server) + model ─────
+  # The app fetches the whisper-server manifest from
+  # raw.githubusercontent.com/whispaste/whispaste and downloads the matching
+  # binary + ggml model at first run (lib/services/whisper_server_*.dart).
+  - --share=network
+  # ── Writable data dir for the self-downloaded Sprachdienst + Sprachmodell ───
+  # The downloaded whisper-server binary is chmod +x'd and executed in-sandbox
+  # (local_stt_server.dart). XDG_DATA_HOME is already writable inside the
+  # sandbox; we expose it explicitly so the contract is auditable. No host
+  # filesystem access beyond the app's own per-app data dir is requested.
+  - --filesystem=xdg-data/whispaste:create
+  # System tray / app indicator (libayatana-appindicator) used by the Linux build.
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --talk-name=org.freedesktop.Notifications
+
+modules:
+  # ── Native libs not in the GNOME runtime ───────────────────────────────────
+  # The Linux bundle links the tray (libayatana-appindicator3) and global-hotkey
+  # (libkeybinder-3.0) plugins, neither of which ships in org.gnome.Platform.
+  # Build them (and the ayatana/dbusmenu chain appindicator needs) from source.
+  # Build-time only: libdbusmenu's autotools needs intltool, absent from the Sdk.
+  - name: intltool
+    cleanup:
+      - '*'
+    sources:
+      - type: archive
+        url: https://launchpad.net/intltool/trunk/0.51.0/+download/intltool-0.51.0.tar.gz
+        sha256: 67c74d94196b153b774ab9f89b2fa6c6ba79352407037c8c14d5aeb334e959cd
+
+  - name: libdbusmenu
+    buildsystem: autotools
+    build-options:
+      cflags: -Wno-error -Wno-incompatible-pointer-types
+      cxxflags: -Wno-error
+    config-opts:
+      - --with-gtk=3
+      - --disable-dumper
+      - --disable-static
+      - --disable-tests
+      - --disable-gtk-doc
+      - --disable-vala
+      - --enable-introspection=no
+    cleanup:
+      - /include
+      - /libexec
+      - /lib/pkgconfig
+      - '*.la'
+    sources:
+      - type: archive
+        url: https://launchpad.net/libdbusmenu/16.04/16.04.0/+download/libdbusmenu-16.04.0.tar.gz
+        sha256: b9cc4a2acd74509435892823607d966d424bd9ad5d0b00938f27240a1bfa878a
+      - type: shell
+        commands:
+          # 16.04.0 leaves the HAVE_VALGRIND automake conditional undefined when
+          # valgrind.pc is absent, so config.status aborts. Force it.
+          - "sed -i '/ac_config_files=.*libdbusmenu-glib.Makefile/a HAVE_VALGRIND_TRUE=${HAVE_VALGRIND_TRUE-#}; HAVE_VALGRIND_FALSE=${HAVE_VALGRIND_FALSE-}' configure"
+          # 16.04.0 sources build with -Werror and trip newer glib's G_ADD_PRIVATE
+          # deprecation; drop -Werror so the build completes.
+          - "find . -name Makefile.in -exec sed -i 's/-Werror//g' {} +"
+
+  - name: ayatana-ido
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+    sources:
+      - type: archive
+        url: https://github.com/AyatanaIndicators/ayatana-ido/archive/refs/tags/0.10.4.tar.gz
+        sha256: bd59abd5f1314e411d0d55ce3643e91cef633271f58126be529de5fb71c5ab38
+
+  - name: libayatana-indicator
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - /libexec
+    sources:
+      - type: archive
+        url: https://github.com/AyatanaIndicators/libayatana-indicator/archive/refs/tags/0.9.4.tar.gz
+        sha256: a18d3c682e29afd77db24366f8475b26bda22b0e16ff569a2ec71cd6eb4eac95
+
+  - name: libayatana-appindicator
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DENABLE_BINDINGS_MONO=NO
+      - -DENABLE_BINDINGS_VALA=NO
+      - -DENABLE_GTKDOC=NO
+      - -DBUILD_EXAMPLES=NO
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+    sources:
+      - type: archive
+        url: https://github.com/AyatanaIndicators/libayatana-appindicator/archive/refs/tags/0.5.93.tar.gz
+        sha256: cbefed7a918a227bf71286246e237fcd3a9c8499b3eaac4897811a869409edf0
+
+  - name: keybinder-3.0
+    buildsystem: autotools
+    config-opts:
+      - --disable-gtk-doc
+      - --disable-introspection
+    cleanup:
+      - /include
+      - /lib/pkgconfig
+      - '*.la'
+    sources:
+      - type: archive
+        url: https://github.com/kupferlauncher/keybinder/releases/download/keybinder-3.0-v0.3.2/keybinder-3.0-0.3.2.tar.gz
+        sha256: e6e3de4e1f3b201814a956ab8f16dfc8a262db1937ff1eee4d855365398c6020
+
+  - name: whispaste
+    buildsystem: simple
+    build-commands:
+      # Lay the prebuilt bundle out under /app and expose the executable on PATH.
+      - install -d /app/whispaste
+      - cp -r ./* /app/whispaste/
+      - install -d /app/bin
+      - ln -s /app/whispaste/whispaste /app/bin/whispaste
+      # Desktop entry + AppStream metainfo + icon (Flathub requirements).
+      - install -Dm644 de.whispaste.app.desktop
+        /app/share/applications/de.whispaste.app.desktop
+      - install -Dm644 de.whispaste.app.metainfo.xml
+        /app/share/metainfo/de.whispaste.app.metainfo.xml
+      - install -Dm644 de.whispaste.app.png
+        /app/share/icons/hicolor/512x512/apps/de.whispaste.app.png
+    sources:
+      # ── Prebuilt Linux x86_64 release bundle from release.yml `build-linux` ──
+      # Per-release: bump `url` to the tag's asset and `sha256` to its digest
+      # (runbook step in README.md).
+      - type: archive
+        url: https://github.com/whispaste/whispaste/releases/download/v1.2.65/WhisPaste-1.2.65-linux-x64.tar.gz
+        sha256: 209f13fe0d4ff74e2fca0ba7cadaf4dbcd6ed9d95d7f2915531a3916b64c7454
+        # The tarball root IS the Flutter bundle (no leading bundle/ dir).
+        strip-components: 0
+      - type: file
+        path: de.whispaste.app.desktop
+      - type: file
+        path: de.whispaste.app.metainfo.xml
+      - type: file
+        # Bundled app icon, renamed to the App-ID for Flathub icon-naming rules.
+        # 512px derivative — the master app_icon.png is 1024x1024 and does not
+        # match the hicolor 512x512 slot.
+        path: ../../assets/icons/app_icon_512.png
+        dest-filename: de.whispaste.app.png

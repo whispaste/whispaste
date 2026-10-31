@@ -1,0 +1,66 @@
+---
+import LegalPage from "../../components/pages/LegalPage.astro";
+import { t, localePath } from "../../scripts/i18n.ts";
+
+const lang = 'en' as const;
+const breadcrumbItems = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "breadcrumb.impressum"), item: localePath(lang, "impressum") },
+];
+---
+
+<LegalPage
+  lang={lang}
+  metaTitle={t(lang, "meta.title.impressum")}
+  metaDescription={t(lang, "meta.description.impressum")}
+  title="Legal Notice (Impressum)"
+  crumbs={breadcrumbItems}
+  tocLabel="Contents"
+  testid="legal-imprint"
+>
+    <div id="content-en">
+      <section>
+        <h2>Information according to § 5 DDG (German Digital Services Act)</h2>
+        <p>
+          <strong>org Gräfendorf, GbR</strong><br>
+          Pappelweg 27<br>
+          39576 Stendal<br>
+          Germany
+        </p>
+      </section>
+
+      <section>
+        <h2>Contact</h2>
+        <p>
+          Email: contact@whispaste.de
+        </p>
+      </section>
+
+      <section>
+        <h2>Responsible for content according to § 18 (2) MStV</h2>
+        <p>
+          Silvio Lindstedt<br>
+          Address as above
+        </p>
+      </section>
+
+      <section>
+        <h2>Disclaimer</h2>
+        <h3>Liability for content</h3>
+        <p>
+          The contents of this website have been created with the utmost care. However, no guarantee can be given for the accuracy, completeness, or timeliness of the content. As a service provider, I am responsible for my own content on these pages in accordance with general laws pursuant to § 7 (1) DDG. However, pursuant to §§ 8–10 DDG, I am not obligated to monitor transmitted or stored third-party information.
+        </p>
+        <h3>Liability for links</h3>
+        <p>
+          This website contains links to external third-party websites over whose content I have no influence. The respective provider or operator is always responsible for the content of the linked pages. If I become aware of any legal violations, I will remove such links immediately.
+        </p>
+      </section>
+
+      <section>
+        <h2>Copyright</h2>
+        <p>
+          WhisPaste is open-source software, licensed under the <a href="https://github.com/whispaste/whispaste/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>. The source code is publicly available on <a href="https://github.com/whispaste/whispaste" target="_blank" rel="noopener">GitHub</a>.
+        </p>
+      </section>
+    </div>
+</LegalPage>

@@ -1,0 +1,1350 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' show NumberFormat;
+import 'package:lucide_icons_flutter/lucide_icons.dart';
+
+import '../../core/data/database.dart';
+import '../../core/l10n/generated/app_localizations.dart';
+import '../../core/recording/recording_helpers.dart' show displayNameForModel;
+import '../../core/theme/colors.dart';
+import '../../core/theme/tokens.dart';
+import '../../widgets/dialog.dart';
+import '../../widgets/empty_state.dart';
+import '../../widgets/page_shell.dart';
+import '../../widgets/section.dart';
+import '../../widgets/toast.dart';
+import '../../widgets/wp_button.dart';
+import '../../widgets/wp_filter_chip.dart';
+import '../../core/data/analytics_provider.dart';
+
+// ---------------------------------------------------------------------------
+// Helper data classes (kept local — only used by widgets below)
+// ---------------------------------------------------------------------------
+
+class _ModelUsage {
+  const _ModelUsage(this.id, this.name, this.count, this.fraction);
+
+  /// The raw model id, kept alongside the display name because it — not the
+  /// translated label — is what [categorySlotForModel] keys on. A localized
+  /// name would hand the same model a different hue per language.
+  final String id;
+  final String name;
+  final int count;
+  final double fraction;
+}
+
+class _DurationBucket {
+  const _DurationBucket(this.label, this.count, this.fraction);
+  final String label;
+  final int count;
+  final double fraction;
+}
+
+/// Maps a raw model ID (e.g. "whisper-small") to a user-facing label
+/// using the tier name as the primary label and the Whisper model name
+/// in parentheses for recognition.
+/// Delegates to the shared [displayNameForModel] helper.
+String _displayNameForModel(String modelId, L10n l10n) =>
+    displayNameForModel(modelId, l10n);
+
+// ---------------------------------------------------------------------------
+// Analytics Dashboard Page
+// ---------------------------------------------------------------------------
+
+/// Premium analytics dashboard with hero stats, charts, and cost overview.
+class AnalyticsPage extends ConsumerWidget {
+  const AnalyticsPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncData = ref.watch(analyticsProvider);
+    final l10n = L10n.of(context);
+
+    return asyncData.when(
+      loading: () => const _AnalyticsSkeleton(),
+      error: (e, _) => WpEmptyState(
+        icon: LucideIcons.triangleAlert,
+        title: l10n.errorGeneric,
+        actionLabel: l10n.actionRetry,
+        onAction: () => ref.invalidate(analyticsProvider),
+      ),
+      data: (data) {
+        if (data.isEmpty) {
+          return WpEmptyState(
+            icon: LucideIcons.chartNoAxesColumn,
+            title: l10n.analyticsEmptyTitle,
+            hint: l10n.analyticsEmptySubtitle,
+          );
+        }
+        return _AnalyticsDashboard(data: data);
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Loading skeleton — page-shaped placeholder (4 stat cards + chart area)
+// ---------------------------------------------------------------------------
+
+class _AnalyticsSkeleton extends StatelessWidget {
+  const _AnalyticsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    const boxColor = WpColors.borderSubtle;
+
+    return WpPageShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 4 hero stat card placeholders
+          Row(
+            children: List.generate(4, (i) {
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: i < 3 ? WpSpacing.sm : 0),
+                  child: Container(
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: boxColor,
+                      borderRadius: WpRadius.borderMd,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: WpSpacing.xxl),
+          // Chart area placeholder
+          Container(
+            height: 180,
+            decoration: BoxDecoration(
+              color: boxColor,
+              borderRadius: WpRadius.borderMd,
+            ),
+          ),
+          const SizedBox(height: WpSpacing.xxl),
+          // Two side-by-side panel placeholders
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: boxColor,
+                    borderRadius: WpRadius.borderMd,
+                  ),
+                ),
+              ),
+              const SizedBox(width: WpSpacing.sm),
+              Expanded(
+                child: Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: boxColor,
+                    borderRadius: WpRadius.borderMd,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard body
+// ---------------------------------------------------------------------------
+
+class _AnalyticsDashboard extends StatelessWidget {
+  const _AnalyticsDashboard({required this.data});
+
+  final AnalyticsData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+
+    return WpPageShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Row 1: Hero stat cards ──────────────────────────────
+          //
+          // The period selector rides in the section header, not at the page
+          // foot where it used to sit: it is the caption for every number
+          // below it, and a caption you only meet after reading the whole
+          // dashboard has already failed. On the header line it is the first
+          // thing in reading order after the section title.
+          WpSection(
+            title: l10n.analyticsOverview,
+            subtitle: l10n.analyticsOverviewSubtitle,
+            padding: EdgeInsets.zero,
+            trailing: const _PeriodSelector(),
+            child: _HeroStatsRow(data: data),
+          ),
+
+          const SizedBox(height: WpSpacing.xxl),
+
+          // ── Row 2: Activity chart + Model usage ────────────────
+          WpSection(
+            title: l10n.analyticsActivity,
+            padding: EdgeInsets.zero,
+            child: WpTwoPanel(
+              left: _AnalyticsPanelCard(
+                child: _ActivityChartPanel(values: data.weeklyActivity),
+              ),
+              right: _AnalyticsPanelCard(
+                child: _ModelUsagePanel(
+                  models: data.modelUsage
+                      .map(
+                        (m) => _ModelUsage(
+                          m.model,
+                          _displayNameForModel(m.model, l10n),
+                          m.count,
+                          m.fraction,
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: WpSpacing.xxl),
+
+          // ── Row 3: Duration distribution + Cost overview ───────
+          WpSection(
+            title: l10n.analyticsInsights,
+            padding: EdgeInsets.zero,
+            child: WpTwoPanel(
+              left: _AnalyticsPanelCard(
+                child: _DurationDistPanel(
+                  buckets: _buildBuckets(l10n, data.durationBuckets),
+                ),
+              ),
+              right: _AnalyticsPanelCard(
+                child: _CostPanel(
+                  localSavingsUsd: data.localSavingsUsd,
+                  cloudCostUsd: data.cloudCostUsd,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: WpSpacing.xxl),
+
+          // ── Row 4: Reset ───────────────────────────────────────
+          const _ResetRow(),
+
+          const SizedBox(height: WpSpacing.xl),
+        ],
+      ),
+    );
+  }
+
+  List<_DurationBucket> _buildBuckets(L10n l10n, List<int> counts) {
+    final total = counts.fold<int>(0, (s, c) => s + c);
+    double frac(int c) => total > 0 ? c / total : 0.0;
+    return [
+      _DurationBucket(l10n.analyticsDurationLt15s, counts[0], frac(counts[0])),
+      _DurationBucket(
+        l10n.analyticsDuration15To30s,
+        counts[1],
+        frac(counts[1]),
+      ),
+      _DurationBucket(
+        l10n.analyticsDuration30To60s,
+        counts[2],
+        frac(counts[2]),
+      ),
+      _DurationBucket(l10n.analyticsDuration1To3m, counts[3], frac(counts[3])),
+      _DurationBucket(l10n.analyticsDurationGt3m, counts[4], frac(counts[4])),
+    ];
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+String _commaFormat(String localeName, int value) {
+  return NumberFormat.decimalPattern(localeName).format(value);
+}
+
+String _durationFormat(L10n l10n, int totalMinutes) {
+  final h = totalMinutes ~/ 60;
+  final m = totalMinutes % 60;
+  return l10n.analyticsDurationHoursMinutes(h, m);
+}
+
+/// Formats a hotkey→text latency in whole milliseconds as a plain-language
+/// seconds value (e.g. "1.8s") — never raw milliseconds.
+String _latencySecondsFormat(String localeName, int latencyMs) {
+  final seconds = latencyMs / 1000;
+  return '${NumberFormat('0.0', localeName).format(seconds)}s';
+}
+
+List<String> _activityDayLabels(L10n l10n) => [
+  l10n.analyticsDayMon,
+  l10n.analyticsDayTue,
+  l10n.analyticsDayWed,
+  l10n.analyticsDayThu,
+  l10n.analyticsDayFri,
+  l10n.analyticsDaySat,
+  l10n.analyticsDaySun,
+];
+
+// ---------------------------------------------------------------------------
+// Panel header (renders inside a panel card)
+// ---------------------------------------------------------------------------
+
+/// Header inside a panel card — icon + title.
+///
+/// It used to hang a 1.5 × 40 px accent gradient under the title, kept as a
+/// deliberate exception on the argument that the underline was "the only thing
+/// separating two header ranks" here, whereas on About the `_AboutCard` border
+/// already framed the group and the same underline would have been decoration
+/// on top of decoration. Ticket 14 gives these panels that border, so the
+/// exception's own condition no longer holds: [_AnalyticsPanelCard] now says
+/// where a panel begins and ends, and the underline went back to being the
+/// second mark for one boundary. The header keeps its accent *icon*, which is
+/// what actually distinguishes a panel head from the [WpSection] title above
+/// it, at no cost in paint.
+class _PanelHeader extends StatelessWidget {
+  const _PanelHeader({required this.icon, required this.title, this.trailing});
+
+  final IconData icon;
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = WpColors.accent;
+    return Row(
+      children: [
+        Icon(icon, size: WpIconSize.sm, color: accent),
+        const SizedBox(width: WpSpacing.xs),
+        Expanded(
+          child: Text(
+            title,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: WpTypography.body,
+              fontWeight: FontWeight.w600,
+              color: WpColors.textPrimary,
+            ),
+          ),
+        ),
+        if (trailing != null) ...[
+          const SizedBox(width: WpSpacing.xs),
+          trailing!,
+        ],
+      ],
+    );
+  }
+}
+
+/// The card the four analytics panels stand on.
+///
+/// Same recipe as `_AboutCard` (`about_page.dart`), and for the same reason:
+/// translucent [WpColors.cardFill] because this card sits inside the main
+/// content panel rather than on its own ground, a [WpColors.cardEdgeHighlight]
+/// rim, and no shadow — depth in this app comes from the fill step, not from a
+/// drop shadow (the Depth-Source Rule, `lib/DESIGN.md`).
+///
+/// Before Ticket 14 the panels painted no material at all: four content blocks
+/// floating on the page surface, separated only by a 16 px gap and each one's
+/// accent underline. Two panels side by side in a [WpTwoPanel] had nothing
+/// between them but that gap, so a reader scanning across the row could not
+/// see where the activity chart stopped and the model list started.
+class _AnalyticsPanelCard extends StatelessWidget {
+  const _AnalyticsPanelCard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(WpSpacing.lg),
+      decoration: BoxDecoration(
+        color: WpColors.cardFill,
+        borderRadius: WpRadius.borderLg,
+        border: Border.all(color: WpColors.cardEdgeHighlight),
+      ),
+      child: child,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Row 1 — Hero Stats
+// ---------------------------------------------------------------------------
+
+class _HeroStatsRow extends StatelessWidget {
+  const _HeroStatsRow({required this.data});
+
+  final AnalyticsData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    final localeName = Localizations.localeOf(context).toString();
+    String formatCount(int value) => _commaFormat(localeName, value);
+    String formatDuration(int totalMinutes) =>
+        _durationFormat(l10n, totalMinutes);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 520;
+        final pills = [
+          _HeroPill(
+            isLead: true,
+            icon: LucideIcons.mic,
+            rawValue: data.totalRecordings,
+            formatter: formatCount,
+            label: l10n.analyticsTotalRecordings,
+          ),
+          _HeroPill(
+            icon: LucideIcons.clock,
+            rawValue: data.totalDurationMinutes,
+            formatter: formatDuration,
+            label: l10n.analyticsTotalDuration,
+          ),
+          _HeroPill(
+            icon: LucideIcons.type,
+            rawValue: data.totalWords,
+            formatter: formatCount,
+            label: l10n.analyticsWordsDictated,
+          ),
+          _HeroPill(
+            icon: LucideIcons.zap,
+            rawValue: data.timeSavedMinutes,
+            formatter: formatDuration,
+            label: l10n.analyticsTimeSaved,
+          ),
+          if (data.averageHotkeyLatencyMs != null)
+            _HeroPill(
+              icon: LucideIcons.gauge,
+              rawValue: data.averageHotkeyLatencyMs!.round(),
+              formatter: (ms) => _latencySecondsFormat(localeName, ms),
+              label: l10n.analyticsAvgLatency,
+            ),
+        ];
+
+        if (narrow) {
+          return Wrap(
+            spacing: WpSpacing.sm,
+            runSpacing: WpSpacing.sm,
+            children: pills
+                .map(
+                  (c) => SizedBox(
+                    width: (constraints.maxWidth - WpSpacing.sm) / 2,
+                    child: c,
+                  ),
+                )
+                .toList(),
+          );
+        }
+        return Row(
+          children: pills
+              .map(
+                (c) => Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      right: c == pills.last ? 0 : WpSpacing.sm,
+                    ),
+                    child: c,
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+/// Pill-shaped stat block on the app's card material, with a number that counts
+/// up once on entry. Deliberately not interactive — the doc used to promise a
+/// "hover interaction" that the widget no longer has, and a stat card that
+/// lights up under the pointer would imply a click target this app does not
+/// offer here.
+///
+/// Every pill used to carry a 2 px `accentWarmGradient` strip along its top
+/// edge (ticket 32, finding B4). Two things were wrong with it. It was the
+/// brand's loudest gradient, the one the app otherwise spends only where it
+/// marks a real selection, sitting on a tile that cannot be selected or even
+/// clicked — the same broken promise the removed hover highlight made, in
+/// paint instead of motion. And it was on *all* of them, so the row was four
+/// (sometimes five) identically weighted tiles: nothing in it answered "what
+/// is this dashboard about", which is the job of the first thing a reader
+/// meets on a page.
+///
+/// Rank replaces the strip. The row's [isLead] tile — the count of the thing
+/// the whole app exists to do — sits on the elevated rung of the card material
+/// and keeps the accent icon; the rest sit on the base rung with a muted icon
+/// and read as the supporting detail they are. Geometry, padding and type are
+/// untouched, so the per-locale width measurements in `analytics_page_test.dart`
+/// still describe the tile they were taken from: this is a difference in
+/// weight, not in size, which is the only kind a row of equally sized cells can
+/// carry without one of them jumping out of the grid.
+class _HeroPill extends StatefulWidget {
+  const _HeroPill({
+    required this.icon,
+    required this.rawValue,
+    required this.formatter,
+    required this.label,
+    this.isLead = false,
+  });
+
+  final IconData icon;
+  final int rawValue;
+  final String Function(int) formatter;
+  final String label;
+
+  /// Whether this is the row's lead statistic. Exactly one pill sets it.
+  final bool isLead;
+
+  @override
+  State<_HeroPill> createState() => _HeroPillState();
+}
+
+class _HeroPillState extends State<_HeroPill>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _counter;
+  late final CurvedAnimation _curve;
+  bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // `dramatic` (500 ms) is the app's ceiling for a one-shot transition, and
+    // this count-up used to run 1200 ms — more than twice it. Every other
+    // duration above the ceiling in this codebase is either a timer or a
+    // *periodic* pulse (waveform, recording bar, overlay dot), where a long
+    // period is the point; among one-shot entrance animations these two on
+    // this screen were the only ones out of band. It matters more here than
+    // it looks: while the count-up runs, the card does not show the number
+    // smaller, it shows a *different* number — a total of 347 reads 12, then
+    // 98, then 210. That is decoration instead of the information rather than
+    // on top of it, so the time spent unreadable is the thing worth cutting.
+    _counter = AnimationController(vsync: this, duration: WpMotion.dramatic);
+    _curve = CurvedAnimation(parent: _counter, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // `forward()` bakes in `duration` at call time, so the reduced-motion
+    // duration must be set before the first (only) forward() call, not after.
+    _counter.duration = WpMotion.durationFor(context, WpMotion.dramatic);
+    if (!_started) {
+      _started = true;
+      _counter.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    _counter.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const textSecondary = WpColors.textSecondary;
+
+    // One stat, one node. The number and its caption were two unrelated
+    // fragments in the semantics tree, so the value arrived without ever
+    // saying what it counted ("1.234" … "Wörter").
+    //
+    // The hover highlight is gone: everywhere else in this app a surface that
+    // lights up under the pointer is a surface you can click, and this pill
+    // has never been tappable. It promised an interaction that does not exist.
+    return MergeSemantics(
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: WpSpacing.md,
+          vertical: WpSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: widget.isLead ? WpColors.cardFillElevated : WpColors.cardFill,
+          borderRadius: WpRadius.borderMd,
+          border: Border.all(color: WpColors.cardEdgeHighlight),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon — accent on the lead statistic, muted on the rest.
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: Icon(
+                widget.icon,
+                size: WpIconSize.sm,
+                color: widget.isLead ? WpColors.accent : WpColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: WpSpacing.sm),
+            // Animated number — counts up, but only for the eye. The node
+            // states the final value from the first frame; announcing every
+            // intermediate step would have a screen reader read the same
+            // statistic dozens of times on its way to the real one.
+            //
+            // `headlineLarge` (22/w700), the scale's top rung, against an 11 px
+            // caption below: 2:1, where the previous `headlineMedium` made 16
+            // against 11 and left the number and its label reading as one
+            // paragraph. This is the page's single largest number and the type
+            // scale already had the rung for it.
+            //
+            // The `FittedBox` is what pays for that rung at the narrow end.
+            // Five pills across the app's 800 px minimum window leave each one
+            // about 110 px of inner width, and a seven-digit total needs 117 px
+            // at 22 px in German at 1.15× text — 124 px in Hebrew at plain 1.0×.
+            // Without it the number either wraps (and one pill in the row
+            // stands taller than its four neighbours) or, with `maxLines: 1`,
+            // is silently *clipped* — a truncated statistic that still looks
+            // like a statistic. Scaling down is the only one of the three that
+            // stays honest. It costs nothing in the ordinary case: the box only
+            // engages when the string would not have fitted anyway, so a
+            // typical dashboard renders every value at the full 22 px.
+            //
+            // Measured per locale and text scale in `analytics_page_test.dart`.
+            Semantics(
+              label: widget.formatter(widget.rawValue),
+              excludeSemantics: true,
+              child: AnimatedBuilder(
+                animation: _curve,
+                builder: (context, _) {
+                  final current = (widget.rawValue * _curve.value).round();
+                  return FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Text(
+                      widget.formatter(current),
+                      maxLines: 1,
+                      style: Theme.of(context).textTheme.headlineLarge,
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 2),
+            // Label
+            Text(
+              widget.label,
+              style: const TextStyle(
+                fontSize: WpTypography.caption,
+                color: textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Row 2 — Activity chart (custom painter)
+// ---------------------------------------------------------------------------
+
+class _ActivityChartPanel extends StatefulWidget {
+  const _ActivityChartPanel({required this.values});
+
+  final List<double> values;
+
+  @override
+  State<_ActivityChartPanel> createState() => _ActivityChartPanelState();
+}
+
+class _ActivityChartPanelState extends State<_ActivityChartPanel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _anim;
+  late final CurvedAnimation _curve;
+  bool _started = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Same ceiling as the hero pills above (see `_HeroPillState`). The bars
+    // are less harmful than the count-up while they grow — a rising bar is a
+    // readable convention and its shape *is* the information — but the two
+    // animations start together on one screen, so they should also end
+    // together instead of the chart finishing 400 ms before the numbers.
+    _anim = AnimationController(vsync: this, duration: WpMotion.dramatic);
+    _curve = CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // `forward()` bakes in `duration` at call time, so the reduced-motion
+    // duration must be set before the first (only) forward() call, not after.
+    _anim.duration = WpMotion.durationFor(context, WpMotion.dramatic);
+    if (!_started) {
+      _started = true;
+      _anim.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _curve.dispose();
+    _anim.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    const textMuted = WpColors.textMuted;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.chartNoAxesColumn,
+          title: l10n.analyticsRecordingActivity,
+          trailing: Text(
+            l10n.analyticsLast7Days,
+            style: const TextStyle(
+              fontSize: WpTypography.caption,
+              color: textMuted,
+            ),
+          ),
+        ),
+        const SizedBox(height: WpSpacing.md),
+        SizedBox(
+          height: 140,
+          child: AnimatedBuilder(
+            animation: _curve,
+            builder: (context, _) => CustomPaint(
+              size: Size.infinite,
+              painter: _BarChartPainter(
+                values: widget.values,
+                labels: _activityDayLabels(l10n),
+                barColor: WpColors.accent,
+                // Same accent token, faded — was a hand-picked hex pair that
+                // had drifted from the real accent (#3CCBE6 / #06678A).
+                barColorEnd: (WpColors.accent).withValues(alpha: 0.65),
+                gridColor: WpColors.borderSubtle,
+                labelColor: WpColors.textMuted,
+                // CustomPainter TextPainter bypasses widget font inheritance.
+                // Pass fontFamily explicitly so labels render with the correct
+                // typeface in tests and on all platforms.
+                labelFontFamily: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.fontFamily,
+                animationValue: _curve.value,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BarChartPainter extends CustomPainter {
+  _BarChartPainter({
+    required this.values,
+    required this.labels,
+    required this.barColor,
+    required this.barColorEnd,
+    required this.gridColor,
+    required this.labelColor,
+    this.labelFontFamily,
+    this.animationValue = 1.0,
+  });
+
+  final List<double> values;
+  final List<String> labels;
+  final Color barColor;
+  final Color barColorEnd;
+  final Color gridColor;
+  final Color labelColor;
+  final String? labelFontFamily;
+  final double animationValue;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+    final maxVal = values.reduce(math.max);
+    if (maxVal == 0) return;
+
+    const labelHeight = 20.0;
+    const topPad = 4.0;
+    final chartH = size.height - labelHeight - topPad;
+    final barCount = values.length;
+    final barWidth = (size.width / barCount) * 0.50;
+    final gap = (size.width - barWidth * barCount) / (barCount + 1);
+
+    // Grid lines
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 0.5;
+    for (var i = 0; i <= 3; i++) {
+      final y = topPad + chartH * (i / 3);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // Bars
+    for (var i = 0; i < barCount; i++) {
+      final fraction = (values[i] / maxVal) * animationValue;
+      final barH = chartH * fraction;
+      final x = gap + i * (barWidth + gap);
+      final y = topPad + chartH - barH;
+      final radius = barWidth / 2;
+
+      final rect = RRect.fromRectAndCorners(
+        Rect.fromLTWH(x, y, barWidth, barH),
+        topLeft: Radius.circular(radius),
+        topRight: Radius.circular(radius),
+      );
+
+      final paint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [barColor, barColorEnd],
+        ).createShader(Rect.fromLTWH(x, y, barWidth, barH));
+
+      canvas.drawRRect(rect, paint);
+
+      // Day label
+      final tp = TextPainter(
+        text: TextSpan(
+          text: labels[i],
+          style: TextStyle(
+            fontSize: WpTypography.micro,
+            color: labelColor,
+            fontFamily: labelFontFamily,
+          ),
+        ),
+        // Intentionally LTR: numeric axis labels (dates, counts) are always
+        // left-to-right regardless of app locale, including RTL languages
+        // like Hebrew.  Do NOT change this to TextDirection.rtl.
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(
+        canvas,
+        Offset(x + (barWidth - tp.width) / 2, topPad + chartH + 5),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BarChartPainter old) =>
+      old.values != values ||
+      old.barColor != barColor ||
+      old.barColorEnd != barColorEnd ||
+      old.gridColor != gridColor ||
+      old.labelColor != labelColor ||
+      old.labelFontFamily != labelFontFamily ||
+      old.animationValue != animationValue;
+}
+
+// ---------------------------------------------------------------------------
+// Row 2 — Model usage
+// ---------------------------------------------------------------------------
+
+class _ModelUsagePanel extends StatelessWidget {
+  const _ModelUsagePanel({required this.models});
+
+  final List<_ModelUsage> models;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(icon: LucideIcons.brain, title: l10n.analyticsModelUsage),
+        const SizedBox(height: WpSpacing.md),
+        if (models.isEmpty)
+          const Text(
+            '—',
+            style: TextStyle(
+              fontSize: WpTypography.small,
+              color: WpColors.textMuted,
+            ),
+          )
+        else
+          ...models.map((m) => _ModelUsageBar(model: m)),
+      ],
+    );
+  }
+}
+
+/// One model's share of the recordings — name, percentage, count, bar.
+///
+/// The bar is a **flat category color**, not the accent gradient it used to be.
+/// Models are a *nominal* scale: three of them wearing one cyan ramp said only
+/// "this is a bar", while three category slots say *which* model each bar is —
+/// the same distinction the history avatars now make. The gradient stays out on
+/// purpose; it is the brand's own moment and spending it on a list of three
+/// bars is what made every panel on this page look equally important.
+///
+/// Which hue a model gets is decided in `colors.dart` and keyed on the raw id,
+/// never picked here — see [categorySlotForModel]. The percentage stays on the
+/// accent: it is the value being read, and letting the category hue mark it
+/// would turn a slot into an importance marker (*The Two Accent, Two Jobs Rule*).
+class _ModelUsageBar extends StatelessWidget {
+  const _ModelUsageBar({required this.model});
+
+  final _ModelUsage model;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = WpColors.accent;
+    const trackColor = WpColors.surfaceVariant;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: WpSpacing.sm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  model.name,
+                  style: const TextStyle(
+                    fontSize: WpTypography.small,
+                    color: textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Text(
+                '${(model.fraction * 100).round()}%',
+                style: const TextStyle(
+                  fontSize: WpTypography.small,
+                  fontWeight: FontWeight.w700,
+                  color: accent,
+                ),
+              ),
+              const SizedBox(width: WpSpacing.xs),
+              Text(
+                '(${model.count})',
+                style: const TextStyle(
+                  fontSize: WpTypography.caption,
+                  color: textMuted,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: WpRadius.borderFull,
+            child: SizedBox(
+              height: 6,
+              child: Stack(
+                children: [
+                  const ColoredBox(color: trackColor),
+                  FractionallySizedBox(
+                    widthFactor: model.fraction,
+                    child: ColoredBox(
+                      color: categorySlotForModel(model.id).color(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Row 3 — Duration distribution
+// ---------------------------------------------------------------------------
+
+/// Source slot of the duration ramp — the one hue this ordinal scale is built
+/// from.
+///
+/// Duration buckets are *ordered*, so they get a ramp rather than eight
+/// unordered hues (*The Categorical vs. Sequential Rule*). Three things picked
+/// `iris` out of the eight:
+///
+/// * **It is not the brand accent.** Ticket 11 answered ② with (b): cyan stays
+///   the accent's alone, so no ordinal ramp may be built from it — a column of
+///   graded cyans standing next to a live control reads as that control
+///   disabled. This is worth saying precisely, because the tickets call the
+///   forbidden hue "slot 0": that is the *pre-Ticket-12* palette's name for
+///   Harbor Cyan `#2A9CB2`, not `WpCategorySlot.values[0]`. Cyan is not a
+///   category slot at all any more — Ticket 12 excluded the whole 165–215°
+///   band — so taking the ramp's source from [WpCategorySlot] is what makes the
+///   exclusion structural instead of a promise.
+/// * **The hue carries no verdict.** A duration is a quantity, not a grade.
+///   Green (`fern`, `moss`) borders the success band and would praise long
+///   recordings; `brass` borders warning amber, `plum` and `ember` border error
+///   red. Violet is the one family in the palette that means nothing yet, which
+///   is exactly what a neutral quantity needs — and it is the traditional
+///   single-hue sequential family for the same reason.
+/// * **No model wears it.** `_modelSlots` in `colors.dart` deliberately skips
+///   `iris`, so the model bars one panel up never repeat this hue with a
+///   different meaning.
+const _durationRampSlot = WpCategorySlot.iris;
+
+class _DurationDistPanel extends StatelessWidget {
+  const _DurationDistPanel({required this.buckets});
+
+  final List<_DurationBucket> buckets;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+    // Resolved once here, not per bar: the ramp is one scale, and a bar that
+    // asked for its own rung could not tell how many rungs there are.
+    final ramp = _durationRampSlot.ramp(buckets.length);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.timer,
+          title: l10n.analyticsDurationDistribution,
+        ),
+        const SizedBox(height: WpSpacing.md),
+        for (final (i, b) in buckets.indexed)
+          _DurationBar(bucket: b, barColor: ramp[i]),
+      ],
+    );
+  }
+}
+
+/// One duration bucket — label, bar, count.
+///
+/// [barColor] is handed down rather than chosen here: it is one rung of the
+/// panel's ramp, and a rung only means something next to the others.
+class _DurationBar extends StatelessWidget {
+  const _DurationBar({required this.bucket, required this.barColor});
+
+  final _DurationBucket bucket;
+  final Color barColor;
+
+  @override
+  Widget build(BuildContext context) {
+    // The track is `surfaceVariant`, the same ground the model bars run on. It
+    // used to be `textMuted` at a hand-rolled alpha, which *The Tint Ladder
+    // Rule* forbids — and an alpha over an unknown ground is also a track no
+    // ramp rung can be measured against.
+    const trackColor = WpColors.surfaceVariant;
+    const textPrimary = WpColors.textPrimary;
+    const textMuted = WpColors.textMuted;
+
+    // The two text columns are fixed-width on purpose — that is what keeps
+    // the bars starting and ending on one line down the whole panel. But a
+    // width in raw pixels stops being enough the moment the system font grows:
+    // at an accessibility text size "1-3 Min" wrapped inside its 52 px box
+    // while the bar next to it stayed put. Scaling the box with the text keeps
+    // the column *and* the legibility.
+    final textScaler = MediaQuery.textScalerOf(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: WpSpacing.xs),
+      child: Row(
+        children: [
+          SizedBox(
+            width: textScaler.scale(52),
+            child: Text(
+              bucket.label,
+              style: const TextStyle(
+                fontSize: WpTypography.caption,
+                color: textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: WpSpacing.xs),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: WpRadius.borderFull,
+              child: SizedBox(
+                height: 8,
+                child: Stack(
+                  children: [
+                    const ColoredBox(color: trackColor),
+                    FractionallySizedBox(
+                      widthFactor: bucket.fraction,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: barColor,
+                          borderRadius: WpRadius.borderFull,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: WpSpacing.xs),
+          SizedBox(
+            width: textScaler.scale(32),
+            child: Text(
+              '${bucket.count}',
+              style: const TextStyle(
+                fontSize: WpTypography.caption,
+                color: textMuted,
+              ),
+              textAlign: TextAlign.end,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Row 3 — Cost & Savings
+// ---------------------------------------------------------------------------
+
+class _CostPanel extends StatelessWidget {
+  const _CostPanel({required this.localSavingsUsd, required this.cloudCostUsd});
+
+  final double localSavingsUsd;
+  final double cloudCostUsd;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+
+    final savingsStr = '\$${localSavingsUsd.toStringAsFixed(2)}';
+    final costStr = '\$${cloudCostUsd.toStringAsFixed(2)}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _PanelHeader(
+          icon: LucideIcons.piggyBank,
+          title: l10n.analyticsCostSavings,
+        ),
+        const SizedBox(height: WpSpacing.lg),
+
+        // Local savings
+        _CostRow(
+          icon: LucideIcons.shieldCheck,
+          title: l10n.analyticsLocalSavings,
+          value: l10n.analyticsSavedAmount(savingsStr),
+        ),
+        const SizedBox(height: WpSpacing.sm),
+
+        // Cloud cost
+        _CostRow(
+          icon: LucideIcons.cloud,
+          title: l10n.analyticsCloudCost,
+          value: l10n.analyticsSpentAmount(costStr),
+        ),
+      ],
+    );
+  }
+}
+
+/// One line of the cost panel: an icon, what the number counts, the number.
+///
+/// Both rows used to be colour-coded — savings in `success` green, cloud spend
+/// in `warning` amber — and neither is a status. These are running totals over
+/// the whole selected period: money that was never spent because dictation ran
+/// locally, and money that was. Green here says "that just worked" about a
+/// figure that has been true for weeks (the Earned-Green Rule, `lib/DESIGN.md`),
+/// and amber says "look out" about a bill the user chose to run up. Ticket 32,
+/// finding B5. The row therefore takes no colour parameters at all any more:
+/// there is no per-row decision left to make, which is the point — the label
+/// says which number this is, and both numbers read in the same voice.
+class _CostRow extends StatelessWidget {
+  const _CostRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    const textPrimary = WpColors.textPrimary;
+
+    return Row(
+      children: [
+        Icon(icon, size: WpIconSize.sm, color: WpColors.textMuted),
+        const SizedBox(width: WpSpacing.xs),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: WpTypography.small,
+              color: textPrimary,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: WpTypography.body,
+            fontWeight: FontWeight.w700,
+            color: textPrimary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Overview header — period selector
+// ---------------------------------------------------------------------------
+
+/// The chip row that decides which period every number on this page describes.
+///
+/// Lives in the Overview section's `trailing` slot. It used to sit at the very
+/// bottom of the page, beside the Reset button, which meant the reader met the
+/// scope of the statistics only *after* reading all of them — and met it next
+/// to a destructive control, as if picking a period were the same kind of act
+/// as wiping the history.
+///
+/// A [Row] with `mainAxisSize.min`, deliberately not a [Wrap]: `RenderFlex`
+/// measures its non-flexible children — this widget — against an *unbounded*
+/// main axis and only then hands the remainder to the header's `Expanded`
+/// title column. A `Wrap` here could therefore never wrap; it would silently
+/// stay on one line and push the squeeze onto the title instead. If the chips
+/// ever stop fitting, the fix belongs one level up, in `_AnalyticsDashboard`,
+/// where the width is bounded and a full-width row above the stat cards is
+/// still available.
+///
+/// It does fit, measured rather than assumed. At 800 px — the app's minimum
+/// window width — the header line is 740 px wide, and German, the tightest of
+/// the three locales, spends 336 of them on chips and 255 on the subtitle at
+/// normal text size; at 1.15× it is 364 + 291. Only at a 1.5× accessibility
+/// size does the pair stop fitting, and then the subtitle reflows onto a
+/// second line under the title while the chips stay put — no clipping, no
+/// overflow. `analytics_page_test.dart` pins all of that for de/en/he, with
+/// the real Inter faces loaded, because the default test font is roughly
+/// twice as wide per glyph and would have condemned a layout that ships fine.
+class _PeriodSelector extends ConsumerWidget {
+  const _PeriodSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = L10n.of(context);
+    final periods = [
+      l10n.analyticsPeriod7d,
+      l10n.analyticsPeriod30d,
+      l10n.analyticsPeriod90d,
+      l10n.analyticsPeriodAll,
+    ];
+
+    final currentPeriod = ref.watch(analyticsPeriodProvider);
+    final selectedIndex = AnalyticsPeriod.values.indexOf(currentPeriod);
+
+    // Period chips — WpFilterChip, the app's one selectable chip.
+    //
+    // These were a fourth independent reimplementation of it, and the
+    // worst-off: bare GestureDetectors with no Semantics at all, so the
+    // control that decides what the whole page shows was invisible to a
+    // screen reader, unreachable by keyboard, and never announced which
+    // period was selected. WpFilterChip brings the focus ring, `selected:`
+    // and a 44 dp tap target with it, and History/Notes already read this
+    // way, so the same widget now answers the same question everywhere.
+    return Padding(
+      // Keeps the chips off the section title/subtitle, which the header's
+      // Expanded lets run right up to this widget's leading edge.
+      padding: const EdgeInsetsDirectional.only(start: WpSpacing.md),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(periods.length, (i) {
+          return Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: i == 0 ? 0 : WpSpacing.xs,
+            ),
+            child: WpFilterChip(
+              label: periods[i],
+              isActive: i == selectedIndex,
+              onTap: () => ref
+                  .read(analyticsPeriodProvider.notifier)
+                  .setPeriod(AnalyticsPeriod.values[i]),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Row 4 — Reset
+// ---------------------------------------------------------------------------
+
+/// The page's destructive action, alone at the foot of the dashboard.
+///
+/// Stays last on purpose — wiping the statistics is the one thing on this page
+/// that cannot be undone, so it belongs where nobody reaches it on the way to
+/// something else. Only the period selector moved up; see [_PeriodSelector].
+class _ResetRow extends ConsumerStatefulWidget {
+  const _ResetRow();
+
+  @override
+  ConsumerState<_ResetRow> createState() => _ResetRowState();
+}
+
+class _ResetRowState extends ConsumerState<_ResetRow> {
+  @override
+  Widget build(BuildContext context) {
+    final l10n = L10n.of(context);
+
+    return Row(
+      children: [
+        const Spacer(),
+        // Reset button
+        // loam-ignore: a11y-interactive-semantics – semantics provided in WpButton.build
+        WpButton(
+          label: l10n.analyticsReset,
+          variant: WpButtonVariant.secondary,
+          tone: WpButtonTone.danger,
+          size: WpButtonSize.dense,
+          icon: LucideIcons.trash2,
+          onPressed: () => _confirmReset(context),
+        ),
+      ],
+    );
+  }
+
+  void _confirmReset(BuildContext context) {
+    final l10n = L10n.of(context);
+    showWpConfirmDialog(
+      context: context,
+      title: l10n.analyticsResetTitle,
+      message: l10n.analyticsResetMessage,
+      confirmLabel: l10n.analyticsReset,
+      cancelLabel: l10n.actionCancel,
+      destructive: true,
+    ).then((confirmed) async {
+      if (confirmed) {
+        final db = ref.read(historyDatabaseProvider);
+        await db.resetDailyStats();
+        ref.invalidate(analyticsProvider);
+        if (context.mounted) {
+          WpToast.show(
+            context,
+            message: L10n.of(context).analyticsResetTitle,
+            type: WpToastType.success,
+          );
+        }
+      }
+    });
+  }
+}

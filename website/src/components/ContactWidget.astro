@@ -1,0 +1,696 @@
+---
+/**
+ * ContactWidget — a chat-styled contact launcher (bottom right) that never
+ * opens by itself. It is honest about what it is: no live chat, no agent
+ * names, no AI. Ideas go to the public VotePit board; problems, questions
+ * and anything else become an email to us via the contact API
+ * (services/api, module Contact), and we answer by email.
+ *
+ * No third-party script, no cookie; nothing is sent before "Send". The
+ * honeypot field and the elapsed-time check are bot filters that the
+ * server evaluates.
+ */
+import { t, currentLocale, localePath, pathForSlug } from '../scripts/i18n.ts';
+
+const lang = currentLocale(Astro.currentLocale);
+const endpoint = import.meta.env.PUBLIC_CONTACT_ENDPOINT ?? 'https://api.whispaste.de/v1/contact';
+const faqHref = `${localePath(lang, '')}#faq`;
+const privacyHref = pathForSlug(lang, 'privacy');
+const ideasHref = 'https://app.votepit.com/silvio-und-maik/whispaste';
+const kinds = ['idea', 'problem', 'question', 'other'] as const;
+---
+
+<div class="cw" data-contact-widget data-endpoint={endpoint} data-lang={lang} data-testid="contact-widget">
+  <section
+    id="cw-panel"
+    class="cw-panel"
+    role="dialog"
+    aria-modal="false"
+    aria-labelledby="cw-title"
+    hidden
+    data-testid="contact-panel"
+  >
+    <header class="cw-head">
+      <p id="cw-title" class="cw-title" tabindex="-1">{t(lang, 'contact.title')}</p>
+      <button type="button" class="cw-icon-btn" data-cw-close aria-label={t(lang, 'contact.close')} data-testid="contact-close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    </header>
+    <p class="cw-note">{t(lang, 'contact.note')}</p>
+
+    <div class="cw-thread">
+      <!-- Step 1: what is it about? -->
+      <div data-cw-step="choose">
+        <p class="cw-bubble">{t(lang, 'contact.greeting')}</p>
+        <ul class="cw-chips">
+          {kinds.map((kind) => (
+            <li><button type="button" class="cw-chip" data-cw-kind={kind} data-testid={`contact-kind-${kind}`}>{t(lang, `contact.kind.${kind}`)}</button></li>
+          ))}
+        </ul>
+      </div>
+
+      <!-- Ideas live on the public board, not in our inbox. -->
+      <div data-cw-step="idea" hidden>
+        <p class="cw-bubble cw-bubble--me">{t(lang, 'contact.kind.idea')}</p>
+        <p class="cw-bubble">{t(lang, 'contact.idea.text')}</p>
+        <div class="cw-actions">
+          <a href={ideasHref} target="_blank" rel="noopener" class="cw-primary" data-testid="contact-idea-board">{t(lang, 'contact.idea.button')} <span aria-hidden="true">↗</span></a>
+          <button type="button" class="cw-link" data-cw-back data-testid="contact-idea-back">{t(lang, 'contact.back')}</button>
+        </div>
+      </div>
+
+      <!-- Problem / question / other: one form, kind-specific intro. -->
+      <form data-cw-step="form" class="cw-form" hidden novalidate data-testid="contact-form">
+        <p class="cw-bubble cw-bubble--me" data-cw-choice></p>
+        <p class="cw-bubble" data-cw-intro="problem">
+          {t(lang, 'contact.problem.text')}
+          <a href={faqHref} class="cw-inline-link" data-cw-faq data-testid="contact-faq-link">{t(lang, 'contact.problem.faq')} →</a>
+        </p>
+        <p class="cw-bubble" data-cw-intro="question">{t(lang, 'contact.question.text')}</p>
+        <p class="cw-bubble" data-cw-intro="other">{t(lang, 'contact.other.text')}</p>
+
+        <label class="cw-label" for="cw-message">{t(lang, 'contact.message.label')}</label>
+        <textarea id="cw-message" name="message" rows="5" minlength="10" maxlength="4000" required class="cw-input" data-testid="contact-message"></textarea>
+
+        <label class="cw-label" for="cw-email">{t(lang, 'contact.email.label')}</label>
+        <input id="cw-email" name="email" type="email" autocomplete="email" maxlength="254" required class="cw-input" data-testid="contact-email" />
+
+        <!-- Honeypot: invisible to people, tempting to bots. -->
+        <div class="cw-hp" aria-hidden="true">
+          <label for="cw-website">Website</label>
+          <input id="cw-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+        </div>
+
+        <p class="cw-privacy">{t(lang, 'contact.privacy')} <a href={privacyHref} class="cw-inline-link">{t(lang, 'contact.privacyLink')}</a></p>
+        <p class="cw-status" role="status" aria-live="polite" data-cw-status data-testid="contact-status"></p>
+        <div class="cw-actions">
+          <button type="submit" class="cw-primary" data-cw-submit data-testid="contact-submit">{t(lang, 'contact.send')}</button>
+          <button type="button" class="cw-link" data-cw-back data-testid="contact-form-back">{t(lang, 'contact.back')}</button>
+        </div>
+      </form>
+
+      <div data-cw-step="sent" hidden>
+        <p class="cw-bubble" data-testid="contact-sent">{t(lang, 'contact.sent')}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Teaser: a short note from the two of us, shown once after a pause on
+       wide screens. It never opens the panel by itself; dismissing it (or
+       opening the panel) hides it and the badge for good on this browser. -->
+  <div class="cw-teaser" hidden data-cw-teaser data-testid="contact-teaser">
+    <button type="button" class="cw-teaser-body" data-cw-teaser-open aria-controls="cw-panel" data-testid="contact-teaser-open">
+      <img src="/app-icon-180.png" alt="" width="36" height="36" class="cw-avatar" loading="lazy" decoding="async" />
+      <span class="cw-teaser-copy">
+        <span class="cw-teaser-hello">{t(lang, 'contact.teaser.hello')}</span>
+        <span class="cw-teaser-text">{t(lang, 'contact.teaser.text')}</span>
+        <span class="cw-teaser-from">{t(lang, 'contact.teaser.from')}</span>
+      </span>
+    </button>
+    <button type="button" class="cw-teaser-x" aria-label={t(lang, 'contact.teaser.dismiss')} data-cw-teaser-dismiss data-testid="contact-teaser-dismiss">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>
+    </button>
+  </div>
+
+  <button
+    type="button"
+    class="cw-launcher"
+    aria-expanded="false"
+    aria-controls="cw-panel"
+    data-cw-launcher
+    data-testid="contact-launcher"
+  >
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.2 3.6c-.5.4-1.3.1-1.3-.6V16A2.5 2.5 0 0 1 4 13.5z" /><path d="M8.5 8.5h7M8.5 11.5h4.5" /></svg>
+    <span class="cw-sr">{t(lang, 'contact.launcherAria')}</span>
+    <span class="cw-badge" data-cw-badge hidden data-testid="contact-badge"><span aria-hidden="true">1</span><span class="cw-sr">{t(lang, 'contact.teaser.unread')}</span></span>
+  </button>
+
+  <script type="application/json" data-cw-strings set:html={JSON.stringify({
+    sending: t(lang, 'contact.sending'),
+    send: t(lang, 'contact.send'),
+    error: t(lang, 'contact.error'),
+    rateLimited: t(lang, 'contact.rateLimited'),
+    invalid: t(lang, 'contact.invalid'),
+    kinds: Object.fromEntries(kinds.map((k) => [k, t(lang, `contact.kind.${k}`)])),
+  }).replaceAll('<', '\\u003c')} />
+</div>
+
+<style>
+  .cw {
+    --cw-gap: clamp(1rem, 0.75rem + 0.75vw, 1.5rem);
+    position: fixed;
+    right: max(var(--cw-gap), env(safe-area-inset-right, 0px));
+    bottom: max(var(--cw-gap), env(safe-area-inset-bottom, 0px));
+    z-index: 45;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--wp-space-3);
+    pointer-events: none;
+    transition: transform var(--dur-slow) var(--ease-flow);
+  }
+  .cw > * {
+    pointer-events: auto;
+  }
+  /* Mobile: lift above the sticky download bar while it is shown. */
+  :global(body:has(#mobile-cta.visible)) .cw {
+    transform: translateY(calc(-1 * (4.75rem + env(safe-area-inset-bottom, 0px))));
+  }
+
+  .cw-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .cw-launcher {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%; /* round launcher, outside the radius ladder on purpose */
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
+    background: var(--color-brand-floating);
+    color: var(--color-ink);
+    box-shadow: var(--wp-shadow-overlay), inset 0 0 0 1px var(--wp-border-subtle);
+    transition: border-color var(--dur-base) var(--ease-flow), transform var(--dur-base) var(--ease-flow);
+  }
+  .cw-badge {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    display: grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    padding-inline: var(--wp-space-1);
+    border-radius: var(--wp-radius-control);
+    border: 2px solid var(--color-brand-darker);
+    background: var(--wp-color-red-800);
+    color: var(--wp-text-primary);
+    font-size: var(--wp-font-size-2xs);
+    font-weight: 700;
+    line-height: 1;
+    animation: cw-pop var(--dur-slow) var(--ease-flow);
+  }
+  .cw-badge[hidden] {
+    display: none;
+  }
+  @keyframes cw-pop {
+    from { transform: scale(0); }
+  }
+
+  /* Teaser card, Ditto-style: a short personal note above the launcher. */
+  .cw-teaser {
+    position: relative;
+    width: min(21rem, calc(100vw - 2 * var(--cw-gap)));
+    animation: cw-in var(--dur-slow) var(--ease-flow);
+  }
+  .cw-teaser[hidden] {
+    display: none;
+  }
+  .cw-teaser-body {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--wp-space-3);
+    width: 100%;
+    padding: var(--wp-space-4) var(--wp-space-10) var(--wp-space-4) var(--wp-space-4);
+    border-radius: var(--radius-surface);
+    border: 1px solid var(--wp-border-subtle);
+    background: var(--color-brand-floating);
+    box-shadow: var(--wp-shadow-panel);
+    text-align: left;
+    transition: border-color var(--dur-base) var(--ease-flow), transform var(--dur-base) var(--ease-flow);
+  }
+  .cw-teaser-body:hover {
+    border-color: color-mix(in srgb, var(--color-brand-cyan) 45%, transparent);
+    transform: translateY(-2px);
+  }
+  .cw-avatar {
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+  }
+  .cw-teaser-copy {
+    display: grid;
+    gap: var(--wp-space-1);
+  }
+  .cw-teaser-hello {
+    font-weight: 700;
+    font-size: var(--wp-font-size-md);
+    color: var(--color-ink);
+  }
+  .cw-teaser-text {
+    font-size: var(--wp-font-size-sm);
+    line-height: 1.5;
+    color: var(--color-ink-muted);
+  }
+  .cw-teaser-from {
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-xs);
+    color: var(--color-ink-subtle);
+  }
+  .cw-teaser-x {
+    position: absolute;
+    top: 0.4rem;
+    right: 0.4rem;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--color-ink-subtle);
+  }
+  .cw-teaser-x:hover {
+    background: var(--wp-surface-control-hover);
+    color: var(--color-ink);
+  }
+  .cw-teaser-x svg {
+    width: 1rem;
+    height: 1rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  .cw-launcher:hover {
+    border-color: var(--color-brand-cyan);
+    transform: translateY(-2px);
+  }
+  .cw-launcher:active {
+    transform: scale(0.97);
+  }
+  .cw-launcher > svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    fill: none;
+    stroke: var(--color-brand-cyan);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .cw-launcher[aria-expanded='true'] {
+    border-color: var(--color-brand-cyan);
+  }
+
+  .cw-panel {
+    display: flex;
+    flex-direction: column;
+    width: min(24rem, calc(100vw - 2 * var(--cw-gap)));
+    max-height: min(40rem, calc(100dvh - 8rem));
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: var(--wp-space-5);
+    border-radius: var(--radius-surface);
+    border: 1px solid var(--wp-border-subtle);
+    background: var(--color-brand-floating);
+    box-shadow: var(--wp-shadow-panel);
+    transform-origin: bottom right;
+    animation: cw-in var(--dur-base) var(--ease-flow);
+  }
+  .cw-panel[hidden] {
+    display: none;
+  }
+  @keyframes cw-in {
+    from { opacity: 0; transform: translateY(0.5rem) scale(0.98); }
+  }
+  /* After opening, a short wiggle from the anchored corner draws the eye:
+     the FAQ "ask" button opens the panel on the far side of the screen. */
+  .cw-panel.is-nudged {
+    animation:
+      cw-in var(--dur-base) var(--ease-flow),
+      cw-nudge var(--dur-cinematic) var(--ease-flow) var(--dur-base);
+  }
+  @keyframes cw-nudge {
+    0%, 100% { rotate: 0deg; }
+    15% { rotate: -2.5deg; }
+    35% { rotate: 2deg; }
+    55% { rotate: -1.25deg; }
+    75% { rotate: 0.5deg; }
+  }
+  .cw-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--wp-space-4);
+  }
+  .cw-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: var(--wp-font-size-xl);
+    letter-spacing: -0.015em;
+    color: var(--color-ink);
+    outline: none;
+  }
+  .cw-icon-btn {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-pill);
+    color: var(--color-ink-muted);
+    transition: background-color var(--dur-fast) ease, color var(--dur-fast) ease;
+  }
+  .cw-icon-btn:hover {
+    background: var(--wp-surface-control-hover);
+    color: var(--color-ink);
+  }
+  .cw-icon-btn svg {
+    width: 1.125rem;
+    height: 1.125rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+  }
+  .cw-note {
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-sm);
+    line-height: 1.5;
+    color: var(--color-ink-subtle);
+  }
+  .cw-thread {
+    margin-top: var(--wp-space-4);
+  }
+  .cw-thread > [data-cw-step]:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--wp-space-3);
+  }
+  .cw-bubble {
+    align-self: flex-start;
+    max-width: 92%;
+    padding: var(--wp-space-3) var(--wp-space-4);
+    border-radius: var(--wp-radius-card) var(--wp-radius-card) var(--wp-radius-card) var(--wp-radius-chip);
+    background: var(--wp-surface-control);
+    font-size: var(--wp-font-size-md);
+    line-height: 1.55;
+    color: var(--color-ink);
+  }
+  .cw-bubble--me {
+    align-self: flex-end;
+    border-radius: var(--wp-radius-card) var(--wp-radius-card) var(--wp-radius-chip) var(--wp-radius-card);
+    background: color-mix(in srgb, var(--color-brand-cyan) 18%, transparent);
+  }
+  .cw-bubble[hidden] {
+    display: none;
+  }
+  .cw-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--wp-space-2);
+  }
+  .cw-chip {
+    min-height: 40px;
+    padding: var(--wp-space-2) var(--wp-space-4);
+    border-radius: var(--radius-pill);
+    border: 1px solid color-mix(in srgb, var(--color-brand-cyan) 35%, transparent);
+    color: var(--color-ink);
+    font-size: var(--wp-font-size-md);
+    transition: background-color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .cw-chip:hover {
+    border-color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 10%, transparent);
+  }
+  .cw-label {
+    margin-top: var(--wp-space-1);
+    font-size: var(--wp-font-size-sm);
+    font-weight: 600;
+    color: var(--color-ink-muted);
+  }
+  .cw-input {
+    width: 100%;
+    padding: var(--wp-space-3) var(--wp-space-3);
+    border-radius: var(--wp-radius-card);
+    border: 1px solid var(--wp-border-default);
+    background: var(--color-brand-darker);
+    color: var(--color-ink);
+    font-size: var(--wp-font-size-md);
+    line-height: 1.5;
+    resize: vertical;
+  }
+  .cw-input:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 1px;
+  }
+  .cw-input[aria-invalid='true'] {
+    border-color: var(--wp-input-border-invalid);
+  }
+  .cw-hp {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+  .cw-privacy {
+    font-size: var(--wp-font-size-sm);
+    line-height: 1.5;
+    color: var(--color-ink-subtle);
+  }
+  .cw-status:empty {
+    display: none;
+  }
+  .cw-status {
+    font-size: var(--wp-font-size-sm);
+    color: var(--wp-status-error-text);
+  }
+  .cw-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--wp-space-3) var(--wp-space-4);
+    margin-top: var(--wp-space-1);
+  }
+  .cw-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--wp-space-2);
+    min-height: 44px;
+    padding: var(--wp-space-2) var(--wp-space-5);
+    border-radius: var(--radius-pill);
+    background: var(--wp-button-primary-fill);
+    color: var(--wp-button-primary-text);
+    font-weight: 700;
+    font-size: var(--wp-font-size-md);
+    transition: transform var(--dur-base) var(--ease-flow), opacity var(--dur-fast) ease;
+  }
+  .cw-primary:hover {
+    transform: translateY(-1px);
+  }
+  .cw-primary:active {
+    transform: scale(0.97);
+  }
+  .cw-primary[disabled] {
+    opacity: 0.6;
+    transform: none;
+  }
+  .cw-link {
+    min-height: 44px;
+    font-size: var(--wp-font-size-md);
+    color: var(--color-ink-muted);
+  }
+  .cw-link:hover {
+    color: var(--color-ink);
+  }
+  .cw-inline-link {
+    color: var(--color-brand-cyan);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .cw-bubble .cw-inline-link {
+    display: inline-block;
+    margin-top: var(--wp-space-1);
+  }
+  .cw-launcher:focus-visible,
+  .cw-teaser-body:focus-visible,
+  .cw-teaser-x:focus-visible,
+  .cw-chip:focus-visible,
+  .cw-primary:focus-visible,
+  .cw-link:focus-visible,
+  .cw-icon-btn:focus-visible,
+  .cw-inline-link:focus-visible {
+    outline: 2px solid var(--color-brand-cyan);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cw,
+    .cw-launcher,
+    .cw-primary {
+      transition: none;
+    }
+    .cw-panel,
+    .cw-panel.is-nudged,
+    .cw-teaser,
+    .cw-badge {
+      animation: none;
+    }
+    .cw-teaser-body {
+      transition: none;
+    }
+    .cw-launcher:hover,
+    .cw-teaser-body:hover,
+    .cw-primary:hover {
+      transform: none;
+    }
+  }
+</style>
+
+<script>
+  type Strings = { sending: string; send: string; error: string; rateLimited: string; invalid: string; kinds: Record<string, string> };
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-contact-widget]')) {
+    const panel = root.querySelector<HTMLElement>('.cw-panel')!;
+    const launcher = root.querySelector<HTMLButtonElement>('[data-cw-launcher]')!;
+    const title = root.querySelector<HTMLElement>('#cw-title')!;
+    const form = root.querySelector<HTMLFormElement>('form[data-cw-step="form"]')!;
+    const status = root.querySelector<HTMLElement>('[data-cw-status]')!;
+    const submit = root.querySelector<HTMLButtonElement>('[data-cw-submit]')!;
+    const choice = root.querySelector<HTMLElement>('[data-cw-choice]')!;
+    const strings = JSON.parse(root.querySelector('script[data-cw-strings]')!.textContent ?? '{}') as Strings;
+    let kind = 'other';
+    let openedAt = 0;
+
+    const show = (step: string) => {
+      for (const el of root.querySelectorAll<HTMLElement>('[data-cw-step]')) el.hidden = el.dataset.cwStep !== step;
+    };
+    // Teaser + badge: once dismissed or the panel was opened, they stay gone
+    // on this browser. Storage can be blocked; the widget works without it.
+    const teaser = root.querySelector<HTMLElement>('[data-cw-teaser]')!;
+    const badge = root.querySelector<HTMLElement>('[data-cw-badge]')!;
+    const SEEN_KEY = 'wp-contact-seen';
+    const seen = () => {
+      try {
+        return localStorage.getItem(SEEN_KEY) === '1';
+      } catch {
+        return false;
+      }
+    };
+    const markSeen = () => {
+      teaser.hidden = true;
+      badge.hidden = true;
+      try {
+        localStorage.setItem(SEEN_KEY, '1');
+      } catch {
+        /* private mode: hide for this page view only */
+      }
+    };
+    if (!seen()) {
+      badge.hidden = false;
+      const delay = Number(root.dataset.teaserDelay ?? 6000);
+      setTimeout(() => {
+        if (panel.hidden && !seen() && matchMedia('(min-width: 768px)').matches) teaser.hidden = false;
+      }, delay);
+    }
+    root.querySelector('[data-cw-teaser-dismiss]')!.addEventListener('click', () => {
+      markSeen();
+      launcher.focus();
+    });
+    root.querySelector('[data-cw-teaser-open]')!.addEventListener('click', () => open());
+
+    const open = () => {
+      markSeen();
+      panel.hidden = false;
+      launcher.setAttribute('aria-expanded', 'true');
+      // Restart the wiggle on every open, also when the panel is already open.
+      panel.classList.remove('is-nudged');
+      void panel.offsetWidth;
+      panel.classList.add('is-nudged');
+      title.focus();
+    };
+    const close = () => {
+      panel.hidden = true;
+      launcher.setAttribute('aria-expanded', 'false');
+      launcher.focus();
+    };
+
+    launcher.addEventListener('click', () => (panel.hidden ? open() : close()));
+    // Page elements can open the widget too (e.g. the FAQ "ask" button).
+    document.addEventListener('click', (e) => {
+      if ((e.target as Element | null)?.closest('[data-contact-open]')) open();
+    });
+    root.querySelector('[data-cw-close]')!.addEventListener('click', close);
+    root.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panel.hidden) close();
+    });
+    // The FAQ link leaves the panel for the page section; close it so it does not cover the answer.
+    root.querySelector('[data-cw-faq]')?.addEventListener('click', () => {
+      panel.hidden = true;
+      launcher.setAttribute('aria-expanded', 'false');
+    });
+
+    for (const btn of root.querySelectorAll<HTMLButtonElement>('[data-cw-kind]')) {
+      btn.addEventListener('click', () => {
+        kind = btn.dataset.cwKind ?? 'other';
+        if (kind === 'idea') {
+          show('idea');
+          return;
+        }
+        choice.textContent = strings.kinds[kind] ?? '';
+        for (const intro of root.querySelectorAll<HTMLElement>('[data-cw-intro]')) intro.hidden = intro.dataset.cwIntro !== kind;
+        status.textContent = '';
+        show('form');
+        openedAt = performance.now();
+        form.querySelector<HTMLTextAreaElement>('textarea')!.focus();
+      });
+    }
+    for (const back of root.querySelectorAll('[data-cw-back]')) {
+      back.addEventListener('click', () => {
+        show('choose');
+        title.focus();
+      });
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = form.elements.namedItem('message') as HTMLTextAreaElement;
+      const email = form.elements.namedItem('email') as HTMLInputElement;
+      const website = form.elements.namedItem('website') as HTMLInputElement;
+      const messageOk = message.value.trim().length >= 10;
+      const emailOk = email.validity.valid && email.value.trim() !== '';
+      message.setAttribute('aria-invalid', String(!messageOk));
+      email.setAttribute('aria-invalid', String(!emailOk));
+      if (!messageOk || !emailOk) {
+        status.textContent = strings.invalid;
+        (messageOk ? email : message).focus();
+        return;
+      }
+
+      submit.disabled = true;
+      submit.textContent = strings.sending;
+      status.textContent = '';
+      try {
+        const res = await fetch(root.dataset.endpoint!, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind,
+            message: message.value,
+            email: email.value.trim(),
+            lang: root.dataset.lang,
+            page: location.pathname,
+            elapsed: Math.round(performance.now() - openedAt),
+            website: website.value,
+          }),
+        });
+        if (res.ok) {
+          form.reset();
+          show('sent');
+          title.focus();
+          return;
+        }
+        status.textContent = res.status === 429 ? strings.rateLimited : res.status === 422 ? strings.invalid : strings.error;
+      } catch {
+        status.textContent = strings.error;
+      } finally {
+        submit.disabled = false;
+        submit.textContent = strings.send;
+      }
+    });
+  }
+</script>

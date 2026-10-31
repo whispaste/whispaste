@@ -1,0 +1,189 @@
+---
+/**
+ * `/<lang>/engine-benchmarks/` — English counterpart of `/engine-benchmarks/`.
+ * Deliberately scoped to Apple Silicon (Maintainer decision 2026-08-17) —
+ * see the DE page for the full rationale comment.
+ */
+import LandingPageLayout from "../../layouts/LandingPageLayout.astro";
+import EngineSpeedRace from "../../components/EngineSpeedRace.astro";
+import { t, localePath, currentLocale, prefixedLocalePaths } from "../../scripts/i18n.ts";
+
+export function getStaticPaths() {
+  return prefixedLocalePaths();
+}
+import benchmarkData from "../../data/engine-benchmarks.json";
+
+const lang = currentLocale(Astro.params.lang);
+
+const breadcrumbs = [
+  { name: t(lang, "breadcrumb.home"), item: localePath(lang, "") },
+  { name: t(lang, "explainer.engineBenchmarks.breadcrumb"), item: localePath(lang, "engine-benchmarks") },
+];
+
+const seo = {
+  title: t(lang, "explainer.engineBenchmarks.seoTitle"),
+  description: t(lang, "explainer.engineBenchmarks.seoDescription"),
+};
+
+const hero = {
+  heading: t(lang, "explainer.engineBenchmarks.heroHeading"),
+  lead: t(lang, "explainer.engineBenchmarks.heroLead"),
+};
+
+const cta = {
+  label: t(lang, "explainer.engineBenchmarks.cta.label"),
+  href: localePath(lang, "download"),
+};
+
+
+const relatedPages = [
+  { label: t(lang, "explainer.engines.breadcrumb"), href: localePath(lang, "engines") },
+  { label: t(lang, "explainer.whisperDesktop.breadcrumb"), href: localePath(lang, "whisper-desktop") },
+];
+
+const matrix = [
+  { engine: "whisper.cpp", model: "small (Compact)", hardwareClass: "Apple Silicon (Metal)" },
+  { engine: "whisper.cpp", model: "small (Compact)", hardwareClass: "Apple Silicon (CPU)" },
+  { engine: "Parakeet (sherpa-onnx)", model: "parakeet-tdt-0.6b-v3", hardwareClass: "Apple Silicon (CPU)" },
+] as const;
+
+const rows = matrix.map((cell) => {
+  const measured = benchmarkData.rows.find(
+    (r) => r.engine === cell.engine && r.model === cell.model && r.hardwareClass === cell.hardwareClass,
+  );
+  const speedMultiplier = measured ? Number((1 / measured.rtf).toFixed(1)) : null;
+  const accuracyPercent = measured ? (100 - measured.wer * 100).toFixed(1) : null;
+  return { ...cell, measured, speedMultiplier, accuracyPercent };
+});
+---
+
+<LandingPageLayout
+  lang={lang}
+  seo={seo}
+  breadcrumbs={breadcrumbs}
+  hero={hero}
+  cta={cta}
+  relatedPages={relatedPages}
+>
+  <section>
+    <h2>{t(lang, "explainer.engineBenchmarks.methodology.heading")}</h2>
+    <p>{t(lang, "explainer.engineBenchmarks.methodology.body")}</p>
+  </section>
+
+  <section>
+    <div class="benchmark-table-wrap">
+      <table class="benchmark-table">
+        <thead>
+          <tr>
+            <th>{t(lang, "explainer.engineBenchmarks.table.hardwareClass")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.engine")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.model")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.speed")}</th>
+            <th>{t(lang, "explainer.engineBenchmarks.table.accuracy")}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr>
+              <td>{row.hardwareClass}</td>
+              <td>{row.engine}</td>
+              <td>{row.model}</td>
+              <td>
+                {row.measured ? (
+                  <>
+                    {row.speedMultiplier}{t(lang, "explainer.engineBenchmarks.table.speedSuffix")}
+                    <br />
+                    <small class="benchmark-table-raw">RTF {row.measured.rtf}×</small>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td>
+                {row.measured ? (
+                  <>
+                    {row.accuracyPercent}{t(lang, "explainer.engineBenchmarks.table.accuracySuffix")}
+                    <br />
+                    <small class="benchmark-table-raw">WER {(row.measured.wer * 100).toFixed(1)} %</small>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </td>
+              <td>
+                {row.measured ? (
+                  <span class="status-badge status-badge--measured">
+                    {t(lang, "explainer.engineBenchmarks.table.measured")}
+                  </span>
+                ) : (
+                  <span class="status-badge status-badge--pending">
+                    {t(lang, "explainer.engineBenchmarks.table.pending")}
+                  </span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <EngineSpeedRace />
+  </section>
+
+  <section>
+    <h2>{t(lang, "explainer.engineBenchmarks.reproduce.heading")}</h2>
+    <p>{t(lang, "explainer.engineBenchmarks.reproduce.body")}</p>
+    <p>
+      <a href="https://github.com/whispaste/whispaste/blob/main/website/scripts/benchmark-engines-testset.mjs">
+        {t(lang, "explainer.engineBenchmarks.reproduce.testsetLinkLabel")}
+      </a>
+      {" · "}
+      <a href="https://github.com/whispaste/whispaste/blob/main/website/scripts/benchmark-engines-parakeet.mjs">
+        {t(lang, "explainer.engineBenchmarks.reproduce.parakeetLinkLabel")}
+      </a>
+    </p>
+  </section>
+</LandingPageLayout>
+
+<style>
+  .benchmark-table-wrap {
+    overflow-x: auto;
+    margin-top: var(--wp-space-4);
+  }
+  .benchmark-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--wp-font-size-sm);
+  }
+  .benchmark-table th,
+  .benchmark-table td {
+    text-align: left;
+    padding: var(--wp-space-2) var(--wp-space-4);
+    border-bottom: 1px solid var(--color-brand-border);
+  }
+  .benchmark-table th {
+    color: var(--color-ink-muted);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-badge {
+    display: inline-block;
+    border-radius: var(--radius-pill);
+    padding: var(--wp-space-1) var(--wp-space-3);
+    font-size: var(--wp-font-size-xs);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .status-badge--measured {
+    color: var(--color-brand-cyan);
+    background: color-mix(in srgb, var(--color-brand-cyan) 14%, transparent);
+  }
+  .status-badge--pending {
+    color: var(--color-ink-subtle);
+    background: color-mix(in srgb, var(--color-ink-subtle) 12%, transparent);
+  }
+  .benchmark-table-raw {
+    color: var(--color-ink-subtle);
+    font-size: 0.8em;
+  }
+</style>

@@ -1,0 +1,5 @@
+# Compiled binary + staged engine/asset bundle (produced by tool/build_exe.sh).
+# The runtime-layout doc dist/README.md stays tracked; everything else under
+# dist/ is a build artifact and must not be committed (mirrors whispaste_diagnostics).
+dist/*
+!dist/README.md

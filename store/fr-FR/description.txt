@@ -1,0 +1,21 @@
+WhisPaste transforme votre voix en texte directement à l'endroit de votre curseur, dans toutes les applications Windows. Appuyez sur un raccourci, parlez, c'est fait. Pas de copier-coller, pas de changement de fenêtre.
+
+Il fonctionne partout où vous écrivez : Outlook, Teams, Word, VS Code, Chrome, Slack et toutes les autres applications.
+
+🔒 VOTRE VOIX RESTE SUR VOTRE PC
+Whisper (trois tailles de modèle, 99 langues) et le moteur rapide Parakeet (environ 25 langues européennes, processeur uniquement) transcrivent entièrement sur votre ordinateur. Par défaut, les enregistrements ne sont pas conservés après la transcription. Une carte graphique peut accélérer Whisper, mais elle n'est jamais obligatoire. Après le téléchargement unique du modèle, la transcription fonctionne sans connexion Internet. La transcription dans le cloud avec OpenAI ou Deepgram est facultative et utilise votre propre clé API ; l'audio est envoyé directement au fournisseur, jamais via un serveur WhisPaste. Aucun compte n'est nécessaire.
+
+✨ SMART MODE (FACULTATIF)
+Supprimez les mots parasites et corrigez la ponctuation, raccourcissez un texte ou traduisez-le dans sept langues avant qu'il ne soit collé. Fonctionne avec un modèle d'IA local ou via OpenAI avec votre propre clé. Sélectionnez un texte dans n'importe quelle application, dites ce qui doit changer, et WhisPaste le réécrit sur place. Cette fonction est désactivée par défaut.
+
+📋 HISTORIQUE, NOTES ET EXPORT
+Chaque transcription est enregistrée localement et peut être recherchée. Étiquetez, épinglez, archivez, fusionnez et exportez en TXT, Markdown, JSON, CSV ou Word. Un verrouillage par code PIN garde l'historique privé. Les notes et les notes rapides rassemblent les réflexions plus longues en un seul endroit.
+
+⌨️ VOICE SNIPPETS ET VOS PROPRES MOTS
+Prononcez un mot déclencheur et WhisPaste insère le texte complet : signatures, formules de politesse, phrases que vous tapez chaque jour. Les snippets interactifs remplissent les modèles champ par champ. Le vocabulaire personnalisé et les remplacements garantissent que les noms et le jargon sont bien écrits.
+
+🎛️ CONÇU POUR LE TRAVAIL QUOTIDIEN
+Activation/désactivation ou push-to-talk · Overlay en direct avec aperçu facultatif · Bouton flottant · Panneau latéral du presse-papiers au bord de l'écran · Zone de notification et démarrage automatique · Interface en anglais, allemand, hébreu, russe, espagnol et portugais (Brésil) (pas encore en français)
+
+💶 ACHAT UNIQUE, SANS ABONNEMENT
+WhisPaste est open source (licence MIT) et gratuit sur GitHub. La version du Store propose les mêmes fonctions principales, se met à jour automatiquement, et votre achat finance directement le développement.

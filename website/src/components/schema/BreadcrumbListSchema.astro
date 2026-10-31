@@ -1,0 +1,17 @@
+---
+/**
+ * `<BreadcrumbListSchema />` — emits the `BreadcrumbList` JSON-LD block for a
+ * sub-page. Callers pass an `items` array of `{ name, item }`; the builder
+ * absolutizes relative URLs against the site origin and assigns 1-based
+ * `position` values in the order the items appear.
+ */
+import {
+  buildBreadcrumbListSchema,
+  type BreadcrumbListOptions,
+} from "./builders.ts";
+
+type Props = BreadcrumbListOptions;
+
+const schema = buildBreadcrumbListSchema(Astro.props);
+---
+<script type="application/ld+json" set:html={JSON.stringify(schema)} />

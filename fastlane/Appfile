@@ -1,0 +1,24 @@
+# Apple distribution config for WhisPaste (macOS).
+#
+# Reuses an existing Apple Developer account/Team and App Store Connect API
+# key already provisioned for another project of the maintainer's, so no new
+# key needs to be generated. Values are loaded from a local, never-committed
+# credentials file — see load_local_credentials in Fastfile for the loader
+# and ~/.claude/infrastructure/microsoft-partner-center.md-style convention
+# this project follows for every external credential (never hardcode an
+# identifier that ties back to a real account into a public repo).
+#
+# app_identifier is the REGISTERED App ID (de.whispaste.app). The macOS Xcode
+# project's PRODUCT_BUNDLE_IDENTIFIER was migrated to match as of v1.2.58
+# (see docs/store-release.md → "Bundle-ID-Migration").
+# NOTE: Appfile is loaded by fastlane's CredentialsManager via a bare
+# `eval(content)` (no filename argument), so `require_relative` can't infer
+# its base path here (unlike in Fastfile, which fastlane loads with a real
+# filename). The eval runs inside a `Dir.chdir` into this directory, so a
+# plain `require` relative to the current working directory works instead.
+require File.join(Dir.pwd, 'load_credentials')
+
+app_identifier("de.whispaste.app")
+apple_id(ENV.fetch("FASTLANE_APPLE_ID"))
+team_id(ENV.fetch("FASTLANE_TEAM_ID"))
+itc_team_id(ENV.fetch("FASTLANE_TEAM_ID"))
