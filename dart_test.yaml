@@ -1,11 +1,26 @@
-# Registered test tags (unregistered tags only warn). CI selects on them in
-# .github/workflows/ci.yml.
+# Registered test tags (unregistered tags only warn).
 tags:
-  golden:
-    # Pixel baselines, generated on macOS; run in the macOS golden job only.
   canary:
-    # Live provider-drift checks; run by provider-drift-canary.yml only.
+    # Live provider-drift checks; run by the drift canary only.
+  live:
+    # Live provider checks against the network (deepgram and openai transcriber
+    # tests); run with --tags=live by the drift canary only.
   l10n:
   perf:
-    # Wall-clock micro-benchmarks; skipped on dev pushes, run in the weekly
-    # and manual full CI run.
+    # Wall-clock budgets live outside test/ and run deliberately.
+    # Registered until the bench folder has its own runner; CI still excludes it.
+  process:
+    # Tests that start real processes (single-instance IPC); no CI filter excludes them.
+  compositor-e2e:
+    # Asks a real, nested compositor for the focused window
+    # (test/scripts/focus_sources_e2e.sh sets it up); skipped otherwise.
+  bench:
+    # Profile-mode acceptance benchmarks.
+    # Run manually with --profile on macOS, never in the normal suite.
+  # Generators are started deliberately by their path, never by a test run.
+  store:
+    # Store screenshot generator.
+  capture:
+    # Overlay store-asset capture.
+  ux-screens:
+    # UX screenshot harness: renders PNGs for the UX review.

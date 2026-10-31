@@ -1,1 +1,0 @@
-Transkription,Spracherkennung,Whisper,Sprachnotizen,Hotkey,Lokal,Diktat,Whisper Desktop,Offline

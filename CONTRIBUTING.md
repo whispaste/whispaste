@@ -48,6 +48,15 @@ npx vitest run <path>
 npx playwright test <path>
 ```
 
+`bash scripts/check.sh commit` runs the repo gates, format and analyze with
+CI's scope; `bash scripts/check.sh push` adds the tests your branch can break
+(changed tests, tests that import changed code, and guards over changed
+paths, see `tool/affected_tests.dart`); `bash scripts/check.sh full` runs the
+whole suite. `scripts/check.sh` runs the same repo gates as CI
+(`scripts/ci-gates.sh`) and the tests for a pushed range. A push that touches
+`website/` also runs the website gate (`npm audit`, vitest, Playwright), so install the
+website dependencies first with `npm ci --prefix website`.
+
 ### Prerequisites
 
 [Flutter](https://flutter.dev/docs/get-started/install) 3.x, and Windows 10

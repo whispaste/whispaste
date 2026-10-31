@@ -126,8 +126,7 @@ To build the bundled on-device engines and for the full per-OS toolchain, see [B
 ├── windows/            # Windows platform runner
 ├── macos/              # macOS platform runner
 ├── linux/              # Linux platform runner
-├── website/            # Astro-based project website
-└── supabase/           # Database migrations (PostgREST + RLS only, no Edge Functions)
+└── website/            # Astro-based project website
 ```
 
 ### Commands

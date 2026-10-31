@@ -2,7 +2,7 @@
 
 Kurzreferenz für das Logging-Konzept der Desktop-App (`lib/`). Betrifft nicht
 `website/` (eigenes, sehr schlankes `console.warn`/`console.error`-Regime,
-siehe `website/eslint.config.mjs`) und nicht `supabase/` (kein eigenes
+siehe `website/eslint.config.mjs`) und nicht das Backend (kein eigenes
 App-Logging, nur SQL/RLS — Rate-Limits laufen über gehärtete DB-Trigger, nicht
 über Logs).
 
@@ -25,12 +25,13 @@ AppLogger (lib/core/logging/app_logger.dart)
 Alles App-Level-Logging läuft über `AppLogger`. Es gibt **keinen** zweiten,
 parallelen Logging-Weg — `print()` ist per Lint (`avoid_print`,
 `--fatal-infos` in CI) verboten, `dev.log()`/`debugPrint()` außerhalb von
-`AppLogger` selbst sind seit diesem Commit per CI-Gate
-(`.github/workflows/ci.yml`, Job „Secret scan“ → Step „Logging gate“)
-verboten. Ausnahmen (dokumentiert im Gate-Script): `app_logger.dart` /
-`app_monitoring.dart` / `crash_reporter.dart` / `crash_reporting_consent.dart`
-selbst (vermeiden rekursive
-Logger-Aufrufe) sowie die sekundären Flutter-Engine-Entrypoints
+`AppLogger` selbst sind per Gate verboten (`scripts/ci-gates.sh logging`,
+läuft in CI, im pre-commit- und im pre-push-Hook). Ausnahmen (Allowlist im
+Skript): `app_logger.dart` / `app_monitoring.dart` / `crash_reporter.dart` /
+`crash_reporting_consent.dart` selbst (vermeiden rekursive Logger-Aufrufe),
+`install_id.dart` (die Id-Quelle des Crash-Reporters, die `crash_reporter.dart`
+importiert; ein AppLogger-Aufruf würde im Bootstrap den Zyklus
+`install_id → app_logger → crash_reporter → install_id` schließen) sowie die sekundären Flutter-Engine-Entrypoints
 (`*_render_entrypoint.dart`, `overlay_render_channel.dart`), die vor dem
 regulären App-Bootstrap laufen können.
 
@@ -68,13 +69,24 @@ Security-/Fehler-Logging (`warning`/`error`, immer ≥ `INFO`) betroffen ist.
 
 ## Speicherort, Rotation, Retention
 
-- Datei: `<AppData>/Whispaste/logs/whispaste.log` (Pfad aus
-  `whispaste_diagnostics`' `appDataDir()`, plattformabhängig unter
-  `%LOCALAPPDATA%`/`~/Library/Application Support`/`~/.local/share`).
+- Datei: `<AppData>/logs/whispaste.log`. `<AppData>` ist das Verzeichnis aus
+  `whispaste_diagnostics`' `appDataDir()`: `%APPDATA%\WhisPaste` (Windows; bei
+  MSIX-Installation der virtualisierte Pfad unter `LocalCache\Roaming`),
+  `~/Library/Application Support/WhisPaste` (macOS), `$XDG_CONFIG_HOME/whispaste`
+  bzw. `~/.config/whispaste` (Linux).
 - Rotation: bei 2 MB wird `whispaste.log` → `whispaste.log.1` verschoben,
   ältere Backups rutschen eine Nummer weiter (`.1`→`.2` … bis `.5`), das
   älteste (`.6`) wird gelöscht. Bounded auf max. ~12 MB (6 × 2 MB) pro
   Installation — kein unbegrenztes Wachstum.
+- Aufbewahrung: Zeilen älter als 14 Tage (`logMaxAge` in `app_logger.dart`)
+  entfernt der Sink beim Start und danach einmal täglich aus `whispaste.log`
+  und den Backups, unabhängig von der Größe (Security-Review R-10). Ein
+  Backup, dessen jüngste Zeile älter ist, wird gelöscht, eine Datei über
+  die Grenze hinweg auf ihre jüngeren Zeilen gekürzt.
+- Kein Transkripttext in Logaufrufen: `test/core/logging/no_transcript_in_logs_test.dart`
+  schlägt fehl, wenn ein Logaufruf in `lib/` einen Transkript-Namen
+  (`transcript*`, `*Text`, `dictation` …) als Wert statt nur als `.length`
+  ausgibt.
 - Diese Nummerierung ist bewusst identisch zu dem Schema, das
   `packages/whispaste_diagnostics/lib/src/probes/log_reader.dart`
   (`rotatedLogPaths`, `maxRotations: 5`) beim Einlesen für die
@@ -108,13 +120,20 @@ Zwei Schutzschichten, dieselbe Regex-Quelle
 
 **Log-Injection-Schutz**: `record.message`/`record.error` werden vor dem
 Schreiben single-lined (`\n`/`\r` → literales `\n`, Steuerzeichen entfernt),
-sodass aufrufer-kontrollierter Text (z. B. Dateinamen, Clipboard-Ausschnitte
-in Fehlermeldungen) keine gefälschten zusätzlichen Log-Zeilen erzeugen kann.
+sodass aufrufer-kontrollierter Text (z. B. Dateinamen in Fehlermeldungen)
+keine gefälschten zusätzlichen Log-Zeilen erzeugen kann.
+
+WhisPaste schreibt Diktat- und Zwischenablage-Inhalte nicht ins Log, nur ihre
+Länge (z. B. `text: 42 chars`). Wo Fehlermeldungen solche Inhalte enthalten
+könnten, wird nur der Fehlertyp protokolliert: `errorKind(e)` statt `$e`, also
+Typ plus Code oder Grund, etwa `SqliteException(code 1555)` oder
+`TranscriberException(reason: timeout)`. Alle Logzeilen werden zusätzlich um
+Pfade und Geheimnisse bereinigt.
 Stacktraces bleiben bewusst mehrzeilig (klar als solche erkennbar, kein
 freier Text).
 
 Inhalts-Ebene (Diktat-Text, Audio, Zwischenablage-Inhalt) wird nach dem
-Zwei-Schichten-Datenmodell des Projekts (`internal-notes` §6.5) grundsätzlich
+Zwei-Schichten-Datenmodell des Projekts grundsätzlich
 **nie** geloggt — weder Debug- noch Release-Build.
 
 ## Security-/Audit-relevante Pfade
@@ -131,9 +150,9 @@ Root-Cause-Analysen zuerst zu prüfen:
 | Settings-Factory-Reset/-Migration | `AppLogger('SettingsProvider')` | `lib/core/config/settings_provider.dart` |
 | DB-Schema-Migrationen | `AppLogger('Database')` | `lib/core/data/database.dart` |
 | Crash-Reporting-Consent-Änderung | `AppLogger`/`dev.log` (Consent-Toggle selbst, bewusst nicht persistiert) | `lib/core/logging/crash_reporter.dart` |
-| Feedback-Rate-Limiting | serverseitig, kein Client-Log | `supabase/migrations/20260416_feedback_security_hardening.sql` u. Folge-Migrationen |
+| Feedback-Rate-Limiting | serverseitig, kein Client-Log | Backend-Migrationen (Härtung per DB-Trigger) |
 
-Zero-Trust-Client-Prinzip (`internal-notes` §6.1): Logs dienen hier ausschließlich
+Zero-Trust-Client-Prinzip: Logs dienen hier ausschließlich
 der Diagnose, nie der Durchsetzung von Limits/Berechtigungen — das bleibt
 Server-seitig (Supabase RLS + Trigger).
 
@@ -153,7 +172,7 @@ Server-seitig (Supabase RLS + Trigger).
 
 ## Debugging-Nutzung
 
-- **Lokal**: Logfile direkt öffnen (`<AppData>/Whispaste/logs/whispaste.log`)
+- **Lokal**: Logfile direkt öffnen (`<AppData>/logs/whispaste.log`)
   oder `flutter run` → stdout (Debug-Build zeigt info+ live).
 - **Von Nutzern gemeldete Probleme**: In-App-Diagnostik bzw.
   WhisPaste-Diagnose-CLI (`packages/whispaste_diagnostics`) — liest
@@ -170,8 +189,12 @@ Server-seitig (Supabase RLS + Trigger).
 
 - `analysis_options.yaml`: `avoid_print` (+ `flutter analyze --fatal-infos`
   macht das zum Hard-Fail).
-- `.github/workflows/ci.yml`, Job `secret-scan`, Step „Logging gate“: verbietet
-  `dev.log()`/`debugPrint()` außerhalb der dokumentierten Ausnahmen.
-- `.github/workflows/ci.yml`, Job `secret-scan`, Step „Scan for potential
-  secrets“: repo-weiter Regex-Scan gegen eingecheckte Secrets (ergänzt, nicht
-  ersetzt, die Laufzeit-Redaction in `AppLogger`).
+- `scripts/ci-gates.sh`, Gate `logging`: verbietet `dev.log()`/`debugPrint()`
+  außerhalb der dokumentierten Ausnahmen. CI, pre-commit und pre-push rufen
+  dasselbe Skript auf; die Allowlist steht nur dort.
+- `scripts/ci-gates.sh`, Gate `secrets`: repo-weiter Regex-Scan gegen
+  eingecheckte Secrets (ergänzt, nicht ersetzt, die Laufzeit-Redaction in
+  `AppLogger`).
+- `scripts/check-workflow-hygiene.sh` (Regel 4) prüft, dass jedes Gate aus
+  `ci-gates.sh` in der CI und in den Hooks läuft (im öffentlichen Export
+  ohne `ci.yml` übersprungen).

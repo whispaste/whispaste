@@ -1,1 +1,0 @@
-Licenza MIT: https://github.com/whispaste/whispaste/blob/main/LICENSE

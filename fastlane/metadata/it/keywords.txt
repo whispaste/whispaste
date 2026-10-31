@@ -1,1 +1,0 @@
-trascrizione,riconoscimento vocale,dettatura,whisper,note vocali,scorciatoia,locale,offline

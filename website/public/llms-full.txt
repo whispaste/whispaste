@@ -1,347 +1,469 @@
-# WhisPaste — Full LLM Reference
+<!-- lang: en -->
 
-> Vollständige Self-Beschreibung von WhisPaste für KI-Suchmaschinen und LLM-Crawler. Quelle: `internal-notes` §1–§4 + `internal-notes`.
+# WhisPaste
 
-<!-- seo-audit:contrastive -->
+> WhisPaste is a free, MIT-licensed voice-input app for Windows, Apple Silicon Macs and Linux: press a hotkey, speak, and the text lands in the active text field. Speech recognition runs locally on your computer.
+
+## What WhisPaste does
+
+- You press a global hotkey in any application, speak, and press it again (or hold it while speaking).
+- WhisPaste transcribes the recording on your computer and copies the text to the clipboard. With Auto-Paste switched on, it inserts the text at the cursor of the active application, in almost any app.
+- It is meant for people who write a lot at the desktop: emails, messages, documents, notes, prompts and code comments.
+
+## Speech recognition
+
+- Two local engines: Whisper (whisper.cpp, 99 languages, several model sizes) and Parakeet (about 25 European languages, fast even without a GPU).
+- After a one-time model download, local recognition works offline.
+- A GPU is optional. Acceleration uses Metal on Apple Silicon and Vulkan on Windows and Linux; an optional CUDA pack is available for NVIDIA. Without a GPU, recognition runs on the CPU.
+- Optional cloud recognition through OpenAI or Deepgram with your own API key.
+
+## Smart Mode (optional, off by default)
+
+- Cleanup removes filler words and fixes punctuation, Concise shortens the text, Translate converts it into German, English, Spanish, French, Portuguese, Mandarin or Russian.
+- Runs locally (macOS and Windows; experimental on Linux) or through OpenAI with your own API key.
+
+## Everyday features
+
+- Local history of transcripts and separate quick notes.
+- Snippets: saved text blocks inserted by hotkey or by a spoken trigger word; interactive snippets fill in a template.
+- File import: transcribe existing audio files.
+
+## Privacy
+
+- With local recognition, audio stays on your computer and is discarded after transcription unless you turn on audio retention.
+- No account is needed.
+- Usage statistics and crash reports contain no audio, transcripts or history and can be switched off in Settings → Privacy.
+- Cloud features send data only to the provider you chose and only when you use them.
+
+## Platforms and requirements
+
+- Windows 10 or later, macOS 12 Monterey or later on Apple Silicon (Intel Macs are not supported), Linux x64 (AppImage, .deb, tar.gz).
+- Recommended: at least 8 GB of RAM and a 64-bit processor.
+- Desktop only; there is no iOS or Android version.
+
+## Price and licence
+
+- The complete app is free on GitHub under the MIT License.
+- Paid versions in the Microsoft Store and Mac App Store offer the same core features with updates through the store.
+- No subscription. Optional cloud providers may charge for their usage.
+
+## Links
+
+- [Website](https://whispaste.de/en/)
+- [Download](https://whispaste.de/en/download/)
+- [Privacy policy](https://whispaste.de/en/privacy/)
+- [Changelog](https://whispaste.de/en/changelog/)
+- [Source code on GitHub](https://github.com/whispaste/whispaste)
 
 ---
 
-## Part 1 — Domain Glossary (internal-notes §1–§4)
+<!-- lang: de -->
 
-## 1. Produktkern
+# WhisPaste
 
-**WhisPaste**: Sprach-Eingabe-Tool — nimmt auf Anforderung eine Sprachaufnahme entgegen, fügt transkribierten Text an der Cursor-Position der aktiven Anwendung ein (Auto-Paste auf macOS, Windows und Linux — Linux per virtuellem `/dev/uinput`-Keyboard, braucht udev-Schreibzugriff, §2.7).
+> WhisPaste ist eine kostenlose, MIT-lizenzierte Spracheingabe-App für Windows, Macs mit Apple Silicon und Linux: Tastenkürzel drücken, sprechen, und der Text landet im aktiven Textfeld. Die Spracherkennung läuft lokal auf deinem Computer.
 
-- **App:** macOS, Windows, Ubuntu Linux — drei gleichrangige Desktop-Plattformen (Linux-Ziel: Binär-Parität via AppImage). Kein iOS/Android.
-- **Website** (`website/`) ≠ App: muss voll mobil-responsive sein (ab 390px) — „Mobile nicht geplant" gilt nur für die App.
-- **Nordstern:** OSS-Marktführer für systemweites Desktop-Diktat (macOS/Windows/Linux). Jede Produkt-/Design-/Copy-Entscheidung zahlt darauf ein.
-- **Formsprache spiegelt Philosophie:** Die Liquid-Glass-Optik des Aufnahme-Overlays (weiche Silhouette, kontinuierliche Bewegung, keine harten Zustandswechsel) ist die bewusste visuelle Übersetzung des Kernprinzips „Schreibfluss schlägt Funktion" (`internal-notes`): Der Gedanke fließt ohne Bruch in den Text, und die Oberfläche zeigt diesen Fluss. Design- und Copy-Entscheidungen halten diese Klammer aus Optik und Produktphilosophie zusammen, statt sie unabhängig voneinander zu treffen.
-- **Visuelles Kredo (seit 2026-08, app-weit und dauerhaft — gilt über den 2026-Visual-Refresh hinaus):** „Das bestehende WhisPaste — aber durch hochwertiges farbiges Glas betrachtet." Lebendige Atmosphäre, luxuriöse UI/Komponenten, eine intelligent wirkende Arbeitsumgebung und klar erkennbare Markenidentität — bei unverändertem Produkt: kein neues Layout, keine neue Informationsarchitektur, ein radikaler visueller Skin-Wechsel innerhalb der bestehenden Struktur. „Glas" ist eine Sättigungs-/Tiefen-Metapher, kein Auftrag zu echtem Compositor-Blur — Näheres inkl. Spannung zum bisherigen „Quiet Signal"-Framing: `internal-notes`.
+## Was WhisPaste macht
 
-### WhisPaste ist explizit nicht …
+- Du drückst in einer beliebigen Anwendung ein globales Tastenkürzel, sprichst und drückst es erneut (oder hältst es beim Sprechen gedrückt).
+- WhisPaste schreibt die Aufnahme auf deinem Computer mit und kopiert den Text in die Zwischenablage. Mit eingeschaltetem Auto-Einfügen setzt es den Text am Cursor der aktiven Anwendung ein, in fast jeder App.
+- Gedacht für Menschen, die am Desktop viel schreiben: E-Mails, Nachrichten, Dokumente, Notizen, Prompts und Code-Kommentare.
 
-| WhisPaste ist nicht … | verwechselbar mit | Unterschied |
-|---|---|---|
-| ein **Always-Listening-Sprachassistent** | Siri, Cortana, Alexa, Google Assistant | anforderungs-basiert statt dauerlauschend |
-| ein **Transkriptions-/Aufnahme-Tool** | another app, Fireflies, Whisper-Wrapper | Output fließt in die aktive App statt in eine Datei |
-| ein **Sprach-Frontend für eine KI** | ChatGPT-Voice, Claude-Voice | Sprache wird transkribiert, nicht interpretiert |
-| ein **Übersetzungs-Tool** | DeepL Voice, Apple Translate | Transkription statt Übersetzung |
-| ein **app-internes Diktat** | Word-/Notion-/macOS-Diktat | systemweit statt an eine App gebunden |
+## Spracherkennung
 
-## 2. Kernbegriffe
+- Zwei lokale Engines: Whisper (whisper.cpp, 99 Sprachen, mehrere Modellgrößen) und Parakeet (rund 25 europäische Sprachen, schnell auch ohne GPU).
+- Nach einem einmaligen Modell-Download funktioniert die lokale Erkennung offline.
+- Eine GPU ist optional. Beschleunigt wird mit Metal auf Apple Silicon und Vulkan unter Windows und Linux; für NVIDIA gibt es ein optionales CUDA-Paket. Ohne GPU läuft die Erkennung auf der CPU.
+- Optional Cloud-Erkennung über OpenAI oder Deepgram mit eigenem API-Schlüssel.
 
-### 2.1 Aufnahme-Vorgang (Recording Cycle)
+## Smart Mode (optional, standardmäßig aus)
 
-Kompletter Akt von Hotkey bis zum Ergebnis am Aufnahme-Ziel (§2.6 — Standard oder Schnellnotiz). Phasen: `idle → recording → transcribing → done | error` (kein separater `processing`-State, §3.1). Code: `RecordingOrchestrator` (orchestriert), `RecordingState` (Zustand), `RecordingPhase` (Enum). Kein Synonym für „Aufnahme" (§2.2).
+- Aufräumen entfernt Füllwörter und korrigiert die Zeichensetzung, Kürzen fasst den Text knapper, Übersetzen überträgt ihn ins Deutsche, Englische, Spanische, Französische, Portugiesische, Mandarin oder Russische.
+- Läuft lokal (macOS und Windows; unter Linux experimentell) oder über OpenAI mit eigenem API-Schlüssel.
 
-### 2.2 Aufnahme (Recording)
+## Im Alltag
 
-Einzelne Phase **innerhalb** eines Aufnahme-Vorgangs: Mikrofon offen, Audio → temporäre WAV. Endet bei Hotkey-Loslassen (Push-to-talk) oder erneutem Druck (Toggle). Code: `RecordingPhase.recording`.
+- Lokaler Verlauf der Transkripte und getrennte Schnellnotizen.
+- Textbausteine: gespeicherte Texte, eingefügt per Tastenkürzel oder gesprochenem Auslösewort; interaktive Bausteine füllen eine Vorlage aus.
+- Datei-Import: vorhandene Audiodateien transkribieren.
 
-### 2.3 Transkription
+## Datenschutz
 
-WAV → Text via STT-Engine — lokal whisper.cpp/Parakeet (§4.2), cloud OpenAI/Deepgram (Groq entfernt in v1.2.13). Code: `RecordingPhase.transcribing`, `lib/services/stt/`. Ergebnis heißt **transkribierter Text** (nicht „Text").
+- Bei lokaler Erkennung bleibt das Audio auf deinem Computer und wird nach der Transkription verworfen, außer du schaltest das Aufbewahren von Audio ein.
+- Kein Konto nötig.
+- Nutzungsstatistik und Absturzberichte enthalten kein Audio, keine Transkripte und keinen Verlauf und lassen sich unter Einstellungen → Datenschutz ausschalten.
+- Cloud-Funktionen senden Daten nur an den gewählten Anbieter und nur, wenn du sie nutzt.
 
-### 2.4 Einfügen / Paste
+## Plattformen und Voraussetzungen
 
-Finaler Schritt: transkribierter Text wird per Clipboard-Inject + synthetisiertem Paste-Event (`Ctrl+V`/`Cmd+V`) in die aktive App eingefügt. Namensgebend (Whis**Paste**). Code: `lib/services/desktop_paste/`.
+- Windows 10 oder neuer, macOS 12 Monterey oder neuer auf Apple Silicon (Intel-Macs werden nicht unterstützt), Linux x64 (AppImage, .deb, tar.gz).
+- Empfohlen: mindestens 8 GB Arbeitsspeicher und ein 64-Bit-Prozessor.
+- Nur Desktop; es gibt keine iOS- oder Android-Version.
 
-### 2.5 Hotkey
+## Preis und Lizenz
 
-Systemweit registrierte Tastenkombination. Drei unabhängige Hotkeys, gemeinsame Registrierungs-Technik (`hotkey_service.dart`), aber unterschiedliche Wirkung, Default-Aktivierung und Aufnahme-Bezug:
+- Die vollständige App ist kostenlos auf GitHub unter der MIT-Lizenz.
+- Kostenpflichtige Versionen im Microsoft Store und im Mac App Store bieten dieselben Kernfunktionen mit Updates über den Store.
+- Kein Abo. Optionale Cloud-Anbieter können ihre Nutzung berechnen.
 
-| Hotkey | Default-Kombination | Default aktiv | Löst aus |
-|---|---|---|---|
-| **Haupt-Hotkey** | `Ctrl+Shift+D` | ja | Aufnahme-Vorgang, Aufnahme-Ziel „Standard" (§2.6) |
-| **Schnellnotiz-Hotkey** | `Ctrl/⌘+Shift+N` | nein — muss in den Settings eingeschaltet werden | Aufnahme-Vorgang, Aufnahme-Ziel „Schnellnotiz" (§2.6) |
-| **Snippet-Hotkey** | `Ctrl/⌘+Shift+E` | nein — muss in den Settings eingeschaltet werden | **kein** Aufnahme-Vorgang — öffnet nur den Snippet-Picker (§5.8), identisch zum gesprochenen Snippet-Picker-Trigger |
+## Links
 
-Nur der Haupt-Hotkey kennt beide Aufnahme-Modi (Tabelle unten); der Schnellnotiz-Hotkey unterstützt nur den Toggle-Modus (kein Push-to-talk — Schnellnotizen sind für kurze, frei unterbrechbare Eingaben gedacht, kein Gedrückthalten); der Snippet-Hotkey kennt keinen Aufnahme-Modus, da er nie eine Aufnahme startet. Formale DE-Variante „Tastenkombination" im Fließtext okay; in Code/UI-Strings immer „Hotkey".
-
-| Modus | Verhalten |
-|---|---|
-| **Push-to-talk** | Aufnahme läuft, solange der Hotkey gedrückt gehalten wird. |
-| **Toggle** | Erster Druck startet, zweiter Druck stoppt. |
-
-### 2.6 Aufnahme-Ziel
-
-`RecordingTarget` (`lib/core/recording/recording_state.dart`, `recordingTargetProvider`) legt fest, WELCHES Ergebnis ein Aufnahme-Vorgang überhaupt hat — unveränderlich gesetzt beim Start, abhängig davon, welcher Hotkey ihn ausgelöst hat (Haupt-Hotkey oder jeder andere Aufnahme-Start-Weg außer dem Schnellnotiz-Hotkey → „Standard"; Schnellnotiz-Hotkey → „Schnellnotiz"). Abgrenzung zu Auto-Paste (§2.7): Aufnahme-Ziel entscheidet, welches Ergebnis zutrifft; Auto-Paste entscheidet erst danach, *innerhalb* des Ziels „Standard", *wie* genau vorgegangen wird (automatisch einfügen vs. nur kopieren).
-
-| Wert | Ausgelöst durch | Ergebnis |
-|---|---|---|
-| `clipboard` (Standard) | Haupt-Hotkey und alle übrigen Aufnahme-Start-Wege außer dem Schnellnotiz-Hotkey | landet in Zwischenablage/aktiver App — genaues „Wie" regelt §2.7 Auto-Paste |
-| `quickNote` | Schnellnotiz-Hotkey | wird an die exklusiv markierte Schnellnotiz angehängt (§5.9) — kein Zwischenablage-Zugriff, kein Einfügen, kein Verlauf-Eintrag |
-
-Der Snippet-Hotkey hat **kein** Aufnahme-Ziel: er startet nie einen Aufnahme-Vorgang (§5.8), `RecordingTarget` wird für ihn nie gesetzt.
-
-_Avoid_: Aufnahme-Ziel als Synonym für „Ziel-App"/Paste-Ziel (die App, in die eingefügt wird, §6.5-Telemetrie-Negativliste) — zwei verschiedene Dinge: Aufnahme-Ziel ist die grobe Weiche Standard/Schnellnotiz, Ziel-App ist nur innerhalb von „Standard" relevant (welche App den Paste empfängt).
-
-### 2.7 Auto-Paste
-
-Kanonischer Feature-Begriff: „WhisPaste tippt nach der Transkription automatisch `⌘V`/`Ctrl+V`". Namensgebende Default-Erfahrung — Clipboard ist nur das Vehikel, nicht das Feature. Unterschied zu §2.4: §2.4 ist die Pipeline-**Phase**, Auto-Paste die User-sichtbare **Feature-Variante** davon (Gegenteil: „Nur Zwischenablage", `AfterTranscriptionAction.clipboard`). Gilt nur innerhalb des Aufnahme-Ziels `clipboard` (§2.6) — beim Ziel `quickNote` stellt sich die Frage nicht, da nie kopiert oder eingefügt wird.
-
-Code: `AfterTranscriptionAction` (`paste`/`clipboard`), `autoPasteAfterTranscription`, `lib/services/paste/` (`Paster`, `PasteCapability`, §3.6), `AutoPasteStep` (§5.6).
-Plattform: macOS (Accessibility-Permission nötig), Windows (meist keine, UIPI-Edge bei elevated Targets), Linux (uinput-basiertes virtuelles Keyboard, `linux/runner/desktop_paste_host.cc` — braucht `/dev/uinput`-Zugriff, siehe `packaging/linux/71-whispaste-uinput.rules`; Code+Build ab 2026-08-17 verifiziert, interaktive On-Device-Prüfung steht noch aus, Ticket 30).
-
-### 2.8 Hotkey-Registrations-Status
-
-Lifecycle-Status der OS-Hotkey-Registrierung — existiert **pro Hotkey** (§2.5), mit unterschiedlichen Konsequenzen bei Konflikt. Code: `HotkeyRegistrationStatus` enum (`lib/services/hotkey_service.dart`), je ein eigener Provider pro Hotkey (`hotkeyRegistrationStatusProvider`, `quickNoteHotkeyRegistrationStatusProvider`, `snippetPickerHotkeyRegistrationStatusProvider`) — ein Konflikt bei einem Hotkey wirkt sich nie auf den Status der anderen aus.
-
-| Wert | Bedeutung |
-|---|---|
-| `unknown` | noch kein abgeschlossener Versuch (App-Start) |
-| `success` | Hotkey ist beim OS registriert |
-| `conflict` | Registrierung fehlgeschlagen (Kollision) |
-
-Bei `conflict` reagieren die drei Hotkeys unterschiedlich: nur der **Haupt-Hotkey** fällt automatisch auf eine Safe-Default-Kombination zurück (`Cmd/Ctrl+Shift+Space`), UI soll Re-Binding anbieten. **Schnellnotiz-Hotkey** und **Snippet-Hotkey** bekommen bewusst **keinen** Fallback — sie bleiben unregistriert, statt eine unerwartet belegte Kombination zu kapern, die sonst in ein Textfeld tippen oder eine andere Aktion auslösen könnte; beide haben einen vollwertigen Alternativweg (Notizen-Bereich bzw. gesprochener Snippet-Picker-Trigger, §5.8).
-
-Nicht zu verwechseln mit §3.4 `RecordingReadiness` (Lauf-Bereitschaft, nicht OS-Bindung).
-
-## 3. Pipeline-Vokabular
-
-### 3.1 Phasen
-
-`RecordingPhase` enum (`lib/core/recording/recording_state.dart`):
-
-| Phase | Bedeutung |
-|---|---|
-| `idle` | inaktiv |
-| `recording` | Mikrofon offen, Audio → temporäre WAV |
-| `transcribing` | STT-Verarbeitung + Replacements + Einfügen (kein eigener `processing`-State) |
-| `done` | erfolgreich, `transcript`-Feld gesetzt |
-| `error` | abgebrochen, `errorMessage`-Feld gesetzt |
-
-Übergang zentral über `RecordingStateMachine.transition()`.
-
-### 3.2 sessionId
-
-Korrelations-ID (`<base36-timestamp>-<hex-rand>`) pro Aufnahme-Vorgang, in allen Logs/Sentry-Breadcrumbs. Trotz Namens **keine** Session im Container-Sinn (§7) — nur eine ID pro Vorgang.
-
-### 3.3 Resilience-Mechanismen
-
-| Mechanismus | Auslöser | Verhalten |
-|---|---|---|
-| **Stuck-Guard** | `transcribing` > 5 min | Auto-Fail `pipeline_timeout` |
-| **Retry** | STT-Fehler (Crash/Timeout/Netzwerk) | bis zu 3 Wiederholungen |
-| **OOM-Recovery** | GPU Out-of-Memory | `OomRecoveryHandler` → kleineres Modell / Cloud-Fallback / permanent fail |
-| **CPU-Fallback** | GPU-Backend-Crash während Transkription | Re-Run auf CPU, `SttStatus.cpuFallbackActive` |
-| **SafetyGuard** | Stream-Anomalien (z. B. Hotkey-Doppelfeuer) | `StreamTransformer` fängt invalide Events vor der State Machine ab |
-
-### 3.4 Readiness
-
-Start nur wenn `RecordingReadiness == ready`:
-
-| Wert | Bedeutung |
-|---|---|
-| `ready` | alles bereit |
-| `serverMissing` | whisper.cpp-Binary nicht installiert |
-| `serverDownloading` | Binary wird geladen |
-| `modelMissing` | Modell nicht im lokalen Cache |
-
-### 3.5 TCC-Repair
-
-macOS-Selbstheilung für stale **Accessibility-**/**AppleEvents-**Einträge in der TCC-DB. Adressiert Sequoia-Bug: Permission-Toggle steht auf ON, `AXIsProcessTrusted()` liefert trotzdem `false` (Binary-Hash-Wechsel zwischen Builds).
-
-Löscht stale Einträge (`kTCCServiceAccessibility`, `kTCCServiceAppleEvents`) → nächster Paste-Versuch erzwingt frische OS-Prompts.
-
-Code: `DesktopPasteController.repairTccEntries()`, Ergebnis-Typ `TccRepairResult` (`accessibilityCleared`/`appleEventsCleared`: `-1` Fehler, `0` nichts zu tun, `1+` entfernt). UI: Repair-Button in `AutoPasteStep` (§5.6), erscheint erst nach fehlgeschlagenem Grant-Versuch. Windows/Linux: `TccRepairResult.unsupported()` (No-op).
-
-### 3.6 Paste-Capability-Surface
-
-Trennung „kann Auto-Paste gerade ausführen?" (Probe, ohne Side-Effekt) vs. „führe Paste aus" (`Paster.paste`):
-
-- **PasteCapability** — Probe-Ergebnis: `status`, `canPrompt` (nur bei `permissionMissing`, macOS one-shot/Prozess), `detail`. Code: `lib/services/paste/paster.dart`.
-- **PasteCapabilityStatus** — `ready` (Paste würde gelingen) / `permissionMissing` (macOS Accessibility, Windows UIPI-Edge, Linux ohne Schreibzugriff auf `/dev/uinput`) / `unsupported` (kein Paste-Controller registriert, z. B. Test-Env).
-- **PasteCapabilityNotifier** — Riverpod-Notifier (`pasteCapabilityNotifierProvider`): Probe-Timer, geteilter `PasteCapability`-State, sticky `hadFailedGrantAttempt` (steuert Lazy-Reveal des TCC-Repair-Buttons), `repair()`-Wrapper → `DesktopPasteController` (§3.5). Settings-Indikator und `AutoPasteStep` (§5.6) teilen sich diesen Notifier statt eigener Timer.
-
-`Paster` = tiefe Abstraktion (`prime`/`paste`/`checkCapability`); `PasteCapabilityNotifier` = Riverpod-Schicht darüber (Polling, Coalescing, Breadcrumbs, `hadFailedGrantAttempt`).
-
-### 3.7 Mikrofon-Berechtigungs-Surface
-
-Mirror von §3.6, für die Systemberechtigung statt für die Paste-Fähigkeit: Trennung „hat die App die
-Mikrofon-**Berechtigung**?" von „funktioniert die Aufnahme **tatsächlich**?" (Letzteres bleibt
-Readiness/§3.4 — Hardware, Modell-Ladezustand, Geräteverfügbarkeit sind eigene Fragen, die
-Berechtigung erteilt sein kann und die Aufnahme trotzdem scheitert).
-
-- **MicPermissionNotifier** — Riverpod-Notifier (`micPermissionNotifierProvider`,
-  `lib/services/permissions/mic_permission_notifier.dart`): eine Zustandsquelle für Onboarding-Schritt
-  1 (Welcome, stellt die Anfrage beim Verlassen), Try&Go/Schritt 5 (`MicPermissionChip`, §5.6.2) und
-  den Startup-Permission-Gate — statt dass jede Stelle einen eigenen Ad-hoc-Bool hält.
-- **MicPermissionStatus** — `unknown` (noch keine Anfrage in diesem Prozess aufgelöst) /
-  `requesting` (Anfrage läuft) / `granted` / `denied`. `denied` ist nur über
-  `MicPermissionNotifier.request()` erreichbar — ein passiver `check()` kann „nie gefragt" nicht von
-  „abgelehnt" unterscheiden (die Plattform-API liefert für beides stumm `false`) und darf `denied`
-  deshalb nie behaupten.
-- Deep-Link in die System-Einstellungen (macOS Privacy-Pane, Windows `ms-settings:privacy-microphone`)
-  liegt ebenfalls im Notifier, kein zweiter Deep-Link-Code an einer Aufrufstelle.
-
-## 4. STT-Vokabular
-
-Vier Ebenen, bewusst getrennt (im Alltag oft synonym verwendet):
-
-### 4.1 Provider
-
-`SttProviderType` enum (`lib/core/config/settings_enums.dart`):
-
-| Provider | UI-Label | Beschreibung |
-|---|---|---|
-| `onDevice` | „On Device" | lokal, kein Netzverkehr — zwei Engines, §4.2 |
-| `openAI` | „OpenAI" | Cloud (BYOK) — OpenAI Audio API, eigener Key |
-| `deepgram` | „Deepgram" | Cloud (BYOK) — Deepgram API, eigener Key |
-
-`managed` (§8, „WhisPaste Cloud") ist **geplant, nicht ausgeliefert** — `SttProviderType` (`lib/core/config/settings_enums.dart`) hat aktuell exakt drei Werte: `onDevice`, `openAI`, `deepgram`.
-
-Code nutzt **`onDevice`**, nie „local".
-
-### 4.2 Engine
-
-`onDevice` bietet zwei Engines (`OnDeviceEngine` enum), beide **in-process** via `dart:ffi` (kein Subprozess/HTTP — abgelöst durch die whisper-ffi-engine-Migration 2026, siehe `internal-notes`):
-
-| Provider | Engine |
-|---|---|
-| onDevice → Whisper | whisper.cpp (`dart:ffi`/`libwhisper`), 99 Sprachen, GPU-beschleunigt |
-| onDevice → Parakeet | NVIDIA Parakeet-TDT, ~25 europ. Sprachen. Ab 1.4.0 auf der GPU über libparakeet (whisper.cpp v1.9.5, ggml: Metal/Vulkan/CUDA), automatischer Fallback auf `sherpa-onnx` (in-process ONNX, CPU), wenn keine GPU da ist oder ein GPU-Lauf scheitert. Schon auf der CPU mehrfach schneller als whisper.cpp auf der CPU — reale, reproduzierbare Messwerte in `website/src/data/engine-benchmarks.json` / `/engine-benchmarks/` (2026-08-17, Apple Silicon: Parakeet RTF 0,0288x vs. whisper.cpp Compact-Tier CPU 0,3068x, ≈10,6x) statt hier hartkodierter Zahlen |
-| openAI | OpenAI Audio API |
-| deepgram | Deepgram Streaming/Batch API |
-
-### 4.3 Modell
-
-| onDevice (Whisper) | tiny/base/small/medium/large-v3 (`ggml-*.bin`, lokaler Cache) |
-|---|---|
-| onDevice (Parakeet) | `parakeet-tdt-0.6b-v3` — encoder/decoder/joiner-ONNX + tokens.txt (CPU-Fallback, 639 MB) plus GGUF q8_0 für die GPU (638 MB, SHA-256-geprüft); zusammen ~1,2 GB |
-| openAI | `whisper-1` (fest im Code, `openai_transcriber.dart`; ADR-0005 plant `gpt-transcribe`, nicht umgesetzt) |
-| deepgram | `nova-3` (fest im Code, `deepgram_transcriber.dart` — nicht wählbar) |
-
-**Modell ≠ Engine ≠ Provider** (Bsp.: Provider `openAI`, Engine „OpenAI Audio API", Modell `whisper-1`).
-
-### 4.4 Backend (nur lokal)
-
-Whisper-Compute-Backends, tatsächlich kompiliert/ausgeliefert (Build-Skripte, `.github/workflows/release.yml`): Vulkan (Windows/Linux, herstellerübergreifend inkl. NVIDIA/AMD/Intel), Metal (macOS), CPU (Fallback). CUDA kommt seit 1.4.0 als optionaler, prüfsummen-verifizierter CUDA-Pack (Windows/Linux, NVIDIA RTX/GTX 16) per separatem Download, nicht im Installer. `SttStatus.cpuFallbackActive` markiert Degradation nach GPU-Crash. Parakeet: ab 1.4.0 GPU über libparakeet (dieselben ggml-Backends), CPU-Fallback sherpa-onnx. Gemessen 2026-10-14: M5 Metal 7,0 s statt 38,3 s (18 DE-Diktate, 456 s Audio); i5-1145G7/Iris Xe Vulkan 14,1 s statt 27,1 s (18 MLS-DE, 276 s), DE-WER 7,1 % statt 8,5 %.
-
-### 4.5 Engine-Lebenszyklus (`SttServerState`)
-
-Namensrelikt aus der Subprozess-Ära (vor FFI-Migration) — heute Lebenszyklus der in-process Whisper-Engine: `stopped, starting, ready, error`. On-demand initialisiert, nach Idle-Timer freigegeben. Parakeet: eigener Lebenszyklus (`ParakeetEngineNotifier`/`ParakeetEngineState`), gleiches Zustandsmodell, kein Idle-Timer (bleibt session-warm).
-
-Nicht zu verwechseln mit: Supabase-Server (PostgREST, Feedback-Backend), WebSocket/API-Server der Cloud-Provider (nicht von WhisPaste betrieben).
+- [Website](https://whispaste.de/)
+- [Download](https://whispaste.de/download/)
+- [Datenschutzerklärung](https://whispaste.de/datenschutz/)
+- [Änderungsprotokoll](https://whispaste.de/changelog/)
+- [Quellcode auf GitHub](https://github.com/whispaste/whispaste)
 
 ---
 
-## Part 2 — Target Audience (internal-notes)
+<!-- lang: es -->
 
-# Zielgruppe — WhisPaste
+# WhisPaste
 
-> Wer wir sind und für wen wir bauen. Bei jeder Design-, UI- und Feature-Entscheidung
-> ist diese Datei der erste Bezugspunkt. Im Konflikt zwischen „mehr Funktion" und
-> „weniger Reibung im Schreibfluss" gewinnt immer der Schreibfluss.
-> Die Liquid-Glass-Optik des Aufnahme-Overlays ist die sichtbare Form dieses
-> Prinzips: weiche Übergänge und kontinuierliche Bewegung statt harter
-> Zustandswechsel — der Gedanke fließt ohne Bruch in den Text, und die
-> Oberfläche zeigt genau das.
+> WhisPaste es una aplicación de entrada por voz gratuita y con licencia MIT para Windows, Mac con Apple Silicon y Linux: pulsas un atajo de teclado, hablas y el texto aparece en el campo de texto activo. El reconocimiento de voz se ejecuta localmente en tu ordenador.
 
-## Zielgruppe
+## Qué hace WhisPaste
 
-Vielschreibende Desktop-Nutzer, die auf ihrem eigenen Rechner arbeiten — Wissens­
-arbeiter, Entwickler, Texter, Support-Mitarbeiter, Forschende, Studierende,
-Selbständige, Personen mit RSI oder Schreibermüdung. Sie wollen Texte **sprechen
-statt tippen**: kurze Antworten, E-Mails, Chat-Nachrichten, Code-Kommentare,
-Notizen, Ticket-Antworten. Ohne Cloud-Pflicht, ohne Abo, ohne ihr aktives Fenster
-zu verlassen.
+- Pulsas un atajo global en cualquier aplicación, hablas y lo vuelves a pulsar (o lo mantienes pulsado mientras hablas).
+- WhisPaste transcribe la grabación en tu ordenador y copia el texto al portapapeles. Con el pegado automático activado, lo inserta en el cursor de la aplicación activa, en casi cualquier app.
+- Pensado para quienes escriben mucho en el escritorio: correos, mensajes, documentos, notas, prompts y comentarios de código.
 
-## Kontext
+## Reconocimiento de voz
 
-- **Sessions sind sehr kurz** (3–60 Sekunden je Aufnahme), 5–100× am Tag,
-  beiläufig zwischen Tastaturarbeit.
-- **Häufige Trigger:** E-Mail-Antwort, Slack-/Teams-Reply, GitHub-Kommentar,
-  Notiz im Editor, Suchfeld, Bug-Report, Antwort an Kunden, schnelle Idee.
-- **Voll offline nutzbar** (Flugzeug, Bahn, schlechtes Netz, Datenschutz-Kontext).
-  Lokale STT ist Default; Cloud-Anbieter sind optional und opt-in pro Nutzer.
-- **Eigener Desktop** (macOS, Windows und Ubuntu Linux — drei gleichrangige Hauptplattformen), nicht: geteilte
-  Familien-PCs, öffentliche Geräte, Firmen-Pool-Rechner mit gelocktem Mikrofon.
-- **Mobile ist nicht geplant — für die App.** WhisPaste ist eine reine
-  Desktop-App (macOS/Windows/Ubuntu Linux); der Hauptpfad ist Desktop-Dictation
-  in fremde Anwendungen. **Die Website hingegen muss auf Mobilgeräten (iPhone,
-  Pixel & Co.) voll funktionieren und gut aussehen** — sie bewirbt die App,
-  läuft aber selbst überall.
-- **Leitfrage** im Kopf: „Wie bekomme ich diesen Satz in das Feld, ohne aus
-  meinem aktuellen Fenster zu wechseln?"
+- Dos motores locales: Whisper (whisper.cpp, 99 idiomas, varios tamaños de modelo) y Parakeet (unos 25 idiomas europeos, rápido incluso sin GPU).
+- Tras una descarga única del modelo, el reconocimiento local funciona sin conexión.
+- La GPU es opcional. La aceleración usa Metal en Apple Silicon y Vulkan en Windows y Linux; para NVIDIA hay un paquete CUDA opcional. Sin GPU, el reconocimiento se ejecuta en la CPU.
+- Reconocimiento en la nube opcional a través de OpenAI o Deepgram con tu propia clave de API.
 
-## Problem
+## Smart Mode (opcional, desactivado por defecto)
 
-Tippen ist langsam, anstrengend und unterbricht den Denkfluss — besonders bei
-längeren Antworten oder beim Brainstorming. Die existierenden Lösungen sind
-unbequem: Diktatfunktionen der Betriebssysteme sind versteckt, schalten den Fokus
-weg, schicken Audio in die Cloud, und arbeiten nur in vorgesehenen Textfeldern.
-Cloud-Dienste wie another app sind teuer, abomodellig und datenschutzrechtlich heikel.
-Es fehlt eine **leise, lokale, global verfügbare** Diktatfunktion, die genau
-dort einfügt, wo der Cursor steht — egal in welcher App.
+- Limpiar elimina muletillas y corrige la puntuación, Resumir acorta el texto y Traducir lo convierte al alemán, inglés, español, francés, portugués, mandarín o ruso.
+- Funciona localmente (macOS y Windows; experimental en Linux) o a través de OpenAI con tu propia clave de API.
 
-## Erwartung
+## En el día a día
 
-- **Hotkey → Sprechen → Text steht im Feld.** Drei Schritte, kein App-Wechsel.
-- **Lokale Transkription als Default** über whisper.cpp; Cloud-Anbieter (OpenAI,
-  Deepgram) optional und opt-in.
-- **Verlässlicher globaler Hotkey**, frei konfigurierbar, mit Konflikt­erkennung
-  gegen System-Shortcuts — Push-to-talk oder Toggle.
-- **Sichtbares, unaufdringliches Feedback**: schlanker Aufnahme-Overlay mit
-  Live-Wellenform, Statusbar-Indikator, optionaler Floating-Button. Die fluide
-  Glas-Optik des Overlays ist kein Schmuck, sondern spiegelt den Schreibfluss
-  selbst: keine harten Zustandswechsel, keine abrupten Sprünge.
-- **Hohe Treffsicherheit auch bei Eigennamen, Akronymen und Fach­begriffen** —
-  konfigurierbares Modell, Text-Replacements für wiederkehrende Korrekturen.
-- **Verlauf mit Suche** — was wurde wann gesagt, neu kopieren oder als TXT/MD/
-  CSV/JSON/DOCX exportieren.
-- **Datenhoheit**: Audio & transkribierter Text verlassen das Gerät niemals ohne
-  aktive Cloud-Auswahl; kein Account. Anonyme, self-hosted Nutzungsstatistik und
-  Absturzberichte sind opt-out (in Settings → Datenschutz abschaltbar) und
-  enthalten **niemals** Audio, Text, Verlauf, Tags oder Notizen.
-- **Sicheres Pasten auch in geschützte Felder** (Banken, Passwortfelder werden
-  bewusst geblockt; alles andere paste-kompatibel).
-- **Geräusch-arme, aber warme UI** — kein Glow, kein zweiter Marken-Akzent neben
-  Cyan/Teal, ruhige Animationen; tonale Wärme und weiche Materialität sind
-  erwünscht, nicht bloße Kargheit. Kategoriefarben (`WpCategorySlot`) sind
-  ausdrücklich kein zweiter Akzent: sie sagen, *was* etwas ist, nie, dass es
-  wichtig ist — leiser als der Akzent, und nie alleiniger Bedeutungsträger.
-  Ausnahme in die andere Richtung: der Verlaufs-Eintrag-Avatar trägt einen
-  Slot aus derselben Palette, der *gar nichts* sagt — reine dekorative
-  Rotation, damit eine lange Liste scannbar bleibt. Die App klassifiziert
-  Diktate nicht, also darf aus dieser Farbe auch nichts abgeleitet werden.
-  Dark-only (das Light-Theme und der Theme-Picker wurden 2026-08-11 entfernt), EN/DE/HE/RU.
-- **Cross-Platform-Parität** für Windows, macOS und Linux; Mobile ist nicht
-  geplant.
+- Historial local de transcripciones y notas rápidas aparte.
+- Fragmentos: bloques de texto guardados que se insertan con un atajo o una palabra clave dicha en voz alta; los fragmentos interactivos rellenan una plantilla.
+- Importación de archivos: transcribe archivos de audio existentes.
 
-## Nicht optimieren für
+## Privacidad
 
-- Meeting-Transkription, Echtzeit-Untertitel, Konferenz-Bots.
-- Sprecher-Erkennung, Diarisation oder Mehrsprecher-Szenarien.
-- LLM-Nachbearbeitung, Auto-Tagging, Smart-Mode, Grammatik-Polishing —
-  WhisPaste transkribiert, es **schreibt** nicht für den Nutzer.
-  > **Offene Frage (Maintainer-Entscheidung, 2026-10-07):** Diese Zeile
-  > widerspricht dem ausgelieferten Stand — Smart Mode ist seit v2 wieder
-  > aktiv (Settings → Smart Mode, Default aus, lokal per Gemma-Modell oder
-  > optional OpenAI; ADR-0007/ADR-0010, `internal-notes` §7). Bewusst nicht
-  > still aufgelöst: Entweder Smart Mode als schmalen, optionalen
-  > Nachbearbeitungsschritt hier als Ausnahme aufnehmen, oder das Feature
-  > neu bewerten. Quelle: `internal-notes`.
-- Voice-Commands oder Sprachsteuerung („öffne Datei", „klicke auf …").
-- Sehr lange Diktate (>30 Minuten Endlos-Aufnahme) — andere Tools sind besser.
-- Geteilte Familien- oder Firmenrechner mit Audio-Restriktionen.
-- Power-User mit Custom-Modellen oder eigenem STT-Backend.
-- Mobile-First-Workflows mit Touch-Tastatur als Primärinput.
+- Con el reconocimiento local, el audio se queda en tu ordenador y se descarta tras la transcripción, salvo que actives su conservación.
+- No hace falta ninguna cuenta.
+- Las estadísticas de uso y los informes de errores no contienen audio, transcripciones ni historial y se pueden desactivar en Ajustes → Privacidad.
+- Las funciones en la nube solo envían datos al proveedor elegido y solo cuando las usas.
 
-## Produktregel
+## Plataformas y requisitos
 
-Jede Funktion muss die Frage **„Wie bekomme ich diesen Satz in das Feld, ohne
-mein Fenster zu verlassen?"** einfacher beantworten. Geschwindigkeit, lokale
-Privatsphäre, verlässliche Hotkeys und ruhige UI sind wichtiger als Cloud-
-Features oder LLM-Veredelung.
+- Windows 10 o posterior, macOS 12 Monterey o posterior en Apple Silicon (los Mac con Intel no son compatibles), Linux x64 (AppImage, .deb, tar.gz).
+- Recomendado: al menos 8 GB de RAM y un procesador de 64 bits.
+- Solo escritorio; no hay versión para iOS ni Android.
 
-**Lackmustest** vor jeder Feature- oder Design-Entscheidung:
+## Precio y licencia
 
-> *„Hilft das einem Entwickler, der mitten im Code-Review eine fünfsätzige
-> Antwort diktieren will, ohne die Maus zu berühren und ohne aus dem Browser
-> zu wechseln?"*
+- La aplicación completa es gratuita en GitHub bajo la licencia MIT.
+- Las versiones de pago de Microsoft Store y Mac App Store ofrecen las mismas funciones principales con actualizaciones a través de la tienda.
+- Sin suscripción. Los proveedores en la nube opcionales pueden cobrar por su uso.
 
-Wenn die Antwort nicht klar „ja" ist, gehört die Funktion nicht in den
-Hauptpfad.
+## Enlaces
 
-<!-- /seo-audit:contrastive -->
+- [Sitio web](https://whispaste.de/es/)
+- [Descarga](https://whispaste.de/es/download/)
+- [Política de privacidad](https://whispaste.de/es/privacy/)
+- [Registro de cambios](https://whispaste.de/es/changelog/)
+- [Código fuente en GitHub](https://github.com/whispaste/whispaste)
+
+---
+
+<!-- lang: pt -->
+
+# WhisPaste
+
+> O WhisPaste é um aplicativo de entrada por voz gratuito, com licença MIT, para Windows, Macs com Apple Silicon e Linux: você pressiona um atalho, fala e o texto aparece no campo de texto ativo. O reconhecimento de voz roda localmente no seu computador.
+
+## O que o WhisPaste faz
+
+- Você pressiona um atalho global em qualquer aplicativo, fala e pressiona de novo (ou mantém pressionado enquanto fala).
+- O WhisPaste transcreve a gravação no seu computador e copia o texto para a área de transferência. Com a colagem automática ativada, ele insere o texto no cursor do aplicativo ativo, em quase qualquer app.
+- Feito para quem escreve muito no computador: e-mails, mensagens, documentos, notas, prompts e comentários de código.
+
+## Reconhecimento de voz
+
+- Dois motores locais: Whisper (whisper.cpp, 99 idiomas, vários tamanhos de modelo) e Parakeet (cerca de 25 idiomas europeus, rápido mesmo sem GPU).
+- Depois de baixar o modelo uma vez, o reconhecimento local funciona offline.
+- A GPU é opcional. A aceleração usa Metal no Apple Silicon e Vulkan no Windows e no Linux; para NVIDIA há um pacote CUDA opcional. Sem GPU, o reconhecimento roda na CPU.
+- Reconhecimento na nuvem opcional via OpenAI ou Deepgram com sua própria chave de API.
+
+## Smart Mode (opcional, desativado por padrão)
+
+- Limpar remove palavras de preenchimento e corrige a pontuação, Resumir encurta o texto e Traduzir o converte para alemão, inglês, espanhol, francês, português, mandarim ou russo.
+- Roda localmente (macOS e Windows; experimental no Linux) ou via OpenAI com sua própria chave de API.
+
+## No dia a dia
+
+- Histórico local de transcrições e notas rápidas separadas.
+- Snippets: blocos de texto salvos, inseridos por atalho ou por uma palavra-gatilho falada; snippets interativos preenchem um modelo.
+- Importação de arquivos: transcreva arquivos de áudio existentes.
+
+## Privacidade
+
+- Com o reconhecimento local, o áudio fica no seu computador e é descartado após a transcrição, a menos que você ative a retenção de áudio.
+- Não é preciso criar conta.
+- Estatísticas de uso e relatórios de falhas não contêm áudio, transcrições nem histórico e podem ser desativados em Configurações → Privacidade.
+- Os recursos na nuvem só enviam dados ao provedor escolhido e só quando você os usa.
+
+## Plataformas e requisitos
+
+- Windows 10 ou posterior, macOS 12 Monterey ou posterior no Apple Silicon (Macs com Intel não são compatíveis), Linux x64 (AppImage, .deb, tar.gz).
+- Recomendado: pelo menos 8 GB de RAM e um processador de 64 bits.
+- Somente desktop; não há versão para iOS nem Android.
+
+## Preço e licença
+
+- O aplicativo completo é gratuito no GitHub sob a licença MIT.
+- As versões pagas na Microsoft Store e na Mac App Store oferecem os mesmos recursos principais, com atualizações pela loja.
+- Sem assinatura. Provedores de nuvem opcionais podem cobrar pelo uso.
+
+## Links
+
+- [Site](https://whispaste.de/pt/)
+- [Download](https://whispaste.de/pt/download/)
+- [Política de privacidade](https://whispaste.de/pt/privacy/)
+- [Histórico de alterações](https://whispaste.de/pt/changelog/)
+- [Código-fonte no GitHub](https://github.com/whispaste/whispaste)
+
+---
+
+<!-- lang: it -->
+
+# WhisPaste
+
+> WhisPaste è un’app di input vocale gratuita e con licenza MIT per Windows, Mac con Apple Silicon e Linux: premi una scorciatoia, parli e il testo compare nel campo di testo attivo. Il riconoscimento vocale avviene localmente sul tuo computer.
+
+## Cosa fa WhisPaste
+
+- Premi una scorciatoia globale in qualsiasi applicazione, parli e la premi di nuovo (oppure la tieni premuta mentre parli).
+- WhisPaste trascrive la registrazione sul tuo computer e copia il testo negli appunti. Con l’incolla automatico attivo, lo inserisce nel punto del cursore dell’applicazione attiva, in quasi tutte le app.
+- Pensato per chi scrive molto al computer: e-mail, messaggi, documenti, note, prompt e commenti nel codice.
+
+## Riconoscimento vocale
+
+- Due motori locali: Whisper (whisper.cpp, 99 lingue, varie dimensioni di modello) e Parakeet (circa 25 lingue europee, veloce anche senza GPU).
+- Dopo un unico download del modello, il riconoscimento locale funziona offline.
+- La GPU è facoltativa. L’accelerazione usa Metal su Apple Silicon e Vulkan su Windows e Linux; per NVIDIA è disponibile un pacchetto CUDA facoltativo. Senza GPU il riconoscimento gira sulla CPU.
+- Riconoscimento cloud facoltativo tramite OpenAI o Deepgram con la tua chiave API.
+
+## Smart Mode (facoltativo, disattivato per impostazione predefinita)
+
+- Pulizia rimuove le parole riempitive e corregge la punteggiatura, Sintesi accorcia il testo, Traduci lo converte in tedesco, inglese, spagnolo, francese, portoghese, cinese mandarino o russo.
+- Funziona localmente (macOS e Windows; sperimentale su Linux) oppure tramite OpenAI con la tua chiave API.
+
+## Nell’uso quotidiano
+
+- Cronologia locale delle trascrizioni e note rapide separate.
+- Snippet: blocchi di testo salvati, inseriti con una scorciatoia o con una parola chiave pronunciata; gli snippet interattivi compilano un modello.
+- Importazione di file: trascrivi file audio esistenti.
+
+## Privacy
+
+- Con il riconoscimento locale l’audio resta sul tuo computer e viene eliminato dopo la trascrizione, a meno che tu non attivi la conservazione dell’audio.
+- Non serve alcun account.
+- Le statistiche d’uso e i rapporti sugli arresti anomali non contengono audio, trascrizioni né cronologia e si possono disattivare in Impostazioni → Privacy.
+- Le funzioni cloud inviano dati solo al fornitore scelto e solo quando le usi.
+
+## Piattaforme e requisiti
+
+- Windows 10 o successivo, macOS 12 Monterey o successivo su Apple Silicon (i Mac Intel non sono supportati), Linux x64 (AppImage, .deb, tar.gz).
+- Consigliati: almeno 8 GB di RAM e un processore a 64 bit.
+- Solo desktop; non esiste una versione per iOS o Android.
+
+## Prezzo e licenza
+
+- L’app completa è gratuita su GitHub con licenza MIT.
+- Le versioni a pagamento nel Microsoft Store e nel Mac App Store offrono le stesse funzioni principali, con aggiornamenti tramite lo store.
+- Nessun abbonamento. I fornitori cloud facoltativi possono addebitare il proprio utilizzo.
+
+## Link
+
+- [Sito web](https://whispaste.de/it/)
+- [Download](https://whispaste.de/it/download/)
+- [Informativa sulla privacy](https://whispaste.de/it/privacy/)
+- [Registro delle modifiche](https://whispaste.de/it/changelog/)
+- [Codice sorgente su GitHub](https://github.com/whispaste/whispaste)
+
+---
+
+<!-- lang: ru -->
+
+# WhisPaste
+
+> WhisPaste — бесплатное приложение для голосового ввода с лицензией MIT для Windows, Mac на Apple Silicon и Linux: нажмите сочетание клавиш, говорите, и текст появится в активном текстовом поле. Распознавание речи выполняется локально на вашем компьютере.
+
+## Что делает WhisPaste
+
+- Вы нажимаете глобальное сочетание клавиш в любом приложении, говорите и нажимаете его снова (или удерживаете во время речи).
+- WhisPaste расшифровывает запись на вашем компьютере и копирует текст в буфер обмена. При включённой автовставке текст вставляется в позицию курсора активного приложения, почти в любом приложении.
+- Для тех, кто много пишет за компьютером: письма, сообщения, документы, заметки, промпты и комментарии в коде.
+
+## Распознавание речи
+
+- Два локальных движка: Whisper (whisper.cpp, 99 языков, несколько размеров моделей) и Parakeet (около 25 европейских языков, быстро даже без GPU).
+- После однократной загрузки модели локальное распознавание работает без интернета.
+- GPU не обязателен. Ускорение использует Metal на Apple Silicon и Vulkan в Windows и Linux; для NVIDIA есть дополнительный пакет CUDA. Без GPU распознавание выполняется на CPU.
+- Дополнительно — облачное распознавание через OpenAI или Deepgram с вашим собственным API-ключом.
+
+## Smart Mode (дополнительно, по умолчанию выключен)
+
+- Очистка убирает слова-паразиты и исправляет пунктуацию, Сокращение делает текст короче, Перевод переводит его на немецкий, английский, испанский, французский, португальский, китайский (мандаринский) или русский.
+- Работает локально (macOS и Windows; в Linux экспериментально) или через OpenAI с вашим API-ключом.
+
+## В повседневной работе
+
+- Локальная история расшифровок и отдельные быстрые заметки.
+- Фрагменты: сохранённые блоки текста, которые вставляются по сочетанию клавиш или по произнесённому ключевому слову; интерактивные фрагменты заполняют шаблон.
+- Импорт файлов: расшифровка существующих аудиофайлов.
+
+## Конфиденциальность
+
+- При локальном распознавании аудио остаётся на вашем компьютере и удаляется после расшифровки, если вы не включили его сохранение.
+- Учётная запись не нужна.
+- Статистика использования и отчёты о сбоях не содержат аудио, расшифровок и истории и отключаются в разделе Настройки → Конфиденциальность.
+- Облачные функции отправляют данные только выбранному провайдеру и только тогда, когда вы ими пользуетесь.
+
+## Платформы и требования
+
+- Windows 10 или новее, macOS 12 Monterey или новее на Apple Silicon (Mac на Intel не поддерживаются), Linux x64 (AppImage, .deb, tar.gz).
+- Рекомендуется: не менее 8 ГБ оперативной памяти и 64-битный процессор.
+- Только для настольных систем; версий для iOS и Android нет.
+
+## Цена и лицензия
+
+- Полное приложение бесплатно на GitHub по лицензии MIT.
+- Платные версии в Microsoft Store и Mac App Store предлагают те же основные функции с обновлениями через магазин.
+- Без подписки. Дополнительные облачные провайдеры могут брать плату за использование.
+
+## Ссылки
+
+- [Сайт](https://whispaste.de/ru/)
+- [Загрузка](https://whispaste.de/ru/download/)
+- [Политика конфиденциальности](https://whispaste.de/ru/privacy/)
+- [История изменений](https://whispaste.de/ru/changelog/)
+- [Исходный код на GitHub](https://github.com/whispaste/whispaste)
+
+---
+
+<!-- lang: zh -->
+
+# WhisPaste
+
+> WhisPaste 是一款免费的语音输入应用，采用 MIT 许可证，支持 Windows、Apple Silicon Mac 和 Linux：按下快捷键、开口说话，文字就会出现在当前的文本框中。语音识别在你的电脑上本地运行。
+
+## WhisPaste 能做什么
+
+- 在任意应用中按下全局快捷键，说话，再按一次（或说话时一直按住）。
+- WhisPaste 在你的电脑上转写录音，并把文字复制到剪贴板。开启自动粘贴后，它会把文字插入当前应用的光标处，几乎适用于任何应用。
+- 适合在电脑前大量书写的人：邮件、消息、文档、笔记、提示词和代码注释。
+
+## 语音识别
+
+- 两个本地引擎：Whisper（whisper.cpp，99 种语言，多种模型大小）和 Parakeet（约 25 种欧洲语言，即使没有 GPU 也很快）。
+- 一次性下载模型后，本地识别可离线使用。
+- GPU 不是必需的。在 Apple Silicon 上使用 Metal 加速，在 Windows 和 Linux 上使用 Vulkan；NVIDIA 显卡可选装 CUDA 包。没有 GPU 时，识别在 CPU 上运行。
+- 可选的云端识别：通过 OpenAI 或 Deepgram，使用你自己的 API 密钥。
+
+## Smart Mode（可选，默认关闭）
+
+- “整理”去除口头禅并修正标点，“精简”缩短文本，“翻译”将其译为德语、英语、西班牙语、法语、葡萄牙语、普通话或俄语。
+- 可在本地运行（macOS 和 Windows；Linux 上为实验性），也可通过 OpenAI 使用你自己的 API 密钥。
+
+## 日常功能
+
+- 本地转写历史和独立的快速笔记。
+- 文本片段：保存的文本块，可通过快捷键或说出的触发词插入；交互式片段会引导你填写模板。
+- 文件导入：转写已有的音频文件。
+
+## 隐私
+
+- 使用本地识别时，音频留在你的电脑上，转写后即被丢弃，除非你开启了音频保留。
+- 无需账户。
+- 使用统计和崩溃报告不包含音频、转写内容或历史记录，可在“设置 → 隐私”中关闭。
+- 云端功能只会在你使用时，把数据发送给你选择的服务商。
+
+## 平台与配置要求
+
+- Windows 10 或更高版本，Apple Silicon 上的 macOS 12 Monterey 或更高版本（不支持 Intel Mac），Linux x64（AppImage、.deb、tar.gz）。
+- 建议：至少 8 GB 内存和 64 位处理器。
+- 仅限桌面；没有 iOS 或 Android 版本。
+
+## 价格与许可证
+
+- 完整应用在 GitHub 上以 MIT 许可证免费提供。
+- Microsoft Store 和 Mac App Store 中的付费版本提供相同的核心功能，并通过商店更新。
+- 无需订阅。可选的云服务商可能会对其使用收费。
+
+## 链接
+
+- [网站](https://whispaste.de/zh/)
+- [下载](https://whispaste.de/zh/download/)
+- [隐私政策](https://whispaste.de/zh/privacy/)
+- [更新日志](https://whispaste.de/zh/changelog/)
+- [GitHub 上的源代码](https://github.com/whispaste/whispaste)
+
+---
+
+<!-- lang: fr -->
+
+# WhisPaste
+
+> WhisPaste est une application de saisie vocale gratuite, sous licence MIT, pour Windows, les Mac Apple Silicon et Linux : appuyez sur un raccourci, parlez, et le texte arrive dans le champ de texte actif. La reconnaissance vocale s’exécute localement sur votre ordinateur.
+
+## Ce que fait WhisPaste
+
+- Vous appuyez sur un raccourci global dans n’importe quelle application, vous parlez, puis vous appuyez à nouveau (ou vous le maintenez pendant que vous parlez).
+- WhisPaste transcrit l’enregistrement sur votre ordinateur et copie le texte dans le presse-papiers. Avec le collage automatique activé, il insère le texte au curseur de l’application active, dans presque toutes les apps.
+- Conçu pour celles et ceux qui écrivent beaucoup sur ordinateur : e-mails, messages, documents, notes, prompts et commentaires de code.
+
+## Reconnaissance vocale
+
+- Deux moteurs locaux : Whisper (whisper.cpp, 99 langues, plusieurs tailles de modèle) et Parakeet (environ 25 langues européennes, rapide même sans GPU).
+- Après un téléchargement unique du modèle, la reconnaissance locale fonctionne hors ligne.
+- Un GPU est facultatif. L’accélération utilise Metal sur Apple Silicon et Vulkan sous Windows et Linux ; un pack CUDA facultatif existe pour NVIDIA. Sans GPU, la reconnaissance s’exécute sur le processeur.
+- Reconnaissance dans le cloud facultative via OpenAI ou Deepgram avec votre propre clé API.
+
+## Smart Mode (facultatif, désactivé par défaut)
+
+- Nettoyer supprime les mots de remplissage et corrige la ponctuation, Condenser raccourcit le texte, Traduire le convertit en allemand, anglais, espagnol, français, portugais, mandarin ou russe.
+- Fonctionne localement (macOS et Windows ; expérimental sous Linux) ou via OpenAI avec votre propre clé API.
+
+## Au quotidien
+
+- Historique local des transcriptions et notes rapides séparées.
+- Extraits : blocs de texte enregistrés, insérés par raccourci ou par un mot déclencheur prononcé ; les extraits interactifs remplissent un modèle.
+- Import de fichiers : transcrivez des fichiers audio existants.
+
+## Confidentialité
+
+- Avec la reconnaissance locale, l’audio reste sur votre ordinateur et est supprimé après la transcription, sauf si vous activez sa conservation.
+- Aucun compte n’est nécessaire.
+- Les statistiques d’utilisation et les rapports de plantage ne contiennent ni audio, ni transcriptions, ni historique et se désactivent dans Réglages → Confidentialité.
+- Les fonctions cloud n’envoient des données qu’au fournisseur choisi, et seulement lorsque vous les utilisez.
+
+## Plateformes et configuration requise
+
+- Windows 10 ou ultérieur, macOS 12 Monterey ou ultérieur sur Apple Silicon (les Mac Intel ne sont pas pris en charge), Linux x64 (AppImage, .deb, tar.gz).
+- Recommandé : au moins 8 Go de RAM et un processeur 64 bits.
+- Ordinateur uniquement ; il n’existe pas de version iOS ni Android.
+
+## Prix et licence
+
+- L’application complète est gratuite sur GitHub sous licence MIT.
+- Les versions payantes du Microsoft Store et du Mac App Store offrent les mêmes fonctions principales, avec des mises à jour via le store.
+- Pas d’abonnement. Les fournisseurs cloud facultatifs peuvent facturer leur utilisation.
+
+## Liens
+
+- [Site web](https://whispaste.de/fr/)
+- [Téléchargement](https://whispaste.de/fr/download/)
+- [Politique de confidentialité](https://whispaste.de/fr/privacy/)
+- [Journal des modifications](https://whispaste.de/fr/changelog/)
+- [Code source sur GitHub](https://github.com/whispaste/whispaste)

@@ -51,3 +51,14 @@
 - [GitHub Repository](https://github.com/whispaste/whispaste): MIT-licensed source, releases, and issue tracker
 - [Changelog (Deutsch)](https://whispaste.de/changelog/): Versionshistorie
 - [Changelog (English)](https://whispaste.de/en/changelog/): Release history
+
+## Languages
+
+- [WhisPaste (en)](https://whispaste.de/llms/en.md)
+- [WhisPaste (de)](https://whispaste.de/llms/de.md)
+- [WhisPaste (es)](https://whispaste.de/llms/es.md)
+- [WhisPaste (pt)](https://whispaste.de/llms/pt.md)
+- [WhisPaste (it)](https://whispaste.de/llms/it.md)
+- [WhisPaste (ru)](https://whispaste.de/llms/ru.md)
+- [WhisPaste (zh)](https://whispaste.de/llms/zh.md)
+- [WhisPaste (fr)](https://whispaste.de/llms/fr.md)
